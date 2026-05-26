@@ -1,6 +1,8 @@
 import type {
+  ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
+  ExaminationStreamProgress,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
 import { create } from "zustand"
@@ -21,6 +23,9 @@ export type ExaminationEntry = {
     accepted: number
   } | null
   generationProgressLabel: string | null
+  streamedResponseCharacterCount: number
+  streamedResponsePreview: string
+  inProgressQuestion: ExaminationInProgressQuestion | null
 }
 
 type ExaminationState = {
@@ -40,9 +45,11 @@ type ExaminationActions = {
     payload: {
       questions: ExaminationQuestion[]
       sourceReferences: ExaminationSourceReference[]
+      inProgressQuestion: ExaminationInProgressQuestion | null
     },
   ) => void
   setGenerationProgress: (key: string, label: string) => void
+  setStreamProgress: (key: string, progress: ExaminationStreamProgress) => void
   clearEntry: (key: string) => void
   reset: () => void
 }
@@ -82,6 +89,7 @@ export const useExaminationStore = create<
         ...current,
         questions: payload.questions,
         sourceReferences: payload.sourceReferences,
+        inProgressQuestion: payload.inProgressQuestion,
         partialQuestionCount:
           current.partialQuestionCount === null
             ? null
@@ -100,6 +108,23 @@ export const useExaminationStore = create<
       next.set(key, {
         ...current,
         generationProgressLabel: label,
+      })
+      return { entriesByKey: next }
+    }),
+  setStreamProgress: (key, progress) =>
+    set((state) => {
+      const current = state.entriesByKey.get(key)
+      if (current?.status !== "loading") return state
+      if (
+        progress.streamedCharacterCount < current.streamedResponseCharacterCount
+      ) {
+        return state
+      }
+      const next = new Map(state.entriesByKey)
+      next.set(key, {
+        ...current,
+        streamedResponseCharacterCount: progress.streamedCharacterCount,
+        streamedResponsePreview: progress.streamedTextPreview,
       })
       return { entriesByKey: next }
     }),

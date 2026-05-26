@@ -2,6 +2,7 @@ import type {
   ExaminationCodeExcerpt,
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsResult,
+  ExaminationInProgressQuestion,
   ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
   ExaminationQuestion,
@@ -108,6 +109,7 @@ export function ExaminationTab({
   const setGenerationProgress = useExaminationStore(
     (s) => s.setGenerationProgress,
   )
+  const setStreamProgress = useExaminationStore((s) => s.setStreamProgress)
   const clearEntry = useExaminationStore((s) => s.clearEntry)
   const [availableArchiveEntries, setAvailableArchiveEntries] = useState<
     AvailableArchiveEntry[]
@@ -695,6 +697,9 @@ export function ExaminationTab({
         accepted: seedQuestions.length,
       },
       generationProgressLabel: "Preparing question generation.",
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
     })
 
     try {
@@ -725,10 +730,15 @@ export function ExaminationTab({
               })
               return
             }
+            if (output.kind === "stream-progress") {
+              setStreamProgress(entryKey, output)
+              return
+            }
             if (output.kind === "partial-questions") {
               setPartialQuestions(entryKey, {
                 questions: output.questions,
                 sourceReferences: output.sourceReferences,
+                inProgressQuestion: output.inProgressQuestion,
               })
             }
           },
@@ -776,6 +786,9 @@ export function ExaminationTab({
         archivedQuestionCount: null,
         partialQuestionCount: null,
         generationProgressLabel: null,
+        streamedResponseCharacterCount: 0,
+        streamedResponsePreview: "",
+        inProgressQuestion: null,
       })
       addToast(`Question generation failed: ${message}`, { tone: "error" })
     } finally {
@@ -1224,14 +1237,28 @@ function AuthorPanel({
               sourceReferences={displayEntry.sourceReferences}
               showAnswers={showAnswers}
             />
+            {isLoading && entry !== null ? (
+              <StreamingGenerationDetail
+                entry={entry}
+                index={displayEntry.questions.length}
+                showAnswers={showAnswers}
+              />
+            ) : null}
           </div>
         ) : entry === null || entry.status === "idle" ? (
           <EmptyState message="Click Generate to produce questions for this author." />
         ) : isLoading && entry !== null ? (
-          <GenerationProgress
-            entry={entry}
-            requestedQuestionCount={loadingRequestedQuestionCount}
-          />
+          <div className="flex flex-col gap-2">
+            <GenerationProgress
+              entry={entry}
+              requestedQuestionCount={loadingRequestedQuestionCount}
+            />
+            <StreamingGenerationDetail
+              entry={entry}
+              index={0}
+              showAnswers={showAnswers}
+            />
+          </div>
         ) : entry.status === "error" ? (
           <EmptyState
             message={`Generation failed: ${entry.errorMessage ?? "Unknown error."}`}
@@ -1240,6 +1267,27 @@ function AuthorPanel({
       </div>
     </div>
   )
+}
+
+function StreamingGenerationDetail({
+  entry,
+  index,
+  showAnswers,
+}: {
+  entry: ExaminationEntry
+  index: number
+  showAnswers: boolean
+}) {
+  if (entry.inProgressQuestion !== null) {
+    return (
+      <InProgressQuestionCard
+        index={index}
+        inProgress={entry.inProgressQuestion}
+        showAnswers={showAnswers}
+      />
+    )
+  }
+  return <StreamPreviewCard preview={entry.streamedResponsePreview} />
 }
 
 function streamingQuestionCaption(
@@ -1260,18 +1308,23 @@ function GenerationProgress({
   requestedQuestionCount: number
 }) {
   const acceptedCount = entry.questions.length
-  const readyLabel =
+  const hasStreamedResponse = entry.streamedResponseCharacterCount > 0
+  const progressLabel = hasStreamedResponse
+    ? "Receiving model response."
+    : (entry.generationProgressLabel ?? "Waiting for LLM response.")
+  const readyLabel = hasStreamedResponse
+    ? "Receiving model response."
+    : "Waiting for model response."
+  const countLabel =
     acceptedCount === 0
-      ? "Waiting for the first complete question."
+      ? readyLabel
       : `${acceptedCount} of ${requestedQuestionCount} questions ready.`
   return (
     <div className="rounded border bg-muted/20 px-3 py-2">
-      <div className="text-xs font-medium">
-        {entry.generationProgressLabel ?? "Generating questions via LLM."}
-      </div>
+      <div className="text-xs font-medium">{progressLabel}</div>
       <div className="mt-1 text-xs text-muted-foreground">
         {streamingQuestionCaption(acceptedCount, requestedQuestionCount)}{" "}
-        {readyLabel}
+        {countLabel}
       </div>
     </div>
   )
@@ -1389,6 +1442,9 @@ function toExaminationEntry(
           }
         : null,
     generationProgressLabel: null,
+    streamedResponseCharacterCount: 0,
+    streamedResponsePreview: "",
+    inProgressQuestion: null,
   }
 }
 
@@ -1422,6 +1478,46 @@ type QuestionListProps = {
   questions: ExaminationQuestion[]
   sourceReferences: ExaminationSourceReference[]
   showAnswers: boolean
+}
+
+function InProgressQuestionCard({
+  index,
+  inProgress,
+  showAnswers,
+}: {
+  index: number
+  inProgress: ExaminationInProgressQuestion
+  showAnswers: boolean
+}) {
+  const hasQuestion = inProgress.question.length > 0
+  const hasAnswer = inProgress.answer.length > 0
+  return (
+    <div className="rounded border border-dashed p-3 text-muted-foreground">
+      <div className="text-sm font-medium">
+        {index + 1}.{" "}
+        {hasQuestion ? (
+          <span className="whitespace-pre-wrap">{inProgress.question}</span>
+        ) : (
+          <span className="italic">Streaming...</span>
+        )}
+      </div>
+      {showAnswers && hasAnswer ? (
+        <div className="mt-2 whitespace-pre-wrap rounded bg-muted/30 p-2 text-sm">
+          <span className="text-xs font-semibold uppercase">Answer</span>
+          <div>{inProgress.answer}</div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function StreamPreviewCard({ preview }: { preview: string }) {
+  if (preview.trim().length === 0) return null
+  return (
+    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-dashed bg-muted/20 p-3 font-mono text-xs text-muted-foreground">
+      {preview}
+    </pre>
+  )
 }
 
 function QuestionList({

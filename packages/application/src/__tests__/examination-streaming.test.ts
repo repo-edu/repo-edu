@@ -121,7 +121,7 @@ function blockingStreamLlm(delta: string): LlmPort {
 }
 
 describe("examination.generateQuestions streaming", () => {
-  it("emits a partial question only after its anchor is structurally complete", async () => {
+  it("streams in-progress fields and only accepts a question once its anchor is complete", async () => {
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
         {
@@ -148,11 +148,71 @@ describe("examination.generateQuestions streaming", () => {
       },
     )
 
+    const partialEvents = partials.filter(
+      (output) => output.kind === "partial-questions",
+    )
+    const acceptedCounts = partialEvents.map((output) =>
+      output.kind === "partial-questions" ? output.acceptedQuestionCount : -1,
+    )
+    assert.deepEqual([...new Set(acceptedCounts)].sort(), [0, 1])
+    const inProgressBeforeAccept = partialEvents.find(
+      (output) =>
+        output.kind === "partial-questions" &&
+        output.acceptedQuestionCount === 0,
+    )
     assert.equal(
-      partials.filter((output) => output.kind === "partial-questions").length,
-      1,
+      inProgressBeforeAccept?.kind === "partial-questions" &&
+        inProgressBeforeAccept.inProgressQuestion?.question,
+      "Q1?",
+    )
+    assert.equal(
+      inProgressBeforeAccept?.kind === "partial-questions" &&
+        inProgressBeforeAccept.inProgressQuestion?.answer,
+      "A1.",
     )
     assert.equal(result.questions.length, 1)
+  })
+
+  it("emits stream progress before partial JSON has a question shape", async () => {
+    const handlers = createExaminationWorkflowHandlers({
+      llm: streamLlm([
+        { kind: "text-delta", text: "{" },
+        { kind: "text-delta", text: '"questions":[' },
+        { kind: "text-delta", text: `${questionJson(1)}]}` },
+        { kind: "done", usage },
+      ]),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+    const timeline: string[] = []
+    const previews: string[] = []
+
+    const result = await handlers["examination.generateQuestions"](
+      baseInput({ questionCount: 1 }),
+      {
+        onOutput(output) {
+          if (output.kind === "stream-progress") {
+            timeline.push(`stream:${output.streamedCharacterCount}`)
+            previews.push(output.streamedTextPreview)
+            return
+          }
+          if (output.kind === "partial-questions") {
+            timeline.push(`partial:${output.acceptedQuestionCount}`)
+          }
+        },
+      },
+    )
+
+    const firstStreamProgress = timeline.indexOf("stream:1")
+    const firstPartial = timeline.findIndex((entry) =>
+      entry.startsWith("partial:"),
+    )
+    assert.equal(result.questions.length, 1)
+    assert.ok(firstStreamProgress >= 0)
+    assert.ok(firstPartial >= 0)
+    assert.ok(firstStreamProgress < firstPartial)
+    assert.deepEqual(timeline.slice(0, 2), ["stream:1", "stream:14"])
+    assert.deepEqual(previews.slice(0, 2), ["{", '{"questions":['])
   })
 
   it("tolerates an opening JSON fence while streaming", async () => {

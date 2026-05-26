@@ -214,6 +214,9 @@ describe("analysis store", () => {
       archivedQuestionCount: null,
       partialQuestionCount: null,
       generationProgressLabel: null,
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
     })
 
     store.setSelectedRepoPath("/repo-b")

@@ -20,6 +20,9 @@ describe("examination store", () => {
       archivedQuestionCount: null,
       partialQuestionCount: null,
       generationProgressLabel: null,
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
     })
 
     store.setPartialQuestions("entry", {
@@ -38,6 +41,7 @@ describe("examination store", () => {
           ],
         },
       ],
+      inProgressQuestion: { question: "Q2 in progress", answer: "" },
     })
 
     const entry = useExaminationStore.getState().entriesByKey.get("entry")
@@ -47,6 +51,7 @@ describe("examination store", () => {
       entry.sourceReferences[0]?.occurrences[0]?.filePath,
       "src/a.ts",
     )
+    assert.equal(entry.inProgressQuestion?.question, "Q2 in progress")
   })
 
   it("ignores partial question updates for loaded entries", () => {
@@ -62,6 +67,9 @@ describe("examination store", () => {
       archivedQuestionCount: 1,
       partialQuestionCount: null,
       generationProgressLabel: null,
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
     })
 
     store.setPartialQuestions("entry", {
@@ -73,6 +81,7 @@ describe("examination store", () => {
         },
       ],
       sourceReferences: [],
+      inProgressQuestion: null,
     })
 
     const entry = useExaminationStore.getState().entriesByKey.get("entry")
@@ -93,6 +102,9 @@ describe("examination store", () => {
       archivedQuestionCount: null,
       partialQuestionCount: { requested: 2, accepted: 0 },
       generationProgressLabel: null,
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
     })
 
     store.setGenerationProgress("entry", "Building prompt.")
@@ -107,5 +119,37 @@ describe("examination store", () => {
     store.setGenerationProgress("entry", "Ignored.")
     entry = useExaminationStore.getState().entriesByKey.get("entry")
     assert.equal(entry?.generationProgressLabel, "Building prompt.")
+  })
+
+  it("keeps streamed response progress monotonic on loading entries", () => {
+    const store = useExaminationStore.getState()
+    store.setEntry("entry", {
+      status: "loading",
+      questions: [],
+      usage: null,
+      errorMessage: null,
+      generatedAt: null,
+      fromArchive: false,
+      sourceReferences: [],
+      archivedQuestionCount: null,
+      partialQuestionCount: { requested: 2, accepted: 0 },
+      generationProgressLabel: null,
+      streamedResponseCharacterCount: 0,
+      streamedResponsePreview: "",
+      inProgressQuestion: null,
+    })
+
+    store.setStreamProgress("entry", {
+      streamedCharacterCount: 12,
+      streamedTextPreview: "newer",
+    })
+    store.setStreamProgress("entry", {
+      streamedCharacterCount: 8,
+      streamedTextPreview: "older",
+    })
+
+    const entry = useExaminationStore.getState().entriesByKey.get("entry")
+    assert.equal(entry?.streamedResponseCharacterCount, 12)
+    assert.equal(entry?.streamedResponsePreview, "newer")
   })
 })

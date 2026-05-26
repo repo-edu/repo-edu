@@ -48,6 +48,8 @@ import {
   scanExaminationOutputForLeaks,
 } from "./redaction.js"
 
+const STREAM_PREVIEW_MAX_CHARS = 2_000
+
 type ExaminationWorkflowId =
   | "examination.generateQuestions"
   | "examination.stopGeneration"
@@ -153,7 +155,7 @@ export function createExaminationWorkflowHandlers(
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
-        label: "Generating questions via LLM.",
+        label: "Waiting for LLM response.",
       })
 
       const softStop = createSoftStopSession(
@@ -164,6 +166,8 @@ export function createExaminationWorkflowHandlers(
         acceptedQuestions: seedQuestions,
         emittedQuestionCount: seedQuestions.length,
         warnedOverQuota: false,
+        emittedInProgressQuestion: "",
+        emittedInProgressAnswer: "",
       }
       const warnOverQuota = (actualCount: number): void => {
         if (partialState.warnedOverQuota) return
@@ -197,6 +201,11 @@ export function createExaminationWorkflowHandlers(
             if (softStop.requested) break
             if (event.kind === "text-delta") {
               buffer += event.text
+              options?.onOutput?.({
+                kind: "stream-progress",
+                streamedCharacterCount: buffer.length,
+                streamedTextPreview: buildStreamedTextPreview(buffer),
+              })
               maybeEmitPartial({
                 buffer,
                 emittedQuestionCount: partialState,
@@ -391,6 +400,8 @@ type PartialQuestionEmissionState = {
   acceptedQuestions: ExaminationQuestion[]
   emittedQuestionCount: number
   warnedOverQuota: boolean
+  emittedInProgressQuestion: string
+  emittedInProgressAnswer: string
 }
 
 function createSoftStopSession(
@@ -958,7 +969,7 @@ function maybeEmitPartial(params: {
   try {
     parsed = parsePartialJson(
       stripOpeningJsonFence(params.buffer),
-      Allow.OBJ | Allow.ARR,
+      Allow.OBJ | Allow.ARR | Allow.STR,
     )
   } catch {
     return
@@ -966,9 +977,13 @@ function maybeEmitPartial(params: {
   if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return
 
   const completeQuestions: ExaminationQuestion[] = []
+  let firstIncompleteRaw: unknown = null
   for (const raw of parsed.questions) {
     const question = coerceCompleteStreamQuestion(raw, params.sourceLineRanges)
-    if (question === null) break
+    if (question === null) {
+      firstIncompleteRaw = raw
+      break
+    }
     completeQuestions.push(question)
   }
   if (completeQuestions.length > params.requestedQuestionCount) {
@@ -988,25 +1003,70 @@ function maybeEmitPartial(params: {
   ) {
     return
   }
-  if (
-    acceptedQuestions.length ===
-    params.emittedQuestionCount.emittedQuestionCount
-  ) {
-    return
-  }
 
-  const newQuestions = acceptedQuestions.slice(
-    params.emittedQuestionCount.emittedQuestionCount,
-  )
-  params.assertOutputAllowed(newQuestions)
-  params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
-  params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
+  const inProgress = extractInProgressFields(firstIncompleteRaw, {
+    hasRoomForMore:
+      acceptedGeneratedQuestions.length < params.requestedQuestionCount,
+  })
+  const acceptedGrew =
+    acceptedQuestions.length > params.emittedQuestionCount.emittedQuestionCount
+  const inProgressChanged =
+    inProgress.question !==
+      params.emittedQuestionCount.emittedInProgressQuestion ||
+    inProgress.answer !== params.emittedQuestionCount.emittedInProgressAnswer
+
+  if (!acceptedGrew && !inProgressChanged) return
+
+  if (acceptedGrew) {
+    const newQuestions = acceptedQuestions.slice(
+      params.emittedQuestionCount.emittedQuestionCount,
+    )
+    params.assertOutputAllowed(newQuestions)
+    params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
+    params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
+  }
+  if (
+    inProgressChanged &&
+    (inProgress.question.length > 0 || inProgress.answer.length > 0)
+  ) {
+    params.assertOutputAllowed([
+      {
+        question: inProgress.question,
+        answer: inProgress.answer,
+        anchor: { sourceId: null, lineRange: null },
+      },
+    ])
+  }
+  params.emittedQuestionCount.emittedInProgressQuestion = inProgress.question
+  params.emittedQuestionCount.emittedInProgressAnswer = inProgress.answer
   params.onOutput?.({
     kind: "partial-questions",
     acceptedQuestionCount: acceptedQuestions.length,
     questions: acceptedQuestions,
     sourceReferences: params.sourceReferences,
+    inProgressQuestion:
+      inProgress.question.length === 0 && inProgress.answer.length === 0
+        ? null
+        : { question: inProgress.question, answer: inProgress.answer },
   })
+}
+
+function extractInProgressFields(
+  raw: unknown,
+  context: { hasRoomForMore: boolean },
+): { question: string; answer: string } {
+  if (!context.hasRoomForMore || !isRecord(raw)) {
+    return { question: "", answer: "" }
+  }
+  const question = typeof raw.question === "string" ? raw.question : ""
+  const answer = typeof raw.answer === "string" ? raw.answer : ""
+  return { question, answer }
+}
+
+function buildStreamedTextPreview(buffer: string): string {
+  const preview = stripOpeningJsonFence(buffer)
+  if (preview.length <= STREAM_PREVIEW_MAX_CHARS) return preview
+  return `...${preview.slice(-STREAM_PREVIEW_MAX_CHARS)}`
 }
 
 function stripOpeningJsonFence(text: string): string {

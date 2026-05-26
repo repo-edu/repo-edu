@@ -1081,13 +1081,25 @@ export type ExaminationArchiveRecord = {
   provenance: ExaminationArchivedProvenance
 }
 
+export type ExaminationInProgressQuestion = {
+  question: string
+  answer: string
+}
+
+export type ExaminationStreamProgress = {
+  streamedCharacterCount: number
+  streamedTextPreview: string
+}
+
 export type ExaminationGenerateOutput =
   | { kind: "warn"; message: string }
+  | ({ kind: "stream-progress" } & ExaminationStreamProgress)
   | {
       kind: "partial-questions"
       acceptedQuestionCount: number
       questions: ExaminationQuestion[]
       sourceReferences: ExaminationSourceReference[]
+      inProgressQuestion: ExaminationInProgressQuestion | null
     }
 
 export type ExaminationStopGenerationInput = {
