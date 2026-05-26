@@ -215,6 +215,36 @@ describe("examination.generateQuestions streaming", () => {
     assert.deepEqual(previews.slice(0, 2), ["{", '{"questions":['])
   })
 
+  it("surfaces provider activity before response text starts", async () => {
+    const handlers = createExaminationWorkflowHandlers({
+      llm: streamLlm([
+        { kind: "activity", label: "Codex is reasoning." },
+        { kind: "text-delta", text: replyJson(1) },
+        { kind: "done", usage },
+      ]),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+    })
+    const progressLabels: (string | null)[] = []
+
+    const result = await handlers["examination.generateQuestions"](
+      baseInput({ questionCount: 1 }),
+      {
+        onOutput(output) {
+          if (output.kind === "stream-progress") {
+            progressLabels.push(output.activityLabel)
+          }
+        },
+      },
+    )
+
+    assert.equal(result.questions.length, 1)
+    assert.deepEqual(progressLabels.slice(0, 2), [
+      "Codex is reasoning.",
+      "Receiving model response.",
+    ])
+  })
+
   it("tolerates an opening JSON fence while streaming", async () => {
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([

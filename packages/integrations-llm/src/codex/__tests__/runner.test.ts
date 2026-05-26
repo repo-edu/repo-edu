@@ -184,9 +184,155 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
 
     assert.deepEqual(
       events.map((event) =>
-        event.kind === "text-delta" ? event.text : event.kind,
+        event.kind === "text-delta"
+          ? event.text
+          : event.kind === "activity"
+            ? event.label
+            : event.kind,
       ),
-      ["hel", "lo", "!", "done"],
+      ["Contacting Codex.", "hel", "lo", "!", "done"],
+    )
+  })
+
+  it("streams reasoning activity before agent-message text is available", async () => {
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.started",
+          item: { id: "reasoning", type: "reasoning", text: "" },
+        },
+        {
+          type: "item.updated",
+          item: { id: "reasoning", type: "reasoning", text: "thinking" },
+        },
+        {
+          type: "item.completed",
+          item: { id: "msg", type: "agent_message", text: "ok" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 3,
+            cached_input_tokens: 1,
+            output_tokens: 2,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+    const events = []
+
+    for await (const event of client.streamText(request(codexSpec))) {
+      events.push(event)
+    }
+
+    assert.deepEqual(
+      events.map((event) =>
+        event.kind === "activity" ? event.label : event.kind,
+      ),
+      [
+        "Contacting Codex.",
+        "Codex is reasoning.",
+        "Codex is reasoning.",
+        "text-delta",
+        "done",
+      ],
+    )
+  })
+
+  it("streams tool and command activity before response text is available", async () => {
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.started",
+          item: {
+            id: "cmd",
+            type: "command_execution",
+            command: "/bin/zsh -lc 'rg --files .'",
+            aggregated_output: "",
+            status: "in_progress",
+          },
+        },
+        {
+          type: "item.updated",
+          item: {
+            id: "cmd",
+            type: "command_execution",
+            command: "/bin/zsh -lc 'rg --files .'",
+            aggregated_output: "README.md\n",
+            exit_code: 0,
+            status: "completed",
+          },
+        },
+        {
+          type: "item.started",
+          item: {
+            id: "tool",
+            type: "mcp_tool_call",
+            server: "filesystem",
+            tool: "read_file",
+            arguments: { path: "README.md" },
+            status: "in_progress",
+          },
+        },
+        {
+          type: "item.updated",
+          item: {
+            id: "tool",
+            type: "mcp_tool_call",
+            server: "filesystem",
+            tool: "read_file",
+            arguments: { path: "README.md" },
+            result: { content: [], structured_content: {} },
+            status: "completed",
+          },
+        },
+        {
+          type: "item.completed",
+          item: {
+            id: "patch",
+            type: "file_change",
+            status: "completed",
+            changes: [{ path: "main.py", kind: "update" }],
+          },
+        },
+        {
+          type: "item.completed",
+          item: { id: "msg", type: "agent_message", text: "ok" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 3,
+            cached_input_tokens: 1,
+            output_tokens: 2,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+    const events = []
+
+    for await (const event of client.streamText(request(codexSpec))) {
+      events.push(event)
+    }
+
+    assert.deepEqual(
+      events.map((event) =>
+        event.kind === "activity" ? event.label : event.kind,
+      ),
+      [
+        "Contacting Codex.",
+        "Codex is inspecting files: rg --files .",
+        "Codex finished: rg --files .",
+        "Codex is using tool: filesystem.read_file",
+        "Codex finished tool: filesystem.read_file",
+        "Codex applied file changes.",
+        "text-delta",
+        "done",
+      ],
     )
   })
 

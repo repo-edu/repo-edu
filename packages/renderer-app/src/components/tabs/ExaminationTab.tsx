@@ -39,7 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
@@ -1278,16 +1278,29 @@ function StreamingGenerationDetail({
   index: number
   showAnswers: boolean
 }) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" })
+  })
+
   if (entry.inProgressQuestion !== null) {
     return (
-      <InProgressQuestionCard
-        index={index}
-        inProgress={entry.inProgressQuestion}
-        showAnswers={showAnswers}
-      />
+      <div>
+        <InProgressQuestionCard
+          index={index}
+          inProgress={entry.inProgressQuestion}
+          showAnswers={showAnswers}
+        />
+        <div ref={bottomRef} />
+      </div>
     )
   }
-  return <StreamPreviewCard preview={entry.streamedResponsePreview} />
+  return (
+    <div>
+      <StreamPreviewCard preview={entry.streamedResponsePreview} />
+      <div ref={bottomRef} />
+    </div>
+  )
 }
 
 function streamingQuestionCaption(
@@ -1308,16 +1321,21 @@ function GenerationProgress({
   requestedQuestionCount: number
 }) {
   const acceptedCount = entry.questions.length
+  const elapsedSeconds = useGenerationElapsedSeconds(entry.status === "loading")
   const hasStreamedResponse = entry.streamedResponseCharacterCount > 0
-  const progressLabel = hasStreamedResponse
-    ? "Receiving model response."
-    : (entry.generationProgressLabel ?? "Waiting for LLM response.")
-  const readyLabel = hasStreamedResponse
-    ? "Receiving model response."
-    : "Waiting for model response."
+  const progressLabel =
+    entry.generationProgressLabel ??
+    (hasStreamedResponse
+      ? "Receiving model response."
+      : "Waiting for LLM response.")
+  const waitingLabel = `No response text yet. ${formatElapsedSeconds(
+    elapsedSeconds,
+  )} elapsed.`
   const countLabel =
     acceptedCount === 0
-      ? readyLabel
+      ? hasStreamedResponse
+        ? "Streaming response text."
+        : waitingLabel
       : `${acceptedCount} of ${requestedQuestionCount} questions ready.`
   return (
     <div className="rounded border bg-muted/20 px-3 py-2">
@@ -1328,6 +1346,30 @@ function GenerationProgress({
       </div>
     </div>
   )
+}
+
+function useGenerationElapsedSeconds(active: boolean): number {
+  const [startedAtMs, setStartedAtMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!active) return
+    const startedAt = Date.now()
+    setStartedAtMs(startedAt)
+    setNowMs(startedAt)
+    const interval = globalThis.setInterval(() => setNowMs(Date.now()), 1_000)
+    return () => globalThis.clearInterval(interval)
+  }, [active])
+
+  if (!active) return 0
+  return Math.max(0, Math.floor((nowMs - startedAtMs) / 1_000))
+}
+
+function formatElapsedSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${minutes}m ${remainder}s`
 }
 
 type ArchiveSetSelectorProps = {
@@ -1512,9 +1554,20 @@ function InProgressQuestionCard({
 }
 
 function StreamPreviewCard({ preview }: { preview: string }) {
+  const previewRef = useRef<HTMLPreElement>(null)
+
+  useEffect(() => {
+    const previewElement = previewRef.current
+    if (previewElement === null) return
+    previewElement.scrollTop = previewElement.scrollHeight
+  })
+
   if (preview.trim().length === 0) return null
   return (
-    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-dashed bg-muted/20 p-3 font-mono text-xs text-muted-foreground">
+    <pre
+      ref={previewRef}
+      className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-dashed bg-muted/20 p-3 font-mono text-xs text-muted-foreground"
+    >
       {preview}
     </pre>
   )

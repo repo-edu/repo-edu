@@ -142,14 +142,17 @@ describe("examination store", () => {
     store.setStreamProgress("entry", {
       streamedCharacterCount: 12,
       streamedTextPreview: "newer",
+      activityLabel: "Receiving model response.",
     })
     store.setStreamProgress("entry", {
       streamedCharacterCount: 8,
       streamedTextPreview: "older",
+      activityLabel: "Older activity.",
     })
 
     const entry = useExaminationStore.getState().entriesByKey.get("entry")
     assert.equal(entry?.streamedResponseCharacterCount, 12)
     assert.equal(entry?.streamedResponsePreview, "newer")
+    assert.equal(entry?.generationProgressLabel, "Receiving model response.")
   })
 })

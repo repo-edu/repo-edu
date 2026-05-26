@@ -57,7 +57,7 @@ type ExaminationActions = {
 const initialState: ExaminationState = {
   selectedPersonId: null,
   questionCount: 4,
-  showAnswers: false,
+  showAnswers: true,
   entriesByKey: new Map(),
 }
 
@@ -123,6 +123,8 @@ export const useExaminationStore = create<
       const next = new Map(state.entriesByKey)
       next.set(key, {
         ...current,
+        generationProgressLabel:
+          progress.activityLabel ?? current.generationProgressLabel,
         streamedResponseCharacterCount: progress.streamedCharacterCount,
         streamedResponsePreview: progress.streamedTextPreview,
       })

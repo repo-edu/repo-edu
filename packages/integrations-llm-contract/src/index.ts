@@ -42,6 +42,7 @@ export type LlmResult = {
 
 export type LlmStreamEvent =
   | { kind: "text-delta"; text: string }
+  | { kind: "activity"; label: string }
   | { kind: "done"; usage: LlmUsage }
 
 export type GenerateTextRequest = {

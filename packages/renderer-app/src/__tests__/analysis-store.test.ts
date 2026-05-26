@@ -63,8 +63,9 @@ beforeEach(() => {
 })
 
 describe("analysis store", () => {
-  it("defaults examination generation to four questions", () => {
+  it("defaults examination generation to four questions with answers visible", () => {
     assert.equal(useExaminationStore.getState().questionCount, 4)
+    assert.equal(useExaminationStore.getState().showAnswers, true)
   })
 
   it("builds blame workflow config from course inputs + blame-specific fields", () => {

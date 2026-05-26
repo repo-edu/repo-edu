@@ -324,7 +324,7 @@ async function collectCodexStream(
   for await (const event of stream) {
     if (event.kind === "text-delta") {
       reply += event.text
-    } else {
+    } else if (event.kind === "done") {
       usage = event.usage
     }
   }
@@ -370,6 +370,7 @@ async function* runCodexTurnStream(
     guard.kind === "fixture-coder" ? guard.limits.maxElapsedMs : undefined,
   )
   try {
+    yield { kind: "activity", label: "Contacting Codex." }
     const codex = (options.factory ?? defaultCodexFactory)({
       apiKey: resolved.apiKey,
       baseUrl: resolved.baseUrl,
@@ -388,6 +389,10 @@ async function* runCodexTurnStream(
       }
       eventGuard?.record(event)
       if (event.type === "item.started") {
+        const label = codexActivityLabel(event.item, "started")
+        if (label !== null) {
+          yield { kind: "activity", label }
+        }
         recorder.recordItemStarted(event.item)
         continue
       }
@@ -399,6 +404,11 @@ async function* runCodexTurnStream(
           )
           if (suffix.length > 0) {
             yield { kind: "text-delta", text: suffix }
+          }
+        } else {
+          const label = codexActivityLabel(event.item, "updated")
+          if (label !== null) {
+            yield { kind: "activity", label }
           }
         }
         recorder.recordItemUpdated(event.item)
@@ -414,13 +424,23 @@ async function* runCodexTurnStream(
             yield { kind: "text-delta", text: suffix }
           }
           recorder.recordAgentMessage(event.item)
-        } else if (event.item.type === "reasoning") {
-          recorder.recordReasoning(event.item)
-        } else if (event.item.type === "error") {
-          recorder.recordError(event.item.message)
         } else {
-          recorder.recordItemCompleted(event.item)
+          const label = codexActivityLabel(event.item, "completed")
+          if (label !== null) {
+            yield { kind: "activity", label }
+          }
+          if (event.item.type === "reasoning") {
+            recorder.recordReasoning(event.item)
+          } else if (event.item.type === "error") {
+            recorder.recordError(event.item.message)
+          } else {
+            recorder.recordItemCompleted(event.item)
+          }
         }
+        continue
+      }
+      if (event.type === "turn.started") {
+        yield { kind: "activity", label: "Codex started working." }
         continue
       }
       if (event.type === "turn.completed") {
@@ -479,6 +499,67 @@ function agentMessageTextSuffix(
   emittedTextLengthsByItemId.set(item.id, Math.max(previousLength, nextLength))
   if (nextLength <= previousLength) return ""
   return item.text.slice(previousLength)
+}
+
+function codexActivityLabel(
+  item: ThreadItem,
+  phase: "started" | "updated" | "completed",
+): string | null {
+  switch (item.type) {
+    case "reasoning":
+      return phase === "completed"
+        ? "Codex finished reasoning."
+        : "Codex is reasoning."
+    case "agent_message":
+      return "Codex is writing a response."
+    case "command_execution":
+      return codexCommandActivityLabel(item.command, item.status)
+    case "mcp_tool_call":
+      return codexToolActivityLabel(item.server, item.tool, item.status)
+    case "web_search":
+      return phase === "completed"
+        ? `Codex finished web search: ${shortActivityText(item.query)}`
+        : `Codex is searching the web: ${shortActivityText(item.query)}`
+    case "file_change":
+      return item.status === "completed"
+        ? "Codex applied file changes."
+        : "Codex file changes failed."
+    case "todo_list": {
+      const activeTodo = item.items.find((todo) => !todo.completed)
+      return activeTodo
+        ? `Codex is planning: ${shortActivityText(activeTodo.text)}`
+        : "Codex updated its task list."
+    }
+    case "error":
+      return "Codex reported an error."
+  }
+}
+
+function codexCommandActivityLabel(
+  command: string,
+  status: "in_progress" | "completed" | "failed",
+): string {
+  const formatted = shortActivityText(unwrapShellCommand(command).trim())
+  if (status === "completed") return `Codex finished: ${formatted}`
+  if (status === "failed") return `Codex command failed: ${formatted}`
+  return `Codex is inspecting files: ${formatted}`
+}
+
+function codexToolActivityLabel(
+  server: string,
+  tool: string,
+  status: "in_progress" | "completed" | "failed",
+): string {
+  const name = `${server}.${tool}`
+  if (status === "completed") return `Codex finished tool: ${name}`
+  if (status === "failed") return `Codex tool failed: ${name}`
+  return `Codex is using tool: ${name}`
+}
+
+function shortActivityText(text: string): string {
+  const singleLine = text.replaceAll(/\s+/g, " ").trim()
+  if (singleLine.length <= 96) return singleLine
+  return `${singleLine.slice(0, 93)}...`
 }
 
 function defaultCodexFactory(options: CodexOptions): Codex {

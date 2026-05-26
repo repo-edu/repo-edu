@@ -205,6 +205,7 @@ export function createExaminationWorkflowHandlers(
                 kind: "stream-progress",
                 streamedCharacterCount: buffer.length,
                 streamedTextPreview: buildStreamedTextPreview(buffer),
+                activityLabel: "Receiving model response.",
               })
               maybeEmitPartial({
                 buffer,
@@ -221,6 +222,13 @@ export function createExaminationWorkflowHandlers(
                     input,
                     sourceDescriptors,
                   ),
+              })
+            } else if (event.kind === "activity") {
+              options?.onOutput?.({
+                kind: "stream-progress",
+                streamedCharacterCount: buffer.length,
+                streamedTextPreview: buildStreamedTextPreview(buffer),
+                activityLabel: event.label,
               })
             } else {
               finalUsage = event.usage

@@ -1089,6 +1089,7 @@ export type ExaminationInProgressQuestion = {
 export type ExaminationStreamProgress = {
   streamedCharacterCount: number
   streamedTextPreview: string
+  activityLabel: string | null
 }
 
 export type ExaminationGenerateOutput =
