@@ -65,7 +65,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `idSequences` | `IdSequences` | Monotonic counters for local ID allocation (`nextGroupSeq`, `nextGroupSetSeq`, `nextMemberSeq`, `nextAssignmentSeq`, `nextTeamSeq`) |
 | `displayName` | `string` | Human-readable course name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
-| `lmsConnectionName` | `string \| null` | References an LMS connection in app settings by name |
+| `lmsConnectionId` | `string \| null` | References an LMS connection in app settings by id |
 | `organization` | `string \| null` | Git organization or group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier for imports |
 | `roster` | `Roster` | Students, staff, groups, group sets, assignments (see below) |

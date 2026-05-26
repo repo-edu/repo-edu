@@ -64,7 +64,7 @@ app settings, not by synthetic course documents.
 | `backing` | `"lms" \| "repobee"` | Course capability discriminator |
 | `displayName` | `string` | Human-readable name |
 | `revision` | `number` | Monotonically increasing save counter for compare-and-swap writes |
-| `lmsConnectionName` | `string \| null` | References a connection in app settings by name |
+| `lmsConnectionId` | `string \| null` | References an LMS connection in app settings by id |
 | `organization` | `string \| null` | Git organization/group for repository operations |
 | `lmsCourseId` | `string \| null` | LMS-side course identifier |
 | `idSequences` | `{ nextGroupSeq; nextGroupSetSeq; nextMemberSeq; nextAssignmentSeq; nextTeamSeq }` | Monotonic local ID counters |

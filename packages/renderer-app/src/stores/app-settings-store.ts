@@ -71,9 +71,9 @@ type AppSettingsActions = {
   setSyntaxTheme: (syntaxTheme: SyntaxThemeId) => void
   setDefaultExtensions: (extensions: string[]) => void
 
-  setLmsConnection: (index: number, connection: PersistedLmsConnection) => void
   addLmsConnection: (connection: PersistedLmsConnection) => void
-  removeLmsConnection: (index: number) => void
+  updateLmsConnection: (id: string, connection: PersistedLmsConnection) => void
+  removeLmsConnection: (id: string) => void
 
   addGitConnection: (connection: PersistedGitConnection) => void
   updateGitConnection: (id: string, connection: PersistedGitConnection) => void
@@ -462,21 +462,6 @@ export const useAppSettingsStore = create<
         }
       }),
 
-    setLmsConnection: (index, connection) =>
-      set((state) => {
-        const connections = [...state.settings.lmsConnections]
-        const previousName = connections[index]?.name ?? null
-        connections[index] = connection
-        if (previousName !== null && previousName !== connection.name) {
-          useConnectionsStore
-            .getState()
-            .renameLmsConnectionStatus(previousName, connection.name)
-        }
-        return {
-          settings: { ...state.settings, lmsConnections: connections },
-        }
-      }),
-
     addLmsConnection: (connection) =>
       set((state) => ({
         settings: {
@@ -485,21 +470,27 @@ export const useAppSettingsStore = create<
         },
       })),
 
-    removeLmsConnection: (index) =>
-      set((state) => {
-        const removedName = state.settings.lmsConnections[index]?.name ?? null
-        if (removedName !== null) {
-          useConnectionsStore.getState().removeLmsConnectionStatus(removedName)
-        }
-        return {
-          settings: {
-            ...state.settings,
-            lmsConnections: state.settings.lmsConnections.filter(
-              (_, i) => i !== index,
-            ),
-          },
-        }
-      }),
+    updateLmsConnection: (id, connection) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          lmsConnections: state.settings.lmsConnections.map((lc) =>
+            lc.id === id ? connection : lc,
+          ),
+        },
+      })),
+
+    removeLmsConnection: (id) => {
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          lmsConnections: state.settings.lmsConnections.filter(
+            (lc) => lc.id !== id,
+          ),
+        },
+      }))
+      useConnectionsStore.getState().removeLmsConnectionStatus(id)
+    },
 
     addGitConnection: (connection) =>
       set((state) => ({

@@ -46,7 +46,7 @@ describe("docs fixture integration: seeded LMS course", () => {
       undefined,
     )
 
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection, null)
     assert.equal(course.roster.students.length, 67)
@@ -95,7 +95,7 @@ describe("docs fixture integration: seeded RepoBee course", () => {
       undefined,
     )
 
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection, null)
 

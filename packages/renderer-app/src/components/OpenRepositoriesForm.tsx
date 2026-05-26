@@ -36,6 +36,7 @@ import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
 
 const NONE_VALUE = "__none__"
 type CourseFetchStatus = "idle" | "loading" | "loaded" | "error"
@@ -46,14 +47,14 @@ export function createNewCourseDraft(input: {
   updatedAt: string
   backing: CourseBacking
   displayName: string
-  selectedLmsConnection: string
+  selectedLmsConnectionId: string
   selectedCourseId: string
 }): PersistedCourse {
   return createBlankCourse(input.id, input.updatedAt, {
     backing: input.backing,
     displayName: input.displayName,
-    lmsConnectionName:
-      input.backing === "lms" ? input.selectedLmsConnection || null : null,
+    lmsConnectionId:
+      input.backing === "lms" ? input.selectedLmsConnectionId || null : null,
     lmsCourseId:
       input.backing === "lms" ? input.selectedCourseId.trim() || null : null,
   })
@@ -129,9 +130,8 @@ export function OpenRepositoriesForm() {
   const [courseFetchStatus, setCourseFetchStatus] =
     useState<CourseFetchStatus>("idle")
   const [courseFetchError, setCourseFetchError] = useState<string | null>(null)
-  const [selectedLmsConnection, setSelectedLmsConnection] = useState<string>(
-    lmsConnections[0]?.name ?? "",
-  )
+  const [selectedLmsConnectionId, setSelectedLmsConnectionId] =
+    useState<string>(lmsConnections[0]?.id ?? "")
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -140,9 +140,9 @@ export function OpenRepositoriesForm() {
   const selectedLmsDraft = useMemo(
     () =>
       lmsConnections.find(
-        (connection) => connection.name === selectedLmsConnection,
+        (connection) => connection.id === selectedLmsConnectionId,
       ) ?? null,
-    [lmsConnections, selectedLmsConnection],
+    [lmsConnections, selectedLmsConnectionId],
   )
 
   const filteredCourses = useMemo(() => {
@@ -228,7 +228,7 @@ export function OpenRepositoriesForm() {
     if (source === "lms") {
       if (lmsConnections.length === 0) return false
       return (
-        selectedLmsConnection.trim().length > 0 &&
+        selectedLmsConnectionId.trim().length > 0 &&
         selectedCourseId.trim().length > 0
       )
     }
@@ -240,7 +240,7 @@ export function OpenRepositoriesForm() {
     isCourseNameTaken,
     source,
     lmsConnections.length,
-    selectedLmsConnection,
+    selectedLmsConnectionId,
     selectedCourseId,
   ])
 
@@ -266,8 +266,8 @@ export function OpenRepositoriesForm() {
       const saved = await createCourse({
         backing: source,
         displayName: courseName.trim(),
-        lmsConnectionName:
-          source === "lms" ? selectedLmsConnection || null : null,
+        lmsConnectionId:
+          source === "lms" ? selectedLmsConnectionId || null : null,
         lmsCourseId: source === "lms" ? selectedCourseId.trim() || null : null,
       })
 
@@ -278,7 +278,7 @@ export function OpenRepositoriesForm() {
 
       if (
         saved.backing === "lms" &&
-        saved.lmsConnectionName !== null &&
+        saved.lmsConnectionId !== null &&
         (saved.lmsCourseId ?? "").trim().length > 0
       ) {
         setRosterSyncDialogOpen(true)
@@ -376,9 +376,9 @@ export function OpenRepositoriesForm() {
               htmlFor="new-course-lms-connection"
             >
               <Select
-                value={selectedLmsConnection || NONE_VALUE}
+                value={selectedLmsConnectionId || NONE_VALUE}
                 onValueChange={(value) =>
-                  setSelectedLmsConnection(value === NONE_VALUE ? "" : value)
+                  setSelectedLmsConnectionId(value === NONE_VALUE ? "" : value)
                 }
               >
                 <SelectTrigger id="new-course-lms-connection">
@@ -387,8 +387,8 @@ export function OpenRepositoriesForm() {
                 <SelectContent>
                   <SelectItem value={NONE_VALUE}>None</SelectItem>
                   {lmsConnections.map((connection) => (
-                    <SelectItem key={connection.name} value={connection.name}>
-                      {connection.name}
+                    <SelectItem key={connection.id} value={connection.id}>
+                      {lmsConnectionDisplayName(connection)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -398,7 +398,8 @@ export function OpenRepositoriesForm() {
             <div className="space-y-2">
               {selectedLmsDraft ? (
                 <Text className="text-xs text-muted-foreground">
-                  LMS: {selectedLmsDraft.name} ({selectedLmsDraft.baseUrl})
+                  LMS: {lmsConnectionDisplayName(selectedLmsDraft)} (
+                  {selectedLmsDraft.baseUrl})
                 </Text>
               ) : (
                 <Text className="text-xs text-muted-foreground">

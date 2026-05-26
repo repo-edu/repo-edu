@@ -29,8 +29,10 @@ import {
   displayUrl,
   emptyLmsDraft,
   INVALID_REQUIRED_URL_MESSAGE,
+  LMS_PROVIDER_LABEL,
   type LmsDraft,
   type LmsProviderKind,
+  lmsConnectionDisplayName,
   normalizeHttpUrl,
   type PersistedLmsConnection,
   toLmsDraft,
@@ -40,15 +42,17 @@ import {
   validateRequiredBaseUrl,
 } from "./ConnectionsPane.shared.js"
 
-type LmsViewState = { view: "list" } | { view: "editor"; index: number | null }
+type LmsViewState =
+  | { view: "list" }
+  | { view: "editor"; originalId: string | null }
 
 export function LmsConnectionsPane() {
   const settings = useAppSettingsStore((state) => state.settings)
-  const setLmsConnection = useAppSettingsStore(
-    (state) => state.setLmsConnection,
-  )
   const addLmsConnection = useAppSettingsStore(
     (state) => state.addLmsConnection,
+  )
+  const updateLmsConnection = useAppSettingsStore(
+    (state) => state.updateLmsConnection,
   )
   const removeLmsConnection = useAppSettingsStore(
     (state) => state.removeLmsConnection,
@@ -69,32 +73,44 @@ export function LmsConnectionsPane() {
   const [editorError, setEditorError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const editorIndex = viewState.view === "editor" ? viewState.index : null
-  const editing = viewState.view === "editor" && viewState.index !== null
+  const editorOriginalId =
+    viewState.view === "editor" ? viewState.originalId : null
+  const editing = viewState.view === "editor" && viewState.originalId !== null
+
+  const draftDisplayName = useMemo(
+    () => draft.name.trim() || LMS_PROVIDER_LABEL[draft.provider],
+    [draft.name, draft.provider],
+  )
 
   const nameTaken = useMemo(() => {
     if (saving) return false
-    const normalized = draft.name.trim().toLowerCase()
-    if (!normalized) return false
+    const normalized = draftDisplayName.toLowerCase()
     return lmsConnections.some(
-      (connection, index) =>
-        index !== editorIndex &&
-        connection.name.trim().toLowerCase() === normalized,
+      (connection) =>
+        connection.id !== editorOriginalId &&
+        lmsConnectionDisplayName(connection).toLowerCase() === normalized,
     )
-  }, [saving, lmsConnections, draft.name, editorIndex])
+  }, [saving, lmsConnections, draftDisplayName, editorOriginalId])
+
+  const nameTakenMessage = useMemo(() => {
+    if (!nameTaken) return null
+    if (draft.name.trim().length === 0) {
+      return `A ${LMS_PROVIDER_LABEL[draft.provider]} connection already exists. Give this one a name.`
+    }
+    return "An LMS connection with this name already exists."
+  }, [nameTaken, draft.name, draft.provider])
 
   const baseUrlError = validateRequiredBaseUrl(draft.baseUrl)
 
   const canSave =
-    draft.name.trim().length > 0 &&
     draft.baseUrl.trim().length > 0 &&
     draft.token.trim().length > 0 &&
     baseUrlError === null &&
     !nameTaken
 
   const hasChanges = useMemo(() => {
-    if (!editing || editorIndex === null) return true
-    const current = lmsConnections[editorIndex]
+    if (!editing || editorOriginalId === null) return true
+    const current = lmsConnections.find((c) => c.id === editorOriginalId)
     if (!current) return true
 
     const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
@@ -110,7 +126,7 @@ export function LmsConnectionsPane() {
       current.token !== draft.token.trim() ||
       current.userAgent !== nextUserAgent
     )
-  }, [editing, lmsConnections, draft, editorIndex])
+  }, [editing, lmsConnections, draft, editorOriginalId])
 
   const canSubmit = canSave && (!editing || hasChanges)
 
@@ -173,7 +189,9 @@ export function LmsConnectionsPane() {
       return
     }
 
+    const id = editorOriginalId ?? crypto.randomUUID()
     const nextConnection: PersistedLmsConnection = {
+      id,
       name: draft.name.trim(),
       provider: draft.provider,
       baseUrl: normalizedBaseUrl,
@@ -182,18 +200,18 @@ export function LmsConnectionsPane() {
     }
 
     setSaving(true)
-    if (editorIndex === null) {
+    if (editorOriginalId === null) {
       addLmsConnection(nextConnection)
     } else {
-      setLmsConnection(editorIndex, nextConnection)
+      updateLmsConnection(editorOriginalId, nextConnection)
     }
 
     await saveAppSettings()
     resetEditor()
   }
 
-  const handleRemove = async (index: number) => {
-    removeLmsConnection(index)
+  const handleRemove = async (id: string) => {
+    removeLmsConnection(id)
     await saveAppSettings()
   }
 
@@ -203,14 +221,14 @@ export function LmsConnectionsPane() {
     })
     if (normalizedBaseUrl === null) {
       setLmsConnectionStatus(
-        connection.name,
+        connection.id,
         "error",
         INVALID_REQUIRED_URL_MESSAGE,
       )
       return
     }
 
-    setLmsConnectionStatus(connection.name, "verifying", null)
+    setLmsConnectionStatus(connection.id, "verifying", null)
     try {
       const client = getWorkflowClient()
       const result = await client.run("connection.verifyLmsDraft", {
@@ -220,20 +238,24 @@ export function LmsConnectionsPane() {
         userAgent: connection.userAgent,
       })
       setLmsConnectionStatus(
-        connection.name,
+        connection.id,
         result.verified ? "connected" : "error",
         result.verified ? null : VERIFY_FAILED_MESSAGE,
       )
     } catch (cause) {
       const message = getErrorMessage(cause)
-      setLmsConnectionStatus(connection.name, "error", message)
+      setLmsConnectionStatus(connection.id, "error", message)
     }
   }
 
   if (viewState.view === "editor") {
     return (
       <div className="space-y-3">
-        <FormField label="Name" htmlFor="settings-lms-name">
+        <FormField
+          label="Name"
+          htmlFor="settings-lms-name"
+          description="Optional. Defaults to the provider name when a single connection per provider is enough."
+        >
           <Input
             id="settings-lms-name"
             value={draft.name}
@@ -243,7 +265,7 @@ export function LmsConnectionsPane() {
                 name: event.target.value,
               }))
             }
-            placeholder="e.g., Canvas Production"
+            placeholder={LMS_PROVIDER_LABEL[draft.provider]}
           />
         </FormField>
         <FormField label="Provider" htmlFor="settings-lms-provider">
@@ -310,10 +332,8 @@ export function LmsConnectionsPane() {
           />
         </FormField>
 
-        {nameTaken && (
-          <Text className="text-xs text-destructive">
-            An LMS connection with this name already exists.
-          </Text>
+        {nameTakenMessage && (
+          <Text className="text-xs text-destructive">{nameTakenMessage}</Text>
         )}
         {baseUrlError && (
           <Text className="text-xs text-destructive">{baseUrlError}</Text>
@@ -375,7 +395,7 @@ export function LmsConnectionsPane() {
           size="sm"
           variant="outline"
           onClick={() => {
-            setViewState({ view: "editor", index: null })
+            setViewState({ view: "editor", originalId: null })
             setDraft(emptyLmsDraft())
             setEditorStatus("disconnected")
             setEditorError(null)
@@ -393,19 +413,20 @@ export function LmsConnectionsPane() {
       )}
 
       <div className="space-y-2">
-        {lmsConnections.map((connection, index) => {
-          const status = lmsSavedStatuses[connection.name] ?? "disconnected"
-          const error = lmsSavedErrors[connection.name] ?? null
+        {lmsConnections.map((connection) => {
+          const status = lmsSavedStatuses[connection.id] ?? "disconnected"
+          const error = lmsSavedErrors[connection.id] ?? null
+          const displayName = lmsConnectionDisplayName(connection)
           return (
             <div
-              key={connection.name}
+              key={connection.id}
               className="rounded-md border p-3 space-y-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="font-medium text-sm truncate">
-                      {connection.name}
+                      {displayName}
                     </div>
                     <VerificationStatusIcon status={status} />
                   </div>
@@ -432,7 +453,10 @@ export function LmsConnectionsPane() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setViewState({ view: "editor", index })
+                      setViewState({
+                        view: "editor",
+                        originalId: connection.id,
+                      })
                       setDraft(toLmsDraft(connection))
                       setEditorStatus("disconnected")
                       setEditorError(null)
@@ -444,7 +468,7 @@ export function LmsConnectionsPane() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => void handleRemove(index)}
+                    onClick={() => void handleRemove(connection.id)}
                   >
                     <Trash2 className="size-3.5 mr-1" />
                     Remove

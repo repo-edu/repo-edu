@@ -91,17 +91,17 @@ export function requireLmsConnection(
   course: PersistedCourse,
   settings: PersistedAppSettings,
 ) {
-  if (course.lmsConnectionName === null) {
+  if (course.lmsConnectionId === null) {
     throw new Error("Selected course does not reference an LMS connection.")
   }
 
   const connection = settings.lmsConnections.find(
-    (candidate) => candidate.name === course.lmsConnectionName,
+    (candidate) => candidate.id === course.lmsConnectionId,
   )
 
   if (!connection) {
     throw new Error(
-      `LMS connection '${course.lmsConnectionName}' was not found in app settings.`,
+      `LMS connection '${course.lmsConnectionId}' was not found in app settings.`,
     )
   }
 

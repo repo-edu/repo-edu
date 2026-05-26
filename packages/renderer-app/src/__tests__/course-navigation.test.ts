@@ -63,12 +63,12 @@ describe("course navigation", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
       backing: "lms",
       displayName: "LMS Course",
-      selectedLmsConnection: "Canvas",
+      selectedLmsConnectionId: "Canvas",
       selectedCourseId: "canvas-1",
     })
 
     assert.equal(course.backing, "lms")
-    assert.equal(course.lmsConnectionName, "Canvas")
+    assert.equal(course.lmsConnectionId, "Canvas")
     assert.equal(course.lmsCourseId, "canvas-1")
   })
 
@@ -78,12 +78,12 @@ describe("course navigation", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
       backing: "repobee",
       displayName: "RepoBee Course",
-      selectedLmsConnection: "Canvas",
+      selectedLmsConnectionId: "Canvas",
       selectedCourseId: "canvas-1",
     })
 
     assert.equal(course.backing, "repobee")
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.lmsCourseId, null)
   })
 })

@@ -243,7 +243,7 @@ export const persistedCourseSchema = z
     revision: z.number().int().nonnegative(),
     id: z.string(),
     displayName: z.string(),
-    lmsConnectionName: z.string().nullable(),
+    lmsConnectionId: z.string().nullable(),
     organization: z.string().nullable(),
     lmsCourseId: z.string().nullable(),
     idSequences: idSequencesSchema,
@@ -260,10 +260,10 @@ export const persistedCourseSchema = z
   })
   .superRefine((course, context) => {
     if (course.backing !== "lms") {
-      if (course.lmsConnectionName !== null) {
+      if (course.lmsConnectionId !== null) {
         addCourseInvariantIssue(
           context,
-          ["lmsConnectionName"],
+          ["lmsConnectionId"],
           "Only LMS-backed courses may reference an LMS connection.",
         )
       }

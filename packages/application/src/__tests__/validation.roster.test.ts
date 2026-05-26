@@ -167,12 +167,13 @@ describe("application roster workflow helpers", () => {
     const { course, settings } = getCourseAndSettingsScenario(
       { tier: "small", preset: "shared-teams" },
       ({ course, settings }) => {
-        course.lmsConnectionName = "main-lms"
+        course.lmsConnectionId = "main-lms"
         course.lmsCourseId = "course-42"
         settings.activeSurface = { kind: "course", courseId: course.id }
         settings.lmsConnections = [
           {
-            name: "main-lms",
+            id: "main-lms",
+            name: "Main LMS",
             provider: "canvas",
             baseUrl: "https://canvas.example.edu",
             token: "token-1",

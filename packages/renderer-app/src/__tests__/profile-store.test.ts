@@ -34,7 +34,7 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
     revision: 0,
     id: courseId,
     displayName: "Test Course",
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {

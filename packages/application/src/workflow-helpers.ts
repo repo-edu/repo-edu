@@ -154,7 +154,7 @@ export function resolveLmsDraft(
     ])
   }
 
-  if (course.lmsConnectionName === null) {
+  if (course.lmsConnectionId === null) {
     throw {
       type: "not-found",
       message: "Course does not reference an LMS connection.",
@@ -163,12 +163,12 @@ export function resolveLmsDraft(
   }
 
   const connection = settings.lmsConnections.find(
-    (candidate) => candidate.name === course.lmsConnectionName,
+    (candidate) => candidate.id === course.lmsConnectionId,
   )
   if (connection === undefined) {
     throw {
       type: "not-found",
-      message: `LMS connection '${course.lmsConnectionName}' was not found.`,
+      message: `LMS connection '${course.lmsConnectionId}' was not found.`,
       resource: "connection",
     } satisfies AppError
   }

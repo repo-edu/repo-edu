@@ -28,15 +28,17 @@ export function applyFixtureSourceOverlay(
 
   switch (source) {
     case "canvas": {
+      const canvasConnectionId = "canvas-demo"
       settings.lmsConnections = [
         {
+          id: canvasConnectionId,
           name: "Canvas Demo",
           provider: "canvas",
           baseUrl: "https://canvas.example.edu",
           token: "demo-token",
         },
       ]
-      course.lmsConnectionName = "Canvas Demo"
+      course.lmsConnectionId = canvasConnectionId
       course.lmsCourseId = courseId
       course.roster.connection = {
         kind: "canvas",
@@ -68,15 +70,17 @@ export function applyFixtureSourceOverlay(
     }
 
     case "moodle": {
+      const moodleConnectionId = "moodle-demo"
       settings.lmsConnections = [
         {
+          id: moodleConnectionId,
           name: "Moodle Demo",
           provider: "moodle",
           baseUrl: "https://moodle.example.edu",
           token: "demo-token",
         },
       ]
-      course.lmsConnectionName = "Moodle Demo"
+      course.lmsConnectionId = moodleConnectionId
       course.lmsCourseId = courseId
       course.roster.connection = {
         kind: "moodle",
@@ -109,7 +113,7 @@ export function applyFixtureSourceOverlay(
 
     case "file": {
       settings.lmsConnections = []
-      course.lmsConnectionName = null
+      course.lmsConnectionId = null
       course.lmsCourseId = null
       course.roster.connection = {
         kind: "import",

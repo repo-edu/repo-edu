@@ -26,7 +26,7 @@ function makeCourse(): PersistedCourse {
     revision: 0,
     id: "course-1",
     displayName: "Course 1",
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {

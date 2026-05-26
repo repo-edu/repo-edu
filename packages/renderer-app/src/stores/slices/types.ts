@@ -102,7 +102,7 @@ export type CourseActions = {
 
   // Course metadata
   setCourseId: (courseId: string | null) => void
-  setLmsConnectionName: (name: string | null) => void
+  setLmsConnectionId: (id: string | null) => void
   setOrganization: (organization: string | null) => void
   setRepositoryTemplate: (
     template: PersistedCourse["repositoryTemplate"],

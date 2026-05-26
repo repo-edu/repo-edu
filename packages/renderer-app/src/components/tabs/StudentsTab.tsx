@@ -3,7 +3,7 @@ import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectCourseId,
-  selectLmsConnectionName,
+  selectLmsConnectionId,
   selectRoster,
   useCourseStore,
 } from "../../stores/course-store.js"
@@ -16,7 +16,7 @@ export function StudentsTab() {
   const roster = useCourseStore(selectRoster)
   const course = useCourseStore((s) => s.course)
   const setRoster = useCourseStore((s) => s.setRoster)
-  const lmsConnectionName = useCourseStore(selectLmsConnectionName)
+  const lmsConnectionId = useCourseStore(selectLmsConnectionId)
   const courseId = useCourseStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
 
@@ -29,7 +29,7 @@ export function StudentsTab() {
     (s) => s.setUsernameVerificationDialogOpen,
   )
 
-  const hasLmsConnection = lmsConnectionName !== null
+  const hasLmsConnection = lmsConnectionId !== null
   const hasCourseId = (courseId ?? "").trim() !== ""
   const canImportFromLms = hasLmsConnection && hasCourseId
 

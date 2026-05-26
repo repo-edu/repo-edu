@@ -10,7 +10,7 @@ describe("docs runtime seeded documents", () => {
     })
 
     assert.equal(course.backing, "lms")
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.roster.connection, null)
     assert.equal(course.roster.students.length, 67)
     assert.equal(course.roster.staff.length, 3)
@@ -48,7 +48,7 @@ describe("docs runtime seeded documents", () => {
     })
 
     assert.equal(course.backing, "repobee")
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.lmsCourseId, null)
     assert.equal(course.roster.connection, null)
 

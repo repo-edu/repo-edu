@@ -73,8 +73,8 @@ export const selectCourseId = (state: CourseState) =>
   state.course?.lmsCourseId ?? null
 export const selectOrganization = (state: CourseState) =>
   state.course?.organization ?? null
-export const selectLmsConnectionName = (state: CourseState) =>
-  state.course?.lmsConnectionName ?? null
+export const selectLmsConnectionId = (state: CourseState) =>
+  state.course?.lmsConnectionId ?? null
 export const selectRepositoryTemplate = (state: CourseState) =>
   state.course?.repositoryTemplate ?? null
 export const selectRepositoryCloneTargetDirectory = (state: CourseState) =>

@@ -29,7 +29,7 @@ function makeCourse(id: string): PersistedCourse {
     revision: 0,
     id,
     displayName: id,
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {

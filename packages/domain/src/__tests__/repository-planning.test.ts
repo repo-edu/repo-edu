@@ -55,7 +55,7 @@ function makeCourse(
     revision: 0,
     id: "test",
     displayName: "Test",
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: initialIdSequences(),

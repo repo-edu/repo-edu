@@ -542,7 +542,7 @@ function createFixtureRecord(
       revision: 0,
       id: courseId,
       displayName: `Fixture (${tier}, ${preset})`,
-      lmsConnectionName: null,
+      lmsConnectionId: null,
       organization: "fixture-org",
       lmsCourseId: null,
       idSequences: {
@@ -667,7 +667,7 @@ function createFixtureRecord(
     revision: 0,
     id: courseId,
     displayName: `Fixture (${tier}, ${preset})`,
-    lmsConnectionName: "Canvas Demo",
+    lmsConnectionId: "canvas-demo",
     organization: "fixture-org",
     lmsCourseId: courseId,
     idSequences: {
@@ -694,6 +694,7 @@ function createFixtureRecord(
     activeSurface: { kind: "course", courseId },
     lmsConnections: [
       {
+        id: "canvas-demo",
         name: "Canvas Demo",
         provider: "canvas",
         baseUrl: "https://canvas.example.edu",

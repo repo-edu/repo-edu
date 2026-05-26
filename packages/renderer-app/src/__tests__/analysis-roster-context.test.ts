@@ -40,7 +40,7 @@ function makeCourse(
     revision: 0,
     id: "course-1",
     displayName: "Course 1",
-    lmsConnectionName: connection ? "LMS" : null,
+    lmsConnectionId: connection ? "LMS" : null,
     organization: null,
     lmsCourseId: connection ? "course-1" : null,
     idSequences: {

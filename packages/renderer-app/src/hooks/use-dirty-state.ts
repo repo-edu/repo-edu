@@ -19,7 +19,7 @@ export function useDirtyState(activeCourseId: string | null) {
       roster: course.roster,
       courseId: course.lmsCourseId,
       organization: course.organization,
-      lmsConnectionName: course.lmsConnectionName,
+      lmsConnectionId: course.lmsConnectionId,
       repositoryTemplate: course.repositoryTemplate,
     })
   }, [])

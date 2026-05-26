@@ -24,7 +24,7 @@ import { useActiveSurfaceNavigation } from "./use-active-surface-navigation.js"
 type CreateCourseInput = {
   backing: CourseBacking
   displayName: string
-  lmsConnectionName?: string | null
+  lmsConnectionId?: string | null
   lmsCourseId?: string | null
 }
 
@@ -128,8 +128,8 @@ export function useCourses() {
           {
             backing,
             displayName: input.displayName,
-            lmsConnectionName:
-              backing === "lms" ? (input.lmsConnectionName ?? null) : null,
+            lmsConnectionId:
+              backing === "lms" ? (input.lmsConnectionId ?? null) : null,
             lmsCourseId: backing === "lms" ? (input.lmsCourseId ?? null) : null,
           },
         )
@@ -170,7 +170,7 @@ export function useCourses() {
           {
             backing: source.backing,
             displayName,
-            lmsConnectionName: source.lmsConnectionName,
+            lmsConnectionId: source.lmsConnectionId,
             organization: source.organization,
             lmsCourseId: source.lmsCourseId,
             repositoryTemplate: source.repositoryTemplate,

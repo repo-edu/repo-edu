@@ -212,7 +212,7 @@ export type PersistedCourse = AnalysisCore & {
   revision: number
   id: string
   displayName: string
-  lmsConnectionName: string | null
+  lmsConnectionId: string | null
   organization: string | null
   lmsCourseId: string | null
   idSequences: IdSequences
@@ -252,7 +252,7 @@ export function resolveAnalysisConfig(
 export type BlankCourseFields = {
   backing: CourseBacking
   displayName: string
-  lmsConnectionName?: string | null
+  lmsConnectionId?: string | null
   organization?: string | null
   lmsCourseId?: string | null
   repositoryTemplate?: RepositoryTemplate | null
@@ -276,7 +276,7 @@ export function createBlankCourse(
     revision: 0,
     id,
     displayName: fields.displayName,
-    lmsConnectionName: supportsLms ? (fields.lmsConnectionName ?? null) : null,
+    lmsConnectionId: supportsLms ? (fields.lmsConnectionId ?? null) : null,
     organization: fields.organization ?? null,
     lmsCourseId: supportsLms ? (fields.lmsCourseId ?? null) : null,
     idSequences: initialIdSequences(),

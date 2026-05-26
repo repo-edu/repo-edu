@@ -77,7 +77,7 @@ describe("composeCourseFromCohort", () => {
     })
 
     assert.equal(course.backing, "lms")
-    assert.equal(course.lmsConnectionName, null)
+    assert.equal(course.lmsConnectionId, null)
     assert.equal(course.lmsCourseId, null)
     assert.deepEqual(
       course.roster.students.map((student) => student.id),

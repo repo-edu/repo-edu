@@ -11,7 +11,7 @@ import type { ConnectionStatus } from "../../types/index.js"
 
 export type VerificationStatus = ConnectionStatus
 
-export type LmsDraft = Omit<PersistedLmsConnection, "userAgent"> & {
+export type LmsDraft = Omit<PersistedLmsConnection, "id" | "userAgent"> & {
   userAgent: string
 }
 
@@ -24,6 +24,17 @@ export type LlmDraft = {
   provider: LlmProviderKind
   authMode: "subscription" | "api"
   apiKey: string
+}
+
+export const LMS_PROVIDER_LABEL: Record<LmsProviderKind, string> = {
+  canvas: "Canvas",
+  moodle: "Moodle",
+}
+
+export function lmsConnectionDisplayName(
+  connection: Pick<PersistedLmsConnection, "name" | "provider">,
+): string {
+  return connection.name.trim() || LMS_PROVIDER_LABEL[connection.provider]
 }
 
 export const INVALID_REQUIRED_URL_MESSAGE =

@@ -31,6 +31,7 @@ describe("validatePersistedAppSettings", () => {
       lastOpenedAt: "2026-03-04T10:00:00Z",
       lmsConnections: [
         {
+          id: "canvas-prod",
           name: "Canvas Prod",
           provider: "canvas",
           baseUrl: "https://canvas.example.com",
@@ -62,6 +63,7 @@ describe("validatePersistedAppSettings", () => {
         ...defaultAppSettings,
         lmsConnections: [
           {
+            id: "canvas-1",
             name: "Canvas",
             provider: "canvas",
             baseUrl: "https://canvas.example.com",
@@ -92,6 +94,7 @@ describe("validatePersistedAppSettings", () => {
       ...defaultAppSettings,
       lmsConnections: [
         {
+          id: "canvas-1",
           name: "Canvas",
           provider: "canvas",
           baseUrl: "https://canvas.example.com",
@@ -329,7 +332,7 @@ describe("validatePersistedCourse", () => {
     revision: 0,
     id: "prof-1",
     displayName: "Test Course",
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: null,
     lmsCourseId: null,
     idSequences: {
@@ -383,7 +386,7 @@ describe("validatePersistedCourse", () => {
       {
         backing: "repobee",
         displayName: "RepoBee Course",
-        lmsConnectionName: "Canvas",
+        lmsConnectionId: "Canvas",
         lmsCourseId: "canvas-course-1",
         organization: "course-org",
         repositoryTemplate,
@@ -391,7 +394,7 @@ describe("validatePersistedCourse", () => {
         repositoryCloneDirectoryLayout: "by-team",
       },
     )
-    assert.equal(repobeeCourse.lmsConnectionName, null)
+    assert.equal(repobeeCourse.lmsConnectionId, null)
     assert.equal(repobeeCourse.lmsCourseId, null)
     assert.equal(repobeeCourse.organization, "course-org")
     assert.deepEqual(repobeeCourse.repositoryTemplate, repositoryTemplate)
@@ -414,7 +417,7 @@ describe("validatePersistedCourse", () => {
     const result = validatePersistedCourse({
       ...validProfile,
       backing: "repobee",
-      lmsConnectionName: "Canvas",
+      lmsConnectionId: "Canvas",
       lmsCourseId: "canvas-course-1",
       roster: {
         ...validProfile.roster,
@@ -472,9 +475,7 @@ describe("validatePersistedCourse", () => {
 
     assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.ok(
-        result.issues.some((issue) => issue.path === "lmsConnectionName"),
-      )
+      assert.ok(result.issues.some((issue) => issue.path === "lmsConnectionId"))
       assert.ok(result.issues.some((issue) => issue.path === "lmsCourseId"))
       assert.ok(
         result.issues.some((issue) => issue.path === "roster.connection"),

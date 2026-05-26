@@ -64,6 +64,7 @@ const persistedConnectionFields = {
 } as const
 
 const persistedLmsConnectionSchema = z.object({
+  id: z.string(),
   name: z.string(),
   provider: z.enum(["canvas", "moodle"]),
   ...persistedConnectionFields,

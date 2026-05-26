@@ -27,6 +27,7 @@ import {
 } from "../../stores/course-store.js"
 import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
+import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
 
 export function StudentSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
@@ -38,13 +39,11 @@ export function StudentSyncDialog() {
   const loadedCourse = course && course.id === activeCourseId ? course : null
   const supportsLms = loadedCourse !== null && courseSupportsLms(loadedCourse)
   const lmsCourseId = loadedCourse?.lmsCourseId ?? null
-  const lmsConnectionName = loadedCourse?.lmsConnectionName ?? null
+  const lmsConnectionId = loadedCourse?.lmsConnectionId ?? null
 
   const setRoster = useCourseStore((state) => state.setRoster)
   const setIdSequences = useCourseStore((state) => state.setIdSequences)
-  const setLmsConnectionName = useCourseStore(
-    (state) => state.setLmsConnectionName,
-  )
+  const setLmsConnectionId = useCourseStore((state) => state.setLmsConnectionId)
   const setLmsImportConflicts = useUiStore(
     (state) => state.setLmsImportConflicts,
   )
@@ -97,7 +96,7 @@ export function StudentSyncDialog() {
       return
     }
 
-    if (!lmsConnectionName || !lmsCourseId) {
+    if (!lmsConnectionId || !lmsCourseId) {
       setError("LMS connection or course is not configured")
       setProgressMessage(null)
       return
@@ -143,7 +142,7 @@ export function StudentSyncDialog() {
     loadedCourse,
     supportsLms,
     courseStatus,
-    lmsConnectionName,
+    lmsConnectionId,
     lmsCourseId,
   ])
 
@@ -199,9 +198,9 @@ export function StudentSyncDialog() {
                 LMS connection
               </Label>
               <Select
-                value={lmsConnectionName ?? ""}
+                value={lmsConnectionId ?? ""}
                 onValueChange={(value) => {
-                  setLmsConnectionName(value || null)
+                  setLmsConnectionId(value || null)
                   hasAutoPreviewedRef.current = false
                   resetState()
                 }}
@@ -214,8 +213,8 @@ export function StudentSyncDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   {appSettings.lmsConnections.map((connection) => (
-                    <SelectItem key={connection.name} value={connection.name}>
-                      {connection.name}
+                    <SelectItem key={connection.id} value={connection.id}>
+                      {lmsConnectionDisplayName(connection)}
                     </SelectItem>
                   ))}
                 </SelectContent>

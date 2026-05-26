@@ -135,7 +135,7 @@ function baseCourse(
     revision: 0,
     id,
     displayName,
-    lmsConnectionName: null,
+    lmsConnectionId: null,
     organization: "repo-edu-demo",
     lmsCourseId: null,
     idSequences,
