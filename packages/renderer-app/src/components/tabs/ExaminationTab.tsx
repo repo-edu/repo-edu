@@ -74,8 +74,8 @@ import {
 export type SubmissionExaminationContext = {
   pendingSourceKey: string
   personId: string
-  studentName: string
-  studentEmail: string
+  displayTitle: string
+  displaySubtitle: string
   contentScopeId: string
   localIdentityContext: ExaminationLocalIdentityContext
   excerpts: ExaminationCodeExcerpt[]
@@ -281,8 +281,8 @@ export function ExaminationTab({
     submissionContext !== null
       ? ({
           personId: submissionContext.personId,
-          canonicalName: submissionContext.studentName,
-          canonicalEmail: submissionContext.studentEmail,
+          canonicalName: submissionContext.displayTitle,
+          canonicalEmail: submissionContext.displaySubtitle,
           lines: submissionContext.excerpts.reduce(
             (count, excerpt) => count + excerpt.lines.length,
             0,
@@ -293,8 +293,8 @@ export function ExaminationTab({
   const selectedDisplay =
     submissionContext !== null
       ? {
-          name: submissionContext.studentName,
-          email: submissionContext.studentEmail,
+          name: submissionContext.displayTitle,
+          email: submissionContext.displaySubtitle,
         }
       : selectedSummary !== null
         ? (authorDisplays.get(selectedSummary.personId) ?? {
@@ -790,13 +790,19 @@ export function ExaminationTab({
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden p-6">
+    <div
+      className={
+        isSubmission
+          ? "flex min-h-0 flex-col gap-4 p-6"
+          : "flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6"
+      }
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Examination</h2>
           <p className="text-sm text-muted-foreground">
             {isSubmission
-              ? "Generate oral exam questions from the selected submission file."
+              ? "Generate oral exam questions from the selected submission files."
               : "Generate oral exam questions from the code each author signed their name to in the final repository state."}
           </p>
         </div>
@@ -829,7 +835,7 @@ export function ExaminationTab({
       <div
         className={
           isSubmission
-            ? "min-h-0 flex-1 overflow-hidden"
+            ? "min-h-0"
             : "grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden"
         }
       >
@@ -843,7 +849,11 @@ export function ExaminationTab({
           />
         ) : null}
 
-        <div className="min-h-0 overflow-hidden">
+        <div
+          className={
+            isSubmission ? "min-h-0" : "h-full min-h-0 overflow-hidden"
+          }
+        >
           {selectedSummary === null ? (
             <EmptyState message={emptyStateMessage ?? ""} />
           ) : (
@@ -862,6 +872,7 @@ export function ExaminationTab({
               showAnswers={showAnswers}
               blocker={selectedBlocker}
               rosterWarning={selectedRosterWarning}
+              layout={isSubmission ? "page" : "pane"}
               onQuestionCountChange={setQuestionCount}
               onShowAnswersChange={setShowAnswers}
               onSelectArchiveEntry={setSelectedArchiveEntryKey}
@@ -958,6 +969,7 @@ type AuthorPanelProps = {
   showAnswers: boolean
   blocker: string | null
   rosterWarning: string | null
+  layout: "page" | "pane"
   onQuestionCountChange: (count: number) => void
   onShowAnswersChange: (show: boolean) => void
   onSelectArchiveEntry: (key: string) => void
@@ -977,6 +989,7 @@ function AuthorPanel({
   showAnswers,
   blocker,
   rosterWarning,
+  layout,
   onQuestionCountChange,
   onShowAnswersChange,
   onSelectArchiveEntry,
@@ -990,12 +1003,18 @@ function AuthorPanel({
   const hasDisplayResults = displayEntry?.status === "loaded"
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden">
+    <div
+      className={
+        layout === "pane"
+          ? "flex h-full min-h-0 flex-col gap-3 overflow-hidden"
+          : "flex min-h-0 flex-col gap-3"
+      }
+    >
       <Card>
         <CardHeader>
           <CardTitle>{authorName}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {authorEmail} · {summary.lines} attributed lines
+            {authorEmail} · {summary.lines} lines
           </p>
           {rosterWarning !== null ? (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
@@ -1071,7 +1090,11 @@ function AuthorPanel({
         />
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div
+        className={
+          layout === "pane" ? "min-h-0 flex-1 overflow-auto" : "min-h-0"
+        }
+      >
         {displayEntry?.status === "loaded" ? (
           <div className="flex flex-col gap-2">
             {displayedArchiveEntry !== null ? (

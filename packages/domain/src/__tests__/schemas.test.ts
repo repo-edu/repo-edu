@@ -261,16 +261,10 @@ describe("validatePersistedAppSettings", () => {
       recentSubmissionFolders: [{ path: "/tmp/submissions/ada" }],
       submissionSurfaceStates: {
         "\0/tmp/submissions/ada": {
-          mainFileRelativePath: "main.ts",
-          studentIdentity: {
-            kind: "one-off",
-            name: "Ada",
-            email: "ada@example.edu",
-          },
+          includedFiles: ["main.ts"],
         },
         "\0/tmp/submissions/bob": {
-          mainFileRelativePath: "main.ts",
-          studentIdentity: null,
+          includedFiles: null,
         },
       },
     })

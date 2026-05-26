@@ -200,12 +200,7 @@ describe("app settings store", () => {
     store.setSubmissionSurfaceState(
       { path: "/submissions/one" },
       {
-        mainFileRelativePath: "main.ts",
-        studentIdentity: {
-          kind: "one-off",
-          name: "Ada",
-          email: "ada@example.edu",
-        },
+        includedFiles: ["main.ts"],
       },
     )
 

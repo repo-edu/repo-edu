@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import {
   buildExaminationGenerationContextFingerprint,
   buildSubmissionContentScopeId,
+  buildSubmissionFolderContentScopeId,
   EXAMINATION_REDACTION_POLICY_VERSION,
   isExaminationContentScopeIdShape,
   serializeExaminationArchiveStorageKey,
@@ -68,5 +69,25 @@ describe("examination archive key helpers", () => {
     assert.notEqual(lf, crlf)
     assert.equal(isExaminationContentScopeIdShape(lf), true)
     assert.match(lf, /^[0-9a-f]{64}$/)
+  })
+
+  it("builds order-independent folder submission content scopes", () => {
+    const encoder = new TextEncoder()
+    const first = buildSubmissionFolderContentScopeId([
+      { relativePath: "src/a.ts", bytes: encoder.encode("a") },
+      { relativePath: "src/b.ts", bytes: encoder.encode("b") },
+    ])
+    const reordered = buildSubmissionFolderContentScopeId([
+      { relativePath: "src/b.ts", bytes: encoder.encode("b") },
+      { relativePath: "src/a.ts", bytes: encoder.encode("a") },
+    ])
+    const renamed = buildSubmissionFolderContentScopeId([
+      { relativePath: "src/a.ts", bytes: encoder.encode("a") },
+      { relativePath: "src/c.ts", bytes: encoder.encode("b") },
+    ])
+
+    assert.equal(first, reordered)
+    assert.notEqual(first, renamed)
+    assert.equal(isExaminationContentScopeIdShape(first), true)
   })
 })

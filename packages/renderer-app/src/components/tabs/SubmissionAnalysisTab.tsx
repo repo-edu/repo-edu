@@ -1,17 +1,16 @@
 import {
-  buildExaminationLocalIdentityContext,
-  buildSubmissionContentScopeId,
+  buildSubmissionFolderContentScopeId,
+  type ExaminationLocalIdentityContext,
+  SUBMISSION_FILE_MAX_BYTES,
+  SUBMISSION_FOLDER_PERSON_ID,
 } from "@repo-edu/application-contract"
 import {
-  buildSubmissionPersonDbSnapshot,
   DEFAULT_EXTENSIONS,
   normalizeExtension,
-  type ResolvedSubmissionIdentity,
 } from "@repo-edu/domain/analysis"
 import {
   activeSurfaceRecentSubmission,
   activeSurfaceSubmissionStateKey,
-  type SubmissionStudentIdentity,
   type SubmissionSurfaceState,
 } from "@repo-edu/domain/settings"
 import {
@@ -19,24 +18,14 @@ import {
   type Roster,
   type RosterMember,
 } from "@repo-edu/domain/types"
-import { isValidEmail } from "@repo-edu/domain/validation"
-import {
-  Button,
-  EmptyState,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo-edu/ui"
+import { Checkbox, EmptyState, Label } from "@repo-edu/ui"
 import { useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { selectActiveSurface, useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
+import { formatTokenEstimate } from "../../utils/token-estimate.js"
 import {
   ExaminationTab,
   type SubmissionExaminationContext,
@@ -46,16 +35,14 @@ import {
   decodeSubmissionFileBytes,
 } from "./examination/build-excerpts.js"
 
-const NO_FILE_VALUE = "__none__"
-const NO_MEMBER_VALUE = "__none__"
+type FolderFile = {
+  relativePath: string
+  size: number
+}
 
 type FileListState =
   | { status: "loading"; files: []; error: null }
-  | {
-      status: "loaded"
-      files: { relativePath: string; size: number }[]
-      error: null
-    }
+  | { status: "loaded"; files: FolderFile[]; error: null }
   | { status: "error"; files: []; error: string }
 
 type PreparedSubmissionState =
@@ -65,9 +52,27 @@ type PreparedSubmissionState =
   | { status: "error"; context: null; error: string }
 
 const EMPTY_SUBMISSION_STATE: SubmissionSurfaceState = {
-  mainFileRelativePath: null,
-  studentIdentity: null,
+  includedFiles: null,
 }
+
+const SUBMISSION_SELECTION_MAX_FILES = 50
+const SUBMISSION_SELECTION_MAX_BYTES = 512 * 1024
+
+const EMPTY_IDENTITY_CONTEXT: ExaminationLocalIdentityContext = {
+  names: [],
+  emails: [],
+  opaqueIdentifiers: [],
+  gitUsernames: [],
+}
+
+const GENERIC_FOLDER_LABELS = new Set([
+  "code",
+  "source",
+  "src",
+  "student",
+  "submission",
+  "submissions",
+])
 
 function normalizeConfiguredExtensions(
   extensions: readonly string[],
@@ -82,87 +87,163 @@ function normalizeConfiguredExtensions(
   return normalized.length === 0 ? [...DEFAULT_EXTENSIONS] : normalized
 }
 
-function allRosterMembers(roster: Roster): RosterMember[] {
-  return [...roster.students, ...roster.staff]
+function folderBasename(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "")
+  const last = normalized.split("/").pop()
+  return last && last.length > 0 ? last : path
 }
 
-function selectedMemberRoster(roster: Roster, member: RosterMember): Roster {
-  const isStudent = roster.students.some(
-    (candidate) => candidate.id === member.id,
+function normalizeIdentityText(value: string): string {
+  return value.trim().split(/\s+/).join(" ")
+}
+
+function containsAsciiLetter(value: string): boolean {
+  return /[A-Za-z]/.test(value)
+}
+
+function pushNormalized(values: string[], value: string): void {
+  const normalized = normalizeIdentityText(value)
+  if (normalized.length > 0) {
+    values.push(normalized)
+  }
+}
+
+function dedupe(values: readonly string[], caseSensitive: boolean): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const key = caseSensitive ? value : value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(value)
+  }
+  return out
+}
+
+function isEligible(file: FolderFile): boolean {
+  return file.size <= SUBMISSION_FILE_MAX_BYTES
+}
+
+function formatBytes(byteCount: number): string {
+  if (byteCount < 1024) return `${byteCount} B`
+  if (byteCount < 1024 * 1024) return `${Math.round(byteCount / 1024)} KiB`
+  return `${(byteCount / (1024 * 1024)).toFixed(1)} MiB`
+}
+
+/**
+ * Resolve the effective set of included relative paths from persisted state
+ * plus the current folder listing. A `null` selection means "default" and
+ * fans out to every eligible file. An explicit list is filtered down to
+ * files that still exist and are eligible, so previously selected files
+ * that were deleted or grew past the cap disappear silently rather than
+ * blocking the run.
+ */
+function resolveEffectiveSelection(
+  files: readonly FolderFile[],
+  persisted: string[] | null,
+): string[] {
+  const eligible = files.filter(isEligible)
+  if (persisted === null) {
+    return eligible.map((file) => file.relativePath)
+  }
+  const persistedSet = new Set(persisted)
+  return eligible
+    .filter((file) => persistedSet.has(file.relativePath))
+    .map((file) => file.relativePath)
+}
+
+function addRosterMemberIdentity(
+  context: ExaminationLocalIdentityContext,
+  member: RosterMember,
+): void {
+  pushNormalized(context.names, member.name)
+  pushNormalized(context.emails, member.email)
+
+  for (const value of [member.id, member.lmsUserId, member.studentNumber]) {
+    if (value !== null && containsAsciiLetter(value)) {
+      pushNormalized(context.opaqueIdentifiers, value)
+    }
+  }
+  if (member.gitUsername !== null) {
+    pushNormalized(context.gitUsernames, member.gitUsername)
+  }
+}
+
+function addFolderLabelIdentity(
+  context: ExaminationLocalIdentityContext,
+  folderPath: string,
+): void {
+  const label = folderBasename(folderPath)
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(label)
+    } catch (_error) {
+      return label
+    }
+  })()
+  const normalizedLabel = normalizeIdentityText(decoded)
+  const spacedLabel = normalizeIdentityText(
+    normalizedLabel.replace(/[-_.]+/g, " "),
   )
-  return {
-    ...roster,
-    students: isStudent ? [member] : [],
-    staff: isStudent ? [] : [member],
-    groups: [],
-    groupSets: [],
-    assignments: [],
+  const labelKey = spacedLabel.toLowerCase()
+  if (
+    !containsAsciiLetter(spacedLabel) ||
+    GENERIC_FOLDER_LABELS.has(labelKey)
+  ) {
+    return
+  }
+
+  pushNormalized(context.opaqueIdentifiers, normalizedLabel)
+  pushNormalized(context.gitUsernames, normalizedLabel)
+  if (spacedLabel !== normalizedLabel) {
+    pushNormalized(context.names, spacedLabel)
+  } else if (/\s/.test(spacedLabel)) {
+    pushNormalized(context.names, spacedLabel)
   }
 }
 
-function resolveSubmissionIdentity(params: {
-  courseId?: string
-  attachedCourseLoaded: boolean
-  attachedCourseIsRosterCapable: boolean
-  courseRoster: Roster | null
-  studentIdentity: SubmissionStudentIdentity | null
-}): { identity: ResolvedSubmissionIdentity | null; message: string | null } {
-  if (params.courseId !== undefined) {
-    if (!params.attachedCourseLoaded) {
-      return {
-        identity: null,
-        message: "Load the attached course before choosing a roster member.",
-      }
-    }
-    if (!params.attachedCourseIsRosterCapable) {
-      return {
-        identity: null,
-        message: "The attached course no longer supports roster submissions.",
-      }
-    }
-    if (params.courseRoster === null) {
-      return { identity: null, message: "Choose a roster-capable course." }
-    }
-    if (params.studentIdentity?.kind !== "roster-member") {
-      return { identity: null, message: "Choose the submitted student." }
-    }
-    const memberId = params.studentIdentity.memberId
-    const member =
-      allRosterMembers(params.courseRoster).find(
-        (candidate) => candidate.id === memberId,
-      ) ?? null
-    if (member === null) {
-      return {
-        identity: null,
-        message: "The saved roster member no longer exists in this course.",
-      }
-    }
-    return {
-      identity: { kind: "roster-member", courseId: params.courseId, member },
-      message: null,
-    }
+function buildSubmissionLocalIdentityContext(params: {
+  folderPath: string
+  roster: Roster | null
+}): ExaminationLocalIdentityContext {
+  const context: ExaminationLocalIdentityContext = {
+    names: [],
+    emails: [],
+    opaqueIdentifiers: [],
+    gitUsernames: [],
   }
-
-  if (params.studentIdentity?.kind !== "one-off") {
-    return {
-      identity: null,
-      message: "Enter the submitted student's identity.",
-    }
+  for (const member of [
+    ...(params.roster?.students ?? []),
+    ...(params.roster?.staff ?? []),
+  ]) {
+    addRosterMemberIdentity(context, member)
   }
-  const trimmedName = params.studentIdentity.name.trim()
-  const trimmedLowercaseEmail = params.studentIdentity.email
-    .trim()
-    .toLowerCase()
-  if (trimmedName.length === 0 || trimmedLowercaseEmail.length === 0) {
-    return { identity: null, message: "Name and email are required." }
-  }
-  if (!isValidEmail(trimmedLowercaseEmail)) {
-    return { identity: null, message: "Enter a valid email address." }
-  }
+  addFolderLabelIdentity(context, params.folderPath)
   return {
-    identity: { kind: "one-off", trimmedName, trimmedLowercaseEmail },
-    message: null,
+    names: dedupe(context.names, false),
+    emails: dedupe(context.emails, false),
+    opaqueIdentifiers: dedupe(context.opaqueIdentifiers, true),
+    gitUsernames: dedupe(context.gitUsernames, false),
   }
+}
+
+function buildSelectionBlocker(params: {
+  selectedCount: number
+  selectedBytes: number
+  isDefaultSelection: boolean
+}): string | null {
+  const prefix = params.isDefaultSelection
+    ? "The default all-files selection is too large."
+    : "The selected file set is too large."
+  if (params.selectedCount > SUBMISSION_SELECTION_MAX_FILES) {
+    return `${prefix} Select ${SUBMISSION_SELECTION_MAX_FILES} files or fewer.`
+  }
+  if (params.selectedBytes > SUBMISSION_SELECTION_MAX_BYTES) {
+    return `${prefix} Select ${formatBytes(
+      SUBMISSION_SELECTION_MAX_BYTES,
+    )} or less.`
+  }
+  return null
 }
 
 export function SubmissionAnalysisTab() {
@@ -202,28 +283,25 @@ export function SubmissionAnalysisTab() {
     attachedCourseId !== undefined && course?.id === attachedCourseId
       ? course
       : null
-  const attachedCourseLoaded = attachedCourse !== null
-  const attachedCourseIsRosterCapable =
+  const identityBlocker =
+    attachedCourseId !== undefined && attachedCourse === null
+      ? "Loading the attached course before preparing redacted excerpts."
+      : attachedCourse !== null && !courseHasRoster(attachedCourse)
+        ? "The attached course no longer supports roster-backed submissions."
+        : null
+  const attachedRoster =
     attachedCourse !== null && courseHasRoster(attachedCourse)
-  const courseRoster = attachedCourseIsRosterCapable
-    ? attachedCourse.roster
-    : null
-  const resolved = useMemo(
+      ? attachedCourse.roster
+      : null
+  const localIdentityContext = useMemo(
     () =>
-      resolveSubmissionIdentity({
-        courseId: attachedCourseId,
-        attachedCourseLoaded,
-        attachedCourseIsRosterCapable,
-        courseRoster,
-        studentIdentity: submissionState.studentIdentity,
-      }),
-    [
-      attachedCourseId,
-      attachedCourseLoaded,
-      attachedCourseIsRosterCapable,
-      courseRoster,
-      submissionState.studentIdentity,
-    ],
+      activeSurface.kind === "submission"
+        ? buildSubmissionLocalIdentityContext({
+            folderPath: activeSurface.path,
+            roster: attachedRoster,
+          })
+        : EMPTY_IDENTITY_CONTEXT,
+    [activeSurface, attachedRoster],
   )
 
   useEffect(() => {
@@ -254,60 +332,114 @@ export function SubmissionAnalysisTab() {
     return () => abort.abort()
   }, [activeSurface, configuredExtensions, workflowClient])
 
+  const eligibleFiles = useMemo(
+    () => fileList.files.filter(isEligible),
+    [fileList.files],
+  )
+  const effectiveSelection = useMemo(
+    () =>
+      resolveEffectiveSelection(fileList.files, submissionState.includedFiles),
+    [fileList.files, submissionState.includedFiles],
+  )
+  const selectedSet = useMemo(
+    () => new Set(effectiveSelection),
+    [effectiveSelection],
+  )
+  const selectedTotalBytes = useMemo(
+    () =>
+      eligibleFiles
+        .filter((file) => selectedSet.has(file.relativePath))
+        .reduce((total, file) => total + file.size, 0),
+    [eligibleFiles, selectedSet],
+  )
+  const selectionBlocker = useMemo(
+    () =>
+      buildSelectionBlocker({
+        selectedCount: effectiveSelection.length,
+        selectedBytes: selectedTotalBytes,
+        isDefaultSelection: submissionState.includedFiles === null,
+      }),
+    [
+      effectiveSelection.length,
+      selectedTotalBytes,
+      submissionState.includedFiles,
+    ],
+  )
+  const prepareBlocker = identityBlocker ?? selectionBlocker
+
   useEffect(() => {
     if (
       activeSurface.kind !== "submission" ||
-      submissionState.mainFileRelativePath === null ||
-      resolved.identity === null
+      effectiveSelection.length === 0 ||
+      prepareBlocker !== null
     ) {
       setPrepared({ status: "idle", context: null, error: null })
       return
     }
 
-    // Retry increments only exist to re-run this effect after transient read errors.
     void prepareAttempt
-    const identity = resolved.identity
     const abort = new AbortController()
     setPrepared({ status: "loading", context: null, error: null })
-    workflowClient
-      .run(
-        "analysis.readFolderFile",
-        {
-          folderPath: activeSurface.path,
-          relativePath: submissionState.mainFileRelativePath,
-        },
-        { signal: abort.signal },
-      )
-      .then((result) => {
+
+    const folderPath = activeSurface.path
+    const selectedPaths = [...effectiveSelection].sort()
+    const pendingSourceKey = JSON.stringify([
+      "submission",
+      folderPath,
+      selectedPaths,
+    ])
+
+    Promise.all(
+      effectiveSelection.map((relativePath) =>
+        workflowClient
+          .run(
+            "analysis.readFolderFile",
+            { folderPath, relativePath },
+            { signal: abort.signal },
+          )
+          .then((result) => {
+            const decoded = decodeSubmissionFileBytes(result)
+            return {
+              relativePath: result.relativePath,
+              bytes: decoded.bytes,
+              decodedText: decoded.decodedText,
+            }
+          }),
+      ),
+    )
+      .then((files) => {
         if (abort.signal.aborted) return
-        const decoded = decodeSubmissionFileBytes(result)
-        const excerpts = buildSubmissionExcerpts(
-          result.relativePath,
-          decoded.decodedText,
+        const contentScopeId = buildSubmissionFolderContentScopeId(files)
+        const excerpts = files.flatMap((file) =>
+          buildSubmissionExcerpts(file.relativePath, file.decodedText),
         )
-        const personDb = buildSubmissionPersonDbSnapshot(identity)
-        const roster =
-          identity.kind === "roster-member" && courseRoster !== null
-            ? selectedMemberRoster(courseRoster, identity.member)
-            : null
-        const localIdentityContext = buildExaminationLocalIdentityContext({
-          personDb,
-          roster,
-        })
+        const excerptFileSources: Record<string, string> = {}
+        for (const file of files) {
+          excerptFileSources[file.relativePath] = file.decodedText
+        }
+        const totalChars = files.reduce(
+          (total, file) => total + file.decodedText.length,
+          0,
+        )
+        const totalBytes = files.reduce(
+          (total, file) => total + file.bytes.byteLength,
+          0,
+        )
+        const subtitle = `${files.length} file${
+          files.length === 1 ? "" : "s"
+        } · ${formatBytes(totalBytes)} · ~${formatTokenEstimate(totalChars)} tokens`
         setPrepared({
           status: "loaded",
           error: null,
           context: {
-            pendingSourceKey: `submission:${activeSurface.path}\u001f${result.relativePath}`,
-            personId: personDb.persons[0]?.id ?? "",
-            studentName: personDb.persons[0]?.canonicalName ?? "",
-            studentEmail: personDb.persons[0]?.canonicalEmail ?? "",
-            contentScopeId: buildSubmissionContentScopeId(decoded.bytes),
+            pendingSourceKey,
+            personId: SUBMISSION_FOLDER_PERSON_ID,
+            displayTitle: folderBasename(folderPath),
+            displaySubtitle: subtitle,
+            contentScopeId,
             localIdentityContext,
             excerpts,
-            excerptFileSources: {
-              [result.relativePath]: decoded.decodedText,
-            },
+            excerptFileSources,
           },
         })
       })
@@ -319,13 +451,14 @@ export function SubmissionAnalysisTab() {
           error: getErrorMessage(error),
         })
       })
+
     return () => abort.abort()
   }, [
     activeSurface,
-    courseRoster,
+    effectiveSelection,
+    localIdentityContext,
     prepareAttempt,
-    resolved.identity,
-    submissionState.mainFileRelativePath,
+    prepareBlocker,
     workflowClient,
   ])
 
@@ -333,148 +466,113 @@ export function SubmissionAnalysisTab() {
     return null
   }
 
-  const updateSubmissionState = (patch: Partial<SubmissionSurfaceState>) => {
-    setSubmissionSurfaceState(recent, {
-      ...submissionState,
-      ...patch,
-    })
+  const updateIncludedFiles = (next: string[] | null) => {
+    setSubmissionSurfaceState(recent, { includedFiles: next })
     void saveAppSettings()
   }
 
-  const updateOneOffIdentity = (
-    patch: Partial<{ name: string; email: string }>,
-  ) => {
-    const current =
-      submissionState.studentIdentity?.kind === "one-off"
-        ? submissionState.studentIdentity
-        : { kind: "one-off" as const, name: "", email: "" }
-    updateSubmissionState({
-      studentIdentity: {
-        ...current,
-        ...patch,
-      },
-    })
+  const handleToggleFile = (relativePath: string) => {
+    if (selectedSet.has(relativePath)) {
+      const next = effectiveSelection.filter((path) => path !== relativePath)
+      updateIncludedFiles(next)
+    } else {
+      const next = [...effectiveSelection, relativePath]
+      updateIncludedFiles(next)
+    }
   }
 
+  const handleToggleMaster = () => {
+    if (selectedSet.size === 0) {
+      updateIncludedFiles(null)
+    } else {
+      updateIncludedFiles([])
+    }
+  }
+
+  const masterState: boolean | "indeterminate" =
+    eligibleFiles.length === 0
+      ? false
+      : selectedSet.size === 0
+        ? false
+        : selectedSet.size === eligibleFiles.length
+          ? true
+          : "indeterminate"
+
+  const summaryEstimate =
+    selectedSet.size === 0
+      ? "Nothing selected"
+      : `${selectedSet.size} file${
+          selectedSet.size === 1 ? "" : "s"
+        } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
+          selectedTotalBytes,
+        )} tokens`
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-6">
       <div className="grid gap-4 rounded border p-4">
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold">Submission</h2>
           <p className="text-sm text-muted-foreground">{activeSurface.path}</p>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-1">
-            <Label htmlFor="submission-main-file">Main file</Label>
-            <Select
-              value={submissionState.mainFileRelativePath ?? NO_FILE_VALUE}
-              onValueChange={(value) =>
-                updateSubmissionState({
-                  mainFileRelativePath: value === NO_FILE_VALUE ? null : value,
-                })
-              }
-              disabled={fileList.status !== "loaded"}
-            >
-              <SelectTrigger id="submission-main-file">
-                <SelectValue placeholder="Choose a file" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_FILE_VALUE}>Choose a file</SelectItem>
-                {fileList.files.map((file) => (
-                  <SelectItem key={file.relativePath} value={file.relativePath}>
-                    {file.relativePath}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {fileList.status === "loading" ? (
-              <p className="text-xs text-muted-foreground">Loading files...</p>
-            ) : fileList.status === "error" ? (
-              <p className="text-xs text-destructive">{fileList.error}</p>
-            ) : null}
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label className="flex items-center gap-2">
+              <Checkbox
+                checked={masterState}
+                onCheckedChange={handleToggleMaster}
+                disabled={
+                  fileList.status !== "loaded" || eligibleFiles.length === 0
+                }
+              />
+              <span>Files</span>
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              {summaryEstimate}
+            </span>
           </div>
 
-          {attachedCourseId !== undefined ? (
-            <div className="grid gap-1">
-              <Label htmlFor="submission-roster-member">Student</Label>
-              <Select
-                value={
-                  submissionState.studentIdentity?.kind === "roster-member"
-                    ? submissionState.studentIdentity.memberId
-                    : NO_MEMBER_VALUE
-                }
-                onValueChange={(value) =>
-                  updateSubmissionState({
-                    studentIdentity:
-                      value === NO_MEMBER_VALUE
-                        ? null
-                        : { kind: "roster-member", memberId: value },
-                  })
-                }
-                disabled={courseRoster === null}
-              >
-                <SelectTrigger id="submission-roster-member">
-                  <SelectValue placeholder="Choose a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_MEMBER_VALUE}>
-                    Choose a student
-                  </SelectItem>
-                  {(courseRoster === null
-                    ? []
-                    : allRosterMembers(courseRoster)
-                  ).map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {resolved.message !== null ? (
-                <p className="text-xs text-muted-foreground">
-                  {resolved.message}
-                </p>
-              ) : null}
-            </div>
+          {fileList.status === "loading" ? (
+            <p className="text-xs text-muted-foreground">Loading files...</p>
+          ) : fileList.status === "error" ? (
+            <p className="text-xs text-destructive">{fileList.error}</p>
+          ) : fileList.files.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No files matched the configured extensions.
+            </p>
           ) : (
-            <div className="grid gap-2">
-              <div className="grid gap-1">
-                <Label htmlFor="submission-student-name">Student name</Label>
-                <Input
-                  id="submission-student-name"
-                  value={
-                    submissionState.studentIdentity?.kind === "one-off"
-                      ? submissionState.studentIdentity.name
-                      : ""
-                  }
-                  onChange={(event) =>
-                    updateOneOffIdentity({ name: event.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="submission-student-email">Student email</Label>
-                <Input
-                  id="submission-student-email"
-                  type="email"
-                  value={
-                    submissionState.studentIdentity?.kind === "one-off"
-                      ? submissionState.studentIdentity.email
-                      : ""
-                  }
-                  onChange={(event) =>
-                    updateOneOffIdentity({ email: event.target.value })
-                  }
-                />
-                {resolved.message !== null ? (
-                  <p className="text-xs text-muted-foreground">
-                    {resolved.message}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+            <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded border bg-muted/20 p-2">
+              {fileList.files.map((file) => {
+                const eligible = isEligible(file)
+                const checked = eligible && selectedSet.has(file.relativePath)
+                return (
+                  <li
+                    key={file.relativePath}
+                    className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-muted/40"
+                  >
+                    <Label className="flex flex-1 items-center gap-2 truncate text-xs font-normal">
+                      <Checkbox
+                        checked={checked}
+                        disabled={!eligible}
+                        onCheckedChange={() =>
+                          handleToggleFile(file.relativePath)
+                        }
+                      />
+                      <span className="truncate">{file.relativePath}</span>
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      {eligible
+                        ? formatBytes(file.size)
+                        : `${formatBytes(file.size)} · too large`}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
           )}
+          {prepareBlocker !== null ? (
+            <p className="text-xs text-destructive">{prepareBlocker}</p>
+          ) : null}
         </div>
 
         {prepared.status === "loading" ? (
@@ -484,20 +582,25 @@ export function SubmissionAnalysisTab() {
         ) : prepared.status === "error" ? (
           <div className="flex items-center gap-2">
             <p className="text-xs text-destructive">{prepared.error}</p>
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
+              className="text-xs underline"
               onClick={() => setPrepareAttempt((attempt) => attempt + 1)}
             >
               Retry
-            </Button>
+            </button>
           </div>
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0">
         {prepared.context === null ? (
-          <EmptyState message="Choose a main file and student identity to open examination generation." />
+          <EmptyState
+            message={
+              prepareBlocker ??
+              "Select at least one file to open examination generation."
+            }
+          />
         ) : (
           <ExaminationTab submissionContext={prepared.context} />
         )}

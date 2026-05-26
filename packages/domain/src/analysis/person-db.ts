@@ -1,5 +1,3 @@
-import { sha256 } from "@noble/hashes/sha2.js"
-import { bytesToHex } from "@noble/hashes/utils.js"
 import { mergePersonIdentities } from "./person-merge.js"
 import type {
   BlameLine,
@@ -8,7 +6,6 @@ import type {
   PersonDbDelta,
   PersonDbSnapshot,
   PersonRecord,
-  ResolvedSubmissionIdentity,
 } from "./types.js"
 
 // ---------------------------------------------------------------------------
@@ -25,12 +22,6 @@ function normalizeEmailForDb(email: string): string {
 
 export function buildPersonDbIdentityKey(name: string, email: string): string {
   return `${normalizeEmailForDb(email)}\0${normalizeNameForDb(name)}`
-}
-
-const textEncoder = new TextEncoder()
-
-function sha256Hex(value: string): string {
-  return bytesToHex(sha256(textEncoder.encode(value)))
 }
 
 // ---------------------------------------------------------------------------
@@ -81,39 +72,6 @@ export function lookupPerson(
   const personId = snapshot.identityIndex.get(key)
   if (personId === undefined) return undefined
   return snapshot.persons.find((p) => p.id === personId)
-}
-
-export function buildSubmissionPersonDbSnapshot(
-  identity: ResolvedSubmissionIdentity,
-): PersonDbSnapshot {
-  const canonicalName =
-    identity.kind === "roster-member"
-      ? identity.member.name
-      : identity.trimmedName
-  const canonicalEmail =
-    identity.kind === "roster-member"
-      ? identity.member.email
-      : identity.trimmedLowercaseEmail
-  const preimage =
-    identity.kind === "roster-member"
-      ? `submission-roster\u001f${identity.courseId}\u001f${identity.member.id}`
-      : `submission-one-off\u001f${identity.trimmedLowercaseEmail}\u001f${identity.trimmedName}`
-  const id = sha256Hex(preimage)
-  const identityIndex = new Map<string, string>([
-    [buildPersonDbIdentityKey(canonicalName, canonicalEmail), id],
-  ])
-  return {
-    persons: [
-      {
-        id,
-        canonicalName,
-        canonicalEmail,
-        aliases: [],
-        commitCount: 0,
-      },
-    ],
-    identityIndex,
-  }
 }
 
 // ---------------------------------------------------------------------------

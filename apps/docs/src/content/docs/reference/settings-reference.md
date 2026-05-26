@@ -16,7 +16,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized, deduplicated, newest first, capped at 8 |
 | `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission-folder paths, normalized, deduplicated by path and course attachment, newest first, capped at 8 |
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared persisted Analysis-tab inputs for folder analysis surfaces |
-| `submissionSurfaceStates` | `Record<string, { mainFileRelativePath: string \| null; studentIdentity: SubmissionStudentIdentity \| null }>` | Per-submission folder UI state for the selected main file and submitted student identity |
+| `submissionSurfaceStates` | `Record<string, { includedFiles: string[] \| null }>` | Per-submission folder UI state for selected files. `null` means all eligible files; `[]` means nothing selected. |
 | `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
 | `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |

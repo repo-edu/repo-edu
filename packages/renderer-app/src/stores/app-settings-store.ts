@@ -131,29 +131,20 @@ function submissionSurfaceStatesEqual(
     const leftState = left[key]
     const rightState = right[key]
     if (leftState === undefined || rightState === undefined) return false
-    return (
-      leftState.mainFileRelativePath === rightState.mainFileRelativePath &&
-      submissionStudentIdentityEqual(
-        leftState.studentIdentity,
-        rightState.studentIdentity,
-      )
-    )
+    return includedFilesEqual(leftState.includedFiles, rightState.includedFiles)
   })
 }
 
-function submissionStudentIdentityEqual(
-  left: SubmissionSurfaceState["studentIdentity"],
-  right: SubmissionSurfaceState["studentIdentity"],
+function includedFilesEqual(
+  left: SubmissionSurfaceState["includedFiles"],
+  right: SubmissionSurfaceState["includedFiles"],
 ): boolean {
   if (left === null || right === null) return left === right
-  if (left.kind === "roster-member") {
-    return right.kind === "roster-member" && left.memberId === right.memberId
+  if (left.length !== right.length) return false
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false
   }
-  return (
-    right.kind === "one-off" &&
-    left.name === right.name &&
-    left.email === right.email
-  )
+  return true
 }
 
 export const useAppSettingsStore = create<

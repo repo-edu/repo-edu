@@ -1,7 +1,7 @@
 import {
   type ExaminationCodeExcerpt,
-  SUBMISSION_MAIN_FILE_MAX_BYTES,
-  SUBMISSION_MAIN_FILE_MAX_LINES,
+  SUBMISSION_FILE_MAX_BYTES,
+  SUBMISSION_FILE_MAX_LINES,
 } from "@repo-edu/application-contract"
 import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 
@@ -119,23 +119,29 @@ export function decodeSubmissionFileBytes(input: {
       "Submission file byte length did not match the workflow result.",
     )
   }
-  if (bytes.byteLength > SUBMISSION_MAIN_FILE_MAX_BYTES) {
-    throw new Error("Submission main file must be 64 KiB or smaller.")
+  if (bytes.byteLength > SUBMISSION_FILE_MAX_BYTES) {
+    throw new Error(
+      `Submission file exceeds the ${Math.round(
+        SUBMISSION_FILE_MAX_BYTES / 1024,
+      )} KiB sanity cap.`,
+    )
   }
   const decodedText = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
-  if (decodedText.split("\n").length > SUBMISSION_MAIN_FILE_MAX_LINES) {
-    throw new Error("Submission main file must be 400 lines or fewer.")
+  if (decodedText.split("\n").length > SUBMISSION_FILE_MAX_LINES) {
+    throw new Error(
+      `Submission file exceeds the ${SUBMISSION_FILE_MAX_LINES}-line sanity cap.`,
+    )
   }
   return { bytes, decodedText }
 }
 
 export function buildSubmissionExcerpts(
-  mainFilePath: string,
+  relativePath: string,
   decodedText: string,
 ): ExaminationCodeExcerpt[] {
   return [
     {
-      filePath: mainFilePath,
+      filePath: relativePath,
       startLine: 1,
       lines: decodedText.split("\n"),
     },

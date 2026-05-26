@@ -540,7 +540,7 @@ export function OpenRepositoriesForm() {
 
       <SourceActionCard
         title="Open a student submission folder"
-        description="Open one student's submitted folder and choose a main file for examination questions. No course is created and you enter the student identity locally."
+        description="Open one submitted folder and choose the files for examination questions. No course is created and no student details are stored."
         selected={false}
         onClick={() => void handleSelectOrCommit("submission")}
       />

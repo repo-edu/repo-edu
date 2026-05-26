@@ -2,8 +2,6 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   applyBlameToPersonDb,
-  buildPersonDbIdentityKey,
-  buildSubmissionPersonDbSnapshot,
   clonePersonDbSnapshot,
   createPersonDbFromLog,
   lookupPerson,
@@ -209,59 +207,5 @@ describe("clonePersonDbSnapshot", () => {
       commitCount: 0,
     })
     assert.notEqual(snapshot.persons.length, clone.persons.length)
-  })
-})
-
-describe("buildSubmissionPersonDbSnapshot", () => {
-  it("builds an opaque one-off identity from trimmed inputs", () => {
-    const snapshot = buildSubmissionPersonDbSnapshot({
-      kind: "one-off",
-      trimmedName: "Ada Lovelace",
-      trimmedLowercaseEmail: "ada@example.edu",
-    })
-
-    assert.equal(snapshot.persons.length, 1)
-    assert.equal(snapshot.persons[0].canonicalName, "Ada Lovelace")
-    assert.equal(snapshot.persons[0].canonicalEmail, "ada@example.edu")
-    assert.equal(snapshot.persons[0].commitCount, 0)
-    assert.match(snapshot.persons[0].id, /^[0-9a-f]{64}$/)
-    assert.equal(snapshot.persons[0].id.includes("ada"), false)
-    assert.equal(
-      snapshot.identityIndex.get(
-        buildPersonDbIdentityKey("Ada Lovelace", "ada@example.edu"),
-      ),
-      snapshot.persons[0].id,
-    )
-  })
-
-  it("scopes roster identities by course and member id", () => {
-    const member = {
-      id: "student-1",
-      name: "Ada Lovelace",
-      email: "ada@example.edu",
-      studentNumber: null,
-      gitUsername: null,
-      gitUsernameStatus: "unknown" as const,
-      status: "active" as const,
-      lmsStatus: null,
-      lmsUserId: null,
-      enrollmentType: "student" as const,
-      enrollmentDisplay: null,
-      department: null,
-      institution: null,
-      source: "lms",
-    }
-    const first = buildSubmissionPersonDbSnapshot({
-      kind: "roster-member",
-      courseId: "course-a",
-      member,
-    })
-    const second = buildSubmissionPersonDbSnapshot({
-      kind: "roster-member",
-      courseId: "course-b",
-      member,
-    })
-
-    assert.notEqual(first.persons[0].id, second.persons[0].id)
   })
 })

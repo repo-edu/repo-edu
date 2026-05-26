@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { SUBMISSION_FILE_MAX_LINES } from "@repo-edu/application-contract"
 import {
   buildSubmissionExcerpts,
   decodeSubmissionFileBytes,
@@ -45,9 +46,10 @@ describe("submission excerpt helpers", () => {
   })
 
   it("rejects files over the line budget", () => {
-    const text = Array.from({ length: 401 }, (_, index) => String(index)).join(
-      "\n",
-    )
+    const text = Array.from(
+      { length: SUBMISSION_FILE_MAX_LINES + 1 },
+      (_, index) => String(index),
+    ).join("\n")
 
     assert.throws(() =>
       decodeSubmissionFileBytes({

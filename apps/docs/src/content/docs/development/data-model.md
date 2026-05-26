@@ -30,7 +30,7 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized and capped at 8 |
 | `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission folders, normalized and capped at 8 |
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared Analysis-tab inputs for folder analysis surfaces |
-| `submissionSurfaceStates` | `Record<string, SubmissionSurfaceState>` | Per-submission folder UI state for the selected main file and submitted student identity |
+| `submissionSurfaceStates` | `Record<string, SubmissionSurfaceState>` | Per-submission folder UI state for selected files |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
 | `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |

@@ -146,14 +146,6 @@ export type PersonDbDelta = {
   }[]
 }
 
-export type ResolvedSubmissionIdentity =
-  | { kind: "roster-member"; courseId: string; member: RosterMember }
-  | {
-      kind: "one-off"
-      trimmedName: string
-      trimmedLowercaseEmail: string
-    }
-
 // ---------------------------------------------------------------------------
 // Identity bridge (git authors ↔ roster members)
 // ---------------------------------------------------------------------------

@@ -502,8 +502,20 @@ export type AnalysisReadFolderFileResult = {
   base64: string
 }
 
-export const SUBMISSION_MAIN_FILE_MAX_BYTES = 64 * 1024
-export const SUBMISSION_MAIN_FILE_MAX_LINES = 400
+// Per-file sanity guard for submission inputs. Raised well above realistic
+// source-file sizes so the guard only fires on accidental blobs (vendored
+// libraries, build artefacts) rather than ordinary student code.
+export const SUBMISSION_FILE_MAX_BYTES = 1 * 1024 * 1024
+export const SUBMISSION_FILE_MAX_LINES = 20_000
+
+/**
+ * Constant personId used for folder-submission examinations. Submission
+ * archives are partitioned by the file-set content hash (contentScopeId),
+ * not by any per-student identity, so all submission entries share this
+ * placeholder. The literal is deliberately not a 64-char hex digest so it
+ * cannot collide with blame-derived personIds, which are sha256 hex.
+ */
+export const SUBMISSION_FOLDER_PERSON_ID = "submission"
 
 export type AnalysisRunSource =
   | { kind: "course"; rosterContext?: AnalysisRosterContext }
@@ -777,6 +789,32 @@ export function isExaminationContentScopeIdShape(value: string): boolean {
 
 export function buildSubmissionContentScopeId(bytes: Uint8Array): string {
   return bytesToHex(sha256(bytes))
+}
+
+/**
+ * Build a stable content-scope id for a *set* of submission files. The
+ * id is deterministic in the file set: sorting by relative path makes the
+ * order of input independent, and hashing each file's bytes (rather than
+ * concatenating raw bytes) keeps the inner work cheap for large folders.
+ *
+ * Adding, removing, or modifying any file in the set yields a different
+ * id, which is how examination archive entries stay partitioned by which
+ * files were actually examined.
+ */
+export function buildSubmissionFolderContentScopeId(
+  files: readonly { relativePath: string; bytes: Uint8Array }[],
+): string {
+  const parts = [...files]
+    .sort((a, b) =>
+      a.relativePath < b.relativePath
+        ? -1
+        : a.relativePath > b.relativePath
+          ? 1
+          : 0,
+    )
+    .map((file) => [file.relativePath, bytesToHex(sha256(file.bytes))])
+  const encoder = new TextEncoder()
+  return bytesToHex(sha256(encoder.encode(JSON.stringify(parts))))
 }
 
 export function validateExaminationArchiveKey(

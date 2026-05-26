@@ -3,7 +3,7 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { SUBMISSION_MAIN_FILE_MAX_BYTES } from "@repo-edu/application-contract"
+import { SUBMISSION_FILE_MAX_BYTES } from "@repo-edu/application-contract"
 import {
   DEFAULT_EXTENSIONS,
   normalizeExtension,
@@ -205,7 +205,7 @@ export function createSubmissionFolderHandlers(
       const result = await ports.fileSystem.readFileInsideRoot({
         rootPath: folderPath,
         relativePath,
-        maxBytes: SUBMISSION_MAIN_FILE_MAX_BYTES,
+        maxBytes: SUBMISSION_FILE_MAX_BYTES,
         signal,
       })
       throwIfAborted(signal)

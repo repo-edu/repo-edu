@@ -195,13 +195,15 @@ export type SubmissionFolderRecent = {
   courseId?: string
 }
 
-export type SubmissionStudentIdentity =
-  | { kind: "roster-member"; memberId: string }
-  | { kind: "one-off"; name: string; email: string }
-
 export type SubmissionSurfaceState = {
-  mainFileRelativePath: string | null
-  studentIdentity: SubmissionStudentIdentity | null
+  /**
+   * Relative paths of files included in question generation. `null` means
+   * "default", which is interpreted by the UI as "all files matching the
+   * configured extensions". An empty array means "explicitly nothing
+   * selected", and disables question generation until the user picks at
+   * least one file.
+   */
+  includedFiles: string[] | null
 }
 
 function submissionRecentKey(input: {
@@ -346,24 +348,7 @@ export const persistedAppSettingsSchema = z
         z.string(),
         z
           .object({
-            mainFileRelativePath: z.string().nullable(),
-            studentIdentity: z
-              .discriminatedUnion("kind", [
-                z
-                  .object({
-                    kind: z.literal("roster-member"),
-                    memberId: z.string(),
-                  })
-                  .strict(),
-                z
-                  .object({
-                    kind: z.literal("one-off"),
-                    name: z.string(),
-                    email: z.string(),
-                  })
-                  .strict(),
-              ])
-              .nullable(),
+            includedFiles: z.array(z.string()).nullable(),
           })
           .strict(),
       )
