@@ -1,35 +1,14 @@
-import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import {
   type AnalysisInputs,
   resolveAnalysisConfig,
 } from "@repo-edu/domain/types"
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import {
-  Button,
-  Checkbox,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Input,
-  Label,
-  Separator,
-  Text,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo-edu/ui"
-import {
-  ArrowDownAZ,
-  ChevronDown,
-  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
-  ChevronUp,
-  FileCode,
   FolderOpen,
-  FolderTree,
-  List,
   Play,
   RefreshCw,
   Square,
@@ -44,155 +23,31 @@ import {
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { debounceAsync } from "../../../utils/debounce.js"
-import { ExtensionTagInput } from "../../settings/ExtensionTagInput.js"
 import {
-  buildFileTree,
-  collectFolderPaths,
-  FileTreeProvider,
-  FolderNode,
-} from "./analysis-tree.js"
+  type AnalysisSidebarFileSortMode,
+  AnalysisSidebarFilesSection,
+  type AnalysisSidebarFileViewMode,
+} from "./AnalysisSidebarFilesSection.js"
+import { AnalysisSidebarInputSections } from "./AnalysisSidebarInputSections.js"
+import {
+  ANALYSIS_SIDEBAR_SECTION_KEYS,
+  type AnalysisSidebarSectionKey,
+  allAnalysisSidebarSectionsOpen,
+  CollapsibleSection,
+  ProgressDisplay,
+} from "./AnalysisSidebarSection.js"
+import { buildFileTree, collectFolderPaths } from "./analysis-tree.js"
 import {
   RepositoriesSection,
   RepositoriesToolbar,
 } from "./RepositoriesSection.js"
 import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
-import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 import { useRepoTree } from "./use-repo-tree.js"
-
-// ---------------------------------------------------------------------------
-// Section keys
-// ---------------------------------------------------------------------------
-
-const SECTION_KEYS = [
-  "repositories",
-  "files",
-  "fileSelection",
-  "dateRange",
-  "blame",
-  "options",
-  "exclusions",
-] as const
-
-type SectionKey = (typeof SECTION_KEYS)[number]
-
-function allSectionsOpen(): Record<SectionKey, boolean> {
-  return Object.fromEntries(SECTION_KEYS.map((k) => [k, true])) as Record<
-    SectionKey,
-    boolean
-  >
-}
 
 function serializeSidebarSettings(
   settings: PersistedAnalysisSidebarSettings | null,
 ): string {
   return JSON.stringify(settings)
-}
-
-// ---------------------------------------------------------------------------
-// Collapsible section
-// ---------------------------------------------------------------------------
-
-function CollapsibleSection({
-  title,
-  sectionKey,
-  open,
-  onOpenChange,
-  toolbar,
-  leading,
-  badge,
-  showSeparator,
-  children,
-}: {
-  title: string
-  sectionKey: SectionKey
-  open: boolean
-  onOpenChange: (key: SectionKey, open: boolean) => void
-  toolbar?: React.ReactNode
-  leading?: React.ReactNode
-  badge?: React.ReactNode
-  showSeparator?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <>
-      {showSeparator && <Separator className="my-1" />}
-      <Collapsible
-        open={open}
-        onOpenChange={(v) => onOpenChange(sectionKey, v)}
-      >
-        <div className="flex items-center py-1">
-          <CollapsibleTrigger>
-            {open ? (
-              <ChevronDown className="size-3.5" />
-            ) : (
-              <ChevronRight className="size-3.5" />
-            )}
-          </CollapsibleTrigger>
-          {leading}
-          <CollapsibleTrigger className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-            {title}
-          </CollapsibleTrigger>
-          {badge}
-          <div className="flex-1" />
-          {open && toolbar && (
-            <div className="flex items-center gap-1">{toolbar}</div>
-          )}
-        </div>
-        <CollapsibleContent className="space-y-1.5 pt-1">
-          {children}
-        </CollapsibleContent>
-      </Collapsible>
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Progress display
-// ---------------------------------------------------------------------------
-
-function ProgressDisplay({ progress }: { progress: AnalysisProgress }) {
-  const percent =
-    progress.totalFiles > 0
-      ? Math.round((progress.processedFiles / progress.totalFiles) * 100)
-      : 0
-  const elapsedSeconds = useElapsedSeconds(true)
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{progress.label}</span>
-        <span className="flex items-center gap-2 tabular-nums">
-          {elapsedSeconds !== null && <span>{elapsedSeconds}s</span>}
-          <span>
-            {progress.processedFiles}/{progress.totalFiles}
-          </span>
-        </span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      {progress.currentFile && (
-        <Text className="text-xs text-muted-foreground truncate">
-          {progress.currentFile}
-        </Text>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Copy-move detection level descriptions
-// ---------------------------------------------------------------------------
-
-const COPY_MOVE_LABELS: Record<number, string> = {
-  0: "None",
-  1: "Within file (-M)",
-  2: "Across files (-C)",
-  3: "Across commits (-C -C)",
-  4: "All commits (-C -C -C)",
 }
 
 // ---------------------------------------------------------------------------
@@ -252,20 +107,26 @@ export function AnalysisSidebar() {
   )
 
   // Section open/close state
-  const [sections, setSections] =
-    useState<Record<SectionKey, boolean>>(allSectionsOpen)
-  const handleSectionChange = useCallback((key: SectionKey, open: boolean) => {
-    setSections((prev) => ({ ...prev, [key]: open }))
-  }, [])
+  const [sections, setSections] = useState<
+    Record<AnalysisSidebarSectionKey, boolean>
+  >(allAnalysisSidebarSectionsOpen)
+  const handleSectionChange = useCallback(
+    (key: AnalysisSidebarSectionKey, open: boolean) => {
+      setSections((prev) => ({ ...prev, [key]: open }))
+    },
+    [],
+  )
 
-  const expandAll = useCallback(() => setSections(allSectionsOpen()), [])
+  const expandAll = useCallback(
+    () => setSections(allAnalysisSidebarSectionsOpen()),
+    [],
+  )
   const collapseAll = useCallback(
     () =>
       setSections(
-        Object.fromEntries(SECTION_KEYS.map((k) => [k, false])) as Record<
-          SectionKey,
-          boolean
-        >,
+        Object.fromEntries(
+          ANALYSIS_SIDEBAR_SECTION_KEYS.map((key) => [key, false]),
+        ) as Record<AnalysisSidebarSectionKey, boolean>,
       ),
     [],
   )
@@ -274,10 +135,10 @@ export function AnalysisSidebar() {
   const [repoViewMode, setRepoViewMode] = useState<"list" | "tree">("tree")
 
   // File list view state
-  const [fileViewMode, setFileViewMode] = useState<"list" | "tree">("list")
-  const [fileSortMode, setFileSortMode] = useState<
-    "lines-desc" | "lines-asc" | "alpha"
-  >("lines-desc")
+  const [fileViewMode, setFileViewMode] =
+    useState<AnalysisSidebarFileViewMode>("list")
+  const [fileSortMode, setFileSortMode] =
+    useState<AnalysisSidebarFileSortMode>("lines-desc")
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set())
 
   // Hydrate from persisted sidebar settings (once, after app settings load)
@@ -291,7 +152,7 @@ export function AnalysisSidebar() {
     lastPersistedSnapshotRef.current = serializeSidebarSettings(analysisSidebar)
     hydrateFromPersistedSettings(analysisSidebar)
     setSections({
-      ...allSectionsOpen(),
+      ...allAnalysisSidebarSectionsOpen(),
       ...analysisSidebar.sectionState,
       repositories: true,
     })
@@ -507,7 +368,6 @@ export function AnalysisSidebar() {
   const isRunning = workflowStatus === "running"
   const isDiscovering = discoveryStatus === "loading"
   const hasDiscoveredRepos = discoveredRepos.length > 0
-  const blameSkip = config.blameSkip ?? false
 
   const blurOnEnter = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -657,497 +517,42 @@ export function AnalysisSidebar() {
         />
       </CollapsibleSection>
 
-      {/* B. Files */}
-      <CollapsibleSection
-        title="Files"
-        sectionKey="files"
+      <AnalysisSidebarFilesSection
         open={sections.files}
         onOpenChange={handleSectionChange}
-        showSeparator
-        badge={
-          <div className="ml-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>
-              {effectiveFileSelection.size === sortedFilePaths.length
-                ? sortedFilePaths.length
-                : `${effectiveFileSelection.size}/${sortedFilePaths.length}`}
-            </span>
-            <span>max</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  size="xs"
-                  className="w-10"
-                  value={config.nFiles ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value.trim()
-                    if (raw === "") {
-                      setConfigAndRerun({ nFiles: undefined })
-                      return
-                    }
-                    const parsed = Number(raw)
-                    if (!Number.isFinite(parsed)) return
-                    const v = Math.max(1, Math.trunc(parsed))
-                    setConfigAndRerun({ nFiles: v })
-                  }}
-                  onKeyDown={blurOnEnter}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="bottom">N files</TooltipContent>
-            </Tooltip>
-          </div>
-        }
-        toolbar={
-          sortedFilePaths.length > 0 && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={fileViewMode === "list" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="size-6 shrink-0"
-                    onClick={() => setFileViewMode("list")}
-                  >
-                    <List className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">List view</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={fileViewMode === "tree" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="size-6 shrink-0"
-                    onClick={() => setFileViewMode("tree")}
-                  >
-                    <FolderTree className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Tree view</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 shrink-0"
-                    disabled={fileViewMode !== "tree"}
-                    onClick={expandAllFolders}
-                  >
-                    <ChevronsUpDown className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Expand all</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 shrink-0"
-                    disabled={fileViewMode !== "tree"}
-                    onClick={collapseAllFolders}
-                  >
-                    <ChevronsDownUp className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Collapse all</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 shrink-0"
-                    disabled={fileViewMode !== "list"}
-                    onClick={() =>
-                      setFileSortMode((prev) =>
-                        prev === "lines-desc"
-                          ? "lines-asc"
-                          : prev === "lines-asc"
-                            ? "alpha"
-                            : "lines-desc",
-                      )
-                    }
-                  >
-                    {fileSortMode === "lines-desc" ? (
-                      <ChevronDown className="size-3.5" />
-                    ) : fileSortMode === "lines-asc" ? (
-                      <ChevronUp className="size-3.5" />
-                    ) : (
-                      <ArrowDownAZ className="size-3.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {fileSortMode === "lines-desc"
-                    ? "Sort: lines (high to low)"
-                    : fileSortMode === "lines-asc"
-                      ? "Sort: lines (low to high)"
-                      : "Sort: alphabetical"}
-                </TooltipContent>
-              </Tooltip>
-            </>
-          )
-        }
-      >
-        {sortedFilePaths.length === 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {result
-              ? "No files in analysis result."
-              : "Run analysis to see files."}
-          </Text>
-        ) : (
-          <>
-            {/* File list */}
-            {fileViewMode === "list" ? (
-              <div className="flex flex-col gap-0.5">
-                {listFilePaths.map((path) => {
-                  const slashIdx = path.lastIndexOf("/")
-                  const dir = slashIdx >= 0 ? `${path.slice(0, slashIdx)}/` : ""
-                  const file = slashIdx >= 0 ? path.slice(slashIdx + 1) : path
-                  return (
-                    <button
-                      key={path}
-                      type="button"
-                      className={`flex min-w-0 items-center gap-1.5 rounded px-2 py-1 text-xs text-left text-foreground transition-colors ${
-                        activeView === "blame" && focusedFilePath === path
-                          ? "bg-selection font-medium"
-                          : "hover:bg-accent"
-                      }`}
-                      onClick={() => handleFileClick(path)}
-                      title={path}
-                    >
-                      <FileCode className="size-3 shrink-0 text-muted-foreground" />
-                      <span className="flex min-w-0">
-                        <span className="min-w-0 truncate text-muted-foreground">
-                          {dir}
-                        </span>
-                        <span className="min-w-0 truncate font-medium">
-                          {file}
-                        </span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <FileTreeProvider
-                value={{
-                  openFolders,
-                  toggleFolderOpen,
-                  effectiveFileSelection,
-                  focusedFilePath,
-                  highlightFocused: activeView === "blame",
-                  onFileClick: handleFileClick,
-                }}
-              >
-                <div className="flex flex-col gap-0.5">
-                  {fileTree.files.length > 0 ? (
-                    <FolderNode node={fileTree} />
-                  ) : (
-                    fileTree.children.map((child) => (
-                      <FolderNode key={child.path} node={child} />
-                    ))
-                  )}
-                </div>
-              </FileTreeProvider>
-            )}
-          </>
-        )}
-      </CollapsibleSection>
+        sortedFilePaths={sortedFilePaths}
+        effectiveFileSelection={effectiveFileSelection}
+        nFiles={config.nFiles}
+        setConfigAndRerun={setConfigAndRerun}
+        blurOnEnter={blurOnEnter}
+        fileViewMode={fileViewMode}
+        setFileViewMode={setFileViewMode}
+        fileSortMode={fileSortMode}
+        setFileSortMode={setFileSortMode}
+        expandAllFolders={expandAllFolders}
+        collapseAllFolders={collapseAllFolders}
+        hasResult={result !== null}
+        listFilePaths={listFilePaths}
+        activeView={activeView}
+        focusedFilePath={focusedFilePath}
+        handleFileClick={handleFileClick}
+        fileTree={fileTree}
+        openFolders={openFolders}
+        toggleFolderOpen={toggleFolderOpen}
+      />
 
-      {/* C. File Selection */}
-      <CollapsibleSection
-        title="File Selection"
-        sectionKey="fileSelection"
-        open={sections.fileSelection}
+      <AnalysisSidebarInputSections
+        sections={sections}
         onOpenChange={handleSectionChange}
-        showSeparator
-      >
-        <div className="space-y-1">
-          <Label className="text-xs">Subfolder</Label>
-          <Input
-            key={`subfolder-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="src/"
-            defaultValue={config.subfolder ?? ""}
-            onBlur={(e) =>
-              setConfigAndRerun({ subfolder: e.target.value || undefined })
-            }
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">File patterns</Label>
-          <Input
-            key={`include-files-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="*.ts"
-            defaultValue={config.includeFiles?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                includeFiles: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Extensions</Label>
-          <ExtensionTagInput
-            size="xs"
-            values={config.extensions ?? []}
-            onChange={(next) =>
-              setConfigAndRerun({
-                extensions: next.length === 0 ? undefined : next,
-              })
-            }
-            placeholder="ts, tsx, js"
-            ariaLabel="Extensions"
-          />
-        </div>
-      </CollapsibleSection>
-
-      {/* C. Date Range */}
-      <CollapsibleSection
-        title="Date Range"
-        sectionKey="dateRange"
-        open={sections.dateRange}
-        onOpenChange={handleSectionChange}
-        showSeparator
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs">Since</Label>
-            <Input
-              key={`since-${configInputResetKey}`}
-              type="text"
-              size="xs"
-              placeholder="YYYY-MM-DD"
-              defaultValue={config.since ?? ""}
-              onBlur={(e) =>
-                setConfigAndRerun({ since: e.target.value || undefined })
-              }
-              onKeyDown={blurOnEnter}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Until</Label>
-            <Input
-              key={`until-${configInputResetKey}`}
-              type="text"
-              size="xs"
-              placeholder="YYYY-MM-DD"
-              defaultValue={config.until ?? ""}
-              onBlur={(e) =>
-                setConfigAndRerun({ until: e.target.value || undefined })
-              }
-              onKeyDown={blurOnEnter}
-            />
-          </div>
-        </div>
-      </CollapsibleSection>
-
-      {/* D. Blame */}
-      <CollapsibleSection
-        title="Blame"
-        sectionKey="blame"
-        open={sections.blame}
-        onOpenChange={handleSectionChange}
-        showSeparator
-      >
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="blameSkip"
-            checked={blameSkip}
-            onCheckedChange={(checked) =>
-              setConfigAndRerun({ blameSkip: checked === true })
-            }
-          />
-          <Label htmlFor="blameSkip" className="text-xs">
-            Skip blame analysis
-          </Label>
-        </div>
-
-        {!blameSkip && (
-          <div className="space-y-2 pt-1">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs">Copy/Move</Label>
-                <Input
-                  type="number"
-                  size="xs"
-                  min={0}
-                  max={4}
-                  step={1}
-                  className="w-12"
-                  value={copyMoveDraft ?? String(blameConfig.copyMove ?? 1)}
-                  onChange={(e) => setCopyMoveDraft(e.target.value)}
-                  onBlur={commitCopyMoveDraft}
-                  onKeyDown={blurOnEnter}
-                />
-              </div>
-              <Text className="text-xs text-muted-foreground">
-                {COPY_MOVE_LABELS[blameConfig.copyMove ?? 1]}
-              </Text>
-            </div>
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* E. Options */}
-      <CollapsibleSection
-        title="Options"
-        sectionKey="options"
-        open={sections.options}
-        onOpenChange={handleSectionChange}
-        showSeparator
-      >
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="whitespace"
-            checked={config.whitespace ?? false}
-            onCheckedChange={(checked) =>
-              setConfigAndRerun({ whitespace: checked === true })
-            }
-          />
-          <Label htmlFor="whitespace" className="text-xs">
-            Include whitespace changes
-          </Label>
-        </div>
-      </CollapsibleSection>
-
-      {/* F. Exclusions */}
-      <CollapsibleSection
-        title="Exclusions"
-        sectionKey="exclusions"
-        open={sections.exclusions}
-        onOpenChange={handleSectionChange}
-        showSeparator
-      >
-        <div className="space-y-1">
-          <Label className="text-xs">Files</Label>
-          <Input
-            key={`exclude-files-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="*.test.ts"
-            defaultValue={config.excludeFiles?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                excludeFiles: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Authors</Label>
-          <Input
-            key={`exclude-authors-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="bot*"
-            defaultValue={config.excludeAuthors?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                excludeAuthors: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Emails</Label>
-          <Input
-            key={`exclude-emails-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="noreply@*"
-            defaultValue={config.excludeEmails?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                excludeEmails: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Revisions</Label>
-          <Input
-            key={`exclude-revisions-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="abc1234"
-            defaultValue={config.excludeRevisions?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                excludeRevisions: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Messages</Label>
-          <Input
-            key={`exclude-messages-${configInputResetKey}`}
-            type="text"
-            size="xs"
-            placeholder="merge*"
-            defaultValue={config.excludeMessages?.join(", ") ?? ""}
-            onBlur={(e) => {
-              const raw = e.target.value
-              setConfigAndRerun({
-                excludeMessages: raw
-                  ? raw
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : undefined,
-              })
-            }}
-            onKeyDown={blurOnEnter}
-          />
-        </div>
-      </CollapsibleSection>
+        config={config}
+        configInputResetKey={configInputResetKey}
+        setConfigAndRerun={setConfigAndRerun}
+        blurOnEnter={blurOnEnter}
+        blameConfig={blameConfig}
+        copyMoveDraft={copyMoveDraft}
+        setCopyMoveDraft={setCopyMoveDraft}
+        commitCopyMoveDraft={commitCopyMoveDraft}
+      />
     </div>
   )
 }
