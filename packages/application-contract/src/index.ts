@@ -965,7 +965,7 @@ export type ExaminationLlmSettings = {
   examinationModelsByProvider: ExaminationModelsByProvider
 }
 
-export type ExaminationGenerateQuestionsInput = {
+export type ExaminationGenerateQuestionsBaseInput = {
   /**
    * Stable identity of the author the excerpts belong to, derived from
    * blame canonicalization. Always present — examinations key on this so
@@ -984,18 +984,32 @@ export type ExaminationGenerateQuestionsInput = {
    * function of its input.
    */
   llmSettings: ExaminationLlmSettings
-  /**
-   * When true, skip the archive read and always call the LLM. The fresh
-   * result overwrites any matching archived entry on success. Errors never
-   * populate the archive. Graders trigger this via a "Regenerate" action.
-   */
-  regenerate?: boolean
 }
 
-export type ExaminationLookupQuestionsInput = Omit<
-  ExaminationGenerateQuestionsInput,
-  "regenerate"
->
+export type ExaminationGenerateQuestionsInput =
+  ExaminationGenerateQuestionsBaseInput & {
+    /**
+     * Existing accepted questions to keep when extending a set. The workflow
+     * generates only the remaining questions needed to reach `questionCount`
+     * and archives the combined set.
+     */
+    seedQuestions?: ExaminationQuestion[]
+    /**
+     * Process-local handle used by the renderer to soft-stop an in-flight
+     * generation and keep completed questions. It is not persisted or used for
+     * archive lookup.
+     */
+    generationControlId: string
+    /**
+     * When true, skip the archive read and always call the LLM. The fresh
+     * result overwrites any matching archived entry on success. Errors never
+     * populate the archive. Graders trigger this via a "Regenerate" action.
+     */
+    regenerate?: boolean
+  }
+
+export type ExaminationLookupQuestionsInput =
+  ExaminationGenerateQuestionsBaseInput
 
 export type ExaminationLineRange = {
   start: number
@@ -1028,7 +1042,7 @@ export type ExaminationArchivedProvenance = {
    */
   effort: LlmEffort
   questionCount: number
-  usage: ExaminationUsage
+  usage: ExaminationUsage | null
   createdAtMs: number
   redactionPolicyVersion: number
   promptTemplateVersion: number
@@ -1045,7 +1059,7 @@ export type ExaminationSourceReference = {
 export type ExaminationGenerateQuestionsResult = {
   key: ExaminationArchiveKey
   questions: ExaminationQuestion[]
-  usage: ExaminationUsage
+  usage: ExaminationUsage | null
   fromArchive: boolean
   requestedQuestionCount: number
   archivedProvenance: ExaminationArchivedProvenance
@@ -1066,6 +1080,23 @@ export type ExaminationArchiveRecord = {
   questions: ExaminationQuestion[]
   provenance: ExaminationArchivedProvenance
 }
+
+export type ExaminationGenerateOutput =
+  | { kind: "warn"; message: string }
+  | {
+      kind: "partial-questions"
+      acceptedQuestionCount: number
+      questions: ExaminationQuestion[]
+      sourceReferences: ExaminationSourceReference[]
+    }
+
+export type ExaminationStopGenerationInput = {
+  generationControlId: string
+}
+
+export type ExaminationStopGenerationResult =
+  | { stopped: true }
+  | { stopped: false; reason: "not-running" }
 
 export const EXAMINATION_ARCHIVE_BUNDLE_FORMAT =
   "repo-edu-examination-archive" as const
@@ -1294,8 +1325,14 @@ export type WorkflowPayloads = {
   "examination.generateQuestions": {
     input: ExaminationGenerateQuestionsInput
     progress: MilestoneProgress
-    output: DiagnosticOutput
+    output: ExaminationGenerateOutput
     result: ExaminationGenerateQuestionsResult
+  }
+  "examination.stopGeneration": {
+    input: ExaminationStopGenerationInput
+    progress: never
+    output: never
+    result: ExaminationStopGenerationResult
   }
   "examination.lookupQuestions": {
     input: ExaminationLookupQuestionsInput
@@ -1497,6 +1534,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   "examination.generateQuestions": {
     delivery: ["desktop", "docs"],
     progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "examination.stopGeneration": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
     cancellation: "cooperative",
   },
   "examination.lookupQuestions": {

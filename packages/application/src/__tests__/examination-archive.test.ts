@@ -12,6 +12,7 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
+  LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
@@ -63,6 +64,17 @@ const baseRecord: ExaminationArchiveRecord = {
   },
 }
 
+function baseUsage(): Exclude<
+  ExaminationArchiveRecord["provenance"]["usage"],
+  null
+> {
+  const usage = baseRecord.provenance.usage
+  if (usage === null) {
+    throw new Error("baseRecord usage must not be null.")
+  }
+  return usage
+}
+
 function createRecordingLlm(
   replyOrReplies: string | readonly string[],
 ): LlmPort & { calls: number; requests: LlmRunRequest[] } {
@@ -83,8 +95,16 @@ function createRecordingLlm(
       state.requests.push(_request)
       return {
         reply,
-        usage: baseRecord.provenance.usage,
+        usage: baseUsage(),
       }
+    },
+    async *stream(_request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+      const reply =
+        replies[Math.min(state.calls, replies.length - 1)] ?? replies[0] ?? ""
+      state.calls += 1
+      state.requests.push(_request)
+      yield { kind: "text-delta", text: reply }
+      yield { kind: "done", usage: baseUsage() }
     },
   }
   return port
@@ -129,6 +149,7 @@ function baseInput() {
     ],
     excerptFileSources: { "src/a.unknown": "alpha\nbeta" },
     questionCount: 2,
+    generationControlId: "test-generation",
     llmSettings: {
       llmConnections: [
         {
@@ -143,6 +164,12 @@ function baseInput() {
       examinationModelsByProvider: { claude: "22" },
     },
   }
+}
+
+function baseLookupInput() {
+  const input = { ...baseInput() }
+  delete (input as { generationControlId?: string }).generationControlId
+  return input
 }
 
 function inputWithPathMappedContent(mapping: Record<string, string>) {
@@ -458,11 +485,13 @@ describe("examination.generateQuestions archive behavior", () => {
       baseInput(),
       {
         onOutput(output) {
-          if (output.channel === "warn") warnings.push(output.message)
+          if (output.kind === "warn") warnings.push(output.message)
         },
       },
     )
-    const lookup = await handlers["examination.lookupQuestions"](baseInput())
+    const lookup = await handlers["examination.lookupQuestions"](
+      baseLookupInput(),
+    )
 
     assert.equal(result.questions.length, 1)
     assert.equal(result.requestedQuestionCount, 2)
@@ -486,7 +515,7 @@ describe("examination.generateQuestions archive behavior", () => {
       baseInput(),
       {
         onOutput(output) {
-          if (output.channel === "warn") warnings.push(output.message)
+          if (output.kind === "warn") warnings.push(output.message)
         },
       },
     )
@@ -576,7 +605,7 @@ describe("examination.generateQuestions archive behavior", () => {
 
     await handlers["examination.generateQuestions"](baseInput())
     const staleLookup = await handlers["examination.lookupQuestions"]({
-      ...baseInput(),
+      ...baseLookupInput(),
       localIdentityContext: {
         ...baseInput().localIdentityContext,
         opaqueIdentifiers: ["A1"],

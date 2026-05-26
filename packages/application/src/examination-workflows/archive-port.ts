@@ -351,12 +351,12 @@ function validateProvenance(
   const validatedEffort = validateEffort(effort)
   if (validatedEffort === null) return null
   const validatedUsage = validateUsage(usage)
-  if (validatedUsage === null) return null
+  if (!validatedUsage.ok) return null
   return {
     model,
     effort: validatedEffort,
     questionCount,
-    usage: validatedUsage,
+    usage: validatedUsage.usage,
     createdAtMs,
     redactionPolicyVersion,
     promptTemplateVersion,
@@ -388,8 +388,9 @@ function validateAuthMode(raw: unknown): LlmAuthMode | null {
 
 function validateUsage(
   raw: unknown,
-): ExaminationArchivedProvenance["usage"] | null {
-  if (!isRecord(raw)) return null
+): { ok: true; usage: ExaminationArchivedProvenance["usage"] } | { ok: false } {
+  if (raw === null) return { ok: true, usage: null }
+  if (!isRecord(raw)) return { ok: false }
   const {
     inputTokens,
     cachedInputTokens,
@@ -405,17 +406,20 @@ function validateUsage(
     typeof reasoningOutputTokens !== "number" ||
     typeof wallMs !== "number"
   ) {
-    return null
+    return { ok: false }
   }
   const validatedAuthMode = validateAuthMode(authMode)
-  if (validatedAuthMode === null) return null
+  if (validatedAuthMode === null) return { ok: false }
   return {
-    inputTokens,
-    cachedInputTokens,
-    outputTokens,
-    reasoningOutputTokens,
-    wallMs,
-    authMode: validatedAuthMode,
+    ok: true,
+    usage: {
+      inputTokens,
+      cachedInputTokens,
+      outputTokens,
+      reasoningOutputTokens,
+      wallMs,
+      authMode: validatedAuthMode,
+    },
   }
 }
 

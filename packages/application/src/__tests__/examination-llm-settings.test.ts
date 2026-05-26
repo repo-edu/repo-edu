@@ -8,6 +8,7 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
+  LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
@@ -15,20 +16,26 @@ import { createExaminationWorkflowHandlers } from "../examination-workflows/exam
 
 function recordingLlm(reply: string) {
   const requests: LlmRunRequest[] = []
+  const usage = {
+    inputTokens: 10,
+    cachedInputTokens: 0,
+    outputTokens: 5,
+    reasoningOutputTokens: 0,
+    wallMs: 5,
+    authMode: "subscription" as const,
+  }
   const port: LlmPort = {
     async run(request: LlmRunRequest): Promise<LlmRunResult> {
       requests.push(request)
       return {
         reply,
-        usage: {
-          inputTokens: 10,
-          cachedInputTokens: 0,
-          outputTokens: 5,
-          reasoningOutputTokens: 0,
-          wallMs: 5,
-          authMode: "subscription",
-        },
+        usage,
       }
+    },
+    async *stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+      requests.push(request)
+      yield { kind: "text-delta", text: reply }
+      yield { kind: "done", usage }
     },
   }
   return { port, requests }
@@ -65,6 +72,7 @@ function baseInput(
     excerpts: [{ filePath: "src/a.unknown", startLine: 1, lines: ["line"] }],
     excerptFileSources: { "src/a.unknown": "line" },
     questionCount: 1,
+    generationControlId: "test-generation",
     llmSettings,
   }
 }

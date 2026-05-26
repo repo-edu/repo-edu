@@ -1,10 +1,16 @@
+import type { ExaminationQuestion } from "@repo-edu/application-contract"
 import type {
   ExaminationProviderPromptExcerpt,
   ExaminationProviderPromptPayload,
 } from "./provider-excerpts.js"
 
+type BuildExaminationPromptOptions = {
+  seedQuestions?: readonly ExaminationQuestion[]
+}
+
 export function buildExaminationPrompt(
   payload: ExaminationProviderPromptPayload,
+  options: BuildExaminationPromptOptions = {},
 ): string {
   const header = [
     "You are preparing questions for a one-on-one oral examination.",
@@ -20,14 +26,31 @@ export function buildExaminationPrompt(
     .map((excerpt, index) => formatExcerpt(excerpt, index))
     .join("\n\n")
   const exampleSourceId = payload.excerpts[0]?.sourceId ?? "SRC1"
+  const seedQuestions = options.seedQuestions ?? []
+  const seedSection =
+    seedQuestions.length === 0
+      ? []
+      : [
+          "Already accepted questions:",
+          ...seedQuestions.map(
+            (question, index) =>
+              `${index + 1}. ${formatSeedQuestion(question.question)}`,
+          ),
+          "",
+        ]
 
   const instructions = [
-    `Generate exactly ${payload.questionCount} questions.`,
+    seedQuestions.length === 0
+      ? `Generate exactly ${payload.questionCount} questions.`
+      : `Generate exactly ${payload.questionCount} additional questions.`,
     "For each question:",
     "- Focus on specific lines in the selected contributor's code. Prefer 'why' and 'how' over 'what'.",
     "- Include an answer key the teacher can use. The answer must be factually grounded in the excerpt.",
     "- Reference the excerpt with anchor.sourceId and anchor.lineRange {start, end} (1-based, inclusive) whenever the question targets specific lines.",
     "- Vary depth: at least one question about a tricky invariant, one about a design choice, one that asks the student to predict the effect of a small change.",
+    ...(seedQuestions.length === 0
+      ? []
+      : ["- Do not repeat or paraphrase any already accepted question."]),
     "- Do not invent code that is not in the excerpts.",
     "- Do not include names, email addresses, usernames, roster identifiers, repository paths, or file paths in the output.",
     "",
@@ -42,8 +65,13 @@ export function buildExaminationPrompt(
     "Redacted code excerpts:",
     excerpts,
     "",
+    ...seedSection,
     instructions,
   ].join("\n")
+}
+
+function formatSeedQuestion(question: string): string {
+  return question.trim().replace(/\s+/g, " ")
 }
 
 function formatExcerpt(

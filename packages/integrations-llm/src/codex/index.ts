@@ -2,9 +2,14 @@ import type {
   GenerateTextRequest,
   LlmProviderRuntimeConfig,
   LlmResult,
+  LlmStreamEvent,
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
-import { type CodexClientFactory, runCodexQuery } from "./runner"
+import {
+  type CodexClientFactory,
+  runCodexQuery,
+  runCodexQueryStream,
+} from "./runner"
 import type { TraceSink } from "./trace"
 
 export type { CodexClientFactory, CodexFixtureCoderRequest } from "./runner"
@@ -13,6 +18,7 @@ export {
   buildCodexThreadOptions,
   runCodexFixtureCoder,
   runCodexQuery,
+  runCodexQueryStream,
 } from "./runner"
 export type { TraceSink } from "./trace"
 
@@ -28,6 +34,18 @@ export function createCodexLlmTextClient(
   return {
     async generateText(request: GenerateTextRequest): Promise<LlmResult> {
       return runCodexQuery(
+        {
+          spec: request.spec,
+          prompt: request.prompt,
+          signal: request.signal,
+          trace: options?.trace,
+          factory: options?.factory,
+        },
+        config,
+      )
+    },
+    streamText(request: GenerateTextRequest): AsyncIterable<LlmStreamEvent> {
+      return runCodexQueryStream(
         {
           spec: request.spec,
           prompt: request.prompt,

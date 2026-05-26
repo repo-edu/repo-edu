@@ -4,6 +4,7 @@ import type {
   ExaminationArchivedProvenance,
   ExaminationArchiveKey,
   ExaminationArchiveRecord,
+  ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
   ExaminationLineRange,
@@ -28,6 +29,7 @@ import {
   type PersistedLlmConnection,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
+import type { LlmUsage } from "@repo-edu/host-runtime-contract"
 import {
   type FixtureModelSpec,
   getExaminationDefaultSpec,
@@ -35,6 +37,7 @@ import {
   modelCode,
 } from "@repo-edu/integrations-llm-catalog"
 import type { LlmProvider } from "@repo-edu/integrations-llm-contract"
+import { Allow, parse as parsePartialJson } from "partial-json"
 import { createValidationAppError } from "../core.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
@@ -47,22 +50,28 @@ import {
 
 type ExaminationWorkflowId =
   | "examination.generateQuestions"
+  | "examination.stopGeneration"
   | "examination.lookupQuestions"
 
 export function createExaminationWorkflowHandlers(
   ports: ExaminationWorkflowPorts,
 ): Pick<WorkflowHandlerMap<ExaminationWorkflowId>, ExaminationWorkflowId> {
+  const softStopSessions = new Map<string, SoftStopSession>()
+
   return {
     "examination.generateQuestions": async (
       input: ExaminationGenerateQuestionsInput,
-      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+      options?: WorkflowCallOptions<
+        MilestoneProgress,
+        ExaminationGenerateOutput
+      >,
     ): Promise<ExaminationGenerateQuestionsResult> => {
       validateGenerateInput(input)
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
-        totalSteps: 4,
+        totalSteps: 3,
         label: "Preparing redacted excerpts.",
       })
 
@@ -80,6 +89,20 @@ export function createExaminationWorkflowHandlers(
       const sourceDescriptors = prepared.promptPayload.excerpts.map(
         (excerpt) => excerpt.sourceDescriptor,
       )
+      const sourceLineRanges = buildPromptSourceLineRanges(
+        prepared.promptPayload.excerpts,
+      )
+      const seedQuestions =
+        input.seedQuestions === undefined
+          ? []
+          : normalizeQuestionAnchors(input.seedQuestions, sourceLineRanges)
+      assertOutputAllowedForCurrentContext(
+        seedQuestions,
+        input,
+        sourceDescriptors,
+      )
+      const requestedGeneratedQuestionCount =
+        input.questionCount - seedQuestions.length
 
       if (!input.regenerate) {
         const hit = ports.archive.get(archiveKey)
@@ -88,8 +111,8 @@ export function createExaminationWorkflowHandlers(
           isRecordAllowedForCurrentContext(hit, input, sourceDescriptors)
         ) {
           options?.onProgress?.({
-            step: 4,
-            totalSteps: 4,
+            step: 3,
+            totalSteps: 3,
             label: "Returning archived questions.",
           })
           return toResult(hit, {
@@ -103,11 +126,17 @@ export function createExaminationWorkflowHandlers(
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 2,
-        totalSteps: 4,
+        totalSteps: 3,
         label: "Building prompt.",
       })
 
-      const prompt = buildExaminationPrompt(prepared.promptPayload)
+      const prompt = buildExaminationPrompt(
+        {
+          ...prepared.promptPayload,
+          questionCount: requestedGeneratedQuestionCount,
+        },
+        { seedQuestions },
+      )
       try {
         assertNoRequiredRedactionLeaks({
           renderedPrompt: prompt,
@@ -123,80 +152,167 @@ export function createExaminationWorkflowHandlers(
       throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 3,
-        totalSteps: 4,
+        totalSteps: 3,
         label: "Generating questions via LLM.",
       })
 
-      const { reply, usage } = await ports.llm.run({
-        spec: {
-          provider: resolution.spec.provider,
-          family: resolution.spec.family,
-          modelId: resolution.spec.modelId,
-          effort: resolution.spec.effort,
-        },
-        prompt,
-        signal: options?.signal,
-      })
-
-      throwIfAborted(options?.signal)
-      options?.onProgress?.({
-        step: 4,
-        totalSteps: 4,
-        label: "Parsing LLM response.",
-      })
-
-      const sourceLineRanges = buildPromptSourceLineRanges(
-        prepared.promptPayload.excerpts,
+      const softStop = createSoftStopSession(
+        softStopSessions,
+        input.generationControlId,
       )
-      const questions = parseQuestions(
-        reply,
-        input.questionCount,
-        sourceLineRanges,
-        {
-          onOverQuota(actualCount) {
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Provider returned ${actualCount} of ${input.questionCount} requested examination questions. Extra questions were ignored.`,
-            })
-          },
-        },
-      )
-      assertOutputAllowedForCurrentContext(questions, input, sourceDescriptors)
-      const acceptedQuestionCount = questions.length
-      if (acceptedQuestionCount < input.questionCount) {
+      const partialState: PartialQuestionEmissionState = {
+        acceptedQuestions: seedQuestions,
+        emittedQuestionCount: seedQuestions.length,
+        warnedOverQuota: false,
+      }
+      const warnOverQuota = (actualCount: number): void => {
+        if (partialState.warnedOverQuota) return
+        partialState.warnedOverQuota = true
         options?.onOutput?.({
-          channel: "warn",
-          message: `Provider returned ${acceptedQuestionCount} of ${input.questionCount} requested examination questions. The partial set was stored under its actual question count.`,
+          kind: "warn",
+          message:
+            seedQuestions.length === 0
+              ? `Provider returned ${actualCount} of ${input.questionCount} requested examination questions. Extra questions were ignored.`
+              : `Provider returned ${actualCount} of ${requestedGeneratedQuestionCount} requested additional examination questions. Extra questions were ignored.`,
         })
       }
-      const resultArchiveKey =
-        acceptedQuestionCount === archiveKey.questionCount
-          ? archiveKey
-          : { ...archiveKey, questionCount: acceptedQuestionCount }
+      let buffer = ""
+      let finalUsage: LlmUsage | null = null
 
-      const provenance: ExaminationArchivedProvenance = {
-        model: resolution.code,
-        effort: resolution.spec.effort,
-        questionCount: acceptedQuestionCount,
-        usage,
-        createdAtMs: Date.now(),
-        redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
-        promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+      try {
+        const stream = ports.llm.stream({
+          spec: {
+            provider: resolution.spec.provider,
+            family: resolution.spec.family,
+            modelId: resolution.spec.modelId,
+            effort: resolution.spec.effort,
+          },
+          prompt,
+          signal: softStop.providerSignal(options?.signal),
+        })
+
+        try {
+          for await (const event of stream) {
+            throwIfAborted(options?.signal)
+            if (softStop.requested) break
+            if (event.kind === "text-delta") {
+              buffer += event.text
+              maybeEmitPartial({
+                buffer,
+                emittedQuestionCount: partialState,
+                onOutput: options?.onOutput,
+                seedQuestions,
+                sourceLineRanges,
+                sourceReferences: prepared.sourceReferences,
+                requestedQuestionCount: requestedGeneratedQuestionCount,
+                onOverQuota: warnOverQuota,
+                assertOutputAllowed: (questions) =>
+                  assertOutputAllowedForCurrentContext(
+                    questions,
+                    input,
+                    sourceDescriptors,
+                  ),
+              })
+            } else {
+              finalUsage = event.usage
+            }
+          }
+        } catch (error) {
+          throwIfAborted(options?.signal)
+          if (softStop.requested) {
+            return archiveSoftStoppedQuestions({
+              acceptedQuestions: partialState.acceptedQuestions,
+              archiveKey,
+              input,
+              minimumAcceptedQuestionCount: seedQuestions.length,
+              ports,
+              resolution,
+              sourceReferences: prepared.sourceReferences,
+            })
+          }
+          throw error
+        }
+
+        throwIfAborted(options?.signal)
+        if (softStop.requested) {
+          return archiveSoftStoppedQuestions({
+            acceptedQuestions: partialState.acceptedQuestions,
+            archiveKey,
+            input,
+            minimumAcceptedQuestionCount: seedQuestions.length,
+            ports,
+            resolution,
+            sourceReferences: prepared.sourceReferences,
+          })
+        }
+        if (finalUsage === null) {
+          throw providerError(
+            "LLM stream ended without a terminal usage event.",
+          )
+        }
+
+        const generatedQuestions = parseQuestions(
+          buffer,
+          requestedGeneratedQuestionCount,
+          sourceLineRanges,
+          { onOverQuota: warnOverQuota },
+        )
+        const questions = [...seedQuestions, ...generatedQuestions]
+        assertOutputAllowedForCurrentContext(
+          questions,
+          input,
+          sourceDescriptors,
+        )
+        const acceptedQuestionCount = questions.length
+        if (generatedQuestions.length < requestedGeneratedQuestionCount) {
+          options?.onOutput?.({
+            kind: "warn",
+            message:
+              seedQuestions.length === 0
+                ? `Provider returned ${acceptedQuestionCount} of ${input.questionCount} requested examination questions. The partial set was stored under its actual question count.`
+                : `Provider returned ${generatedQuestions.length} of ${requestedGeneratedQuestionCount} requested additional examination questions. The partial set was stored under its actual question count.`,
+          })
+        }
+        const resultArchiveKey =
+          acceptedQuestionCount === archiveKey.questionCount
+            ? archiveKey
+            : { ...archiveKey, questionCount: acceptedQuestionCount }
+
+        const provenance: ExaminationArchivedProvenance = {
+          model: resolution.code,
+          effort: resolution.spec.effort,
+          questionCount: acceptedQuestionCount,
+          usage: finalUsage,
+          createdAtMs: Date.now(),
+          redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+          promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+        }
+
+        const record: ExaminationArchiveRecord = {
+          key: resultArchiveKey,
+          questions,
+          provenance,
+        }
+
+        ports.archive.put(record)
+
+        return toResult(record, {
+          fromArchive: false,
+          sourceReferences: prepared.sourceReferences,
+          requestedQuestionCount: input.questionCount,
+        })
+      } finally {
+        softStop.dispose()
       }
-
-      const record: ExaminationArchiveRecord = {
-        key: resultArchiveKey,
-        questions,
-        provenance,
+    },
+    "examination.stopGeneration": async (input) => {
+      validateStopInput(input)
+      const session = softStopSessions.get(input.generationControlId)
+      if (session === undefined) {
+        return { stopped: false, reason: "not-running" }
       }
-
-      ports.archive.put(record)
-
-      return toResult(record, {
-        fromArchive: false,
-        sourceReferences: prepared.sourceReferences,
-        requestedQuestionCount: input.questionCount,
-      })
+      session.requestStop()
+      return { stopped: true }
     },
     "examination.lookupQuestions": async (
       input: ExaminationLookupQuestionsInput,
@@ -262,6 +378,106 @@ export function createExaminationWorkflowHandlers(
       }
     },
   }
+}
+
+type SoftStopSession = {
+  readonly requested: boolean
+  providerSignal(hardSignal: AbortSignal | undefined): AbortSignal
+  requestStop(): void
+  dispose(): void
+}
+
+type PartialQuestionEmissionState = {
+  acceptedQuestions: ExaminationQuestion[]
+  emittedQuestionCount: number
+  warnedOverQuota: boolean
+}
+
+function createSoftStopSession(
+  sessions: Map<string, SoftStopSession>,
+  generationControlId: string,
+): SoftStopSession {
+  sessions.get(generationControlId)?.requestStop()
+
+  const providerController = new AbortController()
+  let requested = false
+  let hardSignal: AbortSignal | undefined
+  const abortProvider = () => providerController.abort()
+  const session: SoftStopSession = {
+    get requested() {
+      return requested
+    },
+    providerSignal(signal) {
+      hardSignal = signal
+      if (signal?.aborted) {
+        providerController.abort()
+      } else {
+        signal?.addEventListener("abort", abortProvider, { once: true })
+      }
+      return providerController.signal
+    },
+    requestStop() {
+      requested = true
+      providerController.abort()
+    },
+    dispose() {
+      hardSignal?.removeEventListener("abort", abortProvider)
+      if (sessions.get(generationControlId) === session) {
+        sessions.delete(generationControlId)
+      }
+    },
+  }
+  sessions.set(generationControlId, session)
+  return session
+}
+
+function archiveSoftStoppedQuestions(params: {
+  acceptedQuestions: readonly ExaminationQuestion[]
+  archiveKey: ExaminationArchiveKey
+  input: ExaminationGenerateQuestionsInput
+  minimumAcceptedQuestionCount: number
+  ports: ExaminationWorkflowPorts
+  resolution: ExaminationModelResolution
+  sourceReferences: ExaminationSourceReference[]
+}): ExaminationGenerateQuestionsResult {
+  const acceptedQuestionCount = params.acceptedQuestions.length
+  if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) {
+    const message =
+      params.minimumAcceptedQuestionCount === 0
+        ? "Stop was requested before a complete question was available."
+        : "Stop was requested before a complete additional question was available."
+    throw createValidationAppError("Stopped before any question completed.", [
+      {
+        path: "generationControlId",
+        message,
+      },
+    ])
+  }
+
+  const resultArchiveKey =
+    acceptedQuestionCount === params.archiveKey.questionCount
+      ? params.archiveKey
+      : { ...params.archiveKey, questionCount: acceptedQuestionCount }
+  const record: ExaminationArchiveRecord = {
+    key: resultArchiveKey,
+    questions: [...params.acceptedQuestions],
+    provenance: {
+      model: params.resolution.code,
+      effort: params.resolution.spec.effort,
+      questionCount: acceptedQuestionCount,
+      usage: null,
+      createdAtMs: Date.now(),
+      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+      promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+    },
+  }
+
+  params.ports.archive.put(record)
+  return toResult(record, {
+    fromArchive: false,
+    sourceReferences: params.sourceReferences,
+    requestedQuestionCount: params.input.questionCount,
+  })
 }
 
 function resolveArchiveContext(
@@ -425,6 +641,21 @@ function validateLookupInput(input: ExaminationLookupQuestionsInput): void {
   validateInput(input, "lookup")
 }
 
+function validateStopInput(input: { generationControlId: string }): void {
+  if (
+    !isRecord(input) ||
+    typeof input.generationControlId !== "string" ||
+    input.generationControlId.trim().length === 0
+  ) {
+    throw createValidationAppError("Examination stop input is invalid.", [
+      {
+        path: "generationControlId",
+        message: "generationControlId is required.",
+      },
+    ])
+  }
+}
+
 function validateInput(
   input: ExaminationGenerateQuestionsInput | ExaminationLookupQuestionsInput,
   mode: "generate" | "lookup",
@@ -443,7 +674,9 @@ function validateInput(
     "excerptFileSources",
     "questionCount",
     "llmSettings",
-    ...(mode === "generate" ? ["regenerate"] : []),
+    ...(mode === "generate"
+      ? ["generationControlId", "regenerate", "seedQuestions"]
+      : []),
   ])
   for (const field of Object.keys(input)) {
     if (!allowed.has(field)) {
@@ -495,8 +728,120 @@ function validateInput(
       message: "regenerate must be a boolean when present.",
     })
   }
+  if (mode === "generate" && "seedQuestions" in input) {
+    validateSeedQuestions(input.seedQuestions, input.questionCount, issues)
+  }
+  if (
+    mode === "generate" &&
+    (!("generationControlId" in input) ||
+      typeof input.generationControlId !== "string" ||
+      input.generationControlId.trim().length === 0)
+  ) {
+    issues.push({
+      path: "generationControlId",
+      message: "generationControlId is required.",
+    })
+  }
   if (issues.length > 0) {
     throw createValidationAppError("Examination input is invalid.", issues)
+  }
+}
+
+function validateSeedQuestions(
+  seedQuestions: ExaminationGenerateQuestionsInput["seedQuestions"],
+  questionCount: number,
+  issues: { path: string; message: string }[],
+): void {
+  if (seedQuestions === undefined) return
+  if (!Array.isArray(seedQuestions)) {
+    issues.push({
+      path: "seedQuestions",
+      message: "seedQuestions must be an array when present.",
+    })
+    return
+  }
+  if (
+    Number.isInteger(questionCount) &&
+    seedQuestions.length >= questionCount
+  ) {
+    issues.push({
+      path: "seedQuestions",
+      message: "seedQuestions must leave at least one question to generate.",
+    })
+  }
+  for (const [index, question] of seedQuestions.entries()) {
+    if (!isRecord(question)) {
+      issues.push({
+        path: `seedQuestions.${index}`,
+        message: "Seed question is invalid.",
+      })
+      continue
+    }
+    if (
+      typeof question.question !== "string" ||
+      question.question.trim().length === 0
+    ) {
+      issues.push({
+        path: `seedQuestions.${index}.question`,
+        message: "Seed question text is required.",
+      })
+    }
+    if (
+      typeof question.answer !== "string" ||
+      question.answer.trim().length === 0
+    ) {
+      issues.push({
+        path: `seedQuestions.${index}.answer`,
+        message: "Seed answer text is required.",
+      })
+    }
+    validateSeedQuestionAnchor(
+      question.anchor,
+      `seedQuestions.${index}`,
+      issues,
+    )
+  }
+}
+
+function validateSeedQuestionAnchor(
+  anchor: unknown,
+  path: string,
+  issues: { path: string; message: string }[],
+): void {
+  if (!isRecord(anchor)) {
+    issues.push({
+      path: `${path}.anchor`,
+      message: "Seed question anchor is required.",
+    })
+    return
+  }
+  if (anchor.sourceId !== null && typeof anchor.sourceId !== "string") {
+    issues.push({
+      path: `${path}.anchor.sourceId`,
+      message: "Seed question anchor sourceId must be a string or null.",
+    })
+  }
+  const { lineRange } = anchor
+  if (lineRange === null) return
+  if (!isRecord(lineRange)) {
+    issues.push({
+      path: `${path}.anchor.lineRange`,
+      message: "Seed question anchor lineRange must be an object or null.",
+    })
+    return
+  }
+  if (
+    !Number.isInteger(lineRange.start) ||
+    !Number.isInteger(lineRange.end) ||
+    (typeof lineRange.start === "number" &&
+      typeof lineRange.end === "number" &&
+      lineRange.end < lineRange.start)
+  ) {
+    issues.push({
+      path: `${path}.anchor.lineRange`,
+      message:
+        "Seed question lineRange must contain valid start and end lines.",
+    })
   }
 }
 
@@ -593,6 +938,113 @@ function validateExcerptFileSources(
       })
     }
   }
+}
+
+function maybeEmitPartial(params: {
+  buffer: string
+  emittedQuestionCount: PartialQuestionEmissionState
+  onOutput: WorkflowCallOptions<
+    MilestoneProgress,
+    ExaminationGenerateOutput
+  >["onOutput"]
+  seedQuestions: readonly ExaminationQuestion[]
+  sourceLineRanges: SourceLineRangeIndex
+  sourceReferences: ExaminationSourceReference[]
+  requestedQuestionCount: number
+  onOverQuota(actualCount: number): void
+  assertOutputAllowed(questions: readonly ExaminationQuestion[]): void
+}): void {
+  let parsed: unknown
+  try {
+    parsed = parsePartialJson(
+      stripOpeningJsonFence(params.buffer),
+      Allow.OBJ | Allow.ARR,
+    )
+  } catch {
+    return
+  }
+  if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return
+
+  const completeQuestions: ExaminationQuestion[] = []
+  for (const raw of parsed.questions) {
+    const question = coerceCompleteStreamQuestion(raw, params.sourceLineRanges)
+    if (question === null) break
+    completeQuestions.push(question)
+  }
+  if (completeQuestions.length > params.requestedQuestionCount) {
+    params.onOverQuota(completeQuestions.length)
+  }
+
+  const acceptedGeneratedQuestions = completeQuestions.slice(
+    0,
+    params.requestedQuestionCount,
+  )
+  const acceptedQuestions = [
+    ...params.seedQuestions,
+    ...acceptedGeneratedQuestions,
+  ]
+  if (
+    acceptedQuestions.length < params.emittedQuestionCount.emittedQuestionCount
+  ) {
+    return
+  }
+  if (
+    acceptedQuestions.length ===
+    params.emittedQuestionCount.emittedQuestionCount
+  ) {
+    return
+  }
+
+  const newQuestions = acceptedQuestions.slice(
+    params.emittedQuestionCount.emittedQuestionCount,
+  )
+  params.assertOutputAllowed(newQuestions)
+  params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
+  params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
+  params.onOutput?.({
+    kind: "partial-questions",
+    acceptedQuestionCount: acceptedQuestions.length,
+    questions: acceptedQuestions,
+    sourceReferences: params.sourceReferences,
+  })
+}
+
+function stripOpeningJsonFence(text: string): string {
+  const trimmed = text.trimStart()
+  if (!trimmed.startsWith("```")) return text.trim()
+  return trimmed.replace(/^```(?:json)?\s*/, "").trimStart()
+}
+
+function coerceCompleteStreamQuestion(
+  raw: unknown,
+  sourceLineRanges: SourceLineRangeIndex,
+): ExaminationQuestion | null {
+  if (!isRecord(raw)) return null
+  const question = typeof raw.question === "string" ? raw.question : ""
+  const answer = typeof raw.answer === "string" ? raw.answer : ""
+  if (question.trim().length === 0 || answer.trim().length === 0) {
+    return null
+  }
+  if (!("anchor" in raw)) return null
+  const anchor = coerceCompleteStreamAnchor(raw.anchor, sourceLineRanges)
+  if (anchor === null) return null
+  return { question, answer, anchor }
+}
+
+function coerceCompleteStreamAnchor(
+  raw: unknown,
+  sourceLineRanges: SourceLineRangeIndex,
+): ExaminationSourceAnchor | null {
+  if (!isRecord(raw)) return null
+  if (raw.sourceId === null) {
+    return raw.lineRange === null ? { sourceId: null, lineRange: null } : null
+  }
+  if (typeof raw.sourceId !== "string") return null
+  const validRanges = sourceLineRanges.get(raw.sourceId)
+  if (validRanges === undefined) return null
+  const lineRange = coerceLineRange(raw.lineRange, validRanges)
+  if (lineRange === null) return null
+  return { sourceId: raw.sourceId, lineRange }
 }
 
 function parseQuestions(

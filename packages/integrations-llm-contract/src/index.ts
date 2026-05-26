@@ -40,6 +40,10 @@ export type LlmResult = {
   usage: LlmUsage
 }
 
+export type LlmStreamEvent =
+  | { kind: "text-delta"; text: string }
+  | { kind: "done"; usage: LlmUsage }
+
 export type GenerateTextRequest = {
   spec: LlmModelSpec
   prompt: string
@@ -83,6 +87,7 @@ export class LlmError extends Error {
 
 export type LlmTextClient = {
   generateText(request: GenerateTextRequest): Promise<LlmResult>
+  streamText(request: GenerateTextRequest): AsyncIterable<LlmStreamEvent>
 }
 
 export type LlmProviderRuntimeConfig = {

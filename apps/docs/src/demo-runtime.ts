@@ -302,6 +302,16 @@ export function createDocsDemoRuntime() {
             retryable: false,
           } satisfies AppError
         },
+        streamText() {
+          throw {
+            type: "provider",
+            message:
+              "LLM connection verification is not available in the docs demo. Run the desktop app to verify your credentials.",
+            provider: "llm",
+            operation: "verifyLlmDraft",
+            retryable: false,
+          } satisfies AppError
+        },
       }),
     }),
     ...createValidationWorkflowHandlers(),
@@ -332,6 +342,16 @@ export function createDocsDemoRuntime() {
         ...createExaminationWorkflowHandlers({
           llm: {
             async run(_request) {
+              throw {
+                type: "provider",
+                message:
+                  "LLM calls are not available in the docs demo. Run the desktop app to generate examination questions.",
+                provider: "llm",
+                operation: "examination.generateQuestions",
+                retryable: false,
+              } satisfies AppError
+            },
+            stream(_request) {
               throw {
                 type: "provider",
                 message:

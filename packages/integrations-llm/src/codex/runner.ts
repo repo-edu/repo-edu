@@ -14,6 +14,7 @@ import {
   type LlmModelSpec,
   type LlmProviderRuntimeConfig,
   type LlmResult,
+  type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import { applyEnvOverrides, resolveCodexAuth } from "./auth"
 import { toCodexLlmError } from "./errors"
@@ -152,13 +153,20 @@ export async function runCodexQuery(
   options: CodexRunOptions,
   config: LlmProviderRuntimeConfig | undefined,
 ): Promise<LlmResult> {
+  return collectCodexStream(runCodexQueryStream(options, config))
+}
+
+export async function* runCodexQueryStream(
+  options: CodexRunOptions,
+  config: LlmProviderRuntimeConfig | undefined,
+): AsyncIterable<LlmStreamEvent> {
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "codex-prompt-reply-"),
   )
   try {
     const threadOptions = buildCodexThreadOptions(options.spec, tempDir)
     const wrappedPrompt = `${PROMPT_REPLY_PREAMBLE}${options.prompt}`
-    return await runCodexTurn(options, config, threadOptions, wrappedPrompt)
+    yield* runCodexTurnStream(options, config, threadOptions, wrappedPrompt)
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   }
@@ -306,6 +314,171 @@ async function runCodexTurn(
     turnSignal.cleanup()
     envOverride.restore()
   }
+}
+
+async function collectCodexStream(
+  stream: AsyncIterable<LlmStreamEvent>,
+): Promise<LlmResult> {
+  let reply = ""
+  let usage: LlmResult["usage"] | null = null
+  for await (const event of stream) {
+    if (event.kind === "text-delta") {
+      reply += event.text
+    } else {
+      usage = event.usage
+    }
+  }
+  if (usage === null) {
+    throw new LlmError(
+      "other",
+      "Codex stream ended without a terminal usage event.",
+      { context: { provider: "codex" } },
+    )
+  }
+  return { reply, usage }
+}
+
+async function* runCodexTurnStream(
+  options: CodexRunOptions,
+  config: LlmProviderRuntimeConfig | undefined,
+  threadOptions: ThreadOptions,
+  prompt: string,
+  guard: CodexTurnGuard = { kind: "none" },
+): AsyncIterable<LlmStreamEvent> {
+  if (options.spec.provider !== "codex") {
+    throw new Error(
+      `Codex adapter received non-codex spec.provider="${options.spec.provider}"`,
+    )
+  }
+  if (options.spec.effort === "max") {
+    throw new LlmError("other", "effort 'max' is not supported on Codex", {
+      context: { provider: "codex" },
+    })
+  }
+
+  const resolved = resolveCodexAuth(config)
+  const start = Date.now()
+  const recorder: CodexTraceRecorder = createCodexTraceRecorder(options.trace)
+  const eventGuard =
+    guard.kind === "fixture-coder"
+      ? createCodexFixtureCoderEventGuard(guard.limits, start)
+      : null
+
+  const envOverride = applyEnvOverrides(resolved)
+  const turnSignal = createTurnSignal(
+    options.signal,
+    guard.kind === "fixture-coder" ? guard.limits.maxElapsedMs : undefined,
+  )
+  try {
+    const codex = (options.factory ?? defaultCodexFactory)({
+      apiKey: resolved.apiKey,
+      baseUrl: resolved.baseUrl,
+    })
+    const thread = codex.startThread(threadOptions)
+    const streamed = await thread.runStreamed(prompt, {
+      signal: turnSignal.signal,
+    })
+
+    const emittedTextLengthsByItemId = new Map<string, number>()
+    let turnFailure: string | null = null
+    let streamError: string | null = null
+    for await (const event of streamed.events as AsyncIterable<ThreadEvent>) {
+      if (turnSignal.signal?.aborted) {
+        throw new Error("Operation cancelled.")
+      }
+      eventGuard?.record(event)
+      if (event.type === "item.started") {
+        recorder.recordItemStarted(event.item)
+        continue
+      }
+      if (event.type === "item.updated") {
+        if (event.item.type === "agent_message") {
+          const suffix = agentMessageTextSuffix(
+            event.item,
+            emittedTextLengthsByItemId,
+          )
+          if (suffix.length > 0) {
+            yield { kind: "text-delta", text: suffix }
+          }
+        }
+        recorder.recordItemUpdated(event.item)
+        continue
+      }
+      if (event.type === "item.completed") {
+        if (event.item.type === "agent_message") {
+          const suffix = agentMessageTextSuffix(
+            event.item,
+            emittedTextLengthsByItemId,
+          )
+          if (suffix.length > 0) {
+            yield { kind: "text-delta", text: suffix }
+          }
+          recorder.recordAgentMessage(event.item)
+        } else if (event.item.type === "reasoning") {
+          recorder.recordReasoning(event.item)
+        } else if (event.item.type === "error") {
+          recorder.recordError(event.item.message)
+        } else {
+          recorder.recordItemCompleted(event.item)
+        }
+        continue
+      }
+      if (event.type === "turn.completed") {
+        recorder.recordUsage(event.usage)
+        yield {
+          kind: "done",
+          usage: mapCodexUsage(
+            event.usage,
+            Date.now() - start,
+            resolved.authMode,
+          ),
+        }
+        continue
+      }
+      if (event.type === "turn.failed") {
+        turnFailure = event.error.message
+        recorder.recordError(turnFailure)
+        break
+      }
+      if (event.type === "error") {
+        streamError = event.message
+        recorder.recordError(streamError)
+        break
+      }
+    }
+    if (turnFailure) {
+      throw new Error(turnFailure)
+    }
+    if (streamError) {
+      throw new Error(streamError)
+    }
+  } catch (cause) {
+    if (turnSignal.timedOut()) {
+      throw toCodexLlmError(
+        new LlmError(
+          "guardrail",
+          `Codex fixture coder guardrail: elapsed time exceeded ${guard.kind === "fixture-coder" ? guard.limits.maxElapsedMs : 0}ms`,
+          { cause, context: { provider: "codex" } },
+        ),
+        resolved.authMode,
+      )
+    }
+    throw toCodexLlmError(cause, resolved.authMode)
+  } finally {
+    turnSignal.cleanup()
+    envOverride.restore()
+  }
+}
+
+function agentMessageTextSuffix(
+  item: Extract<ThreadItem, { type: "agent_message" }>,
+  emittedTextLengthsByItemId: Map<string, number>,
+): string {
+  const previousLength = emittedTextLengthsByItemId.get(item.id) ?? 0
+  const nextLength = item.text.length
+  emittedTextLengthsByItemId.set(item.id, Math.max(previousLength, nextLength))
+  if (nextLength <= previousLength) return ""
+  return item.text.slice(previousLength)
 }
 
 function defaultCodexFactory(options: CodexOptions): Codex {

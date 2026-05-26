@@ -1,6 +1,6 @@
 import type {
-  DiagnosticOutput,
   ExaminationCodeExcerpt,
+  ExaminationGenerateOutput,
   ExaminationGenerateQuestionsResult,
   ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
@@ -104,6 +104,10 @@ export function ExaminationTab({
   const showAnswers = useExaminationStore((s) => s.showAnswers)
   const setShowAnswers = useExaminationStore((s) => s.setShowAnswers)
   const setEntry = useExaminationStore((s) => s.setEntry)
+  const setPartialQuestions = useExaminationStore((s) => s.setPartialQuestions)
+  const setGenerationProgress = useExaminationStore(
+    (s) => s.setGenerationProgress,
+  )
   const clearEntry = useExaminationStore((s) => s.clearEntry)
   const [availableArchiveEntries, setAvailableArchiveEntries] = useState<
     AvailableArchiveEntry[]
@@ -115,6 +119,9 @@ export function ExaminationTab({
     null,
   )
   const [requestedEntryPendingKey, setRequestedEntryPendingKey] = useState<
+    string | null
+  >(null)
+  const [activeGenerationEntryKey, setActiveGenerationEntryKey] = useState<
     string | null
   >(null)
   const [generatedQuestionSetsByPersonId, setGeneratedQuestionSetsByPersonId] =
@@ -268,12 +275,33 @@ export function ExaminationTab({
   const pendingEntry = useExaminationStore((s) =>
     pendingEntryKey ? (s.entriesByKey.get(pendingEntryKey) ?? null) : null,
   )
-  const selectedEntryKey = resolveVisibleExaminationEntryKey({
-    pendingEntryKey,
-    requestedEntryKey,
-    requestedEntryPendingKey,
-    pendingEntryIsLoading: pendingEntry?.status === "loading",
-  })
+  const activeGenerationEntry = useExaminationStore((s) =>
+    activeGenerationEntryKey
+      ? (s.entriesByKey.get(activeGenerationEntryKey) ?? null)
+      : null,
+  )
+  const visibleActiveGenerationEntryKey =
+    activeGenerationEntryKey !== null &&
+    (activeGenerationEntry?.status === "loading" ||
+      activeGenerationEntry?.status === "error")
+      ? activeGenerationEntryKey
+      : null
+  const selectedEntryKey =
+    visibleActiveGenerationEntryKey ??
+    resolveVisibleExaminationEntryKey({
+      pendingEntryKey,
+      requestedEntryKey,
+      requestedEntryPendingKey,
+      pendingEntryIsLoading: pendingEntry?.status === "loading",
+    })
+  const activeGenerationResetKey = pendingEntryKey
+  useEffect(() => {
+    if (activeGenerationResetKey === null) {
+      setActiveGenerationEntryKey(null)
+      return
+    }
+    setActiveGenerationEntryKey(null)
+  }, [activeGenerationResetKey])
   const entry = useExaminationStore((s) =>
     selectedEntryKey ? (s.entriesByKey.get(selectedEntryKey) ?? null) : null,
   )
@@ -607,32 +635,66 @@ export function ExaminationTab({
       (blameResult === null
         ? {}
         : buildExcerptFileSources(blameResult, excerpts))
-    const entryKey =
-      pendingEntryKey ??
-      buildPendingExaminationEntryKey({
-        repositoryPath: pendingSourceKey,
-        contentScopeId: commitOid,
-        personId,
-        questionCount,
-        model: selectedModelCode,
-        effort: selectedModelSpec.effort,
+    const seedEntry =
+      options?.regenerate || displayedArchiveEntry?.entry.status !== "loaded"
+        ? null
+        : displayedArchiveEntry.entry
+    const seedQuestions = seedEntry?.questions ?? []
+    const requestedQuestionCount =
+      options?.regenerate && displayedArchiveEntry !== null
+        ? displayedArchiveEntry.questionCount
+        : questionCount
+    const additionalQuestionCount = Math.min(
+      requestedQuestionCount,
+      20 - seedQuestions.length,
+    )
+    if (additionalQuestionCount < 1) {
+      addToast("This set already has the maximum 20 examination questions.", {
+        tone: "warning",
       })
+      return
+    }
+    if (additionalQuestionCount < requestedQuestionCount) {
+      addToast(
+        `Generation is capped at 20 total questions, so only ${additionalQuestionCount} additional question${
+          additionalQuestionCount === 1 ? "" : "s"
+        } will be generated.`,
+        { tone: "warning" },
+      )
+    }
+    const targetQuestionCount = seedQuestions.length + additionalQuestionCount
+    const entryKey =
+      targetQuestionCount === questionCount && pendingEntryKey !== null
+        ? pendingEntryKey
+        : buildPendingExaminationEntryKey({
+            repositoryPath: pendingSourceKey,
+            contentScopeId: commitOid,
+            personId,
+            questionCount: targetQuestionCount,
+            model: selectedModelCode,
+            effort: selectedModelSpec.effort,
+          })
 
     const existing = examinationStoreInternals.abortByEntryKey.get(entryKey)
     existing?.abort()
     const abort = new AbortController()
     examinationStoreInternals.abortByEntryKey.set(entryKey, abort)
+    setActiveGenerationEntryKey(entryKey)
 
     setEntry(entryKey, {
       status: "loading",
-      questions: [],
+      questions: seedQuestions,
       usage: null,
       errorMessage: null,
       generatedAt: null,
       fromArchive: false,
-      sourceReferences: [],
+      sourceReferences: seedEntry?.sourceReferences ?? [],
       archivedQuestionCount: null,
-      partialQuestionCount: null,
+      partialQuestionCount: {
+        requested: targetQuestionCount,
+        accepted: seedQuestions.length,
+      },
+      generationProgressLabel: "Preparing question generation.",
     })
 
     try {
@@ -644,18 +706,29 @@ export function ExaminationTab({
           localIdentityContext,
           excerpts,
           excerptFileSources,
-          questionCount,
+          questionCount: targetQuestionCount,
           llmSettings,
+          generationControlId: entryKey,
+          ...(seedQuestions.length > 0 ? { seedQuestions } : {}),
           ...(options?.regenerate ? { regenerate: true } : {}),
         },
         {
           signal: abort.signal,
-          onProgress: (_progress: MilestoneProgress) => undefined,
-          onOutput: (output: DiagnosticOutput) => {
-            if (output.channel === "warn") {
+          onProgress: (progress: MilestoneProgress) => {
+            setGenerationProgress(entryKey, progress.label)
+          },
+          onOutput: (output: ExaminationGenerateOutput) => {
+            if (output.kind === "warn") {
               addToast(output.message, {
                 tone: "warning",
                 durationMs: 6000,
+              })
+              return
+            }
+            if (output.kind === "partial-questions") {
+              setPartialQuestions(entryKey, {
+                questions: output.questions,
+                sourceReferences: output.sourceReferences,
               })
             }
           },
@@ -669,7 +742,7 @@ export function ExaminationTab({
       }
       setEntry(archiveKey, loadedEntry)
       setRequestedEntryKey(archiveKey)
-      setRequestedEntryPendingKey(entryKey)
+      setRequestedEntryPendingKey(pendingEntryKey ?? entryKey)
       setAvailableArchiveEntries((entries) =>
         mergeAvailableArchiveEntries(entries, [
           {
@@ -683,6 +756,7 @@ export function ExaminationTab({
         mergeGeneratedQuestionSets(current, personId, [result]),
       )
       setSelectedArchiveEntryKey(archiveKey)
+      setActiveGenerationEntryKey(null)
     } catch (error) {
       if (abort.signal.aborted) return
       const message =
@@ -701,12 +775,24 @@ export function ExaminationTab({
         sourceReferences: [],
         archivedQuestionCount: null,
         partialQuestionCount: null,
+        generationProgressLabel: null,
       })
       addToast(`Question generation failed: ${message}`, { tone: "error" })
     } finally {
       if (examinationStoreInternals.abortByEntryKey.get(entryKey) === abort) {
         examinationStoreInternals.abortByEntryKey.delete(entryKey)
       }
+    }
+  }
+
+  const stopGeneration = async (generationControlId: string) => {
+    try {
+      await workflowClient.run("examination.stopGeneration", {
+        generationControlId,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      addToast(`Stop failed: ${message}`, { tone: "error" })
     }
   }
 
@@ -877,6 +963,12 @@ export function ExaminationTab({
               onShowAnswersChange={setShowAnswers}
               onSelectArchiveEntry={setSelectedArchiveEntryKey}
               onGenerate={() => generate(selectedSummary.personId)}
+              onStopGeneration={() => {
+                const generationControlId =
+                  entry?.status === "loading" ? selectedEntryKey : null
+                if (generationControlId !== null)
+                  void stopGeneration(generationControlId)
+              }}
               onRegenerate={() =>
                 generate(selectedSummary.personId, { regenerate: true })
               }
@@ -974,6 +1066,7 @@ type AuthorPanelProps = {
   onShowAnswersChange: (show: boolean) => void
   onSelectArchiveEntry: (key: string) => void
   onGenerate: () => void
+  onStopGeneration: () => void
   onRegenerate: () => void
   onCopyMarkdown: () => void
 }
@@ -994,13 +1087,23 @@ function AuthorPanel({
   onShowAnswersChange,
   onSelectArchiveEntry,
   onGenerate,
+  onStopGeneration,
   onRegenerate,
   onCopyMarkdown,
 }: AuthorPanelProps) {
   const isLoading = entry?.status === "loading"
+  const hasPartialQuestions = isLoading && entry.questions.length > 0
   const exactHasResults = entry?.status === "loaded"
-  const displayEntry = displayedArchiveEntry?.entry ?? null
-  const hasDisplayResults = displayEntry?.status === "loaded"
+  const loadingRequestedQuestionCount =
+    entry?.status === "loading"
+      ? (entry.partialQuestionCount?.requested ?? questionCount)
+      : questionCount
+  const displayEntry =
+    hasPartialQuestions && entry !== null
+      ? entry
+      : (displayedArchiveEntry?.entry ?? null)
+  const hasDisplayResults =
+    displayEntry !== null && displayEntry.questions.length > 0
 
   return (
     <div
@@ -1044,11 +1147,11 @@ function AuthorPanel({
               />
             </div>
             <Button
-              onClick={onGenerate}
-              disabled={isLoading || blocker !== null}
+              onClick={isLoading ? onStopGeneration : onGenerate}
+              disabled={isLoading ? false : blocker !== null}
               title={blocker ?? undefined}
             >
-              {isLoading ? "Generating..." : "Generate questions"}
+              {isLoading ? "Stop" : "Generate questions"}
             </Button>
             <Button
               variant="outline"
@@ -1071,7 +1174,7 @@ function AuthorPanel({
             <Button
               variant="ghost"
               onClick={onCopyMarkdown}
-              disabled={!hasDisplayResults}
+              disabled={displayEntry?.status !== "loaded"}
             >
               Copy as Markdown
             </Button>
@@ -1095,15 +1198,21 @@ function AuthorPanel({
           layout === "pane" ? "min-h-0 flex-1 overflow-auto" : "min-h-0"
         }
       >
-        {displayEntry?.status === "loaded" ? (
+        {displayEntry !== null && hasDisplayResults ? (
           <div className="flex flex-col gap-2">
-            {displayedArchiveEntry !== null ? (
+            {isLoading && entry !== null ? (
+              <GenerationProgress
+                entry={entry}
+                requestedQuestionCount={loadingRequestedQuestionCount}
+              />
+            ) : displayedArchiveEntry !== null ? (
               <p className="text-xs text-muted-foreground">
                 Archived {displayedArchiveEntry.questionCount} question
                 {displayedArchiveEntry.questionCount === 1 ? "" : "s"}
               </p>
             ) : null}
-            {displayEntry.partialQuestionCount !== null ? (
+            {displayEntry.status === "loaded" &&
+            displayEntry.partialQuestionCount !== null ? (
               <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
                 Provider returned {displayEntry.partialQuestionCount.accepted}{" "}
                 of {displayEntry.partialQuestionCount.requested} requested
@@ -1118,13 +1227,51 @@ function AuthorPanel({
           </div>
         ) : entry === null || entry.status === "idle" ? (
           <EmptyState message="Click Generate to produce questions for this author." />
-        ) : isLoading ? (
-          <EmptyState message="Generating... the model is writing questions from the attributed code." />
+        ) : isLoading && entry !== null ? (
+          <GenerationProgress
+            entry={entry}
+            requestedQuestionCount={loadingRequestedQuestionCount}
+          />
         ) : entry.status === "error" ? (
           <EmptyState
             message={`Generation failed: ${entry.errorMessage ?? "Unknown error."}`}
           />
         ) : null}
+      </div>
+    </div>
+  )
+}
+
+function streamingQuestionCaption(
+  acceptedCount: number,
+  requestedCount: number,
+): string {
+  if (acceptedCount >= requestedCount) {
+    return "Finalising questions..."
+  }
+  return `Generating question ${acceptedCount + 1} of ${requestedCount}...`
+}
+
+function GenerationProgress({
+  entry,
+  requestedQuestionCount,
+}: {
+  entry: ExaminationEntry
+  requestedQuestionCount: number
+}) {
+  const acceptedCount = entry.questions.length
+  const readyLabel =
+    acceptedCount === 0
+      ? "Waiting for the first complete question."
+      : `${acceptedCount} of ${requestedQuestionCount} questions ready.`
+  return (
+    <div className="rounded border bg-muted/20 px-3 py-2">
+      <div className="text-xs font-medium">
+        {entry.generationProgressLabel ?? "Generating questions via LLM."}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {streamingQuestionCaption(acceptedCount, requestedQuestionCount)}{" "}
+        {readyLabel}
       </div>
     </div>
   )
@@ -1217,7 +1364,7 @@ function countGeneratedQuestions(
   if (sets === undefined) return 0
   let count = 0
   for (const questionCount of sets.values()) {
-    count += questionCount
+    count = Math.max(count, questionCount)
   }
   return count
 }
@@ -1241,6 +1388,7 @@ function toExaminationEntry(
             accepted: result.archivedProvenance.questionCount,
           }
         : null,
+    generationProgressLabel: null,
   }
 }
 

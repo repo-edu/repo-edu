@@ -213,6 +213,7 @@ describe("analysis store", () => {
       sourceReferences: [],
       archivedQuestionCount: null,
       partialQuestionCount: null,
+      generationProgressLabel: null,
     })
 
     store.setSelectedRepoPath("/repo-b")

@@ -3,6 +3,7 @@ import type {
   LlmProvider,
   LlmResult,
   LlmRuntimeConfig,
+  LlmStreamEvent,
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
 import { createClaudeLlmTextClient } from "./claude"
@@ -42,6 +43,9 @@ export function createLlmTextClient(
   return {
     generateText(request: GenerateTextRequest): Promise<LlmResult> {
       return route(request.spec.provider).generateText(request)
+    },
+    streamText(request: GenerateTextRequest): AsyncIterable<LlmStreamEvent> {
+      return route(request.spec.provider).streamText(request)
     },
   }
 }

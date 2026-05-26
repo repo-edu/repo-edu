@@ -27,6 +27,7 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
+  LlmStreamEvent,
 } from "@repo-edu/host-runtime-contract"
 import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type {
@@ -88,6 +89,9 @@ let activeLlmPort: LlmPort = createNodeLlmPort()
 const nodeLlmPort: LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult> {
     return activeLlmPort.run(request)
+  },
+  stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+    return activeLlmPort.stream(request)
   },
 }
 

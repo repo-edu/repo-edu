@@ -31,6 +31,9 @@ function recordingClientFactory() {
         },
       }
     },
+    streamText() {
+      throw new Error("streamText is not used by connection verification.")
+    },
   })
   return { factory, calls }
 }
@@ -91,6 +94,9 @@ describe("connection.verifyLlmDraft", () => {
           throw new LlmError("auth", "bad key", {
             context: { provider: "claude", authMode: "api" },
           })
+        },
+        streamText() {
+          throw new Error("streamText is not used by connection verification.")
         },
       }),
     })

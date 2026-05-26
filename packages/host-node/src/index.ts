@@ -47,6 +47,7 @@ import type {
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
+  LlmStreamEvent,
   ProcessPort,
   ProcessRequest,
   ProcessResult,
@@ -586,6 +587,14 @@ export function createNodeLlmPort(config?: LlmRuntimeConfig): LlmPort {
         reply: result.reply,
         usage: result.usage,
       }
+    },
+    async *stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+      throwIfAborted(request.signal)
+      yield* client.streamText({
+        spec: request.spec,
+        prompt: request.prompt,
+        signal: request.signal,
+      })
     },
   }
 }

@@ -255,8 +255,13 @@ export type LlmRunResult = {
   usage: LlmUsage
 }
 
+export type LlmStreamEvent =
+  | { kind: "text-delta"; text: string }
+  | { kind: "done"; usage: LlmUsage }
+
 export type LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult>
+  stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent>
 }
 
 // TokenizerPort prepares live tree-sitter parser handles for application code

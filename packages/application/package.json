@@ -13,6 +13,7 @@
     "@repo-edu/test-fixtures": "workspace:*",
     "linkify-it": "^5.0.1",
     "papaparse": "^5.5.3",
+    "partial-json": "^0.1.7",
     "xlsx": "^0.18.5"
   },
   "exports": {

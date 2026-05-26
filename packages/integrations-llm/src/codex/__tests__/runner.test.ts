@@ -149,6 +149,47 @@ describe("createCodexLlmTextClient — guard rails", () => {
 })
 
 describe("createCodexLlmTextClient — thread options snapshot", () => {
+  it("streams only appended agent-message suffixes from updated and completed snapshots", async () => {
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.updated",
+          item: { id: "msg", type: "agent_message", text: "hel" },
+        },
+        {
+          type: "item.updated",
+          item: { id: "msg", type: "agent_message", text: "hello" },
+        },
+        {
+          type: "item.completed",
+          item: { id: "msg", type: "agent_message", text: "hello!" },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 3,
+            cached_input_tokens: 1,
+            output_tokens: 2,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+    const events = []
+
+    for await (const event of client.streamText(request(codexSpec))) {
+      events.push(event)
+    }
+
+    assert.deepEqual(
+      events.map((event) =>
+        event.kind === "text-delta" ? event.text : event.kind,
+      ),
+      ["hel", "lo", "!", "done"],
+    )
+  })
+
   it("starts a read-only thread in a neutral temp directory with web search disabled", async () => {
     process.env[CODEX] = "k"
     const { factory, calls } = createFakeCodex({

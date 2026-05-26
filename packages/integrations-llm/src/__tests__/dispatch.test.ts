@@ -20,6 +20,15 @@ const claudeSpec = {
   effort: "medium" as const,
 }
 
+const usage = {
+  inputTokens: 1,
+  cachedInputTokens: 0,
+  outputTokens: 1,
+  reasoningOutputTokens: 0,
+  wallMs: 0,
+  authMode: "subscription" as const,
+}
+
 function fakeRequest(
   spec: typeof codexSpec | typeof claudeSpec,
 ): GenerateTextRequest {
@@ -32,30 +41,24 @@ describe("Dispatcher routing", () => {
       async generateText(request) {
         return {
           reply: `claude:${request.spec.modelId}`,
-          usage: {
-            inputTokens: 1,
-            cachedInputTokens: 0,
-            outputTokens: 1,
-            reasoningOutputTokens: 0,
-            wallMs: 0,
-            authMode: "subscription",
-          },
+          usage,
         }
+      },
+      async *streamText(request) {
+        yield { kind: "text-delta", text: `claude:${request.spec.modelId}` }
+        yield { kind: "done", usage }
       },
     }
     const codex: LlmTextClient = {
       async generateText(request) {
         return {
           reply: `codex:${request.spec.modelId}`,
-          usage: {
-            inputTokens: 0,
-            cachedInputTokens: 0,
-            outputTokens: 0,
-            reasoningOutputTokens: 0,
-            wallMs: 0,
-            authMode: "api",
-          },
+          usage: { ...usage, authMode: "api" },
         }
+      },
+      async *streamText(request) {
+        yield { kind: "text-delta", text: `codex:${request.spec.modelId}` }
+        yield { kind: "done", usage: { ...usage, authMode: "api" } }
       },
     }
     const route = (provider: string): LlmTextClient => {
@@ -66,6 +69,9 @@ describe("Dispatcher routing", () => {
     const client: LlmTextClient = {
       generateText(request) {
         return route(request.spec.provider).generateText(request)
+      },
+      streamText(request) {
+        return route(request.spec.provider).streamText(request)
       },
     }
 

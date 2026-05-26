@@ -20,6 +20,7 @@ export type ExaminationEntry = {
     requested: number
     accepted: number
   } | null
+  generationProgressLabel: string | null
 }
 
 type ExaminationState = {
@@ -34,6 +35,14 @@ type ExaminationActions = {
   setQuestionCount: (count: number) => void
   setShowAnswers: (show: boolean) => void
   setEntry: (key: string, entry: ExaminationEntry) => void
+  setPartialQuestions: (
+    key: string,
+    payload: {
+      questions: ExaminationQuestion[]
+      sourceReferences: ExaminationSourceReference[]
+    },
+  ) => void
+  setGenerationProgress: (key: string, label: string) => void
   clearEntry: (key: string) => void
   reset: () => void
 }
@@ -62,6 +71,36 @@ export const useExaminationStore = create<
     set((state) => {
       const next = new Map(state.entriesByKey)
       next.set(key, entry)
+      return { entriesByKey: next }
+    }),
+  setPartialQuestions: (key, payload) =>
+    set((state) => {
+      const current = state.entriesByKey.get(key)
+      if (current?.status !== "loading") return state
+      const next = new Map(state.entriesByKey)
+      next.set(key, {
+        ...current,
+        questions: payload.questions,
+        sourceReferences: payload.sourceReferences,
+        partialQuestionCount:
+          current.partialQuestionCount === null
+            ? null
+            : {
+                ...current.partialQuestionCount,
+                accepted: payload.questions.length,
+              },
+      })
+      return { entriesByKey: next }
+    }),
+  setGenerationProgress: (key, label) =>
+    set((state) => {
+      const current = state.entriesByKey.get(key)
+      if (current?.status !== "loading") return state
+      const next = new Map(state.entriesByKey)
+      next.set(key, {
+        ...current,
+        generationProgressLabel: label,
+      })
       return { entriesByKey: next }
     }),
   clearEntry: (key) =>
