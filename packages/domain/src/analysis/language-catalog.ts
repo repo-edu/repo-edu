@@ -90,6 +90,10 @@ export const LANGUAGE_CATALOG = {
     label: "Lua",
     extensions: ["lua"],
   },
+  matlab: {
+    label: "MATLAB",
+    extensions: ["m"],
+  },
   ocaml: {
     label: "OCaml",
     extensions: ["ml", "mli"],

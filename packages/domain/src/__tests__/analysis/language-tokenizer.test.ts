@@ -24,6 +24,7 @@ const EXPECTED_SUPPORTED_LANGUAGES = [
   "js",
   "jsx",
   "kotlin",
+  "matlab",
   "php",
   "py",
   "r",
@@ -123,6 +124,7 @@ describe("extensionToTokenizerLanguage", () => {
   it("keeps catalogue extension aliases mapped to parent language ids", () => {
     assert.equal(extensionToTokenizerLanguage("mjs"), "js")
     assert.equal(extensionToTokenizerLanguage("cts"), "ts")
+    assert.equal(extensionToTokenizerLanguage("m"), "matlab")
     assert.equal(extensionToTokenizerLanguage("sql"), "sql")
     assert.equal(extensionToTokenizerLanguage("xhtml"), undefined)
     assert.equal(extensionToLanguage("xhtml"), "html")
@@ -268,6 +270,31 @@ describe("tokenizeSource", () => {
     assertSubstringKind(source, tokens, "-- strip Will", "comment")
     assertSubstringKind(source, tokens, "'not -- a comment'", "string-literal")
     assertSubstringKind(source, tokens, "/* strip Ada */", "comment")
+  })
+
+  it("classifies MATLAB comments and string literal spans", async () => {
+    const loaded = await loadGrammarForTests("matlab")
+    const source = [
+      "% strip Alice",
+      "%{",
+      "block Bob",
+      "%}",
+      "name = 'not % comment';",
+      'message = "double % text";',
+      "disp hello % trailing Carol",
+      "... continuation",
+      "",
+    ].join("\n")
+    const tokens = tokenizeSource(source, loaded)
+
+    assertExhaustiveCoverage(source, tokens)
+    assertSubstringKind(source, tokens, "% strip Alice", "comment")
+    assertSubstringKind(source, tokens, "%{\nblock Bob\n%}", "comment")
+    assertSubstringKind(source, tokens, "'not % comment'", "string-literal")
+    assertSubstringKind(source, tokens, '"double % text"', "string-literal")
+    assertSubstringKind(source, tokens, "hello", "string-literal")
+    assertSubstringKind(source, tokens, "% trailing Carol", "comment")
+    assertSubstringKind(source, tokens, "... continuation", "comment")
   })
 
   it("treats malformed source as code without throwing", async () => {

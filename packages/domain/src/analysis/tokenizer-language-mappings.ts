@@ -111,6 +111,13 @@ const TOKENIZER_LANGUAGE_MAPPINGS_INTERNAL = {
     ],
     embeddedExpressionNodeKinds: ["interpolation"],
   },
+  matlab: {
+    assetLanguage: "matlab",
+    commentNodeKinds: ["comment", "line_continuation"],
+    documentationNodeKinds: [],
+    stringNodeKinds: ["command_argument", "string"],
+    embeddedExpressionNodeKinds: [],
+  },
   php: {
     assetLanguage: "php",
     commentNodeKinds: ["comment"],

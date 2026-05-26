@@ -49,6 +49,7 @@ const DEFAULT_EXTENSIONS_SNAPSHOT = [
   "lhs",
   "lua",
   "ly",
+  "m",
   "mjs",
   "ml",
   "mli",
@@ -87,6 +88,7 @@ describe("extensionToLanguage", () => {
     assert.equal(extensionToLanguage("ts"), "ts")
     assert.equal(extensionToLanguage("py"), "py")
     assert.equal(extensionToLanguage("java"), "java")
+    assert.equal(extensionToLanguage("m"), "matlab")
   })
 
   it("strips leading dot", () => {

@@ -219,6 +219,28 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     },
     noticeFile: null,
   },
+  matlab: {
+    language: "matlab",
+    assetUrl: new URL(
+      "./assets/grammars/tree-sitter-matlab.wasm",
+      import.meta.url,
+    ).href,
+    assetBytes: 426_521,
+    assetSha256:
+      "38925658bee8a9179c9253aa611a0d4570e1b3130aa81348b059cf2809c6eb73",
+    upstreamSource: "acristoffers/tree-sitter-matlab",
+    grammarVersion: "1.3.0",
+    treeSitterCliVersion: "0.26.7",
+    grammarAbiVersion: 15,
+    runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
+    spdxLicense: "MIT",
+    acquisition: {
+      packageName: "@lumis-sh/wasm-matlab",
+      packageVersion: "0.26.0",
+      assetPath: "tree-sitter-matlab.wasm",
+    },
+    noticeFile: null,
+  },
   php: {
     language: "php",
     assetUrl: new URL("./assets/grammars/tree-sitter-php.wasm", import.meta.url)

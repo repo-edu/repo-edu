@@ -24,6 +24,7 @@ export const TOKENIZER_SUPPORTED_LANGUAGES = [
   "js",
   "jsx",
   "kotlin",
+  "matlab",
   "php",
   "py",
   "r",
