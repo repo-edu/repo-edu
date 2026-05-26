@@ -1,11 +1,12 @@
 import type { PersistedLlmConnection } from "@repo-edu/domain/settings"
 import {
+  Button,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
   type ResizablePanelHandle,
 } from "@repo-edu/ui"
-import { useCallback, useRef } from "react"
+import { type ReactNode, useCallback, useRef } from "react"
 import {
   EXAMINATION_SUBMISSION_SIDEBAR_DEFAULT_WIDTH_PX,
   EXAMINATION_SUBMISSION_SIDEBAR_MAX_WIDTH_PX,
@@ -20,12 +21,15 @@ import { LlmControls } from "./LlmControls.js"
 import type { AvailableArchiveEntry } from "./types.js"
 
 type SubmissionExaminationPaneProps = {
+  sidebarContent?: ReactNode
   connections: PersistedLlmConnection[]
   activeConnection: PersistedLlmConnection | null
   selectedModelCode: string | null
   onSelectConnection: (id: string) => void
   onSelectModelCode: (code: string) => void
   onOpenSettings: () => void
+  onImportArchive: () => void
+  onExportArchive: () => void
 
   entry: ExaminationEntry | null
   archiveEntries: AvailableArchiveEntry[]
@@ -41,6 +45,7 @@ type SubmissionExaminationPaneProps = {
   onStopGeneration: () => void
   onRegenerate: () => void
   onCopyMarkdown: () => void
+  emptyMessage: string
 }
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
@@ -52,12 +57,15 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 }
 
 export function SubmissionExaminationPane({
+  sidebarContent,
   connections,
   activeConnection,
   selectedModelCode,
   onSelectConnection,
   onSelectModelCode,
   onOpenSettings,
+  onImportArchive,
+  onExportArchive,
   entry,
   archiveEntries,
   displayedArchiveEntry,
@@ -72,6 +80,7 @@ export function SubmissionExaminationPane({
   onStopGeneration,
   onRegenerate,
   onCopyMarkdown,
+  emptyMessage,
 }: SubmissionExaminationPaneProps) {
   const isLoading = entry?.status === "loading"
   const hasPartialQuestions =
@@ -120,34 +129,58 @@ export function SubmissionExaminationPane({
         groupResizeBehavior="preserve-pixel-size"
         className="min-w-0"
       >
-        <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-2">
-          <LlmControls
-            connections={connections}
-            activeConnection={activeConnection}
-            selectedModelCode={selectedModelCode}
-            onSelectConnection={onSelectConnection}
-            onSelectModelCode={onSelectModelCode}
-            onOpenSettings={onOpenSettings}
-          />
-          <p className="rounded border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
-            Provider prompts use redacted excerpts, but local code may still
-            contain personal data after best-effort redaction.
-          </p>
-          <ExaminationControlsCard
-            questionCount={questionCount}
-            showAnswers={showAnswers}
-            blocker={blocker}
-            isGenerating={isLoading}
-            canRegenerate={!isLoading && exactHasResults && blocker === null}
-            canToggleAnswers={hasDisplayResults}
-            canCopyMarkdown={displayEntry?.status === "loaded"}
-            onQuestionCountChange={onQuestionCountChange}
-            onShowAnswersChange={onShowAnswersChange}
-            onGenerate={onGenerate}
-            onStopGeneration={onStopGeneration}
-            onRegenerate={onRegenerate}
-            onCopyMarkdown={onCopyMarkdown}
-          />
+        <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-2">
+          {sidebarContent}
+          <section className="grid gap-3">
+            <div className="grid gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h2 className="text-lg font-semibold">Examination</h2>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={onImportArchive}>
+                    Import archive...
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={onExportArchive}>
+                    Export archive...
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Generate oral exam questions from the selected submission files.
+              </p>
+            </div>
+            <LlmControls
+              connections={connections}
+              activeConnection={activeConnection}
+              selectedModelCode={selectedModelCode}
+              onSelectConnection={onSelectConnection}
+              onSelectModelCode={onSelectModelCode}
+              onOpenSettings={onOpenSettings}
+            />
+            <p className="rounded border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+              Provider prompts use redacted excerpts, but local code may still
+              contain personal data after best-effort redaction.
+            </p>
+            <ExaminationControlsCard
+              questionCount={questionCount}
+              showAnswers={showAnswers}
+              blocker={blocker}
+              isGenerating={isLoading}
+              canRegenerate={!isLoading && exactHasResults && blocker === null}
+              canToggleAnswers={hasDisplayResults}
+              canCopyMarkdown={displayEntry?.status === "loaded"}
+              onQuestionCountChange={onQuestionCountChange}
+              onShowAnswersChange={onShowAnswersChange}
+              onGenerate={onGenerate}
+              onStopGeneration={onStopGeneration}
+              onRegenerate={onRegenerate}
+              onCopyMarkdown={onCopyMarkdown}
+            />
+          </section>
+        </div>
+      </ResizablePanel>
+      <ResizableHandle className="aria-[orientation=vertical]:w-px aria-[orientation=vertical]:after:absolute aria-[orientation=vertical]:after:inset-y-0 aria-[orientation=vertical]:after:-left-1 aria-[orientation=vertical]:after:w-2" />
+      <ResizablePanel className="min-w-0">
+        <div className="flex h-full min-h-0 flex-col gap-3 pl-2">
           {showArchiveSelector ? (
             <ArchiveSetSelector
               entries={archiveEntries}
@@ -155,11 +188,6 @@ export function SubmissionExaminationPane({
               onSelect={onSelectArchiveEntry}
             />
           ) : null}
-        </div>
-      </ResizablePanel>
-      <ResizableHandle className="aria-[orientation=vertical]:w-px aria-[orientation=vertical]:after:absolute aria-[orientation=vertical]:after:inset-y-0 aria-[orientation=vertical]:after:-left-1 aria-[orientation=vertical]:after:w-2" />
-      <ResizablePanel className="min-w-0">
-        <div className="flex h-full min-h-0 flex-col pl-2">
           <ExaminationQuestionDisplay
             entry={entry}
             displayedArchiveEntry={displayedArchiveEntry}
@@ -167,7 +195,7 @@ export function SubmissionExaminationPane({
             showAnswers={showAnswers}
             layout="pane"
             scrollResetKey={displayedArchiveEntry?.key ?? null}
-            emptyMessage="Click Generate to produce questions for this submission."
+            emptyMessage={emptyMessage}
           />
         </div>
       </ResizablePanel>

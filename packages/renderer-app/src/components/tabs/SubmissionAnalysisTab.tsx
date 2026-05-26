@@ -18,7 +18,7 @@ import {
   type Roster,
   type RosterMember,
 } from "@repo-edu/domain/types"
-import { Checkbox, EmptyState, Label } from "@repo-edu/ui"
+import { Checkbox, Label } from "@repo-edu/ui"
 import { useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
@@ -560,108 +560,108 @@ export function SubmissionAnalysisTab() {
     visiblePrepared.status !== "loaded" &&
     visiblePrepared.status !== "error"
   const examinationPlaceholderMessage =
-    fileList.status === "loading"
-      ? "Loading files..."
-      : fileList.status === "error"
-        ? "Fix the file loading error before preparing examination generation."
-        : isAwaitingPreparation || visiblePrepared.status === "loading"
-          ? "Preparing submission..."
-          : (prepareBlocker ??
-            "Select at least one file to open examination generation.")
+    visiblePrepared.status === "loaded"
+      ? "Click Generate to produce questions for this submission."
+      : fileList.status === "loading"
+        ? "Loading files..."
+        : fileList.status === "error"
+          ? "Fix the file loading error before preparing examination generation."
+          : isAwaitingPreparation || visiblePrepared.status === "loading"
+            ? "Preparing submission..."
+            : (prepareBlocker ??
+              "Select at least one file to open examination generation.")
 
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
-      <div className="grid flex-none gap-4 rounded border p-4">
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold">Submission</h2>
-          <p className="text-sm text-muted-foreground">{activeSurface.path}</p>
+  const sidebarContent = (
+    <section className="grid gap-4">
+      <div className="grid gap-1">
+        <h2 className="text-lg font-semibold">Submission</h2>
+        <p className="break-all text-sm text-muted-foreground">
+          {activeSurface.path}
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <Label className="flex items-center gap-2">
+            <Checkbox
+              checked={masterState}
+              onCheckedChange={handleToggleMaster}
+              disabled={
+                fileList.status !== "loaded" || eligibleFiles.length === 0
+              }
+            />
+            <span>Files</span>
+          </Label>
+          <span className="text-xs text-muted-foreground">
+            {summaryEstimate}
+          </span>
         </div>
 
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <Label className="flex items-center gap-2">
-              <Checkbox
-                checked={masterState}
-                onCheckedChange={handleToggleMaster}
-                disabled={
-                  fileList.status !== "loaded" || eligibleFiles.length === 0
-                }
-              />
-              <span>Files</span>
-            </Label>
-            <span className="text-xs text-muted-foreground">
-              {summaryEstimate}
-            </span>
-          </div>
-
-          {fileList.status === "loading" ? (
-            <p className="text-xs text-muted-foreground">Loading files...</p>
-          ) : fileList.status === "error" ? (
-            <p className="text-xs text-destructive">{fileList.error}</p>
-          ) : fileList.files.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No files matched the configured extensions.
-            </p>
-          ) : (
-            <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded border bg-muted/20 p-2">
-              {fileList.files.map((file) => {
-                const eligible = isEligible(file)
-                const checked = eligible && selectedSet.has(file.relativePath)
-                return (
-                  <li
-                    key={file.relativePath}
-                    className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-muted/40"
-                  >
-                    <Label className="flex flex-1 items-center gap-2 truncate text-xs font-normal">
-                      <Checkbox
-                        checked={checked}
-                        disabled={!eligible}
-                        onCheckedChange={() =>
-                          handleToggleFile(file.relativePath)
-                        }
-                      />
-                      <span className="truncate">{file.relativePath}</span>
-                    </Label>
-                    <span className="text-xs text-muted-foreground">
-                      {eligible
-                        ? formatBytes(file.size)
-                        : `${formatBytes(file.size)} · too large`}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {prepareBlocker !== null ? (
-            <p className="text-xs text-destructive">{prepareBlocker}</p>
-          ) : null}
-        </div>
-
-        {isAwaitingPreparation || visiblePrepared.status === "loading" ? (
+        {fileList.status === "loading" ? (
+          <p className="text-xs text-muted-foreground">Loading files...</p>
+        ) : fileList.status === "error" ? (
+          <p className="text-xs text-destructive">{fileList.error}</p>
+        ) : fileList.files.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Preparing submission...
+            No files matched the configured extensions.
           </p>
-        ) : visiblePrepared.status === "error" ? (
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-destructive">{visiblePrepared.error}</p>
-            <button
-              type="button"
-              className="text-xs underline"
-              onClick={() => setPrepareAttempt((attempt) => attempt + 1)}
-            >
-              Retry
-            </button>
-          </div>
+        ) : (
+          <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded border bg-muted/20 p-2">
+            {fileList.files.map((file) => {
+              const eligible = isEligible(file)
+              const checked = eligible && selectedSet.has(file.relativePath)
+              return (
+                <li
+                  key={file.relativePath}
+                  className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-muted/40"
+                >
+                  <Label className="flex flex-1 items-center gap-2 truncate text-xs font-normal">
+                    <Checkbox
+                      checked={checked}
+                      disabled={!eligible}
+                      onCheckedChange={() =>
+                        handleToggleFile(file.relativePath)
+                      }
+                    />
+                    <span className="truncate">{file.relativePath}</span>
+                  </Label>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {eligible
+                      ? formatBytes(file.size)
+                      : `${formatBytes(file.size)} · too large`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {prepareBlocker !== null ? (
+          <p className="text-xs text-destructive">{prepareBlocker}</p>
         ) : null}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
-        {visiblePrepared.context === null ? (
-          <EmptyState message={examinationPlaceholderMessage} />
-        ) : (
-          <ExaminationTab submissionContext={visiblePrepared.context} />
-        )}
-      </div>
-    </div>
+      {isAwaitingPreparation || visiblePrepared.status === "loading" ? (
+        <p className="text-xs text-muted-foreground">Preparing submission...</p>
+      ) : visiblePrepared.status === "error" ? (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-destructive">{visiblePrepared.error}</p>
+          <button
+            type="button"
+            className="text-xs underline"
+            onClick={() => setPrepareAttempt((attempt) => attempt + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+    </section>
+  )
+
+  return (
+    <ExaminationTab
+      submissionContext={visiblePrepared.context}
+      submissionSidebarContent={sidebarContent}
+      submissionPlaceholderMessage={examinationPlaceholderMessage}
+    />
   )
 }

@@ -14,7 +14,14 @@ import {
   modelCode,
 } from "@repo-edu/integrations-llm-catalog"
 import { Button, EmptyState } from "@repo-edu/ui"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
@@ -71,12 +78,17 @@ export type { SubmissionExaminationContext } from "./examination/types.js"
 
 type ExaminationTabProps = {
   submissionContext?: SubmissionExaminationContext | null
+  submissionSidebarContent?: ReactNode
+  submissionPlaceholderMessage?: string
 }
 
 export function ExaminationTab({
   submissionContext = null,
+  submissionSidebarContent,
+  submissionPlaceholderMessage = "Select at least one file to open examination generation.",
 }: ExaminationTabProps = {}) {
-  const isSubmission = submissionContext !== null
+  const isSubmissionMode =
+    submissionContext !== null || submissionSidebarContent !== undefined
   const analysisContext = useAnalysisContext()
   const blameResult = useAnalysisStore((s) => s.blameResult)
   const analysisResult = useAnalysisStore((s) => s.result)
@@ -112,6 +124,11 @@ export function ExaminationTab({
   const [activeGenerationEntryKey, setActiveGenerationEntryKey] = useState<
     string | null
   >(null)
+  const [selectedArchiveEntrySnapshot, setSelectedArchiveEntrySnapshot] =
+    useState<AvailableArchiveEntry | null>(null)
+  const selectedArchiveEntryFallbackRef = useRef<AvailableArchiveEntry | null>(
+    null,
+  )
   const [generatedQuestionSetsByPersonId, setGeneratedQuestionSetsByPersonId] =
     useState<GeneratedQuestionSetsByPersonId>(new Map())
 
@@ -178,8 +195,8 @@ export function ExaminationTab({
   ])
 
   const authorSummaries = useMemo(
-    () => blameResult?.authorSummaries ?? [],
-    [blameResult],
+    () => (isSubmissionMode ? [] : (blameResult?.authorSummaries ?? [])),
+    [blameResult, isSubmissionMode],
   )
 
   const rosterMemberIdByPersonId = useMemo(() => {
@@ -201,37 +218,50 @@ export function ExaminationTab({
     if (submissionContext !== null) {
       return submissionContext.contentScopeId
     }
+    if (isSubmissionMode) return ""
     const resolved = analysisResult?.resolvedAsOfOid
     if (resolved && resolved.length > 0) return resolved
     return asOfCommit ?? ""
-  }, [analysisResult, asOfCommit, submissionContext])
-  const effectivePersonId = submissionContext?.personId ?? selectedPersonId
+  }, [analysisResult, asOfCommit, isSubmissionMode, submissionContext])
+  const effectivePersonId =
+    submissionContext !== null
+      ? submissionContext.personId
+      : isSubmissionMode
+        ? null
+        : selectedPersonId
   const selectedExcerpts = useMemo(() => {
     if (submissionContext !== null) return submissionContext.excerpts
+    if (isSubmissionMode) return []
     if (!blameResult || !selectedPersonId) return []
     return buildMemberExcerpts(
       blameResult,
       blameResult.personDbOverlay,
       selectedPersonId,
     )
-  }, [blameResult, selectedPersonId, submissionContext])
+  }, [blameResult, isSubmissionMode, selectedPersonId, submissionContext])
   const selectedExcerptFileSources = useMemo(() => {
     if (submissionContext !== null) return submissionContext.excerptFileSources
+    if (isSubmissionMode) return {}
     if (!blameResult) return {}
     return buildExcerptFileSources(blameResult, selectedExcerpts)
-  }, [blameResult, selectedExcerpts, submissionContext])
+  }, [blameResult, isSubmissionMode, selectedExcerpts, submissionContext])
   const localIdentityContext = useMemo(() => {
     if (submissionContext !== null) {
       return submissionContext.localIdentityContext
     }
+    if (isSubmissionMode) return null
     if (!blameResult) return null
     return buildExaminationLocalIdentityContext({
       personDb: blameResult.personDbOverlay,
       roster: analysisContext.course?.roster ?? null,
     })
-  }, [analysisContext.course, blameResult, submissionContext])
+  }, [analysisContext.course, blameResult, isSubmissionMode, submissionContext])
   const pendingSourceKey =
-    submissionContext?.pendingSourceKey ?? selectedRepoPath
+    submissionContext !== null
+      ? submissionContext.pendingSourceKey
+      : isSubmissionMode
+        ? null
+        : selectedRepoPath
   const pendingEntryKey = useMemo(() => {
     if (
       !pendingSourceKey ||
@@ -269,6 +299,7 @@ export function ExaminationTab({
       : null,
   )
   const visibleActiveGenerationEntryKey =
+    pendingEntryKey !== null &&
     activeGenerationEntryKey !== null &&
     (activeGenerationEntry?.status === "loading" ||
       activeGenerationEntry?.status === "error")
@@ -305,7 +336,9 @@ export function ExaminationTab({
           ),
           linesPercent: 100,
         } satisfies BlameAuthorSummary)
-      : (authorSummaries.find((s) => s.personId === selectedPersonId) ?? null)
+      : isSubmissionMode
+        ? null
+        : (authorSummaries.find((s) => s.personId === selectedPersonId) ?? null)
   const selectedDisplay =
     submissionContext !== null
       ? {
@@ -405,7 +438,7 @@ export function ExaminationTab({
   const refreshGeneratedQuestionSummaries = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
       if (
-        isSubmission ||
+        isSubmissionMode ||
         !blameResult ||
         commitOid.length === 0 ||
         localIdentityContext === null ||
@@ -466,7 +499,7 @@ export function ExaminationTab({
       authorSummaries,
       blameResult,
       commitOid,
-      isSubmission,
+      isSubmissionMode,
       llmSettings,
       localIdentityContext,
       questionCount,
@@ -485,8 +518,12 @@ export function ExaminationTab({
 
   useEffect(() => {
     if (pendingEntryKey === null || selectedLookupInput === null) {
-      setAvailableArchiveEntries([])
-      setSelectedArchiveEntryKey(null)
+      if (pendingSourceKey === null) {
+        setAvailableArchiveEntries([])
+        setSelectedArchiveEntryKey(null)
+        setSelectedArchiveEntrySnapshot(null)
+        selectedArchiveEntryFallbackRef.current = null
+      }
       setRequestedEntryKey(null)
       setRequestedEntryPendingKey(null)
       return
@@ -500,29 +537,51 @@ export function ExaminationTab({
     ).catch((_error: unknown) => undefined)
 
     return () => abort.abort()
-  }, [refreshArchiveEntries, pendingEntryKey, selectedLookupInput])
+  }, [
+    pendingEntryKey,
+    pendingSourceKey,
+    refreshArchiveEntries,
+    selectedLookupInput,
+  ])
 
-  const archiveEntries = useMemo(
-    () =>
-      mergeAvailableArchiveEntries(
-        availableArchiveEntries,
-        selectedEntryKey !== null &&
-          entry?.status === "loaded" &&
-          entry.archivedModel !== null &&
-          entry.archivedEffort !== null
-          ? [
-              {
-                key: selectedEntryKey,
-                questionCount: entry.archivedQuestionCount ?? questionCount,
-                model: entry.archivedModel,
-                effort: entry.archivedEffort,
-                entry,
-              },
-            ]
-          : [],
-      ),
-    [availableArchiveEntries, entry, questionCount, selectedEntryKey],
-  )
+  const selectedArchiveEntryFallback =
+    selectedArchiveEntryFallbackRef.current ?? selectedArchiveEntrySnapshot
+  const effectiveSelectedArchiveEntryKey =
+    selectedArchiveEntryFallback?.key ?? selectedArchiveEntryKey
+
+  const archiveEntries = useMemo(() => {
+    if (pendingSourceKey === null) return []
+    const selectedSnapshot =
+      selectedArchiveEntryFallback !== null
+        ? [selectedArchiveEntryFallback]
+        : []
+    if (pendingEntryKey === null) return selectedSnapshot
+    return mergeAvailableArchiveEntries(availableArchiveEntries, [
+      ...selectedSnapshot,
+      ...(selectedEntryKey !== null &&
+      entry?.status === "loaded" &&
+      entry.archivedModel !== null &&
+      entry.archivedEffort !== null
+        ? [
+            {
+              key: selectedEntryKey,
+              questionCount: entry.archivedQuestionCount ?? questionCount,
+              model: entry.archivedModel,
+              effort: entry.archivedEffort,
+              entry,
+            },
+          ]
+        : []),
+    ])
+  }, [
+    availableArchiveEntries,
+    entry,
+    pendingEntryKey,
+    pendingSourceKey,
+    questionCount,
+    selectedArchiveEntryFallback,
+    selectedEntryKey,
+  ])
 
   const activeRequestedEntryKey =
     requestedEntryPendingKey === pendingEntryKey ? requestedEntryKey : null
@@ -532,10 +591,10 @@ export function ExaminationTab({
         archiveEntryKeys: archiveEntries.map(
           (archiveEntry) => archiveEntry.key,
         ),
-        selectedArchiveEntryKey,
+        selectedArchiveEntryKey: effectiveSelectedArchiveEntryKey,
         requestedEntryKey: activeRequestedEntryKey,
       }),
-    [activeRequestedEntryKey, archiveEntries, selectedArchiveEntryKey],
+    [activeRequestedEntryKey, archiveEntries, effectiveSelectedArchiveEntryKey],
   )
 
   const displayedArchiveEntry = useMemo(() => {
@@ -549,6 +608,8 @@ export function ExaminationTab({
 
   const handleSelectArchiveEntry = useCallback(
     (archiveEntry: AvailableArchiveEntry) => {
+      selectedArchiveEntryFallbackRef.current = archiveEntry
+      setSelectedArchiveEntrySnapshot(archiveEntry)
       setSelectedArchiveEntryKey(archiveEntry.key)
       setQuestionCount(archiveEntry.questionCount)
       const spec = getSpecByCode(archiveEntry.model)
@@ -585,7 +646,7 @@ export function ExaminationTab({
   )
 
   if (
-    !isSubmission &&
+    !isSubmissionMode &&
     (!selectedRepoPath || !blameResult || authorSummaries.length === 0)
   ) {
     return (
@@ -621,7 +682,7 @@ export function ExaminationTab({
     personId: string,
     options?: { regenerate?: boolean },
   ) => {
-    if (!isSubmission && !blameResult) return
+    if (!isSubmissionMode && !blameResult) return
     const blocker = resolveBlockingReason()
     if (blocker) {
       addToast(blocker, { tone: "warning" })
@@ -781,6 +842,8 @@ export function ExaminationTab({
         effort: result.archivedProvenance.effort,
         entry: loadedEntry,
       }
+      selectedArchiveEntryFallbackRef.current = archiveEntry
+      setSelectedArchiveEntrySnapshot(archiveEntry)
       setAvailableArchiveEntries((current) => {
         const preserved = current.filter(
           (existing) =>
@@ -895,7 +958,11 @@ export function ExaminationTab({
   }
 
   const selectedBlocker =
-    selectedSummary !== null ? resolveBlockingReason() : null
+    selectedSummary !== null
+      ? resolveBlockingReason()
+      : isSubmissionMode
+        ? submissionPlaceholderMessage
+        : null
   const selectedRosterWarning =
     selectedSummary !== null
       ? resolveRosterWarning(selectedSummary.personId)
@@ -922,18 +989,24 @@ export function ExaminationTab({
   }
 
   const handleSelectLlmConnection = (id: string) => {
+    selectedArchiveEntryFallbackRef.current = null
+    setSelectedArchiveEntrySnapshot(null)
     setSelectedArchiveEntryKey(null)
     setActiveLlmConnectionId(id)
     void saveAppSettings()
   }
   const handleSelectModelCode = (code: string) => {
     if (activeProvider === null) return
+    selectedArchiveEntryFallbackRef.current = null
+    setSelectedArchiveEntrySnapshot(null)
     setSelectedArchiveEntryKey(null)
     setExaminationModelForProvider(activeProvider, code)
     void saveAppSettings()
   }
   const handleOpenLlmSettings = () => openSettings("llm-connections")
   const handleQuestionCountChange = (count: number) => {
+    selectedArchiveEntryFallbackRef.current = null
+    setSelectedArchiveEntrySnapshot(null)
     setSelectedArchiveEntryKey(null)
     setQuestionCount(count)
   }
@@ -942,6 +1015,47 @@ export function ExaminationTab({
       entry?.status === "loading" ? selectedEntryKey : null
     if (generationControlId !== null) void stopGeneration(generationControlId)
   }
+  const handleGenerateSelected = () => {
+    if (selectedSummary === null) return
+    void generate(selectedSummary.personId)
+  }
+  const handleRegenerateSelected = () => {
+    if (selectedSummary === null) return
+    void generate(selectedSummary.personId, { regenerate: true })
+  }
+
+  if (isSubmissionMode) {
+    return (
+      <div className="h-full min-h-0 overflow-hidden p-6">
+        <SubmissionExaminationPane
+          sidebarContent={submissionSidebarContent}
+          connections={llmConnections}
+          activeConnection={activeLlmConnection}
+          selectedModelCode={selectedModelCode}
+          onSelectConnection={handleSelectLlmConnection}
+          onSelectModelCode={handleSelectModelCode}
+          onOpenSettings={handleOpenLlmSettings}
+          onImportArchive={importArchive}
+          onExportArchive={exportArchive}
+          entry={entry}
+          archiveEntries={archiveEntries}
+          displayedArchiveEntry={displayedArchiveEntry}
+          showArchiveSelector={showArchiveSelector}
+          questionCount={questionCount}
+          showAnswers={showAnswers}
+          blocker={selectedBlocker}
+          onQuestionCountChange={handleQuestionCountChange}
+          onShowAnswersChange={setShowAnswers}
+          onSelectArchiveEntry={handleSelectArchiveEntry}
+          onGenerate={handleGenerateSelected}
+          onStopGeneration={handleStopGeneration}
+          onRegenerate={handleRegenerateSelected}
+          onCopyMarkdown={copyMarkdown}
+          emptyMessage={submissionPlaceholderMessage}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-6">
@@ -949,9 +1063,8 @@ export function ExaminationTab({
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Examination</h2>
           <p className="text-sm text-muted-foreground">
-            {isSubmission
-              ? "Generate oral exam questions from the selected submission files."
-              : "Generate oral exam questions from the code each author signed their name to in the final repository state."}
+            Generate oral exam questions from the code each author signed their
+            name to in the final repository state.
           </p>
         </div>
         <div className="flex gap-2">
@@ -964,85 +1077,54 @@ export function ExaminationTab({
         </div>
       </div>
 
-      {isSubmission && selectedSummary !== null ? (
-        <SubmissionExaminationPane
-          connections={llmConnections}
-          activeConnection={activeLlmConnection}
-          selectedModelCode={selectedModelCode}
-          onSelectConnection={handleSelectLlmConnection}
-          onSelectModelCode={handleSelectModelCode}
-          onOpenSettings={handleOpenLlmSettings}
-          entry={entry}
-          archiveEntries={archiveEntries}
-          displayedArchiveEntry={displayedArchiveEntry}
-          showArchiveSelector={showArchiveSelector}
-          questionCount={questionCount}
-          showAnswers={showAnswers}
-          blocker={selectedBlocker}
-          onQuestionCountChange={handleQuestionCountChange}
-          onShowAnswersChange={setShowAnswers}
-          onSelectArchiveEntry={handleSelectArchiveEntry}
-          onGenerate={() => generate(selectedSummary.personId)}
-          onStopGeneration={handleStopGeneration}
-          onRegenerate={() =>
-            generate(selectedSummary.personId, { regenerate: true })
-          }
-          onCopyMarkdown={copyMarkdown}
+      <LlmControls
+        connections={llmConnections}
+        activeConnection={activeLlmConnection}
+        selectedModelCode={selectedModelCode}
+        onSelectConnection={handleSelectLlmConnection}
+        onSelectModelCode={handleSelectModelCode}
+        onOpenSettings={handleOpenLlmSettings}
+      />
+      <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
+        <AuthorList
+          authorSummaries={authorSummaries}
+          authorDisplays={authorDisplays}
+          generatedQuestionSetsByPersonId={generatedQuestionSetsByPersonId}
+          selectedPersonId={selectedPersonId}
+          onSelect={setSelectedPersonId}
         />
-      ) : (
-        <>
-          <LlmControls
-            connections={llmConnections}
-            activeConnection={activeLlmConnection}
-            selectedModelCode={selectedModelCode}
-            onSelectConnection={handleSelectLlmConnection}
-            onSelectModelCode={handleSelectModelCode}
-            onOpenSettings={handleOpenLlmSettings}
-          />
-          <div className="grid grid-cols-[280px_1fr] gap-4 min-h-0 flex-1 overflow-hidden">
-            <AuthorList
-              authorSummaries={authorSummaries}
-              authorDisplays={authorDisplays}
-              generatedQuestionSetsByPersonId={generatedQuestionSetsByPersonId}
-              selectedPersonId={selectedPersonId}
-              onSelect={setSelectedPersonId}
+        <div className="h-full min-h-0 overflow-hidden">
+          {selectedSummary === null ? (
+            <EmptyState message={emptyStateMessage ?? ""} />
+          ) : (
+            <AuthorPanel
+              authorName={
+                selectedDisplay?.name ?? selectedSummary.canonicalName
+              }
+              authorEmail={
+                selectedDisplay?.email ?? selectedSummary.canonicalEmail
+              }
+              summary={selectedSummary}
+              entry={entry}
+              archiveEntries={archiveEntries}
+              displayedArchiveEntry={displayedArchiveEntry}
+              showArchiveSelector={showArchiveSelector}
+              questionCount={questionCount}
+              showAnswers={showAnswers}
+              blocker={selectedBlocker}
+              rosterWarning={selectedRosterWarning}
+              layout="pane"
+              onQuestionCountChange={handleQuestionCountChange}
+              onShowAnswersChange={setShowAnswers}
+              onSelectArchiveEntry={handleSelectArchiveEntry}
+              onGenerate={handleGenerateSelected}
+              onStopGeneration={handleStopGeneration}
+              onRegenerate={handleRegenerateSelected}
+              onCopyMarkdown={copyMarkdown}
             />
-            <div className="h-full min-h-0 overflow-hidden">
-              {selectedSummary === null ? (
-                <EmptyState message={emptyStateMessage ?? ""} />
-              ) : (
-                <AuthorPanel
-                  authorName={
-                    selectedDisplay?.name ?? selectedSummary.canonicalName
-                  }
-                  authorEmail={
-                    selectedDisplay?.email ?? selectedSummary.canonicalEmail
-                  }
-                  summary={selectedSummary}
-                  entry={entry}
-                  archiveEntries={archiveEntries}
-                  displayedArchiveEntry={displayedArchiveEntry}
-                  showArchiveSelector={showArchiveSelector}
-                  questionCount={questionCount}
-                  showAnswers={showAnswers}
-                  blocker={selectedBlocker}
-                  rosterWarning={selectedRosterWarning}
-                  layout="pane"
-                  onQuestionCountChange={handleQuestionCountChange}
-                  onShowAnswersChange={setShowAnswers}
-                  onSelectArchiveEntry={handleSelectArchiveEntry}
-                  onGenerate={() => generate(selectedSummary.personId)}
-                  onStopGeneration={handleStopGeneration}
-                  onRegenerate={() =>
-                    generate(selectedSummary.personId, { regenerate: true })
-                  }
-                  onCopyMarkdown={copyMarkdown}
-                />
-              )}
-            </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </div>
     </div>
   )
 }
