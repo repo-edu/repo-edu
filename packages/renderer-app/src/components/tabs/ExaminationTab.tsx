@@ -1664,11 +1664,17 @@ function LlmControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {connections.map((connection) => (
-              <SelectItem key={connection.id} value={connection.id}>
-                {connection.name} · {PROVIDER_LABEL[connection.provider]}
-              </SelectItem>
-            ))}
+            {connections.map((connection) => {
+              const trimmedName = connection.name.trim()
+              const label = trimmedName
+                ? `${trimmedName} · ${PROVIDER_LABEL[connection.provider]}`
+                : PROVIDER_LABEL[connection.provider]
+              return (
+                <SelectItem key={connection.id} value={connection.id}>
+                  {label}
+                </SelectItem>
+              )
+            })}
           </SelectContent>
         </Select>
       </div>

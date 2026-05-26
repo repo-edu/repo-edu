@@ -82,21 +82,35 @@ export function LlmConnectionsPane() {
     viewState.view === "editor" ? viewState.originalId : null
   const editing = viewState.view === "editor" && viewState.originalId !== null
 
+  const draftDisplayName = useMemo(
+    () => draft.name.trim() || PROVIDER_LABEL[draft.provider],
+    [draft.name, draft.provider],
+  )
+
   const nameTaken = useMemo(() => {
     if (saving) return false
-    const normalized = draft.name.trim().toLowerCase()
-    if (!normalized) return false
+    const normalized = draftDisplayName.toLowerCase()
     return llmConnections.some(
       (connection) =>
         connection.id !== editorOriginalId &&
-        connection.name.trim().toLowerCase() === normalized,
+        (
+          connection.name.trim() || PROVIDER_LABEL[connection.provider]
+        ).toLowerCase() === normalized,
     )
-  }, [saving, llmConnections, draft.name, editorOriginalId])
+  }, [saving, llmConnections, draftDisplayName, editorOriginalId])
+
+  const nameTakenMessage = useMemo(() => {
+    if (!nameTaken) return null
+    if (draft.name.trim().length === 0) {
+      return `A ${PROVIDER_LABEL[draft.provider]} connection already exists. Give this one a name.`
+    }
+    return "An LLM connection with this name already exists."
+  }, [nameTaken, draft.name, draft.provider])
 
   const apiKeyMissing =
     draft.authMode === "api" && draft.apiKey.trim().length === 0
 
-  const canSave = draft.name.trim().length > 0 && !nameTaken && !apiKeyMissing
+  const canSave = !nameTaken && !apiKeyMissing
 
   const hasChanges = useMemo(() => {
     if (!editing || editorOriginalId === null) return true
@@ -212,14 +226,18 @@ export function LlmConnectionsPane() {
   if (viewState.view === "editor") {
     return (
       <div className="space-y-3">
-        <FormField label="Name" htmlFor="settings-llm-name">
+        <FormField
+          label="Name"
+          htmlFor="settings-llm-name"
+          description="Optional. Defaults to the provider name when a single connection per provider is enough."
+        >
           <Input
             id="settings-llm-name"
             value={draft.name}
             onChange={(event) =>
               setDraft((current) => ({ ...current, name: event.target.value }))
             }
-            placeholder="e.g., Personal Anthropic"
+            placeholder={PROVIDER_LABEL[draft.provider]}
           />
         </FormField>
         <FormField label="Provider" htmlFor="settings-llm-provider">
@@ -280,10 +298,8 @@ export function LlmConnectionsPane() {
           </FormField>
         )}
 
-        {nameTaken && (
-          <Text className="text-xs text-destructive">
-            An LLM connection with this name already exists.
-          </Text>
+        {nameTakenMessage && (
+          <Text className="text-xs text-destructive">{nameTakenMessage}</Text>
         )}
         {editorError && (
           <Text className="text-xs text-destructive">{editorError}</Text>
@@ -364,6 +380,11 @@ export function LlmConnectionsPane() {
           const status = llmSavedStatuses[connection.id] ?? "disconnected"
           const error = llmSavedErrors[connection.id] ?? null
           const isActive = activeLlmConnectionId === connection.id
+          const trimmedName = connection.name.trim()
+          const displayName = trimmedName || PROVIDER_LABEL[connection.provider]
+          const subtitle = trimmedName
+            ? `${PROVIDER_LABEL[connection.provider]} · ${AUTH_MODE_LABEL[connection.authMode]}`
+            : AUTH_MODE_LABEL[connection.authMode]
           return (
             <div
               key={connection.id}
@@ -380,16 +401,15 @@ export function LlmConnectionsPane() {
                         setActiveLlmConnectionId(connection.id)
                         void saveAppSettings()
                       }}
-                      aria-label={`Use ${connection.name} for examination`}
+                      aria-label={`Use ${displayName} for examination`}
                     />
                     <div className="font-medium text-sm truncate">
-                      {connection.name}
+                      {displayName}
                     </div>
                     <VerificationStatusIcon status={status} />
                   </label>
                   <div className="text-xs text-muted-foreground truncate mt-0.5">
-                    {PROVIDER_LABEL[connection.provider]} ·{" "}
-                    {AUTH_MODE_LABEL[connection.authMode]}
+                    {subtitle}
                   </div>
                   {error && (
                     <div className="text-xs text-destructive mt-1">{error}</div>
