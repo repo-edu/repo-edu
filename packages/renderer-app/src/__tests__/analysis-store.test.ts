@@ -213,6 +213,8 @@ describe("analysis store", () => {
       fromArchive: false,
       sourceReferences: [],
       archivedQuestionCount: null,
+      archivedModel: null,
+      archivedEffort: null,
       partialQuestionCount: null,
       generationProgressLabel: null,
       streamedResponseCharacterCount: 0,

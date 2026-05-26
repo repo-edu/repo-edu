@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import type {
   ExaminationGenerateQuestionsInput,
   ExaminationLlmSettings,
+  ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import type {
   LlmPort,
@@ -74,6 +75,21 @@ function baseInput(
     questionCount: 1,
     generationControlId: "test-generation",
     llmSettings,
+  }
+}
+
+function baseLookupInput(
+  llmSettings: ExaminationLlmSettings,
+): ExaminationLookupQuestionsInput {
+  const input = baseInput(llmSettings)
+  return {
+    personId: input.personId,
+    contentScopeId: input.contentScopeId,
+    localIdentityContext: input.localIdentityContext,
+    excerpts: input.excerpts,
+    excerptFileSources: input.excerptFileSources,
+    questionCount: input.questionCount,
+    llmSettings: input.llmSettings,
   }
 }
 
@@ -231,5 +247,41 @@ describe("examination workflow — LLM settings resolution", () => {
     )
 
     assert.equal(second.fromArchive, false)
+  })
+
+  it("lists archived sets for the same excerpts when the active model differs", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const { port } = recordingLlm(sampleReply)
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+    })
+
+    const baseSettings: ExaminationLlmSettings = {
+      llmConnections: [
+        {
+          id: "claude-1",
+          name: "Claude",
+          provider: "claude",
+          authMode: "subscription",
+          apiKey: "",
+        },
+      ],
+      activeLlmConnectionId: "claude-1",
+      examinationModelsByProvider: { claude: "22" },
+    }
+
+    await handlers["examination.generateQuestions"](baseInput(baseSettings))
+    const lookup = await handlers["examination.lookupQuestions"](
+      baseLookupInput({
+        ...baseSettings,
+        examinationModelsByProvider: { claude: "33" },
+      }),
+    )
+
+    assert.equal(lookup.exact, null)
+    assert.equal(lookup.availableSets.length, 1)
+    assert.equal(lookup.availableSets[0]?.archivedProvenance.model, "22")
   })
 })

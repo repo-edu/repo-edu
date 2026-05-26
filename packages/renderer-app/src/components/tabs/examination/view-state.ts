@@ -87,3 +87,23 @@ export function resolveVisibleExaminationEntryKey(params: {
   }
   return params.pendingEntryKey
 }
+
+export function resolveSelectedArchiveEntryKey(params: {
+  archiveEntryKeys: readonly string[]
+  selectedArchiveEntryKey: string | null
+  requestedEntryKey: string | null
+}): string | null {
+  if (
+    params.selectedArchiveEntryKey !== null &&
+    params.archiveEntryKeys.includes(params.selectedArchiveEntryKey)
+  ) {
+    return params.selectedArchiveEntryKey
+  }
+  if (
+    params.requestedEntryKey !== null &&
+    params.archiveEntryKeys.includes(params.requestedEntryKey)
+  ) {
+    return params.requestedEntryKey
+  }
+  return params.archiveEntryKeys[0] ?? null
+}

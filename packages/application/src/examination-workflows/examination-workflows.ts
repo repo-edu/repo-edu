@@ -368,9 +368,15 @@ export function createExaminationWorkflowHandlers(
         (excerpt) => excerpt.sourceDescriptor,
       )
       const availableSets = ports.archive
-        .listForGenerationContext(archiveKey)
-        .filter((record) =>
-          isRecordAllowedForCurrentContext(record, input, sourceDescriptors),
+        .listForExcerpts({
+          personId: archiveKey.personId,
+          contentScopeId: archiveKey.contentScopeId,
+          providerPayloadFingerprint: archiveKey.providerPayloadFingerprint,
+        })
+        .filter(
+          (record) =>
+            isRecordCurrentArchivePolicy(record) &&
+            isRecordAllowedForCurrentContext(record, input, sourceDescriptors),
         )
         .map((record) =>
           toResult(record, {
@@ -654,6 +660,17 @@ function isRecordAllowedForCurrentContext(
     localIdentityContext: input.localIdentityContext,
     allowedSourceDescriptors: sourceDescriptors,
   }).ok
+}
+
+function isRecordCurrentArchivePolicy(
+  record: ExaminationArchiveRecord,
+): boolean {
+  return (
+    record.provenance.redactionPolicyVersion ===
+      EXAMINATION_REDACTION_POLICY_VERSION &&
+    record.provenance.promptTemplateVersion ===
+      EXAMINATION_PROMPT_TEMPLATE_VERSION
+  )
 }
 
 function assertOutputAllowedForCurrentContext(

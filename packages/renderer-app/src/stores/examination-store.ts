@@ -5,6 +5,7 @@ import type {
   ExaminationStreamProgress,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
+import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import { create } from "zustand"
 
 export type ExaminationEntryStatus = "idle" | "loading" | "loaded" | "error"
@@ -18,6 +19,8 @@ export type ExaminationEntry = {
   fromArchive: boolean
   sourceReferences: ExaminationSourceReference[]
   archivedQuestionCount: number | null
+  archivedModel: string | null
+  archivedEffort: LlmEffort | null
   partialQuestionCount: {
     requested: number
     accepted: number

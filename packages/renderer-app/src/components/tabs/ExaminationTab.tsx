@@ -24,6 +24,7 @@ import {
   listCatalogSpecsForProvider,
   modelCode,
 } from "@repo-edu/integrations-llm-catalog"
+import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import {
   Button,
   Card,
@@ -68,6 +69,7 @@ import {
   buildPendingExaminationEntryKey,
   resolveExaminationBlockingReason,
   resolveExaminationEmptyState,
+  resolveSelectedArchiveEntryKey,
   resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "./examination/view-state.js"
@@ -377,10 +379,6 @@ export function ExaminationTab({
       pendingKey: string,
       signal?: AbortSignal,
     ): Promise<void> => {
-      setAvailableArchiveEntries([])
-      setSelectedArchiveEntryKey(null)
-      setRequestedEntryKey(null)
-      setRequestedEntryPendingKey(null)
       const result = await workflowClient.run(
         "examination.lookupQuestions",
         lookupInput,
@@ -406,9 +404,6 @@ export function ExaminationTab({
         ),
       )
       setAvailableArchiveEntries(archiveEntries)
-      setSelectedArchiveEntryKey(
-        result.exact === null ? (archiveEntries[0]?.key ?? null) : entryKey,
-      )
       const currentEntry =
         useExaminationStore.getState().entriesByKey.get(entryKey) ?? null
       if (result.exact === null) {
@@ -527,11 +522,16 @@ export function ExaminationTab({
     () =>
       mergeAvailableArchiveEntries(
         availableArchiveEntries,
-        selectedEntryKey !== null && entry?.status === "loaded"
+        selectedEntryKey !== null &&
+          entry?.status === "loaded" &&
+          entry.archivedModel !== null &&
+          entry.archivedEffort !== null
           ? [
               {
                 key: selectedEntryKey,
                 questionCount: entry.archivedQuestionCount ?? questionCount,
+                model: entry.archivedModel,
+                effort: entry.archivedEffort,
                 entry,
               },
             ]
@@ -541,29 +541,59 @@ export function ExaminationTab({
   )
 
   useEffect(() => {
-    if (archiveEntries.length === 0) {
-      if (selectedArchiveEntryKey !== null) setSelectedArchiveEntryKey(null)
-      return
+    const nextSelectedArchiveEntryKey = resolveSelectedArchiveEntryKey({
+      archiveEntryKeys: archiveEntries.map((archiveEntry) => archiveEntry.key),
+      selectedArchiveEntryKey,
+      requestedEntryKey,
+    })
+    if (nextSelectedArchiveEntryKey !== selectedArchiveEntryKey) {
+      setSelectedArchiveEntryKey(nextSelectedArchiveEntryKey)
     }
-    if (
-      selectedArchiveEntryKey !== null &&
-      archiveEntries.some(
-        (archiveEntry) => archiveEntry.key === selectedArchiveEntryKey,
-      )
-    ) {
-      return
-    }
-    setSelectedArchiveEntryKey(archiveEntries[0].key)
-  }, [archiveEntries, selectedArchiveEntryKey])
+  }, [archiveEntries, selectedArchiveEntryKey, requestedEntryKey])
 
   const displayedArchiveEntry = useMemo(() => {
-    if (archiveEntries.length === 0) return null
+    if (selectedArchiveEntryKey === null) return null
     return (
       archiveEntries.find(
         (archiveEntry) => archiveEntry.key === selectedArchiveEntryKey,
-      ) ?? archiveEntries[0]
+      ) ?? null
     )
   }, [archiveEntries, selectedArchiveEntryKey])
+
+  const handleSelectArchiveEntry = useCallback(
+    (archiveEntry: AvailableArchiveEntry) => {
+      setSelectedArchiveEntryKey(archiveEntry.key)
+      const spec = getSpecByCode(archiveEntry.model)
+      if (spec === undefined) return
+      const matchingConnection =
+        activeLlmConnection?.provider === spec.provider
+          ? activeLlmConnection
+          : (llmConnections.find(
+              (connection) => connection.provider === spec.provider,
+            ) ?? null)
+      let changed = false
+      if (
+        matchingConnection !== null &&
+        matchingConnection.id !== activeLlmConnection?.id
+      ) {
+        setActiveLlmConnectionId(matchingConnection.id)
+        changed = true
+      }
+      if (examinationModelsByProvider[spec.provider] !== archiveEntry.model) {
+        setExaminationModelForProvider(spec.provider, archiveEntry.model)
+        changed = true
+      }
+      if (changed) void saveAppSettings()
+    },
+    [
+      activeLlmConnection,
+      examinationModelsByProvider,
+      llmConnections,
+      saveAppSettings,
+      setActiveLlmConnectionId,
+      setExaminationModelForProvider,
+    ],
+  )
 
   if (
     !isSubmission &&
@@ -692,6 +722,8 @@ export function ExaminationTab({
       fromArchive: false,
       sourceReferences: seedEntry?.sourceReferences ?? [],
       archivedQuestionCount: null,
+      archivedModel: null,
+      archivedEffort: null,
       partialQuestionCount: {
         requested: targetQuestionCount,
         accepted: seedQuestions.length,
@@ -753,12 +785,21 @@ export function ExaminationTab({
       setEntry(archiveKey, loadedEntry)
       setRequestedEntryKey(archiveKey)
       setRequestedEntryPendingKey(pendingEntryKey ?? entryKey)
-      const archiveEntry = {
+      const archiveEntry: AvailableArchiveEntry = {
         key: archiveKey,
         questionCount: result.archivedProvenance.questionCount,
+        model: result.archivedProvenance.model,
+        effort: result.archivedProvenance.effort,
         entry: loadedEntry,
       }
-      setAvailableArchiveEntries([archiveEntry])
+      setAvailableArchiveEntries((current) => {
+        const preserved = current.filter(
+          (existing) =>
+            existing.model !== archiveEntry.model ||
+            existing.effort !== archiveEntry.effort,
+        )
+        return mergeAvailableArchiveEntries(preserved, [archiveEntry])
+      })
       setGeneratedQuestionSetsByPersonId((current) =>
         replaceGeneratedQuestionSets(current, personId, [result]),
       )
@@ -781,6 +822,8 @@ export function ExaminationTab({
         fromArchive: false,
         sourceReferences: [],
         archivedQuestionCount: null,
+        archivedModel: null,
+        archivedEffort: null,
         partialQuestionCount: null,
         generationProgressLabel: null,
         streamedResponseCharacterCount: 0,
@@ -868,6 +911,10 @@ export function ExaminationTab({
     selectedSummary !== null
       ? resolveRosterWarning(selectedSummary.personId)
       : null
+  const showArchiveSelector =
+    archiveEntries.length > 1 ||
+    (archiveEntries.length === 1 &&
+      archiveEntries[0]?.key !== requestedEntryKey)
 
   const copyMarkdown = async () => {
     if (!selectedSummary || displayedArchiveEntry === null) return
@@ -964,6 +1011,7 @@ export function ExaminationTab({
               entry={entry}
               archiveEntries={archiveEntries}
               displayedArchiveEntry={displayedArchiveEntry}
+              showArchiveSelector={showArchiveSelector}
               questionCount={questionCount}
               showAnswers={showAnswers}
               blocker={selectedBlocker}
@@ -971,7 +1019,7 @@ export function ExaminationTab({
               layout={isSubmission ? "page" : "pane"}
               onQuestionCountChange={setQuestionCount}
               onShowAnswersChange={setShowAnswers}
-              onSelectArchiveEntry={setSelectedArchiveEntryKey}
+              onSelectArchiveEntry={handleSelectArchiveEntry}
               onGenerate={() => generate(selectedSummary.personId)}
               onStopGeneration={() => {
                 const generationControlId =
@@ -1057,6 +1105,8 @@ function AuthorList({
 type AvailableArchiveEntry = {
   key: string
   questionCount: number
+  model: string
+  effort: LlmEffort
   entry: ExaminationEntry
 }
 
@@ -1067,6 +1117,7 @@ type AuthorPanelProps = {
   entry: ExaminationEntry | null
   archiveEntries: AvailableArchiveEntry[]
   displayedArchiveEntry: AvailableArchiveEntry | null
+  showArchiveSelector: boolean
   questionCount: number
   showAnswers: boolean
   blocker: string | null
@@ -1074,7 +1125,7 @@ type AuthorPanelProps = {
   layout: "page" | "pane"
   onQuestionCountChange: (count: number) => void
   onShowAnswersChange: (show: boolean) => void
-  onSelectArchiveEntry: (key: string) => void
+  onSelectArchiveEntry: (entry: AvailableArchiveEntry) => void
   onGenerate: () => void
   onStopGeneration: () => void
   onRegenerate: () => void
@@ -1088,6 +1139,7 @@ function AuthorPanel({
   entry,
   archiveEntries,
   displayedArchiveEntry,
+  showArchiveSelector,
   questionCount,
   showAnswers,
   blocker,
@@ -1195,7 +1247,7 @@ function AuthorPanel({
         </CardContent>
       </Card>
 
-      {archiveEntries.length > 0 ? (
+      {showArchiveSelector ? (
         <ArchiveSetSelector
           entries={archiveEntries}
           selectedKey={displayedArchiveEntry?.key ?? null}
@@ -1210,12 +1262,7 @@ function AuthorPanel({
       >
         {displayEntry !== null && hasDisplayResults ? (
           <div className="flex flex-col gap-2">
-            {isLoading && entry !== null ? (
-              <GenerationProgress
-                entry={entry}
-                requestedQuestionCount={loadingRequestedQuestionCount}
-              />
-            ) : displayedArchiveEntry !== null ? (
+            {!isLoading && displayedArchiveEntry !== null ? (
               <p className="text-xs text-muted-foreground">
                 Archived {displayedArchiveEntry.questionCount} question
                 {displayedArchiveEntry.questionCount === 1 ? "" : "s"}
@@ -1238,6 +1285,7 @@ function AuthorPanel({
               <StreamingGenerationDetail
                 entry={entry}
                 index={displayEntry.questions.length}
+                requestedQuestionCount={loadingRequestedQuestionCount}
                 showAnswers={showAnswers}
               />
             ) : null}
@@ -1245,17 +1293,12 @@ function AuthorPanel({
         ) : entry === null || entry.status === "idle" ? (
           <EmptyState message="Click Generate to produce questions for this author." />
         ) : isLoading && entry !== null ? (
-          <div className="flex flex-col gap-2">
-            <GenerationProgress
-              entry={entry}
-              requestedQuestionCount={loadingRequestedQuestionCount}
-            />
-            <StreamingGenerationDetail
-              entry={entry}
-              index={0}
-              showAnswers={showAnswers}
-            />
-          </div>
+          <StreamingGenerationDetail
+            entry={entry}
+            index={0}
+            requestedQuestionCount={loadingRequestedQuestionCount}
+            showAnswers={showAnswers}
+          />
         ) : entry.status === "error" ? (
           <EmptyState
             message={`Generation failed: ${entry.errorMessage ?? "Unknown error."}`}
@@ -1269,33 +1312,34 @@ function AuthorPanel({
 function StreamingGenerationDetail({
   entry,
   index,
+  requestedQuestionCount,
   showAnswers,
 }: {
   entry: ExaminationEntry
   index: number
+  requestedQuestionCount: number
   showAnswers: boolean
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" })
+    topRef.current?.scrollIntoView({ block: "start" })
   })
 
-  if (entry.inProgressQuestion !== null) {
-    return (
-      <div>
+  return (
+    <div ref={topRef} className="flex flex-col gap-2">
+      <GenerationProgress
+        entry={entry}
+        requestedQuestionCount={requestedQuestionCount}
+      />
+      {entry.inProgressQuestion !== null ? (
         <InProgressQuestionCard
           index={index}
           inProgress={entry.inProgressQuestion}
           showAnswers={showAnswers}
         />
-        <div ref={bottomRef} />
-      </div>
-    )
-  }
-  return (
-    <div>
-      <StreamPreviewCard preview={entry.streamedResponsePreview} />
-      <div ref={bottomRef} />
+      ) : (
+        <StreamPreviewCard preview={entry.streamedResponsePreview} />
+      )}
     </div>
   )
 }
@@ -1372,7 +1416,7 @@ function formatElapsedSeconds(seconds: number): string {
 type ArchiveSetSelectorProps = {
   entries: AvailableArchiveEntry[]
   selectedKey: string | null
-  onSelect: (key: string) => void
+  onSelect: (entry: AvailableArchiveEntry) => void
 }
 
 function ArchiveSetSelector({
@@ -1392,15 +1436,14 @@ function ArchiveSetSelector({
             <button
               key={entry.key}
               type="button"
-              onClick={() => onSelect(entry.key)}
+              onClick={() => onSelect(entry)}
               className={`rounded border px-2 py-1 text-xs transition-colors ${
                 active
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "bg-accent text-accent-foreground"
                   : "bg-background hover:bg-muted"
               }`}
             >
-              {entry.questionCount} question
-              {entry.questionCount === 1 ? "" : "s"}
+              {formatArchiveChipLabel(entry)}
             </button>
           )
         })}
@@ -1409,13 +1452,26 @@ function ArchiveSetSelector({
   )
 }
 
+function formatArchiveChipLabel(entry: AvailableArchiveEntry): string {
+  const spec = getSpecByCode(entry.model)
+  const modelLabel =
+    spec !== undefined
+      ? formatSpecLabel(spec)
+      : entry.effort === "none"
+        ? entry.model
+        : `${entry.model} (${entry.effort})`
+  const suffix = entry.questionCount === 1 ? "question" : "questions"
+  return `${modelLabel} · ${entry.questionCount} ${suffix}`
+}
+
 function toAvailableArchiveEntry(
   result: ExaminationGenerateQuestionsResult,
 ): AvailableArchiveEntry {
-  const questionCount = result.archivedProvenance.questionCount
   return {
     key: serializeExaminationArchiveStorageKey(result.key),
-    questionCount,
+    questionCount: result.archivedProvenance.questionCount,
+    model: result.archivedProvenance.model,
+    effort: result.archivedProvenance.effort,
     entry: toExaminationEntry(result),
   }
 }
@@ -1483,6 +1539,8 @@ function toExaminationEntry(
     fromArchive: result.fromArchive,
     sourceReferences: result.sourceReferences,
     archivedQuestionCount: result.archivedProvenance.questionCount,
+    archivedModel: result.archivedProvenance.model,
+    archivedEffort: result.archivedProvenance.effort,
     partialQuestionCount:
       result.requestedQuestionCount > result.archivedProvenance.questionCount
         ? {

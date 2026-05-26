@@ -28,6 +28,11 @@ export type ExaminationArchivePort = {
   listForGenerationContext(
     key: ExaminationArchiveKey,
   ): ExaminationArchiveRecord[]
+  listForExcerpts(scope: {
+    personId: string
+    contentScopeId: string
+    providerPayloadFingerprint: string
+  }): ExaminationArchiveRecord[]
   put(record: ExaminationArchiveRecord): void
   remove(key: ExaminationArchiveKey): void
   exportBundle(): ExaminationArchiveBundle
@@ -101,6 +106,23 @@ export function createExaminationArchive(
       for (const entry of storage.exportAll()) {
         const record = tryParseRecord(entry)
         if (!record || !sameGenerationContext(record.key, key)) continue
+        records.push(record)
+      }
+      return records.sort(compareRecordsNewestFirst)
+    },
+    listForExcerpts(scope) {
+      const records: ExaminationArchiveRecord[] = []
+      for (const entry of storage.exportAll()) {
+        const record = tryParseRecord(entry)
+        if (
+          !record ||
+          record.key.personId !== scope.personId ||
+          record.key.contentScopeId !== scope.contentScopeId ||
+          record.key.providerPayloadFingerprint !==
+            scope.providerPayloadFingerprint
+        ) {
+          continue
+        }
         records.push(record)
       }
       return records.sort(compareRecordsNewestFirst)

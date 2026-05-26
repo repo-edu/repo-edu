@@ -6,6 +6,7 @@ import {
   buildPendingExaminationEntryKey,
   canShowExaminationView,
   resolveExaminationEmptyState,
+  resolveSelectedArchiveEntryKey,
   resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "../components/tabs/examination/view-state.js"
@@ -178,6 +179,36 @@ describe("examination view state", () => {
         pendingEntryIsLoading: false,
       }),
       requestedEntryKey,
+    )
+  })
+
+  it("selects an alternate archive entry when the requested entry is absent", () => {
+    assert.equal(
+      resolveSelectedArchiveEntryKey({
+        archiveEntryKeys: ["archive-a"],
+        selectedArchiveEntryKey: null,
+        requestedEntryKey: "archive-requested",
+      }),
+      "archive-a",
+    )
+  })
+
+  it("preserves an existing archive selection before falling back to requested", () => {
+    assert.equal(
+      resolveSelectedArchiveEntryKey({
+        archiveEntryKeys: ["archive-requested", "archive-selected"],
+        selectedArchiveEntryKey: "archive-selected",
+        requestedEntryKey: "archive-requested",
+      }),
+      "archive-selected",
+    )
+    assert.equal(
+      resolveSelectedArchiveEntryKey({
+        archiveEntryKeys: ["archive-requested"],
+        selectedArchiveEntryKey: "archive-missing",
+        requestedEntryKey: "archive-requested",
+      }),
+      "archive-requested",
     )
   })
 })

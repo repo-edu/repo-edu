@@ -625,6 +625,46 @@ describe("examination.generateQuestions archive behavior", () => {
     assert.equal(staleLookup.availableSets.length, 0)
   })
 
+  it("filters archive lookup candidates from old prompt policy versions", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const llm = createRecordingLlm(sampleLlmReply(2))
+    const handlers = createExaminationWorkflowHandlers({
+      llm,
+      archive,
+      tokenizer,
+    })
+    const generated = await handlers["examination.generateQuestions"](
+      baseInput(),
+    )
+    const oldPromptTemplateVersion = EXAMINATION_PROMPT_TEMPLATE_VERSION - 1
+    const staleKey = {
+      ...generated.key,
+      generationContextFingerprint:
+        buildExaminationGenerationContextFingerprint({
+          model: generated.archivedProvenance.model,
+          effort: generated.archivedProvenance.effort,
+          promptTemplateVersion: oldPromptTemplateVersion,
+          redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+        }),
+    }
+    archive.remove(generated.key)
+    archive.put({
+      key: staleKey,
+      questions: generated.questions,
+      provenance: {
+        ...generated.archivedProvenance,
+        promptTemplateVersion: oldPromptTemplateVersion,
+      },
+    })
+
+    const lookup = await handlers["examination.lookupQuestions"](
+      baseLookupInput(),
+    )
+
+    assert.equal(lookup.exact, null)
+    assert.equal(lookup.availableSets.length, 0)
+  })
+
   it("blocks provider output containing emails or known identifiers", async () => {
     const archive = createInMemoryExaminationArchive()
     const llm = createRecordingLlm(
