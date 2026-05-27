@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to AI coding assistants when working in this repository.
+This file provides guidance to AI coding assistants when working in this
+repository.
 
 ## Build and Development Commands
 
@@ -16,14 +17,16 @@ pnpm test
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
-- `check` — fix + typecheck + check:types:build + check:fixtures + check:architecture
+- `check` — fix + typecheck + check:types:build + check:fixtures +
+  check:architecture
 - `test` — runs all package tests workspace-wide
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
 
 ## Architecture
 
-`repo-edu` is a pure TypeScript pnpm monorepo. Workspace globs: `apps/*`, `packages/*`, `tools/*`.
+`repo-edu` is a pure TypeScript pnpm monorepo. Workspace globs: `apps/*`,
+`packages/*`, `tools/*`.
 
 ```text
 repo-edu/
@@ -58,7 +61,8 @@ repo-edu/
     └── release/                   # Versioning/release helper
 ```
 
-Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-obvious conventions:
+Each app and package has its own `CLAUDE.md` with purpose, constraints, and
+non-obvious conventions:
 
 - [apps/cli/CLAUDE.md](apps/cli/CLAUDE.md)
 - [apps/desktop/CLAUDE.md](apps/desktop/CLAUDE.md)
@@ -86,21 +90,32 @@ Each app and package has its own `CLAUDE.md` with purpose, constraints, and non-
 
 Core flow:
 
-1. `packages/renderer-app` invokes workflows through `WorkflowClient` from `@repo-edu/application-contract`.
-2. `apps/desktop` provides that client over `trpc-electron`; `apps/cli` runs workflows in-process.
+1. `packages/renderer-app` invokes workflows through `WorkflowClient` from
+   `@repo-edu/application-contract`.
+2. `apps/desktop` provides that client over `trpc-electron`; `apps/cli` runs
+   workflows in-process.
 3. `packages/application` orchestrates use-cases using ports/contracts.
 4. `packages/domain` owns pure semantics and invariants.
 
 ## Critical Rules
 
-- Do not add ad hoc IPC for workflow execution. Desktop workflow calls must go through the typed tRPC router.
-- Keep browser-safe packages (`domain`, `application-contract`, `renderer-app`, docs-facing code) free of Node/Electron imports.
-- Keep side effects in adapters/ports (`host-node`, integration adapters), not in domain logic.
+- Do not add ad hoc IPC for workflow execution. Desktop workflow calls must go
+  through the typed tRPC router.
+- Keep browser-safe packages (`domain`, `application-contract`, `renderer-app`,
+  docs-facing code) free of Node/Electron imports.
+- Keep side effects in adapters/ports (`host-node`, integration adapters), not
+  in domain logic.
 - Do not introduce legacy settings/profile migration logic.
+- Documents the user edits live canonically in the in-memory zustand store; save
+  workflows write to disk and report success or failure. Only Load brings disk
+  state into memory. Save handlers may return server-stamped fields the store
+  cannot compute itself (e.g. a revision counter), never the full persisted
+  document.
 
 ## Testing Strategy
 
-Tests are functional/behavioral — they verify *what* the code must do, not *how* it's structured internally. Prefer tests at package boundaries:
+Tests are functional/behavioral — they verify *what* the code must do, not *how*
+it's structured internally. Prefer tests at package boundaries:
 
 - domain invariants in `packages/domain/src/__tests__`
 - workflow behavior in `packages/application/src/__tests__`
