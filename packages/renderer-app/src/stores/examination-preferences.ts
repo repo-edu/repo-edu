@@ -1,4 +1,5 @@
 import type { LlmProviderKind } from "@repo-edu/domain/settings"
+import { useShallow } from "zustand/react/shallow"
 import {
   selectActiveLlmConnection,
   selectExaminationModelsByProvider,
@@ -24,6 +25,10 @@ export function selectExaminationPreferenceSnapshot(
     activeConnectionId: state.settings.activeLlmConnectionId,
     examinationModelsByProvider: selectExaminationModelsByProvider(state),
   }
+}
+
+export function useExaminationPreferenceSnapshot(): ExaminationPreferenceSnapshot {
+  return useAppSettingsStore(useShallow(selectExaminationPreferenceSnapshot))
 }
 
 export const examinationPreferencePersistence = {

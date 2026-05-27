@@ -9,10 +9,10 @@ import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
 import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
+  type ExaminationPreferenceSnapshot,
   examinationPreferencePersistence,
-  selectExaminationPreferenceSnapshot,
+  useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
 import {
   type ExaminationPreferencePersistenceEffect,
@@ -55,12 +55,8 @@ export type ExaminationEngineViewModel = {
   subjects: SourceSubject[]
   selectedSubject: SourceSubject | null
   generatedQuestionCountBySubjectId: ReadonlyMap<string, number>
-  connections: ReturnType<
-    typeof selectExaminationPreferenceSnapshot
-  >["connections"]
-  activeConnection: ReturnType<
-    typeof selectExaminationPreferenceSnapshot
-  >["activeConnection"]
+  connections: ExaminationPreferenceSnapshot["connections"]
+  activeConnection: ExaminationPreferenceSnapshot["activeConnection"]
   selectedModelCode: string | null
   archiveEntries: AvailableArchiveEntry[]
   showArchiveSelector: boolean
@@ -99,9 +95,7 @@ export function useExaminationEngine({
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
   const openSettings = useUiStore((state) => state.openSettings)
-  const preferenceSnapshot = useAppSettingsStore(
-    selectExaminationPreferenceSnapshot,
-  )
+  const preferenceSnapshot = useExaminationPreferenceSnapshot()
 
   const sourceSummaryKey = useMemo(
     () => buildSourceSummaryKey(source),
