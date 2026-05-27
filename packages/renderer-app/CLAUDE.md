@@ -23,7 +23,7 @@ It consumes:
 - `src/persistence/*`: renderer-owned document persisters, including the shared `createPersister` machinery, settings/course persister wrappers, and bootstrap-gated registry/context.
 - `src/components/*`: tabs, dialogs, sheets, settings panes (incl. LMS / Git / LLM connection panes; per-provider examination model picker)
 - `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; folder analysis uses the active-surface settings state instead of a course document
-- `src/hooks/*`: app behavior hooks (`use-load-course`, `use-dirty-state`, `use-active-surface-navigation`, `use-analysis-context`, etc.); active-surface navigation owns course/folder switching, save-before-leave behavior, recents updates, tab fallback, and analysis-context reset
+- `src/hooks/*`: app behavior hooks (`use-load-course`, `use-active-surface-navigation`, `use-analysis-context`, etc.); active-surface navigation owns course/folder switching, save-before-leave behavior, recents updates, tab fallback, and analysis-context reset
 - `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained for course ID generation
 
 ## Rules

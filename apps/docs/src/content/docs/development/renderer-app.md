@@ -132,10 +132,6 @@ Column visibility and sizing are persisted to `useAppSettingsStore` so they surv
 
 Table cells that support inline editing follow a local-draft pattern: clicking a cell switches it to an input field with the current value. Changes are committed on blur or Enter, and cancelled on Escape. The committed value flows through `mutateRoster`, which records it in undo history.
 
-## Dirty checking
-
-The `useDirtyState` hook tracks whether the current course has unsaved changes by computing an FNV-1a hash of the relevant course fields. This avoids expensive deep equality checks — the hash is a single 32-bit integer compared against a baseline captured at load time. Any roster mutation, metadata change, or connection update shifts the hash and marks the document as dirty.
-
 ## Persistence
 
 Renderer-owned persistence is centralized in `src/persistence/`. Persisters subscribe to store snapshots, debounce writes, run save workflows, retry retryable errors, expose `flush()` for navigation guards, and write sync status back to the owning store.
