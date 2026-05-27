@@ -18,6 +18,39 @@ const electronTRPCBridge = {
   },
 }
 
+let closeFlushCallback: (() => Promise<void> | void) | null = null
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+ipcRenderer.on(
+  desktopRendererHostChannels.requestCloseFlush,
+  async (_event, request: unknown) => {
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      typeof (request as { requestId?: unknown }).requestId !== "string"
+    ) {
+      return
+    }
+    const requestId = (request as { requestId: string }).requestId
+    try {
+      await closeFlushCallback?.()
+      ipcRenderer.send(desktopRendererHostChannels.closeFlushComplete, {
+        requestId,
+        ok: true,
+      })
+    } catch (error) {
+      ipcRenderer.send(desktopRendererHostChannels.closeFlushComplete, {
+        requestId,
+        ok: false,
+        message: getErrorMessage(error),
+      })
+    }
+  },
+)
+
 const desktopHostBridge: DesktopRendererHostBridge = {
   async pickUserFile(options) {
     return await ipcRenderer.invoke(
@@ -56,6 +89,15 @@ const desktopHostBridge: DesktopRendererHostBridge = {
 
   async revealCoursesDirectory() {
     await ipcRenderer.invoke(desktopRendererHostChannels.revealCoursesDirectory)
+  },
+
+  onCloseFlushRequest(callback) {
+    closeFlushCallback = callback
+    return () => {
+      if (closeFlushCallback === callback) {
+        closeFlushCallback = null
+      }
+    }
   },
 
   onUpdateAvailable(callback) {

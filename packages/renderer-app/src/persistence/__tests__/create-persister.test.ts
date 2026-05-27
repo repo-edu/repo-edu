@@ -77,6 +77,9 @@ function createCourseHarness(
     },
     setSyncStatus: (next) => {
       status = next
+      for (const listener of listeners) {
+        listener()
+      }
     },
     getSnapshotIdentity: (course) => course.id,
     formatTerminalError: (error) =>
@@ -132,6 +135,17 @@ function createDeferred<T>(): {
     resolve = innerResolve
   })
   return { promise, resolve }
+}
+
+async function waitForIdleResult(
+  persister: ReturnType<typeof createCourseHarness>["persister"],
+): Promise<"idle" | "timeout"> {
+  return await Promise.race([
+    persister.waitForIdle().then(() => "idle" as const),
+    new Promise<"timeout">((resolve) =>
+      setTimeout(() => resolve("timeout"), 20),
+    ),
+  ])
 }
 
 describe("createPersister", () => {
@@ -276,6 +290,22 @@ describe("createPersister", () => {
 
     assert.equal(calls, 2)
     assert.equal(harness.status.state, "idle")
+  })
+
+  it("does not enqueue orphaned saves from terminal status writes", async () => {
+    const terminal = new Error("disk full")
+    const harness = createCourseHarness(async () => {
+      throw terminal
+    })
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Terminal edit",
+    })
+
+    await assert.rejects(harness.persister.flush())
+
+    assert.equal(harness.status.state, "error")
+    assert.equal(await waitForIdleResult(harness.persister), "idle")
   })
 
   it("pauses conflicted identities until a new clean baseline appears", async () => {

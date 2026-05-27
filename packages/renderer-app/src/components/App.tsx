@@ -223,6 +223,16 @@ function BootstrapView({
 // Re-export kept for call-site below; canonical definition in utils/platform.
 const hasMacDesktopBridge = hasMacDesktopInset
 
+type DesktopCloseFlushBridge = {
+  onCloseFlushRequest?: (callback: () => Promise<void> | void) => () => void
+}
+
+function getDesktopCloseFlushBridge(): DesktopCloseFlushBridge | undefined {
+  return (window as unknown as Record<string, unknown>).repoEduDesktopHost as
+    | DesktopCloseFlushBridge
+    | undefined
+}
+
 function AppShell() {
   const activeTab = useUiStore((s) => s.activeTab)
   const setActiveTab = useUiStore((s) => s.setActiveTab)
@@ -304,6 +314,11 @@ function AppShell() {
   useLoadCourse(activeCourseId)
 
   useEffect(() => {
+    const bridge = getDesktopCloseFlushBridge()
+    if (bridge?.onCloseFlushRequest !== undefined) {
+      return bridge.onCloseFlushRequest(flushPersistedDocuments)
+    }
+
     const handleBeforeUnload = () => {
       void flushPersistedDocuments()
     }

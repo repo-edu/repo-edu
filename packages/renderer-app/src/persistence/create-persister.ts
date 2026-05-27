@@ -119,7 +119,7 @@ export function createPersister<
   let saveRequested = false
   let worker: Promise<void> | null = null
   let disposed = false
-  let applyingSaveResult = false
+  let suppressSnapshotNotifications = false
   let lastError: unknown = null
   const idleResolvers = new Set<() => void>()
 
@@ -151,8 +151,17 @@ export function createPersister<
     saveRequested = false
     lastError = null
     clearDebounceTimer()
-    adapter.setSyncStatus(idleSyncStatus)
+    setSyncStatus(idleSyncStatus)
     resolveIdleWaiters()
+  }
+
+  function setSyncStatus(status: PersistenceSyncStatus) {
+    suppressSnapshotNotifications = true
+    try {
+      adapter.setSyncStatus(status)
+    } finally {
+      suppressSnapshotNotifications = false
+    }
   }
 
   function snapshotNeedsSave(
@@ -177,7 +186,7 @@ export function createPersister<
   }
 
   function handleSnapshotChange() {
-    if (disposed || applyingSaveResult) return
+    if (disposed || suppressSnapshotNotifications) return
 
     const snapshot = adapter.getSnapshot()
     if (snapshot === null) {
@@ -202,7 +211,7 @@ export function createPersister<
 
   async function saveSnapshot(snapshot: TSnapshot): Promise<void> {
     const identity = getIdentity(snapshot)
-    adapter.setSyncStatus(savingSyncStatus)
+    setSyncStatus(savingSyncStatus)
 
     for (let attempt = 0; ; attempt += 1) {
       try {
@@ -222,11 +231,11 @@ export function createPersister<
           snapshotsEqual(snapshotAtCompletion, snapshot)
 
         if (applySaveResult !== undefined && canApplySaveResult) {
-          applyingSaveResult = true
+          suppressSnapshotNotifications = true
           try {
             applySaveResult(result, snapshot)
           } finally {
-            applyingSaveResult = false
+            suppressSnapshotNotifications = false
           }
           if (snapshotStillMatchesSave) {
             baseline = adapter.getSnapshot()
@@ -242,7 +251,7 @@ export function createPersister<
 
         pausedIdentity = null
         lastError = null
-        adapter.setSyncStatus(idleSyncStatus)
+        setSyncStatus(idleSyncStatus)
         return
       } catch (error) {
         const decision =
@@ -265,7 +274,7 @@ export function createPersister<
           pausedIdentity = identity
         }
         lastError = error
-        adapter.setSyncStatus({ state: "error", message })
+        setSyncStatus({ state: "error", message })
         throw error
       }
     }
@@ -302,7 +311,7 @@ export function createPersister<
         }
 
         if (!snapshotNeedsSave(snapshot)) {
-          adapter.setSyncStatus(idleSyncStatus)
+          setSyncStatus(idleSyncStatus)
           continue
         }
 

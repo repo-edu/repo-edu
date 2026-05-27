@@ -68,6 +68,10 @@ describe("desktop renderer host bridge parity", () => {
       async revealCoursesDirectory() {
         calls.push("revealCoursesDirectory")
       },
+      onCloseFlushRequest() {
+        calls.push("onCloseFlushRequest")
+        return () => {}
+      },
     }
 
     const host = createRendererHostFromBridge(bridge)

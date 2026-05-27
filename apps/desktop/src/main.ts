@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { mkdirSync, rmSync } from "node:fs"
 import { createRequire } from "node:module"
 import os from "node:os"
@@ -36,6 +37,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  type IpcMainEvent,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
@@ -604,6 +606,66 @@ async function saveWindowState(storageRoot: string) {
   await saveDesktopWindowState(storageRoot, { width, height })
 }
 
+function requestRendererPersistenceFlush(
+  mainWindow: BrowserWindow,
+  timeoutMs = 5_000,
+): Promise<boolean> {
+  if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+    return Promise.resolve(true)
+  }
+
+  const requestId = randomUUID()
+  return new Promise((resolve) => {
+    let settled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const finish = (flushed: boolean) => {
+      if (settled) return
+      settled = true
+      ipcMain.removeListener(
+        desktopRendererHostChannels.closeFlushComplete,
+        handleResponse,
+      )
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+      resolve(flushed)
+    }
+
+    const handleResponse = (event: IpcMainEvent, response: unknown) => {
+      if (event.sender !== mainWindow.webContents) return
+      if (typeof response !== "object" || response === null) return
+      const result = response as {
+        requestId?: unknown
+        ok?: unknown
+        message?: unknown
+      }
+      if (result.requestId !== requestId) return
+      if (result.ok !== true && typeof result.message === "string") {
+        process.stderr.write(
+          `[desktop] renderer-close-flush-failed ${result.message}\n`,
+        )
+      }
+      finish(result.ok === true)
+    }
+
+    ipcMain.on(desktopRendererHostChannels.closeFlushComplete, handleResponse)
+    timeoutId = setTimeout(() => {
+      process.stderr.write("[desktop] renderer-close-flush-timeout\n")
+      finish(false)
+    }, timeoutMs)
+
+    try {
+      mainWindow.webContents.send(
+        desktopRendererHostChannels.requestCloseFlush,
+        { requestId },
+      )
+    } catch {
+      finish(true)
+    }
+  })
+}
+
 async function createWindow(): Promise<BrowserWindow> {
   const isMac = process.platform === "darwin"
   const storageRoot = currentStorageRootPath()
@@ -666,20 +728,41 @@ async function createWindow(): Promise<BrowserWindow> {
       resizeTimer = null
     }
 
-    saveInFlight
-      .then(() => saveWindowState(storageRoot))
-      .catch(() => {
-        // Best-effort persistence on shutdown.
-      })
-      .finally(() => {
+    void (async () => {
+      const rendererFlushed = await requestRendererPersistenceFlush(mainWindow)
+      if (!rendererFlushed) {
+        closePhase = "idle"
+        quitRequested = false
+        return
+      }
+
+      try {
+        await saveInFlight
+        await saveWindowState(storageRoot)
+      } catch {
+        // Best-effort window-state persistence on shutdown.
+      } finally {
         closePhase = "ready"
+        const shouldQuitAfterClose = quitRequested
+        if (shouldQuitAfterClose) {
+          mainWindow.once("closed", () => {
+            if (quitRequested) {
+              app.quit()
+            }
+          })
+        }
         if (!mainWindow.isDestroyed()) {
           mainWindow.close()
-        }
-        if (quitRequested) {
+        } else if (shouldQuitAfterClose) {
           app.quit()
         }
-      })
+      }
+    })().catch((error) => {
+      const text = error instanceof Error ? error.message : String(error)
+      process.stderr.write(`[desktop] close-failed ${text}\n`)
+      closePhase = "idle"
+      quitRequested = false
+    })
   })
 
   if (!desktopRouter) {
@@ -801,6 +884,16 @@ if (hasSingleInstanceLock) {
     let shutdownPhase: "idle" | "draining" | "ready" = "idle"
     app.on("before-quit", (event) => {
       quitRequested = true
+      const liveWindows = BrowserWindow.getAllWindows().filter(
+        (window) => !window.isDestroyed(),
+      )
+      if (shutdownPhase === "idle" && liveWindows.length > 0) {
+        event.preventDefault()
+        for (const window of liveWindows) {
+          window.close()
+        }
+        return
+      }
       if (shutdownPhase === "ready") return
       // Shutdown: signal in-flight workflows to abort, give them a bounded
       // grace period so mid-commit cache writes complete, then close the DB.
