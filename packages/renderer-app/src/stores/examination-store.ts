@@ -199,6 +199,8 @@ type ExaminationActions = {
   setSessionConnection: (
     sourceSessionKey: string,
     connectionId: string | null,
+    modelCode: string | null,
+    effort: LlmEffort | null,
   ) => ExaminationPreferencePersistenceEffect[]
   setSessionModel: (
     sourceSessionKey: string,
@@ -469,6 +471,9 @@ export const examinationRequestSidecar = {
   clearLookup(sourceSessionKey: string, requestId: string): void {
     lookupRequestSidecar.delete(sidecarKey(sourceSessionKey, requestId))
   },
+  abortLookup(sourceSessionKey: string, requestId: string): void {
+    abortSidecarEntry(lookupRequestSidecar, sourceSessionKey, requestId)
+  },
   registerSummary(
     sourceSummaryKey: string,
     requestId: string,
@@ -480,6 +485,9 @@ export const examinationRequestSidecar = {
   },
   clearSummary(sourceSummaryKey: string, requestId: string): void {
     summaryRequestSidecar.delete(sidecarKey(sourceSummaryKey, requestId))
+  },
+  abortSummary(sourceSummaryKey: string, requestId: string): void {
+    abortSidecarEntry(summaryRequestSidecar, sourceSummaryKey, requestId)
   },
   registerGeneration(
     sourceSessionKey: string,
@@ -523,6 +531,16 @@ function replaceSidecarEntry(
     }
   }
   sidecar.set(sidecarKey(ownerKey, requestId), entry)
+}
+
+function abortSidecarEntry(
+  sidecar: Map<string, RequestSidecarEntry>,
+  ownerKey: string,
+  requestId: string,
+): void {
+  const key = sidecarKey(ownerKey, requestId)
+  sidecar.get(key)?.controller.abort()
+  sidecar.delete(key)
 }
 
 function abortAndClearSidecar(sidecar: Map<string, RequestSidecarEntry>): void {
@@ -633,25 +651,6 @@ export const useExaminationStore = create<
       if (history === state.history && future === state.future) return state
       return { history, future }
     })
-  }
-
-  const restoreSnapshot = (snapshot: ExaminationSnapshot) => {
-    abortRequestsRemovedBySnapshot(snapshot)
-    const sourceSessions = cloneSessions(snapshot.sourceSessions)
-    const sourceSummaries = cloneSummaries(snapshot.sourceSummaries)
-    const entriesByKey = new Map(snapshot.entriesByKey)
-    dropOrphanedPendingRequests(sourceSessions, sourceSummaries, entriesByKey)
-    return {
-      activeSourceSessionKey: snapshot.activeSourceSessionKey,
-      activeSourceSummaryKey: snapshot.activeSourceSummaryKey,
-      selectedPersonId: snapshot.selectedPersonId,
-      questionCount: snapshot.questionCount,
-      showAnswers: snapshot.showAnswers,
-      sourceSessions,
-      sourceSummaries,
-      entriesByKey,
-      archiveRevision: snapshot.archiveRevision,
-    }
   }
 
   return {
@@ -786,12 +785,22 @@ export const useExaminationStore = create<
       )
     },
 
-    setSessionConnection: (sourceSessionKey, activeConnectionId) => {
+    setSessionConnection: (
+      sourceSessionKey,
+      activeConnectionId,
+      modelCode,
+      effort,
+    ) => {
       const before = snapshotState(get())
       set((state) => {
         const session = state.sourceSessions.get(sourceSessionKey)
         if (session === undefined) return state
-        const preferences = { ...session.preferences, activeConnectionId }
+        const preferences = {
+          ...session.preferences,
+          activeConnectionId,
+          modelCode,
+          effort,
+        }
         const sourceSessions = new Map(state.sourceSessions)
         sourceSessions.set(sourceSessionKey, {
           ...session,
@@ -1294,6 +1303,10 @@ export const useExaminationStore = create<
             session.sourceIdentity.kind === "repository-analysis" &&
             (repoPath === null || session.sourceIdentity.repoPath === repoPath)
           ) {
+            const lookupRequestId = session.pendingLookupRequestId
+            if (lookupRequestId !== null) {
+              examinationRequestSidecar.abortLookup(key, lookupRequestId)
+            }
             const requestId = session.pendingGenerationRequestId
             if (requestId !== null) {
               examinationRequestSidecar.abortGeneration(key, requestId)
@@ -1302,8 +1315,12 @@ export const useExaminationStore = create<
           }
         }
         const sourceSummaries = new Map(state.sourceSummaries)
-        for (const key of sourceSummaries.keys()) {
+        for (const [key, summary] of sourceSummaries) {
           if (repositoryAnalysisSummaryMatchesRepoPath(key, repoPath)) {
+            const requestId = summary.pendingRequestId
+            if (requestId !== null) {
+              examinationRequestSidecar.abortSummary(key, requestId)
+            }
             sourceSummaries.delete(key)
           }
         }
@@ -1342,7 +1359,11 @@ export const useExaminationStore = create<
       const entry = state.history[state.history.length - 1] ?? null
       if (entry === null) return null
       set((current) => ({
-        ...restoreSnapshot(entry.before),
+        ...restoreHistorySnapshot({
+          current,
+          target: entry.before,
+          baseline: entry.after,
+        }),
         history: current.history.slice(0, -1),
         future: [...current.future, entry],
       }))
@@ -1365,7 +1386,11 @@ export const useExaminationStore = create<
         }
       }
       set((current) => ({
-        ...restoreSnapshot(entry.after),
+        ...restoreHistorySnapshot({
+          current,
+          target: entry.after,
+          baseline: entry.before,
+        }),
         history: [...current.history, entry],
         future: current.future.slice(0, -1),
       }))
@@ -1590,45 +1615,197 @@ function snapshotState(state: ExaminationState): ExaminationSnapshot {
   }
 }
 
+type HistoryRestoreKeys = {
+  sourceSessionKeys: Set<string>
+  sourceSummaryKeys: Set<string>
+  entryKeys: Set<string>
+  rootFields: Set<
+    | "activeSourceSessionKey"
+    | "activeSourceSummaryKey"
+    | "selectedPersonId"
+    | "questionCount"
+    | "showAnswers"
+    | "archiveRevision"
+  >
+}
+
+function restoreHistorySnapshot(params: {
+  current: ExaminationState
+  target: ExaminationSnapshot
+  baseline: ExaminationSnapshot
+}): Partial<ExaminationState> {
+  const changed = changedHistoryRestoreKeys(params.target, params.baseline)
+  abortRequestsRemovedByHistoryRestore(params.target, changed)
+
+  const sourceSessions = new Map(params.current.sourceSessions)
+  for (const key of changed.sourceSessionKeys) {
+    const session = params.target.sourceSessions.get(key)
+    if (session === undefined) {
+      sourceSessions.delete(key)
+    } else {
+      sourceSessions.set(key, cloneSession(session))
+    }
+  }
+
+  const sourceSummaries = new Map(params.current.sourceSummaries)
+  for (const key of changed.sourceSummaryKeys) {
+    const summary = params.target.sourceSummaries.get(key)
+    if (summary === undefined) {
+      sourceSummaries.delete(key)
+    } else {
+      sourceSummaries.set(key, cloneSummary(summary))
+    }
+  }
+
+  const entriesByKey = new Map(params.current.entriesByKey)
+  for (const key of changed.entryKeys) {
+    const entry = params.target.entriesByKey.get(key)
+    if (entry === undefined) {
+      entriesByKey.delete(key)
+    } else {
+      entriesByKey.set(key, entry)
+    }
+  }
+
+  dropOrphanedPendingRequests(sourceSessions, sourceSummaries, entriesByKey)
+
+  const next: Partial<ExaminationState> = {
+    sourceSessions,
+    sourceSummaries,
+    entriesByKey,
+  }
+  if (changed.rootFields.has("activeSourceSessionKey")) {
+    next.activeSourceSessionKey = params.target.activeSourceSessionKey
+  } else if (
+    params.current.activeSourceSessionKey !== null &&
+    !sourceSessions.has(params.current.activeSourceSessionKey)
+  ) {
+    next.activeSourceSessionKey = null
+  }
+  if (changed.rootFields.has("activeSourceSummaryKey")) {
+    next.activeSourceSummaryKey = params.target.activeSourceSummaryKey
+  } else if (
+    params.current.activeSourceSummaryKey !== null &&
+    !sourceSummaries.has(params.current.activeSourceSummaryKey)
+  ) {
+    next.activeSourceSummaryKey = null
+  }
+  if (changed.rootFields.has("selectedPersonId")) {
+    next.selectedPersonId = params.target.selectedPersonId
+  }
+  if (changed.rootFields.has("questionCount")) {
+    next.questionCount = params.target.questionCount
+  }
+  if (changed.rootFields.has("showAnswers")) {
+    next.showAnswers = params.target.showAnswers
+  }
+  if (changed.rootFields.has("archiveRevision")) {
+    next.archiveRevision = params.target.archiveRevision
+  }
+  return next
+}
+
+function changedHistoryRestoreKeys(
+  target: ExaminationSnapshot,
+  baseline: ExaminationSnapshot,
+): HistoryRestoreKeys {
+  const rootFields: HistoryRestoreKeys["rootFields"] = new Set()
+  if (target.activeSourceSessionKey !== baseline.activeSourceSessionKey) {
+    rootFields.add("activeSourceSessionKey")
+  }
+  if (target.activeSourceSummaryKey !== baseline.activeSourceSummaryKey) {
+    rootFields.add("activeSourceSummaryKey")
+  }
+  if (target.selectedPersonId !== baseline.selectedPersonId) {
+    rootFields.add("selectedPersonId")
+  }
+  if (target.questionCount !== baseline.questionCount) {
+    rootFields.add("questionCount")
+  }
+  if (target.showAnswers !== baseline.showAnswers) {
+    rootFields.add("showAnswers")
+  }
+  if (target.archiveRevision !== baseline.archiveRevision) {
+    rootFields.add("archiveRevision")
+  }
+  return {
+    sourceSessionKeys: changedMapKeys(
+      target.sourceSessions,
+      baseline.sourceSessions,
+    ),
+    sourceSummaryKeys: changedMapKeys(
+      target.sourceSummaries,
+      baseline.sourceSummaries,
+    ),
+    entryKeys: changedMapKeys(target.entriesByKey, baseline.entriesByKey),
+    rootFields,
+  }
+}
+
+function changedMapKeys<T>(
+  target: ReadonlyMap<string, T>,
+  baseline: ReadonlyMap<string, T>,
+): Set<string> {
+  const keys = new Set([...target.keys(), ...baseline.keys()])
+  const changed = new Set<string>()
+  for (const key of keys) {
+    if (!snapshotValuesEqual(target.get(key), baseline.get(key))) {
+      changed.add(key)
+    }
+  }
+  return changed
+}
+
 function cloneSessions(
   sessions: ReadonlyMap<string, ExaminationSession>,
 ): Map<string, ExaminationSession> {
   return new Map(
-    [...sessions].map(([key, session]) => [
-      key,
-      {
-        ...session,
-        preferences: { ...session.preferences },
-        archiveEntries: [...session.archiveEntries],
-      },
-    ]),
+    [...sessions].map(([key, session]) => [key, cloneSession(session)]),
   )
+}
+
+function cloneSession(session: ExaminationSession): ExaminationSession {
+  return {
+    ...session,
+    preferences: { ...session.preferences },
+    archiveEntries: [...session.archiveEntries],
+  }
 }
 
 function cloneSummaries(
   summaries: ReadonlyMap<string, ExaminationSourceSummary>,
 ): Map<string, ExaminationSourceSummary> {
   return new Map(
-    [...summaries].map(([key, summary]) => [
-      key,
-      {
-        ...summary,
-        subjectIds: [...summary.subjectIds],
-        generatedQuestionCountBySubjectId: new Map(
-          summary.generatedQuestionCountBySubjectId,
-        ),
-      },
-    ]),
+    [...summaries].map(([key, summary]) => [key, cloneSummary(summary)]),
   )
+}
+
+function cloneSummary(
+  summary: ExaminationSourceSummary,
+): ExaminationSourceSummary {
+  return {
+    ...summary,
+    subjectIds: [...summary.subjectIds],
+    generatedQuestionCountBySubjectId: new Map(
+      summary.generatedQuestionCountBySubjectId,
+    ),
+  }
 }
 
 function snapshotsEqual(
   left: ExaminationSnapshot,
   right: ExaminationSnapshot,
 ): boolean {
+  return snapshotValuesEqual(
+    snapshotComparable(left),
+    snapshotComparable(right),
+  )
+}
+
+function snapshotValuesEqual(left: unknown, right: unknown): boolean {
   return (
-    JSON.stringify(snapshotComparable(left)) ===
-    JSON.stringify(snapshotComparable(right))
+    JSON.stringify(snapshotComparableValue(left)) ===
+    JSON.stringify(snapshotComparableValue(right))
   )
 }
 
@@ -1649,10 +1826,38 @@ function snapshotComparable(snapshot: ExaminationSnapshot) {
   }
 }
 
-function abortRequestsRemovedBySnapshot(snapshot: ExaminationSnapshot): void {
+function snapshotComparableValue(value: unknown): unknown {
+  if (value instanceof Map) {
+    return [...value].map(([key, mapValue]) => [
+      key,
+      snapshotComparableValue(mapValue),
+    ])
+  }
+  if (value instanceof Set) {
+    return [...value]
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => snapshotComparableValue(item))
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, objectValue]) => [
+        key,
+        snapshotComparableValue(objectValue),
+      ]),
+    )
+  }
+  return value
+}
+
+function abortRequestsRemovedByHistoryRestore(
+  snapshot: ExaminationSnapshot,
+  changed: HistoryRestoreKeys,
+): void {
   for (const key of generationRequestSidecar.keys()) {
     const [sourceSessionKey, requestId] = key.split("\n")
     if (sourceSessionKey === undefined || requestId === undefined) continue
+    if (!changed.sourceSessionKeys.has(sourceSessionKey)) continue
     const session = snapshot.sourceSessions.get(sourceSessionKey)
     if (session?.pendingGenerationRequestId !== requestId) {
       generationRequestSidecar.get(key)?.controller.abort()
@@ -1662,6 +1867,7 @@ function abortRequestsRemovedBySnapshot(snapshot: ExaminationSnapshot): void {
   for (const key of lookupRequestSidecar.keys()) {
     const [sourceSessionKey, requestId] = key.split("\n")
     if (sourceSessionKey === undefined || requestId === undefined) continue
+    if (!changed.sourceSessionKeys.has(sourceSessionKey)) continue
     const session = snapshot.sourceSessions.get(sourceSessionKey)
     if (session?.pendingLookupRequestId !== requestId) {
       lookupRequestSidecar.get(key)?.controller.abort()
@@ -1671,6 +1877,7 @@ function abortRequestsRemovedBySnapshot(snapshot: ExaminationSnapshot): void {
   for (const key of summaryRequestSidecar.keys()) {
     const [sourceSummaryKey, requestId] = key.split("\n")
     if (sourceSummaryKey === undefined || requestId === undefined) continue
+    if (!changed.sourceSummaryKeys.has(sourceSummaryKey)) continue
     const summary = snapshot.sourceSummaries.get(sourceSummaryKey)
     if (summary?.pendingRequestId !== requestId) {
       summaryRequestSidecar.get(key)?.controller.abort()

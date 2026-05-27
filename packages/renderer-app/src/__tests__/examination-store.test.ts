@@ -225,6 +225,95 @@ describe("examination store", () => {
     )
   })
 
+  it("adopts the provider-compatible model during connection changes", () => {
+    const store = activateSession()
+
+    store.setSessionConnection(sourceSessionKey, "llm-2", "c33", "high")
+
+    const session = useExaminationStore
+      .getState()
+      .sourceSessions.get(sourceSessionKey)
+    assert.equal(session?.preferences.activeConnectionId, "llm-2")
+    assert.equal(session?.preferences.modelCode, "c33")
+    assert.equal(session?.preferences.effort, "high")
+  })
+
+  it("undo restores only the command-owned examination session", () => {
+    const store = activateSession()
+    store.setSessionShowAnswers(sourceSessionKey, false)
+    const otherIdentity: SourceIdentity = {
+      ...identity,
+      repoPath: "/other-repo",
+      subjectId: "p_2",
+      excerptScopeId: "scope-2",
+    }
+    const otherSessionKey = buildSourceSessionKey(otherIdentity)
+    store.activateSource({
+      sourceSummaryKey: "summary-2",
+      sourceSessionKey: otherSessionKey,
+      sourceIdentity: otherIdentity,
+      subjectIds: ["p_2"],
+      selectedSubjectId: "p_2",
+      defaultPreferences: {
+        questionCount: 6,
+        activeConnectionId: "llm-2",
+        modelCode: "c33",
+        effort: "high",
+      },
+    })
+
+    store.undo()
+
+    const state = useExaminationStore.getState()
+    assert.equal(state.sourceSessions.get(sourceSessionKey)?.showAnswers, true)
+    assert.equal(state.sourceSessions.has(otherSessionKey), true)
+    assert.equal(
+      state.sourceSessions.get(otherSessionKey)?.preferences.questionCount,
+      6,
+    )
+  })
+
+  it("aborts lookup and summary sidecars during repository invalidation", () => {
+    const store = useExaminationStore.getState()
+    const summaryKey = repositorySummaryKey("/repo")
+    store.activateSource({
+      sourceSummaryKey: summaryKey,
+      sourceSessionKey,
+      sourceIdentity: identity,
+      subjectIds: ["p_1"],
+      selectedSubjectId: "p_1",
+      defaultPreferences: {
+        questionCount: 4,
+        activeConnectionId: "llm-1",
+        modelCode: "22",
+        effort: "medium",
+      },
+    })
+    const lookup = store.startLookup(sourceSessionKey)
+    const summary = store.startSourceSummaryLookup(summaryKey)
+    if (lookup === null) throw new Error("Lookup did not start.")
+    if (summary === null) throw new Error("Summary lookup did not start.")
+    const lookupController = new AbortController()
+    const summaryController = new AbortController()
+    examinationRequestSidecar.registerLookup(
+      sourceSessionKey,
+      lookup.requestId,
+      lookupController,
+    )
+    examinationRequestSidecar.registerSummary(
+      summaryKey,
+      summary.requestId,
+      summaryController,
+    )
+
+    store.invalidateRepositoryAnalysisSource("/repo")
+
+    assert.equal(lookupController.signal.aborted, true)
+    assert.equal(summaryController.signal.aborted, true)
+    assert.equal(useExaminationStore.getState().sourceSessions.size, 0)
+    assert.equal(useExaminationStore.getState().sourceSummaries.size, 0)
+  })
+
   it("rewrites later history snapshots when generation completes", () => {
     const store = activateSession()
     const started = store.startGenerationSession({

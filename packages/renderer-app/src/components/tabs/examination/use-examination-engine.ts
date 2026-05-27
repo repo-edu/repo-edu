@@ -570,17 +570,44 @@ export function useExaminationEngine({
 
   const selectConnection = useCallback(
     (id: string) => {
+      const connection =
+        preferenceSnapshot.connections.find(
+          (candidate) => candidate.id === id,
+        ) ?? null
       if (sourceSessionKey === null) {
         examinationPreferencePersistence.persistActiveConnection(id)
         return
       }
+      const nextModelCode =
+        connection === null
+          ? null
+          : selectedModelSpec?.provider === connection.provider
+            ? selectedModelCode
+            : resolveExaminationModelCode(
+                connection.provider,
+                preferenceSnapshot.examinationModelsByProvider,
+              )
+      const nextModelSpec =
+        nextModelCode === null ? null : (getSpecByCode(nextModelCode) ?? null)
       runPreferenceEffects(
         useExaminationStore
           .getState()
-          .setSessionConnection(sourceSessionKey, id),
+          .setSessionConnection(
+            sourceSessionKey,
+            id,
+            nextModelCode,
+            nextModelSpec?.effort ?? null,
+          ),
       )
     },
-    [runPreferenceEffects, sourceSessionKey],
+    [
+      preferenceSnapshot.connections,
+      preferenceSnapshot.examinationModelsByProvider,
+      runPreferenceEffects,
+      selectedModelCode,
+      selectedModelSpec,
+      sourceSessionKey,
+    ],
   )
 
   const selectModelCode = useCallback(
