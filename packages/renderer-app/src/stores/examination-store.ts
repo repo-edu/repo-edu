@@ -1,4 +1,5 @@
 import type {
+  ExaminationGenerateQuestionsInput,
   ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
@@ -10,7 +11,6 @@ import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import { create } from "zustand"
 import {
   buildArchiveKeyIdentityKey,
-  buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
 
@@ -107,11 +107,30 @@ type ExaminationSnapshot = {
   archiveRevision: number
 }
 
+export type ExaminationGenerationReplayInput = {
+  sourceSummaryKey: string
+  sourceSessionKey: string
+  workflowInput: Omit<ExaminationGenerateQuestionsInput, "generationControlId">
+  sourceReferences: ExaminationSourceReference[]
+  requestedQuestionCount: number
+}
+
+export type ExaminationHistoryEffect = {
+  kind: "replay-generation"
+  input: ExaminationGenerationReplayInput
+}
+
 export type ExaminationHistoryEntry = {
   description: string
   before: ExaminationSnapshot
   after: ExaminationSnapshot
   generationRequestId: string | null
+  generationReplayInput: ExaminationGenerationReplayInput | null
+}
+
+export type ExaminationHistoryTransition = {
+  entry: ExaminationHistoryEntry
+  effects: ExaminationHistoryEffect[]
 }
 
 export type ExaminationPreferencePersistenceEffect = {
@@ -141,6 +160,16 @@ type ActivateSourceSummaryInput = {
   sourceSummaryKey: string
   subjectIds: string[]
   selectedSubjectId: string
+}
+
+type LoadedArchiveResultPayload = {
+  sourceSummaryKey?: string
+  sourceSessionKey?: string
+  requestId?: string
+  loadingKey: string | null
+  resultKey: string
+  archiveEntry?: AvailableArchiveEntry
+  entry: ExaminationEntry
 }
 
 type ExaminationState = {
@@ -219,15 +248,9 @@ type ExaminationActions = {
     seedQuestions: ExaminationQuestion[]
     sourceReferences: ExaminationSourceReference[]
     requestedQuestionCount: number
+    generationReplayInput: ExaminationGenerationReplayInput
   }) => { requestId: string } | null
-  applyLoadedArchiveResult: (payload: {
-    sourceSessionKey?: string
-    requestId?: string
-    loadingKey: string | null
-    resultKey: string
-    archiveEntry?: AvailableArchiveEntry
-    entry: ExaminationEntry
-  }) => void
+  applyLoadedArchiveResult: (payload: LoadedArchiveResultPayload) => void
   applyGenerationError: (
     key: string,
     message: string,
@@ -289,8 +312,8 @@ type ExaminationActions = {
   canRedo: () => boolean
   nextUndoDescription: () => string | null
   nextRedoDescription: () => string | null
-  undo: () => ExaminationHistoryEntry | null
-  redo: () => ExaminationHistoryEntry | null
+  undo: () => ExaminationHistoryTransition | null
+  redo: () => ExaminationHistoryTransition | null
   reset: () => void
 }
 
@@ -413,6 +436,26 @@ const lookupRequestSidecar = new Map<string, RequestSidecarEntry>()
 const summaryRequestSidecar = new Map<string, RequestSidecarEntry>()
 const generationRequestSidecar = new Map<string, RequestSidecarEntry>()
 
+let examinationHistoryEffectRunner:
+  | ((effect: ExaminationHistoryEffect) => void)
+  | null = null
+
+export const examinationHistoryEffectDriver = {
+  register(runner: (effect: ExaminationHistoryEffect) => void): () => void {
+    examinationHistoryEffectRunner = runner
+    return () => {
+      if (examinationHistoryEffectRunner === runner) {
+        examinationHistoryEffectRunner = null
+      }
+    }
+  },
+  run(effects: readonly ExaminationHistoryEffect[]): void {
+    for (const effect of effects) {
+      examinationHistoryEffectRunner?.(effect)
+    }
+  },
+}
+
 export const examinationRequestSidecar = {
   registerLookup(
     sourceSessionKey: string,
@@ -519,12 +562,19 @@ export const useExaminationStore = create<
     before: ExaminationSnapshot,
     after: ExaminationSnapshot,
     generationRequestId: string | null = null,
+    generationReplayInput: ExaminationGenerationReplayInput | null = null,
   ): void => {
     if (snapshotsEqual(before, after)) return
     set((state) => {
       const history = [
         ...state.history,
-        { description, before, after, generationRequestId },
+        {
+          description,
+          before,
+          after,
+          generationRequestId,
+          generationReplayInput,
+        },
       ]
       if (history.length > HISTORY_LIMIT) {
         history.splice(0, history.length - HISTORY_LIMIT)
@@ -533,17 +583,55 @@ export const useExaminationStore = create<
     })
   }
 
-  const updateLastGenerationHistory = (
-    requestId: string,
-    after: ExaminationSnapshot,
+  const applyGenerationCompletionToCurrentState = (
+    state: ExaminationState,
+    payload: LoadedArchiveResultPayload,
+  ): Partial<ExaminationState> | ExaminationState => {
+    const entriesByKey = new Map(state.entriesByKey)
+    const sourceSessions = new Map(state.sourceSessions)
+    const sourceSummaries = new Map(state.sourceSummaries)
+    if (
+      payload.loadingKey !== null &&
+      payload.loadingKey !== payload.resultKey
+    ) {
+      entriesByKey.delete(payload.loadingKey)
+    }
+    entriesByKey.set(payload.resultKey, completedEntry(payload.entry))
+
+    if (
+      payload.sourceSessionKey !== undefined &&
+      payload.requestId !== undefined
+    ) {
+      const session = state.sourceSessions.get(payload.sourceSessionKey)
+      if (
+        session === undefined ||
+        session.pendingGenerationRequestId !== payload.requestId
+      ) {
+        return state
+      }
+      sourceSessions.set(
+        payload.sourceSessionKey,
+        completeGenerationSession(session, payload),
+      )
+      const summary = sourceSummaries.get(payload.sourceSummaryKey ?? "")
+      if (summary !== undefined) {
+        sourceSummaries.set(
+          summary.sourceSummaryKey,
+          updateSummaryForGeneration(summary, session, payload.entry),
+        )
+      }
+    }
+    return { entriesByKey, sourceSessions, sourceSummaries }
+  }
+
+  const updateGenerationHistory = (
+    payload: LoadedArchiveResultPayload,
   ): void => {
     set((state) => {
-      const index = state.history.length - 1
-      const current = state.history[index]
-      if (current?.generationRequestId !== requestId) return state
-      const history = [...state.history]
-      history[index] = { ...current, after }
-      return { history }
+      const history = updateGenerationHistoryEntries(state.history, payload)
+      const future = updateGenerationHistoryEntries(state.future, payload)
+      if (history === state.history && future === state.future) return state
+      return { history, future }
     })
   }
 
@@ -1000,79 +1088,21 @@ export const useExaminationStore = create<
         before,
         snapshotState(get()),
         requestId,
+        payload.generationReplayInput,
       )
       return { requestId }
     },
 
     applyLoadedArchiveResult: (payload) => {
+      let applied = false
       set((state) => {
-        const entriesByKey = new Map(state.entriesByKey)
-        const sourceSessions = new Map(state.sourceSessions)
-        const sourceSummaries = new Map(state.sourceSummaries)
-        if (
-          payload.loadingKey !== null &&
-          payload.loadingKey !== payload.resultKey
-        ) {
-          entriesByKey.delete(payload.loadingKey)
-        }
-        entriesByKey.set(payload.resultKey, {
-          ...payload.entry,
-          generationControlId: null,
-          stopRequested: false,
-        })
-
-        if (
-          payload.sourceSessionKey !== undefined &&
-          payload.requestId !== undefined
-        ) {
-          const session = state.sourceSessions.get(payload.sourceSessionKey)
-          if (
-            session === undefined ||
-            session.pendingGenerationRequestId !== payload.requestId
-          ) {
-            return state
-          }
-          sourceSessions.set(payload.sourceSessionKey, {
-            ...session,
-            display: {
-              kind: "archived",
-              entryKey: payload.resultKey,
-              source: "just-generated",
-            },
-            pinnedEntryKey: payload.resultKey,
-            archiveEntries:
-              payload.archiveEntry === undefined
-                ? session.archiveEntries
-                : mergeAvailableArchiveEntries(session.archiveEntries, [
-                    payload.archiveEntry,
-                  ]),
-            pendingGenerationRequestId: null,
-            pendingGenerationEntryKey: null,
-          })
-          const summaryKey = state.activeSourceSummaryKey
-          const summary =
-            summaryKey === null
-              ? null
-              : (sourceSummaries.get(summaryKey) ?? null)
-          if (summary !== null) {
-            const counts = new Map(summary.generatedQuestionCountBySubjectId)
-            counts.set(
-              session.sourceIdentity.subjectId,
-              Math.max(
-                counts.get(session.sourceIdentity.subjectId) ?? 0,
-                payload.entry.archivedQuestionCount ?? 0,
-              ),
-            )
-            sourceSummaries.set(summary.sourceSummaryKey, {
-              ...summary,
-              generatedQuestionCountBySubjectId: counts,
-            })
-          }
-        }
-        return { entriesByKey, sourceSessions, sourceSummaries }
+        const next = applyGenerationCompletionToCurrentState(state, payload)
+        if (next === state) return state
+        applied = true
+        return next
       })
-      if (payload.requestId !== undefined) {
-        updateLastGenerationHistory(payload.requestId, snapshotState(get()))
+      if (applied && payload.requestId !== undefined) {
+        updateGenerationHistory(payload)
       }
     },
 
@@ -1273,7 +1303,7 @@ export const useExaminationStore = create<
         }
         const sourceSummaries = new Map(state.sourceSummaries)
         for (const key of sourceSummaries.keys()) {
-          if (key.includes('"repository-analysis-summary"')) {
+          if (repositoryAnalysisSummaryMatchesRepoPath(key, repoPath)) {
             sourceSummaries.delete(key)
           }
         }
@@ -1316,19 +1346,30 @@ export const useExaminationStore = create<
         history: current.history.slice(0, -1),
         future: [...current.future, entry],
       }))
-      return entry
+      return { entry, effects: [] }
     },
 
     redo: () => {
       const state = get()
       const entry = state.future[state.future.length - 1] ?? null
       if (entry === null) return null
+      const replayInput = pendingGenerationReplayInput(entry)
+      if (replayInput !== null) {
+        if (examinationHistoryEffectRunner === null) return null
+        set((current) => ({
+          future: current.future.slice(0, -1),
+        }))
+        return {
+          entry,
+          effects: [{ kind: "replay-generation", input: replayInput }],
+        }
+      }
       set((current) => ({
         ...restoreSnapshot(entry.after),
         history: [...current.history, entry],
         future: current.future.slice(0, -1),
       }))
-      return entry
+      return { entry, effects: [] }
     },
 
     reset: () => {
@@ -1387,6 +1428,142 @@ function nextLookupDisplay(
   return {
     ...session,
     display: { kind: "archived", entryKey, source: "lookup" },
+  }
+}
+
+function completedEntry(entry: ExaminationEntry): ExaminationEntry {
+  return {
+    ...entry,
+    generationControlId: null,
+    stopRequested: false,
+  }
+}
+
+function completeGenerationSession(
+  session: ExaminationSession,
+  payload: LoadedArchiveResultPayload,
+): ExaminationSession {
+  return {
+    ...session,
+    display: {
+      kind: "archived",
+      entryKey: payload.resultKey,
+      source: "just-generated",
+    },
+    pinnedEntryKey: payload.resultKey,
+    archiveEntries:
+      payload.archiveEntry === undefined
+        ? session.archiveEntries
+        : mergeAvailableArchiveEntries(session.archiveEntries, [
+            payload.archiveEntry,
+          ]),
+    pendingGenerationRequestId: null,
+    pendingGenerationEntryKey: null,
+  }
+}
+
+function updateSummaryForGeneration(
+  summary: ExaminationSourceSummary,
+  session: ExaminationSession,
+  entry: ExaminationEntry,
+): ExaminationSourceSummary {
+  const counts = new Map(summary.generatedQuestionCountBySubjectId)
+  counts.set(
+    session.sourceIdentity.subjectId,
+    Math.max(
+      counts.get(session.sourceIdentity.subjectId) ?? 0,
+      entry.archivedQuestionCount ?? 0,
+    ),
+  )
+  return {
+    ...summary,
+    generatedQuestionCountBySubjectId: counts,
+  }
+}
+
+function completeGenerationSnapshot(
+  snapshot: ExaminationSnapshot,
+  payload: LoadedArchiveResultPayload,
+): ExaminationSnapshot {
+  const sourceSessionKey = payload.sourceSessionKey
+  const requestId = payload.requestId
+  if (sourceSessionKey === undefined || requestId === undefined) {
+    return snapshot
+  }
+  const session = snapshot.sourceSessions.get(sourceSessionKey)
+  if (session?.pendingGenerationRequestId !== requestId) return snapshot
+
+  const entriesByKey = new Map(snapshot.entriesByKey)
+  const sourceSessions = cloneSessions(snapshot.sourceSessions)
+  const sourceSummaries = cloneSummaries(snapshot.sourceSummaries)
+  if (payload.loadingKey !== null && payload.loadingKey !== payload.resultKey) {
+    entriesByKey.delete(payload.loadingKey)
+  }
+  entriesByKey.set(payload.resultKey, completedEntry(payload.entry))
+  sourceSessions.set(
+    sourceSessionKey,
+    completeGenerationSession(session, payload),
+  )
+
+  const summary = sourceSummaries.get(payload.sourceSummaryKey ?? "")
+  if (summary !== undefined) {
+    sourceSummaries.set(
+      summary.sourceSummaryKey,
+      updateSummaryForGeneration(summary, session, payload.entry),
+    )
+  }
+
+  return {
+    ...snapshot,
+    sourceSessions,
+    sourceSummaries,
+    entriesByKey,
+  }
+}
+
+function updateGenerationHistoryEntries(
+  entries: readonly ExaminationHistoryEntry[],
+  payload: LoadedArchiveResultPayload,
+): ExaminationHistoryEntry[] {
+  let changed = false
+  const next = entries.map((entry) => {
+    const before = completeGenerationSnapshot(entry.before, payload)
+    const after = completeGenerationSnapshot(entry.after, payload)
+    if (before === entry.before && after === entry.after) return entry
+    changed = true
+    return { ...entry, before, after }
+  })
+  return changed ? next : (entries as ExaminationHistoryEntry[])
+}
+
+function pendingGenerationReplayInput(
+  entry: ExaminationHistoryEntry,
+): ExaminationGenerationReplayInput | null {
+  if (
+    entry.generationRequestId === null ||
+    entry.generationReplayInput === null
+  ) {
+    return null
+  }
+  const session = entry.after.sourceSessions.get(
+    entry.generationReplayInput.sourceSessionKey,
+  )
+  return session?.pendingGenerationRequestId === entry.generationRequestId
+    ? entry.generationReplayInput
+    : null
+}
+
+function repositoryAnalysisSummaryMatchesRepoPath(
+  sourceSummaryKey: string,
+  repoPath: string | null,
+): boolean {
+  try {
+    const parsed = JSON.parse(sourceSummaryKey) as unknown
+    if (!Array.isArray(parsed)) return false
+    if (parsed[0] !== "repository-analysis-summary") return false
+    return repoPath === null || parsed[1] === repoPath
+  } catch (_error) {
+    return false
   }
 }
 
@@ -1623,10 +1800,4 @@ export function selectExaminationSourceSummary(
     sourceSummaryKey === null
       ? null
       : (state.sourceSummaries.get(sourceSummaryKey) ?? null)
-}
-
-export function buildLegacySourceSessionKey(
-  identity: SourceIdentity | null,
-): string {
-  return buildSourceSessionKey(identity)
 }

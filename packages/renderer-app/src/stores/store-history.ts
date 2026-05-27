@@ -6,7 +6,10 @@ import {
   selectNextUndoDescription,
   useCourseStore,
 } from "./course-store.js"
-import { useExaminationStore } from "./examination-store.js"
+import {
+  examinationHistoryEffectDriver,
+  useExaminationStore,
+} from "./examination-store.js"
 import { useUiStore } from "./ui-store.js"
 
 export type StoreHistoryViewModel = {
@@ -59,7 +62,10 @@ export function useStoreHistoryPresenter(): StoreHistoryViewModel {
         examinationUndo()
       },
       redo: () => {
-        examinationRedo()
+        const transition = examinationRedo()
+        if (transition !== null) {
+          examinationHistoryEffectDriver.run(transition.effects)
+        }
       },
     }
   }

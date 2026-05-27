@@ -1,5 +1,6 @@
 import type {
   ExaminationGenerateOutput,
+  ExaminationGenerateQuestionsInput,
   ExaminationLookupQuestionsInput,
   ExaminationQuestionSummarySubjectInput,
   MilestoneProgress,
@@ -15,7 +16,10 @@ import {
   useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
 import {
+  type ExaminationGenerationReplayInput,
+  type ExaminationHistoryEffect,
   type ExaminationPreferencePersistenceEffect,
+  examinationHistoryEffectDriver,
   examinationRequestSidecar,
   selectExaminationSession,
   selectExaminationSourceSummary,
@@ -632,6 +636,135 @@ export function useExaminationEngine({
     ],
   )
 
+  const runGeneration = useCallback(
+    async (params: {
+      loadingKey: string
+      replayInput: ExaminationGenerationReplayInput
+    }) => {
+      const generationControlId = `generation-${createUuid()}`
+      const runSourceSessionKey = params.replayInput.sourceSessionKey
+      const seedQuestions = params.replayInput.workflowInput.seedQuestions ?? []
+      const started = useExaminationStore.getState().startGenerationSession({
+        sourceSessionKey: runSourceSessionKey,
+        entryKey: params.loadingKey,
+        generationControlId,
+        seedQuestions,
+        sourceReferences: params.replayInput.sourceReferences,
+        requestedQuestionCount: params.replayInput.requestedQuestionCount,
+        generationReplayInput: params.replayInput,
+      })
+      if (started === null) return
+      const abort = new AbortController()
+      examinationRequestSidecar.registerGeneration(
+        runSourceSessionKey,
+        started.requestId,
+        abort,
+        generationControlId,
+      )
+
+      try {
+        const result = await workflowClient.run(
+          "examination.generateQuestions",
+          {
+            ...params.replayInput.workflowInput,
+            generationControlId,
+          },
+          {
+            signal: abort.signal,
+            onProgress: (progress: MilestoneProgress) => {
+              useExaminationStore
+                .getState()
+                .applyGenerationProgress(
+                  params.loadingKey,
+                  progress.label,
+                  runSourceSessionKey,
+                  started.requestId,
+                )
+            },
+            onOutput: (output: ExaminationGenerateOutput) => {
+              if (output.kind === "warn") {
+                addToast(output.message, {
+                  tone: "warning",
+                  durationMs: 6000,
+                })
+                return
+              }
+              if (output.kind === "stream-progress") {
+                useExaminationStore
+                  .getState()
+                  .applyStreamProgress(
+                    params.loadingKey,
+                    output,
+                    runSourceSessionKey,
+                    started.requestId,
+                  )
+                return
+              }
+              useExaminationStore.getState().applyPartialQuestions(
+                params.loadingKey,
+                {
+                  questions: output.questions,
+                  sourceReferences: output.sourceReferences,
+                  inProgressQuestion: output.inProgressQuestion,
+                },
+                runSourceSessionKey,
+                started.requestId,
+              )
+            },
+          },
+        )
+        if (abort.signal.aborted) return
+        const archiveKey = serializeExaminationArchiveStorageKey(result.key)
+        const loadedEntry = toExaminationEntry(result)
+        useExaminationStore.getState().applyLoadedArchiveResult({
+          sourceSummaryKey: params.replayInput.sourceSummaryKey,
+          sourceSessionKey: runSourceSessionKey,
+          requestId: started.requestId,
+          loadingKey: params.loadingKey,
+          resultKey: archiveKey,
+          entry: loadedEntry,
+          archiveEntry: {
+            key: archiveKey,
+            questionCount: result.archivedProvenance.questionCount,
+            model: result.archivedProvenance.model,
+            effort: result.archivedProvenance.effort,
+            entry: loadedEntry,
+          },
+        })
+      } catch (error) {
+        if (abort.signal.aborted) return
+        const message = getErrorMessage(error)
+        useExaminationStore
+          .getState()
+          .applyGenerationError(
+            params.loadingKey,
+            message,
+            runSourceSessionKey,
+            started.requestId,
+          )
+        addToast(`Question generation failed: ${message}`, { tone: "error" })
+      } finally {
+        examinationRequestSidecar.clearGeneration(
+          runSourceSessionKey,
+          started.requestId,
+        )
+      }
+    },
+    [addToast, workflowClient],
+  )
+
+  useEffect(() => {
+    return examinationHistoryEffectDriver.register(
+      (effect: ExaminationHistoryEffect) => {
+        if (effect.kind !== "replay-generation") return
+        void runGeneration({
+          loadingKey: `session-${createUuid()}`,
+          replayInput: effect.input,
+        })
+      },
+    )
+  }, [runGeneration])
+
   const generateForSelected = useCallback(
     async (options?: { regenerate?: boolean }) => {
       if (
@@ -689,121 +822,33 @@ export function useExaminationEngine({
         targetQuestionCount === questionCount
           ? metadata.entryKey
           : `session-${createUuid()}`
-      const generationControlId = `generation-${createUuid()}`
-      const started = useExaminationStore.getState().startGenerationSession({
-        sourceSessionKey,
-        entryKey: loadingKey,
-        generationControlId,
-        seedQuestions,
-        sourceReferences: seedEntry?.sourceReferences ?? [],
-        requestedQuestionCount: targetQuestionCount,
-      })
-      if (started === null) return
-      const abort = new AbortController()
-      examinationRequestSidecar.registerGeneration(
-        sourceSessionKey,
-        started.requestId,
-        abort,
-        generationControlId,
-      )
-
-      try {
-        const result = await workflowClient.run(
-          "examination.generateQuestions",
-          {
-            personId: selectedSubject.id,
-            contentScopeId:
-              source.kind === "repository-analysis"
-                ? source.commitOid
-                : source.contentScopeId,
-            localIdentityContext: source.localIdentityContext,
-            excerpts: selectedSubject.excerpts,
-            excerptFileSources: selectedSubject.excerptFileSources,
-            questionCount: targetQuestionCount,
-            llmSettings,
-            generationControlId,
-            ...(seedQuestions.length > 0 ? { seedQuestions } : {}),
-            ...(options?.regenerate ? { regenerate: true } : {}),
-          },
-          {
-            signal: abort.signal,
-            onProgress: (progress: MilestoneProgress) => {
-              useExaminationStore
-                .getState()
-                .applyGenerationProgress(
-                  loadingKey,
-                  progress.label,
-                  sourceSessionKey,
-                  started.requestId,
-                )
-            },
-            onOutput: (output: ExaminationGenerateOutput) => {
-              if (output.kind === "warn") {
-                addToast(output.message, {
-                  tone: "warning",
-                  durationMs: 6000,
-                })
-                return
-              }
-              if (output.kind === "stream-progress") {
-                useExaminationStore
-                  .getState()
-                  .applyStreamProgress(
-                    loadingKey,
-                    output,
-                    sourceSessionKey,
-                    started.requestId,
-                  )
-                return
-              }
-              useExaminationStore.getState().applyPartialQuestions(
-                loadingKey,
-                {
-                  questions: output.questions,
-                  sourceReferences: output.sourceReferences,
-                  inProgressQuestion: output.inProgressQuestion,
-                },
-                sourceSessionKey,
-                started.requestId,
-              )
-            },
-          },
-        )
-        if (abort.signal.aborted) return
-        const archiveKey = serializeExaminationArchiveStorageKey(result.key)
-        const loadedEntry = toExaminationEntry(result)
-        useExaminationStore.getState().applyLoadedArchiveResult({
-          sourceSessionKey,
-          requestId: started.requestId,
-          loadingKey,
-          resultKey: archiveKey,
-          entry: loadedEntry,
-          archiveEntry: {
-            key: archiveKey,
-            questionCount: result.archivedProvenance.questionCount,
-            model: result.archivedProvenance.model,
-            effort: result.archivedProvenance.effort,
-            entry: loadedEntry,
-          },
-        })
-      } catch (error) {
-        if (abort.signal.aborted) return
-        const message = getErrorMessage(error)
-        useExaminationStore
-          .getState()
-          .applyGenerationError(
-            loadingKey,
-            message,
-            sourceSessionKey,
-            started.requestId,
-          )
-        addToast(`Question generation failed: ${message}`, { tone: "error" })
-      } finally {
-        examinationRequestSidecar.clearGeneration(
-          sourceSessionKey,
-          started.requestId,
-        )
+      const workflowInput: Omit<
+        ExaminationGenerateQuestionsInput,
+        "generationControlId"
+      > = {
+        personId: selectedSubject.id,
+        contentScopeId:
+          source.kind === "repository-analysis"
+            ? source.commitOid
+            : source.contentScopeId,
+        localIdentityContext: source.localIdentityContext,
+        excerpts: selectedSubject.excerpts,
+        excerptFileSources: selectedSubject.excerptFileSources,
+        questionCount: targetQuestionCount,
+        llmSettings,
+        ...(seedQuestions.length > 0 ? { seedQuestions } : {}),
+        ...(options?.regenerate ? { regenerate: true } : {}),
       }
+      await runGeneration({
+        loadingKey,
+        replayInput: {
+          sourceSummaryKey,
+          sourceSessionKey,
+          workflowInput,
+          sourceReferences: seedEntry?.sourceReferences ?? [],
+          requestedQuestionCount: targetQuestionCount,
+        },
+      })
     },
     [
       addToast,
@@ -816,10 +861,11 @@ export function useExaminationEngine({
       selectedModelSpec,
       selectedSubject,
       session?.lookupMetadata,
+      runGeneration,
       source,
       sourceIdentity,
       sourceSessionKey,
-      workflowClient,
+      sourceSummaryKey,
     ],
   )
 

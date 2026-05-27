@@ -4,16 +4,22 @@ import {
   buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
-import type { ExaminationEntry } from "../stores/examination-store.js"
+import type {
+  ExaminationEntry,
+  ExaminationGenerationReplayInput,
+} from "../stores/examination-store.js"
 import {
+  examinationHistoryEffectDriver,
   examinationRequestSidecar,
   useExaminationStore,
 } from "../stores/examination-store.js"
 
+const repositoryCommitOid = "a".repeat(40)
+
 const identity: SourceIdentity = {
   kind: "repository-analysis",
   repoPath: "/repo",
-  commitOid: "a".repeat(40),
+  commitOid: repositoryCommitOid,
   subjectId: "p_1",
   excerptScopeId: "scope-1",
   redactionIdentityScopeId: "redaction-1",
@@ -138,6 +144,7 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
+      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
     examinationRequestSidecar.registerGeneration(
@@ -161,6 +168,7 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
+      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
 
@@ -177,6 +185,117 @@ describe("examination store", () => {
     assert.equal(state.entriesByKey.get("archive-1")?.status, "loaded")
   })
 
+  it("updates the generation owner summary when another summary is active", () => {
+    const store = activateSession()
+    const started = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-1",
+      generationControlId: "control-1",
+      seedQuestions: [],
+      sourceReferences: [],
+      requestedQuestionCount: 4,
+      generationReplayInput: replayInput(),
+    })
+    if (started === null) throw new Error("Generation did not start.")
+    store.activateSourceSummary({
+      sourceSummaryKey: "summary-other",
+      subjectIds: ["p_2"],
+      selectedSubjectId: "p_2",
+    })
+
+    store.applyLoadedArchiveResult({
+      sourceSummaryKey: "summary-1",
+      sourceSessionKey,
+      requestId: started.requestId,
+      loadingKey: "session-1",
+      resultKey: "archive-1",
+      entry: entry("loaded"),
+    })
+
+    const summaries = useExaminationStore.getState().sourceSummaries
+    assert.equal(
+      summaries.get("summary-1")?.generatedQuestionCountBySubjectId.get("p_1"),
+      1,
+    )
+    assert.equal(
+      summaries
+        .get("summary-other")
+        ?.generatedQuestionCountBySubjectId.has("p_2"),
+      false,
+    )
+  })
+
+  it("rewrites later history snapshots when generation completes", () => {
+    const store = activateSession()
+    const started = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-1",
+      generationControlId: "control-1",
+      seedQuestions: [],
+      sourceReferences: [],
+      requestedQuestionCount: 4,
+      generationReplayInput: replayInput(),
+    })
+    if (started === null) throw new Error("Generation did not start.")
+    store.setSessionShowAnswers(sourceSessionKey, false)
+
+    store.applyLoadedArchiveResult({
+      sourceSummaryKey: "summary-1",
+      sourceSessionKey,
+      requestId: started.requestId,
+      loadingKey: "session-1",
+      resultKey: "archive-1",
+      entry: entry("loaded"),
+    })
+    store.undo()
+
+    const session = useExaminationStore
+      .getState()
+      .sourceSessions.get(sourceSessionKey)
+    assert.equal(session?.showAnswers, true)
+    assert.deepEqual(session?.display, {
+      kind: "archived",
+      entryKey: "archive-1",
+      source: "just-generated",
+    })
+    assert.equal(session?.pendingGenerationRequestId, null)
+    assert.equal(
+      useExaminationStore.getState().entriesByKey.get("archive-1")?.status,
+      "loaded",
+    )
+  })
+
+  it("returns a replay effect instead of restoring a dead pending generation", () => {
+    const store = activateSession()
+    const replay = replayInput()
+    const started = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-1",
+      generationControlId: "control-1",
+      seedQuestions: [],
+      sourceReferences: [],
+      requestedQuestionCount: 4,
+      generationReplayInput: replay,
+    })
+    if (started === null) throw new Error("Generation did not start.")
+
+    store.undo()
+    const unregister = examinationHistoryEffectDriver.register(() => undefined)
+    const transition = store.redo()
+    unregister()
+
+    assert.equal(transition?.effects.length, 1)
+    assert.deepEqual(transition?.effects[0], {
+      kind: "replay-generation",
+      input: replay,
+    })
+    assert.equal(
+      useExaminationStore.getState().sourceSessions.get(sourceSessionKey)
+        ?.pendingGenerationRequestId,
+      null,
+    )
+  })
+
   it("separates soft stop intent from transport cancellation", () => {
     const store = activateSession()
     const controller = new AbortController()
@@ -187,6 +306,7 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
+      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
     examinationRequestSidecar.registerGeneration(
@@ -213,6 +333,28 @@ describe("examination store", () => {
       false,
     )
   })
+
+  it("invalidates repository summaries by parsed repository path", () => {
+    const store = useExaminationStore.getState()
+    const repoASummaryKey = repositorySummaryKey("/repo-a")
+    const repoBSummaryKey = repositorySummaryKey("/repo-b")
+    store.activateSourceSummary({
+      sourceSummaryKey: repoASummaryKey,
+      subjectIds: ["p_1"],
+      selectedSubjectId: "p_1",
+    })
+    store.activateSourceSummary({
+      sourceSummaryKey: repoBSummaryKey,
+      subjectIds: ["p_2"],
+      selectedSubjectId: "p_2",
+    })
+
+    store.invalidateRepositoryAnalysisSource("/repo-a")
+
+    const summaries = useExaminationStore.getState().sourceSummaries
+    assert.equal(summaries.has(repoASummaryKey), false)
+    assert.equal(summaries.has(repoBSummaryKey), true)
+  })
 })
 
 function activateSession() {
@@ -231,4 +373,46 @@ function activateSession() {
     },
   })
   return store
+}
+
+function replayInput(
+  overrides: Partial<ExaminationGenerationReplayInput> = {},
+): ExaminationGenerationReplayInput {
+  return {
+    sourceSummaryKey: "summary-1",
+    sourceSessionKey,
+    workflowInput: {
+      personId: identity.subjectId,
+      contentScopeId: repositoryCommitOid,
+      localIdentityContext: {
+        names: [],
+        emails: [],
+        opaqueIdentifiers: [],
+        gitUsernames: [],
+      },
+      excerpts: [
+        { filePath: "src/a.ts", startLine: 1, lines: ["const a = 1"] },
+      ],
+      excerptFileSources: { "src/a.ts": "const a = 1\n" },
+      questionCount: 4,
+      llmSettings: {
+        llmConnections: [],
+        activeLlmConnectionId: null,
+        examinationModelsByProvider: {},
+      },
+    },
+    sourceReferences: [],
+    requestedQuestionCount: 4,
+    ...overrides,
+  }
+}
+
+function repositorySummaryKey(repoPath: string): string {
+  return JSON.stringify([
+    "repository-analysis-summary",
+    repoPath,
+    repositoryCommitOid,
+    identity.redactionIdentityScopeId,
+    [[identity.subjectId, identity.excerptScopeId]],
+  ])
 }
