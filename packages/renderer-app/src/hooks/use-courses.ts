@@ -1,3 +1,4 @@
+import type { WorkflowClient } from "@repo-edu/application-contract"
 import {
   activeCourseIdFromSurface,
   type PersistedActiveSurface,
@@ -81,6 +82,49 @@ export function pruneLoadedSubmissionFoldersForCourses(
   return true
 }
 
+export async function resolveDuplicateCourseSource(
+  workflowClient: WorkflowClient,
+  sourceId: string,
+): Promise<PersistedCourse> {
+  const loadedState = useCourseStore.getState()
+  if (loadedState.status === "loaded" && loadedState.course?.id === sourceId) {
+    await getPersisterRegistry().course.flush()
+    const currentState = useCourseStore.getState()
+    if (
+      currentState.status === "loaded" &&
+      currentState.course?.id === sourceId
+    ) {
+      return currentState.course
+    }
+  }
+
+  return await workflowClient.run("course.load", { courseId: sourceId })
+}
+
+export async function persistCourseDisplayName(
+  workflowClient: WorkflowClient,
+  courseId: string,
+  displayName: string,
+): Promise<void> {
+  const trimmedDisplayName = displayName.trim()
+  if (!trimmedDisplayName) return
+
+  const loadedState = useCourseStore.getState()
+  if (loadedState.status === "loaded" && loadedState.course?.id === courseId) {
+    if (loadedState.course.displayName === trimmedDisplayName) return
+    useCourseStore.getState().setDisplayName(trimmedDisplayName)
+    await getPersisterRegistry().course.flush()
+    return
+  }
+
+  const course = await workflowClient.run("course.load", { courseId })
+  const updated: PersistedCourse = {
+    ...course,
+    displayName: trimmedDisplayName,
+  }
+  await workflowClient.run("course.save", updated)
+}
+
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
   const loading = useUiStore((s) => s.courseListLoading)
@@ -162,9 +206,7 @@ export function useCourses() {
       const addToast = useToastStore.getState().addToast
       try {
         const wfClient = getWorkflowClient()
-        const source = await wfClient.run("course.load", {
-          courseId: sourceId,
-        })
+        const source = await resolveDuplicateCourseSource(wfClient, sourceId)
 
         const duplicate = createBlankCourse(
           generateCourseId(),
@@ -202,14 +244,7 @@ export function useCourses() {
 
       try {
         const wfClient = getWorkflowClient()
-        const course = await wfClient.run("course.load", { courseId })
-
-        const updated: PersistedCourse = {
-          ...course,
-          displayName: newDisplayName.trim(),
-        }
-
-        await wfClient.run("course.save", updated)
+        await persistCourseDisplayName(wfClient, courseId, newDisplayName)
         await refresh()
         return true
       } catch (error) {

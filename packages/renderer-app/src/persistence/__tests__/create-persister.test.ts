@@ -118,6 +118,11 @@ function createCourseHarness(
     saved,
     persister,
     setSnapshot,
+    notifyUnrelatedStoreChange() {
+      for (const listener of listeners) {
+        listener()
+      }
+    },
   }
 }
 
@@ -306,6 +311,12 @@ describe("createPersister", () => {
 
     assert.equal(harness.status.state, "error")
     assert.equal(await waitForIdleResult(harness.persister), "idle")
+
+    harness.notifyUnrelatedStoreChange()
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    assert.equal(harness.saved.length, 1)
+    assert.equal(harness.status.state, "error")
   })
 
   it("pauses conflicted identities until a new clean baseline appears", async () => {

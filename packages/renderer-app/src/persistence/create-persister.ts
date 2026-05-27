@@ -114,6 +114,8 @@ export function createPersister<
 
   let baseline = adapter.getSnapshot()
   let baselineIdentity = baseline ? getIdentity(baseline) : null
+  let observedSnapshot = baseline
+  let observedSnapshotIdentity = baselineIdentity
   let pausedIdentity: string | null = null
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   let saveRequested = false
@@ -147,6 +149,7 @@ export function createPersister<
   function adoptSnapshot(snapshot: TSnapshot | null) {
     baseline = snapshot
     baselineIdentity = snapshot ? getIdentity(snapshot) : null
+    observeSnapshot(snapshot)
     pausedIdentity = null
     saveRequested = false
     lastError = null
@@ -172,6 +175,24 @@ export function createPersister<
     return !snapshotsEqual(snapshot, baseline)
   }
 
+  function observeSnapshot(snapshot: TSnapshot | null) {
+    observedSnapshot = snapshot
+    observedSnapshotIdentity = snapshot ? getIdentity(snapshot) : null
+  }
+
+  function snapshotSelectionChanged(snapshot: TSnapshot | null): boolean {
+    if (snapshot === null || observedSnapshot === null) {
+      return snapshot !== observedSnapshot
+    }
+
+    const identity = getIdentity(snapshot)
+    if (identity !== observedSnapshotIdentity) {
+      return true
+    }
+
+    return !snapshotsEqual(snapshot, observedSnapshot)
+  }
+
   function requestSave() {
     if (disposed) return
     saveRequested = true
@@ -189,6 +210,11 @@ export function createPersister<
     if (disposed || suppressSnapshotNotifications) return
 
     const snapshot = adapter.getSnapshot()
+    if (!snapshotSelectionChanged(snapshot)) {
+      return
+    }
+    observeSnapshot(snapshot)
+
     if (snapshot === null) {
       adoptSnapshot(null)
       return
@@ -248,6 +274,7 @@ export function createPersister<
           baseline = snapshot
           baselineIdentity = identity
         }
+        observeSnapshot(adapter.getSnapshot())
 
         pausedIdentity = null
         lastError = null

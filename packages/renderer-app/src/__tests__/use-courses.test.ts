@@ -1,18 +1,26 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import {
+  createWorkflowClient,
+  type WorkflowClient,
+} from "@repo-edu/application-contract"
+import {
   defaultAppSettings,
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import {
   type CourseBacking,
   type CourseSummary,
+  type PersistedCourse,
   persistedAppSettingsKind,
+  persistedCourseKind,
 } from "@repo-edu/domain/types"
 import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import {
+  persistCourseDisplayName,
   pruneLoadedSubmissionFoldersForCourses,
   resolveActiveSurfaceRedirectForCourses,
+  resolveDuplicateCourseSource,
 } from "../hooks/use-courses.js"
 import {
   clearPersisterRegistry,
@@ -42,6 +50,39 @@ function courseSummary(id: string, backing: CourseBacking): CourseSummary {
   }
 }
 
+function makeCourse(overrides: Partial<PersistedCourse> = {}): PersistedCourse {
+  return {
+    kind: persistedCourseKind,
+    backing: "lms",
+    revision: 0,
+    id: "course-1",
+    displayName: "Course 1",
+    lmsConnectionId: null,
+    organization: null,
+    lmsCourseId: null,
+    idSequences: {
+      nextGroupSeq: 1,
+      nextGroupSetSeq: 1,
+      nextMemberSeq: 1,
+      nextAssignmentSeq: 1,
+      nextTeamSeq: 1,
+    },
+    roster: {
+      connection: null,
+      students: [],
+      staff: [],
+      groups: [],
+      groupSets: [],
+      assignments: [],
+    },
+    repositoryTemplate: null,
+    searchFolder: null,
+    analysisInputs: {},
+    updatedAt: "2026-05-25T00:00:00.000Z",
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   clearWorkflowClient()
   clearPersisterRegistry()
@@ -50,7 +91,10 @@ beforeEach(() => {
   useUiStore.getState().reset()
 })
 
-function installSettingsFlushCounter(onFlush: () => void) {
+function installPersisterRegistry(overrides: {
+  settingsFlush?: () => Promise<void> | void
+  courseFlush?: () => Promise<void> | void
+}) {
   const persister = {
     flush: async () => {},
     waitForIdle: async () => {},
@@ -61,14 +105,27 @@ function installSettingsFlushCounter(onFlush: () => void) {
     appSettings: {
       ...persister,
       flush: async () => {
-        onFlush()
+        await overrides.settingsFlush?.()
       },
     },
-    course: persister,
+    course: {
+      ...persister,
+      flush: async () => {
+        await overrides.courseFlush?.()
+      },
+    },
     flush: async () => {},
     waitForIdle: async () => {},
     dispose: () => {},
   } satisfies PersisterRegistry)
+}
+
+function installSettingsFlushCounter(onFlush: () => void) {
+  installPersisterRegistry({
+    settingsFlush: () => {
+      onFlush()
+    },
+  })
 }
 
 describe("course refresh submission pruning", () => {
@@ -168,5 +225,94 @@ describe("course refresh submission pruning", () => {
       useAppSettingsStore.getState().settings.recentSubmissionFolders,
       [],
     )
+  })
+})
+
+describe("course management persistence", () => {
+  it("duplicates the active course from the flushed in-memory source", async () => {
+    const activeCourse = makeCourse({
+      displayName: "Dirty active course",
+      revision: 2,
+    })
+    let flushCalls = 0
+    let loadCalls = 0
+    useCourseStore.setState({
+      course: activeCourse,
+      status: "loaded",
+    })
+    installPersisterRegistry({
+      courseFlush: () => {
+        flushCalls += 1
+        useCourseStore.getState().applySaveStamp(activeCourse.id, {
+          revision: 3,
+          updatedAt: "2026-05-25T00:00:01.000Z",
+        })
+      },
+    })
+    const workflowClient = createWorkflowClient({
+      "course.load": async () => {
+        loadCalls += 1
+        return makeCourse({ displayName: "Disk stale course" })
+      },
+    }) as unknown as WorkflowClient
+
+    const source = await resolveDuplicateCourseSource(
+      workflowClient,
+      activeCourse.id,
+    )
+
+    assert.equal(flushCalls, 1)
+    assert.equal(loadCalls, 0)
+    assert.equal(source.displayName, "Dirty active course")
+    assert.equal(source.revision, 3)
+  })
+
+  it("renames the active course through the store and course persister", async () => {
+    const activeCourse = makeCourse({ revision: 4 })
+    let flushCalls = 0
+    let loadCalls = 0
+    let saveCalls = 0
+    useCourseStore.setState({
+      course: activeCourse,
+      status: "loaded",
+    })
+    installPersisterRegistry({
+      courseFlush: () => {
+        flushCalls += 1
+        const currentCourse = useCourseStore.getState().course
+        assert.ok(currentCourse)
+        useCourseStore.getState().applySaveStamp(currentCourse.id, {
+          revision: currentCourse.revision + 1,
+          updatedAt: "2026-05-25T00:00:02.000Z",
+        })
+      },
+    })
+    const workflowClient = createWorkflowClient({
+      "course.load": async () => {
+        loadCalls += 1
+        return activeCourse
+      },
+      "course.save": async (course) => {
+        saveCalls += 1
+        return {
+          revision: course.revision + 1,
+          updatedAt: "2026-05-25T00:00:03.000Z",
+        }
+      },
+    }) as unknown as WorkflowClient
+
+    await persistCourseDisplayName(
+      workflowClient,
+      activeCourse.id,
+      "Renamed active course",
+    )
+
+    const storedCourse = useCourseStore.getState().course
+    assert.ok(storedCourse)
+    assert.equal(flushCalls, 1)
+    assert.equal(loadCalls, 0)
+    assert.equal(saveCalls, 0)
+    assert.equal(storedCourse.displayName, "Renamed active course")
+    assert.equal(storedCourse.revision, 5)
   })
 })

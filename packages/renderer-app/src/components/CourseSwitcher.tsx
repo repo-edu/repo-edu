@@ -266,7 +266,8 @@ export function CourseSwitcher() {
 
   const handleRenameConfirm = async () => {
     const { id, newName } = renameDialog
-    await renameCourse(id, newName)
+    const success = await renameCourse(id, newName)
+    if (!success) return
     setRenameDialog({
       open: false,
       id: "",
