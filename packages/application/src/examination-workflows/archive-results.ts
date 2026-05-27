@@ -3,6 +3,7 @@ import type {
   ExaminationArchiveRecord,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
+  ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
   ExaminationQuestion,
   ExaminationSourceReference,
@@ -144,7 +145,7 @@ export function toResult(
 
 export function isRecordAllowedForCurrentContext(
   record: ExaminationArchiveRecord,
-  input: ExaminationLookupQuestionsInput,
+  input: { localIdentityContext: ExaminationLocalIdentityContext },
   sourceDescriptors: readonly string[],
 ): boolean {
   return scanExaminationOutputForLeaks({

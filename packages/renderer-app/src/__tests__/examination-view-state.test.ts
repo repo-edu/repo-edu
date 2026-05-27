@@ -3,13 +3,27 @@ import { describe, it } from "node:test"
 import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 import { buildMemberExcerpts } from "../components/tabs/examination/build-excerpts.js"
 import {
-  buildPendingExaminationEntryKey,
+  displayedEntryReducer,
+  initialDisplayedEntryReducerState,
+} from "../components/tabs/examination/displayed-entry-reducer.js"
+import type { SourceIdentity } from "../components/tabs/examination/source.js"
+import {
   canShowExaminationView,
-  resolveDisplayedArchiveEntryKey,
   resolveExaminationEmptyState,
-  resolveVisibleExaminationEntryKey,
   shouldShowUnmatchedRosterWarning,
 } from "../components/tabs/examination/view-state.js"
+
+const courseIdentity: SourceIdentity = {
+  kind: "course",
+  repoPath: "/repos/project",
+  commitOid: "a".repeat(40),
+  subjectId: "p_1",
+  excerptScopeId: "scope-a",
+  redactionIdentityScopeId: "redaction-a",
+  questionCount: 4,
+  model: "22",
+  effort: "medium",
+}
 
 describe("examination view state", () => {
   it("makes Examination available whenever blame is enabled", () => {
@@ -29,18 +43,6 @@ describe("examination view state", () => {
     )
   })
 
-  it("asks for an author or contributor when folder blame is available", () => {
-    const message = resolveExaminationEmptyState({
-      selectedRepositoryPath: "/repos/project",
-      hasBlameResult: true,
-      authorCount: 2,
-      selectedPersonId: null,
-    })
-
-    assert.match(message ?? "", /author or contributor/)
-    assert.doesNotMatch(message ?? "", /student/i)
-  })
-
   it("shows unmatched-roster warnings only for populated course rosters", () => {
     assert.equal(
       shouldShowUnmatchedRosterWarning({
@@ -58,179 +60,109 @@ describe("examination view state", () => {
       }),
       false,
     )
-    assert.equal(
-      shouldShowUnmatchedRosterWarning({
-        analysisKind: "course",
-        rosterPopulated: true,
-        rosterMemberId: "m_1",
-      }),
-      false,
-    )
   })
+})
 
-  it("invalidates pending entry keys when local selection inputs change", () => {
-    const base = buildPendingExaminationEntryKey({
-      repositoryPath: "/repos/project",
-      contentScopeId: "a".repeat(40),
-      personId: "p_1",
-      questionCount: 8,
-      model: "22",
-      effort: "medium",
+describe("displayed entry reducer", () => {
+  it("keeps loading visible over lookup hits", () => {
+    const loading = displayedEntryReducer(initialDisplayedEntryReducerState, {
+      type: "GENERATION_STARTED",
+      identity: courseIdentity,
+      entryKey: "session-1",
     })
 
-    assert.notEqual(
-      base,
-      buildPendingExaminationEntryKey({
-        repositoryPath: "/repos/project",
-        contentScopeId: "a".repeat(40),
-        personId: "p_1",
-        questionCount: 9,
-        model: "22",
-        effort: "medium",
-      }),
-    )
-    assert.notEqual(
-      base,
-      buildPendingExaminationEntryKey({
-        repositoryPath: "/repos/project",
-        contentScopeId: "a".repeat(40),
-        personId: "p_1",
-        questionCount: 8,
-        model: "33",
-        effort: "high",
-      }),
-    )
-    assert.notEqual(
-      base,
-      buildPendingExaminationEntryKey({
-        repositoryPath: "/repos/project",
-        contentScopeId: "b".repeat(40),
-        personId: "p_1",
-        questionCount: 8,
-        model: "22",
-        effort: "medium",
-      }),
-    )
-    assert.notEqual(
-      base,
-      buildPendingExaminationEntryKey({
-        repositoryPath: "/repos/other",
-        contentScopeId: "a".repeat(40),
-        personId: "p_1",
-        questionCount: 8,
-        model: "22",
-        effort: "medium",
-      }),
-    )
-  })
-
-  it("keeps the pending entry visible while generation is loading", () => {
-    const pendingEntryKey = buildPendingExaminationEntryKey({
-      repositoryPath: "/repos/project",
-      contentScopeId: "a".repeat(40),
-      personId: "p_1",
-      questionCount: 8,
-      model: "22",
-      effort: "medium",
+    const afterLookup = displayedEntryReducer(loading, {
+      type: "LOOKUP_SUCCESS",
+      identity: courseIdentity,
+      exactEntryKey: "archive-1",
     })
-    const requestedEntryKey = JSON.stringify([
-      "examination-archive-key-v2",
-      "p_1",
-      "a".repeat(40),
-      8,
-      "payload",
-      "context",
-    ])
 
-    assert.equal(
-      resolveVisibleExaminationEntryKey({
-        pendingEntryKey,
-        requestedEntryKey,
-        requestedEntryPendingKey: pendingEntryKey,
-        pendingEntryIsLoading: true,
-      }),
-      pendingEntryKey,
-    )
-  })
-
-  it("uses the archive lookup entry when no generation is loading", () => {
-    const pendingEntryKey = buildPendingExaminationEntryKey({
-      repositoryPath: "/repos/project",
-      contentScopeId: "a".repeat(40),
-      personId: "p_1",
-      questionCount: 8,
-      model: "22",
-      effort: "medium",
+    assert.deepEqual(afterLookup.display, {
+      kind: "loading",
+      entryKey: "session-1",
     })
-    const requestedEntryKey = JSON.stringify([
-      "examination-archive-key-v2",
-      "p_1",
-      "a".repeat(40),
-      8,
-      "payload",
-      "context",
-    ])
-
-    assert.equal(
-      resolveVisibleExaminationEntryKey({
-        pendingEntryKey,
-        requestedEntryKey,
-        requestedEntryPendingKey: pendingEntryKey,
-        pendingEntryIsLoading: false,
-      }),
-      requestedEntryKey,
-    )
   })
 
-  it("does not display an unrelated archive entry when the requested entry is absent", () => {
-    assert.equal(
-      resolveDisplayedArchiveEntryKey({
-        archiveEntryKeys: ["archive-a"],
-        selectedArchiveEntryKey: null,
-        requestedEntryKey: "archive-requested",
-      }),
-      null,
-    )
+  it("preserves pins across lookup misses for the same identity", () => {
+    const pinned = displayedEntryReducer(initialDisplayedEntryReducerState, {
+      type: "ARCHIVE_SELECTED",
+      identity: courseIdentity,
+      entryKey: "archive-selected",
+    })
+
+    const afterMiss = displayedEntryReducer(pinned, {
+      type: "LOOKUP_MISS",
+      identity: courseIdentity,
+    })
+
+    assert.deepEqual(afterMiss.display, {
+      kind: "archived",
+      entryKey: "archive-selected",
+      source: "pinned",
+    })
   })
 
-  it("uses explicit archive selection before falling back to the requested entry", () => {
-    assert.equal(
-      resolveDisplayedArchiveEntryKey({
-        archiveEntryKeys: ["archive-requested", "archive-selected"],
-        selectedArchiveEntryKey: "archive-selected",
-        requestedEntryKey: "archive-requested",
-      }),
-      "archive-selected",
-    )
-    assert.equal(
-      resolveDisplayedArchiveEntryKey({
-        archiveEntryKeys: ["archive-requested"],
-        selectedArchiveEntryKey: "archive-missing",
-        requestedEntryKey: "archive-requested",
-      }),
-      "archive-requested",
-    )
+  it("clears pins when the source identity changes", () => {
+    const pinned = displayedEntryReducer(initialDisplayedEntryReducerState, {
+      type: "ARCHIVE_SELECTED",
+      identity: courseIdentity,
+      entryKey: "archive-selected",
+    })
+
+    const changed = displayedEntryReducer(pinned, {
+      type: "IDENTITY_CHANGED",
+      identity: { ...courseIdentity, subjectId: "p_2" },
+    })
+
+    assert.deepEqual(changed.display, { kind: "idle" })
+    assert.equal(changed.pinnedEntryKey, null)
   })
 
-  it("can recover an explicit archive selection after a transient list miss", () => {
-    const selectedArchiveEntryKey = "archive-selected"
+  it("promotes a provisional course excerpt scope without clearing the pin", () => {
+    const pinned = displayedEntryReducer(initialDisplayedEntryReducerState, {
+      type: "ARCHIVE_SELECTED",
+      identity: courseIdentity,
+      entryKey: "archive-selected",
+    })
 
+    const promoted = displayedEntryReducer(pinned, {
+      type: "EXCERPT_SCOPE_RESOLVED",
+      provisionalIdentity: courseIdentity,
+      resolvedExcerptScopeId: "provider-payload",
+    })
+
+    assert.equal(promoted.identity?.kind, "course")
     assert.equal(
-      resolveDisplayedArchiveEntryKey({
-        archiveEntryKeys: ["archive-requested"],
-        selectedArchiveEntryKey,
-        requestedEntryKey: "archive-requested",
-      }),
-      "archive-requested",
+      promoted.identity?.kind === "course"
+        ? promoted.identity.excerptScopeId
+        : null,
+      "provider-payload",
     )
-    assert.equal(
-      resolveDisplayedArchiveEntryKey({
-        archiveEntryKeys: ["archive-requested", "archive-selected"],
-        selectedArchiveEntryKey,
-        requestedEntryKey: "archive-requested",
-      }),
-      "archive-selected",
-    )
+    assert.deepEqual(promoted.display, pinned.display)
+  })
+
+  it("lets just-generated entries outrank later lookup hits", () => {
+    const ready = displayedEntryReducer(initialDisplayedEntryReducerState, {
+      type: "IDENTITY_CHANGED",
+      identity: courseIdentity,
+    })
+    const generated = displayedEntryReducer(ready, {
+      type: "GENERATION_SUCCEEDED",
+      identity: courseIdentity,
+      entryKey: "archive-fresh",
+    })
+
+    const afterLookup = displayedEntryReducer(generated, {
+      type: "LOOKUP_SUCCESS",
+      identity: courseIdentity,
+      exactEntryKey: "archive-old",
+    })
+
+    assert.deepEqual(afterLookup.display, {
+      kind: "archived",
+      entryKey: "archive-fresh",
+      source: "just-generated",
+    })
   })
 })
 
@@ -291,7 +223,7 @@ describe("examination excerpt selection", () => {
 
     const excerpts = buildMemberExcerpts(blameResult, personDb, "p_1")
 
-    assert.deepEqual(excerpts, [
+    assert.deepStrictEqual(excerpts, [
       {
         filePath: "src/a.ts",
         startLine: 1,

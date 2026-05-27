@@ -1,6 +1,7 @@
 import type {
   ExaminationGenerateQuestionsInput,
   ExaminationLocalIdentityContext,
+  ExaminationLookupQuestionSummariesInput,
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import { isExaminationContentScopeIdShape } from "@repo-edu/application-contract"
@@ -16,6 +17,71 @@ export function validateLookupInput(
   input: ExaminationLookupQuestionsInput,
 ): void {
   validateInput(input, "lookup")
+}
+
+export function validateLookupSummariesInput(
+  input: ExaminationLookupQuestionSummariesInput,
+): void {
+  const issues: { path: string; message: string }[] = []
+  if (!isRecord(input)) {
+    throw createValidationAppError(
+      "Examination summary lookup input is invalid.",
+      [{ path: "input", message: "Input must be an object." }],
+    )
+  }
+  if (!Array.isArray(input.subjects)) {
+    throw createValidationAppError(
+      "Examination summary lookup input is invalid.",
+      [{ path: "subjects", message: "subjects must be an array." }],
+    )
+  }
+  for (const [index, subject] of input.subjects.entries()) {
+    const prefix = `subjects.${index}`
+    if (!isRecord(subject)) {
+      issues.push({
+        path: prefix,
+        message: "Subject summary input is invalid.",
+      })
+      continue
+    }
+    if (
+      typeof subject.subjectId !== "string" ||
+      subject.subjectId.trim().length === 0
+    ) {
+      issues.push({
+        path: `${prefix}.subjectId`,
+        message: "subjectId is required.",
+      })
+    }
+    if (
+      typeof subject.personId !== "string" ||
+      subject.personId.trim().length === 0
+    ) {
+      issues.push({
+        path: `${prefix}.personId`,
+        message: "personId is required.",
+      })
+    }
+    if (
+      typeof subject.contentScopeId !== "string" ||
+      !isExaminationContentScopeIdShape(subject.contentScopeId)
+    ) {
+      issues.push({
+        path: `${prefix}.contentScopeId`,
+        message:
+          "contentScopeId must be a full lowercase SHA-1 or SHA-256 content identifier.",
+      })
+    }
+    validateLocalIdentityContext(subject.localIdentityContext, issues, prefix)
+    validateExcerpts(subject.excerpts, issues, prefix)
+    validateExcerptFileSources(subject.excerptFileSources, issues, prefix)
+  }
+  if (issues.length > 0) {
+    throw createValidationAppError(
+      "Examination summary lookup input is invalid.",
+      issues,
+    )
+  }
 }
 
 export function validateStopInput(input: {
@@ -227,10 +293,15 @@ function validateSeedQuestionAnchor(
 function validateLocalIdentityContext(
   context: ExaminationLocalIdentityContext,
   issues: { path: string; message: string }[],
+  prefix?: string,
 ): void {
+  const basePath =
+    prefix === undefined
+      ? "localIdentityContext"
+      : `${prefix}.localIdentityContext`
   if (!isRecord(context)) {
     issues.push({
-      path: "localIdentityContext",
+      path: basePath,
       message: "localIdentityContext is required.",
     })
     return
@@ -247,7 +318,7 @@ function validateLocalIdentityContext(
       value.some((item) => typeof item !== "string")
     ) {
       issues.push({
-        path: `localIdentityContext.${field}`,
+        path: `${basePath}.${field}`,
         message: `${field} must be an array of strings.`,
       })
     }
@@ -257,17 +328,22 @@ function validateLocalIdentityContext(
 function validateExcerpts(
   excerpts: ExaminationGenerateQuestionsInput["excerpts"],
   issues: { path: string; message: string }[],
+  prefix?: string,
 ): void {
+  const basePath = prefix === undefined ? "excerpts" : `${prefix}.excerpts`
   if (!Array.isArray(excerpts) || excerpts.length === 0) {
     issues.push({
-      path: "excerpts",
+      path: basePath,
       message: "At least one code excerpt is required.",
     })
     return
   }
   for (const [index, excerpt] of excerpts.entries()) {
     if (!isRecord(excerpt)) {
-      issues.push({ path: `excerpts.${index}`, message: "Excerpt is invalid." })
+      issues.push({
+        path: `${basePath}.${index}`,
+        message: "Excerpt is invalid.",
+      })
       continue
     }
     if (
@@ -275,13 +351,13 @@ function validateExcerpts(
       excerpt.filePath.trim().length === 0
     ) {
       issues.push({
-        path: `excerpts.${index}.filePath`,
+        path: `${basePath}.${index}.filePath`,
         message: "filePath is required for local source lookup.",
       })
     }
     if (!Number.isInteger(excerpt.startLine) || excerpt.startLine < 1) {
       issues.push({
-        path: `excerpts.${index}.startLine`,
+        path: `${basePath}.${index}.startLine`,
         message: "startLine must be a 1-based positive integer.",
       })
     }
@@ -291,7 +367,7 @@ function validateExcerpts(
       excerpt.lines.some((line) => typeof line !== "string")
     ) {
       issues.push({
-        path: `excerpts.${index}.lines`,
+        path: `${basePath}.${index}.lines`,
         message: "Excerpt must contain at least one string line.",
       })
     }
@@ -301,10 +377,13 @@ function validateExcerpts(
 function validateExcerptFileSources(
   sources: ExaminationGenerateQuestionsInput["excerptFileSources"],
   issues: { path: string; message: string }[],
+  prefix?: string,
 ): void {
+  const basePath =
+    prefix === undefined ? "excerptFileSources" : `${prefix}.excerptFileSources`
   if (!isRecord(sources)) {
     issues.push({
-      path: "excerptFileSources",
+      path: basePath,
       message: "excerptFileSources must be an object.",
     })
     return
@@ -312,7 +391,7 @@ function validateExcerptFileSources(
   for (const [filePath, source] of Object.entries(sources)) {
     if (filePath.length === 0 || typeof source !== "string") {
       issues.push({
-        path: `excerptFileSources.${filePath}`,
+        path: `${basePath}.${filePath}`,
         message: "Each file source must be keyed by path and contain text.",
       })
     }

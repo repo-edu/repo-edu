@@ -1,25 +1,23 @@
-import type { BlameAuthorSummary } from "@repo-edu/domain/analysis"
 import { Card, CardHeader, CardTitle } from "@repo-edu/ui"
 import { useCallback, useLayoutEffect, useRef } from "react"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
 import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
+import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { ExaminationControlsCard } from "./ExaminationControlsCard.js"
 import { ExaminationQuestionDisplay } from "./ExaminationQuestionDisplay.js"
+import type { SourceSubject } from "./source.js"
 import type { AvailableArchiveEntry } from "./types.js"
 
-type AuthorPanelProps = {
-  authorName: string
-  authorEmail: string
-  summary: BlameAuthorSummary
-  entry: ExaminationEntry | null
+type SubjectPanelProps = {
+  subject: SourceSubject
+  display: ExaminationDisplaySelection
   archiveEntries: AvailableArchiveEntry[]
-  displayedArchiveEntry: AvailableArchiveEntry | null
   showArchiveSelector: boolean
   questionCount: number
   showAnswers: boolean
   blocker: string | null
   rosterWarning: string | null
   layout: "page" | "pane"
+  emptyMessage: string
   onQuestionCountChange: (count: number) => void
   onShowAnswersChange: (show: boolean) => void
   onSelectArchiveEntry: (entry: AvailableArchiveEntry) => void
@@ -29,19 +27,17 @@ type AuthorPanelProps = {
   onCopyMarkdown: () => void
 }
 
-export function AuthorPanel({
-  authorName,
-  authorEmail,
-  summary,
-  entry,
+export function SubjectPanel({
+  subject,
+  display,
   archiveEntries,
-  displayedArchiveEntry,
   showArchiveSelector,
   questionCount,
   showAnswers,
   blocker,
   rosterWarning,
   layout,
+  emptyMessage,
   onQuestionCountChange,
   onShowAnswersChange,
   onSelectArchiveEntry,
@@ -49,19 +45,10 @@ export function AuthorPanel({
   onStopGeneration,
   onRegenerate,
   onCopyMarkdown,
-}: AuthorPanelProps) {
-  const isLoading = entry?.status === "loading"
-  const hasPartialQuestions = isLoading && entry.questions.length > 0
-  const exactHasResults = entry?.status === "loaded"
-  const displayEntry =
-    hasPartialQuestions && entry !== null
-      ? entry
-      : (displayedArchiveEntry?.entry ?? null)
-  const hasDisplayResults =
-    displayEntry !== null && displayEntry.questions.length > 0
+}: SubjectPanelProps) {
   const archiveSelectorRef = useRef<HTMLDivElement>(null)
   const pendingQuestionRevealKeyRef = useRef<string | null>(null)
-  const displayedArchiveEntryKey = displayedArchiveEntry?.key ?? null
+  const displayedArchiveEntryKey = display.archiveEntry?.key ?? null
   const selectArchiveEntry = useCallback(
     (archiveEntry: AvailableArchiveEntry) => {
       pendingQuestionRevealKeyRef.current = archiveEntry.key
@@ -96,9 +83,9 @@ export function AuthorPanel({
     >
       <Card>
         <CardHeader>
-          <CardTitle>{authorName}</CardTitle>
+          <CardTitle>{subject.name}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {authorEmail} · {summary.lines} lines
+            {subject.email} · {subject.lines} lines
           </p>
           {rosterWarning !== null ? (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
@@ -116,10 +103,10 @@ export function AuthorPanel({
         questionCount={questionCount}
         showAnswers={showAnswers}
         blocker={blocker}
-        isGenerating={isLoading}
-        canRegenerate={!isLoading && exactHasResults && blocker === null}
-        canToggleAnswers={hasDisplayResults}
-        canCopyMarkdown={displayEntry?.status === "loaded"}
+        isGenerating={display.isLoading}
+        canRegenerate={display.canRegenerate}
+        canToggleAnswers={display.canToggleAnswers}
+        canCopyMarkdown={display.canCopyMarkdown}
         onQuestionCountChange={onQuestionCountChange}
         onShowAnswersChange={onShowAnswersChange}
         onGenerate={onGenerate}
@@ -132,20 +119,19 @@ export function AuthorPanel({
         <div ref={archiveSelectorRef}>
           <ArchiveSetSelector
             entries={archiveEntries}
-            selectedKey={displayedArchiveEntry?.key ?? null}
+            selectedKey={display.archiveEntry?.key ?? null}
             onSelect={selectArchiveEntry}
           />
         </div>
       ) : null}
 
       <ExaminationQuestionDisplay
-        entry={entry}
-        displayedArchiveEntry={displayedArchiveEntry}
+        display={display}
         questionCount={questionCount}
         showAnswers={showAnswers}
         layout={layout}
         scrollResetKey={displayedArchiveEntryKey}
-        emptyMessage="Click Generate to produce questions for this author."
+        emptyMessage={emptyMessage}
       />
     </div>
   )

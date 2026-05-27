@@ -13,8 +13,8 @@ import {
   EXAMINATION_SUBMISSION_SIDEBAR_MIN_WIDTH_PX,
 } from "../../../constants/layout.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
 import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
+import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { ExaminationControlsCard } from "./ExaminationControlsCard.js"
 import { ExaminationQuestionDisplay } from "./ExaminationQuestionDisplay.js"
 import { LlmControls } from "./LlmControls.js"
@@ -31,9 +31,8 @@ type SubmissionExaminationPaneProps = {
   onImportArchive: () => void
   onExportArchive: () => void
 
-  entry: ExaminationEntry | null
+  display: ExaminationDisplaySelection
   archiveEntries: AvailableArchiveEntry[]
-  displayedArchiveEntry: AvailableArchiveEntry | null
   showArchiveSelector: boolean
   questionCount: number
   showAnswers: boolean
@@ -66,9 +65,8 @@ export function SubmissionExaminationPane({
   onOpenSettings,
   onImportArchive,
   onExportArchive,
-  entry,
+  display,
   archiveEntries,
-  displayedArchiveEntry,
   showArchiveSelector,
   questionCount,
   showAnswers,
@@ -82,17 +80,6 @@ export function SubmissionExaminationPane({
   onCopyMarkdown,
   emptyMessage,
 }: SubmissionExaminationPaneProps) {
-  const isLoading = entry?.status === "loading"
-  const hasPartialQuestions =
-    isLoading && entry !== null && entry.questions.length > 0
-  const exactHasResults = entry?.status === "loaded"
-  const displayEntry =
-    hasPartialQuestions && entry !== null
-      ? entry
-      : (displayedArchiveEntry?.entry ?? null)
-  const hasDisplayResults =
-    displayEntry !== null && displayEntry.questions.length > 0
-
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(
       useAppSettingsStore.getState().settings.examinationSubmissionSidebarSize,
@@ -164,10 +151,10 @@ export function SubmissionExaminationPane({
               questionCount={questionCount}
               showAnswers={showAnswers}
               blocker={blocker}
-              isGenerating={isLoading}
-              canRegenerate={!isLoading && exactHasResults && blocker === null}
-              canToggleAnswers={hasDisplayResults}
-              canCopyMarkdown={displayEntry?.status === "loaded"}
+              isGenerating={display.isLoading}
+              canRegenerate={display.canRegenerate}
+              canToggleAnswers={display.canToggleAnswers}
+              canCopyMarkdown={display.canCopyMarkdown}
               onQuestionCountChange={onQuestionCountChange}
               onShowAnswersChange={onShowAnswersChange}
               onGenerate={onGenerate}
@@ -184,17 +171,16 @@ export function SubmissionExaminationPane({
           {showArchiveSelector ? (
             <ArchiveSetSelector
               entries={archiveEntries}
-              selectedKey={displayedArchiveEntry?.key ?? null}
+              selectedKey={display.archiveEntry?.key ?? null}
               onSelect={onSelectArchiveEntry}
             />
           ) : null}
           <ExaminationQuestionDisplay
-            entry={entry}
-            displayedArchiveEntry={displayedArchiveEntry}
+            display={display}
             questionCount={questionCount}
             showAnswers={showAnswers}
             layout="pane"
-            scrollResetKey={displayedArchiveEntry?.key ?? null}
+            scrollResetKey={display.archiveEntry?.key ?? null}
             emptyMessage={emptyMessage}
           />
         </div>

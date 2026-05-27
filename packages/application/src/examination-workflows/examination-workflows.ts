@@ -5,6 +5,7 @@ import type {
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
+  ExaminationLookupQuestionSummariesResult,
   ExaminationLookupQuestionsInput,
   ExaminationLookupQuestionsResult,
   MilestoneProgress,
@@ -30,6 +31,7 @@ import {
 import {
   validateGenerateInput,
   validateLookupInput,
+  validateLookupSummariesInput,
   validateStopInput,
 } from "./input-validation.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
@@ -49,11 +51,14 @@ import {
   createSoftStopSession,
   type SoftStopSession,
 } from "./soft-stop-session.js"
+import { createPrepareSubmissionSourceHandler } from "./submission-source.js"
 
 type ExaminationWorkflowId =
   | "examination.generateQuestions"
   | "examination.stopGeneration"
   | "examination.lookupQuestions"
+  | "examination.prepareSubmissionSource"
+  | "examination.lookupQuestionSummaries"
 
 export function createExaminationWorkflowHandlers(
   ports: ExaminationWorkflowPorts,
@@ -61,6 +66,7 @@ export function createExaminationWorkflowHandlers(
   const softStopSessions = new Map<string, SoftStopSession>()
 
   return {
+    ...createPrepareSubmissionSourceHandler(ports),
     "examination.generateQuestions": async (
       input: ExaminationGenerateQuestionsInput,
       options?: WorkflowCallOptions<
@@ -399,6 +405,58 @@ export function createExaminationWorkflowHandlers(
               }),
         availableSets,
       }
+    },
+    "examination.lookupQuestionSummaries": async (
+      input,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ): Promise<ExaminationLookupQuestionSummariesResult> => {
+      validateLookupSummariesInput(input)
+
+      const summaries: ExaminationLookupQuestionSummariesResult["summaries"] =
+        []
+      let step = 0
+      const totalSteps = Math.max(input.subjects.length, 1)
+      for (const subject of input.subjects) {
+        throwIfAborted(options?.signal)
+        step += 1
+        options?.onProgress?.({
+          step,
+          totalSteps,
+          label: "Checking archived question summaries.",
+        })
+
+        const prepared = await prepareExaminationProviderExcerpts({
+          excerpts: subject.excerpts,
+          excerptFileSources: subject.excerptFileSources,
+          localIdentityContext: subject.localIdentityContext,
+          tokenizer: ports.tokenizer,
+          questionCount: 1,
+        })
+        const sourceDescriptors = prepared.promptPayload.excerpts.map(
+          (excerpt) => excerpt.sourceDescriptor,
+        )
+        const sets = ports.archive
+          .listForExcerpts({
+            personId: subject.personId,
+            contentScopeId: subject.contentScopeId,
+            providerPayloadFingerprint: prepared.providerPayloadFingerprint,
+          })
+          .filter(
+            (record) =>
+              isRecordCurrentArchivePolicy(record) &&
+              isRecordAllowedForCurrentContext(
+                record,
+                subject,
+                sourceDescriptors,
+              ),
+          )
+          .map((record) => ({
+            key: record.key,
+            provenance: record.provenance,
+          }))
+        summaries.push({ subjectId: subject.subjectId, sets })
+      }
+      return { summaries }
     },
   }
 }

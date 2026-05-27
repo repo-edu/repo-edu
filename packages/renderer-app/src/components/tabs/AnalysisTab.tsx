@@ -27,9 +27,9 @@ import { BlameProgressBar } from "./analysis/BlameProgressBar.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
-import { ExaminationTab } from "./ExaminationTab.js"
+import { CourseExaminationTab } from "./ExaminationTab.js"
 import { canShowExaminationView } from "./examination/view-state.js"
-import { SubmissionAnalysisTab } from "./SubmissionAnalysisTab.js"
+import { SubmissionExaminationTab } from "./SubmissionExaminationTab.js"
 
 function clampSidebarWidthPx(size: number | null | undefined): number {
   const value = size ?? ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX
@@ -46,7 +46,7 @@ export function AnalysisTab() {
       analysisContext.activeSurface.courseId ?? null,
       analysisContext.activeSurface.path,
     ])
-    return <SubmissionAnalysisTab key={submissionSurfaceKey} />
+    return <SubmissionExaminationTab key={submissionSurfaceKey} />
   }
   return <RepositoryAnalysisTab />
 }
@@ -186,7 +186,7 @@ function RepositoryAnalysisTab() {
               value="examination"
               className="flex-1 min-h-0 overflow-hidden"
             >
-              <ExaminationTab />
+              <CourseExaminationTab />
             </TabsContent>
           )}
         </Tabs>

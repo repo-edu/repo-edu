@@ -18,8 +18,12 @@ import type {
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
+  ExaminationLookupQuestionSummariesInput,
+  ExaminationLookupQuestionSummariesResult,
   ExaminationLookupQuestionsInput,
   ExaminationLookupQuestionsResult,
+  ExaminationPreparedSubmissionSource,
+  ExaminationPrepareSubmissionSourceInput,
   ExaminationStopGenerationInput,
   ExaminationStopGenerationResult,
 } from "./examination-contract.js"
@@ -290,6 +294,18 @@ export type WorkflowPayloads = {
     progress: MilestoneProgress
     output: DiagnosticOutput
     result: ExaminationLookupQuestionsResult
+  }
+  "examination.prepareSubmissionSource": {
+    input: ExaminationPrepareSubmissionSourceInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationPreparedSubmissionSource
+  }
+  "examination.lookupQuestionSummaries": {
+    input: ExaminationLookupQuestionSummariesInput
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: ExaminationLookupQuestionSummariesResult
   }
   "examination.archive.export": {
     input: UserSaveTargetRef

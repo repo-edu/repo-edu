@@ -9,6 +9,7 @@ import {
   type ExaminationArchiveRecord,
 } from "@repo-edu/application-contract"
 import type {
+  FileSystemPort,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
@@ -24,6 +25,20 @@ const tokenizer: TokenizerPort = {
   async loadTokenizerLanguage() {
     throw new Error("Tokenizer not available in this test.")
   },
+}
+
+const stubFileSystem: FileSystemPort = {
+  userHomeSystemDirectories: [],
+  inspect: async () => [],
+  stat: async () => ({ kind: "directory", size: null }),
+  applyBatch: async () => ({ completed: [] }),
+  createTempDirectory: async () => "/tmp/repo-edu-test",
+  listDirectory: async () => [],
+  listFiles: async () => [],
+  readFileInsideRoot: async () => ({
+    relativePath: "main.ts",
+    bytes: new TextEncoder().encode("const answer = 42\n"),
+  }),
 }
 
 const baseKey: ExaminationArchiveKey = {
@@ -324,6 +339,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const first = await handlers["examination.generateQuestions"](baseInput())
@@ -345,12 +361,14 @@ describe("examination.generateQuestions archive behavior", () => {
       llm: firstLlm,
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const secondLlm = createRecordingLlm(sampleLlmReply(2))
     const secondHandlers = createExaminationWorkflowHandlers({
       llm: secondLlm,
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const first = await firstHandlers["examination.generateQuestions"](
@@ -381,6 +399,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await handlers["examination.generateQuestions"]({
@@ -401,6 +420,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await handlers["examination.generateQuestions"]({
@@ -438,6 +458,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const input = {
       ...baseInput(),
@@ -487,6 +508,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const warnings: string[] = []
 
@@ -517,6 +539,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const warnings: string[] = []
 
@@ -546,6 +569,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const input = {
       ...baseInput(),
@@ -579,6 +603,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const input = baseInput()
     const generated = await handlers["examination.generateQuestions"](input)
@@ -610,6 +635,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await handlers["examination.generateQuestions"](baseInput())
@@ -632,6 +658,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const generated = await handlers["examination.generateQuestions"](
       baseInput(),
@@ -682,6 +709,7 @@ describe("examination.generateQuestions archive behavior", () => {
       llm,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await assert.rejects(

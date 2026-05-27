@@ -198,6 +198,7 @@ function createDesktopWorkflowRegistry(
       llm: ports.llm,
       archive: examinationArchive,
       tokenizer: ports.tokenizer,
+      fileSystem: ports.fileSystem,
     }),
     ...createExaminationArchiveWorkflowHandlers({
       archive: examinationArchive,

@@ -61,6 +61,8 @@ describe("application-contract workflow catalog", () => {
       "examination.generateQuestions",
       "examination.stopGeneration",
       "examination.lookupQuestions",
+      "examination.prepareSubmissionSource",
+      "examination.lookupQuestionSummaries",
       "examination.archive.export",
       "examination.archive.import",
     ]

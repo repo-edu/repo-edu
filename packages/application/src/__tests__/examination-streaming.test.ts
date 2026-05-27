@@ -6,6 +6,7 @@ import type {
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import type {
+  FileSystemPort,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
@@ -28,6 +29,20 @@ const tokenizer: TokenizerPort = {
   async loadTokenizerLanguage() {
     throw new Error("Tokenizer not available in this test.")
   },
+}
+
+const stubFileSystem: FileSystemPort = {
+  userHomeSystemDirectories: [],
+  inspect: async () => [],
+  stat: async () => ({ kind: "directory", size: null }),
+  applyBatch: async () => ({ completed: [] }),
+  createTempDirectory: async () => "/tmp/repo-edu-test",
+  listDirectory: async () => [],
+  listFiles: async () => [],
+  readFileInsideRoot: async () => ({
+    relativePath: "main.ts",
+    bytes: new TextEncoder().encode("const answer = 42\n"),
+  }),
 }
 
 function questionJson(index: number): string {
@@ -153,6 +168,7 @@ describe("examination.generateQuestions streaming", () => {
       ]),
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const partials: ExaminationGenerateOutput[] = []
 
@@ -200,6 +216,7 @@ describe("examination.generateQuestions streaming", () => {
       ]),
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const timeline: string[] = []
     const previews: string[] = []
@@ -241,6 +258,7 @@ describe("examination.generateQuestions streaming", () => {
       ]),
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const progressLabels: (string | null)[] = []
 
@@ -271,6 +289,7 @@ describe("examination.generateQuestions streaming", () => {
       ]),
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const partials: ExaminationGenerateOutput[] = []
 
@@ -297,6 +316,7 @@ describe("examination.generateQuestions streaming", () => {
       llm: streamLlm([{ kind: "text-delta", text: replyJson(1) }]),
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await assert.rejects(
@@ -321,6 +341,7 @@ describe("examination.generateQuestions streaming", () => {
       llm: blockingStreamLlm(`{"questions":[${questionJson(1)},`),
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     let resolveFirstPartial!: () => void
     const firstPartial = new Promise<void>((resolve) => {
@@ -382,6 +403,7 @@ describe("examination.generateQuestions streaming", () => {
       },
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const partialCounts: number[] = []
 
@@ -418,6 +440,7 @@ describe("examination.generateQuestions streaming", () => {
       ]),
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const seedResult = await handlers["examination.generateQuestions"](
@@ -448,6 +471,7 @@ describe("examination.generateQuestions streaming", () => {
       llm: blockingStreamLlm(replyJson(2)),
       archive: createInMemoryExaminationArchive(),
       tokenizer,
+      fileSystem: stubFileSystem,
     })
     const warnings: string[] = []
     const partialCounts: number[] = []

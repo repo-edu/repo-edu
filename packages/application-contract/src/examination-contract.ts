@@ -16,6 +16,7 @@ import type {
   UserSaveTargetRef,
 } from "@repo-edu/host-runtime-contract"
 import type { LlmEffort, LlmUsage } from "@repo-edu/integrations-llm-contract"
+import type { SUBMISSION_FOLDER_PERSON_ID } from "./workflow-types.js"
 
 export type ExaminationCodeExcerpt = {
   filePath: string
@@ -32,6 +33,11 @@ export type ExaminationLocalIdentityContext = {
 
 export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 2 as const
 export const EXAMINATION_REDACTION_POLICY_VERSION = 1 as const
+export const SUBMISSION_SELECTION_MAX_FILES = 50
+export const SUBMISSION_SELECTION_MAX_BYTES = 512 * 1024
+
+const EXAMINATION_REDACTION_IDENTITY_SCOPE_VERSION =
+  "examination-redaction-identity-scope-v1" as const
 
 export type ExaminationTokenizerTreatment = "stripped" | "fallback"
 
@@ -121,6 +127,49 @@ function providerExcerptIdentityKey(
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
+}
+
+function canonicalizeIdentityValues(
+  values: readonly string[],
+  compare: (value: string) => string,
+): string[] {
+  return dedupeByComparison(values, compare).toSorted(compareStrings)
+}
+
+export function canonicalizeExaminationLocalIdentityContext(
+  context: ExaminationLocalIdentityContext,
+): ExaminationLocalIdentityContext {
+  return {
+    names: canonicalizeIdentityValues(context.names, (value) =>
+      value.toLowerCase(),
+    ),
+    emails: canonicalizeIdentityValues(context.emails, (value) =>
+      value.toLowerCase(),
+    ),
+    opaqueIdentifiers: canonicalizeIdentityValues(
+      context.opaqueIdentifiers,
+      (value) => value,
+    ),
+    gitUsernames: canonicalizeIdentityValues(context.gitUsernames, (value) =>
+      value.toLowerCase(),
+    ),
+  }
+}
+
+export function buildExaminationRedactionIdentityScopeId(
+  context: ExaminationLocalIdentityContext,
+): string {
+  const canonical = canonicalizeExaminationLocalIdentityContext(context)
+  return fnv1a32Hex(
+    JSON.stringify([
+      EXAMINATION_REDACTION_IDENTITY_SCOPE_VERSION,
+      EXAMINATION_REDACTION_POLICY_VERSION,
+      canonical.names,
+      canonical.emails,
+      canonical.opaqueIdentifiers,
+      canonical.gitUsernames,
+    ]),
+  )
 }
 
 function normalizeSourceIdForbiddenValue(value: string): string {
@@ -492,6 +541,61 @@ export type ExaminationGenerateQuestionsInput =
 
 export type ExaminationLookupQuestionsInput =
   ExaminationGenerateQuestionsBaseInput
+
+export type ExaminationAttachedRosterIdentityInput = {
+  name: string | null
+  email: string | null
+  id: string | null
+  lmsUserId: string | null
+  studentNumber: string | null
+  gitUsername: string | null
+}
+
+export type ExaminationPrepareSubmissionSourceInput = {
+  folderPath: string
+  selectedRelativePaths: string[]
+  configuredExtensions: string[]
+  attachedRosterIdentities?: ExaminationAttachedRosterIdentityInput[]
+}
+
+export type ExaminationPreparedSubmissionSource = {
+  folderPath: string
+  personId: typeof SUBMISSION_FOLDER_PERSON_ID
+  displayTitle: string
+  displaySubtitle: string
+  contentScopeId: string
+  localIdentityContext: ExaminationLocalIdentityContext
+  redactionPolicyVersion: typeof EXAMINATION_REDACTION_POLICY_VERSION
+  excerpts: ExaminationCodeExcerpt[]
+  excerptFileSources: Record<string, string>
+}
+
+export type ExaminationQuestionSummarySubjectInput = {
+  subjectId: string
+  personId: string
+  contentScopeId: string
+  localIdentityContext: ExaminationLocalIdentityContext
+  excerpts: ExaminationCodeExcerpt[]
+  excerptFileSources: Record<string, string>
+}
+
+export type ExaminationLookupQuestionSummariesInput = {
+  subjects: ExaminationQuestionSummarySubjectInput[]
+}
+
+export type ExaminationArchivedQuestionSetSummary = {
+  key: ExaminationArchiveKey
+  provenance: ExaminationArchivedProvenance
+}
+
+export type ExaminationQuestionSummaryGroup = {
+  subjectId: string
+  sets: ExaminationArchivedQuestionSetSummary[]
+}
+
+export type ExaminationLookupQuestionSummariesResult = {
+  summaries: ExaminationQuestionSummaryGroup[]
+}
 
 export type ExaminationLineRange = {
   start: number

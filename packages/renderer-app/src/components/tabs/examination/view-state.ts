@@ -1,5 +1,3 @@
-import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
-
 export function canShowExaminationView(blameSkip: boolean): boolean {
   return !blameSkip
 }
@@ -49,61 +47,4 @@ export function shouldShowUnmatchedRosterWarning(params: {
     params.rosterPopulated &&
     params.rosterMemberId === null
   )
-}
-
-export function buildPendingExaminationEntryKey(params: {
-  repositoryPath: string
-  contentScopeId: string
-  personId: string
-  questionCount: number
-  model: string
-  effort: LlmEffort
-}): string {
-  return JSON.stringify([
-    "examination-pending-entry-v1",
-    params.repositoryPath,
-    params.contentScopeId,
-    params.personId,
-    params.questionCount,
-    params.model,
-    params.effort,
-  ])
-}
-
-export function resolveVisibleExaminationEntryKey(params: {
-  pendingEntryKey: string | null
-  requestedEntryKey: string | null
-  requestedEntryPendingKey: string | null
-  pendingEntryIsLoading: boolean
-}): string | null {
-  if (params.pendingEntryKey !== null && params.pendingEntryIsLoading) {
-    return params.pendingEntryKey
-  }
-  if (
-    params.requestedEntryKey !== null &&
-    params.requestedEntryPendingKey === params.pendingEntryKey
-  ) {
-    return params.requestedEntryKey
-  }
-  return params.pendingEntryKey
-}
-
-export function resolveDisplayedArchiveEntryKey(params: {
-  archiveEntryKeys: readonly string[]
-  selectedArchiveEntryKey: string | null
-  requestedEntryKey: string | null
-}): string | null {
-  if (
-    params.selectedArchiveEntryKey !== null &&
-    params.archiveEntryKeys.includes(params.selectedArchiveEntryKey)
-  ) {
-    return params.selectedArchiveEntryKey
-  }
-  if (
-    params.requestedEntryKey !== null &&
-    params.archiveEntryKeys.includes(params.requestedEntryKey)
-  ) {
-    return params.requestedEntryKey
-  }
-  return null
 }

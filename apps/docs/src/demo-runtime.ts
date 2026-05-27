@@ -366,6 +366,7 @@ export function createDocsDemoRuntime() {
           tokenizer: {
             loadTokenizerLanguage: loadDocsTokenizerLanguage,
           },
+          fileSystem: fileSystemPort,
         }),
         ...createExaminationArchiveWorkflowHandlers({
           archive,

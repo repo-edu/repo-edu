@@ -1,13 +1,11 @@
 import { EmptyState } from "@repo-edu/ui"
 import { useLayoutEffect, useRef } from "react"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
+import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { StreamingGenerationDetail } from "./GenerationProgress.js"
 import { QuestionList } from "./QuestionList.js"
-import type { AvailableArchiveEntry } from "./types.js"
 
 type ExaminationQuestionDisplayProps = {
-  entry: ExaminationEntry | null
-  displayedArchiveEntry: AvailableArchiveEntry | null
+  display: ExaminationDisplaySelection
   questionCount: number
   showAnswers: boolean
   layout: "page" | "pane"
@@ -16,26 +14,18 @@ type ExaminationQuestionDisplayProps = {
 }
 
 export function ExaminationQuestionDisplay({
-  entry,
-  displayedArchiveEntry,
+  display,
   questionCount,
   showAnswers,
   layout,
   scrollResetKey,
   emptyMessage,
 }: ExaminationQuestionDisplayProps) {
-  const isLoading = entry?.status === "loading"
-  const hasPartialQuestions = isLoading && entry.questions.length > 0
+  const entry = display.entry
   const loadingRequestedQuestionCount =
     entry?.status === "loading"
       ? (entry.partialQuestionCount?.requested ?? questionCount)
       : questionCount
-  const displayEntry =
-    hasPartialQuestions && entry !== null
-      ? entry
-      : (displayedArchiveEntry?.entry ?? null)
-  const hasDisplayResults =
-    displayEntry !== null && displayEntry.questions.length > 0
 
   const sectionRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -52,31 +42,32 @@ export function ExaminationQuestionDisplay({
           : "min-h-0 [overflow-anchor:none]"
       }
     >
-      {displayEntry !== null && hasDisplayResults ? (
+      {display.displayEntry !== null && display.hasDisplayResults ? (
         <div className="flex flex-col gap-2">
-          {!isLoading && displayedArchiveEntry !== null ? (
+          {!display.isLoading && display.archiveEntry !== null ? (
             <p className="text-xs text-muted-foreground">
-              Archived {displayedArchiveEntry.questionCount} question
-              {displayedArchiveEntry.questionCount === 1 ? "" : "s"}
+              Archived {display.archiveEntry.questionCount} question
+              {display.archiveEntry.questionCount === 1 ? "" : "s"}
             </p>
           ) : null}
-          {displayEntry.status === "loaded" &&
-          displayEntry.partialQuestionCount !== null ? (
+          {display.displayEntry.status === "loaded" &&
+          display.displayEntry.partialQuestionCount !== null ? (
             <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-              Provider returned {displayEntry.partialQuestionCount.accepted} of{" "}
-              {displayEntry.partialQuestionCount.requested} requested questions.
-              This partial set was archived under its actual count.
+              Provider returned{" "}
+              {display.displayEntry.partialQuestionCount.accepted} of{" "}
+              {display.displayEntry.partialQuestionCount.requested} requested
+              questions. This partial set was archived under its actual count.
             </p>
           ) : null}
           <QuestionList
-            questions={displayEntry.questions}
-            sourceReferences={displayEntry.sourceReferences}
+            questions={display.displayEntry.questions}
+            sourceReferences={display.displayEntry.sourceReferences}
             showAnswers={showAnswers}
           />
-          {isLoading && entry !== null ? (
+          {display.isLoading && entry !== null ? (
             <StreamingGenerationDetail
               entry={entry}
-              index={displayEntry.questions.length}
+              index={display.displayEntry.questions.length}
               requestedQuestionCount={loadingRequestedQuestionCount}
               showAnswers={showAnswers}
             />
@@ -86,7 +77,7 @@ export function ExaminationQuestionDisplay({
         <EmptyState
           message={emptyMessage ?? "Click Generate to produce questions."}
         />
-      ) : isLoading && entry !== null ? (
+      ) : display.isLoading && entry !== null ? (
         <StreamingGenerationDetail
           entry={entry}
           index={0}

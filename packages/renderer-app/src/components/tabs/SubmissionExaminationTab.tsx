@@ -1,8 +1,8 @@
 import {
-  buildSubmissionFolderContentScopeId,
-  type ExaminationLocalIdentityContext,
+  type ExaminationAttachedRosterIdentityInput,
   SUBMISSION_FILE_MAX_BYTES,
-  SUBMISSION_FOLDER_PERSON_ID,
+  SUBMISSION_SELECTION_MAX_BYTES,
+  SUBMISSION_SELECTION_MAX_FILES,
 } from "@repo-edu/application-contract"
 import {
   DEFAULT_EXTENSIONS,
@@ -13,27 +13,18 @@ import {
   activeSurfaceSubmissionStateKey,
   type SubmissionSurfaceState,
 } from "@repo-edu/domain/settings"
-import {
-  courseHasRoster,
-  type Roster,
-  type RosterMember,
-} from "@repo-edu/domain/types"
+import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Checkbox, Label } from "@repo-edu/ui"
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { selectActiveSurface, useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
-import {
-  ExaminationTab,
-  type SubmissionExaminationContext,
-} from "./ExaminationTab.js"
-import {
-  buildSubmissionExcerpts,
-  decodeSubmissionFileBytes,
-} from "./examination/build-excerpts.js"
+import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
+import type { SubmissionExaminationSource } from "./examination/source.js"
+import { useExaminationEngine } from "./examination/use-examination-engine.js"
 
 type FolderFile = {
   relativePath: string
@@ -46,38 +37,19 @@ type FileListState =
   | { status: "error"; files: []; error: string }
 
 type PreparedSubmissionState =
-  | { status: "idle"; pendingSourceKey: null; context: null; error: null }
-  | { status: "loading"; pendingSourceKey: string; context: null; error: null }
+  | { status: "idle"; pendingSourceKey: null; source: null; error: null }
+  | { status: "loading"; pendingSourceKey: string; source: null; error: null }
   | {
       status: "loaded"
       pendingSourceKey: string
-      context: SubmissionExaminationContext
+      source: SubmissionExaminationSource
       error: null
     }
-  | { status: "error"; pendingSourceKey: string; context: null; error: string }
+  | { status: "error"; pendingSourceKey: string; source: null; error: string }
 
 const EMPTY_SUBMISSION_STATE: SubmissionSurfaceState = {
   includedFiles: null,
 }
-
-const SUBMISSION_SELECTION_MAX_FILES = 50
-const SUBMISSION_SELECTION_MAX_BYTES = 512 * 1024
-
-const EMPTY_IDENTITY_CONTEXT: ExaminationLocalIdentityContext = {
-  names: [],
-  emails: [],
-  opaqueIdentifiers: [],
-  gitUsernames: [],
-}
-
-const GENERIC_FOLDER_LABELS = new Set([
-  "code",
-  "source",
-  "src",
-  "student",
-  "submission",
-  "submissions",
-])
 
 function normalizeConfiguredExtensions(
   extensions: readonly string[],
@@ -92,39 +64,6 @@ function normalizeConfiguredExtensions(
   return normalized.length === 0 ? [...DEFAULT_EXTENSIONS] : normalized
 }
 
-function folderBasename(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "")
-  const last = normalized.split("/").pop()
-  return last && last.length > 0 ? last : path
-}
-
-function normalizeIdentityText(value: string): string {
-  return value.trim().split(/\s+/).join(" ")
-}
-
-function containsAsciiLetter(value: string): boolean {
-  return /[A-Za-z]/.test(value)
-}
-
-function pushNormalized(values: string[], value: string): void {
-  const normalized = normalizeIdentityText(value)
-  if (normalized.length > 0) {
-    values.push(normalized)
-  }
-}
-
-function dedupe(values: readonly string[], caseSensitive: boolean): string[] {
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const value of values) {
-    const key = caseSensitive ? value : value.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(value)
-  }
-  return out
-}
-
 function isEligible(file: FolderFile): boolean {
   return file.size <= SUBMISSION_FILE_MAX_BYTES
 }
@@ -135,14 +74,6 @@ function formatBytes(byteCount: number): string {
   return `${(byteCount / (1024 * 1024)).toFixed(1)} MiB`
 }
 
-/**
- * Resolve the effective set of included relative paths from persisted state
- * plus the current folder listing. A `null` selection means "default" and
- * fans out to every eligible file. An explicit list is filtered down to
- * files that still exist and are eligible, so previously selected files
- * that were deleted or grew past the cap disappear silently rather than
- * blocking the run.
- */
 function resolveEffectiveSelection(
   files: readonly FolderFile[],
   persisted: string[] | null,
@@ -155,81 +86,6 @@ function resolveEffectiveSelection(
   return eligible
     .filter((file) => persistedSet.has(file.relativePath))
     .map((file) => file.relativePath)
-}
-
-function addRosterMemberIdentity(
-  context: ExaminationLocalIdentityContext,
-  member: RosterMember,
-): void {
-  pushNormalized(context.names, member.name)
-  pushNormalized(context.emails, member.email)
-
-  for (const value of [member.id, member.lmsUserId, member.studentNumber]) {
-    if (value !== null && containsAsciiLetter(value)) {
-      pushNormalized(context.opaqueIdentifiers, value)
-    }
-  }
-  if (member.gitUsername !== null) {
-    pushNormalized(context.gitUsernames, member.gitUsername)
-  }
-}
-
-function addFolderLabelIdentity(
-  context: ExaminationLocalIdentityContext,
-  folderPath: string,
-): void {
-  const label = folderBasename(folderPath)
-  const decoded = (() => {
-    try {
-      return decodeURIComponent(label)
-    } catch (_error) {
-      return label
-    }
-  })()
-  const normalizedLabel = normalizeIdentityText(decoded)
-  const spacedLabel = normalizeIdentityText(
-    normalizedLabel.replace(/[-_.]+/g, " "),
-  )
-  const labelKey = spacedLabel.toLowerCase()
-  if (
-    !containsAsciiLetter(spacedLabel) ||
-    GENERIC_FOLDER_LABELS.has(labelKey)
-  ) {
-    return
-  }
-
-  pushNormalized(context.opaqueIdentifiers, normalizedLabel)
-  pushNormalized(context.gitUsernames, normalizedLabel)
-  if (spacedLabel !== normalizedLabel) {
-    pushNormalized(context.names, spacedLabel)
-  } else if (/\s/.test(spacedLabel)) {
-    pushNormalized(context.names, spacedLabel)
-  }
-}
-
-function buildSubmissionLocalIdentityContext(params: {
-  folderPath: string
-  roster: Roster | null
-}): ExaminationLocalIdentityContext {
-  const context: ExaminationLocalIdentityContext = {
-    names: [],
-    emails: [],
-    opaqueIdentifiers: [],
-    gitUsernames: [],
-  }
-  for (const member of [
-    ...(params.roster?.students ?? []),
-    ...(params.roster?.staff ?? []),
-  ]) {
-    addRosterMemberIdentity(context, member)
-  }
-  addFolderLabelIdentity(context, params.folderPath)
-  return {
-    names: dedupe(context.names, false),
-    emails: dedupe(context.emails, false),
-    opaqueIdentifiers: dedupe(context.opaqueIdentifiers, true),
-    gitUsernames: dedupe(context.gitUsernames, false),
-  }
 }
 
 function buildSelectionBlocker(params: {
@@ -251,7 +107,154 @@ function buildSelectionBlocker(params: {
   return null
 }
 
-export function SubmissionAnalysisTab() {
+function rosterIdentities(
+  roster: Roster | null,
+): ExaminationAttachedRosterIdentityInput[] {
+  return [...(roster?.students ?? []), ...(roster?.staff ?? [])].map(
+    (member) => ({
+      name: member.name,
+      email: member.email,
+      id: member.id,
+      lmsUserId: member.lmsUserId,
+      studentNumber: member.studentNumber,
+      gitUsername: member.gitUsername,
+    }),
+  )
+}
+
+export function SubmissionExaminationTab() {
+  const activeSurface = useUiStore(selectActiveSurface)
+  const recent = activeSurfaceRecentSubmission(activeSurface)
+  const sourceViewModel = useSubmissionExaminationSource()
+
+  if (activeSurface.kind !== "submission" || recent === null) {
+    return null
+  }
+
+  const source = sourceViewModel.visiblePrepared.source
+  if (source === null) {
+    return (
+      <SubmissionExaminationShell
+        source={null}
+        sidebarContent={sourceViewModel.sidebarContent}
+        emptyMessage={sourceViewModel.placeholderMessage}
+      />
+    )
+  }
+  return (
+    <SubmissionExaminationShell
+      source={source}
+      sidebarContent={sourceViewModel.sidebarContent}
+      emptyMessage={sourceViewModel.placeholderMessage}
+    />
+  )
+}
+
+function SubmissionExaminationShell({
+  source,
+  sidebarContent,
+  emptyMessage,
+}: {
+  source: SubmissionExaminationSource | null
+  sidebarContent: ReactNode
+  emptyMessage: string
+}) {
+  if (source === null) {
+    return (
+      <div className="h-full min-h-0 overflow-hidden p-6">
+        <SubmissionExaminationPane
+          sidebarContent={sidebarContent}
+          connections={[]}
+          activeConnection={null}
+          selectedModelCode={null}
+          onSelectConnection={() => undefined}
+          onSelectModelCode={() => undefined}
+          onOpenSettings={() => undefined}
+          onImportArchive={() => undefined}
+          onExportArchive={() => undefined}
+          display={{
+            entry: null,
+            archiveEntry: null,
+            displayEntry: null,
+            isLoading: false,
+            hasDisplayResults: false,
+            hasPartialQuestions: false,
+            canRegenerate: false,
+            canToggleAnswers: false,
+            canCopyMarkdown: false,
+          }}
+          archiveEntries={[]}
+          showArchiveSelector={false}
+          questionCount={4}
+          showAnswers={true}
+          blocker={emptyMessage}
+          onQuestionCountChange={() => undefined}
+          onShowAnswersChange={() => undefined}
+          onSelectArchiveEntry={() => undefined}
+          onGenerate={() => undefined}
+          onStopGeneration={() => undefined}
+          onRegenerate={() => undefined}
+          onCopyMarkdown={() => undefined}
+          emptyMessage={emptyMessage}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <LoadedSubmissionExaminationShell
+      source={source}
+      sidebarContent={sidebarContent}
+      emptyMessage={emptyMessage}
+    />
+  )
+}
+
+function LoadedSubmissionExaminationShell({
+  source,
+  sidebarContent,
+  emptyMessage,
+}: {
+  source: SubmissionExaminationSource
+  sidebarContent: ReactNode
+  emptyMessage: string
+}) {
+  const engine = useExaminationEngine({
+    source,
+    emptyBlocker: emptyMessage,
+  })
+  return (
+    <div className="h-full min-h-0 overflow-hidden p-6">
+      <SubmissionExaminationPane
+        sidebarContent={sidebarContent}
+        connections={engine.connections}
+        activeConnection={engine.activeConnection}
+        selectedModelCode={engine.selectedModelCode}
+        onSelectConnection={engine.commands.selectConnection}
+        onSelectModelCode={engine.commands.selectModelCode}
+        onOpenSettings={engine.commands.openLlmSettings}
+        onImportArchive={engine.commands.importArchive}
+        onExportArchive={engine.commands.exportArchive}
+        display={engine.display}
+        archiveEntries={engine.archiveEntries}
+        showArchiveSelector={engine.showArchiveSelector}
+        questionCount={engine.questionCount}
+        showAnswers={engine.showAnswers}
+        blocker={engine.blocker}
+        onQuestionCountChange={engine.commands.changeQuestionCount}
+        onShowAnswersChange={engine.commands.changeShowAnswers}
+        onSelectArchiveEntry={engine.commands.selectArchiveEntry}
+        onGenerate={engine.commands.generate}
+        onStopGeneration={engine.commands.stopGeneration}
+        onRegenerate={engine.commands.regenerate}
+        onCopyMarkdown={engine.commands.copyMarkdown}
+        emptyMessage={emptyMessage}
+      />
+    </div>
+  )
+}
+
+function useSubmissionExaminationSource() {
   const activeSurface = useUiStore(selectActiveSurface)
   const submissionFolderPath =
     activeSurface.kind === "submission" ? activeSurface.path : null
@@ -270,7 +273,7 @@ export function SubmissionAnalysisTab() {
   const [prepared, setPrepared] = useState<PreparedSubmissionState>({
     status: "idle",
     pendingSourceKey: null,
-    context: null,
+    source: null,
     error: null,
   })
   const [prepareAttempt, setPrepareAttempt] = useState(0)
@@ -301,16 +304,6 @@ export function SubmissionAnalysisTab() {
     attachedCourse !== null && courseHasRoster(attachedCourse)
       ? attachedCourse.roster
       : null
-  const localIdentityContext = useMemo(
-    () =>
-      submissionFolderPath !== null
-        ? buildSubmissionLocalIdentityContext({
-            folderPath: submissionFolderPath,
-            roster: attachedRoster,
-          })
-        : EMPTY_IDENTITY_CONTEXT,
-    [attachedRoster, submissionFolderPath],
-  )
 
   useEffect(() => {
     if (submissionFolderPath === null) return
@@ -400,76 +393,60 @@ export function SubmissionAnalysisTab() {
       setPrepared({
         status: "idle",
         pendingSourceKey: null,
-        context: null,
+        source: null,
         error: null,
       })
       return
     }
 
     void prepareAttempt
-    const selectedPaths = JSON.parse(selectedPathsKey) as string[]
+    const selectedRelativePaths = JSON.parse(selectedPathsKey) as string[]
     const abort = new AbortController()
     setPrepared({
       status: "loading",
       pendingSourceKey,
-      context: null,
+      source: null,
       error: null,
     })
 
-    const folderPath = submissionFolderPath
-
-    Promise.all(
-      selectedPaths.map((relativePath) =>
-        workflowClient
-          .run(
-            "analysis.readFolderFile",
-            { folderPath, relativePath },
-            { signal: abort.signal },
-          )
-          .then((result) => {
-            const decoded = decodeSubmissionFileBytes(result)
-            return {
-              relativePath: result.relativePath,
-              bytes: decoded.bytes,
-              decodedText: decoded.decodedText,
-            }
-          }),
-      ),
-    )
-      .then((files) => {
+    workflowClient
+      .run(
+        "examination.prepareSubmissionSource",
+        {
+          folderPath: submissionFolderPath,
+          selectedRelativePaths,
+          configuredExtensions,
+          attachedRosterIdentities: rosterIdentities(attachedRoster),
+        },
+        {
+          signal: abort.signal,
+          onProgress: () => undefined,
+        },
+      )
+      .then((result) => {
         if (abort.signal.aborted) return
-        const contentScopeId = buildSubmissionFolderContentScopeId(files)
-        const excerpts = files.flatMap((file) =>
-          buildSubmissionExcerpts(file.relativePath, file.decodedText),
-        )
-        const excerptFileSources: Record<string, string> = {}
-        for (const file of files) {
-          excerptFileSources[file.relativePath] = file.decodedText
-        }
-        const totalChars = files.reduce(
-          (total, file) => total + file.decodedText.length,
+        const lineCount = result.excerpts.reduce(
+          (count, excerpt) => count + excerpt.lines.length,
           0,
         )
-        const totalBytes = files.reduce(
-          (total, file) => total + file.bytes.byteLength,
-          0,
-        )
-        const subtitle = `${files.length} file${
-          files.length === 1 ? "" : "s"
-        } · ${formatBytes(totalBytes)} · ~${formatTokenEstimate(totalChars)} tokens`
         setPrepared({
           status: "loaded",
           pendingSourceKey,
           error: null,
-          context: {
-            pendingSourceKey,
-            personId: SUBMISSION_FOLDER_PERSON_ID,
-            displayTitle: folderBasename(folderPath),
-            displaySubtitle: subtitle,
-            contentScopeId,
-            localIdentityContext,
-            excerpts,
-            excerptFileSources,
+          source: {
+            kind: "submission",
+            folderPath: result.folderPath,
+            contentScopeId: result.contentScopeId,
+            subject: {
+              id: result.personId,
+              name: result.displayTitle,
+              email: result.displaySubtitle,
+              lines: lineCount,
+              linesPercent: 100,
+            },
+            localIdentityContext: result.localIdentityContext,
+            excerpts: result.excerpts,
+            excerptFileSources: result.excerptFileSources,
           },
         })
       })
@@ -478,16 +455,17 @@ export function SubmissionAnalysisTab() {
         setPrepared({
           status: "error",
           pendingSourceKey,
-          context: null,
+          source: null,
           error: getErrorMessage(error),
         })
       })
 
     return () => abort.abort()
   }, [
+    attachedRoster,
+    configuredExtensions,
     effectiveSelection.length,
     fileList.status,
-    localIdentityContext,
     pendingSourceKey,
     prepareAttempt,
     prepareBlocker,
@@ -496,11 +474,8 @@ export function SubmissionAnalysisTab() {
     workflowClient,
   ])
 
-  if (activeSurface.kind !== "submission" || recent === null) {
-    return null
-  }
-
   const updateIncludedFiles = (next: string[] | null) => {
+    if (recent === null) return
     setSubmissionSurfaceState(recent, { includedFiles: next })
     void saveAppSettings()
   }
@@ -550,7 +525,7 @@ export function SubmissionAnalysisTab() {
       : ({
           status: "idle",
           pendingSourceKey: null,
-          context: null,
+          source: null,
           error: null,
         } satisfies PreparedSubmissionState)
   const isAwaitingPreparation =
@@ -559,7 +534,7 @@ export function SubmissionAnalysisTab() {
     prepareBlocker === null &&
     visiblePrepared.status !== "loaded" &&
     visiblePrepared.status !== "error"
-  const examinationPlaceholderMessage =
+  const placeholderMessage =
     visiblePrepared.status === "loaded"
       ? "Click Generate to produce questions for this submission."
       : fileList.status === "loading"
@@ -576,7 +551,7 @@ export function SubmissionAnalysisTab() {
       <div className="grid gap-1">
         <h2 className="text-lg font-semibold">Submission</h2>
         <p className="break-all text-sm text-muted-foreground">
-          {activeSurface.path}
+          {activeSurface.kind === "submission" ? activeSurface.path : ""}
         </p>
       </div>
 
@@ -657,11 +632,9 @@ export function SubmissionAnalysisTab() {
     </section>
   )
 
-  return (
-    <ExaminationTab
-      submissionContext={visiblePrepared.context}
-      submissionSidebarContent={sidebarContent}
-      submissionPlaceholderMessage={examinationPlaceholderMessage}
-    />
-  )
+  return {
+    visiblePrepared,
+    sidebarContent,
+    placeholderMessage,
+  }
 }

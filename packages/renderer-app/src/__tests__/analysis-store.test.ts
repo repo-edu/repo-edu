@@ -220,6 +220,8 @@ describe("analysis store", () => {
       streamedResponseCharacterCount: 0,
       streamedResponsePreview: "",
       inProgressQuestion: null,
+      generationControlId: null,
+      stopRequested: false,
     })
 
     store.setSelectedRepoPath("/repo-b")

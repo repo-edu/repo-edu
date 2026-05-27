@@ -1,11 +1,7 @@
 import type { ExaminationGenerateQuestionsResult } from "@repo-edu/application-contract"
 import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
 import type { ExaminationEntry } from "../../../stores/examination-store.js"
-import type {
-  AvailableArchiveEntry,
-  GeneratedQuestionSets,
-  GeneratedQuestionSetsByPersonId,
-} from "./types.js"
+import type { AvailableArchiveEntry } from "./types.js"
 
 export function toAvailableArchiveEntry(
   result: ExaminationGenerateQuestionsResult,
@@ -17,57 +13,6 @@ export function toAvailableArchiveEntry(
     effort: result.archivedProvenance.effort,
     entry: toExaminationEntry(result),
   }
-}
-
-export function toGeneratedQuestionSets(
-  results: readonly ExaminationGenerateQuestionsResult[],
-): GeneratedQuestionSets {
-  const sets = new Map<string, number>()
-  for (const result of results) {
-    sets.set(
-      serializeExaminationArchiveStorageKey(result.key),
-      result.archivedProvenance.questionCount,
-    )
-  }
-  return sets
-}
-
-export function mergeGeneratedQuestionSets(
-  current: GeneratedQuestionSetsByPersonId,
-  personId: string,
-  results: readonly ExaminationGenerateQuestionsResult[],
-): GeneratedQuestionSetsByPersonId {
-  const next = new Map(current)
-  const personSets = new Map(next.get(personId) ?? [])
-  for (const result of results) {
-    personSets.set(
-      serializeExaminationArchiveStorageKey(result.key),
-      result.archivedProvenance.questionCount,
-    )
-  }
-  next.set(personId, personSets)
-  return next
-}
-
-export function replaceGeneratedQuestionSets(
-  current: GeneratedQuestionSetsByPersonId,
-  personId: string,
-  results: readonly ExaminationGenerateQuestionsResult[],
-): GeneratedQuestionSetsByPersonId {
-  const next = new Map(current)
-  next.set(personId, toGeneratedQuestionSets(results))
-  return next
-}
-
-export function countGeneratedQuestions(
-  sets: GeneratedQuestionSets | undefined,
-): number {
-  if (sets === undefined) return 0
-  let count = 0
-  for (const questionCount of sets.values()) {
-    count = Math.max(count, questionCount)
-  }
-  return count
 }
 
 export function toExaminationEntry(
@@ -95,6 +40,8 @@ export function toExaminationEntry(
     streamedResponseCharacterCount: 0,
     streamedResponsePreview: "",
     inProgressQuestion: null,
+    generationControlId: null,
+    stopRequested: false,
   }
 }
 

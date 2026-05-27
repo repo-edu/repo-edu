@@ -194,6 +194,16 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
+  "examination.prepareSubmissionSource": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "examination.lookupQuestionSummaries": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
   "examination.archive.export": {
     delivery: ["desktop", "docs"],
     progress: "milestone",

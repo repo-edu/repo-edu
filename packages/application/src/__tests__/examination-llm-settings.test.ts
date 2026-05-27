@@ -6,6 +6,7 @@ import type {
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import type {
+  FileSystemPort,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
@@ -58,6 +59,20 @@ const tokenizer: TokenizerPort = {
   },
 }
 
+const stubFileSystem: FileSystemPort = {
+  userHomeSystemDirectories: [],
+  inspect: async () => [],
+  stat: async () => ({ kind: "directory", size: null }),
+  applyBatch: async () => ({ completed: [] }),
+  createTempDirectory: async () => "/tmp/repo-edu-test",
+  listDirectory: async () => [],
+  listFiles: async () => [],
+  readFileInsideRoot: async () => ({
+    relativePath: "main.ts",
+    bytes: new TextEncoder().encode("const answer = 42\n"),
+  }),
+}
+
 function baseInput(
   llmSettings: ExaminationLlmSettings,
 ): ExaminationGenerateQuestionsInput {
@@ -101,6 +116,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await assert.rejects(
@@ -126,6 +142,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const result = await handlers["examination.generateQuestions"](
@@ -156,6 +173,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const result = await handlers["examination.generateQuestions"](
@@ -186,6 +204,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     await assert.rejects(
@@ -222,6 +241,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const baseSettings: ExaminationLlmSettings = {
@@ -256,6 +276,7 @@ describe("examination workflow — LLM settings resolution", () => {
       llm: port,
       archive,
       tokenizer,
+      fileSystem: stubFileSystem,
     })
 
     const baseSettings: ExaminationLlmSettings = {
