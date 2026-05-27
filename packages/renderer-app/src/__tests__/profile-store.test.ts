@@ -130,6 +130,33 @@ describe("course store", () => {
     assert.equal(state.future.length, 0)
   })
 
+  it("keeps analysis metadata changes outside course undo history", async () => {
+    const course = makeProfile()
+    const client = createWorkflowClient({
+      "course.load": async () => course,
+      "course.save": async (current) => current,
+    })
+    setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+
+    useCourseStore.getState().setAnalysisInputs({
+      since: "2026-01-01",
+      nFiles: 12,
+    })
+    useCourseStore.getState().setSearchFolder("/repos/course")
+
+    const state = useCourseStore.getState()
+    assert.deepEqual(state.course?.analysisInputs, {
+      since: "2026-01-01",
+      nFiles: 12,
+    })
+    assert.equal(state.course?.searchFolder, "/repos/course")
+    assert.equal(state.localVersion, 2)
+    assert.equal(state.checksDirty, true)
+    assert.equal(state.history.length, 0)
+    assert.equal(state.future.length, 0)
+  })
+
   it("supports undo and redo for roster mutations", async () => {
     const course = makeProfile()
     const client = createWorkflowClient({

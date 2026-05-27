@@ -19,8 +19,11 @@ const shortcutGroups: ShortcutGroup[] = [
     title: "General",
     shortcuts: [
       { keys: [modKey, ","], description: "Open settings" },
-      { keys: [modKey, "Z"], description: "Undo" },
-      { keys: [modKey, "Shift", "Z"], description: "Redo" },
+      { keys: [modKey, "Z"], description: "Undo roster or group edit" },
+      {
+        keys: [modKey, "Shift", "Z"],
+        description: "Redo roster or group edit",
+      },
     ],
   },
 ]

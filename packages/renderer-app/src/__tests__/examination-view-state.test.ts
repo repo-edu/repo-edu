@@ -13,7 +13,6 @@ import {
   resolveExaminationEmptyState,
   shouldShowUnmatchedRosterWarning,
 } from "../components/tabs/examination/view-state.js"
-import type { ExaminationGenerationReplayInput } from "../stores/examination-store.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 
 const courseCommitOid = "a".repeat(40)
@@ -124,7 +123,6 @@ describe("examination session display state", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     const lookup = store.startLookup(sourceSessionKey)
     if (lookup === null) throw new Error("Lookup did not start.")
@@ -268,7 +266,6 @@ describe("examination session display state", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     if (generation === null) throw new Error("Generation did not start.")
     const fresh = archiveEntry({ key: "archive-fresh" })
@@ -322,38 +319,6 @@ function activateSession() {
     },
   })
   return store
-}
-
-function replayInput(
-  overrides: Partial<ExaminationGenerationReplayInput> = {},
-): ExaminationGenerationReplayInput {
-  return {
-    sourceSummaryKey,
-    sourceSessionKey,
-    workflowInput: {
-      personId: courseIdentity.subjectId,
-      contentScopeId: courseCommitOid,
-      localIdentityContext: {
-        names: [],
-        emails: [],
-        opaqueIdentifiers: [],
-        gitUsernames: [],
-      },
-      excerpts: [
-        { filePath: "src/a.ts", startLine: 1, lines: ["const a = 1"] },
-      ],
-      excerptFileSources: { "src/a.ts": "const a = 1\n" },
-      questionCount: 4,
-      llmSettings: {
-        llmConnections: [],
-        activeLlmConnectionId: null,
-        examinationModelsByProvider: {},
-      },
-    },
-    sourceReferences: [],
-    requestedQuestionCount: 4,
-    ...overrides,
-  }
 }
 
 describe("examination excerpt selection", () => {

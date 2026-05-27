@@ -32,8 +32,13 @@ import {
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
-import { useCourseStore } from "../stores/course-store.js"
-import { useStoreHistoryPresenter } from "../stores/store-history.js"
+import {
+  selectCanRedo,
+  selectCanUndo,
+  selectNextRedoDescription,
+  selectNextUndoDescription,
+  useCourseStore,
+} from "../stores/course-store.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -46,6 +51,7 @@ import {
   resolveTabVisibility,
   surfaceTabBacking,
 } from "../utils/course-navigation.js"
+import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
@@ -121,14 +127,14 @@ function AppShell() {
 
   const activateSurface = useActiveSurfaceNavigation()
   const isHomeSurface = activeSurface.kind === "home"
-  const historyPresenter = useStoreHistoryPresenter()
-  const canUndo = historyPresenter.canUndo
-  const canRedo = historyPresenter.canRedo
-  const undoDescription = historyPresenter.undoDescription
-  const redoDescription = historyPresenter.redoDescription
+  const showHistoryControls = isDocumentEditingSurface(activeSurface, activeTab)
+  const canUndo = useCourseStore(selectCanUndo)
+  const canRedo = useCourseStore(selectCanRedo)
+  const undoDescription = useCourseStore(selectNextUndoDescription)
+  const redoDescription = useCourseStore(selectNextRedoDescription)
   const loadedCourse = useCourseStore((s) => s.course)
-  const undo = historyPresenter.undo
-  const redo = historyPresenter.redo
+  const undo = useCourseStore((s) => s.undo)
+  const redo = useCourseStore((s) => s.redo)
   const flushCourse = useCourseStore((s) => s.save)
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
@@ -253,6 +259,7 @@ function AppShell() {
       // Skip undo/redo when focus is in an input or textarea.
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === "INPUT" || tag === "TEXTAREA") return
+      if (!showHistoryControls) return
 
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault()
@@ -267,7 +274,7 @@ function AppShell() {
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [undo, redo])
+  }, [showHistoryControls, undo, redo])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -315,44 +322,48 @@ function AppShell() {
           )}
           <div className="flex-1" />
           <div className="app-no-drag flex items-center gap-1 pr-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canUndo}
-                  onClick={() => undo()}
-                >
-                  <Undo2 className="size-[18px]" />
-                  <span className="sr-only">Undo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {undoDescription
-                  ? `Undo: ${undoDescription} (Ctrl+Z)`
-                  : "Undo (Ctrl+Z)"}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  disabled={!canRedo}
-                  onClick={() => redo()}
-                >
-                  <Redo2 className="size-[18px]" />
-                  <span className="sr-only">Redo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {redoDescription
-                  ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
-                  : "Redo (Ctrl+Shift+Z)"}
-              </TooltipContent>
-            </Tooltip>
+            {showHistoryControls && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={!canUndo}
+                      onClick={() => undo()}
+                    >
+                      <Undo2 className="size-[18px]" />
+                      <span className="sr-only">Undo</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {undoDescription
+                      ? `Undo: ${undoDescription} (Ctrl+Z)`
+                      : "Undo (Ctrl+Z)"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={!canRedo}
+                      onClick={() => redo()}
+                    >
+                      <Redo2 className="size-[18px]" />
+                      <span className="sr-only">Redo</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {redoDescription
+                      ? `Redo: ${redoDescription} (Ctrl+Shift+Z)`
+                      : "Redo (Ctrl+Shift+Z)"}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
             <IssuesButton />
             <SettingsButton />
           </div>

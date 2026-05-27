@@ -3,6 +3,7 @@ import type {
   ExaminationGenerateQuestionsInput,
   ExaminationLookupQuestionsInput,
   ExaminationQuestionSummarySubjectInput,
+  ExaminationSourceReference,
   MilestoneProgress,
 } from "@repo-edu/application-contract"
 import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
@@ -16,10 +17,7 @@ import {
   useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
 import {
-  type ExaminationGenerationReplayInput,
-  type ExaminationHistoryEffect,
   type ExaminationPreferencePersistenceEffect,
-  examinationHistoryEffectDriver,
   examinationRequestSidecar,
   selectExaminationSession,
   selectExaminationSourceSummary,
@@ -87,6 +85,14 @@ export type ExaminationEngineViewModel = {
 }
 
 const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
+
+type ExaminationGenerationRunInput = {
+  sourceSummaryKey: string
+  sourceSessionKey: string
+  workflowInput: Omit<ExaminationGenerateQuestionsInput, "generationControlId">
+  sourceReferences: ExaminationSourceReference[]
+  requestedQuestionCount: number
+}
 
 export function useExaminationEngine({
   source,
@@ -666,19 +672,18 @@ export function useExaminationEngine({
   const runGeneration = useCallback(
     async (params: {
       loadingKey: string
-      replayInput: ExaminationGenerationReplayInput
+      input: ExaminationGenerationRunInput
     }) => {
       const generationControlId = `generation-${createUuid()}`
-      const runSourceSessionKey = params.replayInput.sourceSessionKey
-      const seedQuestions = params.replayInput.workflowInput.seedQuestions ?? []
+      const runSourceSessionKey = params.input.sourceSessionKey
+      const seedQuestions = params.input.workflowInput.seedQuestions ?? []
       const started = useExaminationStore.getState().startGenerationSession({
         sourceSessionKey: runSourceSessionKey,
         entryKey: params.loadingKey,
         generationControlId,
         seedQuestions,
-        sourceReferences: params.replayInput.sourceReferences,
-        requestedQuestionCount: params.replayInput.requestedQuestionCount,
-        generationReplayInput: params.replayInput,
+        sourceReferences: params.input.sourceReferences,
+        requestedQuestionCount: params.input.requestedQuestionCount,
       })
       if (started === null) return
       const abort = new AbortController()
@@ -693,7 +698,7 @@ export function useExaminationEngine({
         const result = await workflowClient.run(
           "examination.generateQuestions",
           {
-            ...params.replayInput.workflowInput,
+            ...params.input.workflowInput,
             generationControlId,
           },
           {
@@ -744,7 +749,7 @@ export function useExaminationEngine({
         const archiveKey = serializeExaminationArchiveStorageKey(result.key)
         const loadedEntry = toExaminationEntry(result)
         useExaminationStore.getState().applyLoadedArchiveResult({
-          sourceSummaryKey: params.replayInput.sourceSummaryKey,
+          sourceSummaryKey: params.input.sourceSummaryKey,
           sourceSessionKey: runSourceSessionKey,
           requestId: started.requestId,
           loadingKey: params.loadingKey,
@@ -779,18 +784,6 @@ export function useExaminationEngine({
     },
     [addToast, workflowClient],
   )
-
-  useEffect(() => {
-    return examinationHistoryEffectDriver.register(
-      (effect: ExaminationHistoryEffect) => {
-        if (effect.kind !== "replay-generation") return
-        void runGeneration({
-          loadingKey: `session-${createUuid()}`,
-          replayInput: effect.input,
-        })
-      },
-    )
-  }, [runGeneration])
 
   const generateForSelected = useCallback(
     async (options?: { regenerate?: boolean }) => {
@@ -868,7 +861,7 @@ export function useExaminationEngine({
       }
       await runGeneration({
         loadingKey,
-        replayInput: {
+        input: {
           sourceSummaryKey,
           sourceSessionKey,
           workflowInput,

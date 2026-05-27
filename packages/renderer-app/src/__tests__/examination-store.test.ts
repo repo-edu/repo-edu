@@ -4,12 +4,8 @@ import {
   buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
-import type {
-  ExaminationEntry,
-  ExaminationGenerationReplayInput,
-} from "../stores/examination-store.js"
+import type { ExaminationEntry } from "../stores/examination-store.js"
 import {
-  examinationHistoryEffectDriver,
   examinationRequestSidecar,
   useExaminationStore,
 } from "../stores/examination-store.js"
@@ -144,7 +140,6 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
     examinationRequestSidecar.registerGeneration(
@@ -168,7 +163,6 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
 
@@ -194,7 +188,6 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
     store.activateSourceSummary({
@@ -238,39 +231,84 @@ describe("examination store", () => {
     assert.equal(session?.preferences.effort, "high")
   })
 
-  it("undo restores only the command-owned examination session", () => {
+  it("rejects stale lookup and summary results", () => {
     const store = activateSession()
-    store.setSessionShowAnswers(sourceSessionKey, false)
-    const otherIdentity: SourceIdentity = {
-      ...identity,
-      repoPath: "/other-repo",
-      subjectId: "p_2",
-      excerptScopeId: "scope-2",
+    const staleLookup = store.startLookup(sourceSessionKey)
+    const currentLookup = store.startLookup(sourceSessionKey)
+    const staleSummary = store.startSourceSummaryLookup("summary-1")
+    const currentSummary = store.startSourceSummaryLookup("summary-1")
+    if (staleLookup === null) throw new Error("Lookup did not start.")
+    if (currentLookup === null) throw new Error("Lookup did not restart.")
+    if (staleSummary === null) throw new Error("Summary lookup did not start.")
+    if (currentSummary === null) {
+      throw new Error("Summary lookup did not restart.")
     }
-    const otherSessionKey = buildSourceSessionKey(otherIdentity)
-    store.activateSource({
-      sourceSummaryKey: "summary-2",
-      sourceSessionKey: otherSessionKey,
-      sourceIdentity: otherIdentity,
-      subjectIds: ["p_2"],
-      selectedSubjectId: "p_2",
-      defaultPreferences: {
-        questionCount: 6,
-        activeConnectionId: "llm-2",
-        modelCode: "c33",
-        effort: "high",
-      },
+
+    store.applyLookupResult({
+      sourceSessionKey,
+      requestId: staleLookup.requestId,
+      archiveRevision: staleLookup.archiveRevision,
+      requestedIdentity: identity,
+      resolvedIdentity: identity,
+      entryKey: "archive-stale",
+      exactEntry: entry("loaded"),
+      archiveEntries: [],
+    })
+    store.applySourceSummaryLookupResult({
+      sourceSummaryKey: "summary-1",
+      requestId: staleSummary.requestId,
+      archiveRevision: staleSummary.archiveRevision,
+      counts: new Map([["p_1", 4]]),
     })
 
-    store.undo()
+    const state = useExaminationStore.getState()
+    const session = state.sourceSessions.get(sourceSessionKey)
+    const summary = state.sourceSummaries.get("summary-1")
+    assert.equal(session?.pendingLookupRequestId, currentLookup.requestId)
+    assert.deepEqual(session?.display, { kind: "idle" })
+    assert.equal(state.entriesByKey.has("archive-stale"), false)
+    assert.equal(summary?.pendingRequestId, currentSummary.requestId)
+    assert.equal(summary?.generatedQuestionCountBySubjectId.has("p_1"), false)
+  })
+
+  it("rejects stale generation results", () => {
+    const store = activateSession()
+    const stale = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-1",
+      generationControlId: "control-1",
+      seedQuestions: [],
+      sourceReferences: [],
+      requestedQuestionCount: 4,
+    })
+    const current = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-2",
+      generationControlId: "control-2",
+      seedQuestions: [],
+      sourceReferences: [],
+      requestedQuestionCount: 4,
+    })
+    if (stale === null) throw new Error("Generation did not start.")
+    if (current === null) throw new Error("Generation did not restart.")
+
+    store.applyLoadedArchiveResult({
+      sourceSummaryKey: "summary-1",
+      sourceSessionKey,
+      requestId: stale.requestId,
+      loadingKey: "session-1",
+      resultKey: "archive-stale",
+      entry: entry("loaded"),
+    })
 
     const state = useExaminationStore.getState()
-    assert.equal(state.sourceSessions.get(sourceSessionKey)?.showAnswers, true)
-    assert.equal(state.sourceSessions.has(otherSessionKey), true)
-    assert.equal(
-      state.sourceSessions.get(otherSessionKey)?.preferences.questionCount,
-      6,
-    )
+    const session = state.sourceSessions.get(sourceSessionKey)
+    assert.equal(state.entriesByKey.has("archive-stale"), false)
+    assert.deepEqual(session?.display, {
+      kind: "loading",
+      entryKey: "session-2",
+    })
+    assert.equal(session?.pendingGenerationRequestId, current.requestId)
   })
 
   it("aborts lookup and summary sidecars during repository invalidation", () => {
@@ -314,77 +352,6 @@ describe("examination store", () => {
     assert.equal(useExaminationStore.getState().sourceSummaries.size, 0)
   })
 
-  it("rewrites later history snapshots when generation completes", () => {
-    const store = activateSession()
-    const started = store.startGenerationSession({
-      sourceSessionKey,
-      entryKey: "session-1",
-      generationControlId: "control-1",
-      seedQuestions: [],
-      sourceReferences: [],
-      requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
-    })
-    if (started === null) throw new Error("Generation did not start.")
-    store.setSessionShowAnswers(sourceSessionKey, false)
-
-    store.applyLoadedArchiveResult({
-      sourceSummaryKey: "summary-1",
-      sourceSessionKey,
-      requestId: started.requestId,
-      loadingKey: "session-1",
-      resultKey: "archive-1",
-      entry: entry("loaded"),
-    })
-    store.undo()
-
-    const session = useExaminationStore
-      .getState()
-      .sourceSessions.get(sourceSessionKey)
-    assert.equal(session?.showAnswers, true)
-    assert.deepEqual(session?.display, {
-      kind: "archived",
-      entryKey: "archive-1",
-      source: "just-generated",
-    })
-    assert.equal(session?.pendingGenerationRequestId, null)
-    assert.equal(
-      useExaminationStore.getState().entriesByKey.get("archive-1")?.status,
-      "loaded",
-    )
-  })
-
-  it("returns a replay effect instead of restoring a dead pending generation", () => {
-    const store = activateSession()
-    const replay = replayInput()
-    const started = store.startGenerationSession({
-      sourceSessionKey,
-      entryKey: "session-1",
-      generationControlId: "control-1",
-      seedQuestions: [],
-      sourceReferences: [],
-      requestedQuestionCount: 4,
-      generationReplayInput: replay,
-    })
-    if (started === null) throw new Error("Generation did not start.")
-
-    store.undo()
-    const unregister = examinationHistoryEffectDriver.register(() => undefined)
-    const transition = store.redo()
-    unregister()
-
-    assert.equal(transition?.effects.length, 1)
-    assert.deepEqual(transition?.effects[0], {
-      kind: "replay-generation",
-      input: replay,
-    })
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.get(sourceSessionKey)
-        ?.pendingGenerationRequestId,
-      null,
-    )
-  })
-
   it("separates soft stop intent from transport cancellation", () => {
     const store = activateSession()
     const controller = new AbortController()
@@ -395,7 +362,6 @@ describe("examination store", () => {
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
-      generationReplayInput: replayInput(),
     })
     if (started === null) throw new Error("Generation did not start.")
     examinationRequestSidecar.registerGeneration(
@@ -462,38 +428,6 @@ function activateSession() {
     },
   })
   return store
-}
-
-function replayInput(
-  overrides: Partial<ExaminationGenerationReplayInput> = {},
-): ExaminationGenerationReplayInput {
-  return {
-    sourceSummaryKey: "summary-1",
-    sourceSessionKey,
-    workflowInput: {
-      personId: identity.subjectId,
-      contentScopeId: repositoryCommitOid,
-      localIdentityContext: {
-        names: [],
-        emails: [],
-        opaqueIdentifiers: [],
-        gitUsernames: [],
-      },
-      excerpts: [
-        { filePath: "src/a.ts", startLine: 1, lines: ["const a = 1"] },
-      ],
-      excerptFileSources: { "src/a.ts": "const a = 1\n" },
-      questionCount: 4,
-      llmSettings: {
-        llmConnections: [],
-        activeLlmConnectionId: null,
-        examinationModelsByProvider: {},
-      },
-    },
-    sourceReferences: [],
-    requestedQuestionCount: 4,
-    ...overrides,
-  }
 }
 
 function repositorySummaryKey(repoPath: string): string {
