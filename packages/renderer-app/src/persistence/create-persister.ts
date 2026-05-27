@@ -122,7 +122,10 @@ export function createPersister<
   let worker: Promise<void> | null = null
   let disposed = false
   let suppressSnapshotNotifications = false
-  let lastError: unknown = null
+  let terminalError: {
+    identity: string | null
+    error: unknown
+  } | null = null
   const idleResolvers = new Set<() => void>()
 
   function getIdentity(snapshot: TSnapshot): string | null {
@@ -152,7 +155,7 @@ export function createPersister<
     observeSnapshot(snapshot)
     pausedIdentity = null
     saveRequested = false
-    lastError = null
+    terminalError = null
     clearDebounceTimer()
     setSyncStatus(idleSyncStatus)
     resolveIdleWaiters()
@@ -173,6 +176,39 @@ export function createPersister<
     if (snapshot === null) return false
     if (baseline === null) return false
     return !snapshotsEqual(snapshot, baseline)
+  }
+
+  function clearTerminalErrorForIdentity(identity: string | null) {
+    if (terminalError?.identity === identity) {
+      terminalError = null
+    }
+    if (pausedIdentity === identity) {
+      pausedIdentity = null
+    }
+  }
+
+  function terminalErrorAppliesTo(snapshot: TSnapshot | null): boolean {
+    return (
+      terminalError !== null &&
+      snapshot !== null &&
+      getIdentity(snapshot) === terminalError.identity &&
+      snapshotNeedsSave(snapshot)
+    )
+  }
+
+  function clearStaleTerminalError(snapshot: TSnapshot | null): boolean {
+    if (terminalError === null || terminalErrorAppliesTo(snapshot)) {
+      return false
+    }
+
+    clearTerminalErrorForIdentity(terminalError.identity)
+    return true
+  }
+
+  function setIdleIfNoWork() {
+    if (debounceTimer === null && !saveRequested && worker === null) {
+      setSyncStatus(idleSyncStatus)
+    }
   }
 
   function observeSnapshot(snapshot: TSnapshot | null) {
@@ -226,13 +262,19 @@ export function createPersister<
       return
     }
 
+    if (clearStaleTerminalError(snapshot)) {
+      setIdleIfNoWork()
+    }
+
+    if (!snapshotNeedsSave(snapshot)) {
+      return
+    }
+
     if (pausedIdentity !== null && identity === pausedIdentity) {
       return
     }
 
-    if (snapshotNeedsSave(snapshot)) {
-      requestSave()
-    }
+    requestSave()
   }
 
   async function saveSnapshot(snapshot: TSnapshot): Promise<void> {
@@ -276,8 +318,7 @@ export function createPersister<
         }
         observeSnapshot(adapter.getSnapshot())
 
-        pausedIdentity = null
-        lastError = null
+        clearTerminalErrorForIdentity(identity)
         setSyncStatus(idleSyncStatus)
         return
       } catch (error) {
@@ -293,6 +334,16 @@ export function createPersister<
           continue
         }
 
+        const currentSnapshot = adapter.getSnapshot()
+        if (
+          currentSnapshot === null ||
+          getIdentity(currentSnapshot) !== identity ||
+          !snapshotNeedsSave(currentSnapshot)
+        ) {
+          clearTerminalErrorForIdentity(identity)
+          return
+        }
+
         const message =
           decision.kind === "pause" && decision.message !== undefined
             ? decision.message
@@ -300,7 +351,7 @@ export function createPersister<
         if (decision.kind === "pause") {
           pausedIdentity = identity
         }
-        lastError = error
+        terminalError = { identity, error }
         setSyncStatus({ state: "error", message })
         throw error
       }
@@ -330,15 +381,19 @@ export function createPersister<
           continue
         }
 
-        if (pausedIdentity !== null && identity === pausedIdentity) {
-          if (lastError !== null) {
-            throw lastError
-          }
-          continue
+        if (clearStaleTerminalError(snapshot)) {
+          setIdleIfNoWork()
         }
 
         if (!snapshotNeedsSave(snapshot)) {
           setSyncStatus(idleSyncStatus)
+          continue
+        }
+
+        if (pausedIdentity !== null && identity === pausedIdentity) {
+          if (terminalError?.identity === identity) {
+            throw terminalError.error
+          }
           continue
         }
 
@@ -363,15 +418,19 @@ export function createPersister<
     async flush() {
       if (disposed) return
       clearDebounceTimer()
-      if (snapshotNeedsSave(adapter.getSnapshot())) {
+      const snapshot = adapter.getSnapshot()
+      if (clearStaleTerminalError(snapshot)) {
+        setIdleIfNoWork()
+      }
+      if (snapshotNeedsSave(snapshot)) {
         saveRequested = true
       }
       if (saveRequested || worker !== null) {
         await ensureWorker()
         return
       }
-      if (lastError !== null) {
-        throw lastError
+      if (terminalErrorAppliesTo(snapshot) && terminalError !== null) {
+        throw terminalError.error
       }
     },
     async waitForIdle() {

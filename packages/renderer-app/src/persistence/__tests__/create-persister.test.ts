@@ -142,6 +142,20 @@ function createDeferred<T>(): {
   return { promise, resolve }
 }
 
+function createRejectableDeferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+  return { promise, resolve, reject }
+}
+
 async function waitForIdleResult(
   persister: ReturnType<typeof createCourseHarness>["persister"],
 ): Promise<"idle" | "timeout"> {
@@ -317,6 +331,54 @@ describe("createPersister", () => {
 
     assert.equal(harness.saved.length, 1)
     assert.equal(harness.status.state, "error")
+  })
+
+  it("clears a terminal error when the current snapshot returns to baseline", async () => {
+    const terminal = new Error("disk full")
+    const harness = createCourseHarness(async () => {
+      throw terminal
+    })
+    const cleanBaseline = requireSnapshot(harness.snapshot)
+
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Unsaved edit",
+    })
+    await assert.rejects(
+      harness.persister.flush(),
+      (error: unknown) => error === terminal,
+    )
+
+    harness.setSnapshot(cleanBaseline)
+    await harness.persister.flush()
+
+    assert.equal(harness.saved.length, 1)
+    assert.deepStrictEqual(harness.status, idleSyncStatus)
+  })
+
+  it("ignores an in-flight save failure after the snapshot identity changes", async () => {
+    const firstSaveStarted = createDeferred<void>()
+    const firstSave = createRejectableDeferred<CourseSaveStamp>()
+    const terminal = new Error("old course failed")
+    const harness = createCourseHarness(async () => {
+      firstSaveStarted.resolve()
+      return await firstSave.promise
+    })
+
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Course 1 edit",
+    })
+    const flush = harness.persister.flush()
+    await firstSaveStarted.promise
+
+    harness.setSnapshot(makeCourse("course-2"))
+    firstSave.reject(terminal)
+    await flush
+
+    assert.equal(harness.saved.length, 1)
+    assert.equal(harness.snapshot?.id, "course-2")
+    assert.deepStrictEqual(harness.status, idleSyncStatus)
   })
 
   it("pauses conflicted identities until a new clean baseline appears", async () => {
