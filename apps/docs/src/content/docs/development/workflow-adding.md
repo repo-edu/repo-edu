@@ -66,6 +66,7 @@ Key patterns:
 - Call `onOutput` for diagnostic messages
 - Throw typed `AppError` objects for failures
 - Pass `options?.signal` to async operations for cancellation support
+- Persistence save handlers validate incoming payloads and must not return full persisted documents. Use `void` for write-only saves, or a narrow server stamp when the renderer cannot compute the returned fields.
 
 ## 4. Wire into desktop
 

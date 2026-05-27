@@ -39,12 +39,10 @@ export const examinationPreferencePersistence = {
   persistActiveConnection(activeConnectionId: string | null): void {
     const settings = useAppSettingsStore.getState()
     settings.setActiveLlmConnectionId(activeConnectionId)
-    void settings.save()
   },
 
   persistModel(provider: LlmProviderKind, modelCode: string): void {
     const settings = useAppSettingsStore.getState()
     settings.setExaminationModelForProvider(provider, modelCode)
-    void settings.save()
   },
 }

@@ -13,6 +13,7 @@ import {
   getWorkflowClient,
   useWorkflowClient,
 } from "../contexts/workflow-client.js"
+import { getPersisterRegistry } from "../persistence/persister-registry.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
@@ -73,9 +74,10 @@ export function pruneLoadedSubmissionFoldersForCourses(
   courses: readonly Pick<PersistedCourse, "id" | "backing">[],
 ): boolean {
   const settingsStore = useAppSettingsStore.getState()
-  if (settingsStore.status !== "loaded") return false
   if (!settingsStore.pruneSubmissionFoldersForCourses(courses)) return false
-  void useAppSettingsStore.getState().save()
+  void getPersisterRegistry()
+    .appSettings.flush()
+    .catch(() => {})
   return true
 }
 
@@ -133,19 +135,19 @@ export function useCourses() {
             lmsCourseId: backing === "lms" ? (input.lmsCourseId ?? null) : null,
           },
         )
-        const saved = await wfClient.run("course.save", draft)
+        await wfClient.run("course.save", draft)
         await refresh()
 
-        useAppSettingsStore.getState().setLastUsedCourseBacking(saved.backing)
+        useAppSettingsStore.getState().setLastUsedCourseBacking(draft.backing)
         await activateSurface(
-          { kind: "course", courseId: saved.id },
+          { kind: "course", courseId: draft.id },
           {
-            courseBacking: saved.backing,
-            preferredTab: initialTabForBacking(saved.backing),
+            courseBacking: draft.backing,
+            preferredTab: initialTabForBacking(draft.backing),
           },
         )
 
-        return saved
+        return draft
       } catch (error) {
         const message = getErrorMessage(error)
         addToast(`Failed to create course: ${message}`, { tone: "error" })
@@ -232,7 +234,7 @@ export function useCourses() {
         await wfClient.run("course.delete", { courseId })
 
         if (isActive) {
-          // Prevent the next course load from trying to autosave a now-deleted course.
+          // Prevent the course persister from flushing a now-deleted course.
           useCourseStore.getState().clear()
           if (remaining.length > 0) {
             await activateSurface(

@@ -61,7 +61,6 @@ export function LlmConnectionsPane() {
   const removeLlmConnection = useAppSettingsStore(
     (state) => state.removeLlmConnection,
   )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const llmSavedStatuses = useConnectionsStore((state) => state.llmStatuses)
   const llmSavedErrors = useConnectionsStore((state) => state.llmErrors)
   const setLlmStatus = useConnectionsStore((state) => state.setLlmStatus)
@@ -74,7 +73,6 @@ export function LlmConnectionsPane() {
   const [editorStatus, setEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [editorError, setEditorError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
 
   const editorOriginalId =
     viewState.view === "editor" ? viewState.originalId : null
@@ -86,7 +84,6 @@ export function LlmConnectionsPane() {
   )
 
   const nameTaken = useMemo(() => {
-    if (saving) return false
     const normalized = draftDisplayName.toLowerCase()
     return llmConnections.some(
       (connection) =>
@@ -95,7 +92,7 @@ export function LlmConnectionsPane() {
           connection.name.trim() || PROVIDER_LABEL[connection.provider]
         ).toLowerCase() === normalized,
     )
-  }, [saving, llmConnections, draftDisplayName, editorOriginalId])
+  }, [llmConnections, draftDisplayName, editorOriginalId])
 
   const nameTakenMessage = useMemo(() => {
     if (!nameTaken) return null
@@ -129,7 +126,6 @@ export function LlmConnectionsPane() {
     setDraft(emptyLlmDraft())
     setEditorStatus("disconnected")
     setEditorError(null)
-    setSaving(false)
   }
 
   const verify = async (d: LlmDraft) => {
@@ -161,7 +157,7 @@ export function LlmConnectionsPane() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!canSubmit) return
     const id = editorOriginalId ?? crypto.randomUUID()
     const nextConnection: PersistedLlmConnection =
@@ -181,7 +177,6 @@ export function LlmConnectionsPane() {
             apiKey: draft.apiKey.trim(),
           }
 
-    setSaving(true)
     if (editorOriginalId === null) {
       addLlmConnection(nextConnection)
       // First connection becomes active automatically.
@@ -192,13 +187,11 @@ export function LlmConnectionsPane() {
       updateLlmConnection(editorOriginalId, nextConnection)
     }
 
-    await saveAppSettings()
     resetEditor()
   }
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = (id: string) => {
     removeLlmConnection(id)
-    await saveAppSettings()
   }
 
   const handleVerifySaved = async (connection: PersistedLlmConnection) => {

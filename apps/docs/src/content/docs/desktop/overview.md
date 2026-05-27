@@ -63,13 +63,13 @@ Undo and redo apply to roster changes (member edits, group moves). The undo butt
 
 ## Saving
 
-The app autosaves your course after each change. A save indicator shows the current status:
+The app persists course and settings changes after a short debounce delay. A save indicator shows the current course status:
 
 - **Saving** — a change is being written
 - **Saved** — all changes are persisted
 - **Error** — the save failed (hover for details)
 
-If a save fails, the app retries automatically. See [Troubleshooting](/repo-edu/reference/troubleshooting/) for common causes.
+Retryable save failures retry automatically. See [Troubleshooting](/repo-edu/reference/troubleshooting/) for common causes.
 
 ## How the Interactive Demo relates
 

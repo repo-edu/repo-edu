@@ -22,8 +22,6 @@ Both app settings and course documents are stored as JSON files and validated on
 | `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
 | `appearance.timeFormat` | `"12h" \| "24h"` | Time display format |
 | `appearance.syntaxTheme` | `"plus" \| "github" \| "github-dimmed" \| "everforest" \| "nord" \| "min"` | Source-code highlighting theme |
-| `window.width` | `number` | Window width in pixels (default: 1180) |
-| `window.height` | `number` | Window height in pixels (default: 760) |
 | `lmsConnections[]` | Array | LMS provider connections |
 | `lmsConnections[].name` | `string` | Connection display name |
 | `lmsConnections[].provider` | `"canvas" \| "moodle"` | LMS provider |
@@ -55,6 +53,8 @@ Both app settings and course documents are stored as JSON files and validated on
 | `analysisSidebar` | `{ searchDepth; sectionState; repoViewMode; fileViewMode; fileSortMode; blameConfig } \| null` | Persisted Analysis sidebar UI preferences |
 | `defaultExtensions` | `string[]` | Fallback file-extension allowlist used when a course leaves `analysisInputs.extensions` `undefined`. Normalized on write (lowercase, dot stripped, deduplicated). `[]` means "no extension filter". |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
+
+Desktop BrowserWindow dimensions live in the desktop-only window-state document, not in app settings.
 
 ## Course (`repo-edu.course.v1`)
 

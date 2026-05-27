@@ -68,9 +68,8 @@ export function GroupsAssignmentsTab() {
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setGroupsSidebarSize, save } = useAppSettingsStore.getState()
+    const { setGroupsSidebarSize } = useAppSettingsStore.getState()
     setGroupsSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
-    void save()
   }, [])
 
   const handleRequestFocusPanel = useCallback(() => {

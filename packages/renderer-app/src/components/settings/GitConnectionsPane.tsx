@@ -59,7 +59,6 @@ export function GitConnectionsPane() {
   const removeGitConnection = useAppSettingsStore(
     (state) => state.removeGitConnection,
   )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
   const gitSavedErrors = useConnectionsStore((state) => state.gitErrors)
   const setGitStatus = useConnectionsStore((state) => state.setGitStatus)
@@ -153,7 +152,7 @@ export function GitConnectionsPane() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!canSubmit) return
     const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
       allowImplicitHttps: true,
@@ -177,13 +176,11 @@ export function GitConnectionsPane() {
       updateGitConnection(editorOriginalId, nextConnection)
     }
 
-    await saveAppSettings()
     resetEditor()
   }
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = (id: string) => {
     removeGitConnection(id)
-    await saveAppSettings()
   }
 
   const handleVerifySaved = async (connection: PersistedGitConnection) => {

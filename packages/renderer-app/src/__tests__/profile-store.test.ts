@@ -100,6 +100,13 @@ function makeStudent(id: string, name: string): RosterMember {
   }
 }
 
+function saveStamp(course: PersistedCourse) {
+  return {
+    revision: course.revision + 1,
+    updatedAt: "2026-03-05T00:00:01.000Z",
+  }
+}
+
 beforeEach(() => {
   clearWorkflowClient()
   useCourseStore.getState().clear()
@@ -113,7 +120,7 @@ describe("course store", () => {
         const course = await gate.promise
         return { ...course, id: courseId }
       },
-      "course.save": async (course) => course,
+      "course.save": async (course) => saveStamp(course),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
 
@@ -134,7 +141,7 @@ describe("course store", () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -151,7 +158,6 @@ describe("course store", () => {
       nFiles: 12,
     })
     assert.equal(state.course?.searchFolder, "/repos/course")
-    assert.equal(state.localVersion, 2)
     assert.equal(state.checksDirty, true)
     assert.equal(state.history.length, 0)
     assert.equal(state.future.length, 0)
@@ -161,7 +167,7 @@ describe("course store", () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -185,7 +191,7 @@ describe("course store", () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -206,7 +212,7 @@ describe("course store", () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -232,7 +238,7 @@ describe("course store", () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -338,7 +344,7 @@ describe("course store", () => {
 
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -459,7 +465,7 @@ describe("course store", () => {
 
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async (current) => current,
+      "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -470,13 +476,10 @@ describe("course store", () => {
     assert.equal(renamedGroup?.name, "s.o.s.van.den.berg")
   })
 
-  it("keeps local updates and reports save errors via sync state", async () => {
+  it("keeps local updates when sync status reports save errors", async () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async () => {
-        throw new Error("save failed")
-      },
     })
     setWorkflowClient(client as unknown as WorkflowClient)
     await useCourseStore.getState().load(course.id)
@@ -487,9 +490,12 @@ describe("course store", () => {
       "Renamed Course",
     )
 
-    const result = await useCourseStore.getState().save()
-    assert.equal(result, false)
-    assert.equal(useCourseStore.getState().syncState, "error")
-    assert.equal(useCourseStore.getState().syncError, "save failed")
+    useCourseStore
+      .getState()
+      .setSyncStatus({ state: "error", message: "save failed" })
+    assert.deepStrictEqual(useCourseStore.getState().syncStatus, {
+      state: "error",
+      message: "save failed",
+    })
   })
 })

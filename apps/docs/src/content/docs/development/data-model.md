@@ -32,7 +32,6 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared Analysis-tab inputs for folder analysis surfaces |
 | `submissionSurfaceStates` | `Record<string, SubmissionSurfaceState>` | Per-submission folder UI state for selected files |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
-| `window` | `PersistedWindowState` | Window width and height (default 1180×760) |
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
 | `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
 | `activeGitConnectionId` | `string \| null` | Selected Git connection, or fallback to the first configured connection |
@@ -47,7 +46,7 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `defaultExtensions` | `string[]` | Global fallback for the per-course `analysisInputs.extensions` field. `undefined` on a course means "inherit this default"; `[]` on a course means "no extension filter". Resolution is one level — course → global — with no per-repo layer. |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
 
-`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), `timeFormat` (`"12h"`, `"24h"`), and `syntaxTheme` (`"plus"`, `"github"`, `"github-dimmed"`, `"everforest"`, `"nord"`, `"min"`).
+`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), `timeFormat` (`"12h"`, `"24h"`), and `syntaxTheme` (`"plus"`, `"github"`, `"github-dimmed"`, `"everforest"`, `"nord"`, `"min"`). Desktop BrowserWindow dimensions are stored in a desktop-only window-state document, not in app settings.
 
 ## Persisted course
 

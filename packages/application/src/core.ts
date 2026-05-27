@@ -1,6 +1,7 @@
 import type {
   AppError,
   AppValidationIssue,
+  CourseSaveStamp,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
 import { formatSmokeWorkflowMessage } from "@repo-edu/domain/schemas"
@@ -29,6 +30,150 @@ export const workspaceDependencies = [
   lmsContractPackageId,
 ] as const
 
+export type PersistenceWriteErrorKind =
+  | "busy"
+  | "locked"
+  | "transient"
+  | "permanent-io"
+  | "decode"
+
+const persistenceWriteErrorKinds = new Set<string>([
+  "busy",
+  "locked",
+  "transient",
+  "permanent-io",
+  "decode",
+])
+
+export class PersistenceWriteError extends Error {
+  readonly kind: PersistenceWriteErrorKind
+  override readonly cause?: unknown
+
+  constructor(
+    kind: PersistenceWriteErrorKind,
+    message: string,
+    cause?: unknown,
+  ) {
+    super(message)
+    this.name = "PersistenceWriteError"
+    this.kind = kind
+    this.cause = cause
+  }
+}
+
+export function createPersistenceWriteError(
+  kind: PersistenceWriteErrorKind,
+  message: string,
+  cause?: unknown,
+): PersistenceWriteError {
+  return new PersistenceWriteError(kind, message, cause)
+}
+
+export function classifyPersistenceWriteErrorCode(
+  code: string | undefined,
+): PersistenceWriteErrorKind {
+  if (code === "EBUSY" || code === "EAGAIN" || code === "ETXTBSY") {
+    return "busy"
+  }
+  if (code === "EPERM" || code === "EACCES") {
+    return "locked"
+  }
+  if (code === "EMFILE" || code === "ENFILE" || code === "EINTR") {
+    return "transient"
+  }
+  return "permanent-io"
+}
+
+export function isPersistenceWriteError(
+  value: unknown,
+): value is PersistenceWriteError {
+  return (
+    value instanceof PersistenceWriteError ||
+    (typeof value === "object" &&
+      value !== null &&
+      "name" in value &&
+      value.name === "PersistenceWriteError" &&
+      "kind" in value &&
+      typeof value.kind === "string" &&
+      persistenceWriteErrorKinds.has(value.kind) &&
+      "message" in value &&
+      typeof value.message === "string")
+  )
+}
+
+export type CourseSaveConflictReason = "revision-invariant" | "course-missing"
+
+const courseSaveConflictReasons = new Set<string>([
+  "revision-invariant",
+  "course-missing",
+])
+
+export class CourseSaveConflictError extends Error {
+  readonly reason: CourseSaveConflictReason
+  readonly courseId: string
+  readonly expectedRevision: number
+  readonly storedRevision: number | null
+
+  constructor(params: {
+    reason: CourseSaveConflictReason
+    courseId: string
+    expectedRevision: number
+    storedRevision: number | null
+  }) {
+    super(formatCourseSaveConflictMessage(params))
+    this.name = "CourseSaveConflictError"
+    this.reason = params.reason
+    this.courseId = params.courseId
+    this.expectedRevision = params.expectedRevision
+    this.storedRevision = params.storedRevision
+  }
+}
+
+export function createCourseSaveConflictError(params: {
+  reason: CourseSaveConflictReason
+  courseId: string
+  expectedRevision: number
+  storedRevision: number | null
+}): CourseSaveConflictError {
+  return new CourseSaveConflictError(params)
+}
+
+export function isCourseSaveConflictError(
+  value: unknown,
+): value is CourseSaveConflictError {
+  return (
+    value instanceof CourseSaveConflictError ||
+    (typeof value === "object" &&
+      value !== null &&
+      "name" in value &&
+      value.name === "CourseSaveConflictError" &&
+      "reason" in value &&
+      typeof value.reason === "string" &&
+      courseSaveConflictReasons.has(value.reason) &&
+      "courseId" in value &&
+      typeof value.courseId === "string" &&
+      "expectedRevision" in value &&
+      typeof value.expectedRevision === "number")
+  )
+}
+
+function formatCourseSaveConflictMessage(params: {
+  reason: CourseSaveConflictReason
+  courseId: string
+  expectedRevision: number
+  storedRevision: number | null
+}): string {
+  if (params.reason === "course-missing") {
+    return `Course '${params.courseId}' no longer exists.`
+  }
+
+  if (params.storedRevision === null) {
+    return `Course revision invariant violated for '${params.courseId}' (expected ${params.expectedRevision}, stored missing course).`
+  }
+
+  return `Course revision invariant violated for '${params.courseId}' (expected ${params.expectedRevision}, stored ${params.storedRevision}).`
+}
+
 export type SmokeWorkflowResult = {
   workflowId: "phase-1.docs.smoke"
   message: string
@@ -47,7 +192,7 @@ export type CourseStore = {
   saveCourse(
     course: PersistedCourse,
     signal?: AbortSignal,
-  ): Promise<PersistedCourse> | PersistedCourse
+  ): Promise<CourseSaveStamp> | CourseSaveStamp
   deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
 }
 
@@ -58,7 +203,7 @@ export type AppSettingsStore = {
   saveSettings(
     settings: PersistedAppSettings,
     signal?: AbortSignal,
-  ): Promise<PersistedAppSettings> | PersistedAppSettings
+  ): Promise<void> | void
 }
 
 export async function runSmokeWorkflow(
@@ -130,14 +275,20 @@ export function createInMemoryCourseStore(
     saveCourse(course: PersistedCourse) {
       const current = coursesById.get(course.id) ?? null
       if (current !== null && current.revision !== course.revision) {
-        throw new Error(
-          `Course revision invariant violated for '${course.id}' (expected ${course.revision}, stored ${current.revision}).`,
-        )
+        throw createCourseSaveConflictError({
+          reason: "revision-invariant",
+          courseId: course.id,
+          expectedRevision: course.revision,
+          storedRevision: current.revision,
+        })
       }
       if (current === null && course.revision !== 0) {
-        throw new Error(
-          `Course revision invariant violated for '${course.id}' (expected ${course.revision}, stored missing course).`,
-        )
+        throw createCourseSaveConflictError({
+          reason: "course-missing",
+          courseId: course.id,
+          expectedRevision: course.revision,
+          storedRevision: null,
+        })
       }
 
       const savedCourse: PersistedCourse = {
@@ -146,7 +297,10 @@ export function createInMemoryCourseStore(
         updatedAt: new Date().toISOString(),
       }
       coursesById.set(course.id, savedCourse)
-      return savedCourse
+      return {
+        revision: savedCourse.revision,
+        updatedAt: savedCourse.updatedAt,
+      }
     },
     deleteCourse(courseId: string) {
       coursesById.delete(courseId)
@@ -165,7 +319,6 @@ export function createInMemoryAppSettingsStore(
     },
     saveSettings(nextSettings: PersistedAppSettings) {
       value = nextSettings
-      return nextSettings
     },
   }
 }

@@ -119,11 +119,6 @@ const appAppearanceSchema = z.object({
   syntaxTheme: z.enum(syntaxThemeIds).default("plus"),
 })
 
-const persistedWindowStateSchema = z.object({
-  width: z.number(),
-  height: z.number(),
-})
-
 const persistedBlameConfigSchema = z.object({
   copyMove: z.number().int().min(0).max(4).optional(),
 })
@@ -356,7 +351,6 @@ export const persistedAppSettingsSchema = z
       .default({}),
     folderViewAnalysisInputs: analysisInputsSchema.default({}),
     appearance: appAppearanceSchema,
-    window: persistedWindowStateSchema.default({ width: 1180, height: 760 }),
     lmsConnections: z.array(persistedLmsConnectionSchema),
     gitConnections: z.array(persistedGitConnectionSchema),
     activeGitConnectionId: z.string().nullable().default(null),
@@ -402,7 +396,6 @@ export type ExaminationModelsByProvider = z.infer<
   typeof examinationModelsByProviderSchema
 >
 export type AppAppearance = z.infer<typeof appAppearanceSchema>
-export type PersistedWindowState = z.infer<typeof persistedWindowStateSchema>
 export type PersistedAnalysisSidebarSettings = z.infer<
   typeof persistedAnalysisSidebarSettingsSchema
 >
@@ -595,10 +588,6 @@ export const defaultAppSettings: PersistedAppSettings = {
     dateFormat: "DMY",
     timeFormat: "24h",
     syntaxTheme: "plus",
-  },
-  window: {
-    width: 1180,
-    height: 760,
   },
   lmsConnections: [],
   gitConnections: [],

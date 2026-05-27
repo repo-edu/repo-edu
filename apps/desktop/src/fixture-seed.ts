@@ -203,22 +203,19 @@ export async function seedDesktopFixtureFromEnvironment(
 
   let activeCourseId = course.id
   if (existingCourse === null) {
-    const savedCourse = await courseStore.saveCourse(course)
-    activeCourseId = savedCourse.id
+    await courseStore.saveCourse(course)
   } else if (shouldAlwaysReseedDesktopFixture(selection)) {
-    const savedCourse = await courseStore.saveCourse({
+    await courseStore.saveCourse({
       ...course,
       revision: existingCourse.revision,
     })
-    activeCourseId = savedCourse.id
   } else if (
     existingCourse.roster.connection?.kind !== requestedConnectionKind
   ) {
-    const savedCourse = await courseStore.saveCourse({
+    await courseStore.saveCourse({
       ...course,
       revision: existingCourse.revision,
     })
-    activeCourseId = savedCourse.id
   } else {
     activeCourseId = existingCourse.id
   }

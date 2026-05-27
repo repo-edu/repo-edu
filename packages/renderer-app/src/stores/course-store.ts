@@ -1,7 +1,6 @@
 import { enablePatches } from "immer"
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
-import { createAutosaveSlice } from "./slices/autosave.js"
 import { createHistorySlice } from "./slices/history.js"
 import { createLifecycleSlice } from "./slices/lifecycle.js"
 import { createMetadataActionsSlice } from "./slices/metadata-actions.js"
@@ -19,20 +18,14 @@ export type { CourseActions, CourseState } from "./slices/types.js"
 
 export const useCourseStore = create<CourseState & CourseActions>()(
   immer((set, get) => {
-    const autosave = createAutosaveSlice(set, get)
-
     const markCourseMutated = () => {
       set((draft) => {
         if (!draft.course) return
-        draft.localVersion += 1
-        draft.course.updatedAt = new Date().toISOString()
         draft.checksDirty = true
       })
-      autosave.internals.scheduleAutosave()
     }
 
     const internals: StoreInternals = {
-      ...autosave.internals,
       markCourseMutated,
       mutateRoster: null as unknown as StoreInternals["mutateRoster"],
     }
@@ -42,11 +35,10 @@ export const useCourseStore = create<CourseState & CourseActions>()(
 
     return {
       ...initialState,
-      ...autosave.actions,
       ...history.actions,
       ...createRosterActionsSlice(set, get, internals),
       ...createMetadataActionsSlice(set, get, internals),
-      ...createLifecycleSlice(set, get, internals),
+      ...createLifecycleSlice(set, get),
     }
   }),
 )

@@ -121,7 +121,6 @@ export function MemberListPane({
   const setRosterColumnSizing = useAppSettingsStore(
     (s) => s.setRosterColumnSizing,
   )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
 
   const addMember = useCourseStore((s) => s.addMember)
   const deleteMemberPermanently = useCourseStore(
@@ -503,7 +502,6 @@ export function MemberListPane({
           ? updater(rosterColumnVisibility)
           : updater
       setRosterColumnVisibility(next)
-      void saveAppSettings()
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -530,18 +528,6 @@ export function MemberListPane({
   const totalColumnSize = table.getTotalSize()
   const toColumnWidth = (size: number): string | undefined =>
     totalColumnSize > 0 ? `${(size / totalColumnSize) * 100}%` : undefined
-
-  // Save column sizing to app settings when a resize operation ends.
-  const isResizingColumn = table.getState().columnSizingInfo.isResizingColumn
-  const prevIsResizingRef = useRef<string | false>(false)
-
-  useEffect(() => {
-    const wasResizing = prevIsResizingRef.current
-    prevIsResizingRef.current = isResizingColumn
-    if (wasResizing && !isResizingColumn) {
-      void saveAppSettings()
-    }
-  }, [isResizingColumn, saveAppSettings])
 
   const hideableColumns = table
     .getAllLeafColumns()

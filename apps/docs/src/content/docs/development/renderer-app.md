@@ -24,8 +24,10 @@ await client.run("course.load", { courseId })
 
 // In Zustand stores (outside React)
 const client = getWorkflowClient()
-await client.run("settings.saveApp", settings)
+await client.run("course.load", { courseId })
 ```
+
+`AppRoot` performs the persistence bootstrap before `AppShell` renders: it loads app settings, hydrates the settings store, creates the persister registry, and only then lets application effects run.
 
 ## State management with Zustand
 
@@ -35,7 +37,7 @@ All application state lives in [Zustand](https://zustand-demo.pmnd.rs/) stores �
 
 | Store | Responsibility |
 |-------|---------------|
-| `useCourseStore` | The loaded course document: roster, groups, assignments, metadata. Also manages undo/redo history and autosave. |
+| `useCourseStore` | The loaded course document: roster, groups, assignments, metadata. Also manages undo/redo history and sync status. |
 | `useAppSettingsStore` | Persisted preferences: connections, appearance, column visibility/sizing. |
 | `useUiStore` | Ephemeral UI state: which dialogs are open, navigation, sidebar state. |
 | `useOperationStore` | Repository operation staging and progress tracking. |
@@ -49,25 +51,23 @@ The course store is the largest store and is composed from feature slices that s
 ```typescript
 export const useCourseStore = create<CourseState & CourseActions>()(
   immer((set, get) => {
-    const autosave = createAutosaveSlice(set, get)
-    const internals = { ...autosave.internals, markCourseMutated }
+    const internals = { markCourseMutated }
 
     const history = createHistorySlice(set, get, internals)
     internals.mutateRoster = history.mutateRoster
 
     return {
       ...initialState,
-      ...autosave.actions,
       ...history.actions,
       ...createRosterActionsSlice(set, get, internals),
       ...createMetadataActionsSlice(set, get, internals),
-      ...createLifecycleSlice(set, get, internals),
+      ...createLifecycleSlice(set, get),
     }
   }),
 )
 ```
 
-Each slice is a factory function that receives `set`, `get`, and shared `internals` (autosave trigger, history tracking). This keeps individual slices focused while allowing cross-cutting concerns like "mark the document dirty after any roster mutation" to work without circular dependencies.
+Each slice is a factory function that receives `set`, `get`, and shared `internals` where needed. This keeps individual slices focused while allowing cross-cutting concerns like "mark checks dirty after any roster mutation" to work without circular dependencies.
 
 ### Immutable updates with Immer
 
@@ -76,7 +76,6 @@ All Zustand stores use the [Immer](https://immerjs.github.io/immer/) middleware.
 ```typescript
 set((draft) => {
   draft.course.roster.students.push(newMember)
-  draft.course.updatedAt = new Date().toISOString()
 })
 ```
 
@@ -102,7 +101,7 @@ const [nextRoster, patches, inversePatches] = produceWithPatches(
 // inversePatches: how to reverse it
 ```
 
-The history stack has a fixed size limit. Any new mutation clears the future stack, so redo is only available for the most recent linear sequence of undos. Non-roster changes (course metadata, settings) are not tracked in undo history — they autosave immediately.
+The history stack has a fixed size limit. Any new mutation clears the future stack, so redo is only available for the most recent linear sequence of undos. Non-roster changes (course metadata, settings) are not tracked in undo history.
 
 ## TanStack Table integration
 
@@ -127,7 +126,7 @@ Tables support two-level sorting: clicking a column header makes it the primary 
 
 ### Column persistence
 
-Column visibility and sizing are persisted to `useAppSettingsStore` so they survive across sessions. Changes are debounced before saving to avoid excessive writes during resize drag.
+Column visibility and sizing are persisted to `useAppSettingsStore` so they survive across sessions. The settings persister observes these changes and debounces writes.
 
 ### Editable cells
 
@@ -137,9 +136,11 @@ Table cells that support inline editing follow a local-draft pattern: clicking a
 
 The `useDirtyState` hook tracks whether the current course has unsaved changes by computing an FNV-1a hash of the relevant course fields. This avoids expensive deep equality checks — the hash is a single 32-bit integer compared against a baseline captured at load time. Any roster mutation, metadata change, or connection update shifts the hash and marks the document as dirty.
 
-## Autosave
+## Persistence
 
-The autosave slice monitors mutations and triggers a `course.save` workflow after a debounce delay. If the save fails (network error, revision conflict), it retries with increasing delays and surfaces the error through the store's sync status. The UI shows a save indicator that reflects whether the document is saving, saved, or in an error state.
+Renderer-owned persistence is centralized in `src/persistence/`. Persisters subscribe to store snapshots, debounce writes, run save workflows, retry retryable errors, expose `flush()` for navigation guards, and write sync status back to the owning store.
+
+Save workflows are write-only. `settings.saveApp` returns no result; `course.save` returns only the host-stamped `{ revision, updatedAt }`, which the course persister patches into the current course if the course id still matches. Full persisted documents enter renderer memory only through load workflows.
 
 ## Toast notifications
 

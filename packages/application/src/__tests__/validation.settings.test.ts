@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { createInMemoryAppSettingsStore } from "../core.js"
+import {
+  createInMemoryAppSettingsStore,
+  createPersistenceWriteError,
+} from "../core.js"
 import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
 import { getSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { makeInvalidSettingsWrongKind } from "./helpers/test-builders.js"
@@ -14,13 +17,9 @@ describe("application settings workflow helpers", () => {
     const loadedDefault = await handlers["settings.loadApp"](undefined)
     assert.equal(loadedDefault.kind, "repo-edu.app-settings.v2")
 
-    const saved = await handlers["settings.saveApp"]({
+    await handlers["settings.saveApp"]({
       ...getSettingsScenario({ tier: "small", preset: "shared-teams" }),
       activeSurface: { kind: "course", courseId: "course-1" },
-    })
-    assert.deepStrictEqual(saved.activeSurface, {
-      kind: "course",
-      courseId: "course-1",
     })
 
     const reloaded = await handlers["settings.loadApp"](undefined)
@@ -46,6 +45,28 @@ describe("application settings workflow helpers", () => {
         error !== null &&
         "type" in error &&
         error.type === "validation",
+    )
+  })
+
+  it("normalizes retryable write failures from settings.saveApp", async () => {
+    const handlers = createSettingsWorkflowHandlers({
+      loadSettings: () => null,
+      saveSettings: () => {
+        throw createPersistenceWriteError("locked", "Settings file is locked.")
+      },
+    })
+
+    await assert.rejects(
+      handlers["settings.saveApp"](
+        getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+      ),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "persistence" &&
+        "retryable" in error &&
+        error.retryable === true,
     )
   })
 })

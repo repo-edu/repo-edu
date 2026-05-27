@@ -7,9 +7,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { HelpCircle } from "@repo-edu/ui/components/icons"
-import { useState } from "react"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { getErrorMessage } from "../../utils/error-message.js"
 
 function HelpIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -37,16 +35,6 @@ export function PerformancePane() {
   const setAnalysisConcurrency = useAppSettingsStore(
     (s) => s.setAnalysisConcurrency,
   )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const [error, setError] = useState<string | null>(null)
-
-  const persist = async () => {
-    try {
-      await saveAppSettings()
-    } catch (cause) {
-      setError(getErrorMessage(cause))
-    }
-  }
 
   const handleRepoParallelismChange = (raw: string) => {
     const parsed = Number.parseInt(raw, 10)
@@ -58,10 +46,6 @@ export function PerformancePane() {
     const parsed = Number.parseInt(raw, 10)
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 16) return
     setAnalysisConcurrency({ ...analysisConcurrency, filesPerRepo: parsed })
-  }
-
-  const handleFieldCommit = () => {
-    void persist()
   }
 
   const totalProcesses =
@@ -110,7 +94,6 @@ export function PerformancePane() {
               max={8}
               value={analysisConcurrency.repoParallelism}
               onChange={(e) => handleRepoParallelismChange(e.target.value)}
-              onBlur={handleFieldCommit}
             />
           </FormField>
           <FormField
@@ -136,17 +119,10 @@ export function PerformancePane() {
               max={16}
               value={analysisConcurrency.filesPerRepo}
               onChange={(e) => handleFilesPerRepoChange(e.target.value)}
-              onBlur={handleFieldCommit}
             />
           </FormField>
         </div>
       </section>
-
-      {error ? (
-        <Text variant="destructive" className="text-xs">
-          {error}
-        </Text>
-      ) : null}
     </div>
   )
 }

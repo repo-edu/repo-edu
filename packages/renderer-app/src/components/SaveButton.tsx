@@ -1,15 +1,12 @@
-/**
- * SaveButton — Saves course and displays visual feedback.
- * States: idle → saving (spinner) → success (checkmark) → idle.
- */
-
 import { Button } from "@repo-edu/ui"
 import { Check, Loader2 } from "@repo-edu/ui/components/icons"
-import { useCallback, useState } from "react"
-import { useCourseStore } from "../stores/course-store.js"
+import { useCallback } from "react"
+import { usePersisterRegistry } from "../persistence/persister-registry.js"
+import {
+  selectCourseSyncStatus,
+  useCourseStore,
+} from "../stores/course-store.js"
 import { selectActiveCourseId, useUiStore } from "../stores/ui-store.js"
-
-type SaveStatus = "idle" | "saving" | "success" | "error"
 
 type SaveButtonProps = {
   isDirty: boolean
@@ -18,33 +15,22 @@ type SaveButtonProps = {
 
 export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
   const activeCourseId = useUiStore(selectActiveCourseId)
-  const save = useCourseStore((s) => s.save)
-  const [status, setStatus] = useState<SaveStatus>("idle")
+  const syncStatus = useCourseStore(selectCourseSyncStatus)
+  const persisterRegistry = usePersisterRegistry()
 
   const handleSave = useCallback(async () => {
     if (!activeCourseId) return
 
-    setStatus("saving")
-
     try {
-      const success = await save()
-
-      if (!success) {
-        setStatus("error")
-        setTimeout(() => setStatus("idle"), 1500)
-        return
-      }
-
+      await persisterRegistry.course.flush()
       onSaved()
-      setStatus("success")
-      setTimeout(() => setStatus("idle"), 1500)
     } catch {
-      setStatus("error")
-      setTimeout(() => setStatus("idle"), 1500)
+      // The course sync-status banner owns the visible failure state.
     }
-  }, [activeCourseId, save, onSaved])
+  }, [activeCourseId, onSaved, persisterRegistry])
 
-  const isDisabled = !activeCourseId || !isDirty || status === "saving"
+  const isSaving = syncStatus.state === "saving"
+  const isDisabled = !activeCourseId || !isDirty || isSaving
 
   return (
     <Button
@@ -54,12 +40,12 @@ export function SaveButton({ isDirty, onSaved }: SaveButtonProps) {
       size="sm"
       className="min-w-20"
     >
-      {status === "saving" ? (
+      {isSaving ? (
         <>
           <Loader2 className="size-4 mr-1 animate-spin" />
           Saving
         </>
-      ) : status === "success" ? (
+      ) : !isDirty ? (
         <>
           <Check className="size-4 mr-1" />
           Saved

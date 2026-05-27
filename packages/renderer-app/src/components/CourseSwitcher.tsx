@@ -92,7 +92,6 @@ export function CourseSwitcher() {
   const removeRecentSubmissionFolder = useAppSettingsStore(
     (s) => s.removeRecentSubmissionFolder,
   )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
   const rendererHost = useRendererHost()
   const activateSurface = useActiveSurfaceNavigation()
   const {
@@ -297,14 +296,12 @@ export function CourseSwitcher() {
 
   const handleRemoveRecentFolder = (path: string) => {
     removeRecentFolder(path)
-    void saveAppSettings()
   }
 
   const handleRemoveRecentSubmissionFolder = (
     recent: SubmissionFolderRecent,
   ) => {
     removeRecentSubmissionFolder(recent)
-    void saveAppSettings()
   }
 
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0

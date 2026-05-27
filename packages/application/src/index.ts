@@ -1,10 +1,22 @@
 export { createAnalysisWorkflowHandlers } from "./analysis-workflows/analysis-workflows.js"
 export type { AnalysisWorkflowPorts } from "./analysis-workflows/ports.js"
 export { createConnectionWorkflowHandlers } from "./connection-workflows.js"
-export type { AppSettingsStore, CourseStore } from "./core.js"
+export type {
+  AppSettingsStore,
+  CourseSaveConflictReason,
+  CourseStore,
+  PersistenceWriteErrorKind,
+} from "./core.js"
 export {
+  CourseSaveConflictError,
+  classifyPersistenceWriteErrorCode,
+  createCourseSaveConflictError,
   createInMemoryAppSettingsStore,
   createInMemoryCourseStore,
+  createPersistenceWriteError,
+  isCourseSaveConflictError,
+  isPersistenceWriteError,
+  PersistenceWriteError,
   packageId,
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"

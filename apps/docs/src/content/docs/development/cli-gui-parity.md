@@ -92,8 +92,8 @@ The top-level `update` command is also kept, but it does not execute through the
 **Interactive conflict resolution:**
 `groupSet.connectFromLms` — requires visual selection from fetched LMS data, then linking.
 
-**Multi-step wizard:**
-`settings.saveApp` — multi-pane connection setup for LMS and Git providers.
+**Multi-step setup:**
+LMS, Git and LLM connection settings are edited in GUI panes and persisted by the renderer settings persister; the CLI keeps only the active-course settings write needed for `course load`.
 
 **Interactive exploration / LLM review:**
 `analysis.*` and `examination.*` workflows depend on repository browsing, blame inspection, author selection, and examination question review.

@@ -1,30 +1,13 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import {
-  createWorkflowClient,
-  type WorkflowClient,
-} from "@repo-edu/application-contract"
-import {
   defaultAppSettings,
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import { persistedAppSettingsKind } from "@repo-edu/domain/types"
-import {
-  clearWorkflowClient,
-  setWorkflowClient,
-} from "../contexts/workflow-client.js"
+import { idleSyncStatus } from "../persistence/create-persister.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
 
 function makeSettings(
   overrides: Partial<PersistedAppSettings> = {},
@@ -37,99 +20,31 @@ function makeSettings(
 }
 
 beforeEach(() => {
-  clearWorkflowClient()
   useAppSettingsStore.getState().reset()
   useConnectionsStore.getState().resetAllStatuses()
 })
 
 describe("app settings store", () => {
-  it("tracks loading status while settings are being fetched", async () => {
-    const gate = deferred<PersistedAppSettings>()
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => gate.promise,
-      "settings.saveApp": async (settings) => settings,
-    })
-    setWorkflowClient(client as unknown as WorkflowClient)
-
-    const loadPromise = useAppSettingsStore.getState().load()
-    assert.equal(useAppSettingsStore.getState().status, "loading")
-
-    gate.resolve(
+  it("hydrates settings without invoking persistence", () => {
+    useAppSettingsStore.getState().hydrate(
       makeSettings({
         activeSurface: { kind: "course", courseId: "course-1" },
       }),
     )
-    await loadPromise
 
     const state = useAppSettingsStore.getState()
-    assert.equal(state.status, "loaded")
     assert.deepStrictEqual(state.settings.activeSurface, {
       kind: "course",
       courseId: "course-1",
     })
+    assert.deepStrictEqual(state.syncStatus, idleSyncStatus)
   })
 
-  it("keeps local mutations visible during save and returns to loaded status", async () => {
-    const saveGate = deferred<PersistedAppSettings>()
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async () => saveGate.promise,
-    })
-    setWorkflowClient(client as unknown as WorkflowClient)
-
-    await useAppSettingsStore.getState().load()
-    useAppSettingsStore
-      .getState()
-      .setActiveSurface({ kind: "course", courseId: "course-2" })
-    useAppSettingsStore.getState().setTheme("dark")
-
-    const savePromise = useAppSettingsStore.getState().save()
-    assert.equal(useAppSettingsStore.getState().status, "saving")
-    assert.deepStrictEqual(
-      useAppSettingsStore.getState().settings.activeSurface,
-      { kind: "course", courseId: "course-2" },
-    )
-    assert.equal(
-      useAppSettingsStore.getState().settings.appearance.theme,
-      "dark",
-    )
-
-    saveGate.resolve(
-      makeSettings({
-        activeSurface: { kind: "course", courseId: "course-2" },
-        appearance: {
-          theme: "dark",
-          windowChrome: "system",
-          dateFormat: "DMY",
-          timeFormat: "24h",
-          syntaxTheme: "plus",
-        },
-      }),
-    )
-    await savePromise
-
-    assert.equal(useAppSettingsStore.getState().status, "loaded")
-    assert.equal(useAppSettingsStore.getState().error, null)
-  })
-
-  it("round-trips a defaultExtensions update through the store with normalization", async () => {
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async (settings) => settings,
-    })
-    setWorkflowClient(client as unknown as WorkflowClient)
-
-    await useAppSettingsStore.getState().load()
+  it("round-trips a defaultExtensions update through the store with normalization", () => {
     useAppSettingsStore
       .getState()
       .setDefaultExtensions([".TS", "Js", " py ", "ts", ""])
-    assert.deepStrictEqual(
-      useAppSettingsStore.getState().settings.defaultExtensions,
-      ["ts", "js", "py"],
-    )
 
-    await useAppSettingsStore.getState().save()
-    assert.equal(useAppSettingsStore.getState().status, "loaded")
     assert.deepStrictEqual(
       useAppSettingsStore.getState().settings.defaultExtensions,
       ["ts", "js", "py"],
@@ -219,61 +134,18 @@ describe("app settings store", () => {
     )
   })
 
-  it("captures save errors in state", async () => {
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async () => {
-        throw new Error("cannot save")
-      },
+  it("records and dismisses settings sync errors", () => {
+    const store = useAppSettingsStore.getState()
+    store.setSyncStatus({ state: "error", message: "cannot save" })
+    assert.deepStrictEqual(useAppSettingsStore.getState().syncStatus, {
+      state: "error",
+      message: "cannot save",
     })
-    setWorkflowClient(client as unknown as WorkflowClient)
 
-    await useAppSettingsStore.getState().load()
-    await useAppSettingsStore.getState().save()
-
-    assert.equal(useAppSettingsStore.getState().status, "error")
-    assert.equal(useAppSettingsStore.getState().error, "cannot save")
-  })
-
-  it("ignores stale save completions and keeps newest settings", async () => {
-    const firstSaveGate = deferred<PersistedAppSettings>()
-    const secondSaveGate = deferred<PersistedAppSettings>()
-    let saveCallCount = 0
-
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async () => {
-        saveCallCount += 1
-        return saveCallCount === 1
-          ? firstSaveGate.promise
-          : secondSaveGate.promise
-      },
+    store.dismissSyncError()
+    assert.deepStrictEqual(useAppSettingsStore.getState().syncStatus, {
+      state: "idle",
+      message: null,
     })
-    setWorkflowClient(client as unknown as WorkflowClient)
-
-    await useAppSettingsStore.getState().load()
-
-    const firstSavePromise = useAppSettingsStore.getState().save()
-    useAppSettingsStore
-      .getState()
-      .setRosterColumnVisibility({ repoName: false })
-    const secondSavePromise = useAppSettingsStore.getState().save()
-
-    secondSaveGate.resolve(
-      makeSettings({ rosterColumnVisibility: { repoName: false } }),
-    )
-    await secondSavePromise
-    assert.equal(
-      useAppSettingsStore.getState().settings.rosterColumnVisibility.repoName,
-      false,
-    )
-
-    firstSaveGate.resolve(makeSettings({ rosterColumnVisibility: {} }))
-    await firstSavePromise
-    assert.equal(
-      useAppSettingsStore.getState().settings.rosterColumnVisibility.repoName,
-      false,
-    )
-    assert.equal(useAppSettingsStore.getState().status, "loaded")
   })
 })

@@ -7,6 +7,7 @@ import {
 } from "@repo-edu/domain/settings"
 import type { ActiveTab, CourseBacking } from "@repo-edu/domain/types"
 import { useCallback } from "react"
+import { getPersisterRegistry } from "../persistence/persister-registry.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
@@ -53,10 +54,7 @@ export async function activateActiveSurface(
 
   if (leavingCourse && options.skipCourseFlush !== true) {
     try {
-      const saved = await useCourseStore.getState().save()
-      if (!saved) {
-        return false
-      }
+      await getPersisterRegistry().course.flush()
     } catch {
       return false
     }
@@ -88,10 +86,10 @@ export async function activateActiveSurface(
   }
 
   try {
-    await settingsStore.save()
+    await getPersisterRegistry().appSettings.flush()
   } catch {
     // Navigation remains usable even if settings persistence fails; the
-    // settings store already records the error state for the banner/sheet.
+    // settings sync-status already records the error state for the banner.
   }
 
   return true

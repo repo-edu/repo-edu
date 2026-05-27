@@ -1,4 +1,6 @@
 import type {
+  AppError,
+  CourseSaveStamp,
   DiagnosticOutput,
   MilestoneProgress,
   WorkflowCallOptions,
@@ -6,10 +8,18 @@ import type {
 } from "@repo-edu/application-contract"
 import { validatePersistedCourse } from "@repo-edu/domain/schemas"
 import type { CourseSummary, PersistedCourse } from "@repo-edu/domain/types"
-import { type CourseStore, createValidationAppError } from "./core.js"
 import {
+  type CourseStore,
+  createValidationAppError,
+  isCourseSaveConflictError,
+  isPersistenceWriteError,
+} from "./core.js"
+import {
+  isRetryablePersistenceWriteKind,
+  isSharedAppError,
   loadRequiredCourse,
   throwIfAborted,
+  toCancelledAppError,
   validateLoadedCourse,
 } from "./workflow-helpers.js"
 
@@ -28,6 +38,41 @@ function sortCoursesByUpdatedAt(
   return [...courses].sort((left, right) =>
     right.updatedAt.localeCompare(left.updatedAt),
   )
+}
+
+function normalizeCourseSaveError(error: unknown): AppError {
+  if (isSharedAppError(error)) {
+    return error
+  }
+
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return toCancelledAppError()
+  }
+
+  if (isCourseSaveConflictError(error)) {
+    return {
+      type: "conflict",
+      message: error.message,
+      resource: "course",
+      reason: error.reason,
+    }
+  }
+
+  if (isPersistenceWriteError(error)) {
+    return {
+      type: "persistence",
+      message: error.message,
+      operation: "write",
+      retryable: isRetryablePersistenceWriteKind(error.kind),
+    }
+  }
+
+  return {
+    type: "persistence",
+    message: error instanceof Error ? error.message : String(error),
+    operation: "write",
+    retryable: false,
+  }
 }
 
 export function createCourseWorkflowHandlers(
@@ -98,16 +143,22 @@ export function createCourseWorkflowHandlers(
         totalSteps: 3,
         label: "Writing course to course store.",
       })
-      const savedCourse = await courseStore.saveCourse(
-        validation.value,
-        options?.signal,
-      )
+      let saveStamp: CourseSaveStamp
+      try {
+        saveStamp = await courseStore.saveCourse(
+          validation.value,
+          options?.signal,
+        )
+      } catch (error) {
+        throw normalizeCourseSaveError(error)
+      }
+
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
         label: "Course saved.",
       })
-      return savedCourse
+      return saveStamp
     },
     "course.delete": async (input: { courseId: string }, options) => {
       throwIfAborted(options?.signal)

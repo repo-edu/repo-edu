@@ -63,6 +63,7 @@ export type AppError =
       type: "persistence"
       message: string
       operation: "read" | "write" | "decode" | "encode"
+      retryable: boolean
       pathHint?: string
     }
   | {

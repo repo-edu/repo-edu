@@ -64,7 +64,7 @@ Created by handlers when an operation would violate uniqueness or consistency co
 LMS, Git, or subprocess adapter failure.
 
 ```typescript
-{ type: "provider"; message: string; provider: LmsProviderKind | GitProviderKind | "git"; operation: string; retryable: boolean }
+{ type: "provider"; message: string; provider: LmsProviderKind | GitProviderKind | "git" | "llm"; operation: string; retryable: boolean }
 ```
 
 Created by handlers when an external service call fails (API error, authentication failure, rate limit).
@@ -74,10 +74,10 @@ Created by handlers when an external service call fails (API error, authenticati
 Settings, course, or user-file storage failure.
 
 ```typescript
-{ type: "persistence"; message: string; operation: "read" | "write" | "decode" | "encode"; pathHint?: string }
+{ type: "persistence"; message: string; operation: "read" | "write" | "decode" | "encode"; retryable: boolean; pathHint?: string }
 ```
 
-Created at the storage boundary when file I/O or serialization fails.
+Created at the storage boundary when file I/O or serialization fails. Write failures classified as busy, locked, or transient are retryable; decode, validation, encode, stale-revision, missing-course, and permanent I/O failures are not.
 
 ### unexpected
 
@@ -101,7 +101,7 @@ Each layer is responsible for creating specific error types:
 | `not-found` | Application-layer handlers |
 | `conflict` | Application-layer handlers |
 | `provider` | Application-layer handlers (normalizing adapter errors) |
-| `persistence` | Storage ports / application-layer handlers |
+| `persistence` | Application-layer handlers normalizing storage-port failures |
 | `unexpected` | Any layer (last resort) |
 
 ## Helper functions

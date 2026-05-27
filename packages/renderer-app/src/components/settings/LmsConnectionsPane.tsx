@@ -57,7 +57,6 @@ export function LmsConnectionsPane() {
   const removeLmsConnection = useAppSettingsStore(
     (state) => state.removeLmsConnection,
   )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
   const lmsSavedErrors = useConnectionsStore((state) => state.lmsErrors)
   const setLmsConnectionStatus = useConnectionsStore(
@@ -71,7 +70,6 @@ export function LmsConnectionsPane() {
   const [editorStatus, setEditorStatus] =
     useState<VerificationStatus>("disconnected")
   const [editorError, setEditorError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
 
   const editorOriginalId =
     viewState.view === "editor" ? viewState.originalId : null
@@ -83,14 +81,13 @@ export function LmsConnectionsPane() {
   )
 
   const nameTaken = useMemo(() => {
-    if (saving) return false
     const normalized = draftDisplayName.toLowerCase()
     return lmsConnections.some(
       (connection) =>
         connection.id !== editorOriginalId &&
         lmsConnectionDisplayName(connection).toLowerCase() === normalized,
     )
-  }, [saving, lmsConnections, draftDisplayName, editorOriginalId])
+  }, [lmsConnections, draftDisplayName, editorOriginalId])
 
   const nameTakenMessage = useMemo(() => {
     if (!nameTaken) return null
@@ -135,7 +132,6 @@ export function LmsConnectionsPane() {
     setDraft(emptyLmsDraft())
     setEditorStatus("disconnected")
     setEditorError(null)
-    setSaving(false)
   }
 
   const verify = async (d: LmsDraft) => {
@@ -179,7 +175,7 @@ export function LmsConnectionsPane() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!canSubmit) return
     const normalizedBaseUrl = normalizeHttpUrl(draft.baseUrl, {
       allowImplicitHttps: true,
@@ -199,20 +195,17 @@ export function LmsConnectionsPane() {
       userAgent: normalizeUserAgent(draft.userAgent),
     }
 
-    setSaving(true)
     if (editorOriginalId === null) {
       addLmsConnection(nextConnection)
     } else {
       updateLmsConnection(editorOriginalId, nextConnection)
     }
 
-    await saveAppSettings()
     resetEditor()
   }
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = (id: string) => {
     removeLmsConnection(id)
-    await saveAppSettings()
   }
 
   const handleVerifySaved = async (connection: PersistedLmsConnection) => {

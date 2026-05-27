@@ -93,7 +93,6 @@ function RepositoryAnalysisTab() {
   const clearPendingRepoDiscovery = useAnalysisStore(
     (s) => s.clearPendingRepoDiscovery,
   )
-  const settingsStatus = useAppSettingsStore((s) => s.status)
   const autoDiscoveredFolderRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
@@ -106,14 +105,11 @@ function RepositoryAnalysisTab() {
     }
     if (discoveryStatus === "loading") return
     const shouldAutoDiscover =
-      settingsStatus === "loaded" &&
-      autoDiscoveredFolderRef.current !== searchFolder &&
-      !hasDiscoveredRepos
+      autoDiscoveredFolderRef.current !== searchFolder && !hasDiscoveredRepos
     if (!hasPendingDiscovery && !shouldAutoDiscover) return
     autoDiscoveredFolderRef.current = searchFolder
     void runRepoDiscoveryRef.current(searchFolder)
   }, [
-    settingsStatus,
     searchFolder,
     hasDiscoveredRepos,
     discoveryStatus,
@@ -126,9 +122,8 @@ function RepositoryAnalysisTab() {
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setAnalysisSidebarSize, save } = useAppSettingsStore.getState()
+    const { setAnalysisSidebarSize } = useAppSettingsStore.getState()
     setAnalysisSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
-    void save()
   }, [])
 
   if (!hasActiveDocument) {

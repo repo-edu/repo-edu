@@ -1,7 +1,5 @@
-import { FormField, Text } from "@repo-edu/ui"
-import { useState } from "react"
+import { FormField } from "@repo-edu/ui"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
-import { getErrorMessage } from "../../utils/error-message.js"
 import { ExtensionTagInput } from "./ExtensionTagInput.js"
 
 export function AnalysisPane() {
@@ -11,18 +9,9 @@ export function AnalysisPane() {
   const setDefaultExtensions = useAppSettingsStore(
     (state) => state.setDefaultExtensions,
   )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
-
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const handleChange = (next: string[]) => {
     setDefaultExtensions(next)
-    setSaving(true)
-    setError(null)
-    saveAppSettings()
-      .catch((cause) => setError(getErrorMessage(cause)))
-      .finally(() => setSaving(false))
   }
 
   return (
@@ -41,11 +30,6 @@ export function AnalysisPane() {
           ariaLabel="Default file extensions"
         />
       </FormField>
-
-      {saving && (
-        <Text className="text-xs text-muted-foreground">Saving settings…</Text>
-      )}
-      {error && <Text className="text-xs text-destructive">{error}</Text>}
     </div>
   )
 }

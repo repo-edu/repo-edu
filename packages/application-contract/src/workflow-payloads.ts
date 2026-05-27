@@ -72,6 +72,8 @@ import type {
   VerifyLmsDraftInput,
 } from "./workflow-types.js"
 
+export type CourseSaveStamp = Pick<PersistedCourse, "revision" | "updatedAt">
+
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -89,7 +91,7 @@ export type WorkflowPayloads = {
     input: PersistedCourse
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: PersistedCourse
+    result: CourseSaveStamp
   }
   "course.delete": {
     input: { courseId: string }
@@ -107,7 +109,7 @@ export type WorkflowPayloads = {
     input: PersistedAppSettings
     progress: MilestoneProgress
     output: DiagnosticOutput
-    result: PersistedAppSettings
+    result: undefined
   }
   "connection.verifyLmsDraft": {
     input: VerifyLmsDraftInput

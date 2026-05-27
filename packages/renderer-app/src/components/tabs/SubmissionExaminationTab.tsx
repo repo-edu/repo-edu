@@ -264,7 +264,6 @@ function useSubmissionExaminationSource() {
   const setSubmissionSurfaceState = useAppSettingsStore(
     (state) => state.setSubmissionSurfaceState,
   )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const [fileList, setFileList] = useState<FileListState>({
     status: "loading",
     files: [],
@@ -478,7 +477,6 @@ function useSubmissionExaminationSource() {
   const updateIncludedFiles = (next: string[] | null) => {
     if (recent === null) return
     setSubmissionSurfaceState(recent, { includedFiles: next })
-    void saveAppSettings()
   }
 
   const handleToggleFile = (relativePath: string) => {

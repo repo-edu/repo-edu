@@ -1,7 +1,15 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import type { AppSettingsStore, CourseStore } from "@repo-edu/application"
+import {
+  type AppSettingsStore,
+  type CourseStore,
+  classifyPersistenceWriteErrorCode,
+  createCourseSaveConflictError,
+  createPersistenceWriteError,
+  isCourseSaveConflictError,
+  isPersistenceWriteError,
+} from "@repo-edu/application"
 import {
   validatePersistedAppSettings,
   validatePersistedCourse,
@@ -39,20 +47,46 @@ function resolveCoursePath(storageRoot: string, courseId: string): string {
 
 async function readValidatedCourse(
   coursePath: string,
+  options: { saveRead?: boolean } = {},
 ): Promise<PersistedCourse> {
   const raw = await readFile(coursePath, "utf8")
-  const parsed = JSON.parse(raw) as PersistedCourse
-  const validation = validatePersistedCourse(parsed)
 
-  if (!validation.ok) {
-    throw new Error(
-      `Invalid persisted course at ${coursePath}: ${validation.issues
-        .map((issue) => `${issue.path}: ${issue.message}`)
-        .join("; ")}`,
-    )
+  try {
+    const parsed = JSON.parse(raw) as PersistedCourse
+    const validation = validatePersistedCourse(parsed)
+
+    if (!validation.ok) {
+      throw new Error(
+        `Invalid persisted course at ${coursePath}: ${validation.issues
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ")}`,
+      )
+    }
+
+    return validation.value
+  } catch (error) {
+    if (options.saveRead) {
+      throw createPersistenceWriteError(
+        "decode",
+        `Could not decode existing course record at ${coursePath}.`,
+        error,
+      )
+    }
+
+    throw error
+  }
+}
+
+function toPersistenceWriteError(error: unknown, message: string): Error {
+  if (isCourseSaveConflictError(error) || isPersistenceWriteError(error)) {
+    return error
   }
 
-  return validation.value
+  return createPersistenceWriteError(
+    classifyPersistenceWriteErrorCode((error as NodeJS.ErrnoException).code),
+    message,
+    error,
+  )
 }
 
 export function resolveCliStorageRoot(): string {
@@ -109,55 +143,59 @@ export function createCliCourseStore(
 
     async saveCourse(course: PersistedCourse, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
-        throwIfAborted(signal)
+        try {
+          throwIfAborted(signal)
 
-        const validation = validatePersistedCourse(course)
-        if (!validation.ok) {
-          throw new Error(
-            `Invalid persisted course: ${validation.issues
-              .map((issue) => `${issue.path}: ${issue.message}`)
-              .join("; ")}`,
-          )
-        }
+          const coursesDirectory = resolveCoursesDirectory(storageRoot)
+          await mkdir(coursesDirectory, { recursive: true })
+          throwIfAborted(signal)
 
-        const coursesDirectory = resolveCoursesDirectory(storageRoot)
-        await mkdir(coursesDirectory, { recursive: true })
-        throwIfAborted(signal)
-
-        const coursePath = resolveCoursePath(storageRoot, validation.value.id)
-        const existing = await readValidatedCourse(coursePath).catch(
-          (error: unknown) => {
+          const coursePath = resolveCoursePath(storageRoot, course.id)
+          const existing = await readValidatedCourse(coursePath, {
+            saveRead: true,
+          }).catch((error: unknown) => {
             if ((error as NodeJS.ErrnoException).code === "ENOENT") {
               return null
             }
             throw error
-          },
-        )
-        if (
-          existing !== null &&
-          existing.revision !== validation.value.revision
-        ) {
-          throw new Error(
-            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existing.revision}).`,
-          )
-        }
-        if (existing === null && validation.value.revision !== 0) {
-          throw new Error(
-            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing course).`,
-          )
-        }
+          })
+          if (existing !== null && existing.revision !== course.revision) {
+            throw createCourseSaveConflictError({
+              reason: "revision-invariant",
+              courseId: course.id,
+              expectedRevision: course.revision,
+              storedRevision: existing.revision,
+            })
+          }
+          if (existing === null && course.revision !== 0) {
+            throw createCourseSaveConflictError({
+              reason: "course-missing",
+              courseId: course.id,
+              expectedRevision: course.revision,
+              storedRevision: null,
+            })
+          }
 
-        const savedCourse: PersistedCourse = {
-          ...validation.value,
-          revision: validation.value.revision + 1,
-          updatedAt: new Date().toISOString(),
+          const savedCourse: PersistedCourse = {
+            ...course,
+            revision: course.revision + 1,
+            updatedAt: new Date().toISOString(),
+          }
+          await writeTextFileAtomic(
+            coursePath,
+            JSON.stringify(savedCourse, null, 2),
+            signal,
+          )
+          return {
+            revision: savedCourse.revision,
+            updatedAt: savedCourse.updatedAt,
+          }
+        } catch (error) {
+          throw toPersistenceWriteError(
+            error,
+            `Could not write course '${course.id}'.`,
+          )
         }
-        await writeFile(
-          coursePath,
-          JSON.stringify(savedCourse, null, 2),
-          "utf8",
-        )
-        return savedCourse
       })
     },
 
@@ -205,27 +243,20 @@ export function createCliAppSettingsStore(
 
     async saveSettings(settings: PersistedAppSettings, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
-        throwIfAborted(signal)
+        try {
+          throwIfAborted(signal)
+          await mkdir(join(storageRoot, "settings"), { recursive: true })
+          throwIfAborted(signal)
 
-        const validation = validatePersistedAppSettings(settings)
-        if (!validation.ok) {
-          throw new Error(
-            `Invalid persisted app settings: ${validation.issues
-              .map((issue) => `${issue.path}: ${issue.message}`)
-              .join("; ")}`,
+          const settingsPath = resolveSettingsPath(storageRoot)
+          await writeTextFileAtomic(
+            settingsPath,
+            JSON.stringify(settings, null, 2),
+            signal,
           )
+        } catch (error) {
+          throw toPersistenceWriteError(error, "Could not write app settings.")
         }
-
-        await mkdir(join(storageRoot, "settings"), { recursive: true })
-        throwIfAborted(signal)
-
-        const settingsPath = resolveSettingsPath(storageRoot)
-        await writeTextFileAtomic(
-          settingsPath,
-          JSON.stringify(validation.value, null, 2),
-          signal,
-        )
-        return validation.value
       })
     },
   }

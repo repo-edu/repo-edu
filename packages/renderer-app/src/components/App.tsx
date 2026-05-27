@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useState } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -26,9 +26,15 @@ import {
 import { useLoadCourse } from "../hooks/use-load-course.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  selectAppSettingsActiveSurface,
+  clearPersisterRegistry,
+  createPersisterRegistry,
+  type PersisterRegistry,
+  PersisterRegistryProvider,
+  setPersisterRegistry,
+  usePersisterRegistry,
+} from "../persistence/persister-registry.js"
+import {
   selectAppSettingsActiveTab,
-  selectAppSettingsStatus,
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
@@ -51,6 +57,7 @@ import {
   resolveTabVisibility,
   surfaceTabBacking,
 } from "../utils/course-navigation.js"
+import { getErrorMessage } from "../utils/error-message.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
   hasMacDesktopInset,
@@ -88,19 +95,128 @@ export type AppRootProps = {
   rendererHost: RendererHost
 }
 
+type BootstrapState =
+  | { status: "loading"; attempt: number }
+  | { status: "ready"; attempt: number; registry: PersisterRegistry }
+  | { status: "error"; attempt: number; message: string }
+
 export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
+  const [bootstrap, setBootstrap] = useState<BootstrapState>({
+    status: "loading",
+    attempt: 0,
+  })
+
   useLayoutEffect(() => {
     return configureApp({ workflowClient, rendererHost })
   }, [workflowClient, rendererHost])
+
+  useEffect(() => {
+    let cancelled = false
+    let registry: PersisterRegistry | null = null
+    const attempt = bootstrap.attempt
+    clearPersisterRegistry()
+    setBootstrap((current) =>
+      current.status === "loading" && current.attempt === attempt
+        ? current
+        : { status: "loading", attempt },
+    )
+
+    void (async () => {
+      try {
+        const settings = await workflowClient.run("settings.loadApp", undefined)
+        if (cancelled) return
+
+        useAppSettingsStore.getState().hydrate(settings)
+        const restoredCourseId = activeCourseIdFromSurface(
+          settings.activeSurface,
+        )
+        const restoredBacking = restoredCourseId === null ? undefined : "lms"
+        useUiStore.getState().setActiveSurface(settings.activeSurface)
+        useUiStore
+          .getState()
+          .setActiveTab(
+            resolveSupportedActiveTab(
+              settings.activeTab,
+              surfaceTabBacking(settings.activeSurface, restoredBacking),
+            ),
+          )
+
+        registry = createPersisterRegistry(workflowClient)
+        setPersisterRegistry(registry)
+        setBootstrap({
+          status: "ready",
+          attempt,
+          registry,
+        })
+      } catch (error) {
+        if (cancelled) return
+        setBootstrap({
+          status: "error",
+          attempt,
+          message: getErrorMessage(error, "Could not load app settings."),
+        })
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      if (registry !== null) {
+        registry.dispose()
+        clearPersisterRegistry(registry)
+      } else {
+        clearPersisterRegistry()
+      }
+    }
+  }, [bootstrap.attempt, workflowClient])
 
   return (
     <WorkflowClientProvider value={workflowClient}>
       <RendererHostProvider value={rendererHost}>
         <TooltipProvider>
-          <AppShell />
+          {bootstrap.status === "ready" ? (
+            <PersisterRegistryProvider registry={bootstrap.registry}>
+              <AppShell />
+            </PersisterRegistryProvider>
+          ) : (
+            <BootstrapView
+              state={bootstrap}
+              onRetry={() =>
+                setBootstrap((current) => ({
+                  status: "loading",
+                  attempt: current.attempt + 1,
+                }))
+              }
+            />
+          )}
         </TooltipProvider>
       </RendererHostProvider>
     </WorkflowClientProvider>
+  )
+}
+
+function BootstrapView({
+  state,
+  onRetry,
+}: {
+  state: Exclude<BootstrapState, { status: "ready" }>
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background p-6 text-foreground">
+      <div className="w-full max-w-md space-y-3">
+        {state.status === "error" ? (
+          <>
+            <h1 className="text-base font-semibold">Settings could not load</h1>
+            <p className="text-sm text-muted-foreground">{state.message}</p>
+            <Button type="button" onClick={onRetry}>
+              Retry
+            </Button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading settings…</p>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -116,14 +232,9 @@ function AppShell() {
   const courseListLoaded = useUiStore(selectCourseListLoaded)
 
   const theme = useAppSettingsStore(selectTheme)
-  const appSettingsStatus = useAppSettingsStore(selectAppSettingsStatus)
-  const appSettingsActiveSurface = useAppSettingsStore(
-    selectAppSettingsActiveSurface,
-  )
   const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
   const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
-  const loadAppSettings = useAppSettingsStore((s) => s.load)
+  const persisterRegistry = usePersisterRegistry()
 
   const activateSurface = useActiveSurfaceNavigation()
   const isHomeSurface = activeSurface.kind === "home"
@@ -135,7 +246,7 @@ function AppShell() {
   const loadedCourse = useCourseStore((s) => s.course)
   const undo = useCourseStore((s) => s.undo)
   const redo = useCourseStore((s) => s.redo)
-  const flushCourse = useCourseStore((s) => s.save)
+  const flushCourse = persisterRegistry.course.flush
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
@@ -157,50 +268,12 @@ function AppShell() {
   const canShowGroupsTab = tabVisibility.groupsAssignments
   const canShowAnalysisTab = tabVisibility.analysis
 
-  // Load app settings on mount.
-  useEffect(() => {
-    void loadAppSettings()
-  }, [loadAppSettings])
-
-  // Cold-start hydration deliberately bypasses active-surface navigation:
-  // there is no previously loaded course to flush before restoring settings.
-  const didHydrateSettingsRef = useRef(false)
-  useEffect(() => {
-    if (didHydrateSettingsRef.current) return
-    if (appSettingsStatus !== "loaded") return
-    didHydrateSettingsRef.current = true
-    const restoredCourseId = activeCourseIdFromSurface(appSettingsActiveSurface)
-    const restoredBacking =
-      restoredCourseId !== null
-        ? (courseList.find((course) => course.id === restoredCourseId)
-            ?.backing ?? "lms")
-        : undefined
-    const restoredTab = resolveSupportedActiveTab(
-      appSettingsActiveTab,
-      surfaceTabBacking(appSettingsActiveSurface, restoredBacking),
-    )
-    setActiveTab(restoredTab)
-    useUiStore.getState().setActiveSurface(appSettingsActiveSurface)
-  }, [
-    appSettingsStatus,
-    appSettingsActiveSurface,
-    appSettingsActiveTab,
-    courseList,
-    setActiveTab,
-  ])
-
   // Persist activeTab changes to app settings.
   useEffect(() => {
     if (activeTab !== appSettingsActiveTab) {
       setAppSettingsActiveTab(activeTab)
-      void saveAppSettings()
     }
-  }, [
-    activeTab,
-    appSettingsActiveTab,
-    setAppSettingsActiveTab,
-    saveAppSettings,
-  ])
+  }, [activeTab, appSettingsActiveTab, setAppSettingsActiveTab])
 
   useEffect(() => {
     const supportedTab = resolveSupportedActiveTab(activeTab, tabBacking)
@@ -213,7 +286,7 @@ function AppShell() {
   useTheme(theme)
 
   useEffect(() => {
-    if (appSettingsStatus !== "loaded" || !courseListLoaded) return
+    if (!courseListLoaded) return
 
     pruneLoadedSubmissionFoldersForCourses(courseList)
     const redirect = resolveActiveSurfaceRedirectForCourses(
@@ -225,13 +298,7 @@ function AppShell() {
       courseBacking: redirect.courseBacking,
       skipCourseFlush: true,
     })
-  }, [
-    activeSurface,
-    activateSurface,
-    appSettingsStatus,
-    courseList,
-    courseListLoaded,
-  ])
+  }, [activeSurface, activateSurface, courseList, courseListLoaded])
 
   // Load the active course when its identity changes.
   useLoadCourse(activeCourseId)

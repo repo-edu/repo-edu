@@ -1,6 +1,11 @@
 import { mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { AppSettingsStore } from "@repo-edu/application"
+import {
+  type AppSettingsStore,
+  classifyPersistenceWriteErrorCode,
+  createPersistenceWriteError,
+  isPersistenceWriteError,
+} from "@repo-edu/application"
 import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
 import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
@@ -21,6 +26,18 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
     throw new Error("Operation cancelled.")
   }
+}
+
+function toPersistenceWriteError(error: unknown, message: string): Error {
+  if (isPersistenceWriteError(error)) {
+    return error
+  }
+
+  return createPersistenceWriteError(
+    classifyPersistenceWriteErrorCode((error as NodeJS.ErrnoException).code),
+    message,
+    error,
+  )
 }
 
 export function createDesktopAppSettingsStore(
@@ -58,26 +75,20 @@ export function createDesktopAppSettingsStore(
     },
     async saveSettings(settings: PersistedAppSettings, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
-        throwIfAborted(signal)
-        const validation = validatePersistedAppSettings(settings)
-        if (!validation.ok) {
-          throw new Error(
-            `Invalid persisted app settings: ${validation.issues
-              .map((issue) => `${issue.path}: ${issue.message}`)
-              .join("; ")}`,
+        try {
+          throwIfAborted(signal)
+          await ensureSettingsDirectory(storageRoot)
+          throwIfAborted(signal)
+
+          const settingsPath = resolveSettingsPath(storageRoot)
+          await writeTextFileAtomic(
+            settingsPath,
+            JSON.stringify(settings, null, 2),
+            signal,
           )
+        } catch (error) {
+          throw toPersistenceWriteError(error, "Could not write app settings.")
         }
-
-        await ensureSettingsDirectory(storageRoot)
-        throwIfAborted(signal)
-
-        const settingsPath = resolveSettingsPath(storageRoot)
-        await writeTextFileAtomic(
-          settingsPath,
-          JSON.stringify(validation.value, null, 2),
-          signal,
-        )
-        return validation.value
       })
     },
   }

@@ -92,6 +92,7 @@ export const selectIssueCards = (state: CourseState) => state.issueCards
 export const selectChecksStatus = (state: CourseState) => state.checksStatus
 export const selectChecksError = (state: CourseState) => state.checksError
 export const selectChecksDirty = (state: CourseState) => state.checksDirty
+export const selectCourseSyncStatus = (state: CourseState) => state.syncStatus
 
 // Group set category selectors
 

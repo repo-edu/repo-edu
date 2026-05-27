@@ -14,6 +14,11 @@ import {
   setWorkflowClient,
 } from "../contexts/workflow-client.js"
 import { activateActiveSurface } from "../hooks/use-active-surface-navigation.js"
+import {
+  clearPersisterRegistry,
+  type PersisterRegistry,
+  setPersisterRegistry,
+} from "../persistence/persister-registry.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
@@ -51,8 +56,31 @@ function makeCourse(): PersistedCourse {
   }
 }
 
+function installPersisterRegistry(overrides: {
+  courseFlush?: () => Promise<void>
+  settingsFlush?: () => Promise<void>
+}) {
+  const persister = {
+    flush: async () => {},
+    waitForIdle: async () => {},
+    adoptCurrentSnapshot: () => {},
+    dispose: () => {},
+  }
+  setPersisterRegistry({
+    appSettings: {
+      ...persister,
+      flush: overrides.settingsFlush ?? persister.flush,
+    },
+    course: { ...persister, flush: overrides.courseFlush ?? persister.flush },
+    flush: async () => {},
+    waitForIdle: async () => {},
+    dispose: () => {},
+  } satisfies PersisterRegistry)
+}
+
 beforeEach(() => {
   clearWorkflowClient()
+  clearPersisterRegistry()
   useAnalysisStore.getState().reset()
   useAppSettingsStore.getState().reset()
   useCourseStore.getState().clear()
@@ -70,16 +98,22 @@ describe("active surface navigation", () => {
     }
     const client = createWorkflowClient({
       "course.load": async () => course,
-      "course.save": async () => {
-        throw validationError
-      },
+      "course.save": async () => ({
+        revision: 1,
+        updatedAt: "2026-03-11T00:00:01.000Z",
+      }),
       "settings.loadApp": async () => useAppSettingsStore.getState().settings,
-      "settings.saveApp": async (settings) => {
-        settingsSaveCalls += 1
-        return settings
-      },
+      "settings.saveApp": async () => {},
     })
     setWorkflowClient(client as unknown as WorkflowClient)
+    installPersisterRegistry({
+      courseFlush: async () => {
+        throw validationError
+      },
+      settingsFlush: async () => {
+        settingsSaveCalls += 1
+      },
+    })
 
     await useCourseStore.getState().load(course.id)
     useUiStore
@@ -122,9 +156,10 @@ describe("active surface navigation", () => {
   it("records submission recents separately from repository folders", async () => {
     const client = createWorkflowClient({
       "settings.loadApp": async () => useAppSettingsStore.getState().settings,
-      "settings.saveApp": async (settings) => settings,
+      "settings.saveApp": async () => {},
     })
     setWorkflowClient(client as unknown as WorkflowClient)
+    installPersisterRegistry({})
 
     const switched = await activateActiveSurface(
       {

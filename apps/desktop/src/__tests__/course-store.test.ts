@@ -26,7 +26,6 @@ describe("createDesktopCourseStore", () => {
       const entries = await readdir(coursesDirectory)
       const listed = await courseStore.listCourses()
 
-      assert.equal(saved.id, course.id)
       assert.equal(saved.revision, course.revision + 1)
       assert.equal(await pathExists(coursesDirectory), true)
       assert.equal(entries.filter((name) => name.endsWith(".json")).length, 1)

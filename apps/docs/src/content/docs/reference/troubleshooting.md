@@ -38,13 +38,13 @@ pnpm typecheck
 
 ### Save indicator shows error
 
-The autosave encountered a problem. Common causes:
+Persistence encountered a problem. Common causes:
 
 - **Revision conflict** — another session saved the same course. Reload the course to get the latest version.
 - **Disk permission error** — the Electron `userData` directory is not writable.
 - **Schema validation failure** — the course data doesn't match the expected schema. This usually indicates a bug — check the developer console for the validation error path.
 
-The autosave retries automatically with increasing delays. If the error persists, check the developer console (View > Toggle Developer Tools) for details.
+Retryable save failures are retried automatically with increasing delays. Conflicts stay visible until you reload or dismiss the message. If the error persists, check the developer console (View > Toggle Developer Tools) for details.
 
 ### Undo doesn't revert a change
 

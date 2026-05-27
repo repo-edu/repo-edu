@@ -1,6 +1,13 @@
 import { mkdir, readdir, readFile, rm } from "node:fs/promises"
 import { join } from "node:path"
-import type { CourseStore } from "@repo-edu/application"
+import {
+  type CourseStore,
+  classifyPersistenceWriteErrorCode,
+  createCourseSaveConflictError,
+  createPersistenceWriteError,
+  isCourseSaveConflictError,
+  isPersistenceWriteError,
+} from "@repo-edu/application"
 import { validatePersistedCourse } from "@repo-edu/domain/schemas"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
@@ -131,19 +138,45 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 async function readPersistedCourse(
   coursePath: string,
+  options: { saveRead?: boolean } = {},
 ): Promise<PersistedCourse> {
   const raw = await readFile(coursePath, "utf8")
-  const parsed = JSON.parse(raw) as PersistedCourse
-  const validation = validatePersistedCourse(parsed)
-  if (!validation.ok) {
-    throw new Error(
-      `Invalid persisted course at ${coursePath}: ${validation.issues
-        .map((issue) => `${issue.path}: ${issue.message}`)
-        .join("; ")}`,
-    )
+
+  try {
+    const parsed = JSON.parse(raw) as PersistedCourse
+    const validation = validatePersistedCourse(parsed)
+    if (!validation.ok) {
+      throw new Error(
+        `Invalid persisted course at ${coursePath}: ${validation.issues
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ")}`,
+      )
+    }
+
+    return validation.value
+  } catch (error) {
+    if (options.saveRead) {
+      throw createPersistenceWriteError(
+        "decode",
+        `Could not decode existing course record at ${coursePath}.`,
+        error,
+      )
+    }
+
+    throw error
+  }
+}
+
+function toPersistenceWriteError(error: unknown, message: string): Error {
+  if (isCourseSaveConflictError(error) || isPersistenceWriteError(error)) {
+    return error
   }
 
-  return validation.value
+  return createPersistenceWriteError(
+    classifyPersistenceWriteErrorCode((error as NodeJS.ErrnoException).code),
+    message,
+    error,
+  )
 }
 
 export function createDesktopCourseStore(storageRoot: string): CourseStore {
@@ -183,57 +216,66 @@ export function createDesktopCourseStore(storageRoot: string): CourseStore {
     },
     async saveCourse(course: PersistedCourse, signal?: AbortSignal) {
       return await enqueueWrite(async () => {
-        throwIfAborted(signal)
-        const validation = validatePersistedCourse(course)
-        if (!validation.ok) {
-          throw new Error(
-            `Invalid persisted course: ${validation.issues
-              .map((issue) => `${issue.path}: ${issue.message}`)
-              .join("; ")}`,
+        try {
+          throwIfAborted(signal)
+          const existingPath = await findCoursePathById(
+            storageRoot,
+            course.id,
+            signal,
           )
-        }
-
-        const existingPath = await findCoursePathById(
-          storageRoot,
-          validation.value.id,
-          signal,
-        )
-        if (existingPath !== null) {
-          const existingCourse = await readPersistedCourse(existingPath)
-          if (existingCourse.revision !== validation.value.revision) {
-            throw new Error(
-              `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored ${existingCourse.revision}).`,
-            )
+          if (existingPath !== null) {
+            const existingCourse = await readPersistedCourse(existingPath, {
+              saveRead: true,
+            })
+            if (existingCourse.revision !== course.revision) {
+              throw createCourseSaveConflictError({
+                reason: "revision-invariant",
+                courseId: course.id,
+                expectedRevision: course.revision,
+                storedRevision: existingCourse.revision,
+              })
+            }
+          } else if (course.revision !== 0) {
+            throw createCourseSaveConflictError({
+              reason: "course-missing",
+              courseId: course.id,
+              expectedRevision: course.revision,
+              storedRevision: null,
+            })
           }
-        } else if (validation.value.revision !== 0) {
-          throw new Error(
-            `Course revision invariant violated for '${validation.value.id}' (expected ${validation.value.revision}, stored missing course).`,
+
+          const savedCourse: PersistedCourse = {
+            ...course,
+            revision: course.revision + 1,
+            updatedAt: new Date().toISOString(),
+          }
+          const coursesDirectory = resolveCoursesDirectory(storageRoot)
+          await ensureCoursesDirectory(coursesDirectory)
+          throwIfAborted(signal)
+          const coursePath = await resolveCoursePathForWrite(
+            coursesDirectory,
+            savedCourse.id,
+            savedCourse.displayName,
+            signal,
+          )
+          await writeTextFileAtomic(
+            coursePath,
+            JSON.stringify(savedCourse, null, 2),
+            signal,
+          )
+          if (existingPath !== null && existingPath !== coursePath) {
+            await rm(existingPath, { force: true })
+          }
+          return {
+            revision: savedCourse.revision,
+            updatedAt: savedCourse.updatedAt,
+          }
+        } catch (error) {
+          throw toPersistenceWriteError(
+            error,
+            `Could not write course '${course.id}'.`,
           )
         }
-
-        const savedCourse: PersistedCourse = {
-          ...validation.value,
-          revision: validation.value.revision + 1,
-          updatedAt: new Date().toISOString(),
-        }
-        const coursesDirectory = resolveCoursesDirectory(storageRoot)
-        await ensureCoursesDirectory(coursesDirectory)
-        throwIfAborted(signal)
-        const coursePath = await resolveCoursePathForWrite(
-          coursesDirectory,
-          savedCourse.id,
-          savedCourse.displayName,
-          signal,
-        )
-        await writeTextFileAtomic(
-          coursePath,
-          JSON.stringify(savedCourse, null, 2),
-          signal,
-        )
-        if (existingPath !== null && existingPath !== coursePath) {
-          await rm(existingPath, { force: true })
-        }
-        return savedCourse
       })
     },
     async deleteCourse(courseId: string, signal?: AbortSignal) {

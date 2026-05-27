@@ -156,12 +156,8 @@ function createDesktopWorkflowRegistry(
         (await ports.appSettingsStore.loadSettings(options?.signal)) ??
         defaultAppSettings
       const persistable = stripEnvOverridesForPersist(input, rawPersisted)
-      const saved = await settingsHandlers["settings.saveApp"](
-        persistable,
-        options,
-      )
-      ports.onAppSettingsSaved?.(saved)
-      return applyEnvOverrides(saved)
+      await settingsHandlers["settings.saveApp"](persistable, options)
+      ports.onAppSettingsSaved?.(persistable)
     },
   }
 

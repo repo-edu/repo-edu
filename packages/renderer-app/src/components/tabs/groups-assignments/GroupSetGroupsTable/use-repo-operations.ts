@@ -67,7 +67,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   const setActiveGitConnectionId = useAppSettingsStore(
     (s) => s.setActiveGitConnectionId,
   )
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
   const organization = useCourseStore(selectOrganization)
   const setOrganization = useCourseStore((s) => s.setOrganization)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
@@ -335,11 +334,10 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   )
 
   const handleSelectActiveGitConnection = useCallback(
-    async (id: string | null) => {
+    (id: string | null) => {
       setActiveGitConnectionId(id)
-      await saveAppSettings()
     },
-    [setActiveGitConnectionId, saveAppSettings],
+    [setActiveGitConnectionId],
   )
 
   return {

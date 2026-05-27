@@ -6,12 +6,7 @@ import {
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
-  defaultAppSettings,
-  type PersistedAppSettings,
-} from "@repo-edu/domain/settings"
-import {
   type PersistedCourse,
-  persistedAppSettingsKind,
   persistedCourseKind,
 } from "@repo-edu/domain/types"
 import {
@@ -22,7 +17,7 @@ import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 
-function makeProfile(courseId = "course-1"): PersistedCourse {
+function makeCourse(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
     backing: "lms",
@@ -54,16 +49,6 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
   }
 }
 
-function makeSettings(
-  overrides: Partial<PersistedAppSettings> = {},
-): PersistedAppSettings {
-  return {
-    ...defaultAppSettings,
-    kind: persistedAppSettingsKind,
-    ...overrides,
-  }
-}
-
 beforeEach(() => {
   clearWorkflowClient()
   useAppSettingsStore.getState().reset()
@@ -72,103 +57,42 @@ beforeEach(() => {
 })
 
 describe("workflow failure handling in stores", () => {
-  describe("app settings store", () => {
-    it("transitions to error state on load failure", async () => {
-      const providerError: AppError = {
-        type: "persistence",
-        message: "Settings file corrupted",
-        operation: "read",
-      }
-      const client = createWorkflowClient({
-        "settings.loadApp": async () => {
-          throw providerError
-        },
-      })
-      setWorkflowClient(client as unknown as WorkflowClient)
-
-      await useAppSettingsStore.getState().load()
-
-      assert.equal(useAppSettingsStore.getState().status, "error")
-      assert.ok(useAppSettingsStore.getState().error?.includes("corrupted"))
+  it("transitions to error state on course load failure", async () => {
+    const notFoundError: AppError = {
+      type: "not-found",
+      message: "Course 'unknown' was not found.",
+      resource: "course",
+    }
+    const client = createWorkflowClient({
+      "course.load": async () => {
+        throw notFoundError
+      },
     })
+    setWorkflowClient(client as unknown as WorkflowClient)
 
-    it("transitions to error state on save failure", async () => {
-      const settings = makeSettings()
-      const client = createWorkflowClient({
-        "settings.loadApp": async () => settings,
-        "settings.saveApp": async () => {
-          throw new Error("Write permission denied")
-        },
-      })
-      setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load("unknown")
 
-      await useAppSettingsStore.getState().load()
-      assert.equal(useAppSettingsStore.getState().status, "loaded")
-
-      await useAppSettingsStore.getState().save()
-      assert.equal(useAppSettingsStore.getState().status, "error")
-    })
+    assert.equal(useCourseStore.getState().status, "error")
+    assert.ok(useCourseStore.getState().error?.includes("not found"))
   })
 
-  describe("course store", () => {
-    it("transitions to error state on load failure", async () => {
-      const notFoundError: AppError = {
-        type: "not-found",
-        message: "Course 'unknown' was not found.",
-        resource: "course",
-      }
-      const client = createWorkflowClient({
-        "course.load": async () => {
-          throw notFoundError
-        },
-      })
-      setWorkflowClient(client as unknown as WorkflowClient)
-
-      await useCourseStore.getState().load("unknown")
-
-      assert.equal(useCourseStore.getState().status, "error")
-      assert.ok(useCourseStore.getState().error?.includes("not found"))
+  it("keeps local course state when sync status records a save failure", async () => {
+    const course = makeCourse()
+    const client = createWorkflowClient({
+      "course.load": async () => course,
     })
+    setWorkflowClient(client as unknown as WorkflowClient)
 
-    it("keeps local state after save failure", async () => {
-      const course = makeProfile()
-      const client = createWorkflowClient({
-        "course.load": async () => course,
-        "course.save": async () => {
-          throw { type: "unexpected", message: "Disk full", retryable: false }
-        },
-      })
-      setWorkflowClient(client as unknown as WorkflowClient)
+    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().setDisplayName("Modified")
+    useCourseStore
+      .getState()
+      .setSyncStatus({ state: "error", message: "Disk full" })
 
-      await useCourseStore.getState().load(course.id)
-      useCourseStore.getState().setDisplayName("Modified")
-
-      const saved = await useCourseStore.getState().save()
-      assert.equal(saved, false)
-      assert.equal(useCourseStore.getState().course?.displayName, "Modified")
-      assert.equal(useCourseStore.getState().syncState, "error")
-    })
-
-    it("reports cancellation errors distinctly", async () => {
-      const course = makeProfile()
-      const cancelledError: AppError = {
-        type: "cancelled",
-        message: "Workflow was cancelled.",
-      }
-      const client = createWorkflowClient({
-        "course.load": async () => course,
-        "course.save": async () => {
-          throw cancelledError
-        },
-      })
-      setWorkflowClient(client as unknown as WorkflowClient)
-
-      await useCourseStore.getState().load(course.id)
-      useCourseStore.getState().setDisplayName("Changed")
-
-      const saved = await useCourseStore.getState().save()
-      assert.equal(saved, false)
-      assert.ok(useCourseStore.getState().syncError?.includes("cancelled"))
+    assert.equal(useCourseStore.getState().course?.displayName, "Modified")
+    assert.deepStrictEqual(useCourseStore.getState().syncStatus, {
+      state: "error",
+      message: "Disk full",
     })
   })
 })

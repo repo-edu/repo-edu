@@ -31,20 +31,21 @@ import type {
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
-import { getWorkflowClient } from "../contexts/workflow-client.js"
-import type { StoreStatus } from "../types/index.js"
-import { getErrorMessage } from "../utils/error-message.js"
+import {
+  idleSyncStatus,
+  type PersistenceSyncStatus,
+} from "../persistence/create-persister.js"
 import { useConnectionsStore } from "./connections-store.js"
 
 type AppSettingsState = {
   settings: PersistedAppSettings
-  status: StoreStatus
-  error: string | null
+  syncStatus: PersistenceSyncStatus
 }
 
 type AppSettingsActions = {
-  load: () => Promise<void>
-  save: () => Promise<void>
+  hydrate: (settings: PersistedAppSettings) => void
+  setSyncStatus: (status: PersistenceSyncStatus) => void
+  dismissSyncError: () => void
 
   setActiveSurface: (surface: PersistedActiveSurface) => void
   setActiveTab: (tab: ActiveTab) => void
@@ -103,8 +104,7 @@ type AppSettingsActions = {
 
 const initialState: AppSettingsState = {
   settings: defaultAppSettings,
-  status: "loading",
-  error: null,
+  syncStatus: idleSyncStatus,
 }
 
 function submissionRecentsEqual(
@@ -150,68 +150,24 @@ function includedFilesEqual(
 
 export const useAppSettingsStore = create<
   AppSettingsState & AppSettingsActions
->((set, get) => {
-  let loadRequestId = 0
-  let saveRequestId = 0
-
+>((set) => {
   return {
     ...initialState,
 
-    load: async () => {
-      const requestId = ++loadRequestId
-      try {
-        set({ status: "loading", error: null })
-        const client = getWorkflowClient()
-        const loaded = await client.run("settings.loadApp", undefined)
-        set((state) => {
-          if (requestId !== loadRequestId || state.status !== "loading") {
-            return state
-          }
-          return { settings: loaded, status: "loaded", error: null }
-        })
-      } catch (err) {
-        set((state) => {
-          if (requestId !== loadRequestId) {
-            return state
-          }
-          return {
-            status: "error",
-            error: getErrorMessage(err),
-          }
-        })
-      }
-    },
+    hydrate: (settings) =>
+      set({
+        settings,
+        syncStatus: idleSyncStatus,
+      }),
 
-    save: async () => {
-      const requestId = ++saveRequestId
-      const settingsAtRequest = get().settings
-      try {
-        set({ status: "saving", error: null })
-        const client = getWorkflowClient()
-        const saved = await client.run("settings.saveApp", settingsAtRequest)
-        set((state) => {
-          if (requestId !== saveRequestId) {
-            return state
-          }
-          return {
-            settings:
-              state.settings === settingsAtRequest ? saved : state.settings,
-            status: "loaded",
-            error: null,
-          }
-        })
-      } catch (err) {
-        set((state) => {
-          if (requestId !== saveRequestId) {
-            return state
-          }
-          return {
-            status: "error",
-            error: getErrorMessage(err),
-          }
-        })
-      }
-    },
+    setSyncStatus: (syncStatus) => set({ syncStatus }),
+
+    dismissSyncError: () =>
+      set((state) =>
+        state.syncStatus.state === "error"
+          ? { syncStatus: idleSyncStatus }
+          : state,
+      ),
 
     setActiveSurface: (surface) =>
       set((state) => ({
@@ -655,5 +611,7 @@ export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
   state.settings.rosterColumnSizing
-export const selectAppSettingsStatus = (state: AppSettingsState) => state.status
-export const selectAppSettingsError = (state: AppSettingsState) => state.error
+export const selectAppSettingsSyncStatus = (state: AppSettingsState) =>
+  state.syncStatus
+export const selectAppSettingsSnapshot = (state: AppSettingsState) =>
+  state.settings

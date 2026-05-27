@@ -13,6 +13,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
 - `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON and app settings)
+- `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of `PersistedAppSettings`.
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
 - `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side dialog
 

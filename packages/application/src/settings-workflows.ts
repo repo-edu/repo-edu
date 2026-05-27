@@ -1,4 +1,5 @@
 import type {
+  AppError,
   DiagnosticOutput,
   MilestoneProgress,
   WorkflowCallOptions,
@@ -6,8 +7,43 @@ import type {
 } from "@repo-edu/application-contract"
 import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
 import type { PersistedAppSettings } from "@repo-edu/domain/settings"
-import { type AppSettingsStore, createValidationAppError } from "./core.js"
-import { loadSettingsOrDefault } from "./workflow-helpers.js"
+import {
+  type AppSettingsStore,
+  createValidationAppError,
+  isPersistenceWriteError,
+} from "./core.js"
+import {
+  isRetryablePersistenceWriteKind,
+  isSharedAppError,
+  loadSettingsOrDefault,
+  toCancelledAppError,
+} from "./workflow-helpers.js"
+
+function normalizeSettingsSaveError(error: unknown): AppError {
+  if (isSharedAppError(error)) {
+    return error
+  }
+
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return toCancelledAppError()
+  }
+
+  if (isPersistenceWriteError(error)) {
+    return {
+      type: "persistence",
+      message: error.message,
+      operation: "write",
+      retryable: isRetryablePersistenceWriteKind(error.kind),
+    }
+  }
+
+  return {
+    type: "persistence",
+    message: error instanceof Error ? error.message : String(error),
+    operation: "write",
+    retryable: false,
+  }
+}
 
 export function createSettingsWorkflowHandlers(
   appSettingsStore: AppSettingsStore,
@@ -48,17 +84,17 @@ export function createSettingsWorkflowHandlers(
         label: "Writing app settings to store.",
       })
 
-      const savedSettings = await appSettingsStore.saveSettings(
-        validation.value,
-        options?.signal,
-      )
+      try {
+        await appSettingsStore.saveSettings(validation.value, options?.signal)
+      } catch (error) {
+        throw normalizeSettingsSaveError(error)
+      }
+
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
         label: "App settings saved.",
       })
-
-      return savedSettings
     },
   }
 }

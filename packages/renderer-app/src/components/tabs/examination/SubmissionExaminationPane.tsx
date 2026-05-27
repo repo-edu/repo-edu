@@ -90,7 +90,7 @@ export function SubmissionExaminationPane({
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setExaminationSubmissionSidebarSize, save } =
+    const { setExaminationSubmissionSidebarSize } =
       useAppSettingsStore.getState()
     const nextSize = clampSidebarWidthPx(panel.getSize().inPixels)
     const currentSize = clampSidebarWidthPx(
@@ -98,7 +98,6 @@ export function SubmissionExaminationPane({
     )
     if (nextSize === currentSize) return
     setExaminationSubmissionSidebarSize(nextSize)
-    void save()
   }, [])
 
   return (

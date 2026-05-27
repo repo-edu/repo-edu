@@ -14,7 +14,6 @@ import {
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { SETTINGS_SAVE_DEBOUNCE_MS } from "../../../constants/layout.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
@@ -22,7 +21,6 @@ import {
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { debounceAsync } from "../../../utils/debounce.js"
 import {
   type AnalysisSidebarFileSortMode,
   AnalysisSidebarFilesSection,
@@ -88,7 +86,6 @@ export function AnalysisSidebar() {
   const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
 
   // Persistence
-  const settingsStatus = useAppSettingsStore((s) => s.status)
   const defaultExtensions = useAppSettingsStore(
     (s) => s.settings.defaultExtensions,
   )
@@ -97,13 +94,8 @@ export function AnalysisSidebar() {
   )
   const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
   const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
-  const saveAppSettings = useAppSettingsStore((s) => s.save)
   const hydrateFromPersistedSettings = useAnalysisStore(
     (s) => s.hydrateFromPersistedSettings,
-  )
-  const saveDebounced = useMemo(
-    () => debounceAsync(saveAppSettings, SETTINGS_SAVE_DEBOUNCE_MS),
-    [saveAppSettings],
   )
 
   // Section open/close state
@@ -146,7 +138,6 @@ export function AnalysisSidebar() {
   const lastPersistedSnapshotRef = useRef<string | null>(null)
   useEffect(() => {
     if (hydratedRef.current) return
-    if (settingsStatus !== "loaded") return
     hydratedRef.current = true
     if (!analysisSidebar) return
     lastPersistedSnapshotRef.current = serializeSidebarSettings(analysisSidebar)
@@ -159,9 +150,9 @@ export function AnalysisSidebar() {
     setRepoViewMode(analysisSidebar.repoViewMode)
     setFileViewMode(analysisSidebar.fileViewMode)
     setFileSortMode(analysisSidebar.fileSortMode)
-  }, [settingsStatus, analysisSidebar, hydrateFromPersistedSettings])
+  }, [analysisSidebar, hydrateFromPersistedSettings])
 
-  // Persist sidebar settings on change (debounced save coalesces with hydration)
+  // Persist sidebar settings on change; the settings persister owns debounce.
   useEffect(() => {
     if (!hydratedRef.current) return
     const snapshot: PersistedAnalysisSidebarSettings = {
@@ -180,7 +171,6 @@ export function AnalysisSidebar() {
     }
     setAnalysisSidebar(snapshot)
     lastPersistedSnapshotRef.current = snapshotSerialized
-    saveDebounced()
   }, [
     searchDepth,
     sections,
@@ -189,7 +179,6 @@ export function AnalysisSidebar() {
     fileSortMode,
     blameConfig,
     setAnalysisSidebar,
-    saveDebounced,
   ])
 
   const configInputResetKey = useMemo(

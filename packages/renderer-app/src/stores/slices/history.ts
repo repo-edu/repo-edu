@@ -35,7 +35,6 @@ export function createHistorySlice(
     set((draft) => {
       if (!draft.course) return
       draft.course.roster = nextRoster as Roster
-      draft.course.updatedAt = new Date().toISOString()
       draft.history.push({ patches, inversePatches, description })
       if (draft.history.length > HISTORY_LIMIT) {
         draft.history.splice(0, draft.history.length - HISTORY_LIMIT)
@@ -60,7 +59,6 @@ export function createHistorySlice(
         set((draft) => {
           if (!draft.course) return
           draft.course.roster = nextRoster as Roster
-          draft.course.updatedAt = new Date().toISOString()
           draft.history.pop()
           draft.future.push(entry)
           draft.checksDirty = true
@@ -77,7 +75,6 @@ export function createHistorySlice(
         set((draft) => {
           if (!draft.course) return
           draft.course.roster = nextRoster as Roster
-          draft.course.updatedAt = new Date().toISOString()
           draft.future.pop()
           draft.history.push(entry)
           draft.checksDirty = true

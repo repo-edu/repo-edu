@@ -11,12 +11,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Text,
 } from "@repo-edu/ui"
-import { useState } from "react"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { SYNTAX_THEMES } from "../../utils/blame-highlighter.js"
-import { getErrorMessage } from "../../utils/error-message.js"
 
 const THEMES: Array<{ value: ThemePreference; label: string }> = [
   { value: "light", label: "Light" },
@@ -57,42 +54,21 @@ export function DisplayPane() {
   const setDateFormat = useAppSettingsStore((state) => state.setDateFormat)
   const setTimeFormat = useAppSettingsStore((state) => state.setTimeFormat)
   const setSyntaxTheme = useAppSettingsStore((state) => state.setSyntaxTheme)
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
-
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const persist = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      await saveAppSettings()
-    } catch (cause) {
-      const message = getErrorMessage(cause)
-      setError(message)
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleThemeChange = (value: ThemePreference) => {
     setTheme(value)
-    void persist()
   }
 
   const handleDateFormatChange = (value: DateFormatPreference) => {
     setDateFormat(value)
-    void persist()
   }
 
   const handleTimeFormatChange = (value: TimeFormatPreference) => {
     setTimeFormat(value)
-    void persist()
   }
 
   const handleSyntaxThemeChange = (value: SyntaxThemeId) => {
     setSyntaxTheme(value)
-    void persist()
   }
 
   return (
@@ -178,11 +154,6 @@ export function DisplayPane() {
           </SelectContent>
         </Select>
       </FormField>
-
-      {saving && (
-        <Text className="text-xs text-muted-foreground">Saving settings…</Text>
-      )}
-      {error && <Text className="text-xs text-destructive">{error}</Text>}
     </div>
   )
 }

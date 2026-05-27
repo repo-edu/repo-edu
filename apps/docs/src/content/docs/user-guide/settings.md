@@ -72,6 +72,6 @@ In the desktop app, roster edits (adding members, moving groups, editing fields)
 
 Non-roster changes (course metadata, settings) are not tracked in undo history — they save immediately.
 
-## Autosave
+## Saving
 
-The desktop app autosaves your course after each change with a short debounce delay. The save indicator in the UI shows whether the document is saving, saved, or encountered an error. If a save fails (network issue, revision conflict), it retries automatically with increasing delays.
+The desktop app persists course and settings changes after a short debounce delay. The save indicator shows whether a course write is saving, saved, or blocked by an error. Retryable save failures retry automatically; course revision conflicts stay visible until you reload.

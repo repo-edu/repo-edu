@@ -10,21 +10,21 @@ import { validateAssignment, validateRoster } from "@repo-edu/domain/validation"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { buildIssueCards } from "../../utils/issues.js"
-import type {
-  CourseActions,
-  StoreGet,
-  StoreInternals,
-  StoreSet,
-} from "./types.js"
+import type { CourseActions, StoreGet, StoreSet } from "./types.js"
 import { initialState } from "./types.js"
 
 export function createLifecycleSlice(
   set: StoreSet,
   get: StoreGet,
-  internals: StoreInternals,
 ): Pick<
   CourseActions,
-  "load" | "clear" | "ensureSystemGroupSets" | "runChecks"
+  | "load"
+  | "clear"
+  | "setSyncStatus"
+  | "dismissSyncError"
+  | "applySaveStamp"
+  | "ensureSystemGroupSets"
+  | "runChecks"
 > {
   let loadRequestId = 0
 
@@ -57,9 +57,7 @@ export function createLifecycleSlice(
           draft.assignmentSelection = null
           draft.checksDirty = true
           draft.systemSetsReady = true
-          draft.localVersion = 0
-          draft.lastSavedRevision = loadedCourse.revision
-          draft.syncState = "idle"
+          draft.syncStatus = initialState.syncStatus
         })
       } catch (err) {
         if (requestId !== loadRequestId) {
@@ -74,9 +72,30 @@ export function createLifecycleSlice(
 
     clear: () => {
       loadRequestId += 1
-      internals.cancelPendingSave()
       set((draft) => {
         Object.assign(draft, initialState)
+      })
+    },
+
+    setSyncStatus: (syncStatus) => {
+      set((draft) => {
+        draft.syncStatus = syncStatus
+      })
+    },
+
+    dismissSyncError: () => {
+      set((draft) => {
+        if (draft.syncStatus.state === "error") {
+          draft.syncStatus = initialState.syncStatus
+        }
+      })
+    },
+
+    applySaveStamp: (courseId, stamp) => {
+      set((draft) => {
+        if (draft.course?.id !== courseId) return
+        draft.course.revision = stamp.revision
+        draft.course.updatedAt = stamp.updatedAt
       })
     },
 
@@ -125,11 +144,9 @@ export function createLifecycleSlice(
         roster.groupSets.push(...(result.groupSets as GroupSet[]))
 
         draft.course.idSequences = result.idSequences
-        draft.course.updatedAt = new Date().toISOString()
         draft.systemSetsReady = true
         draft.checksDirty = true
       })
-      internals.markCourseMutated()
     },
 
     runChecks: (identityMode) => {

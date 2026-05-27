@@ -140,7 +140,6 @@ export function createRosterActionsSlice(
       set((draft) => {
         if (!draft.course) return
         draft.course.roster = nextRoster as Roster
-        draft.course.updatedAt = new Date().toISOString()
         draft.history.push({
           patches,
           inversePatches,
@@ -159,7 +158,6 @@ export function createRosterActionsSlice(
       set((draft) => {
         if (!draft.course) return
         draft.course.idSequences = idSequences
-        draft.course.updatedAt = new Date().toISOString()
         draft.checksDirty = true
       })
       internals.markCourseMutated()

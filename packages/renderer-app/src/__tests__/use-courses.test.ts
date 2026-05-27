@@ -1,10 +1,6 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import {
-  createWorkflowClient,
-  type WorkflowClient,
-} from "@repo-edu/application-contract"
-import {
   defaultAppSettings,
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
@@ -13,14 +9,16 @@ import {
   type CourseSummary,
   persistedAppSettingsKind,
 } from "@repo-edu/domain/types"
-import {
-  clearWorkflowClient,
-  setWorkflowClient,
-} from "../contexts/workflow-client.js"
+import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import {
   pruneLoadedSubmissionFoldersForCourses,
   resolveActiveSurfaceRedirectForCourses,
 } from "../hooks/use-courses.js"
+import {
+  clearPersisterRegistry,
+  type PersisterRegistry,
+  setPersisterRegistry,
+} from "../persistence/persister-registry.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
@@ -46,10 +44,32 @@ function courseSummary(id: string, backing: CourseBacking): CourseSummary {
 
 beforeEach(() => {
   clearWorkflowClient()
+  clearPersisterRegistry()
   useAppSettingsStore.getState().reset()
   useCourseStore.getState().clear()
   useUiStore.getState().reset()
 })
+
+function installSettingsFlushCounter(onFlush: () => void) {
+  const persister = {
+    flush: async () => {},
+    waitForIdle: async () => {},
+    adoptCurrentSnapshot: () => {},
+    dispose: () => {},
+  }
+  setPersisterRegistry({
+    appSettings: {
+      ...persister,
+      flush: async () => {
+        onFlush()
+      },
+    },
+    course: persister,
+    flush: async () => {},
+    waitForIdle: async () => {},
+    dispose: () => {},
+  } satisfies PersisterRegistry)
+}
 
 describe("course refresh submission pruning", () => {
   it("marks the course list ready when an empty list has loaded", () => {
@@ -106,41 +126,27 @@ describe("course refresh submission pruning", () => {
     )
   })
 
-  it("does not save app settings before settings have loaded", () => {
-    let saveCalls = 0
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async (settings) => {
-        saveCalls += 1
-        return settings
-      },
+  it("does not flush app settings when submission recents do not change", () => {
+    let flushCalls = 0
+    installSettingsFlushCounter(() => {
+      flushCalls += 1
     })
-    setWorkflowClient(client as unknown as WorkflowClient)
-    useAppSettingsStore
-      .getState()
-      .pushRecentSubmissionFolder({ path: "/submissions/ada", courseId: "old" })
+    useAppSettingsStore.getState().hydrate(makeSettings())
 
-    const changed = pruneLoadedSubmissionFoldersForCourses([])
+    const changed = pruneLoadedSubmissionFoldersForCourses([
+      courseSummary("course-1", "lms"),
+    ])
 
     assert.equal(changed, false)
-    assert.equal(saveCalls, 0)
-    assert.deepStrictEqual(
-      useAppSettingsStore.getState().settings.recentSubmissionFolders,
-      [{ path: "/submissions/ada", courseId: "old" }],
-    )
+    assert.equal(flushCalls, 0)
   })
 
-  it("saves loaded settings only when stale submission recents are pruned", async () => {
-    let saveCalls = 0
-    const client = createWorkflowClient({
-      "settings.loadApp": async () => makeSettings(),
-      "settings.saveApp": async (settings) => {
-        saveCalls += 1
-        return settings
-      },
+  it("flushes loaded settings only when stale submission recents are pruned", async () => {
+    let flushCalls = 0
+    installSettingsFlushCounter(() => {
+      flushCalls += 1
     })
-    setWorkflowClient(client as unknown as WorkflowClient)
-    await useAppSettingsStore.getState().load()
+    useAppSettingsStore.getState().hydrate(makeSettings())
     useAppSettingsStore.getState().pushRecentSubmissionFolder({
       path: "/submissions/ada",
       courseId: "course-1",
@@ -152,12 +158,12 @@ describe("course refresh submission pruning", () => {
       ]),
       false,
     )
-    assert.equal(saveCalls, 0)
+    assert.equal(flushCalls, 0)
 
     assert.equal(pruneLoadedSubmissionFoldersForCourses([]), true)
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    assert.equal(saveCalls, 1)
+    assert.equal(flushCalls, 1)
     assert.deepStrictEqual(
       useAppSettingsStore.getState().settings.recentSubmissionFolders,
       [],

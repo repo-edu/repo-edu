@@ -1,3 +1,4 @@
+import type { CourseSaveStamp } from "@repo-edu/application-contract"
 import type {
   AnalysisInputs,
   Assignment,
@@ -10,6 +11,10 @@ import type {
   RosterValidationResult,
 } from "@repo-edu/domain/types"
 import type { Patch } from "immer"
+import {
+  idleSyncStatus,
+  type PersistenceSyncStatus,
+} from "../../persistence/create-persister.js"
 import type {
   ChecksStatus,
   DocumentStatus,
@@ -17,8 +22,6 @@ import type {
 } from "../../types/index.js"
 
 export const HISTORY_LIMIT = 100
-export const AUTOSAVE_DEBOUNCE_MS = 300
-export const AUTOSAVE_RETRY_DELAYS_MS = [300, 900, 2000] as const
 
 export type HistoryEntry = {
   patches: Patch[]
@@ -41,10 +44,7 @@ export type CourseState = {
   checksStatus: ChecksStatus
   checksError: string | null
   checksDirty: boolean
-  localVersion: number
-  lastSavedRevision: number | null
-  syncState: "idle" | "saving" | "error"
-  syncError: string | null
+  syncStatus: PersistenceSyncStatus
 
   history: HistoryEntry[]
   future: HistoryEntry[]
@@ -52,8 +52,10 @@ export type CourseState = {
 
 export type CourseActions = {
   load: (courseId: string) => Promise<void>
-  save: () => Promise<boolean>
   clear: () => void
+  setSyncStatus: (status: PersistenceSyncStatus) => void
+  dismissSyncError: () => void
+  applySaveStamp: (courseId: string, stamp: CourseSaveStamp) => void
 
   // Roster mutations (with undo history)
   addMember: (member: RosterMember) => void
@@ -137,11 +139,6 @@ export type StoreGet = () => CourseState & CourseActions
 export type StoreInternals = {
   mutateRoster: (description: string, recipe: (roster: Roster) => void) => void
   markCourseMutated: () => void
-  scheduleAutosave: () => void
-  clearAutosaveTimer: () => void
-  cancelPendingSave: () => void
-  requestAutosave: () => void
-  waitForIdle: () => Promise<void>
 }
 
 export const initialState: CourseState = {
@@ -157,10 +154,7 @@ export const initialState: CourseState = {
   checksStatus: "idle",
   checksError: null,
   checksDirty: false,
-  localVersion: 0,
-  lastSavedRevision: null,
-  syncState: "idle",
-  syncError: null,
+  syncStatus: idleSyncStatus,
   history: [],
   future: [],
 }

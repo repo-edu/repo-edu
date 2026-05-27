@@ -4,9 +4,7 @@ import os from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import type { AppSettingsStore } from "@repo-edu/application"
 import {
-  defaultAppSettings,
   type PersistedAppSettings,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
@@ -63,6 +61,11 @@ import {
 import { createDesktopAppSettingsStore } from "./settings-store"
 import type { DesktopRouter } from "./trpc"
 import { createDesktopRouter } from "./trpc"
+import {
+  defaultDesktopWindowState,
+  loadDesktopWindowState,
+  saveDesktopWindowState,
+} from "./window-state-store"
 
 const { createIPCHandler } = createRequire(import.meta.url)(
   "trpc-electron/main",
@@ -593,18 +596,12 @@ function handleValidationMarker(message: string) {
   }
 }
 
-async function saveWindowState(appSettingsStore: AppSettingsStore) {
+async function saveWindowState(storageRoot: string) {
   const mainWindow = BrowserWindow.getAllWindows()[0]
   if (!mainWindow) return
 
   const [width, height] = mainWindow.getSize()
-  const current = await appSettingsStore.loadSettings()
-  if (!current) return
-
-  await appSettingsStore.saveSettings({
-    ...current,
-    window: { width, height },
-  })
+  await saveDesktopWindowState(storageRoot, { width, height })
 }
 
 async function createWindow(): Promise<BrowserWindow> {
@@ -619,14 +616,13 @@ async function createWindow(): Promise<BrowserWindow> {
     // Fall back to defaults on load failure.
   }
 
-  const windowWidth =
-    appSettings?.window.width ?? defaultAppSettings.window.width
-  const windowHeight =
-    appSettings?.window.height ?? defaultAppSettings.window.height
+  const windowState = await loadDesktopWindowState(storageRoot).catch(
+    () => defaultDesktopWindowState,
+  )
 
   const mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
+    width: windowState.width,
+    height: windowState.height,
     show: !(isMeasureMode || isTRPCValidationMode),
     title: desktopAppName,
     backgroundColor: "#f5f5f5",
@@ -650,7 +646,7 @@ async function createWindow(): Promise<BrowserWindow> {
   mainWindow.on("resize", () => {
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
-      saveInFlight = saveWindowState(appSettingsStore).catch(() => {})
+      saveInFlight = saveWindowState(storageRoot).catch(() => {})
     }, 300)
   })
 
@@ -671,7 +667,7 @@ async function createWindow(): Promise<BrowserWindow> {
     }
 
     saveInFlight
-      .then(() => saveWindowState(appSettingsStore))
+      .then(() => saveWindowState(storageRoot))
       .catch(() => {
         // Best-effort persistence on shutdown.
       })
