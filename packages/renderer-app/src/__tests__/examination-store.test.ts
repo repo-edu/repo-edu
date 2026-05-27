@@ -1,7 +1,27 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
+import {
+  buildSourceSessionKey,
+  type SourceIdentity,
+} from "../components/tabs/examination/source.js"
 import type { ExaminationEntry } from "../stores/examination-store.js"
-import { useExaminationStore } from "../stores/examination-store.js"
+import {
+  examinationRequestSidecar,
+  useExaminationStore,
+} from "../stores/examination-store.js"
+
+const identity: SourceIdentity = {
+  kind: "repository-analysis",
+  repoPath: "/repo",
+  commitOid: "a".repeat(40),
+  subjectId: "p_1",
+  excerptScopeId: "scope-1",
+  redactionIdentityScopeId: "redaction-1",
+  questionCount: 4,
+  model: "22",
+  effort: "medium",
+}
+const sourceSessionKey = buildSourceSessionKey(identity)
 
 beforeEach(() => {
   useExaminationStore.getState().reset()
@@ -107,37 +127,46 @@ describe("examination store", () => {
     assert.equal(updated?.generationProgressLabel, "Receiving model response.")
   })
 
-  it("owns abort controllers in observable state", () => {
+  it("owns abort controllers in the request sidecar", () => {
+    const store = activateSession()
     const controller = new AbortController()
 
-    useExaminationStore.getState().startGenerationSession({
+    const started = store.startGenerationSession({
+      sourceSessionKey,
       entryKey: "session-1",
       generationControlId: "control-1",
-      abortController: controller,
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
     })
-
-    assert.equal(
-      useExaminationStore.getState().abortByEntryKey.get("session-1"),
+    if (started === null) throw new Error("Generation did not start.")
+    examinationRequestSidecar.registerGeneration(
+      sourceSessionKey,
+      started.requestId,
       controller,
+      "control-1",
     )
+
+    assert.equal(controller.signal.aborted, false)
+    store.cancelGenerationSession(sourceSessionKey)
+    assert.equal(controller.signal.aborted, true)
   })
 
   it("migrates any loading key to the result archive key on success", () => {
-    const controller = new AbortController()
-    const store = useExaminationStore.getState()
-    store.startGenerationSession({
+    const store = activateSession()
+    const started = store.startGenerationSession({
+      sourceSessionKey,
       entryKey: "session-1",
       generationControlId: "control-1",
-      abortController: controller,
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
     })
+    if (started === null) throw new Error("Generation did not start.")
 
     store.applyLoadedArchiveResult({
+      sourceSessionKey,
+      requestId: started.requestId,
       loadingKey: "session-1",
       resultKey: "archive-1",
       entry: entry("loaded"),
@@ -146,22 +175,28 @@ describe("examination store", () => {
     const state = useExaminationStore.getState()
     assert.equal(state.entriesByKey.has("session-1"), false)
     assert.equal(state.entriesByKey.get("archive-1")?.status, "loaded")
-    assert.equal(state.abortByEntryKey.has("session-1"), false)
   })
 
   it("separates soft stop intent from transport cancellation", () => {
+    const store = activateSession()
     const controller = new AbortController()
-    const store = useExaminationStore.getState()
-    store.startGenerationSession({
+    const started = store.startGenerationSession({
+      sourceSessionKey,
       entryKey: "session-1",
       generationControlId: "control-1",
-      abortController: controller,
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
     })
+    if (started === null) throw new Error("Generation did not start.")
+    examinationRequestSidecar.registerGeneration(
+      sourceSessionKey,
+      started.requestId,
+      controller,
+      "control-1",
+    )
 
-    store.requestGenerationStop("session-1")
+    store.requestGenerationStop(sourceSessionKey)
 
     assert.equal(controller.signal.aborted, false)
     assert.equal(
@@ -170,7 +205,7 @@ describe("examination store", () => {
       true,
     )
 
-    store.cancelGenerationSession("session-1")
+    store.cancelGenerationSession(sourceSessionKey)
 
     assert.equal(controller.signal.aborted, true)
     assert.equal(
@@ -179,3 +214,21 @@ describe("examination store", () => {
     )
   })
 })
+
+function activateSession() {
+  const store = useExaminationStore.getState()
+  store.activateSource({
+    sourceSummaryKey: "summary-1",
+    sourceSessionKey,
+    sourceIdentity: identity,
+    subjectIds: ["p_1"],
+    selectedSubjectId: "p_1",
+    defaultPreferences: {
+      questionCount: 4,
+      activeConnectionId: "llm-1",
+      modelCode: "22",
+      effort: "medium",
+    },
+  })
+  return store
+}

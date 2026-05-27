@@ -7,6 +7,10 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
+  buildSourceSessionKey,
+  type SourceIdentity,
+} from "../components/tabs/examination/source.js"
+import {
   analysisStoreInternals,
   buildEffectiveBlameWorkflowConfig,
   selectAuthorColorsByPersonId,
@@ -20,6 +24,30 @@ import {
 } from "../stores/analysis-store.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 import { authorColor } from "../utils/author-colors.js"
+
+const repositoryIdentity: SourceIdentity = {
+  kind: "repository-analysis",
+  repoPath: "/repo",
+  commitOid: "a".repeat(40),
+  subjectId: "p_1",
+  excerptScopeId: "scope-1",
+  redactionIdentityScopeId: "redaction-1",
+  questionCount: 4,
+  model: "22",
+  effort: "medium",
+}
+
+const submissionIdentity: SourceIdentity = {
+  kind: "submission",
+  folderPath: "/submission",
+  contentScopeId: "submission-scope",
+  subjectId: "submission",
+  excerptScopeId: "submission-scope",
+  redactionIdentityScopeId: "redaction-1",
+  questionCount: 4,
+  model: "22",
+  effort: "medium",
+}
 
 function makeCourse(
   inputs: PersistedCourse["analysisInputs"],
@@ -53,6 +81,24 @@ function makeCourse(
     analysisInputs: inputs,
     updatedAt: "2026-04-08T00:00:00Z",
   }
+}
+
+function activateExaminationSession(identity: SourceIdentity): string {
+  const sourceSessionKey = buildSourceSessionKey(identity)
+  useExaminationStore.getState().activateSource({
+    sourceSummaryKey: `${identity.kind}-summary`,
+    sourceSessionKey,
+    sourceIdentity: identity,
+    subjectIds: [identity.subjectId],
+    selectedSubjectId: identity.subjectId,
+    defaultPreferences: {
+      questionCount: identity.questionCount,
+      activeConnectionId: "llm-1",
+      modelCode: identity.model,
+      effort: identity.effort,
+    },
+  })
+  return sourceSessionKey
 }
 
 beforeEach(() => {
@@ -186,7 +232,8 @@ describe("analysis store", () => {
     store.setBlameShowMetadata(false)
     store.setBlameColorize(false)
     store.setActiveView("examination")
-    useExaminationStore.getState().setSelectedPersonId("p_1")
+    const repositorySessionKey = activateExaminationSession(repositoryIdentity)
+    const submissionSessionKey = activateExaminationSession(submissionIdentity)
 
     store.resetAnalysisContext()
 
@@ -197,13 +244,24 @@ describe("analysis store", () => {
     assert.equal(state.blameShowMetadata, false)
     assert.equal(state.blameColorize, false)
     assert.equal(state.activeView, "authors")
-    assert.equal(useExaminationStore.getState().selectedPersonId, null)
+    assert.equal(
+      useExaminationStore.getState().sourceSessions.has(repositorySessionKey),
+      false,
+    )
+    assert.equal(
+      useExaminationStore.getState().sourceSessions.has(submissionSessionKey),
+      true,
+    )
   })
 
-  it("resets examination state when the selected repository changes", () => {
+  it("invalidates only repository-analysis sessions when the selected repository changes", () => {
     const store = useAnalysisStore.getState()
     store.setSelectedRepoPath("/repo-a")
-    useExaminationStore.getState().setSelectedPersonId("p_1")
+    const repositorySessionKey = activateExaminationSession({
+      ...repositoryIdentity,
+      repoPath: "/repo-a",
+    })
+    const submissionSessionKey = activateExaminationSession(submissionIdentity)
     useExaminationStore.getState().setEntry("entry-key", {
       status: "loaded",
       questions: [],
@@ -226,8 +284,15 @@ describe("analysis store", () => {
 
     store.setSelectedRepoPath("/repo-b")
 
-    assert.equal(useExaminationStore.getState().selectedPersonId, null)
-    assert.equal(useExaminationStore.getState().entriesByKey.size, 0)
+    assert.equal(
+      useExaminationStore.getState().sourceSessions.has(repositorySessionKey),
+      false,
+    )
+    assert.equal(
+      useExaminationStore.getState().sourceSessions.has(submissionSessionKey),
+      true,
+    )
+    assert.equal(useExaminationStore.getState().entriesByKey.size, 1)
   })
 
   it("cancelAll aborts every active run without dropping handles eagerly", () => {

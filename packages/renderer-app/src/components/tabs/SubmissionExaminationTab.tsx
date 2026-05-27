@@ -443,10 +443,11 @@ function useSubmissionExaminationSource() {
               email: result.displaySubtitle,
               lines: lineCount,
               linesPercent: 100,
+              excerpts: result.excerpts,
+              excerptFileSources: result.excerptFileSources,
+              excerptScopeId: result.contentScopeId,
             },
             localIdentityContext: result.localIdentityContext,
-            excerpts: result.excerpts,
-            excerptFileSources: result.excerptFileSources,
           },
         })
       })

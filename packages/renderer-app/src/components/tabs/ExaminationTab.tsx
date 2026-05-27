@@ -6,37 +6,37 @@ import {
   selectAuthorDisplayByPersonId,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
-import { useExaminationStore } from "../../stores/examination-store.js"
+import {
+  buildExcerptFileSources,
+  buildMemberExcerpts,
+} from "./examination/build-excerpts.js"
 import { LlmControls } from "./examination/LlmControls.js"
 import { SubjectList } from "./examination/SubjectList.js"
 import { SubjectPanel } from "./examination/SubjectPanel.js"
 import type {
-  CourseExaminationSource,
-  SourceSubject,
+  PreparedExaminationSubject,
+  RepositoryAnalysisExaminationSource,
 } from "./examination/source.js"
+import { buildProvisionalRepositoryAnalysisExcerptScopeId } from "./examination/source.js"
 import { useExaminationEngine } from "./examination/use-examination-engine.js"
 import {
   resolveExaminationEmptyState,
   shouldShowUnmatchedRosterWarning,
 } from "./examination/view-state.js"
 
-export function CourseExaminationTab() {
+export function RepositoryAnalysisExaminationTab() {
   const analysisContext = useAnalysisContext()
   const blameResult = useAnalysisStore((state) => state.blameResult)
   const analysisResult = useAnalysisStore((state) => state.result)
   const selectedRepoPath = useAnalysisStore((state) => state.selectedRepoPath)
   const asOfCommit = useAnalysisStore((state) => state.asOfCommit)
   const authorDisplays = useAnalysisStore(selectAuthorDisplayByPersonId)
-  const selectedPersonId = useExaminationStore(
-    (state) => state.selectedPersonId,
-  )
 
   const authorSummaries = blameResult?.authorSummaries ?? []
   const emptyStateMessage = resolveExaminationEmptyState({
     selectedRepositoryPath: selectedRepoPath,
     hasBlameResult: blameResult !== null,
     authorCount: authorSummaries.length,
-    selectedPersonId,
   })
   const commitOid = useMemo(() => {
     const resolved = analysisResult?.resolvedAsOfOid
@@ -44,7 +44,7 @@ export function CourseExaminationTab() {
     return asOfCommit ?? ""
   }, [analysisResult, asOfCommit])
 
-  const source = useMemo<CourseExaminationSource | null>(() => {
+  const source = useMemo<RepositoryAnalysisExaminationSource | null>(() => {
     if (
       selectedRepoPath === null ||
       blameResult === null ||
@@ -63,33 +63,50 @@ export function CourseExaminationTab() {
         (analysisContext.course?.roster?.staff.length ?? 0) >
       0
     const rosterWarningBySubjectId = new Map<string, string | null>()
-    const subjects: SourceSubject[] = authorSummaries.map((summary) => {
-      const display = authorDisplays.get(summary.personId) ?? {
-        name: summary.canonicalName,
-        email: summary.canonicalEmail,
-      }
-      const rosterMemberId =
-        rosterMemberIdByPersonId.get(summary.personId) ?? null
-      rosterWarningBySubjectId.set(
-        summary.personId,
-        shouldShowUnmatchedRosterWarning({
-          analysisKind: analysisContext.kind,
-          rosterPopulated,
-          rosterMemberId,
-        })
-          ? "This author is not in the course roster; verify they belong to this course before sharing the questions."
-          : null,
-      )
-      return {
-        id: summary.personId,
-        name: display.name,
-        email: display.email,
-        lines: summary.lines,
-        linesPercent: summary.linesPercent,
-      }
-    })
+    const subjects: PreparedExaminationSubject[] = authorSummaries.map(
+      (summary) => {
+        const display = authorDisplays.get(summary.personId) ?? {
+          name: summary.canonicalName,
+          email: summary.canonicalEmail,
+        }
+        const rosterMemberId =
+          rosterMemberIdByPersonId.get(summary.personId) ?? null
+        rosterWarningBySubjectId.set(
+          summary.personId,
+          shouldShowUnmatchedRosterWarning({
+            analysisKind: analysisContext.kind,
+            rosterPopulated,
+            rosterMemberId,
+          })
+            ? "This author is not in the course roster; verify they belong to this course before sharing the questions."
+            : null,
+        )
+        const excerpts = buildMemberExcerpts(
+          blameResult,
+          blameResult.personDbOverlay,
+          summary.personId,
+        )
+        const excerptFileSources = buildExcerptFileSources(
+          blameResult,
+          excerpts,
+        )
+        return {
+          id: summary.personId,
+          name: display.name,
+          email: display.email,
+          lines: summary.lines,
+          linesPercent: summary.linesPercent,
+          excerpts,
+          excerptFileSources,
+          excerptScopeId: buildProvisionalRepositoryAnalysisExcerptScopeId({
+            excerpts,
+            excerptFileSources,
+          }),
+        }
+      },
+    )
     return {
-      kind: "course",
+      kind: "repository-analysis",
       selectedRepoPath,
       commitOid,
       subjects,
@@ -119,15 +136,18 @@ export function CourseExaminationTab() {
   }
 
   return (
-    <CourseExaminationPane source={source} emptyMessage={emptyStateMessage} />
+    <RepositoryAnalysisExaminationPane
+      source={source}
+      emptyMessage={emptyStateMessage}
+    />
   )
 }
 
-function CourseExaminationPane({
+function RepositoryAnalysisExaminationPane({
   source,
   emptyMessage,
 }: {
-  source: CourseExaminationSource
+  source: RepositoryAnalysisExaminationSource
   emptyMessage: string | null
 }) {
   const engine = useExaminationEngine({

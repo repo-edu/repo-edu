@@ -347,7 +347,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     ...initialState,
 
     setSelectedRepoPath: (path) => {
-      if (get().selectedRepoPath === path) return
+      const previousPath = get().selectedRepoPath
+      if (previousPath === path) return
       set((state) => {
         const snapshot = snapshotActiveBlameState(state)
         if (path === null) {
@@ -400,7 +401,9 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           ...DEFAULT_BLAME_STATE,
         }
       })
-      useExaminationStore.getState().reset()
+      useExaminationStore
+        .getState()
+        .invalidateRepositoryAnalysisSource(previousPath)
     },
 
     // Repo discovery
@@ -619,7 +622,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
 
     clearAllRepoStates: () => {
-      useExaminationStore.getState().reset()
+      useExaminationStore.getState().resetRepositoryAnalysis()
       set({
         selectedRepoPath: null,
         repoStates: new Map(),
@@ -788,7 +791,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
-      useExaminationStore.getState().reset()
+      useExaminationStore.getState().resetRepositoryAnalysis()
       set({
         selectedRepoPath: null,
         discoveredRepos: [],
@@ -828,7 +831,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       analysisStoreInternals.cancelAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
-      useExaminationStore.getState().reset()
+      useExaminationStore.getState().resetRepositoryAnalysis()
       set(initialState)
     },
   }),

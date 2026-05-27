@@ -1,55 +1,49 @@
 import type {
   ExaminationGenerateOutput,
   ExaminationLookupQuestionsInput,
+  ExaminationQuestionSummarySubjectInput,
   MilestoneProgress,
 } from "@repo-edu/application-contract"
 import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
-import {
-  getExaminationDefaultSpec,
-  getSpecByCode,
-  modelCode,
-} from "@repo-edu/integrations-llm-catalog"
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
+import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
+import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
-  selectActiveLlmConnection,
-  selectExaminationModelsByProvider,
-  selectLlmConnections,
-  useAppSettingsStore,
-} from "../../../stores/app-settings-store.js"
-import { useExaminationStore } from "../../../stores/examination-store.js"
+  examinationPreferencePersistence,
+  selectExaminationPreferenceSnapshot,
+} from "../../../stores/examination-preferences.js"
+import {
+  type ExaminationPreferencePersistenceEffect,
+  examinationRequestSidecar,
+  selectExaminationSession,
+  selectExaminationSourceSummary,
+  useExaminationStore,
+} from "../../../stores/examination-store.js"
 import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import {
-  mergeAvailableArchiveEntries,
   toAvailableArchiveEntry,
   toExaminationEntry,
 } from "./archive-entries.js"
 import {
-  buildExcerptFileSources,
-  buildMemberExcerpts,
-} from "./build-excerpts.js"
-import {
   type ExaminationDisplaySelection,
   selectExaminationDisplay,
 } from "./display-selectors.js"
-import {
-  displayedEntryReducer,
-  initialDisplayedEntryReducerState,
-  sourceIdentityKey,
-} from "./displayed-entry-reducer.js"
 import { resolveExaminationModelCode } from "./llm-models.js"
 import { buildMarkdownTranscript } from "./markdown-transcript.js"
 import type {
   ExaminationSource,
+  PreparedExaminationSubject,
   SourceIdentity,
   SourceSubject,
 } from "./source.js"
 import {
-  buildCourseSourceIdentity,
-  buildProvisionalCourseExcerptScopeId,
+  buildArchiveKeyIdentityKey,
+  buildRepositoryAnalysisSourceIdentity,
+  buildSourceSessionKey,
+  buildSourceSummaryKey,
   buildSubmissionSourceIdentity,
   getSourceSubject,
   sourceSubjects,
@@ -57,17 +51,16 @@ import {
 import type { AvailableArchiveEntry } from "./types.js"
 import { resolveExaminationBlockingReason } from "./view-state.js"
 
-type LookupMetadata = {
-  identityKey: string
-  entryKey: string
-}
-
 export type ExaminationEngineViewModel = {
   subjects: SourceSubject[]
   selectedSubject: SourceSubject | null
   generatedQuestionCountBySubjectId: ReadonlyMap<string, number>
-  connections: ReturnType<typeof selectLlmConnections>
-  activeConnection: ReturnType<typeof selectActiveLlmConnection>
+  connections: ReturnType<
+    typeof selectExaminationPreferenceSnapshot
+  >["connections"]
+  activeConnection: ReturnType<
+    typeof selectExaminationPreferenceSnapshot
+  >["activeConnection"]
   selectedModelCode: string | null
   archiveEntries: AvailableArchiveEntry[]
   showArchiveSelector: boolean
@@ -93,6 +86,8 @@ export type ExaminationEngineViewModel = {
   }
 }
 
+const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
+
 export function useExaminationEngine({
   source,
   emptyBlocker,
@@ -103,218 +98,242 @@ export function useExaminationEngine({
   const workflowClient = useWorkflowClient()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
-  const selectedSubjectId = useExaminationStore((state) =>
-    source.kind === "submission" ? source.subject.id : state.selectedPersonId,
-  )
-  const setSelectedSubjectId = useExaminationStore(
-    (state) => state.setSelectedPersonId,
-  )
-  const questionCount = useExaminationStore((state) => state.questionCount)
-  const setQuestionCount = useExaminationStore(
-    (state) => state.setQuestionCount,
-  )
-  const showAnswers = useExaminationStore((state) => state.showAnswers)
-  const setShowAnswers = useExaminationStore((state) => state.setShowAnswers)
-  const entriesByKey = useExaminationStore((state) => state.entriesByKey)
-  const setEntry = useExaminationStore((state) => state.setEntry)
-  const clearEntry = useExaminationStore((state) => state.clearEntry)
-  const startGenerationSession = useExaminationStore(
-    (state) => state.startGenerationSession,
-  )
-  const applyLoadedArchiveResult = useExaminationStore(
-    (state) => state.applyLoadedArchiveResult,
-  )
-  const applyGenerationError = useExaminationStore(
-    (state) => state.applyGenerationError,
-  )
-  const applyGenerationProgress = useExaminationStore(
-    (state) => state.applyGenerationProgress,
-  )
-  const applyPartialQuestions = useExaminationStore(
-    (state) => state.applyPartialQuestions,
-  )
-  const applyStreamProgress = useExaminationStore(
-    (state) => state.applyStreamProgress,
-  )
-  const requestGenerationStop = useExaminationStore(
-    (state) => state.requestGenerationStop,
-  )
-  const cancelAllGenerationSessions = useExaminationStore(
-    (state) => state.cancelAllGenerationSessions,
-  )
-  const clearAbort = useExaminationStore((state) => state.clearAbort)
-
-  const llmConnections = useAppSettingsStore(selectLlmConnections)
-  const activeLlmConnection = useAppSettingsStore(selectActiveLlmConnection)
-  const examinationModelsByProvider = useAppSettingsStore(
-    selectExaminationModelsByProvider,
-  )
-  const setActiveLlmConnectionId = useAppSettingsStore(
-    (state) => state.setActiveLlmConnectionId,
-  )
-  const setExaminationModelForProvider = useAppSettingsStore(
-    (state) => state.setExaminationModelForProvider,
-  )
-  const saveAppSettings = useAppSettingsStore((state) => state.save)
   const openSettings = useUiStore((state) => state.openSettings)
-
-  const [archiveEntries, setArchiveEntries] = useState<AvailableArchiveEntry[]>(
-    [],
-  )
-  const [generatedQuestionCountBySubjectId, setGeneratedQuestionCount] =
-    useState<ReadonlyMap<string, number>>(new Map())
-  const [lookupMetadata, setLookupMetadata] = useState<LookupMetadata | null>(
-    null,
-  )
-  const [refreshToken, setRefreshToken] = useState(0)
-  const [displayState, dispatchDisplay] = useReducer(
-    displayedEntryReducer,
-    initialDisplayedEntryReducerState,
+  const preferenceSnapshot = useAppSettingsStore(
+    selectExaminationPreferenceSnapshot,
   )
 
-  const activeProvider = activeLlmConnection?.provider ?? null
-  const llmSettings = useMemo(
-    () => ({
-      llmConnections,
-      activeLlmConnectionId: activeLlmConnection?.id ?? null,
-      examinationModelsByProvider,
-    }),
-    [llmConnections, activeLlmConnection, examinationModelsByProvider],
+  const sourceSummaryKey = useMemo(
+    () => buildSourceSummaryKey(source),
+    [source],
   )
-  const selectedModelCode = useMemo(() => {
-    if (activeProvider === null) return null
-    return resolveExaminationModelCode(
-      activeProvider,
-      examinationModelsByProvider,
-    )
-  }, [activeProvider, examinationModelsByProvider])
-  const selectedModelSpec = useMemo(
-    () =>
-      selectedModelCode === null
-        ? null
-        : (getSpecByCode(selectedModelCode) ?? null),
-    [selectedModelCode],
+  const sourceSummary = useExaminationStore(
+    selectExaminationSourceSummary(sourceSummaryKey),
   )
-
-  useEffect(() => {
-    if (activeProvider === null) return
-    const persisted = examinationModelsByProvider[activeProvider]
-    if (typeof persisted !== "string" || persisted.length === 0) return
-    const spec = getSpecByCode(persisted)
-    if (spec !== undefined && spec.provider === activeProvider) return
-    const fallback = getExaminationDefaultSpec(activeProvider)
-    if (fallback === undefined) return
-    setExaminationModelForProvider(activeProvider, modelCode(fallback))
-    void saveAppSettings()
-  }, [
-    activeProvider,
-    examinationModelsByProvider,
-    setExaminationModelForProvider,
-    saveAppSettings,
-  ])
-
+  const sourceSubjectIds = useMemo(
+    () => sourceSubjects(source).map((subject) => subject.id),
+    [source],
+  )
+  const defaultSubjectId =
+    source.kind === "submission"
+      ? source.subject.id
+      : (source.subjects[0]?.id ?? null)
+  const selectedSubjectId =
+    source.kind === "submission"
+      ? source.subject.id
+      : (sourceSummary?.selectedSubjectId ?? defaultSubjectId)
   const selectedSubject = useMemo(
     () => getSourceSubject(source, selectedSubjectId),
     [source, selectedSubjectId],
   )
-  const excerpts = useMemo(() => {
-    if (source.kind === "submission") return source.excerpts
-    if (selectedSubject === null) return []
-    const blameResult = useAnalysisStore.getState().blameResult
-    if (blameResult === null) return []
-    return buildMemberExcerpts(
-      blameResult,
-      blameResult.personDbOverlay,
-      selectedSubject.id,
+  useEffect(() => {
+    if (defaultSubjectId === null) return
+    useExaminationStore.getState().activateSourceSummary({
+      sourceSummaryKey,
+      subjectIds: sourceSubjectIds,
+      selectedSubjectId: selectedSubjectId ?? defaultSubjectId,
+    })
+  }, [defaultSubjectId, selectedSubjectId, sourceSubjectIds, sourceSummaryKey])
+  const defaultModelCode = useMemo(() => {
+    const provider = preferenceSnapshot.activeConnection?.provider ?? null
+    return provider === null
+      ? null
+      : resolveExaminationModelCode(
+          provider,
+          preferenceSnapshot.examinationModelsByProvider,
+        )
+  }, [
+    preferenceSnapshot.activeConnection,
+    preferenceSnapshot.examinationModelsByProvider,
+  ])
+  const defaultModelSpec =
+    defaultModelCode === null ? null : (getSpecByCode(defaultModelCode) ?? null)
+  const rootQuestionCount = useExaminationStore((state) => state.questionCount)
+
+  const provisionalIdentity = useMemo<SourceIdentity | null>(() => {
+    if (
+      selectedSubject === null ||
+      defaultModelCode === null ||
+      defaultModelSpec === null
+    ) {
+      return null
+    }
+    return buildSourceIdentity({
+      source,
+      subject: selectedSubject,
+      questionCount: rootQuestionCount,
+      model: defaultModelCode,
+      effort: defaultModelSpec.effort,
+    })
+  }, [
+    defaultModelCode,
+    defaultModelSpec,
+    rootQuestionCount,
+    selectedSubject,
+    source,
+  ])
+  const sourceSessionKey = useMemo(
+    () =>
+      provisionalIdentity === null
+        ? null
+        : buildSourceSessionKey(provisionalIdentity),
+    [provisionalIdentity],
+  )
+  const session = useExaminationStore(
+    selectExaminationSession(sourceSessionKey),
+  )
+  const activeConnection = useMemo(() => {
+    const preferredId = session?.preferences.activeConnectionId ?? null
+    return (
+      preferenceSnapshot.connections.find(
+        (connection) => connection.id === preferredId,
+      ) ??
+      preferenceSnapshot.activeConnection ??
+      null
     )
-  }, [source, selectedSubject])
-  const excerptFileSources = useMemo(() => {
-    if (source.kind === "submission") return source.excerptFileSources
-    const blameResult = useAnalysisStore.getState().blameResult
-    if (blameResult === null) return {}
-    return buildExcerptFileSources(blameResult, excerpts)
-  }, [source, excerpts])
+  }, [
+    preferenceSnapshot.activeConnection,
+    preferenceSnapshot.connections,
+    session?.preferences.activeConnectionId,
+  ])
+  const selectedModelCode = useMemo(() => {
+    const provider = activeConnection?.provider ?? null
+    if (provider === null) return null
+    const sessionModel = session?.preferences.modelCode ?? null
+    if (sessionModel !== null) {
+      const spec = getSpecByCode(sessionModel)
+      if (spec !== undefined && spec.provider === provider) return sessionModel
+    }
+    return resolveExaminationModelCode(
+      provider,
+      preferenceSnapshot.examinationModelsByProvider,
+    )
+  }, [
+    activeConnection,
+    preferenceSnapshot.examinationModelsByProvider,
+    session?.preferences.modelCode,
+  ])
+  const selectedModelSpec =
+    selectedModelCode === null
+      ? null
+      : (getSpecByCode(selectedModelCode) ?? null)
+  const questionCount = session?.preferences.questionCount ?? rootQuestionCount
+  const rootShowAnswers = useExaminationStore((state) => state.showAnswers)
+  const showAnswers = session?.showAnswers ?? rootShowAnswers
+
   const sourceIdentity = useMemo<SourceIdentity | null>(() => {
     if (
       selectedSubject === null ||
       selectedModelCode === null ||
-      selectedModelSpec === null ||
-      excerpts.length === 0
+      selectedModelSpec === null
     ) {
       return null
     }
-    if (source.kind === "submission") {
-      return buildSubmissionSourceIdentity({
-        source,
-        questionCount,
-        model: selectedModelCode,
-        effort: selectedModelSpec.effort,
-      })
-    }
-    return buildCourseSourceIdentity({
+    return buildSourceIdentity({
       source,
-      subjectId: selectedSubject.id,
-      excerptScopeId: buildProvisionalCourseExcerptScopeId({
-        excerpts,
-        excerptFileSources,
-      }),
+      subject: selectedSubject,
       questionCount,
       model: selectedModelCode,
       effort: selectedModelSpec.effort,
     })
   }, [
-    excerptFileSources,
-    excerpts,
     questionCount,
     selectedModelCode,
     selectedModelSpec,
     selectedSubject,
     source,
   ])
-  useEffect(() => {
-    dispatchDisplay({ type: "IDENTITY_CHANGED", identity: sourceIdentity })
-    setArchiveEntries([])
-    setLookupMetadata(null)
-    cancelAllGenerationSessions()
-  }, [sourceIdentity, cancelAllGenerationSessions])
 
   useEffect(() => {
-    return () => cancelAllGenerationSessions()
-  }, [cancelAllGenerationSessions])
+    if (
+      sourceSessionKey === null ||
+      sourceIdentity === null ||
+      selectedSubject === null ||
+      defaultSubjectId === null
+    ) {
+      return
+    }
+    useExaminationStore.getState().activateSource({
+      sourceSummaryKey,
+      sourceSessionKey,
+      sourceIdentity,
+      subjectIds: sourceSubjectIds,
+      selectedSubjectId: selectedSubject.id,
+      defaultPreferences: {
+        questionCount,
+        activeConnectionId: activeConnection?.id ?? null,
+        modelCode: selectedModelCode,
+        effort: selectedModelSpec?.effort ?? null,
+      },
+    })
+  }, [
+    activeConnection,
+    defaultSubjectId,
+    questionCount,
+    selectedModelCode,
+    selectedModelSpec,
+    selectedSubject,
+    sourceIdentity,
+    sourceSessionKey,
+    sourceSubjectIds,
+    sourceSummaryKey,
+  ])
+
+  const archiveRevision = useExaminationStore((state) => state.archiveRevision)
+
+  const llmSettings = useMemo(() => {
+    const provider = activeConnection?.provider ?? null
+    return {
+      llmConnections: preferenceSnapshot.connections,
+      activeLlmConnectionId: activeConnection?.id ?? null,
+      examinationModelsByProvider:
+        provider !== null && selectedModelCode !== null
+          ? {
+              ...preferenceSnapshot.examinationModelsByProvider,
+              [provider]: selectedModelCode,
+            }
+          : preferenceSnapshot.examinationModelsByProvider,
+    }
+  }, [
+    activeConnection,
+    preferenceSnapshot.connections,
+    preferenceSnapshot.examinationModelsByProvider,
+    selectedModelCode,
+  ])
 
   const lookupInput = useMemo<ExaminationLookupQuestionsInput | null>(() => {
-    if (
-      selectedSubject === null ||
-      sourceIdentity === null ||
-      excerpts.length === 0
-    ) {
-      return null
-    }
+    if (selectedSubject === null || sourceIdentity === null) return null
     return {
       personId: selectedSubject.id,
       contentScopeId:
-        source.kind === "course" ? source.commitOid : source.contentScopeId,
+        source.kind === "repository-analysis"
+          ? source.commitOid
+          : source.contentScopeId,
       localIdentityContext: source.localIdentityContext,
-      excerpts,
-      excerptFileSources,
+      excerpts: selectedSubject.excerpts,
+      excerptFileSources: selectedSubject.excerptFileSources,
       questionCount,
       llmSettings,
     }
-  }, [
-    excerptFileSources,
-    excerpts,
-    llmSettings,
-    questionCount,
-    selectedSubject,
-    source,
-    sourceIdentity,
-  ])
+  }, [llmSettings, questionCount, selectedSubject, source, sourceIdentity])
 
   useEffect(() => {
-    if (sourceIdentity === null || lookupInput === null) return
+    void archiveRevision
+    if (
+      sourceSessionKey === null ||
+      sourceIdentity === null ||
+      lookupInput === null
+    ) {
+      return
+    }
+    const started = useExaminationStore.getState().startLookup(sourceSessionKey)
+    if (started === null) return
     const abort = new AbortController()
-    const requestIdentity = sourceIdentity
-    const requestIdentityKey = sourceIdentityKey(requestIdentity)
+    examinationRequestSidecar.registerLookup(
+      sourceSessionKey,
+      started.requestId,
+      abort,
+    )
     workflowClient
       .run("examination.lookupQuestions", lookupInput, {
         signal: abort.signal,
@@ -325,100 +344,82 @@ export function useExaminationEngine({
         const entryKey = serializeExaminationArchiveStorageKey(
           result.requestedKey,
         )
-        setLookupMetadata({ identityKey: requestIdentityKey, entryKey })
-        const archiveIdentity =
-          requestIdentity.kind === "course"
+        const resolvedIdentity =
+          sourceIdentity.kind === "repository-analysis"
             ? {
-                ...requestIdentity,
+                ...sourceIdentity,
                 excerptScopeId: result.requestedKey.providerPayloadFingerprint,
               }
-            : requestIdentity
-        if (requestIdentity.kind === "course") {
-          dispatchDisplay({
-            type: "EXCERPT_SCOPE_RESOLVED",
-            provisionalIdentity: requestIdentity,
-            resolvedExcerptScopeId:
-              result.requestedKey.providerPayloadFingerprint,
-          })
-        }
-        const nextArchiveEntries = result.availableSets.map((questionSet) =>
-          toAvailableArchiveEntry(questionSet),
-        )
-        setArchiveEntries((current) =>
-          mergeAvailableArchiveEntries(current, nextArchiveEntries),
-        )
-        if (result.exact === null) {
-          const currentEntry =
-            useExaminationStore.getState().entriesByKey.get(entryKey) ?? null
-          if (currentEntry !== null && currentEntry.status !== "loading") {
-            clearEntry(entryKey)
-          }
-          dispatchDisplay({ type: "LOOKUP_MISS", identity: archiveIdentity })
-          return
-        }
-        const currentEntry =
-          useExaminationStore.getState().entriesByKey.get(entryKey) ?? null
-        if (currentEntry?.status !== "loading") {
-          setEntry(entryKey, toExaminationEntry(result.exact))
-        }
-        dispatchDisplay({
-          type: "LOOKUP_SUCCESS",
-          identity: archiveIdentity,
-          exactEntryKey: entryKey,
+            : sourceIdentity
+        useExaminationStore.getState().applyLookupResult({
+          sourceSessionKey,
+          requestId: started.requestId,
+          archiveRevision: started.archiveRevision,
+          requestedIdentity: sourceIdentity,
+          resolvedIdentity,
+          entryKey,
+          exactEntry:
+            result.exact === null ? null : toExaminationEntry(result.exact),
+          archiveEntries: result.availableSets.map((questionSet) =>
+            toAvailableArchiveEntry(questionSet),
+          ),
         })
       })
-      .catch((_error: unknown) => undefined)
+      .catch((_error: unknown) => {
+        if (!abort.signal.aborted) {
+          useExaminationStore
+            .getState()
+            .failLookup(sourceSessionKey, started.requestId)
+        }
+      })
+      .finally(() => {
+        examinationRequestSidecar.clearLookup(
+          sourceSessionKey,
+          started.requestId,
+        )
+      })
     return () => abort.abort()
-  }, [clearEntry, lookupInput, setEntry, sourceIdentity, workflowClient])
+  }, [
+    archiveRevision,
+    lookupInput,
+    sourceIdentity,
+    sourceSessionKey,
+    workflowClient,
+  ])
+
+  const summaryInput = useMemo(() => {
+    if (source.kind !== "repository-analysis") return null
+    const subjects: ExaminationQuestionSummarySubjectInput[] = source.subjects
+      .filter((subject) => subject.excerpts.length > 0)
+      .map((subject) => ({
+        subjectId: subject.id,
+        personId: subject.id,
+        contentScopeId: source.commitOid,
+        localIdentityContext: source.localIdentityContext,
+        excerpts: subject.excerpts,
+        excerptFileSources: subject.excerptFileSources,
+      }))
+    return subjects.length === 0 ? null : { subjects }
+  }, [source])
 
   useEffect(() => {
-    void refreshToken
-    if (source.kind !== "course") {
-      setGeneratedQuestionCount(new Map())
-      return
-    }
+    void archiveRevision
+    if (summaryInput === null || source.kind !== "repository-analysis") return
+    const started = useExaminationStore
+      .getState()
+      .startSourceSummaryLookup(sourceSummaryKey)
+    if (started === null) return
     const abort = new AbortController()
-    const courseSource = source
-    const subjects = source.subjects
-    const blameResult = useAnalysisStore.getState().blameResult
-    if (blameResult === null || courseSource.commitOid.length === 0) {
-      setGeneratedQuestionCount(new Map())
-      return () => abort.abort()
-    }
-    const inputs = subjects.flatMap((subject) => {
-      const subjectExcerpts = buildMemberExcerpts(
-        blameResult,
-        blameResult.personDbOverlay,
-        subject.id,
-      )
-      if (subjectExcerpts.length === 0) return []
-      return [
-        {
-          subjectId: subject.id,
-          personId: subject.id,
-          contentScopeId: courseSource.commitOid,
-          localIdentityContext: courseSource.localIdentityContext,
-          excerpts: subjectExcerpts,
-          excerptFileSources: buildExcerptFileSources(
-            blameResult,
-            subjectExcerpts,
-          ),
-        },
-      ]
-    })
-    if (inputs.length === 0) {
-      setGeneratedQuestionCount(new Map())
-      return () => abort.abort()
-    }
+    examinationRequestSidecar.registerSummary(
+      sourceSummaryKey,
+      started.requestId,
+      abort,
+    )
     workflowClient
-      .run(
-        "examination.lookupQuestionSummaries",
-        { subjects: inputs },
-        {
-          signal: abort.signal,
-          onProgress: (_progress: MilestoneProgress) => undefined,
-        },
-      )
+      .run("examination.lookupQuestionSummaries", summaryInput, {
+        signal: abort.signal,
+        onProgress: (_progress: MilestoneProgress) => undefined,
+      })
       .then((result) => {
         if (abort.signal.aborted) return
         const counts = new Map<string, number>()
@@ -431,29 +432,48 @@ export function useExaminationEngine({
             ),
           )
         }
-        setGeneratedQuestionCount(counts)
+        useExaminationStore.getState().applySourceSummaryLookupResult({
+          sourceSummaryKey,
+          requestId: started.requestId,
+          archiveRevision: started.archiveRevision,
+          counts,
+        })
       })
       .catch((_error: unknown) => {
-        if (!abort.signal.aborted) setGeneratedQuestionCount(new Map())
+        if (!abort.signal.aborted) {
+          useExaminationStore
+            .getState()
+            .failSourceSummaryLookup(sourceSummaryKey, started.requestId)
+        }
+      })
+      .finally(() => {
+        examinationRequestSidecar.clearSummary(
+          sourceSummaryKey,
+          started.requestId,
+        )
       })
     return () => abort.abort()
-  }, [refreshToken, source, workflowClient])
+  }, [archiveRevision, source, sourceSummaryKey, summaryInput, workflowClient])
 
   const blocker =
     selectedSubject === null
       ? emptyBlocker
       : resolveExaminationBlockingReason({
           selectedRepositoryPath:
-            source.kind === "course"
+            source.kind === "repository-analysis"
               ? source.selectedRepoPath
               : source.folderPath,
           commitOid:
-            source.kind === "course" ? source.commitOid : source.contentScopeId,
-          hasActiveLlmConnection: activeLlmConnection !== null,
+            source.kind === "repository-analysis"
+              ? source.commitOid
+              : source.contentScopeId,
+          hasActiveLlmConnection: activeConnection !== null,
         })
 
+  const entriesByKey = useExaminationStore((state) => state.entriesByKey)
+  const archiveEntries = session?.archiveEntries ?? []
   const display = selectExaminationDisplay({
-    displayedState: displayState.display,
+    displayedState: session?.display ?? { kind: "idle" },
     entriesByKey,
     archiveEntries,
     blocker,
@@ -463,9 +483,24 @@ export function useExaminationEngine({
     (archiveEntries.length === 1 &&
       archiveEntries[0]?.key !== display.archiveEntry?.key)
 
-  const effectiveIdentityForEvent = useCallback((): SourceIdentity | null => {
-    return displayState.identity ?? sourceIdentity
-  }, [displayState.identity, sourceIdentity])
+  const runPreferenceEffects = useCallback(
+    (effects: ExaminationPreferencePersistenceEffect[]) => {
+      for (const effect of effects) {
+        if (effect.activeConnectionId !== undefined) {
+          examinationPreferencePersistence.persistActiveConnection(
+            effect.activeConnectionId,
+          )
+        }
+        if (effect.providerModel !== undefined) {
+          examinationPreferencePersistence.persistModel(
+            effect.providerModel.provider,
+            effect.providerModel.modelCode,
+          )
+        }
+      }
+    },
+    [],
+  )
 
   const exportArchive = useCallback(async () => {
     const saveTarget = await rendererHost.pickSaveTarget({
@@ -485,10 +520,7 @@ export function useExaminationEngine({
         { tone: "success" },
       )
     } catch (error) {
-      addToast(
-        `Export failed: ${error instanceof Error ? error.message : String(error)}`,
-        { tone: "error" },
-      )
+      addToast(`Export failed: ${getErrorMessage(error)}`, { tone: "error" })
     }
   }, [addToast, rendererHost, workflowClient])
 
@@ -506,87 +538,103 @@ export function useExaminationEngine({
         }.`,
         { tone: "success" },
       )
-      setRefreshToken((token) => token + 1)
+      useExaminationStore.getState().archiveCatalogChanged()
     } catch (error) {
-      addToast(
-        `Import failed: ${error instanceof Error ? error.message : String(error)}`,
-        { tone: "error" },
-      )
+      addToast(`Import failed: ${getErrorMessage(error)}`, { tone: "error" })
     }
   }, [addToast, rendererHost, workflowClient])
 
   const changeQuestionCount = useCallback(
     (count: number) => {
-      dispatchDisplay({ type: "QUESTION_COUNT_CHANGED", identity: null })
-      setQuestionCount(count)
+      if (sourceSessionKey === null) {
+        useExaminationStore.getState().setQuestionCount(count)
+        return
+      }
+      useExaminationStore
+        .getState()
+        .setSessionQuestionCount(sourceSessionKey, count)
     },
-    [setQuestionCount],
+    [sourceSessionKey],
+  )
+
+  const changeShowAnswers = useCallback(
+    (show: boolean) => {
+      if (sourceSessionKey === null) {
+        useExaminationStore.getState().setShowAnswers(show)
+        return
+      }
+      useExaminationStore
+        .getState()
+        .setSessionShowAnswers(sourceSessionKey, show)
+    },
+    [sourceSessionKey],
   )
 
   const selectConnection = useCallback(
     (id: string) => {
-      dispatchDisplay({ type: "MODEL_CHANGED", identity: null })
-      setActiveLlmConnectionId(id)
-      void saveAppSettings()
+      if (sourceSessionKey === null) {
+        examinationPreferencePersistence.persistActiveConnection(id)
+        return
+      }
+      runPreferenceEffects(
+        useExaminationStore
+          .getState()
+          .setSessionConnection(sourceSessionKey, id),
+      )
     },
-    [saveAppSettings, setActiveLlmConnectionId],
+    [runPreferenceEffects, sourceSessionKey],
   )
 
   const selectModelCode = useCallback(
     (code: string) => {
-      if (activeProvider === null) return
-      dispatchDisplay({ type: "MODEL_CHANGED", identity: null })
-      setExaminationModelForProvider(activeProvider, code)
-      void saveAppSettings()
+      const spec = getSpecByCode(code)
+      if (spec === undefined) return
+      if (sourceSessionKey === null) {
+        examinationPreferencePersistence.persistModel(spec.provider, code)
+        return
+      }
+      runPreferenceEffects(
+        useExaminationStore
+          .getState()
+          .setSessionModel(sourceSessionKey, spec.provider, code, spec.effort),
+      )
     },
-    [activeProvider, saveAppSettings, setExaminationModelForProvider],
+    [runPreferenceEffects, sourceSessionKey],
   )
 
   const selectArchiveEntry = useCallback(
     (archiveEntry: AvailableArchiveEntry) => {
+      if (sourceSessionKey === null || sourceIdentity === null) return
       const spec = getSpecByCode(archiveEntry.model)
       if (spec === undefined) return
-      const archiveIdentity = buildArchiveSelectionIdentity({
-        currentIdentity: sourceIdentity,
-        archiveEntry,
-      })
-      if (archiveIdentity !== null) {
-        dispatchDisplay({
-          type: "ARCHIVE_SELECTED",
-          identity: archiveIdentity,
-          entryKey: archiveEntry.key,
-        })
-      }
-      setQuestionCount(archiveEntry.questionCount)
       const matchingConnection =
-        activeLlmConnection?.provider === spec.provider
-          ? activeLlmConnection
-          : (llmConnections.find(
+        activeConnection?.provider === spec.provider
+          ? activeConnection
+          : (preferenceSnapshot.connections.find(
               (connection) => connection.provider === spec.provider,
             ) ?? null)
-      let changed = false
-      if (
-        matchingConnection !== null &&
-        matchingConnection.id !== activeLlmConnection?.id
-      ) {
-        setActiveLlmConnectionId(matchingConnection.id)
-        changed = true
-      }
-      if (examinationModelsByProvider[spec.provider] !== archiveEntry.model) {
-        setExaminationModelForProvider(spec.provider, archiveEntry.model)
-        changed = true
-      }
-      if (changed) void saveAppSettings()
+      const activeConnectionId = matchingConnection?.id ?? null
+      runPreferenceEffects(
+        useExaminationStore.getState().selectArchiveEntry(
+          sourceSessionKey,
+          {
+            ...sourceIdentity,
+            questionCount: archiveEntry.questionCount,
+            model: archiveEntry.model,
+            effort: archiveEntry.effort,
+          },
+          archiveEntry,
+          activeConnectionId,
+          spec.provider,
+        ),
+      )
     },
     [
-      activeLlmConnection,
-      examinationModelsByProvider,
-      llmConnections,
-      saveAppSettings,
-      setActiveLlmConnectionId,
-      setExaminationModelForProvider,
-      setQuestionCount,
+      activeConnection,
+      preferenceSnapshot.connections,
+      runPreferenceEffects,
       sourceIdentity,
+      sourceSessionKey,
     ],
   )
 
@@ -595,6 +643,7 @@ export function useExaminationEngine({
       if (
         selectedSubject === null ||
         sourceIdentity === null ||
+        sourceSessionKey === null ||
         selectedModelCode === null ||
         selectedModelSpec === null
       ) {
@@ -604,12 +653,10 @@ export function useExaminationEngine({
         addToast(blocker, { tone: "warning" })
         return
       }
-      if (excerpts.length === 0) {
+      if (selectedSubject.excerpts.length === 0) {
         addToast(
           "No code is attributed to this subject; nothing to generate.",
-          {
-            tone: "warning",
-          },
+          { tone: "warning" },
         )
         return
       }
@@ -641,29 +688,30 @@ export function useExaminationEngine({
         )
       }
       const targetQuestionCount = seedQuestions.length + additionalQuestionCount
-      const currentIdentityKey = sourceIdentityKey(sourceIdentity)
+      const metadata = session?.lookupMetadata ?? null
       const loadingKey =
-        lookupMetadata?.identityKey === currentIdentityKey &&
+        metadata?.archiveKeyIdentityKey ===
+          buildArchiveKeyIdentityKey(sourceIdentity) &&
         targetQuestionCount === questionCount
-          ? lookupMetadata.entryKey
+          ? metadata.entryKey
           : `session-${createUuid()}`
       const generationControlId = `generation-${createUuid()}`
-      const abort = new AbortController()
-      const eventIdentity = effectiveIdentityForEvent() ?? sourceIdentity
-
-      startGenerationSession({
+      const started = useExaminationStore.getState().startGenerationSession({
+        sourceSessionKey,
         entryKey: loadingKey,
         generationControlId,
-        abortController: abort,
         seedQuestions,
         sourceReferences: seedEntry?.sourceReferences ?? [],
         requestedQuestionCount: targetQuestionCount,
       })
-      dispatchDisplay({
-        type: "GENERATION_STARTED",
-        identity: eventIdentity,
-        entryKey: loadingKey,
-      })
+      if (started === null) return
+      const abort = new AbortController()
+      examinationRequestSidecar.registerGeneration(
+        sourceSessionKey,
+        started.requestId,
+        abort,
+        generationControlId,
+      )
 
       try {
         const result = await workflowClient.run(
@@ -671,12 +719,12 @@ export function useExaminationEngine({
           {
             personId: selectedSubject.id,
             contentScopeId:
-              source.kind === "course"
+              source.kind === "repository-analysis"
                 ? source.commitOid
                 : source.contentScopeId,
             localIdentityContext: source.localIdentityContext,
-            excerpts,
-            excerptFileSources,
+            excerpts: selectedSubject.excerpts,
+            excerptFileSources: selectedSubject.excerptFileSources,
             questionCount: targetQuestionCount,
             llmSettings,
             generationControlId,
@@ -686,7 +734,14 @@ export function useExaminationEngine({
           {
             signal: abort.signal,
             onProgress: (progress: MilestoneProgress) => {
-              applyGenerationProgress(loadingKey, progress.label)
+              useExaminationStore
+                .getState()
+                .applyGenerationProgress(
+                  loadingKey,
+                  progress.label,
+                  sourceSessionKey,
+                  started.requestId,
+                )
             },
             onOutput: (output: ExaminationGenerateOutput) => {
               if (output.kind === "warn") {
@@ -697,115 +752,95 @@ export function useExaminationEngine({
                 return
               }
               if (output.kind === "stream-progress") {
-                applyStreamProgress(loadingKey, output)
+                useExaminationStore
+                  .getState()
+                  .applyStreamProgress(
+                    loadingKey,
+                    output,
+                    sourceSessionKey,
+                    started.requestId,
+                  )
                 return
               }
-              applyPartialQuestions(loadingKey, {
-                questions: output.questions,
-                sourceReferences: output.sourceReferences,
-                inProgressQuestion: output.inProgressQuestion,
-              })
+              useExaminationStore.getState().applyPartialQuestions(
+                loadingKey,
+                {
+                  questions: output.questions,
+                  sourceReferences: output.sourceReferences,
+                  inProgressQuestion: output.inProgressQuestion,
+                },
+                sourceSessionKey,
+                started.requestId,
+              )
             },
           },
         )
         if (abort.signal.aborted) return
         const archiveKey = serializeExaminationArchiveStorageKey(result.key)
         const loadedEntry = toExaminationEntry(result)
-        applyLoadedArchiveResult({
+        useExaminationStore.getState().applyLoadedArchiveResult({
+          sourceSessionKey,
+          requestId: started.requestId,
           loadingKey,
           resultKey: archiveKey,
           entry: loadedEntry,
-        })
-        const archiveEntry: AvailableArchiveEntry = {
-          key: archiveKey,
-          questionCount: result.archivedProvenance.questionCount,
-          model: result.archivedProvenance.model,
-          effort: result.archivedProvenance.effort,
-          entry: loadedEntry,
-        }
-        setArchiveEntries((current) =>
-          mergeAvailableArchiveEntries(current, [archiveEntry]),
-        )
-        setGeneratedQuestionCount((current) => {
-          const next = new Map(current)
-          next.set(
-            selectedSubject.id,
-            Math.max(
-              next.get(selectedSubject.id) ?? 0,
-              result.archivedProvenance.questionCount,
-            ),
-          )
-          return next
-        })
-        dispatchDisplay({
-          type: "GENERATION_SUCCEEDED",
-          identity: eventIdentity,
-          entryKey: archiveKey,
+          archiveEntry: {
+            key: archiveKey,
+            questionCount: result.archivedProvenance.questionCount,
+            model: result.archivedProvenance.model,
+            effort: result.archivedProvenance.effort,
+            entry: loadedEntry,
+          },
         })
       } catch (error) {
         if (abort.signal.aborted) return
         const message = getErrorMessage(error)
-        applyGenerationError(loadingKey, message)
-        dispatchDisplay({
-          type: "GENERATION_FAILED",
-          identity: eventIdentity,
-          entryKey: loadingKey,
-        })
+        useExaminationStore
+          .getState()
+          .applyGenerationError(
+            loadingKey,
+            message,
+            sourceSessionKey,
+            started.requestId,
+          )
         addToast(`Question generation failed: ${message}`, { tone: "error" })
       } finally {
-        clearAbort(loadingKey, abort)
+        examinationRequestSidecar.clearGeneration(
+          sourceSessionKey,
+          started.requestId,
+        )
       }
     },
     [
       addToast,
-      applyGenerationError,
-      applyGenerationProgress,
-      applyLoadedArchiveResult,
-      applyPartialQuestions,
-      applyStreamProgress,
       blocker,
-      clearAbort,
       display.archiveEntry,
       display.displayEntry,
-      effectiveIdentityForEvent,
-      excerptFileSources,
-      excerpts,
       llmSettings,
-      lookupMetadata,
       questionCount,
       selectedModelCode,
       selectedModelSpec,
       selectedSubject,
+      session?.lookupMetadata,
       source,
       sourceIdentity,
-      startGenerationSession,
+      sourceSessionKey,
       workflowClient,
     ],
   )
 
   const stopGeneration = useCallback(() => {
-    const entry = display.entry
-    if (
-      displayState.display.kind !== "loading" ||
-      entry?.status !== "loading"
-    ) {
-      return
-    }
-    const generationControlId = entry.generationControlId
+    if (sourceSessionKey === null) return
+    const generationControlId = useExaminationStore
+      .getState()
+      .requestGenerationStop(sourceSessionKey)
     if (generationControlId === null) return
-    requestGenerationStop(displayState.display.entryKey)
     workflowClient
       .run("examination.stopGeneration", { generationControlId })
       .catch((error: unknown) => {
         addToast(`Stop failed: ${getErrorMessage(error)}`, { tone: "error" })
       })
-  }, [
-    addToast,
-    display.entry,
-    displayState.display,
-    requestGenerationStop,
-    workflowClient,
-  ])
+  }, [addToast, sourceSessionKey, workflowClient])
 
   const copyMarkdown = useCallback(async () => {
     if (
@@ -832,9 +867,10 @@ export function useExaminationEngine({
   return {
     subjects: sourceSubjects(source),
     selectedSubject,
-    generatedQuestionCountBySubjectId,
-    connections: llmConnections,
-    activeConnection: activeLlmConnection,
+    generatedQuestionCountBySubjectId:
+      sourceSummary?.generatedQuestionCountBySubjectId ?? EMPTY_COUNTS,
+    connections: preferenceSnapshot.connections,
+    activeConnection,
     selectedModelCode,
     archiveEntries,
     showArchiveSelector,
@@ -843,18 +879,21 @@ export function useExaminationEngine({
     showAnswers,
     blocker,
     rosterWarning:
-      source.kind === "course" && selectedSubject !== null
+      source.kind === "repository-analysis" && selectedSubject !== null
         ? (source.rosterWarningBySubjectId.get(selectedSubject.id) ?? null)
         : null,
     commands: {
-      selectSubject: setSelectedSubjectId,
+      selectSubject: (subjectId) =>
+        useExaminationStore
+          .getState()
+          .selectRepositoryAnalysisSubject(sourceSummaryKey, subjectId),
       selectConnection,
       selectModelCode,
       openLlmSettings: () => openSettings("llm-connections"),
       importArchive: () => void importArchive(),
       exportArchive: () => void exportArchive(),
       changeQuestionCount,
-      changeShowAnswers: setShowAnswers,
+      changeShowAnswers,
       selectArchiveEntry,
       generate: () => void generateForSelected(),
       stopGeneration,
@@ -864,17 +903,28 @@ export function useExaminationEngine({
   }
 }
 
-function buildArchiveSelectionIdentity(params: {
-  currentIdentity: SourceIdentity | null
-  archiveEntry: AvailableArchiveEntry
-}): SourceIdentity | null {
-  if (params.currentIdentity === null) return null
-  return {
-    ...params.currentIdentity,
-    questionCount: params.archiveEntry.questionCount,
-    model: params.archiveEntry.model,
-    effort: params.archiveEntry.effort,
+function buildSourceIdentity(params: {
+  source: ExaminationSource
+  subject: PreparedExaminationSubject
+  questionCount: number
+  model: string
+  effort: NonNullable<SourceIdentity["effort"]>
+}): SourceIdentity {
+  if (params.source.kind === "repository-analysis") {
+    return buildRepositoryAnalysisSourceIdentity({
+      source: params.source,
+      subject: params.subject,
+      questionCount: params.questionCount,
+      model: params.model,
+      effort: params.effort,
+    })
   }
+  return buildSubmissionSourceIdentity({
+    source: params.source,
+    questionCount: params.questionCount,
+    model: params.model,
+    effort: params.effort,
+  })
 }
 
 function formatDateStamp(): string {

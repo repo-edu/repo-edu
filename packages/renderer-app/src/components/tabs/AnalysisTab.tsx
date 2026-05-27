@@ -27,7 +27,7 @@ import { BlameProgressBar } from "./analysis/BlameProgressBar.js"
 import { FilePanel } from "./analysis/FilePanel.js"
 import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
 import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
-import { CourseExaminationTab } from "./ExaminationTab.js"
+import { RepositoryAnalysisExaminationTab } from "./ExaminationTab.js"
 import { canShowExaminationView } from "./examination/view-state.js"
 import { SubmissionExaminationTab } from "./SubmissionExaminationTab.js"
 
@@ -186,7 +186,7 @@ function RepositoryAnalysisTab() {
               value="examination"
               className="flex-1 min-h-0 overflow-hidden"
             >
-              <CourseExaminationTab />
+              <RepositoryAnalysisExaminationTab />
             </TabsContent>
           )}
         </Tabs>

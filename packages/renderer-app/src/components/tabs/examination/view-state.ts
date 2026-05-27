@@ -6,16 +6,12 @@ export function resolveExaminationEmptyState(params: {
   selectedRepositoryPath: string | null
   hasBlameResult: boolean
   authorCount: number
-  selectedPersonId: string | null
 }): string | null {
   if (params.selectedRepositoryPath === null) {
     return "Select a repository to choose an author for examination questions."
   }
   if (!params.hasBlameResult || params.authorCount === 0) {
     return "Run blame analysis to identify authors in this repository."
-  }
-  if (params.selectedPersonId === null) {
-    return "Choose an author or contributor from the list to generate questions."
   }
   return null
 }

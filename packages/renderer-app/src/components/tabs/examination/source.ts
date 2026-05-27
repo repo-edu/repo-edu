@@ -17,11 +17,17 @@ export type SourceSubject = {
   linesPercent: number
 }
 
-export type CourseExaminationSource = {
-  kind: "course"
+export type PreparedExaminationSubject = SourceSubject & {
+  excerpts: ExaminationCodeExcerpt[]
+  excerptFileSources: Record<string, string>
+  excerptScopeId: string
+}
+
+export type RepositoryAnalysisExaminationSource = {
+  kind: "repository-analysis"
   selectedRepoPath: string
   commitOid: string
-  subjects: SourceSubject[]
+  subjects: PreparedExaminationSubject[]
   localIdentityContext: ExaminationLocalIdentityContext
   rosterWarningBySubjectId: ReadonlyMap<string, string | null>
 }
@@ -30,18 +36,16 @@ export type SubmissionExaminationSource = {
   kind: "submission"
   folderPath: string
   contentScopeId: string
-  subject: SourceSubject
+  subject: PreparedExaminationSubject
   localIdentityContext: ExaminationLocalIdentityContext
-  excerpts: ExaminationCodeExcerpt[]
-  excerptFileSources: Record<string, string>
 }
 
 export type ExaminationSource =
-  | CourseExaminationSource
+  | RepositoryAnalysisExaminationSource
   | SubmissionExaminationSource
 
-export type CourseSourceIdentity = {
-  kind: "course"
+export type RepositoryAnalysisSourceIdentity = {
+  kind: "repository-analysis"
   repoPath: string
   commitOid: string
   subjectId: string
@@ -57,48 +61,60 @@ export type SubmissionSourceIdentity = {
   folderPath: string
   contentScopeId: string
   subjectId: string
+  excerptScopeId: string
   redactionIdentityScopeId: string
   questionCount: number
   model: string
   effort: LlmEffort
 }
 
-export type SourceIdentity = CourseSourceIdentity | SubmissionSourceIdentity
+export type SourceIdentity =
+  | RepositoryAnalysisSourceIdentity
+  | SubmissionSourceIdentity
 
 export function sourceCarrierKey(source: ExaminationSource): string {
-  if (source.kind === "course") {
-    return JSON.stringify(["course", source.selectedRepoPath, source.commitOid])
+  if (source.kind === "repository-analysis") {
+    return JSON.stringify([
+      "repository-analysis",
+      source.selectedRepoPath,
+      source.commitOid,
+    ])
   }
-  return JSON.stringify(["submission", source.folderPath])
+  return JSON.stringify([
+    "submission",
+    source.folderPath,
+    source.contentScopeId,
+  ])
 }
 
 export function sourceSubjects(source: ExaminationSource): SourceSubject[] {
-  return source.kind === "course" ? source.subjects : [source.subject]
+  return source.kind === "repository-analysis"
+    ? source.subjects
+    : [source.subject]
 }
 
 export function getSourceSubject(
   source: ExaminationSource,
   subjectId: string | null,
-): SourceSubject | null {
+): PreparedExaminationSubject | null {
   if (source.kind === "submission") return source.subject
   if (subjectId === null) return null
   return source.subjects.find((subject) => subject.id === subjectId) ?? null
 }
 
-export function buildCourseSourceIdentity(params: {
-  source: CourseExaminationSource
-  subjectId: string
-  excerptScopeId: string
+export function buildRepositoryAnalysisSourceIdentity(params: {
+  source: RepositoryAnalysisExaminationSource
+  subject: PreparedExaminationSubject
   questionCount: number
   model: string
   effort: LlmEffort
-}): CourseSourceIdentity {
+}): RepositoryAnalysisSourceIdentity {
   return {
-    kind: "course",
+    kind: "repository-analysis",
     repoPath: params.source.selectedRepoPath,
     commitOid: params.source.commitOid,
-    subjectId: params.subjectId,
-    excerptScopeId: params.excerptScopeId,
+    subjectId: params.subject.id,
+    excerptScopeId: params.subject.excerptScopeId,
     redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
       params.source.localIdentityContext,
     ),
@@ -119,6 +135,7 @@ export function buildSubmissionSourceIdentity(params: {
     folderPath: params.source.folderPath,
     contentScopeId: params.source.contentScopeId,
     subjectId: params.source.subject.id,
+    excerptScopeId: params.source.subject.excerptScopeId,
     redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
       params.source.localIdentityContext,
     ),
@@ -128,7 +145,7 @@ export function buildSubmissionSourceIdentity(params: {
   }
 }
 
-export function buildProvisionalCourseExcerptScopeId(params: {
+export function buildProvisionalRepositoryAnalysisExcerptScopeId(params: {
   excerpts: readonly ExaminationCodeExcerpt[]
   excerptFileSources: Readonly<Record<string, string>>
 }): string {
@@ -140,4 +157,78 @@ export function buildProvisionalCourseExcerptScopeId(params: {
   return buildSubmissionContentScopeId(
     encoder.encode(JSON.stringify([canonicalExcerpts, sourceEntries])),
   )
+}
+
+export function buildSourceSessionKey(identity: SourceIdentity | null): string {
+  if (identity === null) return "null"
+  if (identity.kind === "repository-analysis") {
+    return JSON.stringify([
+      "repository-analysis-session",
+      identity.repoPath,
+      identity.commitOid,
+      identity.subjectId,
+      identity.redactionIdentityScopeId,
+      identity.excerptScopeId,
+    ])
+  }
+  return JSON.stringify([
+    "submission-session",
+    identity.folderPath,
+    identity.contentScopeId,
+    identity.subjectId,
+    identity.redactionIdentityScopeId,
+    identity.excerptScopeId,
+  ])
+}
+
+export function buildArchiveKeyIdentityKey(identity: SourceIdentity | null) {
+  if (identity === null) return "null"
+  if (identity.kind === "repository-analysis") {
+    return JSON.stringify([
+      "repository-analysis-archive",
+      identity.repoPath,
+      identity.commitOid,
+      identity.subjectId,
+      identity.redactionIdentityScopeId,
+      identity.excerptScopeId,
+      identity.questionCount,
+      identity.model,
+      identity.effort,
+    ])
+  }
+  return JSON.stringify([
+    "submission-archive",
+    identity.folderPath,
+    identity.contentScopeId,
+    identity.subjectId,
+    identity.redactionIdentityScopeId,
+    identity.excerptScopeId,
+    identity.questionCount,
+    identity.model,
+    identity.effort,
+  ])
+}
+
+export function buildSourceSummaryKey(source: ExaminationSource): string {
+  const redactionIdentityScopeId = buildExaminationRedactionIdentityScopeId(
+    source.localIdentityContext,
+  )
+  if (source.kind === "repository-analysis") {
+    return JSON.stringify([
+      "repository-analysis-summary",
+      source.selectedRepoPath,
+      source.commitOid,
+      redactionIdentityScopeId,
+      source.subjects
+        .map((subject) => [subject.id, subject.excerptScopeId] as const)
+        .toSorted(([leftId], [rightId]) => leftId.localeCompare(rightId)),
+    ])
+  }
+  return JSON.stringify([
+    "submission-summary",
+    source.folderPath,
+    source.contentScopeId,
+    redactionIdentityScopeId,
+    [[source.subject.id, source.subject.excerptScopeId]],
+  ])
 }

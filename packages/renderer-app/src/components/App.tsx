@@ -32,13 +32,8 @@ import {
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
-import {
-  selectCanRedo,
-  selectCanUndo,
-  selectNextRedoDescription,
-  selectNextUndoDescription,
-  useCourseStore,
-} from "../stores/course-store.js"
+import { useCourseStore } from "../stores/course-store.js"
+import { useStoreHistoryPresenter } from "../stores/store-history.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -126,13 +121,14 @@ function AppShell() {
 
   const activateSurface = useActiveSurfaceNavigation()
   const isHomeSurface = activeSurface.kind === "home"
-  const canUndo = useCourseStore(selectCanUndo)
-  const canRedo = useCourseStore(selectCanRedo)
-  const undoDescription = useCourseStore(selectNextUndoDescription)
-  const redoDescription = useCourseStore(selectNextRedoDescription)
+  const historyPresenter = useStoreHistoryPresenter()
+  const canUndo = historyPresenter.canUndo
+  const canRedo = historyPresenter.canRedo
+  const undoDescription = historyPresenter.undoDescription
+  const redoDescription = historyPresenter.redoDescription
   const loadedCourse = useCourseStore((s) => s.course)
-  const undo = useCourseStore((s) => s.undo)
-  const redo = useCourseStore((s) => s.redo)
+  const undo = historyPresenter.undo
+  const redo = historyPresenter.redo
   const flushCourse = useCourseStore((s) => s.save)
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }

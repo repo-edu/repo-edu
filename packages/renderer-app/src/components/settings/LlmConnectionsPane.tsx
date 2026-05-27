@@ -23,6 +23,7 @@ import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
+import { examinationPreferencePersistence } from "../../stores/examination-preferences.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   emptyLlmDraft,
@@ -59,9 +60,6 @@ export function LlmConnectionsPane() {
   )
   const removeLlmConnection = useAppSettingsStore(
     (state) => state.removeLlmConnection,
-  )
-  const setActiveLlmConnectionId = useAppSettingsStore(
-    (state) => state.setActiveLlmConnectionId,
   )
   const saveAppSettings = useAppSettingsStore((state) => state.save)
   const llmSavedStatuses = useConnectionsStore((state) => state.llmStatuses)
@@ -188,7 +186,7 @@ export function LlmConnectionsPane() {
       addLlmConnection(nextConnection)
       // First connection becomes active automatically.
       if (activeLlmConnectionId === null) {
-        setActiveLlmConnectionId(id)
+        examinationPreferencePersistence.persistActiveConnection(id)
       }
     } else {
       updateLlmConnection(editorOriginalId, nextConnection)
@@ -398,8 +396,9 @@ export function LlmConnectionsPane() {
                       name="active-llm-connection"
                       checked={isActive}
                       onChange={() => {
-                        setActiveLlmConnectionId(connection.id)
-                        void saveAppSettings()
+                        examinationPreferencePersistence.persistActiveConnection(
+                          connection.id,
+                        )
                       }}
                       aria-label={`Use ${displayName} for examination`}
                     />

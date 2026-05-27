@@ -1,5 +1,7 @@
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
-import type { DisplayedEntryState } from "./displayed-entry-reducer.js"
+import type {
+  ExaminationDisplayedEntryState,
+  ExaminationEntry,
+} from "../../../stores/examination-store.js"
 import type { AvailableArchiveEntry } from "./types.js"
 
 export type ExaminationDisplaySelection = {
@@ -15,7 +17,7 @@ export type ExaminationDisplaySelection = {
 }
 
 export function selectExaminationDisplay(params: {
-  displayedState: DisplayedEntryState
+  displayedState: ExaminationDisplayedEntryState
   entriesByKey: ReadonlyMap<string, ExaminationEntry>
   archiveEntries: readonly AvailableArchiveEntry[]
   blocker: string | null
