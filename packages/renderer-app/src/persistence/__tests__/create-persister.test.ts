@@ -123,6 +123,17 @@ function requireSnapshot(snapshot: PersistedCourse | null): PersistedCourse {
   return snapshot
 }
 
+function createDeferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+} {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve
+  })
+  return { promise, resolve }
+}
+
 describe("createPersister", () => {
   let nowSeq = 0
 
@@ -163,6 +174,82 @@ describe("createPersister", () => {
     assert.equal(harness.saved.length, 1)
     assert.equal(harness.saved[0]?.displayName, "Second edit")
     assert.equal(harness.snapshot?.displayName, "Second edit")
+    assert.equal(harness.snapshot?.revision, 1)
+  })
+
+  it("saves edits made while an earlier save is in flight", async () => {
+    const firstSaveStarted = createDeferred<void>()
+    const firstSave = createDeferred<CourseSaveStamp>()
+    let calls = 0
+    const harness = createCourseHarness(async (course) => {
+      calls += 1
+      if (calls === 1) {
+        firstSaveStarted.resolve()
+        return await firstSave.promise
+      }
+      return nextStamp(course)
+    })
+
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "First edit",
+    })
+    const flush = harness.persister.flush()
+    await firstSaveStarted.promise
+
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Second edit",
+    })
+    firstSave.resolve({
+      revision: 1,
+      updatedAt: "2026-03-05T00:00:01.000Z",
+    })
+    await flush
+
+    assert.equal(harness.saved.length, 2)
+    assert.equal(harness.saved[0]?.displayName, "First edit")
+    assert.equal(harness.saved[1]?.displayName, "Second edit")
+    assert.equal(harness.snapshot?.displayName, "Second edit")
+    assert.equal(harness.snapshot?.revision, 2)
+  })
+
+  it("does not let an old course save reset the new course baseline", async () => {
+    const firstSaveStarted = createDeferred<void>()
+    const firstSave = createDeferred<CourseSaveStamp>()
+    let calls = 0
+    const harness = createCourseHarness(async (course) => {
+      calls += 1
+      if (calls === 1) {
+        firstSaveStarted.resolve()
+        return await firstSave.promise
+      }
+      return nextStamp(course)
+    })
+
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Course 1 edit",
+    })
+    const flush = harness.persister.flush()
+    await firstSaveStarted.promise
+
+    harness.setSnapshot(makeCourse("course-2"))
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Course 2 edit",
+    })
+    firstSave.resolve({
+      revision: 1,
+      updatedAt: "2026-03-05T00:00:01.000Z",
+    })
+    await flush
+
+    assert.equal(harness.saved.length, 2)
+    assert.equal(harness.saved[0]?.id, "course-1")
+    assert.equal(harness.saved[1]?.id, "course-2")
+    assert.equal(harness.saved[1]?.displayName, "Course 2 edit")
+    assert.equal(harness.snapshot?.id, "course-2")
     assert.equal(harness.snapshot?.revision, 1)
   })
 

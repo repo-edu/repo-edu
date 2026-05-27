@@ -211,20 +211,31 @@ export function createPersister<
           snapshot as WorkflowInput<TWorkflowId>,
         )
 
-        if (
-          adapter.applySaveResult !== undefined &&
-          (identity === null ||
-            getCurrentSnapshotIdentity(adapter.getSnapshot()) === identity)
-        ) {
+        const snapshotAtCompletion = adapter.getSnapshot()
+        const completionIdentity =
+          getCurrentSnapshotIdentity(snapshotAtCompletion)
+        const applySaveResult = adapter.applySaveResult
+        const canApplySaveResult =
+          identity === null || completionIdentity === identity
+        const snapshotStillMatchesSave =
+          snapshotAtCompletion !== null &&
+          snapshotsEqual(snapshotAtCompletion, snapshot)
+
+        if (applySaveResult !== undefined && canApplySaveResult) {
           applyingSaveResult = true
           try {
-            adapter.applySaveResult(result, snapshot)
+            applySaveResult(result, snapshot)
           } finally {
             applyingSaveResult = false
           }
-          baseline = adapter.getSnapshot()
-          baselineIdentity = baseline ? getIdentity(baseline) : null
-        } else {
+          if (snapshotStillMatchesSave) {
+            baseline = adapter.getSnapshot()
+            baselineIdentity = baseline ? getIdentity(baseline) : null
+          } else {
+            baseline = snapshot
+            baselineIdentity = identity
+          }
+        } else if (applySaveResult === undefined) {
           baseline = snapshot
           baselineIdentity = identity
         }
@@ -305,7 +316,7 @@ export function createPersister<
 
   function ensureWorker(): Promise<void> {
     if (worker === null) {
-      worker = runWorker()
+      worker = Promise.resolve().then(runWorker)
     }
     return worker
   }

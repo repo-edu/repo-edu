@@ -246,7 +246,7 @@ function AppShell() {
   const loadedCourse = useCourseStore((s) => s.course)
   const undo = useCourseStore((s) => s.undo)
   const redo = useCourseStore((s) => s.redo)
-  const flushCourse = persisterRegistry.course.flush
+  const flushPersistedDocuments = persisterRegistry.flush
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
@@ -305,11 +305,11 @@ function AppShell() {
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      void flushCourse()
+      void flushPersistedDocuments()
     }
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [flushCourse])
+  }, [flushPersistedDocuments])
 
   // Keyboard shortcuts.
   useEffect(() => {
