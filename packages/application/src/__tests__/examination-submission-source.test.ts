@@ -15,16 +15,12 @@ import type {
   LlmRunRequest,
   LlmRunResult,
   LlmStreamEvent,
-  TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { createTokenizerPortForTests } from "./helpers/tokenizer.js"
 
-const tokenizer: TokenizerPort = {
-  async loadTokenizerLanguage() {
-    throw new Error("Tokenizer not available in this test.")
-  },
-}
+const tokenizer = createTokenizerPortForTests()
 
 const llm: LlmPort = {
   async run(_request: LlmRunRequest): Promise<LlmRunResult> {
@@ -83,6 +79,16 @@ async function assertValidationError(action: () => Promise<unknown>) {
 
 function bytes(text: string): Uint8Array {
   return new TextEncoder().encode(text)
+}
+
+function archivedQuestions(
+  count: number,
+): ExaminationArchiveRecord["questions"] {
+  return Array.from({ length: count }, (_, index) => ({
+    question: `Q${index + 1}?`,
+    answer: `A${index + 1}.`,
+    anchor: { sourceId: "E1", lineRange: { start: 1, end: 1 } },
+  }))
 }
 
 describe("examination.prepareSubmissionSource", () => {
@@ -206,13 +212,7 @@ describe("examination.lookupQuestionSummaries", () => {
       await workflowHandlers["examination.lookupQuestions"](lookupInput)
     const baseRecord: ExaminationArchiveRecord = {
       key: lookup.requestedKey,
-      questions: [
-        {
-          question: "Q1?",
-          answer: "A1.",
-          anchor: { sourceId: "E1", lineRange: { start: 1, end: 1 } },
-        },
-      ],
+      questions: archivedQuestions(2),
       provenance: {
         model: "22",
         effort: "medium",
@@ -235,6 +235,7 @@ describe("examination.lookupQuestionSummaries", () => {
             effort: "high",
           }),
       },
+      questions: archivedQuestions(4),
       provenance: {
         ...baseRecord.provenance,
         model: "33",
@@ -244,7 +245,18 @@ describe("examination.lookupQuestionSummaries", () => {
     })
     archive.put({
       ...baseRecord,
-      key: { ...baseRecord.key, questionCount: 8 },
+      key: {
+        ...baseRecord.key,
+        questionCount: 8,
+        generationContextFingerprint:
+          buildExaminationGenerationContextFingerprint({
+            model: baseRecord.provenance.model,
+            effort: baseRecord.provenance.effort,
+            promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+            redactionPolicyVersion: 0,
+          }),
+      },
+      questions: archivedQuestions(8),
       provenance: {
         ...baseRecord.provenance,
         questionCount: 8,

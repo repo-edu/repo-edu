@@ -269,12 +269,18 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
+      '@repo-edu/tree-sitter-grammar-assets':
+        specifier: workspace:*
+        version: link:../tree-sitter-grammar-assets
       '@types/linkify-it':
         specifier: ^5.0.0
         version: 5.0.0
       '@types/papaparse':
         specifier: ^5.5.2
         version: 5.5.2
+      web-tree-sitter:
+        specifier: 0.26.9
+        version: 0.26.9
 
   packages/application-contract:
     dependencies:

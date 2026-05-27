@@ -30,7 +30,9 @@
     "test": "node --import tsx --test src/__tests__/*.test.ts src/adapters/**/__tests__/*.test.ts"
   },
   "devDependencies": {
+    "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "@types/linkify-it": "^5.0.0",
-    "@types/papaparse": "^5.5.2"
+    "@types/papaparse": "^5.5.2",
+    "web-tree-sitter": "0.26.9"
   }
 }
