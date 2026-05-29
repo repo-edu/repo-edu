@@ -1,6 +1,7 @@
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectCourseId,
   selectLmsConnectionId,
@@ -15,7 +16,7 @@ import { MemberListPane } from "./students/MemberListPane.js"
 export function StudentsTab() {
   const roster = useCourseStore(selectRoster)
   const course = useCourseStore((s) => s.course)
-  const setRoster = useCourseStore((s) => s.setRoster)
+  const controller = useSessionController()
   const lmsConnectionId = useCourseStore(selectLmsConnectionId)
   const courseId = useCourseStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
@@ -49,7 +50,7 @@ export function StudentsTab() {
       groupSets: [],
       assignments: [],
     }
-    setRoster(emptyRoster, "Clear roster")
+    controller.setRoster(emptyRoster, "Clear roster")
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {

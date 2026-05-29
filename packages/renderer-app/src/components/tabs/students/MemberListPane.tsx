@@ -36,8 +36,8 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSessionController } from "../../../session/session-controller-context.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { useCourseStore } from "../../../stores/course-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
 import {
@@ -122,11 +122,7 @@ export function MemberListPane({
     (s) => s.setRosterColumnSizing,
   )
 
-  const addMember = useCourseStore((s) => s.addMember)
-  const deleteMemberPermanently = useCourseStore(
-    (s) => s.deleteMemberPermanently,
-  )
-  const updateMember = useCourseStore((s) => s.updateMember)
+  const controller = useSessionController()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -235,7 +231,7 @@ export function MemberListPane({
       source: "local",
     }
 
-    addMember(member)
+    controller.addMember(member)
     setNewMemberName("")
     setNewMemberEmail("")
     setAddingMember(false)
@@ -243,33 +239,33 @@ export function MemberListPane({
 
   const handleUpdateName = useCallback(
     (id: string, name: string) => {
-      updateMember(id, { name })
+      controller.updateMember(id, { name })
     },
-    [updateMember],
+    [controller],
   )
 
   const handleUpdateEmail = useCallback(
     (id: string, email: string) => {
-      updateMember(id, { email })
+      controller.updateMember(id, { email })
     },
-    [updateMember],
+    [controller],
   )
 
   const handleUpdateGitUsername = useCallback(
     (id: string, gitUsername: string) => {
-      updateMember(id, {
+      controller.updateMember(id, {
         gitUsername: gitUsername || null,
         gitUsernameStatus: "unknown",
       })
     },
-    [updateMember],
+    [controller],
   )
 
   const handleUpdateStatus = useCallback(
     (id: string, status: MemberStatus) => {
-      updateMember(id, { status })
+      controller.updateMember(id, { status })
     },
-    [updateMember],
+    [controller],
   )
 
   const handleRequestPermanentDelete = useCallback(
@@ -284,7 +280,7 @@ export function MemberListPane({
   const handleConfirmPermanentDelete = () => {
     if (!memberPendingDeletion) return
     const { id } = memberPendingDeletion
-    deleteMemberPermanently(id)
+    controller.deleteMemberPermanently(id)
     setMemberPendingDeletion(null)
   }
 

@@ -20,6 +20,7 @@ import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectGroupSetById,
   useCourseStore,
@@ -65,8 +66,7 @@ export function ImportGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
-  const setRoster = useCourseStore((state) => state.setRoster)
-  const setIdSequences = useCourseStore((state) => state.setIdSequences)
+  const controller = useSessionController()
 
   const reimportGroupSet = useCourseStore(
     selectGroupSetById(reimportTargetId ?? ""),
@@ -176,8 +176,8 @@ export function ImportGroupSetDialog() {
       const actionLabel = isReimport
         ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
         : "Import group set from file"
-      setRoster(nextCourse.roster, actionLabel)
-      setIdSequences(nextCourse.idSequences)
+      controller.setRoster(nextCourse.roster, actionLabel)
+      controller.setIdSequences(nextCourse.idSequences)
 
       if (!isReimport) {
         const importedSet = [...nextCourse.roster.groupSets]

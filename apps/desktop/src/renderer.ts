@@ -1,5 +1,5 @@
 import type { AppError } from "@repo-edu/application-contract"
-import { AppRoot } from "@repo-edu/renderer-app"
+import { RendererSessionRoot } from "@repo-edu/renderer-app"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import "../../../packages/renderer-app/src/App.css"
@@ -140,7 +140,10 @@ if (isTRPCValidationMode) {
     React.createElement(
       React.Fragment,
       null,
-      React.createElement(AppRoot, { workflowClient, rendererHost }),
+      React.createElement(RendererSessionRoot, {
+        workflowClient,
+        rendererHost,
+      }),
       React.createElement(UpdateDialog, {
         bridge: window.repoEduDesktopHost,
       }),

@@ -10,6 +10,7 @@ import {
 } from "@repo-edu/domain/settings"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
+import { useSessionController } from "../../../../session/session-controller-context.js"
 import {
   selectActiveGitConnection,
   selectActiveGitConnectionId,
@@ -68,22 +69,14 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     (s) => s.setActiveGitConnectionId,
   )
   const organization = useCourseStore(selectOrganization)
-  const setOrganization = useCourseStore((s) => s.setOrganization)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
-  const setRepositoryTemplate = useCourseStore((s) => s.setRepositoryTemplate)
   const repositoryCloneTargetDirectory = useCourseStore(
     selectRepositoryCloneTargetDirectory,
-  )
-  const setRepositoryCloneTargetDirectory = useCourseStore(
-    (s) => s.setRepositoryCloneTargetDirectory,
   )
   const repositoryCloneDirectoryLayout = useCourseStore(
     selectRepositoryCloneDirectoryLayout,
   )
-  const setRepositoryCloneDirectoryLayout = useCourseStore(
-    (s) => s.setRepositoryCloneDirectoryLayout,
-  )
-  const updateAssignment = useCourseStore((s) => s.updateAssignment)
+  const controller = useSessionController()
   const appSettings = useAppSettingsStore((s) => s.settings)
 
   const [operationStatus, setOperationStatus] =
@@ -174,7 +167,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
-      setRepositoryTemplate({
+      controller.setRepositoryTemplate({
         kind: "remote",
         owner,
         name:
@@ -184,30 +177,30 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         visibility: templateVisibility,
       })
     },
-    [repositoryTemplate, setRepositoryTemplate, templateVisibility],
+    [controller, repositoryTemplate, templateVisibility],
   )
 
   const setTemplateLocalPath = useCallback(
     (localPath: string) => {
-      setRepositoryTemplate({
+      controller.setRepositoryTemplate({
         kind: "local",
         path: localPath,
         visibility: templateVisibility,
       })
     },
-    [setRepositoryTemplate, templateVisibility],
+    [controller, templateVisibility],
   )
 
   const setTemplateKind = useCallback(
     (kind: "remote" | "local") => {
       if (kind === "local") {
-        setRepositoryTemplate({
+        controller.setRepositoryTemplate({
           kind: "local",
           path: templateLocalPath,
           visibility: templateVisibility,
         })
       } else {
-        setRepositoryTemplate({
+        controller.setRepositoryTemplate({
           kind: "remote",
           owner: templateOwner,
           name:
@@ -219,8 +212,8 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       }
     },
     [
+      controller,
       repositoryTemplate,
-      setRepositoryTemplate,
       templateOwner,
       templateLocalPath,
       templateVisibility,
@@ -265,10 +258,10 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
             merged[groupId] = repoName
           }
         }
-        updateAssignment(assignmentId, { repositories: merged })
+        controller.updateAssignment(assignmentId, { repositories: merged })
       }
     },
-    [updateAssignment],
+    [controller],
   )
 
   const handleRunOperation = useCallback(
@@ -304,7 +297,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
           const typed = result as RepositoryUpdateResult
           setLastResult({ operation: "update", result: typed })
           if (typed.templateCommitSha) {
-            updateAssignment(effectiveAssignmentId, {
+            controller.updateAssignment(effectiveAssignmentId, {
               templateCommitSha: typed.templateCommitSha,
             })
           }
@@ -327,9 +320,9 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       cloneDirectoryLayout,
       cloneTargetDirectory,
       course,
+      controller,
       effectiveAssignmentId,
       repositoryTemplate,
-      updateAssignment,
     ],
   )
 
@@ -359,7 +352,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
     // Organization
     organization,
-    setOrganization,
+    setOrganization: controller.setOrganization.bind(controller),
 
     // Template
     templateKind,
@@ -372,7 +365,9 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     // Clone settings
     cloneTargetDirectory,
     cloneDirectoryLayout,
-    setRepositoryCloneTargetDirectory,
-    setRepositoryCloneDirectoryLayout,
+    setRepositoryCloneTargetDirectory:
+      controller.setRepositoryCloneTargetDirectory.bind(controller),
+    setRepositoryCloneDirectoryLayout:
+      controller.setRepositoryCloneDirectoryLayout.bind(controller),
   } as const
 }

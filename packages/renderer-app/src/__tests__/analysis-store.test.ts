@@ -254,7 +254,52 @@ describe("analysis store", () => {
     )
   })
 
-  it("invalidates only repository-analysis sessions when the selected repository changes", () => {
+  it("restores runtime state when returning to an analysis source", () => {
+    const store = useAnalysisStore.getState()
+    const result = makeBaseResult()
+    result.fileStats = [
+      {
+        path: "src/a.ts",
+        bytes: 0,
+        commits: 1,
+        insertions: 10,
+        deletions: 2,
+        lines: 8,
+        lastModified: 1_700_000_000,
+        commitShas: new Set(["sha-a"]),
+        authorBreakdown: new Map(),
+      },
+    ]
+
+    store.activateSource({ kind: "course", courseId: "course-a" })
+    store.setSelectedRepoPath("/repo-a")
+    store.setResultForRepo("/repo-a", result, "fingerprint-a")
+    store.openFileForBlame("src/a.ts")
+    store.setWorkflowStatusForRepo("/repo-a", "running")
+    store.setBlameShowMetadata(false)
+    const ac = new AbortController()
+    analysisStoreInternals.analysisAborts.set("/repo-a", ac)
+
+    store.activateSource({ kind: "course", courseId: "course-b" })
+    assert.equal(ac.signal.aborted, true)
+    assert.equal(analysisStoreInternals.analysisAborts.has("/repo-a"), false)
+    assert.equal(useAnalysisStore.getState().selectedRepoPath, null)
+    assert.equal(useAnalysisStore.getState().result, null)
+    assert.equal(useAnalysisStore.getState().blameShowMetadata, false)
+
+    store.setSelectedRepoPath("/repo-b")
+    store.activateSource({ kind: "course", courseId: "course-a" })
+
+    const state = useAnalysisStore.getState()
+    assert.equal(state.selectedRepoPath, "/repo-a")
+    assert.equal(state.result, result)
+    assert.equal(state.activeBlameFile, "src/a.ts")
+    assert.equal(state.focusedFilePath, "src/a.ts")
+    assert.equal(state.workflowStatus, "idle")
+    assert.equal(state.blameShowMetadata, false)
+  })
+
+  it("preserves repository-analysis sessions when the selected repository changes", () => {
     const store = useAnalysisStore.getState()
     store.setSelectedRepoPath("/repo-a")
     const repositorySessionKey = activateExaminationSession({
@@ -286,7 +331,7 @@ describe("analysis store", () => {
 
     assert.equal(
       useExaminationStore.getState().sourceSessions.has(repositorySessionKey),
-      false,
+      true,
     )
     assert.equal(
       useExaminationStore.getState().sourceSessions.has(submissionSessionKey),

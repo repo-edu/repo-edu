@@ -16,6 +16,7 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSessionController } from "../../../session/session-controller-context.js"
 import {
   selectOtherGroupSetNames,
   useCourseStore,
@@ -47,8 +48,7 @@ export function GroupNameCell({
   const otherNames = useCourseStore(otherSetNames)
   const isShared = otherNames.length > 0
 
-  const updateGroup = useCourseStore((s) => s.updateGroup)
-  const removeGroupFromSet = useCourseStore((s) => s.removeGroupFromSet)
+  const controller = useSessionController()
 
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(group.name)
@@ -69,11 +69,11 @@ export function GroupNameCell({
     }
     const trimmed = editName.trim()
     if (trimmed && trimmed !== group.name) {
-      updateGroup(group.id, { name: trimmed })
+      controller.updateGroup(group.id, { name: trimmed })
     }
     setIsEditing(false)
     setEditName(group.name)
-  }, [editName, group.name, group.id, updateGroup, disabled])
+  }, [controller, disabled, editName, group.id, group.name])
 
   return (
     <div className="space-y-0.5">
@@ -147,7 +147,9 @@ export function GroupNameCell({
               {isShared && (
                 <DropdownMenuItem
                   disabled={disabled}
-                  onClick={() => removeGroupFromSet(groupSetId, group.id)}
+                  onClick={() =>
+                    controller.removeGroupFromSet(groupSetId, group.id)
+                  }
                 >
                   <X className="size-3.5 mr-2" />
                   Remove from set
@@ -172,7 +174,7 @@ export function GroupNameCell({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
-            onClick={() => removeGroupFromSet(groupSetId, group.id)}
+            onClick={() => controller.removeGroupFromSet(groupSetId, group.id)}
             disabled={disabled}
             title="Remove from group set"
           >

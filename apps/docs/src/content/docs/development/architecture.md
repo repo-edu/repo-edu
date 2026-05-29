@@ -55,7 +55,7 @@ All three surfaces execute the same workflows through `WorkflowClient`, but each
 | CLI | In-process | Commander handlers call `createCliWorkflowClient()` which instantiates handlers directly with Node ports. |
 | Docs | In-browser | `createDocsDemoRuntime()` builds handlers with browser-mock ports. The same `@repo-edu/renderer-app` is mounted. |
 
-The renderer never knows which transport backs the client. It calls `client.run("course.load", { courseId })` identically on all surfaces.
+The renderer never knows which transport backs the client. `RendererSessionRoot` receives the full client so `SessionController` can own settings/course persistence workflows, while the rest of the React app receives a narrowed client for application workflows such as course listing, repository operations, imports, analysis, and examination.
 
 ## Browser-embedded app simulation
 
@@ -138,3 +138,4 @@ Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DI
 - Shared packages must stay platform-agnostic. The browser guardrail test enforces this.
 - Side effects live in adapters and ports (`host-node`, integration adapters), not in domain logic.
 - Desktop workflow calls go through the typed tRPC router — no ad hoc IPC.
+- Renderer session workflows (`settings.loadApp`, `settings.saveApp`, `course.load`, `course.save`, `course.delete`) stay inside `SessionController` and persistence workers.

@@ -20,30 +20,33 @@ import {
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import {
-  selectCourseStatus,
-  useCourseStore,
-} from "../../stores/course-store.js"
-import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
+  selectActiveCourseId,
+  selectCourseLoadStatus,
+} from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
+import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { useCourseStore } from "../../stores/course-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
 
 export function StudentSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
-  const activeCourseId = useUiStore(selectActiveCourseId)
+  const controller = useSessionController()
+  const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const course = useCourseStore((state) => state.course)
-  const courseStatus = useCourseStore(selectCourseStatus)
+  const courseLoadStatus = useSessionControllerSelector(selectCourseLoadStatus)
   const appSettings = useAppSettingsStore((state) => state.settings)
   const loadedCourse = course && course.id === activeCourseId ? course : null
   const supportsLms = loadedCourse !== null && courseSupportsLms(loadedCourse)
   const lmsCourseId = loadedCourse?.lmsCourseId ?? null
   const lmsConnectionId = loadedCourse?.lmsConnectionId ?? null
 
-  const setRoster = useCourseStore((state) => state.setRoster)
-  const setIdSequences = useCourseStore((state) => state.setIdSequences)
-  const setLmsConnectionId = useCourseStore((state) => state.setLmsConnectionId)
   const setLmsImportConflicts = useUiStore(
     (state) => state.setLmsImportConflicts,
   )
@@ -84,7 +87,7 @@ export function StudentSyncDialog() {
       return
     }
 
-    if (!loadedCourse || courseStatus === "loading") {
+    if (!loadedCourse || courseLoadStatus.state === "loading") {
       setError(null)
       setProgressMessage("Loading course configuration...")
       return
@@ -141,7 +144,7 @@ export function StudentSyncDialog() {
     appSettings,
     loadedCourse,
     supportsLms,
-    courseStatus,
+    courseLoadStatus.state,
     lmsConnectionId,
     lmsCourseId,
   ])
@@ -153,7 +156,7 @@ export function StudentSyncDialog() {
     }
     if (hasAutoPreviewedRef.current) return
     if (!activeCourseId) return
-    if (!loadedCourse || courseStatus === "loading") return
+    if (!loadedCourse || courseLoadStatus.state === "loading") return
     if (!supportsLms) {
       handleOpenChange(false)
       return
@@ -166,15 +169,15 @@ export function StudentSyncDialog() {
     activeCourseId,
     loadedCourse,
     supportsLms,
-    courseStatus,
+    courseLoadStatus.state,
     handlePreview,
     handleOpenChange,
   ])
 
   const handleApply = () => {
     if (!preview) return
-    setRoster(preview.roster, "Sync roster from LMS")
-    setIdSequences(preview.idSequences)
+    controller.setRoster(preview.roster, "Sync roster from LMS")
+    controller.setIdSequences(preview.idSequences)
     setOpen(false)
     resetState()
   }
@@ -200,7 +203,7 @@ export function StudentSyncDialog() {
               <Select
                 value={lmsConnectionId ?? ""}
                 onValueChange={(value) => {
-                  setLmsConnectionId(value || null)
+                  controller.setLmsConnectionId(value || null)
                   hasAutoPreviewedRef.current = false
                   resetState()
                 }}

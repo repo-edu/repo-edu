@@ -44,16 +44,16 @@ import {
   useState,
 } from "react"
 import { useRendererHost } from "../contexts/renderer-host.js"
-import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
 import { useCourses } from "../hooks/use-courses.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import {
   selectActiveCourseId,
-  selectActiveFolderPath,
-  selectActiveSubmissionPath,
   selectActiveSurface,
-  useUiStore,
-} from "../stores/ui-store.js"
+} from "../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../session/session-controller-context.js"
+import { useAppSettingsStore } from "../stores/app-settings-store.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -77,10 +77,13 @@ function folderParent(path: string): string {
 }
 
 export function CourseSwitcher() {
-  const activeSurface = useUiStore(selectActiveSurface)
-  const activeCourseId = useUiStore(selectActiveCourseId)
-  const activeFolderPath = useUiStore(selectActiveFolderPath)
-  const activeSubmissionPath = useUiStore(selectActiveSubmissionPath)
+  const controller = useSessionController()
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
+  const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
+  const activeFolderPath =
+    activeSurface.kind === "folder" ? activeSurface.path : null
+  const activeSubmissionPath =
+    activeSurface.kind === "submission" ? activeSurface.path : null
   const isHomeSurface = activeSurface.kind === "home"
   const recentFolders = useAppSettingsStore(
     (s) => s.settings.recentAnalysisFolders,
@@ -93,7 +96,6 @@ export function CourseSwitcher() {
     (s) => s.removeRecentSubmissionFolder,
   )
   const rendererHost = useRendererHost()
-  const activateSurface = useActiveSurfaceNavigation()
   const {
     courses,
     refresh: refreshCourses,
@@ -160,10 +162,7 @@ export function CourseSwitcher() {
   const handleRecentFolderSelect = (path: string) => {
     if (path === activeFolderPath) return
     setOpen(false)
-    void activateSurface(
-      { kind: "folder", path },
-      { recordRecent: true, preferredTab: "analysis" },
-    )
+    void controller.activateSurface({ kind: "folder", path })
   }
 
   const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
@@ -172,14 +171,11 @@ export function CourseSwitcher() {
     })
     if (!dir) return
     setOpen(false)
-    await activateSurface(
-      { kind: "submission", path: dir, courseId: course.id },
-      {
-        recordRecent: true,
-        preferredTab: "analysis",
-        courseBacking: course.backing,
-      },
-    )
+    await controller.activateSurface({
+      kind: "submission",
+      path: dir,
+      courseId: course.id,
+    })
   }
 
   const handleRecentSubmissionSelect = (recent: SubmissionFolderRecent) => {
@@ -192,16 +188,8 @@ export function CourseSwitcher() {
             courseId: recent.courseId,
           }
     if (activeSurfaceEquals(activeSurface, surface)) return
-    const courseBacking =
-      recent.courseId === undefined
-        ? undefined
-        : courses.find((course) => course.id === recent.courseId)?.backing
     setOpen(false)
-    void activateSurface(surface, {
-      recordRecent: true,
-      preferredTab: "analysis",
-      courseBacking,
-    })
+    void controller.activateSurface(surface)
   }
 
   const handleRowKeyDown = (
@@ -292,7 +280,7 @@ export function CourseSwitcher() {
       return
     }
     setOpen(false)
-    void activateSurface({ kind: "home" })
+    void controller.activateSurface({ kind: "home" })
   }
 
   const handleRemoveRecentFolder = (path: string) => {

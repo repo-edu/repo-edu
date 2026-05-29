@@ -1,10 +1,10 @@
 import { useCallback } from "react"
 import { useRendererHost } from "../contexts/renderer-host.js"
-import { useActiveSurfaceNavigation } from "./use-active-surface-navigation.js"
+import { useSessionController } from "../session/session-controller-context.js"
 
 export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
   const rendererHost = useRendererHost()
-  const activateSurface = useActiveSurfaceNavigation()
+  const controller = useSessionController()
   const courseId = options.courseId
 
   return useCallback(async () => {
@@ -12,11 +12,10 @@ export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
       title: "Open student submission folder",
     })
     if (!dir) return
-    await activateSurface(
+    await controller.activateSurface(
       courseId === undefined
         ? { kind: "submission", path: dir }
         : { kind: "submission", path: dir, courseId },
-      { recordRecent: true, preferredTab: "analysis" },
     )
-  }, [activateSurface, courseId, rendererHost])
+  }, [controller, courseId, rendererHost])
 }

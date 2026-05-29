@@ -24,6 +24,7 @@ export type Persister = {
   flush: () => Promise<void>
   waitForIdle: () => Promise<void>
   adoptCurrentSnapshot: () => void
+  rebaseBaseline: () => void
   dispose: () => void
 }
 
@@ -58,6 +59,10 @@ export type PersisterAdapter<
     result: WorkflowResult<TWorkflowId>,
     snapshot: TSnapshot,
   ) => void
+  onSaveResult?: (
+    result: WorkflowResult<TWorkflowId>,
+    snapshot: TSnapshot,
+  ) => void | Promise<void>
   getSnapshotIdentity?: (snapshot: TSnapshot) => string
   snapshotsEqual?: (left: TSnapshot, right: TSnapshot) => boolean
   debounceMs?: number
@@ -298,7 +303,21 @@ export function createPersister<
           snapshotAtCompletion !== null &&
           snapshotsEqual(snapshotAtCompletion, snapshot)
 
-        if (applySaveResult !== undefined && canApplySaveResult) {
+        if (adapter.onSaveResult !== undefined && canApplySaveResult) {
+          suppressSnapshotNotifications = true
+          try {
+            await adapter.onSaveResult(result, snapshot)
+          } finally {
+            suppressSnapshotNotifications = false
+          }
+          if (snapshotStillMatchesSave) {
+            baseline = adapter.getSnapshot()
+            baselineIdentity = baseline ? getIdentity(baseline) : null
+          } else {
+            baseline = snapshot
+            baselineIdentity = identity
+          }
+        } else if (applySaveResult !== undefined && canApplySaveResult) {
           suppressSnapshotNotifications = true
           try {
             applySaveResult(result, snapshot)
@@ -444,6 +463,20 @@ export function createPersister<
     },
     adoptCurrentSnapshot() {
       adoptSnapshot(adapter.getSnapshot())
+    },
+    rebaseBaseline() {
+      const snapshot = adapter.getSnapshot()
+      baseline = snapshot
+      baselineIdentity = snapshot ? getIdentity(snapshot) : null
+      observeSnapshot(snapshot)
+      pausedIdentity = null
+      terminalError = null
+      if (!snapshotNeedsSave(snapshot)) {
+        saveRequested = false
+        clearDebounceTimer()
+        setIdleIfNoWork()
+      }
+      resolveIdleWaiters()
     },
     dispose() {
       disposed = true

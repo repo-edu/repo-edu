@@ -14,9 +14,11 @@ import {
   GROUPS_SIDEBAR_MAX_WIDTH_PX,
   GROUPS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
+import { selectActiveCourseId } from "../../session/selectors.js"
+import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { selectActiveCourseId, useUiStore } from "../../stores/ui-store.js"
+import { useUiStore } from "../../stores/ui-store.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
 import { GroupsAssignmentsSidebar } from "./groups-assignments/GroupsAssignmentsSidebar.js"
 
@@ -31,7 +33,7 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 export function GroupsAssignmentsTab() {
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const activeCourseId = useUiStore(selectActiveCourseId)
+  const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const course = useCourseStore((s) => s.course)
   const selection = useUiStore((s) => s.sidebarSelection)
   const setSidebarSelection = useUiStore((s) => s.setSidebarSelection)

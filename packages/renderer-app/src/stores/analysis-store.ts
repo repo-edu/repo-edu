@@ -10,6 +10,7 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
 import { create } from "zustand"
+import type { AnalysisSourceKey } from "../session/session-reducer.js"
 import { useExaminationStore } from "./examination-store.js"
 
 const DEFAULT_BLAME_COPY_MOVE = 1
@@ -56,7 +57,43 @@ type PerRepoEntry = PerRepoBlameState & {
   configFingerprint: string
 }
 
+type AnalysisSourceBucket = {
+  sourceKey: AnalysisSourceKey
+  selectedRepoPath: string | null
+  discoveredRepos: DiscoveredRepo[]
+  discoveryStatus: "idle" | "loading" | "error"
+  discoveryError: string | null
+  discoveryCurrentFolder: string | null
+  lastDiscoveryOutcome: "none" | "completed" | "cancelled"
+  pendingRepoDiscoveryFolder: string | null
+  repoWorkflowStatus: Map<string, AnalysisWorkflowStatus>
+  repoProgress: Map<string, AnalysisProgress | null>
+  repoErrorMessage: Map<string, string | null>
+  repoStates: Map<string, PerRepoEntry>
+  result: AnalysisResult | null
+  blameResult: BlameResult | null
+  blameTargetFiles: string[]
+  workflowStatus: AnalysisWorkflowStatus
+  progress: AnalysisProgress | null
+  errorMessage: string | null
+  asOfCommit: string
+  blameFileResults: Map<string, FileBlameEntry>
+  activeBlameFile: string | null
+  blameWorkflowStatus: AnalysisWorkflowStatus
+  blameProgress: AnalysisProgress | null
+  blamePartialAuthorLines: ReadonlyMap<string, number>
+  blameErrorMessage: string | null
+  blameContextSnapshot: string | null
+  blameVisibleAuthors: Set<string> | null
+  selectedAuthors: Set<string>
+  fileSelectionMode: AnalysisFileSelectionMode
+  selectedFiles: Set<string>
+  focusedFilePath: string | null
+}
+
 export type AnalysisState = {
+  activeSourceKey: AnalysisSourceKey | null
+  sourceBuckets: Map<string, AnalysisSourceBucket>
   selectedRepoPath: string | null
 
   // Repo discovery state
@@ -125,6 +162,8 @@ export type AnalysisState = {
 }
 
 export type AnalysisActions = {
+  activateSource: (sourceKey: AnalysisSourceKey | null) => void
+  removeSourcesForCourse: (courseId: string) => void
   setSelectedRepoPath: (path: string | null) => void
 
   // Repo discovery
@@ -232,66 +271,70 @@ const DEFAULT_BLAME_STATE: PerRepoBlameState = {
   focusedFilePath: null,
 }
 
-const initialState: AnalysisState = {
-  selectedRepoPath: null,
-
-  searchDepth: 5,
-  discoveredRepos: [],
-  discoveryStatus: "idle",
-  discoveryError: null,
-  discoveryCurrentFolder: null,
-  lastDiscoveryOutcome: "none",
-  pendingRepoDiscoveryFolder: null,
-
-  repoWorkflowStatus: new Map(),
-  repoProgress: new Map(),
-  repoErrorMessage: new Map(),
-  repoStates: new Map(),
-
-  result: null,
-  blameResult: null,
-  blameTargetFiles: [],
-  workflowStatus: "idle",
-  progress: null,
-  errorMessage: null,
-
-  blameConfig: {
-    copyMove: DEFAULT_BLAME_COPY_MOVE,
-  },
-  asOfCommit: "",
-
-  blameFileResults: new Map(),
-  activeBlameFile: null,
-  blameWorkflowStatus: "idle",
-  blameProgress: null,
-  blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
-  blameErrorMessage: null,
-  blameContextSnapshot: null,
-
-  blameShowMetadata: true,
-  blameColorize: true,
-  blameSyntaxColorize: true,
-  blameHideEmpty: false,
-  blameHideComments: false,
-  blameVisibleAuthors: null,
-
-  selectedAuthors: new Set(),
-  fileSelectionMode: "all",
-  selectedFiles: new Set(),
-  focusedFilePath: null,
-
-  displayMode: "absolute",
-  activeView: "authors",
-  chartMetric: "linesOfCode",
-  showCommits: true,
-  showInsertions: true,
-  showDeletions: false,
-  showLinesOfCode: true,
-  showRenames: true,
-  showEmail: true,
-  showRosterMatch: true,
-  showAge: false,
+function createEmptySourceFields(): Omit<AnalysisSourceBucket, "sourceKey"> {
+  return {
+    selectedRepoPath: null,
+    discoveredRepos: [],
+    discoveryStatus: "idle",
+    discoveryError: null,
+    discoveryCurrentFolder: null,
+    lastDiscoveryOutcome: "none",
+    pendingRepoDiscoveryFolder: null,
+    repoWorkflowStatus: new Map(),
+    repoProgress: new Map(),
+    repoErrorMessage: new Map(),
+    repoStates: new Map(),
+    result: null,
+    blameResult: null,
+    blameTargetFiles: [],
+    workflowStatus: "idle",
+    progress: null,
+    errorMessage: null,
+    asOfCommit: "",
+    blameFileResults: new Map(),
+    activeBlameFile: null,
+    blameWorkflowStatus: "idle",
+    blameProgress: null,
+    blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
+    blameErrorMessage: null,
+    blameContextSnapshot: null,
+    blameVisibleAuthors: null,
+    selectedAuthors: new Set(),
+    fileSelectionMode: "all",
+    selectedFiles: new Set(),
+    focusedFilePath: null,
+  }
 }
+
+function createInitialAnalysisState(): AnalysisState {
+  return {
+    activeSourceKey: null,
+    sourceBuckets: new Map(),
+    ...createEmptySourceFields(),
+    searchDepth: 5,
+    blameConfig: {
+      copyMove: DEFAULT_BLAME_COPY_MOVE,
+    },
+    blameShowMetadata: true,
+    blameColorize: true,
+    blameSyntaxColorize: true,
+    blameHideEmpty: false,
+    blameHideComments: false,
+    displayMode: "absolute",
+    activeView: "authors",
+    chartMetric: "linesOfCode",
+    showCommits: true,
+    showInsertions: true,
+    showDeletions: false,
+    showLinesOfCode: true,
+    showRenames: true,
+    showEmail: true,
+    showRosterMatch: true,
+    showAge: false,
+  }
+}
+
+const initialState = createInitialAnalysisState()
 
 /**
  * Snapshot the currently-selected repo's per-repo state into `repoStates`
@@ -328,6 +371,147 @@ function snapshotActiveBlameState(
   return next
 }
 
+function analysisSourceKeyId(sourceKey: AnalysisSourceKey): string {
+  if (sourceKey.kind === "course") {
+    return JSON.stringify(["course", sourceKey.courseId])
+  }
+  if (sourceKey.kind === "folder") {
+    return JSON.stringify(["folder", sourceKey.path])
+  }
+  return JSON.stringify(["submission", sourceKey.path, sourceKey.courseId])
+}
+
+function analysisSourceKeysEqual(
+  left: AnalysisSourceKey | null,
+  right: AnalysisSourceKey | null,
+): boolean {
+  if (left === null || right === null) return left === right
+  return analysisSourceKeyId(left) === analysisSourceKeyId(right)
+}
+
+function sourceBelongsToCourse(
+  sourceKey: AnalysisSourceKey,
+  courseId: string,
+): boolean {
+  if (sourceKey.kind === "course") return sourceKey.courseId === courseId
+  if (sourceKey.kind === "submission") return sourceKey.courseId === courseId
+  return false
+}
+
+function clearPendingBlameFiles(
+  entries: Map<string, FileBlameEntry>,
+): Map<string, FileBlameEntry> {
+  let changed = false
+  const next = new Map(entries)
+  for (const [path, entry] of next) {
+    if (entry.status === "pending") {
+      next.delete(path)
+      changed = true
+    }
+  }
+  return changed ? next : entries
+}
+
+function idleRepoWorkflowStatus(
+  statuses: Map<string, AnalysisWorkflowStatus>,
+): Map<string, AnalysisWorkflowStatus> {
+  let changed = false
+  const next = new Map(statuses)
+  for (const [repoPath, status] of next) {
+    if (status === "running") {
+      next.set(repoPath, "idle")
+      changed = true
+    }
+  }
+  return changed ? next : statuses
+}
+
+function bucketFromState(
+  sourceKey: AnalysisSourceKey,
+  state: AnalysisState,
+  options?: { settleRunningWorkflows?: boolean },
+): AnalysisSourceBucket {
+  const settleRunningWorkflows = options?.settleRunningWorkflows ?? false
+  return {
+    sourceKey,
+    selectedRepoPath: state.selectedRepoPath,
+    discoveredRepos: state.discoveredRepos,
+    discoveryStatus:
+      settleRunningWorkflows && state.discoveryStatus === "loading"
+        ? "idle"
+        : state.discoveryStatus,
+    discoveryError: state.discoveryError,
+    discoveryCurrentFolder:
+      settleRunningWorkflows && state.discoveryStatus === "loading"
+        ? null
+        : state.discoveryCurrentFolder,
+    lastDiscoveryOutcome:
+      settleRunningWorkflows && state.discoveryStatus === "loading"
+        ? "cancelled"
+        : state.lastDiscoveryOutcome,
+    pendingRepoDiscoveryFolder:
+      settleRunningWorkflows && state.discoveryStatus === "loading"
+        ? null
+        : state.pendingRepoDiscoveryFolder,
+    repoWorkflowStatus: settleRunningWorkflows
+      ? idleRepoWorkflowStatus(state.repoWorkflowStatus)
+      : state.repoWorkflowStatus,
+    repoProgress: settleRunningWorkflows ? new Map() : state.repoProgress,
+    repoErrorMessage: state.repoErrorMessage,
+    repoStates: snapshotActiveBlameState(state),
+    result: state.result,
+    blameResult: state.blameResult,
+    blameTargetFiles: state.blameTargetFiles,
+    workflowStatus:
+      settleRunningWorkflows && state.workflowStatus === "running"
+        ? "idle"
+        : state.workflowStatus,
+    progress: settleRunningWorkflows ? null : state.progress,
+    errorMessage: state.errorMessage,
+    asOfCommit: state.asOfCommit,
+    blameFileResults: settleRunningWorkflows
+      ? clearPendingBlameFiles(state.blameFileResults)
+      : state.blameFileResults,
+    activeBlameFile: state.activeBlameFile,
+    blameWorkflowStatus:
+      settleRunningWorkflows && state.blameWorkflowStatus === "running"
+        ? "idle"
+        : state.blameWorkflowStatus,
+    blameProgress: settleRunningWorkflows ? null : state.blameProgress,
+    blamePartialAuthorLines: settleRunningWorkflows
+      ? EMPTY_PARTIAL_AUTHOR_LINES
+      : state.blamePartialAuthorLines,
+    blameErrorMessage: state.blameErrorMessage,
+    blameContextSnapshot: state.blameContextSnapshot,
+    blameVisibleAuthors: state.blameVisibleAuthors,
+    selectedAuthors: state.selectedAuthors,
+    fileSelectionMode: state.fileSelectionMode,
+    selectedFiles: state.selectedFiles,
+    focusedFilePath: state.focusedFilePath,
+  }
+}
+
+function sourceFieldsFromBucket(
+  bucket: AnalysisSourceBucket | null,
+): Omit<AnalysisSourceBucket, "sourceKey"> {
+  if (bucket === null) return createEmptySourceFields()
+  const { sourceKey: _sourceKey, ...fields } = bucket
+  return fields
+}
+
+function snapshotActiveSourceBucket(
+  state: AnalysisState,
+  options?: { settleRunningWorkflows?: boolean },
+): Map<string, AnalysisSourceBucket> {
+  const sourceBuckets = new Map(state.sourceBuckets)
+  if (state.activeSourceKey === null) return sourceBuckets
+  sourceBuckets.set(
+    analysisSourceKeyId(state.activeSourceKey),
+    bucketFromState(state.activeSourceKey, state, options),
+  )
+  return sourceBuckets
+}
+
 // Abort controllers are coordination primitives, not UI state — kept outside
 // Zustand so components cannot accidentally subscribe to them.
 export const analysisStoreInternals = {
@@ -340,15 +524,70 @@ export const analysisStoreInternals = {
     // Keep handles until each run settles and removes itself. Clearing here
     // breaks `isCurrentRun()` guards and can leave stale UI status.
   },
+  abortAndClearAll(): void {
+    for (const controller of analysisStoreInternals.analysisAborts.values()) {
+      controller.abort()
+    }
+    analysisStoreInternals.analysisAborts.clear()
+  },
 }
 
 export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
   (set, get) => ({
     ...initialState,
 
+    activateSource: (sourceKey) => {
+      if (analysisSourceKeysEqual(get().activeSourceKey, sourceKey)) return
+      analysisStoreInternals.abortAndClearAll()
+      analysisStoreInternals.discoveryAbort?.abort()
+      analysisStoreInternals.discoveryAbort = null
+      set((state) => {
+        const sourceBuckets = snapshotActiveSourceBucket(state, {
+          settleRunningWorkflows: true,
+        })
+        const nextBucket =
+          sourceKey === null
+            ? null
+            : (sourceBuckets.get(analysisSourceKeyId(sourceKey)) ?? null)
+        return {
+          activeSourceKey: sourceKey,
+          sourceBuckets,
+          ...sourceFieldsFromBucket(nextBucket),
+        }
+      })
+    },
+
+    removeSourcesForCourse: (courseId) => {
+      analysisStoreInternals.abortAndClearAll()
+      analysisStoreInternals.discoveryAbort?.abort()
+      analysisStoreInternals.discoveryAbort = null
+      set((state) => {
+        const sourceBuckets = snapshotActiveSourceBucket(state, {
+          settleRunningWorkflows: true,
+        })
+        for (const [bucketId, bucket] of sourceBuckets) {
+          if (sourceBelongsToCourse(bucket.sourceKey, courseId)) {
+            sourceBuckets.delete(bucketId)
+          }
+        }
+        if (
+          state.activeSourceKey !== null &&
+          sourceBelongsToCourse(state.activeSourceKey, courseId)
+        ) {
+          return {
+            activeSourceKey: null,
+            sourceBuckets,
+            ...createEmptySourceFields(),
+            activeView: "authors" as AnalysisView,
+          }
+        }
+        return { sourceBuckets }
+      })
+      useExaminationStore.getState().resetRepositoryAnalysis()
+    },
+
     setSelectedRepoPath: (path) => {
-      const previousPath = get().selectedRepoPath
-      if (previousPath === path) return
+      if (get().selectedRepoPath === path) return
       set((state) => {
         const snapshot = snapshotActiveBlameState(state)
         if (path === null) {
@@ -401,9 +640,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           ...DEFAULT_BLAME_STATE,
         }
       })
-      useExaminationStore
-        .getState()
-        .invalidateRepositoryAnalysisSource(previousPath)
     },
 
     // Repo discovery
@@ -788,51 +1024,29 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       }),
 
     resetAnalysisContext: () => {
-      analysisStoreInternals.cancelAll()
+      analysisStoreInternals.abortAndClearAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
       useExaminationStore.getState().resetRepositoryAnalysis()
-      set({
-        selectedRepoPath: null,
-        discoveredRepos: [],
-        discoveryStatus: "idle",
-        discoveryError: null,
-        discoveryCurrentFolder: null,
-        lastDiscoveryOutcome: "none",
-        pendingRepoDiscoveryFolder: null,
-        repoStates: new Map(),
-        repoWorkflowStatus: new Map(),
-        repoProgress: new Map(),
-        repoErrorMessage: new Map(),
-        result: null,
-        blameResult: null,
-        blameTargetFiles: [],
-        blameFileResults: new Map(),
-        activeBlameFile: null,
-        workflowStatus: "idle",
-        progress: null,
-        errorMessage: null,
-        blameWorkflowStatus: "idle",
-        blameProgress: null,
-        blamePartialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
-        blameErrorMessage: null,
-        blameContextSnapshot: null,
-        asOfCommit: "",
-        selectedAuthors: new Set(),
-        blameVisibleAuthors: null,
-        fileSelectionMode: "all",
-        selectedFiles: new Set(),
-        focusedFilePath: null,
-        activeView: "authors",
+      set((state) => {
+        const sourceBuckets = new Map(state.sourceBuckets)
+        if (state.activeSourceKey !== null) {
+          sourceBuckets.delete(analysisSourceKeyId(state.activeSourceKey))
+        }
+        return {
+          sourceBuckets,
+          ...createEmptySourceFields(),
+          activeView: "authors" as AnalysisView,
+        }
       })
     },
 
     reset: () => {
-      analysisStoreInternals.cancelAll()
+      analysisStoreInternals.abortAndClearAll()
       analysisStoreInternals.discoveryAbort?.abort()
       analysisStoreInternals.discoveryAbort = null
       useExaminationStore.getState().resetRepositoryAnalysis()
-      set(initialState)
+      set(createInitialAnalysisState())
     },
   }),
 )

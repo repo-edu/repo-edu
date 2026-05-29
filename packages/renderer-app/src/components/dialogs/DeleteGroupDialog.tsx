@@ -9,6 +9,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { AlertTriangle } from "@repo-edu/ui/components/icons"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectGroupById,
   selectGroupReferenceCount,
@@ -23,13 +24,13 @@ export function DeleteGroupDialog() {
 
   const group = useCourseStore(selectGroupById(targetId ?? ""))
   const refCount = useCourseStore(selectGroupReferenceCount(targetId ?? ""))
-  const deleteGroup = useCourseStore((state) => state.deleteGroup)
+  const controller = useSessionController()
 
   const isShared = refCount > 1
 
   const handleDelete = () => {
     if (!targetId) return
-    deleteGroup(targetId)
+    controller.deleteGroup(targetId)
     handleClose()
   }
 

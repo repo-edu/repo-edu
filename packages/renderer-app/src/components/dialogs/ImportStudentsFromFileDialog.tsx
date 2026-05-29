@@ -12,6 +12,7 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -22,8 +23,7 @@ export function ImportStudentsFromFileDialog() {
     (state) => state.setImportFileDialogOpen,
   )
 
-  const setRoster = useCourseStore((state) => state.setRoster)
-  const setIdSequences = useCourseStore((state) => state.setIdSequences)
+  const controller = useSessionController()
   const course = useCourseStore((state) => state.course)
 
   const [fileName, setFileName] = useState("")
@@ -73,8 +73,8 @@ export function ImportStudentsFromFileDialog() {
         course,
         file: fileRef,
       })
-      setRoster(imported.roster, "Import students from file")
-      setIdSequences(imported.idSequences)
+      controller.setRoster(imported.roster, "Import students from file")
+      controller.setIdSequences(imported.idSequences)
       setImportFileDialogOpen(false)
       setFileName("")
       setFileRef(null)

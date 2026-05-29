@@ -24,6 +24,7 @@ import {
 } from "@repo-edu/ui"
 import { cn } from "@repo-edu/ui/lib/utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectConnectedGroupSets,
   selectGroupsForGroupSet,
@@ -35,6 +36,7 @@ import {
 import { useUiStore } from "../../stores/ui-store.js"
 
 export function NewLocalGroupSetDialog() {
+  const controller = useSessionController()
   const [name, setName] = useState("")
   const [sourceGroupSetId, setSourceGroupSetId] = useState<string | null>(null)
   const [pattern, setPattern] = useState("")
@@ -46,9 +48,6 @@ export function NewLocalGroupSetDialog() {
   const open = useUiStore((state) => state.newLocalGroupSetDialogOpen)
   const setOpen = useUiStore((state) => state.setNewLocalGroupSetDialogOpen)
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
-  const createLocalGroupSet = useCourseStore(
-    (state) => state.createLocalGroupSet,
-  )
   const connectedSets = useCourseStore(selectConnectedGroupSets)
   const localSets = useCourseStore(selectLocalGroupSets)
   const individualStudentsSet = useCourseStore(
@@ -221,7 +220,7 @@ export function NewLocalGroupSetDialog() {
         .filter((g) => checkedGroupIds.has(g.id))
         .map((g) => g.id)
 
-      const id = createLocalGroupSet(trimmedName, groupIds)
+      const id = controller.createLocalGroupSet(trimmedName, groupIds)
       if (id) {
         setSidebarSelection({ kind: "group-set", id })
       }

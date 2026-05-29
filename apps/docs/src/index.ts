@@ -1,5 +1,5 @@
 import { packageId as hostBrowserMockPackageId } from "@repo-edu/host-browser-mock"
-import { AppRoot } from "@repo-edu/renderer-app"
+import { RendererSessionRoot } from "@repo-edu/renderer-app"
 import { packageId as testFixturesPackageId } from "@repo-edu/test-fixtures"
 import { mountDocsDemoApp } from "./demo-runtime.js"
 
@@ -25,5 +25,5 @@ export const workspaceDependencies = [
 export { createDocsDemoRuntime, mountDocsDemoApp } from "./demo-runtime.js"
 
 if (typeof document !== "undefined") {
-  mountDocsDemoApp({ appRootComponent: AppRoot })
+  mountDocsDemoApp({ appRootComponent: RendererSessionRoot })
 }

@@ -55,7 +55,7 @@ type WorkflowClient = {
 }
 ```
 
-Callers never know (or care) which transport delivers the execution. The React renderer calls `client.run("course.load", { courseId })` the same way regardless of whether the client is backed by tRPC-electron IPC, an in-process handler, or a browser mock.
+Callers never know (or care) which transport delivers the execution. The React renderer receives the same client shape regardless of whether it is backed by tRPC-electron IPC, an in-process handler, or a browser mock. Renderer session workflows such as `course.load` and `settings.saveApp` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
 
 ### WorkflowHandler
 
@@ -96,6 +96,7 @@ Not all workflows are available on all surfaces. The [workflow catalog](/repo-ed
 | Workflow handlers | `packages/application/src/*-workflows.ts` |
 | Desktop transport (tRPC) | `apps/desktop/src/trpc.ts` |
 | Desktop client (renderer) | `apps/desktop/src/workflow-client.ts` |
+| Renderer session owner | `packages/renderer-app/src/session/session-controller.ts` |
 | CLI transport (in-process) | `apps/cli/src/workflow-runtime.ts` |
 | Docs transport (in-browser) | `apps/docs/src/demo-runtime.ts` |
 | React context | `packages/renderer-app/src/contexts/workflow-client.tsx` |

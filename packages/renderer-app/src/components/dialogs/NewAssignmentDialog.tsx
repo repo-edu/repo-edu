@@ -11,6 +11,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useEffect, useMemo, useState } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
@@ -27,7 +28,7 @@ export function NewAssignmentDialog() {
   )
   const selection = useUiStore((state) => state.sidebarSelection)
 
-  const addAssignment = useCourseStore((state) => state.addAssignment)
+  const controller = useSessionController()
   const roster = useCourseStore((state) => state.course?.roster ?? null)
 
   const [creating, setCreating] = useState(false)
@@ -76,7 +77,7 @@ export function NewAssignmentDialog() {
     if (!canCreate || !resolvedGroupSetId) return
 
     setCreating(true)
-    addAssignment({
+    controller.addAssignment({
       name: name.trim(),
       groupSetId: resolvedGroupSetId,
       repositories: {},

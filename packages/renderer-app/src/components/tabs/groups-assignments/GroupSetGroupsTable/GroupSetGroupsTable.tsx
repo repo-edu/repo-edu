@@ -24,6 +24,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSessionController } from "../../../../session/session-controller-context.js"
 import {
   type EditableGroupTarget,
   useCourseStore,
@@ -167,21 +168,13 @@ export function GroupsTable({
   )
   const groupsColumnVisibility = groupSet?.columnVisibility ?? {}
   const groupsColumnSizing = groupSet?.columnSizing ?? {}
-  const updateGroupSetColumnVisibility = useCourseStore(
-    (s) => s.updateGroupSetColumnVisibility,
-  )
-  const updateGroupSetColumnSizing = useCourseStore(
-    (s) => s.updateGroupSetColumnSizing,
-  )
+  const controller = useSessionController()
 
   const groupCountFilterByGroupSet = useUiStore(
     (s) => s.groupCountFilterByGroupSet,
   )
   const setGroupCountFilter = useUiStore((s) => s.setGroupCountFilter)
 
-  const updateGroup = useCourseStore((s) => s.updateGroup)
-  const moveMemberToGroup = useCourseStore((s) => s.moveMemberToGroup)
-  const copyMemberToGroup = useCourseStore((s) => s.copyMemberToGroup)
   const course = useCourseStore((s) => s.course)
 
   // Scroll state
@@ -343,11 +336,14 @@ export function GroupsTable({
       memberGroupIndex,
       onDeleteGroup,
       onSort: handleSort,
-      updateGroup,
-      moveMemberToGroup,
-      copyMemberToGroup,
+      updateGroup: (groupId, patch) => controller.updateGroup(groupId, patch),
+      moveMemberToGroup: (memberId, sourceGroupId, targetGroupId) =>
+        controller.moveMemberToGroup(memberId, sourceGroupId, targetGroupId),
+      copyMemberToGroup: (memberId, targetGroupId) =>
+        controller.copyMemberToGroup(memberId, targetGroupId),
     }) as unknown as ColumnDef<TableRow>[]
   }, [
+    controller,
     isUnnamedGroupSet,
     groupSetId,
     isSetEditable,
@@ -357,9 +353,6 @@ export function GroupsTable({
     memberGroupIndex,
     onDeleteGroup,
     handleSort,
-    updateGroup,
-    moveMemberToGroup,
-    copyMemberToGroup,
   ])
 
   // Track sizing locally during drag, commit on resize-end.
@@ -390,7 +383,7 @@ export function GroupsTable({
         typeof updater === "function"
           ? updater(groupsColumnVisibility)
           : updater
-      updateGroupSetColumnVisibility(groupSetId, next)
+      controller.updateGroupSetColumnVisibility(groupSetId, next)
     },
     getRowId: (row) => (isUnnamedTeamRow(row) ? row.teamId : row.group.id),
     getCoreRowModel: getCoreRowModel(),
@@ -427,14 +420,9 @@ export function GroupsTable({
     const wasResizing = prevIsResizingRef.current
     prevIsResizingRef.current = isResizingColumn
     if (wasResizing && !isResizingColumn) {
-      updateGroupSetColumnSizing(groupSetId, localColumnSizing)
+      controller.updateGroupSetColumnSizing(groupSetId, localColumnSizing)
     }
-  }, [
-    isResizingColumn,
-    groupSetId,
-    localColumnSizing,
-    updateGroupSetColumnSizing,
-  ])
+  }, [controller, isResizingColumn, groupSetId, localColumnSizing])
 
   const visibleRows = table.getFilteredRowModel().rows
   const columnLabel = isUnnamedGroupSet ? unnamedColumnLabel : groupColumnLabel

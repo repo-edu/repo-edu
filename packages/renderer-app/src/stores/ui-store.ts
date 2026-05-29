@@ -1,13 +1,8 @@
-import {
-  activeCourseIdFromSurface,
-  type PersistedActiveSurface,
-} from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   GroupSetImportFormat,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
-import type { ActiveTab } from "../types/index.js"
 
 type GroupSetOperationState =
   | {
@@ -41,10 +36,6 @@ export type LmsImportConflict = {
 }
 
 type UiState = {
-  // Navigation
-  activeTab: ActiveTab
-  activeSurface: PersistedActiveSurface
-
   // Dialog visibility
   settingsDialogOpen: boolean
   settingsCategory: SettingsCategory
@@ -94,9 +85,6 @@ type UiState = {
 }
 
 type UiActions = {
-  setActiveTab: (tab: ActiveTab) => void
-  setActiveSurface: (surface: PersistedActiveSurface) => void
-
   setSettingsDialogOpen: (open: boolean) => void
   openSettings: (category?: SettingsCategory) => void
   setImportFileDialogOpen: (open: boolean) => void
@@ -148,9 +136,6 @@ type UiActions = {
 }
 
 const initialState: UiState = {
-  activeTab: "roster",
-  activeSurface: { kind: "home" },
-
   settingsDialogOpen: false,
   settingsCategory: "display",
   importFileDialogOpen: false,
@@ -211,10 +196,6 @@ function operationGroupSetId(
 
 export const useUiStore = create<UiState & UiActions>((set) => ({
   ...initialState,
-
-  setActiveTab: (tab) => set((state) => setIfChanged(state, "activeTab", tab)),
-  setActiveSurface: (surface) =>
-    set((state) => setIfChanged(state, "activeSurface", surface)),
 
   setSettingsDialogOpen: (open) =>
     set((state) => setIfChanged(state, "settingsDialogOpen", open)),
@@ -352,14 +333,6 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   reset: () => set(initialState),
 }))
 
-export const selectActiveTab = (state: UiState) => state.activeTab
-export const selectActiveSurface = (state: UiState) => state.activeSurface
-export const selectActiveCourseId = (state: UiState) =>
-  activeCourseIdFromSurface(state.activeSurface)
 export const selectCourseListLoaded = (state: UiState) => state.courseListLoaded
-export const selectActiveFolderPath = (state: UiState) =>
-  state.activeSurface.kind === "folder" ? state.activeSurface.path : null
-export const selectActiveSubmissionPath = (state: UiState) =>
-  state.activeSurface.kind === "submission" ? state.activeSurface.path : null
 export const selectClosePromptVisible = (state: UiState) =>
   state.closePromptVisible

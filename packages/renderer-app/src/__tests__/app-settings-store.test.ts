@@ -5,7 +5,6 @@ import {
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import { persistedAppSettingsKind } from "@repo-edu/domain/types"
-import { idleSyncStatus } from "../persistence/create-persister.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
 
@@ -37,7 +36,6 @@ describe("app settings store", () => {
       kind: "course",
       courseId: "course-1",
     })
-    assert.deepStrictEqual(state.syncStatus, idleSyncStatus)
   })
 
   it("round-trips a defaultExtensions update through the store with normalization", () => {
@@ -132,20 +130,5 @@ describe("app settings store", () => {
       ),
       false,
     )
-  })
-
-  it("records and dismisses settings sync errors", () => {
-    const store = useAppSettingsStore.getState()
-    store.setSyncStatus({ state: "error", message: "cannot save" })
-    assert.deepStrictEqual(useAppSettingsStore.getState().syncStatus, {
-      state: "error",
-      message: "cannot save",
-    })
-
-    store.dismissSyncError()
-    assert.deepStrictEqual(useAppSettingsStore.getState().syncStatus, {
-      state: "idle",
-      message: null,
-    })
   })
 })

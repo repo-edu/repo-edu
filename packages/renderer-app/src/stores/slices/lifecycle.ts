@@ -1,13 +1,7 @@
 import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
-import type {
-  Group,
-  GroupSet,
-  PersistedCourse,
-  RosterValidationResult,
-} from "@repo-edu/domain/types"
+import type { RosterValidationResult } from "@repo-edu/domain/types"
 import { courseHasRoster } from "@repo-edu/domain/types"
 import { validateAssignment, validateRoster } from "@repo-edu/domain/validation"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { buildIssueCards } from "../../utils/issues.js"
 import type { CourseActions, StoreGet, StoreSet } from "./types.js"
@@ -18,76 +12,29 @@ export function createLifecycleSlice(
   get: StoreGet,
 ): Pick<
   CourseActions,
-  | "load"
-  | "clear"
-  | "setSyncStatus"
-  | "dismissSyncError"
-  | "applySaveStamp"
-  | "ensureSystemGroupSets"
-  | "runChecks"
+  "hydrate" | "clear" | "applySaveStamp" | "ensureSystemGroupSets" | "runChecks"
 > {
-  let loadRequestId = 0
-
   return {
-    load: async (courseId) => {
-      const requestId = ++loadRequestId
-      try {
-        set((draft) => {
-          draft.status = "loading"
-          draft.error = null
-        })
-        const client = getWorkflowClient()
-        const loaded = await client.run("course.load", { courseId })
-        const loadedCourse = loaded as PersistedCourse
-        if (courseHasRoster(loadedCourse)) {
-          const sysResult = ensureSystemGroupSets(
-            loadedCourse.roster,
-            loadedCourse.idSequences,
-          )
-          loadedCourse.idSequences = sysResult.idSequences
-        }
-        if (requestId !== loadRequestId) {
-          return
-        }
-        set((draft) => {
-          draft.course = loadedCourse
-          draft.status = "loaded"
-          draft.history = []
-          draft.future = []
-          draft.assignmentSelection = null
-          draft.checksDirty = true
-          draft.systemSetsReady = true
-          draft.syncStatus = initialState.syncStatus
-        })
-      } catch (err) {
-        if (requestId !== loadRequestId) {
-          return
-        }
-        set((draft) => {
-          draft.status = "error"
-          draft.error = getErrorMessage(err)
-        })
-      }
+    hydrate: (course) => {
+      set((draft) => {
+        draft.course = course
+        draft.warnings = []
+        draft.history = []
+        draft.future = []
+        draft.assignmentSelection = null
+        draft.checksDirty = true
+        draft.systemSetsReady = true
+        draft.rosterValidation = null
+        draft.assignmentValidations = {}
+        draft.issueCards = []
+        draft.checksStatus = "idle"
+        draft.checksError = null
+      })
     },
 
     clear: () => {
-      loadRequestId += 1
       set((draft) => {
         Object.assign(draft, initialState)
-      })
-    },
-
-    setSyncStatus: (syncStatus) => {
-      set((draft) => {
-        draft.syncStatus = syncStatus
-      })
-    },
-
-    dismissSyncError: () => {
-      set((draft) => {
-        if (draft.syncStatus.state === "error") {
-          draft.syncStatus = initialState.syncStatus
-        }
       })
     },
 
@@ -100,52 +47,24 @@ export function createLifecycleSlice(
     },
 
     ensureSystemGroupSets: () => {
-      const state = get()
-      if (!state.course) return
-      if (!courseHasRoster(state.course)) {
-        set((draft) => {
-          draft.systemSetsReady = true
-        })
-        return
-      }
-      const result = ensureSystemGroupSets(
-        state.course.roster,
-        state.course.idSequences,
-      )
-
-      const hasChanges =
-        result.groupsUpserted.length > 0 || result.deletedGroupIds.length > 0
-
-      if (!hasChanges) {
-        set((draft) => {
-          draft.systemSetsReady = true
-        })
-        return
-      }
-
       set((draft) => {
         if (!draft.course) return
-        const roster = draft.course.roster
-
-        // Apply upserted groups.
-        const upsertedIds = new Set(result.groupsUpserted.map((g) => g.id))
-        roster.groups = roster.groups.filter((g) => !upsertedIds.has(g.id))
-        roster.groups.push(...(result.groupsUpserted as Group[]))
-
-        // Remove deleted groups.
-        const deletedIds = new Set(result.deletedGroupIds)
-        roster.groups = roster.groups.filter((g) => !deletedIds.has(g.id))
-
-        // Upsert system group sets.
-        const systemSetIds = new Set(result.groupSets.map((gs) => gs.id))
-        roster.groupSets = roster.groupSets.filter(
-          (gs) => !systemSetIds.has(gs.id),
+        if (!courseHasRoster(draft.course)) {
+          draft.systemSetsReady = true
+          return
+        }
+        const result = ensureSystemGroupSets(
+          draft.course.roster,
+          draft.course.idSequences,
         )
-        roster.groupSets.push(...(result.groupSets as GroupSet[]))
-
         draft.course.idSequences = result.idSequences
         draft.systemSetsReady = true
-        draft.checksDirty = true
+        if (
+          result.groupsUpserted.length > 0 ||
+          result.deletedGroupIds.length > 0
+        ) {
+          draft.checksDirty = true
+        }
       })
     },
 

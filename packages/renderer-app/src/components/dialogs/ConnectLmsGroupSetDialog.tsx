@@ -23,6 +23,7 @@ import {
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
@@ -44,8 +45,7 @@ export function ConnectLmsGroupSetDialog() {
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
-  const setRoster = useCourseStore((state) => state.setRoster)
-  const setIdSequences = useCourseStore((state) => state.setIdSequences)
+  const controller = useSessionController()
   const appSettings = useAppSettingsStore((state) => state.settings)
   const supportsLms = course !== null && courseSupportsLms(course)
 
@@ -176,8 +176,11 @@ export function ConnectLmsGroupSetDialog() {
       )
       if (connectRequestIdRef.current !== requestId) return
 
-      setRoster(result.roster, `Connect group set "${selectedGroupSet.name}"`)
-      setIdSequences(result.idSequences)
+      controller.setRoster(
+        result.roster,
+        `Connect group set "${selectedGroupSet.name}"`,
+      )
+      controller.setIdSequences(result.idSequences)
       setSidebarSelection({ kind: "group-set", id: result.id })
       handleClose()
     } catch (cause) {

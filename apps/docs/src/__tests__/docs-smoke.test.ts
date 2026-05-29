@@ -3,14 +3,14 @@ import { describe, it } from "node:test"
 import { mountDocsDemoApp } from "../demo-runtime.js"
 
 describe("docs demo smoke", () => {
-  it("mounts AppRoot against browser-safe mocks", async () => {
+  it("mounts RendererSessionRoot against browser-safe mocks", async () => {
     const fakeMountNode = { id: "app" }
-    const fakeAppRoot = () => null
+    const fakeRendererSessionRoot = () => null
     let renderedElement: unknown = null
 
     const runtime = mountDocsDemoApp({
       queryMountNode: () => fakeMountNode,
-      appRootComponent: fakeAppRoot,
+      appRootComponent: fakeRendererSessionRoot,
       createRoot(node) {
         assert.equal(node, fakeMountNode)
         return {

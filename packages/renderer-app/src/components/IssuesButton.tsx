@@ -1,12 +1,13 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import { useIssues } from "../hooks/use-issues.js"
+import { useSessionController } from "../session/session-controller-context.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 export function IssuesButton() {
   const { issueCards, checksDirty, checksStatus } = useIssues()
   const hasRoster = useCourseStore((state) => !!state.course?.roster)
-  const runChecks = useCourseStore((state) => state.runChecks)
+  const controller = useSessionController()
   const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen)
 
   const issueCount = issueCards.length
@@ -14,7 +15,7 @@ export function IssuesButton() {
   const handleClick = () => {
     setIssuesSheetOpen(true)
     if (hasRoster && !isRunningChecks) {
-      runChecks("username")
+      controller.runChecks("username")
     }
   }
 

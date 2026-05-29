@@ -13,8 +13,6 @@ import type { CourseState } from "./slices/types.js"
 
 export const selectCourse = (state: CourseState) => state.course
 export const selectRoster = (state: CourseState) => state.course?.roster ?? null
-export const selectCourseStatus = (state: CourseState) => state.status
-export const selectCourseError = (state: CourseState) => state.error
 export const selectCourseWarnings = (state: CourseState) => state.warnings
 
 const EMPTY_MEMBERS: RosterMember[] = []
@@ -92,7 +90,6 @@ export const selectIssueCards = (state: CourseState) => state.issueCards
 export const selectChecksStatus = (state: CourseState) => state.checksStatus
 export const selectChecksError = (state: CourseState) => state.checksError
 export const selectChecksDirty = (state: CourseState) => state.checksDirty
-export const selectCourseSyncStatus = (state: CourseState) => state.syncStatus
 
 // Group set category selectors
 

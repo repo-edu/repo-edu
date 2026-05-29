@@ -13,6 +13,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectGroupsForGroupSet,
   useCourseStore,
@@ -33,7 +34,7 @@ export function AddGroupDialog() {
   const setGroupSetId = useUiStore((state) => state.setAddGroupDialogGroupSetId)
   const open = groupSetId !== null
   const roster = useCourseStore((state) => state.course?.roster ?? null)
-  const createGroup = useCourseStore((state) => state.createGroup)
+  const controller = useSessionController()
   const students = useMemo(() => roster?.students ?? EMPTY_STUDENTS, [roster])
   const groups = useCourseStore(selectGroupsForGroupSet(groupSetId ?? ""))
 
@@ -92,7 +93,7 @@ export function AddGroupDialog() {
 
   const handleCreate = () => {
     if (!canCreate || !groupSetId) return
-    createGroup(groupSetId, trimmedName, selectedMembers)
+    controller.createGroup(groupSetId, trimmedName, selectedMembers)
     handleClose()
   }
 

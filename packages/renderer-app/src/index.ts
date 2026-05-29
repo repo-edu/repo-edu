@@ -10,8 +10,11 @@ export const workspaceDependencies = [
   "@repo-edu/ui",
 ] as const
 
-export type { AppRootProps } from "./components/App.js"
-export { AppRoot } from "./components/App.js"
+export type {
+  AppRootProps,
+  RendererSessionRootProps,
+} from "./components/App.js"
+export { AppRoot, RendererSessionRoot } from "./components/App.js"
 export type { AppConfiguration } from "./configure-app.js"
 export { configureApp } from "./configure-app.js"
 export {
@@ -38,6 +41,13 @@ export { useIssues } from "./hooks/use-issues.js"
 // Hooks — exposed for shell-level integration.
 // ---------------------------------------------------------------------------
 export { useTheme } from "./hooks/use-theme.js"
+export {
+  clearSessionController,
+  getSessionController,
+  setSessionController,
+  useSessionController,
+  useSessionControllerSelector,
+} from "./session/session-controller-context.js"
 export { useAppSettingsStore } from "./stores/app-settings-store.js"
 export { useConnectionsStore } from "./stores/connections-store.js"
 // ---------------------------------------------------------------------------

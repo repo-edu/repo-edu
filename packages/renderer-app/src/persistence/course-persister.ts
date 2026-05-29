@@ -3,9 +3,12 @@ import type {
   WorkflowClient,
 } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { useCourseStore } from "../stores/course-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import { createPersister, type Persister } from "./create-persister.js"
+import {
+  createPersister,
+  type PersistenceSyncStatus,
+  type Persister,
+} from "./create-persister.js"
 
 function isRetryableWorkflowError(error: unknown): boolean {
   return (
@@ -48,18 +51,27 @@ function toUserFacingSyncError(
   return getErrorMessage(error, "Could not save course")
 }
 
-export function createCoursePersister(
-  workflowClient: WorkflowClient,
-): Persister {
+export type CoursePersisterWorkerOptions = {
+  workflowClient: WorkflowClient
+  getSnapshot: () => PersistedCourse | null
+  subscribe: (listener: () => void) => () => void
+  setSyncStatus: (status: PersistenceSyncStatus) => void
+  onSaveResult: (result: CourseSaveStamp, snapshot: PersistedCourse) => void
+}
+
+export function createCoursePersisterWorker({
+  workflowClient,
+  getSnapshot,
+  subscribe,
+  setSyncStatus,
+  onSaveResult,
+}: CoursePersisterWorkerOptions): Persister {
   return createPersister<PersistedCourse, "course.save">({
     workflowClient,
     workflowId: "course.save",
-    getSnapshot: () => {
-      const state = useCourseStore.getState()
-      return state.status === "loaded" ? state.course : null
-    },
-    subscribe: (listener) => useCourseStore.subscribe(listener),
-    setSyncStatus: (status) => useCourseStore.getState().setSyncStatus(status),
+    getSnapshot,
+    subscribe,
+    setSyncStatus,
     getSnapshotIdentity: (course) => course.id,
     formatTerminalError: (error, course) =>
       toUserFacingSyncError(error, course.displayName),
@@ -75,9 +87,7 @@ export function createCoursePersister(
         ? { kind: "retry" }
         : { kind: "terminal" }
     },
-    applySaveResult: (result, course) => {
-      const stamp = result as CourseSaveStamp
-      useCourseStore.getState().applySaveStamp(course.id, stamp)
-    },
+    onSaveResult: (result, course) =>
+      onSaveResult(result as CourseSaveStamp, course),
   })
 }

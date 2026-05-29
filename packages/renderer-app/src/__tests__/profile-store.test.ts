@@ -17,16 +17,6 @@ import {
 } from "../contexts/workflow-client.js"
 import { useCourseStore } from "../stores/course-store.js"
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
-
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {
     kind: persistedCourseKind,
@@ -113,25 +103,10 @@ beforeEach(() => {
 })
 
 describe("course store", () => {
-  it("tracks async load checkpoints and stores the loaded course", async () => {
-    const gate = deferred<PersistedCourse>()
-    const client = createWorkflowClient({
-      "course.load": async ({ courseId }) => {
-        const course = await gate.promise
-        return { ...course, id: courseId }
-      },
-      "course.save": async (course) => saveStamp(course),
-    })
-    setWorkflowClient(client as unknown as WorkflowClient)
-
-    const loadPromise = useCourseStore.getState().load("course-a")
-    assert.equal(useCourseStore.getState().status, "loading")
-
-    gate.resolve(makeProfile())
-    await loadPromise
+  it("hydrates a loaded course without carrying undo history", () => {
+    useCourseStore.getState().hydrate(makeProfile("course-a"))
 
     const state = useCourseStore.getState()
-    assert.equal(state.status, "loaded")
     assert.equal(state.course?.id, "course-a")
     assert.equal(state.history.length, 0)
     assert.equal(state.future.length, 0)
@@ -144,7 +119,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     useCourseStore.getState().setAnalysisInputs({
       since: "2026-01-01",
@@ -170,7 +145,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     useCourseStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
     assert.equal(useCourseStore.getState().course?.roster.students.length, 2)
@@ -194,7 +169,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     useCourseStore.getState().addMember(makeStudent("s-2", "Grace Hopper"))
     useCourseStore.getState().addMember(makeStudent("s-3", "Linus Torvalds"))
@@ -215,7 +190,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     const nextRoster = {
       ...course.roster,
@@ -241,7 +216,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     const baselineCourse = useCourseStore.getState().course
     assert.ok(baselineCourse)
@@ -347,7 +322,7 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     const baselineCourse = useCourseStore.getState().course
     assert.ok(baselineCourse)
@@ -468,7 +443,8 @@ describe("course store", () => {
       "course.save": async (current) => saveStamp(current),
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
+    useCourseStore.getState().ensureSystemGroupSets()
 
     const renamedGroup = useCourseStore
       .getState()
@@ -476,26 +452,18 @@ describe("course store", () => {
     assert.equal(renamedGroup?.name, "s.o.s.van.den.berg")
   })
 
-  it("keeps local updates when sync status reports save errors", async () => {
+  it("keeps local updates in the in-memory course document", async () => {
     const course = makeProfile()
     const client = createWorkflowClient({
       "course.load": async () => course,
     })
     setWorkflowClient(client as unknown as WorkflowClient)
-    await useCourseStore.getState().load(course.id)
+    useCourseStore.getState().hydrate(course)
 
     useCourseStore.getState().setDisplayName("Renamed Course")
     assert.equal(
       useCourseStore.getState().course?.displayName,
       "Renamed Course",
     )
-
-    useCourseStore
-      .getState()
-      .setSyncStatus({ state: "error", message: "save failed" })
-    assert.deepStrictEqual(useCourseStore.getState().syncStatus, {
-      state: "error",
-      message: "save failed",
-    })
   })
 })

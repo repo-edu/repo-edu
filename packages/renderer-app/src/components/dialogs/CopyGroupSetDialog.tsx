@@ -11,6 +11,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { useState } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectGroupSetById,
   useCourseStore,
@@ -24,7 +25,7 @@ export function CopyGroupSetDialog() {
   const open = sourceId !== null
 
   const groupSet = useCourseStore(selectGroupSetById(sourceId ?? ""))
-  const copyGroupSet = useCourseStore((state) => state.copyGroupSet)
+  const controller = useSessionController()
 
   const defaultName = groupSet ? `${groupSet.name} (copy)` : ""
   const [name, setName] = useState("")
@@ -47,9 +48,9 @@ export function CopyGroupSetDialog() {
 
   const handleCopy = () => {
     if (!canCopy || !sourceId) return
-    const newId = copyGroupSet(sourceId)
+    const newId = controller.copyGroupSet(sourceId)
     if (newId) {
-      useCourseStore.getState().renameGroupSet(newId, trimmedName)
+      controller.renameGroupSet(newId, trimmedName)
       setSidebarSelection({ kind: "group-set", id: newId })
     }
     handleClose()

@@ -13,6 +13,7 @@ import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
@@ -23,7 +24,7 @@ export function ImportGitUsernamesDialog() {
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
   const course = useCourseStore((state) => state.course)
   const appSettings = useAppSettingsStore((state) => state.settings)
-  const setRoster = useCourseStore((state) => state.setRoster)
+  const controller = useSessionController()
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -69,7 +70,7 @@ export function ImportGitUsernamesDialog() {
         appSettings,
         file: fileRef,
       })
-      setRoster(importedRoster, "Import git usernames")
+      controller.setRoster(importedRoster, "Import git usernames")
       handleClose()
     } catch (cause) {
       const message = getErrorMessage(cause)

@@ -17,9 +17,10 @@ import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Checkbox, Label } from "@repo-edu/ui"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
+import { selectActiveSurface } from "../../session/selectors.js"
+import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { selectActiveSurface, useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
 import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
@@ -123,7 +124,7 @@ function rosterIdentities(
 }
 
 export function SubmissionExaminationTab() {
-  const activeSurface = useUiStore(selectActiveSurface)
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const recent = activeSurfaceRecentSubmission(activeSurface)
   const sourceViewModel = useSubmissionExaminationSource()
 
@@ -255,7 +256,7 @@ function LoadedSubmissionExaminationShell({
 }
 
 function useSubmissionExaminationSource() {
-  const activeSurface = useUiStore(selectActiveSurface)
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const submissionFolderPath =
     activeSurface.kind === "submission" ? activeSurface.path : null
   const workflowClient = useWorkflowClient()

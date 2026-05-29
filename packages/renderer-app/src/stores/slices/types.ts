@@ -11,15 +11,7 @@ import type {
   RosterValidationResult,
 } from "@repo-edu/domain/types"
 import type { Patch } from "immer"
-import {
-  idleSyncStatus,
-  type PersistenceSyncStatus,
-} from "../../persistence/create-persister.js"
-import type {
-  ChecksStatus,
-  DocumentStatus,
-  IssueCard,
-} from "../../types/index.js"
+import type { ChecksStatus, IssueCard } from "../../types/index.js"
 
 export const HISTORY_LIMIT = 100
 
@@ -31,8 +23,6 @@ export type HistoryEntry = {
 
 export type CourseState = {
   course: PersistedCourse | null
-  status: DocumentStatus
-  error: string | null
   warnings: string[]
 
   assignmentSelection: string | null
@@ -44,17 +34,14 @@ export type CourseState = {
   checksStatus: ChecksStatus
   checksError: string | null
   checksDirty: boolean
-  syncStatus: PersistenceSyncStatus
 
   history: HistoryEntry[]
   future: HistoryEntry[]
 }
 
 export type CourseActions = {
-  load: (courseId: string) => Promise<void>
+  hydrate: (course: PersistedCourse) => void
   clear: () => void
-  setSyncStatus: (status: PersistenceSyncStatus) => void
-  dismissSyncError: () => void
   applySaveStamp: (courseId: string, stamp: CourseSaveStamp) => void
 
   // Roster mutations (with undo history)
@@ -143,8 +130,6 @@ export type StoreInternals = {
 
 export const initialState: CourseState = {
   course: null,
-  status: "empty",
-  error: null,
   warnings: [],
   assignmentSelection: null,
   systemSetsReady: false,
@@ -154,7 +139,6 @@ export const initialState: CourseState = {
   checksStatus: "idle",
   checksError: null,
   checksDirty: false,
-  syncStatus: idleSyncStatus,
   history: [],
   future: [],
 }

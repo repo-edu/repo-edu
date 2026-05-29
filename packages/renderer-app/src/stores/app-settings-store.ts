@@ -6,7 +6,6 @@ import {
   normalizeRecentAnalysisFolders,
   normalizeRecentSubmissionFolders,
   normalizeSubmissionFolderPath,
-  type PersistedActiveSurface,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppSettings,
@@ -22,7 +21,6 @@ import {
   submissionSurfaceStateKey,
 } from "@repo-edu/domain/settings"
 import type {
-  ActiveTab,
   AnalysisInputs,
   CourseBacking,
   CourseSummary,
@@ -31,24 +29,15 @@ import type {
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
-import {
-  idleSyncStatus,
-  type PersistenceSyncStatus,
-} from "../persistence/create-persister.js"
 import { useConnectionsStore } from "./connections-store.js"
 
 type AppSettingsState = {
   settings: PersistedAppSettings
-  syncStatus: PersistenceSyncStatus
 }
 
 type AppSettingsActions = {
   hydrate: (settings: PersistedAppSettings) => void
-  setSyncStatus: (status: PersistenceSyncStatus) => void
-  dismissSyncError: () => void
 
-  setActiveSurface: (surface: PersistedActiveSurface) => void
-  setActiveTab: (tab: ActiveTab) => void
   setLastUsedCourseBacking: (backing: CourseBacking) => void
   setFolderViewAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
   pushRecentFolder: (path: string) => void
@@ -104,7 +93,6 @@ type AppSettingsActions = {
 
 const initialState: AppSettingsState = {
   settings: defaultAppSettings,
-  syncStatus: idleSyncStatus,
 }
 
 function submissionRecentsEqual(
@@ -157,33 +145,7 @@ export const useAppSettingsStore = create<
     hydrate: (settings) =>
       set({
         settings,
-        syncStatus: idleSyncStatus,
       }),
-
-    setSyncStatus: (syncStatus) => set({ syncStatus }),
-
-    dismissSyncError: () =>
-      set((state) =>
-        state.syncStatus.state === "error"
-          ? { syncStatus: idleSyncStatus }
-          : state,
-      ),
-
-    setActiveSurface: (surface) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          activeSurface: surface,
-        },
-      })),
-
-    setActiveTab: (tab) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          activeTab: tab,
-        },
-      })),
 
     setLastUsedCourseBacking: (backing) =>
       set((state) => ({
@@ -585,10 +547,6 @@ export const useAppSettingsStore = create<
 
 export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
-export const selectAppSettingsActiveSurface = (state: AppSettingsState) =>
-  state.settings.activeSurface
-export const selectAppSettingsActiveTab = (state: AppSettingsState) =>
-  state.settings.activeTab
 export const selectLmsConnections = (state: AppSettingsState) =>
   state.settings.lmsConnections
 export const selectGitConnections = (state: AppSettingsState) =>
@@ -611,7 +569,5 @@ export const selectRosterColumnVisibility = (state: AppSettingsState) =>
   state.settings.rosterColumnVisibility
 export const selectRosterColumnSizing = (state: AppSettingsState) =>
   state.settings.rosterColumnSizing
-export const selectAppSettingsSyncStatus = (state: AppSettingsState) =>
-  state.syncStatus
 export const selectAppSettingsSnapshot = (state: AppSettingsState) =>
   state.settings

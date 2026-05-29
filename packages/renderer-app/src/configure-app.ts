@@ -5,9 +5,10 @@ import {
   clearWorkflowClient,
   setWorkflowClient,
 } from "./contexts/workflow-client.js"
+import type { AppWorkflowId } from "./session/workflow-types.js"
 
 export type AppConfiguration = {
-  workflowClient: WorkflowClient
+  workflowClient: WorkflowClient<AppWorkflowId>
   rendererHost: RendererHost
 }
 

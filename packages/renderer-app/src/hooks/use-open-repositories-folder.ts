@@ -1,11 +1,11 @@
 import { useCallback } from "react"
 import { useRendererHost } from "../contexts/renderer-host.js"
+import { useSessionController } from "../session/session-controller-context.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
-import { useActiveSurfaceNavigation } from "./use-active-surface-navigation.js"
 
 export function useOpenRepositoriesFolder() {
   const rendererHost = useRendererHost()
-  const activateSurface = useActiveSurfaceNavigation()
+  const controller = useSessionController()
   const requestRepoDiscovery = useAnalysisStore((s) => s.requestRepoDiscovery)
 
   return useCallback(async () => {
@@ -13,12 +13,12 @@ export function useOpenRepositoriesFolder() {
       title: "Open folder of repositories",
     })
     if (!dir) return
-    const activated = await activateSurface(
-      { kind: "folder", path: dir },
-      { recordRecent: true, preferredTab: "analysis" },
-    )
+    const activated = await controller.activateSurface({
+      kind: "folder",
+      path: dir,
+    })
     if (activated) {
       requestRepoDiscovery(dir)
     }
-  }, [activateSurface, rendererHost, requestRepoDiscovery])
+  }, [controller, rendererHost, requestRepoDiscovery])
 }

@@ -11,6 +11,7 @@ import {
 } from "@repo-edu/ui"
 import { AlertTriangle } from "@repo-edu/ui/components/icons"
 import { useMemo } from "react"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 
@@ -25,7 +26,7 @@ export function DeleteGroupSetDialog() {
   const open = targetId !== null
 
   const roster = useCourseStore((state) => state.course?.roster ?? null)
-  const deleteGroupSet = useCourseStore((state) => state.deleteGroupSet)
+  const controller = useSessionController()
 
   const allGroupSets = roster?.groupSets ?? EMPTY_GROUP_SETS
   const groupSet = useMemo(() => {
@@ -67,7 +68,7 @@ export function DeleteGroupSetDialog() {
 
   const handleDelete = () => {
     if (!targetId) return
-    deleteGroupSet(targetId)
+    controller.deleteGroupSet(targetId)
     setSidebarSelection(null)
     handleClose()
   }

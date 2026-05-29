@@ -12,22 +12,22 @@ The app requires two dependencies provided by the host environment:
 - **WorkflowClient** — executes workflows (course load, roster import, repo create, etc.)
 - **RendererHost** — provides UI capabilities like file pickers, directory selection, and opening external URLs
 
-These are injected at startup through `configureApp()` and exposed via React context (`useWorkflowClient()`, `useRendererHost()`). Because Zustand stores live outside the React tree, the same dependencies are also available through module-level getters (`getWorkflowClient()`, `getRendererHost()`), set once during initialization.
+These are injected at startup through `RendererSessionRoot()`. The root constructs a `SessionController` with the full workflow client, then calls `configureApp()` with a narrowed `WorkflowClient<AppWorkflowId>` for the rest of the renderer. React code receives the narrowed client through context (`useWorkflowClient()`, `useRendererHost()`), and non-React helpers can use the same narrowed module-level getters (`getWorkflowClient()`, `getRendererHost()`).
 
 ```typescript
 // At mount time (desktop or docs)
-const cleanup = configureApp({ workflowClient, rendererHost })
+<RendererSessionRoot workflowClient={workflowClient} rendererHost={rendererHost} />
 
 // In React components
 const client = useWorkflowClient()
-await client.run("course.load", { courseId })
+await client.run("course.list", undefined)
 
-// In Zustand stores (outside React)
+// In non-React helpers
 const client = getWorkflowClient()
-await client.run("course.load", { courseId })
+await client.run("course.list", undefined)
 ```
 
-`AppRoot` performs the persistence bootstrap before `AppShell` renders: it loads app settings, hydrates the settings store, creates the persister registry, and only then lets application effects run.
+`SessionController` performs the session bootstrap before `AppShell` renders: it loads app settings, hydrates editable settings, restores the active surface and course, creates the controller-owned persister workers, and only then lets the application shell observe ready session state.
 
 ## State management with Zustand
 
@@ -37,9 +37,10 @@ All application state lives in [Zustand](https://zustand-demo.pmnd.rs/) stores �
 
 | Store | Responsibility |
 |-------|---------------|
-| `useCourseStore` | The loaded course document: roster, groups, assignments, metadata. Also manages undo/redo history and sync status. |
+| `SessionController` | Live session state: bootstrap, active surface/tab/course, course load status, close flush, sync status, and admission for course mutations. |
+| `useCourseStore` | The loaded course document: roster, groups, assignments, metadata, validation state, and undo/redo history. |
 | `useAppSettingsStore` | Persisted preferences: connections, appearance, column visibility/sizing. |
-| `useUiStore` | Ephemeral UI state: which dialogs are open, navigation, sidebar state. |
+| `useUiStore` | Ephemeral UI state: which dialogs are open, course-list cache, sidebar state. |
 | `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |
 | `useConnectionsStore` | LMS and Git connection verification status. |
@@ -134,9 +135,9 @@ Table cells that support inline editing follow a local-draft pattern: clicking a
 
 ## Persistence
 
-Renderer-owned persistence is centralized in `src/persistence/`. Persisters subscribe to store snapshots, debounce writes, run save workflows, retry retryable errors, expose `flush()` for navigation guards, and write sync status back to the owning store.
+Renderer-owned persistence is centralized in `src/persistence/` and owned by `SessionController`. Persister workers subscribe to controller/store snapshots, debounce writes, run save workflows, retry retryable errors, expose `flush()` for navigation guards, and report sync status back to the controller snapshot.
 
-Save workflows are write-only. `settings.saveApp` returns no result; `course.save` returns only the host-stamped `{ revision, updatedAt }`, which the course persister patches into the current course if the course id still matches. Full persisted documents enter renderer memory only through load workflows.
+Save workflows are write-only. `settings.saveApp` returns no result; `course.save` returns only the host-stamped `{ revision, updatedAt }`, which the controller applies to the current course if the active worker and course id still match. Full persisted documents enter renderer memory only through controller-owned load workflows.
 
 ## Toast notifications
 

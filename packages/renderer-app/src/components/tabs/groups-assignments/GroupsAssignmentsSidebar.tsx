@@ -13,6 +13,7 @@ import {
 import { Download, Plus } from "@repo-edu/ui/components/icons"
 import type { KeyboardEvent, ReactNode } from "react"
 import { useCallback, useMemo, useRef } from "react"
+import { useSessionController } from "../../../session/session-controller-context.js"
 import {
   selectConnectedGroupSets,
   selectGroupSets,
@@ -202,7 +203,7 @@ export function GroupsAssignmentsSidebar({
   const hasLmsConnection = useCourseStore((s) =>
     isLmsRosterConnection(s.course?.roster?.connection),
   )
-  const renameGroupSet = useCourseStore((s) => s.renameGroupSet)
+  const controller = useSessionController()
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const isOperationActive = groupSetOperation !== null
   const busyGroupSetId =
@@ -269,10 +270,10 @@ export function GroupsAssignmentsSidebar({
 
   const handleRenameSubmit = useCallback(
     (groupSetId: string, newName: string) => {
-      renameGroupSet(groupSetId, newName)
+      controller.renameGroupSet(groupSetId, newName)
       setRenameGroupSetTriggerId(null)
     },
-    [renameGroupSet, setRenameGroupSetTriggerId],
+    [controller, setRenameGroupSetTriggerId],
   )
 
   const handleRenameCancel = useCallback(() => {

@@ -1,5 +1,4 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
@@ -14,27 +13,28 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useLayoutEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { useActiveSurfaceNavigation } from "../hooks/use-active-surface-navigation.js"
-import {
-  pruneLoadedSubmissionFoldersForCourses,
-  resolveActiveSurfaceRedirectForCourses,
-} from "../hooks/use-courses.js"
-import { useLoadCourse } from "../hooks/use-load-course.js"
+import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
 import { useTheme } from "../hooks/use-theme.js"
 import {
-  clearPersisterRegistry,
-  createPersisterRegistry,
-  type PersisterRegistry,
-  PersisterRegistryProvider,
-  setPersisterRegistry,
-  usePersisterRegistry,
-} from "../persistence/persister-registry.js"
+  selectActiveCourseId,
+  selectActiveSurface,
+  selectActiveTab,
+  selectBootstrapState,
+} from "../session/selectors.js"
+import { SessionController } from "../session/session-controller.js"
 import {
-  selectAppSettingsActiveTab,
+  clearSessionController,
+  SessionControllerProvider,
+  setSessionController,
+  useSessionController,
+  useSessionControllerSelector,
+} from "../session/session-controller-context.js"
+import type { AppWorkflowId } from "../session/workflow-types.js"
+import {
   selectTheme,
   useAppSettingsStore,
 } from "../stores/app-settings-store.js"
@@ -45,19 +45,12 @@ import {
   selectNextUndoDescription,
   useCourseStore,
 } from "../stores/course-store.js"
-import {
-  selectActiveCourseId,
-  selectActiveSurface,
-  selectCourseListLoaded,
-  useUiStore,
-} from "../stores/ui-store.js"
+import { selectCourseListLoaded, useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import {
-  resolveSupportedActiveTab,
   resolveTabVisibility,
   surfaceTabBacking,
 } from "../utils/course-navigation.js"
-import { getErrorMessage } from "../utils/error-message.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
   hasMacDesktopInset,
@@ -95,110 +88,80 @@ export type AppRootProps = {
   rendererHost: RendererHost
 }
 
-type BootstrapState =
-  | { status: "loading"; attempt: number }
-  | { status: "ready"; attempt: number; registry: PersisterRegistry }
-  | { status: "error"; attempt: number; message: string }
+export type RendererSessionRootProps = AppRootProps
 
-export function AppRoot({ workflowClient, rendererHost }: AppRootProps) {
-  const [bootstrap, setBootstrap] = useState<BootstrapState>({
-    status: "loading",
-    attempt: 0,
-  })
+export function RendererSessionRoot({
+  workflowClient,
+  rendererHost,
+}: RendererSessionRootProps) {
+  const controller = useMemo(
+    () => new SessionController({ workflowClient }),
+    [workflowClient],
+  )
+  const narrowedClient = workflowClient as WorkflowClient<AppWorkflowId>
 
   useLayoutEffect(() => {
-    return configureApp({ workflowClient, rendererHost })
-  }, [workflowClient, rendererHost])
+    setSessionController(controller)
+    const cleanup = configureApp({
+      workflowClient: narrowedClient,
+      rendererHost,
+    })
+    return () => {
+      cleanup()
+      clearSessionController(controller)
+      controller.dispose()
+    }
+  }, [controller, narrowedClient, rendererHost])
 
   useEffect(() => {
-    let cancelled = false
-    let registry: PersisterRegistry | null = null
-    const attempt = bootstrap.attempt
-    clearPersisterRegistry()
-    setBootstrap((current) =>
-      current.status === "loading" && current.attempt === attempt
-        ? current
-        : { status: "loading", attempt },
-    )
-
-    void (async () => {
-      try {
-        const settings = await workflowClient.run("settings.loadApp", undefined)
-        if (cancelled) return
-
-        useAppSettingsStore.getState().hydrate(settings)
-        const restoredCourseId = activeCourseIdFromSurface(
-          settings.activeSurface,
-        )
-        const restoredBacking = restoredCourseId === null ? undefined : "lms"
-        useUiStore.getState().setActiveSurface(settings.activeSurface)
-        useUiStore
-          .getState()
-          .setActiveTab(
-            resolveSupportedActiveTab(
-              settings.activeTab,
-              surfaceTabBacking(settings.activeSurface, restoredBacking),
-            ),
-          )
-
-        registry = createPersisterRegistry(workflowClient)
-        setPersisterRegistry(registry)
-        setBootstrap({
-          status: "ready",
-          attempt,
-          registry,
-        })
-      } catch (error) {
-        if (cancelled) return
-        setBootstrap({
-          status: "error",
-          attempt,
-          message: getErrorMessage(error, "Could not load app settings."),
-        })
-      }
-    })()
-
-    return () => {
-      cancelled = true
-      if (registry !== null) {
-        registry.dispose()
-        clearPersisterRegistry(registry)
-      } else {
-        clearPersisterRegistry()
-      }
+    const bridge = getDesktopCloseFlushBridge()
+    if (bridge?.onCloseFlushRequest !== undefined) {
+      return bridge.onCloseFlushRequest(() => controller.flush())
     }
-  }, [bootstrap.attempt, workflowClient])
+
+    const handleBeforeUnload = () => {
+      void controller.flush()
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [controller])
 
   return (
-    <WorkflowClientProvider value={workflowClient}>
+    <WorkflowClientProvider value={narrowedClient}>
       <RendererHostProvider value={rendererHost}>
-        <TooltipProvider>
-          {bootstrap.status === "ready" ? (
-            <PersisterRegistryProvider registry={bootstrap.registry}>
-              <AppShell />
-            </PersisterRegistryProvider>
-          ) : (
-            <BootstrapView
-              state={bootstrap}
-              onRetry={() =>
-                setBootstrap((current) => ({
-                  status: "loading",
-                  attempt: current.attempt + 1,
-                }))
-              }
-            />
-          )}
-        </TooltipProvider>
+        <SessionControllerProvider controller={controller}>
+          <TooltipProvider>
+            <AppView />
+          </TooltipProvider>
+        </SessionControllerProvider>
       </RendererHostProvider>
     </WorkflowClientProvider>
   )
+}
+
+export const AppRoot = RendererSessionRoot
+
+function AppView() {
+  const controller = useSessionController()
+  const bootstrap = useSessionControllerSelector(selectBootstrapState)
+
+  if (bootstrap.status !== "ready") {
+    return (
+      <BootstrapView
+        state={bootstrap}
+        onRetry={() => controller.retryBootstrap()}
+      />
+    )
+  }
+
+  return <AppShell />
 }
 
 function BootstrapView({
   state,
   onRetry,
 }: {
-  state: Exclude<BootstrapState, { status: "ready" }>
+  state: Exclude<ReturnType<typeof selectBootstrapState>, { status: "ready" }>
   onRetry: () => void
 }) {
   return (
@@ -234,19 +197,15 @@ function getDesktopCloseFlushBridge(): DesktopCloseFlushBridge | undefined {
 }
 
 function AppShell() {
-  const activeTab = useUiStore((s) => s.activeTab)
-  const setActiveTab = useUiStore((s) => s.setActiveTab)
-  const activeSurface = useUiStore(selectActiveSurface)
-  const activeCourseId = useUiStore(selectActiveCourseId)
+  const controller = useSessionController()
+  const activeTab = useSessionControllerSelector(selectActiveTab)
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
+  const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const courseList = useUiStore((s) => s.courseList)
   const courseListLoaded = useUiStore(selectCourseListLoaded)
 
   const theme = useAppSettingsStore(selectTheme)
-  const appSettingsActiveTab = useAppSettingsStore(selectAppSettingsActiveTab)
-  const setAppSettingsActiveTab = useAppSettingsStore((s) => s.setActiveTab)
-  const persisterRegistry = usePersisterRegistry()
 
-  const activateSurface = useActiveSurfaceNavigation()
   const isHomeSurface = activeSurface.kind === "home"
   const showHistoryControls = isDocumentEditingSurface(activeSurface, activeTab)
   const canUndo = useCourseStore(selectCanUndo)
@@ -254,9 +213,6 @@ function AppShell() {
   const undoDescription = useCourseStore(selectNextUndoDescription)
   const redoDescription = useCourseStore(selectNextRedoDescription)
   const loadedCourse = useCourseStore((s) => s.course)
-  const undo = useCourseStore((s) => s.undo)
-  const redo = useCourseStore((s) => s.redo)
-  const flushPersistedDocuments = persisterRegistry.flush
   const leftInsetStyle = hasMacDesktopBridge()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
@@ -278,53 +234,20 @@ function AppShell() {
   const canShowGroupsTab = tabVisibility.groupsAssignments
   const canShowAnalysisTab = tabVisibility.analysis
 
-  // Persist activeTab changes to app settings.
-  useEffect(() => {
-    if (activeTab !== appSettingsActiveTab) {
-      setAppSettingsActiveTab(activeTab)
-    }
-  }, [activeTab, appSettingsActiveTab, setAppSettingsActiveTab])
-
-  useEffect(() => {
-    const supportedTab = resolveSupportedActiveTab(activeTab, tabBacking)
-    if (supportedTab !== activeTab) {
-      setActiveTab(supportedTab)
-    }
-  }, [tabBacking, activeTab, setActiveTab])
-
   // Apply theme.
   useTheme(theme)
 
   useEffect(() => {
     if (!courseListLoaded) return
 
-    pruneLoadedSubmissionFoldersForCourses(courseList)
+    controller.pruneLoadedSubmissionFoldersForCourses(courseList)
     const redirect = resolveActiveSurfaceRedirectForCourses(
       activeSurface,
       courseList,
     )
     if (redirect === null) return
-    void activateSurface(redirect.surface, {
-      courseBacking: redirect.courseBacking,
-      skipCourseFlush: true,
-    })
-  }, [activeSurface, activateSurface, courseList, courseListLoaded])
-
-  // Load the active course when its identity changes.
-  useLoadCourse(activeCourseId)
-
-  useEffect(() => {
-    const bridge = getDesktopCloseFlushBridge()
-    if (bridge?.onCloseFlushRequest !== undefined) {
-      return bridge.onCloseFlushRequest(flushPersistedDocuments)
-    }
-
-    const handleBeforeUnload = () => {
-      void flushPersistedDocuments()
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [flushPersistedDocuments])
+    void controller.activateSurface(redirect.surface)
+  }, [activeSurface, controller, courseList, courseListLoaded])
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -345,24 +268,24 @@ function AppShell() {
 
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault()
-        undo()
+        controller.undo()
         return
       }
 
       if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
         e.preventDefault()
-        redo()
+        controller.redo()
       }
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [showHistoryControls, undo, redo])
+  }, [controller, showHistoryControls])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as ActiveTab)}
+        onValueChange={(v) => controller.setActiveTab(v as ActiveTab)}
         className="flex flex-1 min-h-0 flex-col overflow-hidden gap-0"
       >
         {/* Header bar */}
@@ -380,7 +303,7 @@ function AppShell() {
                   aria-pressed={isHomeSurface}
                   onClick={() => {
                     if (isHomeSurface) return
-                    void activateSurface({ kind: "home" })
+                    void controller.activateSurface({ kind: "home" })
                   }}
                 >
                   <Home className="size-[18px]" />
@@ -413,7 +336,7 @@ function AppShell() {
                       size="sm"
                       className="h-8 w-8 p-0"
                       disabled={!canUndo}
-                      onClick={() => undo()}
+                      onClick={() => controller.undo()}
                     >
                       <Undo2 className="size-[18px]" />
                       <span className="sr-only">Undo</span>
@@ -432,7 +355,7 @@ function AppShell() {
                       size="sm"
                       className="h-8 w-8 p-0"
                       disabled={!canRedo}
-                      onClick={() => redo()}
+                      onClick={() => controller.redo()}
                     >
                       <Redo2 className="size-[18px]" />
                       <span className="sr-only">Redo</span>

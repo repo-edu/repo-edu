@@ -6,6 +6,7 @@ import type {
 } from "@repo-edu/domain/types"
 import { EmptyState, Text } from "@repo-edu/ui"
 import { useMemo } from "react"
+import { useSessionController } from "../../../session/session-controller-context.js"
 import {
   selectAssignmentsForGroupSet,
   selectEditableGroupTargets,
@@ -34,9 +35,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const groups = useCourseStore(selectGroupsForGroupSet(groupSetId))
   const assignments = useCourseStore(selectAssignmentsForGroupSet(groupSetId))
   const editableTargets = useCourseStore(selectEditableGroupTargets)
-  const updateAssignment = useCourseStore((s) => s.updateAssignment)
-  const deleteAssignment = useCourseStore((s) => s.deleteAssignment)
-  const updateGroupSetTemplate = useCourseStore((s) => s.updateGroupSetTemplate)
+  const controller = useSessionController()
   const roster = useCourseStore((s) => s.course?.roster ?? null)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const setNewAssignmentDialogOpen = useUiStore(
@@ -131,7 +130,9 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
     <div className="px-4 py-2 space-y-2 border-b">
       <RepoNameTemplateBuilder
         template={template}
-        onTemplateChange={(t) => updateGroupSetTemplate(groupSetId, t)}
+        onTemplateChange={(t) =>
+          controller.updateGroupSetTemplate(groupSetId, t)
+        }
         disabled={isOperationActive}
         hiddenSegments={
           groupSet.nameMode === "unnamed"
@@ -151,8 +152,8 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           setPreSelectedGroupSetId(groupSetId)
           setNewAssignmentDialogOpen(true)
         }}
-        onEdit={(id, name) => updateAssignment(id, { name })}
-        onDelete={(id) => deleteAssignment(id)}
+        onEdit={(id, name) => controller.updateAssignment(id, { name })}
+        onDelete={(id) => controller.deleteAssignment(id)}
         showSelection={showAssignmentSelection}
         disabled={isOperationActive}
       />

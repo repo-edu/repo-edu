@@ -16,6 +16,7 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { useIssues } from "../../hooks/use-issues.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import type { IssueCard } from "../../types/index.js"
@@ -23,7 +24,7 @@ import type { IssueCard } from "../../types/index.js"
 export function IssuesSheet() {
   const open = useUiStore((state) => state.issuesSheetOpen)
   const setOpen = useUiStore((state) => state.setIssuesSheetOpen)
-  const setActiveTab = useUiStore((state) => state.setActiveTab)
+  const controller = useSessionController()
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setAssignmentSelection = useCourseStore(
     (state) => state.setAssignmentSelection,
@@ -34,7 +35,7 @@ export function IssuesSheet() {
   const [rosterOpen, setRosterOpen] = useState(true)
 
   const navigateToGroupSet = (issue: IssueCard) => {
-    setActiveTab("groups-assignments")
+    controller.setActiveTab("groups-assignments")
     if (issue.groupSetId) {
       setSidebarSelection({ kind: "group-set", id: issue.groupSetId })
     }
@@ -55,9 +56,9 @@ export function IssuesSheet() {
 
     if (issue.kind === "roster_validation") {
       if (issue.issueKind === "duplicate_assignment_name") {
-        setActiveTab("groups-assignments")
+        controller.setActiveTab("groups-assignments")
       } else {
-        setActiveTab("roster")
+        controller.setActiveTab("roster")
       }
       setOpen(false)
       return
