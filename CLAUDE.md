@@ -112,6 +112,21 @@ Core flow:
   cannot compute itself (e.g. a revision counter), never the full persisted
   document.
 
+## Implementation Review Findings
+
+When asked to review implementation code, prefix every finding title with an
+implementation severity tier:
+
+- `[A]`: Data loss, corruption, a broken core workflow or an architectural flaw
+  likely to ship silently or require broad rework.
+- `[B]`: A real user-visible bug, reliability issue or unresolved code
+  decision that must be settled before shipping.
+- `[C]`: A narrow correctness, maintainability or test-coverage issue in a
+  non-critical path.
+- `[D]`: Wording, style, formatting or low-risk polish.
+
+Sort implementation findings from A through D.
+
 ## Testing Strategy
 
 Tests are functional/behavioral — they verify *what* the code must do, not *how*
