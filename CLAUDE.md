@@ -127,6 +127,39 @@ implementation severity tier:
 
 Sort implementation findings from A through D.
 
+## Commit Severity Prefix
+
+Prefix every commit with a sorted run-length sequence of [A]-[D] tier
+counts: `A<n>B<n>C<n>D<n>: <subject>` enumerates how many concerns at
+each tier the commit addresses, sorted A through D, with zero categories
+omitted. Example: `B3C8D4 fix: <subject>` closes three B-tier, eight
+C-tier and four D-tier concerns.
+
+The [A]-[D] rubric in Implementation Review Findings grades a concern's
+severity whether the AI surfaced it formally in a review or only
+addressed it in the commit body. Grade each concern the commit addresses
+against the rubric and count by tier; a planned redesign that reshapes
+ownership across packages is `A1 redesign:`, a within-package bug fix is
+`B1 fix:`, a localised maintainability fix is `C1 fix:`, a typo is
+`D1 docs:` or `D1 fix:`. Larger audit closures compound into sequences
+like `A1B4C2:` for one architectural concern, four B-tier bugs and two
+C-tier issues closed together.
+
+The conventional commit kind follows the prefix:
+`B3C8D4 fix(renderer-app): surface session command errors`.
+
+`redesign:` is the typical kind at tier A, alongside `refactor`, `feat`
+and `docs`. `fix:` is essentially never tier A: an A-tier bug fix is a
+redesign that closes a bug, and commits as `A1 redesign:` with the bug
+named in the subject.
+
+For commits that execute a plan, name the plan on the first body line
+before the bullets: `Plan: <name>` where `<name>` is the file stem with
+the `plan-` prefix dropped for peer plans (`plan-persister.md` →
+`persister`), the plan's title for the root `plan.md`, or the topic the
+plan was given when designed only in chat. Commits unattached to any
+plan omit this line.
+
 ## Testing Strategy
 
 Tests are functional/behavioral — they verify *what* the code must do, not *how*
