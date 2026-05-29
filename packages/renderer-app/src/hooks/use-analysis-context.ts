@@ -74,7 +74,7 @@ export function useAnalysisContext() {
   )
 
   const activateFolderPath = useCallback(
-    async (path: string, _recordRecent = true) => {
+    async (path: string) => {
       await controller.activateSurface({ kind: "folder", path })
     },
     [controller],

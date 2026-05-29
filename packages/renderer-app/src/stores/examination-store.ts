@@ -267,6 +267,7 @@ type ExaminationActions = {
   clearEntry: (key: string) => void
   archiveCatalogChanged: () => number
   invalidateRepositoryAnalysisSource: (repoPath: string | null) => void
+  invalidateSubmissionSource: (folderPath: string) => void
   resetRepositoryAnalysis: () => void
   reset: () => void
 }
@@ -1191,6 +1192,51 @@ export const useExaminationStore = create<
         }
       }),
 
+    invalidateSubmissionSource: (folderPath) =>
+      set((state) => {
+        const sourceSessions = new Map(state.sourceSessions)
+        for (const [key, session] of sourceSessions) {
+          if (
+            session.sourceIdentity.kind === "submission" &&
+            session.sourceIdentity.folderPath === folderPath
+          ) {
+            const lookupRequestId = session.pendingLookupRequestId
+            if (lookupRequestId !== null) {
+              examinationRequestSidecar.abortLookup(key, lookupRequestId)
+            }
+            const requestId = session.pendingGenerationRequestId
+            if (requestId !== null) {
+              examinationRequestSidecar.abortGeneration(key, requestId)
+            }
+            sourceSessions.delete(key)
+          }
+        }
+        const sourceSummaries = new Map(state.sourceSummaries)
+        for (const [key, summary] of sourceSummaries) {
+          if (submissionSummaryMatchesFolderPath(key, folderPath)) {
+            const requestId = summary.pendingRequestId
+            if (requestId !== null) {
+              examinationRequestSidecar.abortSummary(key, requestId)
+            }
+            sourceSummaries.delete(key)
+          }
+        }
+        return {
+          sourceSessions,
+          sourceSummaries,
+          activeSourceSessionKey:
+            state.activeSourceSessionKey !== null &&
+            !sourceSessions.has(state.activeSourceSessionKey)
+              ? null
+              : state.activeSourceSessionKey,
+          activeSourceSummaryKey:
+            state.activeSourceSummaryKey !== null &&
+            !sourceSummaries.has(state.activeSourceSummaryKey)
+              ? null
+              : state.activeSourceSummaryKey,
+        }
+      }),
+
     resetRepositoryAnalysis: () =>
       get().invalidateRepositoryAnalysisSource(null),
 
@@ -1312,6 +1358,20 @@ function repositoryAnalysisSummaryMatchesRepoPath(
     if (!Array.isArray(parsed)) return false
     if (parsed[0] !== "repository-analysis-summary") return false
     return repoPath === null || parsed[1] === repoPath
+  } catch (_error) {
+    return false
+  }
+}
+
+function submissionSummaryMatchesFolderPath(
+  sourceSummaryKey: string,
+  folderPath: string,
+): boolean {
+  try {
+    const parsed = JSON.parse(sourceSummaryKey) as unknown
+    if (!Array.isArray(parsed)) return false
+    if (parsed[0] !== "submission-summary") return false
+    return parsed[1] === folderPath
   } catch (_error) {
     return false
   }

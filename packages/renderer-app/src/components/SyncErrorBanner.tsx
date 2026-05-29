@@ -1,6 +1,10 @@
 import { Button } from "@repo-edu/ui"
 import { AlertCircle, X } from "@repo-edu/ui/components/icons"
-import { selectVisibleSyncStatus } from "../session/selectors.js"
+import {
+  selectCourseSyncStatus,
+  selectSettingsSyncStatus,
+  selectVisibleSyncScope,
+} from "../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -8,8 +12,17 @@ import {
 
 export function SyncErrorBanner() {
   const controller = useSessionController()
-  const visibleStatus = useSessionControllerSelector(selectVisibleSyncStatus)
-  const message = visibleStatus?.status.message ?? null
+  const scope = useSessionControllerSelector(selectVisibleSyncScope)
+  const settingsSyncStatus = useSessionControllerSelector(
+    selectSettingsSyncStatus,
+  )
+  const courseSyncStatus = useSessionControllerSelector(selectCourseSyncStatus)
+  const message =
+    scope === "settings"
+      ? settingsSyncStatus.message
+      : scope === "course"
+        ? courseSyncStatus.message
+        : null
 
   if (message === null) return null
 
@@ -23,9 +36,7 @@ export function SyncErrorBanner() {
         className="size-6 shrink-0 p-0 text-destructive hover:text-destructive"
         aria-label="Dismiss"
         onClick={() => {
-          if (visibleStatus !== null) {
-            controller.dismissSyncError(visibleStatus.scope)
-          }
+          if (scope !== null) controller.dismissSyncError(scope)
         }}
       >
         <X className="size-4" />

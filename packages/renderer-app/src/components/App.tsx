@@ -24,6 +24,7 @@ import {
   selectActiveSurface,
   selectActiveTab,
   selectBootstrapState,
+  selectCommandError,
 } from "../session/selectors.js"
 import { SessionController } from "../session/session-controller.js"
 import {
@@ -45,6 +46,7 @@ import {
   selectNextUndoDescription,
   useCourseStore,
 } from "../stores/course-store.js"
+import { useToastStore } from "../stores/toast-store.js"
 import { selectCourseListLoaded, useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import {
@@ -53,6 +55,7 @@ import {
 } from "../utils/course-navigation.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
+  getDesktopHostBridge,
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../utils/platform.js"
@@ -83,12 +86,10 @@ import { AnalysisTab } from "./tabs/AnalysisTab.js"
 import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { StudentsTab } from "./tabs/StudentsTab.js"
 
-export type AppRootProps = {
+export type RendererSessionRootProps = {
   workflowClient: WorkflowClient
   rendererHost: RendererHost
 }
-
-export type RendererSessionRootProps = AppRootProps
 
 export function RendererSessionRoot({
   workflowClient,
@@ -114,7 +115,9 @@ export function RendererSessionRoot({
   }, [controller, narrowedClient, rendererHost])
 
   useEffect(() => {
-    const bridge = getDesktopCloseFlushBridge()
+    const bridge = getDesktopHostBridge<{
+      onCloseFlushRequest?: (callback: () => Promise<void> | void) => () => void
+    }>()
     if (bridge?.onCloseFlushRequest !== undefined) {
       return bridge.onCloseFlushRequest(() => controller.flush())
     }
@@ -138,8 +141,6 @@ export function RendererSessionRoot({
     </WorkflowClientProvider>
   )
 }
-
-export const AppRoot = RendererSessionRoot
 
 function AppView() {
   const controller = useSessionController()
@@ -183,19 +184,6 @@ function BootstrapView({
   )
 }
 
-// Re-export kept for call-site below; canonical definition in utils/platform.
-const hasMacDesktopBridge = hasMacDesktopInset
-
-type DesktopCloseFlushBridge = {
-  onCloseFlushRequest?: (callback: () => Promise<void> | void) => () => void
-}
-
-function getDesktopCloseFlushBridge(): DesktopCloseFlushBridge | undefined {
-  return (window as unknown as Record<string, unknown>).repoEduDesktopHost as
-    | DesktopCloseFlushBridge
-    | undefined
-}
-
 function AppShell() {
   const controller = useSessionController()
   const activeTab = useSessionControllerSelector(selectActiveTab)
@@ -213,7 +201,7 @@ function AppShell() {
   const undoDescription = useCourseStore(selectNextUndoDescription)
   const redoDescription = useCourseStore(selectNextRedoDescription)
   const loadedCourse = useCourseStore((s) => s.course)
-  const leftInsetStyle = hasMacDesktopBridge()
+  const leftInsetStyle = hasMacDesktopInset()
     ? { paddingLeft: `${MAC_TRAFFIC_LIGHT_INSET_PX}px` }
     : undefined
   const activeCourseSummary =
@@ -236,6 +224,13 @@ function AppShell() {
 
   // Apply theme.
   useTheme(theme)
+
+  const commandError = useSessionControllerSelector(selectCommandError)
+  useEffect(() => {
+    if (commandError === null) return
+    useToastStore.getState().addToast(commandError, { tone: "error" })
+    controller.clearCommandError()
+  }, [commandError, controller])
 
   useEffect(() => {
     if (!courseListLoaded) return

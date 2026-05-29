@@ -79,9 +79,6 @@ type UiState = {
   courseList: CourseSummary[]
   courseListLoaded: boolean
   courseListLoading: boolean
-
-  // Close prompt
-  closePromptVisible: boolean
 }
 
 type UiActions = {
@@ -129,9 +126,6 @@ type UiActions = {
   setCourseList: (list: CourseSummary[]) => void
   setCourseListLoading: (loading: boolean) => void
 
-  showClosePrompt: () => void
-  hideClosePrompt: () => void
-
   reset: () => void
 }
 
@@ -171,8 +165,6 @@ const initialState: UiState = {
   courseList: [],
   courseListLoaded: false,
   courseListLoading: false,
-
-  closePromptVisible: false,
 }
 
 function setIfChanged<K extends keyof UiState>(
@@ -325,14 +317,7 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
   setCourseListLoading: (loading) =>
     set((state) => setIfChanged(state, "courseListLoading", loading)),
 
-  showClosePrompt: () =>
-    set((state) => setIfChanged(state, "closePromptVisible", true)),
-  hideClosePrompt: () =>
-    set((state) => setIfChanged(state, "closePromptVisible", false)),
-
   reset: () => set(initialState),
 }))
 
 export const selectCourseListLoaded = (state: UiState) => state.courseListLoaded
-export const selectClosePromptVisible = (state: UiState) =>
-  state.closePromptVisible

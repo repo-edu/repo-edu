@@ -1,7 +1,5 @@
-import type {
-  CourseSaveStamp,
-  WorkflowClient,
-} from "@repo-edu/application-contract"
+import type { WorkflowClient } from "@repo-edu/application-contract"
+import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import {
   activeCourseIdFromSurface,
   activeSurfaceEquals,
@@ -13,6 +11,7 @@ import {
   type AnalysisInputs,
   type Assignment,
   type CourseBacking,
+  courseHasRoster,
   createBlankCourse,
   type GitIdentityMode,
   type Group,
@@ -57,11 +56,24 @@ type SessionControllerOptions = {
   workflowClient: WorkflowClient
 }
 
+type ActiveCourseWorkerSlot = {
+  courseId: string
+  worker: Persister
+}
+
 type CreateCourseInput = {
   backing: CourseBacking
   displayName: string
   lmsConnectionId?: string | null
   lmsCourseId?: string | null
+}
+
+type PreparedSurfaceCommit = {
+  surface: PersistedActiveSurface
+  tab: ActiveTab
+  courseLoadStatus: CourseLoadStatus
+  courseId: string | null
+  loadedCourse: PersistedCourse | null
 }
 
 function initialTabForBacking(backing: CourseBacking): ActiveTab {
@@ -84,15 +96,15 @@ export class SessionController {
   private snapshot = createInitialSessionSnapshot()
   private readonly listeners = new Set<Listener>()
   private settingsWorker: Persister | null = null
-  private activeCourseWorker: Persister | null = null
-  private activeCourseWorkerCourseId: string | null = null
+  private activeCourseWorkerSlot: ActiveCourseWorkerSlot | null = null
+  private readonly pendingOperations = new Set<Promise<void>>()
   private transitionRequestId = 0
   private bootstrapAttempt = 0
   private disposed = false
 
   constructor({ workflowClient }: SessionControllerOptions) {
     this.workflowClient = workflowClient
-    void this.bootstrap()
+    void this.trackOperation(this.bootstrap())
   }
 
   subscribe = (listener: Listener): (() => void) => {
@@ -108,11 +120,11 @@ export class SessionController {
     if (this.disposed) return
     this.disposeWorkers()
     useCourseStore.getState().clear()
-    void this.bootstrap()
+    void this.trackOperation(this.bootstrap())
   }
 
   async activateSurface(surface: PersistedActiveSurface): Promise<boolean> {
-    return await this.enterSurface(surface)
+    return await this.trackOperation(this.enterSurface(surface))
   }
 
   setActiveTab(tab: ActiveTab): void {
@@ -127,17 +139,23 @@ export class SessionController {
     this.dispatch({ type: "dismiss-sync-error", scope })
   }
 
+  clearCommandError(): void {
+    this.dispatch({ type: "clear-command-error" })
+  }
+
   async flush(): Promise<void> {
+    await this.waitForTrackedOperations()
     await Promise.all([
       this.settingsWorker?.flush(),
-      this.activeCourseWorker?.flush(),
+      this.activeCourseWorkerSlot?.worker.flush(),
     ])
   }
 
   async waitForIdle(): Promise<void> {
+    await this.waitForTrackedOperations()
     await Promise.all([
       this.settingsWorker?.waitForIdle(),
-      this.activeCourseWorker?.waitForIdle(),
+      this.activeCourseWorkerSlot?.worker.waitForIdle(),
     ])
   }
 
@@ -150,6 +168,12 @@ export class SessionController {
   }
 
   async createCourse(input: CreateCourseInput): Promise<PersistedCourse> {
+    return await this.trackOperation(this.createCourseInternal(input))
+  }
+
+  private async createCourseInternal(
+    input: CreateCourseInput,
+  ): Promise<PersistedCourse> {
     const backing = input.backing
     const draft = createBlankCourse(
       generateCourseId(),
@@ -176,6 +200,15 @@ export class SessionController {
     sourceId: string,
     displayName: string,
   ): Promise<PersistedCourse> {
+    return await this.trackOperation(
+      this.duplicateCourseInternal(sourceId, displayName),
+    )
+  }
+
+  private async duplicateCourseInternal(
+    sourceId: string,
+    displayName: string,
+  ): Promise<PersistedCourse> {
     const source = await this.resolveDetachedCourseSource(sourceId)
     const duplicate = createBlankCourse(
       generateCourseId(),
@@ -196,6 +229,13 @@ export class SessionController {
   }
 
   async renameCourse(courseId: string, displayName: string): Promise<void> {
+    await this.trackOperation(this.renameCourseInternal(courseId, displayName))
+  }
+
+  private async renameCourseInternal(
+    courseId: string,
+    displayName: string,
+  ): Promise<void> {
     const trimmedDisplayName = displayName.trim()
     if (!trimmedDisplayName) return
 
@@ -206,7 +246,7 @@ export class SessionController {
     ) {
       if (activeCourse.displayName === trimmedDisplayName) return
       this.setDisplayName(trimmedDisplayName)
-      await this.activeCourseWorker?.flush()
+      await this.activeCourseWorkerSlot?.worker.flush()
       return
     }
 
@@ -218,8 +258,13 @@ export class SessionController {
   }
 
   async deleteCourse(courseId: string): Promise<void> {
+    await this.trackOperation(this.deleteCourseInternal(courseId))
+  }
+
+  private async deleteCourseInternal(courseId: string): Promise<void> {
     if (this.snapshot.activeCourseId !== courseId) {
       await this.workflowClient.run("course.delete", { courseId })
+      useAnalysisStore.getState().removeSourcesForCourse(courseId)
       return
     }
 
@@ -227,24 +272,23 @@ export class SessionController {
     this.dispatch({ type: "delete-start", requestId, courseId })
 
     try {
-      await this.activeCourseWorker?.flush()
+      await this.activeCourseWorkerSlot?.worker.flush()
       await this.workflowClient.run("course.delete", { courseId })
-
-      this.activeCourseWorker?.dispose()
-      this.activeCourseWorker = null
-      this.activeCourseWorkerCourseId = null
-      useCourseStore.getState().clear()
+      // The course is gone server-side regardless of which transition owns
+      // pending, so drop its analysis sources now.
       useAnalysisStore.getState().removeSourcesForCourse(courseId)
 
       const fallbackSurface = fallbackSurfaceForDeletedCourse(courseId)
-      const commit = await this.prepareCommittedSurface(fallbackSurface)
-      this.dispatch({
+      const commit = await this.prepareDeletedCourseFallback(fallbackSurface)
+      const committed = this.dispatch({
         type: "delete-commit",
         requestId,
         activeSurface: commit.surface,
         activeTab: commit.tab,
         courseLoadStatus: commit.courseLoadStatus,
       })
+      if (!committed) return
+      this.applyPreparedSurfaceCommit(commit)
       this.syncAnalysisSource()
       this.recordSuccessfulSurfaceEntry(commit.surface)
     } catch (error) {
@@ -444,28 +488,30 @@ export class SessionController {
 
       useAppSettingsStore.getState().hydrate(settings)
       const surface = normalizeActiveSurface(settings.activeSurface)
-      const commit = await this.prepareCommittedSurface(
+      const commit = await this.prepareSurfaceCommit(
         surface,
         settings.activeTab,
       )
       if (this.disposed || attempt !== this.bootstrapAttempt) return
 
+      const requestId = this.nextRequestId()
       this.dispatch({
         type: "enter-start",
-        requestId: this.nextRequestId(),
+        requestId,
         targetSurface: commit.surface,
         leavingCourseId: null,
       })
-      const requestId =
-        this.snapshot.pending?.requestId ?? this.transitionRequestId
-      this.dispatch({
+      const committed = this.dispatch({
         type: "enter-commit",
         requestId,
         activeSurface: commit.surface,
         activeTab: commit.tab,
         courseLoadStatus: commit.courseLoadStatus,
       })
-      this.syncAnalysisSource()
+      if (committed) {
+        this.applyPreparedSurfaceCommit(commit)
+        this.syncAnalysisSource()
+      }
       this.createSettingsWorker()
       this.dispatch({ type: "bootstrap-ready", attempt })
     } catch (error) {
@@ -506,24 +552,26 @@ export class SessionController {
 
     try {
       if (leavingCourseId !== null) {
-        await this.activeCourseWorker?.flush()
+        await this.activeCourseWorkerSlot?.worker.flush()
       }
       if (this.isStaleEnterRequest(requestId)) return false
 
-      const commit = await this.prepareCommittedSurface(
+      const commit = await this.prepareSurfaceCommit(
         nextSurface,
         preferredTab,
         requestId,
       )
       if (this.isStaleEnterRequest(requestId)) return false
 
-      this.dispatch({
+      const committed = this.dispatch({
         type: "enter-commit",
         requestId,
         activeSurface: commit.surface,
         activeTab: commit.tab,
         courseLoadStatus: commit.courseLoadStatus,
       })
+      if (!committed) return false
+      this.applyPreparedSurfaceCommit(commit)
       this.syncAnalysisSource()
       this.recordSuccessfulSurfaceEntry(commit.surface)
       return true
@@ -537,19 +585,13 @@ export class SessionController {
     }
   }
 
-  private async prepareCommittedSurface(
+  private async prepareSurfaceCommit(
     surface: PersistedActiveSurface,
     preferredTab?: ActiveTab,
     requestId?: number,
-  ): Promise<{
-    surface: PersistedActiveSurface
-    tab: ActiveTab
-    courseLoadStatus: CourseLoadStatus
-  }> {
+  ): Promise<PreparedSurfaceCommit> {
     const courseId = activeCourseIdFromSurface(surface)
     if (courseId === null) {
-      this.disposeActiveCourseWorker()
-      useCourseStore.getState().clear()
       return {
         surface,
         tab: resolveSupportedActiveTab(
@@ -557,12 +599,15 @@ export class SessionController {
           surfaceTabBacking(surface, undefined),
         ),
         courseLoadStatus: emptyCourseLoadStatus,
+        courseId: null,
+        loadedCourse: null,
       }
     }
 
     const existingCourse = useCourseStore.getState().course
     let backing =
       existingCourse?.id === courseId ? existingCourse.backing : null
+    let loadedCourse: PersistedCourse | null = null
     if (existingCourse?.id !== courseId) {
       if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
         throw new Error("Stale activation request")
@@ -575,12 +620,10 @@ export class SessionController {
       if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
         throw new Error("Stale activation request")
       }
-      useCourseStore.getState().hydrate(course)
-      useCourseStore.getState().ensureSystemGroupSets()
-      backing = useCourseStore.getState().course?.backing ?? course.backing
+      loadedCourse = normalizeLoadedCourse(course)
+      backing = loadedCourse.backing
     }
 
-    this.ensureActiveCourseWorker(courseId)
     return {
       surface,
       tab: resolveSupportedActiveTab(
@@ -588,7 +631,32 @@ export class SessionController {
         surfaceTabBacking(surface, backing ?? undefined),
       ),
       courseLoadStatus: { state: "loaded", message: null },
+      courseId,
+      loadedCourse,
     }
+  }
+
+  private async prepareDeletedCourseFallback(
+    fallbackSurface: PersistedActiveSurface,
+  ): Promise<PreparedSurfaceCommit> {
+    try {
+      return await this.prepareSurfaceCommit(fallbackSurface)
+    } catch {
+      return await this.prepareSurfaceCommit({ kind: "home" })
+    }
+  }
+
+  private applyPreparedSurfaceCommit(commit: PreparedSurfaceCommit): void {
+    if (commit.courseId === null) {
+      this.disposeActiveCourseWorker()
+      useCourseStore.getState().clear()
+      return
+    }
+
+    if (commit.loadedCourse !== null) {
+      useCourseStore.getState().hydrate(commit.loadedCourse)
+    }
+    this.ensureActiveCourseWorker(commit.courseId)
   }
 
   private async resolveDetachedCourseSource(
@@ -596,7 +664,7 @@ export class SessionController {
   ): Promise<PersistedCourse> {
     const activeCourse = useCourseStore.getState().course
     if (activeCourse?.id === sourceId) {
-      await this.activeCourseWorker?.flush()
+      await this.activeCourseWorkerSlot?.worker.flush()
       const flushedCourse = useCourseStore.getState().course
       if (flushedCourse?.id === sourceId) return flushedCourse
     }
@@ -605,15 +673,14 @@ export class SessionController {
 
   private ensureActiveCourseWorker(courseId: string): void {
     if (
-      this.activeCourseWorkerCourseId === courseId &&
-      this.activeCourseWorker
+      this.activeCourseWorkerSlot?.courseId === courseId &&
+      this.activeCourseWorkerSlot.worker
     ) {
       return
     }
 
     this.disposeActiveCourseWorker()
-    this.activeCourseWorkerCourseId = courseId
-    this.activeCourseWorker = createCoursePersisterWorker({
+    const worker = createCoursePersisterWorker({
       workflowClient: this.workflowClient,
       getSnapshot: () => {
         const course = useCourseStore.getState().course
@@ -622,18 +689,17 @@ export class SessionController {
       subscribe: (listener) => useCourseStore.subscribe(listener),
       setSyncStatus: (status) =>
         this.dispatch({ type: "set-sync-status", scope: "course", status }),
-      onSaveResult: (result, snapshot) => {
+      applySaveResult: (result, snapshot) => {
         if (
-          this.activeCourseWorkerCourseId !== snapshot.id ||
+          this.activeCourseWorkerSlot?.courseId !== snapshot.id ||
           this.snapshot.activeCourseId !== snapshot.id
         ) {
           return
         }
-        useCourseStore
-          .getState()
-          .applySaveStamp(snapshot.id, result as CourseSaveStamp)
+        useCourseStore.getState().applySaveStamp(snapshot.id, result)
       },
     })
+    this.activeCourseWorkerSlot = { courseId, worker }
   }
 
   private createSettingsWorker(): void {
@@ -719,9 +785,8 @@ export class SessionController {
   }
 
   private disposeActiveCourseWorker(): void {
-    this.activeCourseWorker?.dispose()
-    this.activeCourseWorker = null
-    this.activeCourseWorkerCourseId = null
+    this.activeCourseWorkerSlot?.worker.dispose()
+    this.activeCourseWorkerSlot = null
     this.dispatch({
       type: "set-sync-status",
       scope: "course",
@@ -729,12 +794,37 @@ export class SessionController {
     })
   }
 
-  private dispatch(event: Parameters<typeof sessionReducer>[1]): void {
+  private dispatch(event: Parameters<typeof sessionReducer>[1]): boolean {
     const next = sessionReducer(this.snapshot, event)
-    if (next === this.snapshot) return
+    if (next === this.snapshot) return false
     this.snapshot = next
     for (const listener of this.listeners) {
       listener()
     }
+    return true
   }
+
+  private trackOperation<T>(operation: Promise<T>): Promise<T> {
+    const tracked = operation.then(
+      () => undefined,
+      () => undefined,
+    )
+    this.pendingOperations.add(tracked)
+    return operation.finally(() => {
+      this.pendingOperations.delete(tracked)
+    })
+  }
+
+  private async waitForTrackedOperations(): Promise<void> {
+    while (this.pendingOperations.size > 0) {
+      await Promise.allSettled([...this.pendingOperations])
+    }
+  }
+}
+
+function normalizeLoadedCourse(course: PersistedCourse): PersistedCourse {
+  if (!courseHasRoster(course)) return course
+  const result = ensureSystemGroupSets(course.roster, course.idSequences)
+  if (result.idSequences === course.idSequences) return course
+  return { ...course, idSequences: result.idSequences }
 }

@@ -13,6 +13,7 @@ import {
 import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
 import { useToastStore } from "../stores/toast-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import { getDesktopHostBridge } from "../utils/platform.js"
 import { CourseSwitcher } from "./CourseSwitcher.js"
 
 export function UtilityBar() {
@@ -32,19 +33,11 @@ export function UtilityBar() {
 /**
  * UtilityMenu — Generic overflow menu for course-adjacent utility actions.
  */
-type DesktopBridge = {
-  revealCoursesDirectory?: () => Promise<void>
-}
-
-function getDesktopBridge(): DesktopBridge | undefined {
-  return (window as unknown as Record<string, unknown>).repoEduDesktopHost as
-    | DesktopBridge
-    | undefined
-}
-
 function UtilityMenu() {
   const addToast = useToastStore((s) => s.addToast)
-  const bridge = getDesktopBridge()
+  const bridge = getDesktopHostBridge<{
+    revealCoursesDirectory?: () => Promise<void>
+  }>()
 
   const handleShowCourseLocation = async () => {
     try {

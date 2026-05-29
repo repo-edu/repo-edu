@@ -225,35 +225,6 @@ describe("analysis store", () => {
     assert.equal(state.blameFileResults.has("src/b.ts"), true)
   })
 
-  it("resetAnalysisContext clears runtime state while preserving display toggles", () => {
-    const store = useAnalysisStore.getState()
-    store.setSelectedRepoPath("/repo")
-    store.openFileForBlame("src/a.ts")
-    store.setBlameShowMetadata(false)
-    store.setBlameColorize(false)
-    store.setActiveView("examination")
-    const repositorySessionKey = activateExaminationSession(repositoryIdentity)
-    const submissionSessionKey = activateExaminationSession(submissionIdentity)
-
-    store.resetAnalysisContext()
-
-    const state = useAnalysisStore.getState()
-    assert.equal(state.selectedRepoPath, null)
-    assert.equal(state.activeBlameFile, null)
-    assert.equal(state.focusedFilePath, null)
-    assert.equal(state.blameShowMetadata, false)
-    assert.equal(state.blameColorize, false)
-    assert.equal(state.activeView, "authors")
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.has(repositorySessionKey),
-      false,
-    )
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.has(submissionSessionKey),
-      true,
-    )
-  })
-
   it("restores runtime state when returning to an analysis source", () => {
     const store = useAnalysisStore.getState()
     const result = makeBaseResult()
@@ -338,6 +309,62 @@ describe("analysis store", () => {
       true,
     )
     assert.equal(useExaminationStore.getState().entriesByKey.size, 1)
+  })
+
+  it("removes only examination sessions owned by deleted course sources", () => {
+    const store = useAnalysisStore.getState()
+    store.activateSource({ kind: "course", courseId: "course-a" })
+    store.setSelectedRepoPath("/repo-a")
+    const repositoryASessionKey = activateExaminationSession({
+      ...repositoryIdentity,
+      repoPath: "/repo-a",
+    })
+    const submissionASessionKey = activateExaminationSession({
+      ...submissionIdentity,
+      folderPath: "/submission-a",
+    })
+
+    store.activateSource({
+      kind: "submission",
+      path: "/submission-a",
+      courseId: "course-a",
+    })
+    store.activateSource({ kind: "course", courseId: "course-b" })
+    store.setSelectedRepoPath("/repo-b")
+    const activeAbort = new AbortController()
+    analysisStoreInternals.analysisAborts.set("/repo-b", activeAbort)
+    const repositoryBSessionKey = activateExaminationSession({
+      ...repositoryIdentity,
+      repoPath: "/repo-b",
+    })
+    const submissionBSessionKey = activateExaminationSession({
+      ...submissionIdentity,
+      folderPath: "/submission-b",
+    })
+
+    store.removeSourcesForCourse("course-a")
+
+    const analysisState = useAnalysisStore.getState()
+    assert.equal(
+      [...analysisState.sourceBuckets.values()].some(
+        (bucket) =>
+          bucket.sourceKey.kind === "course" &&
+          bucket.sourceKey.courseId === "course-a",
+      ),
+      false,
+    )
+    assert.equal(analysisState.selectedRepoPath, "/repo-b")
+    assert.equal(activeAbort.signal.aborted, false)
+    assert.equal(
+      analysisStoreInternals.analysisAborts.get("/repo-b"),
+      activeAbort,
+    )
+
+    const examinationSessions = useExaminationStore.getState().sourceSessions
+    assert.equal(examinationSessions.has(repositoryASessionKey), false)
+    assert.equal(examinationSessions.has(submissionASessionKey), false)
+    assert.equal(examinationSessions.has(repositoryBSessionKey), true)
+    assert.equal(examinationSessions.has(submissionBSessionKey), true)
   })
 
   it("cancelAll aborts every active run without dropping handles eagerly", () => {

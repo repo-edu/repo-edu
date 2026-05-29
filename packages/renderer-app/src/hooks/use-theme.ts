@@ -1,6 +1,7 @@
 import type { ThemePreference } from "@repo-edu/domain/types"
 import { useEffect } from "react"
 import { DARK_BG, LIGHT_BG, THEME_CLASSES } from "../constants/theme.js"
+import { getDesktopHostBridge } from "../utils/platform.js"
 
 function applyThemeClass(resolved: "light" | "dark") {
   const root = document.documentElement
@@ -21,10 +22,9 @@ function resolveTheme(preference: ThemePreference): "light" | "dark" {
 function syncNativeTheme(theme: ThemePreference): void {
   // Desktop-only: sync Electron's nativeTheme so the macOS title bar
   // matches the app theme. The bridge is only present in the desktop shell.
-  const host = (window as unknown as Record<string, unknown>)
-    .repoEduDesktopHost as
-    | { setNativeTheme?: (theme: string) => Promise<void> }
-    | undefined
+  const host = getDesktopHostBridge<{
+    setNativeTheme?: (theme: string) => Promise<void>
+  }>()
   void host?.setNativeTheme?.(theme)
 }
 

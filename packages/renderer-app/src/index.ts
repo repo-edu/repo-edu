@@ -10,11 +10,8 @@ export const workspaceDependencies = [
   "@repo-edu/ui",
 ] as const
 
-export type {
-  AppRootProps,
-  RendererSessionRootProps,
-} from "./components/App.js"
-export { AppRoot, RendererSessionRoot } from "./components/App.js"
+export type { RendererSessionRootProps } from "./components/App.js"
+export { RendererSessionRoot } from "./components/App.js"
 export type { AppConfiguration } from "./configure-app.js"
 export { configureApp } from "./configure-app.js"
 export {

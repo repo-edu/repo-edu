@@ -247,7 +247,6 @@ export type AnalysisActions = {
   hydrateFromPersistedSettings: (
     settings: PersistedAnalysisSidebarSettings,
   ) => void
-  resetAnalysisContext: () => void
   reset: () => void
 }
 
@@ -396,6 +395,40 @@ function sourceBelongsToCourse(
   if (sourceKey.kind === "course") return sourceKey.courseId === courseId
   if (sourceKey.kind === "submission") return sourceKey.courseId === courseId
   return false
+}
+
+type CourseSourceInvalidations = {
+  repositoryPaths: Set<string>
+  submissionPaths: Set<string>
+}
+
+function collectCourseSourceInvalidations(
+  bucket: AnalysisSourceBucket,
+  invalidations: CourseSourceInvalidations,
+): void {
+  if (bucket.sourceKey.kind === "submission") {
+    invalidations.submissionPaths.add(bucket.sourceKey.path)
+    return
+  }
+  if (bucket.sourceKey.kind !== "course") {
+    return
+  }
+
+  if (bucket.selectedRepoPath !== null) {
+    invalidations.repositoryPaths.add(bucket.selectedRepoPath)
+  }
+  for (const repoPath of bucket.repoStates.keys()) {
+    invalidations.repositoryPaths.add(repoPath)
+  }
+  for (const repoPath of bucket.repoWorkflowStatus.keys()) {
+    invalidations.repositoryPaths.add(repoPath)
+  }
+  for (const repoPath of bucket.repoProgress.keys()) {
+    invalidations.repositoryPaths.add(repoPath)
+  }
+  for (const repoPath of bucket.repoErrorMessage.keys()) {
+    invalidations.repositoryPaths.add(repoPath)
+  }
 }
 
 function clearPendingBlameFiles(
@@ -558,22 +591,32 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     },
 
     removeSourcesForCourse: (courseId) => {
-      analysisStoreInternals.abortAndClearAll()
-      analysisStoreInternals.discoveryAbort?.abort()
-      analysisStoreInternals.discoveryAbort = null
+      const activeSourceKey = get().activeSourceKey
+      const activeBelongsToCourse =
+        activeSourceKey !== null &&
+        sourceBelongsToCourse(activeSourceKey, courseId)
+      if (activeBelongsToCourse) {
+        analysisStoreInternals.abortAndClearAll()
+        analysisStoreInternals.discoveryAbort?.abort()
+        analysisStoreInternals.discoveryAbort = null
+      }
+      const invalidations: CourseSourceInvalidations = {
+        repositoryPaths: new Set(),
+        submissionPaths: new Set(),
+      }
       set((state) => {
-        const sourceBuckets = snapshotActiveSourceBucket(state, {
-          settleRunningWorkflows: true,
-        })
+        // Only snapshot the active bucket when we are about to clear it; the
+        // settled copy would otherwise be overwritten on the next navigation.
+        const sourceBuckets = activeBelongsToCourse
+          ? snapshotActiveSourceBucket(state, { settleRunningWorkflows: true })
+          : new Map(state.sourceBuckets)
         for (const [bucketId, bucket] of sourceBuckets) {
           if (sourceBelongsToCourse(bucket.sourceKey, courseId)) {
+            collectCourseSourceInvalidations(bucket, invalidations)
             sourceBuckets.delete(bucketId)
           }
         }
-        if (
-          state.activeSourceKey !== null &&
-          sourceBelongsToCourse(state.activeSourceKey, courseId)
-        ) {
+        if (activeBelongsToCourse) {
           return {
             activeSourceKey: null,
             sourceBuckets,
@@ -583,7 +626,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         }
         return { sourceBuckets }
       })
-      useExaminationStore.getState().resetRepositoryAnalysis()
+      const examinationStore = useExaminationStore.getState()
+      for (const repoPath of invalidations.repositoryPaths) {
+        examinationStore.invalidateRepositoryAnalysisSource(repoPath)
+      }
+      for (const folderPath of invalidations.submissionPaths) {
+        examinationStore.invalidateSubmissionSource(folderPath)
+      }
     },
 
     setSelectedRepoPath: (path) => {
@@ -1022,24 +1071,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           copyMove: settings.blameConfig.copyMove ?? DEFAULT_BLAME_COPY_MOVE,
         },
       }),
-
-    resetAnalysisContext: () => {
-      analysisStoreInternals.abortAndClearAll()
-      analysisStoreInternals.discoveryAbort?.abort()
-      analysisStoreInternals.discoveryAbort = null
-      useExaminationStore.getState().resetRepositoryAnalysis()
-      set((state) => {
-        const sourceBuckets = new Map(state.sourceBuckets)
-        if (state.activeSourceKey !== null) {
-          sourceBuckets.delete(analysisSourceKeyId(state.activeSourceKey))
-        }
-        return {
-          sourceBuckets,
-          ...createEmptySourceFields(),
-          activeView: "authors" as AnalysisView,
-        }
-      })
-    },
 
     reset: () => {
       analysisStoreInternals.abortAndClearAll()

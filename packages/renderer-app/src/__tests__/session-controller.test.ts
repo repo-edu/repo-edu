@@ -141,6 +141,65 @@ describe("SessionController", () => {
     controller.dispose()
   })
 
+  it("waits for pending activation before close flush persists settings", async () => {
+    const courseALoad = deferred<PersistedCourse>()
+    const savedSettings: PersistedAppSettings[] = []
+    const controller = new SessionController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings() as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          assert.deepStrictEqual(input, { courseId: "course-a" })
+          return (await courseALoad.promise) as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "settings.saveApp") {
+          savedSettings.push(input as PersistedAppSettings)
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const transition = controller.activateSurface({
+      kind: "course",
+      courseId: "course-a",
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.pending?.kind === "enter",
+    )
+
+    const closeFlush = controller.flush()
+    assert.equal(
+      await Promise.race([
+        closeFlush.then(() => "flushed" as const),
+        new Promise<"pending">((resolve) =>
+          setTimeout(() => resolve("pending"), 20),
+        ),
+      ]),
+      "pending",
+    )
+
+    courseALoad.resolve(makeCourse("course-a"))
+    await transition
+    await closeFlush
+
+    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.deepStrictEqual(savedSettings.at(-1)?.activeSurface, {
+      kind: "course",
+      courseId: "course-a",
+    })
+
+    controller.dispose()
+  })
+
   it("rejects stale activation completions", async () => {
     const courseALoad = deferred<PersistedCourse>()
     const controller = new SessionController({
@@ -186,6 +245,49 @@ describe("SessionController", () => {
 
     assert.equal(controller.getSnapshot().activeCourseId, "course-b")
     assert.equal(useCourseStore.getState().course?.id, "course-b")
+
+    controller.dispose()
+  })
+
+  it("keeps the committed course when target hydration normalization fails", async () => {
+    const malformedCourse = {
+      ...makeCourse("course-b"),
+      roster: undefined,
+    } as unknown as PersistedCourse
+    const controller = new SessionController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return (
+            courseId === "course-b" ? malformedCourse : makeCourse(courseId)
+          ) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    assert.equal(
+      await controller.activateSurface({
+        kind: "course",
+        courseId: "course-b",
+      }),
+      false,
+    )
+
+    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(useCourseStore.getState().course?.id, "course-a")
 
     controller.dispose()
   })
@@ -238,6 +340,61 @@ describe("SessionController", () => {
 
     courseBLoad.resolve(makeCourse("course-b"))
     await transition
+
+    controller.dispose()
+  })
+
+  it("commits home after active delete when fallback course loading fails", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-a",
+        backing: "lms",
+        displayName: "Course A",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+      {
+        id: "course-b",
+        backing: "lms",
+        displayName: "Course B",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const controller = new SessionController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          if (courseId === "course-b") {
+            throw new Error("fallback unavailable")
+          }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.delete") {
+          assert.deepStrictEqual(input, { courseId: "course-a" })
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    await controller.deleteCourse("course-a")
+
+    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+      kind: "home",
+    })
+    assert.equal(controller.getSnapshot().activeCourseId, null)
+    assert.equal(useCourseStore.getState().course, null)
 
     controller.dispose()
   })

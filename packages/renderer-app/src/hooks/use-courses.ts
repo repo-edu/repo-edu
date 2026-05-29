@@ -9,10 +9,7 @@ import type {
 } from "@repo-edu/domain/types"
 import { useCallback } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
-import {
-  getSessionController,
-  useSessionController,
-} from "../session/session-controller-context.js"
+import { useSessionController } from "../session/session-controller-context.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
@@ -60,35 +57,23 @@ export function resolveActiveSurfaceRedirectForCourses(
   return null
 }
 
-export function pruneLoadedSubmissionFoldersForCourses(
-  courses: readonly Pick<PersistedCourse, "id" | "backing">[],
-): boolean {
-  return getSessionController().pruneLoadedSubmissionFoldersForCourses(courses)
-}
-
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
   const loading = useUiStore((s) => s.courseListLoading)
   const client = useWorkflowClient()
   const controller = useSessionController()
 
+  // Prune and redirect are owned by the AppShell effect that observes
+  // courseList; refresh just writes the latest list so that effect can react.
   const refresh = useCallback(async () => {
     useUiStore.getState().setCourseListLoading(true)
     try {
       const list = await client.run("course.list", undefined)
       useUiStore.getState().setCourseList(list)
-      controller.pruneLoadedSubmissionFoldersForCourses(list)
-      const redirect = resolveActiveSurfaceRedirectForCourses(
-        controller.getSnapshot().activeSurface,
-        list,
-      )
-      if (redirect !== null) {
-        await controller.activateSurface(redirect.surface)
-      }
     } finally {
       useUiStore.getState().setCourseListLoading(false)
     }
-  }, [client, controller])
+  }, [client])
 
   const switchCourse = useCallback(
     async (courseId: string, backing?: CourseBacking) => {

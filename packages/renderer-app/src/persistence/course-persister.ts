@@ -56,7 +56,7 @@ export type CoursePersisterWorkerOptions = {
   getSnapshot: () => PersistedCourse | null
   subscribe: (listener: () => void) => () => void
   setSyncStatus: (status: PersistenceSyncStatus) => void
-  onSaveResult: (result: CourseSaveStamp, snapshot: PersistedCourse) => void
+  applySaveResult: (result: CourseSaveStamp, snapshot: PersistedCourse) => void
 }
 
 export function createCoursePersisterWorker({
@@ -64,7 +64,7 @@ export function createCoursePersisterWorker({
   getSnapshot,
   subscribe,
   setSyncStatus,
-  onSaveResult,
+  applySaveResult,
 }: CoursePersisterWorkerOptions): Persister {
   return createPersister<PersistedCourse, "course.save">({
     workflowClient,
@@ -87,7 +87,6 @@ export function createCoursePersisterWorker({
         ? { kind: "retry" }
         : { kind: "terminal" }
     },
-    onSaveResult: (result, course) =>
-      onSaveResult(result as CourseSaveStamp, course),
+    applySaveResult,
   })
 }

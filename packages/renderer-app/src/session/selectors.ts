@@ -17,9 +17,12 @@ export const selectSettingsSyncStatus = (snapshot: SessionControllerSnapshot) =>
   snapshot.settingsSyncStatus
 export const selectCourseSyncStatus = (snapshot: SessionControllerSnapshot) =>
   snapshot.courseSyncStatus
-export const selectVisibleSyncStatus = (snapshot: SessionControllerSnapshot) =>
-  snapshot.settingsSyncStatus.state === "error"
-    ? { scope: "settings" as const, status: snapshot.settingsSyncStatus }
-    : snapshot.courseSyncStatus.state === "error"
-      ? { scope: "course" as const, status: snapshot.courseSyncStatus }
-      : null
+export const selectVisibleSyncScope = (
+  snapshot: SessionControllerSnapshot,
+): "settings" | "course" | null => {
+  if (snapshot.settingsSyncStatus.state === "error") return "settings"
+  if (snapshot.courseSyncStatus.state === "error") return "course"
+  return null
+}
+export const selectCommandError = (snapshot: SessionControllerSnapshot) =>
+  snapshot.commandError

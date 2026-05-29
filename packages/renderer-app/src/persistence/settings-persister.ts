@@ -35,19 +35,16 @@ export type SettingsPersisterWorkerOptions = {
   setSyncStatus: (status: PersistenceSyncStatus) => void
 }
 
-function persistedSettingsEqual(
-  left: PersistedAppSettings,
-  right: PersistedAppSettings,
-): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
 export function createSettingsPersisterWorker({
   workflowClient,
   getSnapshot,
   subscribe,
   setSyncStatus,
 }: SettingsPersisterWorkerOptions): Persister {
+  // Default shallow per-key equality works for the composed snapshot because
+  // composePersistedSettings spreads the same appSettings reference and only
+  // overrides activeSurface and activeTab from session state; both sources
+  // keep stable references between unrelated dispatches.
   return createPersister<PersistedAppSettings, "settings.saveApp">({
     workflowClient,
     workflowId: "settings.saveApp",
@@ -60,6 +57,5 @@ export function createSettingsPersisterWorker({
       isRetryableWorkflowError(error)
         ? { kind: "retry" }
         : { kind: "terminal" },
-    snapshotsEqual: persistedSettingsEqual,
   })
 }
