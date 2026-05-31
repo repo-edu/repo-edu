@@ -135,6 +135,7 @@ export function sessionReducer(
       return {
         ...state,
         bootstrap: { status: "loading", attempt: event.attempt },
+        courseLoadStatus: emptyCourseLoadStatus,
         pending: null,
         commandError: null,
         disposed: false,
@@ -197,7 +198,6 @@ export function sessionReducer(
         ...state,
         pending: null,
         commandError: event.message,
-        courseLoadStatus: { state: "error", message: event.message },
       }
     case "set-active-tab":
       if (state.activeTab === event.activeTab) return state

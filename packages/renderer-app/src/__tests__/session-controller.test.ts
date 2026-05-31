@@ -575,4 +575,107 @@ describe("SessionController", () => {
 
     controller.dispose()
   })
+
+  it("queues an active-course rename behind a pending enter", async () => {
+    const courseBLoad = deferred<PersistedCourse>()
+    const savedDrafts: PersistedCourse[] = []
+    const controller = new SessionController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          if (courseId === "course-b") {
+            return (await courseBLoad.promise) as WorkflowResult<
+              typeof workflowId
+            >
+          }
+          return makeCourse(courseId, "Original A") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "course.save") {
+          savedDrafts.push(input as PersistedCourse)
+          return {
+            revision: 1,
+            updatedAt: "2026-05-29T00:00:01.000Z",
+          } as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const transition = controller.activateSurface({
+      kind: "course",
+      courseId: "course-b",
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.pending?.kind === "enter",
+    )
+
+    const renamed = controller.renameCourse("course-a", "Renamed A")
+    courseBLoad.resolve(makeCourse("course-b"))
+    await transition
+    await renamed
+
+    const renameSave = savedDrafts.find((draft) => draft.id === "course-a")
+    assert.equal(renameSave?.displayName, "Renamed A")
+
+    controller.dispose()
+  })
+
+  it("activates a newly created course without re-loading it", async () => {
+    const courseLoadCalls: string[] = []
+    const controller = new SessionController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings() as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          courseLoadCalls.push(courseId)
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.save") {
+          return {
+            revision: 1,
+            updatedAt: "2026-05-29T00:00:01.000Z",
+          } as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const draft = await controller.createCourse({
+      backing: "lms",
+      displayName: "New Course",
+      lmsConnectionId: null,
+      lmsCourseId: null,
+    })
+
+    assert.equal(courseLoadCalls.includes(draft.id), false)
+    assert.equal(controller.getSnapshot().activeCourseId, draft.id)
+    assert.equal(useCourseStore.getState().course?.id, draft.id)
+    assert.equal(useCourseStore.getState().course?.revision, 1)
+
+    controller.dispose()
+  })
 })

@@ -77,6 +77,17 @@ type PreparedSurfaceCommit = {
   loadedCourse: PersistedCourse | null
 }
 
+type EnterSurfaceOptions = {
+  preferredTab?: ActiveTab
+  preloadedCourse?: PersistedCourse
+}
+
+type PrepareSurfaceCommitOptions = {
+  preferredTab?: ActiveTab
+  requestId?: number
+  preloadedCourse?: PersistedCourse
+}
+
 function initialTabForBacking(backing: CourseBacking): ActiveTab {
   return backing === "lms" ? "roster" : "groups-assignments"
 }
@@ -193,13 +204,25 @@ export class SessionController {
       },
     )
 
-    await this.workflowClient.run("course.save", draft)
-    useAppSettingsStore.getState().setLastUsedCourseBacking(draft.backing)
-    await this.enterSurface(
-      { kind: "course", courseId: draft.id },
-      initialTabForBacking(draft.backing),
+    const stamp = await this.workflowClient.run("course.save", draft)
+    const stampedDraft: PersistedCourse = {
+      ...draft,
+      revision: stamp.revision,
+      updatedAt: stamp.updatedAt,
+    }
+    const activated = await this.enterSurface(
+      { kind: "course", courseId: stampedDraft.id },
+      {
+        preferredTab: initialTabForBacking(stampedDraft.backing),
+        preloadedCourse: stampedDraft,
+      },
     )
-    return draft
+    if (activated) {
+      useAppSettingsStore
+        .getState()
+        .setLastUsedCourseBacking(stampedDraft.backing)
+    }
+    return stampedDraft
   }
 
   async duplicateCourse(
@@ -207,7 +230,9 @@ export class SessionController {
     displayName: string,
   ): Promise<PersistedCourse> {
     return await this.trackOperation(
-      this.duplicateCourseInternal(sourceId, displayName),
+      this.enqueueTransition(() =>
+        this.duplicateCourseInternal(sourceId, displayName),
+      ),
     )
   }
 
@@ -235,7 +260,11 @@ export class SessionController {
   }
 
   async renameCourse(courseId: string, displayName: string): Promise<void> {
-    await this.trackOperation(this.renameCourseInternal(courseId, displayName))
+    await this.trackOperation(
+      this.enqueueTransition(() =>
+        this.renameCourseInternal(courseId, displayName),
+      ),
+    )
   }
 
   private async renameCourseInternal(
@@ -280,7 +309,12 @@ export class SessionController {
     this.dispatch({ type: "delete-start", requestId, courseId })
 
     try {
-      await this.activeCourseWorkerSlot?.worker.flush()
+      try {
+        await this.activeCourseWorkerSlot?.worker.flush()
+      } catch {
+        // A stale save failure should not block deletion of the course that
+        // owns it; the course is about to be removed regardless.
+      }
       await this.workflowClient.run("course.delete", { courseId })
       // The course is gone server-side regardless of which transition owns
       // pending, so drop its analysis sources now.
@@ -311,10 +345,8 @@ export class SessionController {
 
   pruneLoadedSubmissionFoldersForCourses(
     courses: readonly Pick<PersistedCourse, "id" | "backing">[],
-  ): boolean {
-    return useAppSettingsStore
-      .getState()
-      .pruneSubmissionFoldersForCourses(courses)
+  ): void {
+    useAppSettingsStore.getState().pruneSubmissionFoldersForCourses(courses)
   }
 
   addMember(member: RosterMember): void {
@@ -534,13 +566,13 @@ export class SessionController {
 
   private async enterSurface(
     surface: PersistedActiveSurface,
-    preferredTab?: ActiveTab,
+    options: EnterSurfaceOptions = {},
   ): Promise<boolean> {
     const nextSurface = normalizeActiveSurface(surface)
     const current = this.snapshot
     if (
       activeSurfaceEquals(current.activeSurface, nextSurface) &&
-      preferredTab === undefined
+      options.preferredTab === undefined
     ) {
       return true
     }
@@ -564,11 +596,11 @@ export class SessionController {
       }
       if (this.isStaleEnterRequest(requestId)) return false
 
-      const commit = await this.prepareSurfaceCommit(
-        nextSurface,
-        preferredTab,
+      const commit = await this.prepareSurfaceCommit(nextSurface, {
+        preferredTab: options.preferredTab,
+        preloadedCourse: options.preloadedCourse,
         requestId,
-      )
+      })
       if (this.isStaleEnterRequest(requestId)) return false
 
       const committed = this.dispatch({
@@ -595,9 +627,9 @@ export class SessionController {
 
   private async prepareSurfaceCommit(
     surface: PersistedActiveSurface,
-    preferredTab?: ActiveTab,
-    requestId?: number,
+    options: PrepareSurfaceCommitOptions = {},
   ): Promise<PreparedSurfaceCommit> {
+    const { preferredTab, requestId, preloadedCourse } = options
     const courseId = activeCourseIdFromSurface(surface)
     if (courseId === null) {
       return {
@@ -617,19 +649,26 @@ export class SessionController {
       existingCourse?.id === courseId ? existingCourse.backing : null
     let loadedCourse: PersistedCourse | null = null
     if (existingCourse?.id !== courseId) {
-      if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
-        throw new Error("Stale activation request")
+      if (preloadedCourse !== undefined && preloadedCourse.id === courseId) {
+        loadedCourse = normalizeLoadedCourse(preloadedCourse)
+        backing = loadedCourse.backing
+      } else {
+        if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
+          throw new Error("Stale activation request")
+        }
+        this.dispatch({
+          type: "set-course-load-status",
+          status: { state: "loading", message: null },
+        })
+        const course = await this.workflowClient.run("course.load", {
+          courseId,
+        })
+        if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
+          throw new Error("Stale activation request")
+        }
+        loadedCourse = normalizeLoadedCourse(course)
+        backing = loadedCourse.backing
       }
-      this.dispatch({
-        type: "set-course-load-status",
-        status: { state: "loading", message: null },
-      })
-      const course = await this.workflowClient.run("course.load", { courseId })
-      if (requestId !== undefined && this.isStaleEnterRequest(requestId)) {
-        throw new Error("Stale activation request")
-      }
-      loadedCourse = normalizeLoadedCourse(course)
-      backing = loadedCourse.backing
     }
 
     return {
@@ -649,13 +688,16 @@ export class SessionController {
     preferredTab: ActiveTab,
   ): Promise<PreparedSurfaceCommit> {
     try {
-      return await this.prepareSurfaceCommit(surface, preferredTab)
+      return await this.prepareSurfaceCommit(surface, { preferredTab })
     } catch (error) {
       if (
         activeCourseIdFromSurface(surface) !== null &&
         isMissingCourseError(error)
       ) {
-        return await this.prepareSurfaceCommit({ kind: "home" }, preferredTab)
+        return await this.prepareSurfaceCommit(
+          { kind: "home" },
+          { preferredTab },
+        )
       }
       throw error
     }
@@ -811,7 +853,8 @@ export class SessionController {
   }
 
   private disposeActiveCourseWorker(): void {
-    this.activeCourseWorkerSlot?.worker.dispose()
+    if (this.activeCourseWorkerSlot === null) return
+    this.activeCourseWorkerSlot.worker.dispose()
     this.activeCourseWorkerSlot = null
     this.dispatch({
       type: "set-sync-status",
