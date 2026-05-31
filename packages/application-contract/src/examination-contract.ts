@@ -314,6 +314,34 @@ export function serializeExaminationArchiveStorageKey(
   ])
 }
 
+export function parseExaminationArchiveStorageKey(
+  storageKey: string,
+): ExaminationArchiveKey | null {
+  let raw: unknown
+  try {
+    raw = JSON.parse(storageKey)
+  } catch {
+    return null
+  }
+  if (!Array.isArray(raw) || raw.length !== 6) return null
+  const [
+    version,
+    personId,
+    contentScopeId,
+    questionCount,
+    providerPayloadFingerprint,
+    generationContextFingerprint,
+  ] = raw
+  if (version !== EXAMINATION_ARCHIVE_STORAGE_KEY_VERSION) return null
+  return validateExaminationArchiveKey({
+    personId,
+    contentScopeId,
+    questionCount,
+    providerPayloadFingerprint,
+    generationContextFingerprint,
+  })
+}
+
 export function isExaminationContentScopeIdShape(value: string): boolean {
   return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value)
 }

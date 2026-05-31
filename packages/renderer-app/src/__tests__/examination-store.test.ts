@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
+import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
 import {
   analysisSourceKeyScopeId,
   buildArchiveKeyIdentityKey,
@@ -9,6 +10,7 @@ import {
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
 import type { ExaminationEntry } from "../stores/examination-store.js"
 import {
+  type AvailableArchiveEntry,
   examinationRequestSidecar,
   useExaminationStore,
 } from "../stores/examination-store.js"
@@ -66,6 +68,51 @@ function entry(status: ExaminationEntry["status"]): ExaminationEntry {
     generationControlId: status === "loading" ? "control-1" : null,
     stopRequested: false,
   }
+}
+
+function loadedEntry(
+  questionCount: number,
+  generatedAt: string,
+): ExaminationEntry {
+  return {
+    ...entry("loaded"),
+    questions: Array.from({ length: questionCount }, (_, index) => ({
+      question: `Q${index + 1}?`,
+      answer: `A${index + 1}.`,
+      anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+    })),
+    generatedAt,
+    archivedQuestionCount: questionCount,
+    archivedModel: identity.model,
+    archivedEffort: identity.effort,
+  }
+}
+
+function availableArchiveEntry(
+  key: string,
+  questionCount: number,
+  generatedAt: string,
+): AvailableArchiveEntry {
+  return {
+    key,
+    questionCount,
+    model: identity.model,
+    effort: identity.effort,
+    entry: loadedEntry(questionCount, generatedAt),
+  }
+}
+
+function archiveStorageKey(
+  questionCount: number,
+  generationContextFingerprint = "generation-context-a",
+): string {
+  return serializeExaminationArchiveStorageKey({
+    personId: identity.subjectId,
+    contentScopeId: repositoryCommitOid,
+    questionCount,
+    providerPayloadFingerprint: "provider-payload-a",
+    generationContextFingerprint,
+  })
 }
 
 describe("examination store", () => {
@@ -193,6 +240,67 @@ describe("examination store", () => {
     const state = useExaminationStore.getState()
     assert.equal(state.entriesByKey.has("session-1"), false)
     assert.equal(state.entriesByKey.get("archive-1")?.status, "loaded")
+  })
+
+  it("removes superseded archive chips after extending a generated set", () => {
+    const store = activateSession()
+    const fourQuestionKey = archiveStorageKey(4)
+    const alternateContextKey = archiveStorageKey(4, "generation-context-b")
+    const eightQuestionKey = archiveStorageKey(8)
+    const lookup = store.startLookup(sourceSessionKey)
+    if (lookup === null) throw new Error("Lookup did not start.")
+
+    store.applyLookupResult({
+      sourceSessionKey,
+      requestId: lookup.requestId,
+      archiveRevision: lookup.archiveRevision,
+      archiveKeyIdentityKey: buildArchiveKeyIdentityKey(identity),
+      requestedIdentity: identity,
+      resolvedIdentity: identity,
+      entryKey: fourQuestionKey,
+      exactEntry: loadedEntry(4, "2026-01-01T00:00:00.000Z"),
+      archiveEntries: [
+        availableArchiveEntry(fourQuestionKey, 4, "2026-01-01T00:00:00.000Z"),
+        availableArchiveEntry(
+          alternateContextKey,
+          4,
+          "2026-01-02T00:00:00.000Z",
+        ),
+      ],
+    })
+
+    const started = store.startGenerationSession({
+      sourceSessionKey,
+      entryKey: "session-1",
+      generationControlId: "control-1",
+      seedQuestions: loadedEntry(4, "2026-01-01T00:00:00.000Z").questions,
+      sourceReferences: [],
+      requestedQuestionCount: 8,
+    })
+    if (started === null) throw new Error("Generation did not start.")
+
+    store.applyLoadedArchiveResult({
+      sourceSummaryKey: "summary-1",
+      sourceSessionKey,
+      requestId: started.requestId,
+      loadingKey: "session-1",
+      resultKey: eightQuestionKey,
+      entry: loadedEntry(8, "2026-01-03T00:00:00.000Z"),
+      archiveEntry: availableArchiveEntry(
+        eightQuestionKey,
+        8,
+        "2026-01-03T00:00:00.000Z",
+      ),
+    })
+
+    const state = useExaminationStore.getState()
+    const session = state.sourceSessions.get(sourceSessionKey)
+    assert.deepEqual(
+      session?.archiveEntries.map((archiveEntry) => archiveEntry.key),
+      [eightQuestionKey, alternateContextKey],
+    )
+    assert.equal(state.entriesByKey.has(fourQuestionKey), false)
+    assert.equal(state.entriesByKey.get(eightQuestionKey)?.status, "loaded")
   })
 
   it("updates the generation owner summary when another summary is active", () => {

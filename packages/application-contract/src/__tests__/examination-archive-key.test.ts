@@ -6,6 +6,7 @@ import {
   buildSubmissionFolderContentScopeId,
   EXAMINATION_REDACTION_POLICY_VERSION,
   isExaminationContentScopeIdShape,
+  parseExaminationArchiveStorageKey,
   serializeExaminationArchiveStorageKey,
   validateExaminationArchiveKey,
 } from "../index.js"
@@ -42,7 +43,10 @@ describe("examination archive key helpers", () => {
       validateExaminationArchiveKey({ ...key, contentScopeId: "fixture-1" }),
       null,
     )
-    assert.match(serializeExaminationArchiveStorageKey(key), /archive-key-v2/)
+    const storageKey = serializeExaminationArchiveStorageKey(key)
+    assert.match(storageKey, /archive-key-v2/)
+    assert.deepEqual(parseExaminationArchiveStorageKey(storageKey), key)
+    assert.equal(parseExaminationArchiveStorageKey("not json"), null)
   })
 
   it("folds redaction policy version into generation context fingerprints", () => {

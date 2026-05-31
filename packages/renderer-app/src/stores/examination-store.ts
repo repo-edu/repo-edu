@@ -1,10 +1,12 @@
 import type {
+  ExaminationArchiveKey,
   ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
   ExaminationStreamProgress,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
+import { parseExaminationArchiveStorageKey } from "@repo-edu/application-contract"
 import type { LlmProviderKind } from "@repo-edu/domain/settings"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import { create } from "zustand"
@@ -540,6 +542,17 @@ export const useExaminationStore = create<
         session.pendingGenerationRequestId !== payload.requestId
       ) {
         return state
+      }
+      const supersededKeys =
+        payload.archiveEntry === undefined
+          ? new Set<string>()
+          : supersededAvailableArchiveEntryKeys(session.archiveEntries, [
+              payload.archiveEntry,
+            ])
+      for (const key of supersededKeys) {
+        if (key !== payload.loadingKey && key !== payload.resultKey) {
+          entriesByKey.delete(key)
+        }
       }
       sourceSessions.set(
         payload.sourceSessionKey,
@@ -1284,7 +1297,7 @@ function completeGenerationSession(
     archiveEntries:
       payload.archiveEntry === undefined
         ? session.archiveEntries
-        : mergeAvailableArchiveEntries(session.archiveEntries, [
+        : mergeSupersedingAvailableArchiveEntries(session.archiveEntries, [
             payload.archiveEntry,
           ]),
     pendingGenerationRequestId: null,
@@ -1434,6 +1447,79 @@ function mergeAvailableArchiveEntries(
     byKey.set(entry.key, entry)
   }
   return [...byKey.values()].sort(compareAvailableArchiveEntries)
+}
+
+function mergeSupersedingAvailableArchiveEntries(
+  current: readonly AvailableArchiveEntry[],
+  incoming: readonly AvailableArchiveEntry[],
+): AvailableArchiveEntry[] {
+  const supersededKeys = supersededAvailableArchiveEntryKeys(current, incoming)
+  return mergeAvailableArchiveEntries(
+    current.filter((entry) => !supersededKeys.has(entry.key)),
+    incoming,
+  )
+}
+
+function supersededAvailableArchiveEntryKeys(
+  current: readonly AvailableArchiveEntry[],
+  incoming: readonly AvailableArchiveEntry[],
+): Set<string> {
+  const incomingContexts = incoming
+    .map((entry) => parseArchiveStorageKeyContext(entry.key))
+    .filter((context) => context !== null)
+  const incomingKeys = new Set(incoming.map((entry) => entry.key))
+  const supersededKeys = new Set<string>()
+  for (const entry of current) {
+    if (incomingKeys.has(entry.key)) continue
+    const context = parseArchiveStorageKeyContext(entry.key)
+    if (context === null) continue
+    if (
+      incomingContexts.some((incomingContext) =>
+        sameArchiveContext(context, incomingContext),
+      )
+    ) {
+      supersededKeys.add(entry.key)
+    }
+  }
+  return supersededKeys
+}
+
+type ArchiveStorageKeyContext = {
+  personId: ExaminationArchiveKey["personId"]
+  contentScopeId: ExaminationArchiveKey["contentScopeId"]
+  providerPayloadFingerprint: ExaminationArchiveKey["providerPayloadFingerprint"]
+  generationContextFingerprint: ExaminationArchiveKey["generationContextFingerprint"]
+}
+
+function parseArchiveStorageKeyContext(
+  key: string,
+): ArchiveStorageKeyContext | null {
+  const parsed = parseExaminationArchiveStorageKey(key)
+  if (parsed === null) return null
+  const {
+    personId,
+    contentScopeId,
+    providerPayloadFingerprint,
+    generationContextFingerprint,
+  } = parsed
+  return {
+    personId,
+    contentScopeId,
+    providerPayloadFingerprint,
+    generationContextFingerprint,
+  }
+}
+
+function sameArchiveContext(
+  a: ArchiveStorageKeyContext,
+  b: ArchiveStorageKeyContext,
+): boolean {
+  return (
+    a.personId === b.personId &&
+    a.contentScopeId === b.contentScopeId &&
+    a.providerPayloadFingerprint === b.providerPayloadFingerprint &&
+    a.generationContextFingerprint === b.generationContextFingerprint
+  )
 }
 
 function compareAvailableArchiveEntries(
