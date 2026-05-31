@@ -19,6 +19,10 @@ export type RunWithRetryOptions = {
   isCancelled?: () => boolean
 }
 
+function isCancelled(options: RunWithRetryOptions): boolean {
+  return options.isCancelled?.() ?? false
+}
+
 // Retries a single workflow operation on retryable errors with the same delay
 // schedule the snapshot persister uses, so one-shot detached writes (course
 // create, duplicate, inactive rename) recover from transient failures on the
@@ -31,15 +35,21 @@ export async function runWithRetry<T>(
   const shouldRetry = options.shouldRetry ?? isRetryableWorkflowError
 
   for (let attempt = 0; ; attempt += 1) {
+    if (isCancelled(options)) {
+      throw new Error("Retry operation was cancelled.")
+    }
     try {
       return await operation()
     } catch (error) {
       if (
         attempt < retryDelaysMs.length &&
         shouldRetry(error) &&
-        !(options.isCancelled?.() ?? false)
+        !isCancelled(options)
       ) {
         await delay(retryDelaysMs[attempt])
+        if (isCancelled(options)) {
+          throw error
+        }
         continue
       }
       throw error

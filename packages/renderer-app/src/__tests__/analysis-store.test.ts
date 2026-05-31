@@ -84,7 +84,8 @@ function makeCourse(
 }
 
 function activateExaminationSession(identity: SourceIdentity): string {
-  const sourceSessionKey = buildSourceSessionKey(identity)
+  const activeSourceKey = useAnalysisStore.getState().activeSourceKey
+  const sourceSessionKey = buildSourceSessionKey(identity, activeSourceKey)
   useExaminationStore.getState().activateSource({
     sourceSummaryKey: `${identity.kind}-summary`,
     sourceSessionKey,

@@ -48,6 +48,7 @@ function makeCourse(id = "course-1"): PersistedCourse {
 
 function createCourseHarness(
   save: (course: PersistedCourse) => Promise<CourseSaveStamp>,
+  options: { retryDelaysMs?: readonly number[] } = {},
 ) {
   let snapshot: PersistedCourse | null = makeCourse()
   let status: PersistenceSyncStatus = idleSyncStatus
@@ -105,7 +106,7 @@ function createCourseHarness(
       })
     },
     debounceMs: 0,
-    retryDelaysMs: [0],
+    retryDelaysMs: options.retryDelaysMs ?? [0],
   })
 
   return {
@@ -309,6 +310,38 @@ describe("createPersister", () => {
 
     assert.equal(calls, 2)
     assert.equal(harness.status.state, "idle")
+  })
+
+  it("does not retry after disposal during the retry delay", async () => {
+    const firstSaveStarted = createDeferred<void>()
+    let calls = 0
+    const retryable = {
+      type: "persistence",
+      message: "busy",
+      operation: "write",
+      retryable: true,
+    }
+    const harness = createCourseHarness(
+      async () => {
+        calls += 1
+        if (calls === 1) {
+          firstSaveStarted.resolve()
+        }
+        throw retryable
+      },
+      { retryDelaysMs: [10] },
+    )
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Retry edit",
+    })
+
+    const flush = harness.persister.flush()
+    await firstSaveStarted.promise
+    harness.persister.dispose()
+    await assert.rejects(flush)
+
+    assert.equal(calls, 1)
   })
 
   it("does not enqueue orphaned saves from terminal status writes", async () => {

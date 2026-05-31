@@ -335,6 +335,9 @@ export function createPersister<
           !disposed
         ) {
           await delay(retryDelaysMs[attempt])
+          if (disposed) {
+            throw error
+          }
           continue
         }
 

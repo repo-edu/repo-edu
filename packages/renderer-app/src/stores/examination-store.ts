@@ -9,9 +9,10 @@ import type { LlmProviderKind } from "@repo-edu/domain/settings"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import { create } from "zustand"
 import {
-  buildArchiveKeyIdentityKey,
+  analysisSourceKeyScopeId,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
+import type { AnalysisSourceKey } from "../session/session-reducer.js"
 
 export type ExaminationEntryStatus = "idle" | "loading" | "loaded" | "error"
 
@@ -184,6 +185,7 @@ type ExaminationActions = {
     sourceSessionKey: string
     requestId: string
     archiveRevision: number
+    archiveKeyIdentityKey: string
     requestedIdentity: SourceIdentity
     resolvedIdentity: SourceIdentity
     entryKey: string
@@ -266,8 +268,17 @@ type ExaminationActions = {
   cancelGenerationSession: (sourceSessionKey: string) => void
   clearEntry: (key: string) => void
   archiveCatalogChanged: () => number
-  invalidateRepositoryAnalysisSource: (repoPath: string | null) => void
-  invalidateSubmissionSource: (folderPath: string) => void
+  invalidateRepositoryAnalysisSource: (
+    repoPath: string | null,
+    analysisSourceKey?: AnalysisSourceKey | null,
+  ) => void
+  invalidateSubmissionSource: (
+    folderPath: string,
+    analysisSourceKey?: AnalysisSourceKey | null,
+  ) => void
+  invalidateAnalysisSource: (
+    analysisSourceKey: AnalysisSourceKey | null,
+  ) => void
   resetRepositoryAnalysis: () => void
   reset: () => void
 }
@@ -841,9 +852,7 @@ export const useExaminationStore = create<
         const lookupMetadata: ExaminationLookupMetadata = {
           requestId: payload.requestId,
           archiveRevision: payload.archiveRevision,
-          archiveKeyIdentityKey: buildArchiveKeyIdentityKey(
-            payload.requestedIdentity,
-          ),
+          archiveKeyIdentityKey: payload.archiveKeyIdentityKey,
           entryKey: payload.entryKey,
         }
 
@@ -1147,95 +1156,48 @@ export const useExaminationStore = create<
       return nextRevision
     },
 
-    invalidateRepositoryAnalysisSource: (repoPath) =>
-      set((state) => {
-        const sourceSessions = new Map(state.sourceSessions)
-        for (const [key, session] of sourceSessions) {
-          if (
+    invalidateRepositoryAnalysisSource: (repoPath, analysisSourceKey) =>
+      set((state) =>
+        removeMatchingSourceState(
+          state,
+          (key, session) =>
             session.sourceIdentity.kind === "repository-analysis" &&
-            (repoPath === null || session.sourceIdentity.repoPath === repoPath)
-          ) {
-            const lookupRequestId = session.pendingLookupRequestId
-            if (lookupRequestId !== null) {
-              examinationRequestSidecar.abortLookup(key, lookupRequestId)
-            }
-            const requestId = session.pendingGenerationRequestId
-            if (requestId !== null) {
-              examinationRequestSidecar.abortGeneration(key, requestId)
-            }
-            sourceSessions.delete(key)
-          }
-        }
-        const sourceSummaries = new Map(state.sourceSummaries)
-        for (const [key, summary] of sourceSummaries) {
-          if (repositoryAnalysisSummaryMatchesRepoPath(key, repoPath)) {
-            const requestId = summary.pendingRequestId
-            if (requestId !== null) {
-              examinationRequestSidecar.abortSummary(key, requestId)
-            }
-            sourceSummaries.delete(key)
-          }
-        }
-        return {
-          sourceSessions,
-          sourceSummaries,
-          activeSourceSessionKey:
-            state.activeSourceSessionKey !== null &&
-            !sourceSessions.has(state.activeSourceSessionKey)
-              ? null
-              : state.activeSourceSessionKey,
-          activeSourceSummaryKey:
-            state.activeSourceSummaryKey !== null &&
-            !sourceSummaries.has(state.activeSourceSummaryKey)
-              ? null
-              : state.activeSourceSummaryKey,
-        }
-      }),
+            examinationKeyMatchesSourceScope(key, analysisSourceKey) &&
+            (repoPath === null || session.sourceIdentity.repoPath === repoPath),
+          (key) =>
+            repositoryAnalysisSummaryMatchesRepoPath(
+              key,
+              repoPath,
+              analysisSourceKey,
+            ),
+        ),
+      ),
 
-    invalidateSubmissionSource: (folderPath) =>
-      set((state) => {
-        const sourceSessions = new Map(state.sourceSessions)
-        for (const [key, session] of sourceSessions) {
-          if (
+    invalidateSubmissionSource: (folderPath, analysisSourceKey) =>
+      set((state) =>
+        removeMatchingSourceState(
+          state,
+          (key, session) =>
             session.sourceIdentity.kind === "submission" &&
-            session.sourceIdentity.folderPath === folderPath
-          ) {
-            const lookupRequestId = session.pendingLookupRequestId
-            if (lookupRequestId !== null) {
-              examinationRequestSidecar.abortLookup(key, lookupRequestId)
-            }
-            const requestId = session.pendingGenerationRequestId
-            if (requestId !== null) {
-              examinationRequestSidecar.abortGeneration(key, requestId)
-            }
-            sourceSessions.delete(key)
-          }
-        }
-        const sourceSummaries = new Map(state.sourceSummaries)
-        for (const [key, summary] of sourceSummaries) {
-          if (submissionSummaryMatchesFolderPath(key, folderPath)) {
-            const requestId = summary.pendingRequestId
-            if (requestId !== null) {
-              examinationRequestSidecar.abortSummary(key, requestId)
-            }
-            sourceSummaries.delete(key)
-          }
-        }
-        return {
-          sourceSessions,
-          sourceSummaries,
-          activeSourceSessionKey:
-            state.activeSourceSessionKey !== null &&
-            !sourceSessions.has(state.activeSourceSessionKey)
-              ? null
-              : state.activeSourceSessionKey,
-          activeSourceSummaryKey:
-            state.activeSourceSummaryKey !== null &&
-            !sourceSummaries.has(state.activeSourceSummaryKey)
-              ? null
-              : state.activeSourceSummaryKey,
-        }
-      }),
+            examinationKeyMatchesSourceScope(key, analysisSourceKey) &&
+            session.sourceIdentity.folderPath === folderPath,
+          (key) =>
+            submissionSummaryMatchesFolderPath(
+              key,
+              folderPath,
+              analysisSourceKey,
+            ),
+        ),
+      ),
+
+    invalidateAnalysisSource: (analysisSourceKey) =>
+      set((state) =>
+        removeMatchingSourceState(
+          state,
+          (key) => examinationKeyMatchesSourceScope(key, analysisSourceKey),
+          (key) => examinationKeyMatchesSourceScope(key, analysisSourceKey),
+        ),
+      ),
 
     resetRepositoryAnalysis: () =>
       get().invalidateRepositoryAnalysisSource(null),
@@ -1349,32 +1311,106 @@ function updateSummaryForGeneration(
   }
 }
 
+function removeMatchingSourceState(
+  state: ExaminationState,
+  matchesSession: (key: string, session: ExaminationSession) => boolean,
+  matchesSummary: (key: string, summary: ExaminationSourceSummary) => boolean,
+): Pick<
+  ExaminationState,
+  | "sourceSessions"
+  | "sourceSummaries"
+  | "activeSourceSessionKey"
+  | "activeSourceSummaryKey"
+> {
+  const sourceSessions = new Map(state.sourceSessions)
+  for (const [key, session] of sourceSessions) {
+    if (matchesSession(key, session)) {
+      const lookupRequestId = session.pendingLookupRequestId
+      if (lookupRequestId !== null) {
+        examinationRequestSidecar.abortLookup(key, lookupRequestId)
+      }
+      const requestId = session.pendingGenerationRequestId
+      if (requestId !== null) {
+        examinationRequestSidecar.abortGeneration(key, requestId)
+      }
+      sourceSessions.delete(key)
+    }
+  }
+
+  const sourceSummaries = new Map(state.sourceSummaries)
+  for (const [key, summary] of sourceSummaries) {
+    if (matchesSummary(key, summary)) {
+      const requestId = summary.pendingRequestId
+      if (requestId !== null) {
+        examinationRequestSidecar.abortSummary(key, requestId)
+      }
+      sourceSummaries.delete(key)
+    }
+  }
+
+  return {
+    sourceSessions,
+    sourceSummaries,
+    activeSourceSessionKey:
+      state.activeSourceSessionKey !== null &&
+      !sourceSessions.has(state.activeSourceSessionKey)
+        ? null
+        : state.activeSourceSessionKey,
+    activeSourceSummaryKey:
+      state.activeSourceSummaryKey !== null &&
+      !sourceSummaries.has(state.activeSourceSummaryKey)
+        ? null
+        : state.activeSourceSummaryKey,
+  }
+}
+
+function scopedExaminationKeyParts(
+  key: string,
+  analysisSourceKey?: AnalysisSourceKey | null,
+): unknown[] | null {
+  try {
+    const parsed = JSON.parse(key) as unknown
+    if (!Array.isArray(parsed)) return null
+    if (parsed[0] !== "analysis-source") {
+      return analysisSourceKey === undefined ? parsed : null
+    }
+    if (analysisSourceKey !== undefined) {
+      const scope = analysisSourceKeyScopeId(analysisSourceKey)
+      if (JSON.stringify(parsed[1]) !== scope) return null
+    }
+    return Array.isArray(parsed[2]) ? parsed[2] : null
+  } catch (_error) {
+    return null
+  }
+}
+
+function examinationKeyMatchesSourceScope(
+  key: string,
+  analysisSourceKey?: AnalysisSourceKey | null,
+): boolean {
+  return scopedExaminationKeyParts(key, analysisSourceKey) !== null
+}
+
 function repositoryAnalysisSummaryMatchesRepoPath(
   sourceSummaryKey: string,
   repoPath: string | null,
+  analysisSourceKey?: AnalysisSourceKey | null,
 ): boolean {
-  try {
-    const parsed = JSON.parse(sourceSummaryKey) as unknown
-    if (!Array.isArray(parsed)) return false
-    if (parsed[0] !== "repository-analysis-summary") return false
-    return repoPath === null || parsed[1] === repoPath
-  } catch (_error) {
-    return false
-  }
+  const parsed = scopedExaminationKeyParts(sourceSummaryKey, analysisSourceKey)
+  if (parsed === null) return false
+  if (parsed[0] !== "repository-analysis-summary") return false
+  return repoPath === null || parsed[1] === repoPath
 }
 
 function submissionSummaryMatchesFolderPath(
   sourceSummaryKey: string,
   folderPath: string,
+  analysisSourceKey?: AnalysisSourceKey | null,
 ): boolean {
-  try {
-    const parsed = JSON.parse(sourceSummaryKey) as unknown
-    if (!Array.isArray(parsed)) return false
-    if (parsed[0] !== "submission-summary") return false
-    return parsed[1] === folderPath
-  } catch (_error) {
-    return false
-  }
+  const parsed = scopedExaminationKeyParts(sourceSummaryKey, analysisSourceKey)
+  if (parsed === null) return false
+  if (parsed[0] !== "submission-summary") return false
+  return parsed[1] === folderPath
 }
 
 function acceptGenerationEvent(

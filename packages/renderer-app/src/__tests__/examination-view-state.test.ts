@@ -4,6 +4,7 @@ import type { BlameResult, PersonDbSnapshot } from "@repo-edu/domain/analysis"
 import { buildMemberExcerpts } from "../components/tabs/examination/build-excerpts.js"
 import { selectExaminationDisplay } from "../components/tabs/examination/display-selectors.js"
 import {
+  buildArchiveKeyIdentityKey,
   buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
@@ -131,6 +132,7 @@ describe("examination session display state", () => {
       sourceSessionKey,
       requestId: lookup.requestId,
       archiveRevision: lookup.archiveRevision,
+      archiveKeyIdentityKey: buildArchiveKeyIdentityKey(courseIdentity),
       requestedIdentity: courseIdentity,
       resolvedIdentity: courseIdentity,
       entryKey: "archive-1",
@@ -165,6 +167,7 @@ describe("examination session display state", () => {
       sourceSessionKey,
       requestId: lookup.requestId,
       archiveRevision: lookup.archiveRevision,
+      archiveKeyIdentityKey: buildArchiveKeyIdentityKey(courseIdentity),
       requestedIdentity: courseIdentity,
       resolvedIdentity: courseIdentity,
       entryKey: "archive-requested",
@@ -284,6 +287,7 @@ describe("examination session display state", () => {
       sourceSessionKey,
       requestId: lookup.requestId,
       archiveRevision: lookup.archiveRevision,
+      archiveKeyIdentityKey: buildArchiveKeyIdentityKey(courseIdentity),
       requestedIdentity: courseIdentity,
       resolvedIdentity: courseIdentity,
       entryKey: "archive-old",

@@ -951,7 +951,7 @@ describe("SessionController", () => {
     controller.dispose()
   })
 
-  it("rejects course creation when the saved course cannot become active", async () => {
+  it("does not create a durable course when the current course cannot be left", async () => {
     const savedCourses: PersistedCourse[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
@@ -1001,15 +1001,69 @@ describe("SessionController", () => {
         lmsConnectionId: null,
         lmsCourseId: null,
       }),
-      /could not be opened/,
     )
 
     assert.equal(
       savedCourses.some((course) => course.displayName === "New Course"),
-      true,
+      false,
     )
     assert.equal(controller.getSnapshot().activeCourseId, "course-a")
     assert.equal(useCourseStore.getState().course?.displayName, "Dirty A")
+
+    controller.dispose()
+  })
+
+  it("seeds a loaded catalogue before activating a newly created course", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-a",
+        backing: "lms",
+        displayName: "Course A",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings() as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.save") {
+          return {
+            revision: 1,
+            updatedAt: "2026-05-29T00:00:01.000Z",
+          } as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const draft = await controller.createCourse({
+      backing: "lms",
+      displayName: "New Course",
+      lmsConnectionId: null,
+      lmsCourseId: null,
+    })
+
+    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+      kind: "course",
+      courseId: draft.id,
+    })
+    assert.deepStrictEqual(
+      useUiStore.getState().courseList.find((course) => course.id === draft.id),
+      {
+        id: draft.id,
+        backing: "lms",
+        displayName: "New Course",
+        updatedAt: "2026-05-29T00:00:01.000Z",
+      },
+    )
 
     controller.dispose()
   })

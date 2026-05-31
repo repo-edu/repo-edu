@@ -8,6 +8,7 @@ import {
   canonicalizeExaminationExcerpts,
 } from "@repo-edu/application-contract"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
+import type { AnalysisSourceKey } from "../../../session/session-reducer.js"
 
 export type SourceSubject = {
   id: string
@@ -93,6 +94,34 @@ export function sourceSubjects(source: ExaminationSource): SourceSubject[] {
     : [source.subject]
 }
 
+function analysisSourceKeyParts(
+  analysisSourceKey: AnalysisSourceKey | null,
+): unknown[] {
+  if (analysisSourceKey === null) return ["none"]
+  if (analysisSourceKey.kind === "course") {
+    return ["course", analysisSourceKey.courseId]
+  }
+  if (analysisSourceKey.kind === "folder") {
+    return ["folder", analysisSourceKey.path]
+  }
+  return ["submission", analysisSourceKey.path, analysisSourceKey.courseId]
+}
+
+export function analysisSourceKeyScopeId(
+  analysisSourceKey: AnalysisSourceKey | null,
+): string {
+  return JSON.stringify(analysisSourceKeyParts(analysisSourceKey))
+}
+
+function withAnalysisSourceScope(
+  parts: unknown[],
+  analysisSourceKey?: AnalysisSourceKey | null,
+): unknown[] {
+  return analysisSourceKey === undefined
+    ? parts
+    : ["analysis-source", analysisSourceKeyParts(analysisSourceKey), parts]
+}
+
 export function getSourceSubject(
   source: ExaminationSource,
   subjectId: string | null,
@@ -159,76 +188,115 @@ export function buildProvisionalRepositoryAnalysisExcerptScopeId(params: {
   )
 }
 
-export function buildSourceSessionKey(identity: SourceIdentity | null): string {
+export function buildSourceSessionKey(
+  identity: SourceIdentity | null,
+  analysisSourceKey?: AnalysisSourceKey | null,
+): string {
   if (identity === null) return "null"
   if (identity.kind === "repository-analysis") {
-    return JSON.stringify([
-      "repository-analysis-session",
-      identity.repoPath,
-      identity.commitOid,
-      identity.subjectId,
-      identity.redactionIdentityScopeId,
-      identity.excerptScopeId,
-    ])
+    return JSON.stringify(
+      withAnalysisSourceScope(
+        [
+          "repository-analysis-session",
+          identity.repoPath,
+          identity.commitOid,
+          identity.subjectId,
+          identity.redactionIdentityScopeId,
+          identity.excerptScopeId,
+        ],
+        analysisSourceKey,
+      ),
+    )
   }
-  return JSON.stringify([
-    "submission-session",
-    identity.folderPath,
-    identity.contentScopeId,
-    identity.subjectId,
-    identity.redactionIdentityScopeId,
-    identity.excerptScopeId,
-  ])
+  return JSON.stringify(
+    withAnalysisSourceScope(
+      [
+        "submission-session",
+        identity.folderPath,
+        identity.contentScopeId,
+        identity.subjectId,
+        identity.redactionIdentityScopeId,
+        identity.excerptScopeId,
+      ],
+      analysisSourceKey,
+    ),
+  )
 }
 
-export function buildArchiveKeyIdentityKey(identity: SourceIdentity | null) {
+export function buildArchiveKeyIdentityKey(
+  identity: SourceIdentity | null,
+  analysisSourceKey?: AnalysisSourceKey | null,
+) {
   if (identity === null) return "null"
   if (identity.kind === "repository-analysis") {
-    return JSON.stringify([
-      "repository-analysis-archive",
-      identity.repoPath,
-      identity.commitOid,
-      identity.subjectId,
-      identity.redactionIdentityScopeId,
-      identity.excerptScopeId,
-      identity.questionCount,
-      identity.model,
-      identity.effort,
-    ])
+    return JSON.stringify(
+      withAnalysisSourceScope(
+        [
+          "repository-analysis-archive",
+          identity.repoPath,
+          identity.commitOid,
+          identity.subjectId,
+          identity.redactionIdentityScopeId,
+          identity.excerptScopeId,
+          identity.questionCount,
+          identity.model,
+          identity.effort,
+        ],
+        analysisSourceKey,
+      ),
+    )
   }
-  return JSON.stringify([
-    "submission-archive",
-    identity.folderPath,
-    identity.contentScopeId,
-    identity.subjectId,
-    identity.redactionIdentityScopeId,
-    identity.excerptScopeId,
-    identity.questionCount,
-    identity.model,
-    identity.effort,
-  ])
+  return JSON.stringify(
+    withAnalysisSourceScope(
+      [
+        "submission-archive",
+        identity.folderPath,
+        identity.contentScopeId,
+        identity.subjectId,
+        identity.redactionIdentityScopeId,
+        identity.excerptScopeId,
+        identity.questionCount,
+        identity.model,
+        identity.effort,
+      ],
+      analysisSourceKey,
+    ),
+  )
 }
 
-export function buildSourceSummaryKey(source: ExaminationSource): string {
+export function buildSourceSummaryKey(
+  source: ExaminationSource,
+  analysisSourceKey?: AnalysisSourceKey | null,
+): string {
   const redactionIdentityScopeId = buildExaminationRedactionIdentityScopeId(
     source.localIdentityContext,
   )
   if (source.kind === "repository-analysis") {
-    return JSON.stringify([
-      "repository-analysis-summary",
-      source.selectedRepoPath,
-      source.commitOid,
-      redactionIdentityScopeId,
-      source.subjects
-        .map((subject) => [subject.id, subject.excerptScopeId] as const)
-        .toSorted(([leftId], [rightId]) => leftId.localeCompare(rightId)),
-    ])
+    return JSON.stringify(
+      withAnalysisSourceScope(
+        [
+          "repository-analysis-summary",
+          source.selectedRepoPath,
+          source.commitOid,
+          redactionIdentityScopeId,
+          source.subjects
+            .map((subject) => [subject.id, subject.excerptScopeId] as const)
+            .toSorted(([leftId], [rightId]) => leftId.localeCompare(rightId)),
+        ],
+        analysisSourceKey,
+      ),
+    )
   }
-  return JSON.stringify([
-    "submission-summary",
-    source.folderPath,
-    source.contentScopeId,
-    redactionIdentityScopeId,
-    [[source.subject.id, source.subject.excerptScopeId]],
-  ])
+  return JSON.stringify(
+    withAnalysisSourceScope(
+      [
+        "submission-summary",
+        source.folderPath,
+        source.contentScopeId,
+        redactionIdentityScopeId,
+        [[source.subject.id, source.subject.excerptScopeId]],
+      ],
+      analysisSourceKey,
+    ),
+  )
 }

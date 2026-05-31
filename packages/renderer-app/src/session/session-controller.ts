@@ -147,6 +147,28 @@ function fallbackSurfaceForDeletedCourse(
     : { kind: "course", courseId: fallback.id }
 }
 
+function seedLoadedCourseSummary(course: PersistedCourse): void {
+  const uiStore = useUiStore.getState()
+  if (!uiStore.courseListLoaded) return
+
+  const summary = {
+    id: course.id,
+    backing: course.backing,
+    displayName: course.displayName,
+    updatedAt: course.updatedAt,
+  }
+  const existingIndex = uiStore.courseList.findIndex(
+    (entry) => entry.id === course.id,
+  )
+  const next =
+    existingIndex === -1
+      ? [...uiStore.courseList, summary]
+      : uiStore.courseList.map((entry, index) =>
+          index === existingIndex ? summary : entry,
+        )
+  uiStore.setCourseList(next)
+}
+
 export class SessionController {
   private readonly workflowClient: WorkflowClient
   private snapshot = createInitialSessionSnapshot()
@@ -256,8 +278,12 @@ export class SessionController {
     input: CreateCourseInput,
   ): Promise<PersistedCourse> {
     const backing = input.backing
+    const targetSurface: PersistedActiveSurface = {
+      kind: "course",
+      courseId: generateCourseId(),
+    }
     const draft = createBlankCourse(
-      generateCourseId(),
+      targetSurface.courseId,
       new Date().toISOString(),
       {
         backing,
@@ -267,30 +293,65 @@ export class SessionController {
         lmsCourseId: backing === "lms" ? (input.lmsCourseId ?? null) : null,
       },
     )
+    const previousCourseLoadStatus = this.snapshot.courseLoadStatus
+    const requestId = this.nextRequestId()
+    this.dispatch({
+      type: "enter-start",
+      requestId,
+      targetSurface,
+      leavingCourseId: this.snapshot.activeCourseId,
+    })
 
-    const stamp = await this.saveCourseDetached(draft)
-    const stampedDraft: PersistedCourse = {
-      ...draft,
-      revision: stamp.revision,
-      updatedAt: stamp.updatedAt,
-    }
-    const activated = await this.enterSurface(
-      { kind: "course", courseId: stampedDraft.id },
-      {
+    try {
+      if (this.snapshot.activeCourseId !== null) {
+        await this.activeCourseWorkerSlot?.worker.flush()
+      }
+      if (this.isStaleEnterRequest(requestId)) {
+        throw new Error("Stale activation request")
+      }
+
+      const stamp = await this.saveCourseDetached(draft)
+      const stampedDraft: PersistedCourse = {
+        ...draft,
+        revision: stamp.revision,
+        updatedAt: stamp.updatedAt,
+      }
+      seedLoadedCourseSummary(stampedDraft)
+      const commit = await this.prepareSurfaceCommit(targetSurface, {
         preferredTab: initialTabForBacking(stampedDraft.backing),
         preloadedCourse: stampedDraft,
-      },
-    )
-    if (activated) {
+        requestId,
+      })
+      if (this.isStaleEnterRequest(requestId)) {
+        throw new Error("Stale activation request")
+      }
+      const committed = this.dispatch({
+        type: "enter-commit",
+        requestId,
+        activeSurface: commit.surface,
+        activeTab: commit.tab,
+        courseLoadStatus: commit.courseLoadStatus,
+      })
+      if (!committed) {
+        throw new Error(
+          `Course "${stampedDraft.displayName}" was created but could not be opened.`,
+        )
+      }
+      this.applyPreparedSurfaceCommit(commit)
+      this.syncAnalysisSource()
       useAppSettingsStore
         .getState()
         .setLastUsedCourseBacking(stampedDraft.backing)
-    } else {
-      throw new Error(
-        `Course "${stampedDraft.displayName}" was created but could not be opened.`,
-      )
+      return stampedDraft
+    } catch (error) {
+      this.dispatch({
+        type: "enter-failed",
+        requestId,
+        message: getErrorMessage(error, "Could not create course."),
+        courseLoadStatus: previousCourseLoadStatus,
+      })
+      throw error
     }
-    return stampedDraft
   }
 
   async duplicateCourse(

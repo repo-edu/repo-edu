@@ -11,6 +11,7 @@ import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
 import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import {
   type ExaminationPreferenceSnapshot,
   examinationPreferencePersistence,
@@ -106,10 +107,11 @@ export function useExaminationEngine({
   const addToast = useToastStore((state) => state.addToast)
   const openSettings = useUiStore((state) => state.openSettings)
   const preferenceSnapshot = useExaminationPreferenceSnapshot()
+  const analysisSourceKey = useAnalysisStore((state) => state.activeSourceKey)
 
   const sourceSummaryKey = useMemo(
-    () => buildSourceSummaryKey(source),
-    [source],
+    () => buildSourceSummaryKey(source, analysisSourceKey),
+    [analysisSourceKey, source],
   )
   const sourceSummary = useExaminationStore(
     selectExaminationSourceSummary(sourceSummaryKey),
@@ -180,8 +182,8 @@ export function useExaminationEngine({
     () =>
       provisionalIdentity === null
         ? null
-        : buildSourceSessionKey(provisionalIdentity),
-    [provisionalIdentity],
+        : buildSourceSessionKey(provisionalIdentity, analysisSourceKey),
+    [analysisSourceKey, provisionalIdentity],
   )
   const session = useExaminationStore(
     selectExaminationSession(sourceSessionKey),
@@ -359,6 +361,10 @@ export function useExaminationEngine({
           sourceSessionKey,
           requestId: started.requestId,
           archiveRevision: started.archiveRevision,
+          archiveKeyIdentityKey: buildArchiveKeyIdentityKey(
+            sourceIdentity,
+            analysisSourceKey,
+          ),
           requestedIdentity: sourceIdentity,
           resolvedIdentity,
           entryKey,
@@ -385,6 +391,7 @@ export function useExaminationEngine({
     return () => abort.abort()
   }, [
     archiveRevision,
+    analysisSourceKey,
     lookupInput,
     sourceIdentity,
     sourceSessionKey,
@@ -838,7 +845,7 @@ export function useExaminationEngine({
       const metadata = session?.lookupMetadata ?? null
       const loadingKey =
         metadata?.archiveKeyIdentityKey ===
-          buildArchiveKeyIdentityKey(sourceIdentity) &&
+          buildArchiveKeyIdentityKey(sourceIdentity, analysisSourceKey) &&
         targetQuestionCount === questionCount
           ? metadata.entryKey
           : `session-${createUuid()}`
@@ -882,6 +889,7 @@ export function useExaminationEngine({
       selectedSubject,
       session?.lookupMetadata,
       runGeneration,
+      analysisSourceKey,
       source,
       sourceIdentity,
       sourceSessionKey,

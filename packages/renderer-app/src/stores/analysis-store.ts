@@ -397,40 +397,6 @@ function sourceBelongsToCourse(
   return false
 }
 
-type CourseSourceInvalidations = {
-  repositoryPaths: Set<string>
-  submissionPaths: Set<string>
-}
-
-function collectCourseSourceInvalidations(
-  bucket: AnalysisSourceBucket,
-  invalidations: CourseSourceInvalidations,
-): void {
-  if (bucket.sourceKey.kind === "submission") {
-    invalidations.submissionPaths.add(bucket.sourceKey.path)
-    return
-  }
-  if (bucket.sourceKey.kind !== "course") {
-    return
-  }
-
-  if (bucket.selectedRepoPath !== null) {
-    invalidations.repositoryPaths.add(bucket.selectedRepoPath)
-  }
-  for (const repoPath of bucket.repoStates.keys()) {
-    invalidations.repositoryPaths.add(repoPath)
-  }
-  for (const repoPath of bucket.repoWorkflowStatus.keys()) {
-    invalidations.repositoryPaths.add(repoPath)
-  }
-  for (const repoPath of bucket.repoProgress.keys()) {
-    invalidations.repositoryPaths.add(repoPath)
-  }
-  for (const repoPath of bucket.repoErrorMessage.keys()) {
-    invalidations.repositoryPaths.add(repoPath)
-  }
-}
-
 function clearPendingBlameFiles(
   entries: Map<string, FileBlameEntry>,
 ): Map<string, FileBlameEntry> {
@@ -600,10 +566,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         analysisStoreInternals.discoveryAbort?.abort()
         analysisStoreInternals.discoveryAbort = null
       }
-      const invalidations: CourseSourceInvalidations = {
-        repositoryPaths: new Set(),
-        submissionPaths: new Set(),
-      }
+      const deletedSourceKeys: AnalysisSourceKey[] = []
       set((state) => {
         // Only snapshot the active bucket when we are about to clear it; the
         // settled copy would otherwise be overwritten on the next navigation.
@@ -612,7 +575,7 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           : new Map(state.sourceBuckets)
         for (const [bucketId, bucket] of sourceBuckets) {
           if (sourceBelongsToCourse(bucket.sourceKey, courseId)) {
-            collectCourseSourceInvalidations(bucket, invalidations)
+            deletedSourceKeys.push(bucket.sourceKey)
             sourceBuckets.delete(bucketId)
           }
         }
@@ -627,11 +590,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
         return { sourceBuckets }
       })
       const examinationStore = useExaminationStore.getState()
-      for (const repoPath of invalidations.repositoryPaths) {
-        examinationStore.invalidateRepositoryAnalysisSource(repoPath)
-      }
-      for (const folderPath of invalidations.submissionPaths) {
-        examinationStore.invalidateSubmissionSource(folderPath)
+      for (const sourceKey of deletedSourceKeys) {
+        examinationStore.invalidateAnalysisSource(sourceKey)
       }
     },
 

@@ -1,9 +1,12 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import {
+  analysisSourceKeyScopeId,
+  buildArchiveKeyIdentityKey,
   buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
+import type { AnalysisSourceKey } from "../session/session-reducer.js"
 import type { ExaminationEntry } from "../stores/examination-store.js"
 import {
   examinationRequestSidecar,
@@ -23,6 +26,19 @@ const identity: SourceIdentity = {
   model: "22",
   effort: "medium",
 }
+
+const submissionIdentity = {
+  kind: "submission",
+  folderPath: "/submission",
+  contentScopeId: "submission-scope",
+  subjectId: "submission",
+  excerptScopeId: "submission-scope",
+  redactionIdentityScopeId: "redaction-1",
+  questionCount: 4,
+  model: "22",
+  effort: "medium",
+} satisfies SourceIdentity
+
 const sourceSessionKey = buildSourceSessionKey(identity)
 
 beforeEach(() => {
@@ -248,6 +264,7 @@ describe("examination store", () => {
       sourceSessionKey,
       requestId: staleLookup.requestId,
       archiveRevision: staleLookup.archiveRevision,
+      archiveKeyIdentityKey: buildArchiveKeyIdentityKey(identity),
       requestedIdentity: identity,
       resolvedIdentity: identity,
       entryKey: "archive-stale",
@@ -410,6 +427,130 @@ describe("examination store", () => {
     assert.equal(summaries.has(repoASummaryKey), false)
     assert.equal(summaries.has(repoBSummaryKey), true)
   })
+
+  it("invalidates only repository sessions in the requested analysis source scope", () => {
+    const store = useExaminationStore.getState()
+    const courseAKey: AnalysisSourceKey = {
+      kind: "course",
+      courseId: "course-a",
+    }
+    const courseBKey: AnalysisSourceKey = {
+      kind: "course",
+      courseId: "course-b",
+    }
+    const sessionAKey = buildSourceSessionKey(identity, courseAKey)
+    const sessionBKey = buildSourceSessionKey(identity, courseBKey)
+    const summaryAKey = scopedRepositorySummaryKey("/repo", courseAKey)
+    const summaryBKey = scopedRepositorySummaryKey("/repo", courseBKey)
+    store.activateSource({
+      sourceSummaryKey: summaryAKey,
+      sourceSessionKey: sessionAKey,
+      sourceIdentity: identity,
+      subjectIds: ["p_1"],
+      selectedSubjectId: "p_1",
+      defaultPreferences: {
+        questionCount: 4,
+        activeConnectionId: "llm-1",
+        modelCode: "22",
+        effort: "medium",
+      },
+    })
+    store.activateSource({
+      sourceSummaryKey: summaryBKey,
+      sourceSessionKey: sessionBKey,
+      sourceIdentity: identity,
+      subjectIds: ["p_1"],
+      selectedSubjectId: "p_1",
+      defaultPreferences: {
+        questionCount: 4,
+        activeConnectionId: "llm-1",
+        modelCode: "22",
+        effort: "medium",
+      },
+    })
+
+    store.invalidateRepositoryAnalysisSource("/repo", courseAKey)
+
+    const state = useExaminationStore.getState()
+    assert.equal(state.sourceSessions.has(sessionAKey), false)
+    assert.equal(state.sourceSummaries.has(summaryAKey), false)
+    assert.equal(state.sourceSessions.has(sessionBKey), true)
+    assert.equal(state.sourceSummaries.has(summaryBKey), true)
+    assert.equal(state.activeSourceSessionKey, sessionBKey)
+  })
+
+  it("invalidates every examination key in the requested analysis source scope", () => {
+    const store = useExaminationStore.getState()
+    const courseAKey: AnalysisSourceKey = {
+      kind: "course",
+      courseId: "course-a",
+    }
+    const courseBKey: AnalysisSourceKey = {
+      kind: "course",
+      courseId: "course-b",
+    }
+    const repositoryASessionKey = buildSourceSessionKey(identity, courseAKey)
+    const repositoryBSessionKey = buildSourceSessionKey(identity, courseBKey)
+    const submissionASessionKey = buildSourceSessionKey(
+      submissionIdentity,
+      courseAKey,
+    )
+    const submissionBSessionKey = buildSourceSessionKey(
+      submissionIdentity,
+      courseBKey,
+    )
+    const repositoryASummaryKey = scopedRepositorySummaryKey(
+      "/repo",
+      courseAKey,
+    )
+    const repositoryBSummaryKey = scopedRepositorySummaryKey(
+      "/repo",
+      courseBKey,
+    )
+    const submissionASummaryKey = scopedSubmissionSummaryKey(
+      "/submission",
+      courseAKey,
+    )
+    const submissionBSummaryKey = scopedSubmissionSummaryKey(
+      "/submission",
+      courseBKey,
+    )
+    const activate = (
+      sourceSummaryKey: string,
+      sourceSessionKey: string,
+      sourceIdentity: SourceIdentity,
+    ) =>
+      store.activateSource({
+        sourceSummaryKey,
+        sourceSessionKey,
+        sourceIdentity,
+        subjectIds: [sourceIdentity.subjectId],
+        selectedSubjectId: sourceIdentity.subjectId,
+        defaultPreferences: {
+          questionCount: 4,
+          activeConnectionId: "llm-1",
+          modelCode: "22",
+          effort: "medium",
+        },
+      })
+    activate(repositoryASummaryKey, repositoryASessionKey, identity)
+    activate(submissionASummaryKey, submissionASessionKey, submissionIdentity)
+    activate(repositoryBSummaryKey, repositoryBSessionKey, identity)
+    activate(submissionBSummaryKey, submissionBSessionKey, submissionIdentity)
+
+    store.invalidateAnalysisSource(courseAKey)
+
+    const state = useExaminationStore.getState()
+    assert.equal(state.sourceSessions.has(repositoryASessionKey), false)
+    assert.equal(state.sourceSessions.has(submissionASessionKey), false)
+    assert.equal(state.sourceSummaries.has(repositoryASummaryKey), false)
+    assert.equal(state.sourceSummaries.has(submissionASummaryKey), false)
+    assert.equal(state.sourceSessions.has(repositoryBSessionKey), true)
+    assert.equal(state.sourceSessions.has(submissionBSessionKey), true)
+    assert.equal(state.sourceSummaries.has(repositoryBSummaryKey), true)
+    assert.equal(state.sourceSummaries.has(submissionBSummaryKey), true)
+    assert.equal(state.activeSourceSessionKey, submissionBSessionKey)
+  })
 })
 
 function activateSession() {
@@ -437,5 +578,37 @@ function repositorySummaryKey(repoPath: string): string {
     repositoryCommitOid,
     identity.redactionIdentityScopeId,
     [[identity.subjectId, identity.excerptScopeId]],
+  ])
+}
+
+function scopedRepositorySummaryKey(
+  repoPath: string,
+  sourceKey: AnalysisSourceKey,
+): string {
+  return JSON.stringify([
+    "analysis-source",
+    JSON.parse(analysisSourceKeyScopeId(sourceKey)) as unknown,
+    JSON.parse(repositorySummaryKey(repoPath)) as unknown,
+  ])
+}
+
+function submissionSummaryKey(folderPath: string): string {
+  return JSON.stringify([
+    "submission-summary",
+    folderPath,
+    submissionIdentity.contentScopeId,
+    submissionIdentity.redactionIdentityScopeId,
+    [[submissionIdentity.subjectId, submissionIdentity.excerptScopeId]],
+  ])
+}
+
+function scopedSubmissionSummaryKey(
+  folderPath: string,
+  sourceKey: AnalysisSourceKey,
+): string {
+  return JSON.stringify([
+    "analysis-source",
+    JSON.parse(analysisSourceKeyScopeId(sourceKey)) as unknown,
+    JSON.parse(submissionSummaryKey(folderPath)) as unknown,
   ])
 }
