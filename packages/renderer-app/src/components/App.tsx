@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
-import { useEffect, useLayoutEffect, useMemo } from "react"
+import { useEffect, useLayoutEffect, useState } from "react"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -96,27 +96,33 @@ export function RendererSessionRoot({
   workflowClient,
   rendererHost,
 }: RendererSessionRootProps) {
-  const controller = useMemo(
-    () => new SessionController({ workflowClient }),
-    [workflowClient],
-  )
   const narrowedClient = workflowClient as WorkflowClient<AppWorkflowId>
+  // A controller is bound to one mount lifecycle: its disposal is terminal, so
+  // each mount must construct a fresh instance rather than reuse a cached one.
+  // Constructing inside the layout effect and publishing through state keeps
+  // construction and disposal paired across remounts (including StrictMode's
+  // mount/unmount/remount); the layout-effect state update is flushed before
+  // paint, so the brief null render is never visible.
+  const [controller, setController] = useState<SessionController | null>(null)
 
   useLayoutEffect(() => {
-    setSessionController(controller)
+    const instance = new SessionController({ workflowClient })
+    setController(instance)
+    setSessionController(instance)
     const cleanup = configureApp({
       workflowClient: narrowedClient,
       rendererHost,
     })
-    controller.start()
+    instance.start()
     return () => {
       cleanup()
-      clearSessionController(controller)
-      controller.dispose()
+      clearSessionController(instance)
+      instance.dispose()
     }
-  }, [controller, narrowedClient, rendererHost])
+  }, [workflowClient, narrowedClient, rendererHost])
 
   useEffect(() => {
+    if (controller === null) return
     const bridge = getDesktopHostBridge<{
       onCloseFlushRequest?: (callback: () => Promise<void> | void) => () => void
     }>()
@@ -145,6 +151,8 @@ export function RendererSessionRoot({
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [controller])
+
+  if (controller === null) return null
 
   return (
     <WorkflowClientProvider value={narrowedClient}>

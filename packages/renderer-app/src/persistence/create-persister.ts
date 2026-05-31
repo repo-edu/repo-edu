@@ -4,6 +4,7 @@ import type {
   WorkflowInput,
   WorkflowResult,
 } from "@repo-edu/application-contract"
+import { defaultRetryDelaysMs, isRetryableWorkflowError } from "./retry.js"
 
 export type PersistenceSyncStatus =
   | { state: "idle"; message: null }
@@ -64,8 +65,6 @@ export type PersisterAdapter<
   retryDelaysMs?: readonly number[]
 }
 
-const defaultRetryDelaysMs = [300, 900, 2000] as const
-
 function shallowSnapshotEqual<TSnapshot>(
   left: TSnapshot,
   right: TSnapshot,
@@ -90,14 +89,9 @@ function shallowSnapshotEqual<TSnapshot>(
 }
 
 function defaultClassifyError(error: unknown): PersisterErrorDecision {
-  if (typeof error === "object" && error !== null && "retryable" in error) {
-    const retryable = (error as { retryable?: unknown }).retryable
-    if (retryable === true) {
-      return { kind: "retry" }
-    }
-  }
-
-  return { kind: "terminal" }
+  return isRetryableWorkflowError(error)
+    ? { kind: "retry" }
+    : { kind: "terminal" }
 }
 
 function delay(ms: number): Promise<void> {

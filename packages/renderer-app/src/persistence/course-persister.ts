@@ -9,15 +9,7 @@ import {
   type PersistenceSyncStatus,
   type Persister,
 } from "./create-persister.js"
-
-function isRetryableWorkflowError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "retryable" in error &&
-    (error as { retryable?: unknown }).retryable === true
-  )
-}
+import { isRetryableWorkflowError } from "./retry.js"
 
 function conflictReason(error: unknown): string | null {
   if (

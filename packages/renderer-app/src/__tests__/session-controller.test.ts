@@ -642,6 +642,212 @@ describe("SessionController", () => {
     controller.dispose()
   })
 
+  it("commits the fallback course after deleting the active course", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-a",
+        backing: "lms",
+        displayName: "Course A",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+      {
+        id: "course-b",
+        backing: "lms",
+        displayName: "Course B",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.delete") {
+          assert.deepStrictEqual(input, { courseId: "course-a" })
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    await controller.deleteCourse("course-a")
+
+    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+      kind: "course",
+      courseId: "course-b",
+    })
+    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(useCourseStore.getState().course?.id, "course-b")
+
+    controller.dispose()
+  })
+
+  it("keeps the committed course and resumes saving when active delete fails", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-a",
+        backing: "lms",
+        displayName: "Course A",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const savedDrafts: PersistedCourse[] = []
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId, "Original A") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "course.delete") {
+          throw new Error("delete unavailable")
+        }
+        if (workflowId === "course.save") {
+          savedDrafts.push(input as PersistedCourse)
+          return {
+            revision: 1,
+            updatedAt: "2026-05-29T00:00:01.000Z",
+          } as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    await assert.rejects(controller.deleteCourse("course-a"))
+
+    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(useCourseStore.getState().course?.id, "course-a")
+    assert.equal(controller.getSnapshot().pending, null)
+
+    // The active worker is resumed, so a later edit still persists.
+    controller.setDisplayName("course-a", "Renamed A")
+    await controller.flush()
+    assert.equal(
+      savedDrafts.some((draft) => draft.displayName === "Renamed A"),
+      true,
+    )
+
+    controller.dispose()
+  })
+
+  it("rejects course mutations against a course pending deletion", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-a",
+        backing: "lms",
+        displayName: "Course A",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const deleteGate = deferred<void>()
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId, "Original A") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "course.delete") {
+          await deleteGate.promise
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const deleting = controller.deleteCourse("course-a")
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.pending?.kind === "delete",
+    )
+
+    controller.setDisplayName("course-a", "Rejected")
+    assert.equal(useCourseStore.getState().course?.displayName, "Original A")
+
+    deleteGate.resolve()
+    await deleting
+
+    controller.dispose()
+  })
+
+  it("surfaces a bootstrap failure and recovers on retry", async () => {
+    let settingsLoadAttempts = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "settings.loadApp") {
+          settingsLoadAttempts += 1
+          if (settingsLoadAttempts === 1) {
+            throw new Error("settings unavailable")
+          }
+          return makeSettings() as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "error",
+    )
+    const failedBootstrap = controller.getSnapshot().bootstrap
+    assert.equal(
+      failedBootstrap.status === "error" ? failedBootstrap.message : null,
+      "settings unavailable",
+    )
+
+    controller.retryBootstrap()
+
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+    assert.equal(settingsLoadAttempts, 2)
+
+    controller.dispose()
+  })
+
   it("queues an active-course rename behind a pending enter", async () => {
     const courseBLoad = deferred<PersistedCourse>()
     const savedDrafts: PersistedCourse[] = []

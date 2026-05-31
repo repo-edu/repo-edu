@@ -1,4 +1,8 @@
-import { isAppError, type WorkflowClient } from "@repo-edu/application-contract"
+import {
+  type CourseSaveStamp,
+  isAppError,
+  type WorkflowClient,
+} from "@repo-edu/application-contract"
 import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import {
   activeCourseIdFromSurface,
@@ -26,6 +30,7 @@ import {
   idleSyncStatus,
   type Persister,
 } from "../persistence/create-persister.js"
+import { runWithRetry } from "../persistence/retry.js"
 import {
   composePersistedSettings,
   createSettingsPersisterWorker,
@@ -263,7 +268,7 @@ export class SessionController {
       },
     )
 
-    const stamp = await this.workflowClient.run("course.save", draft)
+    const stamp = await this.saveCourseDetached(draft)
     const stampedDraft: PersistedCourse = {
       ...draft,
       revision: stamp.revision,
@@ -318,7 +323,7 @@ export class SessionController {
         analysisInputs: { ...source.analysisInputs },
       },
     )
-    await this.workflowClient.run("course.save", duplicate)
+    await this.saveCourseDetached(duplicate)
     return duplicate
   }
 
@@ -349,7 +354,7 @@ export class SessionController {
     }
 
     const course = await this.workflowClient.run("course.load", { courseId })
-    await this.workflowClient.run("course.save", {
+    await this.saveCourseDetached({
       ...course,
       displayName: trimmedDisplayName,
     })
@@ -905,6 +910,18 @@ export class SessionController {
       useCourseStore.getState().hydrate(commit.loadedCourse)
     }
     this.ensureActiveCourseWorker(commit.courseId)
+  }
+
+  // One-shot detached writes (create, duplicate, inactive rename) save a course
+  // that is not owned by the active worker, so they retry retryable failures
+  // here on the same schedule the active worker uses for the live document.
+  private async saveCourseDetached(
+    course: PersistedCourse,
+  ): Promise<CourseSaveStamp> {
+    return await runWithRetry(
+      () => this.workflowClient.run("course.save", course),
+      { isCancelled: () => this.disposed },
+    )
   }
 
   private async resolveDetachedCourseSource(
