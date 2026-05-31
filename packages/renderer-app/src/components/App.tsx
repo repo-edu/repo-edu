@@ -107,6 +107,7 @@ export function RendererSessionRoot({
       workflowClient: narrowedClient,
       rendererHost,
     })
+    controller.start()
     return () => {
       cleanup()
       clearSessionController(controller)
@@ -122,11 +123,26 @@ export function RendererSessionRoot({
       return bridge.onCloseFlushRequest(() => controller.flush())
     }
 
-    const handleBeforeUnload = () => {
+    // Browser fallback: there is no awaitable host close path, so flush on the
+    // earliest reliable signal. `pagehide` and the hidden `visibilitychange`
+    // fire while the document can still run script; `beforeunload` is the last
+    // resort. The flush stays async and best-effort: the browser will not wait
+    // for it, so durable browser persistence (when a host gains one) must use a
+    // synchronous or unload-safe write path rather than relying on this.
+    const flushOnExit = () => {
       void controller.flush()
     }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushOnExit()
+    }
+    window.addEventListener("pagehide", flushOnExit)
+    window.addEventListener("beforeunload", flushOnExit)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      window.removeEventListener("pagehide", flushOnExit)
+      window.removeEventListener("beforeunload", flushOnExit)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [controller])
 
   return (

@@ -130,6 +130,11 @@ export function sessionReducer(
   state: SessionControllerSnapshot,
   event: SessionReducerEvent,
 ): SessionControllerSnapshot {
+  // Disposal is terminal: once a controller is disposed no later event may
+  // mutate its snapshot. This is the single liveness gate. It stops queued
+  // transitions (e.g. a create/delete that awaited past dispose) from
+  // re-arming `pending` and slipping a commit through after teardown.
+  if (state.disposed && event.type !== "dispose") return state
   switch (event.type) {
     case "bootstrap-start":
       return {

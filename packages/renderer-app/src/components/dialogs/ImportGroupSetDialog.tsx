@@ -176,8 +176,16 @@ export function ImportGroupSetDialog() {
       const actionLabel = isReimport
         ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
         : "Import group set from file"
-      controller.setRoster(nextCourse.roster, actionLabel)
-      controller.setIdSequences(nextCourse.idSequences)
+      const applied = controller.applyRosterImport({
+        courseId: course.id,
+        roster: nextCourse.roster,
+        idSequences: nextCourse.idSequences,
+        description: actionLabel,
+      })
+      if (!applied) {
+        handleClose()
+        return
+      }
 
       if (!isReimport) {
         const importedSet = [...nextCourse.roster.groupSets]

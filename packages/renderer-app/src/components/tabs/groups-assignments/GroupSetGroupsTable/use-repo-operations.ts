@@ -221,9 +221,12 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   )
 
   const applyRecordedRepositories = useCallback(
-    (recorded: RecordedRepositoriesByAssignment) => {
+    (
+      recorded: RecordedRepositoriesByAssignment,
+      originatingCourseId: string,
+    ) => {
       const latestCourse = useCourseStore.getState().course
-      if (!latestCourse) return
+      if (!latestCourse || latestCourse.id !== originatingCourseId) return
       const assignmentsById = new Map(
         latestCourse.roster.assignments.map(
           (assignment) => [assignment.id, assignment] as const,
@@ -258,7 +261,13 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
             merged[groupId] = repoName
           }
         }
-        controller.updateAssignment(assignmentId, { repositories: merged })
+        controller.updateAssignmentForCourse(
+          originatingCourseId,
+          assignmentId,
+          {
+            repositories: merged,
+          },
+        )
       }
     },
     [controller],
@@ -269,6 +278,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       if (!course || !effectiveAssignmentId) {
         return
       }
+      const originatingCourseId = course.id
 
       setOperationStatus("running")
       setRunningOperation(operation)
@@ -292,20 +302,31 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         if (operation === "create") {
           const typed = result as RepositoryCreateResult
           setLastResult({ operation: "create", result: typed })
-          applyRecordedRepositories(typed.recordedRepositories)
+          applyRecordedRepositories(
+            typed.recordedRepositories,
+            originatingCourseId,
+          )
         } else if (operation === "update") {
           const typed = result as RepositoryUpdateResult
           setLastResult({ operation: "update", result: typed })
           if (typed.templateCommitSha) {
-            controller.updateAssignment(effectiveAssignmentId, {
-              templateCommitSha: typed.templateCommitSha,
-            })
+            controller.updateAssignmentForCourse(
+              originatingCourseId,
+              effectiveAssignmentId,
+              { templateCommitSha: typed.templateCommitSha },
+            )
           }
-          applyRecordedRepositories(typed.recordedRepositories)
+          applyRecordedRepositories(
+            typed.recordedRepositories,
+            originatingCourseId,
+          )
         } else {
           const typed = result as RepositoryCloneResult
           setLastResult({ operation: "clone", result: typed })
-          applyRecordedRepositories(typed.recordedRepositories)
+          applyRecordedRepositories(
+            typed.recordedRepositories,
+            originatingCourseId,
+          )
         }
       } catch (error) {
         setOperationStatus("error")

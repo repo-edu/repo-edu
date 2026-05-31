@@ -176,11 +176,12 @@ export function ConnectLmsGroupSetDialog() {
       )
       if (connectRequestIdRef.current !== requestId) return
 
-      controller.setRoster(
-        result.roster,
-        `Connect group set "${selectedGroupSet.name}"`,
-      )
-      controller.setIdSequences(result.idSequences)
+      controller.applyRosterImport({
+        courseId: course.id,
+        roster: result.roster,
+        idSequences: result.idSequences,
+        description: `Connect group set "${selectedGroupSet.name}"`,
+      })
       setSidebarSelection({ kind: "group-set", id: result.id })
       handleClose()
     } catch (cause) {

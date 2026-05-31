@@ -73,8 +73,12 @@ export function ImportStudentsFromFileDialog() {
         course,
         file: fileRef,
       })
-      controller.setRoster(imported.roster, "Import students from file")
-      controller.setIdSequences(imported.idSequences)
+      controller.applyRosterImport({
+        courseId: course.id,
+        roster: imported.roster,
+        idSequences: imported.idSequences,
+        description: "Import students from file",
+      })
       setImportFileDialogOpen(false)
       setFileName("")
       setFileRef(null)

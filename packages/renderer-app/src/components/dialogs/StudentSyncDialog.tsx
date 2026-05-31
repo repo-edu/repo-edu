@@ -175,9 +175,13 @@ export function StudentSyncDialog() {
   ])
 
   const handleApply = () => {
-    if (!preview) return
-    controller.setRoster(preview.roster, "Sync roster from LMS")
-    controller.setIdSequences(preview.idSequences)
+    if (!preview || !loadedCourse) return
+    controller.applyRosterImport({
+      courseId: loadedCourse.id,
+      roster: preview.roster,
+      idSequences: preview.idSequences,
+      description: "Sync roster from LMS",
+    })
     setOpen(false)
     resetState()
   }

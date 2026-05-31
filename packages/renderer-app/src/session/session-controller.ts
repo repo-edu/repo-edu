@@ -114,9 +114,19 @@ export class SessionController {
   private transitionRequestId = 0
   private bootstrapAttempt = 0
   private disposed = false
+  private started = false
 
   constructor({ workflowClient }: SessionControllerOptions) {
     this.workflowClient = workflowClient
+  }
+
+  // Bootstrap is started explicitly rather than from the constructor so a
+  // controller instance never mutates global stores or spawns workers before
+  // the owning effect has committed it. The effect calls start() once; a
+  // disposed controller can never bootstrap.
+  start(): void {
+    if (this.started || this.disposed) return
+    this.started = true
     void this.trackOperation(this.bootstrap())
   }
 
@@ -832,6 +842,48 @@ export class SessionController {
       ...actionArgs: Parameters<CourseActions[K]>
     ) => ReturnType<CourseActions[K]>
     return storeAction(...args) as ReturnType<CourseActions[K]>
+  }
+
+  // Target-aware mutation for callers that captured a course, awaited async
+  // work, then want to apply the result. The mutation is admitted only when
+  // the course that initiated it is still the active, mutable course. If the
+  // user switched courses (or a delete/enter is pending) during the await the
+  // command is silently dropped rather than corrupting the now-active course.
+  private withCourseTarget(
+    expectedCourseId: string,
+    apply: (actions: CourseActions) => void,
+  ): boolean {
+    const targetCourseId = useCourseStore.getState().course?.id ?? null
+    if (targetCourseId !== expectedCourseId) return false
+    if (!canAdmitCourseMutation(this.snapshot, targetCourseId)) return false
+    apply(useCourseStore.getState())
+    return true
+  }
+
+  // Applies an imported roster (and its id sequences) as one admitted unit so a
+  // course switch cannot land between the roster and the sequence write.
+  applyRosterImport(input: {
+    courseId: string
+    roster: Roster
+    idSequences?: IdSequences
+    description: string
+  }): boolean {
+    return this.withCourseTarget(input.courseId, (actions) => {
+      actions.setRoster(input.roster, input.description)
+      if (input.idSequences !== undefined) {
+        actions.setIdSequences(input.idSequences)
+      }
+    })
+  }
+
+  updateAssignmentForCourse(
+    courseId: string,
+    id: string,
+    updates: Partial<Assignment>,
+  ): boolean {
+    return this.withCourseTarget(courseId, (actions) => {
+      actions.updateAssignment(id, updates)
+    })
   }
 
   private nextRequestId(): number {

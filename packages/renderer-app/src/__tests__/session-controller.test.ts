@@ -14,6 +14,10 @@ import {
   persistedCourseKind,
 } from "@repo-edu/domain/types"
 import { SessionController } from "../session/session-controller.js"
+import {
+  createInitialSessionSnapshot,
+  sessionReducer,
+} from "../session/session-reducer.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
@@ -75,6 +79,15 @@ function workflowClient(
   } as WorkflowClient
 }
 
+// Mirrors RendererSessionRoot: construct, then start bootstrap explicitly.
+function startController(
+  options: ConstructorParameters<typeof SessionController>[0],
+): SessionController {
+  const controller = new SessionController(options)
+  controller.start()
+  return controller
+}
+
 async function waitForSnapshot(
   controller: SessionController,
   predicate: (
@@ -110,7 +123,7 @@ beforeEach(() => {
 
 describe("SessionController", () => {
   it("bootstraps settings and hydrates the restored active course", async () => {
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -143,7 +156,7 @@ describe("SessionController", () => {
 
   it("recovers a missing persisted active course to home during bootstrap", async () => {
     const savedSettings: PersistedAppSettings[] = []
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -189,7 +202,7 @@ describe("SessionController", () => {
 
   it("normalizes loaded roster courses without mutating workflow results", async () => {
     const loadedCourse = makeCourse("course-a")
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -224,7 +237,7 @@ describe("SessionController", () => {
   it("waits for pending activation before close flush persists settings", async () => {
     const courseALoad = deferred<PersistedCourse>()
     const savedSettings: PersistedAppSettings[] = []
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings() as WorkflowResult<typeof workflowId>
@@ -283,7 +296,7 @@ describe("SessionController", () => {
   it("serializes overlapping activations before committing the last request", async () => {
     const courseALoad = deferred<PersistedCourse>()
     let courseBLoadCount = 0
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings() as WorkflowResult<typeof workflowId>
@@ -351,7 +364,7 @@ describe("SessionController", () => {
       ...makeCourse("course-b"),
       roster: undefined,
     } as unknown as PersistedCourse
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -391,7 +404,7 @@ describe("SessionController", () => {
 
   it("rejects semantic mutations against the leaving course during enter", async () => {
     const courseBLoad = deferred<PersistedCourse>()
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -456,7 +469,7 @@ describe("SessionController", () => {
         updatedAt: "2026-05-29T00:00:00.000Z",
       },
     ])
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -513,7 +526,7 @@ describe("SessionController", () => {
     ])
     const deleteGate = deferred<void>()
     let courseBLoadCount = 0
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -579,7 +592,7 @@ describe("SessionController", () => {
   it("queues an active-course rename behind a pending enter", async () => {
     const courseBLoad = deferred<PersistedCourse>()
     const savedDrafts: PersistedCourse[] = []
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings({
@@ -637,7 +650,7 @@ describe("SessionController", () => {
 
   it("activates a newly created course without re-loading it", async () => {
     const courseLoadCalls: string[] = []
-    const controller = new SessionController({
+    const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
           return makeSettings() as WorkflowResult<typeof workflowId>
@@ -677,5 +690,111 @@ describe("SessionController", () => {
     assert.equal(useCourseStore.getState().course?.revision, 1)
 
     controller.dispose()
+  })
+
+  it("drops a target-aware roster import when the active course changed", async () => {
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const baselineRoster = useCourseStore.getState().course?.roster
+    assert.ok(baselineRoster)
+    const bumped = { ...makeCourse("x").idSequences, nextMemberSeq: 99 }
+
+    // Import that originated on a course that is no longer active is dropped
+    // whole: neither roster nor id sequences are written.
+    const wrongTarget = controller.applyRosterImport({
+      courseId: "course-b",
+      roster: baselineRoster,
+      idSequences: bumped,
+      description: "Import students from file",
+    })
+    assert.equal(wrongTarget, false)
+    assert.notDeepStrictEqual(
+      useCourseStore.getState().course?.idSequences,
+      bumped,
+    )
+
+    // Import that still targets the active course is admitted as one unit.
+    const rightTarget = controller.applyRosterImport({
+      courseId: "course-a",
+      roster: baselineRoster,
+      idSequences: bumped,
+      description: "Import students from file",
+    })
+    assert.equal(rightTarget, true)
+    assert.deepStrictEqual(
+      useCourseStore.getState().course?.idSequences,
+      bumped,
+    )
+
+    controller.dispose()
+  })
+
+  it("does not hydrate the course store when load resolves after dispose", async () => {
+    const courseLoad = deferred<PersistedCourse>()
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          assert.deepStrictEqual(input, { courseId: "course-a" })
+          return (await courseLoad.promise) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.courseLoadStatus.state === "loading",
+    )
+
+    controller.dispose()
+    courseLoad.resolve(makeCourse("course-a"))
+    await controller.waitForIdle()
+
+    assert.equal(useCourseStore.getState().course, null)
+    assert.equal(controller.getSnapshot().activeCourseId, null)
+  })
+
+  it("treats disposal as terminal in the session reducer", () => {
+    const disposed = sessionReducer(createInitialSessionSnapshot(), {
+      type: "dispose",
+    })
+    assert.equal(disposed.disposed, true)
+
+    // A queued transition that resolved past dispose must not re-arm pending.
+    const reArmed = sessionReducer(disposed, {
+      type: "enter-start",
+      requestId: 1,
+      targetSurface: { kind: "course", courseId: "course-b" },
+      leavingCourseId: null,
+    })
+    assert.equal(reArmed, disposed)
+    assert.equal(reArmed.pending, null)
   })
 })
