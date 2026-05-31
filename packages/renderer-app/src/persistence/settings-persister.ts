@@ -1,5 +1,8 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  activeSurfaceEquals,
+  type PersistedAppSettings,
+} from "@repo-edu/domain/settings"
 import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import {
@@ -28,10 +31,27 @@ export function composePersistedSettings(
   }
 }
 
+function persistedSettingsEqual(
+  left: PersistedAppSettings,
+  right: PersistedAppSettings,
+): boolean {
+  const leftKeys = Object.keys(left) as (keyof PersistedAppSettings)[]
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) return false
+
+  return leftKeys.every((key) => {
+    if (key === "activeSurface") {
+      return activeSurfaceEquals(left.activeSurface, right.activeSurface)
+    }
+    return Object.is(left[key], right[key])
+  })
+}
+
 export type SettingsPersisterWorkerOptions = {
   workflowClient: WorkflowClient
   getSnapshot: () => PersistedAppSettings
   subscribe: (listener: () => void) => () => void
+  initialBaseline?: PersistedAppSettings | null
   setSyncStatus: (status: PersistenceSyncStatus) => void
 }
 
@@ -39,16 +59,15 @@ export function createSettingsPersisterWorker({
   workflowClient,
   getSnapshot,
   subscribe,
+  initialBaseline,
   setSyncStatus,
 }: SettingsPersisterWorkerOptions): Persister {
-  // Default shallow per-key equality works for the composed snapshot because
-  // composePersistedSettings spreads the same appSettings reference and only
-  // overrides activeSurface and activeTab from session state; both sources
-  // keep stable references between unrelated dispatches.
   return createPersister<PersistedAppSettings, "settings.saveApp">({
     workflowClient,
     workflowId: "settings.saveApp",
     getSnapshot,
+    initialBaseline,
+    snapshotsEqual: persistedSettingsEqual,
     subscribe,
     setSyncStatus,
     formatTerminalError: (error) =>

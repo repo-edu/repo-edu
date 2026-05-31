@@ -46,6 +46,7 @@ export type PersisterAdapter<
   workflowClient: WorkflowClient
   workflowId: TWorkflowId
   getSnapshot: () => TSnapshot | null
+  initialBaseline?: TSnapshot | null
   subscribe: (listener: () => void) => () => void
   setSyncStatus: (status: PersistenceSyncStatus) => void
   formatTerminalError: (error: unknown, snapshot: TSnapshot) => string
@@ -111,7 +112,10 @@ export function createPersister<
   const retryDelaysMs = adapter.retryDelaysMs ?? defaultRetryDelaysMs
   const snapshotsEqual = adapter.snapshotsEqual ?? shallowSnapshotEqual
 
-  let baseline = adapter.getSnapshot()
+  let baseline =
+    adapter.initialBaseline === undefined
+      ? adapter.getSnapshot()
+      : adapter.initialBaseline
   let baselineIdentity = baseline ? getIdentity(baseline) : null
   let observedSnapshot = baseline
   let observedSnapshotIdentity = baselineIdentity
@@ -412,6 +416,7 @@ export function createPersister<
   }
 
   const unsubscribe = adapter.subscribe(handleSnapshotChange)
+  handleSnapshotChange()
 
   return {
     async flush() {

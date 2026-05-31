@@ -1,4 +1,4 @@
-import type { WorkflowClient } from "@repo-edu/application-contract"
+import { isAppError, type WorkflowClient } from "@repo-edu/application-contract"
 import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import {
   activeCourseIdFromSurface,
@@ -6,6 +6,7 @@ import {
   activeSurfaceRecentSubmission,
   normalizeActiveSurface,
   type PersistedActiveSurface,
+  type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import {
   type AnalysisInputs,
@@ -98,6 +99,7 @@ export class SessionController {
   private settingsWorker: Persister | null = null
   private activeCourseWorkerSlot: ActiveCourseWorkerSlot | null = null
   private readonly pendingOperations = new Set<Promise<void>>()
+  private transitionQueue: Promise<unknown> = Promise.resolve()
   private transitionRequestId = 0
   private bootstrapAttempt = 0
   private disposed = false
@@ -124,7 +126,9 @@ export class SessionController {
   }
 
   async activateSurface(surface: PersistedActiveSurface): Promise<boolean> {
-    return await this.trackOperation(this.enterSurface(surface))
+    return await this.trackOperation(
+      this.enqueueTransition(() => this.enterSurface(surface)),
+    )
   }
 
   setActiveTab(tab: ActiveTab): void {
@@ -168,7 +172,9 @@ export class SessionController {
   }
 
   async createCourse(input: CreateCourseInput): Promise<PersistedCourse> {
-    return await this.trackOperation(this.createCourseInternal(input))
+    return await this.trackOperation(
+      this.enqueueTransition(() => this.createCourseInternal(input)),
+    )
   }
 
   private async createCourseInternal(
@@ -258,7 +264,9 @@ export class SessionController {
   }
 
   async deleteCourse(courseId: string): Promise<void> {
-    await this.trackOperation(this.deleteCourseInternal(courseId))
+    await this.trackOperation(
+      this.enqueueTransition(() => this.deleteCourseInternal(courseId)),
+    )
   }
 
   private async deleteCourseInternal(courseId: string): Promise<void> {
@@ -488,7 +496,7 @@ export class SessionController {
 
       useAppSettingsStore.getState().hydrate(settings)
       const surface = normalizeActiveSurface(settings.activeSurface)
-      const commit = await this.prepareSurfaceCommit(
+      const commit = await this.prepareBootstrapSurfaceCommit(
         surface,
         settings.activeTab,
       )
@@ -512,7 +520,7 @@ export class SessionController {
         this.applyPreparedSurfaceCommit(commit)
         this.syncAnalysisSource()
       }
-      this.createSettingsWorker()
+      this.createSettingsWorker(settings)
       this.dispatch({ type: "bootstrap-ready", attempt })
     } catch (error) {
       if (this.disposed || attempt !== this.bootstrapAttempt) return
@@ -636,6 +644,23 @@ export class SessionController {
     }
   }
 
+  private async prepareBootstrapSurfaceCommit(
+    surface: PersistedActiveSurface,
+    preferredTab: ActiveTab,
+  ): Promise<PreparedSurfaceCommit> {
+    try {
+      return await this.prepareSurfaceCommit(surface, preferredTab)
+    } catch (error) {
+      if (
+        activeCourseIdFromSurface(surface) !== null &&
+        isMissingCourseError(error)
+      ) {
+        return await this.prepareSurfaceCommit({ kind: "home" }, preferredTab)
+      }
+      throw error
+    }
+  }
+
   private async prepareDeletedCourseFallback(
     fallbackSurface: PersistedActiveSurface,
   ): Promise<PreparedSurfaceCommit> {
@@ -702,7 +727,7 @@ export class SessionController {
     this.activeCourseWorkerSlot = { courseId, worker }
   }
 
-  private createSettingsWorker(): void {
+  private createSettingsWorker(initialBaseline?: PersistedAppSettings): void {
     this.settingsWorker?.dispose()
     this.settingsWorker = createSettingsPersisterWorker({
       workflowClient: this.workflowClient,
@@ -719,6 +744,7 @@ export class SessionController {
           unsubscribeSettings()
         }
       },
+      initialBaseline,
       setSyncStatus: (status) =>
         this.dispatch({ type: "set-sync-status", scope: "settings", status }),
     })
@@ -815,6 +841,15 @@ export class SessionController {
     })
   }
 
+  private enqueueTransition<T>(operation: () => Promise<T>): Promise<T> {
+    const queued = this.transitionQueue.then(operation, operation)
+    this.transitionQueue = queued.then(
+      () => undefined,
+      () => undefined,
+    )
+    return queued
+  }
+
   private async waitForTrackedOperations(): Promise<void> {
     while (this.pendingOperations.size > 0) {
       await Promise.allSettled([...this.pendingOperations])
@@ -824,7 +859,18 @@ export class SessionController {
 
 function normalizeLoadedCourse(course: PersistedCourse): PersistedCourse {
   if (!courseHasRoster(course)) return course
-  const result = ensureSystemGroupSets(course.roster, course.idSequences)
-  if (result.idSequences === course.idSequences) return course
-  return { ...course, idSequences: result.idSequences }
+  const normalized = structuredClone(course) as PersistedCourse
+  const result = ensureSystemGroupSets(
+    normalized.roster,
+    normalized.idSequences,
+  )
+  return { ...normalized, idSequences: result.idSequences }
+}
+
+function isMissingCourseError(error: unknown): boolean {
+  return (
+    isAppError(error) &&
+    error.type === "not-found" &&
+    error.resource === "course"
+  )
 }

@@ -186,6 +186,7 @@ export function useBlameAutoRun() {
           },
           {
             onProgress: (p: AnalysisProgress) => {
+              if (!isCurrentRun()) return
               setBlameProgress(p)
               if (p.partialAuthorLines) {
                 const next = new Map<string, number>()
