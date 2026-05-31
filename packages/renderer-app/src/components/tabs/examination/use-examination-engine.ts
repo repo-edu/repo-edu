@@ -34,6 +34,7 @@ import {
   type ExaminationDisplaySelection,
   selectExaminationDisplay,
 } from "./display-selectors.js"
+import { resolveExaminationGenerationPlan } from "./generation-plan.js"
 import { resolveExaminationModelCode } from "./llm-models.js"
 import { buildMarkdownTranscript } from "./markdown-transcript.js"
 import type {
@@ -814,39 +815,35 @@ export function useExaminationEngine({
         )
         return
       }
-      const seedEntry =
-        options?.regenerate || display.displayEntry?.status !== "loaded"
-          ? null
-          : display.displayEntry
-      const seedQuestions = seedEntry?.questions ?? []
-      const requestedQuestionCount =
-        options?.regenerate && display.archiveEntry !== null
-          ? display.archiveEntry.questionCount
-          : questionCount
-      const additionalQuestionCount = Math.min(
-        requestedQuestionCount,
-        20 - seedQuestions.length,
-      )
-      if (additionalQuestionCount < 1) {
+      const generationPlan = resolveExaminationGenerationPlan({
+        display: {
+          archiveEntry: display.archiveEntry,
+          displayEntry: display.displayEntry,
+        },
+        modelCode: selectedModelCode,
+        effort: selectedModelSpec.effort,
+        questionCount,
+        regenerate: options?.regenerate ?? false,
+      })
+      if (generationPlan.additionalQuestionCount < 1) {
         addToast("This set already has the maximum 20 examination questions.", {
           tone: "warning",
         })
         return
       }
-      if (additionalQuestionCount < requestedQuestionCount) {
+      if (generationPlan.capped) {
         addToast(
-          `Generation is capped at 20 total questions, so only ${additionalQuestionCount} additional question${
-            additionalQuestionCount === 1 ? "" : "s"
+          `Generation is capped at 20 total questions, so only ${generationPlan.additionalQuestionCount} additional question${
+            generationPlan.additionalQuestionCount === 1 ? "" : "s"
           } will be generated.`,
           { tone: "warning" },
         )
       }
-      const targetQuestionCount = seedQuestions.length + additionalQuestionCount
       const metadata = session?.lookupMetadata ?? null
       const loadingKey =
         metadata?.archiveKeyIdentityKey ===
           buildArchiveKeyIdentityKey(sourceIdentity, analysisSourceKey) &&
-        targetQuestionCount === questionCount
+        generationPlan.targetQuestionCount === questionCount
           ? metadata.entryKey
           : `session-${createUuid()}`
       const workflowInput: Omit<
@@ -861,9 +858,11 @@ export function useExaminationEngine({
         localIdentityContext: source.localIdentityContext,
         excerpts: selectedSubject.excerpts,
         excerptFileSources: selectedSubject.excerptFileSources,
-        questionCount: targetQuestionCount,
+        questionCount: generationPlan.targetQuestionCount,
         llmSettings,
-        ...(seedQuestions.length > 0 ? { seedQuestions } : {}),
+        ...(generationPlan.seedQuestions.length > 0
+          ? { seedQuestions: generationPlan.seedQuestions }
+          : {}),
         ...(options?.regenerate ? { regenerate: true } : {}),
       }
       await runGeneration({
@@ -872,8 +871,8 @@ export function useExaminationEngine({
           sourceSummaryKey,
           sourceSessionKey,
           workflowInput,
-          sourceReferences: seedEntry?.sourceReferences ?? [],
-          requestedQuestionCount: targetQuestionCount,
+          sourceReferences: generationPlan.sourceReferences,
+          requestedQuestionCount: generationPlan.targetQuestionCount,
         },
       })
     },
