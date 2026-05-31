@@ -191,6 +191,16 @@ export class SessionController {
     )
   }
 
+  async recoverMissingActiveCourse(
+    fallbackSurface: PersistedActiveSurface,
+  ): Promise<boolean> {
+    return await this.trackOperation(
+      this.enqueueTransition(() =>
+        this.recoverMissingActiveCourseInternal(fallbackSurface),
+      ),
+    )
+  }
+
   setActiveTab(tab: ActiveTab): void {
     const backing = this.currentTabBacking()
     this.dispatch({
@@ -270,6 +280,10 @@ export class SessionController {
       useAppSettingsStore
         .getState()
         .setLastUsedCourseBacking(stampedDraft.backing)
+    } else {
+      throw new Error(
+        `Course "${stampedDraft.displayName}" was created but could not be opened.`,
+      )
     }
     return stampedDraft
   }
@@ -687,6 +701,7 @@ export class SessionController {
   ): Promise<boolean> {
     const nextSurface = normalizeActiveSurface(surface)
     const current = this.snapshot
+    const previousCourseLoadStatus = current.courseLoadStatus
     if (
       activeSurfaceEquals(current.activeSurface, nextSurface) &&
       options.preferredTab === undefined
@@ -737,6 +752,55 @@ export class SessionController {
         type: "enter-failed",
         requestId,
         message: getErrorMessage(error, "Could not activate surface."),
+        courseLoadStatus: previousCourseLoadStatus,
+      })
+      return false
+    }
+  }
+
+  private async recoverMissingActiveCourseInternal(
+    fallbackSurface: PersistedActiveSurface,
+  ): Promise<boolean> {
+    const missingCourseId = this.snapshot.activeCourseId
+    const courseList = useUiStore.getState().courseList
+    if (
+      missingCourseId === null ||
+      courseList.some((course) => course.id === missingCourseId)
+    ) {
+      return await this.enterSurface(fallbackSurface)
+    }
+
+    const requestId = this.nextRequestId()
+    const previousCourseLoadStatus = this.snapshot.courseLoadStatus
+    const nextSurface = normalizeActiveSurface(fallbackSurface)
+    this.dispatch({
+      type: "enter-start",
+      requestId,
+      targetSurface: nextSurface,
+      leavingCourseId: missingCourseId,
+    })
+
+    try {
+      const commit = await this.prepareDeletedCourseFallback(nextSurface)
+      const committed = this.dispatch({
+        type: "enter-commit",
+        requestId,
+        activeSurface: commit.surface,
+        activeTab: commit.tab,
+        courseLoadStatus: commit.courseLoadStatus,
+      })
+      if (!committed) return false
+      useAnalysisStore.getState().removeSourcesForCourse(missingCourseId)
+      this.applyPreparedSurfaceCommit(commit)
+      this.syncAnalysisSource()
+      this.recordSuccessfulSurfaceEntry(commit.surface)
+      return true
+    } catch (error) {
+      this.dispatch({
+        type: "enter-failed",
+        requestId,
+        message: getErrorMessage(error, "Could not recover missing course."),
+        courseLoadStatus: previousCourseLoadStatus,
       })
       return false
     }

@@ -397,7 +397,60 @@ describe("SessionController", () => {
     )
 
     assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(controller.getSnapshot().courseLoadStatus.state, "loaded")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
+
+    controller.dispose()
+  })
+
+  it("recovers a missing active course without flushing it", async () => {
+    useUiStore.getState().setCourseList([
+      {
+        id: "course-b",
+        backing: "lms",
+        displayName: "Course B",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      },
+    ])
+    const savedCourses: PersistedCourse[] = []
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.save") {
+          savedCourses.push(input as PersistedCourse)
+          throw new Error("missing course should not be flushed")
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    controller.setDisplayName("course-a", "Dirty missing course")
+    assert.equal(
+      await controller.recoverMissingActiveCourse({
+        kind: "course",
+        courseId: "course-b",
+      }),
+      true,
+    )
+
+    assert.equal(savedCourses.length, 0)
+    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
   })
@@ -688,6 +741,69 @@ describe("SessionController", () => {
     assert.equal(controller.getSnapshot().activeCourseId, draft.id)
     assert.equal(useCourseStore.getState().course?.id, draft.id)
     assert.equal(useCourseStore.getState().course?.revision, 1)
+
+    controller.dispose()
+  })
+
+  it("rejects course creation when the saved course cannot become active", async () => {
+    const savedCourses: PersistedCourse[] = []
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId, "Original A") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "course.save") {
+          const course = input as PersistedCourse
+          savedCourses.push(course)
+          if (course.id === "course-a") {
+            throw {
+              type: "conflict",
+              message: "stale",
+              resource: "course",
+              reason: "revision-invariant",
+            }
+          }
+          return {
+            revision: 1,
+            updatedAt: "2026-05-29T00:00:01.000Z",
+          } as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    controller.setDisplayName("course-a", "Dirty A")
+    await assert.rejects(
+      controller.createCourse({
+        backing: "lms",
+        displayName: "New Course",
+        lmsConnectionId: null,
+        lmsCourseId: null,
+      }),
+      /could not be opened/,
+    )
+
+    assert.equal(
+      savedCourses.some((course) => course.displayName === "New Course"),
+      true,
+    )
+    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(useCourseStore.getState().course?.displayName, "Dirty A")
 
     controller.dispose()
   })

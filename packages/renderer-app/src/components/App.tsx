@@ -1,4 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
+import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
@@ -257,8 +258,15 @@ function AppShell() {
       courseList,
     )
     if (redirect === null) return
+    const activeCourseMissing =
+      activeCourseIdFromSurface(activeSurface) !== null &&
+      !courseList.some((course) => course.id === activeCourseId)
+    if (activeCourseMissing) {
+      void controller.recoverMissingActiveCourse(redirect.surface)
+      return
+    }
     void controller.activateSurface(redirect.surface)
-  }, [activeSurface, controller, courseList, courseListLoaded])
+  }, [activeCourseId, activeSurface, controller, courseList, courseListLoaded])
 
   // Keyboard shortcuts.
   useEffect(() => {

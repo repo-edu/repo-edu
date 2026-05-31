@@ -105,7 +105,12 @@ export type SessionReducerEvent =
       activeTab: ActiveTab
       courseLoadStatus: CourseLoadStatus
     }
-  | { type: "enter-failed"; requestId: number; message: string }
+  | {
+      type: "enter-failed"
+      requestId: number
+      message: string
+      courseLoadStatus: CourseLoadStatus
+    }
   | { type: "set-active-tab"; activeTab: ActiveTab }
   | { type: "set-course-load-status"; status: CourseLoadStatus }
   | {
@@ -201,6 +206,7 @@ export function sessionReducer(
       }
       return {
         ...state,
+        courseLoadStatus: event.courseLoadStatus,
         pending: null,
         commandError: event.message,
       }

@@ -294,14 +294,21 @@ export function createPersister<
         const snapshotAtCompletion = adapter.getSnapshot()
         const completionIdentity =
           getCurrentSnapshotIdentity(snapshotAtCompletion)
-        const applySaveResult = adapter.applySaveResult
-        const canApplySaveResult =
+        const completionMatchesSavedIdentity =
           identity === null || completionIdentity === identity
+        const applySaveResult = adapter.applySaveResult
         const snapshotStillMatchesSave =
           snapshotAtCompletion !== null &&
           snapshotsEqual(snapshotAtCompletion, snapshot)
 
-        if (applySaveResult !== undefined && canApplySaveResult) {
+        if (!completionMatchesSavedIdentity) {
+          observeSnapshot(snapshotAtCompletion)
+          clearTerminalErrorForIdentity(identity)
+          setSyncStatus(idleSyncStatus)
+          return
+        }
+
+        if (applySaveResult !== undefined) {
           suppressSnapshotNotifications = true
           try {
             applySaveResult(result, snapshot)
