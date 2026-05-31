@@ -25,6 +25,7 @@ export function CopyGroupSetDialog() {
   const open = sourceId !== null
 
   const groupSet = useCourseStore(selectGroupSetById(sourceId ?? ""))
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
 
   const defaultName = groupSet ? `${groupSet.name} (copy)` : ""
@@ -47,10 +48,10 @@ export function CopyGroupSetDialog() {
   const canCopy = trimmedName.length > 0 && groupSet?.nameMode === "named"
 
   const handleCopy = () => {
-    if (!canCopy || !sourceId) return
-    const newId = controller.copyGroupSet(sourceId)
+    if (!canCopy || !sourceId || courseId === null) return
+    const newId = controller.copyGroupSet(courseId, sourceId)
     if (newId) {
-      controller.renameGroupSet(newId, trimmedName)
+      controller.renameGroupSet(courseId, newId, trimmedName)
       setSidebarSelection({ kind: "group-set", id: newId })
     }
     handleClose()

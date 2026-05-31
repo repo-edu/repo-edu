@@ -88,6 +88,45 @@ type PrepareSurfaceCommitOptions = {
   preloadedCourse?: PersistedCourse
 }
 
+type CourseMutationActions = Pick<
+  CourseActions,
+  | "addMember"
+  | "updateMember"
+  | "removeMember"
+  | "deleteMemberPermanently"
+  | "setRoster"
+  | "setIdSequences"
+  | "addAssignment"
+  | "updateAssignment"
+  | "deleteAssignment"
+  | "createGroup"
+  | "updateGroup"
+  | "deleteGroup"
+  | "moveMemberToGroup"
+  | "copyMemberToGroup"
+  | "createLocalGroupSet"
+  | "copyGroupSet"
+  | "renameGroupSet"
+  | "deleteGroupSet"
+  | "removeGroupFromSet"
+  | "updateGroupSetTemplate"
+  | "updateGroupSetColumnVisibility"
+  | "updateGroupSetColumnSizing"
+  | "setCourseId"
+  | "setLmsConnectionId"
+  | "setOrganization"
+  | "setRepositoryTemplate"
+  | "setRepositoryCloneTargetDirectory"
+  | "setRepositoryCloneDirectoryLayout"
+  | "setDisplayName"
+  | "setSearchFolder"
+  | "setAnalysisInputs"
+  | "runChecks"
+  | "undo"
+  | "redo"
+  | "clearHistory"
+>
+
 function initialTabForBacking(backing: CourseBacking): ActiveTab {
   return backing === "lms" ? "roster" : "groups-assignments"
 }
@@ -290,7 +329,7 @@ export class SessionController {
       activeCourse?.id === courseId
     ) {
       if (activeCourse.displayName === trimmedDisplayName) return
-      this.setDisplayName(trimmedDisplayName)
+      this.setDisplayName(courseId, trimmedDisplayName)
       await this.activeCourseWorkerSlot?.worker.flush()
       return
     }
@@ -359,64 +398,85 @@ export class SessionController {
     useAppSettingsStore.getState().pruneSubmissionFoldersForCourses(courses)
   }
 
-  addMember(member: RosterMember): void {
-    this.runCourseAction("addMember", member)
+  addMember(courseId: string, member: RosterMember): void {
+    this.runCourseAction(courseId, "addMember", member)
   }
 
-  updateMember(id: string, updates: Partial<RosterMember>): void {
-    this.runCourseAction("updateMember", id, updates)
+  updateMember(
+    courseId: string,
+    id: string,
+    updates: Partial<RosterMember>,
+  ): void {
+    this.runCourseAction(courseId, "updateMember", id, updates)
   }
 
-  removeMember(id: string): void {
-    this.runCourseAction("removeMember", id)
+  removeMember(courseId: string, id: string): void {
+    this.runCourseAction(courseId, "removeMember", id)
   }
 
-  deleteMemberPermanently(id: string): void {
-    this.runCourseAction("deleteMemberPermanently", id)
+  deleteMemberPermanently(courseId: string, id: string): void {
+    this.runCourseAction(courseId, "deleteMemberPermanently", id)
   }
 
-  setRoster(roster: Roster, description?: string): void {
-    this.runCourseAction("setRoster", roster, description)
+  setRoster(courseId: string, roster: Roster, description?: string): void {
+    this.runCourseAction(courseId, "setRoster", roster, description)
   }
 
-  setIdSequences(idSequences: IdSequences): void {
-    this.runCourseAction("setIdSequences", idSequences)
+  setIdSequences(courseId: string, idSequences: IdSequences): void {
+    this.runCourseAction(courseId, "setIdSequences", idSequences)
   }
 
-  addAssignment(assignment: Omit<Assignment, "id">): void {
-    this.runCourseAction("addAssignment", assignment)
+  addAssignment(courseId: string, assignment: Omit<Assignment, "id">): void {
+    this.runCourseAction(courseId, "addAssignment", assignment)
   }
 
-  updateAssignment(id: string, updates: Partial<Assignment>): void {
-    this.runCourseAction("updateAssignment", id, updates)
+  updateAssignment(
+    courseId: string,
+    id: string,
+    updates: Partial<Assignment>,
+  ): void {
+    this.runCourseAction(courseId, "updateAssignment", id, updates)
   }
 
-  deleteAssignment(id: string): void {
-    this.runCourseAction("deleteAssignment", id)
+  deleteAssignment(courseId: string, id: string): void {
+    this.runCourseAction(courseId, "deleteAssignment", id)
   }
 
   createGroup(
+    courseId: string,
     groupSetId: string,
     name: string,
     memberIds: string[],
   ): string | null {
-    return this.runCourseAction("createGroup", groupSetId, name, memberIds)
+    return this.runCourseAction(
+      courseId,
+      "createGroup",
+      groupSetId,
+      name,
+      memberIds,
+    )
   }
 
-  updateGroup(groupId: string, updates: Partial<Group>): void {
-    this.runCourseAction("updateGroup", groupId, updates)
+  updateGroup(
+    courseId: string,
+    groupId: string,
+    updates: Partial<Group>,
+  ): void {
+    this.runCourseAction(courseId, "updateGroup", groupId, updates)
   }
 
-  deleteGroup(groupId: string): void {
-    this.runCourseAction("deleteGroup", groupId)
+  deleteGroup(courseId: string, groupId: string): void {
+    this.runCourseAction(courseId, "deleteGroup", groupId)
   }
 
   moveMemberToGroup(
+    courseId: string,
     memberId: string,
     sourceGroupId: string,
     targetGroupId: string,
   ): void {
     this.runCourseAction(
+      courseId,
       "moveMemberToGroup",
       memberId,
       sourceGroupId,
@@ -424,39 +484,62 @@ export class SessionController {
     )
   }
 
-  copyMemberToGroup(memberId: string, targetGroupId: string): void {
-    this.runCourseAction("copyMemberToGroup", memberId, targetGroupId)
+  copyMemberToGroup(
+    courseId: string,
+    memberId: string,
+    targetGroupId: string,
+  ): void {
+    this.runCourseAction(courseId, "copyMemberToGroup", memberId, targetGroupId)
   }
 
-  createLocalGroupSet(name: string, groupIds?: string[]): string | null {
-    return this.runCourseAction("createLocalGroupSet", name, groupIds)
+  createLocalGroupSet(
+    courseId: string,
+    name: string,
+    groupIds?: string[],
+  ): string | null {
+    return this.runCourseAction(courseId, "createLocalGroupSet", name, groupIds)
   }
 
-  copyGroupSet(groupSetId: string): string | null {
-    return this.runCourseAction("copyGroupSet", groupSetId)
+  copyGroupSet(courseId: string, groupSetId: string): string | null {
+    return this.runCourseAction(courseId, "copyGroupSet", groupSetId)
   }
 
-  renameGroupSet(groupSetId: string, name: string): void {
-    this.runCourseAction("renameGroupSet", groupSetId, name)
+  renameGroupSet(courseId: string, groupSetId: string, name: string): void {
+    this.runCourseAction(courseId, "renameGroupSet", groupSetId, name)
   }
 
-  deleteGroupSet(groupSetId: string): void {
-    this.runCourseAction("deleteGroupSet", groupSetId)
+  deleteGroupSet(courseId: string, groupSetId: string): void {
+    this.runCourseAction(courseId, "deleteGroupSet", groupSetId)
   }
 
-  removeGroupFromSet(groupSetId: string, groupId: string): void {
-    this.runCourseAction("removeGroupFromSet", groupSetId, groupId)
+  removeGroupFromSet(
+    courseId: string,
+    groupSetId: string,
+    groupId: string,
+  ): void {
+    this.runCourseAction(courseId, "removeGroupFromSet", groupSetId, groupId)
   }
 
-  updateGroupSetTemplate(groupSetId: string, template: string | null): void {
-    this.runCourseAction("updateGroupSetTemplate", groupSetId, template)
+  updateGroupSetTemplate(
+    courseId: string,
+    groupSetId: string,
+    template: string | null,
+  ): void {
+    this.runCourseAction(
+      courseId,
+      "updateGroupSetTemplate",
+      groupSetId,
+      template,
+    )
   }
 
   updateGroupSetColumnVisibility(
+    courseId: string,
     groupSetId: string,
     visibility: Record<string, boolean>,
   ): void {
     this.runCourseAction(
+      courseId,
       "updateGroupSetColumnVisibility",
       groupSetId,
       visibility,
@@ -464,66 +547,90 @@ export class SessionController {
   }
 
   updateGroupSetColumnSizing(
+    courseId: string,
     groupSetId: string,
     sizing: Record<string, number>,
   ): void {
-    this.runCourseAction("updateGroupSetColumnSizing", groupSetId, sizing)
+    this.runCourseAction(
+      courseId,
+      "updateGroupSetColumnSizing",
+      groupSetId,
+      sizing,
+    )
   }
 
-  setCourseId(courseId: string | null): void {
-    this.runCourseAction("setCourseId", courseId)
+  setCourseId(courseId: string, lmsCourseId: string | null): void {
+    this.runCourseAction(courseId, "setCourseId", lmsCourseId)
   }
 
-  setLmsConnectionId(id: string | null): void {
-    this.runCourseAction("setLmsConnectionId", id)
+  setLmsConnectionId(courseId: string, id: string | null): void {
+    this.runCourseAction(courseId, "setLmsConnectionId", id)
   }
 
-  setOrganization(organization: string | null): void {
-    this.runCourseAction("setOrganization", organization)
+  setOrganization(courseId: string, organization: string | null): void {
+    this.runCourseAction(courseId, "setOrganization", organization)
   }
 
-  setRepositoryTemplate(template: PersistedCourse["repositoryTemplate"]): void {
-    this.runCourseAction("setRepositoryTemplate", template)
+  setRepositoryTemplate(
+    courseId: string,
+    template: PersistedCourse["repositoryTemplate"],
+  ): void {
+    this.runCourseAction(courseId, "setRepositoryTemplate", template)
   }
 
   setRepositoryCloneTargetDirectory(
+    courseId: string,
     targetDirectory: PersistedCourse["repositoryCloneTargetDirectory"],
   ): void {
-    this.runCourseAction("setRepositoryCloneTargetDirectory", targetDirectory)
+    this.runCourseAction(
+      courseId,
+      "setRepositoryCloneTargetDirectory",
+      targetDirectory,
+    )
   }
 
   setRepositoryCloneDirectoryLayout(
+    courseId: string,
     layout: PersistedCourse["repositoryCloneDirectoryLayout"],
   ): void {
-    this.runCourseAction("setRepositoryCloneDirectoryLayout", layout)
+    this.runCourseAction(courseId, "setRepositoryCloneDirectoryLayout", layout)
   }
 
-  setDisplayName(name: string): void {
-    this.runCourseAction("setDisplayName", name)
+  setDisplayName(courseId: string, name: string): void {
+    this.runCourseAction(courseId, "setDisplayName", name)
   }
 
-  setSearchFolder(folder: string | null): void {
-    this.runCourseAction("setSearchFolder", folder)
+  setSearchFolder(courseId: string, folder: string | null): void {
+    this.runCourseAction(courseId, "setSearchFolder", folder)
   }
 
-  setAnalysisInputs(patch: Partial<AnalysisInputs>): void {
-    this.runCourseAction("setAnalysisInputs", patch)
+  setAnalysisInputs(courseId: string, patch: Partial<AnalysisInputs>): void {
+    this.runCourseAction(courseId, "setAnalysisInputs", patch)
   }
 
-  runChecks(identityMode: GitIdentityMode): void {
-    this.runCourseAction("runChecks", identityMode)
+  runChecks(courseId: string, identityMode: GitIdentityMode): void {
+    this.runCourseAction(courseId, "runChecks", identityMode)
   }
 
-  undo(): HistoryEntry | null {
-    return this.runCourseAction("undo")
+  undo(courseId: string): HistoryEntry | null {
+    return this.runCourseAction(courseId, "undo")
   }
 
-  redo(): HistoryEntry | null {
-    return this.runCourseAction("redo")
+  redo(courseId: string): HistoryEntry | null {
+    return this.runCourseAction(courseId, "redo")
   }
 
-  clearHistory(): void {
-    this.runCourseAction("clearHistory")
+  clearHistory(courseId: string): void {
+    this.runCourseAction(courseId, "clearHistory")
+  }
+
+  // Runs compound course writes and success-dependent follow-up work only when
+  // the originating course is still the active, mutable course.
+  mutateCourse(
+    courseId: string,
+    mutation: (actions: CourseMutationActions) => void,
+  ): void {
+    this.withCourseTarget(courseId, mutation)
   }
 
   private async bootstrap(): Promise<void> {
@@ -830,60 +937,30 @@ export class SessionController {
     return surfaceTabBacking(this.snapshot.activeSurface, backing)
   }
 
-  private runCourseAction<K extends keyof CourseActions>(
+  private runCourseAction<K extends keyof CourseMutationActions>(
+    expectedCourseId: string,
     action: K,
-    ...args: Parameters<CourseActions[K]>
-  ): ReturnType<CourseActions[K]> | null {
-    const targetCourseId = useCourseStore.getState().course?.id ?? null
-    if (!canAdmitCourseMutation(this.snapshot, targetCourseId)) {
-      return null
-    }
-    const storeAction = useCourseStore.getState()[action] as (
-      ...actionArgs: Parameters<CourseActions[K]>
-    ) => ReturnType<CourseActions[K]>
-    return storeAction(...args) as ReturnType<CourseActions[K]>
+    ...args: Parameters<CourseMutationActions[K]>
+  ): ReturnType<CourseMutationActions[K]> | null {
+    let result: ReturnType<CourseMutationActions[K]> | null = null
+    this.withCourseTarget(expectedCourseId, (actions) => {
+      const storeAction = actions[action] as (
+        ...actionArgs: Parameters<CourseMutationActions[K]>
+      ) => ReturnType<CourseMutationActions[K]>
+      result = storeAction(...args) as ReturnType<CourseMutationActions[K]>
+    })
+    return result
   }
 
-  // Target-aware mutation for callers that captured a course, awaited async
-  // work, then want to apply the result. The mutation is admitted only when
-  // the course that initiated it is still the active, mutable course. If the
-  // user switched courses (or a delete/enter is pending) during the await the
-  // command is silently dropped rather than corrupting the now-active course.
   private withCourseTarget(
     expectedCourseId: string,
-    apply: (actions: CourseActions) => void,
-  ): boolean {
+    apply: (actions: CourseMutationActions) => void,
+  ): void {
+    if (this.disposed || this.snapshot.disposed) return
     const targetCourseId = useCourseStore.getState().course?.id ?? null
-    if (targetCourseId !== expectedCourseId) return false
-    if (!canAdmitCourseMutation(this.snapshot, targetCourseId)) return false
+    if (targetCourseId !== expectedCourseId) return
+    if (!canAdmitCourseMutation(this.snapshot, targetCourseId)) return
     apply(useCourseStore.getState())
-    return true
-  }
-
-  // Applies an imported roster (and its id sequences) as one admitted unit so a
-  // course switch cannot land between the roster and the sequence write.
-  applyRosterImport(input: {
-    courseId: string
-    roster: Roster
-    idSequences?: IdSequences
-    description: string
-  }): boolean {
-    return this.withCourseTarget(input.courseId, (actions) => {
-      actions.setRoster(input.roster, input.description)
-      if (input.idSequences !== undefined) {
-        actions.setIdSequences(input.idSequences)
-      }
-    })
-  }
-
-  updateAssignmentForCourse(
-    courseId: string,
-    id: string,
-    updates: Partial<Assignment>,
-  ): boolean {
-    return this.withCourseTarget(courseId, (actions) => {
-      actions.updateAssignment(id, updates)
-    })
   }
 
   private nextRequestId(): number {

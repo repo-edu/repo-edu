@@ -34,6 +34,11 @@ import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
 
+type RosterSyncPreview = {
+  courseId: string
+  result: RosterImportFromLmsResult
+}
+
 export function StudentSyncDialog() {
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
@@ -52,11 +57,15 @@ export function StudentSyncDialog() {
   )
 
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const [preview, setPreview] = useState<RosterImportFromLmsResult | null>(null)
+  const [preview, setPreview] = useState<RosterSyncPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progressMessage, setProgressMessage] = useState<string | null>(null)
-  const hasAutoPreviewedRef = useRef(false)
+  const autoPreviewedCourseIdRef = useRef<string | null>(null)
   const previewRequestIdRef = useRef(0)
+  const visiblePreview =
+    preview !== null && preview.courseId === loadedCourse?.id
+      ? preview.result
+      : null
 
   const resetState = useCallback(() => {
     previewRequestIdRef.current += 1
@@ -105,6 +114,7 @@ export function StudentSyncDialog() {
       return
     }
 
+    const previewCourseId = loadedCourse.id
     setLoadingPreview(true)
     setError(null)
     setPreview(null)
@@ -127,7 +137,7 @@ export function StudentSyncDialog() {
         },
       )
       if (previewRequestIdRef.current !== requestId) return
-      setPreview(result)
+      setPreview({ courseId: previewCourseId, result })
       setProgressMessage(null)
     } catch (previewError) {
       if (previewRequestIdRef.current !== requestId) return
@@ -151,18 +161,18 @@ export function StudentSyncDialog() {
 
   useEffect(() => {
     if (!open) {
-      hasAutoPreviewedRef.current = false
+      autoPreviewedCourseIdRef.current = null
       return
     }
-    if (hasAutoPreviewedRef.current) return
     if (!activeCourseId) return
+    if (autoPreviewedCourseIdRef.current === activeCourseId) return
     if (!loadedCourse || courseLoadStatus.state === "loading") return
     if (!supportsLms) {
       handleOpenChange(false)
       return
     }
 
-    hasAutoPreviewedRef.current = true
+    autoPreviewedCourseIdRef.current = activeCourseId
     void handlePreview()
   }, [
     open,
@@ -175,12 +185,10 @@ export function StudentSyncDialog() {
   ])
 
   const handleApply = () => {
-    if (!preview || !loadedCourse) return
-    controller.applyRosterImport({
-      courseId: loadedCourse.id,
-      roster: preview.roster,
-      idSequences: preview.idSequences,
-      description: "Sync roster from LMS",
+    if (!preview || !visiblePreview) return
+    controller.mutateCourse(preview.courseId, (actions) => {
+      actions.setRoster(visiblePreview.roster, "Sync roster from LMS")
+      actions.setIdSequences(visiblePreview.idSequences)
     })
     setOpen(false)
     resetState()
@@ -207,8 +215,13 @@ export function StudentSyncDialog() {
               <Select
                 value={lmsConnectionId ?? ""}
                 onValueChange={(value) => {
-                  controller.setLmsConnectionId(value || null)
-                  hasAutoPreviewedRef.current = false
+                  if (loadedCourse !== null) {
+                    controller.setLmsConnectionId(
+                      loadedCourse.id,
+                      value || null,
+                    )
+                  }
+                  autoPreviewedCourseIdRef.current = null
                   resetState()
                 }}
               >
@@ -250,28 +263,30 @@ export function StudentSyncDialog() {
             </div>
           )}
 
-          {preview && (
+          {visiblePreview && (
             <div className="rounded-md border p-3 space-y-2">
               <p className="text-sm font-medium">
-                Preview: {preview.roster.students.length} students,{" "}
-                {preview.roster.staff.length} staff
+                Preview: {visiblePreview.roster.students.length} students,{" "}
+                {visiblePreview.roster.staff.length} staff
               </p>
               <p className="text-xs text-muted-foreground">
-                Pending sync: +{preview.summary.membersAdded} to add,{" "}
-                {preview.summary.membersUpdated} to update,{" "}
-                {preview.summary.membersUnchanged} unchanged
+                Pending sync: +{visiblePreview.summary.membersAdded} to add,{" "}
+                {visiblePreview.summary.membersUpdated} to update,{" "}
+                {visiblePreview.summary.membersUnchanged} unchanged
               </p>
-              {preview.totalConflicts > 0 && (
+              {visiblePreview.totalConflicts > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs text-amber-700 dark:text-amber-300">
-                    {preview.totalConflicts} identity conflicts were detected.
-                    Conflicts are warnings only and conflicted entries are left
-                    unchanged.
+                    {visiblePreview.totalConflicts} identity conflicts were
+                    detected. Conflicts are warnings only and conflicted entries
+                    are left unchanged.
                   </p>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setLmsImportConflicts(preview.conflicts)}
+                    onClick={() =>
+                      setLmsImportConflicts(visiblePreview.conflicts)
+                    }
                   >
                     View Conflict Details
                   </Button>
@@ -285,7 +300,10 @@ export function StudentSyncDialog() {
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleApply} disabled={!preview || loadingPreview}>
+          <Button
+            onClick={handleApply}
+            disabled={!visiblePreview || loadingPreview}
+          >
             Apply Sync
           </Button>
         </DialogFooter>

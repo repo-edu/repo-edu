@@ -24,13 +24,14 @@ export function DeleteGroupDialog() {
 
   const group = useCourseStore(selectGroupById(targetId ?? ""))
   const refCount = useCourseStore(selectGroupReferenceCount(targetId ?? ""))
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
 
   const isShared = refCount > 1
 
   const handleDelete = () => {
-    if (!targetId) return
-    controller.deleteGroup(targetId)
+    if (!targetId || courseId === null) return
+    controller.deleteGroup(courseId, targetId)
     handleClose()
   }
 

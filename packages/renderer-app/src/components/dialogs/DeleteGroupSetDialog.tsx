@@ -26,6 +26,7 @@ export function DeleteGroupSetDialog() {
   const open = targetId !== null
 
   const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
 
   const allGroupSets = roster?.groupSets ?? EMPTY_GROUP_SETS
@@ -67,9 +68,11 @@ export function DeleteGroupSetDialog() {
   const survivingCount = groups.length - orphanedCount
 
   const handleDelete = () => {
-    if (!targetId) return
-    controller.deleteGroupSet(targetId)
-    setSidebarSelection(null)
+    if (!targetId || courseId === null) return
+    controller.mutateCourse(courseId, (actions) => {
+      actions.deleteGroupSet(targetId)
+      setSidebarSelection(null)
+    })
     handleClose()
   }
 

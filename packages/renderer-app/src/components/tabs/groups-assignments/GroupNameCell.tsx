@@ -46,6 +46,7 @@ export function GroupNameCell({
     [group.id, groupSetId],
   )
   const otherNames = useCourseStore(otherSetNames)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const isShared = otherNames.length > 0
 
   const controller = useSessionController()
@@ -68,12 +69,12 @@ export function GroupNameCell({
       return
     }
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== group.name) {
-      controller.updateGroup(group.id, { name: trimmed })
+    if (trimmed && trimmed !== group.name && courseId !== null) {
+      controller.updateGroup(courseId, group.id, { name: trimmed })
     }
     setIsEditing(false)
     setEditName(group.name)
-  }, [controller, disabled, editName, group.id, group.name])
+  }, [controller, courseId, disabled, editName, group.id, group.name])
 
   return (
     <div className="space-y-0.5">
@@ -147,9 +148,15 @@ export function GroupNameCell({
               {isShared && (
                 <DropdownMenuItem
                   disabled={disabled}
-                  onClick={() =>
-                    controller.removeGroupFromSet(groupSetId, group.id)
-                  }
+                  onClick={() => {
+                    if (courseId !== null) {
+                      controller.removeGroupFromSet(
+                        courseId,
+                        groupSetId,
+                        group.id,
+                      )
+                    }
+                  }}
                 >
                   <X className="size-3.5 mr-2" />
                   Remove from set
@@ -174,7 +181,11 @@ export function GroupNameCell({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
-            onClick={() => controller.removeGroupFromSet(groupSetId, group.id)}
+            onClick={() => {
+              if (courseId !== null) {
+                controller.removeGroupFromSet(courseId, groupSetId, group.id)
+              }
+            }}
             disabled={disabled}
             title="Remove from group set"
           >

@@ -279,18 +279,18 @@ function AppShell() {
 
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault()
-        controller.undo()
+        if (activeCourseId !== null) controller.undo(activeCourseId)
         return
       }
 
       if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
         e.preventDefault()
-        controller.redo()
+        if (activeCourseId !== null) controller.redo(activeCourseId)
       }
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [controller, showHistoryControls])
+  }, [activeCourseId, controller, showHistoryControls])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -347,7 +347,11 @@ function AppShell() {
                       size="sm"
                       className="h-8 w-8 p-0"
                       disabled={!canUndo}
-                      onClick={() => controller.undo()}
+                      onClick={() => {
+                        if (activeCourseId !== null) {
+                          controller.undo(activeCourseId)
+                        }
+                      }}
                     >
                       <Undo2 className="size-[18px]" />
                       <span className="sr-only">Undo</span>
@@ -366,7 +370,11 @@ function AppShell() {
                       size="sm"
                       className="h-8 w-8 p-0"
                       disabled={!canRedo}
-                      onClick={() => controller.redo()}
+                      onClick={() => {
+                        if (activeCourseId !== null) {
+                          controller.redo(activeCourseId)
+                        }
+                      }}
                     >
                       <Redo2 className="size-[18px]" />
                       <span className="sr-only">Redo</span>

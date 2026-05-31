@@ -41,6 +41,7 @@ export function StudentsTab() {
       : "Sync roster from LMS"
 
   const handleClear = () => {
+    if (!course) return
     if (!roster?.students.length && !roster?.staff.length) return
     const emptyRoster: Roster = {
       connection: null,
@@ -50,7 +51,7 @@ export function StudentsTab() {
       groupSets: [],
       assignments: [],
     }
-    controller.setRoster(emptyRoster, "Clear roster")
+    controller.setRoster(course.id, emptyRoster, "Clear roster")
   }
 
   const handleExport = async (format: "csv" | "xlsx") => {
@@ -82,6 +83,7 @@ export function StudentsTab() {
   return (
     <div className="h-full min-h-0 flex flex-col">
       <MemberListPane
+        courseId={course.id}
         roster={roster}
         importing={false}
         canImportFromLms={canImportFromLms}

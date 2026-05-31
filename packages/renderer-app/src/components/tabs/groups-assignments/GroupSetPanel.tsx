@@ -37,6 +37,7 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
   const editableTargets = useCourseStore(selectEditableGroupTargets)
   const controller = useSessionController()
   const roster = useCourseStore((s) => s.course?.roster ?? null)
+  const courseId = useCourseStore((s) => s.course?.id ?? null)
   const groupSetOperation = useUiStore((s) => s.groupSetOperation)
   const setNewAssignmentDialogOpen = useUiStore(
     (s) => s.setNewAssignmentDialogOpen,
@@ -131,7 +132,8 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
       <RepoNameTemplateBuilder
         template={template}
         onTemplateChange={(t) =>
-          controller.updateGroupSetTemplate(groupSetId, t)
+          courseId !== null &&
+          controller.updateGroupSetTemplate(courseId, groupSetId, t)
         }
         disabled={isOperationActive}
         hiddenSegments={
@@ -152,8 +154,13 @@ export function GroupSetPanel({ groupSetId }: GroupSetPanelProps) {
           setPreSelectedGroupSetId(groupSetId)
           setNewAssignmentDialogOpen(true)
         }}
-        onEdit={(id, name) => controller.updateAssignment(id, { name })}
-        onDelete={(id) => controller.deleteAssignment(id)}
+        onEdit={(id, name) => {
+          if (courseId !== null)
+            controller.updateAssignment(courseId, id, { name })
+        }}
+        onDelete={(id) => {
+          if (courseId !== null) controller.deleteAssignment(courseId, id)
+        }}
         showSelection={showAssignmentSelection}
         disabled={isOperationActive}
       />

@@ -336,14 +336,27 @@ export function GroupsTable({
       memberGroupIndex,
       onDeleteGroup,
       onSort: handleSort,
-      updateGroup: (groupId, patch) => controller.updateGroup(groupId, patch),
-      moveMemberToGroup: (memberId, sourceGroupId, targetGroupId) =>
-        controller.moveMemberToGroup(memberId, sourceGroupId, targetGroupId),
-      copyMemberToGroup: (memberId, targetGroupId) =>
-        controller.copyMemberToGroup(memberId, targetGroupId),
+      updateGroup: (groupId, patch) => {
+        if (course !== null) controller.updateGroup(course.id, groupId, patch)
+      },
+      moveMemberToGroup: (memberId, sourceGroupId, targetGroupId) => {
+        if (course === null) return
+        controller.moveMemberToGroup(
+          course.id,
+          memberId,
+          sourceGroupId,
+          targetGroupId,
+        )
+      },
+      copyMemberToGroup: (memberId, targetGroupId) => {
+        if (course !== null) {
+          controller.copyMemberToGroup(course.id, memberId, targetGroupId)
+        }
+      },
     }) as unknown as ColumnDef<TableRow>[]
   }, [
     controller,
+    course,
     isUnnamedGroupSet,
     groupSetId,
     isSetEditable,
@@ -383,7 +396,9 @@ export function GroupsTable({
         typeof updater === "function"
           ? updater(groupsColumnVisibility)
           : updater
-      controller.updateGroupSetColumnVisibility(groupSetId, next)
+      if (course !== null) {
+        controller.updateGroupSetColumnVisibility(course.id, groupSetId, next)
+      }
     },
     getRowId: (row) => (isUnnamedTeamRow(row) ? row.teamId : row.group.id),
     getCoreRowModel: getCoreRowModel(),
@@ -419,10 +434,14 @@ export function GroupsTable({
   useEffect(() => {
     const wasResizing = prevIsResizingRef.current
     prevIsResizingRef.current = isResizingColumn
-    if (wasResizing && !isResizingColumn) {
-      controller.updateGroupSetColumnSizing(groupSetId, localColumnSizing)
+    if (wasResizing && !isResizingColumn && course !== null) {
+      controller.updateGroupSetColumnSizing(
+        course.id,
+        groupSetId,
+        localColumnSizing,
+      )
     }
-  }, [controller, isResizingColumn, groupSetId, localColumnSizing])
+  }, [controller, course, isResizingColumn, groupSetId, localColumnSizing])
 
   const visibleRows = table.getFilteredRowModel().rows
   const columnLabel = isUnnamedGroupSet ? unnamedColumnLabel : groupColumnLabel

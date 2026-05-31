@@ -176,25 +176,19 @@ export function ImportGroupSetDialog() {
       const actionLabel = isReimport
         ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
         : "Import group set from file"
-      const applied = controller.applyRosterImport({
-        courseId: course.id,
-        roster: nextCourse.roster,
-        idSequences: nextCourse.idSequences,
-        description: actionLabel,
-      })
-      if (!applied) {
-        handleClose()
-        return
-      }
+      controller.mutateCourse(course.id, (actions) => {
+        actions.setRoster(nextCourse.roster, actionLabel)
+        actions.setIdSequences(nextCourse.idSequences)
 
-      if (!isReimport) {
-        const importedSet = [...nextCourse.roster.groupSets]
-          .reverse()
-          .find((groupSet) => groupSet.connection?.kind === "import")
-        if (importedSet) {
-          setSidebarSelection({ kind: "group-set", id: importedSet.id })
+        if (!isReimport) {
+          const importedSet = [...nextCourse.roster.groupSets]
+            .reverse()
+            .find((groupSet) => groupSet.connection?.kind === "import")
+          if (importedSet) {
+            setSidebarSelection({ kind: "group-set", id: importedSet.id })
+          }
         }
-      }
+      })
 
       handleClose()
     } catch (cause) {

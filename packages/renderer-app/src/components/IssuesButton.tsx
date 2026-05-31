@@ -7,6 +7,7 @@ import { useUiStore } from "../stores/ui-store.js"
 export function IssuesButton() {
   const { issueCards, checksDirty, checksStatus } = useIssues()
   const hasRoster = useCourseStore((state) => !!state.course?.roster)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
   const setIssuesSheetOpen = useUiStore((s) => s.setIssuesSheetOpen)
 
@@ -14,8 +15,8 @@ export function IssuesButton() {
   const isRunningChecks = checksStatus === "running"
   const handleClick = () => {
     setIssuesSheetOpen(true)
-    if (hasRoster && !isRunningChecks) {
-      controller.runChecks("username")
+    if (hasRoster && courseId !== null && !isRunningChecks) {
+      controller.runChecks(courseId, "username")
     }
   }
 

@@ -58,6 +58,7 @@ export function NewLocalGroupSetDialog() {
     selectGroupsForGroupSet(sourceGroupSetId ?? ""),
   )
   const roster = useCourseStore(selectRoster)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
 
   const memberNameById = useMemo(() => {
     if (!roster) return new Map<string, string>()
@@ -212,7 +213,7 @@ export function NewLocalGroupSetDialog() {
   }
 
   const handleCreate = async () => {
-    if (!canCreate || !sourceGroupSetId) return
+    if (!canCreate || !sourceGroupSetId || courseId === null) return
 
     setCreating(true)
     try {
@@ -220,7 +221,7 @@ export function NewLocalGroupSetDialog() {
         .filter((g) => checkedGroupIds.has(g.id))
         .map((g) => g.id)
 
-      const id = controller.createLocalGroupSet(trimmedName, groupIds)
+      const id = controller.createLocalGroupSet(courseId, trimmedName, groupIds)
       if (id) {
         setSidebarSelection({ kind: "group-set", id })
       }

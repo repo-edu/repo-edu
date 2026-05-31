@@ -34,6 +34,7 @@ export function AddGroupDialog() {
   const setGroupSetId = useUiStore((state) => state.setAddGroupDialogGroupSetId)
   const open = groupSetId !== null
   const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
   const controller = useSessionController()
   const students = useMemo(() => roster?.students ?? EMPTY_STUDENTS, [roster])
   const groups = useCourseStore(selectGroupsForGroupSet(groupSetId ?? ""))
@@ -92,8 +93,8 @@ export function AddGroupDialog() {
   const canCreate = trimmedName.length > 0
 
   const handleCreate = () => {
-    if (!canCreate || !groupSetId) return
-    controller.createGroup(groupSetId, trimmedName, selectedMembers)
+    if (!canCreate || !groupSetId || courseId === null) return
+    controller.createGroup(courseId, groupSetId, trimmedName, selectedMembers)
     handleClose()
   }
 

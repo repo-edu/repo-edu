@@ -445,7 +445,7 @@ describe("SessionController", () => {
       (snapshot) => snapshot.pending?.kind === "enter",
     )
 
-    controller.setDisplayName("Rejected")
+    controller.setDisplayName("course-a", "Rejected")
     assert.equal(useCourseStore.getState().course?.displayName, "Original")
 
     courseBLoad.resolve(makeCourse("course-b"))
@@ -692,7 +692,7 @@ describe("SessionController", () => {
     controller.dispose()
   })
 
-  it("drops a target-aware roster import when the active course changed", async () => {
+  it("admits target-aware course mutations only for the active course", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -719,34 +719,68 @@ describe("SessionController", () => {
     assert.ok(baselineRoster)
     const bumped = { ...makeCourse("x").idSequences, nextMemberSeq: 99 }
 
-    // Import that originated on a course that is no longer active is dropped
-    // whole: neither roster nor id sequences are written.
-    const wrongTarget = controller.applyRosterImport({
-      courseId: "course-b",
-      roster: baselineRoster,
-      idSequences: bumped,
-      description: "Import students from file",
+    let staleFollowUpRan = false
+    controller.mutateCourse("course-b", (actions) => {
+      actions.setRoster(baselineRoster, "Import students from file")
+      actions.setIdSequences(bumped)
+      staleFollowUpRan = true
     })
-    assert.equal(wrongTarget, false)
+    assert.equal(staleFollowUpRan, false)
     assert.notDeepStrictEqual(
       useCourseStore.getState().course?.idSequences,
       bumped,
     )
 
-    // Import that still targets the active course is admitted as one unit.
-    const rightTarget = controller.applyRosterImport({
-      courseId: "course-a",
-      roster: baselineRoster,
-      idSequences: bumped,
-      description: "Import students from file",
+    let admittedFollowUpRan = false
+    controller.mutateCourse("course-a", (actions) => {
+      actions.setRoster(baselineRoster, "Import students from file")
+      actions.setIdSequences(bumped)
+      admittedFollowUpRan = true
     })
-    assert.equal(rightTarget, true)
+    assert.equal(admittedFollowUpRan, true)
     assert.deepStrictEqual(
       useCourseStore.getState().course?.idSequences,
       bumped,
     )
 
     controller.dispose()
+  })
+
+  it("drops course mutations after controller disposal", async () => {
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId, "Original") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "settings.saveApp") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    controller.dispose()
+    let callbackRan = false
+    controller.mutateCourse("course-a", (actions) => {
+      actions.setDisplayName("Rejected")
+      callbackRan = true
+    })
+    controller.setDisplayName("course-a", "Rejected")
+
+    assert.equal(callbackRan, false)
+    assert.equal(useCourseStore.getState().course?.displayName, "Original")
   })
 
   it("does not hydrate the course store when load resolves after dispose", async () => {

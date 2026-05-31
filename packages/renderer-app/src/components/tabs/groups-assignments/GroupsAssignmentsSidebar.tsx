@@ -270,10 +270,12 @@ export function GroupsAssignmentsSidebar({
 
   const handleRenameSubmit = useCallback(
     (groupSetId: string, newName: string) => {
-      controller.renameGroupSet(groupSetId, newName)
+      if (course !== null) {
+        controller.renameGroupSet(course.id, groupSetId, newName)
+      }
       setRenameGroupSetTriggerId(null)
     },
-    [controller, setRenameGroupSetTriggerId],
+    [controller, course, setRenameGroupSetTriggerId],
   )
 
   const handleRenameCancel = useCallback(() => {

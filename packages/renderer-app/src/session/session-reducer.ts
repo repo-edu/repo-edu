@@ -272,6 +272,7 @@ export function canAdmitCourseMutation(
   snapshot: SessionControllerSnapshot,
   targetCourseId: string | null,
 ): boolean {
+  if (snapshot.disposed) return false
   if (snapshot.pending?.kind === "delete") {
     return targetCourseId !== snapshot.pending.courseId
   }

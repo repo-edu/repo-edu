@@ -54,7 +54,7 @@ export function useAnalysisContext() {
         return
       }
       if (courseContext !== null) {
-        controller.setAnalysisInputs(patch)
+        controller.setAnalysisInputs(courseContext.id, patch)
       }
     },
     [
@@ -68,7 +68,7 @@ export function useAnalysisContext() {
   const updateCourseSearchFolder = useCallback(
     (path: string | null) => {
       if (courseContext === null) return
-      controller.setSearchFolder(path)
+      controller.setSearchFolder(courseContext.id, path)
     },
     [controller, courseContext],
   )

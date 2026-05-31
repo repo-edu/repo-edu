@@ -8,6 +8,7 @@ import {
   gitNamespaceTerminology,
   normalizeGitNamespaceInput,
 } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useSessionController } from "../../../../session/session-controller-context.js"
@@ -78,6 +79,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   )
   const controller = useSessionController()
   const appSettings = useAppSettingsStore((s) => s.settings)
+  const courseId = course?.id ?? null
 
   const [operationStatus, setOperationStatus] =
     useState<OperationStatus>("idle")
@@ -167,7 +169,8 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
   const setTemplateOwner = useCallback(
     (owner: string) => {
-      controller.setRepositoryTemplate({
+      if (courseId === null) return
+      controller.setRepositoryTemplate(courseId, {
         kind: "remote",
         owner,
         name:
@@ -177,30 +180,32 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         visibility: templateVisibility,
       })
     },
-    [controller, repositoryTemplate, templateVisibility],
+    [controller, courseId, repositoryTemplate, templateVisibility],
   )
 
   const setTemplateLocalPath = useCallback(
     (localPath: string) => {
-      controller.setRepositoryTemplate({
+      if (courseId === null) return
+      controller.setRepositoryTemplate(courseId, {
         kind: "local",
         path: localPath,
         visibility: templateVisibility,
       })
     },
-    [controller, templateVisibility],
+    [controller, courseId, templateVisibility],
   )
 
   const setTemplateKind = useCallback(
     (kind: "remote" | "local") => {
+      if (courseId === null) return
       if (kind === "local") {
-        controller.setRepositoryTemplate({
+        controller.setRepositoryTemplate(courseId, {
           kind: "local",
           path: templateLocalPath,
           visibility: templateVisibility,
         })
       } else {
-        controller.setRepositoryTemplate({
+        controller.setRepositoryTemplate(courseId, {
           kind: "remote",
           owner: templateOwner,
           name:
@@ -213,6 +218,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     },
     [
       controller,
+      courseId,
       repositoryTemplate,
       templateOwner,
       templateLocalPath,
@@ -224,51 +230,70 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     (
       recorded: RecordedRepositoriesByAssignment,
       originatingCourseId: string,
+      templateAssignmentUpdate?: {
+        assignmentId: string
+        templateCommitSha: string
+      },
     ) => {
-      const latestCourse = useCourseStore.getState().course
-      if (!latestCourse || latestCourse.id !== originatingCourseId) return
-      const assignmentsById = new Map(
-        latestCourse.roster.assignments.map(
-          (assignment) => [assignment.id, assignment] as const,
-        ),
-      )
-      const groupSetsById = new Map(
-        latestCourse.roster.groupSets.map(
-          (groupSet) => [groupSet.id, groupSet] as const,
-        ),
-      )
-      for (const [assignmentId, groupMap] of Object.entries(recorded)) {
-        const assignment = assignmentsById.get(assignmentId)
-        if (!assignment) continue
-        const groupSet = groupSetsById.get(assignment.groupSetId)
-        const validGroupIds = new Set<string>(
-          groupSet === undefined
-            ? []
-            : groupSet.nameMode === "named"
-              ? groupSet.groupIds
-              : groupSet.teams.map((team) => team.id),
+      controller.mutateCourse(originatingCourseId, (actions) => {
+        const latestCourse = useCourseStore.getState().course
+        if (!latestCourse || latestCourse.id !== originatingCourseId) return
+        const assignmentsById = new Map(
+          latestCourse.roster.assignments.map(
+            (assignment) => [assignment.id, assignment] as const,
+          ),
         )
-        const merged: Record<string, string> = {}
-        for (const [groupId, repoName] of Object.entries(
-          assignment.repositories ?? {},
-        )) {
-          if (validGroupIds.has(groupId)) {
-            merged[groupId] = repoName
+        const groupSetsById = new Map(
+          latestCourse.roster.groupSets.map(
+            (groupSet) => [groupSet.id, groupSet] as const,
+          ),
+        )
+        const updatedAssignmentIds = new Set<string>()
+
+        for (const [assignmentId, groupMap] of Object.entries(recorded)) {
+          const assignment = assignmentsById.get(assignmentId)
+          if (!assignment) continue
+          const groupSet = groupSetsById.get(assignment.groupSetId)
+          const validGroupIds = new Set<string>(
+            groupSet === undefined
+              ? []
+              : groupSet.nameMode === "named"
+                ? groupSet.groupIds
+                : groupSet.teams.map((team) => team.id),
+          )
+          const merged: Record<string, string> = {}
+          for (const [groupId, repoName] of Object.entries(
+            assignment.repositories ?? {},
+          )) {
+            if (validGroupIds.has(groupId)) {
+              merged[groupId] = repoName
+            }
           }
-        }
-        for (const [groupId, repoName] of Object.entries(groupMap)) {
-          if (validGroupIds.has(groupId)) {
-            merged[groupId] = repoName
+          for (const [groupId, repoName] of Object.entries(groupMap)) {
+            if (validGroupIds.has(groupId)) {
+              merged[groupId] = repoName
+            }
           }
-        }
-        controller.updateAssignmentForCourse(
-          originatingCourseId,
-          assignmentId,
-          {
+          actions.updateAssignment(assignmentId, {
             repositories: merged,
-          },
-        )
-      }
+            ...(templateAssignmentUpdate?.assignmentId === assignmentId
+              ? {
+                  templateCommitSha: templateAssignmentUpdate.templateCommitSha,
+                }
+              : {}),
+          })
+          updatedAssignmentIds.add(assignmentId)
+        }
+
+        if (
+          templateAssignmentUpdate !== undefined &&
+          !updatedAssignmentIds.has(templateAssignmentUpdate.assignmentId)
+        ) {
+          actions.updateAssignment(templateAssignmentUpdate.assignmentId, {
+            templateCommitSha: templateAssignmentUpdate.templateCommitSha,
+          })
+        }
+      })
     },
     [controller],
   )
@@ -309,16 +334,15 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         } else if (operation === "update") {
           const typed = result as RepositoryUpdateResult
           setLastResult({ operation: "update", result: typed })
-          if (typed.templateCommitSha) {
-            controller.updateAssignmentForCourse(
-              originatingCourseId,
-              effectiveAssignmentId,
-              { templateCommitSha: typed.templateCommitSha },
-            )
-          }
           applyRecordedRepositories(
             typed.recordedRepositories,
             originatingCourseId,
+            typed.templateCommitSha
+              ? {
+                  assignmentId: effectiveAssignmentId,
+                  templateCommitSha: typed.templateCommitSha,
+                }
+              : undefined,
           )
         } else {
           const typed = result as RepositoryCloneResult
@@ -341,7 +365,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       cloneDirectoryLayout,
       cloneTargetDirectory,
       course,
-      controller,
       effectiveAssignmentId,
       repositoryTemplate,
     ],
@@ -352,6 +375,31 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       setActiveGitConnectionId(id)
     },
     [setActiveGitConnectionId],
+  )
+
+  const setOrganizationForCourse = useCallback(
+    (value: string | null) => {
+      if (courseId !== null) controller.setOrganization(courseId, value)
+    },
+    [controller, courseId],
+  )
+
+  const setRepositoryCloneTargetDirectoryForCourse = useCallback(
+    (value: PersistedCourse["repositoryCloneTargetDirectory"]) => {
+      if (courseId !== null) {
+        controller.setRepositoryCloneTargetDirectory(courseId, value)
+      }
+    },
+    [controller, courseId],
+  )
+
+  const setRepositoryCloneDirectoryLayoutForCourse = useCallback(
+    (value: PersistedCourse["repositoryCloneDirectoryLayout"]) => {
+      if (courseId !== null) {
+        controller.setRepositoryCloneDirectoryLayout(courseId, value)
+      }
+    },
+    [controller, courseId],
   )
 
   return {
@@ -373,7 +421,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
     // Organization
     organization,
-    setOrganization: controller.setOrganization.bind(controller),
+    setOrganization: setOrganizationForCourse,
 
     // Template
     templateKind,
@@ -387,8 +435,8 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     cloneTargetDirectory,
     cloneDirectoryLayout,
     setRepositoryCloneTargetDirectory:
-      controller.setRepositoryCloneTargetDirectory.bind(controller),
+      setRepositoryCloneTargetDirectoryForCourse,
     setRepositoryCloneDirectoryLayout:
-      controller.setRepositoryCloneDirectoryLayout.bind(controller),
+      setRepositoryCloneDirectoryLayoutForCourse,
   } as const
 }

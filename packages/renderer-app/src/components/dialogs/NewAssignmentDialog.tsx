@@ -30,6 +30,7 @@ export function NewAssignmentDialog() {
 
   const controller = useSessionController()
   const roster = useCourseStore((state) => state.course?.roster ?? null)
+  const courseId = useCourseStore((state) => state.course?.id ?? null)
 
   const [creating, setCreating] = useState(false)
 
@@ -74,10 +75,10 @@ export function NewAssignmentDialog() {
   }
 
   const handleCreate = () => {
-    if (!canCreate || !resolvedGroupSetId) return
+    if (!canCreate || !resolvedGroupSetId || courseId === null) return
 
     setCreating(true)
-    controller.addAssignment({
+    controller.addAssignment(courseId, {
       name: name.trim(),
       groupSetId: resolvedGroupSetId,
       repositories: {},

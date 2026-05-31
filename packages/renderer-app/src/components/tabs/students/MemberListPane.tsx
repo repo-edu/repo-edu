@@ -82,6 +82,7 @@ const ROSTER_COLUMN_MIN_WIDTHS = {
 } as const
 
 type MemberListPaneProps = {
+  courseId: string
   roster: Roster | null
   importing: boolean
   canImportFromLms: boolean
@@ -96,6 +97,7 @@ type MemberListPaneProps = {
 }
 
 export function MemberListPane({
+  courseId,
   roster,
   importing,
   canImportFromLms,
@@ -231,7 +233,7 @@ export function MemberListPane({
       source: "local",
     }
 
-    controller.addMember(member)
+    controller.addMember(courseId, member)
     setNewMemberName("")
     setNewMemberEmail("")
     setAddingMember(false)
@@ -239,33 +241,33 @@ export function MemberListPane({
 
   const handleUpdateName = useCallback(
     (id: string, name: string) => {
-      controller.updateMember(id, { name })
+      controller.updateMember(courseId, id, { name })
     },
-    [controller],
+    [controller, courseId],
   )
 
   const handleUpdateEmail = useCallback(
     (id: string, email: string) => {
-      controller.updateMember(id, { email })
+      controller.updateMember(courseId, id, { email })
     },
-    [controller],
+    [controller, courseId],
   )
 
   const handleUpdateGitUsername = useCallback(
     (id: string, gitUsername: string) => {
-      controller.updateMember(id, {
+      controller.updateMember(courseId, id, {
         gitUsername: gitUsername || null,
         gitUsernameStatus: "unknown",
       })
     },
-    [controller],
+    [controller, courseId],
   )
 
   const handleUpdateStatus = useCallback(
     (id: string, status: MemberStatus) => {
-      controller.updateMember(id, { status })
+      controller.updateMember(courseId, id, { status })
     },
-    [controller],
+    [controller, courseId],
   )
 
   const handleRequestPermanentDelete = useCallback(
@@ -280,7 +282,7 @@ export function MemberListPane({
   const handleConfirmPermanentDelete = () => {
     if (!memberPendingDeletion) return
     const { id } = memberPendingDeletion
-    controller.deleteMemberPermanently(id)
+    controller.deleteMemberPermanently(courseId, id)
     setMemberPendingDeletion(null)
   }
 

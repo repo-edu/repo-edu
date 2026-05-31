@@ -70,10 +70,8 @@ export function ImportGitUsernamesDialog() {
         appSettings,
         file: fileRef,
       })
-      controller.applyRosterImport({
-        courseId: course.id,
-        roster: importedRoster,
-        description: "Import git usernames",
+      controller.mutateCourse(course.id, (actions) => {
+        actions.setRoster(importedRoster, "Import git usernames")
       })
       handleClose()
     } catch (cause) {
