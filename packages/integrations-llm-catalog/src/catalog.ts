@@ -48,7 +48,7 @@ const TIERS: Tier[] = [
   {
     provider: "claude",
     family: "opus",
-    modelId: "claude-opus-4-7",
+    modelId: "claude-opus-4-8",
     stem: "3",
     codes: [
       { code: "31", effort: "low" },

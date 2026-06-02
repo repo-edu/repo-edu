@@ -13,7 +13,7 @@ import { PRICING } from "../index.js"
 const EXPECTED = {
   "claude-haiku-4-5": { input: 1, cachedInput: 0.1, output: 5 },
   "claude-sonnet-4-6": { input: 3, cachedInput: 0.3, output: 15 },
-  "claude-opus-4-7": { input: 15, cachedInput: 1.5, output: 75 },
+  "claude-opus-4-8": { input: 5, cachedInput: 0.5, output: 25 },
   "gpt-5.4-mini": { input: 0.5, cachedInput: 0.05, output: 3 },
   "gpt-5.4": { input: 3, cachedInput: 0.3, output: 18 },
   "gpt-5.5": { input: 5, cachedInput: 0.5, output: 30 },

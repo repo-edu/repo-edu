@@ -192,7 +192,7 @@ describe("examination workflow — LLM settings resolution", () => {
       }),
     )
 
-    assert.equal(requests[0]?.spec.modelId, "claude-opus-4-7")
+    assert.equal(requests[0]?.spec.modelId, "claude-opus-4-8")
     assert.equal(requests[0]?.spec.effort, "high")
     assert.equal(result.archivedProvenance.model, "33")
   })
