@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Amsterdam",
+  "schedule": ["* 0-4 1 */2 *"],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "automerge": true,
+  "automergeType": "branch",
+  "automergeStrategy": "fast-forward",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-4 2 */2 *"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  },
+  "packageRules": [
+    {
+      "description": "Batch the long tail of non-major updates into one bi-monthly fast-forward",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "non-major dependencies"
+    },
+    {
+      "description": "Fast-moving, peer-coupled AI SDKs: monthly (1st), grouped so they move in lockstep",
+      "matchPackageNames": ["@anthropic-ai/**", "@modelcontextprotocol/sdk"],
+      "groupName": "ai sdks",
+      "schedule": ["* 0-4 1 * *"]
+    },
+    {
+      "description": "Major bumps: wait 30 days for the release to mature so others hit the early bugs, then take the same automatic fast-forward",
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "30 days"
+    }
+  ]
+}

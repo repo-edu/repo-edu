@@ -119,6 +119,33 @@ Core flow:
   cannot compute itself (e.g. a revision counter), never the full persisted
   document.
 
+## Dependency Currency
+
+Keep the installed tree current. An obsolete package is a concern whether it
+arrived as a direct or a transitive dependency; the unit of concern is the
+resolved version lagging its latest published release, not how it got there.
+
+Renovate is the standing mechanism (`renovate.json`): it groups and schedules
+updates (AI SDKs on a tighter cadence than the long tail), holds each new
+release for a maturity window before adopting it so others hit the early bugs
+first, raises security fixes immediately, and runs lock-file maintenance to
+re-resolve transitives forward within range. Green updates fast-forward onto
+`main` once CI passes on a `renovate/**` branch; a PR surfaces only when CI
+fails. So an upstream release produces a gated branch, never a direct build
+failure on `main`.
+
+For local or out-of-band catch-up run `pnpm deps:latest`
+(`pnpm up -r --latest && pnpm dedupe`): it moves direct deps to latest and
+re-resolves transitives forward. Never pin a transitive past what its parent
+allows. When a current direct dep still constrains a sub-package to an old
+version, that is the upstream maintainer's lag — accept it, do not add a
+`pnpm.overrides` entry forcing a version the parent was not tested against.
+
+When adding, promoting or replacing a dependency, check the current published
+version first with `pnpm view <pkg> version` and adopt current unless a
+concrete repo constraint argues otherwise; record any deliberate pin in the
+plan or commit body.
+
 ## Implementation Review Findings
 
 When asked to review implementation code, prefix every finding title with an
