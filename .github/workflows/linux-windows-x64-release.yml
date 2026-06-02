@@ -24,6 +24,7 @@ jobs:
   secrets-preflight:
     name: secrets-preflight
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - name: Validate required secrets
         env:
@@ -48,7 +49,6 @@ jobs:
   # ---------------------------------------------------------------------------
   desktop-package-linux:
     name: desktop-package (Linux)
-    needs: secrets-preflight
     runs-on: ubuntu-latest
     env:
       TAG: ${{ inputs.tag }}
@@ -99,6 +99,7 @@ jobs:
     name: desktop-package (Windows)
     needs: secrets-preflight
     runs-on: windows-latest
+    environment: release
     env:
       TAG: ${{ inputs.tag }}
     steps:
@@ -140,7 +141,6 @@ jobs:
   # ---------------------------------------------------------------------------
   cli-build-linux:
     name: cli-build (linux-x64)
-    needs: secrets-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -186,7 +186,6 @@ jobs:
 
   cli-build-windows:
     name: cli-build (windows-x64)
-    needs: secrets-preflight
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
