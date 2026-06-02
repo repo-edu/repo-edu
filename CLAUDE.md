@@ -3,6 +3,13 @@
 This file provides guidance to AI coding assistants when working in this
 repository.
 
+## Planning
+
+Plans and design documents live in the sibling `../plan` repository, never in
+this repo. When asked to write, draft or iterate on a plan, first read
+`../plan/CLAUDE.md` and follow its workflow, file layout, naming, structure and
+commit conventions. Keep this repo free of plan files so releases stay clean.
+
 ## Build and Development Commands
 
 Use pnpm scripts only. All validation runs from the workspace root:
