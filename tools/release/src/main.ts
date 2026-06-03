@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { execFileSync, execSync } from "node:child_process"
-import { readFileSync, writeFileSync } from "node:fs"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
@@ -79,9 +79,9 @@ function currentReleasePlatform():
   )
 }
 
-function desktopArtifactTargets(
-  platform: ReturnType<typeof currentReleasePlatform>,
-): string {
+type ReleasePreflightPlatform = ReturnType<typeof currentReleasePlatform>
+
+function desktopArtifactTargets(platform: ReleasePreflightPlatform): string {
   if (platform === "darwin-arm64") {
     return "dmg,zip"
   }
@@ -89,6 +89,70 @@ function desktopArtifactTargets(
     return "AppImage,deb"
   }
   return "nsis"
+}
+
+function cliPreflightOutputName(platform: ReleasePreflightPlatform): string {
+  const name = `repo-edu-${platform}-cli-preflight`
+  return platform.startsWith("windows") ? `${name}.exe` : name
+}
+
+function cliCompileTargetArgs(
+  platform: ReleasePreflightPlatform,
+): readonly string[] {
+  return platform === "darwin-arm64" ? ["--target=bun-darwin-arm64"] : []
+}
+
+function removeFileIfExists(path: string): void {
+  rmSync(path, { force: true })
+}
+
+function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
+  const outputPath = join(tmpdir(), cliPreflightOutputName(platform))
+  const metafilePath = join(
+    tmpdir(),
+    `repo-edu-${platform}-cli-preflight.metafile.json`,
+  )
+  const manifestPath = join(
+    tmpdir(),
+    `${cliPreflightOutputName(platform)}.third-party-notices.txt`,
+  )
+
+  try {
+    removeFileIfExists(outputPath)
+    removeFileIfExists(metafilePath)
+    removeFileIfExists(manifestPath)
+
+    runFile("pnpm", [
+      "exec",
+      "bun",
+      "build",
+      "--compile",
+      `--metafile=${metafilePath}`,
+      ...cliCompileTargetArgs(platform),
+      "apps/cli/src/main.ts",
+      "--outfile",
+      outputPath,
+    ])
+    runFile("pnpm", [
+      "--filter",
+      "@repo-edu/release",
+      "license-gate",
+      "--app",
+      "cli",
+      "--platform",
+      platform,
+      "--artifact-targets",
+      "binary",
+      "--bun-metafile",
+      metafilePath,
+      "--manifest-out",
+      manifestPath,
+    ])
+  } finally {
+    removeFileIfExists(outputPath)
+    removeFileIfExists(metafilePath)
+    removeFileIfExists(manifestPath)
+  }
 }
 
 function printHelp(): void {
@@ -164,6 +228,7 @@ runFile("pnpm", [
   "--desktop-bundle-manifest",
   resolve(root, "apps/desktop/out/license-gate-bundle-inputs.json"),
 ])
+runCliLicensePreflight(preflightPlatform)
 
 console.log(`\nBumping ${currentVersion} → ${version}\n`)
 

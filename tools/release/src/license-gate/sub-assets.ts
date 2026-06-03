@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { open, readdir, readFile, stat } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
@@ -143,6 +144,129 @@ type ExecutableAsset = {
   readonly reason: "binary-magic" | "dotslash" | "executable-mode"
 }
 
+type PinnedPackageFile = {
+  readonly relativePath: string
+  readonly sha256: string
+}
+
+const anthropicSdkReviewedVersion = "0.100.1"
+const anthropicQsLicenseFile = {
+  relativePath: "src/internal/qs/LICENSE.md",
+  sha256: "d8c77eaffed7f1f874b97f66ee47a557ae24fd59bae8ae14f9b1b84f26a94d2f",
+} as const satisfies PinnedPackageFile
+const anthropicPartialJsonReadmeFile = {
+  relativePath: "src/_vendor/partial-json-parser/README.md",
+  sha256: "8ebd95825cacc552b5e29c14451b3ca90bc44da9f43b63b968e6b4cc6535e351",
+} as const satisfies PinnedPackageFile
+const anthropicPartialJsonParserFile = {
+  relativePath: "_vendor/partial-json-parser/parser.mjs",
+  sha256: "8b4f6dc5bf130753c72666ee11ef886ab743f7e31ffc90d3cb2a5a1d4fab5fee",
+} as const satisfies PinnedPackageFile
+const anthropicSdkVendoredFiles = [
+  {
+    relativePath: "_vendor/partial-json-parser/parser.d.mts",
+    sha256: "5aff4efd8609f8fa64fcd4a128cfff5a6d7536771db58ff12b92c4eb9940e657",
+  },
+  {
+    relativePath: "_vendor/partial-json-parser/parser.d.mts.map",
+    sha256: "89de9e4fc7eab7e726366bd5cde24fc44d1a0e0cceca7b60d7bdded1d30c5d17",
+  },
+  {
+    relativePath: "_vendor/partial-json-parser/parser.d.ts",
+    sha256: "a7b31ba8cc670641a847647d432569eb64810605283f3c891968d157319e7f7e",
+  },
+  {
+    relativePath: "_vendor/partial-json-parser/parser.d.ts.map",
+    sha256: "2a1e0201b24288d45af5eeddc2ebf1c34c49829f68363c27a1622989f7812291",
+  },
+  {
+    relativePath: "_vendor/partial-json-parser/parser.js",
+    sha256: "7a0b857f57a5d516b124a6d456e4bf466786a3895773a956fd6a61d42795c59d",
+  },
+  {
+    relativePath: "_vendor/partial-json-parser/parser.js.map",
+    sha256: "8ee77c9ff49ad1805b542e1d79f40fa6c402367e8e79b4325879dc8d0b625560",
+  },
+  anthropicPartialJsonParserFile,
+  {
+    relativePath: "_vendor/partial-json-parser/parser.mjs.map",
+    sha256: "ccf4c9ce004e905143b0ce17151f9c142709f3d93a661f8ce8cd5ad63545fda2",
+  },
+  anthropicPartialJsonReadmeFile,
+  {
+    relativePath: "src/_vendor/partial-json-parser/parser.ts",
+    sha256: "d22c8f4ab90af9803d24f4e5b3ef42c59138c3c78a9cf9415c31232dc1a3a109",
+  },
+] as const satisfies readonly PinnedPackageFile[]
+
+const trpcServerReviewedVersion = "11.15.0"
+const trpcServerUnpromiseLicenseFile = {
+  relativePath: "src/vendor/unpromise/LICENSE",
+  sha256: "9a16336c25c977661af8e838adfc67de610e17da175f9636226147bb107ae1d6",
+} as const satisfies PinnedPackageFile
+const trpcServerUnpromiseAttributionFile = {
+  relativePath: "src/vendor/unpromise/ATTRIBUTION.txt",
+  sha256: "20e592a7cec8e7c0ff277876080e5191a6006e12af247cefafc6a84d9138340d",
+} as const satisfies PinnedPackageFile
+const trpcServerVendoredFiles = [
+  {
+    relativePath: "src/vendor/cookie-es/set-cookie/split.ts",
+    sha256: "fe57eeee97c3398becd4d0c233b4dc67dec84757a3ceb3720726c150ae594958",
+  },
+  {
+    relativePath: "src/vendor/is-plain-object.ts",
+    sha256: "60e9a4f45dd8ec55efec1542e02fbbd77a3b8ead7078a93d25cceda4979fa404",
+  },
+  {
+    relativePath: "src/vendor/standard-schema-v1/error.ts",
+    sha256: "801f1cf56185f9777263c613592081cf3e24778101d4dd25e35727c809e12065",
+  },
+  {
+    relativePath: "src/vendor/standard-schema-v1/spec.ts",
+    sha256: "6ab77c64f82b11c4b4cbefa507aa9d3e612b8b5527232203c0ffe371c52209ee",
+  },
+  trpcServerUnpromiseAttributionFile,
+  {
+    relativePath: "src/vendor/unpromise/index.ts",
+    sha256: "3b79161e53149381f2e5d9d50f4fce44cd1690480730bca476748d0f07d3cdd7",
+  },
+  trpcServerUnpromiseLicenseFile,
+  {
+    relativePath: "src/vendor/unpromise/types.ts",
+    sha256: "98df210420d7cdcf449f2f886e50f7ff9c1f2a7d941714100361fdd893a79a99",
+  },
+  {
+    relativePath: "src/vendor/unpromise/unpromise.ts",
+    sha256: "8fe2dc85379c8115bf3a285206fb25de54c9ced423b08c9013fe924be07203d3",
+  },
+] as const satisfies readonly PinnedPackageFile[]
+
+const trpcElectronReviewedVersion = "0.1.2"
+const trpcElectronUnpromiseLicenseFile = {
+  relativePath: "src/vendor/unpromise/LICENSE",
+  sha256: "9a16336c25c977661af8e838adfc67de610e17da175f9636226147bb107ae1d6",
+} as const satisfies PinnedPackageFile
+const trpcElectronUnpromiseAttributionFile = {
+  relativePath: "src/vendor/unpromise/ATTRIBUTION.txt",
+  sha256: "20e592a7cec8e7c0ff277876080e5191a6006e12af247cefafc6a84d9138340d",
+} as const satisfies PinnedPackageFile
+const trpcElectronVendoredFiles = [
+  trpcElectronUnpromiseAttributionFile,
+  {
+    relativePath: "src/vendor/unpromise/index.ts",
+    sha256: "3b79161e53149381f2e5d9d50f4fce44cd1690480730bca476748d0f07d3cdd7",
+  },
+  trpcElectronUnpromiseLicenseFile,
+  {
+    relativePath: "src/vendor/unpromise/types.ts",
+    sha256: "98df210420d7cdcf449f2f886e50f7ff9c1f2a7d941714100361fdd893a79a99",
+  },
+  {
+    relativePath: "src/vendor/unpromise/unpromise.ts",
+    sha256: "8fe2dc85379c8115bf3a285206fb25de54c9ced423b08c9013fe924be07203d3",
+  },
+] as const satisfies readonly PinnedPackageFile[]
+
 export async function applyPackageInternalAssetRules(options: {
   readonly packageSubjects: readonly PackageNoticeSubject[]
   readonly directSubjects: DirectNoticeSubject[]
@@ -262,6 +386,80 @@ function applyBunRuntimePackageRule(
   )
 }
 
+function assertPinnedPackageVersion(
+  subject: PackageNoticeSubject,
+  reviewedVersion: string,
+): void {
+  if (subject.version !== reviewedVersion) {
+    throw new Error(
+      `Package ${subject.packageName} version ${subject.version} differs from reviewed version ${reviewedVersion} for explicit vendored notice rule.`,
+    )
+  }
+}
+
+async function readPinnedPackageTextFiles(
+  subject: PackageNoticeSubject,
+  files: readonly PinnedPackageFile[],
+): Promise<string[]> {
+  const texts: string[] = []
+  for (const file of files) {
+    const bytes = await readPinnedPackageFile(subject, file)
+    const text = bytes.toString("utf8")
+    if (text.trim().length === 0) {
+      throw new Error(
+        `Required pinned package notice file is empty: ${subject.packageName} ${file.relativePath}`,
+      )
+    }
+    texts.push(text)
+  }
+  return texts
+}
+
+async function assertPinnedPackageFiles(
+  subject: PackageNoticeSubject,
+  files: readonly PinnedPackageFile[],
+): Promise<void> {
+  for (const file of files) {
+    await readPinnedPackageFile(subject, file)
+  }
+}
+
+async function readPinnedPackageFile(
+  subject: PackageNoticeSubject,
+  file: PinnedPackageFile,
+): Promise<Buffer> {
+  const path = join(subject.packagePath, file.relativePath)
+  const bytes = await readFile(path).catch((error: unknown) => {
+    if (isMissingFileError(error)) {
+      throw new Error(
+        `Required pinned package file is missing: ${subject.packageName} ${file.relativePath}`,
+      )
+    }
+    throw error
+  })
+  if (bytes.length === 0) {
+    throw new Error(
+      `Required pinned package file is empty: ${subject.packageName} ${file.relativePath}`,
+    )
+  }
+
+  const actualSha256 = createHash("sha256").update(bytes).digest("hex")
+  if (actualSha256 !== file.sha256) {
+    throw new Error(
+      `Package ${subject.packageName} pinned file ${file.relativePath} has sha256 ${actualSha256}; expected ${file.sha256}.`,
+    )
+  }
+  return bytes
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === "ENOENT"
+  )
+}
+
 async function applyNestedNoticeRules(
   subject: PackageNoticeSubject,
   packageExtraText: Map<string, string[]>,
@@ -270,43 +468,51 @@ async function applyNestedNoticeRules(
   const coveredVendoredSurfaces = new Set<string>()
 
   if (subject.packageName === "@anthropic-ai/sdk") {
-    const notices = await readRequiredTextFiles([
-      join(subject.packagePath, "src/internal/qs/LICENSE.md"),
-      join(subject.packagePath, "src/_vendor/partial-json-parser/README.md"),
+    assertPinnedPackageVersion(subject, anthropicSdkReviewedVersion)
+    const notices = await readPinnedPackageTextFiles(subject, [
+      anthropicQsLicenseFile,
+      anthropicPartialJsonReadmeFile,
     ])
+    await assertPinnedPackageFiles(subject, anthropicSdkVendoredFiles)
     appendPackageExtraText(subject, packageExtraText, [
       ...notices,
       partialJsonParserLicenseText,
     ])
-    coverVendoredSurfaces(coveredVendoredSurfaces, [
-      "_vendor/partial-json-parser",
-      "src/_vendor/partial-json-parser",
+    coverVendoredSurfaces(coveredVendoredSurfaces, vendoredSurfaces, [
+      ...anthropicSdkVendoredFiles.map((file) => file.relativePath),
     ])
     return coveredVendoredSurfaces
   }
 
   if (subject.packageName === "victory-vendor") {
-    const victoryVendoredSurfaces = vendoredSurfaces.filter((surface) =>
-      surface.startsWith("lib-vendor/"),
-    )
+    const victoryVendoredRoots = [
+      ...new Set(
+        vendoredSurfaces
+          .filter((surface) => surface.startsWith("lib-vendor/"))
+          .map((surface) => surface.split("/").slice(0, 2).join("/")),
+      ),
+    ]
     const notices = await readRequiredTextFiles(
-      victoryVendoredSurfaces.map((surface) =>
+      victoryVendoredRoots.map((surface) =>
         join(subject.packagePath, surface, "LICENSE"),
       ),
     )
     appendPackageExtraText(subject, packageExtraText, notices)
-    coverVendoredSurfaces(coveredVendoredSurfaces, victoryVendoredSurfaces)
+    coverVendoredSurfaces(
+      coveredVendoredSurfaces,
+      vendoredSurfaces,
+      victoryVendoredRoots,
+    )
     return coveredVendoredSurfaces
   }
 
   if (subject.packageName === "@trpc/server") {
-    const notices = await readRequiredTextFiles([
-      join(subject.packagePath, "src/vendor/unpromise/LICENSE"),
-      join(subject.packagePath, "src/vendor/unpromise/ATTRIBUTION.txt"),
-      join(subject.packagePath, "src/vendor/cookie-es/set-cookie/split.ts"),
-      join(subject.packagePath, "src/vendor/is-plain-object.ts"),
-      join(subject.packagePath, "src/vendor/standard-schema-v1/spec.ts"),
+    assertPinnedPackageVersion(subject, trpcServerReviewedVersion)
+    const notices = await readPinnedPackageTextFiles(subject, [
+      trpcServerUnpromiseLicenseFile,
+      trpcServerUnpromiseAttributionFile,
     ])
+    await assertPinnedPackageFiles(subject, trpcServerVendoredFiles)
     appendPackageExtraText(subject, packageExtraText, [
       notices[0] ?? "",
       notices[1] ?? "",
@@ -314,23 +520,27 @@ async function applyNestedNoticeRules(
       trpcIsPlainObjectLicenseText,
       trpcStandardSchemaLicenseText,
     ])
-    coverVendoredSurfaces(coveredVendoredSurfaces, [
-      "src/vendor/cookie-es",
-      "src/vendor/is-plain-object.ts",
-      "src/vendor/standard-schema-v1",
-      "src/vendor/unpromise",
-    ])
+    coverVendoredSurfaces(
+      coveredVendoredSurfaces,
+      vendoredSurfaces,
+      trpcServerVendoredFiles.map((file) => file.relativePath),
+    )
     return coveredVendoredSurfaces
   }
 
   if (subject.packageName === "trpc-electron") {
-    const vendorDirectory = join(subject.packagePath, "src/vendor/unpromise")
-    const notices = await readRequiredTextFiles([
-      join(vendorDirectory, "LICENSE"),
-      join(vendorDirectory, "ATTRIBUTION.txt"),
+    assertPinnedPackageVersion(subject, trpcElectronReviewedVersion)
+    const notices = await readPinnedPackageTextFiles(subject, [
+      trpcElectronUnpromiseLicenseFile,
+      trpcElectronUnpromiseAttributionFile,
     ])
+    await assertPinnedPackageFiles(subject, trpcElectronVendoredFiles)
     appendPackageExtraText(subject, packageExtraText, notices)
-    coverVendoredSurfaces(coveredVendoredSurfaces, ["src/vendor/unpromise"])
+    coverVendoredSurfaces(
+      coveredVendoredSurfaces,
+      vendoredSurfaces,
+      trpcElectronVendoredFiles.map((file) => file.relativePath),
+    )
     return coveredVendoredSurfaces
   }
 
@@ -565,15 +775,33 @@ async function detectVendoredSurfaces(packagePath: string): Promise<string[]> {
     directory: string,
     relativeDirectory: string,
   ): Promise<void> {
-    let foundNestedSurface = false
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".git") {
-        continue
+    let foundFileSurface = false
+
+    async function walkVendoredDirectory(
+      currentDirectory: string,
+    ): Promise<void> {
+      for (const entry of await readdir(currentDirectory, {
+        withFileTypes: true,
+      })) {
+        if (entry.name === "node_modules" || entry.name === ".git") {
+          continue
+        }
+
+        const absolutePath = join(currentDirectory, entry.name)
+        const relativePath = normalizePath(relative(packagePath, absolutePath))
+        if (entry.isDirectory()) {
+          await walkVendoredDirectory(absolutePath)
+          continue
+        }
+        if (entry.isFile()) {
+          foundFileSurface = true
+          surfaces.add(relativePath)
+        }
       }
-      foundNestedSurface = true
-      surfaces.add(normalizePath(join(relativeDirectory, entry.name)))
     }
-    if (!foundNestedSurface) {
+
+    await walkVendoredDirectory(directory)
+    if (!foundFileSurface) {
       surfaces.add(relativeDirectory)
     }
   }
@@ -607,10 +835,17 @@ function assertVendoredSurfacesCovered(
 
 function coverVendoredSurfaces(
   coveredVendoredSurfaces: Set<string>,
-  surfaces: readonly string[],
+  vendoredSurfaces: readonly string[],
+  coverageRoots: readonly string[],
 ): void {
-  for (const surface of surfaces) {
-    coveredVendoredSurfaces.add(surface)
+  for (const surface of vendoredSurfaces) {
+    if (
+      coverageRoots.some(
+        (root) => surface === root || surface.startsWith(`${root}/`),
+      )
+    ) {
+      coveredVendoredSurfaces.add(surface)
+    }
   }
 }
 
@@ -619,14 +854,7 @@ function coverVendoredSurfacesForPaths(
   vendoredSurfaces: readonly string[],
   paths: readonly string[],
 ): void {
-  for (const path of paths) {
-    const surface = vendoredSurfaces.find(
-      (candidate) => path === candidate || path.startsWith(`${candidate}/`),
-    )
-    if (surface) {
-      coveredVendoredSurfaces.add(surface)
-    }
-  }
+  coverVendoredSurfaces(coveredVendoredSurfaces, vendoredSurfaces, paths)
 }
 
 function appendPackageExtraText(

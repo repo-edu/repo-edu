@@ -1,5 +1,13 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
@@ -76,6 +84,51 @@ async function writePackage(
   )
   await writeFile(join(packagePath, "index.js"), "export {}\n", "utf8")
   return packagePath
+}
+
+function packageSubject(
+  packageName: string,
+  version: string,
+  packagePath: string,
+) {
+  return {
+    reachedName: packageName,
+    packageName,
+    version,
+    packagePath,
+    firstParty: false,
+    kind: "package" as const,
+    path: [packageName],
+    source: "test",
+  }
+}
+
+async function findInstalledPnpmPackage(
+  packageName: string,
+  version: string,
+): Promise<string> {
+  const storePath = join(repoRoot, "node_modules/.pnpm")
+  const storePackageName = packageName.replace("/", "+")
+  const packageDirectory = (await readdir(storePath)).find((entry) =>
+    entry.startsWith(`${storePackageName}@${version}`),
+  )
+  assert.ok(
+    packageDirectory,
+    `Expected ${packageName}@${version} in ${storePath}`,
+  )
+  return join(storePath, packageDirectory, "node_modules", packageName)
+}
+
+async function copyPackageFiles(
+  sourceRoot: string,
+  targetRoot: string,
+  relativePaths: readonly string[],
+): Promise<void> {
+  for (const relativePath of relativePaths) {
+    const targetPath = join(targetRoot, relativePath)
+    await mkdir(dirname(targetPath), { recursive: true })
+    await copyFile(join(sourceRoot, relativePath), targetPath)
+  }
 }
 
 describe("license policy", () => {
@@ -637,65 +690,29 @@ describe("required notice files", () => {
 
 describe("package internal asset rules", () => {
   it("adds explicit Anthropic SDK vendored notices and fails unknown _vendor surfaces", async () => {
+    const anthropicPath = await findInstalledPnpmPackage(
+      "@anthropic-ai/sdk",
+      "0.100.1",
+    )
+    const packageExtraText = new Map<string, string[]>()
+    await applyPackageInternalAssetRules({
+      directSubjects: [],
+      packageExtraText,
+      packageSubjects: [
+        packageSubject("@anthropic-ai/sdk", "0.100.1", anthropicPath),
+      ],
+      platform: "linux-x64",
+    })
+
+    const anthropicNoticeText =
+      packageExtraText
+        .get(packageKey("@anthropic-ai/sdk", "0.100.1", anthropicPath))
+        ?.join("\n") ?? ""
+    assert.match(anthropicNoticeText, /partial-json-parser vendored/)
+    assert.match(anthropicNoticeText, /MIT License/)
+
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
-      const anthropicPath = await writePackage(
-        root,
-        "node_modules/@anthropic-ai/sdk",
-        {
-          name: "@anthropic-ai/sdk",
-          version: "0.100.1",
-        },
-      )
-      await mkdir(join(anthropicPath, "src/internal/qs"), { recursive: true })
-      await mkdir(join(anthropicPath, "src/_vendor/partial-json-parser"), {
-        recursive: true,
-      })
-      await mkdir(join(anthropicPath, "_vendor/partial-json-parser"), {
-        recursive: true,
-      })
-      await writeFile(
-        join(anthropicPath, "src/internal/qs/LICENSE.md"),
-        "neoqs license text\n",
-        "utf8",
-      )
-      await writeFile(
-        join(anthropicPath, "src/_vendor/partial-json-parser/README.md"),
-        "Vendored from https://www.npmjs.com/package/partial-json-parser\n",
-        "utf8",
-      )
-      await writeFile(
-        join(anthropicPath, "_vendor/partial-json-parser/parser.mjs"),
-        "export {}\n",
-        "utf8",
-      )
-
-      const packageExtraText = new Map<string, string[]>()
-      await applyPackageInternalAssetRules({
-        directSubjects: [],
-        packageExtraText,
-        packageSubjects: [
-          {
-            reachedName: "@anthropic-ai/sdk",
-            packageName: "@anthropic-ai/sdk",
-            version: "0.100.1",
-            packagePath: anthropicPath,
-            firstParty: false,
-            kind: "package",
-            path: ["@anthropic-ai/sdk"],
-            source: "test",
-          },
-        ],
-        platform: "linux-x64",
-      })
-
-      const anthropicNoticeText =
-        packageExtraText
-          .get(packageKey("@anthropic-ai/sdk", "0.100.1", anthropicPath))
-          ?.join("\n") ?? ""
-      assert.match(anthropicNoticeText, /neoqs license text/)
-      assert.match(anthropicNoticeText, /partial-json-parser vendored/)
-
       const unknownPath = await writePackage(root, "node_modules/unknown", {
         name: "unknown",
         version: "1.0.0",
@@ -708,18 +725,7 @@ describe("package internal asset rules", () => {
           applyPackageInternalAssetRules({
             directSubjects: [],
             packageExtraText: new Map(),
-            packageSubjects: [
-              {
-                reachedName: "unknown",
-                packageName: "unknown",
-                version: "1.0.0",
-                packagePath: unknownPath,
-                firstParty: false,
-                kind: "package",
-                path: ["unknown"],
-                source: "test",
-              },
-            ],
+            packageSubjects: [packageSubject("unknown", "1.0.0", unknownPath)],
             platform: "linux-x64",
           }),
         /vendored sub-assets/,
@@ -729,79 +735,87 @@ describe("package internal asset rules", () => {
     }
   })
 
-  it("requires every tRPC vendored surface to have explicit notice coverage", async () => {
+  it("fails explicit Anthropic SDK rules when reviewed file hashes drift", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
-      const trpcPath = await writePackage(root, "node_modules/@trpc/server", {
-        name: "@trpc/server",
-        version: "11.15.0",
-      })
-      await mkdir(join(trpcPath, "src/vendor/cookie-es/set-cookie"), {
-        recursive: true,
-      })
-      await mkdir(join(trpcPath, "src/vendor/standard-schema-v1"), {
-        recursive: true,
-      })
-      await mkdir(join(trpcPath, "src/vendor/unpromise"), { recursive: true })
-      await writeFile(
-        join(trpcPath, "src/vendor/cookie-es/set-cookie/split.ts"),
-        "export {}\n",
-        "utf8",
+      const anthropicPath = await writePackage(
+        root,
+        "node_modules/@anthropic-ai/sdk",
+        {
+          name: "@anthropic-ai/sdk",
+          version: "0.100.1",
+        },
       )
+      await mkdir(join(anthropicPath, "src/internal/qs"), { recursive: true })
       await writeFile(
-        join(trpcPath, "src/vendor/is-plain-object.ts"),
-        "export {}\n",
-        "utf8",
-      )
-      await writeFile(
-        join(trpcPath, "src/vendor/standard-schema-v1/spec.ts"),
-        "export {}\n",
-        "utf8",
-      )
-      await writeFile(
-        join(trpcPath, "src/vendor/unpromise/ATTRIBUTION.txt"),
-        "unpromise attribution\n",
-        "utf8",
-      )
-      await writeFile(
-        join(trpcPath, "src/vendor/unpromise/LICENSE"),
-        "unpromise license\n",
+        join(anthropicPath, "src/internal/qs/LICENSE.md"),
+        "changed license text\n",
         "utf8",
       )
 
-      const packageExtraText = new Map<string, string[]>()
-      await applyPackageInternalAssetRules({
-        directSubjects: [],
-        packageExtraText,
-        packageSubjects: [
-          {
-            reachedName: "@trpc/server",
-            packageName: "@trpc/server",
-            version: "11.15.0",
-            packagePath: trpcPath,
-            firstParty: false,
-            kind: "package",
-            path: ["@trpc/server"],
-            source: "test",
-          },
-        ],
-        platform: "linux-x64",
-      })
+      await assert.rejects(
+        () =>
+          applyPackageInternalAssetRules({
+            directSubjects: [],
+            packageExtraText: new Map(),
+            packageSubjects: [
+              packageSubject("@anthropic-ai/sdk", "0.100.1", anthropicPath),
+            ],
+            platform: "linux-x64",
+          }),
+        /sha256/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
 
-      const trpcNoticeText =
-        packageExtraText
-          .get(packageKey("@trpc/server", "11.15.0", trpcPath))
-          ?.join("\n") ?? ""
-      assert.match(trpcNoticeText, /unpromise license/)
-      assert.match(trpcNoticeText, /cookie-es vendored by @trpc\/server/)
-      assert.match(trpcNoticeText, /is-plain-object vendored by @trpc\/server/)
-      assert.match(trpcNoticeText, /standard-schema vendored by @trpc\/server/)
+  it("requires every tRPC vendored surface to have explicit notice coverage", async () => {
+    const trpcPath = await findInstalledPnpmPackage("@trpc/server", "11.15.0")
+    const packageExtraText = new Map<string, string[]>()
+    await applyPackageInternalAssetRules({
+      directSubjects: [],
+      packageExtraText,
+      packageSubjects: [packageSubject("@trpc/server", "11.15.0", trpcPath)],
+      platform: "linux-x64",
+    })
 
-      await mkdir(join(trpcPath, "src/vendor/new-vendor"), {
+    const trpcNoticeText =
+      packageExtraText
+        .get(packageKey("@trpc/server", "11.15.0", trpcPath))
+        ?.join("\n") ?? ""
+    assert.match(trpcNoticeText, /unpromise/)
+    assert.match(trpcNoticeText, /cookie-es vendored by @trpc\/server/)
+    assert.match(trpcNoticeText, /is-plain-object vendored by @trpc\/server/)
+    assert.match(trpcNoticeText, /standard-schema vendored by @trpc\/server/)
+
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const copiedTrpcPath = await writePackage(
+        root,
+        "node_modules/@trpc/server",
+        {
+          name: "@trpc/server",
+          version: "11.15.0",
+        },
+      )
+      await copyPackageFiles(trpcPath, copiedTrpcPath, [
+        "src/vendor/cookie-es/set-cookie/split.ts",
+        "src/vendor/is-plain-object.ts",
+        "src/vendor/standard-schema-v1/error.ts",
+        "src/vendor/standard-schema-v1/spec.ts",
+        "src/vendor/unpromise/ATTRIBUTION.txt",
+        "src/vendor/unpromise/index.ts",
+        "src/vendor/unpromise/LICENSE",
+        "src/vendor/unpromise/types.ts",
+        "src/vendor/unpromise/unpromise.ts",
+      ])
+
+      await mkdir(join(copiedTrpcPath, "src/vendor/new-vendor"), {
         recursive: true,
       })
       await writeFile(
-        join(trpcPath, "src/vendor/new-vendor/index.ts"),
+        join(copiedTrpcPath, "src/vendor/new-vendor/index.ts"),
         "export {}\n",
         "utf8",
       )
@@ -812,20 +826,51 @@ describe("package internal asset rules", () => {
             directSubjects: [],
             packageExtraText: new Map(),
             packageSubjects: [
-              {
-                reachedName: "@trpc/server",
-                packageName: "@trpc/server",
-                version: "11.15.0",
-                packagePath: trpcPath,
-                firstParty: false,
-                kind: "package",
-                path: ["@trpc/server"],
-                source: "test",
-              },
+              packageSubject("@trpc/server", "11.15.0", copiedTrpcPath),
             ],
             platform: "linux-x64",
           }),
         /new-vendor/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
+  it("does not let OpenAI Codex platform vendor buckets cover sibling files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const codexPath = await writePackage(root, "node_modules/@openai/codex", {
+        name: "@openai/codex",
+        version: "0.128.0-linux-x64",
+      })
+      await mkdir(join(codexPath, "vendor/linux-x64/codex"), {
+        recursive: true,
+      })
+      await mkdir(join(codexPath, "vendor/linux-x64/data"), {
+        recursive: true,
+      })
+      await writeFile(
+        join(codexPath, "vendor/linux-x64/codex/codex"),
+        Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0]),
+      )
+      await writeFile(
+        join(codexPath, "vendor/linux-x64/data/config.json"),
+        "{}\n",
+        "utf8",
+      )
+
+      await assert.rejects(
+        () =>
+          applyPackageInternalAssetRules({
+            directSubjects: [],
+            packageExtraText: new Map(),
+            packageSubjects: [
+              packageSubject("@openai/codex", "0.128.0-linux-x64", codexPath),
+            ],
+            platform: "linux-x64",
+          }),
+        /vendor\/linux-x64\/data\/config\.json/,
       )
     } finally {
       await rm(root, { force: true, recursive: true })
@@ -946,6 +991,20 @@ describe("manifest helpers", () => {
 })
 
 describe("release workflow wiring", () => {
+  it("local release preflight compiles and gates the CLI metafile", async () => {
+    const releaseScript = await readFile(
+      join(repoRoot, "tools/release/src/main.ts"),
+      "utf8",
+    )
+
+    assert.match(releaseScript, /"bun"[\s\S]*"build"[\s\S]*"--compile"/)
+    assert.match(releaseScript, /`--metafile=\$\{metafilePath\}`/)
+    assert.match(
+      releaseScript,
+      /"license-gate"[\s\S]*"--app"[\s\S]*"cli"[\s\S]*"--bun-metafile"[\s\S]*metafilePath/,
+    )
+  })
+
   const workflowExpectations = [
     {
       file: ".github/workflows/macos-arm64-release.yml",
