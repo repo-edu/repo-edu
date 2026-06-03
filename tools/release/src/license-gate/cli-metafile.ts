@@ -24,6 +24,7 @@ type DesktopBundleInputManifest = {
   readonly targets?: Record<
     string,
     {
+      readonly externalImports?: readonly unknown[]
       readonly inputs?: readonly unknown[]
     }
   >
@@ -142,6 +143,7 @@ export function assertDesktopBundleInputsCovered(
     ]
   ).map((directory) => normalizePath(directory))
   const fileInputs = collectDesktopBundleManifestFileInputs(manifest, repoRoot)
+  const externalImports = collectDesktopBundleManifestExternalImports(manifest)
 
   if (fileInputs.size === 0) {
     throw new Error("Desktop bundle manifest contains no file inputs.")
@@ -180,6 +182,23 @@ export function assertDesktopBundleInputsCovered(
   if (uncoveredInputs.length > 0) {
     throw new Error(
       `Desktop bundle manifest contains package inputs outside the release closure: ${uncoveredInputs.join(", ")}`,
+    )
+  }
+
+  const uncoveredExternalImports = [...externalImports].filter((specifier) => {
+    const packageName = packageNameFromSpecifier(specifier)
+    if (isExplicitlyOwnedDesktopExternal(packageName)) {
+      return false
+    }
+    return !allPackages.some(
+      (pkg) =>
+        pkg.packageName === packageName || pkg.reachedName === packageName,
+    )
+  })
+
+  if (uncoveredExternalImports.length > 0) {
+    throw new Error(
+      `Desktop bundle manifest contains external package imports outside the release closure: ${uncoveredExternalImports.join(", ")}`,
     )
   }
 }
@@ -246,6 +265,26 @@ function collectDesktopBundleManifestFileInputs(
   return inputs
 }
 
+function collectDesktopBundleManifestExternalImports(
+  manifest: unknown,
+): Set<string> {
+  const imports = new Set<string>()
+  const typedManifest = manifest as DesktopBundleInputManifest
+
+  for (const target of Object.values(typedManifest.targets ?? {})) {
+    for (const specifier of target.externalImports ?? []) {
+      if (
+        typeof specifier === "string" &&
+        looksLikePackageSpecifier(specifier)
+      ) {
+        imports.add(specifier)
+      }
+    }
+  }
+
+  return imports
+}
+
 function stripViteQuery(path: string): string {
   const queryStart = path.search(/[?#]/)
   return queryStart === -1 ? path : path.slice(0, queryStart)
@@ -292,6 +331,22 @@ function isExplicitlyOwnedMetafileExternal(specifier: string): boolean {
     specifier === "bun" ||
     specifier.startsWith("bun:")
   )
+}
+
+function isExplicitlyOwnedDesktopExternal(packageName: string): boolean {
+  return nodeBuiltins.has(packageName) || packageName === "electron"
+}
+
+function packageNameFromSpecifier(specifier: string): string {
+  const parts = specifier.split("/")
+  if (specifier.startsWith("@")) {
+    const [scope, name] = parts
+    if (!scope || !name) {
+      return specifier
+    }
+    return `${scope}/${name}`
+  }
+  return parts[0] ?? specifier
 }
 
 function isPathInside(path: string, directory: string): boolean {

@@ -64,9 +64,19 @@ const appPackageByApp = {
   cli: "@repo-edu/cli",
 } satisfies Record<LicenseGateApp, string>
 
+const desktopTargetsByPlatform = {
+  "darwin-arm64": ["dmg", "zip"],
+  "linux-arm64": ["AppImage", "deb"],
+  "linux-x64": ["AppImage", "deb"],
+  "windows-arm64": ["nsis"],
+  "windows-x64": ["nsis"],
+} satisfies Record<LicenseGateOptions["platform"], readonly string[]>
+
 export async function runLicenseGate(
   options: LicenseGateOptions,
 ): Promise<void> {
+  validateLicenseGateArtifactTargets(options)
+
   const root = options.root ?? rootDirectory
   const manifestOut = resolveRepoRelativePath(root, options.manifestOut)
   const closure = await enumerateReleaseClosure(options, root)
@@ -119,6 +129,27 @@ export async function runLicenseGate(
 
   await mkdir(dirname(manifestOut), { recursive: true })
   await writeFile(manifestOut, manifest, "utf8")
+}
+
+export function validateLicenseGateArtifactTargets(
+  options: Pick<LicenseGateOptions, "app" | "artifactTargets" | "platform">,
+): void {
+  const expectedTargets =
+    options.app === "cli"
+      ? ["binary"]
+      : desktopTargetsByPlatform[options.platform]
+  const expected = new Set(expectedTargets)
+  const actual = new Set(options.artifactTargets)
+
+  if (
+    actual.size !== options.artifactTargets.length ||
+    actual.size !== expected.size ||
+    ![...actual].every((target) => expected.has(target))
+  ) {
+    throw new Error(
+      `Unsupported artifact targets for ${options.app} on ${options.platform}: ${options.artifactTargets.join(", ")}. Expected: ${expectedTargets.join(", ")}`,
+    )
+  }
 }
 
 async function enumerateReleaseClosure(

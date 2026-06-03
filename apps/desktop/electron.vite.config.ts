@@ -4,7 +4,10 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "electron-vite"
-import { collectBundleInputPaths } from "./src/license-gate-bundle-inputs.js"
+import {
+  type BundleInputTarget,
+  collectBundleInputTarget,
+} from "./src/license-gate-bundle-inputs.js"
 
 type TsConfigPaths = Record<string, string[]>
 
@@ -18,7 +21,7 @@ const desktopBundleInputManifestPath = resolve(
 
 type DesktopBundleInputManifest = {
   readonly version: 1
-  readonly targets: Record<string, { readonly inputs: readonly string[] }>
+  readonly targets: Record<string, BundleInputTarget>
 }
 
 function escapeRegex(value: string): string {
@@ -98,7 +101,7 @@ function readDesktopBundleInputManifest(): DesktopBundleInputManifest {
 
 function writeDesktopBundleInputTarget(
   target: string,
-  inputs: readonly string[],
+  bundleTarget: BundleInputTarget,
 ) {
   const manifest = readDesktopBundleInputManifest()
   mkdirSync(dirname(desktopBundleInputManifestPath), { recursive: true })
@@ -109,7 +112,10 @@ function writeDesktopBundleInputTarget(
         version: 1,
         targets: {
           ...manifest.targets,
-          [target]: { inputs: [...new Set(inputs)].sort() },
+          [target]: {
+            externalImports: [...new Set(bundleTarget.externalImports)].sort(),
+            inputs: [...new Set(bundleTarget.inputs)].sort(),
+          },
         },
       },
       null,
@@ -119,16 +125,16 @@ function writeDesktopBundleInputTarget(
 }
 
 function collectBundleInputsPlugin(target: string) {
-  let inputs: string[] = []
+  let bundleTarget: BundleInputTarget = { externalImports: [], inputs: [] }
 
   return {
     name: `license-gate-bundle-inputs-${target}`,
     apply: "build" as const,
     generateBundle(_options: unknown, bundle: Record<string, unknown>) {
-      inputs = collectBundleInputPaths(bundle)
+      bundleTarget = collectBundleInputTarget(bundle)
     },
     closeBundle() {
-      writeDesktopBundleInputTarget(target, inputs)
+      writeDesktopBundleInputTarget(target, bundleTarget)
     },
   }
 }

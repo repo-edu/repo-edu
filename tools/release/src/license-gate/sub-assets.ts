@@ -32,6 +32,7 @@ const binaryMagicHeaders = [
 ]
 
 const handledVendoredPackages = new Set([
+  "@anthropic-ai/sdk",
   "@openai/codex",
   "@trpc/server",
   "app-builder-bin",
@@ -39,6 +40,32 @@ const handledVendoredPackages = new Set([
   "trpc-electron",
   "victory-vendor",
 ])
+
+const partialJsonParserLicenseText = `partial-json-parser vendored by @anthropic-ai/sdk
+Upstream package: https://www.npmjs.com/package/partial-json-parser
+Upstream version inspected for this notice rule: 1.2.2
+
+MIT License
+
+Copyright (c) 2017 indgov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
 
 type ExecutableAsset = {
   readonly relativePath: string
@@ -155,6 +182,18 @@ async function applyNestedNoticeRules(
   subject: PackageNoticeSubject,
   packageExtraText: Map<string, string[]>,
 ): Promise<void> {
+  if (subject.packageName === "@anthropic-ai/sdk") {
+    const notices = await readRequiredTextFiles([
+      join(subject.packagePath, "src/internal/qs/LICENSE.md"),
+      join(subject.packagePath, "src/_vendor/partial-json-parser/README.md"),
+    ])
+    appendPackageExtraText(subject, packageExtraText, [
+      ...notices,
+      partialJsonParserLicenseText,
+    ])
+    return
+  }
+
   if (subject.packageName === "victory-vendor") {
     const notices = await readGlobbedTextFiles(
       join(subject.packagePath, "lib-vendor"),
@@ -377,11 +416,7 @@ async function detectVendoredSurface(packagePath: string): Promise<string[]> {
       const absolutePath = join(directory, entry.name)
       const relativePath = normalizePath(relative(packagePath, absolutePath))
       if (entry.isDirectory()) {
-        if (
-          ["vendor", "lib-vendor", "third_party", "third-party"].includes(
-            entry.name,
-          )
-        ) {
+        if (isVendoredDirectoryName(entry.name)) {
           surfaces.push(relativePath)
         }
         if (entry.name !== "node_modules" && entry.name !== ".git") {
@@ -393,6 +428,17 @@ async function detectVendoredSurface(packagePath: string): Promise<string[]> {
 
   await walk(packagePath, 0)
   return surfaces
+}
+
+function isVendoredDirectoryName(name: string): boolean {
+  return [
+    "_vendor",
+    "vendor",
+    "vendors",
+    "lib-vendor",
+    "third_party",
+    "third-party",
+  ].includes(name)
 }
 
 function appendPackageExtraText(

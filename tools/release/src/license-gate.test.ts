@@ -4,7 +4,8 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { resolveRepoRelativePath } from "./license-gate/shared.js"
+import { packageKey, resolveRepoRelativePath } from "./license-gate/shared.js"
+import { applyPackageInternalAssetRules } from "./license-gate/sub-assets.js"
 import {
   assertDesktopBundleInputsCovered,
   classifyLicenseExpression,
@@ -21,6 +22,7 @@ import {
   resolveCliRuntimePackageSubjects,
   resolveDesktopRuntimePackageSubjects,
   runLicenseGate,
+  validateLicenseGateArtifactTargets,
 } from "./license-gate.js"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
@@ -420,6 +422,7 @@ describe("desktop bundle input coverage", () => {
           version: 1,
           targets: {
             main: {
+              externalImports: ["commander/subpath", "electron", "node:fs"],
               inputs: [
                 "/repo/apps/desktop/src/main.ts",
                 "/repo/packages/application/src/index.ts",
@@ -433,6 +436,29 @@ describe("desktop bundle input coverage", () => {
           appSourceDirectories: ["/repo/apps/desktop"],
         },
       ),
+    )
+  })
+
+  it("fails closed on external package imports outside the release closure", () => {
+    assert.throws(
+      () =>
+        assertDesktopBundleInputsCovered(
+          { firstPartyPackages: [], externalPackages: [] },
+          {
+            version: 1,
+            targets: {
+              main: {
+                externalImports: ["dev-only-package"],
+                inputs: ["/repo/apps/desktop/src/main.ts"],
+              },
+            },
+          },
+          {
+            repoRoot: "/repo",
+            appSourceDirectories: ["/repo/apps/desktop"],
+          },
+        ),
+      /external package imports outside the release closure/,
     )
   })
 
@@ -458,6 +484,44 @@ describe("desktop bundle input coverage", () => {
           },
         ),
       /outside the release closure/,
+    )
+  })
+})
+
+describe("artifact target validation", () => {
+  it("accepts only the exact app and platform release target sets", () => {
+    assert.doesNotThrow(() =>
+      validateLicenseGateArtifactTargets({
+        app: "desktop",
+        platform: "linux-x64",
+        artifactTargets: ["deb", "AppImage"],
+      }),
+    )
+    assert.doesNotThrow(() =>
+      validateLicenseGateArtifactTargets({
+        app: "cli",
+        platform: "windows-x64",
+        artifactTargets: ["binary"],
+      }),
+    )
+
+    assert.throws(
+      () =>
+        validateLicenseGateArtifactTargets({
+          app: "desktop",
+          platform: "linux-x64",
+          artifactTargets: ["AppImage"],
+        }),
+      /Unsupported artifact targets/,
+    )
+    assert.throws(
+      () =>
+        validateLicenseGateArtifactTargets({
+          app: "cli",
+          platform: "linux-x64",
+          artifactTargets: ["binary", "zip"],
+        }),
+      /Unsupported artifact targets/,
     )
   })
 })
@@ -565,6 +629,101 @@ describe("required notice files", () => {
       assert.deepEqual(await readRequiredTextFiles([present]), [
         "notice text\n",
       ])
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+})
+
+describe("package internal asset rules", () => {
+  it("adds explicit Anthropic SDK vendored notices and fails unknown _vendor surfaces", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const anthropicPath = await writePackage(
+        root,
+        "node_modules/@anthropic-ai/sdk",
+        {
+          name: "@anthropic-ai/sdk",
+          version: "0.100.1",
+        },
+      )
+      await mkdir(join(anthropicPath, "src/internal/qs"), { recursive: true })
+      await mkdir(join(anthropicPath, "src/_vendor/partial-json-parser"), {
+        recursive: true,
+      })
+      await mkdir(join(anthropicPath, "_vendor/partial-json-parser"), {
+        recursive: true,
+      })
+      await writeFile(
+        join(anthropicPath, "src/internal/qs/LICENSE.md"),
+        "neoqs license text\n",
+        "utf8",
+      )
+      await writeFile(
+        join(anthropicPath, "src/_vendor/partial-json-parser/README.md"),
+        "Vendored from https://www.npmjs.com/package/partial-json-parser\n",
+        "utf8",
+      )
+      await writeFile(
+        join(anthropicPath, "_vendor/partial-json-parser/parser.mjs"),
+        "export {}\n",
+        "utf8",
+      )
+
+      const packageExtraText = new Map<string, string[]>()
+      await applyPackageInternalAssetRules({
+        directSubjects: [],
+        packageExtraText,
+        packageSubjects: [
+          {
+            reachedName: "@anthropic-ai/sdk",
+            packageName: "@anthropic-ai/sdk",
+            version: "0.100.1",
+            packagePath: anthropicPath,
+            firstParty: false,
+            kind: "package",
+            path: ["@anthropic-ai/sdk"],
+            source: "test",
+          },
+        ],
+        platform: "linux-x64",
+      })
+
+      const anthropicNoticeText =
+        packageExtraText
+          .get(packageKey("@anthropic-ai/sdk", "0.100.1", anthropicPath))
+          ?.join("\n") ?? ""
+      assert.match(anthropicNoticeText, /neoqs license text/)
+      assert.match(anthropicNoticeText, /partial-json-parser vendored/)
+
+      const unknownPath = await writePackage(root, "node_modules/unknown", {
+        name: "unknown",
+        version: "1.0.0",
+      })
+      await mkdir(join(unknownPath, "_vendor/lib"), { recursive: true })
+      await writeFile(join(unknownPath, "_vendor/lib/index.js"), "\n", "utf8")
+
+      await assert.rejects(
+        () =>
+          applyPackageInternalAssetRules({
+            directSubjects: [],
+            packageExtraText: new Map(),
+            packageSubjects: [
+              {
+                reachedName: "unknown",
+                packageName: "unknown",
+                version: "1.0.0",
+                packagePath: unknownPath,
+                firstParty: false,
+                kind: "package",
+                path: ["unknown"],
+                source: "test",
+              },
+            ],
+            platform: "linux-x64",
+          }),
+        /vendored sub-assets/,
+      )
     } finally {
       await rm(root, { force: true, recursive: true })
     }
