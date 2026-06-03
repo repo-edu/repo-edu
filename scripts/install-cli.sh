@@ -54,6 +54,25 @@ download() {
   fi
 }
 
+checksum_for_asset() {
+  asset_name=$1
+  checksum_file=$2
+  awk -v expected="$asset_name" '
+    NF >= 1 {
+      filename = $2
+      sub(/^\*/, "", filename)
+      if ($1 ~ /^[0-9a-fA-F]{64}$/ && filename == expected) {
+        print $1
+        found = 1
+        exit
+      }
+    }
+    END {
+      if (!found) exit 1
+    }
+  ' "$checksum_file"
+}
+
 verify_checksum() {
   file=$1
   expected_hash=$2
@@ -115,9 +134,17 @@ main() {
     exit 1
   fi
 
-  # Extract expected hash from checksum file (format: "hash  filename")
-  expected_hash=$(cut -d' ' -f1 < "$tmp_checksum")
-  verify_checksum "$tmp_binary" "$expected_hash"
+  # Extract expected hashes from checksum file entries (format: "hash  filename")
+  expected_binary_hash=$(checksum_for_asset "$asset" "$tmp_checksum") || {
+    printf "Checksum file is missing an entry for %s.\n" "$asset" >&2
+    exit 1
+  }
+  expected_notice_hash=$(checksum_for_asset "$notice_asset" "$tmp_checksum") || {
+    printf "Checksum file is missing an entry for %s.\n" "$notice_asset" >&2
+    exit 1
+  }
+  verify_checksum "$tmp_binary" "$expected_binary_hash"
+  verify_checksum "$tmp_notice" "$expected_notice_hash"
 
   chmod +x "$tmp_binary"
 

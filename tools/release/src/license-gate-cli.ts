@@ -12,6 +12,7 @@ type ParsedArgs = {
   readonly artifactTargets: readonly string[]
   readonly manifestOut: string
   readonly bunMetafile?: string
+  readonly desktopBundleManifest?: string
 }
 
 const apps = new Set<LicenseGateApp>(["desktop", "cli"])
@@ -76,6 +77,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       .filter((target) => target.length > 0),
     manifestOut,
     bunMetafile: values.get("bun-metafile"),
+    desktopBundleManifest: values.get("desktop-bundle-manifest"),
   }
 }
 

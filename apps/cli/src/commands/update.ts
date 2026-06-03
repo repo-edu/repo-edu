@@ -341,11 +341,21 @@ export function registerUpdateCommand(
           downloadAssetBuffer(noticeAsset.browser_download_url),
         ])
 
-        const expectedChecksum = parseExpectedChecksum(
-          checksumBuffer.toString("utf8"),
+        const checksumText = checksumBuffer.toString("utf8")
+        const expectedBinaryChecksum = parseExpectedChecksum(
+          checksumText,
           assetName,
         )
-        assertChecksumMatches(binaryBuffer, expectedChecksum, assetName)
+        const expectedNoticeChecksum = parseExpectedChecksum(
+          checksumText,
+          noticeAssetName,
+        )
+        assertChecksumMatches(binaryBuffer, expectedBinaryChecksum, assetName)
+        assertChecksumMatches(
+          noticeBuffer,
+          expectedNoticeChecksum,
+          noticeAssetName,
+        )
 
         await Promise.all([
           writeFile(tempPath, binaryBuffer),

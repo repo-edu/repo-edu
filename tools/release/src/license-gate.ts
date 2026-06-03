@@ -51,6 +51,7 @@ export type LicenseGateOptions = {
   readonly artifactTargets: readonly string[]
   readonly manifestOut: string
   readonly bunMetafile?: string
+  readonly desktopBundleManifest?: string
   readonly root?: string
 }
 
@@ -187,6 +188,16 @@ type BunMetafileImport = {
 type BunMetafileLike = {
   readonly inputs?: Record<string, unknown>
   readonly outputs?: Record<string, unknown>
+}
+
+type DesktopBundleInputManifest = {
+  readonly version?: number
+  readonly targets?: Record<
+    string,
+    {
+      readonly inputs?: readonly unknown[]
+    }
+  >
 }
 
 type BunMetafileNarrowingOptions = {
@@ -487,13 +498,67 @@ export function narrowCliClosureWithBunMetafile(
   }
 }
 
+export function assertDesktopBundleInputsCovered(
+  closure: PackageClosure,
+  manifest: unknown,
+  options?: BunMetafileNarrowingOptions,
+): void {
+  const repoRoot = options?.repoRoot ?? rootDirectory
+  const appSourceDirectories = (
+    options?.appSourceDirectories ?? [
+      resolve(repoRoot, appDirectoryByApp.desktop),
+    ]
+  ).map((directory) => normalizePath(directory))
+  const fileInputs = collectDesktopBundleManifestFileInputs(manifest, repoRoot)
+
+  if (fileInputs.size === 0) {
+    throw new Error("Desktop bundle manifest contains no file inputs.")
+  }
+
+  const allPackages = [
+    ...closure.firstPartyPackages,
+    ...closure.externalPackages,
+  ]
+  const packageByPath = allPackages
+    .map((pkg) => ({
+      package: pkg,
+      normalizedPath: normalizePath(pkg.packagePath),
+    }))
+    .sort(
+      (left, right) => right.normalizedPath.length - left.normalizedPath.length,
+    )
+
+  const uncoveredInputs = [...fileInputs].map(normalizePath).filter((input) => {
+    if (
+      appSourceDirectories.some((directory) => isPathInside(input, directory))
+    ) {
+      return false
+    }
+
+    const hasOwner = packageByPath.some(({ normalizedPath }) =>
+      isPathInside(input, normalizedPath),
+    )
+    if (hasOwner) {
+      return false
+    }
+
+    return input.includes("/node_modules/") || input.includes("/packages/")
+  })
+
+  if (uncoveredInputs.length > 0) {
+    throw new Error(
+      `Desktop bundle manifest contains package inputs outside the release closure: ${uncoveredInputs.join(", ")}`,
+    )
+  }
+}
+
 export async function runLicenseGate(
   options: LicenseGateOptions,
 ): Promise<void> {
   const root = options.root ?? rootDirectory
   const closure = await enumerateReleaseClosure(options, root)
   const metadata = await loadLicenseMetadata(options.app, root)
-  const runtime = await collectRuntimeAssets(options, root)
+  const runtime = await collectRuntimeAssets(options, root, closure)
   const packageSubjects = mergePackageSubjects([
     ...closure.externalPackages.map(
       (pkg): PackageNoticeSubject => ({
@@ -577,6 +642,21 @@ async function enumerateReleaseClosure(
     })
   }
 
+  if (options.app === "desktop") {
+    if (!options.desktopBundleManifest) {
+      throw new Error(
+        "Desktop license gate requires --desktop-bundle-manifest.",
+      )
+    }
+    const manifest = JSON.parse(
+      await readFile(options.desktopBundleManifest, "utf8"),
+    )
+    assertDesktopBundleInputsCovered(closure, manifest, {
+      repoRoot: root,
+      appSourceDirectories: [resolve(root, appDirectoryByApp.desktop)],
+    })
+  }
+
   return closure
 }
 
@@ -620,6 +700,7 @@ async function loadLicenseMetadata(
 async function collectRuntimeAssets(
   options: LicenseGateOptions,
   root: string,
+  closure: PackageClosure,
 ): Promise<{
   readonly packageSubjects: readonly PackageNoticeSubject[]
   readonly directSubjects: readonly DirectNoticeSubject[]
@@ -633,7 +714,6 @@ async function collectRuntimeAssets(
     packageSubjects.push(
       ...resolveDesktopRuntimePackageSubjects(root, options.artifactTargets),
     )
-    directSubjects.push(...(await resolveTokenizerGrammarRuntimeAssets()))
 
     for (const target of options.artifactTargets) {
       const decision = noExtraDesktopRuntime[target]
@@ -659,6 +739,13 @@ async function collectRuntimeAssets(
     packageSubjects.push(
       ...resolveCliRuntimePackageSubjects(root, options.platform),
     )
+  }
+
+  if (
+    options.app === "desktop" ||
+    closureContainsPackage(closure, "@repo-edu/tree-sitter-grammar-assets")
+  ) {
+    directSubjects.push(...(await resolveTokenizerGrammarRuntimeAssets()))
   }
 
   return { packageSubjects, directSubjects, decisions }
@@ -1392,6 +1479,15 @@ function compareReachedPackage(
   )
 }
 
+function closureContainsPackage(
+  closure: PackageClosure,
+  packageName: string,
+): boolean {
+  return [...closure.firstPartyPackages, ...closure.externalPackages].some(
+    (pkg) => pkg.packageName === packageName || pkg.reachedName === packageName,
+  )
+}
+
 function collectSpdxIds(node: SpdxExpressionNode): string[] {
   if ("license" in node) {
     return [node.license]
@@ -1457,6 +1553,29 @@ function collectExternalMetafileImports(metafile: unknown): Set<string> {
     }
   })
   return imports
+}
+
+function collectDesktopBundleManifestFileInputs(
+  manifest: unknown,
+  repoRoot: string,
+): Set<string> {
+  const inputs = new Set<string>()
+  const typedManifest = manifest as DesktopBundleInputManifest
+
+  for (const target of Object.values(typedManifest.targets ?? {})) {
+    for (const input of target.inputs ?? []) {
+      if (typeof input === "string" && looksLikeFilePath(input)) {
+        inputs.add(resolve(repoRoot, stripViteQuery(input)))
+      }
+    }
+  }
+
+  return inputs
+}
+
+function stripViteQuery(path: string): string {
+  const queryStart = path.search(/[?#]/)
+  return queryStart === -1 ? path : path.slice(0, queryStart)
 }
 
 function walkJson(

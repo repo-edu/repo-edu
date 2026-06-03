@@ -72,7 +72,7 @@ jobs:
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-x64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-x64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-x64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-x64.txt --desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never
       - name: Verify Linux x64 update metadata
@@ -123,7 +123,7 @@ jobs:
       - name: Runtime validation
         run: pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-x64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-x64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-x64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-x64.txt --desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --x64 --publish never
         env:
@@ -180,12 +180,15 @@ jobs:
           node -e '
             const { createHash } = require("node:crypto")
             const { readFileSync, writeFileSync } = require("node:fs")
-            const path = process.argv[1]
-            const digest = createHash("sha256")
-              .update(readFileSync(path))
-              .digest("hex")
-            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
-          ' redu-linux-x64
+            const paths = process.argv.slice(1)
+            const lines = paths.map((path) => {
+              const digest = createHash("sha256")
+                .update(readFileSync(path))
+                .digest("hex")
+              return `${digest}  ${path}\n`
+            })
+            writeFileSync(`${paths[0]}.sha256`, lines.join(""))
+          ' redu-linux-x64 redu-linux-x64.third-party-notices.txt
 
       - name: Upload CLI binary
         uses: actions/upload-artifact@v6
@@ -233,12 +236,15 @@ jobs:
           node -e '
             const { createHash } = require("node:crypto")
             const { readFileSync, writeFileSync } = require("node:fs")
-            const path = process.argv[1]
-            const digest = createHash("sha256")
-              .update(readFileSync(path))
-              .digest("hex")
-            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
-          ' redu-windows-x64.exe
+            const paths = process.argv.slice(1)
+            const lines = paths.map((path) => {
+              const digest = createHash("sha256")
+                .update(readFileSync(path))
+                .digest("hex")
+              return `${digest}  ${path}\n`
+            })
+            writeFileSync(`${paths[0]}.sha256`, lines.join(""))
+          ' redu-windows-x64.exe redu-windows-x64.exe.third-party-notices.txt
 
       - name: Upload CLI binary
         uses: actions/upload-artifact@v6

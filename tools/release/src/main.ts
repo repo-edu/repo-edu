@@ -161,6 +161,8 @@ runFile("pnpm", [
   desktopArtifactTargets(preflightPlatform),
   "--manifest-out",
   join(tmpdir(), `repo-edu-${preflightPlatform}-third-party-notices.txt`),
+  "--desktop-bundle-manifest",
+  resolve(root, "apps/desktop/out/license-gate-bundle-inputs.json"),
 ])
 
 console.log(`\nBumping ${currentVersion} → ${version}\n`)

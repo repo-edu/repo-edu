@@ -1,4 +1,4 @@
-import { cpSync, readFileSync } from "node:fs"
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -10,6 +10,15 @@ type TsConfigPaths = Record<string, string[]>
 const configDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(configDir, "../..")
 const configRequire = createRequire(import.meta.url)
+const desktopBundleInputManifestPath = resolve(
+  configDir,
+  "out/license-gate-bundle-inputs.json",
+)
+
+type DesktopBundleInputManifest = {
+  readonly version: 1
+  readonly targets: Record<string, { readonly inputs: readonly string[] }>
+}
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -76,6 +85,68 @@ function copyMainTokenizerAssetsPlugin() {
   }
 }
 
+function readDesktopBundleInputManifest(): DesktopBundleInputManifest {
+  try {
+    return JSON.parse(
+      readFileSync(desktopBundleInputManifestPath, "utf8"),
+    ) as DesktopBundleInputManifest
+  } catch {
+    return { version: 1, targets: {} }
+  }
+}
+
+function normalizeBundleInputPath(id: string): string | null {
+  const queryStart = id.search(/[?#]/)
+  const path = queryStart === -1 ? id : id.slice(0, queryStart)
+  if (
+    path.length === 0 ||
+    path.includes("\0") ||
+    (!path.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(path))
+  ) {
+    return null
+  }
+  return path
+}
+
+function writeDesktopBundleInputTarget(
+  target: string,
+  inputs: readonly string[],
+) {
+  const manifest = readDesktopBundleInputManifest()
+  mkdirSync(dirname(desktopBundleInputManifestPath), { recursive: true })
+  writeFileSync(
+    desktopBundleInputManifestPath,
+    `${JSON.stringify(
+      {
+        version: 1,
+        targets: {
+          ...manifest.targets,
+          [target]: { inputs: [...new Set(inputs)].sort() },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  )
+}
+
+function collectBundleInputsPlugin(target: string) {
+  let inputs: string[] = []
+
+  return {
+    name: `license-gate-bundle-inputs-${target}`,
+    apply: "build" as const,
+    generateBundle(this: { getModuleIds(): IterableIterator<string> }) {
+      inputs = [...this.getModuleIds()]
+        .map(normalizeBundleInputPath)
+        .filter((input): input is string => input !== null)
+    },
+    closeBundle() {
+      writeDesktopBundleInputTarget(target, inputs)
+    },
+  }
+}
+
 type BuildWarning = {
   readonly code?: string
   readonly id?: string
@@ -110,7 +181,10 @@ const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
   main: {
-    plugins: [copyMainTokenizerAssetsPlugin()],
+    plugins: [
+      collectBundleInputsPlugin("main"),
+      copyMainTokenizerAssetsPlugin(),
+    ],
     resolve: {
       alias: workspaceAliases,
     },
@@ -136,6 +210,7 @@ export default defineConfig({
     },
   },
   preload: {
+    plugins: [collectBundleInputsPlugin("preload")],
     resolve: {
       alias: workspaceAliases,
     },
@@ -153,7 +228,7 @@ export default defineConfig({
   },
   renderer: {
     root: ".",
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), collectBundleInputsPlugin("renderer")],
     resolve: {
       alias: workspaceAliases,
     },

@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
+  assertDesktopBundleInputsCovered,
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
@@ -388,6 +389,78 @@ describe("Bun metafile narrowing", () => {
   })
 })
 
+describe("desktop bundle input coverage", () => {
+  it("allows app sources and reached packages", () => {
+    assert.doesNotThrow(() =>
+      assertDesktopBundleInputsCovered(
+        {
+          firstPartyPackages: [
+            {
+              reachedName: "@repo-edu/application",
+              packageName: "@repo-edu/application",
+              version: "1.0.0",
+              packagePath: "/repo/packages/application",
+              firstParty: true,
+              path: ["@repo-edu/application"],
+            },
+          ],
+          externalPackages: [
+            {
+              reachedName: "commander",
+              packageName: "commander",
+              version: "14.0.3",
+              packagePath: "/repo/node_modules/commander",
+              firstParty: false,
+              path: ["commander"],
+            },
+          ],
+        },
+        {
+          version: 1,
+          targets: {
+            main: {
+              inputs: [
+                "/repo/apps/desktop/src/main.ts",
+                "/repo/packages/application/src/index.ts",
+                "/repo/node_modules/commander/index.js?commonjs",
+              ],
+            },
+          },
+        },
+        {
+          repoRoot: "/repo",
+          appSourceDirectories: ["/repo/apps/desktop"],
+        },
+      ),
+    )
+  })
+
+  it("fails closed on bundled package inputs outside the release closure", () => {
+    assert.throws(
+      () =>
+        assertDesktopBundleInputsCovered(
+          { firstPartyPackages: [], externalPackages: [] },
+          {
+            version: 1,
+            targets: {
+              main: {
+                inputs: [
+                  "/repo/apps/desktop/src/main.ts",
+                  "/repo/packages/claude-coder/src/index.ts",
+                ],
+              },
+            },
+          },
+          {
+            repoRoot: "/repo",
+            appSourceDirectories: ["/repo/apps/desktop"],
+          },
+        ),
+      /outside the release closure/,
+    )
+  })
+})
+
 describe("runtime package resolution", () => {
   it("resolves release runtime subjects through their owning package roots", () => {
     const platform = currentReleasePlatform()
@@ -441,6 +514,10 @@ describe("runtime package resolution", () => {
         JSON.stringify({
           inputs: {
             [join(repoRoot, "apps/cli/src/main.ts")]: {},
+            [join(
+              repoRoot,
+              "packages/tree-sitter-grammar-assets/src/index.ts",
+            )]: {},
           },
           outputs: {},
         }),
@@ -459,6 +536,7 @@ describe("runtime package resolution", () => {
       assert.match(manifest, /Bun compiled CLI runtime/)
       assert.match(manifest, /Bun package-manager runtime executable/)
       assert.match(manifest, /Bun compiled CLI platform runtime/)
+      assert.match(manifest, /tokenizer grammar/)
     } finally {
       await rm(root, { force: true, recursive: true })
     }
@@ -599,9 +677,11 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/macos-arm64-release.yml",
       snippets: [
         "--app desktop --platform darwin-arm64 --artifact-targets dmg,zip",
+        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
         "--metafile=redu-darwin-arm64.metafile.json",
         "--app cli --platform darwin-arm64",
         "redu-darwin-arm64.third-party-notices.txt",
+        "redu-darwin-arm64 redu-darwin-arm64.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -609,9 +689,11 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/linux-arm64-release.yml",
       snippets: [
         "--app desktop --platform linux-arm64 --artifact-targets AppImage,deb",
+        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
         "--metafile=redu-linux-arm64.metafile.json",
         "--app cli --platform linux-arm64",
         "redu-linux-arm64.third-party-notices.txt",
+        "redu-linux-arm64 redu-linux-arm64.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -619,9 +701,11 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/windows-arm64-release.yml",
       snippets: [
         "--app desktop --platform windows-arm64 --artifact-targets nsis",
+        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
         "--metafile=redu-windows-arm64.metafile.json",
         "--app cli --platform windows-arm64",
         "redu-windows-arm64.exe.third-party-notices.txt",
+        "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -629,9 +713,11 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/windows-arm64-no-secrets-release.yml",
       snippets: [
         "--app desktop --platform windows-arm64 --artifact-targets nsis",
+        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
         "--metafile=redu-windows-arm64.metafile.json",
         "--app cli --platform windows-arm64",
         "redu-windows-arm64.exe.third-party-notices.txt",
+        "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -640,10 +726,13 @@ describe("release workflow wiring", () => {
       snippets: [
         "--app desktop --platform linux-x64 --artifact-targets AppImage,deb",
         "--app desktop --platform windows-x64 --artifact-targets nsis",
+        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
         "--metafile=redu-linux-x64.metafile.json",
         "--metafile=redu-windows-x64.metafile.json",
         "redu-linux-x64.third-party-notices.txt",
         "redu-windows-x64.exe.third-party-notices.txt",
+        "redu-linux-x64 redu-linux-x64.third-party-notices.txt",
+        "redu-windows-x64.exe redu-windows-x64.exe.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -671,7 +760,9 @@ describe("release workflow wiring", () => {
 
     assert.match(shellInstaller, /third-party-notices\.txt/)
     assert.match(shellInstaller, /notice_asset/)
+    assert.match(shellInstaller, /checksum_for_asset "\$notice_asset"/)
     assert.match(powershellInstaller, /third-party-notices\.txt/)
     assert.match(powershellInstaller, /\$noticeAsset/)
+    assert.match(powershellInstaller, /Resolve-ChecksumEntry[\s\S]*noticeAsset/)
   })
 })

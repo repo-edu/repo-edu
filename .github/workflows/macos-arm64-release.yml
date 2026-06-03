@@ -74,7 +74,7 @@ jobs:
       - name: Runtime validation
         run: pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform darwin-arm64 --artifact-targets dmg,zip --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-darwin-arm64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform darwin-arm64 --artifact-targets dmg,zip --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-darwin-arm64.txt --desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json
       - name: Package
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -177,12 +177,15 @@ jobs:
           node -e '
             const { createHash } = require("node:crypto")
             const { readFileSync, writeFileSync } = require("node:fs")
-            const path = process.argv[1]
-            const digest = createHash("sha256")
-              .update(readFileSync(path))
-              .digest("hex")
-            writeFileSync(`${path}.sha256`, `${digest}  ${path}\n`)
-          ' redu-darwin-arm64
+            const paths = process.argv.slice(1)
+            const lines = paths.map((path) => {
+              const digest = createHash("sha256")
+                .update(readFileSync(path))
+                .digest("hex")
+              return `${digest}  ${path}\n`
+            })
+            writeFileSync(`${paths[0]}.sha256`, lines.join(""))
+          ' redu-darwin-arm64 redu-darwin-arm64.third-party-notices.txt
 
       - name: Upload CLI binary
         uses: actions/upload-artifact@v6

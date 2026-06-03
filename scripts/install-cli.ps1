@@ -60,6 +60,29 @@ function Assert-Checksum {
   }
 }
 
+function Resolve-ChecksumEntry {
+  param(
+    [string]$Contents,
+    [string]$ExpectedFileName
+  )
+
+  foreach ($line in ($Contents -split '\r?\n')) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed) { continue }
+
+    $parts = $trimmed -split '\s+', 2
+    if ($parts.Count -lt 2) { continue }
+
+    $hash = $parts[0]
+    $fileName = $parts[1].TrimStart("*")
+    if ($hash -match '^[0-9a-fA-F]{64}$' -and $fileName -eq $ExpectedFileName) {
+      return $hash.ToLower()
+    }
+  }
+
+  throw "Checksum file is missing an entry for $ExpectedFileName."
+}
+
 function Install-ReleaseFiles {
   param(
     [string]$BinarySource,
@@ -140,11 +163,17 @@ function Install-Redu {
     Invoke-WebRequest -Uri "$baseUrl/$checksumAsset" -OutFile $tmpChecksum -UseBasicParsing
     Invoke-WebRequest -Uri "$baseUrl/$noticeAsset" -OutFile $tmpNotice -UseBasicParsing
 
-    # Extract expected hash from checksum file (format: "hash  filename")
+    # Extract expected hashes from checksum file entries (format: "hash  filename")
     $checksumContent = (Get-Content -Path $tmpChecksum -Raw).Trim()
-    $expectedHash = ($checksumContent -split '\s+')[0]
+    $expectedBinaryHash = Resolve-ChecksumEntry `
+      -Contents $checksumContent `
+      -ExpectedFileName $asset
+    $expectedNoticeHash = Resolve-ChecksumEntry `
+      -Contents $checksumContent `
+      -ExpectedFileName $noticeAsset
 
-    Assert-Checksum -FilePath $tmpBinary -ExpectedHash $expectedHash
+    Assert-Checksum -FilePath $tmpBinary -ExpectedHash $expectedBinaryHash
+    Assert-Checksum -FilePath $tmpNotice -ExpectedHash $expectedNoticeHash
 
     Install-ReleaseFiles `
       -BinarySource $tmpBinary `
