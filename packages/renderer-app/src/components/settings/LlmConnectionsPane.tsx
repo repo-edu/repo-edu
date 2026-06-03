@@ -27,6 +27,7 @@ import { useConnectionsStore } from "../../stores/connections-store.js"
 import { examinationPreferencePersistence } from "../../stores/examination-preferences.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
+  effectiveLlmConnectionId,
   emptyLlmDraft,
   type LlmDraft,
   type LlmProviderKind,
@@ -68,6 +69,14 @@ export function LlmConnectionsPane() {
 
   const llmConnections = settings.llmConnections
   const activeLlmConnectionId = settings.activeLlmConnectionId
+  const effectiveActiveLlmConnectionId = useMemo(
+    () =>
+      effectiveLlmConnectionId({
+        llmConnections,
+        activeLlmConnectionId,
+      }),
+    [llmConnections, activeLlmConnectionId],
+  )
 
   const [viewState, setViewState] = useState<LlmViewState>({ view: "list" })
   const [draft, setDraft] = useState<LlmDraft>(emptyLlmDraft())
@@ -413,7 +422,7 @@ export function LlmConnectionsPane() {
         {llmConnections.map((connection) => {
           const status = llmSavedStatuses[connection.id] ?? "disconnected"
           const error = llmSavedErrors[connection.id] ?? null
-          const isActive = activeLlmConnectionId === connection.id
+          const isActive = effectiveActiveLlmConnectionId === connection.id
           const trimmedName = connection.name.trim()
           const displayName = trimmedName || PROVIDER_LABEL[connection.provider]
           const subtitle = trimmedName

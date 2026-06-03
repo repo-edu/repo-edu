@@ -6,6 +6,7 @@ import {
 } from "@repo-edu/domain/settings"
 import { persistedAppSettingsKind } from "@repo-edu/domain/types"
 import {
+  effectiveLlmConnectionId,
   emptyLlmDraft,
   toLlmDraft,
 } from "../components/settings/ConnectionsPane.shared.js"
@@ -148,6 +149,31 @@ describe("app settings store", () => {
         maxTokens: 12_000,
       }).maxTokens,
       "12000",
+    )
+  })
+
+  it("derives the effective active LLM id from the same resolver as runtime settings", () => {
+    assert.equal(
+      effectiveLlmConnectionId({
+        llmConnections: [
+          {
+            id: "llm-1",
+            name: "Claude",
+            provider: "claude",
+            authMode: "subscription",
+            apiKey: "",
+          },
+          {
+            id: "llm-2",
+            name: "Codex",
+            provider: "codex",
+            authMode: "api",
+            apiKey: "sk-test",
+          },
+        ],
+        activeLlmConnectionId: null,
+      }),
+      "llm-1",
     )
   })
 })

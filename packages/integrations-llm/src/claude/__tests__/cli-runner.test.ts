@@ -64,6 +64,30 @@ function fakeSpawn(stdoutChunks: string[], stderrChunks: string[] = []) {
   return { spawn, calls }
 }
 
+async function drainCliStream(stdoutChunks: string[]): Promise<void> {
+  const { spawn } = fakeSpawn(stdoutChunks)
+  for await (const _event of runClaudeCliStream(
+    {
+      spec: claudeSpec,
+      prompt: "Reply ok.",
+      executable: "/bin/claude",
+      spawn,
+    },
+    { authMode: "subscription", childEnv: {} },
+  )) {
+    // Drain stream.
+  }
+}
+
+function isClaudeToolGuardrail(error: unknown): boolean {
+  return (
+    error instanceof LlmError &&
+    error.kind === "guardrail" &&
+    error.context.provider === "claude" &&
+    error.context.authMode === "subscription"
+  )
+}
+
 describe("buildClaudeCliArgs", () => {
   it("constructs tool-free stream-json argv with native effort", () => {
     assert.deepStrictEqual(buildClaudeCliArgs(claudeSpec), [
@@ -167,5 +191,45 @@ describe("runClaudeCliStream", () => {
         process.env.HOME = savedHome
       }
     }
+  })
+
+  it("rejects stream-json tool block starts as guardrail failures", async () => {
+    await assert.rejects(
+      () =>
+        drainCliStream([
+          '{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"Read","input":{"file_path":"README.md"}}}}\n',
+        ]),
+      isClaudeToolGuardrail,
+    )
+  })
+
+  it("rejects assistant tool use messages as guardrail failures", async () => {
+    await assert.rejects(
+      () =>
+        drainCliStream([
+          '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Read","input":{"file_path":"README.md"}}]}}\n',
+        ]),
+      isClaudeToolGuardrail,
+    )
+  })
+
+  it("rejects user tool result messages as guardrail failures", async () => {
+    await assert.rejects(
+      () =>
+        drainCliStream([
+          '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"file contents"}]}}\n',
+        ]),
+      isClaudeToolGuardrail,
+    )
+  })
+
+  it("rejects tool progress messages as guardrail failures", async () => {
+    await assert.rejects(
+      () =>
+        drainCliStream([
+          '{"type":"tool_progress","tool_name":"Read","elapsed_time_seconds":1}\n',
+        ]),
+      isClaudeToolGuardrail,
+    )
   })
 })

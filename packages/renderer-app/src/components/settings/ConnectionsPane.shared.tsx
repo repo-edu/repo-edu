@@ -2,9 +2,11 @@ import {
   DEFAULT_CLAUDE_API_MAX_TOKENS,
   gitProviderDefaultBaseUrls,
   type LlmProviderKind,
+  type PersistedAppSettings,
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
+  resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
 import type { LmsProviderKind } from "@repo-edu/domain/types"
 import { Check, Loader2, X } from "@repo-edu/ui/components/icons"
@@ -159,6 +161,15 @@ export function toLlmDraft(connection: PersistedLlmConnection): LlmDraft {
         ? String(connection.maxTokens)
         : String(DEFAULT_CLAUDE_API_MAX_TOKENS),
   }
+}
+
+export function effectiveLlmConnectionId(
+  settings: Pick<
+    PersistedAppSettings,
+    "llmConnections" | "activeLlmConnectionId"
+  >,
+): string | null {
+  return resolveActiveLlmConnection(settings)?.id ?? null
 }
 
 export type {
