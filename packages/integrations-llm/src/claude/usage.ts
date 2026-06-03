@@ -53,8 +53,11 @@ export function mergeUsageSnapshot(
   const currentRecord = current ?? {}
   return {
     ...currentRecord,
+    // Keep prior values when a later snapshot reports a field as null:
+    // streamed `message_delta` usage echoes input/cache counters as null,
+    // and overwriting would drop the totals captured at `message_start`.
     ...Object.fromEntries(
-      Object.entries(next).filter(([, value]) => value !== undefined),
+      Object.entries(next).filter(([, value]) => value != null),
     ),
   }
 }

@@ -6,8 +6,7 @@ import {
 
 export type ClaudeNativeEffort = "low" | "medium" | "high" | "xhigh" | "max"
 
-const SUPPORTED_CLAUDE_EFFORTS: ReadonlySet<LlmEffort> = new Set([
-  "none",
+const CLAUDE_NATIVE_EFFORTS: ReadonlySet<string> = new Set<ClaudeNativeEffort>([
   "low",
   "medium",
   "high",
@@ -19,25 +18,8 @@ export function claudeNativeEffort(
   effort: LlmEffort,
   authMode: LlmAuthMode,
 ): ClaudeNativeEffort | null {
-  if (!SUPPORTED_CLAUDE_EFFORTS.has(effort)) {
-    throw new LlmError(
-      "other",
-      `effort '${effort}' is not supported on Claude`,
-      {
-        context: { provider: "claude", authMode },
-      },
-    )
-  }
   if (effort === "none") return null
-  if (
-    effort === "low" ||
-    effort === "medium" ||
-    effort === "high" ||
-    effort === "xhigh" ||
-    effort === "max"
-  ) {
-    return effort
-  }
+  if (CLAUDE_NATIVE_EFFORTS.has(effort)) return effort as ClaudeNativeEffort
   throw new LlmError("other", `effort '${effort}' is not supported on Claude`, {
     context: { provider: "claude", authMode },
   })

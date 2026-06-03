@@ -19,7 +19,7 @@ export type ClaudeRunOptions = {
   cliExecutable?: string
 }
 
-export async function runClaudeQuery(
+export async function runClaudeGenerate(
   options: ClaudeRunOptions,
   config: ClaudeLlmProviderRuntimeConfig | undefined,
 ): Promise<LlmResult> {

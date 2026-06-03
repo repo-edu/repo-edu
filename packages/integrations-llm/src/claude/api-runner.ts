@@ -121,7 +121,7 @@ function validatedMaxTokens(value: number | undefined): number {
     return value
   }
   throw new LlmError(
-    "auth",
+    "other",
     "Claude API runtime config requires a positive integer maxTokens value.",
     { context: { provider: "claude", authMode: "api" } },
   )

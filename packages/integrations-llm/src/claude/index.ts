@@ -6,10 +6,10 @@ import type {
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
 import type { ClaudeRunOptions } from "./runner"
-import { runClaudeQuery, runClaudeStream } from "./runner"
+import { runClaudeGenerate, runClaudeStream } from "./runner"
 
 export type { ClaudeRunOptions } from "./runner"
-export { runClaudeQuery, runClaudeStream } from "./runner"
+export { runClaudeGenerate, runClaudeStream } from "./runner"
 export type { TraceSink } from "./trace"
 
 export type CreateClaudeLlmTextClientOptions = {
@@ -22,7 +22,7 @@ export function createClaudeLlmTextClient(
 ): LlmTextClient {
   return {
     async generateText(request: GenerateTextRequest): Promise<LlmResult> {
-      return runClaudeQuery(
+      return runClaudeGenerate(
         buildClaudeRunOptions(request, options?.trace),
         config,
       )
