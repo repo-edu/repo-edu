@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "electron-vite"
+import { collectBundleInputPaths } from "./src/license-gate-bundle-inputs.js"
 
 type TsConfigPaths = Record<string, string[]>
 
@@ -95,19 +96,6 @@ function readDesktopBundleInputManifest(): DesktopBundleInputManifest {
   }
 }
 
-function normalizeBundleInputPath(id: string): string | null {
-  const queryStart = id.search(/[?#]/)
-  const path = queryStart === -1 ? id : id.slice(0, queryStart)
-  if (
-    path.length === 0 ||
-    path.includes("\0") ||
-    (!path.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(path))
-  ) {
-    return null
-  }
-  return path
-}
-
 function writeDesktopBundleInputTarget(
   target: string,
   inputs: readonly string[],
@@ -136,10 +124,8 @@ function collectBundleInputsPlugin(target: string) {
   return {
     name: `license-gate-bundle-inputs-${target}`,
     apply: "build" as const,
-    generateBundle(this: { getModuleIds(): IterableIterator<string> }) {
-      inputs = [...this.getModuleIds()]
-        .map(normalizeBundleInputPath)
-        .filter((input): input is string => input !== null)
+    generateBundle(_options: unknown, bundle: Record<string, unknown>) {
+      inputs = collectBundleInputPaths(bundle)
     },
     closeBundle() {
       writeDesktopBundleInputTarget(target, inputs)

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
+import { resolveRepoRelativePath } from "./license-gate/shared.js"
 import {
   assertDesktopBundleInputsCovered,
   classifyLicenseExpression,
@@ -571,6 +572,17 @@ describe("required notice files", () => {
 })
 
 describe("manifest helpers", () => {
+  it("resolves license gate file options relative to the repo root", () => {
+    assert.equal(
+      resolveRepoRelativePath("/repo", "apps/desktop/out/manifest.json"),
+      resolve("/repo/apps/desktop/out/manifest.json"),
+    )
+    assert.equal(
+      resolveRepoRelativePath("/repo", "/tmp/repo-edu-notices.txt"),
+      "/tmp/repo-edu-notices.txt",
+    )
+  })
+
   it("uses app and platform scoped manifest and sidecar names", () => {
     assert.equal(
       manifestFileName("desktop", "darwin-arm64"),

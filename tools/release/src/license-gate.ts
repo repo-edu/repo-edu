@@ -15,6 +15,7 @@ import { collectRuntimeAssets } from "./license-gate/runtime-assets.js"
 import {
   appDirectoryByApp,
   isObjectRecord,
+  resolveRepoRelativePath,
   rootDirectory,
   runPnpmJson,
 } from "./license-gate/shared.js"
@@ -67,6 +68,7 @@ export async function runLicenseGate(
   options: LicenseGateOptions,
 ): Promise<void> {
   const root = options.root ?? rootDirectory
+  const manifestOut = resolveRepoRelativePath(root, options.manifestOut)
   const closure = await enumerateReleaseClosure(options, root)
   const metadata = await loadLicenseMetadata(options.app, root)
   const runtime = await collectRuntimeAssets(options, root, closure)
@@ -115,8 +117,8 @@ export async function runLicenseGate(
     entries: noticeEntries,
   })
 
-  await mkdir(dirname(options.manifestOut), { recursive: true })
-  await writeFile(options.manifestOut, manifest, "utf8")
+  await mkdir(dirname(manifestOut), { recursive: true })
+  await writeFile(manifestOut, manifest, "utf8")
 }
 
 async function enumerateReleaseClosure(
@@ -146,7 +148,12 @@ async function enumerateReleaseClosure(
     if (!options.bunMetafile) {
       throw new Error("CLI license gate requires --bun-metafile.")
     }
-    const metafile = JSON.parse(await readFile(options.bunMetafile, "utf8"))
+    const metafile = JSON.parse(
+      await readFile(
+        resolveRepoRelativePath(root, options.bunMetafile),
+        "utf8",
+      ),
+    )
     closure = narrowCliClosureWithBunMetafile(closure, metafile, {
       repoRoot: root,
       appSourceDirectories: [resolve(root, appDirectoryByApp.cli)],
@@ -160,7 +167,10 @@ async function enumerateReleaseClosure(
       )
     }
     const manifest = JSON.parse(
-      await readFile(options.desktopBundleManifest, "utf8"),
+      await readFile(
+        resolveRepoRelativePath(root, options.desktopBundleManifest),
+        "utf8",
+      ),
     )
     assertDesktopBundleInputsCovered(closure, manifest, {
       repoRoot: root,

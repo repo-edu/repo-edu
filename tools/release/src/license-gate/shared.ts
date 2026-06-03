@@ -36,6 +36,10 @@ export function packageKey(
   return `${name}@${version}\0${packagePath}`
 }
 
+export function resolveRepoRelativePath(root: string, path: string): string {
+  return resolve(root, path)
+}
+
 export function readPackageJson(packagePath: string): PackageJson {
   return JSON.parse(readFileSync(join(packagePath, "package.json"), "utf8"))
 }
