@@ -5,6 +5,7 @@ import { LlmError } from "@repo-edu/integrations-llm-contract"
 import { resolveClaudeAuth } from "../auth"
 import {
   buildClaudeCliArgs,
+  buildClaudeCliSpawnOptions,
   type ClaudeCliSpawn,
   findClaudeCliExecutable,
   runClaudeCliStream,
@@ -17,19 +18,30 @@ const claudeSpec = {
   effort: "max" as const,
 }
 
-function fakeSpawn(stdoutChunks: string[], stderrChunks: string[] = []) {
+type FakeSpawnOptions = {
+  exitCode?: number
+  exitSignal?: string | null
+}
+
+function fakeSpawn(
+  stdoutChunks: AsyncIterable<string> | Iterable<string>,
+  stderrChunks: AsyncIterable<string> | Iterable<string> = [],
+  fakeOptions: FakeSpawnOptions = {},
+) {
   const calls: {
     command: string
     args: readonly string[]
     env: NodeJS.ProcessEnv | undefined
+    shell: boolean | string | undefined
     stdin: string
     killed: boolean
   }[] = []
-  const spawn: ClaudeCliSpawn = (command, args, options) => {
+  const spawn: ClaudeCliSpawn = (command, args, spawnOptions) => {
     const call = {
       command,
       args,
-      env: options.env,
+      env: spawnOptions.env,
+      shell: spawnOptions.shell,
       stdin: "",
       killed: false,
     }
@@ -49,11 +61,11 @@ function fakeSpawn(stdoutChunks: string[], stderrChunks: string[] = []) {
         return true
       },
       once(event, listener: unknown) {
-        if (event === "exit") {
+        if (event === "exit" || event === "close") {
           queueMicrotask(() =>
             (listener as (code: number | null, signal: string | null) => void)(
-              0,
-              null,
+              fakeOptions.exitCode ?? 0,
+              fakeOptions.exitSignal ?? null,
             ),
           )
         }
@@ -104,6 +116,21 @@ describe("buildClaudeCliArgs", () => {
       "--effort",
       "max",
     ])
+  })
+})
+
+describe("buildClaudeCliSpawnOptions", () => {
+  it("runs Windows cmd shims through a shell", () => {
+    assert.equal(
+      buildClaudeCliSpawnOptions("C:\\Users\\me\\bin\\claude.cmd", {}, "win32")
+        .shell,
+      true,
+    )
+    assert.equal(
+      buildClaudeCliSpawnOptions("C:\\Users\\me\\bin\\claude.exe", {}, "win32")
+        .shell,
+      false,
+    )
   })
 })
 
@@ -191,6 +218,85 @@ describe("runClaudeCliStream", () => {
         process.env.HOME = savedHome
       }
     }
+  })
+
+  it("waits for delayed auth stderr before classifying CLI exit failures", async () => {
+    const delayedStderr = (async function* () {
+      await new Promise((resolve) => setImmediate(resolve))
+      yield "Please log in to Claude."
+    })()
+    const { spawn } = fakeSpawn([], delayedStderr, { exitCode: 1 })
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "auth" &&
+        error.message.includes("Please log in"),
+    )
+  })
+
+  it("rejects pre-aborted requests without spawning Claude", async () => {
+    const { spawn, calls } = fakeSpawn([])
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            signal: controller.signal,
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+    assert.equal(calls.length, 0)
+  })
+
+  it("kills the Claude child and preserves AbortError when cancelled", async () => {
+    const { spawn, calls } = fakeSpawn([])
+    const controller = new AbortController()
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            signal: controller.signal,
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          controller.abort()
+        }
+      },
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+    assert.equal(calls[0]?.killed, true)
   })
 
   it("rejects stream-json tool block starts as guardrail failures", async () => {

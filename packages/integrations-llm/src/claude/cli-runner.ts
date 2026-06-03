@@ -10,6 +10,11 @@ import {
   type LlmModelSpec,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
+import {
+  claudeAbortError,
+  isAbortLikeError,
+  throwIfClaudeAborted,
+} from "./abort"
 import type { ResolvedClaudeSubscriptionAuth } from "./auth"
 import { claudeNativeEffort } from "./effort"
 import { toClaudeLlmError } from "./errors"
@@ -27,6 +32,10 @@ type ClaudeCliChild = {
   kill(signal?: NodeJS.Signals): boolean
   once(
     event: "exit",
+    listener: (code: number | null, signal: string | null) => void,
+  ): unknown
+  once(
+    event: "close",
     listener: (code: number | null, signal: string | null) => void,
   ): unknown
   once(event: "error", listener: (error: Error) => void): unknown
@@ -67,6 +76,18 @@ export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
   return args
 }
 
+export function buildClaudeCliSpawnOptions(
+  executable: string,
+  childEnv: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): SpawnOptionsWithoutStdio {
+  return {
+    env: childEnv,
+    stdio: "pipe",
+    shell: platform === "win32" && executable.toLowerCase().endsWith(".cmd"),
+  }
+}
+
 export async function* runClaudeCliStream(
   options: ClaudeCliRunOptions,
   resolved: ResolvedClaudeSubscriptionAuth,
@@ -76,6 +97,7 @@ export async function* runClaudeCliStream(
       `Claude adapter received non-claude spec.provider="${options.spec.provider}"`,
     )
   }
+  throwIfClaudeAborted(options.signal)
   const executable = options.executable ?? findClaudeCliExecutable()
   if (executable === null) {
     throw new LlmError(
@@ -85,26 +107,31 @@ export async function* runClaudeCliStream(
     )
   }
 
+  let abortRequested = false
   const child = (options.spawn ?? nodeSpawn)(
     executable,
     buildClaudeCliArgs(options.spec),
-    {
-      env: resolved.childEnv,
-      stdio: "pipe",
-    },
+    buildClaudeCliSpawnOptions(executable, resolved.childEnv),
   )
-  const exit = waitForExit(child)
+  const close = waitForClose(child)
   let stderr = ""
   const abort = () => {
+    abortRequested = true
     child.kill("SIGTERM")
+    destroyStream(child.stdin)
+    destroyStream(child.stdout)
+    destroyStream(child.stderr)
   }
-  if (options.signal?.aborted) abort()
   options.signal?.addEventListener("abort", abort, { once: true })
 
   try {
     child.stderr.setEncoding("utf8")
-    void collectStderr(child.stderr, (chunk) => {
+    const stderrDone = collectStderr(child.stderr, (chunk) => {
       stderr += chunk
+    }).catch((error: unknown) => {
+      if (!abortRequested) {
+        throw error
+      }
     })
     child.stdin.end(options.prompt)
 
@@ -116,8 +143,8 @@ export async function* runClaudeCliStream(
     let buffer = ""
     child.stdout.setEncoding("utf8")
     for await (const chunk of child.stdout) {
-      if (options.signal?.aborted) {
-        throw new Error("Operation cancelled.")
+      if (abortRequested || options.signal?.aborted) {
+        throw claudeAbortError(options.signal?.reason)
       }
       buffer += String(chunk)
       const lines = buffer.split(/\r?\n/)
@@ -127,17 +154,27 @@ export async function* runClaudeCliStream(
         if (message === null) continue
         for (const event of eventsFromClaudeStreamMessage(message, state)) {
           yield event
+          if (abortRequested || options.signal?.aborted) {
+            throw claudeAbortError(options.signal?.reason)
+          }
         }
       }
+    }
+    if (abortRequested || options.signal?.aborted) {
+      throw claudeAbortError(options.signal?.reason)
     }
     const finalMessage = parseClaudeStreamJsonLine(buffer)
     if (finalMessage !== null) {
       for (const event of eventsFromClaudeStreamMessage(finalMessage, state)) {
         yield event
+        if (abortRequested || options.signal?.aborted) {
+          throw claudeAbortError(options.signal?.reason)
+        }
       }
     }
 
-    const exitStatus = await exit
+    const exitStatus = await close
+    await stderrDone
     if (exitStatus.code !== 0) {
       throw cliExitError(exitStatus.code, exitStatus.signal, stderr)
     }
@@ -156,6 +193,9 @@ export async function* runClaudeCliStream(
       )
     }
   } catch (cause) {
+    if (abortRequested || options.signal?.aborted || isAbortLikeError(cause)) {
+      throw claudeAbortError(cause)
+    }
     throw toClaudeLlmError(cause, "subscription")
   } finally {
     options.signal?.removeEventListener("abort", abort)
@@ -251,13 +291,13 @@ function destroyStream(
   ;(stream as { destroy?: () => void }).destroy?.()
 }
 
-function waitForExit(child: ClaudeCliChild): Promise<{
+function waitForClose(child: ClaudeCliChild): Promise<{
   code: number | null
   signal: string | null
 }> {
   return new Promise((resolve, reject) => {
     child.once("error", reject)
-    child.once("exit", (code, signal) => resolve({ code, signal }))
+    child.once("close", (code, signal) => resolve({ code, signal }))
   })
 }
 

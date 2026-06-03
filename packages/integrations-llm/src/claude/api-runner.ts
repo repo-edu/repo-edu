@@ -10,6 +10,11 @@ import {
   type LlmModelSpec,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
+import {
+  claudeAbortError,
+  isAbortLikeError,
+  throwIfClaudeAborted,
+} from "./abort"
 import type { ResolvedClaudeApiAuth } from "./auth"
 import { claudeNativeEffort } from "./effort"
 import { toClaudeLlmError } from "./errors"
@@ -50,6 +55,7 @@ export async function* runClaudeApiStream(
       `Claude adapter received non-claude spec.provider="${options.spec.provider}"`,
     )
   }
+  throwIfClaudeAborted(options.signal)
   const maxTokens = validatedMaxTokens(config?.maxTokens)
   const client = (options.factory ?? defaultClaudeApiClientFactory)({
     apiKey: resolved.apiKey,
@@ -71,7 +77,7 @@ export async function* runClaudeApiStream(
     for await (const event of stream as AsyncIterable<MessageStreamEvent>) {
       if (options.signal?.aborted) {
         stream.abort()
-        throw new Error("Operation cancelled.")
+        throw claudeAbortError(options.signal.reason)
       }
       for (const output of eventsFromApiStreamEvent(
         event,
@@ -97,6 +103,9 @@ export async function* runClaudeApiStream(
       }
     }
   } catch (cause) {
+    if (options.signal?.aborted || isAbortLikeError(cause)) {
+      throw claudeAbortError(cause)
+    }
     throw toClaudeLlmError(cause, "api")
   }
 }

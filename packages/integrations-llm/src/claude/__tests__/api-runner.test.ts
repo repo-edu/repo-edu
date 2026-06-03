@@ -15,7 +15,7 @@ const claudeSpec = {
   effort: "xhigh" as const,
 }
 
-function apiFactory(events: unknown[]) {
+function apiFactory(events: AsyncIterable<unknown> | Iterable<unknown>) {
   const calls: {
     options: ClientOptions
     body: MessageCreateParams
@@ -38,7 +38,7 @@ function apiFactory(events: unknown[]) {
                 call.aborted = true
               },
               async *[Symbol.asyncIterator](): AsyncGenerator<MessageStreamEvent> {
-                for (const event of events) {
+                for await (const event of events) {
                   yield event as MessageStreamEvent
                 }
               },
@@ -142,6 +142,61 @@ describe("runClaudeApiStream", () => {
     }
 
     assert.equal(calls[0]?.requestOptions.signal, controller.signal)
+  })
+
+  it("rejects pre-aborted requests without creating an API stream", async () => {
+    const { factory, calls } = apiFactory([])
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeStream(
+          {
+            spec: claudeSpec,
+            prompt: "ping",
+            signal: controller.signal,
+            apiFactory: factory,
+          },
+          { authMode: "api", apiKey: "sk-test", maxTokens: 8192 },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+    assert.equal(calls.length, 0)
+  })
+
+  it("aborts the SDK stream and preserves AbortError on mid-stream cancellation", async () => {
+    const controller = new AbortController()
+    const { factory, calls } = apiFactory(
+      (async function* () {
+        yield { type: "message_start", message: { usage: {} } }
+        controller.abort()
+        yield { type: "message_stop" }
+      })(),
+    )
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeStream(
+          {
+            spec: claudeSpec,
+            prompt: "ping",
+            signal: controller.signal,
+            apiFactory: factory,
+          },
+          { authMode: "api", apiKey: "sk-test", maxTokens: 8192 },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+    assert.equal(calls[0]?.aborted, true)
   })
 
   it("rejects unsupported Claude effort values", async () => {
