@@ -91,6 +91,9 @@ const FORBIDDEN_CROSS_LAYER: [string, string[]][] = [
   ],
 ]
 
+const CLAUDE_CODER_PACKAGE = "@repo-edu/claude-coder"
+const CLAUDE_AGENT_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk"
+
 type Violation = { file: string; message: string }
 
 const CONTROLLER_WORKFLOW_IDS = new Set([
@@ -373,6 +376,98 @@ function checkCrossLayerImports(errors: Violation[]) {
   }
 }
 
+function checkClaudeCoderBoundary(errors: Violation[]) {
+  const sourceRoots = ["apps", "packages", "tools"]
+  for (const root of sourceRoots) {
+    const rootDir = path.join(ROOT, root)
+    if (!fs.existsSync(rootDir)) continue
+    const files = findFiles(
+      rootDir,
+      [".ts", ".tsx"],
+      ["node_modules", "dist", "out", "release", ".d.ts"],
+    )
+
+    for (const file of files) {
+      const repoFile = `${root}/${file}`
+      const imports = extractImportPaths(
+        fs.readFileSync(path.join(rootDir, file), "utf-8"),
+      )
+      for (const imp of imports) {
+        if (
+          (imp === CLAUDE_CODER_PACKAGE ||
+            imp.startsWith(`${CLAUDE_CODER_PACKAGE}/`)) &&
+          !repoFile.startsWith("packages/fixture-engine/")
+        ) {
+          errors.push({
+            file: repoFile,
+            message: `imports dev-only Claude coder package "${imp}" outside fixture-engine`,
+          })
+        }
+        if (
+          (imp === CLAUDE_AGENT_SDK_PACKAGE ||
+            imp.startsWith(`${CLAUDE_AGENT_SDK_PACKAGE}/`)) &&
+          !repoFile.startsWith("packages/claude-coder/")
+        ) {
+          errors.push({
+            file: repoFile,
+            message: `imports proprietary Claude agent SDK "${imp}" outside claude-coder`,
+          })
+        }
+      }
+    }
+  }
+
+  const packageJsonFiles = [
+    "package.json",
+    ...sourceRoots.flatMap((root) => {
+      const rootDir = path.join(ROOT, root)
+      if (!fs.existsSync(rootDir)) return []
+      return fs
+        .readdirSync(rootDir, { withFileTypes: true })
+        .flatMap((entry) =>
+          entry.isDirectory() ? [`${root}/${entry.name}/package.json`] : [],
+        )
+    }),
+  ]
+
+  for (const file of packageJsonFiles) {
+    const fullPath = path.join(ROOT, file)
+    if (!fs.existsSync(fullPath)) continue
+    const packageJson = JSON.parse(fs.readFileSync(fullPath, "utf-8")) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
+      optionalDependencies?: Record<string, string>
+    }
+    const dependencyNames = new Set(
+      [
+        packageJson.dependencies,
+        packageJson.devDependencies,
+        packageJson.peerDependencies,
+        packageJson.optionalDependencies,
+      ].flatMap((deps) => Object.keys(deps ?? {})),
+    )
+    if (
+      dependencyNames.has(CLAUDE_CODER_PACKAGE) &&
+      file !== "packages/fixture-engine/package.json"
+    ) {
+      errors.push({
+        file,
+        message: `declares dev-only Claude coder package outside fixture-engine`,
+      })
+    }
+    if (
+      dependencyNames.has(CLAUDE_AGENT_SDK_PACKAGE) &&
+      file !== "packages/claude-coder/package.json"
+    ) {
+      errors.push({
+        file,
+        message: `declares proprietary Claude agent SDK outside claude-coder`,
+      })
+    }
+  }
+}
+
 function checkImportCycles(errors: Violation[]) {
   const domainSrc = path.join(ROOT, "packages/domain/src")
   const graph = new Map<string, string[]>()
@@ -582,6 +677,7 @@ function main() {
 
   checkDomainModuleOrder(errors)
   checkCrossLayerImports(errors)
+  checkClaudeCoderBoundary(errors)
   checkImportCycles(errors)
   checkRendererSessionOwnership(errors)
 

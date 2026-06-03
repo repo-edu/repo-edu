@@ -174,21 +174,26 @@ export function eventsFromClaudeStreamMessage(
       state.emittedText += suffix
       events.push({ kind: "text-delta", text: suffix })
     }
-    const done: LlmStreamEvent = {
-      kind: "done",
-      usage: finalizeUsage(
-        state.usage,
-        Date.now() - state.startMs,
-        state.authMode,
-      ),
-    }
     state.done = true
-    state.terminalUsage = done
-    events.push(done)
     return events
   }
 
   return []
+}
+
+export function finalizeClaudeStreamJsonState(
+  state: ClaudeStreamJsonState,
+): LlmStreamEvent & { kind: "done" } {
+  const done: LlmStreamEvent & { kind: "done" } = {
+    kind: "done",
+    usage: finalizeUsage(
+      state.usage,
+      Date.now() - state.startMs,
+      state.authMode,
+    ),
+  }
+  state.terminalUsage = done
+  return done
 }
 
 function assertNoToolStreamEvent(

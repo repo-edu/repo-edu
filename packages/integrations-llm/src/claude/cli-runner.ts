@@ -21,6 +21,7 @@ import { toClaudeLlmError } from "./errors"
 import {
   createClaudeStreamJsonState,
   eventsFromClaudeStreamMessage,
+  finalizeClaudeStreamJsonState,
   parseClaudeStreamJsonLine,
 } from "./stream-json"
 import type { TraceSink } from "./trace"
@@ -108,19 +109,30 @@ export async function* runClaudeCliStream(
   }
 
   let abortRequested = false
+  let completed = false
+  let childTerminated = false
   const child = (options.spawn ?? nodeSpawn)(
     executable,
     buildClaudeCliArgs(options.spec),
     buildClaudeCliSpawnOptions(executable, resolved.childEnv),
   )
   const close = waitForClose(child)
+  void close.catch(() => {
+    // The promise is still awaited on the normal path. This prevents an
+    // unhandled rejection if the consumer stops the async iterator early.
+  })
   let stderr = ""
-  const abort = () => {
-    abortRequested = true
+  const terminateChild = () => {
+    if (childTerminated) return
+    childTerminated = true
     child.kill("SIGTERM")
     destroyStream(child.stdin)
     destroyStream(child.stdout)
     destroyStream(child.stderr)
+  }
+  const abort = () => {
+    abortRequested = true
+    terminateChild()
   }
   options.signal?.addEventListener("abort", abort, { once: true })
 
@@ -192,16 +204,23 @@ export async function* runClaudeCliStream(
         { context: { provider: "claude", authMode: "subscription" } },
       )
     }
+    completed = true
+    yield finalizeClaudeStreamJsonState(state)
   } catch (cause) {
+    terminateChild()
     if (abortRequested || options.signal?.aborted || isAbortLikeError(cause)) {
       throw claudeAbortError(cause)
     }
     throw toClaudeLlmError(cause, "subscription")
   } finally {
     options.signal?.removeEventListener("abort", abort)
-    destroyStream(child.stdin)
-    destroyStream(child.stdout)
-    destroyStream(child.stderr)
+    if (!completed) {
+      terminateChild()
+    } else {
+      destroyStream(child.stdin)
+      destroyStream(child.stdout)
+      destroyStream(child.stderr)
+    }
   }
 }
 

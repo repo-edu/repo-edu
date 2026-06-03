@@ -1,7 +1,10 @@
 import assert from "node:assert/strict"
 import { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
-import { LlmError } from "@repo-edu/integrations-llm-contract"
+import {
+  LlmError,
+  type LlmStreamEvent,
+} from "@repo-edu/integrations-llm-contract"
 import { resolveClaudeAuth } from "../auth"
 import {
   buildClaudeCliArgs,
@@ -159,7 +162,7 @@ describe("runClaudeCliStream", () => {
     })
     assert.equal(resolved.authMode, "subscription")
 
-    const events = []
+    const events: LlmStreamEvent[] = []
     for await (const event of runClaudeCliStream(
       {
         spec: claudeSpec,
@@ -248,6 +251,42 @@ describe("runClaudeCliStream", () => {
     )
   })
 
+  it("does not emit done before a failed CLI close is classified", async () => {
+    const { spawn } = fakeSpawn(
+      [
+        '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}}\n',
+        '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+      ],
+      ["Unexpected CLI failure."],
+      { exitCode: 1 },
+    )
+    const events: LlmStreamEvent[] = []
+
+    await assert.rejects(
+      async () => {
+        for await (const event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          events.push(event)
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.message.includes("Unexpected CLI failure"),
+    )
+    assert.equal(
+      events.some((event) => event.kind === "done"),
+      false,
+    )
+  })
+
   it("rejects pre-aborted requests without spawning Claude", async () => {
     const { spawn, calls } = fakeSpawn([])
     const controller = new AbortController()
@@ -299,14 +338,45 @@ describe("runClaudeCliStream", () => {
     assert.equal(calls[0]?.killed, true)
   })
 
+  it("kills the Claude child when the consumer stops reading early", async () => {
+    const { spawn, calls } = fakeSpawn([
+      '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}}\n',
+      '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+    ])
+    const iterator = runClaudeCliStream(
+      {
+        spec: claudeSpec,
+        prompt: "Reply ok.",
+        executable: "/bin/claude",
+        spawn,
+      },
+      { authMode: "subscription", childEnv: {} },
+    )[Symbol.asyncIterator]()
+
+    await iterator.next()
+    await iterator.return?.()
+
+    assert.equal(calls[0]?.killed, true)
+  })
+
   it("rejects stream-json tool block starts as guardrail failures", async () => {
-    await assert.rejects(
-      () =>
-        drainCliStream([
-          '{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"Read","input":{"file_path":"README.md"}}}}\n',
-        ]),
-      isClaudeToolGuardrail,
-    )
+    const { spawn, calls } = fakeSpawn([
+      '{"type":"stream_event","event":{"type":"content_block_start","content_block":{"type":"tool_use","name":"Read","input":{"file_path":"README.md"}}}}\n',
+    ])
+    await assert.rejects(async () => {
+      for await (const _event of runClaudeCliStream(
+        {
+          spec: claudeSpec,
+          prompt: "Reply ok.",
+          executable: "/bin/claude",
+          spawn,
+        },
+        { authMode: "subscription", childEnv: {} },
+      )) {
+        // Drain stream.
+      }
+    }, isClaudeToolGuardrail)
+    assert.equal(calls[0]?.killed, true)
   })
 
   it("rejects assistant tool use messages as guardrail failures", async () => {
