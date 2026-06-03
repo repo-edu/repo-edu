@@ -85,6 +85,7 @@ main() {
 
   version=$(resolve_version)
   asset="redu-${platform}-${arch}"
+  notice_asset="${asset}.third-party-notices.txt"
   base_url="https://github.com/$REPO/releases/download/${version}"
 
   printf "Installing redu %s (%s/%s)...\n" "$version" "$platform" "$arch"
@@ -93,14 +94,20 @@ main() {
 
   tmp_binary="${INSTALL_DIR}/redu.tmp.$$"
   tmp_checksum="${INSTALL_DIR}/redu.sha256.tmp.$$"
-  trap 'rm -f "$tmp_binary" "$tmp_checksum"' EXIT
+  tmp_notice="${INSTALL_DIR}/redu.third-party-notices.tmp.$$"
+  trap 'rm -f "$tmp_binary" "$tmp_checksum" "$tmp_notice"' EXIT
 
   download "${base_url}/${asset}" "$tmp_binary"
   download "${base_url}/${asset}.sha256" "$tmp_checksum"
+  download "${base_url}/${notice_asset}" "$tmp_notice"
 
   # Validate that the downloaded binary is not an HTML error page
   if head -c 15 "$tmp_binary" | grep -qi '<!doctype\|<html'; then
     printf "Download returned an HTML error page instead of a binary.\n" >&2
+    exit 1
+  fi
+  if head -c 15 "$tmp_notice" | grep -qi '<!doctype\|<html'; then
+    printf "Download returned an HTML error page instead of a notice file.\n" >&2
     exit 1
   fi
 
@@ -110,6 +117,7 @@ main() {
 
   chmod +x "$tmp_binary"
   mv "$tmp_binary" "${INSTALL_DIR}/redu"
+  mv "$tmp_notice" "${INSTALL_DIR}/redu.third-party-notices.txt"
 
   printf "Installed redu to %s/redu\n" "$INSTALL_DIR"
 

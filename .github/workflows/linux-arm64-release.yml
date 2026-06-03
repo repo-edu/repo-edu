@@ -45,6 +45,8 @@ jobs:
         run: pnpm build
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
+      - name: Generate desktop notices
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --arm64 --publish never
       - name: Verify Linux arm64 update metadata
@@ -67,6 +69,7 @@ jobs:
             apps/desktop/release/*.deb
             apps/desktop/release/*.blockmap
             apps/desktop/release/*-linux-arm64.yml
+            apps/desktop/release-notices/*.txt
           retention-days: 30
 
   cli-build-linux:
@@ -89,11 +92,15 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile \
+            --metafile=redu-linux-arm64.metafile.json \
             apps/cli/src/main.ts \
             --outfile redu-linux-arm64
 
       - name: Smoke test
         run: ./redu-linux-arm64 --version
+
+      - name: Generate CLI notices
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform linux-arm64 --artifact-targets binary --bun-metafile redu-linux-arm64.metafile.json --manifest-out redu-linux-arm64.third-party-notices.txt
 
       - name: Generate CLI checksum
         run: |
@@ -111,7 +118,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: cli-linux-arm64
-          path: redu-linux-arm64*
+          path: |
+            redu-linux-arm64
+            redu-linux-arm64.sha256
+            redu-linux-arm64.third-party-notices.txt
           retention-days: 30
 
   release-attach:

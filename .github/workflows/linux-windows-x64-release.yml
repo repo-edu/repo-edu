@@ -71,6 +71,8 @@ jobs:
         run: pnpm build
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
+      - name: Generate desktop notices
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-x64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-x64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never
       - name: Verify Linux x64 update metadata
@@ -93,6 +95,7 @@ jobs:
             apps/desktop/release/*.deb
             apps/desktop/release/*.blockmap
             apps/desktop/release/*-linux.yml
+            apps/desktop/release-notices/*.txt
           retention-days: 30
 
   desktop-package-windows:
@@ -119,6 +122,8 @@ jobs:
         run: pnpm build
       - name: Runtime validation
         run: pnpm test:runtime
+      - name: Generate desktop notices
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-x64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-x64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --x64 --publish never
         env:
@@ -134,6 +139,7 @@ jobs:
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest-windows.yml
+            apps/desktop/release-notices/*.txt
           retention-days: 30
 
   # ---------------------------------------------------------------------------
@@ -159,11 +165,15 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile \
+            --metafile=redu-linux-x64.metafile.json \
             apps/cli/src/main.ts \
             --outfile redu-linux-x64
 
       - name: Smoke test
         run: ./redu-linux-x64 --version
+
+      - name: Generate CLI notices
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform linux-x64 --artifact-targets binary --bun-metafile redu-linux-x64.metafile.json --manifest-out redu-linux-x64.third-party-notices.txt
 
       - name: Generate CLI checksum
         run: |
@@ -181,7 +191,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: cli-linux-x64
-          path: redu-linux-x64*
+          path: |
+            redu-linux-x64
+            redu-linux-x64.sha256
+            redu-linux-x64.third-party-notices.txt
           retention-days: 30
 
   cli-build-windows:
@@ -204,11 +217,15 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile `
+            --metafile=redu-windows-x64.metafile.json `
             apps/cli/src/main.ts `
             --outfile redu-windows-x64.exe
 
       - name: Smoke test
         run: .\redu-windows-x64.exe --version
+
+      - name: Generate CLI notices
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform windows-x64 --artifact-targets binary --bun-metafile redu-windows-x64.metafile.json --manifest-out redu-windows-x64.exe.third-party-notices.txt
 
       - name: Generate CLI checksum
         shell: bash
@@ -227,7 +244,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: cli-windows-x64
-          path: redu-windows-x64*
+          path: |
+            redu-windows-x64.exe
+            redu-windows-x64.exe.sha256
+            redu-windows-x64.exe.third-party-notices.txt
           retention-days: 30
 
   # ---------------------------------------------------------------------------

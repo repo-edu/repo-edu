@@ -73,6 +73,8 @@ jobs:
         run: pnpm build
       - name: Runtime validation
         run: pnpm test:runtime
+      - name: Generate desktop notices
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform darwin-arm64 --artifact-targets dmg,zip --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-darwin-arm64.txt
       - name: Package
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -95,6 +97,7 @@ jobs:
             apps/desktop/release/*.zip
             apps/desktop/release/*.blockmap
             apps/desktop/release/latest-mac.yml
+            apps/desktop/release-notices/*.txt
           retention-days: 30
 
   cli-build-macos:
@@ -122,9 +125,13 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile \
+            --metafile=redu-darwin-arm64.metafile.json \
             --target=bun-darwin-arm64 \
             apps/cli/src/main.ts \
             --outfile redu-darwin-arm64
+
+      - name: Generate CLI notices
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform darwin-arm64 --artifact-targets binary --bun-metafile redu-darwin-arm64.metafile.json --manifest-out redu-darwin-arm64.third-party-notices.txt
 
       - name: Sign and notarize
         env:
@@ -181,7 +188,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: cli-darwin-arm64
-          path: redu-darwin-arm64*
+          path: |
+            redu-darwin-arm64
+            redu-darwin-arm64.sha256
+            redu-darwin-arm64.third-party-notices.txt
           retention-days: 30
 
   release-attach:

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
 import { chmod, rename, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import type { Command } from "commander"
 
 const githubRepo = "repo-edu/repo-edu"
@@ -26,6 +26,10 @@ function resolveAssetName(): string {
 
 function resolveChecksumAssetName(assetName: string): string {
   return `${assetName}.sha256`
+}
+
+function resolveNoticeAssetName(assetName: string): string {
+  return `${assetName}.third-party-notices.txt`
 }
 
 async function fetchLatestRelease(): Promise<ReleaseResponse> {
@@ -165,9 +169,13 @@ export function registerUpdateCommand(
 
         const assetName = resolveAssetName()
         const checksumAssetName = resolveChecksumAssetName(assetName)
+        const noticeAssetName = resolveNoticeAssetName(assetName)
         const asset = release.assets.find((a) => a.name === assetName)
         const checksumAsset = release.assets.find(
           (a) => a.name === checksumAssetName,
+        )
+        const noticeAsset = release.assets.find(
+          (a) => a.name === noticeAssetName,
         )
 
         if (!asset) {
@@ -186,16 +194,29 @@ export function registerUpdateCommand(
           return
         }
 
+        if (!noticeAsset) {
+          process.stderr.write(
+            `No third-party notice file found for this platform (${noticeAssetName}).\n`,
+          )
+          process.exitCode = 1
+          return
+        }
+
         const binaryPath = process.execPath
+        const noticePath = join(
+          dirname(binaryPath),
+          "redu.third-party-notices.txt",
+        )
         const tempPath = join(
           tmpdir(),
           `${basename(binaryPath)}.update-${Date.now()}`,
         )
 
         process.stdout.write("Downloading...\n")
-        const [binaryBuffer, checksumBuffer] = await Promise.all([
+        const [binaryBuffer, checksumBuffer, noticeBuffer] = await Promise.all([
           downloadAssetBuffer(asset.browser_download_url),
           downloadAssetBuffer(checksumAsset.browser_download_url),
+          downloadAssetBuffer(noticeAsset.browser_download_url),
         ])
 
         const expectedChecksum = parseExpectedChecksum(
@@ -207,6 +228,7 @@ export function registerUpdateCommand(
         await writeFile(tempPath, binaryBuffer)
 
         if (process.platform === "win32") {
+          await writeFile(noticePath, noticeBuffer)
           const scriptPath = await scheduleWindowsReplace(tempPath, binaryPath)
           process.stdout.write(
             `Update staged for ${latestVersion}. It will apply after this process exits.\n`,
@@ -223,6 +245,7 @@ export function registerUpdateCommand(
             backedUp = true
             await rename(tempPath, binaryPath)
             await unlink(backupPath).catch(() => {})
+            await writeFile(noticePath, noticeBuffer)
           } catch {
             if (backedUp) {
               await rename(backupPath, binaryPath).catch(() => {})

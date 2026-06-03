@@ -65,8 +65,10 @@ function Install-Redu {
   $arch = Resolve-Arch
   $asset = "redu-windows-$arch.exe"
   $checksumAsset = "$asset.sha256"
+  $noticeAsset = "$asset.third-party-notices.txt"
   $baseUrl = "https://github.com/$Repo/releases/download/$tag"
   $destination = Join-Path $InstallDir "redu.exe"
+  $noticeDestination = Join-Path $InstallDir "redu.third-party-notices.txt"
 
   Write-Host "Installing redu $tag (windows/$arch)..."
 
@@ -76,10 +78,12 @@ function Install-Redu {
 
   $tmpBinary = Join-Path $InstallDir "redu.exe.tmp.$PID"
   $tmpChecksum = Join-Path $InstallDir "redu.sha256.tmp.$PID"
+  $tmpNotice = Join-Path $InstallDir "redu.third-party-notices.tmp.$PID"
 
   try {
     Invoke-WebRequest -Uri "$baseUrl/$asset" -OutFile $tmpBinary -UseBasicParsing
     Invoke-WebRequest -Uri "$baseUrl/$checksumAsset" -OutFile $tmpChecksum -UseBasicParsing
+    Invoke-WebRequest -Uri "$baseUrl/$noticeAsset" -OutFile $tmpNotice -UseBasicParsing
 
     # Extract expected hash from checksum file (format: "hash  filename")
     $checksumContent = (Get-Content -Path $tmpChecksum -Raw).Trim()
@@ -88,9 +92,11 @@ function Install-Redu {
     Assert-Checksum -FilePath $tmpBinary -ExpectedHash $expectedHash
 
     Move-Item -LiteralPath $tmpBinary -Destination $destination -Force
+    Move-Item -LiteralPath $tmpNotice -Destination $noticeDestination -Force
   } finally {
     Remove-Item -Path $tmpBinary -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $tmpChecksum -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $tmpNotice -Force -ErrorAction SilentlyContinue
   }
 
   # Add to user PATH if not already present

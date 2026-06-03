@@ -14,6 +14,15 @@
         "out/renderer/**/*",
         "package.json"
     ],
+    "extraResources": [
+        {
+            "from": "release-notices",
+            "to": "notices",
+            "filter": [
+                "*.txt"
+            ]
+        }
+    ],
     "extraMetadata": {
         "main": "./out/main/main.js",
         "dependencies": {}
