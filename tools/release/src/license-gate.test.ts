@@ -728,6 +728,109 @@ describe("package internal asset rules", () => {
       await rm(root, { force: true, recursive: true })
     }
   })
+
+  it("requires every tRPC vendored surface to have explicit notice coverage", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const trpcPath = await writePackage(root, "node_modules/@trpc/server", {
+        name: "@trpc/server",
+        version: "11.15.0",
+      })
+      await mkdir(join(trpcPath, "src/vendor/cookie-es/set-cookie"), {
+        recursive: true,
+      })
+      await mkdir(join(trpcPath, "src/vendor/standard-schema-v1"), {
+        recursive: true,
+      })
+      await mkdir(join(trpcPath, "src/vendor/unpromise"), { recursive: true })
+      await writeFile(
+        join(trpcPath, "src/vendor/cookie-es/set-cookie/split.ts"),
+        "export {}\n",
+        "utf8",
+      )
+      await writeFile(
+        join(trpcPath, "src/vendor/is-plain-object.ts"),
+        "export {}\n",
+        "utf8",
+      )
+      await writeFile(
+        join(trpcPath, "src/vendor/standard-schema-v1/spec.ts"),
+        "export {}\n",
+        "utf8",
+      )
+      await writeFile(
+        join(trpcPath, "src/vendor/unpromise/ATTRIBUTION.txt"),
+        "unpromise attribution\n",
+        "utf8",
+      )
+      await writeFile(
+        join(trpcPath, "src/vendor/unpromise/LICENSE"),
+        "unpromise license\n",
+        "utf8",
+      )
+
+      const packageExtraText = new Map<string, string[]>()
+      await applyPackageInternalAssetRules({
+        directSubjects: [],
+        packageExtraText,
+        packageSubjects: [
+          {
+            reachedName: "@trpc/server",
+            packageName: "@trpc/server",
+            version: "11.15.0",
+            packagePath: trpcPath,
+            firstParty: false,
+            kind: "package",
+            path: ["@trpc/server"],
+            source: "test",
+          },
+        ],
+        platform: "linux-x64",
+      })
+
+      const trpcNoticeText =
+        packageExtraText
+          .get(packageKey("@trpc/server", "11.15.0", trpcPath))
+          ?.join("\n") ?? ""
+      assert.match(trpcNoticeText, /unpromise license/)
+      assert.match(trpcNoticeText, /cookie-es vendored by @trpc\/server/)
+      assert.match(trpcNoticeText, /is-plain-object vendored by @trpc\/server/)
+      assert.match(trpcNoticeText, /standard-schema vendored by @trpc\/server/)
+
+      await mkdir(join(trpcPath, "src/vendor/new-vendor"), {
+        recursive: true,
+      })
+      await writeFile(
+        join(trpcPath, "src/vendor/new-vendor/index.ts"),
+        "export {}\n",
+        "utf8",
+      )
+
+      await assert.rejects(
+        () =>
+          applyPackageInternalAssetRules({
+            directSubjects: [],
+            packageExtraText: new Map(),
+            packageSubjects: [
+              {
+                reachedName: "@trpc/server",
+                packageName: "@trpc/server",
+                version: "11.15.0",
+                packagePath: trpcPath,
+                firstParty: false,
+                kind: "package",
+                path: ["@trpc/server"],
+                source: "test",
+              },
+            ],
+            platform: "linux-x64",
+          }),
+        /new-vendor/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
 })
 
 describe("manifest helpers", () => {

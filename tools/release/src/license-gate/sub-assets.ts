@@ -9,12 +9,7 @@ import {
   readArchiveTextFiles,
   resolveOpenAiCodexDotslashManifest,
 } from "./archive.js"
-import {
-  normalizePath,
-  packageKey,
-  readGlobbedTextFiles,
-  readRequiredTextFiles,
-} from "./shared.js"
+import { normalizePath, packageKey, readRequiredTextFiles } from "./shared.js"
 import type {
   DirectNoticeSubject,
   PackageNoticeSubject,
@@ -31,16 +26,6 @@ const binaryMagicHeaders = [
   [0x4d, 0x5a],
 ]
 
-const handledVendoredPackages = new Set([
-  "@anthropic-ai/sdk",
-  "@openai/codex",
-  "@trpc/server",
-  "app-builder-bin",
-  "electron",
-  "trpc-electron",
-  "victory-vendor",
-])
-
 const partialJsonParserLicenseText = `partial-json-parser vendored by @anthropic-ai/sdk
 Upstream package: https://www.npmjs.com/package/partial-json-parser
 Upstream version inspected for this notice rule: 1.2.2
@@ -48,6 +33,91 @@ Upstream version inspected for this notice rule: 1.2.2
 MIT License
 
 Copyright (c) 2017 indgov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
+
+const trpcCookieEsLicenseText = `cookie-es vendored by @trpc/server
+Upstream package: https://www.npmjs.com/package/cookie-es
+Upstream version inspected for this notice rule: 1.2.2
+
+MIT License
+
+Cookie-es copyright (c) Pooya Parsa <pooya@pi0.io>
+
+Cookie parsing based on https://github.com/jshttp/cookie
+Copyright (c) 2012-2014 Roman Shtylman <shtylman@gmail.com>
+Copyright (c) 2015 Douglas Christopher Wilson <doug@somethingdoug.com>
+
+Set-Cookie parsing based on https://github.com/nfriedly/set-cookie-parser
+Copyright (c) 2015 Nathan Friedly <nathan@nfriedly.com> (http://nfriedly.com/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
+
+const trpcIsPlainObjectLicenseText = `is-plain-object vendored by @trpc/server
+Upstream package: https://www.npmjs.com/package/is-plain-object
+Upstream source: https://github.com/jonschlinkert/is-plain-object
+
+MIT License
+
+Copyright (c) 2014-2017, Jon Schlinkert.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
+
+const trpcStandardSchemaLicenseText = `standard-schema vendored by @trpc/server
+Upstream package: https://www.npmjs.com/package/@standard-schema/spec
+Upstream version inspected for this notice rule: 1.1.0
+
+MIT License
+
+Copyright (c) 2024 Colin McDonnell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -80,12 +150,27 @@ export async function applyPackageInternalAssetRules(options: {
   readonly platform: ReleasePlatform
 }): Promise<void> {
   for (const subject of options.packageSubjects) {
-    await applyNestedNoticeRules(subject, options.packageExtraText)
+    const vendoredSurfaces = await detectVendoredSurfaces(subject.packagePath)
+    const coveredVendoredSurfaces = await applyNestedNoticeRules(
+      subject,
+      options.packageExtraText,
+      vendoredSurfaces,
+    )
     const executableAssets = await detectExecutableAssets(subject.packagePath)
-    const vendoredSurface = await detectVendoredSurface(subject.packagePath)
 
     if (subject.packageName === "@openai/codex") {
-      await applyOpenAiCodexRules(subject, executableAssets, options)
+      await applyOpenAiCodexRules(
+        subject,
+        executableAssets,
+        vendoredSurfaces,
+        coveredVendoredSurfaces,
+        options,
+      )
+      assertVendoredSurfacesCovered(
+        subject,
+        vendoredSurfaces,
+        coveredVendoredSurfaces,
+      )
       continue
     }
     if (subject.packageName === "bun") {
@@ -93,6 +178,11 @@ export async function applyPackageInternalAssetRules(options: {
         subject,
         executableAssets,
         options.packageExtraText,
+      )
+      assertVendoredSurfacesCovered(
+        subject,
+        vendoredSurfaces,
+        coveredVendoredSurfaces,
       )
       continue
     }
@@ -114,23 +204,17 @@ export async function applyPackageInternalAssetRules(options: {
             `Runtime executable included at ${asset.relativePath}; notice coverage is supplied by the ${subject.packageName} package license text.`,
         ),
       )
-      continue
-    }
-
-    if (unexpectedExecutableAssets.length > 0) {
+    } else if (unexpectedExecutableAssets.length > 0) {
       throw new Error(
         `Package ${subject.packageName} contains executable sub-assets without an explicit notice rule: ${unexpectedExecutableAssets.map((asset) => asset.relativePath).join(", ")}`,
       )
     }
 
-    if (
-      vendoredSurface.length > 0 &&
-      !handledVendoredPackages.has(subject.packageName)
-    ) {
-      throw new Error(
-        `Package ${subject.packageName} contains vendored sub-assets without an explicit notice rule: ${vendoredSurface.join(", ")}`,
-      )
-    }
+    assertVendoredSurfacesCovered(
+      subject,
+      vendoredSurfaces,
+      coveredVendoredSurfaces,
+    )
   }
 }
 
@@ -181,7 +265,10 @@ function applyBunRuntimePackageRule(
 async function applyNestedNoticeRules(
   subject: PackageNoticeSubject,
   packageExtraText: Map<string, string[]>,
-): Promise<void> {
+  vendoredSurfaces: readonly string[],
+): Promise<Set<string>> {
+  const coveredVendoredSurfaces = new Set<string>()
+
   if (subject.packageName === "@anthropic-ai/sdk") {
     const notices = await readRequiredTextFiles([
       join(subject.packagePath, "src/internal/qs/LICENSE.md"),
@@ -191,29 +278,60 @@ async function applyNestedNoticeRules(
       ...notices,
       partialJsonParserLicenseText,
     ])
-    return
+    coverVendoredSurfaces(coveredVendoredSurfaces, [
+      "_vendor/partial-json-parser",
+      "src/_vendor/partial-json-parser",
+    ])
+    return coveredVendoredSurfaces
   }
 
   if (subject.packageName === "victory-vendor") {
-    const notices = await readGlobbedTextFiles(
-      join(subject.packagePath, "lib-vendor"),
-      "LICENSE",
+    const victoryVendoredSurfaces = vendoredSurfaces.filter((surface) =>
+      surface.startsWith("lib-vendor/"),
+    )
+    const notices = await readRequiredTextFiles(
+      victoryVendoredSurfaces.map((surface) =>
+        join(subject.packagePath, surface, "LICENSE"),
+      ),
     )
     appendPackageExtraText(subject, packageExtraText, notices)
-    return
+    coverVendoredSurfaces(coveredVendoredSurfaces, victoryVendoredSurfaces)
+    return coveredVendoredSurfaces
   }
 
-  if (
-    subject.packageName === "@trpc/server" ||
-    subject.packageName === "trpc-electron"
-  ) {
+  if (subject.packageName === "@trpc/server") {
+    const notices = await readRequiredTextFiles([
+      join(subject.packagePath, "src/vendor/unpromise/LICENSE"),
+      join(subject.packagePath, "src/vendor/unpromise/ATTRIBUTION.txt"),
+      join(subject.packagePath, "src/vendor/cookie-es/set-cookie/split.ts"),
+      join(subject.packagePath, "src/vendor/is-plain-object.ts"),
+      join(subject.packagePath, "src/vendor/standard-schema-v1/spec.ts"),
+    ])
+    appendPackageExtraText(subject, packageExtraText, [
+      notices[0] ?? "",
+      notices[1] ?? "",
+      trpcCookieEsLicenseText,
+      trpcIsPlainObjectLicenseText,
+      trpcStandardSchemaLicenseText,
+    ])
+    coverVendoredSurfaces(coveredVendoredSurfaces, [
+      "src/vendor/cookie-es",
+      "src/vendor/is-plain-object.ts",
+      "src/vendor/standard-schema-v1",
+      "src/vendor/unpromise",
+    ])
+    return coveredVendoredSurfaces
+  }
+
+  if (subject.packageName === "trpc-electron") {
     const vendorDirectory = join(subject.packagePath, "src/vendor/unpromise")
     const notices = await readRequiredTextFiles([
       join(vendorDirectory, "LICENSE"),
       join(vendorDirectory, "ATTRIBUTION.txt"),
     ])
     appendPackageExtraText(subject, packageExtraText, notices)
-    return
+    coverVendoredSurfaces(coveredVendoredSurfaces, ["src/vendor/unpromise"])
+    return coveredVendoredSurfaces
   }
 
   if (subject.packageName === "electron") {
@@ -223,11 +341,15 @@ async function applyNestedNoticeRules(
     ])
     appendPackageExtraText(subject, packageExtraText, notices)
   }
+
+  return coveredVendoredSurfaces
 }
 
 async function applyOpenAiCodexRules(
   subject: PackageNoticeSubject,
   executableAssets: readonly ExecutableAsset[],
+  vendoredSurfaces: readonly string[],
+  coveredVendoredSurfaces: Set<string>,
   options: {
     readonly directSubjects: DirectNoticeSubject[]
     readonly packageExtraText: Map<string, string[]>
@@ -256,6 +378,11 @@ async function applyOpenAiCodexRules(
           `Native Codex runtime binary included at ${asset.relativePath}; notice coverage is supplied by the @openai/codex package license text.`,
       ),
     )
+    coverVendoredSurfacesForPaths(
+      coveredVendoredSurfaces,
+      vendoredSurfaces,
+      codexAssets.map((asset) => asset.relativePath),
+    )
   }
 
   for (const asset of ripgrepAssets) {
@@ -263,6 +390,11 @@ async function applyOpenAiCodexRules(
       await resolveRipgrepNoticeSubject(subject, asset, options.platform),
     )
   }
+  coverVendoredSurfacesForPaths(
+    coveredVendoredSurfaces,
+    vendoredSurfaces,
+    ripgrepAssets.map((asset) => asset.relativePath),
+  )
 
   if (unexpected.length > 0) {
     throw new Error(
@@ -404,8 +536,8 @@ async function readFileHeader(path: string, bytes: number): Promise<Buffer> {
   }
 }
 
-async function detectVendoredSurface(packagePath: string): Promise<string[]> {
-  const surfaces: string[] = []
+async function detectVendoredSurfaces(packagePath: string): Promise<string[]> {
+  const surfaces = new Set<string>()
 
   async function walk(directory: string, depth: number): Promise<void> {
     if (depth > 3) {
@@ -417,7 +549,7 @@ async function detectVendoredSurface(packagePath: string): Promise<string[]> {
       const relativePath = normalizePath(relative(packagePath, absolutePath))
       if (entry.isDirectory()) {
         if (isVendoredDirectoryName(entry.name)) {
-          surfaces.push(relativePath)
+          await recordVendoredDirectorySurfaces(absolutePath, relativePath)
         }
         if (entry.name !== "node_modules" && entry.name !== ".git") {
           await walk(absolutePath, depth + 1)
@@ -427,7 +559,24 @@ async function detectVendoredSurface(packagePath: string): Promise<string[]> {
   }
 
   await walk(packagePath, 0)
-  return surfaces
+  return [...surfaces].sort()
+
+  async function recordVendoredDirectorySurfaces(
+    directory: string,
+    relativeDirectory: string,
+  ): Promise<void> {
+    let foundNestedSurface = false
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name === ".git") {
+        continue
+      }
+      foundNestedSurface = true
+      surfaces.add(normalizePath(join(relativeDirectory, entry.name)))
+    }
+    if (!foundNestedSurface) {
+      surfaces.add(relativeDirectory)
+    }
+  }
 }
 
 function isVendoredDirectoryName(name: string): boolean {
@@ -439,6 +588,45 @@ function isVendoredDirectoryName(name: string): boolean {
     "third_party",
     "third-party",
   ].includes(name)
+}
+
+function assertVendoredSurfacesCovered(
+  subject: PackageNoticeSubject,
+  vendoredSurfaces: readonly string[],
+  coveredVendoredSurfaces: ReadonlySet<string>,
+): void {
+  const uncovered = vendoredSurfaces.filter(
+    (surface) => !coveredVendoredSurfaces.has(surface),
+  )
+  if (uncovered.length > 0) {
+    throw new Error(
+      `Package ${subject.packageName} contains vendored sub-assets without an explicit notice rule: ${uncovered.join(", ")}`,
+    )
+  }
+}
+
+function coverVendoredSurfaces(
+  coveredVendoredSurfaces: Set<string>,
+  surfaces: readonly string[],
+): void {
+  for (const surface of surfaces) {
+    coveredVendoredSurfaces.add(surface)
+  }
+}
+
+function coverVendoredSurfacesForPaths(
+  coveredVendoredSurfaces: Set<string>,
+  vendoredSurfaces: readonly string[],
+  paths: readonly string[],
+): void {
+  for (const path of paths) {
+    const surface = vendoredSurfaces.find(
+      (candidate) => path === candidate || path.startsWith(`${candidate}/`),
+    )
+    if (surface) {
+      coveredVendoredSurfaces.add(surface)
+    }
+  }
 }
 
 function appendPackageExtraText(
