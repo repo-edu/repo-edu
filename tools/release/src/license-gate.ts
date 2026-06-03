@@ -426,17 +426,12 @@ export function narrowCliClosureWithBunMetafile(
     }
   }
 
-  const knownPackageNames = new Set(
-    allPackages.flatMap((pkg) => [pkg.reachedName, pkg.packageName]),
-  )
   const unresolved = [...unresolvedImports].filter(
-    (specifier) =>
-      !knownPackageNames.has(packageSpecifierName(specifier)) &&
-      !nodeBuiltins.has(specifier),
+    (specifier) => !isExplicitlyOwnedMetafileExternal(specifier),
   )
   if (unresolved.length > 0) {
     throw new Error(
-      `Bun metafile contains unresolved package imports: ${unresolved.join(", ")}`,
+      `Bun metafile contains external package imports that are not bundled or explicitly owned by runtime assets: ${unresolved.join(", ")}`,
     )
   }
 
@@ -628,50 +623,83 @@ async function collectRuntimeAssets(
   return { packageSubjects, directSubjects, decisions }
 }
 
-function resolveDesktopRuntimePackageSubjects(
+export function resolveDesktopRuntimePackageSubjects(
   root: string,
   artifactTargets: readonly string[],
 ): PackageNoticeSubject[] {
   const desktopRoot = resolve(root, appDirectoryByApp.desktop)
-  const packageNames = new Set([
-    "electron",
-    "electron-builder",
-    "app-builder-lib",
-    "app-builder-bin",
-    "builder-util-runtime",
-  ])
-
-  if (artifactTargets.includes("dmg")) {
-    packageNames.add("dmg-builder")
-  }
-  if (artifactTargets.includes("nsis")) {
-    packageNames.add("electron-builder-squirrel-windows")
-  }
-
-  return [...packageNames].map((packageName) =>
-    resolvePackageSubject(packageName, {
-      reachedName: packageName,
+  const electronBuilderRoot = dirname(
+    resolvePackageJsonPath("electron-builder", desktopRoot),
+  )
+  const subjects = [
+    resolvePackageSubject("electron", {
+      reachedName: "electron",
       root: desktopRoot,
       kind: "runtime-asset",
-      source: "Desktop release runtime or Electron Builder packaging runtime",
+      source: "Desktop Electron runtime",
     }),
-  )
+    resolvePackageSubject("electron-builder", {
+      reachedName: "electron-builder",
+      root: desktopRoot,
+      kind: "runtime-asset",
+      source: "Desktop Electron Builder packaging runtime",
+    }),
+    ...["app-builder-lib", "app-builder-bin", "builder-util-runtime"].map(
+      (packageName) =>
+        resolvePackageSubject(packageName, {
+          reachedName: packageName,
+          root: electronBuilderRoot,
+          kind: "runtime-asset",
+          source: "Desktop Electron Builder transitive packaging runtime",
+        }),
+    ),
+  ]
+
+  if (artifactTargets.includes("dmg")) {
+    subjects.push(
+      resolvePackageSubject("dmg-builder", {
+        reachedName: "dmg-builder",
+        root: electronBuilderRoot,
+        kind: "runtime-asset",
+        source: "Desktop Electron Builder macOS DMG packaging runtime",
+      }),
+    )
+  }
+  if (artifactTargets.includes("nsis")) {
+    subjects.push(
+      resolvePackageSubject("electron-builder-squirrel-windows", {
+        reachedName: "electron-builder-squirrel-windows",
+        root: electronBuilderRoot,
+        kind: "runtime-asset",
+        source: "Desktop Electron Builder Windows installer runtime",
+      }),
+    )
+  }
+
+  return subjects
 }
 
-function resolveCliRuntimePackageSubjects(
+export function resolveCliRuntimePackageSubjects(
   root: string,
   platform: ReleasePlatform,
 ): PackageNoticeSubject[] {
   const ovenPackageName = ovenBunPackageName(platform)
+  const bunSubject = resolvePackageSubject("bun", {
+    reachedName: "bun",
+    root,
+    kind: "runtime-asset",
+    source: "Bun compiled CLI runtime",
+  })
 
-  return ["bun", ovenPackageName].map((packageName) =>
-    resolvePackageSubject(packageName, {
-      reachedName: packageName,
-      root,
+  return [
+    bunSubject,
+    resolvePackageSubject(ovenPackageName, {
+      reachedName: ovenPackageName,
+      root: bunSubject.packagePath,
       kind: "runtime-asset",
-      source: "Bun compiled CLI runtime",
+      source: "Bun compiled CLI platform runtime",
     }),
-  )
+  ]
 }
 
 function resolveTokenizerGrammarRuntimeAssets(): DirectNoticeSubject[] {
@@ -1346,12 +1374,12 @@ function looksLikePackageSpecifier(value: string): boolean {
   )
 }
 
-function packageSpecifierName(specifier: string): string {
-  const parts = specifier.split("/")
-  if (specifier.startsWith("@")) {
-    return parts.slice(0, 2).join("/")
-  }
-  return parts[0] ?? specifier
+function isExplicitlyOwnedMetafileExternal(specifier: string): boolean {
+  return (
+    nodeBuiltins.has(specifier) ||
+    specifier === "bun" ||
+    specifier.startsWith("bun:")
+  )
 }
 
 function normalizePath(path: string): string {

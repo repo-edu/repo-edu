@@ -13,9 +13,43 @@ import {
   noticeSidecarName,
   type PnpmListNode,
   parseDotslashManifest,
+  type ReleasePlatform,
+  resolveCliRuntimePackageSubjects,
+  resolveDesktopRuntimePackageSubjects,
 } from "./license-gate.js"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
+
+function currentReleasePlatform(): ReleasePlatform | null {
+  if (process.platform === "darwin" && process.arch === "arm64") {
+    return "darwin-arm64"
+  }
+  if (process.platform === "linux" && process.arch === "arm64") {
+    return "linux-arm64"
+  }
+  if (process.platform === "linux" && process.arch === "x64") {
+    return "linux-x64"
+  }
+  if (process.platform === "win32" && process.arch === "arm64") {
+    return "windows-arm64"
+  }
+  if (process.platform === "win32" && process.arch === "x64") {
+    return "windows-x64"
+  }
+  return null
+}
+
+function desktopTargetsForPlatform(
+  platform: ReleasePlatform,
+): readonly string[] {
+  if (platform === "darwin-arm64") {
+    return ["dmg", "zip"]
+  }
+  if (platform === "linux-arm64" || platform === "linux-x64") {
+    return ["AppImage", "deb"]
+  }
+  return ["nsis"]
+}
 
 async function writePackage(
   root: string,
@@ -275,8 +309,74 @@ describe("Bun metafile narrowing", () => {
             },
           },
         ),
-      /unresolved/,
+      /external package imports/,
     )
+  })
+
+  it("fails closed when a known package is externalized instead of bundled", () => {
+    assert.throws(
+      () =>
+        narrowCliClosureWithBunMetafile(
+          {
+            firstPartyPackages: [],
+            externalPackages: [
+              {
+                reachedName: "commander",
+                packageName: "commander",
+                version: "14.0.3",
+                packagePath: "/repo/node_modules/commander",
+                firstParty: false,
+                path: ["commander"],
+              },
+            ],
+          },
+          {
+            outputs: {
+              redu: { imports: [{ path: "commander", external: true }] },
+            },
+          },
+        ),
+      /external package imports/,
+    )
+  })
+})
+
+describe("runtime package resolution", () => {
+  it("resolves release runtime subjects through their owning package roots", () => {
+    const platform = currentReleasePlatform()
+    if (!platform) {
+      return
+    }
+
+    const desktopSubjects = resolveDesktopRuntimePackageSubjects(
+      repoRoot,
+      desktopTargetsForPlatform(platform),
+    )
+    assert.deepEqual(
+      desktopSubjects
+        .map((subject) => subject.packageName)
+        .filter((name) =>
+          [
+            "electron",
+            "electron-builder",
+            "app-builder-lib",
+            "app-builder-bin",
+            "builder-util-runtime",
+          ].includes(name),
+        )
+        .sort(),
+      [
+        "app-builder-bin",
+        "app-builder-lib",
+        "builder-util-runtime",
+        "electron",
+        "electron-builder",
+      ],
+    )
+
+    const cliSubjects = resolveCliRuntimePackageSubjects(repoRoot, platform)
+    assert.equal(cliSubjects[0]?.packageName, "bun")
+    assert.match(cliSubjects[1]?.packageName ?? "", /^@oven\/bun-/)
   })
 })
 

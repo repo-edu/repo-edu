@@ -95,7 +95,11 @@ main() {
   tmp_binary="${INSTALL_DIR}/redu.tmp.$$"
   tmp_checksum="${INSTALL_DIR}/redu.sha256.tmp.$$"
   tmp_notice="${INSTALL_DIR}/redu.third-party-notices.tmp.$$"
-  trap 'rm -f "$tmp_binary" "$tmp_checksum" "$tmp_notice"' EXIT
+  dest_binary="${INSTALL_DIR}/redu"
+  dest_notice="${INSTALL_DIR}/redu.third-party-notices.txt"
+  backup_binary="${dest_binary}.old.$$"
+  backup_notice="${dest_notice}.old.$$"
+  trap 'rm -f "$tmp_binary" "$tmp_checksum" "$tmp_notice" "$backup_binary" "$backup_notice"' EXIT
 
   download "${base_url}/${asset}" "$tmp_binary"
   download "${base_url}/${asset}.sha256" "$tmp_checksum"
@@ -116,8 +120,51 @@ main() {
   verify_checksum "$tmp_binary" "$expected_hash"
 
   chmod +x "$tmp_binary"
-  mv "$tmp_binary" "${INSTALL_DIR}/redu"
-  mv "$tmp_notice" "${INSTALL_DIR}/redu.third-party-notices.txt"
+
+  binary_backed_up=0
+  notice_backed_up=0
+  binary_installed=0
+  notice_installed=0
+
+  if [ -e "$dest_binary" ]; then
+    if mv "$dest_binary" "$backup_binary"; then
+      binary_backed_up=1
+    else
+      printf "Failed to back up existing redu binary.\n" >&2
+      exit 1
+    fi
+  fi
+  if [ -e "$dest_notice" ]; then
+    if mv "$dest_notice" "$backup_notice"; then
+      notice_backed_up=1
+    else
+      if [ "$binary_backed_up" -eq 1 ]; then mv "$backup_binary" "$dest_binary"; fi
+      printf "Failed to back up existing redu third-party notices.\n" >&2
+      exit 1
+    fi
+  fi
+
+  if mv "$tmp_binary" "$dest_binary"; then
+    binary_installed=1
+  else
+    if [ "$binary_backed_up" -eq 1 ]; then mv "$backup_binary" "$dest_binary"; fi
+    if [ "$notice_backed_up" -eq 1 ]; then mv "$backup_notice" "$dest_notice"; fi
+    printf "Failed to install redu binary.\n" >&2
+    exit 1
+  fi
+
+  if mv "$tmp_notice" "$dest_notice"; then
+    notice_installed=1
+  else
+    if [ "$binary_installed" -eq 1 ]; then rm -f "$dest_binary"; fi
+    if [ "$notice_installed" -eq 1 ]; then rm -f "$dest_notice"; fi
+    if [ "$binary_backed_up" -eq 1 ]; then mv "$backup_binary" "$dest_binary"; fi
+    if [ "$notice_backed_up" -eq 1 ]; then mv "$backup_notice" "$dest_notice"; fi
+    printf "Failed to install redu third-party notices.\n" >&2
+    exit 1
+  fi
+
+  rm -f "$backup_binary" "$backup_notice"
 
   printf "Installed redu to %s/redu\n" "$INSTALL_DIR"
 

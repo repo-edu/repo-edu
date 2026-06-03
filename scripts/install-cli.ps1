@@ -60,6 +60,61 @@ function Assert-Checksum {
   }
 }
 
+function Install-ReleaseFiles {
+  param(
+    [string]$BinarySource,
+    [string]$BinaryDestination,
+    [string]$NoticeSource,
+    [string]$NoticeDestination
+  )
+
+  $binaryBackup = "$BinaryDestination.old.$PID"
+  $noticeBackup = "$NoticeDestination.old.$PID"
+  $binaryBackedUp = $false
+  $noticeBackedUp = $false
+  $binaryInstalled = $false
+  $noticeInstalled = $false
+
+  try {
+    Remove-Item -LiteralPath $binaryBackup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $noticeBackup -Force -ErrorAction SilentlyContinue
+
+    if (Test-Path -LiteralPath $BinaryDestination) {
+      Move-Item -LiteralPath $BinaryDestination -Destination $binaryBackup -Force
+      $binaryBackedUp = $true
+    }
+    if (Test-Path -LiteralPath $NoticeDestination) {
+      Move-Item -LiteralPath $NoticeDestination -Destination $noticeBackup -Force
+      $noticeBackedUp = $true
+    }
+
+    Move-Item -LiteralPath $BinarySource -Destination $BinaryDestination -Force
+    $binaryInstalled = $true
+    Move-Item -LiteralPath $NoticeSource -Destination $NoticeDestination -Force
+    $noticeInstalled = $true
+
+    Remove-Item -LiteralPath $binaryBackup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $noticeBackup -Force -ErrorAction SilentlyContinue
+  } catch {
+    if ($binaryInstalled) {
+      Remove-Item -LiteralPath $BinaryDestination -Force -ErrorAction SilentlyContinue
+    }
+    if ($noticeInstalled) {
+      Remove-Item -LiteralPath $NoticeDestination -Force -ErrorAction SilentlyContinue
+    }
+    if ($binaryBackedUp) {
+      Move-Item -LiteralPath $binaryBackup -Destination $BinaryDestination -Force
+    }
+    if ($noticeBackedUp) {
+      Move-Item -LiteralPath $noticeBackup -Destination $NoticeDestination -Force
+    }
+    throw
+  } finally {
+    Remove-Item -LiteralPath $binaryBackup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $noticeBackup -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Install-Redu {
   $tag = Resolve-LatestVersion
   $arch = Resolve-Arch
@@ -91,8 +146,11 @@ function Install-Redu {
 
     Assert-Checksum -FilePath $tmpBinary -ExpectedHash $expectedHash
 
-    Move-Item -LiteralPath $tmpBinary -Destination $destination -Force
-    Move-Item -LiteralPath $tmpNotice -Destination $noticeDestination -Force
+    Install-ReleaseFiles `
+      -BinarySource $tmpBinary `
+      -BinaryDestination $destination `
+      -NoticeSource $tmpNotice `
+      -NoticeDestination $noticeDestination
   } finally {
     Remove-Item -Path $tmpBinary -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $tmpChecksum -Force -ErrorAction SilentlyContinue

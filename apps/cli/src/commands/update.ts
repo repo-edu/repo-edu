@@ -17,6 +17,12 @@ type ReleaseResponse = {
   assets: ReleaseAsset[]
 }
 
+type FileReplacement = {
+  readonly sourcePath: string
+  readonly targetPath: string
+  readonly backupPath: string
+}
+
 function resolveAssetName(): string {
   const platform = process.platform === "win32" ? "windows" : process.platform
   const arch = process.arch
@@ -100,29 +106,72 @@ function escapePowerShellLiteral(value: string): string {
   return value.replaceAll("'", "''")
 }
 
+function powerShellReplacementRecord(replacement: FileReplacement): string {
+  return `@{ Source = '${escapePowerShellLiteral(replacement.sourcePath)}'; Target = '${escapePowerShellLiteral(replacement.targetPath)}'; Backup = '${escapePowerShellLiteral(replacement.backupPath)}' }`
+}
+
 async function scheduleWindowsReplace(
-  downloadedPath: string,
-  targetPath: string,
+  replacements: readonly FileReplacement[],
 ): Promise<string> {
   const scriptPath = join(tmpdir(), `redu-update-${Date.now()}.ps1`)
 
   const script = `
 $ErrorActionPreference = "Stop"
-$source = '${escapePowerShellLiteral(downloadedPath)}'
-$target = '${escapePowerShellLiteral(targetPath)}'
+$replacements = @(
+${replacements.map((replacement) => `  ${powerShellReplacementRecord(replacement)}`).join(",\n")}
+)
 
+function Restore-Replacements {
+  param($Items)
+
+  foreach ($item in $Items) {
+    if (Test-Path -LiteralPath $item.Backup) {
+      Remove-Item -LiteralPath $item.Target -Force -ErrorAction SilentlyContinue
+      Move-Item -LiteralPath $item.Backup -Destination $item.Target -Force
+    }
+  }
+}
+
+$backupsReady = $false
 for ($i = 0; $i -lt 120; $i++) {
   try {
-    Move-Item -LiteralPath $source -Destination $target -Force
-    Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-    exit 0
+    foreach ($item in $replacements) {
+      Remove-Item -LiteralPath $item.Backup -Force -ErrorAction SilentlyContinue
+      if (Test-Path -LiteralPath $item.Target) {
+        Move-Item -LiteralPath $item.Target -Destination $item.Backup -Force
+      }
+    }
+    $backupsReady = $true
+    break
   } catch {
+    Restore-Replacements $replacements
     Start-Sleep -Milliseconds 500
   }
 }
 
+if (-not $backupsReady) {
+  Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+  exit 1
+}
+
+try {
+  foreach ($item in $replacements) {
+    Move-Item -LiteralPath $item.Source -Destination $item.Target -Force
+  }
+  foreach ($item in $replacements) {
+    Remove-Item -LiteralPath $item.Backup -Force -ErrorAction SilentlyContinue
+  }
+} catch {
+  foreach ($item in $replacements) {
+    Remove-Item -LiteralPath $item.Target -Force -ErrorAction SilentlyContinue
+  }
+  Restore-Replacements $replacements
+  Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+  exit 1
+}
+
 Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-exit 1
+exit 0
 `.trim()
 
   await writeFile(scriptPath, script, "utf8")
@@ -139,6 +188,64 @@ exit 1
   child.unref()
 
   return scriptPath
+}
+
+async function replaceFilesWithBackups(
+  replacements: readonly FileReplacement[],
+): Promise<void> {
+  const backedUp: FileReplacement[] = []
+  const installed: FileReplacement[] = []
+
+  try {
+    for (const replacement of replacements) {
+      await unlink(replacement.backupPath).catch(() => {})
+      try {
+        await rename(replacement.targetPath, replacement.backupPath)
+        backedUp.push(replacement)
+      } catch (error) {
+        if (!isMissingFileError(error)) {
+          throw error
+        }
+      }
+    }
+
+    for (const replacement of replacements) {
+      await rename(replacement.sourcePath, replacement.targetPath)
+      installed.push(replacement)
+    }
+
+    await Promise.all(
+      backedUp.map((replacement) =>
+        unlink(replacement.backupPath).catch(() => {}),
+      ),
+    )
+  } catch (error) {
+    await Promise.all(
+      installed.map((replacement) =>
+        unlink(replacement.targetPath).catch(() => {}),
+      ),
+    )
+    for (const replacement of [...backedUp].reverse()) {
+      await rename(replacement.backupPath, replacement.targetPath).catch(
+        () => {},
+      )
+    }
+    await Promise.all(
+      replacements.map((replacement) =>
+        unlink(replacement.sourcePath).catch(() => {}),
+      ),
+    )
+    throw error
+  }
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  )
 }
 
 export function registerUpdateCommand(
@@ -203,14 +310,29 @@ export function registerUpdateCommand(
         }
 
         const binaryPath = process.execPath
-        const noticePath = join(
-          dirname(binaryPath),
-          "redu.third-party-notices.txt",
-        )
+        const targetDirectory = dirname(binaryPath)
+        const noticePath = join(targetDirectory, "redu.third-party-notices.txt")
+        const updateId = Date.now()
         const tempPath = join(
-          tmpdir(),
-          `${basename(binaryPath)}.update-${Date.now()}`,
+          targetDirectory,
+          `${basename(binaryPath)}.update-${updateId}`,
         )
+        const tempNoticePath = join(
+          targetDirectory,
+          `redu.third-party-notices.update-${updateId}.txt`,
+        )
+        const replacements = [
+          {
+            sourcePath: tempPath,
+            targetPath: binaryPath,
+            backupPath: `${binaryPath}.old-${updateId}`,
+          },
+          {
+            sourcePath: tempNoticePath,
+            targetPath: noticePath,
+            backupPath: `${noticePath}.old-${updateId}`,
+          },
+        ]
 
         process.stdout.write("Downloading...\n")
         const [binaryBuffer, checksumBuffer, noticeBuffer] = await Promise.all([
@@ -225,11 +347,13 @@ export function registerUpdateCommand(
         )
         assertChecksumMatches(binaryBuffer, expectedChecksum, assetName)
 
-        await writeFile(tempPath, binaryBuffer)
+        await Promise.all([
+          writeFile(tempPath, binaryBuffer),
+          writeFile(tempNoticePath, noticeBuffer),
+        ])
 
         if (process.platform === "win32") {
-          await writeFile(noticePath, noticeBuffer)
-          const scriptPath = await scheduleWindowsReplace(tempPath, binaryPath)
+          const scriptPath = await scheduleWindowsReplace(replacements)
           process.stdout.write(
             `Update staged for ${latestVersion}. It will apply after this process exits.\n`,
           )
@@ -237,22 +361,12 @@ export function registerUpdateCommand(
           setTimeout(() => unlink(scriptPath).catch(() => {}), 90_000).unref()
         } else {
           await chmod(tempPath, 0o755)
-          const backupPath = `${binaryPath}.old`
-          let backedUp = false
 
           try {
-            await rename(binaryPath, backupPath)
-            backedUp = true
-            await rename(tempPath, binaryPath)
-            await unlink(backupPath).catch(() => {})
-            await writeFile(noticePath, noticeBuffer)
+            await replaceFilesWithBackups(replacements)
           } catch {
-            if (backedUp) {
-              await rename(backupPath, binaryPath).catch(() => {})
-            }
-            await unlink(tempPath).catch(() => {})
             throw new Error(
-              "Failed to replace binary. You may need to run with elevated permissions.",
+              "Failed to replace binary and notice file. You may need to run with elevated permissions.",
             )
           }
 
