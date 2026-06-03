@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { VerifyLlmDraftInput } from "@repo-edu/application-contract"
 import { getVerifyDefaultSpec } from "@repo-edu/integrations-llm-catalog"
 import {
   type GenerateTextRequest,
@@ -88,6 +89,54 @@ describe("connection.verifyLlmDraft", () => {
       apiKey: "sk-test",
       maxTokens: 8192,
     })
+  })
+
+  it("rejects malformed Claude api drafts before creating a client", async () => {
+    const { factory, calls } = recordingClientFactory()
+    const handlers = createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: factory,
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["connection.verifyLlmDraft"]({
+          provider: "claude",
+          authMode: "api",
+          apiKey: "sk-test",
+        } as VerifyLlmDraftInput),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "validation" &&
+        ((error as { issues?: { path: string }[] }).issues ?? []).some(
+          (issue) => issue.path === "maxTokens",
+        ),
+    )
+    assert.equal(calls.length, 0)
+  })
+
+  it("rejects subscription drafts that include credentials", async () => {
+    const { factory, calls } = recordingClientFactory()
+    const handlers = createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: factory,
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["connection.verifyLlmDraft"]({
+          provider: "codex",
+          authMode: "subscription",
+          apiKey: "sk-leak",
+        } as VerifyLlmDraftInput),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "validation" &&
+        ((error as { issues?: { path: string }[] }).issues ?? []).some(
+          (issue) => issue.path === "apiKey",
+        ),
+    )
+    assert.equal(calls.length, 0)
   })
 
   it("uses the catalog-marked verify default for the provider", async () => {

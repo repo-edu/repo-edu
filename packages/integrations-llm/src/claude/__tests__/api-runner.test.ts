@@ -126,7 +126,10 @@ describe("runClaudeApiStream", () => {
   })
 
   it("passes the abort signal to messages.stream", async () => {
-    const { factory, calls } = apiFactory([{ type: "message_stop" }])
+    const { factory, calls } = apiFactory([
+      { type: "message_start", message: { usage: {} } },
+      { type: "message_stop" },
+    ])
     const controller = new AbortController()
 
     for await (const _event of runClaudeStream(
@@ -250,6 +253,31 @@ describe("runClaudeApiStream", () => {
         error.context.provider === "claude" &&
         error.context.authMode === "api" &&
         error.message.includes("message_stop"),
+    )
+  })
+
+  it("rejects API streams that stop without usage", async () => {
+    const { factory } = apiFactory([{ type: "message_stop" }])
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeStream(
+          {
+            spec: claudeSpec,
+            prompt: "ping",
+            apiFactory: factory,
+          },
+          { authMode: "api", apiKey: "sk-test", maxTokens: 8192 },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.context.provider === "claude" &&
+        error.context.authMode === "api" &&
+        error.message.includes("usage snapshot"),
     )
   })
 })

@@ -79,6 +79,14 @@ export async function* runClaudeApiStream(
         stream.abort()
         throw claudeAbortError(options.signal.reason)
       }
+      if (event.type === "message_stop" && usage == null) {
+        throw new LlmError(
+          "other",
+          "Claude API stream ended without a usage snapshot before message_stop.",
+          { context: { provider: "claude", authMode: "api" } },
+        )
+      }
+
       for (const output of eventsFromApiStreamEvent(
         event,
         options.spec,
