@@ -8,12 +8,12 @@ import {
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
-import type { ExaminationEntry } from "../stores/examination-store.js"
-import {
-  type AvailableArchiveEntry,
-  examinationRequestSidecar,
-  useExaminationStore,
-} from "../stores/examination-store.js"
+import { examinationRequestSidecar } from "../stores/examination-request-sidecar.js"
+import { useExaminationStore } from "../stores/examination-store.js"
+import type {
+  AvailableArchiveEntry,
+  ExaminationEntry,
+} from "../stores/examination-store-types.js"
 
 const repositoryCommitOid = "a".repeat(40)
 

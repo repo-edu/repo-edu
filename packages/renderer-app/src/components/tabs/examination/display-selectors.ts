@@ -1,7 +1,7 @@
 import type {
   ExaminationDisplayedEntryState,
   ExaminationEntry,
-} from "../../../stores/examination-store.js"
+} from "../../../stores/examination-store-types.js"
 import type { AvailableArchiveEntry } from "./types.js"
 
 export type ExaminationDisplaySelection = {

@@ -17,13 +17,13 @@ import {
   examinationPreferencePersistence,
   useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
+import { examinationRequestSidecar } from "../../../stores/examination-request-sidecar.js"
 import {
-  type ExaminationPreferencePersistenceEffect,
-  examinationRequestSidecar,
   selectExaminationSession,
   selectExaminationSourceSummary,
   useExaminationStore,
 } from "../../../stores/examination-store.js"
+import type { ExaminationPreferencePersistenceEffect } from "../../../stores/examination-store-types.js"
 import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import {

@@ -1,6 +1,6 @@
 import type { ExaminationGenerateQuestionsResult } from "@repo-edu/application-contract"
 import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
+import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
 import type { AvailableArchiveEntry } from "./types.js"
 
 export function toAvailableArchiveEntry(

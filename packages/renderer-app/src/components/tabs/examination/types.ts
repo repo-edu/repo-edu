@@ -1,1 +1,1 @@
-export type { AvailableArchiveEntry } from "../../../stores/examination-store.js"
+export type { AvailableArchiveEntry } from "../../../stores/examination-store-types.js"

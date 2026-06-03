@@ -1,289 +1,32 @@
 import type {
-  ExaminationArchiveKey,
-  ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
-  ExaminationStreamProgress,
-  ExaminationUsage,
 } from "@repo-edu/application-contract"
-import { parseExaminationArchiveStorageKey } from "@repo-edu/application-contract"
-import type { LlmProviderKind } from "@repo-edu/domain/settings"
-import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import { create } from "zustand"
+import type { SourceIdentity } from "../components/tabs/examination/source.js"
 import {
-  analysisSourceKeyScopeId,
-  type SourceIdentity,
-} from "../components/tabs/examination/source.js"
-import type { AnalysisSourceKey } from "../session/session-reducer.js"
-
-export type ExaminationEntryStatus = "idle" | "loading" | "loaded" | "error"
-
-export type ExaminationEntry = {
-  status: ExaminationEntryStatus
-  questions: ExaminationQuestion[]
-  usage: ExaminationUsage | null
-  errorMessage: string | null
-  generatedAt: string | null
-  fromArchive: boolean
-  sourceReferences: ExaminationSourceReference[]
-  archivedQuestionCount: number | null
-  archivedModel: string | null
-  archivedEffort: LlmEffort | null
-  partialQuestionCount: {
-    requested: number
-    accepted: number
-  } | null
-  generationProgressLabel: string | null
-  streamedResponseCharacterCount: number
-  streamedResponsePreview: string
-  inProgressQuestion: ExaminationInProgressQuestion | null
-  generationControlId: string | null
-  stopRequested: boolean
-}
-
-export type AvailableArchiveEntry = {
-  key: string
-  questionCount: number
-  model: string
-  effort: LlmEffort
-  entry: ExaminationEntry
-}
-
-export type ExaminationDisplayedEntryState =
-  | { kind: "idle" }
-  | { kind: "loading"; entryKey: string }
-  | {
-      kind: "archived"
-      entryKey: string
-      source: "lookup" | "pinned" | "just-generated"
-    }
-  | { kind: "error"; entryKey: string }
-
-export type ExaminationLookupMetadata = {
-  requestId: string
-  archiveRevision: number
-  archiveKeyIdentityKey: string
-  entryKey: string
-}
-
-export type ExaminationLivePreferences = {
-  questionCount: number
-  activeConnectionId: string | null
-  modelCode: string | null
-  effort: LlmEffort | null
-}
-
-export type ExaminationSession = {
-  sourceSessionKey: string
-  sourceIdentity: SourceIdentity
-  archiveKeyIdentity: SourceIdentity
-  preferences: ExaminationLivePreferences
-  showAnswers: boolean
-  display: ExaminationDisplayedEntryState
-  pinnedEntryKey: string | null
-  archiveEntries: AvailableArchiveEntry[]
-  lookupMetadata: ExaminationLookupMetadata | null
-  pendingLookupRequestId: string | null
-  pendingGenerationRequestId: string | null
-  pendingGenerationEntryKey: string | null
-}
-
-export type ExaminationSourceSummary = {
-  sourceSummaryKey: string
-  subjectIds: string[]
-  selectedSubjectId: string | null
-  generatedQuestionCountBySubjectId: Map<string, number>
-  archiveRevision: number
-  pendingRequestId: string | null
-}
-
-export type ExaminationPreferencePersistenceEffect = {
-  kind: "persist-preferences"
-  activeConnectionId?: string | null
-  providerModel?: {
-    provider: LlmProviderKind
-    modelCode: string
-  }
-}
-
-type ActivateSourceInput = {
-  sourceSummaryKey: string
-  sourceSessionKey: string
-  sourceIdentity: SourceIdentity
-  subjectIds: string[]
-  selectedSubjectId: string
-  defaultPreferences: {
-    questionCount: number
-    activeConnectionId: string | null
-    modelCode: string | null
-    effort: LlmEffort | null
-  }
-}
-
-type ActivateSourceSummaryInput = {
-  sourceSummaryKey: string
-  subjectIds: string[]
-  selectedSubjectId: string
-}
-
-type LoadedArchiveResultPayload = {
-  sourceSummaryKey?: string
-  sourceSessionKey?: string
-  requestId?: string
-  loadingKey: string | null
-  resultKey: string
-  archiveEntry?: AvailableArchiveEntry
-  entry: ExaminationEntry
-}
-
-type ExaminationState = {
-  selectedPersonId: string | null
-  questionCount: number
-  showAnswers: boolean
-  activeSourceSessionKey: string | null
-  activeSourceSummaryKey: string | null
-  sourceSessions: Map<string, ExaminationSession>
-  sourceSummaries: Map<string, ExaminationSourceSummary>
-  entriesByKey: Map<string, ExaminationEntry>
-  archiveRevision: number
-}
-
-type ExaminationActions = {
-  activateSourceSummary: (input: ActivateSourceSummaryInput) => void
-  activateSource: (input: ActivateSourceInput) => void
-  selectRepositoryAnalysisSubject: (
-    sourceSummaryKey: string,
-    subjectId: string,
-  ) => void
-  setSelectedPersonId: (personId: string | null) => void
-  setQuestionCount: (count: number) => void
-  setSessionQuestionCount: (sourceSessionKey: string, count: number) => void
-  setSessionConnection: (
-    sourceSessionKey: string,
-    connectionId: string | null,
-    modelCode: string | null,
-    effort: LlmEffort | null,
-  ) => ExaminationPreferencePersistenceEffect[]
-  setSessionModel: (
-    sourceSessionKey: string,
-    provider: LlmProviderKind,
-    code: string,
-    effort: LlmEffort | null,
-  ) => ExaminationPreferencePersistenceEffect[]
-  setShowAnswers: (show: boolean) => void
-  setSessionShowAnswers: (sourceSessionKey: string, show: boolean) => void
-  selectArchiveEntry: (
-    sourceSessionKey: string,
-    archiveIdentity: SourceIdentity,
-    archiveEntry: AvailableArchiveEntry,
-    activeConnectionId: string | null,
-    provider: LlmProviderKind,
-  ) => ExaminationPreferencePersistenceEffect[]
-  startLookup: (sourceSessionKey: string) => {
-    requestId: string
-    archiveRevision: number
-  } | null
-  applyLookupResult: (payload: {
-    sourceSessionKey: string
-    requestId: string
-    archiveRevision: number
-    archiveKeyIdentityKey: string
-    requestedIdentity: SourceIdentity
-    resolvedIdentity: SourceIdentity
-    entryKey: string
-    exactEntry: ExaminationEntry | null
-    archiveEntries: AvailableArchiveEntry[]
-  }) => void
-  failLookup: (sourceSessionKey: string, requestId: string) => void
-  startSourceSummaryLookup: (sourceSummaryKey: string) => {
-    requestId: string
-    archiveRevision: number
-  } | null
-  applySourceSummaryLookupResult: (payload: {
-    sourceSummaryKey: string
-    requestId: string
-    archiveRevision: number
-    counts: ReadonlyMap<string, number>
-  }) => void
-  failSourceSummaryLookup: (sourceSummaryKey: string, requestId: string) => void
-  startGenerationSession: (payload: {
-    sourceSessionKey: string
-    entryKey: string
-    generationControlId: string
-    seedQuestions: ExaminationQuestion[]
-    sourceReferences: ExaminationSourceReference[]
-    requestedQuestionCount: number
-  }) => { requestId: string } | null
-  applyLoadedArchiveResult: (payload: LoadedArchiveResultPayload) => void
-  applyGenerationError: (
-    key: string,
-    message: string,
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  setEntry: (key: string, entry: ExaminationEntry) => void
-  setPartialQuestions: (
-    key: string,
-    payload: {
-      questions: ExaminationQuestion[]
-      sourceReferences: ExaminationSourceReference[]
-      inProgressQuestion: ExaminationInProgressQuestion | null
-    },
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  applyPartialQuestions: (
-    key: string,
-    payload: {
-      questions: ExaminationQuestion[]
-      sourceReferences: ExaminationSourceReference[]
-      inProgressQuestion: ExaminationInProgressQuestion | null
-    },
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  setGenerationProgress: (
-    key: string,
-    label: string,
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  applyGenerationProgress: (
-    key: string,
-    label: string,
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  setStreamProgress: (
-    key: string,
-    progress: ExaminationStreamProgress,
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  applyStreamProgress: (
-    key: string,
-    progress: ExaminationStreamProgress,
-    sourceSessionKey?: string,
-    requestId?: string,
-  ) => void
-  requestGenerationStop: (sourceSessionKey: string) => string | null
-  cancelGenerationSession: (sourceSessionKey: string) => void
-  clearEntry: (key: string) => void
-  archiveCatalogChanged: () => number
-  invalidateRepositoryAnalysisSource: (
-    repoPath: string | null,
-    analysisSourceKey?: AnalysisSourceKey | null,
-  ) => void
-  invalidateSubmissionSource: (
-    folderPath: string,
-    analysisSourceKey?: AnalysisSourceKey | null,
-  ) => void
-  invalidateAnalysisSource: (
-    analysisSourceKey: AnalysisSourceKey | null,
-  ) => void
-  resetRepositoryAnalysis: () => void
-  reset: () => void
-}
+  mergeAvailableArchiveEntries,
+  mergeSupersedingAvailableArchiveEntries,
+  supersededAvailableArchiveEntryKeys,
+} from "./examination-archive-entries.js"
+import {
+  examinationKeyMatchesSourceScope,
+  repositoryAnalysisSummaryMatchesRepoPath,
+  submissionSummaryMatchesFolderPath,
+} from "./examination-key-scope.js"
+import { examinationRequestSidecar } from "./examination-request-sidecar.js"
+import type {
+  ActivateSourceInput,
+  ActivateSourceSummaryInput,
+  ExaminationActions,
+  ExaminationEntry,
+  ExaminationLivePreferences,
+  ExaminationLookupMetadata,
+  ExaminationSession,
+  ExaminationSourceSummary,
+  ExaminationState,
+  LoadedArchiveResultPayload,
+} from "./examination-store-types.js"
 
 function createInitialState(): ExaminationState {
   return {
@@ -385,111 +128,6 @@ function createErrorEntry(message: string): ExaminationEntry {
     generationControlId: null,
     stopRequested: false,
   }
-}
-
-type RequestSidecarEntry = {
-  controller: AbortController
-  generationControlId?: string
-}
-
-function sidecarKey(ownerKey: string, requestId: string): string {
-  return `${ownerKey}\n${requestId}`
-}
-
-const lookupRequestSidecar = new Map<string, RequestSidecarEntry>()
-const summaryRequestSidecar = new Map<string, RequestSidecarEntry>()
-const generationRequestSidecar = new Map<string, RequestSidecarEntry>()
-
-export const examinationRequestSidecar = {
-  registerLookup(
-    sourceSessionKey: string,
-    requestId: string,
-    controller: AbortController,
-  ): void {
-    replaceSidecarEntry(lookupRequestSidecar, sourceSessionKey, requestId, {
-      controller,
-    })
-  },
-  clearLookup(sourceSessionKey: string, requestId: string): void {
-    lookupRequestSidecar.delete(sidecarKey(sourceSessionKey, requestId))
-  },
-  abortLookup(sourceSessionKey: string, requestId: string): void {
-    abortSidecarEntry(lookupRequestSidecar, sourceSessionKey, requestId)
-  },
-  registerSummary(
-    sourceSummaryKey: string,
-    requestId: string,
-    controller: AbortController,
-  ): void {
-    replaceSidecarEntry(summaryRequestSidecar, sourceSummaryKey, requestId, {
-      controller,
-    })
-  },
-  clearSummary(sourceSummaryKey: string, requestId: string): void {
-    summaryRequestSidecar.delete(sidecarKey(sourceSummaryKey, requestId))
-  },
-  abortSummary(sourceSummaryKey: string, requestId: string): void {
-    abortSidecarEntry(summaryRequestSidecar, sourceSummaryKey, requestId)
-  },
-  registerGeneration(
-    sourceSessionKey: string,
-    requestId: string,
-    controller: AbortController,
-    generationControlId: string,
-  ): void {
-    replaceSidecarEntry(generationRequestSidecar, sourceSessionKey, requestId, {
-      controller,
-      generationControlId,
-    })
-  },
-  clearGeneration(sourceSessionKey: string, requestId: string): void {
-    generationRequestSidecar.delete(sidecarKey(sourceSessionKey, requestId))
-  },
-  abortGeneration(sourceSessionKey: string, requestId: string): string | null {
-    const key = sidecarKey(sourceSessionKey, requestId)
-    const entry = generationRequestSidecar.get(key)
-    if (entry === undefined) return null
-    entry.controller.abort()
-    generationRequestSidecar.delete(key)
-    return entry.generationControlId ?? null
-  },
-  clearAll(): void {
-    abortAndClearSidecar(lookupRequestSidecar)
-    abortAndClearSidecar(summaryRequestSidecar)
-    abortAndClearSidecar(generationRequestSidecar)
-  },
-}
-
-function replaceSidecarEntry(
-  sidecar: Map<string, RequestSidecarEntry>,
-  ownerKey: string,
-  requestId: string,
-  entry: RequestSidecarEntry,
-): void {
-  for (const [key, current] of sidecar) {
-    if (key.startsWith(`${ownerKey}\n`)) {
-      current.controller.abort()
-      sidecar.delete(key)
-    }
-  }
-  sidecar.set(sidecarKey(ownerKey, requestId), entry)
-}
-
-function abortSidecarEntry(
-  sidecar: Map<string, RequestSidecarEntry>,
-  ownerKey: string,
-  requestId: string,
-): void {
-  const key = sidecarKey(ownerKey, requestId)
-  sidecar.get(key)?.controller.abort()
-  sidecar.delete(key)
-}
-
-function abortAndClearSidecar(sidecar: Map<string, RequestSidecarEntry>): void {
-  for (const entry of sidecar.values()) {
-    entry.controller.abort()
-  }
-  sidecar.clear()
 }
 
 export const useExaminationStore = create<
@@ -1022,7 +660,7 @@ export const useExaminationStore = create<
         return { entriesByKey: next }
       }),
 
-    setPartialQuestions: (key, payload, sourceSessionKey, requestId) =>
+    applyPartialQuestions: (key, payload, sourceSessionKey, requestId) =>
       updateLoadingEntry(
         key,
         (current) => ({
@@ -1042,10 +680,7 @@ export const useExaminationStore = create<
         requestId,
       ),
 
-    applyPartialQuestions: (key, payload, sourceSessionKey, requestId) =>
-      get().setPartialQuestions(key, payload, sourceSessionKey, requestId),
-
-    setGenerationProgress: (key, label, sourceSessionKey, requestId) =>
+    applyGenerationProgress: (key, label, sourceSessionKey, requestId) =>
       updateLoadingEntry(
         key,
         (current) => ({
@@ -1056,10 +691,7 @@ export const useExaminationStore = create<
         requestId,
       ),
 
-    applyGenerationProgress: (key, label, sourceSessionKey, requestId) =>
-      get().setGenerationProgress(key, label, sourceSessionKey, requestId),
-
-    setStreamProgress: (key, progress, sourceSessionKey, requestId) =>
+    applyStreamProgress: (key, progress, sourceSessionKey, requestId) =>
       updateLoadingEntry(
         key,
         (current) => {
@@ -1081,9 +713,6 @@ export const useExaminationStore = create<
         requestId,
       ),
 
-    applyStreamProgress: (key, progress, sourceSessionKey, requestId) =>
-      get().setStreamProgress(key, progress, sourceSessionKey, requestId),
-
     requestGenerationStop: (sourceSessionKey) => {
       const state = get()
       const session = state.sourceSessions.get(sourceSessionKey)
@@ -1092,7 +721,7 @@ export const useExaminationStore = create<
       if (session === undefined || requestId === null || entryKey === null) {
         return null
       }
-      get().setGenerationProgress(
+      get().applyGenerationProgress(
         entryKey,
         state.entriesByKey.get(entryKey)?.generationProgressLabel ??
           "Stopping generation.",
@@ -1377,55 +1006,6 @@ function removeMatchingSourceState(
   }
 }
 
-function scopedExaminationKeyParts(
-  key: string,
-  analysisSourceKey?: AnalysisSourceKey | null,
-): unknown[] | null {
-  try {
-    const parsed = JSON.parse(key) as unknown
-    if (!Array.isArray(parsed)) return null
-    if (parsed[0] !== "analysis-source") {
-      return analysisSourceKey === undefined ? parsed : null
-    }
-    if (analysisSourceKey !== undefined) {
-      const scope = analysisSourceKeyScopeId(analysisSourceKey)
-      if (JSON.stringify(parsed[1]) !== scope) return null
-    }
-    return Array.isArray(parsed[2]) ? parsed[2] : null
-  } catch (_error) {
-    return null
-  }
-}
-
-function examinationKeyMatchesSourceScope(
-  key: string,
-  analysisSourceKey?: AnalysisSourceKey | null,
-): boolean {
-  return scopedExaminationKeyParts(key, analysisSourceKey) !== null
-}
-
-function repositoryAnalysisSummaryMatchesRepoPath(
-  sourceSummaryKey: string,
-  repoPath: string | null,
-  analysisSourceKey?: AnalysisSourceKey | null,
-): boolean {
-  const parsed = scopedExaminationKeyParts(sourceSummaryKey, analysisSourceKey)
-  if (parsed === null) return false
-  if (parsed[0] !== "repository-analysis-summary") return false
-  return repoPath === null || parsed[1] === repoPath
-}
-
-function submissionSummaryMatchesFolderPath(
-  sourceSummaryKey: string,
-  folderPath: string,
-  analysisSourceKey?: AnalysisSourceKey | null,
-): boolean {
-  const parsed = scopedExaminationKeyParts(sourceSummaryKey, analysisSourceKey)
-  if (parsed === null) return false
-  if (parsed[0] !== "submission-summary") return false
-  return parsed[1] === folderPath
-}
-
 function acceptGenerationEvent(
   state: ExaminationState,
   sourceSessionKey: string,
@@ -1433,105 +1013,6 @@ function acceptGenerationEvent(
 ): boolean {
   const session = state.sourceSessions.get(sourceSessionKey)
   return session?.pendingGenerationRequestId === requestId
-}
-
-function mergeAvailableArchiveEntries(
-  current: readonly AvailableArchiveEntry[],
-  incoming: readonly AvailableArchiveEntry[],
-): AvailableArchiveEntry[] {
-  const byKey = new Map<string, AvailableArchiveEntry>()
-  for (const entry of current) {
-    byKey.set(entry.key, entry)
-  }
-  for (const entry of incoming) {
-    byKey.set(entry.key, entry)
-  }
-  return [...byKey.values()].sort(compareAvailableArchiveEntries)
-}
-
-function mergeSupersedingAvailableArchiveEntries(
-  current: readonly AvailableArchiveEntry[],
-  incoming: readonly AvailableArchiveEntry[],
-): AvailableArchiveEntry[] {
-  const supersededKeys = supersededAvailableArchiveEntryKeys(current, incoming)
-  return mergeAvailableArchiveEntries(
-    current.filter((entry) => !supersededKeys.has(entry.key)),
-    incoming,
-  )
-}
-
-function supersededAvailableArchiveEntryKeys(
-  current: readonly AvailableArchiveEntry[],
-  incoming: readonly AvailableArchiveEntry[],
-): Set<string> {
-  const incomingContexts = incoming
-    .map((entry) => parseArchiveStorageKeyContext(entry.key))
-    .filter((context) => context !== null)
-  const incomingKeys = new Set(incoming.map((entry) => entry.key))
-  const supersededKeys = new Set<string>()
-  for (const entry of current) {
-    if (incomingKeys.has(entry.key)) continue
-    const context = parseArchiveStorageKeyContext(entry.key)
-    if (context === null) continue
-    if (
-      incomingContexts.some((incomingContext) =>
-        sameArchiveContext(context, incomingContext),
-      )
-    ) {
-      supersededKeys.add(entry.key)
-    }
-  }
-  return supersededKeys
-}
-
-type ArchiveStorageKeyContext = {
-  personId: ExaminationArchiveKey["personId"]
-  contentScopeId: ExaminationArchiveKey["contentScopeId"]
-  providerPayloadFingerprint: ExaminationArchiveKey["providerPayloadFingerprint"]
-  generationContextFingerprint: ExaminationArchiveKey["generationContextFingerprint"]
-}
-
-function parseArchiveStorageKeyContext(
-  key: string,
-): ArchiveStorageKeyContext | null {
-  const parsed = parseExaminationArchiveStorageKey(key)
-  if (parsed === null) return null
-  const {
-    personId,
-    contentScopeId,
-    providerPayloadFingerprint,
-    generationContextFingerprint,
-  } = parsed
-  return {
-    personId,
-    contentScopeId,
-    providerPayloadFingerprint,
-    generationContextFingerprint,
-  }
-}
-
-function sameArchiveContext(
-  a: ArchiveStorageKeyContext,
-  b: ArchiveStorageKeyContext,
-): boolean {
-  return (
-    a.personId === b.personId &&
-    a.contentScopeId === b.contentScopeId &&
-    a.providerPayloadFingerprint === b.providerPayloadFingerprint &&
-    a.generationContextFingerprint === b.generationContextFingerprint
-  )
-}
-
-function compareAvailableArchiveEntries(
-  a: AvailableArchiveEntry,
-  b: AvailableArchiveEntry,
-): number {
-  const aTime =
-    a.entry.generatedAt === null ? 0 : Date.parse(a.entry.generatedAt)
-  const bTime =
-    b.entry.generatedAt === null ? 0 : Date.parse(b.entry.generatedAt)
-  if (aTime !== bTime) return bTime - aTime
-  return a.questionCount - b.questionCount
 }
 
 function clampQuestionCount(count: number): number {

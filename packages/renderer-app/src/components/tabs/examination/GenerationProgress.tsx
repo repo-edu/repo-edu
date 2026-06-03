@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
+import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
 import { InProgressQuestionCard, StreamPreviewCard } from "./QuestionList.js"
 
 export function StreamingGenerationDetail({

@@ -3,7 +3,7 @@ import type {
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
-import type { ExaminationEntry } from "../../../stores/examination-store.js"
+import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
 import type { ExaminationDisplaySelection } from "./display-selectors.js"
 
 export const MAX_EXAMINATION_QUESTION_COUNT = 20
