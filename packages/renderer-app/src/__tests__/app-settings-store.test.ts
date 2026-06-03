@@ -5,6 +5,10 @@ import {
   type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import { persistedAppSettingsKind } from "@repo-edu/domain/types"
+import {
+  emptyLlmDraft,
+  toLlmDraft,
+} from "../components/settings/ConnectionsPane.shared.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
 
@@ -129,6 +133,21 @@ describe("app settings store", () => {
         "\0/submissions/one",
       ),
       false,
+    )
+  })
+
+  it("defaults Claude LLM drafts to 8192 max output tokens", () => {
+    assert.equal(emptyLlmDraft().maxTokens, "8192")
+    assert.equal(
+      toLlmDraft({
+        id: "llm-1",
+        name: "Claude API",
+        provider: "claude",
+        authMode: "api",
+        apiKey: "sk-test",
+        maxTokens: 12_000,
+      }).maxTokens,
+      "12000",
     )
   })
 })

@@ -22,9 +22,9 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 - `state.ts` — `.fixture-state.json` cursor (last project + plan pointers).
 - `planner.ts` / `coder.ts` / `review.ts` / `evaluate.ts` — the LLM-driven
   phases, all routed through `llm-client.ts` (a thin wrapper over the
-  contract `LlmTextClient`; Claude coder rounds use `runClaudeCoder`, Codex
-  coder rounds use strict JSON-patch replies that this package validates and
-  applies).
+  contract `LlmTextClient`; Claude coder rounds use `runClaudeCoder` from
+  `@repo-edu/claude-coder`, Codex coder rounds use strict JSON-patch replies
+  that this package validates and applies).
 - `repo-context.ts` — embeds current repo snapshot and target file contents for
   coder prompts.
 - `cohort-team-source.ts` — resolves demo cohort team-source JSON used when
@@ -37,12 +37,14 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 
 ## Rules
 
-- Node-only: uses filesystem/process/git side effects and provider adapters via
-  `@repo-edu/integrations-llm` — never depend on this package from browser-safe
-  code.
-- Talk to LLMs only through the contract types in
+- Node-only: uses filesystem/process/git side effects, provider prompt/reply
+  adapters via `@repo-edu/integrations-llm`, and the dev-only Claude Code coder
+  via `@repo-edu/claude-coder` — never depend on this package from
+  browser-safe code.
+- Talk to prompt/reply LLMs only through the contract types in
   `@repo-edu/integrations-llm-contract` and the dispatcher in
-  `@repo-edu/integrations-llm`. Do not import provider SDKs directly here.
+  `@repo-edu/integrations-llm`. Claude fixture coder rounds go through
+  `@repo-edu/claude-coder`. Do not import provider SDKs directly here.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
   (`parseShortCode`, `modelCode`, `tokenCostUsd`).
 - Keep Codex patch parsing/path validation in `llm-client.ts`; prompts may

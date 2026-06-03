@@ -8,12 +8,6 @@ importers:
 
   .:
     devDependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.160
-        version: 0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)
-      '@anthropic-ai/sdk':
-        specifier: ^0.100.1
-        version: 0.100.1(zod@4.3.6)
       '@biomejs/biome':
         specifier: 2.4.8
         version: 2.4.8
@@ -77,12 +71,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.160
-        version: 0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)
-      '@anthropic-ai/sdk':
-        specifier: ^0.100.1
-        version: 0.100.1(zod@4.3.6)
       '@openai/codex-sdk':
         specifier: 0.128.0
         version: 0.128.0
@@ -306,6 +294,24 @@ importers:
         specifier: workspace:*
         version: link:../integrations-lms-contract
 
+  packages/claude-coder:
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.3.161
+        version: 0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
+      '@anthropic-ai/sdk':
+        specifier: ^0.100.1
+        version: 0.100.1(zod@4.4.3)
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@4.4.3)
+      '@repo-edu/integrations-llm-contract':
+        specifier: workspace:*
+        version: link:../integrations-llm-contract
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/domain:
     dependencies:
       '@noble/hashes':
@@ -324,12 +330,9 @@ importers:
 
   packages/fixture-engine:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.160
-        version: 0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)
-      '@anthropic-ai/sdk':
-        specifier: ^0.100.1
-        version: 0.100.1(zod@4.3.6)
+      '@repo-edu/claude-coder':
+        specifier: workspace:*
+        version: link:../claude-coder
       '@repo-edu/integrations-llm':
         specifier: workspace:*
         version: link:../integrations-llm
@@ -436,12 +439,9 @@ importers:
 
   packages/integrations-llm:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.160
-        version: 0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)
       '@anthropic-ai/sdk':
         specifier: ^0.100.1
-        version: 0.100.1(zod@4.3.6)
+        version: 0.100.1(zod@4.4.3)
       '@openai/codex-sdk':
         specifier: 0.128.0
         version: 0.128.0
@@ -5969,6 +5969,9 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
   zustand@5.0.12:
     resolution: {integrity: sha512-i77ae3aZq4dhMlRhJVCYgMLKuSiZAaUPAct2AksxQ+gOtimhGMdXljRT21P5BNpeT4kXlLIckvkPM029OljD7g==}
     engines: {node: '>=12.20.0'}
@@ -6018,11 +6021,11 @@ snapshots:
   '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.161':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.3.6))(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(zod@4.3.6)':
+  '@anthropic-ai/claude-agent-sdk@0.3.161(@anthropic-ai/sdk@0.100.1(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@anthropic-ai/sdk': 0.100.1(zod@4.3.6)
-      '@modelcontextprotocol/sdk': 1.29.0(zod@4.3.6)
-      zod: 4.3.6
+      '@anthropic-ai/sdk': 0.100.1(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      zod: 4.4.3
     optionalDependencies:
       '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.161
       '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.161
@@ -6033,12 +6036,12 @@ snapshots:
       '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.161
       '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.161
 
-  '@anthropic-ai/sdk@0.100.1(zod@4.3.6)':
+  '@anthropic-ai/sdk@0.100.1(zod@4.4.3)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.0.0
     optionalDependencies:
-      zod: 4.3.6
+      zod: 4.4.3
 
   '@astrojs/check@0.9.8(prettier@3.8.1)(typescript@6.0.2)':
     dependencies:
@@ -6161,7 +6164,7 @@ snapshots:
     dependencies:
       sitemap: 9.0.1
       stream-replace-string: 2.0.0
-      zod: 4.3.6
+      zod: 4.4.3
 
   '@astrojs/starlight@0.38.2(astro@6.0.8(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.0)(tsx@4.21.0)(typescript@6.0.2)(yaml@2.8.3))':
     dependencies:
@@ -6933,7 +6936,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.3.6)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.14)
       ajv: 8.18.0
@@ -6950,8 +6953,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.3.6
-      zod-to-json-schema: 3.25.2(zod@4.3.6)
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -11887,11 +11890,13 @@ snapshots:
 
   yocto-queue@1.2.2: {}
 
-  zod-to-json-schema@3.25.2(zod@4.3.6):
+  zod-to-json-schema@3.25.2(zod@4.4.3):
     dependencies:
-      zod: 4.3.6
+      zod: 4.4.3
 
   zod@4.3.6: {}
+
+  zod@4.4.3: {}
 
   zustand@5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
     optionalDependencies:

@@ -9,19 +9,11 @@ import type {
 } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
 import { getVerifyDefaultSpec } from "@repo-edu/integrations-llm-catalog"
-import type {
-  LlmAuthMode,
-  LlmProvider,
-  LlmTextClient,
-} from "@repo-edu/integrations-llm-contract"
+import type { LlmTextClient } from "@repo-edu/integrations-llm-contract"
 import { LlmError } from "@repo-edu/integrations-llm-contract"
 import { throwIfAborted, toCancelledAppError } from "./workflow-helpers.js"
 
-export type LlmDraftConnection = {
-  provider: LlmProvider
-  authMode: LlmAuthMode
-  apiKey: string
-}
+export type LlmDraftConnection = VerifyLlmDraftInput
 
 export type LlmConnectionWorkflowPorts = {
   createDraftLlmTextClient(draft: LlmDraftConnection): LlmTextClient
@@ -49,11 +41,7 @@ export function createLlmConnectionWorkflowHandlers(
           label: "Preparing LLM connection verification request.",
         })
 
-        const draft: LlmDraftConnection = {
-          provider: input.provider,
-          authMode: input.authMode,
-          apiKey: input.apiKey,
-        }
+        const draft: LlmDraftConnection = input
 
         const verifySpec = getVerifyDefaultSpec(input.provider)
         if (verifySpec === undefined) {

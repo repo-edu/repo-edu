@@ -119,13 +119,12 @@ export default defineConfig({
       outDir: "out/main",
       rollupOptions: {
         input: resolve(configDir, "src/main.ts"),
-        // @anthropic-ai/claude-agent-sdk and @openai/codex-sdk both resolve
-        // their native CLI binaries via createRequire(import.meta.url).
-        // Bundling them points that URL at the Vite output, where the
-        // optional platform-specific sibling packages cannot be found.
-        // Keeping the SDKs external lets Node's own resolver find the binary
-        // under the pnpm-installed node_modules at runtime.
-        external: [/^@anthropic-ai\//, /^@openai\//],
+        // @openai/codex-sdk resolves its native CLI binary via
+        // createRequire(import.meta.url). Bundling it points that URL at the
+        // Vite output, where optional platform-specific sibling packages
+        // cannot be found. Keeping Codex external lets Node's resolver find
+        // the binary under the pnpm-installed node_modules at runtime.
+        external: [/^@openai\//],
         onwarn(warning, warn) {
           if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
             return

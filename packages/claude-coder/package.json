@@ -1,27 +1,19 @@
 {
-  "name": "@repo-edu/integrations-llm",
+  "name": "@repo-edu/claude-coder",
   "private": true,
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.161",
     "@anthropic-ai/sdk": "^0.100.1",
-    "@openai/codex-sdk": "0.128.0",
-    "@repo-edu/integrations-llm-contract": "workspace:*"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@repo-edu/integrations-llm-contract": "workspace:*",
+    "zod": "^4.4.3"
   },
   "exports": {
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./claude": {
-      "source": "./src/claude/index.ts",
-      "types": "./dist/claude/index.d.ts",
-      "default": "./dist/claude/index.js"
-    },
-    "./codex": {
-      "source": "./src/codex/index.ts",
-      "types": "./dist/codex/index.d.ts",
-      "default": "./dist/codex/index.js"
     }
   },
   "scripts": {

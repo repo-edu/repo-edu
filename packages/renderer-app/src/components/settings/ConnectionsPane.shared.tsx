@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CLAUDE_API_MAX_TOKENS,
   gitProviderDefaultBaseUrls,
   type LlmProviderKind,
   type PersistedGitConnection,
@@ -24,6 +25,7 @@ export type LlmDraft = {
   provider: LlmProviderKind
   authMode: "subscription" | "api"
   apiKey: string
+  maxTokens: string
 }
 
 export const LMS_PROVIDER_LABEL: Record<LmsProviderKind, string> = {
@@ -142,6 +144,7 @@ export function emptyLlmDraft(): LlmDraft {
     provider: "claude",
     authMode: "subscription",
     apiKey: "",
+    maxTokens: String(DEFAULT_CLAUDE_API_MAX_TOKENS),
   }
 }
 
@@ -151,6 +154,10 @@ export function toLlmDraft(connection: PersistedLlmConnection): LlmDraft {
     provider: connection.provider,
     authMode: connection.authMode,
     apiKey: connection.apiKey,
+    maxTokens:
+      connection.provider === "claude" && connection.authMode === "api"
+        ? String(connection.maxTokens)
+        : String(DEFAULT_CLAUDE_API_MAX_TOKENS),
   }
 }
 

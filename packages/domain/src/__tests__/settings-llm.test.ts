@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  DEFAULT_CLAUDE_API_MAX_TOKENS,
   defaultAppSettings,
   type PersistedLlmConnection,
   persistedLlmConnectionSchema,
@@ -19,7 +20,19 @@ describe("persistedLlmConnectionSchema", () => {
     assert.equal(result.success, true)
   })
 
-  it("accepts an api connection with non-empty apiKey", () => {
+  it("accepts a Claude api connection with maxTokens", () => {
+    const result = persistedLlmConnectionSchema.safeParse({
+      id: "id-1",
+      name: "Claude API",
+      provider: "claude",
+      authMode: "api",
+      apiKey: "sk-...",
+      maxTokens: DEFAULT_CLAUDE_API_MAX_TOKENS,
+    })
+    assert.equal(result.success, true)
+  })
+
+  it("accepts a Codex api connection without maxTokens", () => {
     const result = persistedLlmConnectionSchema.safeParse({
       id: "id-1",
       name: "Codex API",
@@ -28,6 +41,29 @@ describe("persistedLlmConnectionSchema", () => {
       apiKey: "sk-...",
     })
     assert.equal(result.success, true)
+  })
+
+  it("rejects Claude api connection without maxTokens", () => {
+    const result = persistedLlmConnectionSchema.safeParse({
+      id: "id-1",
+      name: "Claude API",
+      provider: "claude",
+      authMode: "api",
+      apiKey: "sk-...",
+    })
+    assert.equal(result.success, false)
+  })
+
+  it("rejects Codex api connection with maxTokens", () => {
+    const result = persistedLlmConnectionSchema.safeParse({
+      id: "id-1",
+      name: "Codex API",
+      provider: "codex",
+      authMode: "api",
+      apiKey: "sk-...",
+      maxTokens: 8192,
+    })
+    assert.equal(result.success, false)
   })
 
   it("rejects subscription connection with non-empty apiKey", () => {

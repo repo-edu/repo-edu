@@ -35,7 +35,7 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
 | `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
 | `activeGitConnectionId` | `string \| null` | Selected Git connection, or fallback to the first configured connection |
-| `llmConnections` | `PersistedLlmConnection[]` | Claude/Codex connections, including auth mode and API-key state |
+| `llmConnections` | `PersistedLlmConnection[]` | Claude/Codex connections. Claude API-key records include required `maxTokens`; subscription records and Codex records omit it. |
 | `activeLlmConnectionId` | `string \| null` | Selected LLM connection, or fallback to the first configured connection |
 | `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |

@@ -85,6 +85,9 @@
       "@repo-edu/integrations-llm": [
         "./packages/integrations-llm/src/index.ts"
       ],
+      "@repo-edu/claude-coder": [
+        "./packages/claude-coder/src/index.ts"
+      ],
       "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
       "@repo-edu/host-node/cache": [
         "./packages/host-node/src/cache/index.ts"

@@ -11,7 +11,7 @@ App settings are shared across all courses and include:
 
 - **LMS connections** — credentials for Canvas or Moodle (provider name, base URL, API token). Multiple connections can be configured for institutions that use more than one LMS.
 - **Git connections** — credentials for GitHub, GitLab, or Gitea (provider, base URL, personal access token). Each connection has a unique ID.
-- **LLM connections** — Claude or Codex connections used by the Examination view.
+- **LLM connections** — Claude or Codex connections used by the Examination view. Claude API-key connections also store a required maximum output-token cap.
 - **Active surface** — whether the UI is on home, a course, a folder-analysis surface, or a submission-analysis surface. The CLI uses the active course when one is selected.
 - **Appearance** — theme (system/light/dark), window chrome style, date format (MDY/DMY), time format (12h/24h), and source-code highlighting theme.
 - **Table layout** — column visibility and sizing for roster and group tables, persisted across sessions.

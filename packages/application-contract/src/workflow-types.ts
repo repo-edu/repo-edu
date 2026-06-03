@@ -42,11 +42,23 @@ export type VerifyGitDraftInput = ConnectionBase & {
   provider: GitProviderKind
 }
 
-export type VerifyLlmDraftInput = {
-  provider: LlmProvider
-  authMode: LlmAuthMode
-  apiKey: string
-}
+export type VerifyLlmDraftInput =
+  | {
+      provider: Exclude<LlmProvider, "claude">
+      authMode: LlmAuthMode
+      apiKey: string
+    }
+  | {
+      provider: "claude"
+      authMode: "subscription"
+      apiKey: string
+    }
+  | {
+      provider: "claude"
+      authMode: "api"
+      apiKey: string
+      maxTokens: number
+    }
 
 export type ConnectionVerificationResult = {
   verified: boolean

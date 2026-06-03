@@ -14,6 +14,7 @@
     { "path": "./packages/integrations-llm-contract" },
     { "path": "./packages/integrations-llm-catalog" },
     { "path": "./packages/integrations-llm" },
+    { "path": "./packages/claude-coder" },
     { "path": "./packages/host-node" },
     { "path": "./packages/host-browser-mock" },
     { "path": "./packages/test-fixtures" },

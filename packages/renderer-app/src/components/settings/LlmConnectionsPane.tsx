@@ -1,3 +1,4 @@
+import type { VerifyLlmDraftInput } from "@repo-edu/application-contract"
 import {
   Button,
   FormField,
@@ -104,8 +105,13 @@ export function LlmConnectionsPane() {
 
   const apiKeyMissing =
     draft.authMode === "api" && draft.apiKey.trim().length === 0
+  const claudeApiMaxTokens = parseClaudeApiMaxTokens(draft)
+  const maxTokensInvalid =
+    draft.provider === "claude" &&
+    draft.authMode === "api" &&
+    claudeApiMaxTokens === null
 
-  const canSave = !nameTaken && !apiKeyMissing
+  const canSave = !nameTaken && !apiKeyMissing && !maxTokensInvalid
 
   const hasChanges = useMemo(() => {
     if (!editing || editorOriginalId === null) return true
@@ -115,9 +121,13 @@ export function LlmConnectionsPane() {
       current.name !== draft.name.trim() ||
       current.provider !== draft.provider ||
       current.authMode !== draft.authMode ||
-      (draft.authMode === "api" && current.apiKey !== draft.apiKey.trim())
+      (draft.authMode === "api" && current.apiKey !== draft.apiKey.trim()) ||
+      (current.provider === "claude" &&
+        current.authMode === "api" &&
+        claudeApiMaxTokens !== null &&
+        current.maxTokens !== claudeApiMaxTokens)
     )
-  }, [editing, llmConnections, draft, editorOriginalId])
+  }, [editing, llmConnections, draft, editorOriginalId, claudeApiMaxTokens])
 
   const canSubmit = canSave && (!editing || hasChanges)
 
@@ -129,8 +139,15 @@ export function LlmConnectionsPane() {
   }
 
   const verify = async (d: LlmDraft) => {
+    const maxTokens = parseClaudeApiMaxTokens(d)
     if (d.authMode === "api" && d.apiKey.trim().length === 0) {
       const message = "API key is required."
+      setEditorStatus("error")
+      setEditorError(message)
+      return
+    }
+    if (d.provider === "claude" && d.authMode === "api" && maxTokens === null) {
+      const message = "Max output tokens must be a positive integer."
       setEditorStatus("error")
       setEditorError(message)
       return
@@ -139,11 +156,10 @@ export function LlmConnectionsPane() {
     setEditorError(null)
     try {
       const client = getWorkflowClient()
-      const result = await client.run("connection.verifyLlmDraft", {
-        provider: d.provider,
-        authMode: d.authMode,
-        apiKey: d.authMode === "api" ? d.apiKey.trim() : "",
-      })
+      const result = await client.run(
+        "connection.verifyLlmDraft",
+        verifyInputFromDraft(d),
+      )
       if (result.verified) {
         setEditorStatus("connected")
         return
@@ -169,13 +185,22 @@ export function LlmConnectionsPane() {
             authMode: "subscription",
             apiKey: "",
           }
-        : {
-            id,
-            name: draft.name.trim(),
-            provider: draft.provider,
-            authMode: "api",
-            apiKey: draft.apiKey.trim(),
-          }
+        : draft.provider === "claude"
+          ? {
+              id,
+              name: draft.name.trim(),
+              provider: "claude",
+              authMode: "api",
+              apiKey: draft.apiKey.trim(),
+              maxTokens: claudeApiMaxTokens ?? 0,
+            }
+          : {
+              id,
+              name: draft.name.trim(),
+              provider: draft.provider,
+              authMode: "api",
+              apiKey: draft.apiKey.trim(),
+            }
 
     if (editorOriginalId === null) {
       addLlmConnection(nextConnection)
@@ -198,11 +223,10 @@ export function LlmConnectionsPane() {
     setLlmStatus(connection.id, "verifying", null)
     try {
       const client = getWorkflowClient()
-      const result = await client.run("connection.verifyLlmDraft", {
-        provider: connection.provider,
-        authMode: connection.authMode,
-        apiKey: connection.authMode === "api" ? connection.apiKey : "",
-      })
+      const result = await client.run(
+        "connection.verifyLlmDraft",
+        verifyInputFromConnection(connection),
+      )
       setLlmStatus(
         connection.id,
         result.verified ? "connected" : "error",
@@ -283,6 +307,25 @@ export function LlmConnectionsPane() {
                 setDraft((current) => ({
                   ...current,
                   apiKey: event.target.value,
+                }))
+              }
+            />
+          </FormField>
+        )}
+        {draft.provider === "claude" && draft.authMode === "api" && (
+          <FormField
+            label="Max output tokens"
+            htmlFor="settings-llm-max-tokens"
+            description="Required by the Claude Messages API."
+          >
+            <Input
+              id="settings-llm-max-tokens"
+              inputMode="numeric"
+              value={draft.maxTokens}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  maxTokens: event.target.value,
                 }))
               }
             />
@@ -448,4 +491,52 @@ export function LlmConnectionsPane() {
       </div>
     </div>
   )
+}
+
+function parseClaudeApiMaxTokens(draft: LlmDraft): number | null {
+  if (draft.provider !== "claude" || draft.authMode !== "api") {
+    return null
+  }
+  const parsed = Number(draft.maxTokens.trim())
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function verifyInputFromDraft(draft: LlmDraft): VerifyLlmDraftInput {
+  if (draft.provider === "claude") {
+    if (draft.authMode === "api") {
+      return {
+        provider: "claude",
+        authMode: "api",
+        apiKey: draft.apiKey.trim(),
+        maxTokens: parseClaudeApiMaxTokens(draft) ?? 0,
+      }
+    }
+    return { provider: "claude", authMode: "subscription", apiKey: "" }
+  }
+  return {
+    provider: "codex",
+    authMode: draft.authMode,
+    apiKey: draft.authMode === "api" ? draft.apiKey.trim() : "",
+  }
+}
+
+function verifyInputFromConnection(
+  connection: PersistedLlmConnection,
+): VerifyLlmDraftInput {
+  if (connection.provider === "claude") {
+    if (connection.authMode === "api") {
+      return {
+        provider: "claude",
+        authMode: "api",
+        apiKey: connection.apiKey,
+        maxTokens: connection.maxTokens,
+      }
+    }
+    return { provider: "claude", authMode: "subscription", apiKey: "" }
+  }
+  return {
+    provider: "codex",
+    authMode: connection.authMode,
+    apiKey: connection.authMode === "api" ? connection.apiKey : "",
+  }
 }

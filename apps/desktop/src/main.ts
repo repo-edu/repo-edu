@@ -7,6 +7,7 @@ import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   type PersistedAppSettings,
+  type PersistedLlmConnection,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
 import {
@@ -104,6 +105,7 @@ export function createDraftLlmTextClient(draft: {
   provider: "claude" | "codex"
   authMode: "subscription" | "api"
   apiKey: string
+  maxTokens?: number
 }): LlmTextClient {
   const config = configForDraft(draft)
   return createLlmTextClient(config)
@@ -113,26 +115,49 @@ function configForDraft(draft: {
   provider: "claude" | "codex"
   authMode: "subscription" | "api"
   apiKey: string
+  maxTokens?: number
 }): LlmRuntimeConfig {
   const providerConfig =
     draft.authMode === "subscription"
       ? { authMode: draft.authMode }
       : { authMode: draft.authMode, apiKey: draft.apiKey }
-  return draft.provider === "claude"
-    ? { claude: providerConfig }
-    : { codex: providerConfig }
+  if (draft.provider === "claude") {
+    return {
+      claude:
+        draft.authMode === "api"
+          ? {
+              ...providerConfig,
+              maxTokens: draft.maxTokens,
+            }
+          : providerConfig,
+    }
+  }
+  return { codex: providerConfig }
+}
+
+function providerConfigFromLlmConnection(
+  connection: PersistedLlmConnection,
+): LlmRuntimeConfig {
+  if (connection.provider === "claude") {
+    return connection.authMode === "subscription"
+      ? { claude: { authMode: "subscription" } }
+      : {
+          claude: {
+            authMode: "api",
+            apiKey: connection.apiKey,
+            maxTokens: connection.maxTokens,
+          },
+        }
+  }
+  return connection.authMode === "subscription"
+    ? { codex: { authMode: "subscription" } }
+    : { codex: { authMode: "api", apiKey: connection.apiKey } }
 }
 
 function configFromSettings(settings: PersistedAppSettings): LlmRuntimeConfig {
   const active = resolveActiveLlmConnection(settings)
   if (active === null) return {}
-  const providerConfig =
-    active.authMode === "subscription"
-      ? { authMode: active.authMode }
-      : { authMode: active.authMode, apiKey: active.apiKey }
-  return active.provider === "claude"
-    ? { claude: providerConfig }
-    : { codex: providerConfig }
+  return providerConfigFromLlmConnection(active)
 }
 
 function rebuildLlmPort(settings: PersistedAppSettings | null): void {

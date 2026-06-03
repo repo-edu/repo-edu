@@ -15,7 +15,8 @@ only called for the parts that need creative judgement.
 - `state.ts` — reads/writes `.fixture-state.json` (last project + plan
   pointers, so `plan` / `repo` can skip `--from`).
 - `log.ts` — stderr progress, ticker, verbose `_log.md` sink, `fail()`.
-- `agent.ts` — thin wrapper over `@anthropic-ai/claude-agent-sdk` `query`.
+- `llm-client.ts` — thin wrapper over prompt/reply `LlmTextClient`; Claude
+  coder rounds use the dev-only `@repo-edu/claude-coder` package.
 - `planner.ts` — two planner turns: project (name + assignment) and plan
   (team + commits). Runs validation against the sampled kind sequence.
 - `sampler.ts` — per-slot Bernoulli sampler for review slots.

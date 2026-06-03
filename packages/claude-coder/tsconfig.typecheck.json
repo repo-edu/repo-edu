@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts"
+  ]
+}

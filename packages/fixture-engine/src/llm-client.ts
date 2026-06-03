@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, isAbsolute, normalize, resolve } from "node:path"
-import { createLlmTextClient, runClaudeCoder } from "@repo-edu/integrations-llm"
+import { runClaudeCoder } from "@repo-edu/claude-coder"
+import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type {
   LlmTextClient,

@@ -53,6 +53,7 @@ repo-edu/
 │   ├── integrations-lms(-contract)
 │   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
 │   │                                         # Claude/Codex adapters, curated model catalog
+│   ├── claude-coder/              # Private dev-only Claude Code fixture coder
 │   ├── fixture-engine/            # AI-driven student-repo fixture generator
 │   ├── tree-sitter-grammar-assets/ # Browser-safe source-tokenizer grammar WASM assets
 │   ├── renderer-app/              # Shared React application
@@ -76,6 +77,7 @@ non-obvious conventions:
 - [apps/docs/CLAUDE.md](apps/docs/CLAUDE.md)
 - [packages/application/CLAUDE.md](packages/application/CLAUDE.md)
 - [packages/application-contract/CLAUDE.md](packages/application-contract/CLAUDE.md)
+- [packages/claude-coder/CLAUDE.md](packages/claude-coder/CLAUDE.md)
 - [packages/domain/CLAUDE.md](packages/domain/CLAUDE.md)
 - [packages/fixture-engine/CLAUDE.md](packages/fixture-engine/CLAUDE.md)
 - [packages/host-browser-mock/CLAUDE.md](packages/host-browser-mock/CLAUDE.md)

@@ -71,6 +71,25 @@ describe("connection.verifyLlmDraft", () => {
     })
   })
 
+  it("forwards Claude api maxTokens to the factory", async () => {
+    const { factory, calls } = recordingClientFactory()
+    const handlers = createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: factory,
+    })
+    await handlers["connection.verifyLlmDraft"]({
+      provider: "claude",
+      authMode: "api",
+      apiKey: "sk-test",
+      maxTokens: 8192,
+    })
+    assert.deepStrictEqual(calls[0]?.draft, {
+      provider: "claude",
+      authMode: "api",
+      apiKey: "sk-test",
+      maxTokens: 8192,
+    })
+  })
+
   it("uses the catalog-marked verify default for the provider", async () => {
     const { factory, calls } = recordingClientFactory()
     const handlers = createLlmConnectionWorkflowHandlers({
@@ -106,6 +125,7 @@ describe("connection.verifyLlmDraft", () => {
           provider: "claude",
           authMode: "api",
           apiKey: "sk-bad",
+          maxTokens: 8192,
         }),
       (error: unknown) =>
         typeof error === "object" &&

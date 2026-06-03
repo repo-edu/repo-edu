@@ -98,7 +98,11 @@ export type LlmProviderRuntimeConfig = {
   baseUrl?: string
 }
 
+export type ClaudeLlmProviderRuntimeConfig = LlmProviderRuntimeConfig & {
+  maxTokens?: number
+}
+
 export type LlmRuntimeConfig = {
-  claude?: LlmProviderRuntimeConfig
+  claude?: ClaudeLlmProviderRuntimeConfig
   codex?: LlmProviderRuntimeConfig
 }

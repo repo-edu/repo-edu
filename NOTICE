@@ -1,0 +1,12 @@
+RepoEdu
+Copyright (c) 2026 Bert van Beek
+
+RepoEdu is released under the MIT License. See LICENSE.
+
+Proprietary dev dependency notice:
+
+The private workspace package `@repo-edu/claude-coder` depends on
+`@anthropic-ai/claude-agent-sdk` for dev-only fixture generation. That package
+is proprietary and includes non-redistributable Claude Code runtime assets. It
+is intentionally confined to the private dev-only fixture-generation path and
+is not a dependency of the released desktop prompt/reply LLM integration.

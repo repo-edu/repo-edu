@@ -11,13 +11,13 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../claude-coder" },
-    { "path": "../integrations-llm-contract" },
-    { "path": "../integrations-llm-catalog" },
-    { "path": "../integrations-llm" }
+    {
+      "path": "../integrations-llm-contract"
+    }
   ],
   "exclude": [
     "src/**/__tests__/**",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }

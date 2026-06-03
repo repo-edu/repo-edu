@@ -1,12 +1,15 @@
 import type { LlmAuthMode, LlmUsage } from "@repo-edu/integrations-llm-contract"
 
-type RawUsage =
+export type RawClaudeUsage =
   | {
-      input_tokens?: number
-      output_tokens?: number
-      cache_read_input_tokens?: number
-      cache_creation_input_tokens?: number
-      reasoning_output_tokens?: number
+      input_tokens?: number | null
+      output_tokens?: number | null
+      cache_read_input_tokens?: number | null
+      cache_creation_input_tokens?: number | null
+      reasoning_output_tokens?: number | null
+      output_tokens_details?: {
+        thinking_tokens?: number | null
+      } | null
     }
   | null
   | undefined
@@ -27,12 +30,43 @@ export function createUsageAccumulator(): ClaudeUsageAccumulator {
   }
 }
 
-export function addUsage(acc: ClaudeUsageAccumulator, usage: RawUsage): void {
+export function addUsage(
+  acc: ClaudeUsageAccumulator,
+  usage: RawClaudeUsage,
+): void {
   if (!usage) return
   acc.inputTokens += usage.input_tokens ?? 0
+  acc.inputTokens += usage.cache_creation_input_tokens ?? 0
   acc.outputTokens += usage.output_tokens ?? 0
   acc.cachedInputTokens += usage.cache_read_input_tokens ?? 0
-  acc.reasoningOutputTokens += usage.reasoning_output_tokens ?? 0
+  acc.reasoningOutputTokens +=
+    usage.reasoning_output_tokens ??
+    usage.output_tokens_details?.thinking_tokens ??
+    0
+}
+
+export function mergeUsageSnapshot(
+  current: RawClaudeUsage,
+  next: RawClaudeUsage,
+): RawClaudeUsage {
+  if (!next) return current
+  const currentRecord = current ?? {}
+  return {
+    ...currentRecord,
+    ...Object.fromEntries(
+      Object.entries(next).filter(([, value]) => value !== undefined),
+    ),
+  }
+}
+
+export function usageFromSnapshot(
+  usage: RawClaudeUsage,
+  wallMs: number,
+  authMode: LlmAuthMode,
+): LlmUsage {
+  const acc = createUsageAccumulator()
+  addUsage(acc, usage)
+  return finalizeUsage(acc, wallMs, authMode)
 }
 
 export function finalizeUsage(

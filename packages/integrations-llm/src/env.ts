@@ -1,7 +1,7 @@
 // Shared helper that temporarily mutates `process.env` so an SDK call inherits
-// adapter-resolved values, then restores the previous state in `finally`. The
-// Claude and Codex adapters both rely on this to switch API/subscription auth
-// modes without leaking env edits across calls.
+// adapter-resolved values, then restores the previous state in `finally`.
+// Codex relies on this to switch API/subscription auth modes without leaking
+// env edits across calls.
 
 export type EnvOverrides = {
   envOverrides: Record<string, string>

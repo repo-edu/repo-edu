@@ -108,6 +108,9 @@ repo-edu/
     ├── integrations-lms/           # LMS integration implementations
     ├── integrations-git-contract/  # Git provider integration contract
     ├── integrations-git/           # Git provider integration implementations
+    ├── integrations-llm-contract/  # Provider-neutral prompt/reply LLM contract
+    ├── integrations-llm/           # Shipped Claude/Codex prompt/reply adapters
+    ├── claude-coder/               # Private dev-only Claude Code fixture coder
     ├── test-fixtures/              # Shared domain fixture generation (faker-based)
     └── integration-tests/          # E2E workflow tests against live Git providers
 ```
@@ -120,4 +123,13 @@ repo-edu/
 
 ## License
 
-Dual-licensed under MIT or Apache-2.0.
+MIT. See [LICENSE](LICENSE).
+
+## Proprietary dev dependency
+
+The private `@repo-edu/claude-coder` workspace package depends on
+`@anthropic-ai/claude-agent-sdk` for dev-only fixture generation. That SDK is
+proprietary and includes non-redistributable Claude Code runtime assets. It is
+not part of the released desktop prompt/reply LLM integration, which uses the
+redistributable `@anthropic-ai/sdk` package for Claude API-key mode and the
+user-installed Claude CLI for subscription mode.

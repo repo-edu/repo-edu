@@ -41,6 +41,7 @@ Both app settings and course documents are stored as JSON files and validated on
 | `llmConnections[].provider` | `"claude" \| "codex"` | LLM provider |
 | `llmConnections[].authMode` | `"subscription" \| "api"` | Authentication mode |
 | `llmConnections[].apiKey` | `string` | Empty for subscription mode; required for API-key mode |
+| `llmConnections[].maxTokens` | `number?` | Required only for Claude API-key connections; omitted for Claude subscription and all Codex connections |
 | `activeLlmConnectionId` | `string \| null` | Active LLM connection id |
 | `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |

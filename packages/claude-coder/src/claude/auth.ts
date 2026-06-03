@@ -1,47 +1,26 @@
 import {
-  type ClaudeLlmProviderRuntimeConfig,
   type LlmAuthMode,
   LlmError,
+  type LlmProviderRuntimeConfig,
 } from "@repo-edu/integrations-llm-contract"
+import { applyEnvOverrides as applyEnvOverridesShared } from "../env"
 
 const ANTHROPIC_API_KEY_VAR = "ANTHROPIC_API_KEY"
 
-export type ResolvedClaudeApiAuth = {
-  authMode: "api"
-  apiKey: string
-  baseUrl: string | undefined
+export type ResolvedClaudeAuth = {
+  authMode: LlmAuthMode
+  envOverrides: Record<string, string>
+  unsetVars: string[]
 }
-
-export type ResolvedClaudeSubscriptionAuth = {
-  authMode: "subscription"
-  childEnv: NodeJS.ProcessEnv
-}
-
-export type ResolvedClaudeAuth =
-  | ResolvedClaudeApiAuth
-  | ResolvedClaudeSubscriptionAuth
 
 function resolveBaseEnv(
-  config: ClaudeLlmProviderRuntimeConfig | undefined,
+  config: LlmProviderRuntimeConfig | undefined,
 ): Record<string, string | undefined> {
   return { ...process.env, ...(config?.env ?? {}) }
 }
 
-function childEnvWithoutApiKey(
-  baseEnv: Record<string, string | undefined>,
-): NodeJS.ProcessEnv {
-  const childEnv: NodeJS.ProcessEnv = {}
-  for (const [key, value] of Object.entries(baseEnv)) {
-    if (value !== undefined) {
-      childEnv[key] = value
-    }
-  }
-  delete childEnv[ANTHROPIC_API_KEY_VAR]
-  return childEnv
-}
-
 export function resolveClaudeAuth(
-  config: ClaudeLlmProviderRuntimeConfig | undefined,
+  config: LlmProviderRuntimeConfig | undefined,
 ): ResolvedClaudeAuth {
   const baseEnv = resolveBaseEnv(config)
   const envApiKey = baseEnv[ANTHROPIC_API_KEY_VAR]
@@ -53,6 +32,9 @@ export function resolveClaudeAuth(
     explicitMode ??
     (effectiveKey && effectiveKey.length > 0 ? "api" : "subscription")
 
+  const envOverrides: Record<string, string> = {}
+  const unsetVars: string[] = []
+
   if (authMode === "api") {
     if (!effectiveKey || effectiveKey.length === 0) {
       throw new LlmError(
@@ -61,15 +43,18 @@ export function resolveClaudeAuth(
         { context: { provider: "claude", authMode: "api" } },
       )
     }
-    return {
-      authMode: "api",
-      apiKey: effectiveKey,
-      baseUrl: config?.baseUrl,
+    if (effectiveKey !== envApiKey) {
+      envOverrides[ANTHROPIC_API_KEY_VAR] = effectiveKey
     }
+  } else if (envApiKey || config?.env?.[ANTHROPIC_API_KEY_VAR]) {
+    unsetVars.push(ANTHROPIC_API_KEY_VAR)
   }
 
-  return {
-    authMode: "subscription",
-    childEnv: childEnvWithoutApiKey(baseEnv),
-  }
+  return { authMode, envOverrides, unsetVars }
+}
+
+export function applyEnvOverrides(resolved: ResolvedClaudeAuth): {
+  restore: () => void
+} {
+  return applyEnvOverridesShared(resolved)
 }

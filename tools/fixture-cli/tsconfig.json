@@ -8,6 +8,7 @@
   },
   "include": [
     "src/**/*.ts",
+    "../../packages/claude-coder/src/**/*.ts",
     "../../packages/fixture-engine/src/**/*.ts"
   ]
 }

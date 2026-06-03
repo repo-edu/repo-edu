@@ -11,8 +11,7 @@ import { createCodexLlmTextClient, type TraceSink } from "./codex"
 
 export const packageId = "@repo-edu/integrations-llm"
 
-export type { ClaudeCoderRequest } from "./claude"
-export { createClaudeLlmTextClient, runClaudeCoder } from "./claude"
+export { createClaudeLlmTextClient } from "./claude"
 export type { CodexClientFactory } from "./codex"
 export {
   buildCodexFixtureCoderThreadOptions,

@@ -78,22 +78,46 @@ const persistedGitConnectionSchema = z.object({
 
 export const llmProviderKinds = ["claude", "codex"] as const
 export type LlmProviderKind = (typeof llmProviderKinds)[number]
+export const DEFAULT_CLAUDE_API_MAX_TOKENS = 8192
 
 const llmConnectionBaseSchema = z.object({
   id: z.string(),
   name: z.string(),
-  provider: z.enum(llmProviderKinds),
 })
 
-export const persistedLlmConnectionSchema = z.discriminatedUnion("authMode", [
-  llmConnectionBaseSchema.extend({
-    authMode: z.literal("subscription"),
-    apiKey: z.literal(""),
-  }),
-  llmConnectionBaseSchema.extend({
-    authMode: z.literal("api"),
-    apiKey: z.string().min(1),
-  }),
+const llmApiKeySchema = z.string().min(1)
+const claudeApiMaxTokensSchema = z.number().int().positive()
+
+export const persistedLlmConnectionSchema = z.union([
+  llmConnectionBaseSchema
+    .extend({
+      provider: z.literal("claude"),
+      authMode: z.literal("subscription"),
+      apiKey: z.literal(""),
+    })
+    .strict(),
+  llmConnectionBaseSchema
+    .extend({
+      provider: z.literal("claude"),
+      authMode: z.literal("api"),
+      apiKey: llmApiKeySchema,
+      maxTokens: claudeApiMaxTokensSchema,
+    })
+    .strict(),
+  llmConnectionBaseSchema
+    .extend({
+      provider: z.literal("codex"),
+      authMode: z.literal("subscription"),
+      apiKey: z.literal(""),
+    })
+    .strict(),
+  llmConnectionBaseSchema
+    .extend({
+      provider: z.literal("codex"),
+      authMode: z.literal("api"),
+      apiKey: llmApiKeySchema,
+    })
+    .strict(),
 ])
 
 const examinationModelsByProviderSchema = z.object({
