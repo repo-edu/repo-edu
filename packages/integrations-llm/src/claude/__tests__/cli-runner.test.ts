@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { existsSync } from "node:fs"
 import { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import {
@@ -24,6 +25,7 @@ const claudeSpec = {
 type FakeSpawnOptions = {
   exitCode?: number
   exitSignal?: string | null
+  stdinWriteError?: Error
 }
 
 function fakeSpawn(
@@ -34,6 +36,7 @@ function fakeSpawn(
   const calls: {
     command: string
     args: readonly string[]
+    cwd: string | URL | undefined
     env: NodeJS.ProcessEnv | undefined
     shell: boolean | string | undefined
     stdin: string
@@ -43,6 +46,7 @@ function fakeSpawn(
     const call = {
       command,
       args,
+      cwd: spawnOptions.cwd,
       env: spawnOptions.env,
       shell: spawnOptions.shell,
       stdin: "",
@@ -52,6 +56,10 @@ function fakeSpawn(
     const stdin = new Writable({
       write(chunk, _encoding, callback) {
         call.stdin += String(chunk)
+        if (fakeOptions.stdinWriteError) {
+          callback(fakeOptions.stdinWriteError)
+          return
+        }
         callback()
       },
     })
@@ -107,6 +115,7 @@ describe("buildClaudeCliArgs", () => {
   it("constructs tool-free stream-json argv with native effort", () => {
     assert.deepStrictEqual(buildClaudeCliArgs(claudeSpec), [
       "-p",
+      "--no-session-persistence",
       "--verbose",
       "--output-format",
       "stream-json",
@@ -176,6 +185,9 @@ describe("runClaudeCliStream", () => {
     }
 
     assert.equal(calls[0]?.stdin, "Reply ok.")
+    assert.equal(typeof calls[0]?.cwd, "string")
+    assert.match(String(calls[0]?.cwd), /repo-edu-claude-/)
+    assert.equal(existsSync(String(calls[0]?.cwd)), false)
     assert.equal(calls[0]?.env?.ANTHROPIC_API_KEY, undefined)
     assert.equal(calls[0]?.env?.SAFE, "1")
     assert.deepStrictEqual(
@@ -285,6 +297,36 @@ describe("runClaudeCliStream", () => {
       events.some((event) => event.kind === "done"),
       false,
     )
+  })
+
+  it("keeps stdin EPIPE inside CLI failure classification", async () => {
+    const writeError = new Error("write EPIPE") as Error & { code: string }
+    writeError.code = "EPIPE"
+    const { spawn, calls } = fakeSpawn([], ["CLI rejected prompt."], {
+      exitCode: 1,
+      stdinWriteError: writeError,
+    })
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "x".repeat(1_000),
+            executable: "/bin/claude",
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.message.includes("CLI rejected prompt"),
+    )
+    assert.equal(calls[0]?.killed, true)
   })
 
   it("rejects pre-aborted requests without spawning Claude", async () => {

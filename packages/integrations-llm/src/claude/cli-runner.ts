@@ -2,8 +2,8 @@ import {
   spawn as nodeSpawn,
   type SpawnOptionsWithoutStdio,
 } from "node:child_process"
-import { existsSync, readdirSync, statSync } from "node:fs"
-import { homedir } from "node:os"
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs"
+import { homedir, tmpdir } from "node:os"
 import { delimiter, join } from "node:path"
 import {
   LlmError,
@@ -61,6 +61,7 @@ export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
   const nativeEffort = claudeNativeEffort(spec.effort, "subscription")
   const args = [
     "-p",
+    "--no-session-persistence",
     "--verbose",
     "--output-format",
     "stream-json",
@@ -81,8 +82,10 @@ export function buildClaudeCliSpawnOptions(
   executable: string,
   childEnv: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
+  cwd?: string,
 ): SpawnOptionsWithoutStdio {
   return {
+    ...(cwd === undefined ? {} : { cwd }),
     env: childEnv,
     stdio: "pipe",
     shell: platform === "win32" && executable.toLowerCase().endsWith(".cmd"),
@@ -110,11 +113,18 @@ export async function* runClaudeCliStream(
 
   let abortRequested = false
   let completed = false
-  let childTerminated = false
+  let childKillRequested = false
+  let childStreamsDestroyed = false
+  const workingDirectory = createClaudeCliWorkingDirectory()
   const child = (options.spawn ?? nodeSpawn)(
     executable,
     buildClaudeCliArgs(options.spec),
-    buildClaudeCliSpawnOptions(executable, resolved.childEnv),
+    buildClaudeCliSpawnOptions(
+      executable,
+      resolved.childEnv,
+      process.platform,
+      workingDirectory,
+    ),
   )
   const close = waitForClose(child)
   void close.catch(() => {
@@ -122,13 +132,21 @@ export async function* runClaudeCliStream(
     // unhandled rejection if the consumer stops the async iterator early.
   })
   let stderr = ""
-  const terminateChild = () => {
-    if (childTerminated) return
-    childTerminated = true
+  const killChild = () => {
+    if (childKillRequested) return
+    childKillRequested = true
     child.kill("SIGTERM")
+  }
+  const destroyChildStreams = () => {
+    if (childStreamsDestroyed) return
+    childStreamsDestroyed = true
     destroyStream(child.stdin)
     destroyStream(child.stdout)
     destroyStream(child.stderr)
+  }
+  const terminateChild = () => {
+    killChild()
+    destroyChildStreams()
   }
   const abort = () => {
     abortRequested = true
@@ -145,7 +163,14 @@ export async function* runClaudeCliStream(
         throw error
       }
     })
-    child.stdin.end(options.prompt)
+    let promptWriteError: unknown = null
+    const promptWritten = writePromptToChild(child.stdin, options.prompt).catch(
+      (error: unknown) => {
+        if (abortRequested) return
+        promptWriteError = error
+        killChild()
+      },
+    )
 
     yield { kind: "activity", label: "Contacting Claude." }
     const state = createClaudeStreamJsonState({
@@ -187,8 +212,12 @@ export async function* runClaudeCliStream(
 
     const exitStatus = await close
     await stderrDone
+    await promptWritten
     if (exitStatus.code !== 0) {
       throw cliExitError(exitStatus.code, exitStatus.signal, stderr)
+    }
+    if (promptWriteError !== null) {
+      throw promptWriteError
     }
     if (state.resultSubtype !== null && state.resultSubtype !== "success") {
       throw new LlmError(
@@ -221,6 +250,7 @@ export async function* runClaudeCliStream(
       destroyStream(child.stdout)
       destroyStream(child.stderr)
     }
+    cleanupClaudeCliWorkingDirectory(workingDirectory)
   }
 }
 
@@ -304,10 +334,67 @@ function isExecutableFile(path: string): boolean {
   }
 }
 
+function createClaudeCliWorkingDirectory(): string {
+  return mkdtempSync(join(tmpdir(), "repo-edu-claude-"))
+}
+
+function cleanupClaudeCliWorkingDirectory(path: string): void {
+  try {
+    rmSync(path, { force: true, recursive: true })
+  } catch {
+    // Best-effort cleanup: Windows can refuse to delete a just-terminated
+    // process cwd until handles are fully released.
+  }
+}
+
 function destroyStream(
   stream: NodeJS.ReadableStream | NodeJS.WritableStream,
 ): void {
   ;(stream as { destroy?: () => void }).destroy?.()
+}
+
+function removeWritableListener(
+  stream: NodeJS.WritableStream,
+  event: "error" | "finish",
+  listener: (...args: unknown[]) => void,
+): void {
+  const writable = stream as unknown as {
+    off?: (event: string, listener: (...args: unknown[]) => void) => void
+    removeListener?: (
+      event: string,
+      listener: (...args: unknown[]) => void,
+    ) => void
+  }
+  if (writable.off) {
+    writable.off(event, listener)
+    return
+  }
+  writable.removeListener?.(event, listener)
+}
+
+function writePromptToChild(
+  stream: NodeJS.WritableStream,
+  prompt: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const settle = (finish: () => void): void => {
+      if (settled) return
+      settled = true
+      removeWritableListener(stream, "error", onError)
+      removeWritableListener(stream, "finish", onFinish)
+      finish()
+    }
+    const onError = (error: unknown): void => settle(() => reject(error))
+    const onFinish = (): void => settle(resolve)
+    stream.once("error", onError)
+    stream.once("finish", onFinish)
+    try {
+      stream.end(prompt)
+    } catch (error) {
+      settle(() => reject(error))
+    }
+  })
 }
 
 function waitForClose(child: ClaudeCliChild): Promise<{

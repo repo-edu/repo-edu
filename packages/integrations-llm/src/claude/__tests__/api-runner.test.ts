@@ -221,4 +221,35 @@ describe("runClaudeApiStream", () => {
         error.context.authMode === "api",
     )
   })
+
+  it("rejects API streams that end before message_stop", async () => {
+    const { factory } = apiFactory([
+      { type: "message_start", message: { usage: { input_tokens: 1 } } },
+      {
+        type: "content_block_delta",
+        delta: { type: "text_delta", text: "partial" },
+      },
+    ])
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeStream(
+          {
+            spec: claudeSpec,
+            prompt: "ping",
+            apiFactory: factory,
+          },
+          { authMode: "api", apiKey: "sk-test", maxTokens: 8192 },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.context.provider === "claude" &&
+        error.context.authMode === "api" &&
+        error.message.includes("message_stop"),
+    )
+  })
 })

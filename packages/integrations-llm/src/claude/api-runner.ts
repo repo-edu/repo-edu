@@ -97,10 +97,11 @@ export async function* runClaudeApiStream(
     }
 
     if (!emittedDone) {
-      yield {
-        kind: "done",
-        usage: usageFromSnapshot(usage, Date.now() - start, "api"),
-      }
+      throw new LlmError(
+        "other",
+        "Claude API stream ended without a message_stop event.",
+        { context: { provider: "claude", authMode: "api" } },
+      )
     }
   } catch (cause) {
     if (options.signal?.aborted || isAbortLikeError(cause)) {
