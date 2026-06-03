@@ -22,6 +22,7 @@ export type GrammarAssetManifestEntry = {
   readonly grammarAbiVersion: number
   readonly runtimeVersion: typeof TREE_SITTER_RUNTIME_VERSION
   readonly spdxLicense: string
+  readonly licenseTextFile: string
   readonly acquisition: GrammarAssetAcquisition
   readonly noticeFile: string | null
 }
@@ -40,6 +41,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-max-brunsfeld-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "tree-sitter-c",
       packageVersion: "0.24.1",
@@ -60,6 +65,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -82,6 +91,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -102,6 +115,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -124,6 +141,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-max-brunsfeld-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "tree-sitter-haskell",
       packageVersion: "0.23.1",
@@ -146,6 +167,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -168,6 +193,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -190,6 +219,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -212,6 +245,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-kotlin-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@tree-sitter-grammars/tree-sitter-kotlin",
       packageVersion: "1.1.0",
@@ -234,6 +271,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-matlab-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@lumis-sh/wasm-matlab",
       packageVersion: "0.26.0",
@@ -254,6 +295,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -276,6 +321,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -296,6 +345,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-r-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@davisvaughan/tree-sitter-r",
       packageVersion: "1.2.0",
@@ -318,6 +371,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -340,6 +397,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "ISC",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-robot-ISC.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "tree-sitter-robot",
       packageVersion: "1.1.2",
@@ -362,6 +423,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -384,6 +449,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 15,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -404,6 +473,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 13,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-sql-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "tree-sitter-sql",
       packageVersion: "0.1.0",
@@ -426,6 +499,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-toml-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@tree-sitter-grammars/tree-sitter-toml",
       packageVersion: "0.7.0",
@@ -448,6 +525,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -468,6 +549,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/vscode-tree-sitter-wasm-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@vscode/tree-sitter-wasm",
       packageVersion: "0.3.1",
@@ -488,6 +573,10 @@ export const TOKENIZER_GRAMMAR_ASSETS = {
     grammarAbiVersion: 14,
     runtimeVersion: TREE_SITTER_RUNTIME_VERSION,
     spdxLicense: "MIT",
+    licenseTextFile: new URL(
+      "./assets/licenses/tree-sitter-xml-MIT.txt",
+      import.meta.url,
+    ).href,
     acquisition: {
       packageName: "@tree-sitter-grammars/tree-sitter-xml",
       packageVersion: "0.7.0",

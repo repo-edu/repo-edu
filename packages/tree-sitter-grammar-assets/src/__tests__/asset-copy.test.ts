@@ -23,6 +23,14 @@ describe("grammar asset copy", () => {
         const copiedAsset = await readFile(copiedAssetPath)
         assert.equal(copiedAsset.byteLength, entry.assetBytes)
 
+        const copiedLicensePath = join(
+          outputRoot,
+          "assets/licenses",
+          basename(fileURLToPath(entry.licenseTextFile)),
+        )
+        const copiedLicense = await readFile(copiedLicensePath, "utf8")
+        assert.equal(copiedLicense.trim().length > 0, true)
+
         if (entry.noticeFile !== null) {
           const copiedNoticePath = join(
             outputRoot,

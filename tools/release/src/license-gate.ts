@@ -189,6 +189,11 @@ type BunMetafileLike = {
   readonly outputs?: Record<string, unknown>
 }
 
+type BunMetafileNarrowingOptions = {
+  readonly repoRoot?: string
+  readonly appSourceDirectories?: readonly string[]
+}
+
 const appPackageByApp = {
   desktop: "@repo-edu/desktop",
   cli: "@repo-edu/cli",
@@ -394,8 +399,13 @@ export function enumeratePackageClosureFromList(
 export function narrowCliClosureWithBunMetafile(
   closure: PackageClosure,
   metafile: unknown,
+  options?: BunMetafileNarrowingOptions,
 ): PackageClosure {
-  const fileInputs = collectMetafileFileInputs(metafile)
+  const repoRoot = options?.repoRoot ?? rootDirectory
+  const appSourceDirectories = (
+    options?.appSourceDirectories ?? [resolve(repoRoot, appDirectoryByApp.cli)]
+  ).map((directory) => normalizePath(directory))
+  const fileInputs = collectMetafileFileInputs(metafile, repoRoot)
   const unresolvedImports = collectExternalMetafileImports(metafile)
   const allPackages = [
     ...closure.firstPartyPackages,
@@ -433,6 +443,33 @@ export function narrowCliClosureWithBunMetafile(
   if (unresolved.length > 0) {
     throw new Error(
       `Bun metafile contains external package imports that are not bundled or explicitly owned by runtime assets: ${unresolved.join(", ")}`,
+    )
+  }
+
+  if (fileInputs.size === 0) {
+    throw new Error("Bun metafile contains no bundled file inputs.")
+  }
+
+  const unmappedPackageInputs = [...fileInputs]
+    .map(normalizePath)
+    .filter((input) => {
+      const hasOwner = packageByPath.some(({ normalizedPath }) =>
+        isPathInside(input, normalizedPath),
+      )
+      if (hasOwner) {
+        return false
+      }
+      if (
+        appSourceDirectories.some((directory) => isPathInside(input, directory))
+      ) {
+        return false
+      }
+      return input.includes("/node_modules/") || input.includes("/packages/")
+    })
+
+  if (unmappedPackageInputs.length > 0) {
+    throw new Error(
+      `Bun metafile contains package inputs outside the release closure: ${unmappedPackageInputs.join(", ")}`,
     )
   }
 
@@ -534,7 +571,10 @@ async function enumerateReleaseClosure(
       throw new Error("CLI license gate requires --bun-metafile.")
     }
     const metafile = JSON.parse(await readFile(options.bunMetafile, "utf8"))
-    closure = narrowCliClosureWithBunMetafile(closure, metafile)
+    closure = narrowCliClosureWithBunMetafile(closure, metafile, {
+      repoRoot: root,
+      appSourceDirectories: [resolve(root, appDirectoryByApp.cli)],
+    })
   }
 
   return closure
@@ -593,7 +633,7 @@ async function collectRuntimeAssets(
     packageSubjects.push(
       ...resolveDesktopRuntimePackageSubjects(root, options.artifactTargets),
     )
-    directSubjects.push(...resolveTokenizerGrammarRuntimeAssets())
+    directSubjects.push(...(await resolveTokenizerGrammarRuntimeAssets()))
 
     for (const target of options.artifactTargets) {
       const decision = noExtraDesktopRuntime[target]
@@ -703,30 +743,39 @@ export function resolveCliRuntimePackageSubjects(
   ]
 }
 
-function resolveTokenizerGrammarRuntimeAssets(): DirectNoticeSubject[] {
-  return Object.values(TOKENIZER_GRAMMAR_ASSETS).map((entry) => {
-    const noticeText =
-      entry.noticeFile === null
-        ? `No separate notice file is recorded for ${entry.upstreamSource}.`
-        : readFileSync(resolveAssetUrlPath(entry.noticeFile), "utf8")
+async function resolveTokenizerGrammarRuntimeAssets(): Promise<
+  DirectNoticeSubject[]
+> {
+  return Promise.all(
+    Object.values(TOKENIZER_GRAMMAR_ASSETS).map(async (entry) => {
+      const licenseText = await readRequiredTextFile(
+        resolveAssetUrlPath(entry.licenseTextFile),
+      )
+      const noticeText =
+        entry.noticeFile === null
+          ? `No separate notice file is recorded for ${entry.upstreamSource}.`
+          : await readRequiredTextFile(resolveAssetUrlPath(entry.noticeFile))
 
-    return {
-      id: `tokenizer-grammar:${entry.language}:${entry.assetSha256}`,
-      kind: "runtime-asset",
-      name: `${entry.acquisition.packageName} tokenizer grammar (${entry.language})`,
-      version: entry.acquisition.packageVersion,
-      licenseExpression: entry.spdxLicense,
-      source: `Committed WASM asset ${basename(resolveAssetUrlPath(entry.assetUrl))} from ${entry.upstreamSource}`,
-      licenseText: [
-        `SPDX License: ${entry.spdxLicense}`,
-        `Upstream source: ${entry.upstreamSource}`,
-        `Grammar version: ${entry.grammarVersion}`,
-        `Acquisition package: ${entry.acquisition.packageName}@${entry.acquisition.packageVersion}`,
-        `Acquisition asset: ${entry.acquisition.assetPath}`,
-      ].join("\n"),
-      noticeText,
-    }
-  })
+      return {
+        id: `tokenizer-grammar:${entry.language}:${entry.assetSha256}`,
+        kind: "runtime-asset",
+        name: `${entry.acquisition.packageName} tokenizer grammar (${entry.language})`,
+        version: entry.acquisition.packageVersion,
+        licenseExpression: entry.spdxLicense,
+        source: `Committed WASM asset ${basename(resolveAssetUrlPath(entry.assetUrl))} from ${entry.upstreamSource}`,
+        licenseText,
+        noticeText: [
+          `SPDX License: ${entry.spdxLicense}`,
+          `Upstream source: ${entry.upstreamSource}`,
+          `Grammar version: ${entry.grammarVersion}`,
+          `Acquisition package: ${entry.acquisition.packageName}@${entry.acquisition.packageVersion}`,
+          `Acquisition asset: ${entry.acquisition.assetPath}`,
+          "",
+          noticeText,
+        ].join("\n"),
+      }
+    }),
+  )
 }
 
 async function applyPackageInternalAssetRules(options: {
@@ -938,6 +987,7 @@ async function resolveRipgrepNoticeSubject(
   if (!provider) {
     throw new Error("@openai/codex ripgrep DotSlash manifest has no provider.")
   }
+  const ripgrepVersion = extractRipgrepVersion(record, provider.url)
 
   const archiveBytes = await fetchVerifiedArchive(provider.url, record)
   const archivePrefix = dirname(record.path)
@@ -952,11 +1002,39 @@ async function resolveRipgrepNoticeSubject(
     id: `ripgrep:${record.digest}:${asset.relativePath}`,
     kind: "package-sub-asset",
     name: "ripgrep vendored by @openai/codex",
-    version: "15.1.0",
+    version: ripgrepVersion,
     licenseExpression: "Unlicense OR MIT",
     source: `@openai/codex ${subject.version} ${asset.relativePath} from ${provider.url}`,
     licenseText: noticeTexts.join("\n\n"),
   }
+}
+
+export function extractRipgrepVersion(
+  record: DotSlashManifest["platforms"][string],
+  providerUrl: string,
+): string {
+  const pathVersion = /(?:^|\/)ripgrep-([0-9]+\.[0-9]+\.[0-9]+)(?:[-/]|$)/.exec(
+    record.path,
+  )?.[1]
+  const urlVersion = /\/download\/([^/]+)\//.exec(providerUrl)?.[1]
+  const versions = [pathVersion, urlVersion].filter(
+    (version): version is string => typeof version === "string",
+  )
+  const uniqueVersions = new Set(versions)
+
+  if (uniqueVersions.size !== 1) {
+    throw new Error(
+      `Could not derive a single ripgrep version from DotSlash path ${record.path} and provider ${providerUrl}.`,
+    )
+  }
+
+  const version = versions[0]
+  if (!version) {
+    throw new Error(
+      `Could not derive ripgrep version from DotSlash path ${record.path} and provider ${providerUrl}.`,
+    )
+  }
+  return version
 }
 
 async function resolveNoticeEntries(options: {
@@ -1337,13 +1415,16 @@ function blueOakCopyleftIds(): Set<string> {
   )
 }
 
-function collectMetafileFileInputs(metafile: unknown): Set<string> {
+function collectMetafileFileInputs(
+  metafile: unknown,
+  repoRoot: string,
+): Set<string> {
   const inputs = new Set<string>()
   const typedMetafile = metafile as BunMetafileLike
 
   for (const key of Object.keys(typedMetafile.inputs ?? {})) {
     if (looksLikeFilePath(key)) {
-      inputs.add(resolve(rootDirectory, key))
+      inputs.add(resolve(repoRoot, key))
     }
   }
 
@@ -1353,7 +1434,7 @@ function collectMetafileFileInputs(metafile: unknown): Set<string> {
       (key === "path" || key === "input" || key === "file") &&
       looksLikeFilePath(value)
     ) {
-      inputs.add(resolve(rootDirectory, value))
+      inputs.add(resolve(repoRoot, value))
     }
   })
 
@@ -1770,6 +1851,14 @@ export async function readRequiredTextFiles(
     texts.push(text)
   }
   return texts
+}
+
+async function readRequiredTextFile(path: string): Promise<string> {
+  const [text] = await readRequiredTextFiles([path])
+  if (text === undefined) {
+    throw new Error(`Required notice file is missing: ${path}`)
+  }
+  return text
 }
 
 function appendPackageExtraText(

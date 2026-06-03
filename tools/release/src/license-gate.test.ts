@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url"
 import {
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
+  extractRipgrepVersion,
   formatNoticeManifest,
   manifestFileName,
   narrowCliClosureWithBunMetafile,
@@ -341,6 +342,50 @@ describe("Bun metafile narrowing", () => {
       /external package imports/,
     )
   })
+
+  it("fails closed when the metafile has no bundled file inputs", () => {
+    assert.throws(
+      () =>
+        narrowCliClosureWithBunMetafile(
+          { firstPartyPackages: [], externalPackages: [] },
+          { inputs: {}, outputs: {} },
+        ),
+      /no bundled file inputs/,
+    )
+  })
+
+  it("fails closed on package inputs outside the release closure", () => {
+    assert.throws(
+      () =>
+        narrowCliClosureWithBunMetafile(
+          {
+            firstPartyPackages: [],
+            externalPackages: [
+              {
+                reachedName: "commander",
+                packageName: "commander",
+                version: "14.0.3",
+                packagePath: "/repo/node_modules/commander",
+                firstParty: false,
+                path: ["commander"],
+              },
+            ],
+          },
+          {
+            inputs: {
+              "/repo/apps/cli/src/main.ts": {},
+              "/repo/node_modules/dev-only/index.js": {},
+            },
+            outputs: {},
+          },
+          {
+            repoRoot: "/repo",
+            appSourceDirectories: ["/repo/apps/cli"],
+          },
+        ),
+      /outside the release closure/,
+    )
+  })
 })
 
 describe("runtime package resolution", () => {
@@ -391,7 +436,16 @@ describe("runtime package resolution", () => {
     const metafilePath = join(root, "redu.metafile.json")
     const manifestPath = join(root, "redu.third-party-notices.txt")
     try {
-      await writeFile(metafilePath, '{"inputs":{},"outputs":{}}\n', "utf8")
+      await writeFile(
+        metafilePath,
+        JSON.stringify({
+          inputs: {
+            [join(repoRoot, "apps/cli/src/main.ts")]: {},
+          },
+          outputs: {},
+        }),
+        "utf8",
+      )
 
       await runLicenseGate({
         app: "cli",
@@ -496,6 +550,46 @@ describe("manifest helpers", () => {
 
     assert.equal(manifest.name, "rg")
     assert.equal(manifest.platforms["linux-x86_64"]?.path, "ripgrep/rg")
+  })
+
+  it("derives ripgrep version from a DotSlash record", () => {
+    assert.equal(
+      extractRipgrepVersion(
+        {
+          size: 1,
+          hash: "sha256",
+          digest: "abc",
+          format: "tar.gz",
+          path: "ripgrep-16.2.3-aarch64-apple-darwin/rg",
+          providers: [
+            {
+              url: "https://github.com/BurntSushi/ripgrep/releases/download/16.2.3/ripgrep-16.2.3-aarch64-apple-darwin.tar.gz",
+            },
+          ],
+        },
+        "https://github.com/BurntSushi/ripgrep/releases/download/16.2.3/ripgrep-16.2.3-aarch64-apple-darwin.tar.gz",
+      ),
+      "16.2.3",
+    )
+    assert.throws(
+      () =>
+        extractRipgrepVersion(
+          {
+            size: 1,
+            hash: "sha256",
+            digest: "abc",
+            format: "tar.gz",
+            path: "ripgrep-16.2.3-aarch64-apple-darwin/rg",
+            providers: [
+              {
+                url: "https://github.com/BurntSushi/ripgrep/releases/download/16.2.4/ripgrep-16.2.4-aarch64-apple-darwin.tar.gz",
+              },
+            ],
+          },
+          "https://github.com/BurntSushi/ripgrep/releases/download/16.2.4/ripgrep-16.2.4-aarch64-apple-darwin.tar.gz",
+        ),
+      /single ripgrep version/,
+    )
   })
 })
 

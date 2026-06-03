@@ -7,6 +7,14 @@ async function assertFileExists(path: string) {
   await access(path)
 }
 
+async function assertTextFileExists(path: string, label: string) {
+  await assertFileExists(path)
+  const contents = await readFile(path, "utf8")
+  if (contents.trim().length === 0) {
+    throw new Error(`${label} is empty: ${path}`)
+  }
+}
+
 async function validateManifest() {
   for (const [id, entry] of Object.entries(TOKENIZER_GRAMMAR_ASSETS)) {
     if (entry.language !== id) {
@@ -35,8 +43,16 @@ async function validateManifest() {
       throw new Error(`${id} asset size mismatch: ${bytes.byteLength}`)
     }
 
+    await assertTextFileExists(
+      fileURLToPath(entry.licenseTextFile),
+      `${id} license text file`,
+    )
+
     if (entry.noticeFile !== null) {
-      await assertFileExists(fileURLToPath(entry.noticeFile))
+      await assertTextFileExists(
+        fileURLToPath(entry.noticeFile),
+        `${id} notice file`,
+      )
     }
   }
 }
