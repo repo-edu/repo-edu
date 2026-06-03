@@ -14,8 +14,10 @@ import {
   type PnpmListNode,
   parseDotslashManifest,
   type ReleasePlatform,
+  readRequiredTextFiles,
   resolveCliRuntimePackageSubjects,
   resolveDesktopRuntimePackageSubjects,
+  runLicenseGate,
 } from "./license-gate.js"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
@@ -377,6 +379,62 @@ describe("runtime package resolution", () => {
     const cliSubjects = resolveCliRuntimePackageSubjects(repoRoot, platform)
     assert.equal(cliSubjects[0]?.packageName, "bun")
     assert.match(cliSubjects[1]?.packageName ?? "", /^@oven\/bun-/)
+  })
+
+  it("allows the CLI gate to include Bun runtime package executables", async () => {
+    const platform = currentReleasePlatform()
+    if (!platform) {
+      return
+    }
+
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    const metafilePath = join(root, "redu.metafile.json")
+    const manifestPath = join(root, "redu.third-party-notices.txt")
+    try {
+      await writeFile(metafilePath, '{"inputs":{},"outputs":{}}\n', "utf8")
+
+      await runLicenseGate({
+        app: "cli",
+        platform,
+        artifactTargets: ["binary"],
+        bunMetafile: metafilePath,
+        manifestOut: manifestPath,
+      })
+
+      const manifest = await readFile(manifestPath, "utf8")
+      assert.match(manifest, /Bun compiled CLI runtime/)
+      assert.match(manifest, /Bun package-manager runtime executable/)
+      assert.match(manifest, /Bun compiled CLI platform runtime/)
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+})
+
+describe("required notice files", () => {
+  it("fails closed when an explicit nested notice file is absent or empty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const present = join(root, "NOTICE")
+      const missing = join(root, "LICENSE")
+      const empty = join(root, "EMPTY")
+      await writeFile(present, "notice text\n", "utf8")
+      await writeFile(empty, "\n", "utf8")
+
+      await assert.rejects(
+        () => readRequiredTextFiles([present, missing]),
+        /Required notice file is missing/,
+      )
+      await assert.rejects(
+        () => readRequiredTextFiles([empty]),
+        /Required notice file is empty/,
+      )
+      assert.deepEqual(await readRequiredTextFiles([present]), [
+        "notice text\n",
+      ])
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 })
 

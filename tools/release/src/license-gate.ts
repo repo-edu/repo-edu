@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs"
 import {
   mkdir,
   mkdtemp,
+  open,
   readdir,
   readFile,
   rm,
@@ -743,6 +744,14 @@ async function applyPackageInternalAssetRules(options: {
       await applyOpenAiCodexRules(subject, executableAssets, options)
       continue
     }
+    if (subject.packageName === "bun") {
+      applyBunRuntimePackageRule(
+        subject,
+        executableAssets,
+        options.packageExtraText,
+      )
+      continue
+    }
 
     const unexpectedExecutableAssets = executableAssets.filter(
       (asset) => !isPackageTextLauncher(subject.packagePath, asset),
@@ -795,6 +804,36 @@ function runtimeExecutablesCoveredByPackageLicense(
   )
 }
 
+function applyBunRuntimePackageRule(
+  subject: PackageNoticeSubject,
+  executableAssets: readonly ExecutableAsset[],
+  packageExtraText: Map<string, string[]>,
+): void {
+  const expectedRuntimeAssets = executableAssets.filter((asset) =>
+    /^bin\/bunx?\.exe$/.test(asset.relativePath),
+  )
+  const unexpected = executableAssets.filter(
+    (asset) =>
+      !expectedRuntimeAssets.includes(asset) &&
+      !isPackageTextLauncher(subject.packagePath, asset),
+  )
+
+  if (unexpected.length > 0) {
+    throw new Error(
+      `Package bun contains executable sub-assets without an explicit notice rule: ${unexpected.map((asset) => asset.relativePath).join(", ")}`,
+    )
+  }
+
+  appendPackageExtraText(
+    subject,
+    packageExtraText,
+    expectedRuntimeAssets.map(
+      (asset) =>
+        `Bun package-manager runtime executable included at ${asset.relativePath}; notice coverage is supplied by the bun package license text and the platform Bun runtime package record.`,
+    ),
+  )
+}
+
 async function applyNestedNoticeRules(
   subject: PackageNoticeSubject,
   packageExtraText: Map<string, string[]>,
@@ -813,7 +852,7 @@ async function applyNestedNoticeRules(
     subject.packageName === "trpc-electron"
   ) {
     const vendorDirectory = join(subject.packagePath, "src/vendor/unpromise")
-    const notices = await readExistingTextFiles([
+    const notices = await readRequiredTextFiles([
       join(vendorDirectory, "LICENSE"),
       join(vendorDirectory, "ATTRIBUTION.txt"),
     ])
@@ -822,7 +861,7 @@ async function applyNestedNoticeRules(
   }
 
   if (subject.packageName === "electron") {
-    const notices = await readExistingTextFiles([
+    const notices = await readRequiredTextFiles([
       join(subject.packagePath, "dist/LICENSE"),
       join(subject.packagePath, "dist/LICENSES.chromium.html"),
     ])
@@ -1474,8 +1513,14 @@ function isPackageTextLauncher(
 }
 
 async function readFileHeader(path: string, bytes: number): Promise<Buffer> {
-  const file = await readFile(path)
-  return file.subarray(0, bytes)
+  const file = await open(path, "r")
+  try {
+    const buffer = Buffer.alloc(bytes)
+    const result = await file.read(buffer, 0, bytes, 0)
+    return buffer.subarray(0, result.bytesRead)
+  } finally {
+    await file.close()
+  }
 }
 
 async function detectVendoredSurface(packagePath: string): Promise<string[]> {
@@ -1709,14 +1754,20 @@ async function readGlobbedTextFiles(
   return texts
 }
 
-async function readExistingTextFiles(
+export async function readRequiredTextFiles(
   paths: readonly string[],
 ): Promise<string[]> {
   const texts: string[] = []
   for (const path of paths) {
-    if (existsSync(path)) {
-      texts.push(await readFile(path, "utf8"))
+    if (!existsSync(path)) {
+      throw new Error(`Required notice file is missing: ${path}`)
     }
+
+    const text = await readFile(path, "utf8")
+    if (text.trim().length === 0) {
+      throw new Error(`Required notice file is empty: ${path}`)
+    }
+    texts.push(text)
   }
   return texts
 }
