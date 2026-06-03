@@ -8,7 +8,11 @@ const BANNER = `<!-- AUTO-GENERATED FROM CLAUDE.md — DO NOT EDIT MANUALLY -->
 
 const TARGETS = ["AGENTS.md", "GEMINI.md"]
 
-const files = globbySync("**/CLAUDE.md", { gitignore: true })
+const files = globbySync("**/CLAUDE.md", {
+  followSymbolicLinks: false,
+  gitignore: true,
+  ignore: ["**/.git/**", "**/node_modules/**"],
+})
 
 for (const file of files) {
   const content = readFileSync(file, "utf-8")
