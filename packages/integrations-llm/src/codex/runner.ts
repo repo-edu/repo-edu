@@ -9,10 +9,10 @@ import {
   type ThreadOptions,
 } from "@openai/codex-sdk"
 import {
+  type CodexLlmProviderRuntimeConfig,
   type LlmEffort,
   LlmError,
   type LlmModelSpec,
-  type LlmProviderRuntimeConfig,
   type LlmResult,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
@@ -151,14 +151,14 @@ export function buildCodexFixtureCoderThreadOptions(
 
 export async function runCodexQuery(
   options: CodexRunOptions,
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
 ): Promise<LlmResult> {
   return collectCodexStream(runCodexQueryStream(options, config))
 }
 
 export async function* runCodexQueryStream(
   options: CodexRunOptions,
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
 ): AsyncIterable<LlmStreamEvent> {
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "codex-prompt-reply-"),
@@ -174,7 +174,7 @@ export async function* runCodexQueryStream(
 
 export async function runCodexFixtureCoder(
   options: CodexFixtureCoderRequest,
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
 ): Promise<LlmResult> {
   const threadOptions = buildCodexFixtureCoderThreadOptions(
     options.spec,
@@ -203,7 +203,7 @@ type CodexTurnGuard =
 
 async function runCodexTurn(
   options: CodexRunOptions,
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
   threadOptions: ThreadOptions,
   prompt: string,
   guard: CodexTurnGuard = { kind: "none" },
@@ -236,6 +236,7 @@ async function runCodexTurn(
     const codex = (options.factory ?? defaultCodexFactory)({
       apiKey: resolved.apiKey,
       baseUrl: resolved.baseUrl,
+      codexPathOverride: config?.binaryPath,
     })
     const thread = codex.startThread(threadOptions)
     const streamed = await thread.runStreamed(prompt, {
@@ -340,7 +341,7 @@ async function collectCodexStream(
 
 async function* runCodexTurnStream(
   options: CodexRunOptions,
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
   threadOptions: ThreadOptions,
   prompt: string,
   guard: CodexTurnGuard = { kind: "none" },
@@ -374,6 +375,7 @@ async function* runCodexTurnStream(
     const codex = (options.factory ?? defaultCodexFactory)({
       apiKey: resolved.apiKey,
       baseUrl: resolved.baseUrl,
+      codexPathOverride: config?.binaryPath,
     })
     const thread = codex.startThread(threadOptions)
     const streamed = await thread.runStreamed(prompt, {

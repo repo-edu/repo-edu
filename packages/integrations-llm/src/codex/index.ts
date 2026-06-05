@@ -1,6 +1,6 @@
 import type {
+  CodexLlmProviderRuntimeConfig,
   GenerateTextRequest,
-  LlmProviderRuntimeConfig,
   LlmResult,
   LlmStreamEvent,
   LlmTextClient,
@@ -28,7 +28,7 @@ export type CreateCodexLlmTextClientOptions = {
 }
 
 export function createCodexLlmTextClient(
-  config?: LlmProviderRuntimeConfig,
+  config?: CodexLlmProviderRuntimeConfig,
   options?: CreateCodexLlmTextClientOptions,
 ): LlmTextClient {
   return {

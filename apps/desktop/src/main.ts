@@ -54,6 +54,7 @@ import {
   onAutoUpdaterStateChange,
   quitAndInstall,
 } from "./auto-updater"
+import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
@@ -101,6 +102,13 @@ const nodeLlmPort: LlmPort = {
   },
 }
 
+// Packaged builds need an explicit Codex binary path: the SDK otherwise
+// resolves a non-spawnable `app.asar` path. In development the SDK resolves the
+// binary from node_modules directly, so no override is needed.
+const packagedCodexBinaryPath = app.isPackaged
+  ? resolveUnpackedCodexBinaryPath(process.resourcesPath)
+  : undefined
+
 export function createDraftLlmTextClient(draft: {
   provider: "claude" | "codex"
   authMode: "subscription" | "api"
@@ -132,7 +140,7 @@ function configForDraft(draft: {
           : providerConfig,
     }
   }
-  return { codex: providerConfig }
+  return { codex: { ...providerConfig, binaryPath: packagedCodexBinaryPath } }
 }
 
 function providerConfigFromLlmConnection(
@@ -150,8 +158,19 @@ function providerConfigFromLlmConnection(
         }
   }
   return connection.authMode === "subscription"
-    ? { codex: { authMode: "subscription" } }
-    : { codex: { authMode: "api", apiKey: connection.apiKey } }
+    ? {
+        codex: {
+          authMode: "subscription",
+          binaryPath: packagedCodexBinaryPath,
+        },
+      }
+    : {
+        codex: {
+          authMode: "api",
+          apiKey: connection.apiKey,
+          binaryPath: packagedCodexBinaryPath,
+        },
+      }
 }
 
 function configFromSettings(settings: PersistedAppSettings): LlmRuntimeConfig {

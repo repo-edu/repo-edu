@@ -102,7 +102,16 @@ export type ClaudeLlmProviderRuntimeConfig = LlmProviderRuntimeConfig & {
   maxTokens?: number
 }
 
+export type CodexLlmProviderRuntimeConfig = LlmProviderRuntimeConfig & {
+  // Absolute path to the Codex native binary. When set it is passed to the SDK
+  // as `codexPathOverride`, bypassing the SDK's node_modules resolution. Hosts
+  // set this when the resolved binary is not directly spawnable (e.g. a
+  // packaged Electron build, where the SDK resolves an `app.asar` path that
+  // child_process cannot exec).
+  binaryPath?: string
+}
+
 export type LlmRuntimeConfig = {
   claude?: ClaudeLlmProviderRuntimeConfig
-  codex?: LlmProviderRuntimeConfig
+  codex?: CodexLlmProviderRuntimeConfig
 }
