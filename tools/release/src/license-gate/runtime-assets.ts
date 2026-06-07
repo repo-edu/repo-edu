@@ -13,13 +13,11 @@ import {
   resolveOpenAiCodexDotslashManifest,
 } from "./archive.js"
 import { closureContainsPackage, findReachedPackage } from "./closure.js"
-import {
-  licenseTextForSpdxExpression,
-  licenseTextForSpdxId,
-} from "./license-text.js"
 import { noticeEntryId } from "./notices.js"
 import {
   appDirectoryByApp,
+  canonicalPackagePath,
+  packageMetadataEvidence,
   readPackageJson,
   readRequiredTextFile,
   readRequiredTextFiles,
@@ -204,7 +202,7 @@ async function runtimePackageRecord(
   const packageJsonPath = options.reachedPackage
     ? join(options.reachedPackage.packagePath, "package.json")
     : resolvePackageJsonPath(packageName, options.root)
-  const packagePath = dirname(packageJsonPath)
+  const packagePath = canonicalPackagePath(dirname(packageJsonPath))
   const packageJson = readPackageJson(packagePath)
   const name = packageJson.name ?? packageName
   const version = packageJson.version ?? "0.0.0"
@@ -212,7 +210,16 @@ async function runtimePackageRecord(
   const licenseFile = findPackageLicenseFile(packagePath)
   const licenseText = licenseFile
     ? await readRequiredTextFile(licenseFile)
-    : licenseTextForSpdxExpression(licenseExpression)
+    : undefined
+  const licenseEvidence = licenseFile
+    ? undefined
+    : packageMetadataEvidence({
+        name,
+        version,
+        licenseExpression,
+        packageJson,
+        context: `${options.source} found no dedicated package license file in the installed runtime package.`,
+      })
   const additionalText =
     options.additionalNoticeFiles && options.additionalNoticeFiles.length > 0
       ? (
@@ -232,6 +239,7 @@ async function runtimePackageRecord(
     licenseExpression,
     source: options.source,
     licenseText,
+    licenseEvidence,
     additionalText,
   }
 }
@@ -272,7 +280,11 @@ function bunLinkedRuntimeEntry(options: {
     version: options.version,
     licenseExpression: "LGPL-2.1-only",
     source: options.source,
-    licenseText: licenseTextForSpdxId("LGPL-2.1-only"),
+    licenseEvidence: [
+      `${options.source} uses metadata-only license evidence for ${options.name}.`,
+      "Bun's published licensing documentation identifies this linked runtime subject as LGPL-2.1-only.",
+      "The installed Bun npm package does not publish a dedicated notice file for this linked runtime subject.",
+    ].join("\n"),
   }
 }
 

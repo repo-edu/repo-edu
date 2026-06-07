@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs"
 import { relative } from "node:path"
 import {
+  canonicalPackagePath,
   normalizePath,
   packageKey,
   readPackageJson,
@@ -34,11 +35,11 @@ export function enumeratePackageClosureFromList(
     node: PnpmListNode,
     path: readonly string[],
   ): void {
-    const packagePath = node.path
+    const rawPackagePath = node.path
     const hasPackageDirectory =
-      typeof packagePath === "string" && existsSync(packagePath)
+      typeof rawPackagePath === "string" && existsSync(rawPackagePath)
 
-    if (!packagePath) {
+    if (!rawPackagePath) {
       return
     }
 
@@ -49,11 +50,14 @@ export function enumeratePackageClosureFromList(
     }
 
     const packageJson = hasPackageDirectory
-      ? readPackageJson(packagePath)
+      ? readPackageJson(rawPackagePath)
       : ({} satisfies PackageJson)
     const packageName = packageJson.name ?? reachedName
     const version = normalizePackageVersion(node.version, packageJson)
     const firstParty = isFirstPartyPackageName(packageName)
+    const packagePath = hasPackageDirectory
+      ? canonicalPackagePath(rawPackagePath)
+      : rawPackagePath
     const key = packageKey(packageName, version, packagePath)
 
     if (!reached.has(key)) {

@@ -4,7 +4,11 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { packageKey, resolveRepoRelativePath } from "./license-gate/shared.js"
+import {
+  packageKey,
+  resolveRepoRelativePath,
+  runPnpmJson,
+} from "./license-gate/shared.js"
 import {
   assertNoForbiddenProductionDependencies,
   assertScannerParity,
@@ -13,8 +17,10 @@ import {
   extractRipgrepVersion,
   formatNoticeManifest,
   manifestFileName,
+  mergeNoticeEntries,
   noticeSidecarName,
   type PnpmListNode,
+  type ProductionDependencyViews,
   parseDotslashManifest,
   type ReachedPackage,
   type ReleasePlatform,
@@ -85,6 +91,25 @@ async function writePackage(
     await writeFile(filePath, contents, "utf8")
   }
   return packagePath
+}
+
+async function enumerateRealProductionDependencies(
+  packageName: string,
+): Promise<ProductionDependencyViews> {
+  const [listRoot] = await runPnpmJson<PnpmListNode[]>(
+    [
+      "--filter",
+      packageName,
+      "list",
+      "--prod",
+      "--depth",
+      "Infinity",
+      "--json",
+    ],
+    repoRoot,
+  )
+  assert.ok(listRoot)
+  return enumeratePackageClosureFromList(listRoot, { repoRoot })
 }
 
 function reachedPackage(
@@ -296,7 +321,7 @@ describe("scanner package notices", () => {
 
       await assert.rejects(
         () => scanPackageNoticesFromStart(root),
-        /unusable licenseText/,
+        /unusable licenseText|no scanner-owned license file/,
       )
     } finally {
       await rm(root, { force: true, recursive: true })
@@ -310,7 +335,39 @@ describe("scanner package notices", () => {
       notices.some((entry) => entry.name.startsWith("@repo-edu/")),
       false,
     )
-    assert.ok(notices.every((entry) => entry.licenseText.trim().length > 0))
+    assert.ok(
+      notices.every(
+        (entry) =>
+          ((entry.licenseText ?? entry.licenseEvidence)?.trim().length ?? 0) >
+          0,
+      ),
+    )
+    assert.equal(
+      notices.some((entry) => entry.source.includes(repoRoot)),
+      false,
+    )
+    assert.equal(
+      notices.some((entry) =>
+        /<year>|<copyright holders>/.test(
+          `${entry.licenseText ?? ""}\n${entry.licenseEvidence ?? ""}`,
+        ),
+      ),
+      false,
+    )
+  })
+
+  it("uses explicit metadata evidence for real checker clarifications", async () => {
+    const notices = await scanPackageNotices("desktop", repoRoot)
+    const trpcElectron = notices.find((entry) => entry.name === "trpc-electron")
+
+    assert.ok(trpcElectron)
+    assert.equal(trpcElectron.licenseText, undefined)
+    assert.match(trpcElectron.licenseEvidence ?? "", /Metadata-only/)
+    assert.doesNotMatch(
+      trpcElectron.licenseEvidence ?? "",
+      /<year>|<copyright holders>/,
+    )
+    assert.equal(trpcElectron.source.includes(repoRoot), false)
   })
 })
 
@@ -466,6 +523,54 @@ describe("runtime notice records", () => {
     assert.ok(cliEntries.some((entry) => /^@oven\/bun-/.test(entry.name)))
     assert.ok(cliEntries.some((entry) => entry.name.includes("JavaScriptCore")))
     assert.ok(cliEntries.some((entry) => entry.name.includes("tinycc")))
+
+    const cliRuntimeManifest = formatNoticeManifest({
+      app: "cli",
+      platform,
+      artifactTargets: ["binary"],
+      runtimeDecisions: [],
+      entries: cliEntries,
+    })
+    assert.match(cliRuntimeManifest, /License Evidence:/)
+    assert.doesNotMatch(cliRuntimeManifest, /<year>|<copyright holders>/)
+  })
+
+  it("merges scanner and runtime records through canonical package identity", async () => {
+    const platform = currentReleasePlatform()
+    if (!platform) {
+      return
+    }
+
+    const dependencies =
+      await enumerateRealProductionDependencies("@repo-edu/desktop")
+    const scannerEntries = await scanPackageNotices("desktop", repoRoot)
+    const runtimeEntries = await resolveDesktopRuntimePackageEntries({
+      root: repoRoot,
+      artifactTargets: desktopTargetsForPlatform(platform),
+      productionReached: dependencies.productionReached,
+    })
+    const mergedEntries = mergeNoticeEntries([
+      ...scannerEntries,
+      ...runtimeEntries,
+    ])
+
+    const electronEntries = mergedEntries.filter(
+      (entry) => entry.name === "electron",
+    )
+    assert.equal(electronEntries.length, 1)
+    assert.match(
+      electronEntries[0]?.additionalText ?? "",
+      /Chromium|copyright/i,
+    )
+    assert.equal(
+      mergedEntries.some((entry) => entry.source.includes(repoRoot)),
+      false,
+    )
+    assert.equal(
+      mergedEntries.filter((entry) => entry.name === "builder-util-runtime")
+        .length,
+      1,
+    )
   })
 })
 

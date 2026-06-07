@@ -7,11 +7,14 @@ import {
   type ModuleInfos,
 } from "license-checker-rseidelsohn"
 import { compareReachedPackage } from "./closure.js"
-import { licenseTextForSpdxId } from "./license-text.js"
 import {
   appDirectoryByApp,
+  canonicalPackagePath,
+  formatEvidencePath,
   isObjectRecord,
   packageKey,
+  packageMetadataEvidence,
+  readPackageJson,
   readRequiredTextFile,
 } from "./shared.js"
 import type { LicenseGateApp, NoticeEntry, ReachedPackage } from "./types.js"
@@ -31,20 +34,29 @@ const scannerCustomFormat = {
   noticeFile: "",
 } as const
 
-const checkerClarificationLicenses = {
-  "@openai/codex@0.128.0": "Apache-2.0",
-  "trpc-electron@0.1.2": "MIT",
+const checkerClarifications = {
+  "@openai/codex@0.128.0": {
+    license: "Apache-2.0",
+    context:
+      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
+  },
+  "trpc-electron@0.1.2": {
+    license: "MIT",
+    context:
+      "License checker clarification for trpc-electron publishes the package metadata license because the installed package has no dedicated license file.",
+  },
 } as const
 
 export async function scanPackageNotices(
   app: LicenseGateApp,
   root: string,
 ): Promise<ScannedPackageNotice[]> {
-  return scanPackageNoticesFromStart(join(root, appDirectoryByApp[app]))
+  return scanPackageNoticesFromStart(join(root, appDirectoryByApp[app]), root)
 }
 
 export async function scanPackageNoticesFromStart(
   start: string,
+  sourceRoot = start,
 ): Promise<ScannedPackageNotice[]> {
   const clarificationsDirectory = await mkdtemp(
     join(tmpdir(), "repo-edu-license-checker-"),
@@ -65,7 +77,7 @@ export async function scanPackageNoticesFromStart(
     })
     const entries = await Promise.all(
       Object.entries(scan).map(([moduleKey, record]) =>
-        toScannedPackageNotice(moduleKey, record),
+        toScannedPackageNotice(moduleKey, record, sourceRoot),
       ),
     )
     return entries.sort((left, right) =>
@@ -117,11 +129,11 @@ export function assertScannerParity(options: {
 
 function buildClarifications(): Record<string, Record<string, string>> {
   return Object.fromEntries(
-    Object.entries(checkerClarificationLicenses).map(([packageId, license]) => [
+    Object.entries(checkerClarifications).map(([packageId, clarification]) => [
       packageId,
       {
-        licenses: license,
-        licenseText: licenseTextForSpdxId(license),
+        licenses: clarification.license,
+        licenseText: clarification.context,
       },
     ]),
   )
@@ -155,15 +167,18 @@ async function runLicenseChecker(options: {
 async function toScannedPackageNotice(
   moduleKey: string,
   record: ModuleInfo,
+  sourceRoot: string,
 ): Promise<ScannedPackageNotice> {
   const packageName = nonEmptyString(record.name, moduleKey, "name")
   const version = nonEmptyString(record.version, moduleKey, "version")
-  const packagePath = nonEmptyString(record.path, moduleKey, "path")
+  const rawPackagePath = nonEmptyString(record.path, moduleKey, "path")
+  const packagePath = canonicalPackagePath(rawPackagePath)
+  const packageJson = readPackageJson(packagePath)
   const licenseExpression = normalizeLicenseExpression(
     record.licenses,
     moduleKey,
   )
-  const licenseText = nonEmptyString(
+  const licenseEvidenceText = nonEmptyString(
     record.licenseText,
     moduleKey,
     "licenseText",
@@ -183,6 +198,22 @@ async function toScannedPackageNotice(
       `License checker reported unknown or guessed license for ${moduleKey}: ${licenseExpression}`,
     )
   }
+  const clarification = checkerClarificationFor(`${packageName}@${version}`)
+  const explicitMetadataEvidence = Boolean(clarification)
+  if (!licenseFile && !explicitMetadataEvidence) {
+    throw new Error(
+      `License checker produced no scanner-owned license file for ${moduleKey}. Add an explicit checker clarification before shipping metadata-only notice evidence.`,
+    )
+  }
+  const licenseEvidence = clarification
+    ? packageMetadataEvidence({
+        name: packageName,
+        version,
+        licenseExpression,
+        packageJson,
+        context: clarification.context,
+      })
+    : undefined
 
   return {
     id: packageKey(packageName, version, packagePath),
@@ -192,8 +223,15 @@ async function toScannedPackageNotice(
     name: packageName,
     version,
     licenseExpression,
-    source: scannerSource(licenseFile),
-    licenseText,
+    source: scannerSource({
+      licenseFile,
+      packageName,
+      version,
+      sourceRoot,
+      explicitMetadataEvidence,
+    }),
+    licenseText: explicitMetadataEvidence ? undefined : licenseEvidenceText,
+    licenseEvidence,
     noticeText,
   }
 }
@@ -245,10 +283,29 @@ function optionalString(
   return undefined
 }
 
-function scannerSource(licenseFile: string | undefined): string {
-  return licenseFile
-    ? `license-checker-rseidelsohn package notice from ${licenseFile}`
-    : "license-checker-rseidelsohn package notice from checker clarification"
+type ScannerClarificationId = keyof typeof checkerClarifications
+
+function checkerClarificationFor(
+  id: string,
+): (typeof checkerClarifications)[ScannerClarificationId] | undefined {
+  return Object.hasOwn(checkerClarifications, id)
+    ? checkerClarifications[id as ScannerClarificationId]
+    : undefined
+}
+
+function scannerSource(options: {
+  readonly licenseFile: string | undefined
+  readonly packageName: string
+  readonly version: string
+  readonly sourceRoot: string
+  readonly explicitMetadataEvidence: boolean
+}): string {
+  if (options.explicitMetadataEvidence) {
+    return `license-checker-rseidelsohn metadata clarification for ${options.packageName}@${options.version}`
+  }
+  return options.licenseFile
+    ? `license-checker-rseidelsohn package notice from ${formatEvidencePath(options.licenseFile, options.sourceRoot)}`
+    : "license-checker-rseidelsohn package notice"
 }
 
 function groupByBaseIdentity<

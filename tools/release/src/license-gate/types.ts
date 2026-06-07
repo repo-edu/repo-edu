@@ -64,7 +64,8 @@ export type NoticeEntry = {
   readonly version: string
   readonly licenseExpression: string
   readonly source: string
-  readonly licenseText: string
+  readonly licenseText?: string
+  readonly licenseEvidence?: string
   readonly noticeText?: string
   readonly additionalText?: string
 }

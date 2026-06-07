@@ -35,6 +35,7 @@ export {
 export {
   formatNoticeManifest,
   manifestFileName,
+  mergeNoticeEntries,
   noticeSidecarName,
 } from "./license-gate/notices.js"
 export type { ClassificationResult } from "./license-gate/policy.js"

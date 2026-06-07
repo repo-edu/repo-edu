@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
-import { dirname, join, resolve } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import type { LicenseGateApp, PackageJson } from "./types.js"
@@ -34,6 +34,45 @@ export function packageKey(
   packagePath: string,
 ): string {
   return `${name}@${version}\0${packagePath}`
+}
+
+export function canonicalPackagePath(packagePath: string): string {
+  return existsSync(packagePath) ? realpathSync(packagePath) : packagePath
+}
+
+export function formatEvidencePath(path: string, root: string): string {
+  const absolutePath = resolve(path)
+  const relativePath = relative(resolve(root), absolutePath)
+  if (!relativePath.startsWith("..") && !isAbsolute(relativePath)) {
+    return normalizePath(relativePath)
+  }
+  return normalizePath(path)
+}
+
+export function packageMetadataEvidence(options: {
+  readonly name: string
+  readonly version: string
+  readonly licenseExpression: string
+  readonly packageJson?: PackageJson
+  readonly context: string
+}): string {
+  const context = options.context.trim().replace(/\.$/, "")
+  const lines = [
+    `${context}.`,
+    `Metadata-only license evidence for ${options.name}@${options.version}.`,
+    `Package metadata declares SPDX license: ${options.licenseExpression}.`,
+  ]
+  const author = formatPackageAuthor(options.packageJson?.author)
+  if (author) {
+    lines.push(`Package author: ${author}.`)
+  }
+  if (options.packageJson?.homepage) {
+    lines.push(`Package homepage: ${options.packageJson.homepage}.`)
+  }
+  if (options.packageJson?.description) {
+    lines.push(`Package description: ${options.packageJson.description}.`)
+  }
+  return lines.join("\n")
 }
 
 export function resolveRepoRelativePath(root: string, path: string): string {
@@ -104,4 +143,20 @@ export async function readRequiredTextFile(path: string): Promise<string> {
     throw new Error(`Required notice file is missing: ${path}`)
   }
   return text
+}
+
+function formatPackageAuthor(
+  author: string | { readonly name?: string } | undefined,
+): string | undefined {
+  if (typeof author === "string" && author.trim().length > 0) {
+    return author.trim()
+  }
+  if (
+    typeof author === "object" &&
+    typeof author.name === "string" &&
+    author.name.trim().length > 0
+  ) {
+    return author.name.trim()
+  }
+  return undefined
 }

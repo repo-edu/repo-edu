@@ -42,6 +42,8 @@ export function mergeNoticeEntries(
         existing.kind === "runtime-asset" || entry.kind === "runtime-asset"
           ? "runtime-asset"
           : existing.kind,
+      licenseText: existing.licenseText ?? entry.licenseText,
+      licenseEvidence: existing.licenseEvidence ?? entry.licenseEvidence,
       source:
         joinTexts([existing.source, entry.source], "; ") ?? existing.source,
       noticeText: joinTexts([existing.noticeText, entry.noticeText], "\n\n"),
@@ -85,6 +87,14 @@ export function formatNoticeManifest(options: {
   lines.push("", "Third-Party Notices")
 
   for (const entry of options.entries) {
+    const licenseText = entry.licenseText?.trim()
+    const licenseEvidence = entry.licenseEvidence?.trim()
+    if (!licenseText && !licenseEvidence) {
+      throw new Error(
+        `Notice entry ${entry.name}@${entry.version} has no license text or metadata evidence.`,
+      )
+    }
+
     lines.push(
       "",
       "================================================================================",
@@ -92,10 +102,15 @@ export function formatNoticeManifest(options: {
       `Kind: ${entry.kind}`,
       `SPDX License: ${entry.licenseExpression}`,
       `Source: ${entry.source}`,
-      "",
-      "License Text:",
-      entry.licenseText.trim(),
     )
+
+    if (licenseText) {
+      lines.push("", "License Text:", licenseText)
+    }
+
+    if (licenseEvidence) {
+      lines.push("", "License Evidence:", licenseEvidence)
+    }
 
     if (entry.noticeText?.trim()) {
       lines.push("", "Notice Text:", entry.noticeText.trim())
