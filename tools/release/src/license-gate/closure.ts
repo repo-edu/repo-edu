@@ -7,9 +7,9 @@ import {
   rootDirectory,
 } from "./shared.js"
 import type {
-  PackageClosure,
   PackageJson,
   PnpmListNode,
+  ProductionDependencyViews,
   ReachedPackage,
 } from "./types.js"
 
@@ -24,7 +24,7 @@ const forbiddenReleasePackages = new Set([
 export function enumeratePackageClosureFromList(
   listRoot: PnpmListNode,
   options?: { readonly repoRoot?: string },
-): PackageClosure {
+): ProductionDependencyViews {
   const repoRoot = options?.repoRoot ?? rootDirectory
   const equivalents = collectEquivalentDependencyNodes(listRoot)
   const reached = new Map<string, ReachedPackage>()
@@ -38,16 +38,19 @@ export function enumeratePackageClosureFromList(
     const hasPackageDirectory =
       typeof packagePath === "string" && existsSync(packagePath)
 
-    if (!hasPackageDirectory) {
-      if (isFirstPartyPackageName(reachedName)) {
-        throw new Error(
-          `Reached first-party package ${reachedName} has no package directory.`,
-        )
-      }
+    if (!packagePath) {
       return
     }
 
-    const packageJson = readPackageJson(packagePath)
+    if (!hasPackageDirectory && isFirstPartyPackageName(reachedName)) {
+      throw new Error(
+        `Reached first-party package ${reachedName} has no package directory.`,
+      )
+    }
+
+    const packageJson = hasPackageDirectory
+      ? readPackageJson(packagePath)
+      : ({} satisfies PackageJson)
     const packageName = packageJson.name ?? reachedName
     const version = normalizePackageVersion(node.version, packageJson)
     const firstParty = isFirstPartyPackageName(packageName)
@@ -59,9 +62,19 @@ export function enumeratePackageClosureFromList(
         packageName,
         version,
         packagePath,
+        packageDirectoryExists: hasPackageDirectory,
         firstParty,
         path,
       })
+    }
+
+    if (!hasPackageDirectory) {
+      if (isFirstPartyPackageName(reachedName)) {
+        throw new Error(
+          `Reached first-party package ${reachedName} has no package directory.`,
+        )
+      }
+      return
     }
 
     const dependencySource = dependenciesSourceForNode(
@@ -81,22 +94,12 @@ export function enumeratePackageClosureFromList(
   }
 
   const packages = [...reached.values()].sort(compareReachedPackage)
-  const firstPartyPackages = packages.filter((pkg) => pkg.firstParty)
-  const externalPackages = packages.filter((pkg) => !pkg.firstParty)
+  assertNoForbiddenProductionDependencies(packages, { repoRoot })
 
-  for (const pkg of packages) {
-    if (
-      forbiddenReleasePackages.has(pkg.packageName) ||
-      forbiddenReleasePackages.has(pkg.reachedName) ||
-      packagePathBelongsToTools(repoRoot, pkg.packagePath)
-    ) {
-      throw new Error(
-        `Forbidden dev-only package reached release closure: ${pkg.reachedName}`,
-      )
-    }
+  return {
+    productionReached: packages,
+    thirdParty: packages.filter((pkg) => !pkg.firstParty),
   }
-
-  return { firstPartyPackages, externalPackages }
 }
 
 function collectEquivalentDependencyNodes(
@@ -175,10 +178,37 @@ export function compareReachedPackage(
 }
 
 export function closureContainsPackage(
-  closure: PackageClosure,
+  packages: readonly ReachedPackage[],
   packageName: string,
 ): boolean {
-  return [...closure.firstPartyPackages, ...closure.externalPackages].some(
+  return packages.some(
     (pkg) => pkg.packageName === packageName || pkg.reachedName === packageName,
   )
+}
+
+export function findReachedPackage(
+  packages: readonly ReachedPackage[],
+  packageName: string,
+): ReachedPackage | undefined {
+  return packages.find(
+    (pkg) => pkg.packageName === packageName || pkg.reachedName === packageName,
+  )
+}
+
+export function assertNoForbiddenProductionDependencies(
+  packages: readonly ReachedPackage[],
+  options?: { readonly repoRoot?: string },
+): void {
+  const repoRoot = options?.repoRoot ?? rootDirectory
+  for (const pkg of packages) {
+    if (
+      forbiddenReleasePackages.has(pkg.packageName) ||
+      forbiddenReleasePackages.has(pkg.reachedName) ||
+      packagePathBelongsToTools(repoRoot, pkg.packagePath)
+    ) {
+      throw new Error(
+        `Forbidden dev-only package reached production dependency graph: ${pkg.reachedName}`,
+      )
+    }
+  }
 }

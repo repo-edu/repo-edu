@@ -11,8 +11,6 @@ type ParsedArgs = {
   readonly platform: ReleasePlatform
   readonly artifactTargets: readonly string[]
   readonly manifestOut: string
-  readonly bunMetafile?: string
-  readonly desktopBundleManifest?: string
 }
 
 const apps = new Set<LicenseGateApp>(["desktop", "cli"])
@@ -22,6 +20,12 @@ const platforms = new Set<ReleasePlatform>([
   "linux-x64",
   "windows-arm64",
   "windows-x64",
+])
+const allowedOptions = new Set([
+  "app",
+  "platform",
+  "artifact-targets",
+  "manifest-out",
 ])
 
 function parseArgs(argv: readonly string[]): ParsedArgs {
@@ -35,10 +39,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 
     const inlineValueIndex = arg.indexOf("=")
     if (inlineValueIndex !== -1) {
-      values.set(
-        arg.slice(2, inlineValueIndex),
-        arg.slice(inlineValueIndex + 1),
-      )
+      const key = arg.slice(2, inlineValueIndex)
+      assertAllowedOption(key)
+      values.set(key, arg.slice(inlineValueIndex + 1))
       continue
     }
 
@@ -46,7 +49,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     if (!next || next.startsWith("--")) {
       throw new Error(`Missing value for ${arg}`)
     }
-    values.set(arg.slice(2), next)
+    const key = arg.slice(2)
+    assertAllowedOption(key)
+    values.set(key, next)
     index += 1
   }
 
@@ -76,8 +81,12 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       .map((target) => target.trim())
       .filter((target) => target.length > 0),
     manifestOut,
-    bunMetafile: values.get("bun-metafile"),
-    desktopBundleManifest: values.get("desktop-bundle-manifest"),
+  }
+}
+
+function assertAllowedOption(key: string): void {
+  if (!allowedOptions.has(key)) {
+    throw new Error(`Unknown option: --${key}`)
   }
 }
 

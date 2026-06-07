@@ -69,7 +69,7 @@ jobs:
       - name: Runtime validation
         run: pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-arm64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-arm64.txt --desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-arm64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-arm64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --arm64 --publish never
         env:
@@ -109,7 +109,6 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile `
-            --metafile=redu-windows-arm64.metafile.json `
             apps/cli/src/main.ts `
             --outfile redu-windows-arm64.exe
 
@@ -117,7 +116,7 @@ jobs:
         run: .\redu-windows-arm64.exe --version
 
       - name: Generate CLI notices
-        run: pnpm --filter @repo-edu/release license-gate --app cli --platform windows-arm64 --artifact-targets binary --bun-metafile redu-windows-arm64.metafile.json --manifest-out redu-windows-arm64.exe.third-party-notices.txt
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform windows-arm64 --artifact-targets binary --manifest-out redu-windows-arm64.exe.third-party-notices.txt
 
       - name: Generate CLI checksum
         shell: bash

@@ -12,8 +12,6 @@ export type LicenseGateOptions = {
   readonly platform: ReleasePlatform
   readonly artifactTargets: readonly string[]
   readonly manifestOut: string
-  readonly bunMetafile?: string
-  readonly desktopBundleManifest?: string
   readonly root?: string
 }
 
@@ -36,12 +34,13 @@ export type ReachedPackage = {
   readonly version: string
   readonly packagePath: string
   readonly firstParty: boolean
+  readonly packageDirectoryExists: boolean
   readonly path: readonly string[]
 }
 
-export type PackageClosure = {
-  readonly firstPartyPackages: readonly ReachedPackage[]
-  readonly externalPackages: readonly ReachedPackage[]
+export type ProductionDependencyViews = {
+  readonly productionReached: readonly ReachedPackage[]
+  readonly thirdParty: readonly ReachedPackage[]
 }
 
 export type PackageJson = {
@@ -53,30 +52,21 @@ export type PackageJson = {
   readonly description?: string
 }
 
-export type LicenseMetadataRecord = {
-  readonly name: string
-  readonly version: string
-  readonly path: string
-  readonly license: string
-  readonly author?: string
-  readonly homepage?: string
-  readonly description?: string
-}
-
 export type PackageNoticeSubject = ReachedPackage & {
   readonly kind: "package" | "runtime-asset"
   readonly source: string
 }
 
-export type DirectNoticeSubject = {
+export type NoticeEntry = {
   readonly id: string
-  readonly kind: "runtime-asset" | "package-sub-asset"
+  readonly kind: "package" | "runtime-asset" | "package-sub-asset"
   readonly name: string
   readonly version: string
   readonly licenseExpression: string
   readonly source: string
   readonly licenseText: string
   readonly noticeText?: string
+  readonly additionalText?: string
 }
 
 export type ReleaseRuntimeDecision = {

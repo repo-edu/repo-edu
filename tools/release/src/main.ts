@@ -108,10 +108,6 @@ function removeFileIfExists(path: string): void {
 
 function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
   const outputPath = join(tmpdir(), cliPreflightOutputName(platform))
-  const metafilePath = join(
-    tmpdir(),
-    `repo-edu-${platform}-cli-preflight.metafile.json`,
-  )
   const manifestPath = join(
     tmpdir(),
     `${cliPreflightOutputName(platform)}.third-party-notices.txt`,
@@ -119,7 +115,6 @@ function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
 
   try {
     removeFileIfExists(outputPath)
-    removeFileIfExists(metafilePath)
     removeFileIfExists(manifestPath)
 
     runFile("pnpm", [
@@ -127,7 +122,6 @@ function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
       "bun",
       "build",
       "--compile",
-      `--metafile=${metafilePath}`,
       ...cliCompileTargetArgs(platform),
       "apps/cli/src/main.ts",
       "--outfile",
@@ -143,14 +137,11 @@ function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
       platform,
       "--artifact-targets",
       "binary",
-      "--bun-metafile",
-      metafilePath,
       "--manifest-out",
       manifestPath,
     ])
   } finally {
     removeFileIfExists(outputPath)
-    removeFileIfExists(metafilePath)
     removeFileIfExists(manifestPath)
   }
 }
@@ -225,8 +216,6 @@ runFile("pnpm", [
   desktopArtifactTargets(preflightPlatform),
   "--manifest-out",
   join(tmpdir(), `repo-edu-${preflightPlatform}-third-party-notices.txt`),
-  "--desktop-bundle-manifest",
-  resolve(root, "apps/desktop/out/license-gate-bundle-inputs.json"),
 ])
 runCliLicensePreflight(preflightPlatform)
 

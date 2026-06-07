@@ -46,7 +46,7 @@ jobs:
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt --desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --arm64 --publish never
       - name: Verify Linux arm64 update metadata
@@ -92,7 +92,6 @@ jobs:
       - name: Compile CLI binary
         run: |
           pnpm exec bun build --compile \
-            --metafile=redu-linux-arm64.metafile.json \
             apps/cli/src/main.ts \
             --outfile redu-linux-arm64
 
@@ -100,7 +99,7 @@ jobs:
         run: ./redu-linux-arm64 --version
 
       - name: Generate CLI notices
-        run: pnpm --filter @repo-edu/release license-gate --app cli --platform linux-arm64 --artifact-targets binary --bun-metafile redu-linux-arm64.metafile.json --manifest-out redu-linux-arm64.third-party-notices.txt
+        run: pnpm --filter @repo-edu/release license-gate --app cli --platform linux-arm64 --artifact-targets binary --manifest-out redu-linux-arm64.third-party-notices.txt
 
       - name: Generate CLI checksum
         run: |

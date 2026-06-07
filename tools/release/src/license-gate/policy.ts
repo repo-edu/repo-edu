@@ -13,15 +13,6 @@ export type ClassificationResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: string }
 
-type BlueOakList = readonly {
-  readonly licenses: readonly { readonly id: string }[]
-}[]
-
-type BlueOakCopyleft = Record<
-  string,
-  readonly { readonly id: string; readonly name?: string }[]
->
-
 type SpdxExpressionNode =
   | { readonly license: string; readonly exception?: string }
   | {
@@ -30,35 +21,43 @@ type SpdxExpressionNode =
       readonly right: SpdxExpressionNode
     }
 
+const acceptableSpdxLicenseIds = [
+  "0BSD",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BlueOak-1.0.0",
+  "ISC",
+  "LGPL-2.1-only",
+  "LGPL-2.1-or-later",
+  "LGPL-3.0-only",
+  "LGPL-3.0-or-later",
+  "MIT",
+  "MPL-2.0",
+  "Python-2.0",
+  "Unlicense",
+] as const
+
+const unacceptableTextPatterns = [
+  /^UNLICENSED$/i,
+  /^SEE LICEN[CS]E/i,
+  /^unknown$/i,
+  /all rights reserved/i,
+  /source[- ]available/i,
+  /proprietary/i,
+] as const
+
 export function classifyLicenseExpression(
   expression: string,
 ): ClassificationResult {
   const normalized = expression.trim()
   if (
     normalized.length === 0 ||
-    /^UNLICENSED$/i.test(normalized) ||
-    /^SEE LICEN[CS]E/i.test(normalized) ||
-    /all rights reserved/i.test(normalized) ||
-    /source[- ]available/i.test(normalized) ||
-    /^unknown$/i.test(normalized)
+    unacceptableTextPatterns.some((pattern) => pattern.test(normalized))
   ) {
     return {
       ok: false,
-      reason: `non-SPDX or non-redistributable license string "${expression}"`,
-    }
-  }
-
-  const allowlist = blueOakAllowlist()
-  const allowlistIds = [...allowlist]
-
-  try {
-    if (satisfiesSpdx(normalized, allowlistIds)) {
-      return { ok: true }
-    }
-  } catch {
-    return {
-      ok: false,
-      reason: `invalid SPDX license expression "${expression}"`,
+      reason: `unknown or non-redistributable license string "${expression}"`,
     }
   }
 
@@ -72,26 +71,25 @@ export function classifyLicenseExpression(
     }
   }
 
-  const denylist = blueOakCopyleftIds()
-  const copyleftIds = ids.filter((id) => denylist.has(id))
-  if (copyleftIds.length > 0) {
+  try {
+    if (satisfiesSpdx(normalized, [...acceptableSpdxLicenseIds])) {
+      return { ok: true }
+    }
+  } catch {
     return {
       ok: false,
-      reason: `copyleft license id(s): ${copyleftIds.join(", ")}`,
+      reason: `invalid SPDX license expression "${expression}"`,
     }
   }
 
-  const unknownIds = ids.filter((id) => !allowlist.has(id) && !denylist.has(id))
-  if (unknownIds.length > 0) {
-    return {
-      ok: false,
-      reason: `license id(s) absent from Blue Oak allow/deny datasets: ${unknownIds.join(", ")}`,
-    }
-  }
-
+  const acceptable = new Set<string>(acceptableSpdxLicenseIds)
+  const unacceptableIds = [...new Set(ids.filter((id) => !acceptable.has(id)))]
   return {
     ok: false,
-    reason: `SPDX expression "${expression}" does not satisfy the permissive allowlist`,
+    reason:
+      unacceptableIds.length > 0
+        ? `unacceptable license id(s): ${unacceptableIds.join(", ")}`
+        : `SPDX expression "${expression}" does not satisfy the release allow-list`,
   }
 }
 
@@ -100,20 +98,4 @@ function collectSpdxIds(node: SpdxExpressionNode): string[] {
     return [node.license]
   }
   return [...collectSpdxIds(node.left), ...collectSpdxIds(node.right)]
-}
-
-function blueOakAllowlist(): Set<string> {
-  const data = require("@blueoak/list/index.json") as BlueOakList
-  return new Set(
-    data.flatMap((rating) => rating.licenses.map((license) => license.id)),
-  )
-}
-
-function blueOakCopyleftIds(): Set<string> {
-  const data = require("@blueoak/copyleft/index.json") as BlueOakCopyleft
-  return new Set(
-    Object.values(data).flatMap((licenses) =>
-      licenses.map((license) => license.id),
-    ),
-  )
 }

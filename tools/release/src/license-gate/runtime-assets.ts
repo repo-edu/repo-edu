@@ -1,18 +1,34 @@
+import { existsSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { TOKENIZER_GRAMMAR_ASSETS } from "@repo-edu/tree-sitter-grammar-assets"
-import { closureContainsPackage } from "./closure.js"
+import {
+  dotslashPlatformKey,
+  extractRipgrepVersion,
+  fetchVerifiedArchive,
+  parseDotslashManifest,
+  readArchiveTextFiles,
+  resolveOpenAiCodexDotslashManifest,
+} from "./archive.js"
+import { closureContainsPackage, findReachedPackage } from "./closure.js"
+import {
+  licenseTextForSpdxExpression,
+  licenseTextForSpdxId,
+} from "./license-text.js"
+import { noticeEntryId } from "./notices.js"
 import {
   appDirectoryByApp,
   readPackageJson,
   readRequiredTextFile,
+  readRequiredTextFiles,
 } from "./shared.js"
 import type {
-  DirectNoticeSubject,
   LicenseGateOptions,
-  PackageClosure,
-  PackageNoticeSubject,
+  NoticeEntry,
+  PackageJson,
+  ReachedPackage,
   ReleasePlatform,
   ReleaseRuntimeDecision,
 } from "./types.js"
@@ -23,22 +39,24 @@ const noExtraDesktopRuntime: Record<string, string> = {
   deb: "No extra third-party runtime beyond the Electron app payload is added by this target.",
 }
 
-export async function collectRuntimeAssets(
+export async function collectRuntimeNoticeEntries(
   options: LicenseGateOptions,
   root: string,
-  closure: PackageClosure,
+  productionReached: readonly ReachedPackage[],
 ): Promise<{
-  readonly packageSubjects: readonly PackageNoticeSubject[]
-  readonly directSubjects: readonly DirectNoticeSubject[]
+  readonly entries: readonly NoticeEntry[]
   readonly decisions: readonly ReleaseRuntimeDecision[]
 }> {
-  const packageSubjects: PackageNoticeSubject[] = []
-  const directSubjects: DirectNoticeSubject[] = []
+  const entries: NoticeEntry[] = []
   const decisions: ReleaseRuntimeDecision[] = []
 
   if (options.app === "desktop") {
-    packageSubjects.push(
-      ...resolveDesktopRuntimePackageSubjects(root, options.artifactTargets),
+    entries.push(
+      ...(await resolveDesktopRuntimePackageEntries({
+        root,
+        artifactTargets: options.artifactTargets,
+        productionReached,
+      })),
     )
 
     for (const target of options.artifactTargets) {
@@ -62,103 +80,213 @@ export async function collectRuntimeAssets(
       }
     }
   } else {
-    packageSubjects.push(
-      ...resolveCliRuntimePackageSubjects(root, options.platform),
+    entries.push(
+      ...(await resolveCliRuntimeNoticeEntries(root, options.platform)),
     )
   }
 
   if (
     options.app === "desktop" ||
-    closureContainsPackage(closure, "@repo-edu/tree-sitter-grammar-assets")
+    closureContainsPackage(
+      productionReached,
+      "@repo-edu/tree-sitter-grammar-assets",
+    )
   ) {
-    directSubjects.push(...(await resolveTokenizerGrammarRuntimeAssets()))
+    entries.push(...(await resolveTokenizerGrammarRuntimeAssets()))
   }
 
-  return { packageSubjects, directSubjects, decisions }
+  const codexRoot = findReachedPackage(productionReached, "@openai/codex")
+  if (codexRoot?.packageDirectoryExists) {
+    entries.push(
+      await resolveOpenAiCodexPlatformRuntimeEntry(codexRoot, options.platform),
+    )
+    entries.push(await resolveRipgrepNoticeEntry(codexRoot, options.platform))
+  }
+
+  return { entries, decisions }
 }
 
-export function resolveDesktopRuntimePackageSubjects(
-  root: string,
-  artifactTargets: readonly string[],
-): PackageNoticeSubject[] {
-  const desktopRoot = resolve(root, appDirectoryByApp.desktop)
+export async function resolveDesktopRuntimePackageEntries(options: {
+  readonly root: string
+  readonly artifactTargets: readonly string[]
+  readonly productionReached?: readonly ReachedPackage[]
+}): Promise<NoticeEntry[]> {
+  const desktopRoot = resolve(options.root, appDirectoryByApp.desktop)
   const electronBuilderRoot = dirname(
     resolvePackageJsonPath("electron-builder", desktopRoot),
   )
+  const electronReached = options.productionReached
+    ? findReachedPackage(options.productionReached, "electron")
+    : undefined
   const subjects = [
-    resolvePackageSubject("electron", {
-      reachedName: "electron",
+    runtimePackageRecord("electron", {
+      reachedPackage: electronReached,
       root: desktopRoot,
-      kind: "runtime-asset",
       source: "Desktop Electron runtime",
+      additionalNoticeFiles: ["dist/LICENSES.chromium.html"],
     }),
-    resolvePackageSubject("electron-builder", {
-      reachedName: "electron-builder",
+    runtimePackageRecord("electron-builder", {
       root: desktopRoot,
-      kind: "runtime-asset",
       source: "Desktop Electron Builder packaging runtime",
     }),
     ...["app-builder-lib", "app-builder-bin", "builder-util-runtime"].map(
       (packageName) =>
-        resolvePackageSubject(packageName, {
-          reachedName: packageName,
+        runtimePackageRecord(packageName, {
           root: electronBuilderRoot,
-          kind: "runtime-asset",
           source: "Desktop Electron Builder transitive packaging runtime",
         }),
     ),
   ]
 
-  if (artifactTargets.includes("dmg")) {
+  if (options.artifactTargets.includes("dmg")) {
     subjects.push(
-      resolvePackageSubject("dmg-builder", {
-        reachedName: "dmg-builder",
+      runtimePackageRecord("dmg-builder", {
         root: electronBuilderRoot,
-        kind: "runtime-asset",
         source: "Desktop Electron Builder macOS DMG packaging runtime",
       }),
     )
   }
-  if (artifactTargets.includes("nsis")) {
+  if (options.artifactTargets.includes("nsis")) {
     subjects.push(
-      resolvePackageSubject("electron-builder-squirrel-windows", {
-        reachedName: "electron-builder-squirrel-windows",
+      runtimePackageRecord("electron-builder-squirrel-windows", {
         root: electronBuilderRoot,
-        kind: "runtime-asset",
         source: "Desktop Electron Builder Windows installer runtime",
       }),
     )
   }
 
-  return subjects
+  return Promise.all(subjects)
 }
 
-export function resolveCliRuntimePackageSubjects(
+export async function resolveCliRuntimeNoticeEntries(
   root: string,
   platform: ReleasePlatform,
-): PackageNoticeSubject[] {
+): Promise<NoticeEntry[]> {
   const ovenPackageName = ovenBunPackageName(platform)
-  const bunSubject = resolvePackageSubject("bun", {
-    reachedName: "bun",
+  const bunEntry = await runtimePackageRecord("bun", {
     root,
-    kind: "runtime-asset",
-    source: "Bun compiled CLI runtime",
+    source: "Bun compiled CLI package-manager runtime",
+  })
+  const ovenEntry = await runtimePackageRecord(ovenPackageName, {
+    root: dirname(resolvePackageJsonPath("bun", root)),
+    source: "Bun compiled CLI platform runtime",
   })
 
   return [
-    bunSubject,
-    resolvePackageSubject(ovenPackageName, {
-      reachedName: ovenPackageName,
-      root: bunSubject.packagePath,
-      kind: "runtime-asset",
-      source: "Bun compiled CLI platform runtime",
+    bunEntry,
+    ovenEntry,
+    bunLinkedRuntimeEntry({
+      id: `bun-javascriptcore:${bunEntry.version}`,
+      name: "JavaScriptCore/WebKit linked by Bun",
+      version: bunEntry.version,
+      source:
+        "Bun compiled CLI runtime; Bun licensing documentation: https://bun.sh/docs/project/licensing",
+    }),
+    bunLinkedRuntimeEntry({
+      id: `bun-tinycc:${bunEntry.version}`,
+      name: "tinycc linked by Bun",
+      version: bunEntry.version,
+      source:
+        "Bun compiled CLI runtime; Bun licensing documentation: https://bun.sh/docs/project/licensing",
     }),
   ]
 }
 
-async function resolveTokenizerGrammarRuntimeAssets(): Promise<
-  DirectNoticeSubject[]
-> {
+async function runtimePackageRecord(
+  packageName: string,
+  options: {
+    readonly root: string
+    readonly source: string
+    readonly reachedPackage?: ReachedPackage
+    readonly additionalNoticeFiles?: readonly string[]
+  },
+): Promise<NoticeEntry> {
+  const packageJsonPath = options.reachedPackage
+    ? join(options.reachedPackage.packagePath, "package.json")
+    : resolvePackageJsonPath(packageName, options.root)
+  const packagePath = dirname(packageJsonPath)
+  const packageJson = readPackageJson(packagePath)
+  const name = packageJson.name ?? packageName
+  const version = packageJson.version ?? "0.0.0"
+  const licenseExpression = readPackageLicense(packageJson, name)
+  const licenseFile = findPackageLicenseFile(packagePath)
+  const licenseText = licenseFile
+    ? await readRequiredTextFile(licenseFile)
+    : licenseTextForSpdxExpression(licenseExpression)
+  const additionalText =
+    options.additionalNoticeFiles && options.additionalNoticeFiles.length > 0
+      ? (
+          await readRequiredTextFiles(
+            options.additionalNoticeFiles.map((file) =>
+              join(packagePath, file),
+            ),
+          )
+        ).join("\n\n")
+      : undefined
+
+  return {
+    id: noticeEntryId({ name, version, packagePath }),
+    kind: "runtime-asset",
+    name,
+    version,
+    licenseExpression,
+    source: options.source,
+    licenseText,
+    additionalText,
+  }
+}
+
+function readPackageLicense(packageJson: PackageJson, name: string): string {
+  if (typeof packageJson.license === "string" && packageJson.license.trim()) {
+    return packageJson.license.trim()
+  }
+  throw new Error(`Runtime package ${name} has no package license field.`)
+}
+
+function findPackageLicenseFile(packagePath: string): string | undefined {
+  for (const fileName of [
+    "LICENSE",
+    "LICENSE.md",
+    "LICENSE.txt",
+    "LICENCE",
+    "COPYING",
+  ]) {
+    const path = join(packagePath, fileName)
+    if (existsSync(path)) {
+      return path
+    }
+  }
+  return undefined
+}
+
+function bunLinkedRuntimeEntry(options: {
+  readonly id: string
+  readonly name: string
+  readonly version: string
+  readonly source: string
+}): NoticeEntry {
+  return {
+    id: options.id,
+    kind: "runtime-asset",
+    name: options.name,
+    version: options.version,
+    licenseExpression: "LGPL-2.1-only",
+    source: options.source,
+    licenseText: licenseTextForSpdxId("LGPL-2.1-only"),
+  }
+}
+
+async function resolveOpenAiCodexPlatformRuntimeEntry(
+  codexRoot: ReachedPackage,
+  platform: ReleasePlatform,
+): Promise<NoticeEntry> {
+  return runtimePackageRecord(openAiCodexOptionalPackageName(platform), {
+    root: codexRoot.packagePath,
+    source: `OpenAI Codex native runtime for ${platform}`,
+  })
+}
+
+async function resolveTokenizerGrammarRuntimeAssets(): Promise<NoticeEntry[]> {
   return Promise.all(
     Object.values(TOKENIZER_GRAMMAR_ASSETS).map(async (entry) => {
       const licenseText = await readRequiredTextFile(
@@ -186,33 +314,52 @@ async function resolveTokenizerGrammarRuntimeAssets(): Promise<
           "",
           noticeText,
         ].join("\n"),
-      }
+      } satisfies NoticeEntry
     }),
   )
 }
 
-function resolvePackageSubject(
-  packageName: string,
-  options: {
-    readonly reachedName: string
-    readonly root: string
-    readonly kind: "runtime-asset"
-    readonly source: string
-  },
-): PackageNoticeSubject {
-  const packageJsonPath = resolvePackageJsonPath(packageName, options.root)
-  const packagePath = dirname(packageJsonPath)
-  const packageJson = readPackageJson(packagePath)
+async function resolveRipgrepNoticeEntry(
+  codexRoot: ReachedPackage,
+  platform: ReleasePlatform,
+): Promise<NoticeEntry> {
+  const manifestPath = resolveOpenAiCodexDotslashManifest(
+    codexRoot.packagePath,
+    codexRoot.version,
+  )
+  const manifest = parseDotslashManifest(await readFile(manifestPath, "utf8"))
+  const platformKey = dotslashPlatformKey(platform)
+  const record = manifest.platforms[platformKey]
+
+  if (!record) {
+    throw new Error(
+      `@openai/codex ripgrep DotSlash manifest has no ${platformKey} platform entry.`,
+    )
+  }
+
+  const provider = record.providers[0]
+  if (!provider) {
+    throw new Error("@openai/codex ripgrep DotSlash manifest has no provider.")
+  }
+  const ripgrepVersion = extractRipgrepVersion(record, provider.url)
+
+  const archiveBytes = await fetchVerifiedArchive(provider.url, record)
+  const archivePrefix = dirname(record.path)
+  const noticeFiles = ["COPYING", "LICENSE-MIT", "UNLICENSE"]
+  const noticeTexts = await readArchiveTextFiles(
+    archiveBytes,
+    record.format,
+    noticeFiles.map((file) => `${archivePrefix}/${file}`),
+  )
 
   return {
-    reachedName: options.reachedName,
-    packageName: packageJson.name ?? packageName,
-    version: packageJson.version ?? "0.0.0",
-    packagePath,
-    firstParty: false,
-    path: [options.reachedName],
-    kind: options.kind,
-    source: options.source,
+    id: `ripgrep:${record.digest}`,
+    kind: "package-sub-asset",
+    name: "ripgrep vendored by @openai/codex",
+    version: ripgrepVersion,
+    licenseExpression: "Unlicense OR MIT",
+    source: `@openai/codex ${codexRoot.version} bin/rg from ${provider.url}`,
+    licenseText: noticeTexts.join("\n\n"),
   }
 }
 
@@ -241,6 +388,21 @@ function ovenBunPackageName(platform: ReleasePlatform): string {
       return "@oven/bun-windows-aarch64"
     case "windows-x64":
       return "@oven/bun-windows-x64"
+  }
+}
+
+function openAiCodexOptionalPackageName(platform: ReleasePlatform): string {
+  switch (platform) {
+    case "darwin-arm64":
+      return "@openai/codex-darwin-arm64"
+    case "linux-arm64":
+      return "@openai/codex-linux-arm64"
+    case "linux-x64":
+      return "@openai/codex-linux-x64"
+    case "windows-arm64":
+      return "@openai/codex-win32-arm64"
+    case "windows-x64":
+      return "@openai/codex-win32-x64"
   }
 }
 

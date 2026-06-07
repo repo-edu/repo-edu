@@ -1,35 +1,28 @@
 import assert from "node:assert/strict"
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { packageKey, resolveRepoRelativePath } from "./license-gate/shared.js"
-import { applyPackageInternalAssetRules } from "./license-gate/sub-assets.js"
 import {
-  assertDesktopBundleInputsCovered,
+  assertNoForbiddenProductionDependencies,
+  assertScannerParity,
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
   formatNoticeManifest,
   manifestFileName,
-  narrowCliClosureWithBunMetafile,
   noticeSidecarName,
   type PnpmListNode,
   parseDotslashManifest,
+  type ReachedPackage,
   type ReleasePlatform,
   readRequiredTextFiles,
-  resolveCliRuntimePackageSubjects,
-  resolveDesktopRuntimePackageSubjects,
-  runLicenseGate,
+  resolveCliRuntimeNoticeEntries,
+  resolveDesktopRuntimePackageEntries,
+  scanPackageNotices,
+  scanPackageNoticesFromStart,
   validateLicenseGateArtifactTargets,
 } from "./license-gate.js"
 
@@ -73,7 +66,10 @@ async function writePackage(
     readonly name: string
     readonly version: string
     readonly license?: string
+    readonly private?: boolean
+    readonly dependencies?: Record<string, string>
   },
+  files?: Record<string, string>,
 ): Promise<string> {
   const packagePath = join(root, path)
   await mkdir(packagePath, { recursive: true })
@@ -83,75 +79,53 @@ async function writePackage(
     "utf8",
   )
   await writeFile(join(packagePath, "index.js"), "export {}\n", "utf8")
+  for (const [file, contents] of Object.entries(files ?? {})) {
+    const filePath = join(packagePath, file)
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, contents, "utf8")
+  }
   return packagePath
 }
 
-function packageSubject(
-  packageName: string,
-  version: string,
-  packagePath: string,
-) {
+function reachedPackage(
+  reachedName: string,
+  options?: Partial<ReachedPackage>,
+): ReachedPackage {
+  const packageName = options?.packageName ?? reachedName
+  const version = options?.version ?? "1.0.0"
   return {
-    reachedName: packageName,
+    reachedName,
     packageName,
     version,
-    packagePath,
-    firstParty: false,
-    kind: "package" as const,
-    path: [packageName],
-    source: "test",
-  }
-}
-
-async function findInstalledPnpmPackage(
-  packageName: string,
-  version: string,
-): Promise<string> {
-  const storePath = join(repoRoot, "node_modules/.pnpm")
-  const storePackageName = packageName.replace("/", "+")
-  const packageDirectory = (await readdir(storePath)).find((entry) =>
-    entry.startsWith(`${storePackageName}@${version}`),
-  )
-  assert.ok(
-    packageDirectory,
-    `Expected ${packageName}@${version} in ${storePath}`,
-  )
-  return join(storePath, packageDirectory, "node_modules", packageName)
-}
-
-async function copyPackageFiles(
-  sourceRoot: string,
-  targetRoot: string,
-  relativePaths: readonly string[],
-): Promise<void> {
-  for (const relativePath of relativePaths) {
-    const targetPath = join(targetRoot, relativePath)
-    await mkdir(dirname(targetPath), { recursive: true })
-    await copyFile(join(sourceRoot, relativePath), targetPath)
+    packagePath: options?.packagePath ?? `/repo/node_modules/${packageName}`,
+    firstParty: options?.firstParty ?? false,
+    packageDirectoryExists: options?.packageDirectoryExists ?? true,
+    path: options?.path ?? [reachedName],
   }
 }
 
 describe("license policy", () => {
-  it("allows permissive SPDX expressions through Blue Oak and fails closed otherwise", () => {
+  it("allows explicit permissive and weak-copyleft SPDX expressions", () => {
     assert.equal(classifyLicenseExpression("MIT").ok, true)
-    assert.equal(classifyLicenseExpression("GPL-2.0-only OR MIT").ok, true)
+    assert.equal(classifyLicenseExpression("LGPL-2.1-only").ok, true)
+    assert.equal(classifyLicenseExpression("MIT OR GPL-3.0-only").ok, true)
 
-    const copyleft = classifyLicenseExpression("GPL-2.0-only AND MIT")
-    assert.equal(copyleft.ok, false)
-    assert.match(copyleft.reason, /copyleft/)
+    const strongCopyleft = classifyLicenseExpression("MIT AND GPL-3.0-only")
+    assert.equal(strongCopyleft.ok, false)
+    assert.match(strongCopyleft.reason, /GPL-3\.0-only/)
 
-    const unknown = classifyLicenseExpression("MIT-0 OR Not-A-License")
+    const invalid = classifyLicenseExpression("MIT OR Not-A-License")
+    assert.equal(invalid.ok, false)
+    assert.match(invalid.reason, /invalid SPDX/)
+
+    const unknown = classifyLicenseExpression("SEE LICENSE IN LICENSE.md")
     assert.equal(unknown.ok, false)
-    assert.match(unknown.reason, /invalid|absent/)
-
-    const nonSpdx = classifyLicenseExpression("SEE LICENSE IN LICENSE.md")
-    assert.equal(nonSpdx.ok, false)
-    assert.match(nonSpdx.reason, /non-SPDX/)
+    assert.match(unknown.reason, /unknown|non-redistributable/)
   })
 })
 
-describe("package closure enumeration", () => {
-  it("uses recursive dependencies, deduped sources, alias metadata, and skips absent optional nodes", async () => {
+describe("production dependency enumeration", () => {
+  it("exposes productionReached and thirdParty without unsaved root tooling", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
       const applicationPath = await writePackage(root, "packages/application", {
@@ -166,10 +140,6 @@ describe("package closure enumeration", () => {
         name: "left",
         version: "1.0.0",
       })
-      const rightPath = await writePackage(root, "node_modules/right", {
-        name: "right",
-        version: "1.0.0",
-      })
       const sharedPath = await writePackage(root, "node_modules/shared", {
         name: "shared",
         version: "2.0.0",
@@ -178,14 +148,6 @@ describe("package closure enumeration", () => {
         name: "real-package",
         version: "3.0.0",
       })
-      const installedOptionalPath = await writePackage(
-        root,
-        "node_modules/optional-installed",
-        {
-          name: "optional-installed",
-          version: "4.0.0",
-        },
-      )
       const claudeCoderPath = await writePackage(
         root,
         "packages/claude-coder",
@@ -215,22 +177,9 @@ describe("package closure enumeration", () => {
             path: leftPath,
             dependencies: {
               shared: {
-                name: "wrong-child-name",
                 version: "2.0.0",
                 path: sharedPath,
                 dependencies: {},
-              },
-            },
-          },
-          right: {
-            version: "1.0.0",
-            path: rightPath,
-            dependencies: {
-              shared: {
-                version: "2.0.0",
-                path: sharedPath,
-                deduped: true,
-                dedupedDependenciesCount: 1,
               },
             },
           },
@@ -242,10 +191,6 @@ describe("package closure enumeration", () => {
             version: "5.0.0",
             path: join(root, "node_modules/optional-missing"),
           },
-          "optional-installed": {
-            version: "4.0.0",
-            path: installedOptionalPath,
-          },
         },
         unsavedDependencies: {
           "@repo-edu/claude-coder": {
@@ -255,288 +200,187 @@ describe("package closure enumeration", () => {
         },
       }
 
-      const closure = enumeratePackageClosureFromList(list, { repoRoot: root })
+      const views = enumeratePackageClosureFromList(list, { repoRoot: root })
       assert.deepEqual(
-        closure.firstPartyPackages.map((pkg) => pkg.packageName).sort(),
+        views.productionReached
+          .filter((pkg) => pkg.firstParty)
+          .map((pkg) => pkg.packageName)
+          .sort(),
         ["@repo-edu/application", "@repo-edu/domain"],
       )
-      assert.deepEqual(
-        closure.externalPackages.map((pkg) => pkg.reachedName).sort(),
-        ["alias-package", "left", "optional-installed", "right", "shared"],
-      )
+      assert.deepEqual(views.thirdParty.map((pkg) => pkg.reachedName).sort(), [
+        "alias-package",
+        "left",
+        "optional-missing",
+        "shared",
+      ])
       assert.equal(
-        closure.externalPackages.find(
-          (pkg) => pkg.reachedName === "alias-package",
-        )?.packageName,
+        views.thirdParty.find((pkg) => pkg.reachedName === "alias-package")
+          ?.packageName,
         "real-package",
       )
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
-
-  it("fails closed when a deduped dependency has no equivalent source", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      const packagePath = await writePackage(root, "node_modules/shared", {
-        name: "shared",
-        version: "1.0.0",
-      })
-      const list: PnpmListNode = {
-        dependencies: {
-          shared: {
-            version: "1.0.0",
-            path: packagePath,
-            deduped: true,
-            dedupedDependenciesCount: 1,
-          },
-        },
-      }
-
-      assert.throws(
-        () => enumeratePackageClosureFromList(list, { repoRoot: root }),
-        /deduped/,
+      assert.equal(
+        views.thirdParty.find((pkg) => pkg.reachedName === "optional-missing")
+          ?.packageDirectoryExists,
+        false,
       )
     } finally {
       await rm(root, { force: true, recursive: true })
     }
   })
+
+  it("fails closed when production reaches forbidden dev-only packages", () => {
+    assert.throws(
+      () =>
+        assertNoForbiddenProductionDependencies([
+          reachedPackage("@repo-edu/claude-coder", {
+            firstParty: true,
+            packageName: "@repo-edu/claude-coder",
+          }),
+        ]),
+      /Forbidden dev-only package/,
+    )
+  })
 })
 
-describe("Bun metafile narrowing", () => {
-  it("keeps only packages whose files appear in the metafile", () => {
-    const closure = {
-      firstPartyPackages: [
+describe("scanner package notices", () => {
+  it("preserves compound SPDX expressions and excludes private first-party packages", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/scanner-fixture",
+        version: "1.0.0",
+        private: true,
+        dependencies: {
+          compound: "1.0.0",
+        },
+      })
+      await writePackage(
+        root,
+        "node_modules/compound",
         {
-          reachedName: "@repo-edu/application",
-          packageName: "@repo-edu/application",
+          name: "compound",
           version: "1.0.0",
-          packagePath: "/repo/packages/application",
-          firstParty: true,
-          path: ["@repo-edu/application"],
+          license: "MIT AND GPL-3.0-only",
         },
-      ],
-      externalPackages: [
-        {
-          reachedName: "commander",
-          packageName: "commander",
-          version: "14.0.3",
-          packagePath: "/repo/node_modules/commander",
-          firstParty: false,
-          path: ["commander"],
-        },
-        {
-          reachedName: "unused",
-          packageName: "unused",
-          version: "1.0.0",
-          packagePath: "/repo/node_modules/unused",
-          firstParty: false,
-          path: ["unused"],
-        },
-      ],
+        { LICENSE: "Compound fixture license text\n" },
+      )
+
+      const notices = await scanPackageNoticesFromStart(root)
+      assert.deepEqual(
+        notices.map((entry) => entry.name),
+        ["compound"],
+      )
+      assert.equal(notices[0]?.licenseExpression, "MIT AND GPL-3.0-only")
+      assert.equal(notices[0]?.licenseText, "Compound fixture license text")
+    } finally {
+      await rm(root, { force: true, recursive: true })
     }
+  })
 
-    const narrowed = narrowCliClosureWithBunMetafile(closure, {
-      inputs: {
-        "/repo/packages/application/src/index.ts": {},
-        "/repo/node_modules/commander/index.js": {},
-      },
-      outputs: {
-        redu: {
-          imports: [{ path: "node:fs", external: true }],
+  it("fails closed when scanner-owned notice text is missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/scanner-fixture",
+        version: "1.0.0",
+        private: true,
+        dependencies: {
+          noText: "1.0.0",
         },
-      },
-    })
+      })
+      await writePackage(root, "node_modules/noText", {
+        name: "noText",
+        version: "1.0.0",
+      })
 
-    assert.deepEqual(
-      narrowed.firstPartyPackages.map((pkg) => pkg.packageName),
-      ["@repo-edu/application"],
-    )
-    assert.deepEqual(
-      narrowed.externalPackages.map((pkg) => pkg.packageName),
-      ["commander"],
-    )
+      await assert.rejects(
+        () => scanPackageNoticesFromStart(root),
+        /unusable licenseText/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 
-  it("fails closed on unresolved external package imports", () => {
-    assert.throws(
-      () =>
-        narrowCliClosureWithBunMetafile(
-          { firstPartyPackages: [], externalPackages: [] },
-          {
-            outputs: {
-              redu: { imports: [{ path: "opaque", external: true }] },
-            },
-          },
-        ),
-      /external package imports/,
+  it("scans the real CLI graph without first-party packages", async () => {
+    const notices = await scanPackageNotices("cli", repoRoot)
+    assert.ok(notices.length > 0)
+    assert.equal(
+      notices.some((entry) => entry.name.startsWith("@repo-edu/")),
+      false,
     )
-  })
-
-  it("fails closed when a known package is externalized instead of bundled", () => {
-    assert.throws(
-      () =>
-        narrowCliClosureWithBunMetafile(
-          {
-            firstPartyPackages: [],
-            externalPackages: [
-              {
-                reachedName: "commander",
-                packageName: "commander",
-                version: "14.0.3",
-                packagePath: "/repo/node_modules/commander",
-                firstParty: false,
-                path: ["commander"],
-              },
-            ],
-          },
-          {
-            outputs: {
-              redu: { imports: [{ path: "commander", external: true }] },
-            },
-          },
-        ),
-      /external package imports/,
-    )
-  })
-
-  it("fails closed when the metafile has no bundled file inputs", () => {
-    assert.throws(
-      () =>
-        narrowCliClosureWithBunMetafile(
-          { firstPartyPackages: [], externalPackages: [] },
-          { inputs: {}, outputs: {} },
-        ),
-      /no bundled file inputs/,
-    )
-  })
-
-  it("fails closed on package inputs outside the release closure", () => {
-    assert.throws(
-      () =>
-        narrowCliClosureWithBunMetafile(
-          {
-            firstPartyPackages: [],
-            externalPackages: [
-              {
-                reachedName: "commander",
-                packageName: "commander",
-                version: "14.0.3",
-                packagePath: "/repo/node_modules/commander",
-                firstParty: false,
-                path: ["commander"],
-              },
-            ],
-          },
-          {
-            inputs: {
-              "/repo/apps/cli/src/main.ts": {},
-              "/repo/node_modules/dev-only/index.js": {},
-            },
-            outputs: {},
-          },
-          {
-            repoRoot: "/repo",
-            appSourceDirectories: ["/repo/apps/cli"],
-          },
-        ),
-      /outside the release closure/,
-    )
+    assert.ok(notices.every((entry) => entry.licenseText.trim().length > 0))
   })
 })
 
-describe("desktop bundle input coverage", () => {
-  it("allows app sources and reached packages", () => {
+describe("scanner parity guard", () => {
+  it("allows unique package identity matches when scanner and pnpm paths differ", () => {
     assert.doesNotThrow(() =>
-      assertDesktopBundleInputsCovered(
-        {
-          firstPartyPackages: [
+      assertScannerParity({
+        scannerPackages: [
+          {
+            id: packageKey("left", "1.0.0", "/scanner/left"),
+            packageName: "left",
+            packagePath: "/scanner/left",
+            kind: "package",
+            name: "left",
+            version: "1.0.0",
+            licenseExpression: "MIT",
+            source: "scanner",
+            licenseText: "MIT text",
+          },
+        ],
+        thirdParty: [
+          reachedPackage("left", {
+            packagePath: "/pnpm/left",
+          }),
+        ],
+      }),
+    )
+  })
+
+  it("requires a path match only when duplicate name/version instances exist", () => {
+    assert.throws(
+      () =>
+        assertScannerParity({
+          scannerPackages: [
             {
-              reachedName: "@repo-edu/application",
-              packageName: "@repo-edu/application",
+              id: packageKey("left", "1.0.0", "/scanner/a"),
+              packageName: "left",
+              packagePath: "/scanner/a",
+              kind: "package",
+              name: "left",
               version: "1.0.0",
-              packagePath: "/repo/packages/application",
-              firstParty: true,
-              path: ["@repo-edu/application"],
+              licenseExpression: "MIT",
+              source: "scanner",
+              licenseText: "MIT text",
             },
           ],
-          externalPackages: [
-            {
-              reachedName: "commander",
-              packageName: "commander",
-              version: "14.0.3",
-              packagePath: "/repo/node_modules/commander",
-              firstParty: false,
-              path: ["commander"],
-            },
+          thirdParty: [
+            reachedPackage("left", { packagePath: "/pnpm/a" }),
+            reachedPackage("left", { packagePath: "/pnpm/b" }),
           ],
-        },
-        {
-          version: 1,
-          targets: {
-            main: {
-              externalImports: ["commander/subpath", "electron", "node:fs"],
-              inputs: [
-                "/repo/apps/desktop/src/main.ts",
-                "/repo/packages/application/src/index.ts",
-                "/repo/node_modules/commander/index.js?commonjs",
-              ],
-            },
-          },
-        },
-        {
-          repoRoot: "/repo",
-          appSourceDirectories: ["/repo/apps/desktop"],
-        },
-      ),
+        }),
+      /missed production package/,
     )
   })
 
-  it("fails closed on external package imports outside the release closure", () => {
-    assert.throws(
-      () =>
-        assertDesktopBundleInputsCovered(
-          { firstPartyPackages: [], externalPackages: [] },
-          {
-            version: 1,
-            targets: {
-              main: {
-                externalImports: ["dev-only-package"],
-                inputs: ["/repo/apps/desktop/src/main.ts"],
-              },
-            },
-          },
-          {
-            repoRoot: "/repo",
-            appSourceDirectories: ["/repo/apps/desktop"],
-          },
-        ),
-      /external package imports outside the release closure/,
-    )
-  })
-
-  it("fails closed on bundled package inputs outside the release closure", () => {
-    assert.throws(
-      () =>
-        assertDesktopBundleInputsCovered(
-          { firstPartyPackages: [], externalPackages: [] },
-          {
-            version: 1,
-            targets: {
-              main: {
-                inputs: [
-                  "/repo/apps/desktop/src/main.ts",
-                  "/repo/packages/claude-coder/src/index.ts",
-                ],
-              },
-            },
-          },
-          {
-            repoRoot: "/repo",
-            appSourceDirectories: ["/repo/apps/desktop"],
-          },
-        ),
-      /outside the release closure/,
+  it("keeps the Electron subtree and Codex platform optional misses benign", () => {
+    assert.doesNotThrow(() =>
+      assertScannerParity({
+        scannerPackages: [],
+        thirdParty: [
+          reachedPackage("boolean", {
+            path: ["trpc-electron", "electron", "@electron/get", "boolean"],
+          }),
+          reachedPackage("@openai/codex-linux-x64", {
+            packageName: "@openai/codex-linux-x64",
+            version: "0.128.0-linux-x64",
+            packageDirectoryExists: false,
+          }),
+        ],
+      }),
     )
   })
 })
@@ -579,20 +423,20 @@ describe("artifact target validation", () => {
   })
 })
 
-describe("runtime package resolution", () => {
-  it("resolves release runtime subjects through their owning package roots", () => {
+describe("runtime notice records", () => {
+  it("resolves explicit desktop and CLI runtime records", async () => {
     const platform = currentReleasePlatform()
     if (!platform) {
       return
     }
 
-    const desktopSubjects = resolveDesktopRuntimePackageSubjects(
-      repoRoot,
-      desktopTargetsForPlatform(platform),
-    )
+    const desktopEntries = await resolveDesktopRuntimePackageEntries({
+      root: repoRoot,
+      artifactTargets: desktopTargetsForPlatform(platform),
+    })
     assert.deepEqual(
-      desktopSubjects
-        .map((subject) => subject.packageName)
+      desktopEntries
+        .map((entry) => entry.name)
         .filter((name) =>
           [
             "electron",
@@ -611,58 +455,22 @@ describe("runtime package resolution", () => {
         "electron-builder",
       ],
     )
+    assert.match(
+      desktopEntries.find((entry) => entry.name === "electron")
+        ?.additionalText ?? "",
+      /Chromium|copyright/i,
+    )
 
-    const cliSubjects = resolveCliRuntimePackageSubjects(repoRoot, platform)
-    assert.equal(cliSubjects[0]?.packageName, "bun")
-    assert.match(cliSubjects[1]?.packageName ?? "", /^@oven\/bun-/)
-  })
-
-  it("allows the CLI gate to include Bun runtime package executables", async () => {
-    const platform = currentReleasePlatform()
-    if (!platform) {
-      return
-    }
-
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    const metafilePath = join(root, "redu.metafile.json")
-    const manifestPath = join(root, "redu.third-party-notices.txt")
-    try {
-      await writeFile(
-        metafilePath,
-        JSON.stringify({
-          inputs: {
-            [join(repoRoot, "apps/cli/src/main.ts")]: {},
-            [join(
-              repoRoot,
-              "packages/tree-sitter-grammar-assets/src/index.ts",
-            )]: {},
-          },
-          outputs: {},
-        }),
-        "utf8",
-      )
-
-      await runLicenseGate({
-        app: "cli",
-        platform,
-        artifactTargets: ["binary"],
-        bunMetafile: metafilePath,
-        manifestOut: manifestPath,
-      })
-
-      const manifest = await readFile(manifestPath, "utf8")
-      assert.match(manifest, /Bun compiled CLI runtime/)
-      assert.match(manifest, /Bun package-manager runtime executable/)
-      assert.match(manifest, /Bun compiled CLI platform runtime/)
-      assert.match(manifest, /tokenizer grammar/)
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
+    const cliEntries = await resolveCliRuntimeNoticeEntries(repoRoot, platform)
+    assert.ok(cliEntries.some((entry) => entry.name === "bun"))
+    assert.ok(cliEntries.some((entry) => /^@oven\/bun-/.test(entry.name)))
+    assert.ok(cliEntries.some((entry) => entry.name.includes("JavaScriptCore")))
+    assert.ok(cliEntries.some((entry) => entry.name.includes("tinycc")))
   })
 })
 
 describe("required notice files", () => {
-  it("fails closed when an explicit nested notice file is absent or empty", async () => {
+  it("fails closed when an explicit notice file is absent or empty", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
       const present = join(root, "NOTICE")
@@ -682,196 +490,6 @@ describe("required notice files", () => {
       assert.deepEqual(await readRequiredTextFiles([present]), [
         "notice text\n",
       ])
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
-})
-
-describe("package internal asset rules", () => {
-  it("adds explicit Anthropic SDK vendored notices and fails unknown _vendor surfaces", async () => {
-    const anthropicPath = await findInstalledPnpmPackage(
-      "@anthropic-ai/sdk",
-      "0.100.1",
-    )
-    const packageExtraText = new Map<string, string[]>()
-    await applyPackageInternalAssetRules({
-      directSubjects: [],
-      packageExtraText,
-      packageSubjects: [
-        packageSubject("@anthropic-ai/sdk", "0.100.1", anthropicPath),
-      ],
-      platform: "linux-x64",
-    })
-
-    const anthropicNoticeText =
-      packageExtraText
-        .get(packageKey("@anthropic-ai/sdk", "0.100.1", anthropicPath))
-        ?.join("\n") ?? ""
-    assert.match(anthropicNoticeText, /partial-json-parser vendored/)
-    assert.match(anthropicNoticeText, /MIT License/)
-
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      const unknownPath = await writePackage(root, "node_modules/unknown", {
-        name: "unknown",
-        version: "1.0.0",
-      })
-      await mkdir(join(unknownPath, "_vendor/lib"), { recursive: true })
-      await writeFile(join(unknownPath, "_vendor/lib/index.js"), "\n", "utf8")
-
-      await assert.rejects(
-        () =>
-          applyPackageInternalAssetRules({
-            directSubjects: [],
-            packageExtraText: new Map(),
-            packageSubjects: [packageSubject("unknown", "1.0.0", unknownPath)],
-            platform: "linux-x64",
-          }),
-        /vendored sub-assets/,
-      )
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
-
-  it("fails explicit Anthropic SDK rules when reviewed file hashes drift", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      const anthropicPath = await writePackage(
-        root,
-        "node_modules/@anthropic-ai/sdk",
-        {
-          name: "@anthropic-ai/sdk",
-          version: "0.100.1",
-        },
-      )
-      await mkdir(join(anthropicPath, "src/internal/qs"), { recursive: true })
-      await writeFile(
-        join(anthropicPath, "src/internal/qs/LICENSE.md"),
-        "changed license text\n",
-        "utf8",
-      )
-
-      await assert.rejects(
-        () =>
-          applyPackageInternalAssetRules({
-            directSubjects: [],
-            packageExtraText: new Map(),
-            packageSubjects: [
-              packageSubject("@anthropic-ai/sdk", "0.100.1", anthropicPath),
-            ],
-            platform: "linux-x64",
-          }),
-        /sha256/,
-      )
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
-
-  it("requires every tRPC vendored surface to have explicit notice coverage", async () => {
-    const trpcPath = await findInstalledPnpmPackage("@trpc/server", "11.15.0")
-    const packageExtraText = new Map<string, string[]>()
-    await applyPackageInternalAssetRules({
-      directSubjects: [],
-      packageExtraText,
-      packageSubjects: [packageSubject("@trpc/server", "11.15.0", trpcPath)],
-      platform: "linux-x64",
-    })
-
-    const trpcNoticeText =
-      packageExtraText
-        .get(packageKey("@trpc/server", "11.15.0", trpcPath))
-        ?.join("\n") ?? ""
-    assert.match(trpcNoticeText, /unpromise/)
-    assert.match(trpcNoticeText, /cookie-es vendored by @trpc\/server/)
-    assert.match(trpcNoticeText, /is-plain-object vendored by @trpc\/server/)
-    assert.match(trpcNoticeText, /standard-schema vendored by @trpc\/server/)
-
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      const copiedTrpcPath = await writePackage(
-        root,
-        "node_modules/@trpc/server",
-        {
-          name: "@trpc/server",
-          version: "11.15.0",
-        },
-      )
-      await copyPackageFiles(trpcPath, copiedTrpcPath, [
-        "src/vendor/cookie-es/set-cookie/split.ts",
-        "src/vendor/is-plain-object.ts",
-        "src/vendor/standard-schema-v1/error.ts",
-        "src/vendor/standard-schema-v1/spec.ts",
-        "src/vendor/unpromise/ATTRIBUTION.txt",
-        "src/vendor/unpromise/index.ts",
-        "src/vendor/unpromise/LICENSE",
-        "src/vendor/unpromise/types.ts",
-        "src/vendor/unpromise/unpromise.ts",
-      ])
-
-      await mkdir(join(copiedTrpcPath, "src/vendor/new-vendor"), {
-        recursive: true,
-      })
-      await writeFile(
-        join(copiedTrpcPath, "src/vendor/new-vendor/index.ts"),
-        "export {}\n",
-        "utf8",
-      )
-
-      await assert.rejects(
-        () =>
-          applyPackageInternalAssetRules({
-            directSubjects: [],
-            packageExtraText: new Map(),
-            packageSubjects: [
-              packageSubject("@trpc/server", "11.15.0", copiedTrpcPath),
-            ],
-            platform: "linux-x64",
-          }),
-        /new-vendor/,
-      )
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
-
-  it("does not let OpenAI Codex platform vendor buckets cover sibling files", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      const codexPath = await writePackage(root, "node_modules/@openai/codex", {
-        name: "@openai/codex",
-        version: "0.128.0-linux-x64",
-      })
-      await mkdir(join(codexPath, "vendor/linux-x64/codex"), {
-        recursive: true,
-      })
-      await mkdir(join(codexPath, "vendor/linux-x64/data"), {
-        recursive: true,
-      })
-      await writeFile(
-        join(codexPath, "vendor/linux-x64/codex/codex"),
-        Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0]),
-      )
-      await writeFile(
-        join(codexPath, "vendor/linux-x64/data/config.json"),
-        "{}\n",
-        "utf8",
-      )
-
-      await assert.rejects(
-        () =>
-          applyPackageInternalAssetRules({
-            directSubjects: [],
-            packageExtraText: new Map(),
-            packageSubjects: [
-              packageSubject("@openai/codex", "0.128.0-linux-x64", codexPath),
-            ],
-            platform: "linux-x64",
-          }),
-        /vendor\/linux-x64\/data\/config\.json/,
-      )
     } finally {
       await rm(root, { force: true, recursive: true })
     }
@@ -901,21 +519,11 @@ describe("manifest helpers", () => {
     )
   })
 
-  it("formats first-party coverage, runtime decisions, and notice entries", () => {
+  it("formats third-party notices without dynamic first-party listings", () => {
     const manifest = formatNoticeManifest({
       app: "desktop",
       platform: "linux-x64",
       artifactTargets: ["AppImage", "deb"],
-      firstPartyPackages: [
-        {
-          reachedName: "@repo-edu/domain",
-          packageName: "@repo-edu/domain",
-          version: "1.0.0",
-          packagePath: "/repo/packages/domain",
-          firstParty: true,
-          path: ["@repo-edu/domain"],
-        },
-      ],
       runtimeDecisions: [
         {
           target: "deb",
@@ -935,7 +543,8 @@ describe("manifest helpers", () => {
       ],
     })
 
-    assert.match(manifest, /@repo-edu\/domain@1.0.0/)
+    assert.doesNotMatch(manifest, /@repo-edu\/domain@1.0.0/)
+    assert.match(manifest, /root MIT license/)
     assert.match(manifest, /deb: No extra runtime/)
     assert.match(manifest, /left \(1.0.0\)/)
   })
@@ -991,18 +600,16 @@ describe("manifest helpers", () => {
 })
 
 describe("release workflow wiring", () => {
-  it("local release preflight compiles and gates the CLI metafile", async () => {
+  it("local release preflight compiles and gates the CLI without a metafile", async () => {
     const releaseScript = await readFile(
       join(repoRoot, "tools/release/src/main.ts"),
       "utf8",
     )
 
     assert.match(releaseScript, /"bun"[\s\S]*"build"[\s\S]*"--compile"/)
-    assert.match(releaseScript, /`--metafile=\$\{metafilePath\}`/)
-    assert.match(
-      releaseScript,
-      /"license-gate"[\s\S]*"--app"[\s\S]*"cli"[\s\S]*"--bun-metafile"[\s\S]*metafilePath/,
-    )
+    assert.doesNotMatch(releaseScript, /--metafile/)
+    assert.doesNotMatch(releaseScript, /--bun-metafile/)
+    assert.doesNotMatch(releaseScript, /--desktop-bundle-manifest/)
   })
 
   const workflowExpectations = [
@@ -1010,8 +617,6 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/macos-arm64-release.yml",
       snippets: [
         "--app desktop --platform darwin-arm64 --artifact-targets dmg,zip",
-        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
-        "--metafile=redu-darwin-arm64.metafile.json",
         "--app cli --platform darwin-arm64",
         "redu-darwin-arm64.third-party-notices.txt",
         "redu-darwin-arm64 redu-darwin-arm64.third-party-notices.txt",
@@ -1022,8 +627,6 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/linux-arm64-release.yml",
       snippets: [
         "--app desktop --platform linux-arm64 --artifact-targets AppImage,deb",
-        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
-        "--metafile=redu-linux-arm64.metafile.json",
         "--app cli --platform linux-arm64",
         "redu-linux-arm64.third-party-notices.txt",
         "redu-linux-arm64 redu-linux-arm64.third-party-notices.txt",
@@ -1034,8 +637,6 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/windows-arm64-release.yml",
       snippets: [
         "--app desktop --platform windows-arm64 --artifact-targets nsis",
-        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
-        "--metafile=redu-windows-arm64.metafile.json",
         "--app cli --platform windows-arm64",
         "redu-windows-arm64.exe.third-party-notices.txt",
         "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
@@ -1046,8 +647,6 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/windows-arm64-no-secrets-release.yml",
       snippets: [
         "--app desktop --platform windows-arm64 --artifact-targets nsis",
-        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
-        "--metafile=redu-windows-arm64.metafile.json",
         "--app cli --platform windows-arm64",
         "redu-windows-arm64.exe.third-party-notices.txt",
         "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
@@ -1059,9 +658,6 @@ describe("release workflow wiring", () => {
       snippets: [
         "--app desktop --platform linux-x64 --artifact-targets AppImage,deb",
         "--app desktop --platform windows-x64 --artifact-targets nsis",
-        "--desktop-bundle-manifest apps/desktop/out/license-gate-bundle-inputs.json",
-        "--metafile=redu-linux-x64.metafile.json",
-        "--metafile=redu-windows-x64.metafile.json",
         "redu-linux-x64.third-party-notices.txt",
         "redu-windows-x64.exe.third-party-notices.txt",
         "redu-linux-x64 redu-linux-x64.third-party-notices.txt",
@@ -1077,6 +673,9 @@ describe("release workflow wiring", () => {
       for (const snippet of expectation.snippets) {
         assert.ok(workflow.includes(snippet), `missing ${snippet}`)
       }
+      assert.doesNotMatch(workflow, /--metafile/)
+      assert.doesNotMatch(workflow, /--bun-metafile/)
+      assert.doesNotMatch(workflow, /--desktop-bundle-manifest/)
       assert.doesNotMatch(workflow, /path: redu-[^\n*]*\*/)
     })
   }

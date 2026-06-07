@@ -10,12 +10,11 @@
     "check": "pnpm run typecheck"
   },
   "dependencies": {
-    "@blueoak/copyleft": "10.0.0",
-    "@blueoak/list": "15.0.0",
-    "@quantco/pnpm-licenses": "2.4.1",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "@zip.js/zip.js": "2.8.26",
+    "license-checker-rseidelsohn": "5.0.1",
     "spdx-expression-parse": "4.0.0",
+    "spdx-license-list": "6.11.0",
     "spdx-satisfies": "6.0.0",
     "tar": "7.5.16"
   }

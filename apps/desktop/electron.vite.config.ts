@@ -1,28 +1,15 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { cpSync, readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "electron-vite"
-import {
-  type BundleInputTarget,
-  collectBundleInputTarget,
-} from "./src/license-gate-bundle-inputs.js"
 
 type TsConfigPaths = Record<string, string[]>
 
 const configDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(configDir, "../..")
 const configRequire = createRequire(import.meta.url)
-const desktopBundleInputManifestPath = resolve(
-  configDir,
-  "out/license-gate-bundle-inputs.json",
-)
-
-type DesktopBundleInputManifest = {
-  readonly version: 1
-  readonly targets: Record<string, BundleInputTarget>
-}
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -89,56 +76,6 @@ function copyMainTokenizerAssetsPlugin() {
   }
 }
 
-function readDesktopBundleInputManifest(): DesktopBundleInputManifest {
-  try {
-    return JSON.parse(
-      readFileSync(desktopBundleInputManifestPath, "utf8"),
-    ) as DesktopBundleInputManifest
-  } catch {
-    return { version: 1, targets: {} }
-  }
-}
-
-function writeDesktopBundleInputTarget(
-  target: string,
-  bundleTarget: BundleInputTarget,
-) {
-  const manifest = readDesktopBundleInputManifest()
-  mkdirSync(dirname(desktopBundleInputManifestPath), { recursive: true })
-  writeFileSync(
-    desktopBundleInputManifestPath,
-    `${JSON.stringify(
-      {
-        version: 1,
-        targets: {
-          ...manifest.targets,
-          [target]: {
-            externalImports: [...new Set(bundleTarget.externalImports)].sort(),
-            inputs: [...new Set(bundleTarget.inputs)].sort(),
-          },
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  )
-}
-
-function collectBundleInputsPlugin(target: string) {
-  let bundleTarget: BundleInputTarget = { externalImports: [], inputs: [] }
-
-  return {
-    name: `license-gate-bundle-inputs-${target}`,
-    apply: "build" as const,
-    generateBundle(_options: unknown, bundle: Record<string, unknown>) {
-      bundleTarget = collectBundleInputTarget(bundle)
-    },
-    closeBundle() {
-      writeDesktopBundleInputTarget(target, bundleTarget)
-    },
-  }
-}
-
 type BuildWarning = {
   readonly code?: string
   readonly id?: string
@@ -173,10 +110,7 @@ const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
   main: {
-    plugins: [
-      collectBundleInputsPlugin("main"),
-      copyMainTokenizerAssetsPlugin(),
-    ],
+    plugins: [copyMainTokenizerAssetsPlugin()],
     resolve: {
       alias: workspaceAliases,
     },
@@ -202,7 +136,6 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [collectBundleInputsPlugin("preload")],
     resolve: {
       alias: workspaceAliases,
     },
@@ -220,7 +153,7 @@ export default defineConfig({
   },
   renderer: {
     root: ".",
-    plugins: [tailwindcss(), collectBundleInputsPlugin("renderer")],
+    plugins: [tailwindcss()],
     resolve: {
       alias: workspaceAliases,
     },
