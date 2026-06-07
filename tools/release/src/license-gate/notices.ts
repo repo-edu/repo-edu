@@ -36,6 +36,12 @@ export function mergeNoticeEntries(
       continue
     }
 
+    if (existing.licenseExpression !== entry.licenseExpression) {
+      throw new Error(
+        `Notice records for ${entry.name}@${entry.version} disagree on license expression: "${existing.licenseExpression}" vs "${entry.licenseExpression}".`,
+      )
+    }
+
     merged.set(entry.id, {
       ...existing,
       kind:

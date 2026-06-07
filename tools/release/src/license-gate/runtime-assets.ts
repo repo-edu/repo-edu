@@ -13,6 +13,7 @@ import {
   resolveOpenAiCodexDotslashManifest,
 } from "./archive.js"
 import { closureContainsPackage, findReachedPackage } from "./closure.js"
+import { licenseTextForSpdxId } from "./license-text.js"
 import { noticeEntryId } from "./notices.js"
 import {
   appDirectoryByApp,
@@ -267,6 +268,8 @@ function findPackageLicenseFile(packagePath: string): string | undefined {
   return undefined
 }
 
+const bunLinkedRuntimeLicense = "LGPL-2.1-only"
+
 function bunLinkedRuntimeEntry(options: {
   readonly id: string
   readonly name: string
@@ -278,12 +281,12 @@ function bunLinkedRuntimeEntry(options: {
     kind: "runtime-asset",
     name: options.name,
     version: options.version,
-    licenseExpression: "LGPL-2.1-only",
+    licenseExpression: bunLinkedRuntimeLicense,
     source: options.source,
+    licenseText: licenseTextForSpdxId(bunLinkedRuntimeLicense),
     licenseEvidence: [
-      `${options.source} uses metadata-only license evidence for ${options.name}.`,
       "Bun's published licensing documentation identifies this linked runtime subject as LGPL-2.1-only.",
-      "The installed Bun npm package does not publish a dedicated notice file for this linked runtime subject.",
+      "The installed Bun npm package publishes no dedicated notice file for it, so the canonical LGPL-2.1 license text above is supplied instead.",
     ].join("\n"),
   }
 }

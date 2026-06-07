@@ -52,11 +52,6 @@ export type PackageJson = {
   readonly description?: string
 }
 
-export type PackageNoticeSubject = ReachedPackage & {
-  readonly kind: "package" | "runtime-asset"
-  readonly source: string
-}
-
 export type NoticeEntry = {
   readonly id: string
   readonly kind: "package" | "runtime-asset" | "package-sub-asset"

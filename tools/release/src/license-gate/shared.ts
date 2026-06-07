@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process"
 import { existsSync, readFileSync, realpathSync } from "node:fs"
-import { readdir, readFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -93,30 +93,6 @@ export async function runPnpmJson<TValue>(
     maxBuffer: 1024 * 1024 * 128,
   })
   return JSON.parse(stdout) as TValue
-}
-
-export async function readGlobbedTextFiles(
-  directory: string,
-  fileName: string,
-): Promise<string[]> {
-  if (!existsSync(directory)) {
-    return []
-  }
-  const texts: string[] = []
-
-  async function walk(current: string): Promise<void> {
-    for (const entry of await readdir(current, { withFileTypes: true })) {
-      const path = join(current, entry.name)
-      if (entry.isDirectory()) {
-        await walk(path)
-      } else if (entry.isFile() && entry.name === fileName) {
-        texts.push(await readFile(path, "utf8"))
-      }
-    }
-  }
-
-  await walk(directory)
-  return texts
 }
 
 export async function readRequiredTextFiles(

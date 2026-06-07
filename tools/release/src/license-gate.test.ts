@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
+import { createHash } from "node:crypto"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
+import { create as createTarArchive } from "tar"
 import {
   packageKey,
   resolveRepoRelativePath,
@@ -15,6 +17,7 @@ import {
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
+  fetchVerifiedArchive,
   formatNoticeManifest,
   manifestFileName,
   mergeNoticeEntries,
@@ -24,6 +27,7 @@ import {
   parseDotslashManifest,
   type ReachedPackage,
   type ReleasePlatform,
+  readArchiveTextFiles,
   readRequiredTextFiles,
   resolveCliRuntimeNoticeEntries,
   resolveDesktopRuntimePackageEntries,
@@ -521,8 +525,16 @@ describe("runtime notice records", () => {
     const cliEntries = await resolveCliRuntimeNoticeEntries(repoRoot, platform)
     assert.ok(cliEntries.some((entry) => entry.name === "bun"))
     assert.ok(cliEntries.some((entry) => /^@oven\/bun-/.test(entry.name)))
-    assert.ok(cliEntries.some((entry) => entry.name.includes("JavaScriptCore")))
-    assert.ok(cliEntries.some((entry) => entry.name.includes("tinycc")))
+
+    const linkedSubjects = cliEntries.filter(
+      (entry) =>
+        entry.name.includes("JavaScriptCore") || entry.name.includes("tinycc"),
+    )
+    assert.equal(linkedSubjects.length, 2)
+    for (const subject of linkedSubjects) {
+      assert.equal(subject.licenseExpression, "LGPL-2.1-only")
+      assert.match(subject.licenseText ?? "", /Lesser General Public License/i)
+    }
 
     const cliRuntimeManifest = formatNoticeManifest({
       app: "cli",
@@ -531,6 +543,7 @@ describe("runtime notice records", () => {
       runtimeDecisions: [],
       entries: cliEntries,
     })
+    assert.match(cliRuntimeManifest, /License Text:/)
     assert.match(cliRuntimeManifest, /License Evidence:/)
     assert.doesNotMatch(cliRuntimeManifest, /<year>|<copyright holders>/)
   })
@@ -701,6 +714,108 @@ describe("manifest helpers", () => {
         ),
       /single ripgrep version/,
     )
+  })
+})
+
+describe("ripgrep archive evidence", () => {
+  function dotslashRecord(
+    bytes: Buffer,
+    overrides?: Partial<{ size: number; digest: string; hash: string }>,
+  ) {
+    return {
+      size: overrides?.size ?? bytes.length,
+      hash: overrides?.hash ?? "sha256",
+      digest:
+        overrides?.digest ?? createHash("sha256").update(bytes).digest("hex"),
+      format: "tar.gz" as const,
+      path: "ripgrep-1.2.3/rg",
+      providers: [{ url: "https://example.test/ripgrep.tar.gz" }],
+    }
+  }
+
+  async function withStubbedFetch(
+    body: Buffer,
+    run: () => Promise<void>,
+  ): Promise<void> {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(new Uint8Array(body), { status: 200 })) as typeof fetch
+    try {
+      await run()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }
+
+  it("verifies archive size and digest before trusting the download", async () => {
+    const bytes = Buffer.from("verified ripgrep archive payload")
+    const url = "https://example.test/ripgrep.tar.gz"
+
+    await withStubbedFetch(bytes, async () => {
+      const fetched = await fetchVerifiedArchive(url, dotslashRecord(bytes))
+      assert.ok(fetched.equals(bytes))
+    })
+
+    await withStubbedFetch(Buffer.from("short"), async () => {
+      await assert.rejects(
+        () => fetchVerifiedArchive(url, dotslashRecord(bytes)),
+        /size mismatch/,
+      )
+    })
+
+    const tampered = Buffer.alloc(bytes.length, 0x61)
+    await withStubbedFetch(tampered, async () => {
+      await assert.rejects(
+        () => fetchVerifiedArchive(url, dotslashRecord(bytes)),
+        /digest mismatch/,
+      )
+    })
+
+    await withStubbedFetch(bytes, async () => {
+      await assert.rejects(
+        () =>
+          fetchVerifiedArchive(url, dotslashRecord(bytes, { hash: "sha512" })),
+        /Unsupported DotSlash hash/,
+      )
+    })
+  })
+
+  it("reads notice files out of a ripgrep tar.gz archive", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const prefix = "ripgrep-1.2.3-aarch64"
+      const memberDir = join(root, "src", prefix)
+      await mkdir(memberDir, { recursive: true })
+      await writeFile(join(memberDir, "COPYING"), "copying text\n", "utf8")
+      await writeFile(join(memberDir, "LICENSE-MIT"), "mit text\n", "utf8")
+      await writeFile(join(memberDir, "UNLICENSE"), "unlicense text\n", "utf8")
+      const archivePath = join(root, "ripgrep.tar.gz")
+      await createTarArchive(
+        { gzip: true, cwd: join(root, "src"), file: archivePath },
+        [prefix],
+      )
+
+      const texts = await readArchiveTextFiles(
+        await readFile(archivePath),
+        "tar.gz",
+        [`${prefix}/COPYING`, `${prefix}/LICENSE-MIT`, `${prefix}/UNLICENSE`],
+      )
+      assert.deepEqual(texts, [
+        "copying text\n",
+        "mit text\n",
+        "unlicense text\n",
+      ])
+
+      await assert.rejects(
+        () =>
+          readFile(archivePath).then((archive) =>
+            readArchiveTextFiles(archive, "tar.gz", [`${prefix}/MISSING`]),
+          ),
+        /Archive is missing/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 })
 

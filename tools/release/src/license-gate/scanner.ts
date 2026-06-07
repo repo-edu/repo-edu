@@ -34,6 +34,14 @@ const scannerCustomFormat = {
   noticeFile: "",
 } as const
 
+// Third-party packages that ship no scanner-discoverable license file and so
+// rely on metadata-only evidence. Keys are pinned to the installed
+// `name@version` because license-checker matches clarifications by exact
+// version: a codex-sdk or trpc-electron bump invalidates the key, the scanner
+// then reports no license file and the gate fails closed until the pin is
+// refreshed against pnpm-lock.yaml. That coupling is deliberate, not an
+// oversight, because it forces a re-check whenever the package, and therefore
+// its licensing, changes.
 const checkerClarifications = {
   "@openai/codex@0.128.0": {
     license: "Apache-2.0",
@@ -178,11 +186,6 @@ async function toScannedPackageNotice(
     record.licenses,
     moduleKey,
   )
-  const licenseEvidenceText = nonEmptyString(
-    record.licenseText,
-    moduleKey,
-    "licenseText",
-  )
   const licenseFile = optionalString(
     record.licenseFile,
     moduleKey,
@@ -198,24 +201,8 @@ async function toScannedPackageNotice(
       `License checker reported unknown or guessed license for ${moduleKey}: ${licenseExpression}`,
     )
   }
-  const clarification = checkerClarificationFor(`${packageName}@${version}`)
-  const explicitMetadataEvidence = Boolean(clarification)
-  if (!licenseFile && !explicitMetadataEvidence) {
-    throw new Error(
-      `License checker produced no scanner-owned license file for ${moduleKey}. Add an explicit checker clarification before shipping metadata-only notice evidence.`,
-    )
-  }
-  const licenseEvidence = clarification
-    ? packageMetadataEvidence({
-        name: packageName,
-        version,
-        licenseExpression,
-        packageJson,
-        context: clarification.context,
-      })
-    : undefined
 
-  return {
+  const base = {
     id: packageKey(packageName, version, packagePath),
     packageName,
     packagePath,
@@ -223,16 +210,48 @@ async function toScannedPackageNotice(
     name: packageName,
     version,
     licenseExpression,
+    noticeText,
+  } as const
+
+  // A clarified package is the only metadata-only path: it carries no scanner
+  // license file by design, so it skips the file/text requirement below.
+  const clarification = checkerClarificationFor(`${packageName}@${version}`)
+  if (clarification) {
+    return {
+      ...base,
+      source: scannerSource({
+        licenseFile,
+        packageName,
+        version,
+        sourceRoot,
+        explicitMetadataEvidence: true,
+      }),
+      licenseEvidence: packageMetadataEvidence({
+        name: packageName,
+        version,
+        licenseExpression,
+        packageJson,
+        context: clarification.context,
+      }),
+    }
+  }
+
+  if (!licenseFile) {
+    throw new Error(
+      `License checker produced no scanner-owned license file for ${moduleKey}. Add an explicit checker clarification before shipping metadata-only notice evidence.`,
+    )
+  }
+
+  return {
+    ...base,
     source: scannerSource({
       licenseFile,
       packageName,
       version,
       sourceRoot,
-      explicitMetadataEvidence,
+      explicitMetadataEvidence: false,
     }),
-    licenseText: explicitMetadataEvidence ? undefined : licenseEvidenceText,
-    licenseEvidence,
-    noticeText,
+    licenseText: nonEmptyString(record.licenseText, moduleKey, "licenseText"),
   }
 }
 
@@ -240,6 +259,9 @@ function normalizeLicenseExpression(value: unknown, moduleKey: string): string {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim()
   }
+  // license-checker reports an array when a package declares several licenses.
+  // Join with AND so the policy gate must accept every one: a genuine `A OR B`
+  // package is over-constrained but never under-gated.
   if (
     Array.isArray(value) &&
     value.every((entry) => typeof entry === "string" && entry.trim().length > 0)

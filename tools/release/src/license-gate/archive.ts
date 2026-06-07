@@ -190,9 +190,15 @@ async function readTarGzTextFiles(
       strict: true,
       preservePaths: false,
     })
-    return Promise.all(
-      paths.map((path) => readFile(join(tempDirectory, path), "utf8")),
-    )
+    const texts: string[] = []
+    for (const path of paths) {
+      const filePath = join(tempDirectory, path)
+      if (!existsSync(filePath)) {
+        throw new Error(`Archive is missing ${path}.`)
+      }
+      texts.push(await readFile(filePath, "utf8"))
+    }
+    return texts
   } finally {
     await rm(tempDirectory, { force: true, recursive: true })
   }
