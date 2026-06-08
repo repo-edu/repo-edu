@@ -62,10 +62,14 @@ export function enumeratePackageClosureFromList(
     const key = packageKey(packageName, version, packagePath)
 
     // Record each package on first reach, then stop. The closure is keyed by
-    // package identity, so re-walking an already-reached node only repeats its
-    // subtree; without this guard a production dependency cycle routed back
-    // through a deduped node would recurse without bound.
-    if (reached.has(key)) {
+    // package identity, but retain every reach path because scanner-miss
+    // classification depends on whether all paths belong to a benign bucket.
+    const existing = reached.get(key)
+    if (existing) {
+      reached.set(key, {
+        ...existing,
+        paths: appendReachPath(existing.paths, path),
+      })
       return
     }
     reached.set(key, {
@@ -75,6 +79,7 @@ export function enumeratePackageClosureFromList(
       packagePath,
       packageDirectoryExists: hasPackageDirectory,
       firstParty,
+      paths: [path],
       path,
     })
 
@@ -105,6 +110,23 @@ export function enumeratePackageClosureFromList(
     productionReached: packages,
     thirdParty: packages.filter((pkg) => !pkg.firstParty),
   }
+}
+
+function appendReachPath(
+  paths: readonly (readonly string[])[],
+  path: readonly string[],
+): readonly (readonly string[])[] {
+  if (paths.some((existing) => samePath(existing, path))) {
+    return paths
+  }
+  return [...paths, path]
+}
+
+function samePath(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => segment === right[index])
+  )
 }
 
 function collectEquivalentDependencyNodes(

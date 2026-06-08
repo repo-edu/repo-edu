@@ -359,10 +359,15 @@ function isOpenAiCodexPlatformOptional(pkg: ReachedPackage): boolean {
 }
 
 function isElectronBuildTimeSubtreeMiss(pkg: ReachedPackage): boolean {
-  const electronIndex = pkg.path.indexOf("electron")
-  return electronIndex > 0 && pkg.path[electronIndex - 1] === "trpc-electron"
+  return (
+    pkg.paths.length > 0 &&
+    pkg.paths.every((path) => {
+      const electronIndex = path.indexOf("electron")
+      return electronIndex > 0 && path[electronIndex - 1] === "trpc-electron"
+    })
+  )
 }
 
 function formatReachedPackageDiagnostic(pkg: ReachedPackage): string {
-  return `${pkg.reachedName} (${pkg.packageName}@${pkg.version}) via ${pkg.path.join(" > ")}`
+  return `${pkg.reachedName} (${pkg.packageName}@${pkg.version}) via ${pkg.paths.map((path) => path.join(" > ")).join(" | ")}`
 }

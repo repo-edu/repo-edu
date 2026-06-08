@@ -126,6 +126,7 @@ function reachedPackage(
     packagePath: options?.packagePath ?? `/repo/node_modules/${packageName}`,
     firstParty: options?.firstParty ?? false,
     packageDirectoryExists: options?.packageDirectoryExists ?? true,
+    paths: options?.paths ?? [options?.path ?? [reachedName]],
     path: options?.path ?? [reachedName],
   }
 }
@@ -514,6 +515,37 @@ describe("scanner parity guard", () => {
       /missed production package/,
     )
   })
+
+  it("does not exempt a scanner miss that also reaches a shipped path", () => {
+    assert.throws(
+      () =>
+        assertScannerParity({
+          scannerPackages: [],
+          thirdParty: [
+            reachedPackage("gopd", {
+              path: [
+                "trpc-electron",
+                "electron",
+                "@electron/get",
+                "global-agent",
+                "gopd",
+              ],
+              paths: [
+                [
+                  "trpc-electron",
+                  "electron",
+                  "@electron/get",
+                  "global-agent",
+                  "gopd",
+                ],
+                ["@repo-edu/integrations-git", "@gitbeaker/rest", "gopd"],
+              ],
+            }),
+          ],
+        }),
+      /missed production package/,
+    )
+  })
 })
 
 describe("artifact target validation", () => {
@@ -821,6 +853,7 @@ describe("ripgrep notice evidence", () => {
 
       const manifest = await readFile(manifestPath, "utf8")
       assert.match(manifest, /ripgrep vendored by @openai\/codex/)
+      assert.match(manifest, /vendored vendor\/.*\/path\/rg/)
       assert.match(manifest, /notice text from committed ripgrep 15\.1\.0/)
       assert.match(manifest, /This project is dual-licensed/)
       assert.match(manifest, /The MIT License \(MIT\)/)
@@ -828,6 +861,12 @@ describe("ripgrep notice evidence", () => {
         manifest,
         /unencumbered software released into the public domain/,
       )
+      assert.match(
+        manifest,
+        /PCRE2 linked by ripgrep vendored by @openai\/codex/,
+      )
+      assert.match(manifest, /reports PCRE2 10\.45/)
+      assert.match(manifest, /BSD-3-Clause WITH PCRE2-exception/)
     } finally {
       await rm(root, { force: true, recursive: true })
     }

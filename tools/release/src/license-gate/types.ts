@@ -35,6 +35,7 @@ export type ReachedPackage = {
   readonly packagePath: string
   readonly firstParty: boolean
   readonly packageDirectoryExists: boolean
+  readonly paths: readonly (readonly string[])[]
   readonly path: readonly string[]
 }
 
