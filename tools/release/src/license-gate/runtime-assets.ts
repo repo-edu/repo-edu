@@ -469,8 +469,8 @@ async function resolveRipgrepNoticeEntries(options: {
       kind: "package-sub-asset",
       name: "PCRE2 linked by ripgrep vendored by @openai/codex",
       version: binary.pcre2Version,
-      licenseExpression: "BSD-3-Clause",
-      source: `${options.platformPackageName} vendored ${binary.relativePath} reports PCRE2 ${binary.pcre2Version}; notice text from committed PCRE2 ${binary.pcre2Version} source-tag LICENCE.md`,
+      licenseExpression: "BSD-3-Clause WITH PCRE2-exception",
+      source: `${options.platformPackageName} vendored ${binary.relativePath} reports PCRE2 ${binary.pcre2Version}; notice text from committed PCRE2 ${binary.pcre2Version} source-tag LICENCE.txt`,
       licenseText,
       noticeText: binary.pcre2Output,
     })

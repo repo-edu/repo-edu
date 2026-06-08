@@ -38,6 +38,10 @@ const acceptableSpdxLicenseIds = [
   "Unlicense",
 ] as const
 
+const acceptableExactSpdxExpressions = new Set([
+  "BSD-3-Clause WITH PCRE2-exception",
+])
+
 const unacceptableTextPatterns = [
   /^UNLICENSED$/i,
   /^SEE LICEN[CS]E/i,
@@ -59,6 +63,9 @@ export function classifyLicenseExpression(
       ok: false,
       reason: `unknown or non-redistributable license string "${expression}"`,
     }
+  }
+  if (acceptableExactSpdxExpressions.has(normalized)) {
+    return { ok: true }
   }
 
   let ids: string[]
