@@ -198,12 +198,13 @@ plan omit this line.
 
 ## Watched implementation rounds
 
-An implementation-audit round is observed by the watch: a shared capability,
-independent of which repository is the working directory, that reads the
-episode's trajectory and surfaces drift to the user. It runs in parallel with
-the round rather than gating it, reduces the trajectory to a graded verdict
-(green, amber or red), and detects, informs, suggests a response class and
-asks; the decision is always the user's. The watch and its full rationale are
+An implementation-audit round can be observed by the watch: a shared
+capability, independent of which repository is the working directory, that
+reads the episode's trajectory and surfaces drift to the user. It runs only
+when the user invokes the `/watch` slash command, never automatically
+alongside a round and never as a gate, reduces the trajectory to a graded
+verdict (green, amber or red), and detects, informs, suggests a response class
+and asks; the decision is always the user's. The watch and its full rationale are
 defined once with the planning doctrine in `../plan/CLAUDE.md`, so this note
 carries only what is specific to implementation rounds here and the two do not
 drift.
