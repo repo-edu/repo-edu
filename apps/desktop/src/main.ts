@@ -57,7 +57,6 @@ import {
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
-import { seedDesktopFixtureFromEnvironment } from "./fixture-seed"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
@@ -974,15 +973,6 @@ if (hasSingleInstanceLock) {
           app.quit()
         })
     })
-
-    const seededFixture =
-      await seedDesktopFixtureFromEnvironment(storageRootPath)
-    if (seededFixture) {
-      validationCourseId = seededFixture.courseEntityId
-      for (const fixturePath of seededFixture.artifactPaths) {
-        desktopHost.queueUserFilePath(fixturePath)
-      }
-    }
 
     const userFileQueue = parsePathQueue(
       process.env.REPO_EDU_TEST_USER_FILE_QUEUE,

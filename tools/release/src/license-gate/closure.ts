@@ -19,6 +19,7 @@ const firstPartyScope = "@repo-edu/"
 const forbiddenReleasePackages = new Set([
   "@repo-edu/claude-coder",
   "@repo-edu/fixture-engine",
+  "@repo-edu/test-fixtures",
   "@anthropic-ai/claude-agent-sdk",
 ])
 

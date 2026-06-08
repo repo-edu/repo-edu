@@ -1,10 +1,5 @@
-import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { BlobReader, TextWriter, ZipReader } from "@zip.js/zip.js"
-import { extract as extractTar } from "tar"
 import { normalizePath } from "./shared.js"
 import type { ReleasePlatform } from "./types.js"
 
@@ -98,110 +93,6 @@ export function extractRipgrepVersion(
     )
   }
   return version
-}
-
-export async function fetchVerifiedArchive(
-  url: string,
-  record: DotSlashManifest["platforms"][string],
-): Promise<Buffer> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
-    )
-  }
-
-  const bytes = Buffer.from(await response.arrayBuffer())
-  if (bytes.length !== record.size) {
-    throw new Error(
-      `Archive size mismatch for ${url}: expected ${record.size}, got ${bytes.length}.`,
-    )
-  }
-  if (record.hash !== "sha256") {
-    throw new Error(`Unsupported DotSlash hash ${record.hash} for ${url}.`)
-  }
-  const digest = createHash("sha256").update(bytes).digest("hex")
-  if (digest !== record.digest) {
-    throw new Error(
-      `Archive digest mismatch for ${url}: expected ${record.digest}, got ${digest}.`,
-    )
-  }
-
-  return bytes
-}
-
-export async function readArchiveTextFiles(
-  archiveBytes: Buffer,
-  format: "tar.gz" | "zip",
-  paths: readonly string[],
-): Promise<string[]> {
-  if (format === "zip") {
-    return readZipTextFiles(archiveBytes, paths)
-  }
-  return readTarGzTextFiles(archiveBytes, paths)
-}
-
-async function readZipTextFiles(
-  archiveBytes: Buffer,
-  paths: readonly string[],
-): Promise<string[]> {
-  const archiveBuffer = new ArrayBuffer(archiveBytes.byteLength)
-  new Uint8Array(archiveBuffer).set(archiveBytes)
-  const zipReader = new ZipReader(new BlobReader(new Blob([archiveBuffer])))
-  try {
-    const entries = await zipReader.getEntries()
-    const textByPath = new Map<string, string>()
-    for (const entry of entries) {
-      if (!entry.filename || !paths.includes(entry.filename)) {
-        continue
-      }
-      if (!("getData" in entry)) {
-        continue
-      }
-      const text = await entry.getData(new TextWriter())
-      if (typeof text === "string") {
-        textByPath.set(entry.filename, text)
-      }
-    }
-    return paths.map((path) => {
-      const text = textByPath.get(path)
-      if (!text) {
-        throw new Error(`Archive is missing ${path}.`)
-      }
-      return text
-    })
-  } finally {
-    await zipReader.close()
-  }
-}
-
-async function readTarGzTextFiles(
-  archiveBytes: Buffer,
-  paths: readonly string[],
-): Promise<string[]> {
-  const tempDirectory = await mkdtemp(join(tmpdir(), "repo-edu-license-"))
-  const archivePath = join(tempDirectory, "archive.tar.gz")
-  try {
-    await writeFile(archivePath, archiveBytes)
-    await extractTar({
-      file: archivePath,
-      cwd: tempDirectory,
-      gzip: true,
-      strict: true,
-      preservePaths: false,
-    })
-    const texts: string[] = []
-    for (const path of paths) {
-      const filePath = join(tempDirectory, path)
-      if (!existsSync(filePath)) {
-        throw new Error(`Archive is missing ${path}.`)
-      }
-      texts.push(await readFile(filePath, "utf8"))
-    }
-    return texts
-  } finally {
-    await rm(tempDirectory, { force: true, recursive: true })
-  }
 }
 
 export function dotslashPlatformKey(platform: ReleasePlatform): string {

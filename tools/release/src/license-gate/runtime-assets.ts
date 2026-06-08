@@ -7,9 +7,7 @@ import { TOKENIZER_GRAMMAR_ASSETS } from "@repo-edu/tree-sitter-grammar-assets"
 import {
   dotslashPlatformKey,
   extractRipgrepVersion,
-  fetchVerifiedArchive,
   parseDotslashManifest,
-  readArchiveTextFiles,
   resolveOpenAiCodexDotslashManifest,
 } from "./archive.js"
 import { closureContainsPackage, findReachedPackage } from "./closure.js"
@@ -37,6 +35,34 @@ const noExtraDesktopRuntime: Record<string, string> = {
   zip: "No extra third-party runtime beyond the Electron app payload is added by this target.",
   deb: "No extra third-party runtime beyond the Electron app payload is added by this target.",
 }
+
+const releaseGateDirectory = dirname(fileURLToPath(import.meta.url))
+const ripgrepNoticeVersion = "15.1.0"
+const ripgrepNoticeFiles = [
+  "COPYING.txt",
+  "LICENSE-MIT.txt",
+  "UNLICENSE.txt",
+].map((file) =>
+  join(
+    releaseGateDirectory,
+    "runtime-notices",
+    `ripgrep-${ripgrepNoticeVersion}`,
+    file,
+  ),
+)
+
+const ripgrepDotslashDigestByPlatform = {
+  "darwin-arm64":
+    "378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715",
+  "linux-arm64":
+    "2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e",
+  "linux-x64":
+    "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599",
+  "windows-arm64":
+    "00d931fb5237c9696ca49308818edb76d8eb6fc132761cb2a1bd616b2df02f8e",
+  "windows-x64":
+    "124510b94b6baa3380d051fdf4650eaa80a302c876d611e9dba0b2e18d87493a",
+} satisfies Record<ReleasePlatform, string>
 
 export async function collectRuntimeNoticeEntries(
   options: LicenseGateOptions,
@@ -357,15 +383,23 @@ async function resolveRipgrepNoticeEntry(
     throw new Error("@openai/codex ripgrep DotSlash manifest has no provider.")
   }
   const ripgrepVersion = extractRipgrepVersion(record, provider.url)
+  if (ripgrepVersion !== ripgrepNoticeVersion) {
+    throw new Error(
+      `@openai/codex ripgrep version ${ripgrepVersion} does not match committed notice evidence ${ripgrepNoticeVersion}.`,
+    )
+  }
+  if (record.hash !== "sha256") {
+    throw new Error(
+      `@openai/codex ripgrep DotSlash manifest uses unsupported hash ${record.hash}.`,
+    )
+  }
+  if (record.digest !== ripgrepDotslashDigestByPlatform[platform]) {
+    throw new Error(
+      `@openai/codex ripgrep DotSlash digest for ${platform} changed. Refresh committed ripgrep notice evidence before release.`,
+    )
+  }
 
-  const archiveBytes = await fetchVerifiedArchive(provider.url, record)
-  const archivePrefix = dirname(record.path)
-  const noticeFiles = ["COPYING", "LICENSE-MIT", "UNLICENSE"]
-  const noticeTexts = await readArchiveTextFiles(
-    archiveBytes,
-    record.format,
-    noticeFiles.map((file) => `${archivePrefix}/${file}`),
-  )
+  const noticeTexts = await readRequiredTextFiles(ripgrepNoticeFiles)
 
   return {
     id: `ripgrep:${record.digest}`,
@@ -373,7 +407,7 @@ async function resolveRipgrepNoticeEntry(
     name: "ripgrep vendored by @openai/codex",
     version: ripgrepVersion,
     licenseExpression: "Unlicense OR MIT",
-    source: `@openai/codex ${codexRoot.version} bin/rg from ${provider.url}`,
+    source: `@openai/codex ${codexRoot.version} bin/rg from ${provider.url}; notice text from committed ripgrep ${ripgrepVersion} source-tag files`,
     licenseText: noticeTexts.join("\n\n"),
   }
 }

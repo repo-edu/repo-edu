@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { packageManagerCommand } from "./package-manager-command.mjs";
 
@@ -69,12 +69,57 @@ async function cleanupTemporaryStorageRoot(path) {
   }
 }
 
+async function seedValidationFixture(storageRoot) {
+  const { command, args } = packageManagerCommand([
+    "exec",
+    "tsx",
+    "scripts/seed-validation-fixture.ts",
+    storageRoot,
+    fixtureSelector,
+  ]);
+  const child = spawn(command, args, {
+    cwd: desktopDir,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  const [exitCode] = await once(child, "close");
+
+  if (exitCode !== 0) {
+    throw new Error(
+      `Fixture seeding exited with code ${exitCode}\n${stderr}`.trim(),
+    );
+  }
+
+  const parsed = JSON.parse(stdout);
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    typeof parsed.courseEntityId !== "string" ||
+    !Array.isArray(parsed.artifactPaths) ||
+    !parsed.artifactPaths.every((path) => typeof path === "string")
+  ) {
+    throw new Error("Fixture seeding did not emit the expected payload.");
+  }
+
+  return parsed;
+}
+
 async function main() {
   const temporaryStorageRoot = await mkdtemp(
     join(tmpdir(), "repo-edu-desktop-fixture-"),
   );
 
   try {
+    const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
     const electronArguments = ["exec", "electron"];
     if (isLinuxCi) {
@@ -88,8 +133,10 @@ async function main() {
       env: {
         ...process.env,
         REPO_EDU_DESKTOP_VALIDATE_TRPC: "1",
-        REPO_EDU_FIXTURE: fixtureSelector,
+        REPO_EDU_TEST_USER_FILE_QUEUE:
+          seededFixture.artifactPaths.join(delimiter),
         REPO_EDU_STORAGE_ROOT: temporaryStorageRoot,
+        REPO_EDU_VALIDATION_COURSE_ID: seededFixture.courseEntityId,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

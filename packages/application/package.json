@@ -10,7 +10,6 @@
     "@repo-edu/integrations-llm-catalog": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
-    "@repo-edu/test-fixtures": "workspace:*",
     "linkify-it": "^5.0.1",
     "papaparse": "^5.5.3",
     "partial-json": "^0.1.7",
@@ -30,6 +29,7 @@
     "test": "node --import tsx --test src/__tests__/*.test.ts src/adapters/**/__tests__/*.test.ts"
   },
   "devDependencies": {
+    "@repo-edu/test-fixtures": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "@types/linkify-it": "^5.0.0",
     "@types/papaparse": "^5.5.2",

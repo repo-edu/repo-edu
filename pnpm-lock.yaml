@@ -62,12 +62,13 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
-      '@repo-edu/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
       commander:
         specifier: ^14.0.3
         version: 14.0.3
+    devDependencies:
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
 
   apps/desktop:
     dependencies:
@@ -107,9 +108,6 @@ importers:
       '@repo-edu/renderer-host-contract':
         specifier: workspace:*
         version: link:../../packages/renderer-host-contract
-      '@repo-edu/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
       '@repo-edu/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -135,6 +133,9 @@ importers:
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.59.1
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
       '@tailwindcss/vite':
         specifier: ^4.2.2
         version: 4.2.2(vite@7.3.1(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -247,9 +248,6 @@ importers:
       '@repo-edu/integrations-lms-contract':
         specifier: workspace:*
         version: link:../integrations-lms-contract
-      '@repo-edu/test-fixtures':
-        specifier: workspace:*
-        version: link:../test-fixtures
       linkify-it:
         specifier: ^5.0.1
         version: 5.0.1
@@ -263,6 +261,9 @@ importers:
         specifier: ^0.18.5
         version: 0.18.5
     devDependencies:
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
       '@repo-edu/tree-sitter-grammar-assets':
         specifier: workspace:*
         version: link:../tree-sitter-grammar-assets
@@ -693,9 +694,6 @@ importers:
       '@repo-edu/tree-sitter-grammar-assets':
         specifier: workspace:*
         version: link:../../packages/tree-sitter-grammar-assets
-      '@zip.js/zip.js':
-        specifier: 2.8.26
-        version: 2.8.26
       license-checker-rseidelsohn:
         specifier: 5.0.1
         version: 5.0.1
@@ -708,9 +706,6 @@ importers:
       spdx-satisfies:
         specifier: 6.0.0
         version: 6.0.0
-      tar:
-        specifier: 7.5.16
-        version: 7.5.16
 
 packages:
 
@@ -2979,10 +2974,6 @@ packages:
   '@xmldom/xmldom@0.8.11':
     resolution: {integrity: sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==}
     engines: {node: '>=10.0.0'}
-
-  '@zip.js/zip.js@2.8.26':
-    resolution: {integrity: sha512-RQ4h9F6DOiHxpdocUDrOl6xBM+yOtz+LkUol47AVWcfebGBDpZ7w7Xvz9PS24JgXvLGiXXzSAfdCdVy1tPlaFA==}
-    engines: {bun: '>=0.7.0', deno: '>=1.0.0', node: '>=18.0.0'}
 
   abbrev@2.0.0:
     resolution: {integrity: sha512-6/mh1E2u2YgEsCHdY0Yx5oW+61gZU+1vXaoiHHrpKeuRNNgFvS+/jrwHiQhB5apAf5oB7UB7E19ol2R2LKH8hQ==}
@@ -8603,8 +8594,6 @@ snapshots:
   '@vscode/l10n@0.0.18': {}
 
   '@xmldom/xmldom@0.8.11': {}
-
-  '@zip.js/zip.js@2.8.26': {}
 
   abbrev@2.0.0: {}
 

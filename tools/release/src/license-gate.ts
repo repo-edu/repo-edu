@@ -26,9 +26,7 @@ import type {
 
 export {
   extractRipgrepVersion,
-  fetchVerifiedArchive,
   parseDotslashManifest,
-  readArchiveTextFiles,
 } from "./license-gate/archive.js"
 export {
   assertNoForbiddenProductionDependencies,

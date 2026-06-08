@@ -349,11 +349,18 @@ function baseIdentity(pkg: {
 }
 
 function isExpectedScannerMiss(pkg: ReachedPackage): boolean {
-  return isOpenAiCodexPlatformOptional(pkg) || pkg.path.includes("electron")
+  return (
+    isOpenAiCodexPlatformOptional(pkg) || isElectronBuildTimeSubtreeMiss(pkg)
+  )
 }
 
 function isOpenAiCodexPlatformOptional(pkg: ReachedPackage): boolean {
   return /^@openai\/codex-(?:darwin|linux|win32)-/.test(pkg.reachedName)
+}
+
+function isElectronBuildTimeSubtreeMiss(pkg: ReachedPackage): boolean {
+  const electronIndex = pkg.path.indexOf("electron")
+  return electronIndex > 0 && pkg.path[electronIndex - 1] === "trpc-electron"
 }
 
 function formatReachedPackageDiagnostic(pkg: ReachedPackage): string {

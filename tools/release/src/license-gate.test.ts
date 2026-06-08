@@ -1,11 +1,9 @@
 import assert from "node:assert/strict"
-import { createHash } from "node:crypto"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { create as createTarArchive } from "tar"
 import {
   packageKey,
   resolveRepoRelativePath,
@@ -17,7 +15,6 @@ import {
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
-  fetchVerifiedArchive,
   formatNoticeManifest,
   manifestFileName,
   mergeNoticeEntries,
@@ -27,10 +24,10 @@ import {
   parseDotslashManifest,
   type ReachedPackage,
   type ReleasePlatform,
-  readArchiveTextFiles,
   readRequiredTextFiles,
   resolveCliRuntimeNoticeEntries,
   resolveDesktopRuntimePackageEntries,
+  runLicenseGate,
   scanPackageNotices,
   scanPackageNoticesFromStart,
   validateLicenseGateArtifactTargets,
@@ -269,6 +266,16 @@ describe("production dependency enumeration", () => {
         ]),
       /Forbidden dev-only package/,
     )
+    assert.throws(
+      () =>
+        assertNoForbiddenProductionDependencies([
+          reachedPackage("@repo-edu/test-fixtures", {
+            firstParty: true,
+            packageName: "@repo-edu/test-fixtures",
+          }),
+        ]),
+      /Forbidden dev-only package/,
+    )
   })
 })
 
@@ -442,6 +449,21 @@ describe("scanner parity guard", () => {
           }),
         ],
       }),
+    )
+  })
+
+  it("does not exempt arbitrary scanner misses merely containing electron", () => {
+    assert.throws(
+      () =>
+        assertScannerParity({
+          scannerPackages: [],
+          thirdParty: [
+            reachedPackage("left-pad", {
+              path: ["some-electron-wrapper", "left-pad"],
+            }),
+          ],
+        }),
+      /missed production package/,
     )
   })
 })
@@ -717,29 +739,12 @@ describe("manifest helpers", () => {
   })
 })
 
-describe("ripgrep archive evidence", () => {
-  function dotslashRecord(
-    bytes: Buffer,
-    overrides?: Partial<{ size: number; digest: string; hash: string }>,
-  ) {
-    return {
-      size: overrides?.size ?? bytes.length,
-      hash: overrides?.hash ?? "sha256",
-      digest:
-        overrides?.digest ?? createHash("sha256").update(bytes).digest("hex"),
-      format: "tar.gz" as const,
-      path: "ripgrep-1.2.3/rg",
-      providers: [{ url: "https://example.test/ripgrep.tar.gz" }],
-    }
-  }
-
-  async function withStubbedFetch(
-    body: Buffer,
-    run: () => Promise<void>,
-  ): Promise<void> {
+describe("ripgrep notice evidence", () => {
+  async function withNetworkDisabled(run: () => Promise<void>): Promise<void> {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = (async () =>
-      new Response(new Uint8Array(body), { status: 200 })) as typeof fetch
+    globalThis.fetch = (async () => {
+      throw new Error("release gate must not fetch ripgrep notice evidence")
+    }) as typeof fetch
     try {
       await run()
     } finally {
@@ -747,71 +752,33 @@ describe("ripgrep archive evidence", () => {
     }
   }
 
-  it("verifies archive size and digest before trusting the download", async () => {
-    const bytes = Buffer.from("verified ripgrep archive payload")
-    const url = "https://example.test/ripgrep.tar.gz"
+  it("generates a desktop gate manifest with committed ripgrep notices only", async () => {
+    const platform = currentReleasePlatform()
+    if (!platform) {
+      return
+    }
 
-    await withStubbedFetch(bytes, async () => {
-      const fetched = await fetchVerifiedArchive(url, dotslashRecord(bytes))
-      assert.ok(fetched.equals(bytes))
-    })
-
-    await withStubbedFetch(Buffer.from("short"), async () => {
-      await assert.rejects(
-        () => fetchVerifiedArchive(url, dotslashRecord(bytes)),
-        /size mismatch/,
-      )
-    })
-
-    const tampered = Buffer.alloc(bytes.length, 0x61)
-    await withStubbedFetch(tampered, async () => {
-      await assert.rejects(
-        () => fetchVerifiedArchive(url, dotslashRecord(bytes)),
-        /digest mismatch/,
-      )
-    })
-
-    await withStubbedFetch(bytes, async () => {
-      await assert.rejects(
-        () =>
-          fetchVerifiedArchive(url, dotslashRecord(bytes, { hash: "sha512" })),
-        /Unsupported DotSlash hash/,
-      )
-    })
-  })
-
-  it("reads notice files out of a ripgrep tar.gz archive", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-gate-"))
+    const manifestPath = join(root, "notices.txt")
     try {
-      const prefix = "ripgrep-1.2.3-aarch64"
-      const memberDir = join(root, "src", prefix)
-      await mkdir(memberDir, { recursive: true })
-      await writeFile(join(memberDir, "COPYING"), "copying text\n", "utf8")
-      await writeFile(join(memberDir, "LICENSE-MIT"), "mit text\n", "utf8")
-      await writeFile(join(memberDir, "UNLICENSE"), "unlicense text\n", "utf8")
-      const archivePath = join(root, "ripgrep.tar.gz")
-      await createTarArchive(
-        { gzip: true, cwd: join(root, "src"), file: archivePath },
-        [prefix],
+      await withNetworkDisabled(() =>
+        runLicenseGate({
+          app: "desktop",
+          platform,
+          artifactTargets: desktopTargetsForPlatform(platform),
+          manifestOut: manifestPath,
+          root: repoRoot,
+        }),
       )
 
-      const texts = await readArchiveTextFiles(
-        await readFile(archivePath),
-        "tar.gz",
-        [`${prefix}/COPYING`, `${prefix}/LICENSE-MIT`, `${prefix}/UNLICENSE`],
-      )
-      assert.deepEqual(texts, [
-        "copying text\n",
-        "mit text\n",
-        "unlicense text\n",
-      ])
-
-      await assert.rejects(
-        () =>
-          readFile(archivePath).then((archive) =>
-            readArchiveTextFiles(archive, "tar.gz", [`${prefix}/MISSING`]),
-          ),
-        /Archive is missing/,
+      const manifest = await readFile(manifestPath, "utf8")
+      assert.match(manifest, /ripgrep vendored by @openai\/codex/)
+      assert.match(manifest, /notice text from committed ripgrep 15\.1\.0/)
+      assert.match(manifest, /This project is dual-licensed/)
+      assert.match(manifest, /The MIT License \(MIT\)/)
+      assert.match(
+        manifest,
+        /unencumbered software released into the public domain/,
       )
     } finally {
       await rm(root, { force: true, recursive: true })
