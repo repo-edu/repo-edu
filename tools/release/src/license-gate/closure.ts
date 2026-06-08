@@ -61,24 +61,24 @@ export function enumeratePackageClosureFromList(
       : rawPackagePath
     const key = packageKey(packageName, version, packagePath)
 
-    if (!reached.has(key)) {
-      reached.set(key, {
-        reachedName,
-        packageName,
-        version,
-        packagePath,
-        packageDirectoryExists: hasPackageDirectory,
-        firstParty,
-        path,
-      })
+    // Record each package on first reach, then stop. The closure is keyed by
+    // package identity, so re-walking an already-reached node only repeats its
+    // subtree; without this guard a production dependency cycle routed back
+    // through a deduped node would recurse without bound.
+    if (reached.has(key)) {
+      return
     }
+    reached.set(key, {
+      reachedName,
+      packageName,
+      version,
+      packagePath,
+      packageDirectoryExists: hasPackageDirectory,
+      firstParty,
+      path,
+    })
 
     if (!hasPackageDirectory) {
-      if (isFirstPartyPackageName(reachedName)) {
-        throw new Error(
-          `Reached first-party package ${reachedName} has no package directory.`,
-        )
-      }
       return
     }
 

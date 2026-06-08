@@ -277,6 +277,54 @@ describe("production dependency enumeration", () => {
       /Forbidden dev-only package/,
     )
   })
+
+  it("records each package once and terminates on a cyclic production graph", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const aPath = await writePackage(root, "node_modules/a", {
+        name: "a",
+        version: "1.0.0",
+      })
+      const bPath = await writePackage(root, "node_modules/b", {
+        name: "b",
+        version: "1.0.0",
+      })
+
+      const list: PnpmListNode = {
+        name: "@repo-edu/cyclic-fixture",
+        version: "1.0.0",
+        path: join(root, "apps/desktop"),
+        dependencies: {
+          a: {
+            version: "1.0.0",
+            path: aPath,
+            dependencies: {
+              b: {
+                version: "1.0.0",
+                path: bPath,
+                dependencies: {
+                  a: {
+                    version: "1.0.0",
+                    path: aPath,
+                    deduped: true,
+                    dedupedDependenciesCount: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      const views = enumeratePackageClosureFromList(list, { repoRoot: root })
+      assert.deepEqual(views.thirdParty.map((pkg) => pkg.reachedName).sort(), [
+        "a",
+        "b",
+      ])
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
 })
 
 describe("scanner package notices", () => {

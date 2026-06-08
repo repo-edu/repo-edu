@@ -224,6 +224,7 @@ async function runtimePackageRecord(
     readonly source: string
     readonly reachedPackage?: ReachedPackage
     readonly additionalNoticeFiles?: readonly string[]
+    readonly displayName?: string
   },
 ): Promise<NoticeEntry> {
   const packageJsonPath = options.reachedPackage
@@ -231,7 +232,10 @@ async function runtimePackageRecord(
     : resolvePackageJsonPath(packageName, options.root)
   const packagePath = canonicalPackagePath(dirname(packageJsonPath))
   const packageJson = readPackageJson(packagePath)
-  const name = packageJson.name ?? packageName
+  // `displayName` lets an aliased package carry its dependency-key identity
+  // instead of the published `package.json` name, which for the platform-
+  // specific `@openai/codex` optional collides with the launcher entry.
+  const name = options.displayName ?? packageJson.name ?? packageName
   const version = packageJson.version ?? "0.0.0"
   const licenseExpression = readPackageLicense(packageJson, name)
   const licenseFile = findPackageLicenseFile(packagePath)
@@ -321,9 +325,14 @@ async function resolveOpenAiCodexPlatformRuntimeEntry(
   codexRoot: ReachedPackage,
   platform: ReleasePlatform,
 ): Promise<NoticeEntry> {
-  return runtimePackageRecord(openAiCodexOptionalPackageName(platform), {
+  // The optional resolves to a package published as `@openai/codex` with a
+  // platform-suffixed version, so label the notice with the platform dependency
+  // key to keep it distinct from the `@openai/codex` launcher entry.
+  const platformPackageName = openAiCodexOptionalPackageName(platform)
+  return runtimePackageRecord(platformPackageName, {
     root: codexRoot.packagePath,
     source: `OpenAI Codex native runtime for ${platform}`,
+    displayName: platformPackageName,
   })
 }
 
