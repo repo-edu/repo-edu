@@ -736,6 +736,27 @@ describe("runtime notice records", () => {
     }
   })
 
+  it("fails closed when the installed Bun version is not attested", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/bun-unattested-fixture",
+        version: "1.0.0",
+      })
+      await writePackage(root, "node_modules/bun", {
+        name: "bun",
+        version: "9.9.9",
+      })
+
+      await assert.rejects(
+        () => resolveCliRuntimeNoticeEntries(root, "linux-x64"),
+        /Bun runtime version 9\.9\.9 is not attested/,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("merges scanner and runtime records through canonical package identity", async () => {
     const platform = currentReleasePlatform()
     if (!platform) {

@@ -218,6 +218,9 @@ export async function resolveCliRuntimeNoticeEntries(
     root,
     source: "Bun compiled CLI package-manager runtime",
   })
+  // Fail closed before any further work if the installed Bun version is not
+  // attested, so a bump cannot silently ship the previous version's linked set.
+  const linkedRuntimes = attestedBunLinkedRuntimesFor(bunEntry.version)
   const bunPackagePath = dirname(resolvePackageJsonPath("bun", root))
   const ovenPackageName = await resolveSelectedOvenBunPackageName(
     bunPackagePath,
@@ -231,20 +234,16 @@ export async function resolveCliRuntimeNoticeEntries(
   return [
     bunEntry,
     ovenEntry,
-    bunLinkedRuntimeEntry({
-      id: `bun-javascriptcore:${bunEntry.version}`,
-      name: "JavaScriptCore/WebKit linked by Bun",
-      version: bunEntry.version,
-      source:
-        "Bun compiled CLI runtime; Bun licensing documentation: https://bun.sh/docs/project/licensing",
-    }),
-    bunLinkedRuntimeEntry({
-      id: `bun-tinycc:${bunEntry.version}`,
-      name: "tinycc linked by Bun",
-      version: bunEntry.version,
-      source:
-        "Bun compiled CLI runtime; Bun licensing documentation: https://bun.sh/docs/project/licensing",
-    }),
+    ...linkedRuntimes.map((linked) =>
+      bunLinkedRuntimeEntry({
+        id: `bun-${linked.id}:${bunEntry.version}`,
+        name: `${linked.subject} linked by Bun`,
+        version: bunEntry.version,
+        license: linked.license,
+        source:
+          "Bun compiled CLI runtime; Bun licensing documentation: https://bun.sh/docs/project/licensing",
+      }),
+    ),
   ]
 }
 
@@ -329,12 +328,47 @@ function findPackageLicenseFile(packagePath: string): string | undefined {
   return undefined
 }
 
-const bunLinkedRuntimeLicense = "LGPL-2.1-only"
+// Bun statically links runtime libraries that no scanner and no CLI flag can
+// enumerate from the installed binary, so the set is attested by hand against
+// Bun's published licensing documentation. The table is keyed by the exact
+// installed Bun version: any bump fails the gate closed until the linked set is
+// re-verified, the same fail-closed version coupling the ripgrep and Codex
+// records use.
+type BunLinkedRuntime = {
+  readonly id: string
+  readonly subject: string
+  readonly license: string
+}
+
+const attestedBunLinkedRuntimes = {
+  "1.3.11": [
+    {
+      id: "javascriptcore",
+      subject: "JavaScriptCore/WebKit",
+      license: "LGPL-2.1-only",
+    },
+    { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
+  ],
+} as const satisfies Record<string, readonly BunLinkedRuntime[]>
+
+function attestedBunLinkedRuntimesFor(
+  version: string,
+): readonly BunLinkedRuntime[] {
+  if (!Object.hasOwn(attestedBunLinkedRuntimes, version)) {
+    throw new Error(
+      `Bun runtime version ${version} is not attested. Re-verify the linked runtime set (e.g. JavaScriptCore, tinycc) against https://bun.sh/docs/project/licensing and add a ${version} entry to attestedBunLinkedRuntimes before shipping.`,
+    )
+  }
+  return attestedBunLinkedRuntimes[
+    version as keyof typeof attestedBunLinkedRuntimes
+  ]
+}
 
 function bunLinkedRuntimeEntry(options: {
   readonly id: string
   readonly name: string
   readonly version: string
+  readonly license: string
   readonly source: string
 }): NoticeEntry {
   return {
@@ -342,12 +376,12 @@ function bunLinkedRuntimeEntry(options: {
     kind: "runtime-asset",
     name: options.name,
     version: options.version,
-    licenseExpression: bunLinkedRuntimeLicense,
+    licenseExpression: options.license,
     source: options.source,
-    licenseText: licenseTextForSpdxId(bunLinkedRuntimeLicense),
+    licenseText: licenseTextForSpdxId(options.license),
     licenseEvidence: [
-      "Bun's published licensing documentation identifies this linked runtime subject as LGPL-2.1-only.",
-      "The installed Bun npm package publishes no dedicated notice file for it, so the canonical LGPL-2.1 license text above is supplied instead.",
+      `Bun's published licensing documentation identifies this linked runtime subject as ${options.license}.`,
+      `The installed Bun npm package publishes no dedicated notice file for it, so the canonical ${options.license} license text above is supplied instead.`,
     ].join("\n"),
   }
 }
