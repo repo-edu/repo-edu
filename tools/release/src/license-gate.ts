@@ -31,6 +31,7 @@ export {
 export {
   assertNoForbiddenProductionDependencies,
   enumeratePackageClosureFromList,
+  findReachedPackageByReachedName,
 } from "./license-gate/closure.js"
 export {
   formatNoticeManifest,

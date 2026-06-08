@@ -222,6 +222,13 @@ export function findReachedPackage(
   )
 }
 
+export function findReachedPackageByReachedName(
+  packages: readonly ReachedPackage[],
+  reachedName: string,
+): ReachedPackage | undefined {
+  return packages.find((pkg) => pkg.reachedName === reachedName)
+}
+
 export function assertNoForbiddenProductionDependencies(
   packages: readonly ReachedPackage[],
   options?: { readonly repoRoot?: string },

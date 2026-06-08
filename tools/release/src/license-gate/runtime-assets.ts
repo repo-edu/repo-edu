@@ -13,7 +13,11 @@ import {
   parseDotslashManifest,
   resolveOpenAiCodexDotslashManifest,
 } from "./archive.js"
-import { closureContainsPackage, findReachedPackage } from "./closure.js"
+import {
+  closureContainsPackage,
+  findReachedPackage,
+  findReachedPackageByReachedName,
+} from "./closure.js"
 import { licenseTextForSpdxId } from "./license-text.js"
 import { noticeEntryId } from "./notices.js"
 import {
@@ -131,7 +135,10 @@ export async function collectRuntimeNoticeEntries(
     entries.push(...(await resolveTokenizerGrammarRuntimeAssets()))
   }
 
-  const codexRoot = findReachedPackage(productionReached, "@openai/codex")
+  const codexRoot = findReachedPackageByReachedName(
+    productionReached,
+    "@openai/codex",
+  )
   if (codexRoot?.packageDirectoryExists) {
     const platformRuntime = await resolveOpenAiCodexPlatformRuntime(
       codexRoot,
@@ -207,13 +214,17 @@ export async function resolveCliRuntimeNoticeEntries(
   root: string,
   platform: ReleasePlatform,
 ): Promise<NoticeEntry[]> {
-  const ovenPackageName = ovenBunPackageName(platform)
   const bunEntry = await runtimePackageRecord("bun", {
     root,
     source: "Bun compiled CLI package-manager runtime",
   })
+  const bunPackagePath = dirname(resolvePackageJsonPath("bun", root))
+  const ovenPackageName = await resolveSelectedOvenBunPackageName(
+    bunPackagePath,
+    platform,
+  )
   const ovenEntry = await runtimePackageRecord(ovenPackageName, {
-    root: dirname(resolvePackageJsonPath("bun", root)),
+    root: bunPackagePath,
     source: "Bun compiled CLI platform runtime",
   })
 
@@ -586,6 +597,61 @@ function formatPackageRelativePath(packagePath: string, path: string): string {
   return path.slice(packagePath.length + 1).replaceAll("\\", "/")
 }
 
+type OvenBunPackageCandidate = {
+  readonly packageName: string
+  readonly executablePath: string
+}
+
+async function resolveSelectedOvenBunPackageName(
+  bunPackagePath: string,
+  platform: ReleasePlatform,
+): Promise<string> {
+  const installedBunBinary = join(bunPackagePath, "bin", "bun.exe")
+  const installedDigest = await fileSha256(installedBunBinary)
+  const matches: string[] = []
+  const unavailable: string[] = []
+
+  for (const candidate of ovenBunPackageCandidates(platform)) {
+    try {
+      const packageJsonPath = resolvePackageJsonPath(
+        candidate.packageName,
+        bunPackagePath,
+      )
+      const candidateBinary = join(
+        dirname(packageJsonPath),
+        candidate.executablePath,
+      )
+      if ((await fileSha256(candidateBinary)) === installedDigest) {
+        matches.push(candidate.packageName)
+      }
+    } catch {
+      unavailable.push(candidate.packageName)
+    }
+  }
+
+  if (matches.length === 1) {
+    return matches[0] as string
+  }
+
+  const candidateNames = ovenBunPackageCandidates(platform)
+    .map((candidate) => candidate.packageName)
+    .join(", ")
+  if (matches.length === 0) {
+    throw new Error(
+      `Installed Bun binary did not match any ${platform} runtime package candidate: ${candidateNames}. Unavailable candidates: ${unavailable.join(", ") || "none"}.`,
+    )
+  }
+  throw new Error(
+    `Installed Bun binary matched multiple ${platform} runtime package candidates: ${matches.join(", ")}.`,
+  )
+}
+
+async function fileSha256(path: string): Promise<string> {
+  return createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex")
+}
+
 function resolvePackageJsonPath(packageName: string, fromRoot: string): string {
   try {
     return createRequire(join(fromRoot, "package.json")).resolve(
@@ -599,18 +665,53 @@ function resolvePackageJsonPath(packageName: string, fromRoot: string): string {
   }
 }
 
-function ovenBunPackageName(platform: ReleasePlatform): string {
+function ovenBunPackageCandidates(
+  platform: ReleasePlatform,
+): readonly OvenBunPackageCandidate[] {
   switch (platform) {
     case "darwin-arm64":
-      return "@oven/bun-darwin-aarch64"
+      return [
+        {
+          packageName: "@oven/bun-darwin-aarch64",
+          executablePath: "bin/bun",
+        },
+      ]
     case "linux-arm64":
-      return "@oven/bun-linux-aarch64"
+      return [
+        {
+          packageName: "@oven/bun-linux-aarch64",
+          executablePath: "bin/bun",
+        },
+      ]
     case "linux-x64":
-      return "@oven/bun-linux-x64"
+      return [
+        {
+          packageName: "@oven/bun-linux-x64",
+          executablePath: "bin/bun",
+        },
+        {
+          packageName: "@oven/bun-linux-x64-baseline",
+          executablePath: "bin/bun",
+        },
+      ]
     case "windows-arm64":
-      return "@oven/bun-windows-aarch64"
+      return [
+        {
+          packageName: "@oven/bun-windows-aarch64",
+          executablePath: "bin/bun.exe",
+        },
+      ]
     case "windows-x64":
-      return "@oven/bun-windows-x64"
+      return [
+        {
+          packageName: "@oven/bun-windows-x64",
+          executablePath: "bin/bun.exe",
+        },
+        {
+          packageName: "@oven/bun-windows-x64-baseline",
+          executablePath: "bin/bun.exe",
+        },
+      ]
   }
 }
 

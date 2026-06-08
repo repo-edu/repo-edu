@@ -15,6 +15,7 @@ import {
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
+  findReachedPackageByReachedName,
   formatNoticeManifest,
   manifestFileName,
   mergeNoticeEntries,
@@ -335,6 +336,25 @@ describe("production dependency enumeration", () => {
     } finally {
       await rm(root, { force: true, recursive: true })
     }
+  })
+
+  it("finds packages by dependency key without matching aliased package metadata", () => {
+    const platformOptional = reachedPackage("@openai/codex-darwin-arm64", {
+      packageName: "@openai/codex",
+      version: "0.128.0-darwin-arm64",
+    })
+    const launcher = reachedPackage("@openai/codex", {
+      packageName: "@openai/codex",
+      version: "0.128.0",
+    })
+
+    assert.equal(
+      findReachedPackageByReachedName(
+        [platformOptional, launcher],
+        "@openai/codex",
+      )?.version,
+      "0.128.0",
+    )
   })
 })
 
@@ -660,6 +680,62 @@ describe("runtime notice records", () => {
     assert.doesNotMatch(cliRuntimeManifest, /<year>|<copyright holders>/)
   })
 
+  it("records the Bun optional package that supplied the installed binary", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/bun-runtime-fixture",
+        version: "1.0.0",
+      })
+      await writePackage(
+        root,
+        "node_modules/bun",
+        {
+          name: "bun",
+          version: "1.3.11",
+        },
+        {
+          "bin/bun.exe": "baseline binary\n",
+        },
+      )
+      await writePackage(
+        root,
+        "node_modules/bun/node_modules/@oven/bun-linux-x64",
+        {
+          name: "@oven/bun-linux-x64",
+          version: "1.3.11",
+        },
+        {
+          "bin/bun": "avx2 binary\n",
+        },
+      )
+      await writePackage(
+        root,
+        "node_modules/bun/node_modules/@oven/bun-linux-x64-baseline",
+        {
+          name: "@oven/bun-linux-x64-baseline",
+          version: "1.3.11",
+        },
+        {
+          "bin/bun": "baseline binary\n",
+        },
+      )
+
+      const cliEntries = await resolveCliRuntimeNoticeEntries(root, "linux-x64")
+      assert.ok(
+        cliEntries.some(
+          (entry) => entry.name === "@oven/bun-linux-x64-baseline",
+        ),
+      )
+      assert.equal(
+        cliEntries.some((entry) => entry.name === "@oven/bun-linux-x64"),
+        false,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("merges scanner and runtime records through canonical package identity", async () => {
     const platform = currentReleasePlatform()
     if (!platform) {
@@ -864,6 +940,11 @@ describe("ripgrep notice evidence", () => {
       const manifest = await readFile(manifestPath, "utf8")
       assert.match(manifest, /ripgrep vendored by @openai\/codex/)
       assert.match(manifest, /vendored vendor\/.*\/path\/rg/)
+      assert.match(manifest, /root @openai\/codex 0\.128\.0 bin\/rg/)
+      assert.doesNotMatch(
+        manifest,
+        /root @openai\/codex 0\.128\.0-darwin-arm64/,
+      )
       assert.match(manifest, /notice text from committed ripgrep 15\.1\.0/)
       assert.match(manifest, /This project is dual-licensed/)
       assert.match(manifest, /The MIT License \(MIT\)/)
