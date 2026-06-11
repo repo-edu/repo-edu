@@ -7,11 +7,20 @@ on:
         description: "Tag to build (e.g. v1.2.3, must already exist)"
         required: true
         type: string
+      publish:
+        description: "Attach artifacts to the GitHub Release for this tag"
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       tag:
         required: true
         type: string
+      publish:
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: macos-release-${{ inputs.tag }}
@@ -198,6 +207,7 @@ jobs:
 
   release-attach:
     name: release-attach
+    if: ${{ inputs.publish }}
     needs:
       - desktop-package-macos
       - cli-build-macos
