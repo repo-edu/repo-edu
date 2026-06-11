@@ -736,6 +736,59 @@ describe("runtime notice records", () => {
     }
   })
 
+  it("records the Bun optional package whose binary was moved into bun/bin", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/bun-runtime-fixture",
+        version: "1.0.0",
+      })
+      await writePackage(
+        root,
+        "node_modules/bun",
+        {
+          name: "bun",
+          version: "1.3.11",
+        },
+        {
+          "bin/bun.exe": "baseline binary\n",
+        },
+      )
+      await writePackage(
+        root,
+        "node_modules/bun/node_modules/@oven/bun-linux-x64",
+        {
+          name: "@oven/bun-linux-x64",
+          version: "1.3.11",
+        },
+        {
+          "bin/bun": "avx2 binary\n",
+        },
+      )
+      await writePackage(
+        root,
+        "node_modules/bun/node_modules/@oven/bun-linux-x64-baseline",
+        {
+          name: "@oven/bun-linux-x64-baseline",
+          version: "1.3.11",
+        },
+      )
+
+      const cliEntries = await resolveCliRuntimeNoticeEntries(root, "linux-x64")
+      assert.ok(
+        cliEntries.some(
+          (entry) => entry.name === "@oven/bun-linux-x64-baseline",
+        ),
+      )
+      assert.equal(
+        cliEntries.some((entry) => entry.name === "@oven/bun-linux-x64"),
+        false,
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("fails closed when the installed Bun version is not attested", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
@@ -993,6 +1046,20 @@ describe("ripgrep notice evidence", () => {
 })
 
 describe("release workflow wiring", () => {
+  it("uses the root packageManager as the only pnpm version authority", async () => {
+    const rootPackageJson = JSON.parse(
+      await readFile(join(repoRoot, "package.json"), "utf8"),
+    ) as { packageManager?: unknown }
+    const setupAction = await readFile(
+      join(repoRoot, ".github/actions/setup/action.yml"),
+      "utf8",
+    )
+
+    assert.equal(rootPackageJson.packageManager, "pnpm@11.5.3")
+    assert.match(setupAction, /uses: pnpm\/action-setup@v4/)
+    assert.doesNotMatch(setupAction, /^\s+version:\s*["']?\d/m)
+  })
+
   it("local release preflight compiles and gates the CLI without a metafile", async () => {
     const releaseScript = await readFile(
       join(repoRoot, "tools/release/src/main.ts"),
@@ -1059,6 +1126,23 @@ describe("release workflow wiring", () => {
       ],
     },
   ] as const
+
+  it("macOS release attach follows the publish input", async () => {
+    const workflow = await readFile(
+      join(repoRoot, ".github/workflows/macos-arm64-release.yml"),
+      "utf8",
+    )
+
+    assert.match(
+      workflow,
+      /workflow_dispatch:[\s\S]*publish:[\s\S]*default: false/,
+    )
+    assert.match(workflow, /workflow_call:[\s\S]*publish:[\s\S]*default: true/)
+    assert.match(
+      workflow,
+      /release-attach:[\s\S]*if: \$\{\{ inputs\.publish \}\}/,
+    )
+  })
 
   for (const expectation of workflowExpectations) {
     it(`${expectation.file} runs and uploads scoped notice manifests`, async () => {
