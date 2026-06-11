@@ -640,43 +640,57 @@ async function resolveSelectedOvenBunPackageName(
   bunPackagePath: string,
   platform: ReleasePlatform,
 ): Promise<string> {
+  // Bun's npm postinstall renames the selected platform binary out of its
+  // @oven package into bun/bin/bun.exe (see node_modules/bun/install.js
+  // optimizeBun), so the supplying candidate is identified by one of two
+  // signals: its source binary is still present and byte-identical to the
+  // installed runtime (copy semantics), or its source binary is now absent
+  // because it was the one renamed away (move semantics, the real install).
   const installedBunBinary = join(bunPackagePath, "bin", "bun.exe")
   const installedDigest = await fileSha256(installedBunBinary)
-  const matches: string[] = []
-  const unavailable: string[] = []
+  const digestMatched: string[] = []
+  const movedOut: string[] = []
+  const notInstalled: string[] = []
 
   for (const candidate of ovenBunPackageCandidates(platform)) {
+    let packageJsonPath: string
     try {
-      const packageJsonPath = resolvePackageJsonPath(
+      packageJsonPath = resolvePackageJsonPath(
         candidate.packageName,
         bunPackagePath,
       )
-      const candidateBinary = join(
-        dirname(packageJsonPath),
-        candidate.executablePath,
-      )
+    } catch {
+      notInstalled.push(candidate.packageName)
+      continue
+    }
+    const candidateBinary = join(
+      dirname(packageJsonPath),
+      candidate.executablePath,
+    )
+    try {
       if ((await fileSha256(candidateBinary)) === installedDigest) {
-        matches.push(candidate.packageName)
+        digestMatched.push(candidate.packageName)
       }
     } catch {
-      unavailable.push(candidate.packageName)
+      // The package is installed but its source executable is gone: bun's
+      // postinstall renamed it into the installed runtime, so this candidate
+      // supplied the binary.
+      movedOut.push(candidate.packageName)
     }
   }
 
-  if (matches.length === 1) {
-    return matches[0] as string
+  if (digestMatched.length === 1) {
+    return digestMatched[0] as string
+  }
+  if (digestMatched.length === 0 && movedOut.length === 1) {
+    return movedOut[0] as string
   }
 
   const candidateNames = ovenBunPackageCandidates(platform)
     .map((candidate) => candidate.packageName)
     .join(", ")
-  if (matches.length === 0) {
-    throw new Error(
-      `Installed Bun binary did not match any ${platform} runtime package candidate: ${candidateNames}. Unavailable candidates: ${unavailable.join(", ") || "none"}.`,
-    )
-  }
   throw new Error(
-    `Installed Bun binary matched multiple ${platform} runtime package candidates: ${matches.join(", ")}.`,
+    `Could not resolve the @oven Bun runtime package that supplied ${installedBunBinary} for ${platform}. Candidates: ${candidateNames}. Digest matches: ${digestMatched.join(", ") || "none"}; moved into installed runtime: ${movedOut.join(", ") || "none"}; not installed: ${notInstalled.join(", ") || "none"}.`,
   )
 }
 
