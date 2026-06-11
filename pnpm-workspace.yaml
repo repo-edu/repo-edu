@@ -3,8 +3,10 @@ packages:
   - packages/*
   - tools/*
 
-onlyBuiltDependencies:
-  - bun
-  - electron
-  - esbuild
-  - tree-sitter-cli
+allowBuilds:
+  bun: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  sharp: true
+  tree-sitter-cli: true
