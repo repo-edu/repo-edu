@@ -48,6 +48,9 @@ packages/*/src/**/*.d.ts
 packages/*/src/**/*.d.ts.map
 apps/docs/src/**/*.js
 
+# Hand-authored ambient declarations (source, not emitted output)
+!packages/renderer-app/src/wasm-url.d.ts
+
 # Logs
 *.log
 
