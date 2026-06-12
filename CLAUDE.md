@@ -24,7 +24,7 @@ pnpm test
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
-- `check` — fix + typecheck + check:types:build + check:fixtures +
+- `check` — fix + typecheck + build:types + check:fixtures +
   check:architecture
 - `test` — runs all package tests workspace-wide
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory

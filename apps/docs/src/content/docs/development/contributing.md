@@ -27,7 +27,7 @@ Keep behavior in shared packages wherever possible. Shell-specific concerns (Ele
 Run these before opening a change:
 
 ```bash
-pnpm check       # fix + typecheck + check:types:build + check:fixtures + check:architecture
+pnpm check       # fix + typecheck + build:types + check:fixtures + check:architecture
 pnpm test        # all package-level tests
 ```
 

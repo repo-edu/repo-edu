@@ -33,7 +33,7 @@ Import rosters from your LMS, manage student repositories, and validate assignme
 git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
 pnpm install
-pnpm check           # lint + typecheck + build:types + check:fixtures + architecture checks
+pnpm check           # fix + typecheck + build:types + check:fixtures + architecture checks
 # Optional full validation (includes tests):
 pnpm validate
 ```
@@ -79,7 +79,7 @@ pnpm docs:dev
 | ---------------- | ------------------------------------------------------------ |
 | `pnpm fmt`       | Biome format + markdown format                               |
 | `pnpm fix`       | Biome auto-fix                                               |
-| `pnpm check`     | lint + typecheck + build:types + check:fixtures + architecture |
+| `pnpm check`     | fix + typecheck + build:types + check:fixtures + architecture |
 | `pnpm test`      | Run all package tests workspace-wide                         |
 | `pnpm validate`  | `check` + `test` (full validation)                           |
 | `pnpm dev`       | Run desktop Electron app                                     |

@@ -16,7 +16,7 @@ description: Common setup, runtime, and workflow failures
 Run the type-build check and then build the docs site:
 
 ```bash
-pnpm check:types:build
+pnpm build:types
 pnpm docs:build
 ```
 
@@ -25,7 +25,7 @@ pnpm docs:build
 Rebuild type declarations to pick up new or changed package exports:
 
 ```bash
-pnpm check:types:build
+pnpm build:types
 pnpm typecheck
 ```
 

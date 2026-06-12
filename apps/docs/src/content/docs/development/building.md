@@ -20,14 +20,14 @@ All scripts run from the workspace root. Use `pnpm <script>` to run them.
 |--------|--------------|
 | `fmt` | Format Markdown with rumdl |
 | `fix` | Auto-fix Markdown with rumdl and TypeScript/TSX with Biome |
-| `check` | Full source validation: fix + typecheck + check:types:build + check:fixtures + check:architecture |
+| `check` | Full source validation: fix + typecheck + build:types + check:fixtures + check:architecture |
 | `test` | Run all package-level tests workspace-wide |
 | `test:runtime` | Desktop runtime validation (preload bridge and tRPC wiring checks) |
 | `test:all` | `test` + `test:runtime` |
 | `validate` | `check` + `test:all` — the full pre-release validation |
 | `build` | Package the desktop app via `@repo-edu/desktop` |
 | `typecheck` | Run TypeScript type checking across all packages |
-| `check:types:build` | Incremental `tsc -b` using project references, then copy tree-sitter grammar assets |
+| `build:types` | Incremental `tsc -b` using project references, then copy tree-sitter grammar assets |
 | `check:architecture` | Verify monorepo dependency rules (no circular deps, boundary compliance) |
 | `check:fixtures` | Verify test fixture generation is consistent |
 
