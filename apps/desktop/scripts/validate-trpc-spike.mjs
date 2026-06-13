@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -28,6 +27,17 @@ function formatChildExit(exitCode, signal) {
     return `signal ${signal}`;
   }
   return "unknown status";
+}
+
+async function waitForChildClose(child, label) {
+  return new Promise((resolve, reject) => {
+    child.once("error", (error) => {
+      reject(new Error(`${label} failed to start: ${errorText(error)}`));
+    });
+    child.once("close", (exitCode, signal) => {
+      resolve([exitCode, signal]);
+    });
+  });
 }
 
 function emitSuccess(marker) {
@@ -103,7 +113,7 @@ async function seedValidationFixture(storageRoot) {
   child.stderr.on("data", (chunk) => {
     stderr += chunk;
   });
-  const [exitCode] = await once(child, "close");
+  const [exitCode] = await waitForChildClose(child, "Fixture seeding");
 
   if (exitCode !== 0) {
     throw new Error(
@@ -192,8 +202,12 @@ async function main() {
     });
 
     // `close` guarantees stdio is drained, preventing marker races.
-    const [exitCode, signal] = await once(child, "close");
-    clearTimeout(timeout);
+    const [exitCode, signal] = await waitForChildClose(
+      child,
+      "Electron",
+    ).finally(() => {
+      clearTimeout(timeout);
+    });
 
     const trailingLine = stdoutBuffer.trim();
     if (trailingLine.length > 0) {
