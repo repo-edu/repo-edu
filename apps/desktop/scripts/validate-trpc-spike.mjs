@@ -1,22 +1,33 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { packageManagerCommand } from "./package-manager-command.mjs";
 
+const requireFromScript = createRequire(import.meta.url);
 const desktopDir = resolve(import.meta.dirname, "..");
 const trpcMarker = "repo-edu-desktop-trpc";
 const fixtureSelector = "small/shared-teams/canvas";
 const expectedFixtureCourseId = "fixture-small-shared-teams";
-const electronCommand = process.platform === "win32" ? "electron.cmd" : "electron";
 
 function errorText(error) {
   if (error instanceof Error) {
     return error.message;
   }
   return String(error);
+}
+
+function formatChildExit(exitCode, signal) {
+  if (typeof exitCode === "number") {
+    return `code ${exitCode}`;
+  }
+  if (typeof signal === "string") {
+    return `signal ${signal}`;
+  }
+  return "unknown status";
 }
 
 function emitSuccess(marker) {
@@ -127,6 +138,7 @@ async function main() {
       electronArguments.push("--no-sandbox");
     }
     electronArguments.push("./out/main/main.js");
+    const electronCommand = requireFromScript("electron");
 
     const child = spawn(electronCommand, electronArguments, {
       cwd: desktopDir,
@@ -139,7 +151,6 @@ async function main() {
         REPO_EDU_VALIDATION_COURSE_ID: seededFixture.courseEntityId,
       },
       stdio: ["ignore", "pipe", "pipe"],
-      shell: process.platform === "win32",
     });
 
     let marker;
@@ -181,7 +192,7 @@ async function main() {
     });
 
     // `close` guarantees stdio is drained, preventing marker races.
-    const [exitCode] = await once(child, "close");
+    const [exitCode, signal] = await once(child, "close");
     clearTimeout(timeout);
 
     const trailingLine = stdoutBuffer.trim();
@@ -197,7 +208,9 @@ async function main() {
     }
 
     if (exitCode !== 0) {
-      throw new Error(`Electron exited with code ${exitCode}\n${stderr}`.trim());
+      throw new Error(
+        `Electron exited with ${formatChildExit(exitCode, signal)}\n${stderr}`.trim(),
+      );
     }
 
     if (!marker) {
