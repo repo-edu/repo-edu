@@ -10,6 +10,7 @@ const desktopDir = resolve(import.meta.dirname, "..");
 const trpcMarker = "repo-edu-desktop-trpc";
 const fixtureSelector = "small/shared-teams/canvas";
 const expectedFixtureCourseId = "fixture-small-shared-teams";
+const electronCommand = process.platform === "win32" ? "electron.cmd" : "electron";
 
 function errorText(error) {
   if (error instanceof Error) {
@@ -121,14 +122,13 @@ async function main() {
   try {
     const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
-    const electronArguments = ["exec", "electron"];
+    const electronArguments = [];
     if (isLinuxCi) {
       electronArguments.push("--no-sandbox");
     }
     electronArguments.push("./out/main/main.js");
-    const { command, args } = packageManagerCommand(electronArguments);
 
-    const child = spawn(command, args, {
+    const child = spawn(electronCommand, electronArguments, {
       cwd: desktopDir,
       env: {
         ...process.env,
@@ -139,6 +139,7 @@ async function main() {
         REPO_EDU_VALIDATION_COURSE_ID: seededFixture.courseEntityId,
       },
       stdio: ["ignore", "pipe", "pipe"],
+      shell: process.platform === "win32",
     });
 
     let marker;
