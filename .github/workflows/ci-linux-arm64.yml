@@ -1,0 +1,79 @@
+name: CI arm64 Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: current ref)"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate (default: caller ref)"
+        required: false
+        type: string
+
+concurrency:
+  group: ci-linux-arm64-${{ github.event_name }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TARGET_REF: ${{ inputs.ref || github.ref }}
+
+jobs:
+  validate:
+    name: validate (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - uses: ./.github/actions/setup
+
+      - name: Assert arm64 runner
+        run: test "$(uname -m)" = "aarch64"
+
+      - name: Probe electron (post-install)
+        working-directory: apps/desktop
+        run: |
+          node -e 'const p=require("path"),fs=require("fs");const d=p.dirname(require.resolve("electron/package.json"));const bin=p.join(d,"dist","electron");console.log("[probe post-install] path.txt:",fs.existsSync(p.join(d,"path.txt")),"bin:",fs.existsSync(bin),"dist:",fs.existsSync(p.join(d,"dist")),"dir:",d);try{console.log("[probe post-install] dist entries:",fs.readdirSync(p.join(d,"dist")))}catch(e){console.log("[probe post-install] dist unreadable:",e.message)}'
+          echo "[probe post-install] electron/npm env:"; env | grep -iE "ELECTRON|npm_config_electron|SKIP_BINARY" || echo "  (no electron-related env set)"
+
+      - name: Format check
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build types
+        run: pnpm build:types
+
+      - name: Check fixtures
+        run: pnpm check:fixtures
+
+      - name: Check architecture
+        run: pnpm check:architecture
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Probe electron (pre-validation)
+        working-directory: apps/desktop
+        run: |
+          node -e 'const p=require("path"),fs=require("fs");const d=p.dirname(require.resolve("electron/package.json"));const bin=p.join(d,"dist","electron");console.log("[probe pre-validation] path.txt:",fs.existsSync(p.join(d,"path.txt")),"bin:",fs.existsSync(bin),"dist:",fs.existsSync(p.join(d,"dist")),"dir:",d)'
+
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Runtime validation
+        run: xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
