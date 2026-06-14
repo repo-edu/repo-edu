@@ -59,9 +59,6 @@ jobs:
             Write-Host "  (no electron-related env set)"
           }
 
-      - name: Format check
-        run: pnpm fmt:check
-
       - name: Lint
         run: pnpm lint
 
