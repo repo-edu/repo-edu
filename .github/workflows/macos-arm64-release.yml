@@ -129,7 +129,7 @@ jobs:
           bun-version: 1.3.11
 
       - name: Build CLI workspace dependencies
-        run: pnpm -r --filter @repo-edu/cli... run build
+        run: pnpm build:types
 
       - name: Compile CLI binary
         run: |

@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Build docs and dependencies
-        run: pnpm -r --filter @repo-edu/docs... run build
+        run: pnpm build:types && pnpm --filter @repo-edu/docs run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
