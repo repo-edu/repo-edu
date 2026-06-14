@@ -87,10 +87,10 @@ export async function runPnpmJson<TValue>(
   args: readonly string[],
   cwd: string,
 ): Promise<TValue> {
-  const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
-  const { stdout } = await execFileAsync(command, args, {
+  const { stdout } = await execFileAsync("pnpm", args, {
     cwd,
     maxBuffer: 1024 * 1024 * 128,
+    shell: process.platform === "win32",
   })
   return JSON.parse(stdout) as TValue
 }

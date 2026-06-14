@@ -886,7 +886,7 @@ describe("manifest helpers", () => {
     )
     assert.equal(
       resolveRepoRelativePath("/repo", "/tmp/repo-edu-notices.txt"),
-      "/tmp/repo-edu-notices.txt",
+      resolve("/tmp/repo-edu-notices.txt"),
     )
   })
 
