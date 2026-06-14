@@ -85,7 +85,7 @@ describe("Dispatcher routing", () => {
       provider: "bogus",
     } as unknown as typeof claudeSpec
     await assert.rejects(
-      () => client.generateText({ spec: bogusSpec, prompt: "x" }),
+      async () => client.generateText({ spec: bogusSpec, prompt: "x" }),
       (error: unknown) =>
         error instanceof Error &&
         !(error instanceof LlmError) &&
