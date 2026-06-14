@@ -72,6 +72,16 @@ describe("applyCodexPatch", () => {
           }),
         /outside the repository/,
       )
+      assert.throws(
+        () =>
+          applyCodexPatch(dir, {
+            summary: "Bad patch.",
+            files: [{ path: "..\\escape.py", contents: "" }],
+            deletes: [],
+            commit: "Write outside repo",
+          }),
+        /outside the repository/,
+      )
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

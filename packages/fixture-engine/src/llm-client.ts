@@ -1,5 +1,13 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { dirname, isAbsolute, normalize, resolve } from "node:path"
+import {
+  dirname,
+  isAbsolute,
+  posix,
+  relative,
+  resolve,
+  sep,
+  win32,
+} from "node:path"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
 import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
@@ -186,20 +194,24 @@ function failCodexPatch(message: string): never {
 }
 
 function safePatchPath(cwd: string, path: string): string {
-  const normalized = normalize(path)
+  const normalized = posix.normalize(path.replaceAll("\\", "/"))
+  const repoRoot = resolve(cwd)
+  const target = resolve(repoRoot, normalized)
+  const relativeTarget = relative(repoRoot, target)
+  if (path.length === 0 || isAbsolute(path) || win32.isAbsolute(path)) {
+    throw new Error(`Codex patch path is outside the repository: ${path}`)
+  }
   if (
-    path.length === 0 ||
-    isAbsolute(path) ||
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith("../") ||
-    normalized.includes("/../") ||
+    relativeTarget.length === 0 ||
+    relativeTarget === ".." ||
+    relativeTarget.startsWith(`..${sep}`) ||
+    isAbsolute(relativeTarget) ||
     normalized === ".git" ||
     normalized.startsWith(".git/")
   ) {
     throw new Error(`Codex patch path is outside the repository: ${path}`)
   }
-  return resolve(cwd, normalized)
+  return target
 }
 
 export function applyCodexPatch(cwd: string, patch: CodexPatch): void {
