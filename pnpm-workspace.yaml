@@ -3,10 +3,6 @@ packages:
   - packages/*
   - tools/*
 
-# pnpm 11's side-effects cache drops electron's extracted dist + path.txt on a
-# cold (CI) store, leaving it half-installed; keep install-script output verbatim.
-sideEffectsCache: false
-
 allowBuilds:
   bun: true
   electron: true
