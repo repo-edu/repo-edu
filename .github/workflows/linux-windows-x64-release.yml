@@ -87,7 +87,7 @@ jobs:
           fi
           printf "Found update metadata: %s\n" "${metadata_files[@]}"
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-linux-x64
           path: |
@@ -132,7 +132,7 @@ jobs:
       - name: Rename update metadata for Windows x64
         run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows.yml
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-windows-x64
           path: |
@@ -190,7 +190,7 @@ jobs:
           ' redu-linux-x64 redu-linux-x64.third-party-notices.txt
 
       - name: Upload CLI binary
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: cli-linux-x64
           path: |
@@ -245,7 +245,7 @@ jobs:
           ' redu-windows-x64.exe redu-windows-x64.exe.third-party-notices.txt
 
       - name: Upload CLI binary
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: cli-windows-x64
           path: |
@@ -278,25 +278,25 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Download desktop Linux artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: desktop-linux-x64
           path: artifacts/desktop-linux-x64
 
       - name: Download desktop Windows artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: desktop-windows-x64
           path: artifacts/desktop-windows-x64
 
       - name: Download CLI Linux artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: cli-linux-x64
           path: artifacts/cli-linux-x64
 
       - name: Download CLI Windows artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: cli-windows-x64
           path: artifacts/cli-windows-x64
