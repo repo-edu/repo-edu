@@ -1,0 +1,152 @@
+name: CI platform
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate"
+        required: true
+        type: string
+      runner:
+        description: "GitHub-hosted runner label"
+        required: true
+        type: string
+      platform:
+        description: "Platform label used for assertions and job naming"
+        required: true
+        type: string
+      format_check:
+        description: "Run markdown format validation"
+        required: false
+        default: true
+        type: boolean
+      runtime_validation:
+        description: "Runtime validation mode: none, plain, or linux-xvfb"
+        required: false
+        default: none
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  validate:
+    runs-on: ${{ inputs.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: ./.github/actions/setup
+
+      - name: Validate workflow inputs
+        shell: node {0}
+        env:
+          PLATFORM: ${{ inputs.platform }}
+          RUNTIME_VALIDATION: ${{ inputs.runtime_validation }}
+        run: |
+          const supportedPlatforms = new Set([
+            "linux-arm64",
+            "linux-x64",
+            "macos-arm64",
+            "windows-arm64",
+            "windows-x64",
+          ]);
+          const supportedRuntimeValidations = new Set([
+            "none",
+            "plain",
+            "linux-xvfb",
+          ]);
+          const failures = [];
+          if (!supportedPlatforms.has(process.env.PLATFORM)) {
+            failures.push(`Unsupported platform: ${process.env.PLATFORM}`);
+          }
+          if (!supportedRuntimeValidations.has(process.env.RUNTIME_VALIDATION)) {
+            failures.push(
+              `Unsupported runtime_validation: ${process.env.RUNTIME_VALIDATION}`,
+            );
+          }
+          if (failures.length > 0) {
+            for (const failure of failures) {
+              console.error(failure);
+            }
+            process.exit(1);
+          }
+
+      - name: Assert Linux arm64 runner
+        if: inputs.platform == 'linux-arm64'
+        run: test "$(uname -m)" = "aarch64"
+
+      - name: Assert Linux x64 runner
+        if: inputs.platform == 'linux-x64'
+        run: test "$(uname -m)" = "x86_64"
+
+      - name: Assert macOS arm64 runner
+        if: inputs.platform == 'macos-arm64'
+        run: test "$(uname -m)" = "arm64"
+
+      - name: Assert Windows arm64 runner
+        if: inputs.platform == 'windows-arm64'
+        run: |
+          $osArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+          $nodeArch = node -p "process.arch"
+          Write-Host "OS architecture: $osArch"
+          Write-Host "Node architecture: $nodeArch"
+          if ($osArch -ne "Arm64") {
+            throw "Expected Windows arm64 runner, got $osArch"
+          }
+          if ($nodeArch -ne "arm64") {
+            throw "Expected arm64 Node.js, got $nodeArch"
+          }
+
+      - name: Assert Windows x64 runner
+        if: inputs.platform == 'windows-x64'
+        run: |
+          $osArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+          $nodeArch = node -p "process.arch"
+          Write-Host "OS architecture: $osArch"
+          Write-Host "Node architecture: $nodeArch"
+          if ($osArch -ne "X64") {
+            throw "Expected Windows x64 runner, got $osArch"
+          }
+          if ($nodeArch -ne "x64") {
+            throw "Expected x64 Node.js, got $nodeArch"
+          }
+
+      - name: Format check
+        if: inputs.format_check
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build types
+        run: pnpm build:types
+
+      - name: Check fixtures
+        run: pnpm check:fixtures
+
+      - name: Check architecture
+        run: pnpm check:architecture
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Install xvfb
+        if: inputs.runtime_validation == 'linux-xvfb'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Runtime validation (Linux)
+        if: inputs.runtime_validation == 'linux-xvfb'
+        run: xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
+
+      - name: Runtime validation
+        if: inputs.runtime_validation == 'plain'
+        run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt

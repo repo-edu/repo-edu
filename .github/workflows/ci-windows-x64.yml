@@ -18,75 +18,11 @@ concurrency:
   group: ci-windows-x64-${{ github.event_name }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  TARGET_REF: ${{ inputs.ref || github.ref }}
-
 jobs:
   validate:
-    name: validate (windows-x64)
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ env.TARGET_REF }}
-
-      - uses: ./.github/actions/setup
-
-      - name: Assert x64 runner
-        run: |
-          $osArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
-          $nodeArch = node -p "process.arch"
-          Write-Host "OS architecture: $osArch"
-          Write-Host "Node architecture: $nodeArch"
-          if ($osArch -ne "X64") {
-            throw "Expected Windows x64 runner, got $osArch"
-          }
-          if ($nodeArch -ne "x64") {
-            throw "Expected x64 Node.js, got $nodeArch"
-          }
-
-      - name: Probe electron (post-install)
-        working-directory: apps/desktop
-        run: |
-          node -e 'const p=require("path"),fs=require("fs");const d=p.dirname(require.resolve("electron/package.json"));const bin=p.join(d,"dist","electron.exe");console.log("[probe post-install] path.txt:",fs.existsSync(p.join(d,"path.txt")),"bin:",fs.existsSync(bin),"dist:",fs.existsSync(p.join(d,"dist")),"dir:",d);try{console.log("[probe post-install] dist entries:",fs.readdirSync(p.join(d,"dist")))}catch(e){console.log("[probe post-install] dist unreadable:",e.message)}'
-          Write-Host "[probe post-install] electron/npm env:"
-          $electronEnv = Get-ChildItem Env: | Where-Object { $_.Name -match "ELECTRON|npm_config_electron|SKIP_BINARY" }
-          if ($electronEnv) {
-            $electronEnv | ForEach-Object { Write-Host "$($_.Name)=$($_.Value)" }
-          } else {
-            Write-Host "  (no electron-related env set)"
-          }
-
-      - name: Format check
-        run: pnpm fmt:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build types
-        run: pnpm build:types
-
-      - name: Check fixtures
-        run: pnpm check:fixtures
-
-      - name: Check architecture
-        run: pnpm check:architecture
-
-      - name: Build
-        run: pnpm build
-
-      - name: Test
-        run: pnpm test
-
-      - name: Probe electron (pre-validation)
-        working-directory: apps/desktop
-        run: |
-          node -e 'const p=require("path"),fs=require("fs");const d=p.dirname(require.resolve("electron/package.json"));const bin=p.join(d,"dist","electron.exe");console.log("[probe pre-validation] path.txt:",fs.existsSync(p.join(d,"path.txt")),"bin:",fs.existsSync(bin),"dist:",fs.existsSync(p.join(d,"dist")),"dir:",d)'
-
-      - name: Runtime validation
-        run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
+    uses: ./.github/workflows/ci-platform.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
+      runner: windows-latest
+      platform: windows-x64
+      runtime_validation: plain

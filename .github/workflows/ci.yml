@@ -21,56 +21,28 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  TARGET_REF: ${{ inputs.ref || github.ref }}
-
 jobs:
-  validate:
-    name: validate (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  linux-x64:
+    uses: ./.github/workflows/ci-linux-x64.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
 
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ env.TARGET_REF }}
+  linux-arm64:
+    uses: ./.github/workflows/ci-linux-arm64.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
 
-      - uses: ./.github/actions/setup
+  macos-arm64:
+    uses: ./.github/workflows/ci-macos-arm64.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
 
-      - name: Format check
-        run: pnpm fmt:check
+  windows-x64:
+    uses: ./.github/workflows/ci-windows-x64.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build types
-        run: pnpm build:types
-
-      - name: Check fixtures
-        run: pnpm check:fixtures
-
-      - name: Check architecture
-        run: pnpm check:architecture
-
-      - name: Build
-        run: pnpm build
-
-      - name: Test
-        run: pnpm test
-
-      - name: Runtime validation (macOS)
-        if: runner.os == 'macOS'
-        run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
-
-      - name: Runtime validation (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
+  windows-arm64:
+    uses: ./.github/workflows/ci-windows-arm64.yml
+    with:
+      ref: ${{ inputs.ref || github.ref }}

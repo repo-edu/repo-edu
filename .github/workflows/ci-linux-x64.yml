@@ -1,4 +1,4 @@
-name: CI arm64 macOS
+name: CI x64 Linux
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
         type: string
 
 concurrency:
-  group: ci-macos-arm64-${{ github.event_name }}-${{ inputs.ref || github.ref }}
+  group: ci-linux-x64-${{ github.event_name }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,6 +23,6 @@ jobs:
     uses: ./.github/workflows/ci-platform.yml
     with:
       ref: ${{ inputs.ref || github.ref }}
-      runner: macos-15
-      platform: macos-arm64
-      runtime_validation: plain
+      runner: ubuntu-latest
+      platform: linux-x64
+      runtime_validation: linux-xvfb
