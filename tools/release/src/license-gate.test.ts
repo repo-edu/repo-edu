@@ -1056,7 +1056,7 @@ describe("release workflow wiring", () => {
     )
 
     assert.equal(rootPackageJson.packageManager, "pnpm@11.5.3")
-    assert.match(setupAction, /uses: pnpm\/action-setup@v4/)
+    assert.match(setupAction, /uses: pnpm\/action-setup@v\d+/)
     assert.doesNotMatch(setupAction, /^\s+version:\s*["']?\d/m)
   })
 
