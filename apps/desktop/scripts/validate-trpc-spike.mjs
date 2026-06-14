@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
-import { access, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { packageManagerCommand } from "./package-manager-command.mjs";
 
@@ -27,39 +27,6 @@ function formatChildExit(exitCode, signal) {
     return `signal ${signal}`;
   }
   return "unknown status";
-}
-
-function electronExecutableSegments(platform) {
-  switch (platform) {
-    case "darwin":
-      return ["dist", "Electron.app", "Contents", "MacOS", "Electron"];
-    case "linux":
-      return ["dist", "electron"];
-    case "win32":
-      return ["dist", "electron.exe"];
-    default:
-      throw new Error(`Electron is not available on ${platform}.`);
-  }
-}
-
-async function resolveElectronExecutable() {
-  const electronPackageDir = dirname(
-    requireFromScript.resolve("electron/package.json"),
-  );
-  const electronExecutable = join(
-    electronPackageDir,
-    ...electronExecutableSegments(process.platform),
-  );
-
-  try {
-    await access(electronExecutable);
-  } catch {
-    throw new Error(
-      `Electron executable was not found at ${electronExecutable} (package: ${electronPackageDir}).`,
-    );
-  }
-
-  return electronExecutable;
 }
 
 async function waitForChildClose(child, label) {
@@ -174,7 +141,6 @@ async function main() {
   );
 
   try {
-    const electronCommand = await resolveElectronExecutable();
     const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
     const electronArguments = [];
@@ -182,6 +148,7 @@ async function main() {
       electronArguments.push("--no-sandbox");
     }
     electronArguments.push("./out/main/main.js");
+    const electronCommand = requireFromScript("electron");
 
     const child = spawn(electronCommand, electronArguments, {
       cwd: desktopDir,
