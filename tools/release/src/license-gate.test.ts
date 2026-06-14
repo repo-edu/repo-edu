@@ -625,6 +625,7 @@ describe("runtime notice records", () => {
 
     const desktopEntries = await resolveDesktopRuntimePackageEntries({
       root: repoRoot,
+      platform,
       artifactTargets: desktopTargetsForPlatform(platform),
     })
     assert.deepEqual(
@@ -821,6 +822,7 @@ describe("runtime notice records", () => {
     const scannerEntries = await scanPackageNotices("desktop", repoRoot)
     const runtimeEntries = await resolveDesktopRuntimePackageEntries({
       root: repoRoot,
+      platform,
       artifactTargets: desktopTargetsForPlatform(platform),
       productionReached: dependencies.productionReached,
     })

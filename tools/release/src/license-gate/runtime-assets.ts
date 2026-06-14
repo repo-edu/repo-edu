@@ -43,6 +43,8 @@ const noExtraDesktopRuntime: Record<string, string> = {
   deb: "No extra third-party runtime beyond the Electron app payload is added by this target.",
 }
 
+type AdditionalNoticeFile = string | readonly string[]
+
 const releaseGateDirectory = dirname(fileURLToPath(import.meta.url))
 const execFileAsync = promisify(execFile)
 const ripgrepNoticeVersion = "15.1.0"
@@ -94,6 +96,7 @@ export async function collectRuntimeNoticeEntries(
     entries.push(
       ...(await resolveDesktopRuntimePackageEntries({
         root,
+        platform: options.platform,
         artifactTargets: options.artifactTargets,
         productionReached,
       })),
@@ -160,6 +163,7 @@ export async function collectRuntimeNoticeEntries(
 
 export async function resolveDesktopRuntimePackageEntries(options: {
   readonly root: string
+  readonly platform: ReleasePlatform
   readonly artifactTargets: readonly string[]
   readonly productionReached?: readonly ReachedPackage[]
 }): Promise<NoticeEntry[]> {
@@ -175,7 +179,9 @@ export async function resolveDesktopRuntimePackageEntries(options: {
       reachedPackage: electronReached,
       root: desktopRoot,
       source: "Desktop Electron runtime",
-      additionalNoticeFiles: ["dist/LICENSES.chromium.html"],
+      additionalNoticeFiles: [
+        electronChromiumNoticeCandidates(options.root, options.platform),
+      ],
     }),
     runtimePackageRecord("electron-builder", {
       root: desktopRoot,
@@ -253,7 +259,7 @@ async function runtimePackageRecord(
     readonly root: string
     readonly source: string
     readonly reachedPackage?: ReachedPackage
-    readonly additionalNoticeFiles?: readonly string[]
+    readonly additionalNoticeFiles?: readonly AdditionalNoticeFile[]
     readonly displayName?: string
   },
 ): Promise<NoticeEntry> {
@@ -284,10 +290,9 @@ async function runtimePackageRecord(
   const additionalText =
     options.additionalNoticeFiles && options.additionalNoticeFiles.length > 0
       ? (
-          await readRequiredTextFiles(
-            options.additionalNoticeFiles.map((file) =>
-              join(packagePath, file),
-            ),
+          await readAdditionalNoticeFiles(
+            packagePath,
+            options.additionalNoticeFiles,
           )
         ).join("\n\n")
       : undefined
@@ -303,6 +308,65 @@ async function runtimePackageRecord(
     licenseEvidence,
     additionalText,
   }
+}
+
+async function readAdditionalNoticeFiles(
+  packagePath: string,
+  files: readonly AdditionalNoticeFile[],
+): Promise<string[]> {
+  const texts: string[] = []
+  for (const file of files) {
+    const candidates = (Array.isArray(file) ? file : [file]).map((candidate) =>
+      resolve(packagePath, candidate),
+    )
+    const path = candidates.find((candidate) => existsSync(candidate))
+    if (!path) {
+      throw new Error(
+        `Required notice file is missing. Checked: ${candidates.join(", ")}`,
+      )
+    }
+
+    const text = await readFile(path, "utf8")
+    if (text.trim().length === 0) {
+      throw new Error(`Required notice file is empty: ${path}`)
+    }
+    texts.push(text)
+  }
+  return texts
+}
+
+function electronChromiumNoticeCandidates(
+  root: string,
+  platform: ReleasePlatform,
+): readonly string[] {
+  const releaseDirectory = resolve(root, appDirectoryByApp.desktop, "release")
+  const packagedNoticeByPlatform = {
+    "darwin-arm64": [
+      join(
+        releaseDirectory,
+        "mac-arm64",
+        "RepoEdu.app",
+        "Contents",
+        "Resources",
+        "LICENSES.chromium.html",
+      ),
+      join(releaseDirectory, "mac-arm64", "LICENSES.chromium.html"),
+    ],
+    "linux-arm64": [
+      join(releaseDirectory, "linux-arm64-unpacked", "LICENSES.chromium.html"),
+    ],
+    "linux-x64": [
+      join(releaseDirectory, "linux-unpacked", "LICENSES.chromium.html"),
+    ],
+    "windows-arm64": [
+      join(releaseDirectory, "win-arm64-unpacked", "LICENSES.chromium.html"),
+    ],
+    "windows-x64": [
+      join(releaseDirectory, "win-unpacked", "LICENSES.chromium.html"),
+    ],
+  } satisfies Record<ReleasePlatform, readonly string[]>
+
+  return ["dist/LICENSES.chromium.html", ...packagedNoticeByPlatform[platform]]
 }
 
 function readPackageLicense(packageJson: PackageJson, name: string): string {

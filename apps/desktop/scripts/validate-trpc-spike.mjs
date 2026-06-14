@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { access, mkdtemp, readdir, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
@@ -27,6 +27,90 @@ function formatChildExit(exitCode, signal) {
     return `signal ${signal}`;
   }
   return "unknown status";
+}
+
+async function firstAccessiblePath(paths) {
+  for (const path of paths) {
+    try {
+      await access(path);
+      return path;
+    } catch {
+      // Keep searching candidate packaged app paths.
+    }
+  }
+
+  return undefined;
+}
+
+function orderedByHostArch(primary, secondary) {
+  return process.arch === "arm64" ? [primary, secondary] : [secondary, primary];
+}
+
+function packagedElectronExecutableCandidates() {
+  const releaseDir = resolve(desktopDir, "release");
+
+  switch (process.platform) {
+    case "darwin":
+      return orderedByHostArch(
+        join(
+          releaseDir,
+          "mac-arm64",
+          "RepoEdu.app",
+          "Contents",
+          "MacOS",
+          "RepoEdu",
+        ),
+        join(
+          releaseDir,
+          "mac",
+          "RepoEdu.app",
+          "Contents",
+          "MacOS",
+          "RepoEdu",
+        ),
+      );
+    case "linux":
+      return orderedByHostArch(
+        join(releaseDir, "linux-arm64-unpacked", "repo-edu"),
+        join(releaseDir, "linux-unpacked", "repo-edu"),
+      );
+    case "win32":
+      return orderedByHostArch(
+        join(releaseDir, "win-arm64-unpacked", "RepoEdu.exe"),
+        join(releaseDir, "win-unpacked", "RepoEdu.exe"),
+      );
+    default:
+      return [];
+  }
+}
+
+async function resolveElectronLaunch(isLinuxCi) {
+  const runtimeArguments = isLinuxCi ? ["--no-sandbox"] : [];
+
+  try {
+    const command = requireFromScript("electron");
+    await access(command);
+    return {
+      command,
+      args: [...runtimeArguments, "./out/main/main.js"],
+    };
+  } catch (error) {
+    const candidates = packagedElectronExecutableCandidates();
+    const packagedCommand = await firstAccessiblePath(candidates);
+    if (packagedCommand) {
+      return {
+        command: packagedCommand,
+        args: runtimeArguments,
+      };
+    }
+
+    throw new Error(
+      [
+        `Electron npm package was not usable: ${errorText(error)}`,
+        `No packaged app executable was found. Checked: ${candidates.join(", ")}`,
+      ].join("\n"),
+    );
+  }
 }
 
 async function waitForChildClose(child, label) {
@@ -143,14 +227,9 @@ async function main() {
   try {
     const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
-    const electronArguments = [];
-    if (isLinuxCi) {
-      electronArguments.push("--no-sandbox");
-    }
-    electronArguments.push("./out/main/main.js");
-    const electronCommand = requireFromScript("electron");
+    const electronLaunch = await resolveElectronLaunch(isLinuxCi);
 
-    const child = spawn(electronCommand, electronArguments, {
+    const child = spawn(electronLaunch.command, electronLaunch.args, {
       cwd: desktopDir,
       env: {
         ...process.env,
