@@ -3,33 +3,43 @@ name: Release arm64 Linux
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to build (e.g. v1.2.3, must already exist)"
-        required: true
+      ref:
+        description: "Branch, tag, or SHA to build (default: current ref)"
+        required: false
         type: string
+      publish:
+        description: "Attach artifacts to a GitHub Release"
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       tag:
         required: true
         type: string
+      publish:
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
-  group: linux-release-${{ inputs.tag }}
+  group: linux-release-${{ inputs.ref || inputs.tag || github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  TARGET_REF: ${{ inputs.ref || inputs.tag || github.ref }}
 
 jobs:
   desktop-package-linux:
     name: desktop-package (Linux)
     runs-on: ubuntu-24.04-arm
     env:
-      TAG: ${{ inputs.tag }}
+      TAG: ${{ inputs.ref || inputs.tag || github.ref }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ env.TARGET_REF }}
       - uses: ./.github/actions/setup
       - name: Cache Electron artifacts
         uses: actions/cache@v5
@@ -78,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ env.TARGET_REF }}
 
       - uses: ./.github/actions/setup
 
@@ -128,6 +138,7 @@ jobs:
 
   release-attach:
     name: release-attach
+    if: ${{ inputs.publish && (inputs.tag || inputs.ref) }}
     needs:
       - desktop-package-linux
       - cli-build-linux
@@ -138,7 +149,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ env.TARGET_REF }}
           sparse-checkout: |
             scripts/install-cli.sh
           sparse-checkout-cone-mode: false
@@ -161,5 +172,5 @@ jobs:
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
+          tag_name: ${{ inputs.tag || inputs.ref }}
           files: artifacts/**/*
