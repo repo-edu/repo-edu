@@ -573,8 +573,9 @@ export function activeCourseIdFromSurface(
  * Resolve the Git connection used for repo operations. Git credentials are a
  * profile-level resource (one teacher → one provider, usually): when exactly
  * one connection is configured it is used transparently; when multiple are
- * configured the user picks an `activeGitConnectionId`. Returns `null` when no
- * connection is configured or the saved active id is stale.
+ * configured the user picks an `activeGitConnectionId`. Returns the first
+ * configured connection when the saved active id is stale, and returns `null`
+ * only when no connection is configured.
  */
 export function resolveActiveGitConnection(
   settings: Pick<
@@ -600,8 +601,9 @@ export function resolveActiveGitConnection(
 /**
  * Resolve the LLM connection used for prompt/reply calls. Mirrors the Git
  * resolver: a single configured connection is used implicitly; with multiple
- * the user picks an `activeLlmConnectionId`. Returns `null` when no
- * connection is configured or the saved active id is stale.
+ * the user picks an `activeLlmConnectionId`. Returns the first configured
+ * connection when the saved active id is stale, and returns `null` only when no
+ * connection is configured.
  */
 export function resolveActiveLlmConnection(
   settings: Pick<

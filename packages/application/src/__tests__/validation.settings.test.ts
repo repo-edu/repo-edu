@@ -69,6 +69,42 @@ describe("application settings workflow helpers", () => {
     ])
   })
 
+  it("preserves completed recovery paths when a later load fails", async () => {
+    const handlers = createSettingsWorkflowHandlers({
+      credentials: {
+        load: () => ({
+          value: null,
+          recovery: [
+            {
+              unit: "credentials",
+              reason: "invalid",
+              backupPath: "/tmp/credentials.invalid-1.json",
+            },
+          ],
+        }),
+        save: () => undefined,
+      },
+      preferences: {
+        load: () => {
+          throw new Error("Preferences disk is unavailable.")
+        },
+        save: () => undefined,
+      },
+      recoverUnsupportedComposite: () => [
+        {
+          unit: "unsupported-composite",
+          reason: "unsupported",
+          backupPath: "/tmp/app-settings.unsupported-1.json",
+        },
+      ],
+    })
+
+    await assert.rejects(
+      handlers["settings.loadApp"](undefined),
+      /Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\./,
+    )
+  })
+
   it("returns default sections when store is empty and saves validated preferences", async () => {
     const handlers = createSettingsWorkflowHandlers(
       createInMemoryAppSettingsStore(),

@@ -120,6 +120,13 @@ function applyEnvOverrides(
   }
 }
 
+function hasPreferenceEnvOverrides(): boolean {
+  return (
+    envPositiveInt("REPO_EDU_REPO_PARALLELISM") !== null ||
+    envPositiveInt("REPO_EDU_FILES_PER_REPO") !== null
+  )
+}
+
 /**
  * Prevents launch-scoped env overrides from leaking into persisted preferences.
  * Any field currently overridden by env is persisted from raw disk state.
@@ -148,6 +155,34 @@ function stripEnvOverridesForPersist(
   }
 }
 
+export async function resolveDesktopPreferencesSavePayload(
+  next: PersistedAppPreferences,
+  options: {
+    readPreferencesWithoutRecovery?: (
+      signal?: AbortSignal,
+    ) =>
+      | Promise<PersistedAppPreferences | null>
+      | PersistedAppPreferences
+      | null
+    signal?: AbortSignal
+  } = {},
+): Promise<PersistedAppPreferences> {
+  if (!hasPreferenceEnvOverrides()) {
+    return next
+  }
+
+  let rawPersisted: PersistedAppPreferences = defaultAppPreferences
+  try {
+    rawPersisted =
+      (await options.readPreferencesWithoutRecovery?.(options.signal)) ??
+      defaultAppPreferences
+  } catch {
+    rawPersisted = defaultAppPreferences
+  }
+
+  return stripEnvOverridesForPersist(next, rawPersisted)
+}
+
 function createDesktopWorkflowRegistry(
   ports: DesktopRouterPorts,
 ): WorkflowHandlerMap<DesktopWorkflowId> {
@@ -169,11 +204,11 @@ function createDesktopWorkflowRegistry(
       return applyEnvOverrides(loaded)
     },
     "settings.savePreferences": async (input, options) => {
-      const rawPersisted =
-        (await appSettingsStore.readPreferencesWithoutRecovery?.(
-          options?.signal,
-        )) ?? defaultAppPreferences
-      const persistable = stripEnvOverridesForPersist(input, rawPersisted)
+      const persistable = await resolveDesktopPreferencesSavePayload(input, {
+        readPreferencesWithoutRecovery:
+          appSettingsStore.readPreferencesWithoutRecovery,
+        signal: options?.signal,
+      })
       await settingsHandlers["settings.savePreferences"](persistable, options)
     },
     "settings.saveCredentials": async (input, options) => {

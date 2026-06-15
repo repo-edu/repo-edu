@@ -775,7 +775,11 @@ export class SessionController extends CourseMutationController {
       subscribe: (listener) => useCredentialsStore.subscribe(listener),
       initialBaseline: initialBaseline.credentials,
       setSyncStatus: (status) =>
-        this.dispatch({ type: "set-sync-status", scope: "settings", status }),
+        this.dispatch({
+          type: "set-sync-status",
+          scope: "credentials",
+          status,
+        }),
     })
     const preferencesWorker = createPreferencesPersisterWorker({
       workflowClient: this.workflowClient,
@@ -794,7 +798,11 @@ export class SessionController extends CourseMutationController {
       },
       initialBaseline: initialBaseline.preferences,
       setSyncStatus: (status) =>
-        this.dispatch({ type: "set-sync-status", scope: "settings", status }),
+        this.dispatch({
+          type: "set-sync-status",
+          scope: "preferences",
+          status,
+        }),
     })
     this.settingsWorkers = {
       credentials: credentialsWorker,

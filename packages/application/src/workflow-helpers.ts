@@ -114,24 +114,57 @@ export async function loadSettingsOrDefault(
   signal?: AbortSignal,
 ): Promise<AppSettingsSections & { recovery: SettingsRecoveryEntry[] }> {
   throwIfAborted(signal)
+  const recovery: SettingsRecoveryEntry[] = []
   const unsupportedCompositeRecovery =
     (await appSettingsStore.recoverUnsupportedComposite?.(signal)) ?? []
+  recovery.push(...unsupportedCompositeRecovery)
   throwIfAborted(signal)
-  const [storedCredentials, storedPreferences] = await Promise.all([
-    appSettingsStore.credentials.load(signal),
-    appSettingsStore.preferences.load(signal),
-  ])
+
+  let storedCredentials: Awaited<
+    ReturnType<AppSettingsStore["credentials"]["load"]>
+  >
+  try {
+    storedCredentials = await appSettingsStore.credentials.load(signal)
+  } catch (error) {
+    throw withSettingsRecoveryContext(error, recovery)
+  }
+  recovery.push(...storedCredentials.recovery)
+  throwIfAborted(signal)
+
+  let storedPreferences: Awaited<
+    ReturnType<AppSettingsStore["preferences"]["load"]>
+  >
+  try {
+    storedPreferences = await appSettingsStore.preferences.load(signal)
+  } catch (error) {
+    throw withSettingsRecoveryContext(error, recovery)
+  }
+  recovery.push(...storedPreferences.recovery)
   throwIfAborted(signal)
 
   return {
     credentials: storedCredentials.value ?? defaultAppCredentials,
     preferences: storedPreferences.value ?? defaultAppPreferences,
-    recovery: [
-      ...unsupportedCompositeRecovery,
-      ...storedCredentials.recovery,
-      ...storedPreferences.recovery,
-    ],
+    recovery,
   }
+}
+
+function withSettingsRecoveryContext(
+  error: unknown,
+  recovery: readonly SettingsRecoveryEntry[],
+): unknown {
+  if (recovery.length === 0) {
+    return error
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  const recovered = recovery
+    .map((entry) => `${entry.unit} ${entry.reason}: ${entry.backupPath}`)
+    .join("; ")
+
+  return new Error(
+    `${message} Settings recovery already completed: ${recovered}.`,
+  )
 }
 
 export function resolveCourseSnapshot(

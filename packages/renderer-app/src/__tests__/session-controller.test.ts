@@ -16,6 +16,10 @@ import {
   type PersistedCourse,
   persistedCourseKind,
 } from "@repo-edu/domain/types"
+import {
+  idleSyncStatus,
+  savingSyncStatus,
+} from "../persistence/create-persister.js"
 import { SessionController } from "../session/session-controller.js"
 import {
   createInitialSessionSnapshot,
@@ -1274,5 +1278,46 @@ describe("SessionController", () => {
     })
     assert.equal(reArmed, disposed)
     assert.equal(reArmed.pending, null)
+  })
+
+  it("derives settings sync status from both settings workers", () => {
+    let state = createInitialSessionSnapshot()
+
+    state = sessionReducer(state, {
+      type: "set-sync-status",
+      scope: "credentials",
+      status: { state: "error", message: "Could not save app credentials." },
+    })
+    assert.equal(state.settingsSyncStatus.state, "error")
+    assert.equal(
+      state.settingsSyncStatus.message,
+      "Could not save app credentials.",
+    )
+
+    state = sessionReducer(state, {
+      type: "set-sync-status",
+      scope: "preferences",
+      status: idleSyncStatus,
+    })
+    assert.equal(state.settingsSyncStatus.state, "error")
+    assert.equal(
+      state.settingsSyncStatus.message,
+      "Could not save app credentials.",
+    )
+
+    state = sessionReducer(state, {
+      type: "dismiss-sync-error",
+      scope: "settings",
+    })
+    assert.equal(state.credentialsSyncStatus.state, "idle")
+    assert.equal(state.preferencesSyncStatus.state, "idle")
+    assert.equal(state.settingsSyncStatus.state, "idle")
+
+    state = sessionReducer(state, {
+      type: "set-sync-status",
+      scope: "preferences",
+      status: savingSyncStatus,
+    })
+    assert.equal(state.settingsSyncStatus.state, "saving")
   })
 })

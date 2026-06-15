@@ -33,6 +33,8 @@ export type SessionPendingState =
     }
   | { kind: "delete"; requestId: number; courseId: string }
 
+export type SettingsSyncScope = "credentials" | "preferences"
+
 export type SessionControllerSnapshot = {
   bootstrap: SessionBootstrapState
   activeSurface: PersistedActiveSurface
@@ -40,6 +42,8 @@ export type SessionControllerSnapshot = {
   activeCourseId: string | null
   activeAnalysisSourceKey: AnalysisSourceKey | null
   courseLoadStatus: CourseLoadStatus
+  credentialsSyncStatus: PersistenceSyncStatus
+  preferencesSyncStatus: PersistenceSyncStatus
   settingsSyncStatus: PersistenceSyncStatus
   courseSyncStatus: PersistenceSyncStatus
   pending: SessionPendingState | null
@@ -50,6 +54,40 @@ export type SessionControllerSnapshot = {
 export const emptyCourseLoadStatus: CourseLoadStatus = {
   state: "empty",
   message: null,
+}
+
+function deriveSettingsSyncStatus(
+  credentials: PersistenceSyncStatus,
+  preferences: PersistenceSyncStatus,
+): PersistenceSyncStatus {
+  if (credentials.state === "error" && preferences.state === "error") {
+    return {
+      state: "error",
+      message: `${credentials.message} ${preferences.message}`,
+    }
+  }
+  if (credentials.state === "error") return credentials
+  if (preferences.state === "error") return preferences
+  if (credentials.state === "saving" || preferences.state === "saving") {
+    return { state: "saving", message: null }
+  }
+  return idleSyncStatus
+}
+
+function buildSettingsSyncState(input: {
+  credentialsSyncStatus: PersistenceSyncStatus
+  preferencesSyncStatus: PersistenceSyncStatus
+}): Pick<
+  SessionControllerSnapshot,
+  "credentialsSyncStatus" | "preferencesSyncStatus" | "settingsSyncStatus"
+> {
+  return {
+    ...input,
+    settingsSyncStatus: deriveSettingsSyncStatus(
+      input.credentialsSyncStatus,
+      input.preferencesSyncStatus,
+    ),
+  }
 }
 
 export function analysisSourceKeyFromSurface(
@@ -80,7 +118,10 @@ export function createInitialSessionSnapshot(): SessionControllerSnapshot {
     activeCourseId: activeCourseIdFromSurface(activeSurface),
     activeAnalysisSourceKey: analysisSourceKeyFromSurface(activeSurface),
     courseLoadStatus: emptyCourseLoadStatus,
-    settingsSyncStatus: idleSyncStatus,
+    ...buildSettingsSyncState({
+      credentialsSyncStatus: idleSyncStatus,
+      preferencesSyncStatus: idleSyncStatus,
+    }),
     courseSyncStatus: idleSyncStatus,
     pending: null,
     commandError: null,
@@ -115,7 +156,7 @@ export type SessionReducerEvent =
   | { type: "set-course-load-status"; status: CourseLoadStatus }
   | {
       type: "set-sync-status"
-      scope: "settings" | "course"
+      scope: SettingsSyncScope | "course"
       status: PersistenceSyncStatus
     }
   | { type: "dismiss-sync-error"; scope: "settings" | "course" }
@@ -215,15 +256,40 @@ export function sessionReducer(
       return { ...state, activeTab: event.activeTab }
     case "set-course-load-status":
       return { ...state, courseLoadStatus: event.status }
-    case "set-sync-status":
-      return event.scope === "settings"
-        ? { ...state, settingsSyncStatus: event.status }
-        : { ...state, courseSyncStatus: event.status }
+    case "set-sync-status": {
+      if (event.scope === "course") {
+        return { ...state, courseSyncStatus: event.status }
+      }
+      return {
+        ...state,
+        ...buildSettingsSyncState({
+          credentialsSyncStatus:
+            event.scope === "credentials"
+              ? event.status
+              : state.credentialsSyncStatus,
+          preferencesSyncStatus:
+            event.scope === "preferences"
+              ? event.status
+              : state.preferencesSyncStatus,
+        }),
+      }
+    }
     case "dismiss-sync-error":
       if (event.scope === "settings") {
-        return state.settingsSyncStatus.state === "error"
-          ? { ...state, settingsSyncStatus: idleSyncStatus }
-          : state
+        if (state.settingsSyncStatus.state !== "error") return state
+        return {
+          ...state,
+          ...buildSettingsSyncState({
+            credentialsSyncStatus:
+              state.credentialsSyncStatus.state === "error"
+                ? idleSyncStatus
+                : state.credentialsSyncStatus,
+            preferencesSyncStatus:
+              state.preferencesSyncStatus.state === "error"
+                ? idleSyncStatus
+                : state.preferencesSyncStatus,
+          }),
+        }
       }
       return state.courseSyncStatus.state === "error"
         ? { ...state, courseSyncStatus: idleSyncStatus }
