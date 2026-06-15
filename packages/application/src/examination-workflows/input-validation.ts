@@ -5,7 +5,17 @@ import type {
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import { isExaminationContentScopeIdShape } from "@repo-edu/application-contract"
+import {
+  validatePersistedAppCredentials,
+  validatePersistedAppPreferences,
+} from "@repo-edu/domain/schemas"
+import {
+  defaultAppCredentials,
+  defaultAppPreferences,
+} from "@repo-edu/domain/settings"
 import { createValidationAppError } from "../core.js"
+
+type InputIssue = { path: string; message: string }
 
 export function validateGenerateInput(
   input: ExaminationGenerateQuestionsInput,
@@ -22,7 +32,7 @@ export function validateLookupInput(
 export function validateLookupSummariesInput(
   input: ExaminationLookupQuestionSummariesInput,
 ): void {
-  const issues: { path: string; message: string }[] = []
+  const issues: InputIssue[] = []
   if (!isRecord(input)) {
     throw createValidationAppError(
       "Examination summary lookup input is invalid.",
@@ -105,7 +115,7 @@ function validateInput(
   input: ExaminationGenerateQuestionsInput | ExaminationLookupQuestionsInput,
   mode: "generate" | "lookup",
 ): void {
-  const issues: { path: string; message: string }[] = []
+  const issues: InputIssue[] = []
   if (!isRecord(input)) {
     throw createValidationAppError("Examination input is invalid.", [
       { path: "input", message: "Input must be an object." },
@@ -157,12 +167,7 @@ function validateInput(
   }
   validateExcerpts(input.excerpts, issues)
   validateExcerptFileSources(input.excerptFileSources, issues)
-  if (input.llmSettings === undefined || input.llmSettings === null) {
-    issues.push({
-      path: "llmSettings",
-      message: "llmSettings is required.",
-    })
-  }
+  validateLlmSettings(input.llmSettings, issues)
   if (
     "regenerate" in input &&
     input.regenerate !== undefined &&
@@ -195,7 +200,7 @@ function validateInput(
 function validateSeedQuestions(
   seedQuestions: ExaminationGenerateQuestionsInput["seedQuestions"],
   questionCount: number,
-  issues: { path: string; message: string }[],
+  issues: InputIssue[],
 ): void {
   if (seedQuestions === undefined) return
   if (!Array.isArray(seedQuestions)) {
@@ -292,7 +297,7 @@ function validateSeedQuestionAnchor(
 
 function validateLocalIdentityContext(
   context: ExaminationLocalIdentityContext,
-  issues: { path: string; message: string }[],
+  issues: InputIssue[],
   prefix?: string,
 ): void {
   const basePath =
@@ -327,7 +332,7 @@ function validateLocalIdentityContext(
 
 function validateExcerpts(
   excerpts: ExaminationGenerateQuestionsInput["excerpts"],
-  issues: { path: string; message: string }[],
+  issues: InputIssue[],
   prefix?: string,
 ): void {
   const basePath = prefix === undefined ? "excerpts" : `${prefix}.excerpts`
@@ -376,7 +381,7 @@ function validateExcerpts(
 
 function validateExcerptFileSources(
   sources: ExaminationGenerateQuestionsInput["excerptFileSources"],
-  issues: { path: string; message: string }[],
+  issues: InputIssue[],
   prefix?: string,
 ): void {
   const basePath =
@@ -393,6 +398,50 @@ function validateExcerptFileSources(
       issues.push({
         path: `${basePath}.${filePath}`,
         message: "Each file source must be keyed by path and contain text.",
+      })
+    }
+  }
+}
+
+function validateLlmSettings(value: unknown, issues: InputIssue[]): void {
+  if (value === undefined || value === null) {
+    issues.push({
+      path: "llmSettings",
+      message: "llmSettings is required.",
+    })
+    return
+  }
+  if (!isRecord(value)) {
+    issues.push({
+      path: "llmSettings",
+      message: "llmSettings must be an object.",
+    })
+    return
+  }
+
+  const credentials = validatePersistedAppCredentials({
+    ...defaultAppCredentials,
+    llmConnections: value.llmConnections,
+    activeLlmConnectionId: value.activeLlmConnectionId,
+  })
+  if (!credentials.ok) {
+    for (const issue of credentials.issues) {
+      issues.push({
+        path: `llmSettings.${issue.path}`,
+        message: issue.message,
+      })
+    }
+  }
+
+  const preferences = validatePersistedAppPreferences({
+    ...defaultAppPreferences,
+    examinationModelsByProvider: value.examinationModelsByProvider,
+  })
+  if (!preferences.ok) {
+    for (const issue of preferences.issues) {
+      issues.push({
+        path: `llmSettings.${issue.path}`,
+        message: issue.message,
       })
     }
   }

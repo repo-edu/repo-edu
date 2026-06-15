@@ -7,11 +7,7 @@ import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createSettingsWorkflowHandlers } from "@repo-edu/application"
 import type { AppSettingsLoadResult } from "@repo-edu/application-contract"
-import {
-  type PersistedAppCredentials,
-  type PersistedLlmConnection,
-  resolveActiveLlmConnection,
-} from "@repo-edu/domain/settings"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -60,6 +56,7 @@ import {
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
@@ -162,42 +159,12 @@ function configForDraft(draft: {
   return { codex: { ...providerConfig, binaryPath: packagedCodexBinaryPath } }
 }
 
-function providerConfigFromLlmConnection(
-  connection: PersistedLlmConnection,
-): LlmRuntimeConfig {
-  if (connection.provider === "claude") {
-    return connection.authMode === "subscription"
-      ? { claude: { authMode: "subscription" } }
-      : {
-          claude: {
-            authMode: "api",
-            apiKey: connection.apiKey,
-            maxTokens: connection.maxTokens,
-          },
-        }
-  }
-  return connection.authMode === "subscription"
-    ? {
-        codex: {
-          authMode: "subscription",
-          binaryPath: packagedCodexBinaryPath,
-        },
-      }
-    : {
-        codex: {
-          authMode: "api",
-          apiKey: connection.apiKey,
-          binaryPath: packagedCodexBinaryPath,
-        },
-      }
-}
-
 function configFromSettings(
   settings: PersistedAppCredentials,
 ): LlmRuntimeConfig {
-  const active = resolveActiveLlmConnection(settings)
-  if (active === null) return {}
-  return providerConfigFromLlmConnection(active)
+  return desktopLlmRuntimeConfigFromSettings(settings, {
+    codexBinaryPath: packagedCodexBinaryPath,
+  })
 }
 
 function rebuildLlmPort(settings: PersistedAppCredentials | null): void {

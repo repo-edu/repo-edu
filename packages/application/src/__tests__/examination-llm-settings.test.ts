@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type {
+  AppError,
   ExaminationGenerateQuestionsInput,
   ExaminationLlmSettings,
   ExaminationLookupQuestionsInput,
@@ -132,6 +133,36 @@ describe("examination workflow — LLM settings resolution", () => {
         typeof error === "object" &&
         error !== null &&
         (error as { type?: unknown }).type === "validation",
+    )
+  })
+
+  it("rejects malformed LLM settings before model resolution", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const { port } = recordingLlm(sampleReply)
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["examination.generateQuestions"](
+          baseInput({} as ExaminationLlmSettings),
+        ),
+      (error: unknown) => {
+        const appError = error as AppError
+        assert.equal(appError.type, "validation")
+        assert.ok(
+          appError.type === "validation" &&
+            appError.issues.some(
+              (issue) =>
+                "path" in issue && issue.path === "llmSettings.llmConnections",
+            ),
+        )
+        return true
+      },
     )
   })
 
