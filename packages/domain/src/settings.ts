@@ -361,7 +361,7 @@ const persistedAppCredentialsFields = {
   gitConnections: z.array(persistedGitConnectionSchema),
   activeGitConnectionId: z.string().nullable().default(null),
   llmConnections: z.array(persistedLlmConnectionSchema),
-  activeLlmConnectionId: z.string().nullable(),
+  activeLlmConnectionId: z.string().nullable().default(null),
 } as const
 
 const persistedAppPreferencesFields = {

@@ -4,6 +4,7 @@ import { splitAppSettings } from "@repo-edu/domain/settings"
 import {
   createInMemoryAppSettingsStore,
   createPersistenceWriteError,
+  isSettingsRecoveryLoadError,
 } from "../core.js"
 import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
 import { getSettingsScenario } from "./helpers/fixture-scenarios.js"
@@ -101,7 +102,28 @@ describe("application settings workflow helpers", () => {
 
     await assert.rejects(
       handlers["settings.loadApp"](undefined),
-      /Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\./,
+      (error: unknown) => {
+        assert.ok(isSettingsRecoveryLoadError(error))
+        assert.match(
+          error.message,
+          /Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\./,
+        )
+        // Completed recovery is carried structurally so the desktop can
+        // surface it once a retry succeeds, not only as message text.
+        assert.deepStrictEqual(error.recovery, [
+          {
+            unit: "unsupported-composite",
+            reason: "unsupported",
+            backupPath: "/tmp/app-settings.unsupported-1.json",
+          },
+          {
+            unit: "credentials",
+            reason: "invalid",
+            backupPath: "/tmp/credentials.invalid-1.json",
+          },
+        ])
+        return true
+      },
     )
   })
 

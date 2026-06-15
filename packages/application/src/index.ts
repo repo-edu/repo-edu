@@ -21,8 +21,10 @@ export {
   createPersistenceWriteError,
   isCourseSaveConflictError,
   isPersistenceWriteError,
+  isSettingsRecoveryLoadError,
   PersistenceWriteError,
   packageId,
+  SettingsRecoveryLoadError,
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
 export type { ExaminationArchivePort } from "./examination-workflows/archive-port.js"

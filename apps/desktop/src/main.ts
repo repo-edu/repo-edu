@@ -7,7 +7,10 @@ import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createSettingsWorkflowHandlers } from "@repo-edu/application"
 import type { AppSettingsLoadResult } from "@repo-edu/application-contract"
-import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
+import {
+  defaultAppCredentials,
+  type PersistedAppCredentials,
+} from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -167,10 +170,36 @@ function configFromSettings(
   })
 }
 
+// Identifies the LLM-relevant credential subset (connection records and the
+// active LLM id). The port always carries the host Codex binary carrier, so
+// only a change to this subset can alter the resolved runtime config.
+function llmCredentialsSubsetKey(credentials: PersistedAppCredentials): string {
+  return JSON.stringify({
+    activeLlmConnectionId: credentials.activeLlmConnectionId,
+    llmConnections: credentials.llmConnections,
+  })
+}
+
+let activeLlmCredentialsKey = llmCredentialsSubsetKey(defaultAppCredentials)
+
 function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
-  activeLlmPort = createNodeLlmPort(
-    settings === null ? undefined : configFromSettings(settings),
-  )
+  // The Codex binary path is a host constant the SDK needs in packaged builds,
+  // so seed the port even when no credentials loaded: absent credentials
+  // resolve to no active connection and contribute only the host carrier.
+  const resolved = settings ?? defaultAppCredentials
+  activeLlmCredentialsKey = llmCredentialsSubsetKey(resolved)
+  activeLlmPort = createNodeLlmPort(configFromSettings(resolved))
+}
+
+// Credential saves rebuild the port only when the LLM subset changes, so an
+// LMS or Git connection edit does not churn the provider SDK clients.
+function rebuildLlmPortIfCredentialsChanged(
+  credentials: PersistedAppCredentials,
+): void {
+  if (llmCredentialsSubsetKey(credentials) === activeLlmCredentialsKey) {
+    return
+  }
+  rebuildLlmPort(credentials)
 }
 let desktopRouter: DesktopRouter | null = null
 let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
@@ -831,7 +860,7 @@ async function createWindow(): Promise<BrowserWindow> {
       initialSettingsLoadError,
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,
-      onAppCredentialsSaved: rebuildLlmPort,
+      onAppCredentialsSaved: rebuildLlmPortIfCredentialsChanged,
       createDraftLlmTextClient,
     })
   }

@@ -61,6 +61,7 @@ import {
   createValidationAppError,
   isPersistenceWriteError,
   type PersistenceWriteErrorKind,
+  SettingsRecoveryLoadError,
 } from "./core.js"
 
 export function toCancelledAppError() {
@@ -156,15 +157,7 @@ function withSettingsRecoveryContext(
   if (recovery.length === 0) {
     return error
   }
-
-  const message = error instanceof Error ? error.message : String(error)
-  const recovered = recovery
-    .map((entry) => `${entry.unit} ${entry.reason}: ${entry.backupPath}`)
-    .join("; ")
-
-  return new Error(
-    `${message} Settings recovery already completed: ${recovered}.`,
-  )
+  return new SettingsRecoveryLoadError(recovery, error)
 }
 
 export function resolveCourseSnapshot(
