@@ -141,8 +141,30 @@ function packagedElectronExecutableCandidates() {
   }
 }
 
+function requiresPackagedElectronExecutable() {
+  return (
+    process.env.CI === "true" ||
+    process.env.REPO_EDU_DESKTOP_VALIDATE_PACKAGED === "1"
+  );
+}
+
 async function resolveElectronLaunch(isLinuxCi) {
   const runtimeArguments = isLinuxCi ? ["--no-sandbox"] : [];
+  const candidates = packagedElectronExecutableCandidates();
+
+  if (requiresPackagedElectronExecutable()) {
+    const packagedCommand = await firstAccessiblePath(candidates);
+    if (packagedCommand) {
+      return {
+        command: packagedCommand,
+        args: runtimeArguments,
+      };
+    }
+
+    throw new Error(
+      `Packaged Electron app is required but no executable was found. Checked: ${candidates.join(", ")}`,
+    );
+  }
 
   try {
     const command = requireFromScript("electron");
@@ -152,7 +174,6 @@ async function resolveElectronLaunch(isLinuxCi) {
       args: [...runtimeArguments, "./out/main/main.js"],
     };
   } catch (error) {
-    const candidates = packagedElectronExecutableCandidates();
     const packagedCommand = await firstAccessiblePath(candidates);
     if (packagedCommand) {
       return {
@@ -284,8 +305,6 @@ async function main() {
   try {
     const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
-    // Electron 42 materializes its runtime lazily when the package is resolved;
-    // do that before the app readiness watchdog starts.
     const electronLaunch = await resolveElectronLaunch(isLinuxCi);
 
     const child = spawn(electronLaunch.command, electronLaunch.args, {

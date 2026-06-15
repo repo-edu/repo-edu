@@ -101,14 +101,15 @@ cause. CI still fans out across all five platforms, including macOS.
 The reliable Electron on a CI runner is the one `electron-builder` downloads when
 it packages the app, not the half-installed npm package. `pnpm build` runs before
 runtime validation, so a complete packaged app already exists under
-`apps/desktop/release/` by the time the check runs. Runtime validation resolves
-Electron defensively in `apps/desktop/scripts/validate-trpc-spike.mjs`: it tries
-`require("electron")` first, and when that npm package is unusable it falls back
-to the packaged executable for the host platform
+`apps/desktop/release/` by the time the check runs. Under CI, runtime validation
+requires that packaged executable for the host platform
 (`RepoEdu.app/Contents/MacOS/RepoEdu` on macOS, `release/linux-*-unpacked/repo-edu`
-on Linux, `release/win-*-unpacked/RepoEdu.exe` on Windows). The release license
-gate applies the same fallback to source the Chromium notices from the packaged
-app.
+on Linux, `release/win-*-unpacked/RepoEdu.exe` on Windows). The validator fails
+if that packaged executable is missing instead of falling back to the npm
+package. Outside CI, the same script still tries `require("electron")` first for
+source-tree runtime checks and falls back to a packaged executable only when the
+npm package is unusable. The release license gate applies the same fallback to
+source the Chromium notices from the packaged app.
 
 Already investigated and ruled out as neither cause nor fix: code signing and
 notarization, the runner OS version, and disabling the pnpm side-effects cache.

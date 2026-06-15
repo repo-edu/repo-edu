@@ -136,6 +136,10 @@ re-resolve transitives forward within range. Green updates fast-forward onto
 fails. So an upstream release produces a gated branch, never a direct build
 failure on `main`.
 
+Electron is a stricter runtime-carrier exception: patch/minor updates run weekly
+after a short maturity window, major updates run monthly, and CI must package and
+smoke-run the desktop app before those branches are trusted to fast-forward.
+
 For local or out-of-band catch-up run `pnpm deps:latest`
 (`pnpm up -r --latest && pnpm dedupe`): it moves direct deps to latest and
 re-resolves transitives forward. Never pin a transitive past what its parent
