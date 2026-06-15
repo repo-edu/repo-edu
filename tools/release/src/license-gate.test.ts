@@ -1192,7 +1192,7 @@ describe("release workflow wiring", () => {
       "utf8",
     )
 
-    assert.equal(rootPackageJson.packageManager, "pnpm@11.5.3")
+    assert.equal(rootPackageJson.packageManager, "pnpm@11.6.0")
     assert.match(setupAction, /uses: pnpm\/action-setup@v\d+/)
     assert.doesNotMatch(setupAction, /^\s+version:\s*["']?\d/m)
   })

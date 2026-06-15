@@ -1,7 +1,7 @@
 {
     "name": "repo-edu",
     "private": true,
-    "packageManager": "pnpm@11.5.3",
+    "packageManager": "pnpm@11.6.0",
     "scripts": {
         "// ---- dev & build ----": "",
         "dev": "pnpm --filter @repo-edu/desktop run dev",
