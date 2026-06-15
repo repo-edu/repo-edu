@@ -309,6 +309,16 @@ function waitForInFlightWorkflows(timeoutMs: number): Promise<boolean> {
   })
 }
 
+// repo-edu persists its own secrets (LLM API keys) as plain JSON via the
+// settings store and never uses Electron `safeStorage`. Force Chromium's
+// OSCrypt onto the in-process `basic` backend so the app never queries the
+// Linux Secret Service / login keyring on startup. Without this, a locked or
+// password-mismatched keyring blocks launch behind a GNOME unlock prompt for
+// an encryption key the app does not depend on.
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("password-store", "basic")
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
