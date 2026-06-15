@@ -59,7 +59,7 @@ jobs:
   desktop-package-macos:
     name: desktop-package (macOS)
     needs: secrets-preflight
-    runs-on: macos-15
+    runs-on: macos-26
     environment: release
     env:
       TAG: ${{ inputs.tag }}
@@ -112,7 +112,7 @@ jobs:
   cli-build-macos:
     name: cli-build (darwin-arm64)
     needs: secrets-preflight
-    runs-on: macos-15
+    runs-on: macos-26
     environment: release
     steps:
       - uses: actions/checkout@v6
