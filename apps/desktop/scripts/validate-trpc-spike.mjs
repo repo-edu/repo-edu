@@ -11,6 +11,27 @@ const desktopDir = resolve(import.meta.dirname, "..");
 const trpcMarker = "repo-edu-desktop-trpc";
 const fixtureSelector = "small/shared-teams/canvas";
 const expectedFixtureCourseId = "fixture-small-shared-teams";
+const appReadyTimeoutMs = readPositiveIntegerEnv(
+  "REPO_EDU_DESKTOP_VALIDATE_APP_TIMEOUT_MS",
+  60_000,
+);
+const rendererValidationTimeoutMs = readPositiveIntegerEnv(
+  "REPO_EDU_DESKTOP_VALIDATE_TRPC_TIMEOUT_MS",
+  30_000,
+);
+
+function readPositiveIntegerEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return value;
+}
 
 function errorText(error) {
   if (error instanceof Error) {
@@ -27,6 +48,42 @@ function formatChildExit(exitCode, signal) {
     return `signal ${signal}`;
   }
   return "unknown status";
+}
+
+function parseRuntimeMarker(line) {
+  try {
+    const parsed = JSON.parse(line);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      parsed.marker === trpcMarker
+    ) {
+      return parsed;
+    }
+  } catch {
+    // Ignore unrelated stdout from Electron startup.
+  }
+
+  return undefined;
+}
+
+function formatCapturedOutput(stdout, stderr) {
+  const sections = [];
+  if (stdout.trim()) {
+    sections.push(`stdout:\n${stdout.trim()}`);
+  }
+  if (stderr.trim()) {
+    sections.push(`stderr:\n${stderr.trim()}`);
+  }
+  return sections.length > 0 ? `\n${sections.join("\n")}` : "";
+}
+
+function formatRendererTimeout(marker) {
+  const textContent =
+    typeof marker.textContent === "string" && marker.textContent.trim()
+      ? `\nrenderer text:\n${marker.textContent.trim()}`
+      : "";
+  return `Renderer validation timed out before emitting the workflow marker.${textContent}`;
 }
 
 async function firstAccessiblePath(paths) {
@@ -227,6 +284,8 @@ async function main() {
   try {
     const seededFixture = await seedValidationFixture(temporaryStorageRoot);
     const isLinuxCi = process.platform === "linux" && process.env.CI === "true";
+    // Electron 42 materializes its runtime lazily when the package is resolved;
+    // do that before the app readiness watchdog starts.
     const electronLaunch = await resolveElectronLaunch(isLinuxCi);
 
     const child = spawn(electronLaunch.command, electronLaunch.args, {
@@ -238,21 +297,28 @@ async function main() {
           seededFixture.artifactPaths.join(delimiter),
         REPO_EDU_STORAGE_ROOT: temporaryStorageRoot,
         REPO_EDU_VALIDATION_COURSE_ID: seededFixture.courseEntityId,
+        REPO_EDU_DESKTOP_VALIDATE_TRPC_TIMEOUT_MS: String(
+          rendererValidationTimeoutMs,
+        ),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     let marker;
     let stderr = "";
+    let stdout = "";
     let stdoutBuffer = "";
+    let killedByTimeout = false;
     const timeout = setTimeout(() => {
+      killedByTimeout = true;
       child.kill("SIGTERM");
-    }, 15000);
+    }, appReadyTimeoutMs);
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
 
     child.stdout.on("data", (chunk) => {
+      stdout += chunk;
       stdoutBuffer += chunk;
       let newlineIndex = stdoutBuffer.indexOf("\n");
       while (newlineIndex !== -1) {
@@ -263,14 +329,9 @@ async function main() {
           continue;
         }
 
-        try {
-          const parsed = JSON.parse(line);
-
-          if (parsed.marker === trpcMarker) {
-            marker = parsed;
-          }
-        } catch {
-          // Ignore unrelated stdout from Electron startup.
+        const parsed = parseRuntimeMarker(line);
+        if (parsed) {
+          marker = parsed;
         }
         newlineIndex = stdoutBuffer.indexOf("\n");
       }
@@ -290,24 +351,32 @@ async function main() {
 
     const trailingLine = stdoutBuffer.trim();
     if (trailingLine.length > 0) {
-      try {
-        const parsed = JSON.parse(trailingLine);
-        if (parsed.marker === trpcMarker) {
-          marker = parsed;
-        }
-      } catch {
-        // Ignore trailing non-marker output.
+      const parsed = parseRuntimeMarker(trailingLine);
+      if (parsed) {
+        marker = parsed;
       }
+    }
+
+    if (killedByTimeout) {
+      throw new Error(
+        `Electron runtime validation timed out after ${appReadyTimeoutMs}ms.${formatCapturedOutput(stdout, stderr)}`,
+      );
     }
 
     if (exitCode !== 0) {
       throw new Error(
-        `Electron exited with ${formatChildExit(exitCode, signal)}\n${stderr}`.trim(),
+        `Electron exited with ${formatChildExit(exitCode, signal)}${formatCapturedOutput(stdout, stderr)}`.trim(),
       );
     }
 
     if (!marker) {
-      throw new Error(`electron-trpc marker was not emitted.\n${stderr}`.trim());
+      throw new Error(
+        `electron-trpc marker was not emitted.${formatCapturedOutput(stdout, stderr)}`.trim(),
+      );
+    }
+
+    if (marker.timeout === true) {
+      throw new Error(formatRendererTimeout(marker));
     }
 
     if (typeof marker.validationCourseId !== "string") {

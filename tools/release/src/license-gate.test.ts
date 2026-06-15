@@ -35,6 +35,8 @@ import {
 } from "./license-gate.js"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
+const forbidElectronRuntimeInstallEnv =
+  "REPO_EDU_RELEASE_FORBID_ELECTRON_RUNTIME_INSTALL"
 
 function currentReleasePlatform(): ReleasePlatform | null {
   if (process.platform === "darwin" && process.arch === "arm64") {
@@ -93,6 +95,53 @@ async function writePackage(
     await writeFile(filePath, contents, "utf8")
   }
   return packagePath
+}
+
+async function writeDesktopRuntimeFixture(
+  root: string,
+  options?: {
+    readonly electronFiles?: Record<string, string>
+  },
+): Promise<void> {
+  await writePackage(root, "apps/desktop", {
+    name: "@repo-edu/desktop",
+    version: "1.0.0",
+  })
+  await writePackage(
+    root,
+    "apps/desktop/node_modules/electron",
+    {
+      name: "electron",
+      version: "42.4.0",
+    },
+    options?.electronFiles,
+  )
+  await writePackage(root, "apps/desktop/node_modules/electron-builder", {
+    name: "electron-builder",
+    version: "26.8.1",
+  })
+  for (const packageName of [
+    "app-builder-lib",
+    "app-builder-bin",
+    "builder-util-runtime",
+  ]) {
+    await writePackage(
+      root,
+      `apps/desktop/node_modules/electron-builder/node_modules/${packageName}`,
+      {
+        name: packageName,
+        version: "1.0.0",
+      },
+    )
+  }
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+  process.env[name] = value
 }
 
 async function enumerateRealProductionDependencies(
@@ -681,6 +730,83 @@ describe("runtime notice records", () => {
     assert.doesNotMatch(cliRuntimeManifest, /<year>|<copyright holders>/)
   })
 
+  it("materializes Electron lazy runtime notices through package install", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writeDesktopRuntimeFixture(root, {
+        electronFiles: {
+          "install.js": `
+const fs = require("node:fs")
+const path = require("node:path")
+const dist = path.join(__dirname, "dist")
+fs.mkdirSync(dist, { recursive: true })
+fs.writeFileSync(path.join(dist, "LICENSES.chromium.html"), \`Chromium notice for \${process.env.ELECTRON_INSTALL_PLATFORM}/\${process.env.ELECTRON_INSTALL_ARCH}\\n\`)
+fs.writeFileSync(path.join(dist, "install-env.json"), JSON.stringify({
+  platform: process.env.ELECTRON_INSTALL_PLATFORM,
+  arch: process.env.ELECTRON_INSTALL_ARCH,
+  npmPlatform: process.env.npm_config_platform,
+  npmArch: process.env.npm_config_arch,
+}))
+fs.writeFileSync(path.join(dist, "version"), "42.4.0\\n")
+fs.writeFileSync(path.join(__dirname, "path.txt"), "electron\\n")
+`.trimStart(),
+        },
+      })
+
+      const entries = await resolveDesktopRuntimePackageEntries({
+        root,
+        platform: "linux-arm64",
+        artifactTargets: ["AppImage", "deb"],
+      })
+      const electronEntry = entries.find((entry) => entry.name === "electron")
+      assert.match(electronEntry?.additionalText ?? "", /Chromium notice/)
+
+      const installEnv = JSON.parse(
+        await readFile(
+          join(
+            root,
+            "apps/desktop/node_modules/electron/dist/install-env.json",
+          ),
+          "utf8",
+        ),
+      )
+      assert.deepEqual(installEnv, {
+        platform: "linux",
+        arch: "arm64",
+        npmPlatform: "linux",
+        npmArch: "arm64",
+      })
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
+  it("fails closed when Electron runtime install is disabled", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    const originalGuard = process.env[forbidElectronRuntimeInstallEnv]
+    try {
+      await writeDesktopRuntimeFixture(root, {
+        electronFiles: {
+          "install.js": "throw new Error('installer should not run')\n",
+        },
+      })
+
+      process.env[forbidElectronRuntimeInstallEnv] = "1"
+      await assert.rejects(
+        () =>
+          resolveDesktopRuntimePackageEntries({
+            root,
+            platform: "linux-arm64",
+            artifactTargets: ["AppImage", "deb"],
+          }),
+        /Electron runtime install is disabled/,
+      )
+    } finally {
+      restoreEnv(forbidElectronRuntimeInstallEnv, originalGuard)
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("records the Bun optional package that supplied the installed binary", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
@@ -984,13 +1110,16 @@ describe("manifest helpers", () => {
 describe("ripgrep notice evidence", () => {
   async function withNetworkDisabled(run: () => Promise<void>): Promise<void> {
     const originalFetch = globalThis.fetch
+    const originalGuard = process.env[forbidElectronRuntimeInstallEnv]
     globalThis.fetch = (async () => {
       throw new Error("release gate must not fetch ripgrep notice evidence")
     }) as typeof fetch
+    process.env[forbidElectronRuntimeInstallEnv] = "1"
     try {
       await run()
     } finally {
       globalThis.fetch = originalFetch
+      restoreEnv(forbidElectronRuntimeInstallEnv, originalGuard)
     }
   }
 
@@ -1003,6 +1132,12 @@ describe("ripgrep notice evidence", () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-gate-"))
     const manifestPath = join(root, "notices.txt")
     try {
+      await resolveDesktopRuntimePackageEntries({
+        root: repoRoot,
+        platform,
+        artifactTargets: desktopTargetsForPlatform(platform),
+      })
+
       await withNetworkDisabled(() =>
         runLicenseGate({
           app: "desktop",

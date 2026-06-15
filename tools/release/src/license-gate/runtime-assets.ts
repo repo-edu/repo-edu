@@ -47,6 +47,8 @@ type AdditionalNoticeFile = string | readonly string[]
 
 const releaseGateDirectory = dirname(fileURLToPath(import.meta.url))
 const execFileAsync = promisify(execFile)
+const forbidElectronRuntimeInstallEnv =
+  "REPO_EDU_RELEASE_FORBID_ELECTRON_RUNTIME_INSTALL"
 const ripgrepNoticeVersion = "15.1.0"
 const ripgrepNoticeFiles = [
   "COPYING.txt",
@@ -179,6 +181,8 @@ export async function resolveDesktopRuntimePackageEntries(options: {
       reachedPackage: electronReached,
       root: desktopRoot,
       source: "Desktop Electron runtime",
+      preparePackage: (packagePath) =>
+        ensureElectronRuntimePayload(packagePath, options.platform),
       additionalNoticeFiles: [
         electronChromiumNoticeCandidates(options.root, options.platform),
       ],
@@ -260,6 +264,7 @@ async function runtimePackageRecord(
     readonly source: string
     readonly reachedPackage?: ReachedPackage
     readonly additionalNoticeFiles?: readonly AdditionalNoticeFile[]
+    readonly preparePackage?: (packagePath: string) => Promise<void>
     readonly displayName?: string
   },
 ): Promise<NoticeEntry> {
@@ -268,6 +273,9 @@ async function runtimePackageRecord(
     : resolvePackageJsonPath(packageName, options.root)
   const packagePath = canonicalPackagePath(dirname(packageJsonPath))
   const packageJson = readPackageJson(packagePath)
+  if (options.preparePackage) {
+    await options.preparePackage(packagePath)
+  }
   // `displayName` lets an aliased package carry its dependency-key identity
   // instead of the published `package.json` name, which for the platform-
   // specific `@openai/codex` optional collides with the launcher entry.
@@ -367,6 +375,95 @@ function electronChromiumNoticeCandidates(
   } satisfies Record<ReleasePlatform, readonly string[]>
 
   return ["dist/LICENSES.chromium.html", ...packagedNoticeByPlatform[platform]]
+}
+
+async function ensureElectronRuntimePayload(
+  packagePath: string,
+  platform: ReleasePlatform,
+): Promise<void> {
+  if (existsSync(join(packagePath, "dist", "LICENSES.chromium.html"))) {
+    return
+  }
+
+  if (process.env[forbidElectronRuntimeInstallEnv] === "1") {
+    throw new Error(
+      `Electron runtime install is disabled by ${forbidElectronRuntimeInstallEnv}, but ${packagePath} has no materialized dist/LICENSES.chromium.html.`,
+    )
+  }
+
+  const installScript = join(packagePath, "install.js")
+  if (!existsSync(installScript)) {
+    throw new Error(
+      `Electron runtime package at ${packagePath} has no install.js to materialize Chromium notices.`,
+    )
+  }
+
+  const target = electronInstallTarget(platform)
+  try {
+    await execFileAsync(process.execPath, [installScript], {
+      cwd: packagePath,
+      env: electronInstallEnvironment(target),
+      maxBuffer: 8 * 1024 * 1024,
+    })
+  } catch (error) {
+    throw new Error(
+      `Electron runtime install failed for ${platform}: ${formatExecError(error)}`,
+    )
+  }
+}
+
+function electronInstallTarget(platform: ReleasePlatform): {
+  readonly platform: string
+  readonly arch: string
+} {
+  switch (platform) {
+    case "darwin-arm64":
+      return { platform: "darwin", arch: "arm64" }
+    case "linux-arm64":
+      return { platform: "linux", arch: "arm64" }
+    case "linux-x64":
+      return { platform: "linux", arch: "x64" }
+    case "windows-arm64":
+      return { platform: "win32", arch: "arm64" }
+    case "windows-x64":
+      return { platform: "win32", arch: "x64" }
+  }
+}
+
+function electronInstallEnvironment(target: {
+  readonly platform: string
+  readonly arch: string
+}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ELECTRON_INSTALL_PLATFORM: target.platform,
+    ELECTRON_INSTALL_ARCH: target.arch,
+    npm_config_platform: target.platform,
+    npm_config_arch: target.arch,
+  }
+  delete env.ELECTRON_SKIP_BINARY_DOWNLOAD
+  return env
+}
+
+function formatExecError(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return String(error)
+  }
+
+  const details: string[] = []
+  if (error instanceof Error) {
+    details.push(error.message)
+  }
+
+  const record = error as Record<string, unknown>
+  for (const key of ["stdout", "stderr"] as const) {
+    const value = record[key]
+    if (typeof value === "string" && value.trim()) {
+      details.push(`${key}: ${value.trim()}`)
+    }
+  }
+
+  return details.join("\n") || String(error)
 }
 
 function readPackageLicense(packageJson: PackageJson, name: string): string {

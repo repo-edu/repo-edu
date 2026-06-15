@@ -81,6 +81,10 @@ const docsWebsiteUrl = "https://repo-edu.github.io/repo-edu/"
 const startupStartedAt = performance.now()
 const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1"
 const isTRPCValidationMode = process.env.REPO_EDU_DESKTOP_VALIDATE_TRPC === "1"
+const trpcValidationTimeoutMs = readPositiveIntegerEnv(
+  "REPO_EDU_DESKTOP_VALIDATE_TRPC_TIMEOUT_MS",
+  10_000,
+)
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const desktopHost = createDesktopHostEnvironment()
@@ -107,6 +111,19 @@ const nodeLlmPort: LlmPort = {
 const packagedCodexBinaryPath = app.isPackaged
   ? resolveUnpackedCodexBinaryPath(process.resourcesPath)
   : undefined
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const raw = process.env[name]
+  if (!raw) {
+    return fallback
+  }
+
+  const value = Number.parseInt(raw, 10)
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer.`)
+  }
+  return value
+}
 
 export function createDraftLlmTextClient(draft: {
   provider: "claude" | "codex"
@@ -885,7 +902,7 @@ async function createWindow(): Promise<BrowserWindow> {
         .finally(() => {
           app.quit()
         })
-    }, 2000)
+    }, trpcValidationTimeoutMs)
 
     mainWindow.on("closed", () => {
       clearInterval(validationPoll)
