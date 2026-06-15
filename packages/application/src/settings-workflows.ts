@@ -5,8 +5,14 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  validatePersistedAppCredentials,
+  validatePersistedAppPreferences,
+} from "@repo-edu/domain/schemas"
+import type {
+  PersistedAppCredentials,
+  PersistedAppPreferences,
+} from "@repo-edu/domain/settings"
 import {
   type AppSettingsStore,
   createValidationAppError,
@@ -48,44 +54,49 @@ function normalizeSettingsSaveError(error: unknown): AppError {
 export function createSettingsWorkflowHandlers(
   appSettingsStore: AppSettingsStore,
 ): Pick<
-  WorkflowHandlerMap<"settings.loadApp" | "settings.saveApp">,
-  "settings.loadApp" | "settings.saveApp"
+  WorkflowHandlerMap<
+    "settings.loadApp" | "settings.saveCredentials" | "settings.savePreferences"
+  >,
+  "settings.loadApp" | "settings.saveCredentials" | "settings.savePreferences"
 > {
   return {
     "settings.loadApp": async (
       _input,
       options?: WorkflowCallOptions<never, never>,
     ) => loadSettingsOrDefault(appSettingsStore, options?.signal),
-    "settings.saveApp": async (
-      input: PersistedAppSettings,
+    "settings.saveCredentials": async (
+      input: PersistedAppCredentials,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
-        label: "Validating app settings payload.",
+        label: "Validating app credentials payload.",
       })
 
-      const validation = validatePersistedAppSettings(input)
+      const validation = validatePersistedAppCredentials(input)
       if (!validation.ok) {
         throw createValidationAppError(
-          "App settings validation failed.",
+          "App credentials validation failed.",
           validation.issues,
         )
       }
 
       options?.onOutput?.({
         channel: "info",
-        message: "Writing app settings to store.",
+        message: "Writing app credentials to store.",
       })
       options?.onProgress?.({
         step: 2,
         totalSteps: 3,
-        label: "Writing app settings to store.",
+        label: "Writing app credentials to store.",
       })
 
       try {
-        await appSettingsStore.saveSettings(validation.value, options?.signal)
+        await appSettingsStore.credentials.save(
+          validation.value,
+          options?.signal,
+        )
       } catch (error) {
         throw normalizeSettingsSaveError(error)
       }
@@ -93,7 +104,50 @@ export function createSettingsWorkflowHandlers(
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
-        label: "App settings saved.",
+        label: "App credentials saved.",
+      })
+    },
+    "settings.savePreferences": async (
+      input: PersistedAppPreferences,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ) => {
+      options?.onProgress?.({
+        step: 1,
+        totalSteps: 3,
+        label: "Validating app preferences payload.",
+      })
+
+      const validation = validatePersistedAppPreferences(input)
+      if (!validation.ok) {
+        throw createValidationAppError(
+          "App preferences validation failed.",
+          validation.issues,
+        )
+      }
+
+      options?.onOutput?.({
+        channel: "info",
+        message: "Writing app preferences to store.",
+      })
+      options?.onProgress?.({
+        step: 2,
+        totalSteps: 3,
+        label: "Writing app preferences to store.",
+      })
+
+      try {
+        await appSettingsStore.preferences.save(
+          validation.value,
+          options?.signal,
+        )
+      } catch (error) {
+        throw normalizeSettingsSaveError(error)
+      }
+
+      options?.onProgress?.({
+        step: 3,
+        totalSteps: 3,
+        label: "App preferences saved.",
       })
     },
   }

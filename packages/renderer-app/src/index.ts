@@ -51,6 +51,7 @@ export { useConnectionsStore } from "./stores/connections-store.js"
 // Stores — exposed for shell-level integration and testing.
 // ---------------------------------------------------------------------------
 export { useCourseStore } from "./stores/course-store.js"
+export { useCredentialsStore } from "./stores/credentials-store.js"
 export { useOperationStore } from "./stores/operation-store.js"
 export { useToastStore } from "./stores/toast-store.js"
 export { useUiStore } from "./stores/ui-store.js"

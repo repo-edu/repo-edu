@@ -14,8 +14,8 @@ import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -23,7 +23,7 @@ export function ImportGitUsernamesDialog() {
   const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
   const course = useCourseStore((state) => state.course)
-  const appSettings = useAppSettingsStore((state) => state.settings)
+  const credentials = useCredentialsStore((state) => state.credentials)
   const controller = useSessionController()
 
   const [fileName, setFileName] = useState("")
@@ -67,7 +67,7 @@ export function ImportGitUsernamesDialog() {
       const client = getWorkflowClient()
       const importedRoster = await client.run("gitUsernames.import", {
         course,
-        appSettings,
+        credentials,
         file: fileRef,
       })
       controller.mutateCourse(course.id, (actions) => {

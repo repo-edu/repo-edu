@@ -14,7 +14,7 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`, `PersistedCourse`, `LmsProviderKind`, `GitProviderKind`, etc.)
 - re-exported LLM contract types (`LlmProvider`, `LlmEffort`, `LlmAuthMode`, `LlmUsage`) from `@repo-edu/integrations-llm-contract`
 - examination archive key helpers (`ExaminationArchiveKey`, repository/excerpt/context fingerprinting, storage-key serialization) plus `ExaminationArchiveImportSummary` from `@repo-edu/host-runtime-contract`
-- course persistence workflow entries: `course.{list,load,save,delete}` and app settings entries: `settings.{loadApp,saveApp}`
+- course persistence workflow entries: `course.{list,load,save,delete}` and app settings entries: `settings.{loadApp,saveCredentials,savePreferences}`
 - connection draft verification: `connection.verifyLmsDraft`, `connection.listLmsCoursesDraft`, `connection.verifyGitDraft`, `connection.verifyLlmDraft`
 - roster workflow entries: `roster.importFromFile`, `roster.importFromLms`, `roster.exportMembers`
 - group-set workflow entries: `groupSet.fetchAvailableFromLms`, `groupSet.connectFromLms`, `groupSet.syncFromLms`, `groupSet.previewImportFromFile`, `groupSet.importFromFile`, `groupSet.export`

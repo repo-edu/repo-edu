@@ -1,3 +1,4 @@
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { RepositoryWorkflowPorts } from "../../repository-workflows.js"
 import { createRepositoryWorkflowHandlers } from "../../repository-workflows.js"
 import { getCourseAndSettingsScenario } from "./fixture-scenarios.js"
@@ -112,5 +113,5 @@ export function createRepoHarness(options?: {
     },
   })
 
-  return { course, settings, handlers }
+  return { course, settings: splitAppSettings(settings).credentials, handlers }
 }

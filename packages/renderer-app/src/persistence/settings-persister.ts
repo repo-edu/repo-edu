@@ -1,7 +1,8 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import {
   activeSurfaceEquals,
-  type PersistedAppSettings,
+  type PersistedAppCredentials,
+  type PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { getErrorMessage } from "../utils/error-message.js"
@@ -12,22 +13,22 @@ import {
 } from "./create-persister.js"
 import { isRetryableWorkflowError } from "./retry.js"
 
-export function composePersistedSettings(
+export function composePersistedPreferences(
   session: Pick<SessionControllerSnapshot, "activeSurface" | "activeTab">,
-  appSettings: PersistedAppSettings,
-): PersistedAppSettings {
+  preferences: PersistedAppPreferences,
+): PersistedAppPreferences {
   return {
-    ...appSettings,
+    ...preferences,
     activeSurface: session.activeSurface,
     activeTab: session.activeTab,
   }
 }
 
-function persistedSettingsEqual(
-  left: PersistedAppSettings,
-  right: PersistedAppSettings,
+function persistedPreferencesEqual(
+  left: PersistedAppPreferences,
+  right: PersistedAppPreferences,
 ): boolean {
-  const leftKeys = Object.keys(left) as (keyof PersistedAppSettings)[]
+  const leftKeys = Object.keys(left) as (keyof PersistedAppPreferences)[]
   const rightKeys = Object.keys(right)
   if (leftKeys.length !== rightKeys.length) return false
 
@@ -39,31 +40,65 @@ function persistedSettingsEqual(
   })
 }
 
-export type SettingsPersisterWorkerOptions = {
+function persistedCredentialsEqual(
+  left: PersistedAppCredentials,
+  right: PersistedAppCredentials,
+): boolean {
+  const leftKeys = Object.keys(left) as (keyof PersistedAppCredentials)[]
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) return false
+  return leftKeys.every((key) => Object.is(left[key], right[key]))
+}
+
+type SettingsPersisterWorkerOptions<T> = {
   workflowClient: WorkflowClient
-  getSnapshot: () => PersistedAppSettings
+  getSnapshot: () => T
   subscribe: (listener: () => void) => () => void
-  initialBaseline?: PersistedAppSettings | null
+  initialBaseline?: T | null
   setSyncStatus: (status: PersistenceSyncStatus) => void
 }
 
-export function createSettingsPersisterWorker({
+export function createCredentialsPersisterWorker({
   workflowClient,
   getSnapshot,
   subscribe,
   initialBaseline,
   setSyncStatus,
-}: SettingsPersisterWorkerOptions): Persister {
-  return createPersister<PersistedAppSettings, "settings.saveApp">({
+}: SettingsPersisterWorkerOptions<PersistedAppCredentials>): Persister {
+  return createPersister<PersistedAppCredentials, "settings.saveCredentials">({
     workflowClient,
-    workflowId: "settings.saveApp",
+    workflowId: "settings.saveCredentials",
     getSnapshot,
     initialBaseline,
-    snapshotsEqual: persistedSettingsEqual,
+    snapshotsEqual: persistedCredentialsEqual,
     subscribe,
     setSyncStatus,
     formatTerminalError: (error) =>
-      `Could not save app settings: ${getErrorMessage(error)}`,
+      `Could not save app credentials: ${getErrorMessage(error)}`,
+    classifyError: (error) =>
+      isRetryableWorkflowError(error)
+        ? { kind: "retry" }
+        : { kind: "terminal" },
+  })
+}
+
+export function createPreferencesPersisterWorker({
+  workflowClient,
+  getSnapshot,
+  subscribe,
+  initialBaseline,
+  setSyncStatus,
+}: SettingsPersisterWorkerOptions<PersistedAppPreferences>): Persister {
+  return createPersister<PersistedAppPreferences, "settings.savePreferences">({
+    workflowClient,
+    workflowId: "settings.savePreferences",
+    getSnapshot,
+    initialBaseline,
+    snapshotsEqual: persistedPreferencesEqual,
+    subscribe,
+    setSyncStatus,
+    formatTerminalError: (error) =>
+      `Could not save app preferences: ${getErrorMessage(error)}`,
     classifyError: (error) =>
       isRetryableWorkflowError(error)
         ? { kind: "retry" }

@@ -59,10 +59,12 @@ redu course load <course-id>      # Set the active course
 
 | Surface | Location | Override |
 |---------|----------|---------|
-| Desktop | Platform-specific application data directory | None |
-| CLI | `~/.repo-edu/` | Set `REPO_EDU_CLI_DATA_DIR` environment variable |
+| Desktop | Platform app-data root | None |
+| CLI | Same platform app-data root | None |
 
-Both surfaces store settings and courses as JSON files that are validated on every read and write. Files that fail validation are rejected — there is no partial-load or best-effort parsing.
+The platform app-data root is `~/Library/Application Support/repo-edu` on macOS, `${XDG_CONFIG_HOME:-~/.config}/repo-edu` on Linux, and `%APPDATA%\repo-edu` on Windows.
+
+Both surfaces store settings and courses as JSON files that are validated on every read and write. Settings are split into `settings/credentials.json` and `settings/preferences.json`; a corrupt section is backed aside independently so the other section can still load.
 
 The desktop app also keeps the examination archive in the same data directory at `examinations/archive.db`. The archive stores generated examination records; analysis and blame results are recomputed and are not persisted in a cache. See [Analysis Execution](/repo-edu/development/analysis-caching/) for the current analysis behavior.
 

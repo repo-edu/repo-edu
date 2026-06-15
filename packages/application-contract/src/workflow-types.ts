@@ -5,7 +5,7 @@ import type {
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
 import type { ConnectionBase } from "@repo-edu/domain/connection"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type {
   ExportFormat,
   GitProviderKind,
@@ -85,25 +85,25 @@ export type RosterExportMembersInput = {
 
 export type RosterImportFromLmsInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   lmsCourseId: string
 }
 
 export type GroupSetSyncFromLmsInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   groupSetId: string
 }
 
 export type GroupSetConnectFromLmsInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   remoteGroupSetId: string
 }
 
 export type GroupSetFetchAvailableFromLmsInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
 }
 
 export type GroupSetLmsSummary = LmsContractGroupSetSummary
@@ -136,7 +136,7 @@ export type GroupSetExportInput = {
 
 export type GitUsernameImportInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   file: UserFileRef
 }
 
@@ -151,7 +151,7 @@ export type RosterValidationInput = {
 
 export type RepositoryBatchInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   assignmentId: string | null
   template: RepositoryTemplate | null
   targetDirectory?: string
@@ -160,13 +160,13 @@ export type RepositoryBatchInput = {
 
 export type RepositoryUpdateInput = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   assignmentId: string
   templateOverride?: RepositoryTemplate | null
 }
 
 export type RepositoryListNamespaceInput = {
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   namespace: string
   filter?: string
   includeArchived?: boolean
@@ -196,7 +196,7 @@ export type RepositoryBulkCloneEntry = {
 }
 
 export type RepositoryBulkCloneInput = {
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   namespace: string
   repositories: RepositoryBulkCloneEntry[]
   targetDirectory: string

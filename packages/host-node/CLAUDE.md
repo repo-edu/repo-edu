@@ -11,8 +11,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `createNodeGitCommandPort(processPort?)` — `GitCommandPort` wrapping `ProcessPort`, calls system `git`
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises` (inspect, batch operations, temp directories, list-directory)
 - `createNodeLlmPort(config?)` — `LlmPort` that delegates to the `createLlmTextClient` dispatcher in `@repo-edu/integrations-llm`; routes per call by `spec.provider` to either the Claude or Codex adapter, with auth/env resolved through their respective SDKs
+- `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver. Desktop passes Electron's platform app-data base; CLI uses the same resolver directly.
 - `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)` (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in `src/sqlite/transaction.ts` wrap statements in transactions.
-- File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop stores.
+- File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
+- Settings section-store helpers validate strict JSON sections, write atomically, and back invalid, unparseable or unsupported composite settings files aside for recovery-aware loads.
 
 ## Rules
 

@@ -23,21 +23,29 @@ import {
   createCliCourseStore,
 } from "./state-store.js"
 
-export function createCliWorkflowHandlers() {
-  const courseStore = createCliCourseStore()
-  const appSettingsStore = createCliAppSettingsStore()
+export type CliWorkflowRuntimeOptions = {
+  storageRoot?: string
+}
+
+export function createCliWorkflowHandlers(
+  options: CliWorkflowRuntimeOptions = {},
+) {
+  const courseStore = createCliCourseStore(options.storageRoot)
+  const appSettingsStore = createCliAppSettingsStore(options.storageRoot)
   const http = createNodeHttpPort()
   const lms = createLmsProviderDispatch(http)
   const git = createGitProviderDispatch(http)
 
   const courseHandlers = createCourseWorkflowHandlers(courseStore)
   const connectionHandlers = createConnectionWorkflowHandlers({ lms, git })
+  const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
 
   return {
     "course.list": courseHandlers["course.list"],
     "course.load": courseHandlers["course.load"],
     "course.save": courseHandlers["course.save"],
-    ...createSettingsWorkflowHandlers(appSettingsStore),
+    "settings.loadApp": settingsHandlers["settings.loadApp"],
+    "settings.savePreferences": settingsHandlers["settings.savePreferences"],
     "connection.verifyLmsDraft":
       connectionHandlers["connection.verifyLmsDraft"],
     "connection.verifyGitDraft":
@@ -120,8 +128,10 @@ export function createCliWorkflowClientFromBase(
   }
 }
 
-export function createCliWorkflowClient(): WorkflowClient {
+export function createCliWorkflowClient(
+  options: CliWorkflowRuntimeOptions = {},
+): WorkflowClient {
   return createCliWorkflowClientFromBase(
-    createWorkflowClient(createCliWorkflowHandlers()),
+    createWorkflowClient(createCliWorkflowHandlers(options)),
   )
 }

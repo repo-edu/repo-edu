@@ -1,5 +1,8 @@
 import path from "node:path"
-import type { RecordedRepositoriesByAssignment } from "@repo-edu/application-contract"
+import type {
+  RecordedRepositoriesByAssignment,
+  WorkflowClient,
+} from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type {
   PersistedCourse,
@@ -8,6 +11,7 @@ import type {
 import type { Command } from "commander"
 import {
   emitCommandError,
+  loadAppSettings,
   loadSelectedCourse,
   resolveAssignmentFromCourse,
   toErrorMessage,
@@ -240,7 +244,10 @@ async function promptConfirmation(message: string): Promise<boolean> {
   })
 }
 
-export function registerRepoCommands(parent: Command): void {
+export function registerRepoCommands(
+  parent: Command,
+  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+): void {
   const repo = parent.command("repo").description("Repository operations")
 
   repo
@@ -254,7 +261,7 @@ export function registerRepoCommands(parent: Command): void {
       "Local template directory (must be a Git repository)",
     )
     .action(async function (this: Command, options: RepoCreateOptions) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const { course, settings } = await loadSelectedCourse(
@@ -307,7 +314,7 @@ export function registerRepoCommands(parent: Command): void {
           course.repositoryTemplate
         const result = await workflowClient.run("repo.create", {
           course,
-          appSettings: settings,
+          credentials: settings.credentials,
           assignmentId: assignment?.id ?? null,
           template,
         })
@@ -348,7 +355,7 @@ export function registerRepoCommands(parent: Command): void {
     .option("--target <dir>", "Target directory")
     .option("--layout <layout>", "Directory layout: flat, by-team, by-task")
     .action(async function (this: Command, options: RepoCloneOptions) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const { course, settings } = await loadSelectedCourse(
@@ -373,7 +380,7 @@ export function registerRepoCommands(parent: Command): void {
 
         const result = await workflowClient.run("repo.clone", {
           course,
-          appSettings: settings,
+          credentials: settings.credentials,
           assignmentId: assignment?.id ?? null,
           template: course.repositoryTemplate,
           targetDirectory: normalizeCliTargetDirectory(options.target ?? "."),
@@ -415,7 +422,7 @@ export function registerRepoCommands(parent: Command): void {
       "Local template directory (must be a Git repository)",
     )
     .action(async function (this: Command, options: RepoUpdateOptions) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const { course, settings } = await loadSelectedCourse(
@@ -438,7 +445,7 @@ export function registerRepoCommands(parent: Command): void {
         )
         const result = await workflowClient.run("repo.update", {
           course,
-          appSettings: settings,
+          credentials: settings.credentials,
           assignmentId: assignment.id,
           ...(templateOverride ? { templateOverride } : {}),
         })
@@ -495,9 +502,9 @@ export function registerRepoCommands(parent: Command): void {
     .requiredOption("--target <dir>", "Target directory for clones")
     .option("--yes", "Skip interactive confirmation")
     .action(async function (this: Command, options: RepoDiscoverOptions) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
       try {
-        const settings = await workflowClient.run("settings.loadApp", undefined)
+        const settings = await loadAppSettings(workflowClient)
 
         if (!options.namespace) {
           throw new Error("--namespace is required")
@@ -508,7 +515,7 @@ export function registerRepoCommands(parent: Command): void {
         const targetDirectory = normalizeCliTargetDirectory(options.target)
 
         const listResult = await workflowClient.run("repo.listNamespace", {
-          appSettings: settings,
+          credentials: settings.credentials,
           namespace: options.namespace,
           filter: options.filter,
           includeArchived: options.includeArchived,
@@ -555,7 +562,7 @@ export function registerRepoCommands(parent: Command): void {
         }
 
         const cloneResult = await workflowClient.run("repo.bulkClone", {
-          appSettings: settings,
+          credentials: settings.credentials,
           namespace: options.namespace,
           repositories: listResult.repositories.map(({ name, identifier }) => ({
             name,

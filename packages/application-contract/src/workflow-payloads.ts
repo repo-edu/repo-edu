@@ -1,5 +1,8 @@
 import type { AnalysisResult, BlameResult } from "@repo-edu/domain/analysis"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type {
+  PersistedAppCredentials,
+  PersistedAppPreferences,
+} from "@repo-edu/domain/settings"
 import type {
   CourseSummary,
   GroupSetImportPreview,
@@ -74,6 +77,24 @@ import type {
 
 export type CourseSaveStamp = Pick<PersistedCourse, "revision" | "updatedAt">
 
+export type SettingsRecoveryUnit =
+  | "credentials"
+  | "preferences"
+  | "unsupported-composite"
+export type SettingsRecoveryReason = "invalid" | "unparseable" | "unsupported"
+
+export type SettingsRecoveryEntry = {
+  unit: SettingsRecoveryUnit
+  reason: SettingsRecoveryReason
+  backupPath: string
+}
+
+export type AppSettingsLoadResult = {
+  credentials: PersistedAppCredentials
+  preferences: PersistedAppPreferences
+  recovery: SettingsRecoveryEntry[]
+}
+
 export type WorkflowPayloads = {
   "course.list": {
     input: undefined
@@ -103,10 +124,16 @@ export type WorkflowPayloads = {
     input: undefined
     progress: never
     output: never
-    result: PersistedAppSettings
+    result: AppSettingsLoadResult
   }
-  "settings.saveApp": {
-    input: PersistedAppSettings
+  "settings.saveCredentials": {
+    input: PersistedAppCredentials
+    progress: MilestoneProgress
+    output: DiagnosticOutput
+    result: undefined
+  }
+  "settings.savePreferences": {
+    input: PersistedAppPreferences
     progress: MilestoneProgress
     output: DiagnosticOutput
     result: undefined

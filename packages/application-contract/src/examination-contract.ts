@@ -537,10 +537,10 @@ export type ExaminationGenerateQuestionsBaseInput = {
   excerptFileSources: Record<string, string>
   questionCount: number
   /**
-   * Subset of app settings the examination workflow needs to resolve which
-   * LLM connection and model code to use. The renderer reads these from
-   * `useAppSettingsStore` and forwards them so the workflow stays a pure
-   * function of its input.
+   * Subset of settings the examination workflow needs to resolve which LLM
+   * connection and model code to use. The renderer composes LLM credentials
+   * from `useCredentialsStore` with model preferences from `useAppSettingsStore`
+   * so the workflow stays a pure function of its input.
    */
   llmSettings: ExaminationLlmSettings
 }

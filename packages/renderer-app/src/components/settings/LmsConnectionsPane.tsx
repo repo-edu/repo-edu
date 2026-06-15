@@ -22,8 +22,8 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   displayUrl,
@@ -47,14 +47,14 @@ type LmsViewState =
   | { view: "editor"; originalId: string | null }
 
 export function LmsConnectionsPane() {
-  const settings = useAppSettingsStore((state) => state.settings)
-  const addLmsConnection = useAppSettingsStore(
+  const credentials = useCredentialsStore((state) => state.credentials)
+  const addLmsConnection = useCredentialsStore(
     (state) => state.addLmsConnection,
   )
-  const updateLmsConnection = useAppSettingsStore(
+  const updateLmsConnection = useCredentialsStore(
     (state) => state.updateLmsConnection,
   )
-  const removeLmsConnection = useAppSettingsStore(
+  const removeLmsConnection = useCredentialsStore(
     (state) => state.removeLmsConnection,
   )
   const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
@@ -63,7 +63,7 @@ export function LmsConnectionsPane() {
     (state) => state.setLmsConnectionStatus,
   )
 
-  const lmsConnections = settings.lmsConnections
+  const lmsConnections = credentials.lmsConnections
 
   const [viewState, setViewState] = useState<LmsViewState>({ view: "list" })
   const [draft, setDraft] = useState<LmsDraft>(emptyLmsDraft())

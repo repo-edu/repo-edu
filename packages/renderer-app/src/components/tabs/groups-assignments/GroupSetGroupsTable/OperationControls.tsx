@@ -23,7 +23,7 @@ import { ChevronDown, Loader2 } from "@repo-edu/ui/components/icons"
 import { useEffect, useState } from "react"
 import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../../../stores/app-settings-store.js"
+import { useCredentialsStore } from "../../../../stores/credentials-store.js"
 import { useUiStore } from "../../../../stores/ui-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import type {
@@ -570,7 +570,7 @@ const CLONE_ALL_LIST_DEBOUNCE_MS = 350
 
 function CloneAllFields({ ops }: { ops: UseRepoOps }) {
   const rendererHost = useRendererHost()
-  const appSettings = useAppSettingsStore((s) => s.settings)
+  const credentials = useCredentialsStore((s) => s.credentials)
   const [filter, setFilter] = useState("")
   const [includeArchived, setIncludeArchived] = useState(false)
   const [targetDirectory, setTargetDirectory] = useState<string>(
@@ -626,7 +626,7 @@ function CloneAllFields({ ops }: { ops: UseRepoOps }) {
           const result = await client.run(
             "repo.listNamespace",
             {
-              appSettings,
+              credentials,
               namespace,
               filter: filter.trim() || undefined,
               includeArchived,
@@ -655,7 +655,7 @@ function CloneAllFields({ ops }: { ops: UseRepoOps }) {
     namespace,
     hasConnection,
     hasNamespace,
-    appSettings,
+    credentials,
   ])
 
   const handleBulkClone = async () => {
@@ -666,7 +666,7 @@ function CloneAllFields({ ops }: { ops: UseRepoOps }) {
     try {
       const client = getWorkflowClient()
       const result = await client.run("repo.bulkClone", {
-        appSettings,
+        credentials,
         namespace,
         repositories: listResult.repositories.map(({ name, identifier }) => ({
           name,

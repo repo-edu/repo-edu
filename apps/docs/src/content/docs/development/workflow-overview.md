@@ -55,7 +55,7 @@ type WorkflowClient = {
 }
 ```
 
-Callers never know (or care) which transport delivers the execution. The React renderer receives the same client shape regardless of whether it is backed by tRPC-electron IPC, an in-process handler, or a browser mock. Renderer session workflows such as `course.load` and `settings.saveApp` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
+Callers never know (or care) which transport delivers the execution. The React renderer receives the same client shape regardless of whether it is backed by tRPC-electron IPC, an in-process handler, or a browser mock. Renderer session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
 
 ### WorkflowHandler
 
@@ -75,7 +75,7 @@ Handlers live in `packages/application/src/` and are grouped by domain (course, 
 Workflows are organized into domain groups:
 
 - **course** — list, load, save, delete courses
-- **settings** — load and save application settings
+- **settings** — load application settings sections and save credentials or preferences independently
 - **connection** — verify LMS, Git, and LLM connection drafts; list LMS courses
 - **roster** — import rosters from file or LMS, export members
 - **groupSet** — fetch, connect, sync, preview import, and export group sets

@@ -24,6 +24,7 @@ import type {
 } from "@repo-edu/application-contract"
 import { createWorkflowClient } from "@repo-edu/application-contract"
 import type { TokenizerSupportedLanguage } from "@repo-edu/domain/analysis"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { GroupSet, PersistedCourse } from "@repo-edu/domain/types"
 import { createBrowserMockHostEnvironment } from "@repo-edu/host-browser-mock"
 import type { RemoteLmsMember } from "@repo-edu/integrations-lms-contract"
@@ -181,7 +182,9 @@ export function createDocsDemoRuntime() {
     ) ?? null
 
   const courseStore = createInMemoryCourseStore([lmsCourse, repobeeCourse])
-  const appSettingsStore = createInMemoryAppSettingsStore(fixture.settings)
+  const appSettingsStore = createInMemoryAppSettingsStore(
+    splitAppSettings(fixture.settings),
+  )
 
   const lmsPorts = createMockLmsPorts(
     lmsCourse,

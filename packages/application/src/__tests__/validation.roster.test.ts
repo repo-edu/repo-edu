@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { systemSetsMissing } from "@repo-edu/domain/group-set"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import { createRosterWorkflowHandlers } from "../roster-workflows.js"
 import {
   getCourseAndSettingsScenario,
@@ -224,7 +225,7 @@ describe("application roster workflow helpers", () => {
     const imported = await handlers["roster.importFromLms"](
       {
         course,
-        appSettings: settings,
+        credentials: splitAppSettings(settings).credentials,
         lmsCourseId: "course-42",
       },
       {
@@ -275,7 +276,7 @@ describe("application roster workflow helpers", () => {
     await assert.rejects(
       handlers["roster.importFromLms"]({
         course,
-        appSettings: settings,
+        credentials: splitAppSettings(settings).credentials,
         lmsCourseId: "course-42",
       }),
       (error: unknown) =>

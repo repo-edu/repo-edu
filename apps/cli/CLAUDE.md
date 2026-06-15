@@ -11,7 +11,7 @@ Run CLI after build: `node apps/cli/dist/redu.js --help`
 - `src/cli.ts`: Commander command tree (`redu`)
 - `src/commands/*`: command handlers and shell output formatting
 - `src/workflow-runtime.ts`: builds in-process `WorkflowClient` from `@repo-edu/application`
-- `src/state-store.ts`: filesystem-backed course/settings stores
+- `src/state-store.ts`: filesystem-backed course store plus settings credentials/preferences section stores
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).
 
@@ -26,13 +26,13 @@ All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-ed
 
 ## Data Directory
 
-Default: `~/.repo-edu`
+Default: the shared platform app-data root resolved by `@repo-edu/host-node`.
+In-process tests pass temporary roots through `createProgram` or workflow store
+constructors.
 
-Override for tests or automation:
-
-```bash
-REPO_EDU_CLI_DATA_DIR=/tmp/repo-edu-cli node apps/cli/dist/redu.js course list
-```
+Settings are stored under `settings/credentials.json` and
+`settings/preferences.json`. CLI commands print recovery warnings when a corrupt
+or unsupported composite settings file is backed aside.
 
 ## Rules
 

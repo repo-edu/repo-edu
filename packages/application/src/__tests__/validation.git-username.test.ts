@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { GitUsernameImportInput } from "@repo-edu/application-contract"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import { createGitUsernameWorkflowHandlers } from "../git-username-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 
@@ -62,7 +63,7 @@ describe("application git username workflow helpers", () => {
 
     const roster = await handlers["gitUsernames.import"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       file: {
         kind: "user-file-ref",
         referenceId: "file-1",
@@ -156,7 +157,7 @@ describe("application git username workflow helpers", () => {
     await assert.rejects(
       handlers["gitUsernames.import"]({
         course,
-        appSettings: settings,
+        credentials: splitAppSettings(settings).credentials,
         file: {
           kind: "user-file-ref",
           referenceId: "file-3",

@@ -52,10 +52,4 @@ redu update --check
 
 ## Data directory
 
-The CLI stores course and settings data in `~/.repo-edu/` by default. To use a different directory, set the `REPO_EDU_CLI_DATA_DIR` environment variable:
-
-```bash
-REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
-```
-
-The desktop app and CLI share the same data format, but their default storage locations are different. If you use both, configure them to point to the same directory or copy data between them.
+The CLI and desktop app store course and settings data under the same platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.

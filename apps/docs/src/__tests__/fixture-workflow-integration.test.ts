@@ -66,7 +66,7 @@ describe("docs fixture integration: seeded LMS course", () => {
     await assert.rejects(
       runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
         course,
-        appSettings,
+        credentials: appSettings.credentials,
       }),
       (error: unknown) =>
         isAppErrorWithAnyType(error, ["validation", "not-found"]),
@@ -75,7 +75,7 @@ describe("docs fixture integration: seeded LMS course", () => {
     await assert.rejects(
       runtime.workflowClient.run("roster.importFromLms", {
         course,
-        appSettings,
+        credentials: appSettings.credentials,
         lmsCourseId: runtime.lmsCourseId,
       }),
       (error: unknown) =>
@@ -111,7 +111,7 @@ describe("docs fixture integration: seeded RepoBee course", () => {
     await assert.rejects(
       runtime.workflowClient.run("groupSet.fetchAvailableFromLms", {
         course,
-        appSettings,
+        credentials: appSettings.credentials,
       }),
       (error: unknown) => isAppErrorWithType(error, "validation"),
     )
@@ -119,7 +119,7 @@ describe("docs fixture integration: seeded RepoBee course", () => {
     await assert.rejects(
       runtime.workflowClient.run("roster.importFromLms", {
         course,
-        appSettings,
+        credentials: appSettings.credentials,
         lmsCourseId: runtime.lmsCourseId,
       }),
       (error: unknown) => isAppErrorWithType(error, "validation"),
@@ -156,7 +156,7 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
     const calculatorResult = await runtime.workflowClient.run("repo.create", {
       course,
-      appSettings,
+      credentials: appSettings.credentials,
       assignmentId: "calculator",
       template: null,
     })
@@ -167,7 +167,7 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
     const schedulerResult = await runtime.workflowClient.run("repo.create", {
       course,
-      appSettings,
+      credentials: appSettings.credentials,
       assignmentId: "topological-task-scheduler",
       template: null,
     })
@@ -206,7 +206,7 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
     const calculatorResult = await runtime.workflowClient.run("repo.create", {
       course,
-      appSettings,
+      credentials: appSettings.credentials,
       assignmentId: "calculator",
       template: null,
     })
@@ -217,7 +217,7 @@ describe("docs fixture integration: repository planning by fixed task setup", ()
 
     const huffmanResult = await runtime.workflowClient.run("repo.create", {
       course,
-      appSettings,
+      credentials: appSettings.credentials,
       assignmentId: "huffman-encoder",
       template: null,
     })

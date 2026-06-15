@@ -2,7 +2,8 @@ import type { WorkflowId } from "@repo-edu/application-contract"
 
 export type ControllerWorkflowId =
   | "settings.loadApp"
-  | "settings.saveApp"
+  | "settings.saveCredentials"
+  | "settings.savePreferences"
   | "course.load"
   | "course.save"
   | "course.delete"

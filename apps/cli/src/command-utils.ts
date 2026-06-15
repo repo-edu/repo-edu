@@ -1,7 +1,11 @@
-import type { WorkflowClient } from "@repo-edu/application-contract"
+import type {
+  AppSettingsLoadResult,
+  SettingsRecoveryEntry,
+  WorkflowClient,
+} from "@repo-edu/application-contract"
 import {
   activeCourseIdFromSurface,
-  type PersistedAppSettings,
+  type PersistedAppCredentials,
   resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
@@ -29,6 +33,29 @@ export function toErrorMessage(error: unknown): string {
   return String(error)
 }
 
+function formatSettingsRecoveryWarning(entry: SettingsRecoveryEntry): string {
+  if (entry.unit === "unsupported-composite") {
+    return `Settings recovery: unsupported app settings were moved to ${entry.backupPath}.`
+  }
+  return `Settings recovery: ${entry.unit} settings were ${entry.reason}; moved to ${entry.backupPath}.`
+}
+
+export function emitSettingsRecoveryWarnings(
+  recovery: readonly SettingsRecoveryEntry[],
+): void {
+  for (const entry of recovery) {
+    process.stderr.write(`${formatSettingsRecoveryWarning(entry)}\n`)
+  }
+}
+
+export async function loadAppSettings(
+  workflowClient: WorkflowClient,
+): Promise<AppSettingsLoadResult> {
+  const settings = await workflowClient.run("settings.loadApp", undefined)
+  emitSettingsRecoveryWarnings(settings.recovery)
+  return settings
+}
+
 export function resolveRequestedCourseId(
   command: Command,
   fallbackActiveCourseId: string | null,
@@ -46,13 +73,13 @@ export async function loadSelectedCourse(
   workflowClient: WorkflowClient,
 ): Promise<{
   selectedCourseId: string
-  settings: PersistedAppSettings
+  settings: AppSettingsLoadResult
   course: PersistedCourse
 }> {
-  const settings = await workflowClient.run("settings.loadApp", undefined)
+  const settings = await loadAppSettings(workflowClient)
   const selectedCourseId = resolveRequestedCourseId(
     command,
-    activeCourseIdFromSurface(settings.activeSurface),
+    activeCourseIdFromSurface(settings.preferences.activeSurface),
   )
 
   if (selectedCourseId === null) {
@@ -89,13 +116,13 @@ export function resolveAssignmentFromCourse(
 
 export function requireLmsConnection(
   course: PersistedCourse,
-  settings: PersistedAppSettings,
+  credentials: PersistedAppCredentials,
 ) {
   if (course.lmsConnectionId === null) {
     throw new Error("Selected course does not reference an LMS connection.")
   }
 
-  const connection = settings.lmsConnections.find(
+  const connection = credentials.lmsConnections.find(
     (candidate) => candidate.id === course.lmsConnectionId,
   )
 
@@ -108,8 +135,8 @@ export function requireLmsConnection(
   return connection
 }
 
-export function requireGitConnection(settings: PersistedAppSettings) {
-  const connection = resolveActiveGitConnection(settings)
+export function requireGitConnection(credentials: PersistedAppCredentials) {
+  const connection = resolveActiveGitConnection(credentials)
   if (connection === null) {
     throw new Error("No Git connection is configured in settings.")
   }

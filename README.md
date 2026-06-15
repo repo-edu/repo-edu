@@ -51,7 +51,9 @@ pnpm build:cli
 ./apps/cli/dist/redu --help
 ```
 
-CLI data is stored under `~/.repo-edu` by default. Override with `REPO_EDU_CLI_DATA_DIR`.
+CLI and desktop data share the platform app-data root: macOS
+`~/Library/Application Support/repo-edu`, Linux
+`${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
 
 ### Install CLI (end-user)
 

@@ -5,22 +5,44 @@ description: Persisted settings, course schema, roster entities, and boundary va
 
 The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, which means it runs identically in the Electron desktop app, the CLI, and the browser-based docs demo.
 
-Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppSettings`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion Zod schemas in `packages/domain/src/schemas.ts` validate course data at boundaries: the points where the application reads or writes JSON files. When a persisted file is loaded from disk, the schema checks that its shape matches what the code expects. If it doesn't, the load fails with structured, path-level error messages rather than producing subtle runtime bugs.
+Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppCredentials`, `PersistedAppPreferences`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion validators in `packages/domain/src/schemas.ts` validate persisted files at boundaries: the points where the application reads or writes JSON. When a persisted course file is loaded from disk, the schema checks that its shape matches what the code expects. Settings sections recover independently, so a corrupt preferences file can be backed aside without rejecting valid credentials.
 
 ## Schema discriminators
 
-Each persisted document carries a `kind` discriminator:
+Each persisted document and composite fixture snapshot carries a `kind`
+discriminator:
 
 | Document | Kind |
 |----------|------|
-| App settings | `repo-edu.app-settings.v2` |
+| App credentials | `repo-edu.app-credentials.v1` |
+| App preferences | `repo-edu.app-preferences.v1` |
+| Composite app settings snapshot | `repo-edu.app-settings.v2` |
 | Course | `repo-edu.course.v1` |
 
-There is no migration layer — invalid documents are rejected at the boundary.
+There is no migration layer. Unsupported composite app settings files and
+invalid settings sections are backed aside during recovery-aware loads; invalid
+course documents are rejected at the boundary.
 
 ## Persisted settings
 
-`PersistedAppSettings` stores application-wide state in a single file.
+Desktop and CLI persist app settings as two strict JSON units under `settings/`:
+`credentials.json` and `preferences.json`. The composite
+`PersistedAppSettings` type remains available for fixtures and bootstrap
+composition, but it is not the disk document and non-settings workflows receive
+only the credentials slice they need.
+
+`PersistedAppCredentials` stores credential-bearing connection records:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
+| `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
+| `activeGitConnectionId` | `string \| null` | Selected Git connection, or fallback to the first configured connection |
+| `llmConnections` | `PersistedLlmConnection[]` | Claude/Codex connections. Claude API-key records include required `maxTokens`; subscription records and Codex records omit it. |
+| `activeLlmConnectionId` | `string \| null` | Selected LLM connection, or fallback to the first configured connection |
+
+`PersistedAppPreferences` stores disposable UI, workspace and model-selection
+state:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -32,11 +54,6 @@ There is no migration layer — invalid documents are rejected at the boundary.
 | `folderViewAnalysisInputs` | `AnalysisInputs` | Shared Analysis-tab inputs for folder analysis surfaces |
 | `submissionSurfaceStates` | `Record<string, SubmissionSurfaceState>` | Per-submission folder UI state for selected files |
 | `appearance` | `AppAppearance` | Theme, window chrome, date/time format |
-| `lmsConnections` | `PersistedLmsConnection[]` | Canvas/Moodle connections (name, provider, baseUrl, token) |
-| `gitConnections` | `PersistedGitConnection[]` | GitHub/GitLab/Gitea connections (id, provider, baseUrl, token) |
-| `activeGitConnectionId` | `string \| null` | Selected Git connection, or fallback to the first configured connection |
-| `llmConnections` | `PersistedLlmConnection[]` | Claude/Codex connections. Claude API-key records include required `maxTokens`; subscription records and Codex records omit it. |
-| `activeLlmConnectionId` | `string \| null` | Selected LLM connection, or fallback to the first configured connection |
 | `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Per-column visibility state for roster table |
@@ -138,12 +155,13 @@ See [Repository Records](/repo-edu/development/repository-records/) for the full
 
 ## Boundary validation
 
-Two functions validate persisted documents at load boundaries:
+Persisted documents are validated at load boundaries:
 
-- `validatePersistedAppSettings(value)` → `ValidationResult<PersistedAppSettings>`
+- `validatePersistedAppCredentials(value)` → `ValidationResult<PersistedAppCredentials>`
+- `validatePersistedAppPreferences(value)` → `ValidationResult<PersistedAppPreferences>`
 - `validatePersistedCourse(value)` → `ValidationResult<PersistedCourse>`
 
-Both use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each `ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid files are rejected — there is no partial-load or best-effort parsing.
+All use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each `ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid settings sections are backed aside by the host and replaced with section defaults; invalid course files are rejected.
 
 Settings-persistence types use `z.infer` in `settings.ts` (no drift guard needed). A compile-time drift guard in `schemas.ts` ensures the `PersistedCourse` Zod inferred type stays in sync with its hand-authored TypeScript type.
 

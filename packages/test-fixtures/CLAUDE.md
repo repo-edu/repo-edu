@@ -4,7 +4,7 @@ Deterministic, runtime-generated fixture data for tests across the monorepo.
 
 ## Purpose
 
-Provides a matrix of LMS- and RepoBee-backed `PersistedCourse` documents plus `PersistedAppSettings` and CSV/JSON artifacts, keyed by tier (`small`/`medium`/`stress`) and preset (`shared-teams`/`task-groups`/`repobee-teams`). The `repobee-teams` preset emits `backing: "repobee"` (no LMS connection), and the LMS-backed presets emit `backing: "lms"`.
+Provides a matrix of LMS- and RepoBee-backed `PersistedCourse` documents plus composite `PersistedAppSettings` fixture snapshots and CSV/JSON artifacts, keyed by tier (`small`/`medium`/`stress`) and preset (`shared-teams`/`task-groups`/`repobee-teams`). Consumers split fixture settings into credentials/preferences sections before persisting. The `repobee-teams` preset emits `backing: "repobee"` (no LMS connection), and the LMS-backed presets emit `backing: "lms"`.
 
 - `src/fixture-defs.ts` — tier/preset definitions and guards
 - `src/generator-lib.ts` — seeded faker-based generation (students, staff, groups, assignments, artifacts); uses counter-based IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) with `idSequences`

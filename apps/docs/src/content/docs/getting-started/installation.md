@@ -67,10 +67,6 @@ pnpm docs:dev
 
 Starts the documentation site locally with an embedded interactive demo.
 
-## CLI data directory
+## Data directory
 
-By default, the CLI stores course and settings data in `~/.repo-edu/`. To use a different location:
-
-```bash
-REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
-```
+The CLI and desktop app share the platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.

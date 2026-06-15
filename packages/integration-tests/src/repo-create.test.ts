@@ -6,7 +6,10 @@ import { join } from "node:path"
 import { after, before, describe, it } from "node:test"
 import { promisify } from "node:util"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  type PersistedAppSettings,
+  splitAppSettings,
+} from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
@@ -103,7 +106,7 @@ for (const harness of harnesses) {
 
         const result = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -149,7 +152,7 @@ for (const harness of harnesses) {
 
         const result = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -176,7 +179,7 @@ for (const harness of harnesses) {
       await withIsolatedOrg(async ({ course, settings }) => {
         const firstResult = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -187,7 +190,7 @@ for (const harness of harnesses) {
 
         const secondResult = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -215,7 +218,7 @@ for (const harness of harnesses) {
         // First run: creates every repo and populates records.
         const firstResult = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -242,7 +245,7 @@ for (const harness of harnesses) {
         // for its group should still point at the same name.
         const secondResult = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -295,7 +298,7 @@ for (const harness of harnesses) {
 
         const result = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template,
         })
@@ -358,7 +361,7 @@ for (const harness of harnesses) {
 
           const result = await handlers["repo.create"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template,
           })

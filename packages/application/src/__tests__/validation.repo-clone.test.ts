@@ -56,7 +56,7 @@ describe("application repository clone workflow helpers", () => {
     })
     const cloneResult = await handlers["repo.clone"]({
       course,
-      appSettings: settings,
+      credentials: settings,
       assignmentId: "a1",
       template: null,
       targetDirectory: "/work/repos",
@@ -142,7 +142,7 @@ describe("application repository clone workflow helpers", () => {
     })
     const cloneResult = await handlers["repo.clone"]({
       course,
-      appSettings: settings,
+      credentials: settings,
       assignmentId: "a1",
       template: null,
       targetDirectory: "/work/repos",
@@ -208,7 +208,7 @@ describe("application repository clone workflow helpers", () => {
       async () =>
         handlers["repo.clone"]({
           course,
-          appSettings: settings,
+          credentials: settings,
           assignmentId: "a1",
           template: null,
           targetDirectory: "/work/repos",
@@ -282,7 +282,7 @@ describe("application repository clone workflow helpers", () => {
     })
     const cloneResult = await handlers["repo.clone"]({
       course,
-      appSettings: settings,
+      credentials: settings,
       assignmentId: "a1",
       template: null,
       targetDirectory: "/work/repos",
@@ -319,7 +319,7 @@ describe("application repository clone workflow helpers", () => {
       async () =>
         handlers["repo.clone"]({
           course,
-          appSettings: settings,
+          credentials: settings,
           assignmentId: "a1",
           template: null,
           targetDirectory: "./repos",

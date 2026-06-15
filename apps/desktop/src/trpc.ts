@@ -20,6 +20,7 @@ import {
 } from "@repo-edu/application"
 import type {
   AppError,
+  AppSettingsLoadResult,
   WorkflowEventFor,
   WorkflowHandler,
   WorkflowHandlerMap,
@@ -31,8 +32,9 @@ import {
   type workflowCatalog,
 } from "@repo-edu/application-contract"
 import {
-  defaultAppSettings,
-  type PersistedAppSettings,
+  defaultAppPreferences,
+  type PersistedAppCredentials,
+  type PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import type {
   ExaminationArchiveStoragePort,
@@ -62,16 +64,23 @@ export type DesktopRouterPorts = {
   llm: LlmPort
   tokenizer: TokenizerPort
   examinationArchive: ExaminationArchiveStoragePort
+  initialSettingsLoadResult?: AppSettingsLoadResult
   parentAbortSignal?: AbortSignal
   onWorkflowInvocationStart?: () => () => void
   /**
-   * Called whenever `settings.saveApp` succeeds with the validated, env-stripped
-   * settings about to be persisted. Composition root uses this to rebuild the
-   * LLM port delegate so the next workflow run sees the updated connection.
+   * Called whenever `settings.saveCredentials` succeeds. Composition root uses
+   * this to rebuild the LLM port delegate so the next workflow run sees the
+   * updated connection.
    */
-  onAppSettingsSaved?: (settings: PersistedAppSettings) => void
+  onAppCredentialsSaved?: (credentials: PersistedAppCredentials) => void
   /** Factory for verifying draft LLM connections. */
   createDraftLlmTextClient: LlmConnectionWorkflowPorts["createDraftLlmTextClient"]
+}
+
+type DesktopSettingsStore = AppSettingsStore & {
+  readPreferencesWithoutRecovery?(
+    signal?: AbortSignal,
+  ): Promise<PersistedAppPreferences | null> | PersistedAppPreferences | null
 }
 
 function envPositiveInt(name: string): number | null {
@@ -85,35 +94,40 @@ function envPositiveInt(name: string): number | null {
 /**
  * Applies session-scoped env overrides on top of the loaded settings so
  * the renderer and workflow handlers consume the same effective values
- * this launch. Env values are not persisted — `settings.saveApp` writes
- * the raw payload unchanged.
+ * this launch. Env values are not persisted; preference saves strip these
+ * fields from the raw preferences section.
  */
 function applyEnvOverrides(
-  settings: PersistedAppSettings,
-): PersistedAppSettings {
+  result: AppSettingsLoadResult,
+): AppSettingsLoadResult {
   const repoParallelism = envPositiveInt("REPO_EDU_REPO_PARALLELISM")
   const filesPerRepo = envPositiveInt("REPO_EDU_FILES_PER_REPO")
   if (repoParallelism === null && filesPerRepo === null) {
-    return settings
+    return result
   }
   return {
-    ...settings,
-    analysisConcurrency: {
-      repoParallelism:
-        repoParallelism ?? settings.analysisConcurrency.repoParallelism,
-      filesPerRepo: filesPerRepo ?? settings.analysisConcurrency.filesPerRepo,
+    ...result,
+    preferences: {
+      ...result.preferences,
+      analysisConcurrency: {
+        repoParallelism:
+          repoParallelism ??
+          result.preferences.analysisConcurrency.repoParallelism,
+        filesPerRepo:
+          filesPerRepo ?? result.preferences.analysisConcurrency.filesPerRepo,
+      },
     },
   }
 }
 
 /**
- * Prevents launch-scoped env overrides from leaking into persisted settings.
+ * Prevents launch-scoped env overrides from leaking into persisted preferences.
  * Any field currently overridden by env is persisted from raw disk state.
  */
 function stripEnvOverridesForPersist(
-  next: PersistedAppSettings,
-  rawPersisted: PersistedAppSettings,
-): PersistedAppSettings {
+  next: PersistedAppPreferences,
+  rawPersisted: PersistedAppPreferences,
+): PersistedAppPreferences {
   const repoParallelism = envPositiveInt("REPO_EDU_REPO_PARALLELISM")
   const filesPerRepo = envPositiveInt("REPO_EDU_FILES_PER_REPO")
   if (repoParallelism === null && filesPerRepo === null) {
@@ -142,22 +156,29 @@ function createDesktopWorkflowRegistry(
 
   const examinationArchive = createExaminationArchive(ports.examinationArchive)
 
-  const settingsHandlers = createSettingsWorkflowHandlers(
-    ports.appSettingsStore,
-  )
+  const appSettingsStore = ports.appSettingsStore as DesktopSettingsStore
+  const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
+  let initialSettingsLoadResult = ports.initialSettingsLoadResult
   const wrappedSettingsHandlers: typeof settingsHandlers = {
     ...settingsHandlers,
     "settings.loadApp": async (input, options) => {
-      const loaded = await settingsHandlers["settings.loadApp"](input, options)
+      const loaded =
+        initialSettingsLoadResult ??
+        (await settingsHandlers["settings.loadApp"](input, options))
+      initialSettingsLoadResult = undefined
       return applyEnvOverrides(loaded)
     },
-    "settings.saveApp": async (input, options) => {
+    "settings.savePreferences": async (input, options) => {
       const rawPersisted =
-        (await ports.appSettingsStore.loadSettings(options?.signal)) ??
-        defaultAppSettings
+        (await appSettingsStore.readPreferencesWithoutRecovery?.(
+          options?.signal,
+        )) ?? defaultAppPreferences
       const persistable = stripEnvOverridesForPersist(input, rawPersisted)
-      await settingsHandlers["settings.saveApp"](persistable, options)
-      ports.onAppSettingsSaved?.(persistable)
+      await settingsHandlers["settings.savePreferences"](persistable, options)
+    },
+    "settings.saveCredentials": async (input, options) => {
+      await settingsHandlers["settings.saveCredentials"](input, options)
+      ports.onAppCredentialsSaved?.(input)
     },
   }
 

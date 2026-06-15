@@ -98,7 +98,8 @@ type Violation = { file: string; message: string }
 
 const CONTROLLER_WORKFLOW_IDS = new Set([
   "settings.loadApp",
-  "settings.saveApp",
+  "settings.saveCredentials",
+  "settings.savePreferences",
   "course.load",
   "course.save",
   "course.delete",

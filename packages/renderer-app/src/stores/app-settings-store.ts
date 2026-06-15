@@ -1,5 +1,5 @@
 import {
-  defaultAppSettings,
+  defaultAppPreferences,
   type ExaminationModelsByProvider,
   type LlmProviderKind,
   normalizeAnalysisFolderPath,
@@ -8,13 +8,8 @@ import {
   normalizeSubmissionFolderPath,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
-  type PersistedAppSettings,
-  type PersistedGitConnection,
-  type PersistedLlmConnection,
-  type PersistedLmsConnection,
+  type PersistedAppPreferences,
   pruneSubmissionStateForRecents,
-  resolveActiveGitConnection,
-  resolveActiveLlmConnection,
   type SubmissionFolderRecent,
   type SubmissionSurfaceState,
   type SyntaxThemeId,
@@ -29,14 +24,13 @@ import type {
   TimeFormatPreference,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
-import { useConnectionsStore } from "./connections-store.js"
 
 type AppSettingsState = {
-  settings: PersistedAppSettings
+  settings: PersistedAppPreferences
 }
 
 type AppSettingsActions = {
-  hydrate: (settings: PersistedAppSettings) => void
+  hydrate: (settings: PersistedAppPreferences) => void
 
   setLastUsedCourseBacking: (backing: CourseBacking) => void
   setFolderViewAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
@@ -53,26 +47,12 @@ type AppSettingsActions = {
   pruneSubmissionFoldersForCourses: (
     courses: readonly Pick<CourseSummary, "id" | "backing">[],
   ) => boolean
-  setActiveGitConnectionId: (id: string | null) => void
-
   setTheme: (theme: ThemePreference) => void
   setDateFormat: (dateFormat: DateFormatPreference) => void
   setTimeFormat: (timeFormat: TimeFormatPreference) => void
   setSyntaxTheme: (syntaxTheme: SyntaxThemeId) => void
   setDefaultExtensions: (extensions: string[]) => void
 
-  addLmsConnection: (connection: PersistedLmsConnection) => void
-  updateLmsConnection: (id: string, connection: PersistedLmsConnection) => void
-  removeLmsConnection: (id: string) => void
-
-  addGitConnection: (connection: PersistedGitConnection) => void
-  updateGitConnection: (id: string, connection: PersistedGitConnection) => void
-  removeGitConnection: (id: string) => void
-
-  setActiveLlmConnectionId: (id: string | null) => void
-  addLlmConnection: (connection: PersistedLlmConnection) => void
-  updateLlmConnection: (id: string, connection: PersistedLlmConnection) => void
-  removeLlmConnection: (id: string) => void
   setExaminationModelForProvider: (
     provider: LlmProviderKind,
     code: string,
@@ -92,7 +72,7 @@ type AppSettingsActions = {
 }
 
 const initialState: AppSettingsState = {
-  settings: defaultAppSettings,
+  settings: defaultAppPreferences,
 }
 
 function submissionRecentsEqual(
@@ -327,14 +307,6 @@ export const useAppSettingsStore = create<
       return changed
     },
 
-    setActiveGitConnectionId: (id) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          activeGitConnectionId: id,
-        },
-      })),
-
     setTheme: (theme) =>
       set((state) => ({
         settings: {
@@ -380,109 +352,6 @@ export const useAppSettingsStore = create<
           settings: { ...state.settings, defaultExtensions: normalized },
         }
       }),
-
-    addLmsConnection: (connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          lmsConnections: [...state.settings.lmsConnections, connection],
-        },
-      })),
-
-    updateLmsConnection: (id, connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          lmsConnections: state.settings.lmsConnections.map((lc) =>
-            lc.id === id ? connection : lc,
-          ),
-        },
-      })),
-
-    removeLmsConnection: (id) => {
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          lmsConnections: state.settings.lmsConnections.filter(
-            (lc) => lc.id !== id,
-          ),
-        },
-      }))
-      useConnectionsStore.getState().removeLmsConnectionStatus(id)
-    },
-
-    addGitConnection: (connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          gitConnections: [...state.settings.gitConnections, connection],
-        },
-      })),
-
-    updateGitConnection: (id, connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          gitConnections: state.settings.gitConnections.map((gc) =>
-            gc.id === id ? connection : gc,
-          ),
-        },
-      })),
-
-    removeGitConnection: (id) => {
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          gitConnections: state.settings.gitConnections.filter(
-            (gc) => gc.id !== id,
-          ),
-          activeGitConnectionId:
-            state.settings.activeGitConnectionId === id
-              ? null
-              : state.settings.activeGitConnectionId,
-        },
-      }))
-      useConnectionsStore.getState().removeGitStatus(id)
-    },
-
-    setActiveLlmConnectionId: (id) =>
-      set((state) => ({
-        settings: { ...state.settings, activeLlmConnectionId: id },
-      })),
-
-    addLlmConnection: (connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          llmConnections: [...state.settings.llmConnections, connection],
-        },
-      })),
-
-    updateLlmConnection: (id, connection) =>
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          llmConnections: state.settings.llmConnections.map((lc) =>
-            lc.id === id ? connection : lc,
-          ),
-        },
-      })),
-
-    removeLlmConnection: (id) => {
-      set((state) => ({
-        settings: {
-          ...state.settings,
-          llmConnections: state.settings.llmConnections.filter(
-            (lc) => lc.id !== id,
-          ),
-          activeLlmConnectionId:
-            state.settings.activeLlmConnectionId === id
-              ? null
-              : state.settings.activeLlmConnectionId,
-        },
-      }))
-      useConnectionsStore.getState().removeLlmStatus(id)
-    },
 
     setExaminationModelForProvider: (provider, code) =>
       set((state) => {
@@ -547,22 +416,6 @@ export const useAppSettingsStore = create<
 
 export const selectTheme = (state: AppSettingsState) =>
   state.settings.appearance.theme
-export const selectLmsConnections = (state: AppSettingsState) =>
-  state.settings.lmsConnections
-export const selectGitConnections = (state: AppSettingsState) =>
-  state.settings.gitConnections
-export const selectGitConnection = (id: string) => (state: AppSettingsState) =>
-  state.settings.gitConnections.find((gc) => gc.id === id) ?? null
-export const selectActiveGitConnectionId = (state: AppSettingsState) =>
-  state.settings.activeGitConnectionId
-export const selectActiveGitConnection = (state: AppSettingsState) =>
-  resolveActiveGitConnection(state.settings)
-export const selectLlmConnections = (state: AppSettingsState) =>
-  state.settings.llmConnections
-export const selectActiveLlmConnectionId = (state: AppSettingsState) =>
-  state.settings.activeLlmConnectionId
-export const selectActiveLlmConnection = (state: AppSettingsState) =>
-  resolveActiveLlmConnection(state.settings)
 export const selectExaminationModelsByProvider = (state: AppSettingsState) =>
   state.settings.examinationModelsByProvider
 export const selectRosterColumnVisibility = (state: AppSettingsState) =>

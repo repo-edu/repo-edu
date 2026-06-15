@@ -15,7 +15,7 @@ import {
   isSharedAppError,
   normalizeProviderError,
   parseGitUsernameRows,
-  resolveAppSettingsSnapshot,
+  resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveGitDraft,
   throwIfAborted,
@@ -48,7 +48,7 @@ export function createGitUsernameWorkflowHandlers(
           totalSteps,
           label: "Reading course and app settings snapshots.",
         })
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         const course = resolveCourseSnapshot(input.course)
         throwIfAborted(options?.signal)
 

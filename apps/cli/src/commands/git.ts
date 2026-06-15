@@ -2,6 +2,7 @@ import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
 import {
   emitCommandError,
+  loadAppSettings,
   requireGitConnection,
   toErrorMessage,
 } from "../command-utils.js"
@@ -20,8 +21,8 @@ export function registerGitCommands(
       const workflowClient = createWorkflow()
 
       try {
-        const settings = await workflowClient.run("settings.loadApp", undefined)
-        const connection = requireGitConnection(settings)
+        const settings = await loadAppSettings(workflowClient)
+        const connection = requireGitConnection(settings.credentials)
 
         const result = await workflowClient.run("connection.verifyGitDraft", {
           provider: connection.provider,

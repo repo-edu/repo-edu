@@ -24,8 +24,8 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -46,7 +46,7 @@ export function ConnectLmsGroupSetDialog() {
   const course = useCourseStore((state) => state.course)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
   const controller = useSessionController()
-  const appSettings = useAppSettingsStore((state) => state.settings)
+  const credentials = useCredentialsStore((state) => state.credentials)
   const supportsLms = course !== null && courseSupportsLms(course)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
@@ -90,7 +90,7 @@ export function ConnectLmsGroupSetDialog() {
     client
       .run("groupSet.fetchAvailableFromLms", {
         course,
-        appSettings,
+        credentials,
       })
       .then((list) => {
         if (cancelled) return
@@ -111,7 +111,7 @@ export function ConnectLmsGroupSetDialog() {
     return () => {
       cancelled = true
     }
-  }, [open, course, appSettings, supportsLms])
+  }, [open, course, credentials, supportsLms])
 
   const selectedGroupSet = useMemo(
     () => availableGroupSets.find((groupSet) => groupSet.id === selectedId),
@@ -164,7 +164,7 @@ export function ConnectLmsGroupSetDialog() {
         "groupSet.connectFromLms",
         {
           course,
-          appSettings,
+          credentials,
           remoteGroupSetId: selectedGroupSet.id,
         },
         {

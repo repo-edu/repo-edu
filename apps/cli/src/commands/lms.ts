@@ -1,3 +1,4 @@
+import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
 import {
   emitCommandError,
@@ -7,21 +8,24 @@ import {
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
 
-export function registerLmsCommands(parent: Command): void {
+export function registerLmsCommands(
+  parent: Command,
+  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+): void {
   const lms = parent.command("lms").description("LMS operations")
 
   lms
     .command("verify")
     .description("Verify LMS connection for selected course")
     .action(async function (this: Command) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const { course, settings } = await loadSelectedCourse(
           this,
           workflowClient,
         )
-        const connection = requireLmsConnection(course, settings)
+        const connection = requireLmsConnection(course, settings.credentials)
         const result = await workflowClient.run("connection.verifyLmsDraft", {
           provider: connection.provider,
           baseUrl: connection.baseUrl,

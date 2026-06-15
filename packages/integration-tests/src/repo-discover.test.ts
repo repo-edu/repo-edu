@@ -4,7 +4,10 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  type PersistedAppSettings,
+  splitAppSettings,
+} from "@repo-edu/domain/settings"
 import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
@@ -73,7 +76,7 @@ for (const harness of harnesses) {
       const seedNames = ["alpha-repo", "beta-repo", "gamma-repo"]
       await withSeededOrg(seedNames, async ({ organization, settings }) => {
         const result = await handlers["repo.listNamespace"]({
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           namespace: organization,
         })
 
@@ -91,7 +94,7 @@ for (const harness of harnesses) {
       const seedNames = ["lab1-alice", "lab1-bob", "lab2-carol"]
       await withSeededOrg(seedNames, async ({ organization, settings }) => {
         const result = await handlers["repo.listNamespace"]({
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           namespace: organization,
           filter: "lab1-*",
         })
@@ -115,12 +118,12 @@ for (const harness of harnesses) {
 
         try {
           const listResult = await handlers["repo.listNamespace"]({
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             namespace: organization,
             filter: "bulk-*",
           })
           const cloneResult = await handlers["repo.bulkClone"]({
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             namespace: organization,
             repositories: listResult.repositories.map(
               ({ name, identifier }) => ({ name, identifier }),
@@ -178,7 +181,7 @@ for (const harness of harnesses) {
 
         try {
           const cloneResult = await handlers["repo.bulkClone"]({
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             namespace: organization,
             repositories: [...seedNames, "not-a-real-repo"].map((repoName) => ({
               name: repoName,
@@ -202,7 +205,7 @@ for (const harness of harnesses) {
     it("returns an empty result when the repository list is empty", async () => {
       await withSeededOrg([], async ({ organization, settings }) => {
         const result = await handlers["repo.bulkClone"]({
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           namespace: organization,
           repositories: [],
           targetDirectory: path.join(tmpdir(), "repo-edu-bulk-clone-empty"),

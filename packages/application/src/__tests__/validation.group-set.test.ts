@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { GroupSetWorkflowPorts } from "../group-set-workflows.js"
 import { createGroupSetWorkflowHandlers } from "../group-set-workflows.js"
 import {
@@ -81,7 +82,7 @@ describe("application group-set workflow helpers", () => {
 
     const result = await handlers["groupSet.fetchAvailableFromLms"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
     })
 
     assert.equal(receivedCourseId, "course-42")
@@ -107,7 +108,7 @@ describe("application group-set workflow helpers", () => {
     await assert.rejects(
       handlers["groupSet.fetchAvailableFromLms"]({
         course,
-        appSettings: settings,
+        credentials: splitAppSettings(settings).credentials,
       }),
       (error: unknown) =>
         typeof error === "object" &&
@@ -158,7 +159,7 @@ describe("application group-set workflow helpers", () => {
 
     const connected = await handlers["groupSet.connectFromLms"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       remoteGroupSetId: "remote-set-1",
     })
 
@@ -210,7 +211,7 @@ describe("application group-set workflow helpers", () => {
     await assert.rejects(
       handlers["groupSet.connectFromLms"]({
         course,
-        appSettings: settings,
+        credentials: splitAppSettings(settings).credentials,
         remoteGroupSetId: "remote-set-1",
       }),
       (error: unknown) =>
@@ -289,7 +290,7 @@ describe("application group-set workflow helpers", () => {
 
     const synced = await handlers["groupSet.syncFromLms"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       groupSetId: "gs_0002",
     })
 

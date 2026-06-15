@@ -2,7 +2,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   DEFAULT_CLAUDE_API_MAX_TOKENS,
-  defaultAppSettings,
+  defaultAppCredentials,
+  defaultAppPreferences,
   type PersistedLlmConnection,
   persistedLlmConnectionSchema,
   resolveActiveLlmConnection,
@@ -146,10 +147,13 @@ describe("resolveActiveLlmConnection", () => {
   })
 })
 
-describe("defaultAppSettings — LLM fields", () => {
+describe("default settings sections — LLM fields", () => {
   it("seeds empty connections, no active id, and empty model map", () => {
-    assert.deepStrictEqual(defaultAppSettings.llmConnections, [])
-    assert.equal(defaultAppSettings.activeLlmConnectionId, null)
-    assert.deepStrictEqual(defaultAppSettings.examinationModelsByProvider, {})
+    assert.deepStrictEqual(defaultAppCredentials.llmConnections, [])
+    assert.equal(defaultAppCredentials.activeLlmConnectionId, null)
+    assert.deepStrictEqual(
+      defaultAppPreferences.examinationModelsByProvider,
+      {},
+    )
   })
 })

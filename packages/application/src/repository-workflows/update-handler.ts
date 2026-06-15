@@ -15,7 +15,7 @@ import { createValidationAppError } from "../core.js"
 import {
   isSharedAppError,
   normalizeProviderError,
-  resolveAppSettingsSnapshot,
+  resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveGitDraft,
   throwIfAborted,
@@ -96,7 +96,7 @@ export function createRepoUpdateHandler(
           label: "Reading course and app settings snapshots.",
         })
         const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {

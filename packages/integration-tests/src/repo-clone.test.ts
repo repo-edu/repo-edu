@@ -4,7 +4,10 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { after, before, describe, it } from "node:test"
 import { createRepositoryWorkflowHandlers } from "@repo-edu/application"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import {
+  type PersistedAppSettings,
+  splitAppSettings,
+} from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createNodeFileSystemPort,
@@ -81,7 +84,7 @@ for (const harness of harnesses) {
 
         const createResult = await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -99,7 +102,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -141,7 +144,7 @@ for (const harness of harnesses) {
       await withIsolatedOrg(async ({ course, settings }) => {
         await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -154,7 +157,7 @@ for (const harness of harnesses) {
         try {
           const firstClone = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -167,7 +170,7 @@ for (const harness of harnesses) {
 
           const secondClone = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -195,7 +198,7 @@ for (const harness of harnesses) {
         assert.ok(expected.repoNames.length > 0, "fixture should plan repos")
         await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -216,7 +219,7 @@ for (const harness of harnesses) {
             async () =>
               handlers["repo.clone"]({
                 course,
-                appSettings: settings,
+                credentials: splitAppSettings(settings).credentials,
                 assignmentId: "a1",
                 template: null,
                 targetDirectory,
@@ -252,7 +255,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -282,7 +285,7 @@ for (const harness of harnesses) {
 
         await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -295,7 +298,7 @@ for (const harness of harnesses) {
         try {
           await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -312,7 +315,7 @@ for (const harness of harnesses) {
 
           const secondClone = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -357,7 +360,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -408,7 +411,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -455,7 +458,7 @@ for (const harness of harnesses) {
         // Create repositories and set records on the course by hand.
         await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -473,7 +476,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,
@@ -505,7 +508,7 @@ for (const harness of harnesses) {
 
         await handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: splitAppSettings(settings).credentials,
           assignmentId: "a1",
           template: null,
         })
@@ -518,7 +521,7 @@ for (const harness of harnesses) {
         try {
           const cloneResult = await handlers["repo.clone"]({
             course,
-            appSettings: settings,
+            credentials: splitAppSettings(settings).credentials,
             assignmentId: "a1",
             template: null,
             targetDirectory,

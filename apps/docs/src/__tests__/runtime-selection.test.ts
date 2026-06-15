@@ -80,11 +80,11 @@ describe("docs runtime seeded documents", () => {
       undefined,
     )
 
-    assert.deepEqual(settings.activeSurface, {
+    assert.deepEqual(settings.preferences.activeSurface, {
       kind: "course",
       courseId: runtime.lmsCourseEntityId,
     })
-    assert.equal(settings.activeTab, "roster")
+    assert.equal(settings.preferences.activeTab, "roster")
   })
 
   it("mountDocsDemoApp wires the runtime into the provided root", () => {

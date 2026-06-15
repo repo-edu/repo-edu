@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
@@ -43,7 +44,7 @@ describe("application repository create workflow helpers", () => {
 
     const result = await handlers["repo.create"]({
       course,
-      appSettings: settings,
+      credentials: settings,
       assignmentId: "a1",
       template: null,
     })
@@ -94,7 +95,7 @@ describe("application repository create workflow helpers", () => {
 
     const result = await handlers["repo.create"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       assignmentId: "a1",
       template: null,
     })
@@ -123,7 +124,7 @@ describe("application repository create workflow helpers", () => {
       () =>
         handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: settings,
           assignmentId: null,
           template: null,
         }),
@@ -161,7 +162,7 @@ describe("application repository create workflow helpers", () => {
 
     const result = await handlers["repo.create"]({
       course,
-      appSettings: settings,
+      credentials: settings,
       assignmentId: "a1",
       template: null,
     })
@@ -232,7 +233,7 @@ describe("application repository create workflow helpers", () => {
 
     await handlers["repo.create"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       assignmentId: "a1",
       template: null,
     })
@@ -278,7 +279,7 @@ describe("application repository create workflow helpers", () => {
 
     await handlers["repo.create"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       assignmentId: "a1",
       template: null,
     })
@@ -307,7 +308,7 @@ describe("application repository create workflow helpers", () => {
       () =>
         handlers["repo.create"]({
           course,
-          appSettings: settings,
+          credentials: settings,
           assignmentId: "a1",
           template: null,
         }),

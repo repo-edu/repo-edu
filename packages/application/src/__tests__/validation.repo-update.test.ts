@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import { createRepositoryWorkflowHandlers } from "../repository-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
 
@@ -116,7 +117,7 @@ describe("application repository update workflow helpers", () => {
 
     const result = await handlers["repo.update"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       assignmentId: "a1",
     })
 
@@ -220,7 +221,7 @@ describe("application repository update workflow helpers", () => {
 
     const result = await handlers["repo.update"]({
       course,
-      appSettings: settings,
+      credentials: splitAppSettings(settings).credentials,
       assignmentId: "a1",
     })
 

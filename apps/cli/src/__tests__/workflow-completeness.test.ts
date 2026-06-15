@@ -27,7 +27,7 @@ const workflowToCommandMatrix: Record<
     kind: "composite",
     commands: ["course list", "course active", "course load"],
   },
-  "settings.saveApp": { kind: "composite", commands: ["course load"] },
+  "settings.savePreferences": { kind: "composite", commands: ["course load"] },
   "connection.verifyLmsDraft": { kind: "direct", commands: ["lms verify"] },
   "connection.verifyGitDraft": { kind: "direct", commands: ["git verify"] },
   "validation.roster": {

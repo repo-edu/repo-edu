@@ -9,7 +9,7 @@ describe("application repository bulk clone validation", () => {
     await assert.rejects(
       async () =>
         handlers["repo.bulkClone"]({
-          appSettings: settings,
+          credentials: settings,
           namespace: "repo-edu",
           repositories: [{ name: "repo-a", identifier: "repo-a" }],
           targetDirectory: "repos",
@@ -34,7 +34,7 @@ describe("application repository bulk clone validation", () => {
     await assert.rejects(
       async () =>
         handlers["repo.bulkClone"]({
-          appSettings: settings,
+          credentials: settings,
           namespace: "repo-edu",
           repositories: [
             { name: "lab-1", identifier: "team-alpha/lab-1" },

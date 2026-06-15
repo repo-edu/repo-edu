@@ -27,8 +27,8 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   displayUrl,
@@ -49,21 +49,21 @@ type GitViewState =
   | { view: "editor"; originalId: string | null }
 
 export function GitConnectionsPane() {
-  const settings = useAppSettingsStore((state) => state.settings)
-  const addGitConnection = useAppSettingsStore(
+  const credentials = useCredentialsStore((state) => state.credentials)
+  const addGitConnection = useCredentialsStore(
     (state) => state.addGitConnection,
   )
-  const updateGitConnection = useAppSettingsStore(
+  const updateGitConnection = useCredentialsStore(
     (state) => state.updateGitConnection,
   )
-  const removeGitConnection = useAppSettingsStore(
+  const removeGitConnection = useCredentialsStore(
     (state) => state.removeGitConnection,
   )
   const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
   const gitSavedErrors = useConnectionsStore((state) => state.gitErrors)
   const setGitStatus = useConnectionsStore((state) => state.setGitStatus)
 
-  const gitConnections = settings.gitConnections
+  const gitConnections = credentials.gitConnections
 
   const [viewState, setViewState] = useState<GitViewState>({ view: "list" })
   const [draft, setDraft] = useState<GitDraft>(emptyGitDraft())

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  defaultAppSettings,
-  type PersistedAppSettings,
+  defaultAppCredentials,
+  type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
 import type {
   PersistedCourse,
@@ -50,12 +50,8 @@ const course: PersistedCourse = {
   updatedAt: "2026-03-11T00:00:00.000Z",
 }
 
-const appSettings: PersistedAppSettings = {
-  ...defaultAppSettings,
-  activeSurface: { kind: "course", courseId: course.id },
-  activeTab: "roster",
-  defaultExtensions: [],
-  analysisConcurrency: { repoParallelism: 3, filesPerRepo: 1 },
+const credentials: PersistedAppCredentials = {
+  ...defaultAppCredentials,
 }
 
 describe("repository workflow helpers", () => {
@@ -68,7 +64,7 @@ describe("repository workflow helpers", () => {
   it("builds create input without clone-only fields", () => {
     const result = buildRepositoryWorkflowRequest({
       course,
-      appSettings,
+      credentials,
       assignmentId: "assignment-1",
       operation: "create",
       repositoryTemplate: template,
@@ -78,7 +74,7 @@ describe("repository workflow helpers", () => {
       workflowId: "repo.create",
       input: {
         course,
-        appSettings,
+        credentials,
         assignmentId: "assignment-1",
         template,
       },
@@ -88,7 +84,7 @@ describe("repository workflow helpers", () => {
   it("builds clone input with directory options", () => {
     const result = buildRepositoryWorkflowRequest({
       course,
-      appSettings,
+      credentials,
       assignmentId: "assignment-1",
       operation: "clone",
       repositoryTemplate: template,
@@ -100,7 +96,7 @@ describe("repository workflow helpers", () => {
       workflowId: "repo.clone",
       input: {
         course,
-        appSettings,
+        credentials,
         assignmentId: "assignment-1",
         template,
         targetDirectory: "/tmp/repos",
@@ -112,7 +108,7 @@ describe("repository workflow helpers", () => {
   it("builds update input without create/clone-only fields", () => {
     const result = buildRepositoryWorkflowRequest({
       course,
-      appSettings,
+      credentials,
       assignmentId: "assignment-1",
       operation: "update",
       repositoryTemplate: template,
@@ -124,7 +120,7 @@ describe("repository workflow helpers", () => {
       workflowId: "repo.update",
       input: {
         course,
-        appSettings,
+        credentials,
         assignmentId: "assignment-1",
       },
     })

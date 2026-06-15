@@ -1,3 +1,4 @@
+import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
 import {
   emitCommandError,
@@ -7,13 +8,16 @@ import {
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
 
-export function registerValidateCommand(parent: Command): void {
+export function registerValidateCommand(
+  parent: Command,
+  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+): void {
   parent
     .command("validate")
     .description("Validate assignment readiness")
     .requiredOption("--assignment <name>", "Assignment name or id")
     .action(async function (this: Command, options: { assignment: string }) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const { course } = await loadSelectedCourse(this, workflowClient)

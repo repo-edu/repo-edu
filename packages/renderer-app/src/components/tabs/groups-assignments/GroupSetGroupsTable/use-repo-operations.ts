@@ -13,18 +13,18 @@ import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useSessionController } from "../../../../session/session-controller-context.js"
 import {
-  selectActiveGitConnection,
-  selectActiveGitConnectionId,
-  selectGitConnections,
-  useAppSettingsStore,
-} from "../../../../stores/app-settings-store.js"
-import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
   selectRepositoryCloneTargetDirectory,
   selectRepositoryTemplate,
   useCourseStore,
 } from "../../../../stores/course-store.js"
+import {
+  selectActiveGitConnection,
+  selectActiveGitConnectionId,
+  selectGitConnections,
+  useCredentialsStore,
+} from "../../../../stores/credentials-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   buildRepositoryWorkflowRequest,
@@ -63,10 +63,10 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   const { effectiveAssignmentId, nonEmptyCount, emptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
-  const gitConnections = useAppSettingsStore(selectGitConnections)
-  const activeGitConnection = useAppSettingsStore(selectActiveGitConnection)
-  const activeGitConnectionId = useAppSettingsStore(selectActiveGitConnectionId)
-  const setActiveGitConnectionId = useAppSettingsStore(
+  const gitConnections = useCredentialsStore(selectGitConnections)
+  const activeGitConnection = useCredentialsStore(selectActiveGitConnection)
+  const activeGitConnectionId = useCredentialsStore(selectActiveGitConnectionId)
+  const setActiveGitConnectionId = useCredentialsStore(
     (s) => s.setActiveGitConnectionId,
   )
   const organization = useCourseStore(selectOrganization)
@@ -78,7 +78,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     selectRepositoryCloneDirectoryLayout,
   )
   const controller = useSessionController()
-  const appSettings = useAppSettingsStore((s) => s.settings)
+  const credentials = useCredentialsStore((s) => s.credentials)
   const courseId = course?.id ?? null
 
   const [operationStatus, setOperationStatus] =
@@ -312,7 +312,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
       const { workflowId, input } = buildRepositoryWorkflowRequest({
         course,
-        appSettings,
+        credentials,
         assignmentId: effectiveAssignmentId,
         operation,
         repositoryTemplate,
@@ -360,11 +360,11 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       }
     },
     [
-      appSettings,
       applyRecordedRepositories,
       cloneDirectoryLayout,
       cloneTargetDirectory,
       course,
+      credentials,
       effectiveAssignmentId,
       repositoryTemplate,
     ],

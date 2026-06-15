@@ -22,8 +22,8 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { examinationPreferencePersistence } from "../../stores/examination-preferences.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
@@ -53,22 +53,22 @@ const AUTH_MODE_LABEL = {
 } as const
 
 export function LlmConnectionsPane() {
-  const settings = useAppSettingsStore((state) => state.settings)
-  const addLlmConnection = useAppSettingsStore(
+  const credentials = useCredentialsStore((state) => state.credentials)
+  const addLlmConnection = useCredentialsStore(
     (state) => state.addLlmConnection,
   )
-  const updateLlmConnection = useAppSettingsStore(
+  const updateLlmConnection = useCredentialsStore(
     (state) => state.updateLlmConnection,
   )
-  const removeLlmConnection = useAppSettingsStore(
+  const removeLlmConnection = useCredentialsStore(
     (state) => state.removeLlmConnection,
   )
   const llmSavedStatuses = useConnectionsStore((state) => state.llmStatuses)
   const llmSavedErrors = useConnectionsStore((state) => state.llmErrors)
   const setLlmStatus = useConnectionsStore((state) => state.setLlmStatus)
 
-  const llmConnections = settings.llmConnections
-  const activeLlmConnectionId = settings.activeLlmConnectionId
+  const llmConnections = credentials.llmConnections
+  const activeLlmConnectionId = credentials.activeLlmConnectionId
   const effectiveActiveLlmConnectionId = useMemo(
     () =>
       effectiveLlmConnectionId({

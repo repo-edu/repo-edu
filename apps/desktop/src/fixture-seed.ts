@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   applyFixtureSourceOverlay,
@@ -220,10 +221,12 @@ export async function seedDesktopFixtureFromEnvironment(
     activeCourseId = existingCourse.id
   }
 
-  await appSettingsStore.saveSettings({
+  const seededSections = splitAppSettings({
     ...settings,
     activeSurface: { kind: "course", courseId: activeCourseId },
   })
+  await appSettingsStore.credentials.save(seededSections.credentials)
+  await appSettingsStore.preferences.save(seededSections.preferences)
 
   const artifactPaths = await writeFixtureArtifacts(storageRoot, selection)
 

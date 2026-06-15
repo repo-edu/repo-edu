@@ -63,11 +63,7 @@ redu course load <course-id>
 
 ### CLI data directory location
 
-By default, the CLI stores data in `~/.repo-edu/`. Override with:
-
-```bash
-REPO_EDU_CLI_DATA_DIR=/path/to/data redu course list
-```
+The CLI and desktop app share the platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
 
 ### Command not found after build
 

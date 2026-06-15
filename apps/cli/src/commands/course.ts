@@ -1,28 +1,33 @@
+import type { WorkflowClient } from "@repo-edu/application-contract"
 import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { Command } from "commander"
 import {
   emitCommandError,
+  loadAppSettings,
   loadSelectedCourse,
   resolveRequestedCourseId,
   toErrorMessage,
 } from "../command-utils.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
 
-export function registerCourseCommands(parent: Command): void {
+export function registerCourseCommands(
+  parent: Command,
+  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+): void {
   const course = parent.command("course").description("Course management")
 
   course
     .command("list")
     .description("List all courses")
     .action(async function (this: Command) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const listedCourses = await workflowClient.run("course.list", undefined)
-        const settings = await workflowClient.run("settings.loadApp", undefined)
+        const settings = await loadAppSettings(workflowClient)
         const selectedCourseId = resolveRequestedCourseId(
           this,
-          activeCourseIdFromSurface(settings.activeSurface),
+          activeCourseIdFromSurface(settings.preferences.activeSurface),
         )
 
         if (listedCourses.length === 0) {
@@ -45,13 +50,13 @@ export function registerCourseCommands(parent: Command): void {
     .command("active")
     .description("Show active course name")
     .action(async function (this: Command) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
-        const settings = await workflowClient.run("settings.loadApp", undefined)
+        const settings = await loadAppSettings(workflowClient)
         const selectedCourseId = resolveRequestedCourseId(
           this,
-          activeCourseIdFromSurface(settings.activeSurface),
+          activeCourseIdFromSurface(settings.preferences.activeSurface),
         )
 
         if (selectedCourseId === null) {
@@ -69,7 +74,7 @@ export function registerCourseCommands(parent: Command): void {
     .command("show")
     .description("Show active course settings")
     .action(async function (this: Command) {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const loaded = await loadSelectedCourse(this, workflowClient)
@@ -84,18 +89,15 @@ export function registerCourseCommands(parent: Command): void {
     .description("Set active course")
     .argument("<course-id>", "Course id to activate")
     .action(async (courseId: string) => {
-      const workflowClient = createCliWorkflowClient()
+      const workflowClient = createWorkflow()
 
       try {
         const loadedCourse = await workflowClient.run("course.load", {
           courseId,
         })
-        const currentSettings = await workflowClient.run(
-          "settings.loadApp",
-          undefined,
-        )
-        await workflowClient.run("settings.saveApp", {
-          ...currentSettings,
+        const currentSettings = await loadAppSettings(workflowClient)
+        await workflowClient.run("settings.savePreferences", {
+          ...currentSettings.preferences,
           activeSurface: { kind: "course", courseId: loadedCourse.id },
         })
 

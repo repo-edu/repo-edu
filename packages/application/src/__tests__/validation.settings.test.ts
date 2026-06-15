@@ -1,45 +1,113 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { splitAppSettings } from "@repo-edu/domain/settings"
 import {
   createInMemoryAppSettingsStore,
   createPersistenceWriteError,
 } from "../core.js"
 import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
 import { getSettingsScenario } from "./helpers/fixture-scenarios.js"
-import { makeInvalidSettingsWrongKind } from "./helpers/test-builders.js"
 
 describe("application settings workflow helpers", () => {
-  it("returns default settings when store is empty and saves validated settings", async () => {
+  it("substitutes section defaults and preserves recovery entries", async () => {
+    const handlers = createSettingsWorkflowHandlers({
+      credentials: {
+        load: () => ({
+          value: null,
+          recovery: [
+            {
+              unit: "credentials",
+              reason: "invalid",
+              backupPath: "/tmp/credentials.invalid-1.json",
+            },
+          ],
+        }),
+        save: () => undefined,
+      },
+      preferences: {
+        load: () => ({
+          value: null,
+          recovery: [
+            {
+              unit: "preferences",
+              reason: "unparseable",
+              backupPath: "/tmp/preferences.unparseable-1.json",
+            },
+          ],
+        }),
+        save: () => undefined,
+      },
+      recoverUnsupportedComposite: () => [
+        {
+          unit: "unsupported-composite",
+          reason: "unsupported",
+          backupPath: "/tmp/app-settings.unsupported-1.json",
+        },
+      ],
+    })
+
+    const loaded = await handlers["settings.loadApp"](undefined)
+
+    assert.equal(loaded.credentials.kind, "repo-edu.app-credentials.v1")
+    assert.equal(loaded.preferences.kind, "repo-edu.app-preferences.v1")
+    assert.deepStrictEqual(loaded.recovery, [
+      {
+        unit: "unsupported-composite",
+        reason: "unsupported",
+        backupPath: "/tmp/app-settings.unsupported-1.json",
+      },
+      {
+        unit: "credentials",
+        reason: "invalid",
+        backupPath: "/tmp/credentials.invalid-1.json",
+      },
+      {
+        unit: "preferences",
+        reason: "unparseable",
+        backupPath: "/tmp/preferences.unparseable-1.json",
+      },
+    ])
+  })
+
+  it("returns default sections when store is empty and saves validated preferences", async () => {
     const handlers = createSettingsWorkflowHandlers(
       createInMemoryAppSettingsStore(),
     )
 
     const loadedDefault = await handlers["settings.loadApp"](undefined)
-    assert.equal(loadedDefault.kind, "repo-edu.app-settings.v2")
+    assert.equal(loadedDefault.credentials.kind, "repo-edu.app-credentials.v1")
+    assert.equal(loadedDefault.preferences.kind, "repo-edu.app-preferences.v1")
+    assert.deepEqual(loadedDefault.recovery, [])
 
-    await handlers["settings.saveApp"]({
-      ...getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+    const sections = splitAppSettings(
+      getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+    )
+    await handlers["settings.savePreferences"]({
+      ...sections.preferences,
       activeSurface: { kind: "course", courseId: "course-1" },
     })
 
     const reloaded = await handlers["settings.loadApp"](undefined)
-    assert.deepStrictEqual(reloaded.activeSurface, {
+    assert.deepStrictEqual(reloaded.preferences.activeSurface, {
       kind: "course",
       courseId: "course-1",
     })
+    assert.deepStrictEqual(reloaded.credentials.lmsConnections, [])
   })
 
-  it("returns a validation AppError when settings.saveApp receives invalid data", async () => {
+  it("returns a validation AppError when a section save receives invalid data", async () => {
     const handlers = createSettingsWorkflowHandlers(
       createInMemoryAppSettingsStore(),
     )
+    const sections = splitAppSettings(
+      getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+    )
 
     await assert.rejects(
-      handlers["settings.saveApp"](
-        makeInvalidSettingsWrongKind(
-          getSettingsScenario({ tier: "small", preset: "shared-teams" }),
-        ),
-      ),
+      handlers["settings.savePreferences"]({
+        ...sections.preferences,
+        kind: "wrong-kind" as typeof sections.preferences.kind,
+      }),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
@@ -48,18 +116,28 @@ describe("application settings workflow helpers", () => {
     )
   })
 
-  it("normalizes retryable write failures from settings.saveApp", async () => {
+  it("normalizes retryable write failures from settings.savePreferences", async () => {
     const handlers = createSettingsWorkflowHandlers({
-      loadSettings: () => null,
-      saveSettings: () => {
-        throw createPersistenceWriteError("locked", "Settings file is locked.")
+      credentials: {
+        load: () => ({ value: null, recovery: [] }),
+        save: () => undefined,
+      },
+      preferences: {
+        load: () => ({ value: null, recovery: [] }),
+        save: () => {
+          throw createPersistenceWriteError(
+            "locked",
+            "Preferences file is locked.",
+          )
+        },
       },
     })
+    const sections = splitAppSettings(
+      getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+    )
 
     await assert.rejects(
-      handlers["settings.saveApp"](
-        getSettingsScenario({ tier: "small", preset: "shared-teams" }),
-      ),
+      handlers["settings.savePreferences"](sections.preferences),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&

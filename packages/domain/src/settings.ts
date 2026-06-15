@@ -3,7 +3,12 @@ import type { AnalysisBlameConfig } from "./analysis/config-types.js"
 import { DEFAULT_EXTENSIONS, extensionsSchema } from "./analysis/schemas.js"
 import { type AnalysisInputs, analysisInputsSchema } from "./analysis-inputs.js"
 import type { CourseBacking, GitProviderKind } from "./types.js"
-import { gitProviderKinds, persistedAppSettingsKind } from "./types.js"
+import {
+  gitProviderKinds,
+  persistedAppCredentialsKind,
+  persistedAppPreferencesKind,
+  persistedAppSettingsKind,
+} from "./types.js"
 
 export const gitProviderDefaultBaseUrls: Record<GitProviderKind, string> = {
   github: "https://github.com",
@@ -338,70 +343,102 @@ const persistedActiveSurfaceSchema = z.discriminatedUnion("kind", [
     .strict(),
 ])
 
+const persistedAppCredentialsFields = {
+  lmsConnections: z.array(persistedLmsConnectionSchema),
+  gitConnections: z.array(persistedGitConnectionSchema),
+  activeGitConnectionId: z.string().nullable().default(null),
+  llmConnections: z.array(persistedLlmConnectionSchema),
+  activeLlmConnectionId: z.string().nullable(),
+} as const
+
+const persistedAppPreferencesFields = {
+  activeSurface: persistedActiveSurfaceSchema.default({ kind: "home" }),
+  activeTab: z
+    .enum(["roster", "groups-assignments", "analysis"])
+    .default("roster"),
+  lastUsedCourseBacking: z
+    .enum(["lms", "repobee"])
+    .optional() satisfies z.ZodType<CourseBacking | undefined>,
+  recentAnalysisFolders: z
+    .array(z.string())
+    .default([])
+    .transform((paths) => normalizeRecentAnalysisFolders(paths)),
+  recentSubmissionFolders: z
+    .array(
+      z
+        .object({
+          path: z.string(),
+          courseId: z.string().min(1).optional(),
+        })
+        .strict(),
+    )
+    .default([])
+    .transform((recents) => normalizeRecentSubmissionFolders(recents)),
+  submissionSurfaceStates: z
+    .record(
+      z.string(),
+      z
+        .object({
+          includedFiles: z.array(z.string()).nullable(),
+        })
+        .strict(),
+    )
+    .default({}),
+  folderViewAnalysisInputs: analysisInputsSchema.default({}),
+  appearance: appAppearanceSchema,
+  examinationModelsByProvider: examinationModelsByProviderSchema,
+  lastOpenedAt: z.string().nullable(),
+  rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
+  rosterColumnSizing: z.record(z.string(), z.number()).default({}),
+  groupsSidebarSize: z.number().nullable().default(null),
+  analysisSidebarSize: z.number().nullable().default(null),
+  analysisDetailListSize: z.number().nullable().default(null),
+  examinationSubmissionSidebarSize: z.number().nullable().default(null),
+  analysisSidebar: persistedAnalysisSidebarSettingsSchema
+    .nullable()
+    .default(null),
+  defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
+  analysisConcurrency: persistedAnalysisConcurrencySchema,
+} as const
+
+function prunePersistedPreferences<
+  T extends {
+    recentSubmissionFolders: SubmissionFolderRecent[]
+    submissionSurfaceStates: Record<string, SubmissionSurfaceState>
+  },
+>(preferences: T): T {
+  return {
+    ...preferences,
+    submissionSurfaceStates: pruneSubmissionSurfaceStates(
+      preferences.submissionSurfaceStates,
+      preferences.recentSubmissionFolders,
+    ),
+  }
+}
+
+export const persistedAppCredentialsSchema = z
+  .object({
+    kind: z.literal(persistedAppCredentialsKind),
+    ...persistedAppCredentialsFields,
+  })
+  .strict()
+
+export const persistedAppPreferencesSchema = z
+  .object({
+    kind: z.literal(persistedAppPreferencesKind),
+    ...persistedAppPreferencesFields,
+  })
+  .strict()
+  .transform((preferences) => prunePersistedPreferences(preferences))
+
 export const persistedAppSettingsSchema = z
   .object({
     kind: z.literal(persistedAppSettingsKind),
-    activeSurface: persistedActiveSurfaceSchema.default({ kind: "home" }),
-    activeTab: z
-      .enum(["roster", "groups-assignments", "analysis"])
-      .default("roster"),
-    lastUsedCourseBacking: z
-      .enum(["lms", "repobee"])
-      .optional() satisfies z.ZodType<CourseBacking | undefined>,
-    recentAnalysisFolders: z
-      .array(z.string())
-      .default([])
-      .transform((paths) => normalizeRecentAnalysisFolders(paths)),
-    recentSubmissionFolders: z
-      .array(
-        z
-          .object({
-            path: z.string(),
-            courseId: z.string().min(1).optional(),
-          })
-          .strict(),
-      )
-      .default([])
-      .transform((recents) => normalizeRecentSubmissionFolders(recents)),
-    submissionSurfaceStates: z
-      .record(
-        z.string(),
-        z
-          .object({
-            includedFiles: z.array(z.string()).nullable(),
-          })
-          .strict(),
-      )
-      .default({}),
-    folderViewAnalysisInputs: analysisInputsSchema.default({}),
-    appearance: appAppearanceSchema,
-    lmsConnections: z.array(persistedLmsConnectionSchema),
-    gitConnections: z.array(persistedGitConnectionSchema),
-    activeGitConnectionId: z.string().nullable().default(null),
-    llmConnections: z.array(persistedLlmConnectionSchema),
-    activeLlmConnectionId: z.string().nullable(),
-    examinationModelsByProvider: examinationModelsByProviderSchema,
-    lastOpenedAt: z.string().nullable(),
-    rosterColumnVisibility: z.record(z.string(), z.boolean()).default({}),
-    rosterColumnSizing: z.record(z.string(), z.number()).default({}),
-    groupsSidebarSize: z.number().nullable().default(null),
-    analysisSidebarSize: z.number().nullable().default(null),
-    analysisDetailListSize: z.number().nullable().default(null),
-    examinationSubmissionSidebarSize: z.number().nullable().default(null),
-    analysisSidebar: persistedAnalysisSidebarSettingsSchema
-      .nullable()
-      .default(null),
-    defaultExtensions: extensionsSchema().default([...DEFAULT_EXTENSIONS]),
-    analysisConcurrency: persistedAnalysisConcurrencySchema,
+    ...persistedAppPreferencesFields,
+    ...persistedAppCredentialsFields,
   })
   .strict()
-  .transform((settings) => ({
-    ...settings,
-    submissionSurfaceStates: pruneSubmissionSurfaceStates(
-      settings.submissionSurfaceStates,
-      settings.recentSubmissionFolders,
-    ),
-  }))
+  .transform((settings) => prunePersistedPreferences(settings))
 
 // ---------------------------------------------------------------------------
 // Inferred persistence types
@@ -429,7 +466,17 @@ export type PersistedAnalysisConcurrency = z.infer<
 export type PersistedActiveSurface = z.infer<
   typeof persistedActiveSurfaceSchema
 >
+export type PersistedAppCredentials = z.infer<
+  typeof persistedAppCredentialsSchema
+>
+export type PersistedAppPreferences = z.infer<
+  typeof persistedAppPreferencesSchema
+>
 export type PersistedAppSettings = z.infer<typeof persistedAppSettingsSchema>
+export type AppSettingsSections = {
+  credentials: PersistedAppCredentials
+  preferences: PersistedAppPreferences
+}
 
 export function normalizeActiveSurface(
   surface: PersistedActiveSurface,
@@ -450,11 +497,11 @@ export function normalizeActiveSurface(
 
 export function pruneSubmissionStateForRecents(
   settings: Pick<
-    PersistedAppSettings,
+    PersistedAppPreferences,
     "recentSubmissionFolders" | "submissionSurfaceStates"
   >,
 ): Pick<
-  PersistedAppSettings,
+  PersistedAppPreferences,
   "recentSubmissionFolders" | "submissionSurfaceStates"
 > {
   const recentSubmissionFolders = normalizeRecentSubmissionFolders(
@@ -531,7 +578,7 @@ export function activeCourseIdFromSurface(
  */
 export function resolveActiveGitConnection(
   settings: Pick<
-    PersistedAppSettings,
+    PersistedAppCredentials,
     "gitConnections" | "activeGitConnectionId"
   >,
 ): PersistedGitConnection | null {
@@ -558,7 +605,7 @@ export function resolveActiveGitConnection(
  */
 export function resolveActiveLlmConnection(
   settings: Pick<
-    PersistedAppSettings,
+    PersistedAppCredentials,
     "llmConnections" | "activeLlmConnectionId"
   >,
 ): PersistedLlmConnection | null {
@@ -598,8 +645,17 @@ void _scopeDisjointGuard
 // Default settings
 // ---------------------------------------------------------------------------
 
-export const defaultAppSettings: PersistedAppSettings = {
-  kind: persistedAppSettingsKind,
+export const defaultAppCredentials: PersistedAppCredentials = {
+  kind: persistedAppCredentialsKind,
+  lmsConnections: [],
+  gitConnections: [],
+  activeGitConnectionId: null,
+  llmConnections: [],
+  activeLlmConnectionId: null,
+}
+
+export const defaultAppPreferences: PersistedAppPreferences = {
+  kind: persistedAppPreferencesKind,
   activeSurface: { kind: "home" },
   activeTab: "roster",
   recentAnalysisFolders: [],
@@ -613,11 +669,6 @@ export const defaultAppSettings: PersistedAppSettings = {
     timeFormat: "24h",
     syntaxTheme: "plus",
   },
-  lmsConnections: [],
-  gitConnections: [],
-  activeGitConnectionId: null,
-  llmConnections: [],
-  activeLlmConnectionId: null,
   examinationModelsByProvider: {},
   lastOpenedAt: null,
   rosterColumnVisibility: {},
@@ -633,3 +684,51 @@ export const defaultAppSettings: PersistedAppSettings = {
     filesPerRepo: 4,
   },
 }
+
+export function composeAppSettings(
+  credentials: PersistedAppCredentials,
+  preferences: PersistedAppPreferences,
+): PersistedAppSettings {
+  const { kind: _credentialsKind, ...credentialFields } = credentials
+  const { kind: _preferencesKind, ...preferenceFields } = preferences
+  void _credentialsKind
+  void _preferencesKind
+  return {
+    kind: persistedAppSettingsKind,
+    ...preferenceFields,
+    ...credentialFields,
+  }
+}
+
+export function splitAppSettings(
+  settings: PersistedAppSettings,
+): AppSettingsSections {
+  const {
+    lmsConnections,
+    gitConnections,
+    activeGitConnectionId,
+    llmConnections,
+    activeLlmConnectionId,
+    kind: _kind,
+    ...preferences
+  } = settings
+  return {
+    credentials: {
+      kind: persistedAppCredentialsKind,
+      lmsConnections,
+      gitConnections,
+      activeGitConnectionId,
+      llmConnections,
+      activeLlmConnectionId,
+    },
+    preferences: {
+      kind: persistedAppPreferencesKind,
+      ...preferences,
+    },
+  }
+}
+
+export const defaultAppSettings: PersistedAppSettings = composeAppSettings(
+  defaultAppCredentials,
+  defaultAppPreferences,
+)

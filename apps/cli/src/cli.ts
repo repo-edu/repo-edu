@@ -7,12 +7,17 @@ import { registerLmsCommands } from "./commands/lms.js"
 import { registerRepoCommands } from "./commands/repo.js"
 import { registerUpdateCommand } from "./commands/update.js"
 import { registerValidateCommand } from "./commands/validate.js"
+import { createCliWorkflowClient } from "./workflow-runtime.js"
 
 export type CreateProgramOptions = {
   createWorkflowClient?: () => WorkflowClient
+  storageRoot?: string
 }
 
 export function createProgram(options?: CreateProgramOptions): Command {
+  const createWorkflowClient =
+    options?.createWorkflowClient ??
+    (() => createCliWorkflowClient({ storageRoot: options?.storageRoot }))
   const program = new Command()
   program
     .name("redu")
@@ -23,12 +28,12 @@ export function createProgram(options?: CreateProgramOptions): Command {
       program.outputHelp()
     })
 
-  registerCourseCommands(program)
-  registerLmsCommands(program)
-  registerGitCommands(program, options?.createWorkflowClient)
-  registerRepoCommands(program)
+  registerCourseCommands(program, createWorkflowClient)
+  registerLmsCommands(program, createWorkflowClient)
+  registerGitCommands(program, createWorkflowClient)
+  registerRepoCommands(program, createWorkflowClient)
   registerUpdateCommand(program, pkg.version)
-  registerValidateCommand(program)
+  registerValidateCommand(program, createWorkflowClient)
 
   return program
 }

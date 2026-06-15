@@ -6,6 +6,11 @@ export type {
   CourseSaveConflictReason,
   CourseStore,
   PersistenceWriteErrorKind,
+  SectionStore,
+  SettingsRecoveryEntry,
+  SettingsRecoveryReason,
+  SettingsRecoveryUnit,
+  SettingsSectionLoadResult,
 } from "./core.js"
 export {
   CourseSaveConflictError,

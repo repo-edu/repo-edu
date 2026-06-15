@@ -6,6 +6,10 @@ export type { AnalysisInputs } from "./analysis-inputs.js"
 export const packageId = "@repo-edu/domain"
 
 export const persistedAppSettingsKind = "repo-edu.app-settings.v2" as const
+export const persistedAppCredentialsKind =
+  "repo-edu.app-credentials.v1" as const
+export const persistedAppPreferencesKind =
+  "repo-edu.app-preferences.v1" as const
 export const persistedCourseKind = "repo-edu.course.v1" as const
 
 export const gitProviderKinds = ["github", "gitlab", "gitea"] as const

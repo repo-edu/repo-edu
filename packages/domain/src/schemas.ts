@@ -1,7 +1,11 @@
 import { z } from "zod"
 import { analysisInputsSchema } from "./analysis-inputs.js"
 import {
+  type PersistedAppCredentials,
+  type PersistedAppPreferences,
   type PersistedAppSettings,
+  persistedAppCredentialsSchema,
+  persistedAppPreferencesSchema,
   persistedAppSettingsSchema,
 } from "./settings.js"
 import type {
@@ -398,6 +402,26 @@ export function validatePersistedAppSettings(
   value: unknown,
 ): ValidationResult<PersistedAppSettings> {
   const result = persistedAppSettingsSchema.safeParse(value)
+  if (result.success) {
+    return { ok: true, value: result.data }
+  }
+  return { ok: false, issues: toValidationIssues(result.error) }
+}
+
+export function validatePersistedAppCredentials(
+  value: unknown,
+): ValidationResult<PersistedAppCredentials> {
+  const result = persistedAppCredentialsSchema.safeParse(value)
+  if (result.success) {
+    return { ok: true, value: result.data }
+  }
+  return { ok: false, issues: toValidationIssues(result.error) }
+}
+
+export function validatePersistedAppPreferences(
+  value: unknown,
+): ValidationResult<PersistedAppPreferences> {
+  const result = persistedAppPreferencesSchema.safeParse(value)
   if (result.success) {
     return { ok: true, value: result.data }
   }

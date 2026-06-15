@@ -18,7 +18,7 @@ It composes:
 - `create*WorkflowHandlers(...)` functions build typed handler maps.
 - Long-running workflows use `WorkflowCallOptions` for progress/output/cancellation.
 - App-level error normalization returns `AppError` variants.
-- Save workflow handlers validate payloads at the workflow boundary, write through their host store, and never return a full persisted document. `settings.saveApp` returns no result; `course.save` returns only `{ revision, updatedAt }`.
+- Save workflow handlers validate payloads at the workflow boundary, write through their host store, and never return a full persisted document. `settings.saveCredentials` and `settings.savePreferences` return no result; `course.save` returns only `{ revision, updatedAt }`.
 - Host save stores throw typed `PersistenceWriteError` values for write-path storage failures and `CourseSaveConflictError` values for optimistic course-save conflicts. Workflow handlers normalize these to shared `AppError` values, including `retryable` on persistence errors and conflict reasons `"revision-invariant"` / `"course-missing"` for course writes.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`; `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and RepoBee-backed `PersistedCourse` documents.

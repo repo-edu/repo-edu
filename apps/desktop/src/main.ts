@@ -5,8 +5,10 @@ import os from "node:os"
 import { delimiter, dirname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { createSettingsWorkflowHandlers } from "@repo-edu/application"
+import type { AppSettingsLoadResult } from "@repo-edu/application-contract"
 import {
-  type PersistedAppSettings,
+  type PersistedAppCredentials,
   type PersistedLlmConnection,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
@@ -16,6 +18,7 @@ import {
   createNodeHttpPort,
   createNodeLlmPort,
   createNodeTokenizerPort,
+  resolveRepoEduAppDataRoot,
 } from "@repo-edu/host-node"
 import {
   createExaminationArchiveStorage,
@@ -189,13 +192,15 @@ function providerConfigFromLlmConnection(
       }
 }
 
-function configFromSettings(settings: PersistedAppSettings): LlmRuntimeConfig {
+function configFromSettings(
+  settings: PersistedAppCredentials,
+): LlmRuntimeConfig {
   const active = resolveActiveLlmConnection(settings)
   if (active === null) return {}
   return providerConfigFromLlmConnection(active)
 }
 
-function rebuildLlmPort(settings: PersistedAppSettings | null): void {
+function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
   activeLlmPort = createNodeLlmPort(
     settings === null ? undefined : configFromSettings(settings),
   )
@@ -361,7 +366,10 @@ function resolveStorageRootPath() {
   if (override) {
     return resolve(override)
   }
-  return join(app.getPath("appData"), "repo-edu")
+  return resolveRepoEduAppDataRoot({
+    platform: process.platform,
+    platformAppDataDirectory: app.getPath("appData"),
+  })
 }
 
 function currentStorageRootPath() {
@@ -741,9 +749,12 @@ async function createWindow(): Promise<BrowserWindow> {
   const storageRoot = currentStorageRootPath()
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
 
-  let appSettings: PersistedAppSettings | null = null
+  let initialSettingsLoadResult: AppSettingsLoadResult | null = null
   try {
-    appSettings = await appSettingsStore.loadSettings()
+    initialSettingsLoadResult =
+      await createSettingsWorkflowHandlers(appSettingsStore)[
+        "settings.loadApp"
+      ](undefined)
   } catch {
     // Fall back to defaults on load failure.
   }
@@ -837,7 +848,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
   if (!desktopRouter) {
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
-    rebuildLlmPort(appSettings)
+    rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
     desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       courseStore: createDesktopCourseStore(storageRoot),
@@ -848,9 +859,10 @@ async function createWindow(): Promise<BrowserWindow> {
       llm: nodeLlmPort,
       tokenizer: nodeTokenizerPort,
       examinationArchive,
+      initialSettingsLoadResult: initialSettingsLoadResult ?? undefined,
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,
-      onAppSettingsSaved: rebuildLlmPort,
+      onAppCredentialsSaved: rebuildLlmPort,
       createDraftLlmTextClient,
     })
   }

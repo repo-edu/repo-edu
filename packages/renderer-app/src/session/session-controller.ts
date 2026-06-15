@@ -1,4 +1,5 @@
 import {
+  type AppSettingsLoadResult,
   type CourseSaveStamp,
   isAppError,
   type WorkflowClient,
@@ -10,7 +11,6 @@ import {
   activeSurfaceRecentSubmission,
   normalizeActiveSurface,
   type PersistedActiveSurface,
-  type PersistedAppSettings,
 } from "@repo-edu/domain/settings"
 import {
   type CourseBacking,
@@ -25,12 +25,15 @@ import {
 } from "../persistence/create-persister.js"
 import { runWithRetry } from "../persistence/retry.js"
 import {
-  composePersistedSettings,
-  createSettingsPersisterWorker,
+  composePersistedPreferences,
+  createCredentialsPersisterWorker,
+  createPreferencesPersisterWorker,
 } from "../persistence/settings-persister.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
+import { useCredentialsStore } from "../stores/credentials-store.js"
+import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import type { ActiveTab } from "../types/index.js"
 import {
@@ -61,6 +64,11 @@ type SessionControllerOptions = {
 type ActiveCourseWorkerSlot = {
   courseId: string
   worker: Persister
+}
+
+type SettingsWorkerSlot = {
+  credentials: Persister | null
+  preferences: Persister | null
 }
 
 type CreateCourseInput = {
@@ -130,7 +138,10 @@ export class SessionController extends CourseMutationController {
   private readonly workflowClient: WorkflowClient
   private snapshot = createInitialSessionSnapshot()
   private readonly listeners = new Set<Listener>()
-  private settingsWorker: Persister | null = null
+  private settingsWorkers: SettingsWorkerSlot = {
+    credentials: null,
+    preferences: null,
+  }
   private activeCourseWorkerSlot: ActiveCourseWorkerSlot | null = null
   private readonly pendingOperations = new Set<Promise<void>>()
   private transitionQueue: Promise<unknown> = Promise.resolve()
@@ -205,7 +216,8 @@ export class SessionController extends CourseMutationController {
   async flush(): Promise<void> {
     await this.waitForTrackedOperations()
     await Promise.all([
-      this.settingsWorker?.flush(),
+      this.settingsWorkers.credentials?.flush(),
+      this.settingsWorkers.preferences?.flush(),
       this.activeCourseWorkerSlot?.worker.flush(),
     ])
   }
@@ -213,7 +225,8 @@ export class SessionController extends CourseMutationController {
   async waitForIdle(): Promise<void> {
     await this.waitForTrackedOperations()
     await Promise.all([
-      this.settingsWorker?.waitForIdle(),
+      this.settingsWorkers.credentials?.waitForIdle(),
+      this.settingsWorkers.preferences?.waitForIdle(),
       this.activeCourseWorkerSlot?.worker.waitForIdle(),
     ])
   }
@@ -446,11 +459,13 @@ export class SessionController extends CourseMutationController {
       )
       if (this.disposed || attempt !== this.bootstrapAttempt) return
 
-      useAppSettingsStore.getState().hydrate(settings)
-      const surface = normalizeActiveSurface(settings.activeSurface)
+      useCredentialsStore.getState().hydrate(settings.credentials)
+      useAppSettingsStore.getState().hydrate(settings.preferences)
+      emitSettingsRecoveryToasts(settings)
+      const surface = normalizeActiveSurface(settings.preferences.activeSurface)
       const commit = await this.prepareBootstrapSurfaceCommit(
         surface,
-        settings.activeTab,
+        settings.preferences.activeTab,
       )
       if (this.disposed || attempt !== this.bootstrapAttempt) return
 
@@ -472,7 +487,7 @@ export class SessionController extends CourseMutationController {
         this.applyPreparedSurfaceCommit(commit)
         this.syncAnalysisSource()
       }
-      this.createSettingsWorker(settings)
+      this.createSettingsWorkers(settings)
       this.dispatch({ type: "bootstrap-ready", attempt })
     } catch (error) {
       if (this.disposed || attempt !== this.bootstrapAttempt) return
@@ -751,12 +766,21 @@ export class SessionController extends CourseMutationController {
     this.activeCourseWorkerSlot = { courseId, worker }
   }
 
-  private createSettingsWorker(initialBaseline?: PersistedAppSettings): void {
-    this.settingsWorker?.dispose()
-    this.settingsWorker = createSettingsPersisterWorker({
+  private createSettingsWorkers(initialBaseline: AppSettingsLoadResult): void {
+    this.settingsWorkers.credentials?.dispose()
+    this.settingsWorkers.preferences?.dispose()
+    const credentialsWorker = createCredentialsPersisterWorker({
+      workflowClient: this.workflowClient,
+      getSnapshot: () => useCredentialsStore.getState().credentials,
+      subscribe: (listener) => useCredentialsStore.subscribe(listener),
+      initialBaseline: initialBaseline.credentials,
+      setSyncStatus: (status) =>
+        this.dispatch({ type: "set-sync-status", scope: "settings", status }),
+    })
+    const preferencesWorker = createPreferencesPersisterWorker({
       workflowClient: this.workflowClient,
       getSnapshot: () =>
-        composePersistedSettings(
+        composePersistedPreferences(
           this.snapshot,
           useAppSettingsStore.getState().settings,
         ),
@@ -768,10 +792,14 @@ export class SessionController extends CourseMutationController {
           unsubscribeSettings()
         }
       },
-      initialBaseline,
+      initialBaseline: initialBaseline.preferences,
       setSyncStatus: (status) =>
         this.dispatch({ type: "set-sync-status", scope: "settings", status }),
     })
+    this.settingsWorkers = {
+      credentials: credentialsWorker,
+      preferences: preferencesWorker,
+    }
   }
 
   private recordSuccessfulSurfaceEntry(surface: PersistedActiveSurface): void {
@@ -826,8 +854,12 @@ export class SessionController extends CourseMutationController {
   }
 
   private disposeWorkers(): void {
-    this.settingsWorker?.dispose()
-    this.settingsWorker = null
+    this.settingsWorkers.credentials?.dispose()
+    this.settingsWorkers.preferences?.dispose()
+    this.settingsWorkers = {
+      credentials: null,
+      preferences: null,
+    }
     this.disposeActiveCourseWorker()
   }
 
@@ -887,6 +919,19 @@ function normalizeLoadedCourse(course: PersistedCourse): PersistedCourse {
     normalized.idSequences,
   )
   return { ...normalized, idSequences: result.idSequences }
+}
+
+function emitSettingsRecoveryToasts(settings: AppSettingsLoadResult): void {
+  for (const entry of settings.recovery) {
+    const label =
+      entry.unit === "unsupported-composite"
+        ? "Unsupported app settings were backed aside"
+        : `${entry.unit} settings were ${entry.reason}`
+    useToastStore.getState().addToast(`${label}: ${entry.backupPath}`, {
+      tone: "warning",
+      durationMs: 10_000,
+    })
+  }
 }
 
 function isMissingCourseError(error: unknown): boolean {

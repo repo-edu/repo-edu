@@ -23,7 +23,7 @@ import {
   isSharedAppError,
   normalizeProviderError,
   parseStudentRows,
-  resolveAppSettingsSnapshot,
+  resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveLmsDraft,
   throwIfAborted,
@@ -175,7 +175,7 @@ export function createRosterWorkflowHandlers(
           label: "Reading course and app settings snapshots.",
         })
         const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         throwIfAborted(options?.signal)
 
         const draft = resolveLmsDraft(course, settings)

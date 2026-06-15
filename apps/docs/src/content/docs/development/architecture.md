@@ -118,7 +118,7 @@ cli.ts                  Commander command tree + global --course flag
 
 Command handlers follow a strict pattern: parse arguments, call a workflow, render output. Business logic must not leak into CLI code — it belongs in `@repo-edu/application` or `@repo-edu/domain`.
 
-Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DIR`.
+Data directory: desktop and CLI share the platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
 
 ## Design decisions
 
@@ -128,7 +128,7 @@ Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DI
 
 3. **Docs as a first-class surface.** `apps/docs` mounts the real `@repo-edu/renderer-app` with mock host adapters. It has dedicated [alignment and guardrail tests](/repo-edu/development/contributing/#guardrail-tests) that break the build if the docs runtime drifts from the workflow catalog.
 
-4. **No legacy migration layer.** This codebase intentionally does not include migration code from older formats. Schema versioning exists (`repo-edu.app-settings.v2`, `repo-edu.course.v1`) for future evolution, not backward compatibility.
+4. **No settings migration layer.** This codebase intentionally does not convert unsupported composite settings files. Section schema discriminators exist for future evolution, not backward compatibility.
 
 5. **Intentionally partial CLI parity.** The CLI covers repeatable execution paths (repo ops, validation, connection checks). Setup-phase workflows stay GUI-only. See [CLI-GUI Parity](/repo-edu/development/cli-gui-parity/) for the full rationale and workflow matrix.
 
@@ -138,4 +138,4 @@ Data directory: `~/.repo-edu` by default, overrideable via `REPO_EDU_CLI_DATA_DI
 - Shared packages must stay platform-agnostic. The browser guardrail test enforces this.
 - Side effects live in adapters and ports (`host-node`, integration adapters), not in domain logic.
 - Desktop workflow calls go through the typed tRPC router — no ad hoc IPC.
-- Renderer session workflows (`settings.loadApp`, `settings.saveApp`, `course.load`, `course.save`, `course.delete`) stay inside `SessionController` and persistence workers.
+- Renderer session workflows (`settings.loadApp`, `settings.saveCredentials`, `settings.savePreferences`, `course.load`, `course.save`, `course.delete`) stay inside `SessionController` and persistence workers.

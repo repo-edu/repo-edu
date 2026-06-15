@@ -1,4 +1,3 @@
-import { mkdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
   type AppSettingsStore,
@@ -6,26 +5,24 @@ import {
   createPersistenceWriteError,
   isPersistenceWriteError,
 } from "@repo-edu/application"
-import { validatePersistedAppSettings } from "@repo-edu/domain/schemas"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
 import {
-  cleanupAtomicTempFiles,
-  createWriteQueue,
-  writeTextFileAtomic,
+  validatePersistedAppCredentials,
+  validatePersistedAppPreferences,
+} from "@repo-edu/domain/schemas"
+import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
+import {
+  createNodeSettingsSectionStore,
+  recoverUnsupportedCompositeSettingsFile,
 } from "@repo-edu/host-node"
 
-function resolveSettingsPath(storageRoot: string): string {
-  return join(storageRoot, "settings", "app-settings.json")
+export type DesktopAppSettingsStore = AppSettingsStore & {
+  readPreferencesWithoutRecovery(
+    signal?: AbortSignal,
+  ): Promise<PersistedAppPreferences | null>
 }
 
-async function ensureSettingsDirectory(storageRoot: string): Promise<void> {
-  await mkdir(join(storageRoot, "settings"), { recursive: true })
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new Error("Operation cancelled.")
-  }
+function resolveSettingsDirectory(storageRoot: string): string {
+  return join(storageRoot, "settings")
 }
 
 function toPersistenceWriteError(error: unknown, message: string): Error {
@@ -42,54 +39,50 @@ function toPersistenceWriteError(error: unknown, message: string): Error {
 
 export function createDesktopAppSettingsStore(
   storageRoot: string,
-): AppSettingsStore {
-  const enqueueWrite = createWriteQueue()
+): DesktopAppSettingsStore {
+  const settingsDirectory = resolveSettingsDirectory(storageRoot)
+  const credentials = createNodeSettingsSectionStore({
+    settingsDirectory,
+    fileName: "credentials.json",
+    unit: "credentials",
+    validate: validatePersistedAppCredentials,
+  })
+  const preferences = createNodeSettingsSectionStore({
+    settingsDirectory,
+    fileName: "preferences.json",
+    unit: "preferences",
+    validate: validatePersistedAppPreferences,
+  })
 
   return {
-    async loadSettings(signal?: AbortSignal) {
-      throwIfAborted(signal)
-      await cleanupAtomicTempFiles(join(storageRoot, "settings"))
-      const settingsPath = resolveSettingsPath(storageRoot)
-
-      try {
-        const raw = await readFile(settingsPath, "utf8")
-        const parsed = JSON.parse(raw) as PersistedAppSettings
-        const validation = validatePersistedAppSettings(parsed)
-        if (!validation.ok) {
-          throw new Error(
-            `Invalid persisted app settings at ${settingsPath}: ${validation.issues
-              .map((issue) => `${issue.path}: ${issue.message}`)
-              .join("; ")}`,
-          )
-        }
-
-        return validation.value
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code
-        if (code === "ENOENT") {
-          return null
-        }
-
-        throw error
-      }
-    },
-    async saveSettings(settings: PersistedAppSettings, signal?: AbortSignal) {
-      return await enqueueWrite(async () => {
+    credentials: {
+      load: credentials.load,
+      save: async (section, signal) => {
         try {
-          throwIfAborted(signal)
-          await ensureSettingsDirectory(storageRoot)
-          throwIfAborted(signal)
-
-          const settingsPath = resolveSettingsPath(storageRoot)
-          await writeTextFileAtomic(
-            settingsPath,
-            JSON.stringify(settings, null, 2),
-            signal,
-          )
+          await credentials.save(section, signal)
         } catch (error) {
-          throw toPersistenceWriteError(error, "Could not write app settings.")
+          throw toPersistenceWriteError(
+            error,
+            "Could not write app credentials.",
+          )
         }
-      })
+      },
     },
+    preferences: {
+      load: preferences.load,
+      save: async (section, signal) => {
+        try {
+          await preferences.save(section, signal)
+        } catch (error) {
+          throw toPersistenceWriteError(
+            error,
+            "Could not write app preferences.",
+          )
+        }
+      },
+    },
+    recoverUnsupportedComposite: (signal) =>
+      recoverUnsupportedCompositeSettingsFile(settingsDirectory, signal),
+    readPreferencesWithoutRecovery: preferences.readRaw,
   }
 }

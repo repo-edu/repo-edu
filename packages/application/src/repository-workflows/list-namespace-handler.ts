@@ -11,7 +11,7 @@ import type {
 import {
   isSharedAppError,
   normalizeProviderError,
-  resolveAppSettingsSnapshot,
+  resolveAppCredentialsSnapshot,
   resolveGitDraft,
   throwIfAborted,
 } from "../workflow-helpers.js"
@@ -35,7 +35,7 @@ export function createRepoListNamespaceHandler(
           totalSteps,
           label: "Reading app settings snapshot.",
         })
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
           throw {

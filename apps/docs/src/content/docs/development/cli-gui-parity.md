@@ -30,7 +30,8 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `course.save` | yes | yes | yes | Internal save path for CLI repo operations |
 | `course.delete` | yes | — | yes | Managed in GUI course settings flow |
 | `settings.loadApp` | yes | yes | yes | Internal to CLI runtime |
-| `settings.saveApp` | yes | yes | yes | Internal to `course load` context switch |
+| `settings.saveCredentials` | yes | — | yes | GUI connection settings persist credential records |
+| `settings.savePreferences` | yes | yes | yes | Internal to `course load` context switch |
 | `connection.verifyLmsDraft` | yes | yes | yes | |
 | `connection.listLmsCoursesDraft` | yes | — | yes | One-time discovery during setup |
 | `connection.verifyGitDraft` | yes | yes | yes | |
@@ -73,7 +74,7 @@ These 11 workflow-backed commands serve scripting and automation:
 | `course list` | `course.list` | Quick context check, pipeable |
 | `course active` | `settings.loadApp` | Shell scripts need active course ID |
 | `course show` | `course.load` | JSON dump for `jq` pipelines and debugging |
-| `course load` | `course.load`, `settings.saveApp` | Context switching for multi-course scripting |
+| `course load` | `course.load`, `settings.savePreferences` | Context switching for multi-course scripting |
 | `lms verify` | `connection.verifyLmsDraft` | Connection gate before batch ops |
 | `git verify` | `connection.verifyGitDraft` | Connection gate before batch ops |
 | `repo create` | `repo.create` | Primary automation: `--dry-run`, `--all`, `--template-path` |
@@ -93,7 +94,7 @@ The top-level `update` command is also kept, but it does not execute through the
 `groupSet.connectFromLms` — requires visual selection from fetched LMS data, then linking.
 
 **Multi-step setup:**
-LMS, Git and LLM connection settings are edited in GUI panes and persisted by the renderer settings persister; the CLI keeps only the active-course settings write needed for `course load`.
+LMS, Git and LLM connection settings are edited in GUI panes and persisted by the renderer credentials persister; the CLI keeps only the active-course preference write needed for `course load`.
 
 **Interactive exploration / LLM review:**
 `analysis.*` and `examination.*` workflows depend on repository browsing, blame inspection, author selection, and examination question review.

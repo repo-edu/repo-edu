@@ -3,25 +3,15 @@ title: Settings Reference
 description: Complete field reference for app settings and course documents
 ---
 
-Both app settings and course documents are stored as JSON files and validated on every read and write using Zod schemas. Invalid files are rejected with path-level error messages.
+Both app settings and course documents are stored as JSON files and validated on every read and write using Zod schemas. Settings are split into independent credentials and preferences sections; invalid settings sections are backed aside independently and reported to the caller.
 
-## App settings (`repo-edu.app-settings.v2`)
+## App credentials (`repo-edu.app-credentials.v1`)
+
+Stored at `settings/credentials.json`.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `kind` | `"repo-edu.app-settings.v2"` | Schema discriminator |
-| `activeSurface` | `{ kind: "home" } \| { kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "submission"; path: string; courseId?: string }` | Currently selected surface |
-| `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab (default: `"roster"`) |
-| `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog. Omitted until the first course is created. |
-| `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized, deduplicated, newest first, capped at 8 |
-| `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission-folder paths, normalized, deduplicated by path and course attachment, newest first, capped at 8 |
-| `folderViewAnalysisInputs` | `AnalysisInputs` | Shared persisted Analysis-tab inputs for folder analysis surfaces |
-| `submissionSurfaceStates` | `Record<string, { includedFiles: string[] \| null }>` | Per-submission folder UI state for selected files. `null` means all eligible files; `[]` means nothing selected. |
-| `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
-| `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
-| `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
-| `appearance.timeFormat` | `"12h" \| "24h"` | Time display format |
-| `appearance.syntaxTheme` | `"plus" \| "github" \| "github-dimmed" \| "everforest" \| "nord" \| "min"` | Source-code highlighting theme |
+| `kind` | `"repo-edu.app-credentials.v1"` | Schema discriminator |
 | `lmsConnections[]` | Array | LMS provider connections |
 | `lmsConnections[].name` | `string` | Connection display name |
 | `lmsConnections[].provider` | `"canvas" \| "moodle"` | LMS provider |
@@ -43,6 +33,26 @@ Both app settings and course documents are stored as JSON files and validated on
 | `llmConnections[].apiKey` | `string` | Empty for subscription mode; required for API-key mode |
 | `llmConnections[].maxTokens` | `number?` | Required only for Claude API-key connections; omitted for Claude subscription and all Codex connections |
 | `activeLlmConnectionId` | `string \| null` | Active LLM connection id |
+
+## App preferences (`repo-edu.app-preferences.v1`)
+
+Stored at `settings/preferences.json`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `kind` | `"repo-edu.app-preferences.v1"` | Schema discriminator |
+| `activeSurface` | `{ kind: "home" } \| { kind: "course"; courseId: string } \| { kind: "folder"; path: string } \| { kind: "submission"; path: string; courseId?: string }` | Currently selected surface |
+| `activeTab` | `"roster" \| "groups-assignments" \| "analysis"` | Last active UI tab (default: `"roster"`) |
+| `lastUsedCourseBacking` | `"lms" \| "repobee"` | Sticky default for the New Course dialog. Omitted until the first course is created. |
+| `recentAnalysisFolders` | `string[]` | Most recently opened folder-analysis paths, normalized, deduplicated, newest first, capped at 8 |
+| `recentSubmissionFolders` | `{ path: string; courseId?: string }[]` | Most recently opened submission-folder paths, normalized, deduplicated by path and course attachment, newest first, capped at 8 |
+| `folderViewAnalysisInputs` | `AnalysisInputs` | Shared persisted Analysis-tab inputs for folder analysis surfaces |
+| `submissionSurfaceStates` | `Record<string, { includedFiles: string[] \| null }>` | Per-submission folder UI state for selected files. `null` means all eligible files; `[]` means nothing selected. |
+| `appearance.theme` | `"system" \| "light" \| "dark"` | Color theme |
+| `appearance.windowChrome` | `"system" \| "hiddenInset"` | Window title bar style |
+| `appearance.dateFormat` | `"MDY" \| "DMY"` | Date display format |
+| `appearance.timeFormat` | `"12h" \| "24h"` | Time display format |
+| `appearance.syntaxTheme` | `"plus" \| "github" \| "github-dimmed" \| "everforest" \| "nord" \| "min"` | Source-code highlighting theme |
 | `examinationModelsByProvider` | `{ claude?: string; codex?: string }` | Per-provider examination model short-code selections |
 | `lastOpenedAt` | `string \| null` | ISO timestamp of last app open |
 | `rosterColumnVisibility` | `Record<string, boolean>` | Roster table column visibility |

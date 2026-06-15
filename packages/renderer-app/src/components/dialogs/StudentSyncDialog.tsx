@@ -28,8 +28,8 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { useCourseStore } from "../../stores/course-store.js"
+import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
@@ -46,7 +46,7 @@ export function StudentSyncDialog() {
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const course = useCourseStore((state) => state.course)
   const courseLoadStatus = useSessionControllerSelector(selectCourseLoadStatus)
-  const appSettings = useAppSettingsStore((state) => state.settings)
+  const credentials = useCredentialsStore((state) => state.credentials)
   const loadedCourse = course && course.id === activeCourseId ? course : null
   const supportsLms = loadedCourse !== null && courseSupportsLms(loadedCourse)
   const lmsCourseId = loadedCourse?.lmsCourseId ?? null
@@ -126,7 +126,7 @@ export function StudentSyncDialog() {
         "roster.importFromLms",
         {
           course: loadedCourse,
-          appSettings,
+          credentials,
           lmsCourseId,
         },
         {
@@ -151,7 +151,7 @@ export function StudentSyncDialog() {
     }
   }, [
     activeCourseId,
-    appSettings,
+    credentials,
     loadedCourse,
     supportsLms,
     courseLoadStatus.state,
@@ -207,7 +207,7 @@ export function StudentSyncDialog() {
             and staff.
           </Text>
 
-          {loadedCourse && appSettings.lmsConnections.length > 0 && (
+          {loadedCourse && credentials.lmsConnections.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <Label htmlFor="student-sync-lms-connection">
                 LMS connection
@@ -232,7 +232,7 @@ export function StudentSyncDialog() {
                   <SelectValue placeholder="Select a connection" />
                 </SelectTrigger>
                 <SelectContent>
-                  {appSettings.lmsConnections.map((connection) => (
+                  {credentials.lmsConnections.map((connection) => (
                     <SelectItem key={connection.id} value={connection.id}>
                       {lmsConnectionDisplayName(connection)}
                     </SelectItem>

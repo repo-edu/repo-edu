@@ -34,7 +34,12 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "none",
     cancellation: "non-cancellable",
   },
-  "settings.saveApp": {
+  "settings.saveCredentials": {
+    delivery: ["desktop", "docs"],
+    progress: "milestone",
+    cancellation: "cooperative",
+  },
+  "settings.savePreferences": {
     delivery: ["desktop", "docs", "cli"],
     progress: "milestone",
     cancellation: "cooperative",

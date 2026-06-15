@@ -1,13 +1,13 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import {
-  defaultAppSettings,
-  type PersistedAppSettings,
+  defaultAppPreferences,
+  type PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import {
   type CourseBacking,
   type CourseSummary,
-  persistedAppSettingsKind,
+  persistedAppPreferencesKind,
 } from "@repo-edu/domain/types"
 import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
@@ -16,11 +16,11 @@ import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 function makeSettings(
-  overrides: Partial<PersistedAppSettings> = {},
-): PersistedAppSettings {
+  overrides: Partial<PersistedAppPreferences> = {},
+): PersistedAppPreferences {
   return {
-    ...defaultAppSettings,
-    kind: persistedAppSettingsKind,
+    ...defaultAppPreferences,
+    kind: persistedAppPreferencesKind,
     ...overrides,
   }
 }

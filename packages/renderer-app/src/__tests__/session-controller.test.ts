@@ -1,13 +1,16 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type {
+  AppSettingsLoadResult,
   WorkflowClient,
   WorkflowId,
   WorkflowResult,
 } from "@repo-edu/application-contract"
 import {
   defaultAppSettings,
+  type PersistedAppPreferences,
   type PersistedAppSettings,
+  splitAppSettings,
 } from "@repo-edu/domain/settings"
 import {
   type PersistedCourse,
@@ -20,6 +23,8 @@ import {
 } from "../session/session-reducer.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
+import { useCredentialsStore } from "../stores/credentials-store.js"
+import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
 function deferred<T>() {
@@ -66,8 +71,11 @@ function makeCourse(id: string, displayName = id): PersistedCourse {
 
 function makeSettings(
   overrides: Partial<PersistedAppSettings> = {},
-): PersistedAppSettings {
-  return { ...defaultAppSettings, ...overrides }
+): AppSettingsLoadResult {
+  return {
+    ...splitAppSettings({ ...defaultAppSettings, ...overrides }),
+    recovery: [],
+  }
 }
 
 function workflowClient(
@@ -117,7 +125,9 @@ async function waitForSnapshot(
 
 beforeEach(() => {
   useAppSettingsStore.getState().reset()
+  useCredentialsStore.getState().reset()
   useCourseStore.getState().clear()
+  useToastStore.getState().clearToasts()
   useUiStore.getState().reset()
 })
 
@@ -135,7 +145,7 @@ describe("SessionController", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return makeCourse("course-a") as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -154,8 +164,66 @@ describe("SessionController", () => {
     controller.dispose()
   })
 
+  it("hydrates settings sections and emits recovery warning toasts", async () => {
+    const restoredSettings = makeSettings({
+      activeGitConnectionId: "github-1",
+      gitConnections: [
+        {
+          id: "github-1",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "ghp_test",
+        },
+      ],
+    })
+    restoredSettings.recovery = [
+      {
+        unit: "preferences",
+        reason: "invalid",
+        backupPath: "/tmp/preferences.invalid-1.json",
+      },
+    ]
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "settings.loadApp") {
+          return restoredSettings as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "settings.savePreferences") {
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    assert.deepStrictEqual(
+      useCredentialsStore.getState().credentials.gitConnections,
+      restoredSettings.credentials.gitConnections,
+    )
+    assert.equal(
+      useAppSettingsStore.getState().settings.kind,
+      "repo-edu.app-preferences.v1",
+    )
+    assert.deepStrictEqual(useToastStore.getState().toasts, [
+      {
+        id: useToastStore.getState().toasts[0]?.id,
+        message:
+          "preferences settings were invalid: /tmp/preferences.invalid-1.json",
+        tone: "warning",
+        durationMs: 10_000,
+        action: undefined,
+      },
+    ])
+
+    controller.dispose()
+  })
+
   it("recovers a missing persisted active course to home during bootstrap", async () => {
-    const savedSettings: PersistedAppSettings[] = []
+    const savedSettings: PersistedAppPreferences[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -174,8 +242,8 @@ describe("SessionController", () => {
             resource: "course",
           }
         }
-        if (workflowId === "settings.saveApp") {
-          savedSettings.push(input as PersistedAppSettings)
+        if (workflowId === "settings.savePreferences") {
+          savedSettings.push(input as PersistedAppPreferences)
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -212,7 +280,7 @@ describe("SessionController", () => {
         if (workflowId === "course.load") {
           return loadedCourse as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -236,7 +304,7 @@ describe("SessionController", () => {
 
   it("waits for pending activation before close flush persists settings", async () => {
     const courseALoad = deferred<PersistedCourse>()
-    const savedSettings: PersistedAppSettings[] = []
+    const savedSettings: PersistedAppPreferences[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -248,8 +316,8 @@ describe("SessionController", () => {
             typeof workflowId
           >
         }
-        if (workflowId === "settings.saveApp") {
-          savedSettings.push(input as PersistedAppSettings)
+        if (workflowId === "settings.savePreferences") {
+          savedSettings.push(input as PersistedAppPreferences)
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -311,7 +379,7 @@ describe("SessionController", () => {
           courseBLoadCount += 1
           return makeCourse(courseId) as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         if (workflowId === "course.save") {
@@ -377,7 +445,7 @@ describe("SessionController", () => {
             courseId === "course-b" ? malformedCourse : makeCourse(courseId)
           ) as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -428,7 +496,7 @@ describe("SessionController", () => {
           savedCourses.push(input as PersistedCourse)
           throw new Error("missing course should not be flushed")
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -478,7 +546,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -540,7 +608,7 @@ describe("SessionController", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -598,7 +666,7 @@ describe("SessionController", () => {
           await deleteGate.promise
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -672,7 +740,7 @@ describe("SessionController", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -728,7 +796,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -783,7 +851,7 @@ describe("SessionController", () => {
           await deleteGate.promise
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -820,7 +888,7 @@ describe("SessionController", () => {
           }
           return makeSettings() as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -876,7 +944,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -925,7 +993,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -982,7 +1050,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -1033,7 +1101,7 @@ describe("SessionController", () => {
             updatedAt: "2026-05-29T00:00:01.000Z",
           } as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -1080,7 +1148,7 @@ describe("SessionController", () => {
           const { courseId } = input as { courseId: string }
           return makeCourse(courseId) as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -1136,7 +1204,7 @@ describe("SessionController", () => {
             typeof workflowId
           >
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)
@@ -1172,7 +1240,7 @@ describe("SessionController", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return (await courseLoad.promise) as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "settings.saveApp") {
+        if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
         throw new Error(`Unexpected workflow ${workflowId}`)

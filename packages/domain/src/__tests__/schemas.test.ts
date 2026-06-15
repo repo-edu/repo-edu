@@ -9,10 +9,16 @@ import {
   gitUsernameImportRowSchema,
   groupEditImportRowSchema,
   studentImportRowSchema,
+  validatePersistedAppCredentials,
+  validatePersistedAppPreferences,
   validatePersistedAppSettings,
   validatePersistedCourse,
 } from "../schemas.js"
-import { defaultAppSettings } from "../settings.js"
+import {
+  defaultAppCredentials,
+  defaultAppPreferences,
+  defaultAppSettings,
+} from "../settings.js"
 import { createBlankCourse } from "../types.js"
 
 describe("validatePersistedAppSettings", () => {
@@ -320,6 +326,57 @@ describe("validatePersistedAppSettings", () => {
       activeCourseId: "course-1",
     })
     assert.equal(result.ok, false)
+  })
+})
+
+describe("validatePersistedAppSettings sections", () => {
+  it("validates credentials independently from invalid preferences", () => {
+    const credentials = validatePersistedAppCredentials({
+      ...defaultAppCredentials,
+      activeGitConnectionId: "deleted-id",
+      gitConnections: [
+        {
+          id: "github-1",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "ghp_abc",
+        },
+      ],
+    })
+    assert.equal(credentials.ok, true)
+
+    const preferences = validatePersistedAppPreferences({
+      ...defaultAppPreferences,
+      activeSurface: { kind: "submission", path: "relative/path" },
+    })
+    assert.equal(preferences.ok, false)
+  })
+
+  it("validates preferences independently from invalid credentials", () => {
+    const preferences = validatePersistedAppPreferences({
+      ...defaultAppPreferences,
+      activeSurface: { kind: "folder", path: " /tmp/repos\\course/ " },
+    })
+    assert.equal(preferences.ok, true)
+    if (preferences.ok) {
+      assert.deepStrictEqual(preferences.value.activeSurface, {
+        kind: "folder",
+        path: "/tmp/repos/course",
+      })
+    }
+
+    const credentials = validatePersistedAppCredentials({
+      ...defaultAppCredentials,
+      gitConnections: [
+        {
+          id: "bad-1",
+          provider: "bitbucket",
+          baseUrl: "https://example.com",
+          token: "tok",
+        },
+      ],
+    })
+    assert.equal(credentials.ok, false)
   })
 })
 

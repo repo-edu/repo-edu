@@ -15,7 +15,7 @@ import { createValidationAppError } from "../core.js"
 import {
   isSharedAppError,
   normalizeProviderError,
-  resolveAppSettingsSnapshot,
+  resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveLmsDraft,
   throwIfAborted,
@@ -56,7 +56,7 @@ export function createLmsGroupSetHandlers(
           label: "Reading course and app settings snapshots.",
         })
         const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
@@ -109,7 +109,7 @@ export function createLmsGroupSetHandlers(
           label: "Reading course and app settings snapshots.",
         })
         const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider
@@ -226,7 +226,7 @@ export function createLmsGroupSetHandlers(
           label: "Reading course and app settings snapshots.",
         })
         const course = resolveCourseSnapshot(input.course)
-        const settings = resolveAppSettingsSnapshot(input.appSettings)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
         throwIfAborted(options?.signal)
         const draft = resolveLmsDraft(course, settings)
         providerForError = draft.provider

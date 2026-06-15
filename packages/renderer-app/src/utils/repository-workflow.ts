@@ -2,7 +2,7 @@ import type {
   RepositoryBatchInput,
   RepositoryUpdateInput,
 } from "@repo-edu/application-contract"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type {
   PersistedCourse,
   RepositoryTemplate,
@@ -16,7 +16,7 @@ export type OperationModeKey = RepositoryOperationMode | "clone-all"
 
 export type BuildRepositoryWorkflowRequestArgs = {
   course: PersistedCourse
-  appSettings: PersistedAppSettings
+  credentials: PersistedAppCredentials
   assignmentId: string
   operation: RepositoryOperationMode
   repositoryTemplate: RepositoryTemplate | null
@@ -34,7 +34,7 @@ export function resolveRepositoryWorkflowId(
 
 export function buildRepositoryWorkflowRequest({
   course,
-  appSettings,
+  credentials,
   assignmentId,
   operation,
   repositoryTemplate,
@@ -48,7 +48,7 @@ export function buildRepositoryWorkflowRequest({
 
   const baseInput: RepositoryBatchInput = {
     course,
-    appSettings,
+    credentials,
     assignmentId,
     template: repositoryTemplate,
   }
@@ -58,7 +58,7 @@ export function buildRepositoryWorkflowRequest({
       workflowId,
       input: {
         course,
-        appSettings,
+        credentials,
         assignmentId,
       },
     }

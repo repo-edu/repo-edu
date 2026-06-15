@@ -5,7 +5,10 @@ import type {
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
 import { formatSmokeWorkflowMessage } from "@repo-edu/domain/schemas"
-import type { PersistedAppSettings } from "@repo-edu/domain/settings"
+import type {
+  PersistedAppCredentials,
+  PersistedAppPreferences,
+} from "@repo-edu/domain/settings"
 import {
   packageId as domainPackageId,
   type GitIdentityMode,
@@ -196,14 +199,36 @@ export type CourseStore = {
   deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
 }
 
+export type SettingsRecoveryUnit =
+  | "credentials"
+  | "preferences"
+  | "unsupported-composite"
+export type SettingsRecoveryReason = "invalid" | "unparseable" | "unsupported"
+
+export type SettingsRecoveryEntry = {
+  unit: SettingsRecoveryUnit
+  reason: SettingsRecoveryReason
+  backupPath: string
+}
+
+export type SettingsSectionLoadResult<T> = {
+  value: T | null
+  recovery: SettingsRecoveryEntry[]
+}
+
+export type SectionStore<T> = {
+  load(
+    signal?: AbortSignal,
+  ): Promise<SettingsSectionLoadResult<T>> | SettingsSectionLoadResult<T>
+  save(section: T, signal?: AbortSignal): Promise<void> | void
+}
+
 export type AppSettingsStore = {
-  loadSettings(
+  credentials: SectionStore<PersistedAppCredentials>
+  preferences: SectionStore<PersistedAppPreferences>
+  recoverUnsupportedComposite?(
     signal?: AbortSignal,
-  ): Promise<PersistedAppSettings | null> | PersistedAppSettings | null
-  saveSettings(
-    settings: PersistedAppSettings,
-    signal?: AbortSignal,
-  ): Promise<void> | void
+  ): Promise<SettingsRecoveryEntry[]> | SettingsRecoveryEntry[]
 }
 
 export async function runSmokeWorkflow(
@@ -309,16 +334,33 @@ export function createInMemoryCourseStore(
 }
 
 export function createInMemoryAppSettingsStore(
-  settings: PersistedAppSettings | null = null,
+  sections: {
+    credentials: PersistedAppCredentials
+    preferences: PersistedAppPreferences
+  } | null = null,
 ): AppSettingsStore {
-  let value = settings
+  let credentials = sections?.credentials ?? null
+  let preferences = sections?.preferences ?? null
 
   return {
-    loadSettings() {
-      return value
+    credentials: {
+      load() {
+        return { value: credentials, recovery: [] }
+      },
+      save(nextCredentials: PersistedAppCredentials) {
+        credentials = nextCredentials
+      },
     },
-    saveSettings(nextSettings: PersistedAppSettings) {
-      value = nextSettings
+    preferences: {
+      load() {
+        return { value: preferences, recovery: [] }
+      },
+      save(nextPreferences: PersistedAppPreferences) {
+        preferences = nextPreferences
+      },
+    },
+    recoverUnsupportedComposite() {
+      return []
     },
   }
 }

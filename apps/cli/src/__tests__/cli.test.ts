@@ -11,6 +11,7 @@ import { createWorkflowClient } from "@repo-edu/application-contract"
 import {
   defaultAppSettings,
   type PersistedAppSettings,
+  splitAppSettings,
 } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
@@ -38,17 +39,18 @@ function normalize(text: string): string {
 
 async function runCli(
   args: string[],
-  options?: { workflowClient?: WorkflowClient },
+  options?: { storageRoot?: string; workflowClient?: WorkflowClient },
 ): Promise<{
   exitCode: number
   stdout: string
   stderr: string
 }> {
-  const program = createProgram(
-    options?.workflowClient
+  const program = createProgram({
+    ...(options?.storageRoot ? { storageRoot: options.storageRoot } : {}),
+    ...(options?.workflowClient
       ? { createWorkflowClient: () => options.workflowClient as WorkflowClient }
-      : undefined,
-  )
+      : {}),
+  })
   program.exitOverride()
 
   let stdout = ""
@@ -230,10 +232,16 @@ async function seedCliDataDirectory(
 
   if (options?.settings) {
     const settingsDirectory = join(rootDirectory, "settings")
+    const sections = splitAppSettings(options.settings)
     await mkdir(settingsDirectory, { recursive: true })
     await writeFile(
-      join(settingsDirectory, "app-settings.json"),
-      JSON.stringify(options.settings, null, 2),
+      join(settingsDirectory, "credentials.json"),
+      JSON.stringify(sections.credentials, null, 2),
+      "utf8",
+    )
+    await writeFile(
+      join(settingsDirectory, "preferences.json"),
+      JSON.stringify(sections.preferences, null, 2),
       "utf8",
     )
   }
@@ -243,18 +251,10 @@ async function withTempCliDataDirectory(
   run: (rootDirectory: string) => Promise<void>,
 ): Promise<void> {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"))
-  const previous = process.env.REPO_EDU_CLI_DATA_DIR
-  process.env.REPO_EDU_CLI_DATA_DIR = temporaryRoot
 
   try {
     await run(temporaryRoot)
   } finally {
-    if (previous === undefined) {
-      delete process.env.REPO_EDU_CLI_DATA_DIR
-    } else {
-      process.env.REPO_EDU_CLI_DATA_DIR = previous
-    }
-
     await rm(temporaryRoot, { recursive: true, force: true })
   }
 }
@@ -280,7 +280,9 @@ describe("CLI workflow-backed behaviors", () => {
         settings: makeSettings(course.id),
       })
 
-      const result = await runCli(["course", "list"])
+      const result = await runCli(["course", "list"], {
+        storageRoot: rootDirectory,
+      })
       assert.equal(result.exitCode, 0)
       assert.match(result.stdout, /^\* seed-course\tSeed Course\t/m)
     })
@@ -294,7 +296,9 @@ describe("CLI workflow-backed behaviors", () => {
         settings: makeSettings(course.id),
       })
 
-      const result = await runCli(["validate", "--assignment", "Project 1"])
+      const result = await runCli(["validate", "--assignment", "Project 1"], {
+        storageRoot: rootDirectory,
+      })
       assert.equal(result.exitCode, 1)
       assert.match(result.stdout, /Validation found/)
       assert.match(result.stdout, /missing_email/)
@@ -317,7 +321,10 @@ describe("CLI workflow-backed behaviors", () => {
 
     let verifyInput: unknown = null
     const handlers: Partial<WorkflowHandlerMap> = {
-      "settings.loadApp": async () => settings,
+      "settings.loadApp": async () => ({
+        ...splitAppSettings(settings),
+        recovery: [],
+      }),
       "connection.verifyGitDraft": async (input) => {
         verifyInput = input
         return { verified: true, checkedAt: "2026-03-04T10:00:00.000Z" }
@@ -343,12 +350,10 @@ describe("CLI workflow-backed behaviors", () => {
         settings: makeSettings(course.id),
       })
 
-      const result = await runCli([
-        "repo",
-        "create",
-        "--assignment",
-        "Project 1",
-      ])
+      const result = await runCli(
+        ["repo", "create", "--assignment", "Project 1"],
+        { storageRoot: rootDirectory },
+      )
       assert.equal(result.exitCode, 1)
       assert.match(result.stderr, /No Git connection is configured/)
     })
@@ -364,24 +369,25 @@ describe("CLI fixture-backed integration", () => {
       })
       await seedCliDataDirectory(rootDirectory, { course, settings })
 
-      const courseList = await runCli(["course", "list"])
+      const courseList = await runCli(["course", "list"], {
+        storageRoot: rootDirectory,
+      })
       assert.equal(courseList.exitCode, 0)
       assert.equal(
         courseList.stdout.includes(`* ${course.id}\t${course.displayName}`),
         true,
       )
 
-      const validate = await runCli(["validate", "--assignment", "lab01"])
+      const validate = await runCli(["validate", "--assignment", "lab01"], {
+        storageRoot: rootDirectory,
+      })
       assert.equal(validate.exitCode, 1)
       assert.match(validate.stdout, /Validation found \d+ issue/)
 
-      const repoDryRun = await runCli([
-        "repo",
-        "create",
-        "--assignment",
-        "lab01",
-        "--dry-run",
-      ])
+      const repoDryRun = await runCli(
+        ["repo", "create", "--assignment", "lab01", "--dry-run"],
+        { storageRoot: rootDirectory },
+      )
       assert.equal(repoDryRun.exitCode, 0)
       assert.match(
         repoDryRun.stdout,
@@ -400,7 +406,9 @@ describe("CLI fixture-backed integration", () => {
       })
       await seedCliDataDirectory(rootDirectory, { course, settings })
 
-      const verify = await runCli(["lms", "verify"])
+      const verify = await runCli(["lms", "verify"], {
+        storageRoot: rootDirectory,
+      })
       assert.equal(verify.exitCode, 1)
       assert.match(
         verify.stderr,

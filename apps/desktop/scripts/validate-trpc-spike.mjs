@@ -460,8 +460,16 @@ async function main() {
       throw new Error("savedCourseUpdatedAt was not emitted as a string.");
     }
 
-    if (marker.settingsKind !== "repo-edu.app-settings.v2") {
-      throw new Error(`unexpected settingsKind: ${String(marker.settingsKind)}`);
+    if (marker.credentialsKind !== "repo-edu.app-credentials.v1") {
+      throw new Error(
+        `unexpected credentialsKind: ${String(marker.credentialsKind)}`,
+      );
+    }
+
+    if (marker.preferencesKind !== "repo-edu.app-preferences.v1") {
+      throw new Error(
+        `unexpected preferencesKind: ${String(marker.preferencesKind)}`,
+      );
     }
 
     if (!Array.isArray(marker.rosterIssueKinds)) {

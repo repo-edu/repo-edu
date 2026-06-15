@@ -78,7 +78,14 @@ async function collectValidationSnapshot() {
   const savedCourseStamp = await workflowClient.run("course.save", loadedCourse)
 
   const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
-  await workflowClient.run("settings.saveApp", loadedSettings)
+  await workflowClient.run(
+    "settings.saveCredentials",
+    loadedSettings.credentials,
+  )
+  await workflowClient.run(
+    "settings.savePreferences",
+    loadedSettings.preferences,
+  )
 
   const rosterValidation = await workflowClient.run("validation.roster", {
     course: loadedCourse,
@@ -102,7 +109,8 @@ async function collectValidationSnapshot() {
     savedCourseId: loadedCourse.id,
     savedCourseUpdatedAt: savedCourseStamp.updatedAt,
     validationAssignmentId,
-    settingsKind: loadedSettings.kind,
+    credentialsKind: loadedSettings.credentials.kind,
+    preferencesKind: loadedSettings.preferences.kind,
     rosterIssueKinds: rosterValidation.issues.map((issue) => issue.kind),
     assignmentIssueKinds: assignmentValidation.issues.map(
       (issue) => issue.kind,

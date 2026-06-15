@@ -2,7 +2,7 @@ import {
   DEFAULT_CLAUDE_API_MAX_TOKENS,
   gitProviderDefaultBaseUrls,
   type LlmProviderKind,
-  type PersistedAppSettings,
+  type PersistedAppCredentials,
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
@@ -165,7 +165,7 @@ export function toLlmDraft(connection: PersistedLlmConnection): LlmDraft {
 
 export function effectiveLlmConnectionId(
   settings: Pick<
-    PersistedAppSettings,
+    PersistedAppCredentials,
     "llmConnections" | "activeLlmConnectionId"
   >,
 ): string | null {

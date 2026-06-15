@@ -22,12 +22,14 @@ import {
   groupSetImportRowSchema,
   type StudentImportRow,
   studentImportRowSchema,
-  validatePersistedAppSettings,
+  validatePersistedAppCredentials,
   validatePersistedCourse,
 } from "@repo-edu/domain/schemas"
 import {
-  defaultAppSettings,
-  type PersistedAppSettings,
+  type AppSettingsSections,
+  defaultAppCredentials,
+  defaultAppPreferences,
+  type PersistedAppCredentials,
   resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import {
@@ -50,7 +52,11 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import type { AppSettingsStore, CourseStore } from "./core.js"
+import type {
+  AppSettingsStore,
+  CourseStore,
+  SettingsRecoveryEntry,
+} from "./core.js"
 import {
   createValidationAppError,
   isPersistenceWriteError,
@@ -106,24 +112,26 @@ export async function loadRequiredCourse(
 export async function loadSettingsOrDefault(
   appSettingsStore: AppSettingsStore,
   signal?: AbortSignal,
-): Promise<PersistedAppSettings> {
+): Promise<AppSettingsSections & { recovery: SettingsRecoveryEntry[] }> {
   throwIfAborted(signal)
-  const storedSettings = await appSettingsStore.loadSettings(signal)
+  const unsupportedCompositeRecovery =
+    (await appSettingsStore.recoverUnsupportedComposite?.(signal)) ?? []
+  throwIfAborted(signal)
+  const [storedCredentials, storedPreferences] = await Promise.all([
+    appSettingsStore.credentials.load(signal),
+    appSettingsStore.preferences.load(signal),
+  ])
   throwIfAborted(signal)
 
-  if (storedSettings === null) {
-    return defaultAppSettings
+  return {
+    credentials: storedCredentials.value ?? defaultAppCredentials,
+    preferences: storedPreferences.value ?? defaultAppPreferences,
+    recovery: [
+      ...unsupportedCompositeRecovery,
+      ...storedCredentials.recovery,
+      ...storedPreferences.recovery,
+    ],
   }
-
-  const validation = validatePersistedAppSettings(storedSettings)
-  if (!validation.ok) {
-    throw createValidationAppError(
-      "App settings validation failed.",
-      validation.issues,
-    )
-  }
-
-  return validation.value
 }
 
 export function resolveCourseSnapshot(
@@ -132,13 +140,13 @@ export function resolveCourseSnapshot(
   return validateLoadedCourse(course)
 }
 
-export function resolveAppSettingsSnapshot(
-  appSettings: PersistedAppSettings,
-): PersistedAppSettings {
-  const validation = validatePersistedAppSettings(appSettings)
+export function resolveAppCredentialsSnapshot(
+  credentials: PersistedAppCredentials,
+): PersistedAppCredentials {
+  const validation = validatePersistedAppCredentials(credentials)
   if (!validation.ok) {
     throw createValidationAppError(
-      "App settings validation failed.",
+      "App credentials validation failed.",
       validation.issues,
     )
   }
@@ -147,7 +155,7 @@ export function resolveAppSettingsSnapshot(
 
 export function resolveLmsDraft(
   course: PersistedCourse,
-  settings: PersistedAppSettings,
+  settings: PersistedAppCredentials,
 ): LmsConnectionDraft {
   if (!courseSupportsLms(course)) {
     throw createValidationAppError("LMS workflow requires an LMS course.", [
@@ -186,7 +194,7 @@ export function resolveLmsDraft(
 }
 
 export function resolveGitDraft(
-  settings: PersistedAppSettings,
+  settings: PersistedAppCredentials,
 ): GitConnectionDraft | null {
   const connection = resolveActiveGitConnection(settings)
   if (connection === null) {
