@@ -749,16 +749,6 @@ async function createWindow(): Promise<BrowserWindow> {
   const storageRoot = currentStorageRootPath()
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
 
-  let initialSettingsLoadResult: AppSettingsLoadResult | null = null
-  try {
-    initialSettingsLoadResult =
-      await createSettingsWorkflowHandlers(appSettingsStore)[
-        "settings.loadApp"
-      ](undefined)
-  } catch {
-    // Fall back to defaults on load failure.
-  }
-
   const windowState = await loadDesktopWindowState(storageRoot).catch(
     () => defaultDesktopWindowState,
   )
@@ -847,6 +837,17 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   if (!desktopRouter) {
+    let initialSettingsLoadResult: AppSettingsLoadResult | null = null
+    let initialSettingsLoadError: unknown
+    try {
+      initialSettingsLoadResult =
+        await createSettingsWorkflowHandlers(appSettingsStore)[
+          "settings.loadApp"
+        ](undefined)
+    } catch (error) {
+      initialSettingsLoadError = error
+    }
+
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
     rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
     desktopRouter = createDesktopRouter({
@@ -860,6 +861,7 @@ async function createWindow(): Promise<BrowserWindow> {
       tokenizer: nodeTokenizerPort,
       examinationArchive,
       initialSettingsLoadResult: initialSettingsLoadResult ?? undefined,
+      initialSettingsLoadError,
       parentAbortSignal: shutdownController.signal,
       onWorkflowInvocationStart: markWorkflowInvocationStarted,
       onAppCredentialsSaved: rebuildLlmPort,

@@ -378,6 +378,43 @@ describe("validatePersistedAppSettings sections", () => {
     })
     assert.equal(credentials.ok, false)
   })
+
+  it("rejects stale nested credential fields", () => {
+    const credentials = validatePersistedAppCredentials({
+      ...defaultAppCredentials,
+      lmsConnections: [
+        {
+          id: "canvas-prod",
+          name: "Canvas Prod",
+          provider: "canvas",
+          baseUrl: "https://canvas.example.com",
+          token: "tok_canvas",
+          obsoleteField: true,
+        },
+      ],
+    })
+
+    assert.equal(credentials.ok, false)
+  })
+
+  it("rejects stale nested preference fields", () => {
+    const appearance = validatePersistedAppPreferences({
+      ...defaultAppPreferences,
+      appearance: {
+        ...defaultAppPreferences.appearance,
+        accentColor: "purple",
+      },
+    })
+    assert.equal(appearance.ok, false)
+
+    const analysisInputs = validatePersistedAppPreferences({
+      ...defaultAppPreferences,
+      folderViewAnalysisInputs: {
+        unsupportedAnalysisField: true,
+      },
+    })
+    assert.equal(analysisInputs.ok, false)
+  })
 })
 
 describe("validatePersistedCourse", () => {

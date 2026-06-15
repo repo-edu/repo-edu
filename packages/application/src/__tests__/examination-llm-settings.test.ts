@@ -166,6 +166,42 @@ describe("examination workflow — LLM settings resolution", () => {
     assert.equal(result.archivedProvenance.model, "22")
   })
 
+  it("passes the active connection auth config to the LLM port", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const { port, requests } = recordingLlm(sampleReply)
+    const handlers = createExaminationWorkflowHandlers({
+      llm: port,
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    await handlers["examination.generateQuestions"](
+      baseInput({
+        llmConnections: [
+          {
+            id: "claude-api",
+            name: "Claude API",
+            provider: "claude",
+            authMode: "api",
+            apiKey: "sk-ant-test",
+            maxTokens: 1234,
+          },
+        ],
+        activeLlmConnectionId: "claude-api",
+        examinationModelsByProvider: {},
+      }),
+    )
+
+    assert.deepStrictEqual(requests[0]?.runtimeConfig, {
+      claude: {
+        authMode: "api",
+        apiKey: "sk-ant-test",
+        maxTokens: 1234,
+      },
+    })
+  })
+
   it("uses the explicit model code when set for the active provider", async () => {
     const archive = createInMemoryExaminationArchive()
     const { port, requests } = recordingLlm(sampleReply)

@@ -68,18 +68,22 @@ const persistedConnectionFields = {
   userAgent: z.string().optional(),
 } as const
 
-const persistedLmsConnectionSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  provider: z.enum(["canvas", "moodle"]),
-  ...persistedConnectionFields,
-})
+const persistedLmsConnectionSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    provider: z.enum(["canvas", "moodle"]),
+    ...persistedConnectionFields,
+  })
+  .strict()
 
-const persistedGitConnectionSchema = z.object({
-  id: z.string(),
-  provider: z.enum(gitProviderKinds),
-  ...persistedConnectionFields,
-})
+const persistedGitConnectionSchema = z
+  .object({
+    id: z.string(),
+    provider: z.enum(gitProviderKinds),
+    ...persistedConnectionFields,
+  })
+  .strict()
 
 export const llmProviderKinds = ["claude", "codex"] as const
 export type LlmProviderKind = (typeof llmProviderKinds)[number]
@@ -125,10 +129,12 @@ export const persistedLlmConnectionSchema = z.union([
     .strict(),
 ])
 
-const examinationModelsByProviderSchema = z.object({
-  claude: z.string().optional(),
-  codex: z.string().optional(),
-}) satisfies z.ZodType<Partial<Record<LlmProviderKind, string>>>
+const examinationModelsByProviderSchema = z
+  .object({
+    claude: z.string().optional(),
+    codex: z.string().optional(),
+  })
+  .strict() satisfies z.ZodType<Partial<Record<LlmProviderKind, string>>>
 
 export const syntaxThemeIds = [
   "plus",
@@ -140,34 +146,41 @@ export const syntaxThemeIds = [
 ] as const
 export type SyntaxThemeId = (typeof syntaxThemeIds)[number]
 
-const appAppearanceSchema = z.object({
-  theme: z.enum(["system", "light", "dark"]),
-  windowChrome: z.enum(["system", "hiddenInset"]),
-  dateFormat: z.enum(["MDY", "DMY"]),
-  timeFormat: z.enum(["12h", "24h"]),
-  syntaxTheme: z.enum(syntaxThemeIds).default("plus"),
-})
+const appAppearanceSchema = z
+  .object({
+    theme: z.enum(["system", "light", "dark"]),
+    windowChrome: z.enum(["system", "hiddenInset"]),
+    dateFormat: z.enum(["MDY", "DMY"]),
+    timeFormat: z.enum(["12h", "24h"]),
+    syntaxTheme: z.enum(syntaxThemeIds).default("plus"),
+  })
+  .strict()
 
-const persistedBlameConfigSchema = z.object({
-  copyMove: z.number().int().min(0).max(4).optional(),
-})
+const persistedBlameConfigSchema = z
+  .object({
+    copyMove: z.number().int().min(0).max(4).optional(),
+  })
+  .strict()
 
-const persistedAnalysisSidebarSettingsSchema = z.object({
-  searchDepth: z.number().int().min(1).max(9),
-  sectionState: z.record(z.string(), z.boolean()),
-  repoViewMode: z.enum(["list", "tree"]).default("tree"),
-  fileViewMode: z.enum(["list", "tree"]).default("list"),
-  fileSortMode: z
-    .enum(["lines-desc", "lines-asc", "alpha"])
-    .default("lines-desc"),
-  blameConfig: persistedBlameConfigSchema,
-})
+const persistedAnalysisSidebarSettingsSchema = z
+  .object({
+    searchDepth: z.number().int().min(1).max(9),
+    sectionState: z.record(z.string(), z.boolean()),
+    repoViewMode: z.enum(["list", "tree"]).default("tree"),
+    fileViewMode: z.enum(["list", "tree"]).default("list"),
+    fileSortMode: z
+      .enum(["lines-desc", "lines-asc", "alpha"])
+      .default("lines-desc"),
+    blameConfig: persistedBlameConfigSchema,
+  })
+  .strict()
 
 const persistedAnalysisConcurrencySchema = z
   .object({
     repoParallelism: z.number().int().min(1).max(8).default(3),
     filesPerRepo: z.number().int().min(1).max(16).default(4),
   })
+  .strict()
   .default({ repoParallelism: 3, filesPerRepo: 4 })
 
 export function normalizeAnalysisFolderPath(path: string): string | null {

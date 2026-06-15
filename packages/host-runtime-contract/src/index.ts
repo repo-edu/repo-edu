@@ -235,9 +235,30 @@ export type LlmModelSpec = {
   effort: LlmEffort
 }
 
+export type LlmProviderRuntimeConfig = {
+  authMode?: LlmAuthMode
+  env?: Record<string, string>
+  apiKey?: string
+  baseUrl?: string
+}
+
+export type ClaudeLlmProviderRuntimeConfig = LlmProviderRuntimeConfig & {
+  maxTokens?: number
+}
+
+export type CodexLlmProviderRuntimeConfig = LlmProviderRuntimeConfig & {
+  binaryPath?: string
+}
+
+export type LlmRuntimeConfig = {
+  claude?: ClaudeLlmProviderRuntimeConfig
+  codex?: CodexLlmProviderRuntimeConfig
+}
+
 export type LlmRunRequest = {
   spec: LlmModelSpec
   prompt: string
+  runtimeConfig?: LlmRuntimeConfig
   signal?: AbortSignal
 }
 

@@ -55,6 +55,7 @@ import {
   MIN_COMPATIBLE_VERSION,
   Parser,
 } from "web-tree-sitter"
+import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
 export const packageId = "@repo-edu/host-node"
 export const workspaceDependencies = [
@@ -529,10 +530,20 @@ export function createNodeFileSystemPort(): FileSystemPort {
 
 export function createNodeLlmPort(config?: LlmRuntimeConfig): LlmPort {
   const client = createLlmTextClient(config)
+  const clientForRequest = (request: LlmRunRequest) =>
+    request.runtimeConfig === undefined
+      ? client
+      : createLlmTextClient(
+          mergeLlmRuntimeConfig(
+            config,
+            request.runtimeConfig as LlmRuntimeConfig,
+          ),
+        )
+
   return {
     async run(request: LlmRunRequest): Promise<LlmRunResult> {
       throwIfAborted(request.signal)
-      const result = await client.generateText({
+      const result = await clientForRequest(request).generateText({
         spec: request.spec,
         prompt: request.prompt,
         signal: request.signal,
@@ -544,7 +555,7 @@ export function createNodeLlmPort(config?: LlmRuntimeConfig): LlmPort {
     },
     async *stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
       throwIfAborted(request.signal)
-      yield* client.streamText({
+      yield* clientForRequest(request).streamText({
         spec: request.spec,
         prompt: request.prompt,
         signal: request.signal,

@@ -3,6 +3,7 @@ import {
   type PersistedLlmConnection,
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/settings"
+import type { LlmRuntimeConfig } from "@repo-edu/host-runtime-contract"
 import {
   type FixtureModelSpec,
   getExaminationDefaultSpec,
@@ -49,6 +50,31 @@ export function resolveExaminationModel(
     )
   }
   return { connection, spec: fallback, code: modelCode(fallback) }
+}
+
+export function llmRuntimeConfigFromConnection(
+  connection: PersistedLlmConnection,
+): LlmRuntimeConfig {
+  if (connection.provider === "claude") {
+    return connection.authMode === "subscription"
+      ? { claude: { authMode: "subscription" } }
+      : {
+          claude: {
+            authMode: "api",
+            apiKey: connection.apiKey,
+            maxTokens: connection.maxTokens,
+          },
+        }
+  }
+
+  return connection.authMode === "subscription"
+    ? { codex: { authMode: "subscription" } }
+    : {
+        codex: {
+          authMode: "api",
+          apiKey: connection.apiKey,
+        },
+      }
 }
 
 function lookupExplicitProviderCode(

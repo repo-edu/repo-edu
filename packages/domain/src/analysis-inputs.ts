@@ -12,6 +12,7 @@ void _maxConcurrency
 
 export const analysisInputsSchema = z
   .object(persistedAnalysisInputFieldSchemas)
+  .strict()
   .check(
     z.refine((data) => {
       if (data.since !== undefined && data.until !== undefined) {

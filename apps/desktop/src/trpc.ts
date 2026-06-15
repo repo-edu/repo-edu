@@ -65,6 +65,7 @@ export type DesktopRouterPorts = {
   tokenizer: TokenizerPort
   examinationArchive: ExaminationArchiveStoragePort
   initialSettingsLoadResult?: AppSettingsLoadResult
+  initialSettingsLoadError?: unknown
   parentAbortSignal?: AbortSignal
   onWorkflowInvocationStart?: () => () => void
   /**
@@ -194,9 +195,15 @@ function createDesktopWorkflowRegistry(
   const appSettingsStore = ports.appSettingsStore as DesktopSettingsStore
   const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
   let initialSettingsLoadResult = ports.initialSettingsLoadResult
+  let initialSettingsLoadError = ports.initialSettingsLoadError
   const wrappedSettingsHandlers: typeof settingsHandlers = {
     ...settingsHandlers,
     "settings.loadApp": async (input, options) => {
+      if (initialSettingsLoadError !== undefined) {
+        const error = initialSettingsLoadError
+        initialSettingsLoadError = undefined
+        throw error
+      }
       const loaded =
         initialSettingsLoadResult ??
         (await settingsHandlers["settings.loadApp"](input, options))

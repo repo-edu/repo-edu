@@ -35,6 +35,7 @@ import {
   validateLookupSummariesInput,
   validateStopInput,
 } from "./input-validation.js"
+import { llmRuntimeConfigFromConnection } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
 import { buildExaminationPrompt } from "./prompt-builder.js"
 import { prepareExaminationProviderExcerpts } from "./provider-excerpts.js"
@@ -200,6 +201,9 @@ export function createExaminationWorkflowHandlers(
               effort: resolution.spec.effort,
             },
             prompt,
+            runtimeConfig: llmRuntimeConfigFromConnection(
+              resolution.connection,
+            ),
             signal: softStop.providerSignal(options?.signal),
           })
 
