@@ -263,6 +263,31 @@ describe("runClaudeCliStream", () => {
     )
   })
 
+  it("maps silent subscription CLI exit code 1 to login guidance", async () => {
+    const { spawn } = fakeSpawn([], [], { exitCode: 1 })
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            spawn,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "auth" &&
+        error.message.includes("Claude CLI is not logged in") &&
+        error.message.includes("claude auth login"),
+    )
+  })
+
   it("does not emit done before a failed CLI close is classified", async () => {
     const { spawn } = fakeSpawn(
       [

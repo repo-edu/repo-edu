@@ -180,7 +180,9 @@ describe("connection.verifyLlmDraft", () => {
         typeof error === "object" &&
         error !== null &&
         (error as { type?: unknown }).type === "provider" &&
-        (error as { provider?: unknown }).provider === "llm",
+        (error as { provider?: unknown }).provider === "llm" &&
+        (error as { message?: unknown }).message === "bad key" &&
+        (error as { retryable?: unknown }).retryable === false,
     )
   })
 })

@@ -18,6 +18,7 @@ import {
 } from "@repo-edu/application-contract"
 import type { LlmUsage } from "@repo-edu/host-runtime-contract"
 import { createValidationAppError } from "../core.js"
+import { normalizeLlmProviderError } from "../llm-error-normalization.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
   archiveSoftStoppedQuestions,
@@ -190,70 +191,77 @@ export function createExaminationWorkflowHandlers(
       let finalUsage: LlmUsage | null = null
 
       try {
-        const stream = ports.llm.stream({
-          spec: {
-            provider: resolution.spec.provider,
-            family: resolution.spec.family,
-            modelId: resolution.spec.modelId,
-            effort: resolution.spec.effort,
-          },
-          prompt,
-          signal: softStop.providerSignal(options?.signal),
-        })
-
         try {
-          for await (const event of stream) {
-            throwIfAborted(options?.signal)
-            if (softStop.requested) break
-            if (event.kind === "text-delta") {
-              buffer += event.text
-              options?.onOutput?.({
-                kind: "stream-progress",
-                streamedCharacterCount: buffer.length,
-                streamedTextPreview: buildStreamedTextPreview(buffer),
-                activityLabel: "Receiving model response.",
-              })
-              maybeEmitPartial({
-                buffer,
-                emittedQuestionCount: partialState,
-                onOutput: options?.onOutput,
-                seedQuestions,
-                sourceLineRanges,
-                sourceReferences: prepared.sourceReferences,
-                requestedQuestionCount: requestedGeneratedQuestionCount,
-                onOverQuota: warnOverQuota,
-                assertOutputAllowed: (questions) =>
-                  assertOutputAllowedForCurrentContext(
-                    questions,
-                    input,
-                    sourceDescriptors,
-                  ),
-              })
-            } else if (event.kind === "activity") {
-              options?.onOutput?.({
-                kind: "stream-progress",
-                streamedCharacterCount: buffer.length,
-                streamedTextPreview: buildStreamedTextPreview(buffer),
-                activityLabel: event.label,
-              })
-            } else {
-              finalUsage = event.usage
+          const stream = ports.llm.stream({
+            spec: {
+              provider: resolution.spec.provider,
+              family: resolution.spec.family,
+              modelId: resolution.spec.modelId,
+              effort: resolution.spec.effort,
+            },
+            prompt,
+            signal: softStop.providerSignal(options?.signal),
+          })
+
+          try {
+            for await (const event of stream) {
+              throwIfAborted(options?.signal)
+              if (softStop.requested) break
+              if (event.kind === "text-delta") {
+                buffer += event.text
+                options?.onOutput?.({
+                  kind: "stream-progress",
+                  streamedCharacterCount: buffer.length,
+                  streamedTextPreview: buildStreamedTextPreview(buffer),
+                  activityLabel: "Receiving model response.",
+                })
+                maybeEmitPartial({
+                  buffer,
+                  emittedQuestionCount: partialState,
+                  onOutput: options?.onOutput,
+                  seedQuestions,
+                  sourceLineRanges,
+                  sourceReferences: prepared.sourceReferences,
+                  requestedQuestionCount: requestedGeneratedQuestionCount,
+                  onOverQuota: warnOverQuota,
+                  assertOutputAllowed: (questions) =>
+                    assertOutputAllowedForCurrentContext(
+                      questions,
+                      input,
+                      sourceDescriptors,
+                    ),
+                })
+              } else if (event.kind === "activity") {
+                options?.onOutput?.({
+                  kind: "stream-progress",
+                  streamedCharacterCount: buffer.length,
+                  streamedTextPreview: buildStreamedTextPreview(buffer),
+                  activityLabel: event.label,
+                })
+              } else {
+                finalUsage = event.usage
+              }
             }
+          } catch (error) {
+            throwIfAborted(options?.signal)
+            if (softStop.requested) {
+              return archiveSoftStoppedQuestions({
+                acceptedQuestions: partialState.acceptedQuestions,
+                archiveKey,
+                input,
+                minimumAcceptedQuestionCount: seedQuestions.length,
+                ports,
+                resolution,
+                sourceReferences: prepared.sourceReferences,
+              })
+            }
+            throw error
           }
         } catch (error) {
-          throwIfAborted(options?.signal)
-          if (softStop.requested) {
-            return archiveSoftStoppedQuestions({
-              acceptedQuestions: partialState.acceptedQuestions,
-              archiveKey,
-              input,
-              minimumAcceptedQuestionCount: seedQuestions.length,
-              ports,
-              resolution,
-              sourceReferences: prepared.sourceReferences,
-            })
-          }
-          throw error
+          throw normalizeLlmProviderError(
+            error,
+            "examination.generateQuestions",
+          )
         }
 
         throwIfAborted(options?.signal)

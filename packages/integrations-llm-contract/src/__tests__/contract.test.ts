@@ -31,7 +31,7 @@ describe("integrations-llm-contract", () => {
       },
     })
     assert.equal(err.kind, "rate_limit")
-    assert.match(err.message, /\[rate_limit\] slow down/)
+    assert.equal(err.message, "slow down")
     assert.equal(err.cause, cause)
     assert.equal(err.context.provider, "claude")
     assert.equal(err.context.authMode, "subscription")

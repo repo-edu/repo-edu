@@ -13,6 +13,7 @@ import type {
   LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
+import { LlmError } from "@repo-edu/integrations-llm-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 
@@ -115,6 +116,25 @@ function streamLlm(events: readonly LlmStreamEvent[]): LlmPort {
     },
     async *stream(_request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
       yield* events
+    },
+  }
+}
+
+function failingStreamLlm(error: unknown): LlmPort {
+  return {
+    async run(_request: LlmRunRequest): Promise<LlmRunResult> {
+      throw new Error("run is not used by streamed examination generation.")
+    },
+    stream(_request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
+      return {
+        [Symbol.asyncIterator]() {
+          return {
+            async next(): Promise<IteratorResult<LlmStreamEvent>> {
+              throw error
+            },
+          }
+        },
+      }
     },
   }
 }
@@ -332,6 +352,35 @@ describe("examination.generateQuestions streaming", () => {
     )
     assert.equal(lookup.exact, null)
     assert.equal(lookup.availableSets.length, 0)
+  })
+
+  it("normalizes LLM stream failures into app-level provider errors", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const input = baseInput()
+    const handlers = createExaminationWorkflowHandlers({
+      llm: failingStreamLlm(
+        new LlmError("auth", "Claude CLI is not logged in.", {
+          context: { provider: "claude", authMode: "subscription" },
+        }),
+      ),
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      () => handlers["examination.generateQuestions"](input),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "provider" &&
+        (error as { provider?: unknown }).provider === "llm" &&
+        (error as { operation?: unknown }).operation ===
+          "examination.generateQuestions" &&
+        (error as { message?: unknown }).message ===
+          "Claude CLI is not logged in." &&
+        (error as { retryable?: unknown }).retryable === false,
+    )
   })
 
   it("soft-stops and persists the accepted partial set with nullable usage", async () => {

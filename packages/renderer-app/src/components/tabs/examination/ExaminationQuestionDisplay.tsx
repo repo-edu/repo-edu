@@ -1,4 +1,5 @@
-import { EmptyState } from "@repo-edu/ui"
+import { Alert, AlertDescription, AlertTitle, EmptyState } from "@repo-edu/ui"
+import { AlertCircle } from "@repo-edu/ui/components/icons"
 import { useLayoutEffect, useRef } from "react"
 import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { StreamingGenerationDetail } from "./GenerationProgress.js"
@@ -85,9 +86,13 @@ export function ExaminationQuestionDisplay({
           showAnswers={showAnswers}
         />
       ) : entry.status === "error" ? (
-        <EmptyState
-          message={`Generation failed: ${entry.errorMessage ?? "Unknown error."}`}
-        />
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Question generation failed</AlertTitle>
+          <AlertDescription>
+            {entry.errorMessage ?? "Unknown error."}
+          </AlertDescription>
+        </Alert>
       ) : null}
     </div>
   )

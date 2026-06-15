@@ -1,5 +1,4 @@
 import type {
-  AppError,
   ConnectionVerificationResult,
   DiagnosticOutput,
   MilestoneProgress,
@@ -7,12 +6,11 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { isAppError } from "@repo-edu/application-contract"
 import { getVerifyDefaultSpec } from "@repo-edu/integrations-llm-catalog"
 import type { LlmTextClient } from "@repo-edu/integrations-llm-contract"
-import { LlmError } from "@repo-edu/integrations-llm-contract"
 import { createValidationAppError } from "./core.js"
-import { throwIfAborted, toCancelledAppError } from "./workflow-helpers.js"
+import { normalizeLlmProviderError } from "./llm-error-normalization.js"
+import { throwIfAborted } from "./workflow-helpers.js"
 
 export type LlmDraftConnection = VerifyLlmDraftInput
 
@@ -92,7 +90,7 @@ export function createLlmConnectionWorkflowHandlers(
           checkedAt: new Date().toISOString(),
         }
       } catch (error) {
-        throw normalizeLlmError(error)
+        throw normalizeLlmProviderError(error, "verifyLlmDraft")
       }
     },
   }
@@ -214,29 +212,4 @@ function readApiKey(
     message: "LLM API key must be a string.",
   })
   return null
-}
-
-function normalizeLlmError(error: unknown): AppError {
-  if (isAppError(error)) {
-    return error
-  }
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return toCancelledAppError()
-  }
-  if (error instanceof LlmError) {
-    return {
-      type: "provider",
-      message: error.message,
-      provider: "llm",
-      operation: "verifyLlmDraft",
-      retryable: error.kind !== "auth",
-    }
-  }
-  return {
-    type: "provider",
-    message: error instanceof Error ? error.message : String(error),
-    provider: "llm",
-    operation: "verifyLlmDraft",
-    retryable: true,
-  }
 }

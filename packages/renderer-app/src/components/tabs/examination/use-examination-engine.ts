@@ -782,7 +782,6 @@ export function useExaminationEngine({
             runSourceSessionKey,
             started.requestId,
           )
-        addToast(`Question generation failed: ${message}`, { tone: "error" })
       } finally {
         examinationRequestSidecar.clearGeneration(
           runSourceSessionKey,

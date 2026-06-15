@@ -422,6 +422,13 @@ function cliExitError(
   stderr: string,
 ): LlmError {
   const message = stderr.trim()
+  if (message.length === 0 && code === 1 && signal === null) {
+    return new LlmError(
+      "auth",
+      "Claude CLI exited with code 1 before reporting an error. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again.",
+      { context: { provider: "claude", authMode: "subscription" } },
+    )
+  }
   const detail =
     message.length > 0
       ? message

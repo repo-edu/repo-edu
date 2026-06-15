@@ -79,7 +79,7 @@ export class LlmError extends Error {
     message: string,
     options: LlmErrorOptions = {},
   ) {
-    super(`[${kind}] ${message}`, { cause: options.cause })
+    super(message, { cause: options.cause })
     this.name = "LlmError"
     this.kind = kind
     this.context = options.context ?? {}
