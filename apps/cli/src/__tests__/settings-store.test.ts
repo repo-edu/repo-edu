@@ -51,4 +51,29 @@ describe("createCliAppSettingsStore", () => {
       await rm(storageRoot, { recursive: true, force: true })
     }
   })
+
+  it("preserves cancellation from in-flight preference saves", async () => {
+    const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"))
+    try {
+      const handlers = createSettingsWorkflowHandlers(
+        createCliAppSettingsStore(storageRoot),
+      )
+      const controller = new AbortController()
+      const save = handlers["settings.savePreferences"](defaultAppPreferences, {
+        signal: controller.signal,
+      })
+      controller.abort()
+
+      await assert.rejects(
+        save,
+        (error: unknown) =>
+          typeof error === "object" &&
+          error !== null &&
+          "type" in error &&
+          error.type === "cancelled",
+      )
+    } finally {
+      await rm(storageRoot, { recursive: true, force: true })
+    }
+  })
 })

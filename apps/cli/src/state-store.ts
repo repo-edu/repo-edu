@@ -77,7 +77,14 @@ async function readValidatedCourse(
   }
 }
 
-function toPersistenceWriteError(error: unknown, message: string): Error {
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError"
+}
+
+function toPersistenceWriteError(error: unknown, message: string): unknown {
+  if (isAbortError(error)) {
+    return error
+  }
   if (isCourseSaveConflictError(error) || isPersistenceWriteError(error)) {
     return error
   }

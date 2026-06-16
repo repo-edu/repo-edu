@@ -25,7 +25,14 @@ function resolveSettingsDirectory(storageRoot: string): string {
   return join(storageRoot, "settings")
 }
 
-function toPersistenceWriteError(error: unknown, message: string): Error {
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError"
+}
+
+function toPersistenceWriteError(error: unknown, message: string): unknown {
+  if (isAbortError(error)) {
+    return error
+  }
   if (isPersistenceWriteError(error)) {
     return error
   }

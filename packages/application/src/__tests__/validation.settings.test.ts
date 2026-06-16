@@ -174,6 +174,38 @@ describe("application settings workflow helpers", () => {
     )
   })
 
+  it("throws a cancelled AppError when a settings save signal is already aborted", async () => {
+    const handlers = createSettingsWorkflowHandlers(
+      createInMemoryAppSettingsStore(),
+    )
+    const sections = splitAppSettings(
+      getSettingsScenario({ tier: "small", preset: "shared-teams" }),
+    )
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      handlers["settings.saveCredentials"](sections.credentials, {
+        signal: controller.signal,
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "cancelled",
+    )
+    await assert.rejects(
+      handlers["settings.savePreferences"](sections.preferences, {
+        signal: controller.signal,
+      }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "cancelled",
+    )
+  })
+
   it("normalizes retryable write failures from settings.savePreferences", async () => {
     const handlers = createSettingsWorkflowHandlers({
       credentials: {

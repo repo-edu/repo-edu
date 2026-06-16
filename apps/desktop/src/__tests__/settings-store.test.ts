@@ -104,4 +104,29 @@ describe("createDesktopAppSettingsStore", () => {
       await rm(storageRoot, { recursive: true, force: true })
     }
   })
+
+  it("preserves cancellation from in-flight credential saves", async () => {
+    const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-desktop-"))
+    try {
+      const handlers = createSettingsWorkflowHandlers(
+        createDesktopAppSettingsStore(storageRoot),
+      )
+      const controller = new AbortController()
+      const save = handlers["settings.saveCredentials"](defaultAppCredentials, {
+        signal: controller.signal,
+      })
+      controller.abort()
+
+      await assert.rejects(
+        save,
+        (error: unknown) =>
+          typeof error === "object" &&
+          error !== null &&
+          "type" in error &&
+          error.type === "cancelled",
+      )
+    } finally {
+      await rm(storageRoot, { recursive: true, force: true })
+    }
+  })
 })

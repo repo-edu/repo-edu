@@ -14,6 +14,17 @@ function nonEmpty(value: string | null | undefined): string | null {
   return trimmed === undefined || trimmed.length === 0 ? null : trimmed
 }
 
+function absoluteOrNull(
+  value: string | null | undefined,
+  platformPath: typeof path.posix,
+): string | null {
+  const candidate = nonEmpty(value)
+  if (candidate === null || !platformPath.isAbsolute(candidate)) {
+    return null
+  }
+  return candidate
+}
+
 function pathForPlatform(platform: NodeJS.Platform): typeof path.posix {
   return platform === "win32" ? path.win32 : path.posix
 }
@@ -27,12 +38,14 @@ function resolvePlatformAppDataDirectory(
       "platformAppDataDirectory" | "roamingAppDataDirectory" | "xdgConfigHome"
     >,
 ): string {
-  const explicitBase = nonEmpty(options.platformAppDataDirectory)
+  const platformPath = pathForPlatform(options.platform)
+  const explicitBase = absoluteOrNull(
+    options.platformAppDataDirectory,
+    platformPath,
+  )
   if (explicitBase !== null) {
     return explicitBase
   }
-
-  const platformPath = pathForPlatform(options.platform)
 
   if (options.platform === "darwin") {
     return platformPath.join(
@@ -44,13 +57,13 @@ function resolvePlatformAppDataDirectory(
 
   if (options.platform === "win32") {
     return (
-      nonEmpty(options.roamingAppDataDirectory) ??
+      absoluteOrNull(options.roamingAppDataDirectory, platformPath) ??
       platformPath.join(options.homeDirectory, "AppData", "Roaming")
     )
   }
 
   return (
-    nonEmpty(options.xdgConfigHome) ??
+    absoluteOrNull(options.xdgConfigHome, platformPath) ??
     platformPath.join(options.homeDirectory, ".config")
   )
 }

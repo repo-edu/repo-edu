@@ -48,7 +48,7 @@ export type NodeSettingsSectionStoreOptions<T> = {
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.")
+    throw new DOMException("Operation cancelled.", "AbortError")
   }
 }
 

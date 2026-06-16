@@ -15,6 +15,18 @@ describe("resolveRepoEduAppDataRoot", () => {
     )
   })
 
+  it("ignores relative XDG config homes", () => {
+    assert.equal(
+      resolveRepoEduAppDataRoot({
+        platform: "linux",
+        homeDirectory: "/home/ada",
+        xdgConfigHome: "relative-config",
+        roamingAppDataDirectory: null,
+      }),
+      "/home/ada/.config/repo-edu",
+    )
+  })
+
   it("falls back to the Linux home config directory", () => {
     assert.equal(
       resolveRepoEduAppDataRoot({
@@ -51,6 +63,18 @@ describe("resolveRepoEduAppDataRoot", () => {
     )
   })
 
+  it("ignores relative Windows roaming app data", () => {
+    assert.equal(
+      resolveRepoEduAppDataRoot({
+        platform: "win32",
+        homeDirectory: "C:\\Users\\Ada",
+        roamingAppDataDirectory: "AppData\\Roaming",
+        xdgConfigHome: null,
+      }),
+      "C:\\Users\\Ada\\AppData\\Roaming\\repo-edu",
+    )
+  })
+
   it("uses an injected platform app-data base for desktop", () => {
     assert.equal(
       resolveRepoEduAppDataRoot({
@@ -61,6 +85,19 @@ describe("resolveRepoEduAppDataRoot", () => {
         roamingAppDataDirectory: null,
       }),
       "/electron/app-data/repo-edu",
+    )
+  })
+
+  it("ignores a relative injected platform app-data base", () => {
+    assert.equal(
+      resolveRepoEduAppDataRoot({
+        platform: "darwin",
+        homeDirectory: "/Users/ada",
+        platformAppDataDirectory: "relative-app-data",
+        xdgConfigHome: null,
+        roamingAppDataDirectory: null,
+      }),
+      "/Users/ada/Library/Application Support/repo-edu",
     )
   })
 })

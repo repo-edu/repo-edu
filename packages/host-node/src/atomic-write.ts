@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path"
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Operation cancelled.")
+    throw new DOMException("Operation cancelled.", "AbortError")
   }
 }
 

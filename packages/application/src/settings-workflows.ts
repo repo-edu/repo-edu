@@ -22,6 +22,7 @@ import {
   isRetryablePersistenceWriteKind,
   isSharedAppError,
   loadSettingsOrDefault,
+  throwIfAborted,
   toCancelledAppError,
 } from "./workflow-helpers.js"
 
@@ -68,6 +69,7 @@ export function createSettingsWorkflowHandlers(
       input: PersistedAppCredentials,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
+      throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
@@ -81,6 +83,7 @@ export function createSettingsWorkflowHandlers(
           validation.issues,
         )
       }
+      throwIfAborted(options?.signal)
 
       options?.onOutput?.({
         channel: "info",
@@ -111,6 +114,7 @@ export function createSettingsWorkflowHandlers(
       input: PersistedAppPreferences,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
+      throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
@@ -124,6 +128,7 @@ export function createSettingsWorkflowHandlers(
           validation.issues,
         )
       }
+      throwIfAborted(options?.signal)
 
       options?.onOutput?.({
         channel: "info",
