@@ -172,7 +172,6 @@ describe("macOS signing preparation", () => {
 
       assert.equal(outputs.CSC_NAME, developerIdHash)
       assert.equal(outputs.MACOS_SIGNING_IDENTITY, developerIdHash)
-      assert.equal(outputs.MACOS_NOTARYTOOL_PROFILE, "repo-edu-notary-profile")
 
       const manifest = await readMacosSigningSessionManifest(manifestPath)
       assert.ok(manifest)
@@ -439,6 +438,50 @@ describe("macOS signing cleanup", () => {
             "/Users/aivm/login.keychain-db",
           ],
         },
+        {
+          command: "security",
+          args: ["delete-keychain", keychainPath],
+        },
+      ])
+      assert.equal(await pathExists(sessionDir), false)
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
+  it("does not clear the search list when no initial keychains were recorded", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-signing-test-"))
+    const commands: RecordedCommand[] = []
+    const runner: ProcessRunner = async (command, args) => {
+      commands.push({ command, args })
+      return { stdout: "", stderr: "" }
+    }
+    try {
+      const sessionDir = join(root, "session")
+      await mkdir(sessionDir)
+      const keychainPath = join(sessionDir, "repo-edu-signing.keychain-db")
+      await writeFile(keychainPath, "keychain", "utf8")
+
+      const manifest: MacosSigningSessionManifest = {
+        version: 1,
+        initialUserKeychains: [],
+        resources: [
+          { type: "temporary-directory", path: sessionDir },
+          { type: "keychain", path: keychainPath },
+        ],
+      }
+      await writeFile(
+        join(root, "signing-session.json"),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+        "utf8",
+      )
+
+      await cleanupMacosSigning({
+        manifestPath: join(root, "signing-session.json"),
+        runner,
+      })
+
+      assert.deepEqual(commands, [
         {
           command: "security",
           args: ["delete-keychain", keychainPath],

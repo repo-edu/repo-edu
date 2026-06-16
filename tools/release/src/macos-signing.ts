@@ -45,7 +45,6 @@ export type MacosSigningOutputs = {
   readonly APPLE_API_KEY: string
   readonly APPLE_API_KEY_ID: string
   readonly APPLE_API_ISSUER: string
-  readonly MACOS_NOTARYTOOL_PROFILE: string
 }
 
 export type MacosSigningSessionResource =
@@ -99,7 +98,6 @@ const githubActionOutputKeys = [
   "APPLE_API_KEY",
   "APPLE_API_KEY_ID",
   "APPLE_API_ISSUER",
-  "MACOS_NOTARYTOOL_PROFILE",
 ] as const
 const sensitiveArgumentFlags = new Set([
   "-p",
@@ -258,7 +256,6 @@ export async function prepareMacosSigning(
     APPLE_API_KEY: appleApiKeyPath,
     APPLE_API_KEY_ID: inputs.appleApiKeyId,
     APPLE_API_ISSUER: inputs.appleApiIssuer,
-    MACOS_NOTARYTOOL_PROFILE: notarytoolProfile,
   }
 
   await writeGithubActionsValues(env, outputs)
@@ -281,7 +278,7 @@ export async function cleanupMacosSigning(
 
   const cleanupErrors: unknown[] = []
   const initialUserKeychains = manifest.initialUserKeychains
-  if (initialUserKeychains) {
+  if (initialUserKeychains && initialUserKeychains.length > 0) {
     await attemptCleanup(cleanupErrors, () =>
       runCommand(runner, "Restore user keychain search list", "security", [
         "list-keychains",
@@ -439,7 +436,7 @@ function parseDeveloperIdIdentities(
     .map((line) => /^\s*\d+\)\s+([0-9a-fA-F]{40})\s+"([^"]+)"/.exec(line))
     .filter((match): match is RegExpExecArray => match !== null)
     .map((match) => ({
-      hash: match[1].toUpperCase(),
+      hash: match[1],
       name: match[2],
     }))
     .filter((identity) => identity.name.startsWith("Developer ID Application:"))
