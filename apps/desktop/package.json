@@ -2,6 +2,7 @@
     "name": "@repo-edu/desktop",
     "version": "0.0.19",
     "productName": "RepoEdu",
+    "desktopName": "repo-edu.desktop",
     "description": "RepoEdu desktop application",
     "homepage": "https://github.com/repo-edu/repo-edu",
     "author": {

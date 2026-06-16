@@ -53,6 +53,12 @@
     },
     "linux": {
         "executableName": "repo-edu",
+        "desktop": {
+            "entry": {
+                "Name": "Repo Edu",
+                "StartupWMClass": "repo-edu"
+            }
+        },
         "target": [
             "AppImage",
             "deb"
