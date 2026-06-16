@@ -1183,6 +1183,22 @@ describe("ripgrep notice evidence", () => {
 })
 
 describe("release workflow wiring", () => {
+  function extractWorkflowJob(workflow: string, jobName: string): string {
+    const match = new RegExp(
+      `\\n  ${jobName}:\\n([\\s\\S]*?)(?=\\n  [a-zA-Z0-9_-]+:\\n|\\n$)`,
+    ).exec(workflow)
+    assert.ok(match, `missing workflow job ${jobName}`)
+    return match[0]
+  }
+
+  function extractWorkflowStep(workflow: string, stepName: string): string {
+    const match = new RegExp(
+      `\\n      - name: ${stepName}\\n([\\s\\S]*?)(?=\\n      - name: |\\n  [a-zA-Z0-9_-]+:|\\n$)`,
+    ).exec(workflow)
+    assert.ok(match, `missing workflow step ${stepName}`)
+    return match[0]
+  }
+
   it("uses the root packageManager as the only pnpm version authority", async () => {
     const rootPackageJson = JSON.parse(
       await readFile(join(repoRoot, "package.json"), "utf8"),
@@ -1279,6 +1295,68 @@ describe("release workflow wiring", () => {
       workflow,
       /release-attach:[\s\S]*if: \$\{\{ inputs\.publish \}\}/,
     )
+  })
+
+  it("macOS release jobs use release-owned signing preparation and cleanup", async () => {
+    const workflow = await readFile(
+      join(repoRoot, ".github/workflows/macos-arm64-release.yml"),
+      "utf8",
+    )
+
+    assert.match(
+      workflow,
+      /MACOS_SIGNING_SESSION: \$\{\{ runner\.temp \}\}\/repo-edu-desktop-macos-signing-session\.json/,
+    )
+    assert.match(
+      workflow,
+      /MACOS_SIGNING_SESSION: \$\{\{ runner\.temp \}\}\/repo-edu-cli-macos-signing-session\.json/,
+    )
+    assert.equal(
+      Array.from(workflow.matchAll(/macos-signing:prepare/g)).length,
+      2,
+    )
+    assert.equal(
+      Array.from(workflow.matchAll(/macos-signing:cleanup/g)).length,
+      2,
+    )
+    assert.equal(Array.from(workflow.matchAll(/if: always\(\)/g)).length, 2)
+
+    const packageStep = extractWorkflowStep(workflow, "Package")
+    assert.match(packageStep, /electron-builder/)
+    assert.doesNotMatch(packageStep, /CSC_LINK/)
+    assert.doesNotMatch(packageStep, /CSC_KEY_PASSWORD/)
+    assert.doesNotMatch(packageStep, /APPLE_API_KEY_BASE64/)
+
+    const signStep = extractWorkflowStep(workflow, "Sign and notarize")
+    assert.match(
+      signStep,
+      /codesign --force --options runtime --sign "\$MACOS_SIGNING_IDENTITY"/,
+    )
+    assert.match(signStep, /--key "\$APPLE_API_KEY"/)
+    assert.doesNotMatch(signStep, /security /)
+    assert.doesNotMatch(signStep, /base64 --decode/)
+    assert.doesNotMatch(signStep, /CSC_LINK/)
+    assert.doesNotMatch(signStep, /CSC_KEY_PASSWORD/)
+  })
+
+  it("Windows CLI release jobs remain outside signing secrets", async () => {
+    const windowsArm64Workflow = await readFile(
+      join(repoRoot, ".github/workflows/windows-arm64-release.yml"),
+      "utf8",
+    )
+    const linuxWindowsX64Workflow = await readFile(
+      join(repoRoot, ".github/workflows/linux-windows-x64-release.yml"),
+      "utf8",
+    )
+
+    for (const job of [
+      extractWorkflowJob(windowsArm64Workflow, "cli-build-windows"),
+      extractWorkflowJob(linuxWindowsX64Workflow, "cli-build-windows"),
+    ]) {
+      assert.doesNotMatch(job, /WIN_CSC_LINK/)
+      assert.doesNotMatch(job, /WIN_CSC_KEY_PASSWORD/)
+      assert.doesNotMatch(job, /macos-signing:/)
+    }
   })
 
   for (const expectation of workflowExpectations) {

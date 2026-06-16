@@ -5,6 +5,8 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "license-gate": "tsx src/license-gate-cli.ts",
+    "macos-signing:prepare": "tsx src/macos-signing-prepare-cli.ts",
+    "macos-signing:cleanup": "tsx src/macos-signing-cleanup-cli.ts",
     "test": "node --import tsx --test src/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run typecheck"
