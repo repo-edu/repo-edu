@@ -1305,11 +1305,19 @@ describe("release workflow wiring", () => {
 
     assert.match(
       workflow,
-      /MACOS_SIGNING_SESSION: \$\{\{ runner\.temp \}\}\/repo-edu-desktop-macos-signing-session\.json/,
+      /MACOS_SIGNING_SESSION_FILE: repo-edu-desktop-macos-signing-session\.json/,
     )
     assert.match(
       workflow,
-      /MACOS_SIGNING_SESSION: \$\{\{ runner\.temp \}\}\/repo-edu-cli-macos-signing-session\.json/,
+      /MACOS_SIGNING_SESSION_FILE: repo-edu-cli-macos-signing-session\.json/,
+    )
+    assert.equal(
+      Array.from(
+        workflow.matchAll(
+          /--manifest "\$RUNNER_TEMP\/\$MACOS_SIGNING_SESSION_FILE"/g,
+        ),
+      ).length,
+      4,
     )
     assert.equal(
       Array.from(workflow.matchAll(/macos-signing:prepare/g)).length,

@@ -63,7 +63,7 @@ jobs:
     environment: release
     env:
       TAG: ${{ inputs.tag }}
-      MACOS_SIGNING_SESSION: ${{ runner.temp }}/repo-edu-desktop-macos-signing-session.json
+      MACOS_SIGNING_SESSION_FILE: repo-edu-desktop-macos-signing-session.json
     steps:
       - uses: actions/checkout@v6
         with:
@@ -92,12 +92,12 @@ jobs:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: pnpm --filter @repo-edu/release macos-signing:prepare --manifest "$MACOS_SIGNING_SESSION"
+        run: pnpm --filter @repo-edu/release macos-signing:prepare --manifest "$RUNNER_TEMP/$MACOS_SIGNING_SESSION_FILE"
       - name: Package
         run: NODE_OPTIONS=--no-deprecation pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --mac dmg zip --arm64 --publish never
       - name: Cleanup macOS signing
         if: always()
-        run: pnpm --filter @repo-edu/release macos-signing:cleanup --manifest "$MACOS_SIGNING_SESSION"
+        run: pnpm --filter @repo-edu/release macos-signing:cleanup --manifest "$RUNNER_TEMP/$MACOS_SIGNING_SESSION_FILE"
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -116,7 +116,7 @@ jobs:
     runs-on: macos-26
     environment: release
     env:
-      MACOS_SIGNING_SESSION: ${{ runner.temp }}/repo-edu-cli-macos-signing-session.json
+      MACOS_SIGNING_SESSION_FILE: repo-edu-cli-macos-signing-session.json
     steps:
       - uses: actions/checkout@v6
         with:
@@ -151,7 +151,7 @@ jobs:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: pnpm --filter @repo-edu/release macos-signing:prepare --manifest "$MACOS_SIGNING_SESSION"
+        run: pnpm --filter @repo-edu/release macos-signing:prepare --manifest "$RUNNER_TEMP/$MACOS_SIGNING_SESSION_FILE"
 
       - name: Sign and notarize
         run: |
@@ -166,7 +166,7 @@ jobs:
 
       - name: Cleanup macOS signing
         if: always()
-        run: pnpm --filter @repo-edu/release macos-signing:cleanup --manifest "$MACOS_SIGNING_SESSION"
+        run: pnpm --filter @repo-edu/release macos-signing:cleanup --manifest "$RUNNER_TEMP/$MACOS_SIGNING_SESSION_FILE"
 
       - name: Generate CLI checksum
         run: |
