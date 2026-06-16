@@ -6,6 +6,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises"
@@ -100,6 +101,17 @@ const githubActionOutputKeys = [
   "APPLE_API_ISSUER",
   "MACOS_NOTARYTOOL_PROFILE",
 ] as const
+const sensitiveArgumentFlags = new Set([
+  "-p",
+  "-P",
+  "-k",
+  "--key",
+  "--key-id",
+  "--issuer",
+  "--password",
+  "--apple-id",
+  "--team-id",
+])
 
 export function parseManifestArg(argv: readonly string[]): string {
   if (argv.length !== 2 || argv[0] !== "--manifest" || !argv[1]) {
@@ -267,37 +279,56 @@ export async function cleanupMacosSigning(
     return
   }
 
-  if (manifest.initialUserKeychains) {
-    await runCommand(runner, "Restore user keychain search list", "security", [
-      "list-keychains",
-      "-d",
-      "user",
-      "-s",
-      ...manifest.initialUserKeychains,
-    ])
+  const cleanupErrors: unknown[] = []
+  const initialUserKeychains = manifest.initialUserKeychains
+  if (initialUserKeychains) {
+    await attemptCleanup(cleanupErrors, () =>
+      runCommand(runner, "Restore user keychain search list", "security", [
+        "list-keychains",
+        "-d",
+        "user",
+        "-s",
+        ...initialUserKeychains,
+      ]),
+    )
   }
 
   for (const resource of manifest.resources.toReversed()) {
-    if (resource.type === "keychain" && (await pathExists(resource.path))) {
-      await runCommand(
-        runner,
-        "Delete temporary signing keychain",
-        "security",
-        ["delete-keychain", resource.path],
-      )
+    if (resource.type === "keychain") {
+      await attemptCleanup(cleanupErrors, async () => {
+        if (await pathExists(resource.path)) {
+          await runCommand(
+            runner,
+            "Delete temporary signing keychain",
+            "security",
+            ["delete-keychain", resource.path],
+          )
+        }
+      })
     }
   }
 
   for (const resource of manifest.resources.toReversed()) {
     if (resource.type === "certificate" || resource.type === "apple-api-key") {
-      await rm(resource.path, { force: true })
+      await attemptCleanup(cleanupErrors, () =>
+        rm(resource.path, { force: true }),
+      )
     }
   }
 
   for (const resource of manifest.resources.toReversed()) {
     if (resource.type === "temporary-directory") {
-      await rm(resource.path, { force: true, recursive: true })
+      await attemptCleanup(cleanupErrors, () =>
+        rm(resource.path, { force: true, recursive: true }),
+      )
     }
+  }
+
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(
+      cleanupErrors,
+      `macOS signing cleanup failed with ${cleanupErrors.length} failure(s)`,
+    )
   }
 }
 
@@ -491,23 +522,73 @@ async function runCommand(
   try {
     return await runner(command, args)
   } catch (error) {
-    throw new Error(`${label} failed: ${formatProcessFailure(error)}`)
+    throw new Error(`${label} failed: ${formatProcessFailure(error, args)}`)
   }
 }
 
-function formatProcessFailure(error: unknown): string {
+function formatProcessFailure(error: unknown, args: readonly string[]): string {
   if (error instanceof Error) {
     const processError = error as Error & {
+      readonly code?: unknown
+      readonly signal?: unknown
       readonly stderr?: unknown
       readonly stdout?: unknown
     }
+    const summary = formatProcessFailureSummary(processError, args)
     const stderr =
-      typeof processError.stderr === "string" ? processError.stderr.trim() : ""
+      typeof processError.stderr === "string"
+        ? redactSensitiveArguments(processError.stderr.trim(), args)
+        : ""
     const stdout =
-      typeof processError.stdout === "string" ? processError.stdout.trim() : ""
-    return [error.message, stderr, stdout].filter(Boolean).join("\n")
+      typeof processError.stdout === "string"
+        ? redactSensitiveArguments(processError.stdout.trim(), args)
+        : ""
+    return [summary, stderr, stdout].filter(Boolean).join("\n")
   }
-  return String(error)
+  return redactSensitiveArguments(String(error), args)
+}
+
+function formatProcessFailureSummary(
+  error: Error & { readonly code?: unknown; readonly signal?: unknown },
+  args: readonly string[],
+): string {
+  const details = [
+    error.code === undefined ? "" : `exit code ${String(error.code)}`,
+    error.signal === undefined ? "" : `signal ${String(error.signal)}`,
+  ].filter(Boolean)
+
+  if ("cmd" in error || details.length > 0) {
+    return details.length > 0
+      ? `process failed (${details.join(", ")})`
+      : "process failed"
+  }
+
+  return redactSensitiveArguments(error.message, args)
+}
+
+function redactSensitiveArguments(
+  value: string,
+  args: readonly string[],
+): string {
+  let redacted = value
+  for (const secret of collectSensitiveArgumentValues(args)) {
+    redacted = redacted.replaceAll(secret, "[redacted]")
+  }
+  return redacted
+}
+
+function collectSensitiveArgumentValues(
+  args: readonly string[],
+): readonly string[] {
+  const secrets = new Set<string>()
+  for (let index = 0; index < args.length - 1; index += 1) {
+    const flag = args[index]
+    const secret = args[index + 1]
+    if (flag && secret && sensitiveArgumentFlags.has(flag)) {
+      secrets.add(secret)
+    }
+  }
+  return [...secrets].sort((left, right) => right.length - left.length)
 }
 
 function emptySessionManifest(): MacosSigningSessionManifest {
@@ -544,11 +625,29 @@ async function writeSessionManifest(
   manifest: MacosSigningSessionManifest,
 ): Promise<void> {
   await mkdir(dirname(manifestPath), { recursive: true })
-  await writeFile(
-    manifestPath,
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8",
-  )
+  const temporaryPath = `${manifestPath}.${randomUUID()}.tmp`
+  try {
+    await writeFile(
+      temporaryPath,
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8",
+    )
+    await rename(temporaryPath, manifestPath)
+  } catch (error) {
+    await rm(temporaryPath, { force: true })
+    throw error
+  }
+}
+
+async function attemptCleanup(
+  cleanupErrors: unknown[],
+  cleanup: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await cleanup()
+  } catch (error) {
+    cleanupErrors.push(error)
+  }
 }
 
 function normalizeSessionManifest(value: unknown): MacosSigningSessionManifest {

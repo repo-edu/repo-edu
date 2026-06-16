@@ -3,6 +3,7 @@ import {
   access,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   writeFile,
@@ -189,6 +190,12 @@ describe("macOS signing preparation", () => {
         "/Users/aivm/Library/Keychains/login.keychain-db",
       ])
       assert.deepEqual(manifest.outputs, outputs)
+      assert.deepEqual(
+        (await readdir(root)).filter((entry) =>
+          entry.startsWith("signing-session.json."),
+        ),
+        [],
+      )
       assert.equal(
         await readFile(resourcePath(manifest, "certificate"), "utf8"),
         "p12-bytes",
@@ -297,6 +304,57 @@ describe("macOS signing preparation", () => {
       await rm(root, { force: true, recursive: true })
     }
   })
+
+  it("redacts secret command arguments from process failures", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-signing-test-"))
+    const runner: ProcessRunner = async (command, args) => {
+      if (
+        command === "security" &&
+        args[0] === "list-keychains" &&
+        !args.includes("-s")
+      ) {
+        return { stdout: "", stderr: "" }
+      }
+      if (command === "security" && args[0] === "import") {
+        throw Object.assign(
+          new Error(`Command failed: ${command} ${args.join(" ")}`),
+          {
+            stderr: "security import rejected p12-password",
+            stdout: "",
+          },
+        )
+      }
+      return { stdout: "", stderr: "" }
+    }
+
+    try {
+      await assert.rejects(
+        () =>
+          prepareMacosSigning({
+            manifestPath: join(root, "signing-session.json"),
+            tmpRoot: root,
+            runner,
+            idFactory: () => "keychain-password",
+            env: {
+              CSC_LINK: base64("p12-bytes"),
+              CSC_KEY_PASSWORD: "p12-password",
+              APPLE_API_KEY_BASE64: base64("p8-bytes"),
+              APPLE_API_KEY_ID: "KEYID12345",
+              APPLE_API_ISSUER: "00000000-0000-0000-0000-000000000000",
+            },
+          }),
+        (error) => {
+          assert.ok(error instanceof Error)
+          assert.match(error.message, /Import Developer ID certificate failed/)
+          assert.doesNotMatch(error.message, /p12-password/)
+          assert.match(error.message, /\[redacted\]/)
+          return true
+        },
+      )
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
 })
 
 describe("macOS signing cleanup", () => {
@@ -386,6 +444,73 @@ describe("macOS signing cleanup", () => {
           args: ["delete-keychain", keychainPath],
         },
       ])
+      assert.equal(await pathExists(sessionDir), false)
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
+  it("continues cleanup after command failures and reports all failures", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-signing-test-"))
+    const commands: RecordedCommand[] = []
+    const runner: ProcessRunner = async (command, args) => {
+      commands.push({ command, args })
+      if (args[0] === "list-keychains" || args[0] === "delete-keychain") {
+        throw Object.assign(
+          new Error(`Command failed: ${command} ${args.join(" ")}`),
+          {
+            stderr: "cleanup command failed",
+            stdout: "",
+          },
+        )
+      }
+      return { stdout: "", stderr: "" }
+    }
+
+    try {
+      const sessionDir = join(root, "session")
+      await mkdir(sessionDir)
+      const certificatePath = join(sessionDir, "certificate.p12")
+      const appleApiKeyPath = join(sessionDir, "AuthKey.p8")
+      const keychainPath = join(sessionDir, "repo-edu-signing.keychain-db")
+      await writeFile(certificatePath, "cert", "utf8")
+      await writeFile(appleApiKeyPath, "key", "utf8")
+      await writeFile(keychainPath, "keychain", "utf8")
+
+      const manifest: MacosSigningSessionManifest = {
+        version: 1,
+        initialUserKeychains: ["/Users/aivm/login.keychain-db"],
+        resources: [
+          { type: "temporary-directory", path: sessionDir },
+          { type: "certificate", path: certificatePath },
+          { type: "apple-api-key", path: appleApiKeyPath },
+          { type: "keychain", path: keychainPath },
+        ],
+      }
+      await writeFile(
+        join(root, "signing-session.json"),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+        "utf8",
+      )
+
+      await assert.rejects(
+        () =>
+          cleanupMacosSigning({
+            manifestPath: join(root, "signing-session.json"),
+            runner,
+          }),
+        (error) => {
+          assert.ok(error instanceof AggregateError)
+          assert.equal(error.errors.length, 2)
+          assert.match(error.message, /2 failure/)
+          return true
+        },
+      )
+
+      assert.deepEqual(
+        commands.map((entry) => entry.args[0]),
+        ["list-keychains", "delete-keychain"],
+      )
       assert.equal(await pathExists(sessionDir), false)
     } finally {
       await rm(root, { force: true, recursive: true })
