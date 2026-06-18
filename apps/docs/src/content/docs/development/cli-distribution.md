@@ -30,9 +30,3 @@ This is different from the Windows desktop problem. The desktop's unsigned NSIS 
 ## Release enforcement
 
 The release workflows build CLI artifacts only for `darwin-arm64`, `linux-arm64` and `linux-x64`. The release license gate also models CLI platforms separately from desktop platforms, so a Windows CLI build cannot reappear without changing the CLI platform contract.
-
-## npm is deferred
-
-npm remains the natural way to restore a Windows CLI if demand appears. It is horizontal across operating systems and the CLI code is Node-compatible. It is not half-built now because macOS and Linux already have working binary distribution, and adding npm would require a real npm publishing credential and release path.
-
-The reserved future identities are `RepoEdu.Redu` for a winget CLI package and the existing `redu` command name for npm.

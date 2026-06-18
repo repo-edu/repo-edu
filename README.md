@@ -51,9 +51,10 @@ pnpm build:cli
 ./apps/cli/dist/redu --help
 ```
 
-CLI and desktop data share the platform app-data root: macOS
-`~/Library/Application Support/repo-edu`, Linux
-`${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
+CLI and desktop data share the platform app-data root on supported CLI
+platforms: macOS `~/Library/Application Support/repo-edu` and Linux
+`${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The Windows desktop app stores data
+under `%APPDATA%\repo-edu`.
 
 ### Install CLI (end-user)
 
@@ -61,12 +62,6 @@ macOS / Linux:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
-```
-
-Windows (PowerShell):
-
-```powershell
-irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
 ```
 
 ### Run Docs Locally

@@ -118,7 +118,7 @@ cli.ts                  Commander command tree + global --course flag
 
 Command handlers follow a strict pattern: parse arguments, call a workflow, render output. Business logic must not leak into CLI code — it belongs in `@repo-edu/application` or `@repo-edu/domain`.
 
-Data directory: desktop and CLI share the platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
+Data directory: desktop and CLI share the platform app-data root on supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The Windows desktop app stores data under `%APPDATA%\repo-edu`.
 
 ## Design decisions
 
