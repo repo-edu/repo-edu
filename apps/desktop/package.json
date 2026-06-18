@@ -1,6 +1,6 @@
 {
     "name": "@repo-edu/desktop",
-    "version": "0.0.21",
+    "version": "0.0.22",
     "productName": "RepoEdu",
     "desktopName": "repo-edu.desktop",
     "description": "RepoEdu desktop application",
