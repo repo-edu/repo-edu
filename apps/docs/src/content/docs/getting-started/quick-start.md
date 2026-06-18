@@ -1,49 +1,28 @@
 ---
 title: Quick Start
-description: Verify desktop, CLI, and docs surfaces in one pass
+description: First steps after installing repo-edu
 ---
 
-After [installing](/repo-edu/getting-started/installation/), run through these steps to verify everything works.
+After [installing](/repo-edu/getting-started/installation/), here is how to get going. To look around first without installing, the [Interactive Demo](/repo-edu/demo/) runs the full interface in your browser against mock data.
 
-## 1. Validate the workspace
+## Desktop app
 
-```bash
-pnpm check
-```
+1. Launch RepoEdu.
+2. Create a course, or link an existing LMS course, from the course switcher in the header.
+3. Open Settings (the gear icon, or **Cmd/Ctrl + ,**) and add an LMS or Git connection. Use **Verify** to test the credentials before saving.
+4. Import a roster or set up repositories for the course.
 
-This runs formatting fixes, type checks, declaration builds, fixture checks, and architecture checks.
+The [Desktop App Overview](/repo-edu/desktop/overview/) is a full tour of the interface. For the main tasks, see [LMS Import](/repo-edu/user-guide/lms-import/), [Repository Setup](/repo-edu/user-guide/repository-setup/), and [Settings & Courses](/repo-edu/user-guide/settings/).
 
-## 2. Launch the desktop app
-
-```bash
-pnpm dev
-```
-
-A desktop window should open showing the repo-edu interface. If it doesn't, check the terminal output for errors — see [Troubleshooting](/repo-edu/reference/troubleshooting/) for common issues.
-
-## 3. Try the CLI
+## CLI (`redu`)
 
 ```bash
-pnpm build:cli
-./apps/cli/dist/redu course list
-./apps/cli/dist/redu repo update --help
+redu --help
+redu course list
 ```
 
-The first command builds the CLI. The second lists available courses (empty if this is a fresh installation). The third shows the help for the `repo update` command.
+`redu --help` lists every command and global option. `redu course list` shows your courses, which is empty on a fresh install. See the [CLI Overview](/repo-edu/cli/overview/) for the full command reference.
 
-## 4. Build and test the docs site
+## Developers
 
-```bash
-pnpm docs:build
-pnpm docs:test
-```
-
-The docs site includes an embedded demo that runs the real application against mock data in the browser. The build and test commands verify that the demo works correctly.
-
-## 5. Run full validation
-
-```bash
-pnpm validate
-```
-
-This runs `pnpm check`, all package tests, and desktop runtime validation.
+Building from source, the workspace scripts, and the test suites are covered in the [Building](/repo-edu/development/building/) guide.

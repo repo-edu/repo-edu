@@ -87,11 +87,20 @@ jobs:
       tag: ${{ inputs.tag }}
     secrets: inherit
 
-  linux-windows-x64:
+  linux-x64:
     needs: create-release
     permissions:
       contents: write
-    uses: ./.github/workflows/linux-windows-x64-release.yml
+    uses: ./.github/workflows/linux-x64-release.yml
+    with:
+      tag: ${{ inputs.tag }}
+    secrets: inherit
+
+  windows-x64:
+    needs: create-release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/windows-x64-release.yml
     with:
       tag: ${{ inputs.tag }}
     secrets: inherit

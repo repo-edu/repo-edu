@@ -1,65 +1,76 @@
 ---
 title: Installation
-description: Set up the repo-edu development environment
+description: Download and install the repo-edu desktop app or CLI
 ---
 
-## Prerequisites
+repo-edu ships as a desktop app and a command-line tool (`redu`). Both are pre-built, so installing needs nothing else on your machine. To explore the interface first without installing anything, open the [Interactive Demo](/repo-edu/demo/).
 
-- **Node.js 24** or later
-- **pnpm 10** or later
+## Desktop app
 
-## Install dependencies
+Download the installer for your platform:
 
-Clone the repository and install all workspace dependencies:
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [RepoEdu-mac-arm64.dmg](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-mac-arm64.dmg) |
+| Windows (x64) | [RepoEdu-win-x64.exe](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-win-x64.exe) |
+| Windows (ARM64) | [RepoEdu-win-arm64.exe](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-win-arm64.exe) |
+| Linux, Debian/Ubuntu (x64) | [RepoEdu-linux-amd64.deb](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-linux-amd64.deb) |
+| Linux, Debian/Ubuntu (ARM64) | [RepoEdu-linux-arm64.deb](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-linux-arm64.deb) |
 
-```bash
-git clone <repo-url>
-cd repo-edu
-pnpm install
-```
+Each link resolves to the matching installer in the latest release.
 
-## Validate the installation
+### macOS
 
-```bash
-pnpm check
-```
+Open the downloaded `.dmg` and drag **RepoEdu** into Applications. The app is signed and notarized, so it launches without a Gatekeeper override. Builds are Apple Silicon only; Intel Macs are not supported.
 
-This runs formatting fixes, type checks, declaration builds, fixture checks, and architecture checks. If everything passes, your environment is ready. Run `pnpm test` separately when you need the full package test suite.
+### Windows
 
-## Run targets
+Run the downloaded `.exe`. The installers are unsigned, so the first launch shows a SmartScreen prompt. Choose **More info**, then **Run anyway**. Later updates install through the app and do not show the prompt. See [Windows Distribution](/repo-edu/development/windows-distribution/) for why the installers are unsigned.
 
-### Desktop app
+### Linux
 
-```bash
-pnpm dev
-```
-
-Opens the Electron desktop application. This is the primary interface for managing courses, importing rosters, and running repository operations interactively.
-
-### CLI (`redu`) — from source
+Install the downloaded package:
 
 ```bash
-pnpm build:cli
-./apps/cli/dist/redu --help
+sudo apt install ./RepoEdu-linux-amd64.deb
 ```
 
-The CLI provides command-line access to course and repository operations. See [CLI Overview](/repo-edu/cli/overview/) for the full command reference.
+The desktop app supports the Debian family only (Debian, Ubuntu, Mint and derivatives). Fedora, RHEL, openSUSE and Arch are not supported desktop targets. See [Linux Packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
 
-### CLI (`redu`) — end-user install
+## CLI (`redu`)
 
-The release installer supports macOS and Linux.
+The CLI is distributed for macOS and Linux. The install script detects your platform, verifies the download checksum, and installs the binary onto your PATH:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
 ```
 
-### Docs site
+Override the install directory with `REDU_INSTALL_DIR` or pin a version with `REDU_VERSION`. See [CLI Installation](/repo-edu/cli/installation/) for details.
+
+If you would rather not run the script, download a binary directly:
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [redu-darwin-arm64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-darwin-arm64) |
+| Linux (x64) | [redu-linux-x64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-x64) |
+| Linux (ARM64) | [redu-linux-arm64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-arm64) |
+
+Then mark it executable and move it onto your PATH:
 
 ```bash
-pnpm docs:dev
+chmod +x redu-linux-x64
+mv redu-linux-x64 ~/.local/bin/redu
 ```
 
-Starts the documentation site locally with an embedded interactive demo.
+The CLI is not distributed for Windows; use the desktop app there.
+
+## Next steps
+
+Once installed, the [Quick Start](/repo-edu/getting-started/quick-start/) walks through first use of the desktop app and the CLI.
+
+## Install from source
+
+Building or contributing to repo-edu is covered in the [Building](/repo-edu/development/building/) guide.
 
 ## Data directory
 

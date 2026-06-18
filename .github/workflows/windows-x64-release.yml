@@ -1,4 +1,4 @@
-name: Release arm64 Windows
+name: Release x64 Windows
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
         type: string
 
 concurrency:
-  group: windows-arm64-release-${{ inputs.tag }}
+  group: windows-x64-release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
@@ -23,7 +23,7 @@ env:
 jobs:
   desktop-package-windows:
     name: desktop-package
-    runs-on: windows-11-arm
+    runs-on: windows-latest
     env:
       TAG: ${{ inputs.tag }}
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -45,20 +45,19 @@ jobs:
       - name: Runtime validation
         run: pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-arm64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-arm64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-x64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-x64.txt
       - name: Package
-        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --arm64 --publish never
-      - name: Rename update metadata for arm64
-        shell: bash
-        run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows-arm64.yml
+        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --x64 --publish never
+      - name: Rename update metadata for Windows x64
+        run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows.yml
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-windows-arm64
+          name: desktop-windows-x64
           path: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-windows-arm64.yml
+            apps/desktop/release/latest-windows.yml
             apps/desktop/release-notices/*.txt
           retention-days: 30
 
@@ -74,8 +73,8 @@ jobs:
       - name: Download desktop artifact
         uses: actions/download-artifact@v8
         with:
-          name: desktop-windows-arm64
-          path: artifacts/desktop-windows-arm64
+          name: desktop-windows-x64
+          path: artifacts/desktop-windows-x64
 
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v3

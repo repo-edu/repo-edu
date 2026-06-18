@@ -5,7 +5,7 @@ description: The primary interface for managing courses, rosters, and repository
 
 The desktop app is the primary interface for repo-edu. It runs as an Electron application and provides interactive tools for managing courses, editing rosters, organizing groups, and running repository operations.
 
-The [Interactive Demo](/repo-edu/demo/) on this site runs the same interface in the browser against mock data, so you can explore the UI without installing anything.
+See [Installation](/repo-edu/getting-started/installation/) to download and install the app. The [Interactive Demo](/repo-edu/demo/) on this site runs the same interface in the browser against mock data, so you can explore the UI first without installing anything.
 
 ## Interface layout
 

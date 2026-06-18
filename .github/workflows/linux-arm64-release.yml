@@ -14,7 +14,7 @@ on:
         type: string
 
 concurrency:
-  group: linux-release-${{ inputs.tag }}
+  group: linux-arm64-release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
@@ -22,7 +22,7 @@ env:
 
 jobs:
   desktop-package-linux:
-    name: desktop-package (Linux)
+    name: desktop-package
     runs-on: ubuntu-24.04-arm
     env:
       TAG: ${{ inputs.tag }}
@@ -60,7 +60,7 @@ jobs:
           retention-days: 30
 
   cli-build-linux:
-    name: cli-build (linux-arm64)
+    name: cli-build
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6

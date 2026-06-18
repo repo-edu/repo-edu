@@ -1,4 +1,4 @@
-name: Release x64 Linux + Windows
+name: Release x64 Linux
 
 on:
   workflow_dispatch:
@@ -14,18 +14,15 @@ on:
         type: string
 
 concurrency:
-  group: linux-windows-x64-release-${{ inputs.tag }}
+  group: linux-x64-release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Desktop packaging
-  # ---------------------------------------------------------------------------
   desktop-package-linux:
-    name: desktop-package (Linux)
+    name: desktop-package
     runs-on: ubuntu-latest
     env:
       TAG: ${{ inputs.tag }}
@@ -62,51 +59,8 @@ jobs:
             apps/desktop/release-notices/*.txt
           retention-days: 30
 
-  desktop-package-windows:
-    name: desktop-package (Windows)
-    runs-on: windows-latest
-    env:
-      TAG: ${{ inputs.tag }}
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.tag }}
-      - uses: ./.github/actions/setup
-      - name: Cache Electron artifacts
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~\AppData\Local\electron\Cache
-            ~\AppData\Local\electron-builder\Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-electron-
-      - name: Build
-        run: pnpm build
-      - name: Runtime validation
-        run: pnpm test:runtime
-      - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-x64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-x64.txt
-      - name: Package
-        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --x64 --publish never
-      - name: Rename update metadata for Windows x64
-        run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows.yml
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-windows-x64
-          path: |
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.blockmap
-            apps/desktop/release/latest-windows.yml
-            apps/desktop/release-notices/*.txt
-          retention-days: 30
-
-  # ---------------------------------------------------------------------------
-  # CLI binary builds (x64 only)
-  # ---------------------------------------------------------------------------
   cli-build-linux:
-    name: cli-build (linux-x64)
+    name: cli-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -159,14 +113,10 @@ jobs:
             redu-linux-x64.third-party-notices.txt
           retention-days: 30
 
-  # ---------------------------------------------------------------------------
-  # Attach all artifacts to GitHub Release
-  # ---------------------------------------------------------------------------
   release-attach:
     name: release-attach
     needs:
       - desktop-package-linux
-      - desktop-package-windows
       - cli-build-linux
     runs-on: ubuntu-latest
     permissions:
@@ -180,19 +130,13 @@ jobs:
             scripts/install-cli.sh
           sparse-checkout-cone-mode: false
 
-      - name: Download desktop Linux artifact
+      - name: Download desktop artifact
         uses: actions/download-artifact@v8
         with:
           name: desktop-linux-x64
           path: artifacts/desktop-linux-x64
 
-      - name: Download desktop Windows artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: desktop-windows-x64
-          path: artifacts/desktop-windows-x64
-
-      - name: Download CLI Linux artifact
+      - name: Download CLI artifact
         uses: actions/download-artifact@v8
         with:
           name: cli-linux-x64

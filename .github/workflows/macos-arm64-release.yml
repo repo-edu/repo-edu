@@ -14,7 +14,7 @@ on:
         type: string
 
 concurrency:
-  group: macos-release-${{ inputs.tag }}
+  group: macos-arm64-release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
@@ -48,7 +48,7 @@ jobs:
           fi
 
   desktop-package-macos:
-    name: desktop-package (macOS)
+    name: desktop-package
     needs: secrets-preflight
     runs-on: macos-26
     environment: release
@@ -102,7 +102,7 @@ jobs:
           retention-days: 30
 
   cli-build-macos:
-    name: cli-build (darwin-arm64)
+    name: cli-build
     needs: secrets-preflight
     runs-on: macos-26
     environment: release

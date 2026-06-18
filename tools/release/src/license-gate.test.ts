@@ -1282,7 +1282,7 @@ describe("release workflow wiring", () => {
         metadataPattern: /apps\/desktop\/release\/\*-linux-arm64\.yml/,
       },
       {
-        file: ".github/workflows/linux-windows-x64-release.yml",
+        file: ".github/workflows/linux-x64-release.yml",
         metadataPattern: /apps\/desktop\/release\/\*-linux\.yml/,
       },
     ] as const) {
@@ -1329,12 +1329,19 @@ describe("release workflow wiring", () => {
       ],
     },
     {
-      file: ".github/workflows/linux-windows-x64-release.yml",
+      file: ".github/workflows/linux-x64-release.yml",
       snippets: [
         "--app desktop --platform linux-x64 --artifact-targets deb",
-        "--app desktop --platform windows-x64 --artifact-targets nsis",
+        "--app cli --platform linux-x64",
         "redu-linux-x64.third-party-notices.txt",
         "redu-linux-x64 redu-linux-x64.third-party-notices.txt",
+        "apps/desktop/release-notices/*.txt",
+      ],
+    },
+    {
+      file: ".github/workflows/windows-x64-release.yml",
+      snippets: [
+        "--app desktop --platform windows-x64 --artifact-targets nsis",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -1393,7 +1400,7 @@ describe("release workflow wiring", () => {
   it("Windows release workflows publish unsigned NSIS without CLI artifacts", async () => {
     for (const file of [
       ".github/workflows/windows-arm64-release.yml",
-      ".github/workflows/linux-windows-x64-release.yml",
+      ".github/workflows/windows-x64-release.yml",
     ] as const) {
       const workflow = await readFile(join(repoRoot, file), "utf8")
       const windowsPackageJob = extractWorkflowJob(

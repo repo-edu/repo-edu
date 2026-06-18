@@ -17,6 +17,25 @@ Override the install directory with `REDU_INSTALL_DIR` or pin a version with `RE
 REDU_VERSION=v0.1.0 REDU_INSTALL_DIR=/usr/local/bin curl -fsSL ... | sh
 ```
 
+## Direct download
+
+If you would rather not run the install script, download a binary directly. Each link resolves to the latest release:
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [redu-darwin-arm64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-darwin-arm64) |
+| Linux (x64) | [redu-linux-x64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-x64) |
+| Linux (ARM64) | [redu-linux-arm64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-arm64) |
+
+Then mark it executable and move it onto your PATH:
+
+```bash
+chmod +x redu-linux-x64
+mv redu-linux-x64 ~/.local/bin/redu
+```
+
+A matching `.sha256` checksum and a `.third-party-notices.txt` file are attached to the same release. The CLI is not distributed for Windows.
+
 ## Build from source
 
 ```bash

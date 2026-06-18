@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
     "appId": "edu.repo.desktop",
     "productName": "RepoEdu",
-    "artifactName": "RepoEdu-${version}-${os}-${arch}.${ext}",
+    "artifactName": "RepoEdu-${os}-${arch}.${ext}",
     "asar": true,
     "npmRebuild": false,
     "directories": {
