@@ -176,7 +176,11 @@ export async function resolveDesktopRuntimePackageEntries(options: {
       root: desktopRoot,
       source: "Desktop Electron runtime",
       preparePackage: (packagePath) =>
-        ensureElectronRuntimePayload(packagePath, options.platform),
+        ensureElectronRuntimePayload(
+          packagePath,
+          options.platform,
+          electronChromiumNoticeCandidates(options.root, options.platform),
+        ),
       additionalNoticeFiles: [
         electronChromiumNoticeCandidates(options.root, options.platform),
       ],
@@ -318,9 +322,7 @@ async function readAdditionalNoticeFiles(
 ): Promise<string[]> {
   const texts: string[] = []
   for (const file of files) {
-    const candidates = (Array.isArray(file) ? file : [file]).map((candidate) =>
-      resolve(packagePath, candidate),
-    )
+    const candidates = resolveAdditionalNoticeCandidates(packagePath, file)
     const path = candidates.find((candidate) => existsSync(candidate))
     if (!path) {
       throw new Error(
@@ -374,8 +376,13 @@ function electronChromiumNoticeCandidates(
 async function ensureElectronRuntimePayload(
   packagePath: string,
   platform: ReleasePlatform,
+  noticeCandidates: AdditionalNoticeFile,
 ): Promise<void> {
-  if (existsSync(join(packagePath, "dist", "LICENSES.chromium.html"))) {
+  if (
+    resolveAdditionalNoticeCandidates(packagePath, noticeCandidates).some(
+      (candidate) => existsSync(candidate),
+    )
+  ) {
     return
   }
 
@@ -404,6 +411,15 @@ async function ensureElectronRuntimePayload(
       `Electron runtime install failed for ${platform}: ${formatExecError(error)}`,
     )
   }
+}
+
+function resolveAdditionalNoticeCandidates(
+  packagePath: string,
+  file: AdditionalNoticeFile,
+): string[] {
+  return (Array.isArray(file) ? file : [file]).map((candidate) =>
+    resolve(packagePath, candidate),
+  )
 }
 
 function electronInstallTarget(platform: ReleasePlatform): {

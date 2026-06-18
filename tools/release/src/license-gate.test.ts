@@ -818,6 +818,36 @@ fs.writeFileSync(path.join(__dirname, "path.txt"), "electron\\n")
     }
   })
 
+  it("uses packaged Electron notices before running runtime install", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    const originalGuard = process.env[forbidElectronRuntimeInstallEnv]
+    try {
+      await writeDesktopRuntimeFixture(root, {
+        electronFiles: {
+          "install.js": "throw new Error('installer should not run')\n",
+        },
+      })
+      const packagedNotice = join(
+        root,
+        "apps/desktop/release/linux-unpacked/LICENSES.chromium.html",
+      )
+      await mkdir(dirname(packagedNotice), { recursive: true })
+      await writeFile(packagedNotice, "Packaged Chromium notice\n", "utf8")
+
+      process.env[forbidElectronRuntimeInstallEnv] = "1"
+      const entries = await resolveDesktopRuntimePackageEntries({
+        root,
+        platform: "linux-x64",
+        artifactTargets: ["deb"],
+      })
+      const electronEntry = entries.find((entry) => entry.name === "electron")
+      assert.match(electronEntry?.additionalText ?? "", /Packaged Chromium/)
+    } finally {
+      restoreEnv(forbidElectronRuntimeInstallEnv, originalGuard)
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("fails closed when Electron runtime install is disabled", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     const originalGuard = process.env[forbidElectronRuntimeInstallEnv]
