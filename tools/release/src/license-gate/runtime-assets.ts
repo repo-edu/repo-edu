@@ -109,13 +109,6 @@ export async function collectRuntimeNoticeEntries(
       if (decision) {
         decisions.push({ target, decision })
       }
-      if (target === "AppImage") {
-        decisions.push({
-          target,
-          decision:
-            "AppImage runtime and packaging helper assets are represented by app-builder-bin and Electron Builder runtime package records.",
-        })
-      }
       if (target === "nsis") {
         decisions.push({
           target,

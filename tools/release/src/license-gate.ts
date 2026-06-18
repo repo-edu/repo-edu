@@ -68,8 +68,8 @@ const appPackageByApp = {
 
 const desktopTargetsByPlatform = {
   "darwin-arm64": ["dmg", "zip"],
-  "linux-arm64": ["AppImage", "deb"],
-  "linux-x64": ["AppImage", "deb"],
+  "linux-arm64": ["deb"],
+  "linux-x64": ["deb"],
   "windows-arm64": ["nsis"],
   "windows-x64": ["nsis"],
 } satisfies Record<LicenseGateOptions["platform"], readonly string[]>

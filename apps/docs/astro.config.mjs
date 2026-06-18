@@ -115,6 +115,7 @@ export default defineConfig({
                   items: [
                     { label: "Building", slug: "development/building" },
                     { label: "Continuous Integration", slug: "development/continuous-integration" },
+                    { label: "Linux Packaging", slug: "development/linux-packaging" },
                     { label: "GitHub Authentication", slug: "development/github-auth" },
                     { label: "Environment Variables", slug: "development/environment-variables" },
                     { label: "Contributing", slug: "development/contributing" },

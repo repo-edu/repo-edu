@@ -5,6 +5,7 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "license-gate": "tsx src/license-gate-cli.ts",
+    "linux-feed-prune": "tsx src/linux-feed-prune-cli.ts",
     "macos-signing:prepare": "tsx src/macos-signing-prepare-cli.ts",
     "macos-signing:cleanup": "tsx src/macos-signing-cleanup-cli.ts",
     "test": "node --import tsx --test src/**/*.test.ts",
@@ -16,6 +17,7 @@
     "license-checker-rseidelsohn": "5.0.1",
     "spdx-expression-parse": "4.0.0",
     "spdx-license-list": "6.11.0",
-    "spdx-satisfies": "6.0.0"
+    "spdx-satisfies": "6.0.0",
+    "yaml": "2.9.0"
   }
 }

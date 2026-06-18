@@ -86,7 +86,7 @@ function desktopArtifactTargets(platform: ReleasePreflightPlatform): string {
     return "dmg,zip"
   }
   if (platform === "linux-arm64" || platform === "linux-x64") {
-    return "AppImage,deb"
+    return "deb"
   }
   return "nsis"
 }

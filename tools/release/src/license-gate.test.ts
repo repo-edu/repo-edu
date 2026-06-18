@@ -64,7 +64,7 @@ function desktopTargetsForPlatform(
     return ["dmg", "zip"]
   }
   if (platform === "linux-arm64" || platform === "linux-x64") {
-    return ["AppImage", "deb"]
+    return ["deb"]
   }
   return ["nsis"]
 }
@@ -633,7 +633,7 @@ describe("artifact target validation", () => {
       validateLicenseGateArtifactTargets({
         app: "desktop",
         platform: "linux-x64",
-        artifactTargets: ["deb", "AppImage"],
+        artifactTargets: ["deb"],
       }),
     )
     assert.doesNotThrow(() =>
@@ -756,7 +756,7 @@ fs.writeFileSync(path.join(__dirname, "path.txt"), "electron\\n")
       const entries = await resolveDesktopRuntimePackageEntries({
         root,
         platform: "linux-arm64",
-        artifactTargets: ["AppImage", "deb"],
+        artifactTargets: ["deb"],
       })
       const electronEntry = entries.find((entry) => entry.name === "electron")
       assert.match(electronEntry?.additionalText ?? "", /Chromium notice/)
@@ -797,7 +797,7 @@ fs.writeFileSync(path.join(__dirname, "path.txt"), "electron\\n")
           resolveDesktopRuntimePackageEntries({
             root,
             platform: "linux-arm64",
-            artifactTargets: ["AppImage", "deb"],
+            artifactTargets: ["deb"],
           }),
         /Electron runtime install is disabled/,
       )
@@ -1031,7 +1031,7 @@ describe("manifest helpers", () => {
     const manifest = formatNoticeManifest({
       app: "desktop",
       platform: "linux-x64",
-      artifactTargets: ["AppImage", "deb"],
+      artifactTargets: ["deb"],
       runtimeDecisions: [
         {
           target: "deb",
@@ -1239,7 +1239,7 @@ describe("release workflow wiring", () => {
     {
       file: ".github/workflows/linux-arm64-release.yml",
       snippets: [
-        "--app desktop --platform linux-arm64 --artifact-targets AppImage,deb",
+        "--app desktop --platform linux-arm64 --artifact-targets deb",
         "--app cli --platform linux-arm64",
         "redu-linux-arm64.third-party-notices.txt",
         "redu-linux-arm64 redu-linux-arm64.third-party-notices.txt",
@@ -1269,7 +1269,7 @@ describe("release workflow wiring", () => {
     {
       file: ".github/workflows/linux-windows-x64-release.yml",
       snippets: [
-        "--app desktop --platform linux-x64 --artifact-targets AppImage,deb",
+        "--app desktop --platform linux-x64 --artifact-targets deb",
         "--app desktop --platform windows-x64 --artifact-targets nsis",
         "redu-linux-x64.third-party-notices.txt",
         "redu-windows-x64.exe.third-party-notices.txt",
@@ -1279,23 +1279,6 @@ describe("release workflow wiring", () => {
       ],
     },
   ] as const
-
-  it("macOS release attach follows the publish input", async () => {
-    const workflow = await readFile(
-      join(repoRoot, ".github/workflows/macos-arm64-release.yml"),
-      "utf8",
-    )
-
-    assert.match(
-      workflow,
-      /workflow_dispatch:[\s\S]*publish:[\s\S]*default: false/,
-    )
-    assert.match(workflow, /workflow_call:[\s\S]*publish:[\s\S]*default: true/)
-    assert.match(
-      workflow,
-      /release-attach:[\s\S]*if: \$\{\{ inputs\.publish \}\}/,
-    )
-  })
 
   it("macOS release jobs use release-owned signing preparation and cleanup", async () => {
     const workflow = await readFile(

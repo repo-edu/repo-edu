@@ -22,7 +22,7 @@ Updates use blockmap-based deltas where possible, so only changed bytes are down
 
 - **macOS** — the auto-updater downloads a zip artifact from the GitHub Release and replaces the app bundle. The DMG is only used for first-time installation.
 - **Windows** — the auto-updater downloads and silently runs an NSIS installer to apply the update.
-- **Linux** — AppImage auto-update is handled natively by electron-updater.
+- **Linux** — the auto-updater downloads the new `.deb` and installs it through a graphical privilege prompt (`pkexec`). Linux updates are full downloads, not deltas. See [Linux packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
 
 ## CLI (`redu update`)
 

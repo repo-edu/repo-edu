@@ -72,28 +72,17 @@ jobs:
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-x64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-x64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-x64 --artifact-targets deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-x64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never
-      - name: Verify Linux x64 update metadata
-        shell: bash
-        run: |
-          shopt -s nullglob
-          metadata_files=(apps/desktop/release/*-linux.yml)
-          if [ "${#metadata_files[@]}" -eq 0 ]; then
-            echo "::error::Expected Linux x64 update metadata (*-linux.yml) was not generated"
-            ls -la apps/desktop/release
-            exit 1
-          fi
-          printf "Found update metadata: %s\n" "${metadata_files[@]}"
+      - name: Prune Linux update feed to deb
+        run: pnpm --filter @repo-edu/release linux-feed-prune --release-dir apps/desktop/release
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: desktop-linux-x64
           path: |
-            apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
-            apps/desktop/release/*.blockmap
             apps/desktop/release/*-linux.yml
             apps/desktop/release-notices/*.txt
           retention-days: 30

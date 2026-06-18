@@ -7,20 +7,11 @@ on:
         description: "Branch, tag, or SHA to build (default: current ref)"
         required: false
         type: string
-      publish:
-        description: "Attach artifacts to a GitHub Release"
-        required: false
-        default: false
-        type: boolean
   workflow_call:
     inputs:
       tag:
         required: true
         type: string
-      publish:
-        required: false
-        default: true
-        type: boolean
 
 concurrency:
   group: linux-release-${{ inputs.ref || inputs.tag || github.ref }}
@@ -56,28 +47,17 @@ jobs:
       - name: Runtime validation
         run: xvfb-run -a pnpm test:runtime
       - name: Generate desktop notices
-        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets AppImage,deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt
+        run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --arm64 --publish never
-      - name: Verify Linux arm64 update metadata
-        shell: bash
-        run: |
-          shopt -s nullglob
-          metadata_files=(apps/desktop/release/*-linux-arm64.yml)
-          if [ "${#metadata_files[@]}" -eq 0 ]; then
-            echo "::error::Expected Linux arm64 update metadata (*-linux-arm64.yml) was not generated"
-            ls -la apps/desktop/release
-            exit 1
-          fi
-          printf "Found update metadata: %s\n" "${metadata_files[@]}"
+      - name: Prune Linux update feed to deb
+        run: pnpm --filter @repo-edu/release linux-feed-prune --release-dir apps/desktop/release
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: desktop-linux-arm64
           path: |
-            apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
-            apps/desktop/release/*.blockmap
             apps/desktop/release/*-linux-arm64.yml
             apps/desktop/release-notices/*.txt
           retention-days: 30
@@ -138,7 +118,7 @@ jobs:
 
   release-attach:
     name: release-attach
-    if: ${{ inputs.publish && (inputs.tag || inputs.ref) }}
+    if: ${{ inputs.tag || inputs.ref }}
     needs:
       - desktop-package-linux
       - cli-build-linux
