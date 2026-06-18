@@ -7,12 +7,34 @@ export type ReleasePlatform =
   | "windows-arm64"
   | "windows-x64"
 
-export type LicenseGateOptions = {
-  readonly app: LicenseGateApp
-  readonly platform: ReleasePlatform
+export type DesktopReleasePlatform = ReleasePlatform
+
+export type CliReleasePlatform = "darwin-arm64" | "linux-arm64" | "linux-x64"
+
+type BaseLicenseGateOptions = {
   readonly artifactTargets: readonly string[]
   readonly manifestOut: string
   readonly root?: string
+}
+
+export type DesktopLicenseGateOptions = BaseLicenseGateOptions & {
+  readonly app: "desktop"
+  readonly platform: DesktopReleasePlatform
+}
+
+export type CliLicenseGateOptions = BaseLicenseGateOptions & {
+  readonly app: "cli"
+  readonly platform: CliReleasePlatform
+}
+
+export type LicenseGateOptions =
+  | DesktopLicenseGateOptions
+  | CliLicenseGateOptions
+
+export type LicenseGateValidationOptions = {
+  readonly app: LicenseGateApp
+  readonly platform: ReleasePlatform
+  readonly artifactTargets: readonly string[]
 }
 
 export type PnpmListNode = {

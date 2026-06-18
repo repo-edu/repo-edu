@@ -62,7 +62,7 @@
         "test": "node --import tsx --test src/**/*.test.ts",
         "test:e2e": "pnpm run build && playwright test",
         "package:ci:macos": "NODE_OPTIONS=--no-deprecation pnpm exec electron-builder --config electron-builder.json --mac dmg zip --publish never",
-        "package:ci:linux": "pnpm exec electron-builder --config electron-builder.json --linux AppImage deb --publish never",
+        "package:ci:linux": "pnpm exec electron-builder --config electron-builder.json --linux deb --publish never",
         "package:ci:windows": "pnpm exec electron-builder --config electron-builder.json --win nsis --publish never"
     }
 }

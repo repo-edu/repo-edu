@@ -1,7 +1,5 @@
-import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
 import { chmod, rename, unlink, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { basename, dirname, join } from "node:path"
 import type { Command } from "commander"
 
@@ -24,10 +22,12 @@ type FileReplacement = {
 }
 
 function resolveAssetName(): string {
-  const platform = process.platform === "win32" ? "windows" : process.platform
+  if (process.platform !== "darwin" && process.platform !== "linux") {
+    throw new Error("Self-update is supported only for macOS and Linux.")
+  }
+
   const arch = process.arch
-  const ext = process.platform === "win32" ? ".exe" : ""
-  return `redu-${platform}-${arch}${ext}`
+  return `redu-${process.platform}-${arch}`
 }
 
 function resolveChecksumAssetName(assetName: string): string {
@@ -102,94 +102,6 @@ function assertChecksumMatches(
   }
 }
 
-function escapePowerShellLiteral(value: string): string {
-  return value.replaceAll("'", "''")
-}
-
-function powerShellReplacementRecord(replacement: FileReplacement): string {
-  return `@{ Source = '${escapePowerShellLiteral(replacement.sourcePath)}'; Target = '${escapePowerShellLiteral(replacement.targetPath)}'; Backup = '${escapePowerShellLiteral(replacement.backupPath)}' }`
-}
-
-async function scheduleWindowsReplace(
-  replacements: readonly FileReplacement[],
-): Promise<string> {
-  const scriptPath = join(tmpdir(), `redu-update-${Date.now()}.ps1`)
-
-  const script = `
-$ErrorActionPreference = "Stop"
-$replacements = @(
-${replacements.map((replacement) => `  ${powerShellReplacementRecord(replacement)}`).join(",\n")}
-)
-
-function Restore-Replacements {
-  param($Items)
-
-  foreach ($item in $Items) {
-    if (Test-Path -LiteralPath $item.Backup) {
-      Remove-Item -LiteralPath $item.Target -Force -ErrorAction SilentlyContinue
-      Move-Item -LiteralPath $item.Backup -Destination $item.Target -Force
-    }
-  }
-}
-
-$backupsReady = $false
-for ($i = 0; $i -lt 120; $i++) {
-  try {
-    foreach ($item in $replacements) {
-      Remove-Item -LiteralPath $item.Backup -Force -ErrorAction SilentlyContinue
-      if (Test-Path -LiteralPath $item.Target) {
-        Move-Item -LiteralPath $item.Target -Destination $item.Backup -Force
-      }
-    }
-    $backupsReady = $true
-    break
-  } catch {
-    Restore-Replacements $replacements
-    Start-Sleep -Milliseconds 500
-  }
-}
-
-if (-not $backupsReady) {
-  Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-  exit 1
-}
-
-try {
-  foreach ($item in $replacements) {
-    Move-Item -LiteralPath $item.Source -Destination $item.Target -Force
-  }
-  foreach ($item in $replacements) {
-    Remove-Item -LiteralPath $item.Backup -Force -ErrorAction SilentlyContinue
-  }
-} catch {
-  foreach ($item in $replacements) {
-    Remove-Item -LiteralPath $item.Target -Force -ErrorAction SilentlyContinue
-  }
-  Restore-Replacements $replacements
-  Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-  exit 1
-}
-
-Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-exit 0
-`.trim()
-
-  await writeFile(scriptPath, script, "utf8")
-
-  const child = spawn(
-    "powershell.exe",
-    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
-    {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true,
-    },
-  )
-  child.unref()
-
-  return scriptPath
-}
-
 async function replaceFilesWithBackups(
   replacements: readonly FileReplacement[],
 ): Promise<void> {
@@ -258,6 +170,7 @@ export function registerUpdateCommand(
     .option("--check", "Check for updates without installing")
     .action(async (options: { check?: boolean }) => {
       try {
+        const assetName = resolveAssetName()
         const release = await fetchLatestRelease()
         const latestVersion = release.tag_name.replace(/^v/, "")
 
@@ -274,7 +187,6 @@ export function registerUpdateCommand(
           return
         }
 
-        const assetName = resolveAssetName()
         const checksumAssetName = resolveChecksumAssetName(assetName)
         const noticeAssetName = resolveNoticeAssetName(assetName)
         const asset = release.assets.find((a) => a.name === assetName)
@@ -362,26 +274,17 @@ export function registerUpdateCommand(
           writeFile(tempNoticePath, noticeBuffer),
         ])
 
-        if (process.platform === "win32") {
-          const scriptPath = await scheduleWindowsReplace(replacements)
-          process.stdout.write(
-            `Update staged for ${latestVersion}. It will apply after this process exits.\n`,
+        await chmod(tempPath, 0o755)
+
+        try {
+          await replaceFilesWithBackups(replacements)
+        } catch {
+          throw new Error(
+            "Failed to replace binary and notice file. You may need to run with elevated permissions.",
           )
-          // Best-effort cleanup of the temp PowerShell script after a delay
-          setTimeout(() => unlink(scriptPath).catch(() => {}), 90_000).unref()
-        } else {
-          await chmod(tempPath, 0o755)
-
-          try {
-            await replaceFilesWithBackups(replacements)
-          } catch {
-            throw new Error(
-              "Failed to replace binary and notice file. You may need to run with elevated permissions.",
-            )
-          }
-
-          process.stdout.write(`Updated to ${latestVersion}.\n`)
         }
+
+        process.stdout.write(`Updated to ${latestVersion}.\n`)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         process.stderr.write(`Update failed: ${message}\n`)

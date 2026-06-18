@@ -47,16 +47,10 @@ The CLI provides command-line access to course and repository operations. See [C
 
 ### CLI (`redu`) — end-user install
 
-macOS / Linux:
+The release installer supports macOS and Linux.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
-```
-
-Windows (PowerShell):
-
-```powershell
-irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
 ```
 
 ### Docs site
@@ -69,4 +63,4 @@ Starts the documentation site locally with an embedded interactive demo.
 
 ## Data directory
 
-The CLI and desktop app share the platform app-data root: macOS `~/Library/Application Support/repo-edu`, Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`, and Windows `%APPDATA%\repo-edu`.
+The CLI and desktop app share the platform app-data root on supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The Windows desktop app stores data under `%APPDATA%\repo-edu`.

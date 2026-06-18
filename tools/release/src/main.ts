@@ -80,6 +80,10 @@ function currentReleasePlatform():
 }
 
 type ReleasePreflightPlatform = ReturnType<typeof currentReleasePlatform>
+type CliPreflightPlatform = Exclude<
+  ReleasePreflightPlatform,
+  "windows-arm64" | "windows-x64"
+>
 
 function desktopArtifactTargets(platform: ReleasePreflightPlatform): string {
   if (platform === "darwin-arm64") {
@@ -91,13 +95,18 @@ function desktopArtifactTargets(platform: ReleasePreflightPlatform): string {
   return "nsis"
 }
 
-function cliPreflightOutputName(platform: ReleasePreflightPlatform): string {
-  const name = `repo-edu-${platform}-cli-preflight`
-  return platform.startsWith("windows") ? `${name}.exe` : name
+function isCliPreflightPlatform(
+  platform: ReleasePreflightPlatform,
+): platform is CliPreflightPlatform {
+  return platform === "darwin-arm64" || platform.startsWith("linux-")
+}
+
+function cliPreflightOutputName(platform: CliPreflightPlatform): string {
+  return `repo-edu-${platform}-cli-preflight`
 }
 
 function cliCompileTargetArgs(
-  platform: ReleasePreflightPlatform,
+  platform: CliPreflightPlatform,
 ): readonly string[] {
   return platform === "darwin-arm64" ? ["--target=bun-darwin-arm64"] : []
 }
@@ -106,7 +115,7 @@ function removeFileIfExists(path: string): void {
   rmSync(path, { force: true })
 }
 
-function runCliLicensePreflight(platform: ReleasePreflightPlatform): void {
+function runCliLicensePreflight(platform: CliPreflightPlatform): void {
   const outputPath = join(tmpdir(), cliPreflightOutputName(platform))
   const manifestPath = join(
     tmpdir(),
@@ -217,7 +226,11 @@ runFile("pnpm", [
   "--manifest-out",
   join(tmpdir(), `repo-edu-${preflightPlatform}-third-party-notices.txt`),
 ])
-runCliLicensePreflight(preflightPlatform)
+if (isCliPreflightPlatform(preflightPlatform)) {
+  runCliLicensePreflight(preflightPlatform)
+} else {
+  console.log("Skipping CLI preflight because no Windows CLI is distributed.")
+}
 
 console.log(`\nBumping ${currentVersion} → ${version}\n`)
 

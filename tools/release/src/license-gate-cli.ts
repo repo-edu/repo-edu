@@ -1,25 +1,25 @@
 #!/usr/bin/env tsx
 
 import {
+  type CliReleasePlatform,
+  type DesktopReleasePlatform,
   type LicenseGateApp,
-  type ReleasePlatform,
+  type LicenseGateOptions,
   runLicenseGate,
 } from "./license-gate.js"
 
-type ParsedArgs = {
-  readonly app: LicenseGateApp
-  readonly platform: ReleasePlatform
-  readonly artifactTargets: readonly string[]
-  readonly manifestOut: string
-}
-
 const apps = new Set<LicenseGateApp>(["desktop", "cli"])
-const platforms = new Set<ReleasePlatform>([
+const desktopPlatforms = new Set<DesktopReleasePlatform>([
   "darwin-arm64",
   "linux-arm64",
   "linux-x64",
   "windows-arm64",
   "windows-x64",
+])
+const cliPlatforms = new Set<CliReleasePlatform>([
+  "darwin-arm64",
+  "linux-arm64",
+  "linux-x64",
 ])
 const allowedOptions = new Set([
   "app",
@@ -28,7 +28,7 @@ const allowedOptions = new Set([
   "manifest-out",
 ])
 
-function parseArgs(argv: readonly string[]): ParsedArgs {
+function parseArgs(argv: readonly string[]): LicenseGateOptions {
   const values = new Map<string, string>()
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -63,9 +63,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
   if (!apps.has(app as LicenseGateApp)) {
     throw new Error("--app must be desktop or cli")
   }
-  if (!platforms.has(platform as ReleasePlatform)) {
-    throw new Error("--platform is not a supported release platform")
-  }
+  const parsedApp = app as LicenseGateApp
   if (!artifactTargets) {
     throw new Error("--artifact-targets is required")
   }
@@ -73,13 +71,31 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     throw new Error("--manifest-out is required")
   }
 
+  const parsedArtifactTargets = artifactTargets
+    .split(",")
+    .map((target) => target.trim())
+    .filter((target) => target.length > 0)
+
+  if (parsedApp === "desktop") {
+    if (!desktopPlatforms.has(platform as DesktopReleasePlatform)) {
+      throw new Error("--platform is not a supported desktop release platform")
+    }
+    return {
+      app: parsedApp,
+      platform: platform as DesktopReleasePlatform,
+      artifactTargets: parsedArtifactTargets,
+      manifestOut,
+    }
+  }
+
+  if (!cliPlatforms.has(platform as CliReleasePlatform)) {
+    throw new Error("--platform is not a supported cli release platform")
+  }
+
   return {
-    app: app as LicenseGateApp,
-    platform: platform as ReleasePlatform,
-    artifactTargets: artifactTargets
-      .split(",")
-      .map((target) => target.trim())
-      .filter((target) => target.length > 0),
+    app: parsedApp,
+    platform: platform as CliReleasePlatform,
+    artifactTargets: parsedArtifactTargets,
     manifestOut,
   }
 }

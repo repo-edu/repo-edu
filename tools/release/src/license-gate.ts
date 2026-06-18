@@ -18,8 +18,11 @@ import {
   runPnpmJson,
 } from "./license-gate/shared.js"
 import type {
+  CliReleasePlatform,
+  DesktopReleasePlatform,
   LicenseGateApp,
   LicenseGateOptions,
+  LicenseGateValidationOptions,
   PnpmListNode,
   ProductionDependencyViews,
 } from "./license-gate/types.js"
@@ -52,8 +55,13 @@ export {
 } from "./license-gate/scanner.js"
 export { readRequiredTextFiles } from "./license-gate/shared.js"
 export type {
+  CliLicenseGateOptions,
+  CliReleasePlatform,
+  DesktopLicenseGateOptions,
+  DesktopReleasePlatform,
   LicenseGateApp,
   LicenseGateOptions,
+  LicenseGateValidationOptions,
   NoticeEntry,
   PnpmListNode,
   ProductionDependencyViews,
@@ -72,7 +80,13 @@ const desktopTargetsByPlatform = {
   "linux-x64": ["deb"],
   "windows-arm64": ["nsis"],
   "windows-x64": ["nsis"],
-} satisfies Record<LicenseGateOptions["platform"], readonly string[]>
+} satisfies Record<DesktopReleasePlatform, readonly string[]>
+
+const cliTargetsByPlatform = {
+  "darwin-arm64": ["binary"],
+  "linux-arm64": ["binary"],
+  "linux-x64": ["binary"],
+} satisfies Record<CliReleasePlatform, readonly string[]>
 
 export async function runLicenseGate(
   options: LicenseGateOptions,
@@ -121,12 +135,9 @@ export async function runLicenseGate(
 }
 
 export function validateLicenseGateArtifactTargets(
-  options: Pick<LicenseGateOptions, "app" | "artifactTargets" | "platform">,
+  options: LicenseGateValidationOptions,
 ): void {
-  const expectedTargets =
-    options.app === "cli"
-      ? ["binary"]
-      : desktopTargetsByPlatform[options.platform]
+  const expectedTargets = expectedArtifactTargets(options)
   const expected = new Set(expectedTargets)
   const actual = new Set(options.artifactTargets)
 
@@ -139,6 +150,22 @@ export function validateLicenseGateArtifactTargets(
       `Unsupported artifact targets for ${options.app} on ${options.platform}: ${options.artifactTargets.join(", ")}. Expected: ${expectedTargets.join(", ")}`,
     )
   }
+}
+
+function expectedArtifactTargets(
+  options: LicenseGateValidationOptions,
+): readonly string[] {
+  if (options.app === "desktop") {
+    return desktopTargetsByPlatform[options.platform]
+  }
+
+  const targets = cliTargetsByPlatform[options.platform as CliReleasePlatform]
+  if (!targets) {
+    throw new Error(
+      `Unsupported release platform for cli: ${options.platform}. Expected: ${Object.keys(cliTargetsByPlatform).join(", ")}`,
+    )
+  }
+  return targets
 }
 
 async function enumerateProductionDependencies(

@@ -12,6 +12,7 @@ import {
 import {
   assertNoForbiddenProductionDependencies,
   assertScannerParity,
+  type CliReleasePlatform,
   classifyLicenseExpression,
   enumeratePackageClosureFromList,
   extractRipgrepVersion,
@@ -53,6 +54,18 @@ function currentReleasePlatform(): ReleasePlatform | null {
   }
   if (process.platform === "win32" && process.arch === "x64") {
     return "windows-x64"
+  }
+  return null
+}
+
+function currentCliReleasePlatform(): CliReleasePlatform | null {
+  const platform = currentReleasePlatform()
+  if (
+    platform === "darwin-arm64" ||
+    platform === "linux-arm64" ||
+    platform === "linux-x64"
+  ) {
+    return platform
   }
   return null
 }
@@ -638,8 +651,15 @@ describe("artifact target validation", () => {
     )
     assert.doesNotThrow(() =>
       validateLicenseGateArtifactTargets({
-        app: "cli",
+        app: "desktop",
         platform: "windows-x64",
+        artifactTargets: ["nsis"],
+      }),
+    )
+    assert.doesNotThrow(() =>
+      validateLicenseGateArtifactTargets({
+        app: "cli",
+        platform: "linux-x64",
         artifactTargets: ["binary"],
       }),
     )
@@ -661,6 +681,15 @@ describe("artifact target validation", () => {
           artifactTargets: ["binary", "zip"],
         }),
       /Unsupported artifact targets/,
+    )
+    assert.throws(
+      () =>
+        validateLicenseGateArtifactTargets({
+          app: "cli",
+          platform: "windows-x64",
+          artifactTargets: ["binary"],
+        }),
+      /Unsupported release platform for cli/,
     )
   })
 })
@@ -704,7 +733,15 @@ describe("runtime notice records", () => {
       /Chromium|copyright/i,
     )
 
-    const cliEntries = await resolveCliRuntimeNoticeEntries(repoRoot, platform)
+    const cliPlatform = currentCliReleasePlatform()
+    if (!cliPlatform) {
+      return
+    }
+
+    const cliEntries = await resolveCliRuntimeNoticeEntries(
+      repoRoot,
+      cliPlatform,
+    )
     assert.ok(cliEntries.some((entry) => entry.name === "bun"))
     assert.ok(cliEntries.some((entry) => /^@oven\/bun-/.test(entry.name)))
 
@@ -720,7 +757,7 @@ describe("runtime notice records", () => {
 
     const cliRuntimeManifest = formatNoticeManifest({
       app: "cli",
-      platform,
+      platform: cliPlatform,
       artifactTargets: ["binary"],
       runtimeDecisions: [],
       entries: cliEntries,
@@ -1225,6 +1262,44 @@ describe("release workflow wiring", () => {
     assert.doesNotMatch(releaseScript, /--desktop-bundle-manifest/)
   })
 
+  it("Linux arm64 release dispatches publish only existing release tags", async () => {
+    const workflow = await readFile(
+      join(repoRoot, ".github/workflows/linux-arm64-release.yml"),
+      "utf8",
+    )
+    const releaseAttach = extractWorkflowJob(workflow, "release-attach")
+
+    assert.match(workflow, /workflow_dispatch:[\s\S]*tag:[\s\S]*required: true/)
+    assert.doesNotMatch(workflow, /inputs\.ref/)
+    assert.doesNotMatch(workflow, /github\.ref/)
+    assert.match(releaseAttach, /tag_name: \$\{\{ inputs\.tag \}\}/)
+  })
+
+  it("Linux desktop release workflows build and upload only deb artifacts", async () => {
+    for (const expectation of [
+      {
+        file: ".github/workflows/linux-arm64-release.yml",
+        metadataPattern: /apps\/desktop\/release\/\*-linux-arm64\.yml/,
+      },
+      {
+        file: ".github/workflows/linux-windows-x64-release.yml",
+        metadataPattern: /apps\/desktop\/release\/\*-linux\.yml/,
+      },
+    ] as const) {
+      const workflow = await readFile(join(repoRoot, expectation.file), "utf8")
+      const packageStep = extractWorkflowStep(workflow, "Package")
+      const uploadStep = extractWorkflowStep(workflow, "Upload artifacts")
+
+      assert.match(packageStep, /--linux deb/)
+      assert.doesNotMatch(packageStep, /AppImage/)
+      assert.doesNotMatch(workflow, /linux-feed-prune/)
+      assert.match(uploadStep, /apps\/desktop\/release\/\*\.deb/)
+      assert.match(uploadStep, expectation.metadataPattern)
+      assert.doesNotMatch(uploadStep, /apps\/desktop\/release\/\*\.AppImage/)
+      assert.doesNotMatch(uploadStep, /apps\/desktop\/release\/\*\.blockmap/)
+    }
+  })
+
   const workflowExpectations = [
     {
       file: ".github/workflows/macos-arm64-release.yml",
@@ -1250,19 +1325,6 @@ describe("release workflow wiring", () => {
       file: ".github/workflows/windows-arm64-release.yml",
       snippets: [
         "--app desktop --platform windows-arm64 --artifact-targets nsis",
-        "--app cli --platform windows-arm64",
-        "redu-windows-arm64.exe.third-party-notices.txt",
-        "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
-        "apps/desktop/release-notices/*.txt",
-      ],
-    },
-    {
-      file: ".github/workflows/windows-arm64-no-secrets-release.yml",
-      snippets: [
-        "--app desktop --platform windows-arm64 --artifact-targets nsis",
-        "--app cli --platform windows-arm64",
-        "redu-windows-arm64.exe.third-party-notices.txt",
-        "redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -1272,9 +1334,7 @@ describe("release workflow wiring", () => {
         "--app desktop --platform linux-x64 --artifact-targets deb",
         "--app desktop --platform windows-x64 --artifact-targets nsis",
         "redu-linux-x64.third-party-notices.txt",
-        "redu-windows-x64.exe.third-party-notices.txt",
         "redu-linux-x64 redu-linux-x64.third-party-notices.txt",
-        "redu-windows-x64.exe redu-windows-x64.exe.third-party-notices.txt",
         "apps/desktop/release-notices/*.txt",
       ],
     },
@@ -1330,23 +1390,25 @@ describe("release workflow wiring", () => {
     assert.doesNotMatch(signStep, /CSC_KEY_PASSWORD/)
   })
 
-  it("Windows CLI release jobs remain outside signing secrets", async () => {
-    const windowsArm64Workflow = await readFile(
-      join(repoRoot, ".github/workflows/windows-arm64-release.yml"),
-      "utf8",
-    )
-    const linuxWindowsX64Workflow = await readFile(
-      join(repoRoot, ".github/workflows/linux-windows-x64-release.yml"),
-      "utf8",
-    )
+  it("Windows release workflows publish unsigned NSIS without CLI artifacts", async () => {
+    for (const file of [
+      ".github/workflows/windows-arm64-release.yml",
+      ".github/workflows/linux-windows-x64-release.yml",
+    ] as const) {
+      const workflow = await readFile(join(repoRoot, file), "utf8")
+      const windowsPackageJob = extractWorkflowJob(
+        workflow,
+        "desktop-package-windows",
+      )
 
-    for (const job of [
-      extractWorkflowJob(windowsArm64Workflow, "cli-build-windows"),
-      extractWorkflowJob(linuxWindowsX64Workflow, "cli-build-windows"),
-    ]) {
-      assert.doesNotMatch(job, /WIN_CSC_LINK/)
-      assert.doesNotMatch(job, /WIN_CSC_KEY_PASSWORD/)
-      assert.doesNotMatch(job, /macos-signing:/)
+      assert.match(windowsPackageJob, /CSC_IDENTITY_AUTO_DISCOVERY: "false"/)
+      assert.doesNotMatch(workflow, /secrets-preflight/)
+      assert.doesNotMatch(workflow, /WIN_CSC_LINK/)
+      assert.doesNotMatch(workflow, /WIN_CSC_KEY_PASSWORD/)
+      assert.doesNotMatch(workflow, /cli-build-windows/)
+      assert.doesNotMatch(workflow, /--app cli --platform windows/)
+      assert.doesNotMatch(workflow, /redu-windows-.*\.exe/)
+      assert.doesNotMatch(workflow, /install-cli\.ps1/)
     }
   })
 
@@ -1368,16 +1430,9 @@ describe("release workflow wiring", () => {
       join(repoRoot, "scripts/install-cli.sh"),
       "utf8",
     )
-    const powershellInstaller = await readFile(
-      join(repoRoot, "scripts/install-cli.ps1"),
-      "utf8",
-    )
 
     assert.match(shellInstaller, /third-party-notices\.txt/)
     assert.match(shellInstaller, /notice_asset/)
     assert.match(shellInstaller, /checksum_for_asset "\$notice_asset"/)
-    assert.match(powershellInstaller, /third-party-notices\.txt/)
-    assert.match(powershellInstaller, /\$noticeAsset/)
-    assert.match(powershellInstaller, /Resolve-ChecksumEntry[\s\S]*noticeAsset/)
   })
 })

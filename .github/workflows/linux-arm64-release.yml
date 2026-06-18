@@ -3,9 +3,9 @@ name: Release arm64 Linux
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Branch, tag, or SHA to build (default: current ref)"
-        required: false
+      tag:
+        description: "Tag to build (e.g. v1.2.3, must already exist)"
+        required: true
         type: string
   workflow_call:
     inputs:
@@ -14,23 +14,22 @@ on:
         type: string
 
 concurrency:
-  group: linux-release-${{ inputs.ref || inputs.tag || github.ref }}
+  group: linux-release-${{ inputs.tag }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  TARGET_REF: ${{ inputs.ref || inputs.tag || github.ref }}
 
 jobs:
   desktop-package-linux:
     name: desktop-package (Linux)
     runs-on: ubuntu-24.04-arm
     env:
-      TAG: ${{ inputs.ref || inputs.tag || github.ref }}
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.TARGET_REF }}
+          ref: ${{ inputs.tag }}
       - uses: ./.github/actions/setup
       - name: Cache Electron artifacts
         uses: actions/cache@v5
@@ -49,9 +48,7 @@ jobs:
       - name: Generate desktop notices
         run: pnpm --filter @repo-edu/release license-gate --app desktop --platform linux-arm64 --artifact-targets deb --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-linux-arm64.txt
       - name: Package
-        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux AppImage deb --arm64 --publish never
-      - name: Prune Linux update feed to deb
-        run: pnpm --filter @repo-edu/release linux-feed-prune --release-dir apps/desktop/release
+        run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --linux deb --arm64 --publish never
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -68,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.TARGET_REF }}
+          ref: ${{ inputs.tag }}
 
       - uses: ./.github/actions/setup
 
@@ -118,7 +115,6 @@ jobs:
 
   release-attach:
     name: release-attach
-    if: ${{ inputs.tag || inputs.ref }}
     needs:
       - desktop-package-linux
       - cli-build-linux
@@ -129,7 +125,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ env.TARGET_REF }}
+          ref: ${{ inputs.tag }}
           sparse-checkout: |
             scripts/install-cli.sh
           sparse-checkout-cone-mode: false
@@ -152,5 +148,5 @@ jobs:
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ inputs.tag || inputs.ref }}
+          tag_name: ${{ inputs.tag }}
           files: artifacts/**/*

@@ -29,6 +29,7 @@ import {
   readRequiredTextFiles,
 } from "./shared.js"
 import type {
+  CliReleasePlatform,
   LicenseGateOptions,
   NoticeEntry,
   PackageJson,
@@ -215,7 +216,7 @@ export async function resolveDesktopRuntimePackageEntries(options: {
 
 export async function resolveCliRuntimeNoticeEntries(
   root: string,
-  platform: ReleasePlatform,
+  platform: CliReleasePlatform,
 ): Promise<NoticeEntry[]> {
   const bunEntry = await runtimePackageRecord("bun", {
     root,
@@ -792,7 +793,7 @@ type OvenBunPackageCandidate = {
 
 async function resolveSelectedOvenBunPackageName(
   bunPackagePath: string,
-  platform: ReleasePlatform,
+  platform: CliReleasePlatform,
 ): Promise<string> {
   // Bun's npm postinstall renames the selected platform binary out of its
   // @oven package into bun/bin/bun.exe (see node_modules/bun/install.js
@@ -868,7 +869,7 @@ function resolvePackageJsonPath(packageName: string, fromRoot: string): string {
 }
 
 function ovenBunPackageCandidates(
-  platform: ReleasePlatform,
+  platform: CliReleasePlatform,
 ): readonly OvenBunPackageCandidate[] {
   switch (platform) {
     case "darwin-arm64":
@@ -894,24 +895,6 @@ function ovenBunPackageCandidates(
         {
           packageName: "@oven/bun-linux-x64-baseline",
           executablePath: "bin/bun",
-        },
-      ]
-    case "windows-arm64":
-      return [
-        {
-          packageName: "@oven/bun-windows-aarch64",
-          executablePath: "bin/bun.exe",
-        },
-      ]
-    case "windows-x64":
-      return [
-        {
-          packageName: "@oven/bun-windows-x64",
-          executablePath: "bin/bun.exe",
-        },
-        {
-          packageName: "@oven/bun-windows-x64-baseline",
-          executablePath: "bin/bun.exe",
         },
       ]
   }

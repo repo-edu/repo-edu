@@ -21,36 +21,12 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  secrets-preflight:
-    name: secrets-preflight
-    runs-on: ubuntu-latest
-    environment: release
-    steps:
-      - name: Validate required secrets
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          missing_secrets=()
-          for secret_name in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do
-            if [ -z "${!secret_name:-}" ]; then
-              echo "::error::Missing required secret: ${secret_name}"
-              missing_secrets+=("${secret_name}")
-            fi
-          done
-          if [ "${#missing_secrets[@]}" -gt 0 ]; then
-            echo "::error::Missing required secrets: ${missing_secrets[*]}"
-            exit 1
-          fi
-
   desktop-package-windows:
     name: desktop-package (Windows)
-    needs: secrets-preflight
     runs-on: windows-11-arm
-    environment: release
     env:
       TAG: ${{ inputs.tag }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -72,9 +48,6 @@ jobs:
         run: pnpm --filter @repo-edu/release license-gate --app desktop --platform windows-arm64 --artifact-targets nsis --manifest-out apps/desktop/release-notices/RepoEdu-third-party-notices-desktop-windows-arm64.txt
       - name: Package
         run: pnpm --filter @repo-edu/desktop exec electron-builder --config electron-builder.json --win nsis --arm64 --publish never
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       - name: Rename update metadata for arm64
         shell: bash
         run: mv apps/desktop/release/latest.yml apps/desktop/release/latest-windows-arm64.yml
@@ -89,92 +62,20 @@ jobs:
             apps/desktop/release-notices/*.txt
           retention-days: 30
 
-  cli-build-windows:
-    name: cli-build (windows-arm64)
-    runs-on: windows-11-arm
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.tag }}
-
-      - uses: ./.github/actions/setup
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.11
-
-      - name: Build CLI workspace dependencies
-        run: pnpm build:types
-
-      - name: Compile CLI binary
-        run: |
-          pnpm exec bun build --compile `
-            apps/cli/src/main.ts `
-            --outfile redu-windows-arm64.exe
-
-      - name: Smoke test
-        run: .\redu-windows-arm64.exe --version
-
-      - name: Generate CLI notices
-        run: pnpm --filter @repo-edu/release license-gate --app cli --platform windows-arm64 --artifact-targets binary --manifest-out redu-windows-arm64.exe.third-party-notices.txt
-
-      - name: Generate CLI checksum
-        shell: bash
-        run: |
-          node -e '
-            const { createHash } = require("node:crypto")
-            const { readFileSync, writeFileSync } = require("node:fs")
-            const paths = process.argv.slice(1)
-            const lines = paths.map((path) => {
-              const digest = createHash("sha256")
-                .update(readFileSync(path))
-                .digest("hex")
-              return `${digest}  ${path}\n`
-            })
-            writeFileSync(`${paths[0]}.sha256`, lines.join(""))
-          ' redu-windows-arm64.exe redu-windows-arm64.exe.third-party-notices.txt
-
-      - name: Upload CLI binary
-        uses: actions/upload-artifact@v7
-        with:
-          name: cli-windows-arm64
-          path: |
-            redu-windows-arm64.exe
-            redu-windows-arm64.exe.sha256
-            redu-windows-arm64.exe.third-party-notices.txt
-          retention-days: 30
-
   release-attach:
     name: release-attach
     needs:
       - desktop-package-windows
-      - cli-build-windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.tag }}
-          sparse-checkout: |
-            scripts/install-cli.ps1
-          sparse-checkout-cone-mode: false
-
       - name: Download desktop artifact
         uses: actions/download-artifact@v8
         with:
           name: desktop-windows-arm64
           path: artifacts/desktop-windows-arm64
-
-      - name: Download CLI artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: cli-windows-arm64
-          path: artifacts/cli-windows-arm64
-
-      - name: Copy install script
-        run: cp scripts/install-cli.ps1 artifacts/install.ps1
 
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v3

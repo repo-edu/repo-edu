@@ -3,7 +3,7 @@ title: Linux Packaging
 description: Why the Linux desktop app ships as a deb only, and how its auto-update feed is produced
 ---
 
-The Linux desktop app is distributed as a single `.deb` package per architecture (x64 and arm64). It is not shipped as an AppImage, even though the release pipeline still builds one.
+The Linux desktop app is distributed as a single `.deb` package per architecture (x64 and arm64). The release pipeline does not build or publish an AppImage.
 
 ## Why deb only
 
@@ -14,11 +14,11 @@ AppImage was dropped as a distributed artifact for two concrete reasons, both of
 
 A deb covers the Debian family (Ubuntu, Mint, Debian and derivatives). Fedora, RHEL, openSUSE and Arch are not Debian-family and are not a supported desktop target. The CLI (`redu`) is a self-contained binary that already runs across those distributions for users who need it.
 
-## Why the AppImage is still built
+## How the update feed is produced
 
-electron-builder only generates the Linux update feed (`latest-linux.yml` for x64, `latest-linux-arm64.yml` for arm64) when the AppImage target is built. A deb-only build produces no feed, and without a feed the in-app updater has nothing to read.
+electron-builder treats deb as an auto-update-capable Linux target. A deb-only build writes the Linux update feed (`latest-linux.yml` for x64, `latest-linux-arm64.yml` for arm64) with the deb as the update artifact.
 
-So the release workflows keep building the AppImage purely as a feed-generation side effect, and never publish it. The AppImage binary is built and discarded; only the deb and the feed are uploaded to the GitHub Release.
+The release workflows upload only the deb, the matching update feed and the generated third-party notices to the GitHub Release.
 
 ## How Linux updates work
 
@@ -30,8 +30,6 @@ The desktop app embeds electron-updater. On a deb install it uses `DebUpdater`, 
 
 This needs a graphical sudo helper (`pkexec`, `gksudo`, `kdesudo` or `beesu`) to be present, which is standard on desktop Ubuntu.
 
-## Feed pruning
+## Release outputs
 
-The generated feed lists the AppImage as its primary `path` plus a secondary deb entry. Since the AppImage is never published, the release pipeline prunes the feed so it references only the deb: every non-deb file is removed and the top-level `path` and `sha512` are repointed at the deb.
-
-This runs as a release step (`pnpm --filter @repo-edu/release linux-feed-prune`) implemented in `tools/release/src/linux-feed-prune.ts`, after `electron-builder` packages and before the artifacts are uploaded, in both `linux-windows-x64-release.yml` and `linux-arm64-release.yml`.
+The Linux release jobs build with `--linux deb`, upload `apps/desktop/release/*.deb` and upload the matching `latest-linux*.yml` feed. They intentionally do not build AppImage or upload Linux blockmap artifacts.

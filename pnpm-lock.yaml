@@ -706,9 +706,6 @@ importers:
       spdx-satisfies:
         specifier: 6.0.0
         version: 6.0.0
-      yaml:
-        specifier: 2.9.0
-        version: 2.9.0
 
 packages:
 

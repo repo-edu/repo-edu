@@ -26,6 +26,8 @@ Updates use blockmap-based deltas where possible, so only changed bytes are down
 
 ## CLI (`redu update`)
 
+CLI self-update is supported on macOS and Linux.
+
 Update to the latest release:
 
 ```bash
@@ -38,20 +40,12 @@ Check for updates without installing:
 redu update --check
 ```
 
-On macOS and Linux, the binary is replaced atomically. On Windows, the new binary is downloaded to the install directory and takes effect on the next run.
+On macOS and Linux, the binary is replaced atomically.
 
 ### Install scripts
 
 If you installed via the install script, you can also re-run it to update:
 
-macOS / Linux:
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
-```
-
-Windows (PowerShell):
-
-```powershell
-irm https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.ps1 | iex
 ```
