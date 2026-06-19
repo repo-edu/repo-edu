@@ -10,6 +10,14 @@ this repo. When asked to write, draft or iterate on a plan, first read
 `../plan/CLAUDE.md` and follow its workflow, file layout, naming, structure and
 commit conventions. Keep this repo free of plan files so releases stay clean.
 
+When an area has had two or more `fix:` commits among its last ten, do not
+apply another. That repeated-fix signal is the frame round's prior-attempt
+evidence, defined with the planning doctrine in `../plan/CLAUDE.md`; here it
+obliges the round to stop patching and surface the area to the user as a
+frame-round candidate in `../plan`. The pull across repos stays the user's,
+since an implementation session cannot open a plan-repo round, so this rule
+only makes the signal loud rather than letting another patch land silently.
+
 ## Build and Development Commands
 
 Use pnpm scripts only. All validation runs from the workspace root:
