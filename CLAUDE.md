@@ -222,7 +222,8 @@ carries only what is specific to implementation rounds here and the two do not
 drift.
 
 Only the episode anchor is repo-specific. The watch anchors on the
-`Plan: <name>` first body line defined under **Commit Severity Prefix**, then
+`Plan: <name>` first body line defined under
+[Commit Severity Prefix](#commit-severity-prefix), then
 applies the shared scoping rule: walk from that anchor to HEAD including every
 commit that shares the stem or touches the same churned files, and join the
 `../plan` revision history for that stem so both trajectories read together.
