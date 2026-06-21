@@ -987,9 +987,20 @@ export function AnalysisCoordinatorProvider({
       const sameInput =
         discoveryInput?.folder === input.folder &&
         discoveryInput.depth === input.depth
+      const nextDiscoveryQueryKey = analysisQueryKeys.discovery(
+        activeSourceParts,
+        input.folder,
+        input.depth,
+      )
       prefetchBatchRef.current += 1
       setLastDiscoveryOutcome(activeSourceText, "none")
       markAutoDiscoveryRequest(activeSourceText, input)
+      if (!sameInput) {
+        queryClient.removeQueries({
+          queryKey: nextDiscoveryQueryKey,
+          exact: true,
+        })
+      }
       void (async () => {
         await queryClient.cancelQueries({
           queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
