@@ -27,7 +27,10 @@ import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { buildBlameCommitNumberMap } from "./blame-commit-numbering.js"
 import { type ProcessedLine, processBlameLines } from "./process-blame-lines.js"
 import { useBlameCommentClassification } from "./use-blame-comment-classification.js"
-import { useBlameHighlightedLines } from "./use-blame-highlighted-lines.js"
+import {
+  type HighlightedLineTokens,
+  useBlameHighlightedLines,
+} from "./use-blame-highlighted-lines.js"
 
 const TAB_WIDTH = 4
 
@@ -287,7 +290,7 @@ function BlameGrid({
   colorMap: ReadonlyMap<string, string>
   showMetadata: boolean
   colorize: boolean
-  tokens: ThemedToken[][] | null
+  tokens: HighlightedLineTokens | null
 }) {
   return (
     <div
@@ -388,7 +391,7 @@ function BlameGrid({
                 className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
                 style={bgStyle}
               >
-                {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
+                {renderCodeCell(p, tokens?.get(p.line.lineNumber))}
               </div>
             </div>
           )
@@ -406,7 +409,7 @@ function BlameGrid({
               className={`px-2 py-px whitespace-pre${p.isComment ? " italic" : ""}`}
               style={bgStyle}
             >
-              {renderCodeCell(p, tokens?.[p.line.lineNumber - 1])}
+              {renderCodeCell(p, tokens?.get(p.line.lineNumber))}
             </div>
           </div>
         )

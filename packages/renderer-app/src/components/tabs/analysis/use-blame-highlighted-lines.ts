@@ -19,16 +19,29 @@ function getFileExtension(path: string): string {
 }
 
 type CacheKey = `${ShikiLangId}:${SyntaxThemeId}`
-type LangCache = Map<CacheKey, ThemedToken[][]>
+export type HighlightedLineTokens = ReadonlyMap<number, ThemedToken[]>
+type LangCache = Map<CacheKey, HighlightedLineTokens>
+
+export function indexHighlightedTokensByLineNumber(
+  fileBlame: FileBlame,
+  tokens: readonly ThemedToken[][],
+): HighlightedLineTokens {
+  const byLineNumber = new Map<number, ThemedToken[]>()
+  for (const [index, line] of fileBlame.lines.entries()) {
+    const lineTokens = tokens[index]
+    if (lineTokens) byLineNumber.set(line.lineNumber, lineTokens)
+  }
+  return byLineNumber
+}
 
 export function useBlameHighlightedLines(
   fileBlame: FileBlame | null,
   syntaxColorize: boolean,
   themeId: SyntaxThemeId,
-): ThemedToken[][] | null {
+): HighlightedLineTokens | null {
   const cacheRef = useRef<WeakMap<FileBlame, LangCache>>(new WeakMap())
   const versionRef = useRef(0)
-  const [tokens, setTokens] = useState<ThemedToken[][] | null>(null)
+  const [tokens, setTokens] = useState<HighlightedLineTokens | null>(null)
 
   useEffect(() => {
     versionRef.current += 1
@@ -71,7 +84,10 @@ export function useBlameHighlightedLines(
         return
       }
 
-      const result = tokenizeLines(source, langId, themeId)
+      const result = indexHighlightedTokensByLineNumber(
+        fileBlame,
+        tokenizeLines(source, langId, themeId),
+      )
       if (versionRef.current !== localVersion) return
 
       let langCache = cacheRef.current.get(fileBlame)

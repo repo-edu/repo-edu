@@ -19,6 +19,7 @@ import {
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
 import {
+  useAnalysisAuthorView,
   useAnalysisFileView,
   useAnalysisResult,
 } from "../../../analysis/analysis-query-coordinator.js"
@@ -39,7 +40,7 @@ import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 export function FilePanel() {
   const { result } = useAnalysisResult()
   const { filteredFileStats: fileStats } = useAnalysisFileView()
-  const authorStats = result?.authorStats ?? []
+  const { mergedAuthorStats: authorStats } = useAnalysisAuthorView()
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
   const showInsertions = useAnalysisStore((s) => s.showInsertions)

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { FileBlame, PersonDbSnapshot } from "@repo-edu/domain/analysis"
+import type { ThemedToken } from "shiki/types"
 import { processBlameLines } from "../components/tabs/analysis/process-blame-lines.js"
+import { indexHighlightedTokensByLineNumber } from "../components/tabs/analysis/use-blame-highlighted-lines.js"
 
 const personDb: PersonDbSnapshot = {
   persons: [
@@ -80,5 +82,28 @@ describe("processBlameLines", () => {
     const processed = processBlameLines(fileBlame, personDb, new Map(), null)
 
     assert.equal(processed[0].isComment, false)
+  })
+
+  it("indexes highlighted tokens by original line number", () => {
+    const fileBlame: FileBlame = {
+      path: "src/example.ts",
+      lines: [
+        line(10, "const value = 1"),
+        line(20, "// comment"),
+        line(30, "const next = 2"),
+      ],
+    }
+    const tokens = [
+      [{ content: "first" }],
+      [{ content: "second" }],
+      [{ content: "third" }],
+    ] as unknown as ThemedToken[][]
+
+    const indexed = indexHighlightedTokensByLineNumber(fileBlame, tokens)
+
+    assert.equal(indexed.get(10), tokens[0])
+    assert.equal(indexed.get(20), tokens[1])
+    assert.equal(indexed.get(30), tokens[2])
+    assert.equal(indexed.get(1), undefined)
   })
 })

@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type { AnalysisProgress } from "@repo-edu/application-contract"
-import type {
-  AnalysisResult,
-  BlameResult,
-  FileStats,
+import {
+  type AnalysisResult,
+  type BlameResult,
+  buildPersonDbIdentityKey,
+  type FileStats,
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
@@ -19,6 +20,7 @@ import {
   buildAnalysisQueryIdentity,
   buildBlameOutputConfigKey,
   buildBlameQueryIdentity,
+  buildRosterOutputContextKey,
 } from "../analysis/analysis-query-keys.js"
 import { useAnalysisTransientStore } from "../analysis/analysis-transient-store.js"
 import {
@@ -112,6 +114,25 @@ function makeCourse(
     searchFolder: null,
     analysisInputs: inputs,
     updatedAt: "2026-04-08T00:00:00Z",
+  }
+}
+
+function makeRosterMember(id: string, name: string, email: string) {
+  return {
+    id,
+    name,
+    email,
+    studentNumber: null,
+    gitUsername: null,
+    gitUsernameStatus: "unknown" as const,
+    status: "active" as const,
+    lmsStatus: null,
+    lmsUserId: null,
+    enrollmentType: "student" as const,
+    enrollmentDisplay: null,
+    department: null,
+    institution: null,
+    source: "test",
   }
 }
 
@@ -581,6 +602,20 @@ describe("analysis query keys", () => {
     })
   })
 
+  it("preserves roster order in the output context identity", () => {
+    const key = buildRosterOutputContextKey({
+      members: [
+        makeRosterMember("m_002", "Sam Student", "sam.two@example.test"),
+        makeRosterMember("m_001", "Sam Student", "sam.one@example.test"),
+      ],
+    })
+
+    assert.deepEqual(
+      key.map((member) => member.id),
+      ["m_002", "m_001"],
+    )
+  })
+
   it("nests analysis result and blame keys under the repository prefix", () => {
     const source = ["folder", "/courses"] as const
     const repoPath = "/courses/repo-a"
@@ -770,6 +805,99 @@ describe("analysis view models", () => {
     assert.equal(alice?.lines, 60)
     assert.equal(bob?.lines, 20)
     assert.equal(alice?.linesPercent, 75)
+  })
+
+  it("keeps blame-only authors in merged author and file LOC views", () => {
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+    const blameResult = {
+      ...makeBlameResult(),
+      authorSummaries: [
+        {
+          personId: "p_0000",
+          canonicalName: "Alice",
+          canonicalEmail: "alice@uni.edu",
+          lines: 60,
+          linesPercent: 60,
+        },
+        {
+          personId: "p_0001",
+          canonicalName: "Bob",
+          canonicalEmail: "bob@uni.edu",
+          lines: 20,
+          linesPercent: 20,
+        },
+        {
+          personId: "p_0002",
+          canonicalName: "Carol",
+          canonicalEmail: "carol@uni.edu",
+          lines: 20,
+          linesPercent: 20,
+        },
+      ],
+      fileSummaries: [
+        {
+          path: "src/a.ts",
+          lines: 100,
+          authorLines: new Map([
+            ["p_0000", 60],
+            ["p_0001", 20],
+            ["p_0002", 20],
+          ]),
+        },
+      ],
+      fileBlames: [
+        {
+          path: "src/a.ts",
+          lines: [
+            {
+              sha: "sha-carol",
+              authorName: "Carol",
+              authorEmail: "carol@uni.edu",
+              timestamp: 1_700_000_030,
+              lineNumber: 3,
+              content: "export const carol = true",
+              message: "Carol line",
+            },
+          ],
+        },
+      ],
+      personDbOverlay: {
+        persons: [
+          {
+            id: "p_0002",
+            canonicalName: "Carol",
+            canonicalEmail: "carol@uni.edu",
+            aliases: [],
+            commitCount: 0,
+          },
+        ],
+        identityIndex: new Map([
+          [buildPersonDbIdentityKey("Carol", "carol@uni.edu"), "p_0002"],
+        ]),
+      },
+    }
+
+    const authors = mergeAuthorStats({
+      result,
+      blameResult,
+      partialAuthorLines: new Map(),
+    })
+    const files = mergeFileStats({ result, blameResult })
+    const carol = authors.find((author) => author.personId === "p_0002")
+    const carolFileBreakdown = files[0].authorBreakdown.get("p_0002")
+
+    assert.deepEqual(
+      authors.map((author) => author.personId),
+      ["p_0000", "p_0001", "p_0002"],
+    )
+    assert.equal(carol?.canonicalName, "Carol")
+    assert.equal(carol?.commits, 0)
+    assert.equal(carol?.lines, 20)
+    assert.equal(carol?.linesPercent, 20)
+    assert.equal(carol?.weightedActivityTimestamp, 1_700_000_030)
+    assert.equal(carolFileBreakdown?.commits, 0)
+    assert.equal(carolFileBreakdown?.lines, 20)
   })
 
   it("projects empty surviving author and file selections back to all", () => {

@@ -196,13 +196,11 @@ export function buildBlameOutputConfigKey(
 export function buildRosterOutputContextKey(
   rosterContext: AnalysisRosterContext | undefined,
 ): RosterOutputContextKey {
-  return [...(rosterContext?.members ?? [])]
-    .map((member) => ({
-      id: member.id,
-      name: member.name,
-      email: member.email,
-    }))
-    .sort((left, right) => left.id.localeCompare(right.id))
+  return (rosterContext?.members ?? []).map((member) => ({
+    id: member.id,
+    name: member.name,
+    email: member.email,
+  }))
 }
 
 export function buildAnalysisQueryIdentity(params: {

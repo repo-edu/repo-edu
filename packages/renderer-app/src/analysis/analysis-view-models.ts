@@ -1,9 +1,10 @@
-import type {
-  AnalysisResult,
-  AuthorStats,
-  BlameResult,
-  FileStats,
-  IdentityMatch,
+import {
+  type AnalysisResult,
+  type AuthorStats,
+  type BlameResult,
+  type FileStats,
+  type IdentityMatch,
+  lookupPerson,
 } from "@repo-edu/domain/analysis"
 import { authorColorMap } from "../utils/author-colors.js"
 
@@ -22,6 +23,103 @@ const EMPTY_AUTHOR_DISPLAY_BY_PERSON_ID = new Map<
   AuthorDisplayIdentity
 >()
 const EMPTY_ROSTER_MATCH_BY_PERSON_ID = new Map<string, IdentityMatch>()
+
+type BlameAuthorLineStats = {
+  canonicalName: string
+  canonicalEmail: string
+  lines: number
+  latestActivityTimestamp: number
+}
+
+type FileAuthorBreakdownEntry =
+  FileStats["authorBreakdown"] extends Map<string, infer Entry> ? Entry : never
+
+function buildBlameAuthorLineStats(blameResult: BlameResult): {
+  linesByPerson: Map<string, BlameAuthorLineStats>
+  totalLines: number
+} {
+  const linesByPerson = new Map<string, BlameAuthorLineStats>()
+  let totalLines = 0
+
+  for (const summary of blameResult.authorSummaries) {
+    if (!summary.personId) continue
+
+    const existing = linesByPerson.get(summary.personId)
+    if (existing) {
+      existing.lines += summary.lines
+    } else {
+      linesByPerson.set(summary.personId, {
+        canonicalName: summary.canonicalName,
+        canonicalEmail: summary.canonicalEmail,
+        lines: summary.lines,
+        latestActivityTimestamp: 0,
+      })
+    }
+    totalLines += summary.lines
+  }
+
+  for (const fileBlame of blameResult.fileBlames) {
+    for (const line of fileBlame.lines) {
+      const person = lookupPerson(
+        blameResult.personDbOverlay,
+        line.authorName,
+        line.authorEmail,
+      )
+      if (!person) continue
+
+      const lineStats = linesByPerson.get(person.id)
+      if (!lineStats) continue
+      lineStats.latestActivityTimestamp = Math.max(
+        lineStats.latestActivityTimestamp,
+        line.timestamp,
+      )
+    }
+  }
+
+  return { linesByPerson, totalLines }
+}
+
+function mergeBlameLinesIntoAuthorStats(
+  stat: AuthorStats,
+  blameLines: number,
+  totalLines: number,
+): AuthorStats {
+  return {
+    ...stat,
+    lines: blameLines,
+    linesPercent: totalLines > 0 ? (100 * blameLines) / totalLines : 0,
+  }
+}
+
+function blameOnlyAuthorStats(
+  personId: string,
+  lineStats: BlameAuthorLineStats,
+  totalLines: number,
+): AuthorStats {
+  return {
+    personId,
+    canonicalName: lineStats.canonicalName,
+    canonicalEmail: lineStats.canonicalEmail,
+    commits: 0,
+    insertions: 0,
+    deletions: 0,
+    lines: lineStats.lines,
+    linesPercent: totalLines > 0 ? (100 * lineStats.lines) / totalLines : 0,
+    insertionsPercent: 0,
+    weightedActivityTimestamp: lineStats.latestActivityTimestamp,
+    commitShas: new Set<string>(),
+  }
+}
+
+function blameOnlyFileAuthorBreakdown(lines: number): FileAuthorBreakdownEntry {
+  return {
+    insertions: 0,
+    deletions: 0,
+    commits: 0,
+    lines,
+    commitShas: new Set<string>(),
+  }
+}
 
 export function mergeAuthorStats(params: {
   result: AnalysisResult | null
@@ -42,22 +140,22 @@ export function mergeAuthorStats(params: {
     })
   }
 
-  const linesByPerson = new Map<string, number>()
-  let totalLines = 0
-  for (const summary of blameResult.authorSummaries) {
-    if (!summary.personId) continue
-    linesByPerson.set(
-      summary.personId,
-      (linesByPerson.get(summary.personId) ?? 0) + summary.lines,
+  const { linesByPerson, totalLines } = buildBlameAuthorLineStats(blameResult)
+  const mergedStats: AuthorStats[] = []
+
+  for (const stat of result.authorStats) {
+    const lineStats = linesByPerson.get(stat.personId)
+    mergedStats.push(
+      mergeBlameLinesIntoAuthorStats(stat, lineStats?.lines ?? 0, totalLines),
     )
-    totalLines += summary.lines
+    linesByPerson.delete(stat.personId)
   }
 
-  return result.authorStats.map((stat) => {
-    const lines = linesByPerson.get(stat.personId) ?? 0
-    const linesPercent = totalLines > 0 ? (100 * lines) / totalLines : 0
-    return { ...stat, lines, linesPercent }
-  })
+  for (const [personId, lineStats] of linesByPerson) {
+    mergedStats.push(blameOnlyAuthorStats(personId, lineStats, totalLines))
+  }
+
+  return mergedStats
 }
 
 export function mergeFileStats(params: {
@@ -91,6 +189,10 @@ export function mergeFileStats(params: {
         ...breakdown,
         lines: authorLines?.get(personId) ?? 0,
       })
+    }
+    for (const [personId, lines] of authorLines ?? []) {
+      if (clonedBreakdown.has(personId)) continue
+      clonedBreakdown.set(personId, blameOnlyFileAuthorBreakdown(lines))
     }
     return { ...file, lines: fileLines, authorBreakdown: clonedBreakdown }
   })
