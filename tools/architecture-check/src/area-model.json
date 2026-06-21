@@ -163,7 +163,13 @@
       "id": "pkg-renderer-session",
       "name": "Renderer session ownership",
       "kind": "partition",
-      "members": [{ "type": "pattern", "path": "^packages/renderer-app/src/session/" }]
+      "members": [
+        { "type": "pattern", "path": "^packages/renderer-app/src/session/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/__tests__/session-controller"
+        }
+      ]
     },
     {
       "id": "pkg-renderer-persistence",
@@ -201,7 +207,7 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/utils/(analysis-|analysis-roster-context|author-colors|blame-|token-estimate)\\.ts$"
+          "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|token-estimate)\\.ts$"
         },
         {
           "type": "pattern",
@@ -321,8 +327,8 @@
         { "type": "pattern", "path": "^packages/renderer-app/src/source-tokenizer\\.ts$" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|operation-store)" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/slices/" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-|analysis-roster-context|author-colors|blame-|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-workflow|use-courses)" }
+        { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-workflow|session-controller|use-courses)" }
       ]
     },
     {

@@ -40,6 +40,25 @@ describe("seed area model", () => {
     )
   })
 
+  it("assigns renderer feature utilities and tests to their feature partitions", () => {
+    for (const file of [
+      "packages/renderer-app/src/utils/analysis-format.ts",
+      "packages/renderer-app/src/utils/analysis-roster-context.ts",
+      "packages/renderer-app/src/utils/blame-highlighter.ts",
+      "packages/renderer-app/src/utils/blame-language-map.ts",
+    ]) {
+      assert.equal(findPrimaryArea(model, file), "pkg-renderer-analysis", file)
+    }
+
+    assert.equal(
+      findPrimaryArea(
+        model,
+        "packages/renderer-app/src/__tests__/session-controller.test.ts",
+      ),
+      "pkg-renderer-session",
+    )
+  })
+
   it("covers the analysis workflow seed", () => {
     for (const file of [
       "packages/domain/src/analysis/tokenizer-language-mappings.ts",
