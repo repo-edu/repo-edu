@@ -7,28 +7,34 @@ import type { Violation } from "./violations.js"
 
 const idSchema = z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
 
-const patternMemberSchema = z.object({
-  type: z.literal("pattern"),
-  path: z.string().min(1),
-})
+const patternMemberSchema = z
+  .object({
+    type: z.literal("pattern"),
+    path: z.string().min(1),
+  })
+  .strict()
 
-const fileMemberSchema = z.object({
-  type: z.literal("file"),
-  path: z.string().min(1),
-})
+const fileMemberSchema = z
+  .object({
+    type: z.literal("file"),
+    path: z.string().min(1),
+  })
+  .strict()
 
 const memberSchema = z.discriminatedUnion("type", [
   patternMemberSchema,
   fileMemberSchema,
 ])
 
-const baseAreaSchema = z.object({
-  id: idSchema,
-  name: z.string().min(1),
-  kind: z.enum(["partition", "cover"]),
-  members: z.array(memberSchema).min(1),
-  splitFrom: idSchema.optional(),
-})
+const baseAreaSchema = z
+  .object({
+    id: idSchema,
+    name: z.string().min(1),
+    kind: z.enum(["partition", "cover"]),
+    members: z.array(memberSchema).min(1),
+    splitFrom: idSchema.optional(),
+  })
+  .strict()
 
 const partitionAreaSchema = baseAreaSchema
   .extend({
@@ -71,6 +77,7 @@ const areaModelSchema = z
     schemaVersion: z.literal(1),
     areas: z.array(areaSchema).min(1),
   })
+  .strict()
   .superRefine((model, context) => {
     const seen = new Set<string>()
     const byId = new Map(model.areas.map((area) => [area.id, area]))

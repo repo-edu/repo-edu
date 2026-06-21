@@ -174,7 +174,7 @@ describe("redesign density", () => {
     assert.equal(report.counts.has("area-parent"), false)
   })
 
-  it("localizes pre-split parent churn even when the current parent still matches the old path", () => {
+  it("keeps pre-split parent churn on the parent when the current parent still matches the old path", () => {
     const currentModel = compileAreaModel(
       parseAreaModel({
         schemaVersion: 1,
@@ -225,8 +225,8 @@ describe("redesign density", () => {
     )
 
     assert.deepEqual(report.violations, [])
-    assert.equal(report.counts.get("area-child"), 1)
-    assert.equal(report.counts.has("area-parent"), false)
+    assert.equal(report.counts.get("area-parent"), 1)
+    assert.equal(report.counts.has("area-child"), false)
   })
 
   it("keeps post-split parent churn on the parent when the historical snapshot already has the child", () => {

@@ -142,7 +142,6 @@ function attributeChangedPath(
   if (historicalModel && historicalPrimary) {
     const resolved = resolveHistoricalArea(
       currentModel,
-      historicalModel,
       historicalPrimary,
       "partition",
       changedPath,
@@ -162,7 +161,6 @@ function attributeChangedPath(
     for (const historicalCover of historicalCovers) {
       const resolved = resolveHistoricalArea(
         currentModel,
-        historicalModel,
         historicalCover,
         "cover",
         changedPath,
@@ -182,7 +180,6 @@ function attributeChangedPath(
 
 function resolveHistoricalArea(
   currentModel: CompiledAreaModel,
-  historicalModel: CompiledAreaModel,
   historicalAreaId: string,
   kind: AreaRecord["kind"],
   changedPath: string,
@@ -210,9 +207,7 @@ function resolveHistoricalArea(
   const currentArea = currentModel.byId.get(historicalAreaId)
   if (
     currentArea?.kind === kind &&
-    currentAreaMatchesFile(currentModel, currentArea, changedPath) &&
-    (descendants.length === 0 ||
-      historicalDescendantsExist(historicalModel, historicalAreaId, kind))
+    currentAreaMatchesFile(currentModel, currentArea, changedPath)
   ) {
     return { areaIds: [historicalAreaId], violations: [] }
   }
@@ -239,22 +234,6 @@ function resolveHistoricalArea(
       },
     ],
   }
-}
-
-function historicalDescendantsExist(
-  historicalModel: CompiledAreaModel,
-  historicalAreaId: string,
-  kind: AreaRecord["kind"],
-): boolean {
-  const historicalLineageParents = collectLineageParents(
-    historicalModel,
-    new Map(),
-  )
-  return historicalModel.areas.some(
-    (area) =>
-      area.kind === kind &&
-      areaLineageIncludes(area, historicalAreaId, historicalLineageParents),
-  )
 }
 
 function collectLineageParents(

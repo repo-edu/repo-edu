@@ -74,6 +74,30 @@ describe("area model schema", () => {
     )
   })
 
+  it("rejects unknown schema keys", () => {
+    assert.throws(() =>
+      parseAreaModel({
+        schemaVersion: 1,
+        extraRootKey: true,
+        areas: [
+          {
+            id: "area-a",
+            name: "Area A",
+            kind: "partition",
+            members: [
+              {
+                type: "pattern",
+                path: "^a/",
+                extraMemberKey: true,
+              },
+            ],
+            excludes: [{ type: "pattern", path: "^a/generated/" }],
+          },
+        ],
+      }),
+    )
+  })
+
   it("allows splitFrom to reference retired area IDs", () => {
     assert.doesNotThrow(() =>
       parseAreaModel({
