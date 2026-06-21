@@ -354,7 +354,6 @@ export type AnalysisRunInput = AnalysisRepositoryInput & {
 export type AnalysisBlameInput = AnalysisRepositoryInput & {
   config: AnalysisBlameConfig
   personDbBaseline: PersonDbSnapshot
-  personDbOverlay?: PersonDbSnapshot
   files: string[]
   snapshotCommitOid: string
 }

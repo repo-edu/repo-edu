@@ -11,14 +11,10 @@ import type {
   FileStats,
 } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
-import {
-  type Query,
-  type QueryKey,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
 import {
+  type Context,
   createContext,
   type ReactNode,
   useCallback,
@@ -73,7 +69,7 @@ type DiscoveryInput = {
   readonly depth: number
 }
 
-export type AnalysisCoordinatorValue = {
+export type AnalysisDiscoveryValue = {
   discoveredRepos: readonly DiscoveredRepo[]
   discoveryStatus: DiscoveryStatus
   discoveryError: string | null
@@ -81,40 +77,165 @@ export type AnalysisCoordinatorValue = {
   lastDiscoveryOutcome: "none" | "completed" | "cancelled"
   runRepoDiscovery: (folder: string) => void
   cancelDiscovery: () => void
+}
+
+export type AnalysisSelectionValue = {
   selectedRepoPath: string | null
   selectRepository: (repoPath: string | null) => void
   runAnalysis: (repoPath: string) => void
   cancelAnalysis: () => void
-  result: AnalysisResult | null
   snapshotCommitOid: string | null
   analysisIdentity: AnalysisQueryIdentity | null
   analysisScopeKey: string | null
+}
+
+export type AnalysisResultValue = {
+  result: AnalysisResult | null
   analysisStatus: AnalysisWorkflowStatus
   analysisProgress: AnalysisProgress | null
   analysisErrorMessage: string | null
+}
+
+export type AnalysisBlameResultValue = {
   blameResult: BlameResult | null
+}
+
+export type AnalysisBlameStatusValue = {
+  blameStatus: AnalysisWorkflowStatus
+  blameErrorMessage: string | null
+}
+
+export type AnalysisBlameProgressValue = {
   blameStatus: AnalysisWorkflowStatus
   blameProgress: AnalysisProgress | null
   blamePartialAuthorLines: ReadonlyMap<string, number>
-  blameErrorMessage: string | null
+}
+
+export type AnalysisBlameValue = AnalysisBlameResultValue &
+  AnalysisBlameStatusValue &
+  AnalysisBlameProgressValue
+
+export type AnalysisAuthorViewValue = {
   mergedAuthorStats: AuthorStats[]
   filteredAuthorStats: AuthorStats[]
-  mergedFileStats: FileStats[]
-  filteredFileStats: FileStats[]
   authorColorsByPersonId: ReadonlyMap<string, string>
   authorDisplayByPersonId: ReturnType<typeof buildAuthorDisplayByPersonId>
   rosterMatchByPersonId: ReturnType<typeof buildRosterMatchByPersonId>
 }
 
-const AnalysisCoordinatorContext =
-  createContext<AnalysisCoordinatorValue | null>(null)
+export type AnalysisFileViewValue = {
+  mergedFileStats: FileStats[]
+  filteredFileStats: FileStats[]
+}
 
-export function useAnalysisCoordinator(): AnalysisCoordinatorValue {
-  const value = useContext(AnalysisCoordinatorContext)
+export type AnalysisCoordinatorValue = AnalysisDiscoveryValue &
+  AnalysisSelectionValue &
+  AnalysisResultValue &
+  AnalysisBlameValue &
+  AnalysisAuthorViewValue &
+  AnalysisFileViewValue
+
+const AnalysisDiscoveryContext = createContext<AnalysisDiscoveryValue | null>(
+  null,
+)
+const AnalysisSelectionContext = createContext<AnalysisSelectionValue | null>(
+  null,
+)
+const AnalysisResultContext = createContext<AnalysisResultValue | null>(null)
+const AnalysisBlameResultContext =
+  createContext<AnalysisBlameResultValue | null>(null)
+const AnalysisBlameStatusContext =
+  createContext<AnalysisBlameStatusValue | null>(null)
+const AnalysisBlameProgressContext =
+  createContext<AnalysisBlameProgressValue | null>(null)
+const AnalysisAuthorViewContext = createContext<AnalysisAuthorViewValue | null>(
+  null,
+)
+const AnalysisFileViewContext = createContext<AnalysisFileViewValue | null>(
+  null,
+)
+
+function useRequiredAnalysisContext<T>(
+  context: Context<T | null>,
+  name: string,
+): T {
+  const value = useContext(context)
   if (value === null) {
-    throw new Error("useAnalysisCoordinator must be used inside its provider.")
+    throw new Error(`${name} must be used inside AnalysisCoordinatorProvider.`)
   }
   return value
+}
+
+export function useAnalysisDiscovery(): AnalysisDiscoveryValue {
+  return useRequiredAnalysisContext(
+    AnalysisDiscoveryContext,
+    "useAnalysisDiscovery",
+  )
+}
+
+export function useAnalysisSelection(): AnalysisSelectionValue {
+  return useRequiredAnalysisContext(
+    AnalysisSelectionContext,
+    "useAnalysisSelection",
+  )
+}
+
+export function useAnalysisResult(): AnalysisResultValue {
+  return useRequiredAnalysisContext(AnalysisResultContext, "useAnalysisResult")
+}
+
+export function useAnalysisBlame(): AnalysisBlameValue {
+  return {
+    ...useAnalysisBlameResult(),
+    ...useAnalysisBlameStatus(),
+    ...useAnalysisBlameProgress(),
+  }
+}
+
+export function useAnalysisBlameResult(): AnalysisBlameResultValue {
+  return useRequiredAnalysisContext(
+    AnalysisBlameResultContext,
+    "useAnalysisBlameResult",
+  )
+}
+
+export function useAnalysisBlameStatus(): AnalysisBlameStatusValue {
+  return useRequiredAnalysisContext(
+    AnalysisBlameStatusContext,
+    "useAnalysisBlameStatus",
+  )
+}
+
+export function useAnalysisBlameProgress(): AnalysisBlameProgressValue {
+  return useRequiredAnalysisContext(
+    AnalysisBlameProgressContext,
+    "useAnalysisBlameProgress",
+  )
+}
+
+export function useAnalysisAuthorView(): AnalysisAuthorViewValue {
+  return useRequiredAnalysisContext(
+    AnalysisAuthorViewContext,
+    "useAnalysisAuthorView",
+  )
+}
+
+export function useAnalysisFileView(): AnalysisFileViewValue {
+  return useRequiredAnalysisContext(
+    AnalysisFileViewContext,
+    "useAnalysisFileView",
+  )
+}
+
+export function useAnalysisCoordinator(): AnalysisCoordinatorValue {
+  return {
+    ...useAnalysisDiscovery(),
+    ...useAnalysisSelection(),
+    ...useAnalysisResult(),
+    ...useAnalysisBlame(),
+    ...useAnalysisAuthorView(),
+    ...useAnalysisFileView(),
+  }
 }
 
 async function mapBounded<T>(
@@ -134,28 +255,6 @@ async function mapBounded<T>(
     () => worker(),
   )
   await Promise.all(workers)
-}
-
-function queryKeyContains(value: unknown, target: unknown): boolean {
-  if (value === target) return true
-  if (Array.isArray(value)) {
-    return value.some((entry) => queryKeyContains(entry, target))
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.values(value).some((entry) => queryKeyContains(entry, target))
-  }
-  return false
-}
-
-function queryMatchesRepo(query: Query, repoPath: string): boolean {
-  return queryKeyContains(query.queryKey, repoPath)
-}
-
-function queryMatchesSource(
-  queryKey: QueryKey,
-  sourceKeyText: string,
-): boolean {
-  return JSON.stringify(queryKey).includes(sourceKeyText)
 }
 
 function toAppErrorMessage(error: unknown, fallback: string): string {
@@ -238,19 +337,21 @@ export function AnalysisCoordinatorProvider({
   >("none")
   const prefetchBatchRef = useRef(0)
   const previousSourceTextRef = useRef(activeSourceText)
+  const previousSourcePartsRef = useRef(activeSourceParts)
 
   useEffect(() => {
     const previousSourceText = previousSourceTextRef.current
     if (previousSourceText === activeSourceText) return
+    const previousSourceParts = previousSourcePartsRef.current
     previousSourceTextRef.current = activeSourceText
+    previousSourcePartsRef.current = activeSourceParts
     setDiscoveryInput(null)
     setLastDiscoveryOutcome("none")
     prefetchBatchRef.current += 1
     void queryClient.cancelQueries({
-      predicate: (query) =>
-        queryMatchesSource(query.queryKey, previousSourceText),
+      queryKey: analysisQueryKeys.source(previousSourceParts),
     })
-  }, [activeSourceText, queryClient])
+  }, [activeSourceParts, activeSourceText, queryClient])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -386,6 +487,9 @@ export function AnalysisCoordinatorProvider({
 
     const firstRepoPath = discoveryQuery.data.repos[0]?.path ?? null
     if (firstRepoPath !== null) {
+      const discoveredRepoPaths = discoveryQuery.data.repos.map(
+        (repo) => repo.path,
+      )
       const normalizedFolder = discoveryInput.folder.replaceAll("\\", "/")
       const normalizedRepo = firstRepoPath.replaceAll("\\", "/")
       if (
@@ -398,10 +502,17 @@ export function AnalysisCoordinatorProvider({
           analysisContext.updateCourseSearchFolder(firstRepoPath)
         }
       }
-      setSelectedRepoPath(activeSourceText, firstRepoPath)
+      const nextSelectedRepoPath =
+        selectedRepoPath !== null &&
+        discoveredRepoPaths.includes(selectedRepoPath)
+          ? selectedRepoPath
+          : firstRepoPath
+      if (nextSelectedRepoPath !== selectedRepoPath) {
+        setSelectedRepoPath(activeSourceText, nextSelectedRepoPath)
+      }
       const batchId = ++prefetchBatchRef.current
       void mapBounded(
-        discoveryQuery.data.repos.map((repo) => repo.path),
+        discoveredRepoPaths,
         analysisConcurrency.repoParallelism,
         async (repoPath) => {
           if (prefetchBatchRef.current !== batchId) return
@@ -417,6 +528,7 @@ export function AnalysisCoordinatorProvider({
     discoveryQueryKey,
     prefetchRepoAnalysis,
     activeSourceText,
+    selectedRepoPath,
     setSelectedRepoPath,
   ])
 
@@ -579,7 +691,6 @@ export function AnalysisCoordinatorProvider({
       repoPath: selectedRepoPath,
       analysis: selectedAnalysisIdentity,
       config: effectiveBlameConfig,
-      result,
     })
   }, [
     activeSourceParts,
@@ -589,6 +700,13 @@ export function AnalysisCoordinatorProvider({
     selectedAnalysisIdentity,
     selectedRepoPath,
   ])
+  const selectedBlameFiles = useMemo(
+    () =>
+      result?.fileStats
+        .map((file) => file.path)
+        .sort((left, right) => left.localeCompare(right)) ?? [],
+    [result],
+  )
 
   const selectedBlameQuery = useQuery({
     queryKey:
@@ -602,7 +720,8 @@ export function AnalysisCoordinatorProvider({
         selectedBlameIdentity === null ||
         selectedAnalysisIdentity === null ||
         effectiveBlameConfig === null ||
-        result === null
+        result === null ||
+        selectedBlameFiles.length === 0
       ) {
         throw new Error("Blame query ran without input.")
       }
@@ -616,7 +735,7 @@ export function AnalysisCoordinatorProvider({
             repositoryAbsolutePath: selectedRepoPath,
             config: effectiveBlameConfig,
             personDbBaseline: result.personDbBaseline,
-            files: [...selectedBlameIdentity.files],
+            files: selectedBlameFiles,
             snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
           },
           {
@@ -709,26 +828,28 @@ export function AnalysisCoordinatorProvider({
   const cancelAnalysis = useCallback(() => {
     prefetchBatchRef.current += 1
     void queryClient.cancelQueries({
-      predicate: (query) =>
-        queryMatchesSource(query.queryKey, activeSourceText),
+      queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
     })
-  }, [activeSourceText, queryClient])
+  }, [activeSourceParts, queryClient])
 
   const runAnalysis = useCallback(
     (repoPath: string) => {
-      void queryClient.invalidateQueries({
-        predicate: (query) =>
-          queryMatchesRepo(query, repoPath) &&
-          queryKeyContains(query.queryKey, "snapshot-head"),
-      })
-      void queryClient.invalidateQueries({
-        predicate: (query) =>
-          queryMatchesRepo(query, repoPath) &&
-          (queryKeyContains(query.queryKey, "result") ||
-            queryKeyContains(query.queryKey, "blame")),
-      })
+      void (async () => {
+        await queryClient.invalidateQueries({
+          queryKey: analysisQueryKeys.repoSnapshotHeads(
+            activeSourceParts,
+            repoPath,
+          ),
+        })
+        await queryClient.invalidateQueries({
+          queryKey: analysisQueryKeys.repoResults(activeSourceParts, repoPath),
+        })
+        await queryClient.invalidateQueries({
+          queryKey: analysisQueryKeys.repoBlames(activeSourceParts, repoPath),
+        })
+      })()
     },
-    [queryClient],
+    [activeSourceParts, queryClient],
   )
 
   const runRepoDiscovery = useCallback(
@@ -740,18 +861,16 @@ export function AnalysisCoordinatorProvider({
         discoveryInput.depth === input.depth
       prefetchBatchRef.current += 1
       setLastDiscoveryOutcome("none")
-      setDiscoveryInput(input)
       void queryClient.cancelQueries({
-        predicate: (query) =>
-          queryMatchesSource(query.queryKey, activeSourceText) &&
-          !queryKeyContains(query.queryKey, "discovery"),
+        queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
       })
+      setDiscoveryInput(input)
       if (sameInput) {
         void discoveryQuery.refetch()
       }
     },
     [
-      activeSourceText,
+      activeSourceParts,
       discoveryInput,
       discoveryQuery,
       queryClient,
@@ -774,7 +893,7 @@ export function AnalysisCoordinatorProvider({
     [activeSourceText, setSelectedRepoPath],
   )
 
-  const value = useMemo<AnalysisCoordinatorValue>(
+  const discoveryValue = useMemo<AnalysisDiscoveryValue>(
     () => ({
       discoveredRepos,
       discoveryStatus,
@@ -783,69 +902,121 @@ export function AnalysisCoordinatorProvider({
       lastDiscoveryOutcome,
       runRepoDiscovery,
       cancelDiscovery,
-      selectedRepoPath,
-      selectRepository,
-      runAnalysis,
-      cancelAnalysis,
-      result,
-      snapshotCommitOid: selectedSnapshotQuery.data ?? null,
-      analysisIdentity: selectedAnalysisIdentity,
-      analysisScopeKey,
-      analysisStatus,
-      analysisProgress: selectedAnalysisProgress,
-      analysisErrorMessage,
-      blameResult,
-      blameStatus,
-      blameProgress: selectedBlameTransient?.progress ?? null,
-      blamePartialAuthorLines:
-        selectedBlameTransient?.partialAuthorLines ??
-        EMPTY_PARTIAL_AUTHOR_LINES,
-      blameErrorMessage,
-      mergedAuthorStats,
-      filteredAuthorStats,
-      mergedFileStats,
-      filteredFileStats,
-      authorColorsByPersonId,
-      authorDisplayByPersonId,
-      rosterMatchByPersonId,
     }),
     [
-      analysisErrorMessage,
-      analysisScopeKey,
-      analysisStatus,
-      authorColorsByPersonId,
-      authorDisplayByPersonId,
-      blameErrorMessage,
-      blameResult,
-      blameStatus,
-      cancelAnalysis,
       cancelDiscovery,
       discoveredRepos,
       discoveryCurrentFolder,
       discoveryError,
       discoveryStatus,
-      filteredAuthorStats,
-      filteredFileStats,
       lastDiscoveryOutcome,
-      mergedAuthorStats,
-      mergedFileStats,
-      result,
-      rosterMatchByPersonId,
-      runAnalysis,
       runRepoDiscovery,
+    ],
+  )
+
+  const selectionValue = useMemo<AnalysisSelectionValue>(
+    () => ({
+      selectedRepoPath,
+      selectRepository,
+      runAnalysis,
+      cancelAnalysis,
+      snapshotCommitOid: selectedSnapshotQuery.data ?? null,
+      analysisIdentity: selectedAnalysisIdentity,
+      analysisScopeKey,
+    }),
+    [
+      analysisScopeKey,
+      cancelAnalysis,
+      runAnalysis,
       selectedAnalysisIdentity,
-      selectedAnalysisProgress,
-      selectedBlameTransient?.partialAuthorLines,
-      selectedBlameTransient?.progress,
       selectedRepoPath,
       selectedSnapshotQuery.data,
       selectRepository,
     ],
   )
 
+  const resultValue = useMemo<AnalysisResultValue>(
+    () => ({
+      result,
+      analysisStatus,
+      analysisProgress: selectedAnalysisProgress,
+      analysisErrorMessage,
+    }),
+    [analysisErrorMessage, analysisStatus, result, selectedAnalysisProgress],
+  )
+
+  const blameResultValue = useMemo<AnalysisBlameResultValue>(
+    () => ({
+      blameResult,
+    }),
+    [blameResult],
+  )
+
+  const blameStatusValue = useMemo<AnalysisBlameStatusValue>(
+    () => ({
+      blameStatus,
+      blameErrorMessage,
+    }),
+    [blameErrorMessage, blameStatus],
+  )
+
+  const blameProgressValue = useMemo<AnalysisBlameProgressValue>(
+    () => ({
+      blameStatus,
+      blameProgress: selectedBlameTransient?.progress ?? null,
+      blamePartialAuthorLines:
+        selectedBlameTransient?.partialAuthorLines ??
+        EMPTY_PARTIAL_AUTHOR_LINES,
+    }),
+    [
+      blameStatus,
+      selectedBlameTransient?.partialAuthorLines,
+      selectedBlameTransient?.progress,
+    ],
+  )
+
+  const authorViewValue = useMemo<AnalysisAuthorViewValue>(
+    () => ({
+      mergedAuthorStats,
+      filteredAuthorStats,
+      authorColorsByPersonId,
+      authorDisplayByPersonId,
+      rosterMatchByPersonId,
+    }),
+    [
+      authorColorsByPersonId,
+      authorDisplayByPersonId,
+      filteredAuthorStats,
+      mergedAuthorStats,
+      rosterMatchByPersonId,
+    ],
+  )
+
+  const fileViewValue = useMemo<AnalysisFileViewValue>(
+    () => ({
+      mergedFileStats,
+      filteredFileStats,
+    }),
+    [filteredFileStats, mergedFileStats],
+  )
+
   return (
-    <AnalysisCoordinatorContext.Provider value={value}>
-      {children}
-    </AnalysisCoordinatorContext.Provider>
+    <AnalysisDiscoveryContext.Provider value={discoveryValue}>
+      <AnalysisSelectionContext.Provider value={selectionValue}>
+        <AnalysisResultContext.Provider value={resultValue}>
+          <AnalysisBlameResultContext.Provider value={blameResultValue}>
+            <AnalysisBlameStatusContext.Provider value={blameStatusValue}>
+              <AnalysisBlameProgressContext.Provider value={blameProgressValue}>
+                <AnalysisAuthorViewContext.Provider value={authorViewValue}>
+                  <AnalysisFileViewContext.Provider value={fileViewValue}>
+                    {children}
+                  </AnalysisFileViewContext.Provider>
+                </AnalysisAuthorViewContext.Provider>
+              </AnalysisBlameProgressContext.Provider>
+            </AnalysisBlameStatusContext.Provider>
+          </AnalysisBlameResultContext.Provider>
+        </AnalysisResultContext.Provider>
+      </AnalysisSelectionContext.Provider>
+    </AnalysisDiscoveryContext.Provider>
   )
 }

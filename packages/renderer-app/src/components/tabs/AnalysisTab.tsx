@@ -11,7 +11,7 @@ import {
 import { useCallback, useEffect, useRef } from "react"
 import {
   AnalysisCoordinatorProvider,
-  useAnalysisCoordinator,
+  useAnalysisDiscovery,
 } from "../../analysis/analysis-query-coordinator.js"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -92,7 +92,7 @@ function RepositoryAnalysisTabContent() {
   }, [blameSkip, canShowExamination, activeView, setActiveView])
 
   const { runRepoDiscovery, discoveredRepos, discoveryStatus } =
-    useAnalysisCoordinator()
+    useAnalysisDiscovery()
   const searchFolder = analysisContext.searchFolder
   const hasDiscoveredRepos = discoveredRepos.length > 0
   const autoDiscoveredFolderRef = useRef<string | null>(null)

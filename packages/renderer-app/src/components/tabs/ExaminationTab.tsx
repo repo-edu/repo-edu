@@ -1,7 +1,12 @@
 import { buildExaminationLocalIdentityContext } from "@repo-edu/application-contract"
 import { Button, EmptyState } from "@repo-edu/ui"
 import { useMemo } from "react"
-import { useAnalysisCoordinator } from "../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisAuthorView,
+  useAnalysisBlameResult,
+  useAnalysisResult,
+  useAnalysisSelection,
+} from "../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
 import {
   buildExcerptFileSources,
@@ -23,13 +28,10 @@ import {
 
 export function RepositoryAnalysisExaminationTab() {
   const analysisContext = useAnalysisContext()
-  const {
-    blameResult,
-    result: analysisResult,
-    snapshotCommitOid,
-    authorDisplayByPersonId: authorDisplays,
-    selectedRepoPath,
-  } = useAnalysisCoordinator()
+  const { blameResult } = useAnalysisBlameResult()
+  const { result: analysisResult } = useAnalysisResult()
+  const { snapshotCommitOid, selectedRepoPath } = useAnalysisSelection()
+  const { authorDisplayByPersonId: authorDisplays } = useAnalysisAuthorView()
 
   const authorSummaries = blameResult?.authorSummaries ?? []
   const emptyStateMessage = resolveExaminationEmptyState({

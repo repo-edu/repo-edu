@@ -1,13 +1,16 @@
 import { Button, Checkbox, Label } from "@repo-edu/ui"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisAuthorView,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import {
   selectSelectedAuthorsForScope,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
 
 export function AuthorFilterControls() {
-  const { mergedAuthorStats, authorColorsByPersonId, analysisScopeKey } =
-    useAnalysisCoordinator()
+  const { analysisScopeKey } = useAnalysisSelection()
+  const { mergedAuthorStats, authorColorsByPersonId } = useAnalysisAuthorView()
   const selectedAuthors = useAnalysisStore((s) =>
     selectSelectedAuthorsForScope(s, analysisScopeKey),
   )

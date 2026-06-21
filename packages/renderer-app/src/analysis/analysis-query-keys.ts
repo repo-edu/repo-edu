@@ -1,7 +1,6 @@
 import type {
   AnalysisBlameConfig,
   AnalysisConfig,
-  AnalysisResult,
   AnalysisRosterContext,
 } from "@repo-edu/domain/analysis"
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
@@ -57,22 +56,46 @@ export type BlameQueryIdentity = {
   readonly repoPath: string
   readonly analysis: AnalysisQueryIdentity
   readonly config: BlameOutputConfigKey
-  readonly files: readonly string[]
 }
 
-function sortedStrings(values: readonly string[] | undefined): string[] {
-  return [...(values ?? [])].sort((left, right) => left.localeCompare(right))
+function uniqueSortedStrings(values: readonly string[] | undefined): string[] {
+  return [...new Set(values ?? [])].sort((left, right) =>
+    left.localeCompare(right),
+  )
 }
 
-function nonEmptyStrings(
+function normalizedPatternList(
+  values: readonly string[] | undefined,
+  options: { readonly defaultAll?: boolean } = {},
+): readonly string[] | undefined {
+  const sorted = uniqueSortedStrings(
+    values?.map((value) => value.trim()).filter((value) => value.length > 0),
+  )
+  if (options.defaultAll && sorted.length === 1 && sorted[0] === "*") {
+    return undefined
+  }
+  return sorted.length === 0 ? undefined : sorted
+}
+
+function normalizedExtensions(
   values: readonly string[] | undefined,
 ): readonly string[] | undefined {
-  const sorted = sortedStrings(values)
+  const sorted = uniqueSortedStrings(
+    values
+      ?.map((value) => value.trim().toLowerCase().replace(/^\./, ""))
+      .filter((value) => value.length > 0),
+  )
   return sorted.length === 0 ? undefined : sorted
 }
 
 function optionalString(value: string | undefined): string | undefined {
   return value === undefined || value.length === 0 ? undefined : value
+}
+
+function optionalSubfolder(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim().replace(/\\/g, "/").replace(/\/+$/, "")
+  return normalized.length === 0 ? undefined : normalized
 }
 
 export function analysisSourceKeyParts(
@@ -98,17 +121,19 @@ export function buildAnalysisOutputConfigKey(
   config: AnalysisConfig,
 ): AnalysisOutputConfigKey {
   return {
-    subfolder: optionalString(config.subfolder),
-    extensions: nonEmptyStrings(config.extensions),
-    includeFiles: nonEmptyStrings(config.includeFiles),
-    excludeFiles: nonEmptyStrings(config.excludeFiles),
-    excludeAuthors: nonEmptyStrings(config.excludeAuthors),
-    excludeEmails: nonEmptyStrings(config.excludeEmails),
-    excludeRevisions: nonEmptyStrings(config.excludeRevisions),
-    excludeMessages: nonEmptyStrings(config.excludeMessages),
+    subfolder: optionalSubfolder(config.subfolder),
+    extensions: normalizedExtensions(config.extensions),
+    includeFiles: normalizedPatternList(config.includeFiles, {
+      defaultAll: true,
+    }),
+    excludeFiles: normalizedPatternList(config.excludeFiles),
+    excludeAuthors: normalizedPatternList(config.excludeAuthors),
+    excludeEmails: normalizedPatternList(config.excludeEmails),
+    excludeRevisions: normalizedPatternList(config.excludeRevisions),
+    excludeMessages: normalizedPatternList(config.excludeMessages),
     since: optionalString(config.since),
     until: optionalString(config.until),
-    whitespace: config.whitespace,
+    whitespace: config.whitespace === true ? true : undefined,
     nFiles: config.nFiles,
   }
 }
@@ -117,14 +142,19 @@ export function buildBlameOutputConfigKey(
   config: AnalysisBlameConfig,
 ): BlameOutputConfigKey {
   return {
-    subfolder: optionalString(config.subfolder),
-    extensions: nonEmptyStrings(config.extensions),
-    includeFiles: nonEmptyStrings(config.includeFiles),
-    excludeFiles: nonEmptyStrings(config.excludeFiles),
-    excludeAuthors: nonEmptyStrings(config.excludeAuthors),
-    excludeEmails: nonEmptyStrings(config.excludeEmails),
-    whitespace: config.whitespace,
-    copyMove: config.copyMove,
+    subfolder: optionalSubfolder(config.subfolder),
+    extensions: normalizedExtensions(config.extensions),
+    includeFiles: normalizedPatternList(config.includeFiles, {
+      defaultAll: true,
+    }),
+    excludeFiles: normalizedPatternList(config.excludeFiles),
+    excludeAuthors: normalizedPatternList(config.excludeAuthors),
+    excludeEmails: normalizedPatternList(config.excludeEmails),
+    whitespace: config.whitespace === true ? true : undefined,
+    copyMove:
+      config.copyMove === undefined || config.copyMove === 1
+        ? undefined
+        : config.copyMove,
   }
 }
 
@@ -161,16 +191,12 @@ export function buildBlameQueryIdentity(params: {
   repoPath: string
   analysis: AnalysisQueryIdentity
   config: AnalysisBlameConfig
-  result: AnalysisResult
 }): BlameQueryIdentity {
   return {
     source: params.source,
     repoPath: params.repoPath,
     analysis: params.analysis,
     config: buildBlameOutputConfigKey(params.config),
-    files: params.result.fileStats
-      .map((file) => file.path)
-      .sort((left, right) => left.localeCompare(right)),
   }
 }
 
@@ -178,8 +204,14 @@ export const analysisQueryKeys = {
   all: () => ["analysis"] as const,
   source: (source: AnalysisSourceKeyParts) =>
     ["analysis", "source", source] as const,
+  sourceRepos: (source: AnalysisSourceKeyParts) =>
+    ["analysis", "source", source, "repo"] as const,
+  repo: (source: AnalysisSourceKeyParts, repoPath: string) =>
+    ["analysis", "source", source, "repo", repoPath] as const,
   discovery: (source: AnalysisSourceKeyParts, folder: string, depth: number) =>
     ["analysis", "source", source, "discovery", folder, depth] as const,
+  repoSnapshotHeads: (source: AnalysisSourceKeyParts, repoPath: string) =>
+    ["analysis", "source", source, "repo", repoPath, "snapshot-head"] as const,
   snapshotHead: (params: {
     source: AnalysisSourceKeyParts
     repoPath: string
@@ -190,13 +222,34 @@ export const analysisQueryKeys = {
       "analysis",
       "source",
       params.source,
-      "snapshot-head",
+      "repo",
       params.repoPath,
+      "snapshot-head",
       params.asOfCommit,
       params.until,
     ] as const,
+  repoResults: (source: AnalysisSourceKeyParts, repoPath: string) =>
+    ["analysis", "source", source, "repo", repoPath, "result"] as const,
   result: (identity: AnalysisQueryIdentity) =>
-    ["analysis", "result", identity] as const,
+    [
+      "analysis",
+      "source",
+      identity.source,
+      "repo",
+      identity.repoPath,
+      "result",
+      identity,
+    ] as const,
+  repoBlames: (source: AnalysisSourceKeyParts, repoPath: string) =>
+    ["analysis", "source", source, "repo", repoPath, "blame"] as const,
   blame: (identity: BlameQueryIdentity) =>
-    ["analysis", "blame", identity] as const,
+    [
+      "analysis",
+      "source",
+      identity.source,
+      "repo",
+      identity.repoPath,
+      "blame",
+      identity,
+    ] as const,
 }

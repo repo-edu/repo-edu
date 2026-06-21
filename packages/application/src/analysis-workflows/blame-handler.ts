@@ -172,7 +172,7 @@ function buildBlameTargets(
   for (let index = 0; index < files.length; index++) {
     const normalized = normalizeInputFilePath(files[index], index)
     const repoPath =
-      subfolderPrefix.length > 0 && !normalized.startsWith(subfolderPrefix)
+      subfolderPrefix.length > 0
         ? `${subfolderPrefix}${normalized}`
         : normalized
     const displayPath =
@@ -277,9 +277,7 @@ export function createAnalysisBlameHandler(
         const targets = buildBlameTargets(input.files, config)
 
         if (targets.length === 0) {
-          const snapshot = input.personDbOverlay
-            ? clonePersonDbSnapshot(input.personDbOverlay)
-            : clonePersonDbSnapshot(input.personDbBaseline)
+          const snapshot = clonePersonDbSnapshot(input.personDbBaseline)
           return {
             fileBlames: [],
             authorSummaries: [],
@@ -309,15 +307,12 @@ export function createAnalysisBlameHandler(
 
         // Live partial author-line tally streamed via progress so the UI can
         // update Lines of Code while blame is still running. Identities are
-        // resolved against the existing person DB (overlay if provided, else
-        // baseline); ones discovered only via blame surface in the final
-        // result. Emission cadence is governed by
+        // resolved against the baseline person DB; ones discovered only via
+        // blame surface in the final result. Emission cadence is governed by
         // PARTIAL_AUTHOR_LINES_EMIT_INTERVAL_MS — emitting on every file
         // produced enough cross-IPC + React work to roughly double total
         // blame time for large cohorts.
-        const baselineIdentityIndex = (
-          input.personDbOverlay ?? input.personDbBaseline
-        ).identityIndex
+        const baselineIdentityIndex = input.personDbBaseline.identityIndex
         const excludeAuthorsForPartial = config.excludeAuthors ?? []
         const excludeEmailsForPartial = config.excludeEmails ?? []
         const partialLinesByPerson = new Map<string, number>()
@@ -414,9 +409,7 @@ export function createAnalysisBlameHandler(
           totalFiles: targets.length,
         })
 
-        let personDb = input.personDbOverlay
-          ? clonePersonDbSnapshot(input.personDbOverlay)
-          : clonePersonDbSnapshot(input.personDbBaseline)
+        let personDb = clonePersonDbSnapshot(input.personDbBaseline)
 
         const excludeAuthors = config.excludeAuthors ?? []
         const excludeEmails = config.excludeEmails ?? []

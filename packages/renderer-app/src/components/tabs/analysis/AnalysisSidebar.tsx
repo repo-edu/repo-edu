@@ -10,7 +10,13 @@ import {
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisBlameResult,
+  useAnalysisDiscovery,
+  useAnalysisFileView,
+  useAnalysisResult,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
@@ -52,22 +58,22 @@ function serializeSidebarSettings(
 
 export function AnalysisSidebar() {
   const {
-    runAnalysis,
     runRepoDiscovery,
-    cancelAnalysis,
     cancelDiscovery,
-    result,
-    blameResult,
-    mergedFileStats,
-    analysisStatus,
-    analysisProgress,
-    analysisErrorMessage,
     discoveredRepos,
     discoveryStatus,
+  } = useAnalysisDiscovery()
+  const {
+    runAnalysis,
+    cancelAnalysis,
     selectedRepoPath,
     selectRepository,
     analysisScopeKey,
-  } = useAnalysisCoordinator()
+  } = useAnalysisSelection()
+  const { result, analysisStatus, analysisProgress, analysisErrorMessage } =
+    useAnalysisResult()
+  const { blameResult } = useAnalysisBlameResult()
+  const { mergedFileStats } = useAnalysisFileView()
   const rendererHost = useRendererHost()
 
   const analysisContext = useAnalysisContext()

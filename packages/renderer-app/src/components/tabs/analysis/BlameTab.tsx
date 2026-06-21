@@ -10,7 +10,13 @@ import {
 import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisAuthorView,
+  useAnalysisBlameResult,
+  useAnalysisBlameStatus,
+  useAnalysisResult,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
 import {
   selectBlameVisibleAuthorsForScope,
@@ -230,7 +236,7 @@ function AuthorSummary({
 }
 
 function PersonDbDeltaDisplay() {
-  const { blameResult } = useAnalysisCoordinator()
+  const { blameResult } = useAnalysisBlameResult()
   const delta = blameResult?.delta
   if (!delta) return null
 
@@ -414,14 +420,11 @@ function BlameGrid({
 // ---------------------------------------------------------------------------
 
 export function BlameTab({ filePath }: { filePath: string }) {
-  const {
-    result,
-    blameResult,
-    blameStatus,
-    blameErrorMessage,
-    authorColorsByPersonId: colorMap,
-    analysisScopeKey,
-  } = useAnalysisCoordinator()
+  const { result } = useAnalysisResult()
+  const { blameResult } = useAnalysisBlameResult()
+  const { blameStatus, blameErrorMessage } = useAnalysisBlameStatus()
+  const { authorColorsByPersonId: colorMap } = useAnalysisAuthorView()
+  const { analysisScopeKey } = useAnalysisSelection()
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
 
   const showMetadata = useAnalysisStore((s) => s.blameShowMetadata)

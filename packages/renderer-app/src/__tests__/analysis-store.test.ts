@@ -7,6 +7,13 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
+  analysisQueryKeys,
+  buildAnalysisOutputConfigKey,
+  buildAnalysisQueryIdentity,
+  buildBlameOutputConfigKey,
+  buildBlameQueryIdentity,
+} from "../analysis/analysis-query-keys.js"
+import {
   buildAuthorColorsByPersonId,
   buildAuthorDisplayByPersonId,
   buildRosterMatchByPersonId,
@@ -219,6 +226,12 @@ function makeBlameResult(): BlameResult {
   }
 }
 
+function onlyDefinedValues(value: object) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  )
+}
+
 beforeEach(() => {
   useAnalysisStore.getState().reset()
   useExaminationStore.getState().reset()
@@ -332,6 +345,73 @@ describe("analysis view state", () => {
       ["p_0000"],
     )
     assert.equal(selectBlameVisibleAuthorsForScope(state, "analysis-b"), null)
+  })
+})
+
+describe("analysis query keys", () => {
+  it("canonicalizes analysis output config identity", () => {
+    const key = buildAnalysisOutputConfigKey({
+      subfolder: " src\\",
+      extensions: [".TS", "ts", " js "],
+      includeFiles: ["*"],
+      excludeFiles: ["", " **/dist/** "],
+      excludeAuthors: [" Bob ", "Alice", "Bob"],
+      whitespace: false,
+      nFiles: 10,
+    })
+
+    assert.deepEqual(onlyDefinedValues(key), {
+      subfolder: "src",
+      extensions: ["js", "ts"],
+      excludeFiles: ["**/dist/**"],
+      excludeAuthors: ["Alice", "Bob"],
+      nFiles: 10,
+    })
+  })
+
+  it("canonicalizes blame output config identity", () => {
+    const key = buildBlameOutputConfigKey({
+      subfolder: " src\\",
+      extensions: [".TS", "ts"],
+      includeFiles: ["*"],
+      excludeEmails: [" student@example.com ", "staff@example.com"],
+      whitespace: false,
+      copyMove: 1,
+    })
+
+    assert.deepEqual(onlyDefinedValues(key), {
+      subfolder: "src",
+      extensions: ["ts"],
+      excludeEmails: ["staff@example.com", "student@example.com"],
+    })
+  })
+
+  it("nests analysis result and blame keys under the repository prefix", () => {
+    const source = ["folder", "/courses"] as const
+    const repoPath = "/courses/repo-a"
+    const analysis = buildAnalysisQueryIdentity({
+      source,
+      repoPath,
+      snapshotCommitOid: "abc123",
+      config: { includeFiles: ["*"], whitespace: false },
+      rosterContext: undefined,
+    })
+    const blame = buildBlameQueryIdentity({
+      source,
+      repoPath,
+      analysis,
+      config: { includeFiles: ["*"], copyMove: 1 },
+    })
+
+    assert.deepEqual(
+      analysisQueryKeys.result(analysis).slice(0, 5),
+      analysisQueryKeys.repo(source, repoPath),
+    )
+    assert.deepEqual(
+      analysisQueryKeys.blame(blame).slice(0, 5),
+      analysisQueryKeys.repo(source, repoPath),
+    )
+    assert.equal("files" in blame, false)
   })
 })
 

@@ -473,6 +473,68 @@ describe("analysis.blame handler", () => {
     assert.equal(result.fileBlames[0].path, "main.ts")
   })
 
+  it("resolves subfolder display paths as paths inside that subfolder", async () => {
+    const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    const blameOutput = [
+      `${oid} 1 1 1`,
+      "author Alice",
+      "author-mail <alice@example.com>",
+      "author-time 1700000000",
+      "summary Nested",
+      "filename src/src/main.ts",
+      "\tconst nested = true",
+    ].join("\n")
+    const blameArgs: string[][] = []
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        if (request.args[0] === "rev-parse") {
+          return request.args.includes("--git-dir")
+            ? { exitCode: 0, stdout: ".git", stderr: "", signal: null }
+            : {
+                exitCode: 0,
+                stdout: "resolved-oid",
+                stderr: "",
+                signal: null,
+              }
+        }
+        if (request.args[0] === "blame") {
+          blameArgs.push(request.args)
+          return request.args.at(-1) === "src/src/main.ts"
+            ? { exitCode: 0, stdout: blameOutput, stderr: "", signal: null }
+            : {
+                exitCode: 1,
+                stdout: "",
+                stderr: "unexpected path",
+                signal: null,
+              }
+        }
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.blame"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: { subfolder: "src" },
+      personDbBaseline: emptyPersonDb(),
+      files: ["src/main.ts"],
+      snapshotCommitOid: "abc123",
+    })
+
+    assert.deepEqual(
+      blameArgs.map((args) => args.at(-1)),
+      ["src/src/main.ts"],
+    )
+    assert.equal(result.fileBlames.length, 1)
+    assert.equal(result.fileBlames[0].path, "src/main.ts")
+  })
+
   it("builds per-file summaries with per-author line counts resolved through personDb", async () => {
     const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     const blameMain = [

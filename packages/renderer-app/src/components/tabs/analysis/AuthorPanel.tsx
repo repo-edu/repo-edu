@@ -22,7 +22,11 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisAuthorView,
+  useAnalysisResult,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
@@ -83,14 +87,14 @@ export function ConfidenceBadge({
 }
 
 export function AuthorPanel() {
+  const { result } = useAnalysisResult()
+  const { analysisScopeKey } = useAnalysisSelection()
   const {
-    result,
     filteredAuthorStats: authorStats,
     authorDisplayByPersonId: authorDisplayById,
     rosterMatchByPersonId: rosterMatchById,
     authorColorsByPersonId: colors,
-    analysisScopeKey,
-  } = useAnalysisCoordinator()
+  } = useAnalysisAuthorView()
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
   const showInsertions = useAnalysisStore((s) => s.showInsertions)

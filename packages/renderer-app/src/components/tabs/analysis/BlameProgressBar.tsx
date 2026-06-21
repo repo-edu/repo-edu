@@ -1,8 +1,8 @@
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisBlameProgress } from "../../../analysis/analysis-query-coordinator.js"
 import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 
 export function BlameProgressBar() {
-  const { blameStatus, blameProgress } = useAnalysisCoordinator()
+  const { blameStatus, blameProgress } = useAnalysisBlameProgress()
   const elapsedSeconds = useElapsedSeconds(blameProgress !== null)
 
   if (blameStatus !== "running" || !blameProgress) return null

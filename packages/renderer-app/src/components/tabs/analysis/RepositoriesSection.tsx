@@ -16,7 +16,10 @@ import {
   RefreshCw,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useState } from "react"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisDiscovery,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import {
@@ -45,7 +48,7 @@ export function RepositoriesToolbar({
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
-  const { discoveredRepos } = useAnalysisCoordinator()
+  const { discoveredRepos } = useAnalysisDiscovery()
 
   const [depthDraft, setDepthDraft] = useState<string | null>(null)
   const commitDepthDraft = useCallback(() => {
@@ -176,9 +179,8 @@ export function RepositoriesSection({
     discoveryError,
     discoveryCurrentFolder,
     lastDiscoveryOutcome,
-    selectedRepoPath,
-    selectRepository,
-  } = useAnalysisCoordinator()
+  } = useAnalysisDiscovery()
+  const { selectedRepoPath, selectRepository } = useAnalysisSelection()
   const searchFolder = analysisContext.searchFolder
 
   const {

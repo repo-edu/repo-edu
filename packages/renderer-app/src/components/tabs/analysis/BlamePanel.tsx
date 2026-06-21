@@ -1,6 +1,10 @@
 import { EmptyState } from "@repo-edu/ui"
 import { useEffect, useMemo } from "react"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisBlameStatus,
+  useAnalysisResult,
+  useAnalysisSelection,
+} from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
   selectActiveBlameFileForScope,
@@ -10,8 +14,9 @@ import {
 import { BlameTab } from "./BlameTab.js"
 
 export function BlamePanel() {
-  const { result, blameErrorMessage, analysisScopeKey } =
-    useAnalysisCoordinator()
+  const { result } = useAnalysisResult()
+  const { blameErrorMessage } = useAnalysisBlameStatus()
+  const { analysisScopeKey } = useAnalysisSelection()
   const activeBlameFile = useAnalysisStore((s) =>
     selectActiveBlameFileForScope(s, analysisScopeKey),
   )

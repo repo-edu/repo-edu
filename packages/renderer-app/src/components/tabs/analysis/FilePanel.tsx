@@ -18,7 +18,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import {
+  useAnalysisFileView,
+  useAnalysisResult,
+} from "../../../analysis/analysis-query-coordinator.js"
 import {
   FILES_PANEL_CHART_FLEX,
   FILES_PANEL_TABLE_FLEX,
@@ -34,7 +37,8 @@ import { FileCharts } from "./charts/FileCharts.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 export function FilePanel() {
-  const { result, filteredFileStats: fileStats } = useAnalysisCoordinator()
+  const { result } = useAnalysisResult()
+  const { filteredFileStats: fileStats } = useAnalysisFileView()
   const authorStats = result?.authorStats ?? []
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
