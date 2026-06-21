@@ -58,4 +58,25 @@ describe("bespoke checks", () => {
       2,
     )
   })
+
+  it("checks non-source TypeScript import-type references", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-bespoke-"))
+    await writeFile(join(root, "package.json"), "{}")
+    await mkdir(join(root, "tools/config"), { recursive: true })
+    await writeFile(
+      join(root, "tools/config/types.ts"),
+      'export type Coder = import("@repo-edu/claude-coder").Coder\n',
+    )
+
+    const violations = runBespokeChecks(
+      root,
+      { files: [], fileSet: new Set() },
+      () => ["tools/config/types.ts"],
+    )
+
+    assert.match(
+      violations.map((violation) => violation.message).join("\n"),
+      /outside fixture-engine/,
+    )
+  })
 })

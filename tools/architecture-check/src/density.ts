@@ -136,34 +136,33 @@ function attributeChangedPath(
   const areaIds = new Set<string>()
   const violations: Violation[] = []
 
-  const currentPrimary = findPrimaryArea(currentModel, changedPath)
-  if (currentPrimary) {
-    areaIds.add(currentPrimary)
-  } else if (historicalModel) {
-    const historicalPrimary = findPrimaryArea(historicalModel, changedPath)
-    if (historicalPrimary) {
-      const resolved = resolveHistoricalArea(
-        currentModel,
-        historicalPrimary,
-        "partition",
-        changedPath,
-        lineageParents,
-      )
-      for (const areaId of resolved.areaIds) areaIds.add(areaId)
-      violations.push(...resolved.violations)
-    }
+  const historicalPrimary = historicalModel
+    ? findPrimaryArea(historicalModel, changedPath)
+    : undefined
+  if (historicalModel && historicalPrimary) {
+    const resolved = resolveHistoricalArea(
+      currentModel,
+      historicalModel,
+      historicalPrimary,
+      "partition",
+      changedPath,
+      lineageParents,
+    )
+    for (const areaId of resolved.areaIds) areaIds.add(areaId)
+    violations.push(...resolved.violations)
+  } else {
+    const currentPrimary = findPrimaryArea(currentModel, changedPath)
+    if (currentPrimary) areaIds.add(currentPrimary)
   }
 
-  const currentCovers = findCoverAreas(currentModel, changedPath)
-  if (currentCovers.length > 0) {
-    for (const areaId of currentCovers) areaIds.add(areaId)
-  } else if (historicalModel) {
-    for (const historicalCover of findCoverAreas(
-      historicalModel,
-      changedPath,
-    )) {
+  const historicalCovers = historicalModel
+    ? findCoverAreas(historicalModel, changedPath)
+    : []
+  if (historicalModel && historicalCovers.length > 0) {
+    for (const historicalCover of historicalCovers) {
       const resolved = resolveHistoricalArea(
         currentModel,
+        historicalModel,
         historicalCover,
         "cover",
         changedPath,
@@ -172,6 +171,10 @@ function attributeChangedPath(
       for (const areaId of resolved.areaIds) areaIds.add(areaId)
       violations.push(...resolved.violations)
     }
+  } else {
+    for (const areaId of findCoverAreas(currentModel, changedPath)) {
+      areaIds.add(areaId)
+    }
   }
 
   return { areaIds: [...areaIds], violations }
@@ -179,6 +182,7 @@ function attributeChangedPath(
 
 function resolveHistoricalArea(
   currentModel: CompiledAreaModel,
+  historicalModel: CompiledAreaModel,
   historicalAreaId: string,
   kind: AreaRecord["kind"],
   changedPath: string,
@@ -206,7 +210,9 @@ function resolveHistoricalArea(
   const currentArea = currentModel.byId.get(historicalAreaId)
   if (
     currentArea?.kind === kind &&
-    currentAreaMatchesFile(currentModel, currentArea, changedPath)
+    currentAreaMatchesFile(currentModel, currentArea, changedPath) &&
+    (descendants.length === 0 ||
+      historicalDescendantsExist(historicalModel, historicalAreaId, kind))
   ) {
     return { areaIds: [historicalAreaId], violations: [] }
   }
@@ -233,6 +239,22 @@ function resolveHistoricalArea(
       },
     ],
   }
+}
+
+function historicalDescendantsExist(
+  historicalModel: CompiledAreaModel,
+  historicalAreaId: string,
+  kind: AreaRecord["kind"],
+): boolean {
+  const historicalLineageParents = collectLineageParents(
+    historicalModel,
+    new Map(),
+  )
+  return historicalModel.areas.some(
+    (area) =>
+      area.kind === kind &&
+      areaLineageIncludes(area, historicalAreaId, historicalLineageParents),
+  )
 }
 
 function collectLineageParents(

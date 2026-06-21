@@ -174,6 +174,123 @@ describe("redesign density", () => {
     assert.equal(report.counts.has("area-parent"), false)
   })
 
+  it("localizes pre-split parent churn even when the current parent still matches the old path", () => {
+    const currentModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-parent",
+            name: "Parent Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/old/src/" }],
+          },
+          {
+            id: "area-child",
+            name: "Child Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/new/src/" }],
+            splitFrom: "area-parent",
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const historicalModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-parent",
+            name: "Parent Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/old/src/" }],
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const report = computeRedesignDensity(
+      [
+        commit(
+          "A1 redesign(area): split child",
+          ["packages/old/src/file.ts"],
+          "split-commit",
+        ),
+        ...Array.from({ length: 9 }, (_, index) =>
+          commit(`B1 fix(other): ${index}`, ["packages/new/src/other.ts"]),
+        ),
+        commit("B1 fix(other): parent", ["packages/new/src/parent.ts"]),
+      ],
+      currentModel,
+      new Map([["split-commit", historicalModel]]),
+    )
+
+    assert.deepEqual(report.violations, [])
+    assert.equal(report.counts.get("area-child"), 1)
+    assert.equal(report.counts.has("area-parent"), false)
+  })
+
+  it("keeps post-split parent churn on the parent when the historical snapshot already has the child", () => {
+    const currentModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-parent",
+            name: "Parent Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/old/src/" }],
+          },
+          {
+            id: "area-child",
+            name: "Child Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/new/src/" }],
+            splitFrom: "area-parent",
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const historicalModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-parent",
+            name: "Parent Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/old/src/" }],
+          },
+          {
+            id: "area-child",
+            name: "Child Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/new/src/" }],
+            splitFrom: "area-parent",
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const report = computeRedesignDensity(
+      [
+        commit(
+          "A1 redesign(area): parent after split",
+          ["packages/old/src/file.ts"],
+          "split-commit",
+        ),
+        ...Array.from({ length: 9 }, (_, index) =>
+          commit(`B1 fix(other): ${index}`, ["packages/new/src/other.ts"]),
+        ),
+        commit("B1 fix(other): parent", ["packages/new/src/parent.ts"]),
+      ],
+      currentModel,
+      new Map([["split-commit", historicalModel]]),
+    )
+
+    assert.deepEqual(report.violations, [])
+    assert.equal(report.counts.get("area-parent"), 1)
+    assert.equal(report.counts.has("area-child"), false)
+  })
+
   it("follows retired intermediate splitFrom IDs through model snapshots", () => {
     const currentModel = compileAreaModel(
       parseAreaModel({
