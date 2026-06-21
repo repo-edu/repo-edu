@@ -1,10 +1,21 @@
-import type { Node, Parser } from "web-tree-sitter"
+import type { Node } from "web-tree-sitter"
 import { Query } from "web-tree-sitter"
 import {
   extensionToLanguage,
   type SupportedLanguage,
 } from "./language-catalog.js"
+import {
+  type LoadedTokenizerLanguage,
+  TOKENIZER_SUPPORTED_LANGUAGES,
+  type TokenizerSupportedLanguage,
+} from "./tokenizer-language.js"
 import { TOKENIZER_LANGUAGE_MAPPINGS } from "./tokenizer-language-mappings.js"
+
+export {
+  type LoadedTokenizerLanguage,
+  TOKENIZER_SUPPORTED_LANGUAGES,
+  type TokenizerSupportedLanguage,
+} from "./tokenizer-language.js"
 
 export type TokenKind = "code" | "string-literal" | "comment" | "documentation"
 
@@ -12,44 +23,6 @@ export type Token = {
   readonly kind: TokenKind
   readonly start: number
   readonly end: number
-}
-
-export const TOKENIZER_SUPPORTED_LANGUAGES = [
-  "c",
-  "cpp",
-  "cs",
-  "go",
-  "haskell",
-  "java",
-  "js",
-  "jsx",
-  "kotlin",
-  "matlab",
-  "php",
-  "py",
-  "r",
-  "rb",
-  "robot",
-  "rs",
-  "shell",
-  "sql",
-  "toml",
-  "ts",
-  "tsx",
-  "xml",
-] as const
-
-export type TokenizerSupportedLanguage =
-  (typeof TOKENIZER_SUPPORTED_LANGUAGES)[number]
-
-/**
- * Loader-owned parser handle. `tokenizeSource` mutates the parser
- * synchronously with `reset()` and `parse()`, so callers must finish each
- * tokenization call before reusing the same handle in another flow.
- */
-export type LoadedTokenizerLanguage = {
-  readonly language: TokenizerSupportedLanguage
-  readonly parser: Parser
 }
 
 const TOKENIZER_SUPPORTED_LANGUAGE_SET = new Set<SupportedLanguage>(

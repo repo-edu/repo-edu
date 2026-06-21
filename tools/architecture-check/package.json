@@ -3,11 +3,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "dependency-cruiser": "17.4.3",
+    "zod": "4.4.3",
     "typescript": "6.0.2"
   },
   "scripts": {
-    "start": "tsx src/main.ts",
+    "start": "pnpm run check && tsx src/main.ts",
+    "test": "node --import tsx --test src/__tests__/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run typecheck"
+    "check": "pnpm run typecheck && pnpm run test"
   }
 }

@@ -1,0 +1,475 @@
+{
+  "schemaVersion": 1,
+  "areas": [
+    {
+      "id": "app-cli",
+      "name": "CLI app",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^apps/cli/src/" }]
+    },
+    {
+      "id": "app-desktop",
+      "name": "Desktop app",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^apps/desktop/src/" }]
+    },
+    {
+      "id": "app-docs",
+      "name": "Docs app",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^apps/docs/src/" }]
+    },
+    {
+      "id": "pkg-application",
+      "name": "Application workflows",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/application/src/" }]
+    },
+    {
+      "id": "pkg-application-contract",
+      "name": "Application contract",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/application-contract/src/" }
+      ]
+    },
+    {
+      "id": "pkg-claude-coder",
+      "name": "Claude coder adapter",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/claude-coder/src/" }]
+    },
+    {
+      "id": "pkg-domain",
+      "name": "Domain model",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/domain/src/" }]
+    },
+    {
+      "id": "pkg-fixture-engine",
+      "name": "Fixture engine",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/fixture-engine/src/" }
+      ]
+    },
+    {
+      "id": "pkg-host-browser-mock",
+      "name": "Browser mock host",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/host-browser-mock/src/" }
+      ]
+    },
+    {
+      "id": "pkg-host-node",
+      "name": "Node host",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/host-node/src/" }]
+    },
+    {
+      "id": "pkg-host-runtime-contract",
+      "name": "Host runtime contract",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/host-runtime-contract/src/" }
+      ]
+    },
+    {
+      "id": "pkg-integration-tests",
+      "name": "Integration tests",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/integration-tests/src/" }
+      ]
+    },
+    {
+      "id": "pkg-integrations-git",
+      "name": "Git integrations",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/integrations-git/src/" }
+      ]
+    },
+    {
+      "id": "pkg-integrations-git-contract",
+      "name": "Git integration contract",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/integrations-git-contract/src/"
+        }
+      ]
+    },
+    {
+      "id": "pkg-integrations-llm",
+      "name": "LLM integrations",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/integrations-llm/src/" }
+      ]
+    },
+    {
+      "id": "pkg-integrations-llm-catalog",
+      "name": "LLM catalog",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/integrations-llm-catalog/src/"
+        }
+      ]
+    },
+    {
+      "id": "pkg-integrations-llm-contract",
+      "name": "LLM integration contract",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/integrations-llm-contract/src/"
+        }
+      ]
+    },
+    {
+      "id": "pkg-integrations-lms",
+      "name": "LMS integrations",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/integrations-lms/src/" }
+      ]
+    },
+    {
+      "id": "pkg-integrations-lms-contract",
+      "name": "LMS integration contract",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/integrations-lms-contract/src/"
+        }
+      ]
+    },
+    {
+      "id": "pkg-renderer-host-contract",
+      "name": "Renderer host contract",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/renderer-host-contract/src/" }
+      ]
+    },
+    {
+      "id": "pkg-renderer-session",
+      "name": "Renderer session ownership",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/renderer-app/src/session/" }]
+    },
+    {
+      "id": "pkg-renderer-persistence",
+      "name": "Renderer persistence",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/renderer-app/src/persistence/" }
+      ]
+    },
+    {
+      "id": "pkg-renderer-analysis",
+      "name": "Renderer analysis",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/renderer-app/src/analysis/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/AnalysisTab\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/analysis/"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/use-analysis-context\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/source-tokenizer\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/stores/analysis-store\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/utils/(analysis-|analysis-roster-context|author-colors|blame-|token-estimate)\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/__tests__/(analysis|blame|process-blame-lines)"
+        }
+      ]
+    },
+    {
+      "id": "pkg-renderer-examination",
+      "name": "Renderer examination",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/(ExaminationTab|SubmissionExaminationTab)\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/examination/"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/use-open-submission-folder\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/stores/examination"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/__tests__/examination"
+        }
+      ]
+    },
+    {
+      "id": "pkg-renderer-groups",
+      "name": "Renderer groups and roster",
+      "kind": "partition",
+      "members": [
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/(GroupsAssignmentsTab|StudentsTab)\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/(groups-assignments|students)/"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/dialogs/(AddGroupDialog|ConnectLmsGroupSetDialog|CopyGroupSetDialog|DeleteGroupDialog|DeleteGroupSetDialog|ImportGitUsernamesDialog|ImportGroupSetDialog|ImportStudentsFromFileDialog|LmsImportConflictDialog|NewAssignmentDialog|NewLocalGroupSetDialog|PreflightDialog|StudentMultiSelect|StudentSyncDialog|UsernameVerificationDialog|ValidationDialog)\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/(use-courses|use-open-repositories-folder)\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/stores/(course-store|course-store-selectors|operation-store)\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/stores/slices/"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/utils/(course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow)\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/__tests__/(course-navigation|history-boundary|repository-workflow|use-courses)"
+        }
+      ]
+    },
+    {
+      "id": "pkg-renderer-settings",
+      "name": "Renderer settings",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/use-app-settings\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/stores/(app-settings-store|connections-store|credentials-store)\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/__tests__/(app-settings-store|profile-store)"
+        }
+      ]
+    },
+    {
+      "id": "pkg-renderer-shell",
+      "name": "Renderer shell",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/renderer-app/src/" }],
+      "exclude": [
+        { "type": "pattern", "path": "^packages/renderer-app/src/session/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/persistence/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/analysis/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/(AnalysisTab|ExaminationTab|SubmissionExaminationTab|GroupsAssignmentsTab|StudentsTab)\\.tsx$"
+        },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/components/tabs/(analysis|examination|groups-assignments|students)/"
+        },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/dialogs/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/" },
+        {
+          "type": "pattern",
+          "path": "^packages/renderer-app/src/hooks/(use-analysis-context|use-app-settings|use-courses|use-open-repositories-folder|use-open-submission-folder)\\.ts$"
+        },
+        { "type": "pattern", "path": "^packages/renderer-app/src/source-tokenizer\\.ts$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|operation-store)" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/slices/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-|analysis-roster-context|author-colors|blame-|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-workflow|use-courses)" }
+      ]
+    },
+    {
+      "id": "pkg-test-fixtures",
+      "name": "Test fixtures",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/test-fixtures/src/" }]
+    },
+    {
+      "id": "pkg-tree-sitter-grammar-assets",
+      "name": "Tree-sitter grammar assets",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^packages/tree-sitter-grammar-assets/src/" }
+      ]
+    },
+    {
+      "id": "pkg-ui",
+      "name": "UI package",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^packages/ui/src/" }]
+    },
+    {
+      "id": "tool-architecture-check",
+      "name": "Architecture check tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/architecture-check/src/" }]
+    },
+    {
+      "id": "tool-dev-fixture",
+      "name": "Dev fixture tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/dev-fixture/src/" }]
+    },
+    {
+      "id": "tool-file-sizes",
+      "name": "File sizes tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/file-sizes/src/" }]
+    },
+    {
+      "id": "tool-fixture-cli",
+      "name": "Fixture CLI tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/fixture-cli/src/" }]
+    },
+    {
+      "id": "tool-fixtures-check",
+      "name": "Fixtures check tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/fixtures-check/src/" }]
+    },
+    {
+      "id": "tool-release-license-gate",
+      "name": "Release license gate",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^tools/release/src/license-gate\\.ts$" },
+        {
+          "type": "pattern",
+          "path": "^tools/release/src/license-gate-cli\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^tools/release/src/license-gate\\.test\\.ts$"
+        },
+        { "type": "pattern", "path": "^tools/release/src/license-gate/" }
+      ],
+      "splitFrom": "tool-release"
+    },
+    {
+      "id": "tool-release",
+      "name": "Release tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/release/src/" }],
+      "exclude": [
+        { "type": "pattern", "path": "^tools/release/src/license-gate\\.ts$" },
+        {
+          "type": "pattern",
+          "path": "^tools/release/src/license-gate-cli\\.ts$"
+        },
+        {
+          "type": "pattern",
+          "path": "^tools/release/src/license-gate\\.test\\.ts$"
+        },
+        { "type": "pattern", "path": "^tools/release/src/license-gate/" }
+      ]
+    },
+    {
+      "id": "cover-analysis-workflow",
+      "name": "Analysis workflow",
+      "kind": "cover",
+      "members": [
+        { "type": "pattern", "path": "^packages/domain/src/analysis/" },
+        { "type": "file", "path": "packages/domain/src/analysis-inputs.ts" },
+        { "type": "file", "path": "packages/domain/src/analysis-input-types.ts" },
+        { "type": "pattern", "path": "^packages/application/src/analysis-workflows/" },
+        { "type": "pattern", "path": "^packages/application/src/__tests__/(analysis|blame)" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/analysis/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/AnalysisTab\\.tsx$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/analysis/" },
+        { "type": "file", "path": "packages/renderer-app/src/source-tokenizer.ts" },
+        { "type": "pattern", "path": "^packages/tree-sitter-grammar-assets/src/" },
+        { "type": "pattern", "path": "^apps/docs/src/fixtures/" },
+        { "type": "pattern", "path": "^apps/docs/src/__tests__/(analysis|fixture-workflow|runtime-selection)" },
+        { "type": "file", "path": "apps/docs/src/demo-runtime.ts" }
+      ]
+    },
+    {
+      "id": "cover-examination-workflow",
+      "name": "Examination workflow",
+      "kind": "cover",
+      "members": [
+        { "type": "pattern", "path": "^packages/application/src/examination-workflows/" },
+        { "type": "pattern", "path": "^packages/application/src/__tests__/examination" },
+        { "type": "file", "path": "packages/application-contract/src/examination-contract.ts" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/(ExaminationTab|SubmissionExaminationTab)\\.tsx$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/examination/" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/examination" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/examination" }
+      ]
+    },
+    {
+      "id": "cover-llm-runtime",
+      "name": "LLM runtime",
+      "kind": "cover",
+      "members": [
+        { "type": "pattern", "path": "^packages/integrations-llm/src/" },
+        { "type": "pattern", "path": "^packages/integrations-llm-contract/src/" },
+        { "type": "pattern", "path": "^packages/integrations-llm-catalog/src/" },
+        { "type": "pattern", "path": "^packages/claude-coder/src/" },
+        { "type": "pattern", "path": "^packages/fixture-engine/src/(coder|fixture|llm|planner|prompt|review|state|evaluate|sampler|sweep|defaults|fixture-commands|index|cli|constants|log|markers|naming|plan-md|project-md|repo-context)" },
+        { "type": "file", "path": "packages/domain/src/settings.ts" },
+        { "type": "file", "path": "packages/domain/src/__tests__/settings-llm.test.ts" },
+        { "type": "pattern", "path": "^packages/application-contract/src/(examination-contract|workflow-catalog|workflow-payloads|workflow-types)\\.ts$" },
+        { "type": "file", "path": "packages/host-runtime-contract/src/index.ts" },
+        { "type": "pattern", "path": "^apps/desktop/src/.*llm" },
+        { "type": "pattern", "path": "^packages/host-node/src/.*llm" },
+        { "type": "pattern", "path": "^packages/application/src/(llm-connection-workflows|llm-error-normalization)\\.ts$" },
+        { "type": "pattern", "path": "^packages/application/src/examination-workflows/(examination-workflows|model-resolution|ports|prompt-builder|provider-excerpts|question-parser|redaction|soft-stop-session)\\.ts$" },
+        { "type": "pattern", "path": "^packages/application/src/__tests__/(llm|examination-llm|examination-prompt|examination-redaction|examination-streaming)" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/.*Llm" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/examination/(LlmControls|llm-models)\\.ts" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(credentials-store|connections-store|examination-preferences)\\.ts$" },
+        { "type": "pattern", "path": "^apps/docs/src/(demo-runtime|components/DemoApp)\\.tsx?$" },
+        { "type": "pattern", "path": "^packages/host-browser-mock/src/" }
+      ]
+    }
+  ]
+}

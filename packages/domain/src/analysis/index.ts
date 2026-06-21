@@ -13,15 +13,12 @@ export {
   SUPPORTED_LANGUAGES,
 } from "./language-catalog.js"
 export type {
-  LoadedTokenizerLanguage,
   Token,
-  TokenizerSupportedLanguage,
   TokenKind,
 } from "./language-tokenizer.js"
 export {
   extensionToTokenizerLanguage,
   isTokenizerSupportedLanguage,
-  TOKENIZER_SUPPORTED_LANGUAGES,
   tokenizeSource,
 } from "./language-tokenizer.js"
 export {
@@ -39,6 +36,11 @@ export {
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "./schemas.js"
+export type {
+  LoadedTokenizerLanguage,
+  TokenizerSupportedLanguage,
+} from "./tokenizer-language.js"
+export { TOKENIZER_SUPPORTED_LANGUAGES } from "./tokenizer-language.js"
 export type {
   AnalysisCommit,
   AnalysisResult,

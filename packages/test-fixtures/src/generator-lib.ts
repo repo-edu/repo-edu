@@ -14,7 +14,7 @@ import type {
   FixtureArtifact,
   FixtureMatrix,
   FixtureRecord,
-} from "./fixtures.js"
+} from "./fixture-types.js"
 
 export const fixtureTierCounts: Record<
   FixtureTier,

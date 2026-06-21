@@ -1,7 +1,7 @@
 import type { AnalysisConfig } from "./analysis/config-types.js"
-import type { AnalysisInputs } from "./analysis-inputs.js"
+import type { AnalysisInputs } from "./analysis-input-types.js"
 
-export type { AnalysisInputs } from "./analysis-inputs.js"
+export type { AnalysisInputs } from "./analysis-input-types.js"
 
 export const packageId = "@repo-edu/domain"
 

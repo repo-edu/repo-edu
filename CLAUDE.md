@@ -10,13 +10,19 @@ this repo. When asked to write, draft or iterate on a plan, first read
 `../plan/CLAUDE.md` and follow its workflow, file layout, naming, structure and
 commit conventions. Keep this repo free of plan files so releases stay clean.
 
-When an area has had two or more `fix:` commits among its last ten, do not
-apply another. That repeated-fix signal is the frame round's prior-attempt
-evidence, defined with the planning doctrine in `../plan/CLAUDE.md`; here it
-obliges the round to stop patching and surface the area to the user as a
-frame-round candidate in `../plan`. The pull across repos stays the user's,
-since an implementation session cannot open a plan-repo round, so this rule
-only makes the signal loud rather than letting another patch land silently.
+Areas are stable IDs in
+`tools/architecture-check/src/area-model.json`. Before applying another fix,
+strip the implementation severity prefix from recent commit subjects, attribute
+touched tracked source files to their primary area ID and walk history until
+that area has ten touched commits. If two or more of those commits are `fix:`
+commits, do not apply another patch. Surface the area ID to the user as a
+frame-round candidate in `../plan`. Cover area IDs are context for
+cross-cutting concerns, not primary ownership.
+
+Before splitting a tracked source file, name the source file's current primary
+area ID and the child area ID each output file will join. If the split creates
+a new primary concern, update the area model in the same change and record
+`splitFrom`.
 
 ## Build and Development Commands
 
@@ -76,6 +82,11 @@ repo-edu/
     ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
     └── release/                   # Versioning/release helper
 ```
+
+The committed area model is
+`tools/architecture-check/src/area-model.json`. Partition areas tile tracked
+source files exactly once and define primary ownership. Cover areas overlap the
+partition for cross-cutting audit and drift context only.
 
 Each app and package has its own `CLAUDE.md` with purpose, constraints, and
 non-obvious conventions:

@@ -1,8 +1,7 @@
 import { z } from "zod"
-import type { AnalysisConfig } from "./analysis/config-types.js"
 import { analysisConfigFieldSchemas } from "./analysis/schemas.js"
 
-export type AnalysisInputs = Omit<AnalysisConfig, "maxConcurrency">
+export type { AnalysisInputs } from "./analysis-input-types.js"
 
 const {
   maxConcurrency: _maxConcurrency,

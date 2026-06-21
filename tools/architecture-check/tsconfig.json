@@ -6,5 +6,5 @@
     "rootDir": "../..",
     "incremental": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "../../packages/domain/src/analysis/**/*.ts"]
 }

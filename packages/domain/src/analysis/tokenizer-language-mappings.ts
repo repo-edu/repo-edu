@@ -1,4 +1,4 @@
-import type { TokenizerSupportedLanguage } from "./language-tokenizer.js"
+import type { TokenizerSupportedLanguage } from "./tokenizer-language.js"
 
 export type TokenizerLanguageMapping = {
   readonly assetLanguage: TokenizerSupportedLanguage
