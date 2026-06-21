@@ -1,10 +1,15 @@
 import { realpath } from "node:fs/promises"
 import * as path from "node:path"
+import { fileURLToPath } from "node:url"
 import ts from "typescript"
 
 import type { DependencyCruiserRuleSet } from "./graph-policy.js"
 import type { SourceInventory } from "./inventory.js"
-import { repoPathToAbsolute } from "./repo-paths.js"
+import {
+  normalizeRepoPath,
+  repoPathToAbsolute,
+  toRepoPath,
+} from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
 type CruiseResult = {
@@ -20,7 +25,7 @@ type CruiseModule = {
 }
 
 type CruiseDependency = {
-  readonly resolved: string
+  readonly resolved?: string
   readonly module: string
   readonly rules?: readonly CruiseRuleSummary[]
 }
@@ -109,7 +114,64 @@ export async function runDependencyCruiserRules(
       ),
     ) ?? []
 
-  return dedupeViolations([...summaryViolations, ...dependencyViolations])
+  return dedupeViolations([
+    ...summaryViolations,
+    ...dependencyViolations,
+    ...workspaceImportProjectionViolations(
+      canonicalRoot,
+      inventory,
+      cruiseResult,
+    ),
+  ])
+}
+
+function workspaceImportProjectionViolations(
+  root: string,
+  inventory: SourceInventory,
+  cruiseResult: CruiseResult,
+): Violation[] {
+  return (
+    cruiseResult.modules?.flatMap((module) =>
+      module.dependencies.flatMap((dependency) => {
+        const source = normalizeCruisePath(root, module.source)
+        if (!inventory.fileSet.has(source)) return []
+        if (!isWorkspacePackageImport(dependency.module)) return []
+
+        const resolved = normalizedResolvedPath(root, dependency.resolved)
+        if (resolved && inventory.fileSet.has(resolved)) return []
+
+        return [
+          {
+            file: source,
+            message: `imports workspace package "${dependency.module}" but dependency-cruiser resolved it outside the source inventory${
+              resolved ? `: ${resolved}` : ""
+            }`,
+          },
+        ]
+      }),
+    ) ?? []
+  )
+}
+
+function isWorkspacePackageImport(moduleName: string): boolean {
+  return moduleName === "@repo-edu" || moduleName.startsWith("@repo-edu/")
+}
+
+function normalizedResolvedPath(
+  root: string,
+  filePath: string | undefined,
+): string | undefined {
+  if (!filePath) return undefined
+  const normalized = normalizeCruisePath(root, filePath)
+  return normalized.startsWith("..") ? undefined : normalized
+}
+
+function normalizeCruisePath(root: string, filePath: string): string {
+  if (filePath.startsWith("file://")) {
+    return normalizeCruisePath(root, fileURLToPath(filePath))
+  }
+  if (path.isAbsolute(filePath)) return toRepoPath(root, filePath)
+  return normalizeRepoPath(filePath)
 }
 
 function compileTsConfigAliases(

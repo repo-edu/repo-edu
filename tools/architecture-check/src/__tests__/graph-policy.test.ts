@@ -27,7 +27,10 @@ describe("graph policy", () => {
 
     const violations = await runDependencyCruiserRules(
       root,
-      inventory(["packages/domain/src/index.ts"]),
+      inventory([
+        "packages/domain/src/index.ts",
+        "packages/application/src/index.ts",
+      ]),
       {
         forbidden: [
           {
@@ -44,6 +47,57 @@ describe("graph policy", () => {
       violations.map((violation) => violation.message).join("\n"),
       /domain-not-to-application/,
     )
+  })
+
+  it("fails closed when workspace imports resolve outside the source inventory", async () => {
+    const root = await createGraphFixture(
+      {
+        "packages/domain/src/index.ts": 'import "@repo-edu/application"\n',
+        "packages/application/dist/index.js": "export const value = 1\n",
+      },
+      {
+        paths: {
+          "@repo-edu/application": ["./packages/application/dist/index.js"],
+        },
+      },
+    )
+
+    const violations = await runDependencyCruiserRules(
+      root,
+      inventory(["packages/domain/src/index.ts"]),
+      {
+        forbidden: [
+          {
+            name: "domain-not-to-application",
+            severity: "error",
+            from: { path: "^packages/domain/src/" },
+            to: { path: "^packages/application/src/" },
+          },
+        ],
+      },
+    )
+
+    assert.match(
+      violations.map((violation) => violation.message).join("\n"),
+      /resolved it outside the source inventory/,
+    )
+  })
+
+  it("does not apply the workspace projection guard to resolver-only modules", async () => {
+    const root = await createGraphFixture({
+      "packages/domain/src/index.ts":
+        'import "./generated.js"\nexport const value = true\n',
+      "packages/domain/src/generated.js": 'import "@repo-edu/application"\n',
+      "packages/application/dist/index.js": "export const value = 1\n",
+    })
+
+    const violations = await runDependencyCruiserRules(
+      root,
+      inventory(["packages/domain/src/index.ts"]),
+      { forbidden: [] },
+    )
+
+    assert.deepEqual(violations, [])
   })
 
   it("allows generated fixture output as a resolver-only target", async () => {
@@ -141,7 +195,10 @@ describe("graph policy", () => {
 
     const violations = await runDependencyCruiserRules(
       root,
-      inventory(["packages/domain/src/__tests__/helper.test.ts"]),
+      inventory([
+        "packages/domain/src/__tests__/helper.test.ts",
+        "packages/application/src/index.ts",
+      ]),
       {
         forbidden: [
           {
@@ -194,6 +251,9 @@ describe("graph policy", () => {
 
 async function createGraphFixture(
   files: Record<string, string>,
+  options?: {
+    readonly paths?: Record<string, readonly string[]>
+  },
 ): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "repo-edu-architecture-"))
   await writeFile(
@@ -210,6 +270,7 @@ async function createGraphFixture(
         paths: {
           "@repo-edu/application": ["./packages/application/src/index.ts"],
           "@repo-edu/claude-coder": ["./packages/claude-coder/src/index.ts"],
+          ...options?.paths,
         },
       },
     }),

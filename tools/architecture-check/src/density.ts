@@ -73,6 +73,7 @@ export function computeRedesignDensity(
 
   const counts = new Map<string, number>()
   const violations: Violation[] = []
+  const lineageParents = collectLineageParents(model, snapshots)
 
   for (const commit of commits.slice(0, HISTORY_WINDOW)) {
     const kind = conventionalKind(commit.subject)
@@ -86,6 +87,7 @@ export function computeRedesignDensity(
         model,
         changedPath,
         historicalModel,
+        lineageParents,
       )
       for (const areaId of attribution.areaIds) touchedAreas.add(areaId)
       violations.push(...attribution.violations)
@@ -123,6 +125,10 @@ function attributeChangedPath(
   currentModel: CompiledAreaModel,
   changedPath: string,
   historicalModel?: CompiledAreaModel,
+  lineageParents: ReadonlyMap<string, string> = collectLineageParents(
+    currentModel,
+    new Map(),
+  ),
 ): {
   readonly areaIds: readonly string[]
   readonly violations: readonly Violation[]
@@ -141,6 +147,7 @@ function attributeChangedPath(
         historicalPrimary,
         "partition",
         changedPath,
+        lineageParents,
       )
       for (const areaId of resolved.areaIds) areaIds.add(areaId)
       violations.push(...resolved.violations)
@@ -160,6 +167,7 @@ function attributeChangedPath(
         historicalCover,
         "cover",
         changedPath,
+        lineageParents,
       )
       for (const areaId of resolved.areaIds) areaIds.add(areaId)
       violations.push(...resolved.violations)
@@ -174,18 +182,15 @@ function resolveHistoricalArea(
   historicalAreaId: string,
   kind: AreaRecord["kind"],
   changedPath: string,
+  lineageParents: ReadonlyMap<string, string>,
 ): {
   readonly areaIds: readonly string[]
   readonly violations: readonly Violation[]
 } {
-  const currentArea = currentModel.byId.get(historicalAreaId)
-  if (currentArea?.kind === kind)
-    return { areaIds: [historicalAreaId], violations: [] }
-
   const descendants = currentModel.areas.filter(
     (area) =>
       area.kind === kind &&
-      areaLineageIncludes(currentModel, area, historicalAreaId),
+      areaLineageIncludes(area, historicalAreaId, lineageParents),
   )
   const matchingDescendants = descendants.filter((area) =>
     currentAreaMatchesFile(currentModel, area, changedPath),
@@ -198,8 +203,20 @@ function resolveHistoricalArea(
     }
   }
 
+  const currentArea = currentModel.byId.get(historicalAreaId)
+  if (
+    currentArea?.kind === kind &&
+    currentAreaMatchesFile(currentModel, currentArea, changedPath)
+  ) {
+    return { areaIds: [historicalAreaId], violations: [] }
+  }
+
   if (descendants.length === 1) {
     return { areaIds: [descendants[0].id], violations: [] }
+  }
+
+  if (currentArea?.kind === kind && descendants.length === 0) {
+    return { areaIds: [historicalAreaId], violations: [] }
   }
 
   return {
@@ -218,17 +235,35 @@ function resolveHistoricalArea(
   }
 }
 
+function collectLineageParents(
+  currentModel: CompiledAreaModel,
+  snapshots: ReadonlyMap<string, CompiledAreaModel>,
+): ReadonlyMap<string, string> {
+  const parents = new Map<string, string>()
+  for (const area of currentModel.areas) {
+    if (area.splitFrom !== undefined) parents.set(area.id, area.splitFrom)
+  }
+  for (const snapshot of snapshots.values()) {
+    for (const area of snapshot.areas) {
+      if (area.splitFrom !== undefined && !parents.has(area.id)) {
+        parents.set(area.id, area.splitFrom)
+      }
+    }
+  }
+  return parents
+}
+
 function areaLineageIncludes(
-  model: CompiledAreaModel,
   area: AreaRecord,
   targetAreaId: string,
+  lineageParents: ReadonlyMap<string, string>,
 ): boolean {
   let current = area.splitFrom
   const seen = new Set<string>()
   while (current !== undefined && !seen.has(current)) {
     if (current === targetAreaId) return true
     seen.add(current)
-    current = model.byId.get(current)?.splitFrom
+    current = lineageParents.get(current)
   }
   return false
 }
