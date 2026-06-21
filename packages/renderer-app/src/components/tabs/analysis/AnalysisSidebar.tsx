@@ -328,9 +328,9 @@ export function AnalysisSidebar() {
     setSections((prev) => ({ ...prev, repositories: true }))
     if (analysisContext.kind === "folder") {
       await analysisContext.activateFolderPath(dir)
-    } else {
-      analysisContext.updateCourseSearchFolder(dir)
+      return
     }
+    analysisContext.updateCourseSearchFolder(dir)
     void runRepoDiscovery(dir)
   }, [analysisContext, rendererHost, runRepoDiscovery, selectRepository])
 
