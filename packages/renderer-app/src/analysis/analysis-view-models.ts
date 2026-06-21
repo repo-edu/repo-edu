@@ -120,6 +120,20 @@ export function filterFileStats(params: {
   return filtered.length > 0 ? filtered : [...merged]
 }
 
+export function selectEffectiveFileSelection(params: {
+  fileSelectionMode: AnalysisFileSelectionMode
+  selectedFiles: ReadonlySet<string>
+  filePaths: readonly string[]
+}): ReadonlySet<string> {
+  const { fileSelectionMode, selectedFiles, filePaths } = params
+  if (fileSelectionMode === "all") return new Set(filePaths)
+  const surviving = new Set<string>()
+  for (const path of filePaths) {
+    if (selectedFiles.has(path)) surviving.add(path)
+  }
+  return surviving.size > 0 ? surviving : new Set(filePaths)
+}
+
 export function selectEffectiveBlameVisibleAuthors(params: {
   storedVisibleAuthors: ReadonlySet<string> | null
   visibleAuthorIds: readonly string[]

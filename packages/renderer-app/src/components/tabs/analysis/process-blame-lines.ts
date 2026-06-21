@@ -11,108 +11,16 @@ export type ProcessedLine = {
   isEmpty: boolean
 }
 
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-function fnmatchToRegex(pattern: string): RegExp {
-  let regex = ""
-  let i = 0
-
-  while (i < pattern.length) {
-    const char = pattern[i]
-
-    if (char === "*") {
-      regex += "[\\s\\S]*"
-    } else if (char === "?") {
-      regex += "[\\s\\S]"
-    } else if (char === "[") {
-      let j = i + 1
-      if (j < pattern.length && pattern[j] === "!") {
-        j++
-      }
-      if (j < pattern.length && pattern[j] === "]") {
-        j++
-      }
-      while (j < pattern.length && pattern[j] !== "]") {
-        j++
-      }
-
-      if (j >= pattern.length) {
-        regex += escapeRegex(char)
-      } else {
-        let classBody = pattern.slice(i + 1, j)
-        if (classBody.startsWith("!")) {
-          classBody = `^${classBody.slice(1)}`
-        }
-        regex += `[${classBody}]`
-        i = j
-      }
-    } else {
-      regex += escapeRegex(char)
-    }
-
-    i++
-  }
-
-  return new RegExp(`^${regex}$`, "i")
-}
-
-const PATTERN_CACHE_MAX = 64
-const patternCache = new Map<string, RegExp>()
-
-function matchesPattern(value: string, pattern: string): boolean {
-  let regex = patternCache.get(pattern)
-  if (!regex) {
-    regex = fnmatchToRegex(pattern)
-    if (patternCache.size >= PATTERN_CACHE_MAX) {
-      const first = patternCache.keys().next().value
-      if (first !== undefined) patternCache.delete(first)
-    }
-    patternCache.set(pattern, regex)
-  }
-  return regex.test(value)
-}
-
-function matchesAnyPattern(
-  value: string,
-  patterns: readonly string[],
-): boolean {
-  return patterns.some((pattern) => matchesPattern(value, pattern))
-}
-
 export function processBlameLines(
   fileBlame: FileBlame,
   personDb: PersonDbSnapshot,
   commitNumberMap: ReadonlyMap<string, number>,
   commentClassification: ReadonlySet<number> | null,
-  options: {
-    excludeAuthors: readonly string[]
-    excludeEmails: readonly string[]
-  },
 ): ProcessedLine[] {
-  const indexedLines = fileBlame.lines
-    .map((line, originalIndex) => ({ line, originalIndex }))
-    .filter(({ line }) => {
-      if (
-        options.excludeAuthors.length > 0 &&
-        matchesAnyPattern(line.authorName, options.excludeAuthors)
-      ) {
-        return false
-      }
-      if (
-        options.excludeEmails.length > 0 &&
-        matchesAnyPattern(line.authorEmail, options.excludeEmails)
-      ) {
-        return false
-      }
-      return true
-    })
-
   const authorLineCounts = new Map<string, number>()
   const linePersonIds: string[] = []
 
-  for (const { line } of indexedLines) {
+  for (const line of fileBlame.lines) {
     const person = lookupPerson(personDb, line.authorName, line.authorEmail)
     const pid = person?.id ?? `unknown:${line.authorEmail}`
     linePersonIds.push(pid)
@@ -128,10 +36,10 @@ export function processBlameLines(
   }
 
   const processed: ProcessedLine[] = []
-  for (const [i, { line, originalIndex }] of indexedLines.entries()) {
+  for (const [i, line] of fileBlame.lines.entries()) {
     const personId = linePersonIds[i] ?? `unknown:${line.authorEmail}`
-    const isFirstInGroup = i === 0 || indexedLines[i - 1]?.line.sha !== line.sha
-    const isComment = commentClassification?.has(originalIndex) ?? false
+    const isFirstInGroup = i === 0 || fileBlame.lines[i - 1]?.sha !== line.sha
+    const isComment = commentClassification?.has(i) ?? false
     const isEmpty = line.content.trim().length === 0
 
     processed.push({

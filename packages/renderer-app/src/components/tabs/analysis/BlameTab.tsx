@@ -425,7 +425,6 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const { blameStatus, blameErrorMessage } = useAnalysisBlameStatus()
   const { authorColorsByPersonId: colorMap } = useAnalysisAuthorView()
   const { analysisScopeKey } = useAnalysisSelection()
-  const blameConfig = useAnalysisStore((s) => s.blameConfig)
 
   const showMetadata = useAnalysisStore((s) => s.blameShowMetadata)
   const colorize = useAnalysisStore((s) => s.blameColorize)
@@ -474,12 +473,8 @@ export function BlameTab({ filePath }: { filePath: string }) {
       personDb,
       commitNumberMap,
       commentClassification,
-      {
-        excludeAuthors: blameConfig.excludeAuthors ?? [],
-        excludeEmails: blameConfig.excludeEmails ?? [],
-      },
     )
-  }, [fileBlame, personDb, commitNumberMap, blameConfig, commentClassification])
+  }, [fileBlame, personDb, commitNumberMap, commentClassification])
 
   const lineFilteredLines = useMemo(() => {
     let lines = processed

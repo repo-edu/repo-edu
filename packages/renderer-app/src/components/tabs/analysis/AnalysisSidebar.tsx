@@ -18,6 +18,7 @@ import {
   useAnalysisResult,
   useAnalysisSelection,
 } from "../../../analysis/analysis-query-coordinator.js"
+import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import {
@@ -241,8 +242,11 @@ export function AnalysisSidebar() {
   }, [result])
 
   const effectiveFileSelection = useMemo(() => {
-    if (fileSelectionMode === "all") return new Set(sortedFilePaths)
-    return new Set(selectedFiles)
+    return selectEffectiveFileSelection({
+      fileSelectionMode,
+      selectedFiles,
+      filePaths: sortedFilePaths,
+    })
   }, [fileSelectionMode, selectedFiles, sortedFilePaths])
 
   const toggleFolderOpen = useCallback((folder: string) => {

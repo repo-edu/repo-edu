@@ -57,7 +57,7 @@ export function AnalysisSidebarFilesSection({
   open: boolean
   onOpenChange: (key: AnalysisSidebarSectionKey, open: boolean) => void
   sortedFilePaths: string[]
-  effectiveFileSelection: Set<string>
+  effectiveFileSelection: ReadonlySet<string>
   nFiles: number | undefined
   setConfigAndRerun: (patch: Partial<AnalysisInputs>) => void
   blurOnEnter: (event: React.KeyboardEvent<HTMLInputElement>) => void

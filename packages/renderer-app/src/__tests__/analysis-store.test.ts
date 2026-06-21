@@ -30,6 +30,7 @@ import {
   mergeAuthorStats,
   mergeFileStats,
   selectEffectiveBlameVisibleAuthors,
+  selectEffectiveFileSelection,
   selectEffectiveFocusedFile,
 } from "../analysis/analysis-view-models.js"
 import { buildEffectiveBlameWorkflowConfig } from "../analysis/analysis-workflow-inputs.js"
@@ -787,6 +788,16 @@ describe("analysis view models", () => {
         fileSelectionMode: "subset",
         selectedFiles: new Set(["missing"]),
       }).map((file) => file.path),
+      ["src/a.ts"],
+    )
+    assert.deepEqual(
+      [
+        ...selectEffectiveFileSelection({
+          fileSelectionMode: "subset",
+          selectedFiles: new Set(["missing"]),
+          filePaths: result.fileStats.map((file) => file.path),
+        }),
+      ],
       ["src/a.ts"],
     )
   })

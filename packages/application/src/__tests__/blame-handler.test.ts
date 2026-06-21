@@ -251,7 +251,7 @@ describe("analysis.blame handler", () => {
     )
   })
 
-  it("keeps full blame lines for display while summaries honor exclusion config", async () => {
+  it("applies author exclusions to displayed blame lines and summaries", async () => {
     const aliceOid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     const bobOid = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     const blameOutput = [
@@ -305,7 +305,8 @@ describe("analysis.blame handler", () => {
     })
 
     assert.equal(result.fileBlames.length, 1)
-    assert.equal(result.fileBlames[0].lines.length, 2)
+    assert.equal(result.fileBlames[0].lines.length, 1)
+    assert.equal(result.fileBlames[0].lines[0].authorName, "Bob")
     assert.equal(result.authorSummaries.length, 1)
     assert.equal(result.authorSummaries[0].canonicalName, "Bob")
     assert.equal(result.authorSummaries[0].lines, 1)

@@ -97,7 +97,7 @@ export function collectFolderPaths(node: FileTreeNode): string[] {
 
 export function countSelected(
   node: FileTreeNode,
-  selection: Set<string>,
+  selection: ReadonlySet<string>,
 ): { selected: number; total: number } {
   let selected = 0
   let total = node.files.length
@@ -119,7 +119,7 @@ export function countSelected(
 type FileTreeContextValue = {
   openFolders: Set<string>
   toggleFolderOpen: (folder: string) => void
-  effectiveFileSelection: Set<string>
+  effectiveFileSelection: ReadonlySet<string>
   focusedFilePath: string | null
   highlightFocused: boolean
   onFileClick: (path: string) => void

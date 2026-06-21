@@ -44,34 +44,6 @@ function line(
 }
 
 describe("processBlameLines", () => {
-  it("looks up comment classification by original file-blame index", () => {
-    const fileBlame: FileBlame = {
-      path: "src/example.ts",
-      lines: [
-        line(1, "/* start", "Bob", "bob@example.test"),
-        line(2, " * hidden by author filter", "Bob", "bob@example.test"),
-        line(3, " * visible"),
-        line(4, " */"),
-      ],
-    }
-
-    const processed = processBlameLines(
-      fileBlame,
-      personDb,
-      new Map(),
-      new Set([0, 1, 2, 3]),
-      { excludeAuthors: ["Bob"], excludeEmails: [] },
-    )
-
-    assert.deepEqual(
-      processed.map((entry) => [entry.line.lineNumber, entry.isComment]),
-      [
-        [3, true],
-        [4, true],
-      ],
-    )
-  })
-
   it("does not derive comment classification from line numbers", () => {
     const fileBlame: FileBlame = {
       path: "src/example.ts",
@@ -87,7 +59,6 @@ describe("processBlameLines", () => {
       personDb,
       new Map(),
       new Set([1]),
-      { excludeAuthors: [], excludeEmails: [] },
     )
 
     assert.deepEqual(
@@ -106,10 +77,7 @@ describe("processBlameLines", () => {
       lines: [line(1, "// comment")],
     }
 
-    const processed = processBlameLines(fileBlame, personDb, new Map(), null, {
-      excludeAuthors: [],
-      excludeEmails: [],
-    })
+    const processed = processBlameLines(fileBlame, personDb, new Map(), null)
 
     assert.equal(processed[0].isComment, false)
   })

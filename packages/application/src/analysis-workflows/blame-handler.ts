@@ -458,7 +458,7 @@ export function createAnalysisBlameHandler(
 
           fileBlames.push({
             path: blame.path,
-            lines: blame.lines,
+            lines: filteredLines,
           })
 
           // Enrich PersonDB (deterministic file order)
