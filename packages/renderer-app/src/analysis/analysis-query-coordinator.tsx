@@ -45,6 +45,7 @@ import {
   analysisSourceScopeKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
+  queryKeyMatchesSourceSnapshotHead,
 } from "./analysis-query-keys.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
@@ -412,7 +413,6 @@ export function AnalysisCoordinatorProvider({
       const snapshotKey = analysisQueryKeys.snapshotHead({
         source: activeSourceParts,
         repoPath,
-        asOfCommit: null,
         until: config.until ?? null,
       })
       const snapshotCommitOid = await queryClient.ensureQueryData({
@@ -544,7 +544,6 @@ export function AnalysisCoordinatorProvider({
       : analysisQueryKeys.snapshotHead({
           source: activeSourceParts,
           repoPath: selectedRepoPath,
-          asOfCommit: null,
           until: analysisConfig.until ?? null,
         })
   const selectedSnapshotQuery = useQuery({
@@ -863,6 +862,10 @@ export function AnalysisCoordinatorProvider({
       setLastDiscoveryOutcome("none")
       void queryClient.cancelQueries({
         queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
+      })
+      queryClient.removeQueries({
+        predicate: (query) =>
+          queryKeyMatchesSourceSnapshotHead(query.queryKey, activeSourceParts),
       })
       setDiscoveryInput(input)
       if (sameInput) {

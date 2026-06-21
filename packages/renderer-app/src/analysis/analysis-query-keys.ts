@@ -117,6 +117,29 @@ export function analysisResultScopeKey(
   return JSON.stringify(identity)
 }
 
+function sourcePartsEqual(
+  candidate: unknown,
+  expected: AnalysisSourceKeyParts,
+): boolean {
+  if (!Array.isArray(candidate)) return false
+  if (candidate.length !== expected.length) return false
+  return expected.every((part, index) => candidate[index] === part)
+}
+
+export function queryKeyMatchesSourceSnapshotHead(
+  queryKey: readonly unknown[],
+  source: AnalysisSourceKeyParts,
+): boolean {
+  return (
+    queryKey[0] === "analysis" &&
+    queryKey[1] === "source" &&
+    sourcePartsEqual(queryKey[2], source) &&
+    queryKey[3] === "repo" &&
+    typeof queryKey[4] === "string" &&
+    queryKey[5] === "snapshot-head"
+  )
+}
+
 export function buildAnalysisOutputConfigKey(
   config: AnalysisConfig,
 ): AnalysisOutputConfigKey {
@@ -215,7 +238,6 @@ export const analysisQueryKeys = {
   snapshotHead: (params: {
     source: AnalysisSourceKeyParts
     repoPath: string
-    asOfCommit: string | null
     until: string | null
   }) =>
     [
@@ -225,7 +247,6 @@ export const analysisQueryKeys = {
       "repo",
       params.repoPath,
       "snapshot-head",
-      params.asOfCommit,
       params.until,
     ] as const,
   repoResults: (source: AnalysisSourceKeyParts, repoPath: string) =>

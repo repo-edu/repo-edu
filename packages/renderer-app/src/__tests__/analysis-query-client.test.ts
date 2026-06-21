@@ -5,6 +5,8 @@ import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
+  buildBlameQueryIdentity,
+  queryKeyMatchesSourceSnapshotHead,
 } from "../analysis/analysis-query-keys.js"
 
 const source = ["folder", "/courses"] as const
@@ -23,6 +25,46 @@ function buildResultKey(snapshotCommitOid: string) {
 }
 
 describe("renderer analysis query cache", () => {
+  it("removes source snapshot heads without dropping settled repo data", () => {
+    const queryClient = createRendererQueryClient()
+    const analysis = buildAnalysisQueryIdentity({
+      source,
+      repoPath,
+      snapshotCommitOid: "old-head",
+      config: {},
+      rosterContext: undefined,
+    })
+    const blame = buildBlameQueryIdentity({
+      source,
+      repoPath,
+      analysis,
+      config: {},
+    })
+    const snapshotKey = analysisQueryKeys.snapshotHead({
+      source,
+      repoPath,
+      until: null,
+    })
+    const discoveryKey = analysisQueryKeys.discovery(source, "/courses", 5)
+    const resultKey = analysisQueryKeys.result(analysis)
+    const blameKey = analysisQueryKeys.blame(blame)
+
+    queryClient.setQueryData(snapshotKey, "old-head")
+    queryClient.setQueryData(discoveryKey, { repos: [] })
+    queryClient.setQueryData(resultKey, { result: true })
+    queryClient.setQueryData(blameKey, { blame: true })
+
+    queryClient.removeQueries({
+      predicate: (query) =>
+        queryKeyMatchesSourceSnapshotHead(query.queryKey, source),
+    })
+
+    assert.equal(queryClient.getQueryData(snapshotKey), undefined)
+    assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
+    assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
+    assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
+  })
+
   it("evicts oldest inactive analysis data over the size budget", () => {
     const queryClient = createRendererQueryClient({
       analysisDataCacheBudgetBytes: 300,
