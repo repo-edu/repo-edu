@@ -73,6 +73,72 @@ describe("area model schema", () => {
       }),
     )
   })
+
+  it("rejects invalid splitFrom lineage", () => {
+    assert.throws(
+      () =>
+        parseAreaModel({
+          schemaVersion: 1,
+          areas: [
+            {
+              id: "area-a",
+              name: "Area A",
+              kind: "partition",
+              members: [{ type: "pattern", path: "^a/" }],
+              splitFrom: "area-missing",
+            },
+          ],
+        }),
+      /unknown area ID/,
+    )
+
+    assert.throws(
+      () =>
+        parseAreaModel({
+          schemaVersion: 1,
+          areas: [
+            {
+              id: "area-a",
+              name: "Area A",
+              kind: "partition",
+              members: [{ type: "pattern", path: "^a/" }],
+            },
+            {
+              id: "cover-a",
+              name: "Cover A",
+              kind: "cover",
+              members: [{ type: "pattern", path: "^a/" }],
+              splitFrom: "area-a",
+            },
+          ],
+        }),
+      /same kind/,
+    )
+
+    assert.throws(
+      () =>
+        parseAreaModel({
+          schemaVersion: 1,
+          areas: [
+            {
+              id: "area-a",
+              name: "Area A",
+              kind: "partition",
+              members: [{ type: "pattern", path: "^a/" }],
+              splitFrom: "area-b",
+            },
+            {
+              id: "area-b",
+              name: "Area B",
+              kind: "partition",
+              members: [{ type: "pattern", path: "^b/" }],
+              splitFrom: "area-a",
+            },
+          ],
+        }),
+      /lineage contains a cycle/,
+    )
+  })
 })
 
 describe("area reconciliation", () => {

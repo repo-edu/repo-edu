@@ -39,7 +39,7 @@ export function readRecentCommits(root: string, count: number): GitCommit[] {
       "log",
       `-${count}`,
       "--find-renames",
-      "--name-only",
+      "--name-status",
       "-z",
       "--format=%x1e%H%x00%P%x00%s",
     ],
@@ -67,13 +67,35 @@ export function parseGitLog(output: string): GitCommit[] {
     .filter((record) => record.length > 0)
     .map((record) => {
       const fields = record.split("\0")
-      const [hash = "", parents = "", subject = "", ...changedPaths] = fields
+      const [hash = "", parents = "", subject = "", ...changedPathEntries] =
+        fields
       return {
         hash,
         parents: parents.split(" ").filter(Boolean),
         subject,
-        changedPaths: changedPaths.filter(Boolean).map(normalizeRepoPath),
+        changedPaths: parseChangedPaths(changedPathEntries),
       }
     })
     .filter((commit) => commit.hash.length > 0)
+}
+
+function parseChangedPaths(entries: readonly string[]): string[] {
+  const changedPaths: string[] = []
+  for (let index = 0; index < entries.length; ) {
+    const status = entries[index]
+    index += 1
+    if (!status) continue
+
+    if (/^[CR]\d+/.test(status)) {
+      const destination = entries[index + 1]
+      index += 2
+      if (destination) changedPaths.push(normalizeRepoPath(destination))
+      continue
+    }
+
+    const filePath = entries[index]
+    index += 1
+    if (filePath) changedPaths.push(normalizeRepoPath(filePath))
+  }
+  return changedPaths
 }

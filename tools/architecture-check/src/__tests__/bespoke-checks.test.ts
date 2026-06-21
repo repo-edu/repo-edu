@@ -27,4 +27,35 @@ describe("bespoke checks", () => {
       /outside fixture-engine/,
     )
   })
+
+  it("checks non-source CommonJS and import-equals imports", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-bespoke-"))
+    await writeFile(join(root, "package.json"), "{}")
+    await mkdir(join(root, "tools/config"), { recursive: true })
+    await writeFile(
+      join(root, "tools/config/build.ts"),
+      [
+        'import { createRequire } from "node:module"',
+        "const configRequire = createRequire(import.meta.url)",
+        'configRequire("@repo-edu/claude-coder")',
+      ].join("\n"),
+    )
+    await writeFile(
+      join(root, "tools/config/import-equals.ts"),
+      'import coder = require("@repo-edu/claude-coder")\n',
+    )
+
+    const violations = runBespokeChecks(
+      root,
+      { files: [], fileSet: new Set() },
+      () => ["tools/config/build.ts", "tools/config/import-equals.ts"],
+    )
+
+    assert.equal(
+      violations.filter((violation) =>
+        /outside fixture-engine/.test(violation.message),
+      ).length,
+      2,
+    )
+  })
 })

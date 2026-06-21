@@ -73,6 +73,7 @@ const areaModelSchema = z
   })
   .superRefine((model, context) => {
     const seen = new Set<string>()
+    const byId = new Map(model.areas.map((area) => [area.id, area]))
     for (const [index, area] of model.areas.entries()) {
       if (seen.has(area.id)) {
         context.addIssue({
@@ -89,6 +90,41 @@ const areaModelSchema = z
           message: "splitFrom cannot reference the record's own ID.",
           path: ["areas", index, "splitFrom"],
         })
+      }
+
+      if (area.splitFrom !== undefined) {
+        const parent = byId.get(area.splitFrom)
+        if (!parent) {
+          context.addIssue({
+            code: "custom",
+            message: `splitFrom references unknown area ID: ${area.splitFrom}`,
+            path: ["areas", index, "splitFrom"],
+          })
+        } else if (parent.kind !== area.kind) {
+          context.addIssue({
+            code: "custom",
+            message: "splitFrom must reference an area with the same kind.",
+            path: ["areas", index, "splitFrom"],
+          })
+        }
+      }
+    }
+
+    for (const [index, area] of model.areas.entries()) {
+      const lineage = new Set<string>()
+      let current: string | undefined = area.splitFrom
+      while (current !== undefined) {
+        if (lineage.has(current)) {
+          context.addIssue({
+            code: "custom",
+            message: `splitFrom lineage contains a cycle at ${current}.`,
+            path: ["areas", index, "splitFrom"],
+          })
+          break
+        }
+
+        lineage.add(current)
+        current = byId.get(current)?.splitFrom
       }
     }
   })

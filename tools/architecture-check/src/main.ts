@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url"
+
 import {
   compileAreaModel,
   loadAreaModel,
@@ -57,6 +59,13 @@ async function main(): Promise<void> {
   console.log("\nArchitecture check passed")
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function isMainModule(
+  moduleUrl: string,
+  argvPath: string | undefined,
+): boolean {
+  return argvPath !== undefined && moduleUrl === pathToFileURL(argvPath).href
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   void main()
 }
