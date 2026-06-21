@@ -7,6 +7,8 @@ export {
   normalizeExtension,
 } from "./language-catalog.js"
 
+export const MAX_ANALYSIS_WORKFLOW_CONCURRENCY = 16
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -88,7 +90,12 @@ export function analysisConfigFieldSchemas() {
     excludeMessages: patternArraySchema().optional(),
     nFiles: z.number().int().min(1).optional(),
     whitespace: z.boolean().optional(),
-    maxConcurrency: z.number().int().min(1).max(16).optional(),
+    maxConcurrency: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_ANALYSIS_WORKFLOW_CONCURRENCY)
+      .optional(),
     blameSkip: z.boolean().optional(),
   }
 }
@@ -134,7 +141,12 @@ export function analysisBlameConfigFieldSchemas() {
     excludeAuthors: patternArraySchema().optional(),
     excludeEmails: patternArraySchema().optional(),
     whitespace: z.boolean().optional(),
-    maxConcurrency: z.number().int().min(1).max(16).optional(),
+    maxConcurrency: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_ANALYSIS_WORKFLOW_CONCURRENCY)
+      .optional(),
     copyMove: z.number().int().min(0).max(4).optional(),
   }
 }

@@ -6,6 +6,7 @@ import {
   type BlameResult,
   buildPersonDbIdentityKey,
   type FileStats,
+  MAX_ANALYSIS_WORKFLOW_CONCURRENCY,
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
@@ -309,6 +310,17 @@ describe("analysis view state", () => {
     assert.equal(merged.whitespace, true)
     assert.equal(merged.maxConcurrency, 4)
     assert.equal(merged.copyMove, 3)
+  })
+
+  it("caps blame workflow concurrency at the workflow schema limit", () => {
+    const merged = buildEffectiveBlameWorkflowConfig(
+      makeCourse(),
+      useAnalysisStore.getState().blameConfig,
+      ["ts"],
+      MAX_ANALYSIS_WORKFLOW_CONCURRENCY * 8,
+    )
+
+    assert.equal(merged.maxConcurrency, MAX_ANALYSIS_WORKFLOW_CONCURRENCY)
   })
 
   it("opens blame by storing only view focus", () => {

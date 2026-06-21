@@ -35,6 +35,7 @@ export { mergePersonIdentities } from "./person-merge.js"
 export {
   analysisBlameConfigSchema,
   analysisConfigSchema,
+  MAX_ANALYSIS_WORKFLOW_CONCURRENCY,
   validateAnalysisBlameConfig,
   validateAnalysisConfig,
 } from "./schemas.js"

@@ -1,4 +1,7 @@
-import type { AnalysisBlameConfig } from "@repo-edu/domain/analysis"
+import {
+  type AnalysisBlameConfig,
+  MAX_ANALYSIS_WORKFLOW_CONCURRENCY,
+} from "@repo-edu/domain/analysis"
 import type { AnalysisCore } from "@repo-edu/domain/types"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 
@@ -8,10 +11,14 @@ export const buildEffectiveBlameWorkflowConfig = (
   defaultExtensions: string[],
   maxConcurrency: number,
 ): AnalysisBlameConfig => {
+  const workflowConcurrency = Math.min(
+    maxConcurrency,
+    MAX_ANALYSIS_WORKFLOW_CONCURRENCY,
+  )
   const config = resolveAnalysisConfig(
     course,
     defaultExtensions,
-    maxConcurrency,
+    workflowConcurrency,
   )
   return {
     ...blameConfig,

@@ -1,3 +1,4 @@
+import { MAX_ANALYSIS_WORKFLOW_CONCURRENCY } from "@repo-edu/domain/analysis"
 import {
   FormField,
   Input,
@@ -50,6 +51,10 @@ export function PerformancePane() {
 
   const totalProcesses =
     analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo
+  const blameProcesses = Math.min(
+    totalProcesses,
+    MAX_ANALYSIS_WORKFLOW_CONCURRENCY,
+  )
 
   return (
     <div className="space-y-6">
@@ -62,8 +67,8 @@ export function PerformancePane() {
             repos using the split — up to {analysisConcurrency.repoParallelism}{" "}
             repos at once, each running up to {analysisConcurrency.filesPerRepo}{" "}
             per-file git operations. Blame runs against one repo at a time, so
-            it ignores the split and spends the full budget of {totalProcesses}{" "}
-            processes on the selected repo.
+            it ignores the split and uses up to {blameProcesses} processes on
+            the selected repo.
           </HelpIcon>
         </div>
         <Text variant="muted" className="text-xs">
@@ -104,8 +109,8 @@ export function PerformancePane() {
                   Concurrent per-file git operations within one repo. During log
                   analysis this caps each repo's inner concurrency; during blame
                   it combines with "Repositories in parallel" into a single
-                  budget of {totalProcesses} processes against the selected
-                  repo.
+                  budget capped at {blameProcesses} processes against the
+                  selected repo.
                 </HelpIcon>
               </span>
             }
