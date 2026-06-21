@@ -18,6 +18,8 @@ import {
 import {
   analysisAutoDiscoveryScopeKey,
   analysisQueryKeys,
+  analysisResultScopeKey,
+  blameResultScopeKey,
   buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
   buildBlameOutputConfigKey,
@@ -655,6 +657,46 @@ describe("analysis query keys", () => {
       analysisQueryKeys.repo(source, repoPath),
     )
     assert.equal("files" in blame, false)
+  })
+
+  it("excludes execution-only controls from analysis and blame identities", () => {
+    const source = ["folder", "/courses"] as const
+    const repoPath = "/courses/repo-a"
+    const fastAnalysis = buildAnalysisQueryIdentity({
+      source,
+      repoPath,
+      snapshotCommitOid: "abc123",
+      config: { extensions: ["ts"], maxConcurrency: 4, blameSkip: false },
+      rosterContext: undefined,
+    })
+    const slowAnalysis = buildAnalysisQueryIdentity({
+      source,
+      repoPath,
+      snapshotCommitOid: "abc123",
+      config: { extensions: ["ts"], maxConcurrency: 16, blameSkip: true },
+      rosterContext: undefined,
+    })
+    assert.equal(
+      analysisResultScopeKey(fastAnalysis),
+      analysisResultScopeKey(slowAnalysis),
+    )
+
+    const fewWorkers = buildBlameQueryIdentity({
+      source,
+      repoPath,
+      analysis: fastAnalysis,
+      config: { copyMove: 2, maxConcurrency: 4 },
+    })
+    const manyWorkers = buildBlameQueryIdentity({
+      source,
+      repoPath,
+      analysis: fastAnalysis,
+      config: { copyMove: 2, maxConcurrency: 16 },
+    })
+    assert.equal(
+      blameResultScopeKey(fewWorkers),
+      blameResultScopeKey(manyWorkers),
+    )
   })
 
   it("treats same-data discovery refetches as new completions", () => {
