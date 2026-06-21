@@ -111,6 +111,27 @@ describe("graph policy", () => {
     )
   })
 
+  it("does not fail cycles that leave the exact source inventory", async () => {
+    const root = await createGraphFixture({
+      "packages/domain/src/a.ts":
+        'import { b } from "../scripts/b.js"\nexport const a = b\n',
+      "packages/domain/scripts/b.ts":
+        'import { a } from "../src/a.js"\nexport const b = a\n',
+    })
+    const model = compileAreaModel(loadAreaModel(ROOT))
+
+    const violations = await runDependencyCruiserRules(
+      root,
+      inventory(["packages/domain/src/a.ts"]),
+      buildDependencyCruiserRuleSet(
+        model,
+        inventory(["packages/domain/src/a.ts"]),
+      ),
+    )
+
+    assert.deepEqual(violations, [])
+  })
+
   it("keeps the cross-layer test helper exception explicit", async () => {
     const root = await createGraphFixture({
       "packages/domain/src/__tests__/helper.test.ts":

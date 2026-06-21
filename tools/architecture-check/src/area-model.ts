@@ -94,13 +94,7 @@ const areaModelSchema = z
 
       if (area.splitFrom !== undefined) {
         const parent = byId.get(area.splitFrom)
-        if (!parent) {
-          context.addIssue({
-            code: "custom",
-            message: `splitFrom references unknown area ID: ${area.splitFrom}`,
-            path: ["areas", index, "splitFrom"],
-          })
-        } else if (parent.kind !== area.kind) {
+        if (parent && parent.kind !== area.kind) {
           context.addIssue({
             code: "custom",
             message: "splitFrom must reference an area with the same kind.",

@@ -70,11 +70,63 @@ describe("redesign density", () => {
     assert.equal(report.counts.get("cover-runtime"), 1)
     assert.equal(report.counts.get("area-b"), 1)
   })
+
+  it("maps historical splitFrom parents to current descendants", () => {
+    const currentModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-new",
+            name: "New Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/new/src/" }],
+            splitFrom: "area-retired",
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const historicalModel = compileAreaModel(
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-retired",
+            name: "Retired Area",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^packages/old/src/" }],
+          },
+        ],
+      } satisfies AreaModel),
+    )
+    const report = computeRedesignDensity(
+      [
+        commit(
+          "A1 redesign(area): split area",
+          ["packages/old/src/file.ts"],
+          "split-commit",
+        ),
+        ...Array.from({ length: 9 }, (_, index) =>
+          commit(`B1 fix(other): ${index}`, ["packages/new/src/other.ts"]),
+        ),
+        commit("B1 fix(other): parent", ["packages/new/src/parent.ts"]),
+      ],
+      currentModel,
+      new Map([["split-commit", historicalModel]]),
+    )
+
+    assert.deepEqual(report.violations, [])
+    assert.equal(report.counts.get("area-new"), 1)
+  })
 })
 
-function commit(subject: string, changedPaths: readonly string[]): GitCommit {
+function commit(
+  subject: string,
+  changedPaths: readonly string[],
+  hash = subject,
+): GitCommit {
   return {
-    hash: subject,
+    hash,
     parents: ["parent"],
     subject,
     changedPaths,

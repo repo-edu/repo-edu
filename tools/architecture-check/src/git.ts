@@ -61,6 +61,36 @@ export function readRecentCommits(root: string, count: number): GitCommit[] {
   return parseGitLog(result.stdout.toString("utf8"))
 }
 
+export function readGitFileAtCommit(
+  root: string,
+  commitHash: string,
+  filePath: string,
+): string | null {
+  const revisionPath = `${commitHash}:${filePath}`
+  const exists = spawnSync("git", ["cat-file", "-e", revisionPath], {
+    cwd: root,
+    encoding: "buffer",
+  })
+
+  if (exists.status !== 0) return null
+
+  const result = spawnSync("git", ["show", revisionPath], {
+    cwd: root,
+    encoding: "buffer",
+  })
+
+  if (result.status !== 0) {
+    const stderr = result.stderr.toString("utf8").trim()
+    throw new Error(
+      `Unable to read ${filePath} at ${commitHash}: ${
+        stderr || "unknown error"
+      }`,
+    )
+  }
+
+  return result.stdout.toString("utf8")
+}
+
 export function parseGitLog(output: string): GitCommit[] {
   return output
     .split("\x1e")
@@ -82,7 +112,7 @@ export function parseGitLog(output: string): GitCommit[] {
 function parseChangedPaths(entries: readonly string[]): string[] {
   const changedPaths: string[] = []
   for (let index = 0; index < entries.length; ) {
-    const status = entries[index]
+    const status = normalizeStatusToken(entries[index] ?? "")
     index += 1
     if (!status) continue
 
@@ -98,4 +128,8 @@ function parseChangedPaths(entries: readonly string[]): string[] {
     if (filePath) changedPaths.push(normalizeRepoPath(filePath))
   }
   return changedPaths
+}
+
+function normalizeStatusToken(status: string): string {
+  return status.replace(/^\n+/, "")
 }

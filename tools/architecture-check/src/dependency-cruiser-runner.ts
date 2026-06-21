@@ -54,36 +54,38 @@ export async function runDependencyCruiserRules(
   const canonicalRoot = await realpath(root)
   const tsConfigPath = repoPathToAbsolute(canonicalRoot, "tsconfig.base.json")
   const tsConfigAliases = compileTsConfigAliases(tsConfigPath)
-  const result = await dependencyCruiser.cruise(
-    inventory.files,
-    {
-      baseDir: canonicalRoot,
-      validate: true,
-      tsConfig: { fileName: tsConfigPath },
-      ruleSet,
-      outputType: "json",
-      tsPreCompilationDeps: true,
-      combinedDependencies: true,
-      progress: { type: "none" },
-      enhancedResolveOptions: {
+  const result = await runWithCwd(canonicalRoot, () =>
+    dependencyCruiser.cruise(
+      inventory.files,
+      {
+        baseDir: canonicalRoot,
+        validate: true,
+        tsConfig: { fileName: tsConfigPath },
+        ruleSet,
+        outputType: "json",
+        tsPreCompilationDeps: true,
+        combinedDependencies: true,
+        progress: { type: "none" },
+        enhancedResolveOptions: {
+          exportsFields: ["exports"],
+          conditionNames: ["source", "import", "types", "node", "default"],
+          extensions: [".ts", ".tsx", ".d.ts", ".js", ".jsx", ".json"],
+          mainFields: ["source", "types", "module", "main"],
+        },
+      },
+      {
+        alias: tsConfigAliases,
+        tsConfig: tsConfigPath,
         exportsFields: ["exports"],
         conditionNames: ["source", "import", "types", "node", "default"],
         extensions: [".ts", ".tsx", ".d.ts", ".js", ".jsx", ".json"],
         mainFields: ["source", "types", "module", "main"],
+        bustTheCache: true,
       },
-    },
-    {
-      alias: tsConfigAliases,
-      tsConfig: tsConfigPath,
-      exportsFields: ["exports"],
-      conditionNames: ["source", "import", "types", "node", "default"],
-      extensions: [".ts", ".tsx", ".d.ts", ".js", ".jsx", ".json"],
-      mainFields: ["source", "types", "module", "main"],
-      bustTheCache: true,
-    },
-    {
-      tsConfig: { fileName: tsConfigPath },
-    },
+      {
+        tsConfig: { fileName: tsConfigPath },
+      },
+    ),
   )
 
   const cruiseResult = normalizeCruiseResult(result.output)
@@ -196,4 +198,17 @@ function dedupeViolations(violations: readonly Violation[]): Violation[] {
     result.push(violation)
   }
   return result
+}
+
+async function runWithCwd<T>(
+  cwd: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const originalCwd = process.cwd()
+  process.chdir(cwd)
+  try {
+    return await callback()
+  } finally {
+    process.chdir(originalCwd)
+  }
 }

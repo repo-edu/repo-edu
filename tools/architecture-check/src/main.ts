@@ -20,7 +20,7 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
   const inventory = readSourceInventory(root)
   const areaModel = compileAreaModel(loadAreaModel(root))
   const reconciliation = reconcileAreaModel(areaModel, inventory)
-  const graphPolicy = buildDependencyCruiserRuleSet(areaModel)
+  const graphPolicy = buildDependencyCruiserRuleSet(areaModel, inventory)
   const [graphViolations, bespokeViolations] = await Promise.all([
     runDependencyCruiserRules(root, inventory, graphPolicy),
     Promise.resolve(runBespokeChecks(root, inventory)),

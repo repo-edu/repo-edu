@@ -1,13 +1,22 @@
 import {
+  type AreaRecord,
   type CompiledAreaModel,
+  compileAreaModel,
   findCoverAreas,
   findPrimaryArea,
+  matcherMatchesFile,
+  parseAreaModel,
 } from "./area-model.js"
-import { type GitCommit, readRecentCommits } from "./git.js"
+import {
+  type GitCommit,
+  readGitFileAtCommit,
+  readRecentCommits,
+} from "./git.js"
 import { isSourceInventoryPath } from "./inventory.js"
 import type { Violation } from "./violations.js"
 
 const HISTORY_WINDOW = 10
+const AREA_MODEL_PATH = "tools/architecture-check/src/area-model.json"
 
 export type DensityReport = {
   readonly counts: ReadonlyMap<string, number>
@@ -21,7 +30,11 @@ export function readRedesignDensityReport(
 ): DensityReport {
   try {
     const commits = readRecentCommits(root, HISTORY_WINDOW + 1)
-    return computeRedesignDensity(commits, model)
+    const snapshots = readAreaModelSnapshots(
+      root,
+      commits.slice(0, HISTORY_WINDOW),
+    )
+    return computeRedesignDensity(commits, model, snapshots)
   } catch (error) {
     return {
       counts: new Map(),
@@ -42,6 +55,7 @@ export function readRedesignDensityReport(
 export function computeRedesignDensity(
   commits: readonly GitCommit[],
   model: CompiledAreaModel,
+  snapshots: ReadonlyMap<string, CompiledAreaModel> = new Map(),
 ): DensityReport {
   if (commits.length < HISTORY_WINDOW + 1) {
     return {
@@ -58,19 +72,23 @@ export function computeRedesignDensity(
   }
 
   const counts = new Map<string, number>()
+  const violations: Violation[] = []
 
   for (const commit of commits.slice(0, HISTORY_WINDOW)) {
     const kind = conventionalKind(commit.subject)
     if (kind !== "redesign" && kind !== "refactor") continue
 
     const touchedAreas = new Set<string>()
+    const historicalModel = snapshots.get(commit.hash)
     for (const changedPath of commit.changedPaths) {
       if (!isSourceInventoryPath(changedPath)) continue
-      const primaryArea = findPrimaryArea(model, changedPath)
-      if (primaryArea) touchedAreas.add(primaryArea)
-      for (const coverArea of findCoverAreas(model, changedPath)) {
-        touchedAreas.add(coverArea)
-      }
+      const attribution = attributeChangedPath(
+        model,
+        changedPath,
+        historicalModel,
+      )
+      for (const areaId of attribution.areaIds) touchedAreas.add(areaId)
+      violations.push(...attribution.violations)
     }
 
     for (const areaId of touchedAreas) {
@@ -81,8 +99,150 @@ export function computeRedesignDensity(
   return {
     counts,
     warnings: formatDensityWarnings(counts),
-    violations: [],
+    violations,
   }
+}
+
+function readAreaModelSnapshots(
+  root: string,
+  commits: readonly GitCommit[],
+): ReadonlyMap<string, CompiledAreaModel> {
+  const snapshots = new Map<string, CompiledAreaModel>()
+  for (const commit of commits) {
+    const content = readGitFileAtCommit(root, commit.hash, AREA_MODEL_PATH)
+    if (content === null) continue
+    snapshots.set(
+      commit.hash,
+      compileAreaModel(parseAreaModel(JSON.parse(content))),
+    )
+  }
+  return snapshots
+}
+
+function attributeChangedPath(
+  currentModel: CompiledAreaModel,
+  changedPath: string,
+  historicalModel?: CompiledAreaModel,
+): {
+  readonly areaIds: readonly string[]
+  readonly violations: readonly Violation[]
+} {
+  const areaIds = new Set<string>()
+  const violations: Violation[] = []
+
+  const currentPrimary = findPrimaryArea(currentModel, changedPath)
+  if (currentPrimary) {
+    areaIds.add(currentPrimary)
+  } else if (historicalModel) {
+    const historicalPrimary = findPrimaryArea(historicalModel, changedPath)
+    if (historicalPrimary) {
+      const resolved = resolveHistoricalArea(
+        currentModel,
+        historicalPrimary,
+        "partition",
+        changedPath,
+      )
+      for (const areaId of resolved.areaIds) areaIds.add(areaId)
+      violations.push(...resolved.violations)
+    }
+  }
+
+  const currentCovers = findCoverAreas(currentModel, changedPath)
+  if (currentCovers.length > 0) {
+    for (const areaId of currentCovers) areaIds.add(areaId)
+  } else if (historicalModel) {
+    for (const historicalCover of findCoverAreas(
+      historicalModel,
+      changedPath,
+    )) {
+      const resolved = resolveHistoricalArea(
+        currentModel,
+        historicalCover,
+        "cover",
+        changedPath,
+      )
+      for (const areaId of resolved.areaIds) areaIds.add(areaId)
+      violations.push(...resolved.violations)
+    }
+  }
+
+  return { areaIds: [...areaIds], violations }
+}
+
+function resolveHistoricalArea(
+  currentModel: CompiledAreaModel,
+  historicalAreaId: string,
+  kind: AreaRecord["kind"],
+  changedPath: string,
+): {
+  readonly areaIds: readonly string[]
+  readonly violations: readonly Violation[]
+} {
+  const currentArea = currentModel.byId.get(historicalAreaId)
+  if (currentArea?.kind === kind)
+    return { areaIds: [historicalAreaId], violations: [] }
+
+  const descendants = currentModel.areas.filter(
+    (area) =>
+      area.kind === kind &&
+      areaLineageIncludes(currentModel, area, historicalAreaId),
+  )
+  const matchingDescendants = descendants.filter((area) =>
+    currentAreaMatchesFile(currentModel, area, changedPath),
+  )
+
+  if (matchingDescendants.length > 0) {
+    return {
+      areaIds: matchingDescendants.map((area) => area.id),
+      violations: [],
+    }
+  }
+
+  if (descendants.length === 1) {
+    return { areaIds: [descendants[0].id], violations: [] }
+  }
+
+  return {
+    areaIds: [],
+    violations: [
+      {
+        file: changedPath,
+        message:
+          descendants.length === 0
+            ? `cannot resolve historical area ${historicalAreaId} in current area model`
+            : `cannot localize historical area ${historicalAreaId} across current descendants: ${descendants
+                .map((area) => area.id)
+                .join(", ")}`,
+      },
+    ],
+  }
+}
+
+function areaLineageIncludes(
+  model: CompiledAreaModel,
+  area: AreaRecord,
+  targetAreaId: string,
+): boolean {
+  let current = area.splitFrom
+  const seen = new Set<string>()
+  while (current !== undefined && !seen.has(current)) {
+    if (current === targetAreaId) return true
+    seen.add(current)
+    current = model.byId.get(current)?.splitFrom
+  }
+  return false
+}
+
+function currentAreaMatchesFile(
+  model: CompiledAreaModel,
+  area: AreaRecord,
+  changedPath: string,
+): boolean {
+  const matcher =
+    area.kind === "partition"
+      ? model.partitionMatchers.get(area.id)
+      : model.coverMatchers.get(area.id)
+  return matcher ? matcherMatchesFile(matcher, changedPath) : false
 }
 
 export function conventionalKind(subject: string): string | undefined {

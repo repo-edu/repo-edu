@@ -74,24 +74,24 @@ describe("area model schema", () => {
     )
   })
 
-  it("rejects invalid splitFrom lineage", () => {
-    assert.throws(
-      () =>
-        parseAreaModel({
-          schemaVersion: 1,
-          areas: [
-            {
-              id: "area-a",
-              name: "Area A",
-              kind: "partition",
-              members: [{ type: "pattern", path: "^a/" }],
-              splitFrom: "area-missing",
-            },
-          ],
-        }),
-      /unknown area ID/,
+  it("allows splitFrom to reference retired area IDs", () => {
+    assert.doesNotThrow(() =>
+      parseAreaModel({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "area-a",
+            name: "Area A",
+            kind: "partition",
+            members: [{ type: "pattern", path: "^a/" }],
+            splitFrom: "area-retired",
+          },
+        ],
+      }),
     )
+  })
 
+  it("rejects invalid splitFrom lineage", () => {
     assert.throws(
       () =>
         parseAreaModel({

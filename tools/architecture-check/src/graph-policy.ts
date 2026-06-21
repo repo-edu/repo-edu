@@ -3,7 +3,11 @@ import type {
   PartitionArea,
   PatternMember,
 } from "./area-model.js"
-import { sourceInventoryPathPattern } from "./inventory.js"
+import { matcherMatchesFile } from "./area-model.js"
+import {
+  type SourceInventory,
+  sourceInventoryPathPattern,
+} from "./inventory.js"
 
 export type DependencyCruiserRule = {
   readonly name: string
@@ -158,14 +162,16 @@ const GENERATED_FIXTURE_TARGET_PATTERN =
 
 export function buildDependencyCruiserRuleSet(
   model: CompiledAreaModel,
+  inventory?: SourceInventory,
 ): DependencyCruiserRuleSet {
-  const selectors = buildSelectorMap(model)
+  const selectors = buildSelectorMap(model, inventory)
+  const sourceInventory = sourceInventorySelector(inventory)
   const forbidden: DependencyCruiserRule[] = [
     ...domainModuleOrderRules(),
     ...crossLayerRules(selectors),
-    claudeCoderPackageRule(selectors),
-    claudeAgentSdkRule(selectors),
-    wholeInventoryCycleRule(),
+    claudeCoderPackageRule(selectors, sourceInventory),
+    claudeAgentSdkRule(selectors, sourceInventory),
+    wholeInventoryCycleRule(sourceInventory),
   ]
 
   return { forbidden }
@@ -173,11 +179,15 @@ export function buildDependencyCruiserRuleSet(
 
 function buildSelectorMap(
   model: CompiledAreaModel,
+  inventory?: SourceInventory,
 ): ReadonlyMap<string, CompiledSelector> {
   const selectors = new Map<string, CompiledSelector>()
 
   for (const partition of model.partitions) {
-    selectors.set(partition.id, selectorFromPartition(partition))
+    selectors.set(
+      partition.id,
+      selectorFromPartition(model, partition, inventory),
+    )
   }
 
   for (const selector of NAMED_SELECTORS) {
@@ -192,21 +202,57 @@ function buildSelectorMap(
       )
     }
     selectors.set(selector.id, {
-      path: selector.path,
-      pathNot: selector.pathNot ?? [],
+      ...selectorFromPathGroup(selector, inventory),
     })
   }
 
   return selectors
 }
 
-function selectorFromPartition(partition: PartitionArea): CompiledSelector {
+function selectorFromPartition(
+  model: CompiledAreaModel,
+  partition: PartitionArea,
+  inventory?: SourceInventory,
+): CompiledSelector {
+  if (inventory) {
+    const matcher = model.partitionMatchers.get(partition.id)
+    const files =
+      matcher === undefined
+        ? []
+        : inventory.files.filter((file) => matcherMatchesFile(matcher, file))
+    return exactFileSelector(files)
+  }
+
   return {
     path: partition.members
       .filter((member): member is PatternMember => member.type === "pattern")
       .map((member) => member.path),
     pathNot: (partition.exclude ?? []).map((member) => member.path),
   }
+}
+
+function selectorFromPathGroup(
+  selector: Extract<Selector, { readonly kind: "path-group" }>,
+  inventory?: SourceInventory,
+): CompiledSelector {
+  if (!inventory) {
+    return {
+      path: selector.path,
+      pathNot: selector.pathNot ?? [],
+    }
+  }
+
+  const includePatterns = selector.path.map((pattern) => new RegExp(pattern))
+  const excludePatterns = (selector.pathNot ?? []).map(
+    (pattern) => new RegExp(pattern),
+  )
+  return exactFileSelector(
+    inventory.files.filter(
+      (file) =>
+        includePatterns.some((pattern) => pattern.test(file)) &&
+        !excludePatterns.some((pattern) => pattern.test(file)),
+    ),
+  )
 }
 
 function selector(
@@ -271,10 +317,10 @@ function crossLayerRules(
 
 function claudeCoderPackageRule(
   selectors: ReadonlyMap<string, CompiledSelector>,
+  sourceInventory: CompiledSelector,
 ): DependencyCruiserRule {
   const fixtureEngine = selector(selectors, "pkg-fixture-engine")
   const claudeCoder = selector(selectors, "pkg-claude-coder")
-  const sourceInventory = sourceInventorySelector()
   return {
     name: "claude-coder-confined-to-fixture-engine",
     severity: "error",
@@ -296,10 +342,10 @@ function claudeCoderPackageRule(
 
 function claudeAgentSdkRule(
   selectors: ReadonlyMap<string, CompiledSelector>,
+  sourceInventory: CompiledSelector,
 ): DependencyCruiserRule {
   const claudeCoder = selector(selectors, "pkg-claude-coder")
   const agentSdk = selector(selectors, "anthropic-claude-agent-sdk")
-  const sourceInventory = sourceInventorySelector()
   return {
     name: "claude-agent-sdk-confined-to-claude-coder",
     severity: "error",
@@ -315,8 +361,9 @@ function claudeAgentSdkRule(
   }
 }
 
-function wholeInventoryCycleRule(): DependencyCruiserRule {
-  const inventory = sourceInventorySelector()
+function wholeInventoryCycleRule(
+  inventory: CompiledSelector,
+): DependencyCruiserRule {
   return {
     name: "source-inventory-no-circular",
     severity: "error",
@@ -335,9 +382,28 @@ function wholeInventoryCycleRule(): DependencyCruiserRule {
   }
 }
 
-function sourceInventorySelector(): CompiledSelector {
+function sourceInventorySelector(
+  inventory?: SourceInventory,
+): CompiledSelector {
+  if (inventory) return exactFileSelector(inventory.files)
+
   return {
     path: [sourceInventoryPathPattern()],
     pathNot: [GENERATED_FIXTURE_TARGET_PATTERN],
   }
+}
+
+function exactFileSelector(files: readonly string[]): CompiledSelector {
+  return {
+    path: files.length > 0 ? files.map(exactPathPattern) : ["a^"],
+    pathNot: [],
+  }
+}
+
+function exactPathPattern(filePath: string): string {
+  return `^${escapeRegExp(filePath)}$`
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")
 }
