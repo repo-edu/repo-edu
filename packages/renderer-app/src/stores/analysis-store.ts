@@ -16,29 +16,24 @@ export type AnalysisView = "authors" | "files" | "blame" | "examination"
 
 export type AnalysisFileSelectionMode = "all" | "subset"
 
-export type ScopedAnalysisValue<T> = {
-  scopeKey: string
-  value: T
-}
-
 export type AnalysisState = {
-  selectedRepoPath: ScopedAnalysisValue<string> | null
+  selectedRepoPaths: Map<string, string>
   searchDepth: number
   blameConfig: AnalysisBlameConfig
 
-  activeBlameFile: ScopedAnalysisValue<string> | null
-  focusedFilePath: ScopedAnalysisValue<string> | null
+  activeBlameFiles: Map<string, string>
+  focusedFilePaths: Map<string, string>
 
   blameShowMetadata: boolean
   blameColorize: boolean
   blameSyntaxColorize: boolean
   blameHideEmpty: boolean
   blameHideComments: boolean
-  blameVisibleAuthors: ScopedAnalysisValue<Set<string> | null> | null
+  blameVisibleAuthorsByScope: Map<string, Set<string>>
 
-  selectedAuthors: ScopedAnalysisValue<Set<string>> | null
-  fileSelectionMode: ScopedAnalysisValue<AnalysisFileSelectionMode> | null
-  selectedFiles: ScopedAnalysisValue<Set<string>> | null
+  selectedAuthorsByScope: Map<string, Set<string>>
+  fileSelectionModesByScope: Map<string, AnalysisFileSelectionMode>
+  selectedFilesByScope: Map<string, Set<string>>
 
   displayMode: AnalysisDisplayMode
   activeView: AnalysisView
@@ -99,22 +94,22 @@ export type AnalysisActions = {
 
 function createInitialAnalysisState(): AnalysisState {
   return {
-    selectedRepoPath: null,
+    selectedRepoPaths: new Map(),
     searchDepth: 5,
     blameConfig: {
       copyMove: DEFAULT_BLAME_COPY_MOVE,
     },
-    activeBlameFile: null,
-    focusedFilePath: null,
+    activeBlameFiles: new Map(),
+    focusedFilePaths: new Map(),
     blameShowMetadata: true,
     blameColorize: true,
     blameSyntaxColorize: true,
     blameHideEmpty: false,
     blameHideComments: false,
-    blameVisibleAuthors: null,
-    selectedAuthors: null,
-    fileSelectionMode: null,
-    selectedFiles: null,
+    blameVisibleAuthorsByScope: new Map(),
+    selectedAuthorsByScope: new Map(),
+    fileSelectionModesByScope: new Map(),
+    selectedFilesByScope: new Map(),
     displayMode: "absolute",
     activeView: "authors",
     chartMetric: "linesOfCode",
@@ -132,60 +127,79 @@ function createInitialAnalysisState(): AnalysisState {
 const EMPTY_STRING_SET: ReadonlySet<string> = new Set()
 
 function selectScopedValue<T>(
-  entry: ScopedAnalysisValue<T> | null,
+  entries: ReadonlyMap<string, T>,
   scopeKey: string | null,
 ): T | null {
-  if (scopeKey === null || entry?.scopeKey !== scopeKey) return null
-  return entry.value
+  if (scopeKey === null) return null
+  return entries.get(scopeKey) ?? null
 }
 
 export function selectSelectedRepoPathForScope(
   state: AnalysisState,
   scopeKey: string,
 ): string | null {
-  return selectScopedValue(state.selectedRepoPath, scopeKey)
+  return selectScopedValue(state.selectedRepoPaths, scopeKey)
 }
 
 export function selectActiveBlameFileForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): string | null {
-  return selectScopedValue(state.activeBlameFile, scopeKey)
+  return selectScopedValue(state.activeBlameFiles, scopeKey)
 }
 
 export function selectFocusedFilePathForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): string | null {
-  return selectScopedValue(state.focusedFilePath, scopeKey)
+  return selectScopedValue(state.focusedFilePaths, scopeKey)
 }
 
 export function selectBlameVisibleAuthorsForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): ReadonlySet<string> | null {
-  return selectScopedValue(state.blameVisibleAuthors, scopeKey)
+  return selectScopedValue(state.blameVisibleAuthorsByScope, scopeKey)
 }
 
 export function selectSelectedAuthorsForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): ReadonlySet<string> {
-  return selectScopedValue(state.selectedAuthors, scopeKey) ?? EMPTY_STRING_SET
+  return (
+    selectScopedValue(state.selectedAuthorsByScope, scopeKey) ??
+    EMPTY_STRING_SET
+  )
 }
 
 export function selectFileSelectionModeForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): AnalysisFileSelectionMode {
-  return selectScopedValue(state.fileSelectionMode, scopeKey) ?? "all"
+  return selectScopedValue(state.fileSelectionModesByScope, scopeKey) ?? "all"
 }
 
 export function selectSelectedFilesForScope(
   state: AnalysisState,
   scopeKey: string | null,
 ): ReadonlySet<string> {
-  return selectScopedValue(state.selectedFiles, scopeKey) ?? EMPTY_STRING_SET
+  return (
+    selectScopedValue(state.selectedFilesByScope, scopeKey) ?? EMPTY_STRING_SET
+  )
+}
+
+function nextScopedMap<T>(
+  map: ReadonlyMap<string, T>,
+  scopeKey: string,
+  value: T | null,
+): Map<string, T> {
+  const next = new Map(map)
+  if (value === null) {
+    next.delete(scopeKey)
+  } else {
+    next.set(scopeKey, value)
+  }
+  return next
 }
 
 export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
@@ -193,13 +207,13 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     ...createInitialAnalysisState(),
 
     setSelectedRepoPath: (scopeKey, path) =>
-      set((state) => {
-        if (path !== null) {
-          return { selectedRepoPath: { scopeKey, value: path } }
-        }
-        if (state.selectedRepoPath?.scopeKey !== scopeKey) return state
-        return { selectedRepoPath: null }
-      }),
+      set((state) => ({
+        selectedRepoPaths: nextScopedMap(
+          state.selectedRepoPaths,
+          scopeKey,
+          path,
+        ),
+      })),
     setSearchDepth: (searchDepth) => set({ searchDepth }),
     setBlameConfig: (patch) =>
       set((state) => ({
@@ -207,19 +221,15 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       })),
 
     openFileForBlame: (scopeKey, path) =>
-      set({
-        activeBlameFile: { scopeKey, value: path },
-        focusedFilePath: { scopeKey, value: path },
+      set((state) => ({
+        activeBlameFiles: nextScopedMap(state.activeBlameFiles, scopeKey, path),
+        focusedFilePaths: nextScopedMap(state.focusedFilePaths, scopeKey, path),
         activeView: "blame",
-      }),
+      })),
     setFocusedFilePath: (scopeKey, path) =>
-      set((state) => {
-        if (path !== null) {
-          return { focusedFilePath: { scopeKey, value: path } }
-        }
-        if (state.focusedFilePath?.scopeKey !== scopeKey) return state
-        return { focusedFilePath: null }
-      }),
+      set((state) => ({
+        focusedFilePaths: nextScopedMap(state.focusedFilePaths, scopeKey, path),
+      })),
 
     setBlameShowMetadata: (blameShowMetadata) => set({ blameShowMetadata }),
     setBlameColorize: (blameColorize) => set({ blameColorize }),
@@ -230,9 +240,8 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
     toggleBlameAuthorVisible: (scopeKey, personId, allPersonIds) =>
       set((state) => {
         const current =
-          state.blameVisibleAuthors?.scopeKey === scopeKey
-            ? (state.blameVisibleAuthors.value ?? new Set(allPersonIds))
-            : new Set(allPersonIds)
+          state.blameVisibleAuthorsByScope.get(scopeKey) ??
+          new Set(allPersonIds)
         const next = new Set(current)
         if (next.has(personId)) {
           next.delete(personId)
@@ -244,42 +253,75 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           next.size === allPersonIds.length &&
           allPersonIds.every((id) => next.has(id))
         return {
-          blameVisibleAuthors: {
+          blameVisibleAuthorsByScope: nextScopedMap(
+            state.blameVisibleAuthorsByScope,
             scopeKey,
-            value: allVisible ? null : next,
-          },
+            allVisible ? null : next,
+          ),
         }
       }),
 
     setSelectedAuthors: (scopeKey, selectedAuthors) =>
-      set({ selectedAuthors: { scopeKey, value: selectedAuthors } }),
+      set((state) => ({
+        selectedAuthorsByScope: nextScopedMap(
+          state.selectedAuthorsByScope,
+          scopeKey,
+          selectedAuthors,
+        ),
+      })),
     toggleAuthor: (scopeKey, personId) =>
       set((state) => {
         const current =
-          state.selectedAuthors?.scopeKey === scopeKey
-            ? state.selectedAuthors.value
-            : new Set<string>()
+          state.selectedAuthorsByScope.get(scopeKey) ?? new Set<string>()
         const next = new Set(current)
         if (next.has(personId)) {
           next.delete(personId)
         } else {
           next.add(personId)
         }
-        return { selectedAuthors: { scopeKey, value: next } }
+        return {
+          selectedAuthorsByScope: nextScopedMap(
+            state.selectedAuthorsByScope,
+            scopeKey,
+            next,
+          ),
+        }
       }),
     clearAuthorSelection: (scopeKey) =>
-      set({ selectedAuthors: { scopeKey, value: new Set() } }),
+      set((state) => ({
+        selectedAuthorsByScope: nextScopedMap(
+          state.selectedAuthorsByScope,
+          scopeKey,
+          new Set(),
+        ),
+      })),
 
     setSelectedFiles: (scopeKey, selectedFiles) =>
-      set({
-        fileSelectionMode: { scopeKey, value: "subset" },
-        selectedFiles: { scopeKey, value: selectedFiles },
-      }),
+      set((state) => ({
+        fileSelectionModesByScope: nextScopedMap(
+          state.fileSelectionModesByScope,
+          scopeKey,
+          "subset",
+        ),
+        selectedFilesByScope: nextScopedMap(
+          state.selectedFilesByScope,
+          scopeKey,
+          selectedFiles,
+        ),
+      })),
     clearFileSelection: (scopeKey) =>
-      set({
-        fileSelectionMode: { scopeKey, value: "all" },
-        selectedFiles: { scopeKey, value: new Set<string>() },
-      }),
+      set((state) => ({
+        fileSelectionModesByScope: nextScopedMap(
+          state.fileSelectionModesByScope,
+          scopeKey,
+          "all",
+        ),
+        selectedFilesByScope: nextScopedMap(
+          state.selectedFilesByScope,
+          scopeKey,
+          new Set<string>(),
+        ),
+      })),
 
     setDisplayMode: (displayMode) => set({ displayMode }),
     setActiveView: (activeView) => set({ activeView }),

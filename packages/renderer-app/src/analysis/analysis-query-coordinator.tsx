@@ -64,6 +64,7 @@ import { buildEffectiveBlameWorkflowConfig } from "./analysis-workflow-inputs.js
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
 export type DiscoveryStatus = "idle" | "loading" | "error"
+type DiscoveryOutcome = "none" | "completed" | "cancelled"
 
 type DiscoveryInput = {
   readonly folder: string
@@ -75,7 +76,7 @@ export type AnalysisDiscoveryValue = {
   discoveryStatus: DiscoveryStatus
   discoveryError: string | null
   discoveryCurrentFolder: string | null
-  lastDiscoveryOutcome: "none" | "completed" | "cancelled"
+  lastDiscoveryOutcome: DiscoveryOutcome
   runRepoDiscovery: (folder: string) => void
   cancelDiscovery: () => void
 }
@@ -262,6 +263,13 @@ function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
 }
 
+export function buildDiscoveryCompletionMarker(
+  queryKey: readonly unknown[],
+  dataUpdatedAt: number,
+): string {
+  return JSON.stringify([queryKey, dataUpdatedAt])
+}
+
 export function AnalysisCoordinatorProvider({
   children,
 }: {
@@ -330,15 +338,47 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
-  const [discoveryInput, setDiscoveryInput] = useState<DiscoveryInput | null>(
-    null,
-  )
-  const [lastDiscoveryOutcome, setLastDiscoveryOutcome] = useState<
-    "none" | "completed" | "cancelled"
-  >("none")
+  const [discoveryInputsBySource, setDiscoveryInputsBySource] = useState<
+    Map<string, DiscoveryInput>
+  >(new Map())
+  const [lastDiscoveryOutcomeBySource, setLastDiscoveryOutcomeBySource] =
+    useState<Map<string, DiscoveryOutcome>>(new Map())
+  const discoveryInput = discoveryInputsBySource.get(activeSourceText) ?? null
+  const lastDiscoveryOutcome =
+    lastDiscoveryOutcomeBySource.get(activeSourceText) ?? "none"
   const prefetchBatchRef = useRef(0)
   const previousSourceTextRef = useRef(activeSourceText)
   const previousSourcePartsRef = useRef(activeSourceParts)
+
+  const setDiscoveryInputForSource = useCallback(
+    (sourceText: string, input: DiscoveryInput | null) => {
+      setDiscoveryInputsBySource((previous) => {
+        const next = new Map(previous)
+        if (input === null) {
+          next.delete(sourceText)
+        } else {
+          next.set(sourceText, input)
+        }
+        return next
+      })
+    },
+    [],
+  )
+
+  const setLastDiscoveryOutcomeForSource = useCallback(
+    (sourceText: string, outcome: DiscoveryOutcome) => {
+      setLastDiscoveryOutcomeBySource((previous) => {
+        const next = new Map(previous)
+        if (outcome === "none") {
+          next.delete(sourceText)
+        } else {
+          next.set(sourceText, outcome)
+        }
+        return next
+      })
+    },
+    [],
+  )
 
   useEffect(() => {
     const previousSourceText = previousSourceTextRef.current
@@ -346,8 +386,6 @@ export function AnalysisCoordinatorProvider({
     const previousSourceParts = previousSourcePartsRef.current
     previousSourceTextRef.current = activeSourceText
     previousSourcePartsRef.current = activeSourceParts
-    setDiscoveryInput(null)
-    setLastDiscoveryOutcome("none")
     prefetchBatchRef.current += 1
     void queryClient.cancelQueries({
       queryKey: analysisQueryKeys.source(previousSourceParts),
@@ -480,10 +518,13 @@ export function AnalysisCoordinatorProvider({
   const discoveryHandledRef = useRef<string | null>(null)
   useEffect(() => {
     if (!discoveryInput || !discoveryQuery.data) return
-    const handledKey = JSON.stringify([discoveryQueryKey, discoveryQuery.data])
+    const handledKey = buildDiscoveryCompletionMarker(
+      discoveryQueryKey,
+      discoveryQuery.dataUpdatedAt,
+    )
     if (discoveryHandledRef.current === handledKey) return
     discoveryHandledRef.current = handledKey
-    setLastDiscoveryOutcome("completed")
+    setLastDiscoveryOutcomeForSource(activeSourceText, "completed")
 
     const firstRepoPath = discoveryQuery.data.repos[0]?.path ?? null
     if (firstRepoPath !== null) {
@@ -525,18 +566,24 @@ export function AnalysisCoordinatorProvider({
     analysisContext,
     discoveryInput,
     discoveryQuery.data,
+    discoveryQuery.dataUpdatedAt,
     discoveryQueryKey,
     prefetchRepoAnalysis,
     activeSourceText,
     selectedRepoPath,
     setSelectedRepoPath,
+    setLastDiscoveryOutcomeForSource,
   ])
 
   useEffect(() => {
     if (discoveryQuery.isError) {
-      setLastDiscoveryOutcome("none")
+      setLastDiscoveryOutcomeForSource(activeSourceText, "none")
     }
-  }, [discoveryQuery.isError])
+  }, [
+    activeSourceText,
+    discoveryQuery.isError,
+    setLastDiscoveryOutcomeForSource,
+  ])
 
   const selectedSnapshotQueryKey =
     selectedRepoPath === null || analysisConfig === null
@@ -859,7 +906,7 @@ export function AnalysisCoordinatorProvider({
         discoveryInput?.folder === input.folder &&
         discoveryInput.depth === input.depth
       prefetchBatchRef.current += 1
-      setLastDiscoveryOutcome("none")
+      setLastDiscoveryOutcomeForSource(activeSourceText, "none")
       void queryClient.cancelQueries({
         queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
       })
@@ -867,27 +914,35 @@ export function AnalysisCoordinatorProvider({
         predicate: (query) =>
           queryKeyMatchesSourceSnapshotHead(query.queryKey, activeSourceParts),
       })
-      setDiscoveryInput(input)
+      setDiscoveryInputForSource(activeSourceText, input)
       if (sameInput) {
         void discoveryQuery.refetch()
       }
     },
     [
       activeSourceParts,
+      activeSourceText,
       discoveryInput,
       discoveryQuery,
       queryClient,
       searchDepth,
+      setDiscoveryInputForSource,
+      setLastDiscoveryOutcomeForSource,
     ],
   )
 
   const cancelDiscovery = useCallback(() => {
-    setLastDiscoveryOutcome("cancelled")
+    setLastDiscoveryOutcomeForSource(activeSourceText, "cancelled")
     prefetchBatchRef.current += 1
     void queryClient.cancelQueries({
       queryKey: discoveryQueryKey,
     })
-  }, [discoveryQueryKey, queryClient])
+  }, [
+    activeSourceText,
+    discoveryQueryKey,
+    queryClient,
+    setLastDiscoveryOutcomeForSource,
+  ])
 
   const selectRepository = useCallback(
     (repoPath: string | null) => {

@@ -6,6 +6,7 @@ import type {
   FileStats,
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
+import { buildDiscoveryCompletionMarker } from "../analysis/analysis-query-coordinator.js"
 import {
   analysisQueryKeys,
   buildAnalysisOutputConfigKey,
@@ -308,8 +309,13 @@ describe("analysis view state", () => {
 
     store.setSelectedRepoPath("course-b", "/repo-b")
     state = useAnalysisStore.getState()
-    assert.equal(selectSelectedRepoPathForScope(state, "course-a"), null)
+    assert.equal(selectSelectedRepoPathForScope(state, "course-a"), "/repo-a")
     assert.equal(selectSelectedRepoPathForScope(state, "course-b"), "/repo-b")
+
+    store.setSelectedRepoPath("course-b", null)
+    state = useAnalysisStore.getState()
+    assert.equal(selectSelectedRepoPathForScope(state, "course-a"), "/repo-a")
+    assert.equal(selectSelectedRepoPathForScope(state, "course-b"), null)
   })
 
   it("scopes result-local filters and focus by analysis identity", () => {
@@ -319,7 +325,7 @@ describe("analysis view state", () => {
     store.openFileForBlame("analysis-a", "src/main.ts")
     store.toggleBlameAuthorVisible("analysis-a", "p_0001", ["p_0000", "p_0001"])
 
-    const state = useAnalysisStore.getState()
+    let state = useAnalysisStore.getState()
     assert.deepEqual(
       [...selectSelectedAuthorsForScope(state, "analysis-a")],
       ["p_0000"],
@@ -345,6 +351,45 @@ describe("analysis view state", () => {
       ["p_0000"],
     )
     assert.equal(selectBlameVisibleAuthorsForScope(state, "analysis-b"), null)
+
+    store.setSelectedAuthors("analysis-b", new Set(["p_0002"]))
+    store.setSelectedFiles("analysis-b", new Set(["src/other.ts"]))
+    store.openFileForBlame("analysis-b", "src/other.ts")
+    store.toggleBlameAuthorVisible("analysis-b", "p_0003", ["p_0002", "p_0003"])
+
+    state = useAnalysisStore.getState()
+    assert.deepEqual(
+      [...selectSelectedAuthorsForScope(state, "analysis-a")],
+      ["p_0000"],
+    )
+    assert.deepEqual(
+      [...selectSelectedAuthorsForScope(state, "analysis-b")],
+      ["p_0002"],
+    )
+    assert.deepEqual(
+      [...selectSelectedFilesForScope(state, "analysis-a")],
+      ["src/main.ts"],
+    )
+    assert.deepEqual(
+      [...selectSelectedFilesForScope(state, "analysis-b")],
+      ["src/other.ts"],
+    )
+    assert.equal(
+      selectFocusedFilePathForScope(state, "analysis-a"),
+      "src/main.ts",
+    )
+    assert.equal(
+      selectFocusedFilePathForScope(state, "analysis-b"),
+      "src/other.ts",
+    )
+    assert.deepEqual(
+      [...(selectBlameVisibleAuthorsForScope(state, "analysis-a") ?? [])],
+      ["p_0000"],
+    )
+    assert.deepEqual(
+      [...(selectBlameVisibleAuthorsForScope(state, "analysis-b") ?? [])],
+      ["p_0002"],
+    )
   })
 })
 
@@ -412,6 +457,19 @@ describe("analysis query keys", () => {
       analysisQueryKeys.repo(source, repoPath),
     )
     assert.equal("files" in blame, false)
+  })
+
+  it("treats same-data discovery refetches as new completions", () => {
+    const key = analysisQueryKeys.discovery(
+      ["folder", "/courses"],
+      "/courses",
+      5,
+    )
+
+    assert.notEqual(
+      buildDiscoveryCompletionMarker(key, 100),
+      buildDiscoveryCompletionMarker(key, 101),
+    )
   })
 })
 
