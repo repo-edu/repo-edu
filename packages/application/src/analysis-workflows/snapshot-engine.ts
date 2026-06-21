@@ -4,6 +4,8 @@ import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
 import { fnmatchFilter } from "./filter-utils.js"
 import { LOG_PRETTY_FORMAT } from "./log-parser.js"
 
+const FULL_COMMIT_OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+
 // ---------------------------------------------------------------------------
 // Git helper commands
 // ---------------------------------------------------------------------------
@@ -107,6 +109,21 @@ export async function verifySnapshotCommitOid(
   snapshotCommitOid: string,
   signal: AbortSignal | undefined,
 ): Promise<string> {
+  if (!FULL_COMMIT_OID_PATTERN.test(snapshotCommitOid)) {
+    throw {
+      type: "validation",
+      message:
+        "snapshotCommitOid must be a full lowercase commit OID, not a ref.",
+      issues: [
+        {
+          path: "snapshotCommitOid",
+          message:
+            "Expected a 40- or 64-character lowercase hexadecimal commit OID.",
+        },
+      ],
+    } satisfies AppError
+  }
+
   const result = await gitCommand.run({
     args: ["rev-parse", "--verify", `${snapshotCommitOid}^{commit}`],
     cwd: repoRoot,
@@ -125,14 +142,17 @@ export async function verifySnapshotCommitOid(
     } satisfies AppError
   }
   const resolvedOid = result.stdout.trim()
-  if (resolvedOid.length === 0) {
+  if (resolvedOid.length === 0 || resolvedOid !== snapshotCommitOid) {
     throw {
       type: "validation",
       message: `snapshotCommitOid '${snapshotCommitOid}' does not resolve to a valid commit.`,
       issues: [
         {
           path: "snapshotCommitOid",
-          message: "Git returned an empty commit oid.",
+          message:
+            resolvedOid.length === 0
+              ? "Git returned an empty commit oid."
+              : "Refs, annotated tag object ids and abbreviated object ids are not accepted.",
         },
       ],
     } satisfies AppError

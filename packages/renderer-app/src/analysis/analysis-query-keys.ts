@@ -124,6 +124,10 @@ export function analysisResultScopeKey(
   return JSON.stringify(identity)
 }
 
+export function blameResultScopeKey(identity: BlameQueryIdentity): string {
+  return JSON.stringify(identity)
+}
+
 function sourcePartsEqual(
   candidate: unknown,
   expected: AnalysisSourceKeyParts,

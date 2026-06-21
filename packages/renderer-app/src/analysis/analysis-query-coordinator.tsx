@@ -43,6 +43,7 @@ import {
   analysisResultScopeKey,
   analysisSourceKeyParts,
   analysisSourceScopeKey,
+  blameResultScopeKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
   queryKeyMatchesSourceSnapshotHead,
@@ -477,12 +478,13 @@ export function AnalysisCoordinatorProvider({
         config,
         rosterContext: analysisContext.rosterContext,
       })
+      const prefetchAnalysisScopeKey = analysisResultScopeKey(identity)
       await queryClient.ensureQueryData({
         queryKey: analysisQueryKeys.result(identity),
         queryFn: async ({ signal }) => {
           const requestId = nanoid()
           const transient = useAnalysisTransientStore.getState()
-          transient.startAnalysis(repoPath, requestId)
+          transient.startAnalysis(prefetchAnalysisScopeKey, requestId)
           try {
             return await client.run(
               "analysis.run",
@@ -505,14 +507,18 @@ export function AnalysisCoordinatorProvider({
                 onProgress: (progress) => {
                   useAnalysisTransientStore
                     .getState()
-                    .setAnalysisProgress(repoPath, requestId, progress)
+                    .setAnalysisProgress(
+                      prefetchAnalysisScopeKey,
+                      requestId,
+                      progress,
+                    )
                 },
               },
             )
           } finally {
             useAnalysisTransientStore
               .getState()
-              .finishAnalysis(repoPath, requestId)
+              .finishAnalysis(prefetchAnalysisScopeKey, requestId)
           }
         },
       })
@@ -616,19 +622,23 @@ export function AnalysisCoordinatorProvider({
       )
     },
   })
+  const selectedSnapshotCommitOid =
+    selectedSnapshotQuery.isFetching || selectedSnapshotQuery.isError
+      ? null
+      : (selectedSnapshotQuery.data ?? null)
 
   const selectedAnalysisIdentity = useMemo<AnalysisQueryIdentity | null>(() => {
     if (
       selectedRepoPath === null ||
       analysisConfig === null ||
-      !selectedSnapshotQuery.data
+      selectedSnapshotCommitOid === null
     ) {
       return null
     }
     return buildAnalysisQueryIdentity({
       source: activeSourceParts,
       repoPath: selectedRepoPath,
-      snapshotCommitOid: selectedSnapshotQuery.data,
+      snapshotCommitOid: selectedSnapshotCommitOid,
       config: analysisConfig,
       rosterContext: analysisContext.rosterContext,
     })
@@ -637,7 +647,7 @@ export function AnalysisCoordinatorProvider({
     analysisConfig,
     analysisContext.rosterContext,
     selectedRepoPath,
-    selectedSnapshotQuery.data,
+    selectedSnapshotCommitOid,
   ])
 
   const analysisScopeKey = useMemo(
@@ -667,13 +677,15 @@ export function AnalysisCoordinatorProvider({
       if (
         selectedRepoPath === null ||
         selectedAnalysisIdentity === null ||
+        analysisScopeKey === null ||
         analysisConfig === null
       ) {
         throw new Error("Analysis query ran without input.")
       }
+      const requestKey = analysisScopeKey
       const requestId = nanoid()
       const transient = useAnalysisTransientStore.getState()
-      transient.startAnalysis(selectedRepoPath, requestId)
+      transient.startAnalysis(requestKey, requestId)
       try {
         return await client.run(
           "analysis.run",
@@ -696,25 +708,28 @@ export function AnalysisCoordinatorProvider({
             onProgress: (progress) => {
               useAnalysisTransientStore
                 .getState()
-                .setAnalysisProgress(selectedRepoPath, requestId, progress)
+                .setAnalysisProgress(requestKey, requestId, progress)
             },
           },
         )
       } finally {
         useAnalysisTransientStore
           .getState()
-          .finishAnalysis(selectedRepoPath, requestId)
+          .finishAnalysis(requestKey, requestId)
       }
     },
   })
 
   const selectedAnalysisProgress = useAnalysisTransientStore((state) =>
-    selectedRepoPath === null
+    analysisScopeKey === null
       ? null
-      : (state.analysisByRepoPath.get(selectedRepoPath)?.progress ?? null),
+      : (state.analysisByRequestKey.get(analysisScopeKey)?.progress ?? null),
   )
 
-  const result = selectedAnalysisQuery.data ?? null
+  const result =
+    selectedSnapshotCommitOid === null || selectedAnalysisQuery.isFetching
+      ? null
+      : (selectedAnalysisQuery.data ?? null)
   const analysisStatus: AnalysisWorkflowStatus =
     selectedSnapshotQuery.isFetching || selectedAnalysisQuery.isFetching
       ? "running"
@@ -752,6 +767,13 @@ export function AnalysisCoordinatorProvider({
     selectedAnalysisIdentity,
     selectedRepoPath,
   ])
+  const selectedBlameScopeKey = useMemo(
+    () =>
+      selectedBlameIdentity === null
+        ? null
+        : blameResultScopeKey(selectedBlameIdentity),
+    [selectedBlameIdentity],
+  )
   const selectedBlameFiles = useMemo(
     () =>
       result?.fileStats
@@ -770,6 +792,7 @@ export function AnalysisCoordinatorProvider({
       if (
         selectedRepoPath === null ||
         selectedBlameIdentity === null ||
+        selectedBlameScopeKey === null ||
         selectedAnalysisIdentity === null ||
         effectiveBlameConfig === null ||
         result === null ||
@@ -777,9 +800,10 @@ export function AnalysisCoordinatorProvider({
       ) {
         throw new Error("Blame query ran without input.")
       }
+      const requestKey = selectedBlameScopeKey
       const requestId = nanoid()
       const transient = useAnalysisTransientStore.getState()
-      transient.startBlame(selectedRepoPath, requestId)
+      transient.startBlame(requestKey, requestId)
       try {
         return await client.run(
           "analysis.blame",
@@ -794,18 +818,14 @@ export function AnalysisCoordinatorProvider({
             signal,
             onProgress: (progress) => {
               const transientStore = useAnalysisTransientStore.getState()
-              transientStore.setBlameProgress(
-                selectedRepoPath,
-                requestId,
-                progress,
-              )
+              transientStore.setBlameProgress(requestKey, requestId, progress)
               if (progress.partialAuthorLines) {
                 const next = new Map<string, number>()
                 for (const entry of progress.partialAuthorLines) {
                   next.set(entry.personId, entry.lines)
                 }
                 transientStore.setBlamePartialAuthorLines(
-                  selectedRepoPath,
+                  requestKey,
                   requestId,
                   next,
                 )
@@ -814,19 +834,19 @@ export function AnalysisCoordinatorProvider({
           },
         )
       } finally {
-        useAnalysisTransientStore
-          .getState()
-          .finishBlame(selectedRepoPath, requestId)
+        useAnalysisTransientStore.getState().finishBlame(requestKey, requestId)
       }
     },
   })
 
   const selectedBlameTransient = useAnalysisTransientStore((state) =>
-    selectedRepoPath === null
+    selectedBlameScopeKey === null
       ? null
-      : (state.blameByRepoPath.get(selectedRepoPath) ?? null),
+      : (state.blameByRequestKey.get(selectedBlameScopeKey) ?? null),
   )
-  const blameResult = selectedBlameQuery.data ?? null
+  const blameResult = selectedBlameQuery.isFetching
+    ? null
+    : (selectedBlameQuery.data ?? null)
   const blameStatus: AnalysisWorkflowStatus = selectedBlameQuery.isFetching
     ? "running"
     : selectedBlameQuery.isError
@@ -984,7 +1004,7 @@ export function AnalysisCoordinatorProvider({
       selectRepository,
       runAnalysis,
       cancelAnalysis,
-      snapshotCommitOid: selectedSnapshotQuery.data ?? null,
+      snapshotCommitOid: selectedSnapshotCommitOid,
       analysisIdentity: selectedAnalysisIdentity,
       analysisScopeKey,
     }),
@@ -994,7 +1014,7 @@ export function AnalysisCoordinatorProvider({
       runAnalysis,
       selectedAnalysisIdentity,
       selectedRepoPath,
-      selectedSnapshotQuery.data,
+      selectedSnapshotCommitOid,
       selectRepository,
     ],
   )

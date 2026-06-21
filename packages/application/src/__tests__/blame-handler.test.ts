@@ -15,6 +15,8 @@ import {
   stubFileSystem,
 } from "./analysis-test-helpers.js"
 
+const SNAPSHOT_COMMIT_OID = "a".repeat(40)
+
 describe("analysis.blame handler", () => {
   it("returns empty result for empty files list", async () => {
     const handlers = createAnalysisWorkflowHandlers({
@@ -22,7 +24,7 @@ describe("analysis.blame handler", () => {
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
         "rev-parse --verify": {
           exitCode: 0,
-          stdout: "resolved-oid",
+          stdout: SNAPSHOT_COMMIT_OID,
           stderr: "",
         },
       }),
@@ -35,7 +37,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: [],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileBlames.length, 0)
@@ -56,7 +58,7 @@ describe("analysis.blame handler", () => {
         if (args.startsWith("rev-parse --verify")) {
           return {
             exitCode: 0,
-            stdout: "resolved-oid",
+            stdout: SNAPSHOT_COMMIT_OID,
             stderr: "",
             signal: null,
           }
@@ -74,7 +76,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: emptyPersonDb(),
       files: [],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileBlames.length, 0)
@@ -98,7 +100,7 @@ describe("analysis.blame handler", () => {
           config: {},
           personDbBaseline: { persons: [], identityIndex: new Map() },
           files: ["src/main.ts"],
-          snapshotCommitOid: "abc123",
+          snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         },
         { signal: controller.signal },
       )
@@ -133,7 +135,7 @@ describe("analysis.blame handler", () => {
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
       "rev-parse --verify": {
         exitCode: 0,
-        stdout: "resolved-oid",
+        stdout: SNAPSHOT_COMMIT_OID,
         stderr: "",
       },
       "cat-file": { exitCode: 1, stdout: "", stderr: "" },
@@ -151,7 +153,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -219,7 +221,7 @@ describe("analysis.blame handler", () => {
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
         "rev-parse --verify": {
           exitCode: 0,
-          stdout: "resolved-oid",
+          stdout: SNAPSHOT_COMMIT_OID,
           stderr: "",
         },
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
@@ -234,7 +236,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: emptyPersonDb(),
       files: ["src/main.ts"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorSummaries.length, 2)
@@ -284,7 +286,7 @@ describe("analysis.blame handler", () => {
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
         "rev-parse --verify": {
           exitCode: 0,
-          stdout: "resolved-oid",
+          stdout: SNAPSHOT_COMMIT_OID,
           stderr: "",
         },
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
@@ -299,7 +301,7 @@ describe("analysis.blame handler", () => {
       config: { excludeAuthors: ["Alice"] },
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -352,7 +354,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: { persons: [], identityIndex: new Map() },
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       })
       assert.fail("Should have thrown validation error")
     } catch (error) {
@@ -373,7 +375,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       } as unknown as AnalysisBlameInput),
     )
   })
@@ -392,7 +394,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       } as unknown as AnalysisBlameInput),
     )
   })
@@ -409,7 +411,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         rosterContext: { members: [] },
       } as unknown as AnalysisBlameInput),
     )
@@ -419,7 +421,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         analysisSource: { kind: "folder" },
       } as unknown as AnalysisBlameInput),
     )
@@ -442,7 +444,7 @@ describe("analysis.blame handler", () => {
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
         "rev-parse --verify": {
           exitCode: 0,
-          stdout: "resolved-oid",
+          stdout: SNAPSHOT_COMMIT_OID,
           stderr: "",
         },
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
@@ -466,7 +468,7 @@ describe("analysis.blame handler", () => {
       },
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["main.ts", "main.md"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -493,7 +495,7 @@ describe("analysis.blame handler", () => {
             ? { exitCode: 0, stdout: ".git", stderr: "", signal: null }
             : {
                 exitCode: 0,
-                stdout: "resolved-oid",
+                stdout: SNAPSHOT_COMMIT_OID,
                 stderr: "",
                 signal: null,
               }
@@ -524,7 +526,7 @@ describe("analysis.blame handler", () => {
       config: { subfolder: "src" },
       personDbBaseline: emptyPersonDb(),
       files: ["src/main.ts"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.deepEqual(
@@ -596,7 +598,7 @@ describe("analysis.blame handler", () => {
         if (args.startsWith("rev-parse --verify")) {
           return {
             exitCode: 0,
-            stdout: "resolved-oid",
+            stdout: SNAPSHOT_COMMIT_OID,
             stderr: "",
             signal: null,
           }
@@ -625,7 +627,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts", "src/util.ts"],
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.fileSummaries.length, 2)
@@ -656,7 +658,7 @@ describe("analysis.blame handler", () => {
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
         "rev-parse --verify": {
           exitCode: 0,
-          stdout: "resolved-oid",
+          stdout: SNAPSHOT_COMMIT_OID,
           stderr: "",
         },
         "cat-file": { exitCode: 1, stdout: "", stderr: "" },
@@ -672,7 +674,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: { persons: [], identityIndex: new Map() },
         files: ["src/main.ts"],
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       })
       assert.fail("Should have thrown provider error")
     } catch (error) {

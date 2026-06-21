@@ -16,6 +16,8 @@ import {
   stubFileSystem,
 } from "./analysis-test-helpers.js"
 
+const SNAPSHOT_COMMIT_OID = "a".repeat(40)
+
 describe("analysis.run handler", () => {
   it("validates config and rejects invalid input", async () => {
     const handlers = createAnalysisWorkflowHandlers({
@@ -29,7 +31,7 @@ describe("analysis.run handler", () => {
       config: {
         since: "invalid-date",
       },
-      snapshotCommitOid: "a".repeat(40),
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     }
 
     try {
@@ -53,7 +55,7 @@ describe("analysis.run handler", () => {
       }),
       repositoryRelativePath: "test-repo",
       config: {},
-      snapshotCommitOid: "a".repeat(40),
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     }
 
     try {
@@ -70,7 +72,7 @@ describe("analysis.run handler", () => {
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
       "rev-parse --verify": {
         exitCode: 0,
-        stdout: "abc123def456",
+        stdout: SNAPSHOT_COMMIT_OID,
         stderr: "",
       },
       "ls-tree": { exitCode: 0, stdout: "", stderr: "" },
@@ -85,7 +87,7 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: {},
-      snapshotCommitOid: "abc123def456",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorStats.length, 0)
@@ -105,7 +107,12 @@ describe("analysis.run handler", () => {
           return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
         }
         if (args.startsWith("rev-parse --verify")) {
-          return { exitCode: 0, stdout: "abc123", stderr: "", signal: null }
+          return {
+            exitCode: 0,
+            stdout: SNAPSHOT_COMMIT_OID,
+            stderr: "",
+            signal: null,
+          }
         }
         if (args.startsWith("ls-tree")) {
           return { exitCode: 0, stdout: "", stderr: "", signal: null }
@@ -122,7 +129,7 @@ describe("analysis.run handler", () => {
       repositoryAbsolutePath: "/tmp/repos/absolute-repo",
       config: {},
       analysisSource: { kind: "folder" },
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorStats.length, 0)
@@ -132,7 +139,11 @@ describe("analysis.run handler", () => {
   it("emits progress events through all phases", async () => {
     const gitCommand = createMockGitCommandPort({
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
-      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
       "ls-tree": {
         exitCode: 0,
         stdout: "100644 blob abc123 100\tsrc/main.ts\n",
@@ -160,7 +171,7 @@ describe("analysis.run handler", () => {
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       },
       {
         onProgress(event: AnalysisProgress) {
@@ -177,7 +188,11 @@ describe("analysis.run handler", () => {
   it("returns stable author recency independent of wall-clock time", async () => {
     const gitCommand = createMockGitCommandPort({
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
-      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
       "ls-tree": {
         exitCode: 0,
         stdout: "100644 blob abc123 100\tsrc/main.ts\n",
@@ -206,7 +221,7 @@ describe("analysis.run handler", () => {
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       })
 
       Date.now = () => 1_900_000_000_000
@@ -214,7 +229,7 @@ describe("analysis.run handler", () => {
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       })
 
       assert.equal(
@@ -230,7 +245,11 @@ describe("analysis.run handler", () => {
   it("uses commit time as recency for deletion-only authors", async () => {
     const gitCommand = createMockGitCommandPort({
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
-      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
       "ls-tree": {
         exitCode: 0,
         stdout: "100644 blob abc123 100\tsrc/main.ts\n",
@@ -256,7 +275,7 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: {},
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorStats[0].insertions, 0)
@@ -279,7 +298,7 @@ describe("analysis.run handler", () => {
           course: createMockCourse(),
           repositoryRelativePath: "test-repo",
           config: {},
-          snapshotCommitOid: "abc123",
+          snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         },
         { signal: controller.signal },
       )
@@ -293,7 +312,11 @@ describe("analysis.run handler", () => {
   it("runs roster bridge when rosterContext is provided", async () => {
     const gitCommand = createMockGitCommandPort({
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
-      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
       "ls-tree": {
         exitCode: 0,
         stdout: "100644 blob abc123 100\tsrc/main.ts\n",
@@ -319,7 +342,7 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: {},
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       analysisSource: {
         kind: "course",
         rosterContext: {
@@ -360,7 +383,7 @@ describe("analysis.run handler", () => {
         course: createMockCourse(),
         repositoryRelativePath: "../outside",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       })
       assert.fail("Should have thrown validation error")
     } catch (error) {
@@ -379,7 +402,7 @@ describe("analysis.run handler", () => {
       handlers["analysis.run"]({
         repositoryRelativePath: "test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       } as unknown as AnalysisRunInput),
     )
   })
@@ -396,7 +419,7 @@ describe("analysis.run handler", () => {
         repositoryRelativePath: "test-repo",
         repositoryAbsolutePath: "/tmp/repos/test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       } as unknown as AnalysisRunInput),
     )
   })
@@ -411,7 +434,7 @@ describe("analysis.run handler", () => {
       handlers["analysis.run"]({
         repositoryAbsolutePath: "/tmp/repos/test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         rosterContext: { members: [] },
       } as unknown as AnalysisRunInput),
     )
@@ -427,7 +450,7 @@ describe("analysis.run handler", () => {
       handlers["analysis.run"]({
         repositoryAbsolutePath: "/tmp/repos/test-repo",
         config: {},
-        snapshotCommitOid: "abc123",
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         analysisSource: {
           kind: "folder",
           rosterContext: { members: [] },
@@ -439,7 +462,11 @@ describe("analysis.run handler", () => {
   it("assigns person ids and applies author exclusions to file stats", async () => {
     const gitCommand = createMockGitCommandPort({
       "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
-      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
       "ls-tree": {
         exitCode: 0,
         stdout: "100644 blob abc123 100\tsrc/main.ts\n",
@@ -470,7 +497,7 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: { excludeAuthors: ["alice"] },
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorStats.length, 1)
@@ -502,7 +529,12 @@ describe("analysis.run handler", () => {
           return { exitCode: 0, stdout: ".git", stderr: "", signal: null }
         }
         if (args.startsWith("rev-parse --verify")) {
-          return { exitCode: 0, stdout: "abc123", stderr: "", signal: null }
+          return {
+            exitCode: 0,
+            stdout: SNAPSHOT_COMMIT_OID,
+            stderr: "",
+            signal: null,
+          }
         }
         if (args.startsWith("ls-tree")) {
           return {
@@ -559,7 +591,7 @@ describe("analysis.run handler", () => {
       course: createMockCourse(),
       repositoryRelativePath: "test-repo",
       config: { nFiles: 1 },
-      snapshotCommitOid: "abc123",
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     // fileStats is per-file scoped: only the top-1 file is present.

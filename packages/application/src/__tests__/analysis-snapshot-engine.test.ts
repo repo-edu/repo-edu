@@ -1,5 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { AppError } from "@repo-edu/application-contract"
+import { isAppError } from "@repo-edu/application-contract"
+import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
 import {
   applyCommitExclusions,
   buildCommitGroups,
@@ -8,6 +11,7 @@ import {
   filterCommitsByPathScope,
   filterFileCandidates,
   reduceCommitGroupOverlap,
+  verifySnapshotCommitOid,
 } from "../analysis-workflows/snapshot-engine.js"
 
 type AnalysisCommit = {
@@ -18,6 +22,93 @@ type AnalysisCommit = {
   message: string
   files: { path: string; insertions: number; deletions: number }[]
 }
+
+const SNAPSHOT_COMMIT_OID = "a".repeat(40)
+const DIFFERENT_COMMIT_OID = "b".repeat(40)
+
+function isValidationError(error: unknown): boolean {
+  return isAppError(error) && (error as AppError).type === "validation"
+}
+
+describe("snapshot-engine verifySnapshotCommitOid", () => {
+  it("accepts a full lowercase commit OID that resolves exactly", async () => {
+    const calls: string[][] = []
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run(request) {
+        calls.push(request.args)
+        return {
+          exitCode: 0,
+          stdout: SNAPSHOT_COMMIT_OID,
+          stderr: "",
+          signal: null,
+        }
+      },
+    }
+
+    const result = await verifySnapshotCommitOid(
+      gitCommand,
+      "/repo",
+      SNAPSHOT_COMMIT_OID,
+      undefined,
+    )
+
+    assert.equal(result, SNAPSHOT_COMMIT_OID)
+    assert.deepEqual(calls, [
+      ["rev-parse", "--verify", `${SNAPSHOT_COMMIT_OID}^{commit}`],
+    ])
+  })
+
+  it("rejects refs and abbreviated OIDs before Git resolution", async () => {
+    let called = false
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run() {
+        called = true
+        return {
+          exitCode: 0,
+          stdout: SNAPSHOT_COMMIT_OID,
+          stderr: "",
+          signal: null,
+        }
+      },
+    }
+
+    await assert.rejects(
+      verifySnapshotCommitOid(gitCommand, "/repo", "HEAD", undefined),
+      isValidationError,
+    )
+    await assert.rejects(
+      verifySnapshotCommitOid(gitCommand, "/repo", "abc123", undefined),
+      isValidationError,
+    )
+    assert.equal(called, false)
+  })
+
+  it("rejects OIDs that peel to a different commit", async () => {
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run() {
+        return {
+          exitCode: 0,
+          stdout: DIFFERENT_COMMIT_OID,
+          stderr: "",
+          signal: null,
+        }
+      },
+    }
+
+    await assert.rejects(
+      verifySnapshotCommitOid(
+        gitCommand,
+        "/repo",
+        SNAPSHOT_COMMIT_OID,
+        undefined,
+      ),
+      isValidationError,
+    )
+  })
+})
 
 describe("snapshot-engine filterFileCandidates", () => {
   const entries = [

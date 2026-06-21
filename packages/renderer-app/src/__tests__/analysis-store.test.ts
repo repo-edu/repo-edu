@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
+import type { AnalysisProgress } from "@repo-edu/application-contract"
 import type {
   AnalysisResult,
   BlameResult,
@@ -15,6 +16,7 @@ import {
   buildBlameOutputConfigKey,
   buildBlameQueryIdentity,
 } from "../analysis/analysis-query-keys.js"
+import { useAnalysisTransientStore } from "../analysis/analysis-transient-store.js"
 import {
   buildAuthorColorsByPersonId,
   buildAuthorDisplayByPersonId,
@@ -237,6 +239,12 @@ function onlyDefinedValues(value: object) {
 beforeEach(() => {
   useAnalysisStore.getState().reset()
   useExaminationStore.getState().reset()
+  useAnalysisTransientStore.setState({
+    discoveryRequestId: null,
+    discoveryProgress: null,
+    analysisByRequestKey: new Map(),
+    blameByRequestKey: new Map(),
+  })
 })
 
 describe("analysis view state", () => {
@@ -390,6 +398,58 @@ describe("analysis view state", () => {
     assert.deepEqual(
       [...(selectBlameVisibleAuthorsForScope(state, "analysis-b") ?? [])],
       ["p_0002"],
+    )
+  })
+
+  it("scopes transient analysis progress by result identity key", () => {
+    const store = useAnalysisTransientStore.getState()
+    const progress: AnalysisProgress = {
+      phase: "log",
+      label: "Collecting commits",
+      processedFiles: 1,
+      totalFiles: 2,
+    }
+
+    store.startAnalysis("analysis-a", "request-a")
+    store.startAnalysis("analysis-b", "request-b")
+    store.setAnalysisProgress("analysis-a", "request-a", progress)
+    store.setAnalysisProgress("analysis-b", "request-a", {
+      ...progress,
+      label: "Wrong request",
+    })
+
+    const state = useAnalysisTransientStore.getState()
+    assert.equal(
+      state.analysisByRequestKey.get("analysis-a")?.progress?.label,
+      "Collecting commits",
+    )
+    assert.equal(state.analysisByRequestKey.get("analysis-b")?.progress, null)
+  })
+
+  it("scopes transient blame partial LOC by blame identity key", () => {
+    const store = useAnalysisTransientStore.getState()
+
+    store.startBlame("blame-a", "request-a")
+    store.startBlame("blame-b", "request-b")
+    store.setBlamePartialAuthorLines(
+      "blame-a",
+      "request-a",
+      new Map([["p_0001", 4]]),
+    )
+    store.setBlamePartialAuthorLines(
+      "blame-b",
+      "request-a",
+      new Map([["p_0002", 9]]),
+    )
+
+    const state = useAnalysisTransientStore.getState()
+    assert.equal(
+      state.blameByRequestKey.get("blame-a")?.partialAuthorLines.get("p_0001"),
+      4,
+    )
+    assert.equal(
+      state.blameByRequestKey.get("blame-b")?.partialAuthorLines.size,
+      0,
     )
   })
 })

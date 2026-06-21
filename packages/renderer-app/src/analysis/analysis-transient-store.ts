@@ -18,8 +18,8 @@ type BlameRequestProgress = {
 export type AnalysisTransientState = {
   discoveryRequestId: string | null
   discoveryProgress: DiscoverReposProgress | null
-  analysisByRepoPath: Map<string, AnalysisRequestProgress>
-  blameByRepoPath: Map<string, BlameRequestProgress>
+  analysisByRequestKey: Map<string, AnalysisRequestProgress>
+  blameByRequestKey: Map<string, BlameRequestProgress>
 }
 
 export type AnalysisTransientActions = {
@@ -29,25 +29,25 @@ export type AnalysisTransientActions = {
     progress: DiscoverReposProgress | null,
   ) => void
   finishDiscovery: (requestId: string) => void
-  startAnalysis: (repoPath: string, requestId: string) => void
+  startAnalysis: (requestKey: string, requestId: string) => void
   setAnalysisProgress: (
-    repoPath: string,
+    requestKey: string,
     requestId: string,
     progress: AnalysisProgress | null,
   ) => void
-  finishAnalysis: (repoPath: string, requestId: string) => void
-  startBlame: (repoPath: string, requestId: string) => void
+  finishAnalysis: (requestKey: string, requestId: string) => void
+  startBlame: (requestKey: string, requestId: string) => void
   setBlameProgress: (
-    repoPath: string,
+    requestKey: string,
     requestId: string,
     progress: AnalysisProgress | null,
   ) => void
   setBlamePartialAuthorLines: (
-    repoPath: string,
+    requestKey: string,
     requestId: string,
     lines: ReadonlyMap<string, number>,
   ) => void
-  finishBlame: (repoPath: string, requestId: string) => void
+  finishBlame: (requestKey: string, requestId: string) => void
 }
 
 export const EMPTY_PARTIAL_AUTHOR_LINES: ReadonlyMap<string, number> = new Map()
@@ -74,8 +74,8 @@ export const useAnalysisTransientStore = create<
 >((set) => ({
   discoveryRequestId: null,
   discoveryProgress: null,
-  analysisByRepoPath: new Map(),
-  blameByRepoPath: new Map(),
+  analysisByRequestKey: new Map(),
+  blameByRequestKey: new Map(),
 
   startDiscovery: (discoveryRequestId) =>
     set({ discoveryRequestId, discoveryProgress: null }),
@@ -90,64 +90,64 @@ export const useAnalysisTransientStore = create<
         : state,
     ),
 
-  startAnalysis: (repoPath, requestId) =>
+  startAnalysis: (requestKey, requestId) =>
     set((state) => {
-      const analysisByRepoPath = nextMap(state.analysisByRepoPath)
-      analysisByRepoPath.set(repoPath, { requestId, progress: null })
-      return { analysisByRepoPath }
+      const analysisByRequestKey = nextMap(state.analysisByRequestKey)
+      analysisByRequestKey.set(requestKey, { requestId, progress: null })
+      return { analysisByRequestKey }
     }),
-  setAnalysisProgress: (repoPath, requestId, progress) =>
+  setAnalysisProgress: (requestKey, requestId, progress) =>
     set((state) => ({
-      analysisByRepoPath: updateMatching(
-        state.analysisByRepoPath,
-        repoPath,
+      analysisByRequestKey: updateMatching(
+        state.analysisByRequestKey,
+        requestKey,
         requestId,
         (entry) => ({ ...entry, progress }),
       ),
     })),
-  finishAnalysis: (repoPath, requestId) =>
+  finishAnalysis: (requestKey, requestId) =>
     set((state) => {
-      const entry = state.analysisByRepoPath.get(repoPath)
+      const entry = state.analysisByRequestKey.get(requestKey)
       if (entry?.requestId !== requestId) return state
-      const analysisByRepoPath = nextMap(state.analysisByRepoPath)
-      analysisByRepoPath.delete(repoPath)
-      return { analysisByRepoPath }
+      const analysisByRequestKey = nextMap(state.analysisByRequestKey)
+      analysisByRequestKey.delete(requestKey)
+      return { analysisByRequestKey }
     }),
 
-  startBlame: (repoPath, requestId) =>
+  startBlame: (requestKey, requestId) =>
     set((state) => {
-      const blameByRepoPath = nextMap(state.blameByRepoPath)
-      blameByRepoPath.set(repoPath, {
+      const blameByRequestKey = nextMap(state.blameByRequestKey)
+      blameByRequestKey.set(requestKey, {
         requestId,
         progress: null,
         partialAuthorLines: EMPTY_PARTIAL_AUTHOR_LINES,
       })
-      return { blameByRepoPath }
+      return { blameByRequestKey }
     }),
-  setBlameProgress: (repoPath, requestId, progress) =>
+  setBlameProgress: (requestKey, requestId, progress) =>
     set((state) => ({
-      blameByRepoPath: updateMatching(
-        state.blameByRepoPath,
-        repoPath,
+      blameByRequestKey: updateMatching(
+        state.blameByRequestKey,
+        requestKey,
         requestId,
         (entry) => ({ ...entry, progress }),
       ),
     })),
-  setBlamePartialAuthorLines: (repoPath, requestId, partialAuthorLines) =>
+  setBlamePartialAuthorLines: (requestKey, requestId, partialAuthorLines) =>
     set((state) => ({
-      blameByRepoPath: updateMatching(
-        state.blameByRepoPath,
-        repoPath,
+      blameByRequestKey: updateMatching(
+        state.blameByRequestKey,
+        requestKey,
         requestId,
         (entry) => ({ ...entry, partialAuthorLines }),
       ),
     })),
-  finishBlame: (repoPath, requestId) =>
+  finishBlame: (requestKey, requestId) =>
     set((state) => {
-      const entry = state.blameByRepoPath.get(repoPath)
+      const entry = state.blameByRequestKey.get(requestKey)
       if (entry?.requestId !== requestId) return state
-      const blameByRepoPath = nextMap(state.blameByRepoPath)
-      blameByRepoPath.delete(repoPath)
-      return { blameByRepoPath }
+      const blameByRequestKey = nextMap(state.blameByRequestKey)
+      blameByRequestKey.delete(requestKey)
+      return { blameByRequestKey }
     }),
 }))
