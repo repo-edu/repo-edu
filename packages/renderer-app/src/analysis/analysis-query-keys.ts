@@ -111,6 +111,13 @@ export function analysisSourceScopeKey(source: AnalysisSourceKeyParts): string {
   return JSON.stringify(source)
 }
 
+export function analysisAutoDiscoveryScopeKey(
+  source: AnalysisSourceKeyParts,
+  folder: string,
+): string {
+  return JSON.stringify([source, folder])
+}
+
 export function analysisResultScopeKey(
   identity: AnalysisQueryIdentity,
 ): string {

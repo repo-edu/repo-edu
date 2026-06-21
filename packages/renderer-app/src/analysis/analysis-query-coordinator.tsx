@@ -446,7 +446,11 @@ export function AnalysisCoordinatorProvider({
     : null
 
   const prefetchRepoAnalysis = useCallback(
-    async (repoPath: string, config = analysisConfig): Promise<void> => {
+    async (
+      repoPath: string,
+      isCurrentBatch: () => boolean,
+      config = analysisConfig,
+    ): Promise<void> => {
       if (analysisContext.kind === "none" || config === null) return
       const snapshotKey = analysisQueryKeys.snapshotHead({
         source: activeSourceParts,
@@ -465,6 +469,7 @@ export function AnalysisCoordinatorProvider({
             { signal },
           ),
       })
+      if (!isCurrentBatch()) return
       const identity = buildAnalysisQueryIdentity({
         source: activeSourceParts,
         repoPath,
@@ -556,8 +561,9 @@ export function AnalysisCoordinatorProvider({
         discoveredRepoPaths,
         analysisConcurrency.repoParallelism,
         async (repoPath) => {
-          if (prefetchBatchRef.current !== batchId) return
-          await prefetchRepoAnalysis(repoPath)
+          const isCurrentBatch = () => prefetchBatchRef.current === batchId
+          if (!isCurrentBatch()) return
+          await prefetchRepoAnalysis(repoPath, isCurrentBatch)
         },
       ).catch(() => {})
     }

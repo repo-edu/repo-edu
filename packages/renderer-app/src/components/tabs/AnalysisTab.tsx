@@ -8,17 +8,23 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import {
   AnalysisCoordinatorProvider,
   useAnalysisDiscovery,
 } from "../../analysis/analysis-query-coordinator.js"
+import {
+  analysisAutoDiscoveryScopeKey,
+  analysisSourceKeyParts,
+} from "../../analysis/analysis-query-keys.js"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
+import { selectActiveAnalysisSourceKey } from "../../session/selectors.js"
+import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import {
   type AnalysisView,
   useAnalysisStore,
@@ -94,19 +100,33 @@ function RepositoryAnalysisTabContent() {
   const { runRepoDiscovery, discoveredRepos, discoveryStatus } =
     useAnalysisDiscovery()
   const searchFolder = analysisContext.searchFolder
+  const activeSourceKey = useSessionControllerSelector(
+    selectActiveAnalysisSourceKey,
+  )
+  const autoDiscoveryScopeKey = useMemo(
+    () =>
+      searchFolder === null
+        ? null
+        : analysisAutoDiscoveryScopeKey(
+            analysisSourceKeyParts(activeSourceKey),
+            searchFolder,
+          ),
+    [activeSourceKey, searchFolder],
+  )
   const hasDiscoveredRepos = discoveredRepos.length > 0
-  const autoDiscoveredFolderRef = useRef<string | null>(null)
+  const autoDiscoveredScopeRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
   useEffect(() => {
-    if (!searchFolder) return
+    if (!searchFolder || autoDiscoveryScopeKey === null) return
     if (discoveryStatus === "loading") return
     const shouldAutoDiscover =
-      autoDiscoveredFolderRef.current !== searchFolder && !hasDiscoveredRepos
+      autoDiscoveredScopeRef.current !== autoDiscoveryScopeKey &&
+      !hasDiscoveredRepos
     if (!shouldAutoDiscover) return
-    autoDiscoveredFolderRef.current = searchFolder
+    autoDiscoveredScopeRef.current = autoDiscoveryScopeKey
     void runRepoDiscoveryRef.current(searchFolder)
-  }, [searchFolder, hasDiscoveredRepos, discoveryStatus])
+  }, [autoDiscoveryScopeKey, searchFolder, hasDiscoveredRepos, discoveryStatus])
 
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current

@@ -8,6 +8,7 @@ import type {
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { buildDiscoveryCompletionMarker } from "../analysis/analysis-query-coordinator.js"
 import {
+  analysisAutoDiscoveryScopeKey,
   analysisQueryKeys,
   buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
@@ -469,6 +470,19 @@ describe("analysis query keys", () => {
     assert.notEqual(
       buildDiscoveryCompletionMarker(key, 100),
       buildDiscoveryCompletionMarker(key, 101),
+    )
+  })
+
+  it("scopes auto-discovery markers by source and folder", () => {
+    const folder = "/courses/shared"
+
+    assert.notEqual(
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder),
+      analysisAutoDiscoveryScopeKey(["course", "course-b"], folder),
+    )
+    assert.notEqual(
+      analysisAutoDiscoveryScopeKey(["folder", folder], folder),
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder),
     )
   })
 })
