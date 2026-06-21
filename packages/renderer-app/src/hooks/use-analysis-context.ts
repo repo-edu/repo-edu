@@ -1,6 +1,6 @@
 import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
 import type { AnalysisInputs } from "@repo-edu/domain/types"
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { selectActiveSurface } from "../session/selectors.js"
 import {
   useSessionController,
@@ -9,6 +9,8 @@ import {
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../utils/analysis-roster-context.js"
+
+const EMPTY_ANALYSIS_INPUTS: AnalysisInputs = {}
 
 export function useAnalysisContext() {
   const controller = useSessionController()
@@ -21,11 +23,9 @@ export function useAnalysisContext() {
     (s) => s.setFolderViewAnalysisInputs,
   )
 
+  const activeCourseId = activeCourseIdFromSurface(activeSurface)
   const courseContext =
-    activeCourseIdFromSurface(activeSurface) !== null &&
-    course?.id === activeCourseIdFromSurface(activeSurface)
-      ? course
-      : null
+    activeCourseId !== null && course?.id === activeCourseId ? course : null
   const kind =
     activeSurface.kind === "submission"
       ? "submission"
@@ -41,11 +41,14 @@ export function useAnalysisContext() {
   const analysisInputs =
     activeSurface.kind === "folder"
       ? folderViewAnalysisInputs
-      : (courseContext?.analysisInputs ?? {})
-  const rosterContext =
-    courseContext === null
-      ? undefined
-      : buildAnalysisRosterContext(courseContext)
+      : (courseContext?.analysisInputs ?? EMPTY_ANALYSIS_INPUTS)
+  const rosterContext = useMemo(
+    () =>
+      courseContext === null
+        ? undefined
+        : buildAnalysisRosterContext(courseContext),
+    [courseContext],
+  )
 
   const setAnalysisInputs = useCallback(
     (patch: Partial<AnalysisInputs>) => {
@@ -80,15 +83,28 @@ export function useAnalysisContext() {
     [controller],
   )
 
-  return {
-    kind,
-    activeSurface,
-    course: courseContext,
-    searchFolder,
-    analysisInputs,
-    rosterContext,
-    setAnalysisInputs,
-    updateCourseSearchFolder,
-    activateFolderPath,
-  }
+  return useMemo(
+    () => ({
+      kind,
+      activeSurface,
+      course: courseContext,
+      searchFolder,
+      analysisInputs,
+      rosterContext,
+      setAnalysisInputs,
+      updateCourseSearchFolder,
+      activateFolderPath,
+    }),
+    [
+      activateFolderPath,
+      activeSurface,
+      analysisInputs,
+      courseContext,
+      kind,
+      rosterContext,
+      searchFolder,
+      setAnalysisInputs,
+      updateCourseSearchFolder,
+    ],
+  )
 }

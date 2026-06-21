@@ -9,6 +9,7 @@ import {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
+  buildCohortPrefetchMarker,
   buildDiscoveryCompletionMarker,
   selectCurrentAnalysisResult,
   selectCurrentBlameResult,
@@ -654,6 +655,52 @@ describe("analysis query keys", () => {
     assert.notEqual(
       buildDiscoveryCompletionMarker(key, 100),
       buildDiscoveryCompletionMarker(key, 101),
+    )
+  })
+
+  it("keys cohort prefetch by discovery completion and analysis identity", () => {
+    const key = analysisQueryKeys.discovery(
+      ["course", "course-a"],
+      "/courses",
+      5,
+    )
+    const base = buildCohortPrefetchMarker({
+      discoveryQueryKey: key,
+      dataUpdatedAt: 100,
+      analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
+      rosterContext: undefined,
+      repoPaths: ["/courses/repo-a"],
+    })
+
+    assert.equal(
+      base,
+      buildCohortPrefetchMarker({
+        discoveryQueryKey: key,
+        dataUpdatedAt: 100,
+        analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
+        rosterContext: undefined,
+        repoPaths: ["/courses/repo-a"],
+      }),
+    )
+    assert.notEqual(
+      base,
+      buildCohortPrefetchMarker({
+        discoveryQueryKey: key,
+        dataUpdatedAt: 100,
+        analysisConfig: { includeFiles: ["*"], extensions: ["py"] },
+        rosterContext: undefined,
+        repoPaths: ["/courses/repo-a"],
+      }),
+    )
+    assert.notEqual(
+      base,
+      buildCohortPrefetchMarker({
+        discoveryQueryKey: key,
+        dataUpdatedAt: 101,
+        analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
+        rosterContext: undefined,
+        repoPaths: ["/courses/repo-a"],
+      }),
     )
   })
 

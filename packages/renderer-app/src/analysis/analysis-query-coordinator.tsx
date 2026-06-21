@@ -5,7 +5,9 @@ import type {
 } from "@repo-edu/application-contract"
 import type {
   AnalysisBlameConfig,
+  AnalysisConfig,
   AnalysisResult,
+  AnalysisRosterContext,
   AuthorStats,
   BlameResult,
   FileStats,
@@ -49,8 +51,10 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
   blameResultScopeKey,
+  buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
+  buildRosterOutputContextKey,
 } from "./analysis-query-keys.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
@@ -269,6 +273,27 @@ export function buildDiscoveryCompletionMarker(
   return JSON.stringify([queryKey, dataUpdatedAt])
 }
 
+export function buildCohortPrefetchMarker(params: {
+  discoveryQueryKey: readonly unknown[]
+  dataUpdatedAt: number
+  analysisConfig: AnalysisConfig | null
+  rosterContext: AnalysisRosterContext | undefined
+  repoPaths: readonly string[]
+}): string | null {
+  if (params.analysisConfig === null || params.repoPaths.length === 0) {
+    return null
+  }
+  return JSON.stringify([
+    buildDiscoveryCompletionMarker(
+      params.discoveryQueryKey,
+      params.dataUpdatedAt,
+    ),
+    buildAnalysisOutputConfigKey(params.analysisConfig),
+    buildRosterOutputContextKey(params.rosterContext),
+    params.repoPaths,
+  ])
+}
+
 export function selectCurrentAnalysisResult(params: {
   snapshotCommitOid: string | null
   analysisIsFetching: boolean
@@ -331,6 +356,9 @@ export function AnalysisCoordinatorProvider({
   )
   const setLastDiscoveryOutcome = useAnalysisStore(
     (state) => state.setLastDiscoveryOutcome,
+  )
+  const markAutoDiscoveryRequest = useAnalysisStore(
+    (state) => state.markAutoDiscoveryRequest,
   )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
@@ -433,7 +461,14 @@ export function AnalysisCoordinatorProvider({
   const discoveryCurrentFolder = useAnalysisTransientStore(
     (state) => state.discoveryProgress?.currentFolder ?? null,
   )
-  const discoveredRepos = discoveryQuery.data?.repos ?? []
+  const discoveredRepos = useMemo(
+    () => discoveryQuery.data?.repos ?? [],
+    [discoveryQuery.data],
+  )
+  const discoveredRepoPaths = useMemo(
+    () => discoveredRepos.map((repo) => repo.path),
+    [discoveredRepos],
+  )
   const selectedRepoPath = useMemo(
     () =>
       selectEffectiveSelectedRepoPath({
@@ -542,15 +577,12 @@ export function AnalysisCoordinatorProvider({
     discoveryHandledRef.current = handledKey
     setLastDiscoveryOutcome(activeSourceText, "completed")
 
-    const firstRepoPath = discoveryQuery.data.repos[0]?.path ?? null
+    const firstRepoPath = discoveredRepos[0]?.path ?? null
     if (firstRepoPath !== null) {
-      const discoveredRepoPaths = discoveryQuery.data.repos.map(
-        (repo) => repo.path,
-      )
       const normalizedFolder = discoveryInput.folder.replaceAll("\\", "/")
       const normalizedRepo = firstRepoPath.replaceAll("\\", "/")
       if (
-        discoveryQuery.data.repos.length === 1 &&
+        discoveredRepos.length === 1 &&
         normalizedFolder.startsWith(`${normalizedRepo}/`)
       ) {
         if (analysisContext.kind === "folder") {
@@ -559,27 +591,56 @@ export function AnalysisCoordinatorProvider({
           analysisContext.updateCourseSearchFolder(firstRepoPath)
         }
       }
-      const batchId = ++prefetchBatchRef.current
-      void mapBounded(
-        discoveredRepoPaths,
-        analysisConcurrency.repoParallelism,
-        async (repoPath) => {
-          const isCurrentBatch = () => prefetchBatchRef.current === batchId
-          if (!isCurrentBatch()) return
-          await prefetchRepoAnalysis(repoPath, isCurrentBatch)
-        },
-      ).catch(() => {})
     }
   }, [
-    analysisConcurrency.repoParallelism,
     analysisContext,
+    discoveredRepos,
     discoveryInput,
     discoveryQuery.data,
     discoveryQuery.dataUpdatedAt,
     discoveryQueryKey,
-    prefetchRepoAnalysis,
     activeSourceText,
     setLastDiscoveryOutcome,
+  ])
+
+  const cohortPrefetchMarker = useMemo(
+    () =>
+      discoveryQuery.data
+        ? buildCohortPrefetchMarker({
+            discoveryQueryKey,
+            dataUpdatedAt: discoveryQuery.dataUpdatedAt,
+            analysisConfig,
+            rosterContext: analysisContext.rosterContext,
+            repoPaths: discoveredRepoPaths,
+          })
+        : null,
+    [
+      analysisConfig,
+      analysisContext.rosterContext,
+      discoveredRepoPaths,
+      discoveryQuery.data,
+      discoveryQuery.dataUpdatedAt,
+      discoveryQueryKey,
+    ],
+  )
+
+  useEffect(() => {
+    if (cohortPrefetchMarker === null) return
+    const batchId = ++prefetchBatchRef.current
+    void mapBounded(
+      discoveredRepoPaths,
+      analysisConcurrency.repoParallelism,
+      async (repoPath) => {
+        const isCurrentBatch = () => prefetchBatchRef.current === batchId
+        if (!isCurrentBatch()) return
+        await prefetchRepoAnalysis(repoPath, isCurrentBatch)
+      },
+    ).catch(() => {})
+  }, [
+    analysisConcurrency.repoParallelism,
+    cohortPrefetchMarker,
+    discoveredRepoPaths,
+    prefetchRepoAnalysis,
   ])
 
   useEffect(() => {
@@ -928,6 +989,7 @@ export function AnalysisCoordinatorProvider({
         discoveryInput.depth === input.depth
       prefetchBatchRef.current += 1
       setLastDiscoveryOutcome(activeSourceText, "none")
+      markAutoDiscoveryRequest(activeSourceText, input)
       void (async () => {
         await queryClient.cancelQueries({
           queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
@@ -944,6 +1006,7 @@ export function AnalysisCoordinatorProvider({
       activeSourceText,
       discoveryInput,
       discoveryQuery,
+      markAutoDiscoveryRequest,
       queryClient,
       searchDepth,
       setLastDiscoveryOutcome,

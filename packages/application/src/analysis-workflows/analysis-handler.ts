@@ -735,9 +735,12 @@ export function createAnalysisRunHandler(
             ? path.slice(subfolderPrefix.length)
             : path
 
-        const fileBytes = new Map<string, number>(
-          treeEntries.map((e) => [fileToSubfolderedPath(e.path), e.size]),
-        )
+        const selectedFilePathSet = new Set(filePaths)
+        const fileBytes = new Map<string, number>()
+        for (const entry of treeEntries) {
+          if (!selectedFilePathSet.has(entry.path)) continue
+          fileBytes.set(fileToSubfolderedPath(entry.path), entry.size)
+        }
 
         // Phase 4a: Repo-wide git log for author-level aggregates. Path
         // filters (subfolder/extensions/include/exclude) apply, but the

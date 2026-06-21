@@ -96,6 +96,50 @@ describe("analysis.run handler", () => {
     assert.equal("resolvedAsOfOid" in result, false)
   })
 
+  it("uses subfolder-scoped blob sizes for displayed file stats", async () => {
+    const gitCommand = createMockGitCommandPort({
+      "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
+      "rev-parse --verify": {
+        exitCode: 0,
+        stdout: SNAPSHOT_COMMIT_OID,
+        stderr: "",
+      },
+      "ls-tree": {
+        exitCode: 0,
+        stdout: [
+          "100644 blob inside 10\ta/z.ts",
+          "100644 blob outside 999\tz.ts",
+        ].join("\n"),
+        stderr: "",
+      },
+      log: {
+        exitCode: 0,
+        stdout: [
+          `${COMMIT_DELIMITER}`,
+          "\0sha1234\x001700000000\0Alice\0alice@example.com\0init",
+          "\0" + "4\t0\0a/z.ts\0",
+        ].join(""),
+        stderr: "",
+      },
+    })
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.run"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: { subfolder: "a", includeFiles: ["*.ts"] },
+      snapshotCommitOid: SNAPSHOT_COMMIT_OID,
+    })
+
+    assert.equal(result.fileStats.length, 1)
+    assert.equal(result.fileStats[0].path, "z.ts")
+    assert.equal(result.fileStats[0].bytes, 10)
+  })
+
   it("accepts absolute repository paths without course source data", async () => {
     const cwds: string[] = []
     const gitCommand: GitCommandPort = {
