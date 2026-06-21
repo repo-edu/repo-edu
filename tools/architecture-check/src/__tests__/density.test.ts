@@ -71,6 +71,36 @@ describe("redesign density", () => {
     assert.equal(report.counts.get("area-b"), 1)
   })
 
+  it("fails closed when a redesign commit has an unreadable area-model snapshot", () => {
+    const report = computeRedesignDensity(
+      [
+        commit(
+          "A1 redesign(area): split area",
+          ["packages/a/src/runtime-one.ts"],
+          "bad-snapshot",
+        ),
+        ...Array.from({ length: 9 }, (_, index) =>
+          commit(`B1 fix(other): ${index}`, ["packages/a/src/other.ts"]),
+        ),
+        commit("B1 fix(other): parent", ["packages/a/src/parent.ts"]),
+      ],
+      model,
+      new Map(),
+      new Map([
+        [
+          "bad-snapshot",
+          "cannot parse historical area model snapshot: invalid schema",
+        ],
+      ]),
+    )
+
+    assert.equal(report.counts.size, 0)
+    assert.match(
+      report.violations.map((violation) => violation.message).join("\n"),
+      /cannot parse historical area model snapshot/,
+    )
+  })
+
   it("maps historical splitFrom parents to current descendants", () => {
     const currentModel = compileAreaModel(
       parseAreaModel({

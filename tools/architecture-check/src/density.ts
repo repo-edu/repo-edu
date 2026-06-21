@@ -30,11 +30,16 @@ export function readRedesignDensityReport(
 ): DensityReport {
   try {
     const commits = readRecentCommits(root, HISTORY_WINDOW + 1)
-    const snapshots = readAreaModelSnapshots(
+    const historicalModels = readAreaModelSnapshots(
       root,
       commits.slice(0, HISTORY_WINDOW),
     )
-    return computeRedesignDensity(commits, model, snapshots)
+    return computeRedesignDensity(
+      commits,
+      model,
+      historicalModels.snapshots,
+      historicalModels.failures,
+    )
   } catch (error) {
     return {
       counts: new Map(),
@@ -56,6 +61,7 @@ export function computeRedesignDensity(
   commits: readonly GitCommit[],
   model: CompiledAreaModel,
   snapshots: ReadonlyMap<string, CompiledAreaModel> = new Map(),
+  snapshotFailures: ReadonlyMap<string, string> = new Map(),
 ): DensityReport {
   if (commits.length < HISTORY_WINDOW + 1) {
     return {
@@ -78,6 +84,15 @@ export function computeRedesignDensity(
   for (const commit of commits.slice(0, HISTORY_WINDOW)) {
     const kind = conventionalKind(commit.subject)
     if (kind !== "redesign" && kind !== "refactor") continue
+
+    const snapshotFailure = snapshotFailures.get(commit.hash)
+    if (snapshotFailure !== undefined) {
+      violations.push({
+        file: `${AREA_MODEL_PATH}@${commit.hash}`,
+        message: snapshotFailure,
+      })
+      continue
+    }
 
     const touchedAreas = new Set<string>()
     const historicalModel = snapshots.get(commit.hash)
@@ -108,26 +123,31 @@ export function computeRedesignDensity(
 function readAreaModelSnapshots(
   root: string,
   commits: readonly GitCommit[],
-): ReadonlyMap<string, CompiledAreaModel> {
+): {
+  readonly snapshots: ReadonlyMap<string, CompiledAreaModel>
+  readonly failures: ReadonlyMap<string, string>
+} {
   const snapshots = new Map<string, CompiledAreaModel>()
+  const failures = new Map<string, string>()
   for (const commit of commits) {
     const content = readGitFileAtCommit(root, commit.hash, AREA_MODEL_PATH)
     if (content === null) continue
-    const snapshot = compileAreaModelSnapshot(content)
-    if (snapshot !== null) snapshots.set(commit.hash, snapshot)
+    try {
+      snapshots.set(commit.hash, compileAreaModelSnapshot(content))
+    } catch (error) {
+      failures.set(
+        commit.hash,
+        `cannot parse historical area model snapshot: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
   }
-  return snapshots
+  return { snapshots, failures }
 }
 
-function compileAreaModelSnapshot(content: string): CompiledAreaModel | null {
-  // A historical snapshot under an older or newer schema is a lineage hint, not
-  // a hard input. Skip the ones the current schema cannot parse so density
-  // degrades to current-model attribution instead of failing the whole check.
-  try {
-    return compileAreaModel(parseAreaModel(JSON.parse(content)))
-  } catch {
-    return null
-  }
+function compileAreaModelSnapshot(content: string): CompiledAreaModel {
+  return compileAreaModel(parseAreaModel(JSON.parse(content)))
 }
 
 function attributeChangedPath(
