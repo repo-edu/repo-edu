@@ -14,6 +14,7 @@ import {
   filterFileStats,
   mergeAuthorStats,
   mergeFileStats,
+  selectEffectiveBlameVisibleAuthors,
   selectEffectiveFocusedFile,
 } from "../analysis/analysis-view-models.js"
 import { buildEffectiveBlameWorkflowConfig } from "../analysis/analysis-workflow-inputs.js"
@@ -395,6 +396,25 @@ describe("analysis view models", () => {
         selectedFiles: new Set(["missing"]),
       }).map((file) => file.path),
       ["src/a.ts"],
+    )
+  })
+
+  it("projects stale blame visible authors back to all visible authors", () => {
+    assert.equal(
+      selectEffectiveBlameVisibleAuthors({
+        storedVisibleAuthors: new Set(["missing"]),
+        visibleAuthorIds: ["p_0000", "p_0001"],
+      }),
+      null,
+    )
+    assert.deepEqual(
+      [
+        ...(selectEffectiveBlameVisibleAuthors({
+          storedVisibleAuthors: new Set(["p_0000", "missing"]),
+          visibleAuthorIds: ["p_0000", "p_0001"],
+        }) ?? []),
+      ],
+      ["p_0000"],
     )
   })
 

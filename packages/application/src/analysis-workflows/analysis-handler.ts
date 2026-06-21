@@ -92,6 +92,7 @@ function aggregateAuthorStatsFromCommits(
       insertions: number
       deletions: number
       dateSum: number
+      latestTimestamp: number
       commitShas: Set<string>
     }
   >()
@@ -106,6 +107,7 @@ function aggregateAuthorStatsFromCommits(
         insertions: 0,
         deletions: 0,
         dateSum: 0,
+        latestTimestamp: 0,
         commitShas: new Set(),
       }
       authorMap.set(authorKey, stat)
@@ -121,6 +123,7 @@ function aggregateAuthorStatsFromCommits(
     stat.insertions += commitInsertions
     stat.deletions += commitDeletions
     stat.dateSum += commit.timestamp * commitInsertions
+    stat.latestTimestamp = Math.max(stat.latestTimestamp, commit.timestamp)
     stat.commitShas.add(commit.sha)
   }
 
@@ -141,7 +144,9 @@ function aggregateAuthorStatsFromCommits(
     insertionsPercent:
       totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
     weightedActivityTimestamp:
-      stat.insertions > 0 ? stat.dateSum / stat.insertions : 0,
+      stat.insertions > 0
+        ? stat.dateSum / stat.insertions
+        : stat.latestTimestamp,
     commitShas: stat.commitShas,
   }))
 }
@@ -281,6 +286,7 @@ function collapseStatsByPerson(
       insertions: number
       deletions: number
       weightedActivityTimestampSum: number
+      latestActivityTimestamp: number
     }
   >()
 
@@ -294,6 +300,10 @@ function collapseStatsByPerson(
       existing.deletions += stat.deletions
       existing.weightedActivityTimestampSum +=
         stat.weightedActivityTimestamp * stat.insertions
+      existing.latestActivityTimestamp = Math.max(
+        existing.latestActivityTimestamp,
+        stat.weightedActivityTimestamp,
+      )
       continue
     }
     mergedAuthors.set(personId, {
@@ -305,6 +315,7 @@ function collapseStatsByPerson(
       deletions: stat.deletions,
       weightedActivityTimestampSum:
         stat.weightedActivityTimestamp * stat.insertions,
+      latestActivityTimestamp: stat.weightedActivityTimestamp,
     })
   }
 
@@ -325,7 +336,9 @@ function collapseStatsByPerson(
     insertionsPercent:
       totalInsertions > 0 ? (100 * a.insertions) / totalInsertions : 0,
     weightedActivityTimestamp:
-      a.insertions > 0 ? a.weightedActivityTimestampSum / a.insertions : 0,
+      a.insertions > 0
+        ? a.weightedActivityTimestampSum / a.insertions
+        : a.latestActivityTimestamp,
     commitShas: a.commitShas,
   }))
 

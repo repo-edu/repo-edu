@@ -227,6 +227,43 @@ describe("analysis.run handler", () => {
     }
   })
 
+  it("uses commit time as recency for deletion-only authors", async () => {
+    const gitCommand = createMockGitCommandPort({
+      "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
+      "rev-parse --verify": { exitCode: 0, stdout: "abc123", stderr: "" },
+      "ls-tree": {
+        exitCode: 0,
+        stdout: "100644 blob abc123 100\tsrc/main.ts\n",
+        stderr: "",
+      },
+      log: {
+        exitCode: 0,
+        stdout: [
+          `${COMMIT_DELIMITER}`,
+          "\0sha1234\x001700000123\0Alice\0alice@example.com\0delete",
+          "\0" + "0\t7\0src/main.ts\0",
+        ].join(""),
+        stderr: "",
+      },
+    })
+
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    const result = await handlers["analysis.run"]({
+      course: createMockCourse(),
+      repositoryRelativePath: "test-repo",
+      config: {},
+      snapshotCommitOid: "abc123",
+    })
+
+    assert.equal(result.authorStats[0].insertions, 0)
+    assert.equal(result.authorStats[0].deletions, 7)
+    assert.equal(result.authorStats[0].weightedActivityTimestamp, 1700000123)
+  })
+
   it("respects AbortSignal for cooperative cancellation", async () => {
     const controller = new AbortController()
     controller.abort()

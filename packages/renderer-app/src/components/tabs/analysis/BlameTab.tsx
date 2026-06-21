@@ -11,6 +11,7 @@ import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
 import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
@@ -489,21 +490,30 @@ export function BlameTab({ filePath }: { filePath: string }) {
     }))
   }, [processed, hideEmpty, hideComments])
 
+  const contributions = useMemo(() => {
+    if (!personDb) return []
+    return computeAuthorContributions(lineFilteredLines, personDb)
+  }, [lineFilteredLines, personDb])
+
+  const effectiveVisibleAuthors = useMemo(
+    () =>
+      selectEffectiveBlameVisibleAuthors({
+        storedVisibleAuthors: visibleAuthors,
+        visibleAuthorIds: contributions.map((c) => c.personId),
+      }),
+    [visibleAuthors, contributions],
+  )
+
   const filteredLines = useMemo(() => {
-    if (visibleAuthors === null) return lineFilteredLines
+    if (effectiveVisibleAuthors === null) return lineFilteredLines
     const lines = lineFilteredLines.filter((p) =>
-      visibleAuthors.has(p.personId),
+      effectiveVisibleAuthors.has(p.personId),
     )
     return lines.map((p, i) => ({
       ...p,
       isFirstInGroup: i === 0 || lines[i - 1].line.sha !== p.line.sha,
     }))
-  }, [lineFilteredLines, visibleAuthors])
-
-  const contributions = useMemo(() => {
-    if (!personDb) return []
-    return computeAuthorContributions(lineFilteredLines, personDb)
-  }, [lineFilteredLines, personDb])
+  }, [lineFilteredLines, effectiveVisibleAuthors])
 
   if (blameStatus === "running" && !fileBlame) {
     return (
@@ -596,7 +606,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
           <AuthorSummary
             contributions={contributions}
             colorMap={colorMap}
-            visibleAuthors={visibleAuthors}
+            visibleAuthors={effectiveVisibleAuthors}
             onToggle={(personId) =>
               toggleAuthor(
                 personId,
