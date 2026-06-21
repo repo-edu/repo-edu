@@ -16,8 +16,22 @@ export type AnalysisView = "authors" | "files" | "blame" | "examination"
 
 export type AnalysisFileSelectionMode = "all" | "subset"
 
+export type AnalysisDiscoveryOutcome = "none" | "completed" | "cancelled"
+
+export type AnalysisDiscoveryRequest = {
+  readonly folder: string
+  readonly depth: number
+}
+
+type DiscoveredRepoPath = {
+  readonly path: string
+}
+
 export type AnalysisState = {
   selectedRepoPaths: Map<string, string>
+  pendingRepoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
+  lastDiscoveryOutcomesByScope: Map<string, AnalysisDiscoveryOutcome>
+  autoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
   searchDepth: number
   blameConfig: AnalysisBlameConfig
 
@@ -50,6 +64,18 @@ export type AnalysisState = {
 
 export type AnalysisActions = {
   setSelectedRepoPath: (scopeKey: string, path: string | null) => void
+  setPendingRepoDiscoveryRequest: (
+    scopeKey: string,
+    request: AnalysisDiscoveryRequest | null,
+  ) => void
+  setLastDiscoveryOutcome: (
+    scopeKey: string,
+    outcome: AnalysisDiscoveryOutcome,
+  ) => void
+  markAutoDiscoveryRequest: (
+    scopeKey: string,
+    request: AnalysisDiscoveryRequest,
+  ) => void
   setSearchDepth: (depth: number) => void
   setBlameConfig: (patch: Partial<AnalysisBlameConfig>) => void
 
@@ -95,6 +121,9 @@ export type AnalysisActions = {
 function createInitialAnalysisState(): AnalysisState {
   return {
     selectedRepoPaths: new Map(),
+    pendingRepoDiscoveryRequestsByScope: new Map(),
+    lastDiscoveryOutcomesByScope: new Map(),
+    autoDiscoveryRequestsByScope: new Map(),
     searchDepth: 5,
     blameConfig: {
       copyMove: DEFAULT_BLAME_COPY_MOVE,
@@ -139,6 +168,51 @@ export function selectSelectedRepoPathForScope(
   scopeKey: string,
 ): string | null {
   return selectScopedValue(state.selectedRepoPaths, scopeKey)
+}
+
+export function selectPendingRepoDiscoveryRequestForScope(
+  state: AnalysisState,
+  scopeKey: string,
+): AnalysisDiscoveryRequest | null {
+  return selectScopedValue(state.pendingRepoDiscoveryRequestsByScope, scopeKey)
+}
+
+export function selectLastDiscoveryOutcomeForScope(
+  state: AnalysisState,
+  scopeKey: string,
+): AnalysisDiscoveryOutcome {
+  return (
+    selectScopedValue(state.lastDiscoveryOutcomesByScope, scopeKey) ?? "none"
+  )
+}
+
+export function selectAutoDiscoveryRequestForScope(
+  state: AnalysisState,
+  scopeKey: string,
+): AnalysisDiscoveryRequest | null {
+  return selectScopedValue(state.autoDiscoveryRequestsByScope, scopeKey)
+}
+
+export function analysisDiscoveryRequestsEqual(
+  left: AnalysisDiscoveryRequest | null,
+  right: AnalysisDiscoveryRequest | null,
+): boolean {
+  if (left === null || right === null) return left === right
+  return left.folder === right.folder && left.depth === right.depth
+}
+
+export function selectEffectiveSelectedRepoPath(params: {
+  storedRepoPath: string | null
+  discoveredRepos: readonly DiscoveredRepoPath[]
+}): string | null {
+  const { storedRepoPath, discoveredRepos } = params
+  if (
+    storedRepoPath !== null &&
+    discoveredRepos.some((repo) => repo.path === storedRepoPath)
+  ) {
+    return storedRepoPath
+  }
+  return discoveredRepos[0]?.path ?? null
 }
 
 export function selectActiveBlameFileForScope(
@@ -212,6 +286,30 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
           state.selectedRepoPaths,
           scopeKey,
           path,
+        ),
+      })),
+    setPendingRepoDiscoveryRequest: (scopeKey, request) =>
+      set((state) => ({
+        pendingRepoDiscoveryRequestsByScope: nextScopedMap(
+          state.pendingRepoDiscoveryRequestsByScope,
+          scopeKey,
+          request,
+        ),
+      })),
+    setLastDiscoveryOutcome: (scopeKey, outcome) =>
+      set((state) => ({
+        lastDiscoveryOutcomesByScope: nextScopedMap(
+          state.lastDiscoveryOutcomesByScope,
+          scopeKey,
+          outcome === "none" ? null : outcome,
+        ),
+      })),
+    markAutoDiscoveryRequest: (scopeKey, request) =>
+      set((state) => ({
+        autoDiscoveryRequestsByScope: nextScopedMap(
+          state.autoDiscoveryRequestsByScope,
+          scopeKey,
+          request,
         ),
       })),
     setSearchDepth: (searchDepth) => set({ searchDepth }),

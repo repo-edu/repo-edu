@@ -22,14 +22,18 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
 import { selectActiveAnalysisSourceKey } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import {
+  type AnalysisDiscoveryOutcome,
+  type AnalysisDiscoveryRequest,
+  selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
+  selectLastDiscoveryOutcomeForScope,
+  selectPendingRepoDiscoveryRequestForScope,
   selectSelectedAuthorsForScope,
   selectSelectedFilesForScope,
   selectSelectedRepoPathForScope,
@@ -65,19 +69,13 @@ import { buildEffectiveBlameWorkflowConfig } from "./analysis-workflow-inputs.js
 
 export type AnalysisWorkflowStatus = "idle" | "running" | "error"
 export type DiscoveryStatus = "idle" | "loading" | "error"
-type DiscoveryOutcome = "none" | "completed" | "cancelled"
-
-type DiscoveryInput = {
-  readonly folder: string
-  readonly depth: number
-}
 
 export type AnalysisDiscoveryValue = {
   discoveredRepos: readonly DiscoveredRepo[]
   discoveryStatus: DiscoveryStatus
   discoveryError: string | null
   discoveryCurrentFolder: string | null
-  lastDiscoveryOutcome: DiscoveryOutcome
+  lastDiscoveryOutcome: AnalysisDiscoveryOutcome
   runRepoDiscovery: (folder: string) => void
   cancelDiscovery: () => void
 }
@@ -316,11 +314,23 @@ export function AnalysisCoordinatorProvider({
     [activeSourceParts],
   )
 
-  const selectedRepoPath = useAnalysisStore((state) =>
+  const storedSelectedRepoPath = useAnalysisStore((state) =>
     selectSelectedRepoPathForScope(state, activeSourceText),
   )
   const setSelectedRepoPath = useAnalysisStore(
     (state) => state.setSelectedRepoPath,
+  )
+  const discoveryInput = useAnalysisStore((state) =>
+    selectPendingRepoDiscoveryRequestForScope(state, activeSourceText),
+  )
+  const lastDiscoveryOutcome = useAnalysisStore((state) =>
+    selectLastDiscoveryOutcomeForScope(state, activeSourceText),
+  )
+  const setPendingRepoDiscoveryRequest = useAnalysisStore(
+    (state) => state.setPendingRepoDiscoveryRequest,
+  )
+  const setLastDiscoveryOutcome = useAnalysisStore(
+    (state) => state.setLastDiscoveryOutcome,
   )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
@@ -364,47 +374,9 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
-  const [discoveryInputsBySource, setDiscoveryInputsBySource] = useState<
-    Map<string, DiscoveryInput>
-  >(new Map())
-  const [lastDiscoveryOutcomeBySource, setLastDiscoveryOutcomeBySource] =
-    useState<Map<string, DiscoveryOutcome>>(new Map())
-  const discoveryInput = discoveryInputsBySource.get(activeSourceText) ?? null
-  const lastDiscoveryOutcome =
-    lastDiscoveryOutcomeBySource.get(activeSourceText) ?? "none"
   const prefetchBatchRef = useRef(0)
   const previousSourceTextRef = useRef(activeSourceText)
   const previousSourcePartsRef = useRef(activeSourceParts)
-
-  const setDiscoveryInputForSource = useCallback(
-    (sourceText: string, input: DiscoveryInput | null) => {
-      setDiscoveryInputsBySource((previous) => {
-        const next = new Map(previous)
-        if (input === null) {
-          next.delete(sourceText)
-        } else {
-          next.set(sourceText, input)
-        }
-        return next
-      })
-    },
-    [],
-  )
-
-  const setLastDiscoveryOutcomeForSource = useCallback(
-    (sourceText: string, outcome: DiscoveryOutcome) => {
-      setLastDiscoveryOutcomeBySource((previous) => {
-        const next = new Map(previous)
-        if (outcome === "none") {
-          next.delete(sourceText)
-        } else {
-          next.set(sourceText, outcome)
-        }
-        return next
-      })
-    },
-    [],
-  )
 
   useEffect(() => {
     const previousSourceText = previousSourceTextRef.current
@@ -462,6 +434,14 @@ export function AnalysisCoordinatorProvider({
     (state) => state.discoveryProgress?.currentFolder ?? null,
   )
   const discoveredRepos = discoveryQuery.data?.repos ?? []
+  const selectedRepoPath = useMemo(
+    () =>
+      selectEffectiveSelectedRepoPath({
+        storedRepoPath: storedSelectedRepoPath,
+        discoveredRepos,
+      }),
+    [discoveredRepos, storedSelectedRepoPath],
+  )
   const discoveryStatus: DiscoveryStatus = discoveryQuery.isFetching
     ? "loading"
     : discoveryQuery.isError
@@ -560,7 +540,7 @@ export function AnalysisCoordinatorProvider({
     )
     if (discoveryHandledRef.current === handledKey) return
     discoveryHandledRef.current = handledKey
-    setLastDiscoveryOutcomeForSource(activeSourceText, "completed")
+    setLastDiscoveryOutcome(activeSourceText, "completed")
 
     const firstRepoPath = discoveryQuery.data.repos[0]?.path ?? null
     if (firstRepoPath !== null) {
@@ -578,14 +558,6 @@ export function AnalysisCoordinatorProvider({
         } else {
           analysisContext.updateCourseSearchFolder(firstRepoPath)
         }
-      }
-      const nextSelectedRepoPath =
-        selectedRepoPath !== null &&
-        discoveredRepoPaths.includes(selectedRepoPath)
-          ? selectedRepoPath
-          : firstRepoPath
-      if (nextSelectedRepoPath !== selectedRepoPath) {
-        setSelectedRepoPath(activeSourceText, nextSelectedRepoPath)
       }
       const batchId = ++prefetchBatchRef.current
       void mapBounded(
@@ -607,20 +579,14 @@ export function AnalysisCoordinatorProvider({
     discoveryQueryKey,
     prefetchRepoAnalysis,
     activeSourceText,
-    selectedRepoPath,
-    setSelectedRepoPath,
-    setLastDiscoveryOutcomeForSource,
+    setLastDiscoveryOutcome,
   ])
 
   useEffect(() => {
     if (discoveryQuery.isError) {
-      setLastDiscoveryOutcomeForSource(activeSourceText, "none")
+      setLastDiscoveryOutcome(activeSourceText, "none")
     }
-  }, [
-    activeSourceText,
-    discoveryQuery.isError,
-    setLastDiscoveryOutcomeForSource,
-  ])
+  }, [activeSourceText, discoveryQuery.isError, setLastDiscoveryOutcome])
 
   const selectedSnapshotQueryKey =
     selectedRepoPath === null || analysisConfig === null
@@ -956,19 +922,19 @@ export function AnalysisCoordinatorProvider({
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
-      const input = { folder, depth: searchDepth }
+      const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
       const sameInput =
         discoveryInput?.folder === input.folder &&
         discoveryInput.depth === input.depth
       prefetchBatchRef.current += 1
-      setLastDiscoveryOutcomeForSource(activeSourceText, "none")
+      setLastDiscoveryOutcome(activeSourceText, "none")
       void (async () => {
         await queryClient.cancelQueries({
           queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
         })
         await refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
       })()
-      setDiscoveryInputForSource(activeSourceText, input)
+      setPendingRepoDiscoveryRequest(activeSourceText, input)
       if (sameInput) {
         void discoveryQuery.refetch()
       }
@@ -980,13 +946,13 @@ export function AnalysisCoordinatorProvider({
       discoveryQuery,
       queryClient,
       searchDepth,
-      setDiscoveryInputForSource,
-      setLastDiscoveryOutcomeForSource,
+      setLastDiscoveryOutcome,
+      setPendingRepoDiscoveryRequest,
     ],
   )
 
   const cancelDiscovery = useCallback(() => {
-    setLastDiscoveryOutcomeForSource(activeSourceText, "cancelled")
+    setLastDiscoveryOutcome(activeSourceText, "cancelled")
     prefetchBatchRef.current += 1
     void queryClient.cancelQueries({
       queryKey: discoveryQueryKey,
@@ -995,7 +961,7 @@ export function AnalysisCoordinatorProvider({
     activeSourceText,
     discoveryQueryKey,
     queryClient,
-    setLastDiscoveryOutcomeForSource,
+    setLastDiscoveryOutcome,
   ])
 
   const selectRepository = useCallback(

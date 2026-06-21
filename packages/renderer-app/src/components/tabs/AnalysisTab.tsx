@@ -11,8 +11,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useAnalysisDiscovery } from "../../analysis/analysis-query-coordinator.js"
 import {
-  analysisAutoDiscoveryScopeKey,
   analysisSourceKeyParts,
+  analysisSourceScopeKey,
 } from "../../analysis/analysis-query-keys.js"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
@@ -23,7 +23,10 @@ import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
 import { selectActiveAnalysisSourceKey } from "../../session/selectors.js"
 import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import {
+  type AnalysisDiscoveryRequest,
   type AnalysisView,
+  analysisDiscoveryRequestsEqual,
+  selectAutoDiscoveryRequestForScope,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../stores/app-settings-store.js"
@@ -96,30 +99,53 @@ function RepositoryAnalysisTabContent() {
   const activeSourceKey = useSessionControllerSelector(
     selectActiveAnalysisSourceKey,
   )
-  const autoDiscoveryScopeKey = useMemo(
+  const activeSourceParts = useMemo(
+    () => analysisSourceKeyParts(activeSourceKey),
+    [activeSourceKey],
+  )
+  const activeSourceText = useMemo(
+    () => analysisSourceScopeKey(activeSourceParts),
+    [activeSourceParts],
+  )
+  const searchDepth = useAnalysisStore((state) => state.searchDepth)
+  const autoDiscoveryRequest = useMemo<AnalysisDiscoveryRequest | null>(
     () =>
       searchFolder === null
         ? null
-        : analysisAutoDiscoveryScopeKey(
-            analysisSourceKeyParts(activeSourceKey),
-            searchFolder,
-          ),
-    [activeSourceKey, searchFolder],
+        : {
+            folder: searchFolder,
+            depth: searchDepth,
+          },
+    [searchDepth, searchFolder],
+  )
+  const markedAutoDiscoveryRequest = useAnalysisStore((state) =>
+    selectAutoDiscoveryRequestForScope(state, activeSourceText),
+  )
+  const markAutoDiscoveryRequest = useAnalysisStore(
+    (state) => state.markAutoDiscoveryRequest,
   )
   const hasDiscoveredRepos = discoveredRepos.length > 0
-  const autoDiscoveredScopeRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
   useEffect(() => {
-    if (!searchFolder || autoDiscoveryScopeKey === null) return
+    if (autoDiscoveryRequest === null) return
     if (discoveryStatus === "loading") return
     const shouldAutoDiscover =
-      autoDiscoveredScopeRef.current !== autoDiscoveryScopeKey &&
-      !hasDiscoveredRepos
+      !analysisDiscoveryRequestsEqual(
+        markedAutoDiscoveryRequest,
+        autoDiscoveryRequest,
+      ) && !hasDiscoveredRepos
     if (!shouldAutoDiscover) return
-    autoDiscoveredScopeRef.current = autoDiscoveryScopeKey
-    void runRepoDiscoveryRef.current(searchFolder)
-  }, [autoDiscoveryScopeKey, searchFolder, hasDiscoveredRepos, discoveryStatus])
+    markAutoDiscoveryRequest(activeSourceText, autoDiscoveryRequest)
+    void runRepoDiscoveryRef.current(autoDiscoveryRequest.folder)
+  }, [
+    activeSourceText,
+    autoDiscoveryRequest,
+    discoveryStatus,
+    hasDiscoveredRepos,
+    markedAutoDiscoveryRequest,
+    markAutoDiscoveryRequest,
+  ])
 
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current

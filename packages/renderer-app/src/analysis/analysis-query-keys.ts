@@ -114,8 +114,9 @@ export function analysisSourceScopeKey(source: AnalysisSourceKeyParts): string {
 export function analysisAutoDiscoveryScopeKey(
   source: AnalysisSourceKeyParts,
   folder: string,
+  depth: number,
 ): string {
-  return JSON.stringify([source, folder])
+  return JSON.stringify([source, folder, depth])
 }
 
 export function analysisResultScopeKey(

@@ -39,10 +39,15 @@ import {
 } from "../components/tabs/examination/source.js"
 import { publishCourseRemoval } from "../session/source-lifecycle-events.js"
 import {
+  analysisDiscoveryRequestsEqual,
   selectActiveBlameFileForScope,
+  selectAutoDiscoveryRequestForScope,
   selectBlameVisibleAuthorsForScope,
+  selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
   selectFocusedFilePathForScope,
+  selectLastDiscoveryOutcomeForScope,
+  selectPendingRepoDiscoveryRequestForScope,
   selectSelectedAuthorsForScope,
   selectSelectedFilesForScope,
   selectSelectedRepoPathForScope,
@@ -331,6 +336,85 @@ describe("analysis view state", () => {
     assert.equal(selectSelectedRepoPathForScope(state, "course-b"), null)
   })
 
+  it("scopes discovery request state by analysis source", () => {
+    const store = useAnalysisStore.getState()
+    const courseARequest = { folder: "/courses/a", depth: 5 }
+    const courseBRequest = { folder: "/courses/b", depth: 6 }
+
+    store.setPendingRepoDiscoveryRequest("course-a", courseARequest)
+    store.setLastDiscoveryOutcome("course-a", "completed")
+    store.markAutoDiscoveryRequest("course-a", courseARequest)
+    store.setPendingRepoDiscoveryRequest("course-b", courseBRequest)
+    store.setLastDiscoveryOutcome("course-b", "cancelled")
+
+    let state = useAnalysisStore.getState()
+    assert.deepEqual(
+      selectPendingRepoDiscoveryRequestForScope(state, "course-a"),
+      courseARequest,
+    )
+    assert.deepEqual(
+      selectPendingRepoDiscoveryRequestForScope(state, "course-b"),
+      courseBRequest,
+    )
+    assert.equal(
+      selectLastDiscoveryOutcomeForScope(state, "course-a"),
+      "completed",
+    )
+    assert.equal(
+      selectLastDiscoveryOutcomeForScope(state, "course-b"),
+      "cancelled",
+    )
+    assert.equal(selectLastDiscoveryOutcomeForScope(state, "course-c"), "none")
+    assert.deepEqual(
+      selectAutoDiscoveryRequestForScope(state, "course-a"),
+      courseARequest,
+    )
+    assert.equal(selectAutoDiscoveryRequestForScope(state, "course-b"), null)
+    assert.equal(
+      analysisDiscoveryRequestsEqual(
+        selectAutoDiscoveryRequestForScope(state, "course-a"),
+        { folder: "/courses/a", depth: 6 },
+      ),
+      false,
+    )
+
+    store.setPendingRepoDiscoveryRequest("course-a", null)
+    store.setLastDiscoveryOutcome("course-a", "none")
+
+    state = useAnalysisStore.getState()
+    assert.equal(
+      selectPendingRepoDiscoveryRequestForScope(state, "course-a"),
+      null,
+    )
+    assert.equal(selectLastDiscoveryOutcomeForScope(state, "course-a"), "none")
+  })
+
+  it("projects effective selected repository from discovery data", () => {
+    const repos = [{ path: "/repo-a" }, { path: "/repo-b" }]
+
+    assert.equal(
+      selectEffectiveSelectedRepoPath({
+        storedRepoPath: "/repo-b",
+        discoveredRepos: repos,
+      }),
+      "/repo-b",
+    )
+    assert.equal(
+      selectEffectiveSelectedRepoPath({
+        storedRepoPath: "/repo-c",
+        discoveredRepos: repos,
+      }),
+      "/repo-a",
+    )
+    assert.equal(
+      selectEffectiveSelectedRepoPath({
+        storedRepoPath: null,
+        discoveredRepos: [],
+      }),
+      null,
+    )
+  })
+
   it("scopes result-local filters and focus by analysis identity", () => {
     const store = useAnalysisStore.getState()
     store.setSelectedAuthors("analysis-a", new Set(["p_0000"]))
@@ -537,16 +621,20 @@ describe("analysis query keys", () => {
     )
   })
 
-  it("scopes auto-discovery markers by source and folder", () => {
+  it("scopes auto-discovery markers by source, folder and depth", () => {
     const folder = "/courses/shared"
 
     assert.notEqual(
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder),
-      analysisAutoDiscoveryScopeKey(["course", "course-b"], folder),
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
+      analysisAutoDiscoveryScopeKey(["course", "course-b"], folder, 5),
     )
     assert.notEqual(
-      analysisAutoDiscoveryScopeKey(["folder", folder], folder),
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder),
+      analysisAutoDiscoveryScopeKey(["folder", folder], folder, 5),
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
+    )
+    assert.notEqual(
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
+      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 6),
     )
   })
 })
