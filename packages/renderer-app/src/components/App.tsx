@@ -17,6 +17,7 @@ import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useLayoutEffect, useState } from "react"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import { AnalysisCoordinatorProvider } from "../analysis/analysis-query-coordinator.js"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -163,10 +164,12 @@ export function RendererSessionRoot({
       <QueryClientProvider client={queryClient}>
         <RendererHostProvider value={rendererHost}>
           <SessionControllerProvider controller={controller}>
-            <TooltipProvider>
-              <AnalysisQueryLifecycleBridge />
-              <AppView />
-            </TooltipProvider>
+            <AnalysisCoordinatorProvider>
+              <TooltipProvider>
+                <AnalysisQueryLifecycleBridge />
+                <AppView />
+              </TooltipProvider>
+            </AnalysisCoordinatorProvider>
           </SessionControllerProvider>
         </RendererHostProvider>
       </QueryClientProvider>

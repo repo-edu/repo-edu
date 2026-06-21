@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useAnalysisBlameResult,
+  useAnalysisBlameStatus,
   useAnalysisDiscovery,
   useAnalysisFileView,
   useAnalysisResult,
@@ -73,6 +74,7 @@ export function AnalysisSidebar() {
   const { result, analysisStatus, analysisProgress, analysisErrorMessage } =
     useAnalysisResult()
   const { blameResult } = useAnalysisBlameResult()
+  const { blameStatus } = useAnalysisBlameStatus()
   const { mergedFileStats } = useAnalysisFileView()
   const rendererHost = useRendererHost()
 
@@ -339,7 +341,9 @@ export function AnalysisSidebar() {
     [setAnalysisInputs],
   )
 
-  const isRunning = analysisStatus === "running"
+  const isAnalysisRunning = analysisStatus === "running"
+  const isBlameRunning = blameStatus === "running"
+  const isRunning = isAnalysisRunning || isBlameRunning
   const isDiscovering = discoveryStatus === "loading"
   const hasDiscoveredRepos = discoveredRepos.length > 0
 
@@ -369,7 +373,7 @@ export function AnalysisSidebar() {
           {isRunning ? (
             <Button variant="destructive" onClick={cancelAnalysis}>
               <Square className="mr-1 size-4" />
-              Cancel
+              {isBlameRunning ? "Cancel Blame" : "Cancel"}
             </Button>
           ) : isDiscovering ? (
             <Button variant="destructive" onClick={cancelDiscovery}>

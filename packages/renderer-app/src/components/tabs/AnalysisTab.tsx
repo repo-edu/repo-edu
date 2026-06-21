@@ -9,10 +9,7 @@ import {
   TabsTrigger,
 } from "@repo-edu/ui"
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import {
-  AnalysisCoordinatorProvider,
-  useAnalysisDiscovery,
-} from "../../analysis/analysis-query-coordinator.js"
+import { useAnalysisDiscovery } from "../../analysis/analysis-query-coordinator.js"
 import {
   analysisAutoDiscoveryScopeKey,
   analysisSourceKeyParts,
@@ -60,11 +57,7 @@ export function AnalysisTab() {
 }
 
 function RepositoryAnalysisTab() {
-  return (
-    <AnalysisCoordinatorProvider>
-      <RepositoryAnalysisTabContent />
-    </AnalysisCoordinatorProvider>
-  )
+  return <RepositoryAnalysisTabContent />
 }
 
 function RepositoryAnalysisTabContent() {
