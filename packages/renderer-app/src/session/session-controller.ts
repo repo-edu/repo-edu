@@ -29,7 +29,6 @@ import {
   createCredentialsPersisterWorker,
   createPreferencesPersisterWorker,
 } from "../persistence/settings-persister.js"
-import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useCredentialsStore } from "../stores/credentials-store.js"
@@ -54,6 +53,7 @@ import {
   type SessionControllerSnapshot,
   sessionReducer,
 } from "./session-reducer.js"
+import { publishCourseRemoval } from "./source-lifecycle-events.js"
 
 type Listener = () => void
 
@@ -309,7 +309,6 @@ export class SessionController extends CourseMutationController {
         )
       }
       this.applyPreparedSurfaceCommit(commit)
-      this.syncAnalysisSource()
       useAppSettingsStore
         .getState()
         .setLastUsedCourseBacking(stampedDraft.backing)
@@ -401,7 +400,7 @@ export class SessionController extends CourseMutationController {
   private async deleteCourseInternal(courseId: string): Promise<void> {
     if (this.snapshot.activeCourseId !== courseId) {
       await this.workflowClient.run("course.delete", { courseId })
-      useAnalysisStore.getState().removeSourcesForCourse(courseId)
+      publishCourseRemoval(courseId)
       return
     }
 
@@ -416,9 +415,6 @@ export class SessionController extends CourseMutationController {
         // owns it; the course is about to be removed regardless.
       }
       await this.workflowClient.run("course.delete", { courseId })
-      // The course is gone server-side regardless of which transition owns
-      // pending, so drop its analysis sources now.
-      useAnalysisStore.getState().removeSourcesForCourse(courseId)
 
       const fallbackSurface = fallbackSurfaceForDeletedCourse(courseId)
       const commit = await this.prepareDeletedCourseFallback(fallbackSurface)
@@ -431,8 +427,8 @@ export class SessionController extends CourseMutationController {
       })
       if (!committed) return
       this.applyPreparedSurfaceCommit(commit)
-      this.syncAnalysisSource()
       this.recordSuccessfulSurfaceEntry(commit.surface)
+      publishCourseRemoval(courseId)
     } catch (error) {
       this.dispatch({
         type: "delete-failed",
@@ -485,7 +481,6 @@ export class SessionController extends CourseMutationController {
       })
       if (committed) {
         this.applyPreparedSurfaceCommit(commit)
-        this.syncAnalysisSource()
       }
       this.createSettingsWorkers(settings)
       this.dispatch({ type: "bootstrap-ready", attempt })
@@ -548,7 +543,6 @@ export class SessionController extends CourseMutationController {
       })
       if (!committed) return false
       this.applyPreparedSurfaceCommit(commit)
-      this.syncAnalysisSource()
       this.recordSuccessfulSurfaceEntry(commit.surface)
       return true
     } catch (error) {
@@ -594,10 +588,9 @@ export class SessionController extends CourseMutationController {
         courseLoadStatus: commit.courseLoadStatus,
       })
       if (!committed) return false
-      useAnalysisStore.getState().removeSourcesForCourse(missingCourseId)
       this.applyPreparedSurfaceCommit(commit)
-      this.syncAnalysisSource()
       this.recordSuccessfulSurfaceEntry(commit.surface)
+      publishCourseRemoval(missingCourseId)
       return true
     } catch (error) {
       this.dispatch({
@@ -822,12 +815,6 @@ export class SessionController extends CourseMutationController {
         settingsStore.pushRecentSubmissionFolder(recent)
       }
     }
-  }
-
-  private syncAnalysisSource(): void {
-    useAnalysisStore
-      .getState()
-      .activateSource(this.snapshot.activeAnalysisSourceKey)
   }
 
   private currentTabBacking(): ReturnType<typeof surfaceTabBacking> {

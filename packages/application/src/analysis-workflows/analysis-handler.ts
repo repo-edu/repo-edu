@@ -38,7 +38,7 @@ import {
   filterFileCandidates,
   listSnapshotFiles,
   reduceCommitGroupOverlap,
-  resolveSnapshotHead,
+  verifySnapshotCommitOid,
 } from "./snapshot-engine.js"
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,6 @@ function aggregateAuthorStatsFromCommits(
 
     stat.insertions += commitInsertions
     stat.deletions += commitDeletions
-    // Weight age by insertions (Python parity: age = now - sum(ts*ins)/sum(ins))
     stat.dateSum += commit.timestamp * commitInsertions
     stat.commitShas.add(commit.sha)
   }
@@ -129,7 +128,6 @@ function aggregateAuthorStatsFromCommits(
     (sum, a) => sum + a.insertions,
     0,
   )
-  const now = Date.now() / 1000
 
   return [...authorMap.values()].map((stat) => ({
     personId: "", // filled after PersonDB construction
@@ -142,7 +140,8 @@ function aggregateAuthorStatsFromCommits(
     linesPercent: 0,
     insertionsPercent:
       totalInsertions > 0 ? (100 * stat.insertions) / totalInsertions : 0,
-    age: stat.insertions > 0 ? now - stat.dateSum / stat.insertions : 0,
+    weightedActivityTimestamp:
+      stat.insertions > 0 ? stat.dateSum / stat.insertions : 0,
     commitShas: stat.commitShas,
   }))
 }
@@ -281,7 +280,7 @@ function collapseStatsByPerson(
       commitShas: Set<string>
       insertions: number
       deletions: number
-      ageInsertionsSum: number
+      weightedActivityTimestampSum: number
     }
   >()
 
@@ -293,7 +292,8 @@ function collapseStatsByPerson(
       for (const sha of stat.commitShas) existing.commitShas.add(sha)
       existing.insertions += stat.insertions
       existing.deletions += stat.deletions
-      existing.ageInsertionsSum += stat.age * stat.insertions
+      existing.weightedActivityTimestampSum +=
+        stat.weightedActivityTimestamp * stat.insertions
       continue
     }
     mergedAuthors.set(personId, {
@@ -303,7 +303,8 @@ function collapseStatsByPerson(
       commitShas: new Set(stat.commitShas),
       insertions: stat.insertions,
       deletions: stat.deletions,
-      ageInsertionsSum: stat.age * stat.insertions,
+      weightedActivityTimestampSum:
+        stat.weightedActivityTimestamp * stat.insertions,
     })
   }
 
@@ -323,7 +324,8 @@ function collapseStatsByPerson(
     linesPercent: 0,
     insertionsPercent:
       totalInsertions > 0 ? (100 * a.insertions) / totalInsertions : 0,
-    age: a.insertions > 0 ? a.ageInsertionsSum / a.insertions : 0,
+    weightedActivityTimestamp:
+      a.insertions > 0 ? a.weightedActivityTimestampSum / a.insertions : 0,
     commitShas: a.commitShas,
   }))
 
@@ -656,12 +658,12 @@ export function createAnalysisRunHandler(
 
         options?.onProgress?.({
           phase: "init",
-          label: "Resolving snapshot head.",
+          label: "Validating snapshot head.",
           processedFiles: 0,
           totalFiles: 0,
         })
 
-        // Phase 2: Resolve repo root and snapshot head
+        // Phase 2: Resolve repo root and validate snapshot head
         const repoRoot = resolveAnalysisRepoRoot(input)
 
         // Verify git repo
@@ -682,13 +684,11 @@ export function createAnalysisRunHandler(
         }
 
         throwIfAborted(options?.signal)
-        const resolvedAsOfOid = await resolveSnapshotHead(
+        const snapshotCommitOid = await verifySnapshotCommitOid(
           ports.gitCommand,
           repoRoot,
-          input.asOfCommit,
-          config.until,
+          input.snapshotCommitOid,
           options?.signal,
-          options?.onOutput,
         )
 
         // Phase 3: List and filter file candidates
@@ -703,7 +703,7 @@ export function createAnalysisRunHandler(
         const treeEntries = await listSnapshotFiles(
           ports.gitCommand,
           repoRoot,
-          resolvedAsOfOid,
+          snapshotCommitOid,
           options?.signal,
         )
 
@@ -729,7 +729,7 @@ export function createAnalysisRunHandler(
         // Phase 4a: Repo-wide git log for author-level aggregates. Path
         // filters (subfolder/extensions/include/exclude) apply, but the
         // `nFiles` cap intentionally does not — author commits/insertions/
-        // deletions/age and daily activity must reflect every matching file.
+        // deletions/recency and daily activity must reflect every matching file.
         options?.onProgress?.({
           phase: "log",
           label: "Collecting repo-wide commit history.",
@@ -738,7 +738,7 @@ export function createAnalysisRunHandler(
         })
         throwIfAborted(options?.signal)
 
-        const repoWideArgs = buildRepoWideLogArgs(resolvedAsOfOid, config)
+        const repoWideArgs = buildRepoWideLogArgs(snapshotCommitOid, config)
         const repoWideResult = await ports.gitCommand.run({
           args: repoWideArgs,
           cwd: repoRoot,
@@ -782,7 +782,7 @@ export function createAnalysisRunHandler(
               throwIfAborted(options?.signal)
 
               const args = buildPerFileLogArgs(
-                resolvedAsOfOid,
+                snapshotCommitOid,
                 filePath,
                 config,
               )
@@ -909,7 +909,6 @@ export function createAnalysisRunHandler(
         })
 
         const result: AnalysisResult = {
-          resolvedAsOfOid,
           authorStats: filteredStats.authorStats,
           fileStats: filteredStats.fileStats,
           authorDailyActivity,

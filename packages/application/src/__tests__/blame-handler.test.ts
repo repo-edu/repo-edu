@@ -35,7 +35,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: [],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileBlames.length, 0)
@@ -74,7 +74,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: emptyPersonDb(),
       files: [],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileBlames.length, 0)
@@ -98,7 +98,7 @@ describe("analysis.blame handler", () => {
           config: {},
           personDbBaseline: { persons: [], identityIndex: new Map() },
           files: ["src/main.ts"],
-          asOfCommit: "abc123",
+          snapshotCommitOid: "abc123",
         },
         { signal: controller.signal },
       )
@@ -151,7 +151,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts"],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -234,7 +234,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: emptyPersonDb(),
       files: ["src/main.ts"],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.authorSummaries.length, 2)
@@ -299,7 +299,7 @@ describe("analysis.blame handler", () => {
       config: { excludeAuthors: ["Alice"] },
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts"],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -310,7 +310,7 @@ describe("analysis.blame handler", () => {
     assert.equal(result.authorSummaries[0].linesPercent, 100)
   })
 
-  it("rejects invalid asOfCommit", async () => {
+  it("rejects invalid snapshotCommitOid", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({
         "rev-parse --git-dir": { exitCode: 0, stdout: ".git", stderr: "" },
@@ -330,7 +330,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: { persons: [], identityIndex: new Map() },
         files: ["src/main.ts"],
-        asOfCommit: "missing-sha",
+        snapshotCommitOid: "missing-sha",
       })
       assert.fail("Should have thrown validation error")
     } catch (error) {
@@ -352,7 +352,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: { persons: [], identityIndex: new Map() },
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
       })
       assert.fail("Should have thrown validation error")
     } catch (error) {
@@ -373,7 +373,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
       } as unknown as AnalysisBlameInput),
     )
   })
@@ -392,7 +392,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
       } as unknown as AnalysisBlameInput),
     )
   })
@@ -409,7 +409,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
         rosterContext: { members: [] },
       } as unknown as AnalysisBlameInput),
     )
@@ -419,7 +419,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
         analysisSource: { kind: "folder" },
       } as unknown as AnalysisBlameInput),
     )
@@ -466,7 +466,7 @@ describe("analysis.blame handler", () => {
       },
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["main.ts", "main.md"],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileBlames.length, 1)
@@ -563,7 +563,7 @@ describe("analysis.blame handler", () => {
       config: {},
       personDbBaseline: { persons: [], identityIndex: new Map() },
       files: ["src/main.ts", "src/util.ts"],
-      asOfCommit: "abc123",
+      snapshotCommitOid: "abc123",
     })
 
     assert.equal(result.fileSummaries.length, 2)
@@ -610,7 +610,7 @@ describe("analysis.blame handler", () => {
         config: {},
         personDbBaseline: { persons: [], identityIndex: new Map() },
         files: ["src/main.ts"],
-        asOfCommit: "abc123",
+        snapshotCommitOid: "abc123",
       })
       assert.fail("Should have thrown provider error")
     } catch (error) {

@@ -28,6 +28,24 @@ export function examinationKeyMatchesSourceScope(
   return scopedExaminationKeyParts(key, analysisSourceKey) !== null
 }
 
+export function examinationKeyMatchesCourseScope(
+  key: string,
+  courseId: string,
+): boolean {
+  try {
+    const parsed = JSON.parse(key) as unknown
+    if (!Array.isArray(parsed)) return false
+    if (parsed[0] !== "analysis-source") return false
+    const source = parsed[1]
+    if (!Array.isArray(source)) return false
+    if (source[0] === "course") return source[1] === courseId
+    if (source[0] === "submission") return source[2] === courseId
+    return false
+  } catch (_error) {
+    return false
+  }
+}
+
 export function repositoryAnalysisSummaryMatchesRepoPath(
   sourceSummaryKey: string,
   repoPath: string | null,

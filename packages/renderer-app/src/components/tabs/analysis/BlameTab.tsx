@@ -1,4 +1,4 @@
-import type { FileBlame, PersonDbSnapshot } from "@repo-edu/domain/analysis"
+import type { PersonDbSnapshot } from "@repo-edu/domain/analysis"
 import { Button, Checkbox, EmptyState, Text } from "@repo-edu/ui"
 import {
   Eye,
@@ -10,10 +10,8 @@ import {
 import type { CSSProperties, ReactNode } from "react"
 import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
-import {
-  selectAuthorColorsByPersonId,
-  useAnalysisStore,
-} from "../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { buildBlameCommitNumberMap } from "./blame-commit-numbering.js"
@@ -122,7 +120,7 @@ function ContributionsPie({
   size = 20,
 }: {
   contributions: AuthorContribution[]
-  colorMap: Map<string, string>
+  colorMap: ReadonlyMap<string, string>
   size?: number
 }) {
   const total = contributions.reduce((sum, c) => sum + c.lines, 0)
@@ -191,7 +189,7 @@ function AuthorSummary({
   onToggle,
 }: {
   contributions: AuthorContribution[]
-  colorMap: Map<string, string>
+  colorMap: ReadonlyMap<string, string>
   visibleAuthors: Set<string> | null
   onToggle: (personId: string) => void
 }) {
@@ -228,7 +226,8 @@ function AuthorSummary({
 }
 
 function PersonDbDeltaDisplay() {
-  const delta = useAnalysisStore((s) => s.blameResult?.delta)
+  const { blameResult } = useAnalysisCoordinator()
+  const delta = blameResult?.delta
   if (!delta) return null
 
   const hasChanges =
@@ -275,7 +274,7 @@ function BlameGrid({
   tokens,
 }: {
   processed: ProcessedLine[]
-  colorMap: Map<string, string>
+  colorMap: ReadonlyMap<string, string>
   showMetadata: boolean
   colorize: boolean
   tokens: ThemedToken[][] | null
@@ -411,10 +410,13 @@ function BlameGrid({
 // ---------------------------------------------------------------------------
 
 export function BlameTab({ filePath }: { filePath: string }) {
-  const entry = useAnalysisStore((s) => s.blameFileResults.get(filePath))
-  const blameFileResults = useAnalysisStore((s) => s.blameFileResults)
-  const result = useAnalysisStore((s) => s.result)
-  const blameResult = useAnalysisStore((s) => s.blameResult)
+  const {
+    result,
+    blameResult,
+    blameStatus,
+    blameErrorMessage,
+    authorColorsByPersonId: colorMap,
+  } = useAnalysisCoordinator()
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
 
   const showMetadata = useAnalysisStore((s) => s.blameShowMetadata)
@@ -436,30 +438,29 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const syntaxTheme = useAppSettingsStore(
     (s) => s.settings.appearance.syntaxTheme,
   )
+  const fileBlame = useMemo(
+    () =>
+      blameResult?.fileBlames.find(
+        (candidate) => candidate.path === filePath,
+      ) ?? null,
+    [blameResult, filePath],
+  )
   const highlightedTokens = useBlameHighlightedLines(
-    entry?.fileBlame ?? null,
+    fileBlame,
     syntaxColorize,
     syntaxTheme,
   )
-  const commentClassification = useBlameCommentClassification(
-    entry?.fileBlame ?? null,
-  )
+  const commentClassification = useBlameCommentClassification(fileBlame)
 
   const personDb = blameResult?.personDbOverlay ?? result?.personDbBaseline
   const commitNumberMap = useMemo(() => {
-    const fileBlames: FileBlame[] = []
-    for (const resultEntry of blameFileResults.values()) {
-      if (resultEntry.status === "loaded" && resultEntry.fileBlame) {
-        fileBlames.push(resultEntry.fileBlame)
-      }
-    }
-    return buildBlameCommitNumberMap(fileBlames)
-  }, [blameFileResults])
+    return buildBlameCommitNumberMap(blameResult?.fileBlames ?? [])
+  }, [blameResult])
 
   const processed = useMemo(() => {
-    if (!entry?.fileBlame || !personDb) return []
+    if (!fileBlame || !personDb) return []
     return processBlameLines(
-      entry.fileBlame,
+      fileBlame,
       personDb,
       commitNumberMap,
       commentClassification,
@@ -468,13 +469,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
         excludeEmails: blameConfig.excludeEmails ?? [],
       },
     )
-  }, [
-    entry?.fileBlame,
-    personDb,
-    commitNumberMap,
-    blameConfig,
-    commentClassification,
-  ])
+  }, [fileBlame, personDb, commitNumberMap, blameConfig, commentClassification])
 
   const lineFilteredLines = useMemo(() => {
     let lines = processed
@@ -510,9 +505,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
     return computeAuthorContributions(lineFilteredLines, personDb)
   }, [lineFilteredLines, personDb])
 
-  const colorMap = useAnalysisStore(selectAuthorColorsByPersonId)
-
-  if (!entry || entry.status === "pending") {
+  if (blameStatus === "running" && !fileBlame) {
     return (
       <div className="flex h-full items-center justify-center gap-2">
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -523,15 +516,15 @@ export function BlameTab({ filePath }: { filePath: string }) {
     )
   }
 
-  if (entry.status === "error") {
+  if (blameStatus === "error") {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message={entry.errorMessage ?? "Failed to load blame."} />
+        <EmptyState message={blameErrorMessage ?? "Failed to load blame."} />
       </div>
     )
   }
 
-  if (!entry.fileBlame || processed.length === 0) {
+  if (!fileBlame || processed.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <EmptyState message="No blame data for this file." />

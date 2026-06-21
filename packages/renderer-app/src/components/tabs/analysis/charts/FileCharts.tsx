@@ -9,11 +9,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import {
-  type AnalysisActiveMetric,
-  selectAuthorColorsByPersonId,
-  useAnalysisStore,
-} from "../../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../../analysis/analysis-query-coordinator.js"
+import type { AnalysisActiveMetric } from "../../../../stores/analysis-store.js"
 import { formatCount } from "../../../../utils/analysis-format.js"
 
 type FileChartsProps = {
@@ -66,7 +63,7 @@ export function FileCharts({
   authorStats,
   activeMetric,
 }: FileChartsProps) {
-  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
+  const { authorColorsByPersonId: colors } = useAnalysisCoordinator()
   const authorIds = useMemo(
     () => authorStats.map((author) => author.personId),
     [authorStats],

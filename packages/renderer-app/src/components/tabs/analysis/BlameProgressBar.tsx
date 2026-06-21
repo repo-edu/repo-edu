@@ -1,12 +1,11 @@
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 
 export function BlameProgressBar() {
-  const blameWorkflowStatus = useAnalysisStore((s) => s.blameWorkflowStatus)
-  const blameProgress = useAnalysisStore((s) => s.blameProgress)
+  const { blameStatus, blameProgress } = useAnalysisCoordinator()
   const elapsedSeconds = useElapsedSeconds(blameProgress !== null)
 
-  if (blameWorkflowStatus !== "running" || !blameProgress) return null
+  if (blameStatus !== "running" || !blameProgress) return null
 
   const percent =
     blameProgress.totalFiles > 0

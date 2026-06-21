@@ -16,11 +16,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import {
-  type AnalysisActiveMetric,
-  selectAuthorColorsByPersonId,
-  useAnalysisStore,
-} from "../../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../../analysis/analysis-query-coordinator.js"
+import type { AnalysisActiveMetric } from "../../../../stores/analysis-store.js"
 import { formatCount } from "../../../../utils/analysis-format.js"
 
 type AuthorChartsProps = {
@@ -76,7 +73,7 @@ export function AuthorCharts({
   dailyActivity,
   activeMetric,
 }: AuthorChartsProps) {
-  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
+  const { authorColorsByPersonId: colors } = useAnalysisCoordinator()
   const authorIdsByLoc = useMemo(
     () =>
       [...authorStats]

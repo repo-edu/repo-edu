@@ -1,9 +1,5 @@
-import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { PersistedAnalysisSidebarSettings } from "@repo-edu/domain/settings"
-import {
-  type AnalysisInputs,
-  resolveAnalysisConfig,
-} from "@repo-edu/domain/types"
+import type { AnalysisInputs } from "@repo-edu/domain/types"
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@repo-edu/ui"
 import {
   ChevronsDownUp,
@@ -14,12 +10,10 @@ import {
   Square,
 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
-import {
-  selectBlameMergedFileStats,
-  useAnalysisStore,
-} from "../../../stores/analysis-store.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
   type AnalysisSidebarFileSortMode,
@@ -39,7 +33,6 @@ import {
   RepositoriesSection,
   RepositoriesToolbar,
 } from "./RepositoriesSection.js"
-import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
 import { useRepoTree } from "./use-repo-tree.js"
 
 function serializeSidebarSettings(
@@ -53,8 +46,20 @@ function serializeSidebarSettings(
 // ---------------------------------------------------------------------------
 
 export function AnalysisSidebar() {
-  const { runAnalysis, runRepoDiscovery, handleCancel, handleCancelDiscovery } =
-    useAnalysisWorkflows()
+  const {
+    runAnalysis,
+    runRepoDiscovery,
+    cancelAnalysis,
+    cancelDiscovery,
+    result,
+    blameResult,
+    mergedFileStats,
+    analysisStatus,
+    analysisProgress,
+    analysisErrorMessage,
+    discoveredRepos,
+    discoveryStatus,
+  } = useAnalysisCoordinator()
   const rendererHost = useRendererHost()
 
   const analysisContext = useAnalysisContext()
@@ -64,14 +69,9 @@ export function AnalysisSidebar() {
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-  const workflowStatus = useAnalysisStore((s) => s.workflowStatus)
-  const progress = useAnalysisStore((s) => s.progress)
-  const errorMessage = useAnalysisStore((s) => s.errorMessage)
 
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const setBlameConfig = useAnalysisStore((s) => s.setBlameConfig)
-  const result = useAnalysisStore((s) => s.result)
-  const blameResult = useAnalysisStore((s) => s.blameResult)
 
   const activeView = useAnalysisStore((s) => s.activeView)
   const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
@@ -82,16 +82,8 @@ export function AnalysisSidebar() {
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
-  const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
-  const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
 
   // Persistence
-  const defaultExtensions = useAppSettingsStore(
-    (s) => s.settings.defaultExtensions,
-  )
-  const filesPerRepo = useAppSettingsStore(
-    (s) => s.settings.analysisConcurrency.filesPerRepo,
-  )
   const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
   const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
   const hydrateFromPersistedSettings = useAnalysisStore(
@@ -196,8 +188,6 @@ export function AnalysisSidebar() {
       }),
     [config],
   )
-
-  const mergedFileStats = useAnalysisStore(selectBlameMergedFileStats)
 
   const sortedFilePaths = useMemo(
     () => mergedFileStats.map((f) => f.path).sort(),
@@ -320,41 +310,11 @@ export function AnalysisSidebar() {
   const setConfigAndRerun = useCallback(
     (patch: Partial<AnalysisInputs>) => {
       setAnalysisInputs(patch)
-      if (selectedRepoPath && analysisContext.kind !== "none") {
-        const nextInputs = { ...analysisContext.analysisInputs }
-        for (const [key, value] of Object.entries(patch) as [
-          keyof AnalysisInputs,
-          unknown,
-        ][]) {
-          if (value === undefined) {
-            delete nextInputs[key]
-          } else {
-            // biome-ignore lint/suspicious/noExplicitAny: keyed AnalysisInputs merge
-            ;(nextInputs as any)[key] = value
-          }
-        }
-        const nextConfig: AnalysisConfig = resolveAnalysisConfig(
-          {
-            searchFolder: analysisContext.searchFolder,
-            analysisInputs: nextInputs,
-          },
-          defaultExtensions,
-          filesPerRepo,
-        )
-        void runAnalysis(selectedRepoPath, nextConfig)
-      }
     },
-    [
-      analysisContext,
-      defaultExtensions,
-      filesPerRepo,
-      runAnalysis,
-      selectedRepoPath,
-      setAnalysisInputs,
-    ],
+    [setAnalysisInputs],
   )
 
-  const isRunning = workflowStatus === "running"
+  const isRunning = analysisStatus === "running"
   const isDiscovering = discoveryStatus === "loading"
   const hasDiscoveredRepos = discoveredRepos.length > 0
 
@@ -382,12 +342,12 @@ export function AnalysisSidebar() {
       <div className="space-y-2">
         <div className="flex items-center gap-1">
           {isRunning ? (
-            <Button variant="destructive" onClick={handleCancel}>
+            <Button variant="destructive" onClick={cancelAnalysis}>
               <Square className="mr-1 size-4" />
               Cancel
             </Button>
           ) : isDiscovering ? (
-            <Button variant="destructive" onClick={handleCancelDiscovery}>
+            <Button variant="destructive" onClick={cancelDiscovery}>
               <Square className="mr-1 size-4" />
               Cancel Search
             </Button>
@@ -440,10 +400,10 @@ export function AnalysisSidebar() {
             <TooltipContent side="bottom">Collapse all</TooltipContent>
           </Tooltip>
         </div>
-        {progress && <ProgressDisplay progress={progress} />}
-        {errorMessage && (
+        {analysisProgress && <ProgressDisplay progress={analysisProgress} />}
+        {analysisErrorMessage && (
           <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
-            {errorMessage}
+            {analysisErrorMessage}
           </div>
         )}
       </div>

@@ -249,10 +249,18 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
     )
 
     const selectedRepo = discovered.repos[0]
+    const snapshotCommitOid = await runtime.workflowClient.run(
+      "analysis.resolveSnapshotHead",
+      {
+        repositoryAbsolutePath: selectedRepo.path,
+        until: "2026-12-31",
+      },
+    )
 
     const result = await runtime.workflowClient.run("analysis.run", {
       repositoryAbsolutePath: selectedRepo.path,
       analysisSource: { kind: "folder" },
+      snapshotCommitOid,
       config: {
         extensions: ["py"],
         includeFiles: ["*.py", "tests/*.py"],
@@ -268,8 +276,8 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
         maxConcurrency: 2,
       },
     })
-    assert.equal(result.resolvedAsOfOid.length, 40)
-    assert.equal(isExaminationContentScopeIdShape(result.resolvedAsOfOid), true)
+    assert.equal(snapshotCommitOid.length, 40)
+    assert.equal(isExaminationContentScopeIdShape(snapshotCommitOid), true)
     assert.equal(result.authorStats.length > 0, true)
     assert.equal(result.fileStats.length > 0, true)
     assert.equal(result.fileStats.length <= 3, true)
@@ -295,7 +303,7 @@ describe("docs fixture integration: recorded analysis git mocks", () => {
       },
       personDbBaseline: result.personDbBaseline,
       files: [blameTarget.path],
-      asOfCommit: result.resolvedAsOfOid,
+      snapshotCommitOid,
     })
 
     assert.equal(blame.fileBlames.length, 1)

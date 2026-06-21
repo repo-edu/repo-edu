@@ -4,12 +4,14 @@ import type {
 } from "@repo-edu/application-contract"
 import { create } from "zustand"
 import type { SourceIdentity } from "../components/tabs/examination/source.js"
+import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
 import {
   mergeAvailableArchiveEntries,
   mergeSupersedingAvailableArchiveEntries,
   supersededAvailableArchiveEntryKeys,
 } from "./examination-archive-entries.js"
 import {
+  examinationKeyMatchesCourseScope,
   examinationKeyMatchesSourceScope,
   repositoryAnalysisSummaryMatchesRepoPath,
   submissionSummaryMatchesFolderPath,
@@ -841,6 +843,15 @@ export const useExaminationStore = create<
         ),
       ),
 
+    invalidateCourseAnalysisSources: (courseId) =>
+      set((state) =>
+        removeMatchingSourceState(
+          state,
+          (key) => examinationKeyMatchesCourseScope(key, courseId),
+          (key) => examinationKeyMatchesCourseScope(key, courseId),
+        ),
+      ),
+
     resetRepositoryAnalysis: () =>
       get().invalidateRepositoryAnalysisSource(null),
 
@@ -849,6 +860,10 @@ export const useExaminationStore = create<
       set(createInitialState())
     },
   }
+})
+
+subscribeCourseRemoval((courseId) => {
+  useExaminationStore.getState().invalidateCourseAnalysisSources(courseId)
 })
 
 function resolveSelectedSubjectId(params: {

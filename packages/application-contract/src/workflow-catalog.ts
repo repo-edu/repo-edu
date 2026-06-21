@@ -164,6 +164,11 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "granular",
     cancellation: "cooperative",
   },
+  "analysis.resolveSnapshotHead": {
+    delivery: ["desktop", "docs"],
+    progress: "none",
+    cancellation: "cooperative",
+  },
   "analysis.blame": {
     delivery: ["desktop", "docs"],
     progress: "granular",

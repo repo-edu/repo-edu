@@ -7,21 +7,22 @@ import type {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
+  buildAuthorColorsByPersonId,
+  buildAuthorDisplayByPersonId,
+  buildRosterMatchByPersonId,
+  filterAuthorStats,
+  filterFileStats,
+  mergeAuthorStats,
+  mergeFileStats,
+  selectEffectiveFocusedFile,
+} from "../analysis/analysis-view-models.js"
+import { buildEffectiveBlameWorkflowConfig } from "../analysis/analysis-workflow-inputs.js"
+import {
   buildSourceSessionKey,
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
-import {
-  analysisStoreInternals,
-  buildEffectiveBlameWorkflowConfig,
-  selectAuthorColorsByPersonId,
-  selectAuthorDisplayByPersonId,
-  selectBlameMergedAuthorStats,
-  selectBlameMergedFileStats,
-  selectFilteredAuthorStats,
-  selectFilteredFileStats,
-  selectRosterMatchByPersonId,
-  useAnalysisStore,
-} from "../stores/analysis-store.js"
+import { publishCourseRemoval } from "../session/source-lifecycle-events.js"
+import { useAnalysisStore } from "../stores/analysis-store.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 import { authorColor } from "../utils/author-colors.js"
 
@@ -83,402 +84,8 @@ function makeCourse(
   }
 }
 
-function activateExaminationSession(identity: SourceIdentity): string {
-  const activeSourceKey = useAnalysisStore.getState().activeSourceKey
-  const sourceSessionKey = buildSourceSessionKey(identity, activeSourceKey)
-  useExaminationStore.getState().activateSource({
-    sourceSummaryKey: `${identity.kind}-summary`,
-    sourceSessionKey,
-    sourceIdentity: identity,
-    subjectIds: [identity.subjectId],
-    selectedSubjectId: identity.subjectId,
-    defaultPreferences: {
-      questionCount: identity.questionCount,
-      activeConnectionId: "llm-1",
-      modelCode: identity.model,
-      effort: identity.effort,
-    },
-  })
-  return sourceSessionKey
-}
-
-beforeEach(() => {
-  useAnalysisStore.getState().reset()
-  useExaminationStore.getState().reset()
-  analysisStoreInternals.analysisAborts.clear()
-  analysisStoreInternals.discoveryAbort = null
-})
-
-describe("analysis store", () => {
-  it("defaults examination generation to four questions with answers visible", () => {
-    assert.equal(useExaminationStore.getState().questionCount, 4)
-    assert.equal(useExaminationStore.getState().showAnswers, true)
-  })
-
-  it("builds blame workflow config from course inputs + blame-specific fields", () => {
-    const store = useAnalysisStore.getState()
-    store.setBlameConfig({
-      copyMove: 3,
-    })
-
-    const course = makeCourse({
-      subfolder: "src",
-      extensions: ["ts", "tsx"],
-      includeFiles: ["*.ts"],
-      excludeFiles: ["*.spec.ts"],
-      excludeAuthors: ["bot*"],
-      excludeEmails: ["noreply@*"],
-      whitespace: true,
-    })
-
-    const state = useAnalysisStore.getState()
-    const merged = buildEffectiveBlameWorkflowConfig(
-      course,
-      state.blameConfig,
-      ["py"],
-      4,
-    )
-    assert.equal(merged.subfolder, "src")
-    assert.deepEqual(merged.extensions, ["ts", "tsx"])
-    assert.deepEqual(merged.includeFiles, ["*.ts"])
-    assert.deepEqual(merged.excludeFiles, ["*.spec.ts"])
-    assert.deepEqual(merged.excludeAuthors, ["bot*"])
-    assert.deepEqual(merged.excludeEmails, ["noreply@*"])
-    assert.equal(merged.whitespace, true)
-    assert.equal(merged.maxConcurrency, 4)
-    assert.equal(merged.copyMove, 3)
-  })
-
-  it("sources blame extensions from the app default when the course leaves it unset", () => {
-    const store = useAnalysisStore.getState()
-    const course = makeCourse({})
-    const merged = buildEffectiveBlameWorkflowConfig(
-      course,
-      store.blameConfig,
-      ["py", "rb"],
-      1,
-    )
-    assert.deepEqual(merged.extensions, ["py", "rb"])
-  })
-
-  it("sources blame extensions from the course when it is set", () => {
-    const store = useAnalysisStore.getState()
-    const course = makeCourse({ extensions: ["java"] })
-    const merged = buildEffectiveBlameWorkflowConfig(
-      course,
-      store.blameConfig,
-      ["py"],
-      1,
-    )
-    assert.deepEqual(merged.extensions, ["java"])
-  })
-
-  it("seeds blame queue from result and focuses active file on click", () => {
-    const store = useAnalysisStore.getState()
-    const result = makeBaseResult()
-    result.fileStats = [
-      {
-        path: "src/a.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 10,
-        deletions: 2,
-        lines: 8,
-        lastModified: 1_700_000_000,
-        commitShas: new Set(["sha-a"]),
-        authorBreakdown: new Map(),
-      },
-      {
-        path: "src/b.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 12,
-        deletions: 3,
-        lines: 9,
-        lastModified: 1_700_000_100,
-        commitShas: new Set(["sha-b"]),
-        authorBreakdown: new Map(),
-      },
-    ]
-    store.setResult(result)
-
-    let state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, ["src/a.ts", "src/b.ts"])
-    assert.equal(state.activeBlameFile, null)
-
-    store.openFileForBlame("src/a.ts")
-    store.setBlameFileResult("src/a.ts", {
-      status: "loaded",
-      fileBlame: { path: "src/a.ts", lines: [] },
-      errorMessage: null,
-    })
-    store.openFileForBlame("src/b.ts")
-    store.setBlameFileResult("src/b.ts", {
-      status: "loaded",
-      fileBlame: { path: "src/b.ts", lines: [] },
-      errorMessage: null,
-    })
-
-    state = useAnalysisStore.getState()
-    assert.deepEqual(state.blameTargetFiles, ["src/a.ts", "src/b.ts"])
-    assert.equal(state.activeBlameFile, "src/b.ts")
-    assert.equal(state.blameFileResults.has("src/a.ts"), true)
-    assert.equal(state.blameFileResults.has("src/b.ts"), true)
-  })
-
-  it("restores runtime state when returning to an analysis source", () => {
-    const store = useAnalysisStore.getState()
-    const result = makeBaseResult()
-    result.fileStats = [
-      {
-        path: "src/a.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 10,
-        deletions: 2,
-        lines: 8,
-        lastModified: 1_700_000_000,
-        commitShas: new Set(["sha-a"]),
-        authorBreakdown: new Map(),
-      },
-    ]
-
-    store.activateSource({ kind: "course", courseId: "course-a" })
-    store.setSelectedRepoPath("/repo-a")
-    store.setResultForRepo("/repo-a", result, "fingerprint-a")
-    store.openFileForBlame("src/a.ts")
-    store.setWorkflowStatusForRepo("/repo-a", "running")
-    store.setBlameShowMetadata(false)
-    const ac = new AbortController()
-    analysisStoreInternals.analysisAborts.set("/repo-a", ac)
-
-    store.activateSource({ kind: "course", courseId: "course-b" })
-    assert.equal(ac.signal.aborted, true)
-    assert.equal(analysisStoreInternals.analysisAborts.has("/repo-a"), false)
-    assert.equal(useAnalysisStore.getState().selectedRepoPath, null)
-    assert.equal(useAnalysisStore.getState().result, null)
-    assert.equal(useAnalysisStore.getState().blameShowMetadata, false)
-
-    store.setSelectedRepoPath("/repo-b")
-    store.activateSource({ kind: "course", courseId: "course-a" })
-
-    const state = useAnalysisStore.getState()
-    assert.equal(state.selectedRepoPath, "/repo-a")
-    assert.equal(state.result, result)
-    assert.equal(state.activeBlameFile, "src/a.ts")
-    assert.equal(state.focusedFilePath, "src/a.ts")
-    assert.equal(state.workflowStatus, "idle")
-    assert.equal(state.blameShowMetadata, false)
-  })
-
-  it("preserves repository-analysis sessions when the selected repository changes", () => {
-    const store = useAnalysisStore.getState()
-    store.setSelectedRepoPath("/repo-a")
-    const repositorySessionKey = activateExaminationSession({
-      ...repositoryIdentity,
-      repoPath: "/repo-a",
-    })
-    const submissionSessionKey = activateExaminationSession(submissionIdentity)
-    useExaminationStore.getState().setEntry("entry-key", {
-      status: "loaded",
-      questions: [],
-      usage: null,
-      errorMessage: null,
-      generatedAt: "2026-04-24T00:00:00.000Z",
-      fromArchive: false,
-      sourceReferences: [],
-      archivedQuestionCount: null,
-      archivedModel: null,
-      archivedEffort: null,
-      partialQuestionCount: null,
-      generationProgressLabel: null,
-      streamedResponseCharacterCount: 0,
-      streamedResponsePreview: "",
-      inProgressQuestion: null,
-      generationControlId: null,
-      stopRequested: false,
-    })
-
-    store.setSelectedRepoPath("/repo-b")
-
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.has(repositorySessionKey),
-      true,
-    )
-    assert.equal(
-      useExaminationStore.getState().sourceSessions.has(submissionSessionKey),
-      true,
-    )
-    assert.equal(useExaminationStore.getState().entriesByKey.size, 1)
-  })
-
-  it("removes only examination sessions owned by deleted course sources", () => {
-    const store = useAnalysisStore.getState()
-    store.activateSource({ kind: "course", courseId: "course-a" })
-    store.setSelectedRepoPath("/repo-a")
-    const repositoryASessionKey = activateExaminationSession({
-      ...repositoryIdentity,
-      repoPath: "/repo-a",
-    })
-    const submissionASessionKey = activateExaminationSession({
-      ...submissionIdentity,
-      folderPath: "/submission-a",
-    })
-
-    store.activateSource({
-      kind: "submission",
-      path: "/submission-a",
-      courseId: "course-a",
-    })
-    store.activateSource({ kind: "course", courseId: "course-b" })
-    store.setSelectedRepoPath("/repo-b")
-    const activeAbort = new AbortController()
-    analysisStoreInternals.analysisAborts.set("/repo-b", activeAbort)
-    const repositoryBSessionKey = activateExaminationSession({
-      ...repositoryIdentity,
-      repoPath: "/repo-b",
-    })
-    const submissionBSessionKey = activateExaminationSession({
-      ...submissionIdentity,
-      folderPath: "/submission-b",
-    })
-
-    store.removeSourcesForCourse("course-a")
-
-    const analysisState = useAnalysisStore.getState()
-    assert.equal(
-      [...analysisState.sourceBuckets.values()].some(
-        (bucket) =>
-          bucket.sourceKey.kind === "course" &&
-          bucket.sourceKey.courseId === "course-a",
-      ),
-      false,
-    )
-    assert.equal(analysisState.selectedRepoPath, "/repo-b")
-    assert.equal(activeAbort.signal.aborted, false)
-    assert.equal(
-      analysisStoreInternals.analysisAborts.get("/repo-b"),
-      activeAbort,
-    )
-
-    const examinationSessions = useExaminationStore.getState().sourceSessions
-    assert.equal(examinationSessions.has(repositoryASessionKey), false)
-    assert.equal(examinationSessions.has(submissionASessionKey), false)
-    assert.equal(examinationSessions.has(repositoryBSessionKey), true)
-    assert.equal(examinationSessions.has(submissionBSessionKey), true)
-  })
-
-  it("cancelAll aborts every active run without dropping handles eagerly", () => {
-    const acA = new AbortController()
-    const acB = new AbortController()
-    analysisStoreInternals.analysisAborts.set("/repo-a", acA)
-    analysisStoreInternals.analysisAborts.set("/repo-b", acB)
-
-    analysisStoreInternals.cancelAll()
-
-    assert.equal(acA.signal.aborted, true)
-    assert.equal(acB.signal.aborted, true)
-    assert.equal(analysisStoreInternals.analysisAborts.get("/repo-a"), acA)
-    assert.equal(analysisStoreInternals.analysisAborts.get("/repo-b"), acB)
-  })
-
-  it("tracks file filtering mode separately from selected file paths", () => {
-    const store = useAnalysisStore.getState()
-    const result = makeBaseResult()
-    result.fileStats = [
-      {
-        path: "src/a.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 10,
-        deletions: 2,
-        lines: 8,
-        lastModified: 1_700_000_000,
-        commitShas: new Set(["sha-a"]),
-        authorBreakdown: new Map(),
-      },
-      {
-        path: "src/b.ts",
-        bytes: 0,
-        commits: 1,
-        insertions: 12,
-        deletions: 3,
-        lines: 9,
-        lastModified: 1_700_000_100,
-        commitShas: new Set(["sha-b"]),
-        authorBreakdown: new Map(),
-      },
-    ]
-
-    store.setResult(result)
-    let state = useAnalysisStore.getState()
-    assert.equal(state.fileSelectionMode, "all")
-    assert.deepEqual(
-      selectFilteredFileStats(state).map((f) => f.path),
-      ["src/a.ts", "src/b.ts"],
-    )
-
-    store.setSelectedFiles(new Set(["src/a.ts"]))
-    state = useAnalysisStore.getState()
-    assert.equal(state.fileSelectionMode, "subset")
-    assert.deepEqual(
-      selectFilteredFileStats(state).map((f) => f.path),
-      ["src/a.ts"],
-    )
-
-    store.setSelectedFiles(new Set())
-    state = useAnalysisStore.getState()
-    assert.equal(state.fileSelectionMode, "subset")
-    assert.deepEqual(
-      selectFilteredFileStats(state).map((f) => f.path),
-      [],
-    )
-
-    store.clearFileSelection()
-    state = useAnalysisStore.getState()
-    assert.equal(state.fileSelectionMode, "all")
-    assert.deepEqual(
-      selectFilteredFileStats(state).map((f) => f.path),
-      ["src/a.ts", "src/b.ts"],
-    )
-  })
-
-  it("preserves selected repo when fingerprint pruning removes the active entry", () => {
-    // The user's selection persists across config changes so an auto-rerun
-    // (kicked off by sidebar config edits) can mirror its result back into the
-    // flat fields via setResultForRepo. Per-repo workflow state for the
-    // in-flight run is left intact for the same reason.
-    const store = useAnalysisStore.getState()
-    const repoPath = "/tmp/repo-a"
-    store.setSelectedRepoPath(repoPath)
-    store.setResultForRepo(repoPath, makeBaseResult(), "fingerprint-old")
-    store.setWorkflowStatusForRepo(repoPath, "running")
-    store.setProgressForRepo(repoPath, {
-      phase: "log",
-      label: "Collecting",
-      processedFiles: 1,
-      totalFiles: 2,
-    })
-
-    store.pruneStaleResultsByFingerprint("fingerprint-new")
-
-    const state = useAnalysisStore.getState()
-    assert.equal(state.selectedRepoPath, repoPath)
-    assert.equal(state.repoStates.has(repoPath), false)
-    assert.equal(state.repoWorkflowStatus.get(repoPath), "running")
-    assert.equal(state.repoProgress.get(repoPath)?.phase, "log")
-    assert.equal(state.result, null)
-    assert.equal(state.blameResult, null)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Roster match selector
-// ---------------------------------------------------------------------------
-
 function makeBaseResult(): AnalysisResult {
   return {
-    resolvedAsOfOid: "abc123",
     authorStats: [
       {
         personId: "p_0000",
@@ -490,7 +97,7 @@ function makeBaseResult(): AnalysisResult {
         lines: 80,
         linesPercent: 60,
         insertionsPercent: 70,
-        age: 90,
+        weightedActivityTimestamp: 1_700_000_090,
         commitShas: new Set(["sha1"]),
       },
       {
@@ -503,7 +110,7 @@ function makeBaseResult(): AnalysisResult {
         lines: 40,
         linesPercent: 40,
         insertionsPercent: 30,
-        age: 60,
+        weightedActivityTimestamp: 1_700_000_060,
         commitShas: new Set(["sha2"]),
       },
     ],
@@ -531,102 +138,173 @@ function makeBaseResult(): AnalysisResult {
   }
 }
 
-describe("blame-merged selectors", () => {
-  function makeFileStatsWithBreakdown(): FileStats[] {
-    return [
+function makeFileStatsWithBreakdown(): FileStats[] {
+  return [
+    {
+      path: "src/a.ts",
+      bytes: 0,
+      commits: 2,
+      insertions: 10,
+      deletions: 2,
+      lines: 0,
+      lastModified: 1_700_000_000,
+      commitShas: new Set(["sha-a"]),
+      authorBreakdown: new Map([
+        [
+          "p_0000",
+          {
+            insertions: 7,
+            deletions: 1,
+            commits: 1,
+            lines: 0,
+            commitShas: new Set(["sha-a1"]),
+          },
+        ],
+        [
+          "p_0001",
+          {
+            insertions: 3,
+            deletions: 1,
+            commits: 1,
+            lines: 0,
+            commitShas: new Set(["sha-a2"]),
+          },
+        ],
+      ]),
+    },
+  ]
+}
+
+function makeBlameResult(): BlameResult {
+  return {
+    fileBlames: [],
+    authorSummaries: [
+      {
+        personId: "p_0000",
+        canonicalName: "Alice",
+        canonicalEmail: "alice@uni.edu",
+        lines: 60,
+        linesPercent: 75,
+      },
+      {
+        personId: "p_0001",
+        canonicalName: "Bob",
+        canonicalEmail: "bob@uni.edu",
+        lines: 20,
+        linesPercent: 25,
+      },
+    ],
+    fileSummaries: [
       {
         path: "src/a.ts",
-        bytes: 0,
-        commits: 2,
-        insertions: 10,
-        deletions: 2,
-        lines: 0,
-        lastModified: 1_700_000_000,
-        commitShas: new Set(["sha-a"]),
-        authorBreakdown: new Map([
-          [
-            "p_0000",
-            {
-              insertions: 7,
-              deletions: 1,
-              commits: 1,
-              lines: 0,
-              commitShas: new Set(["sha-a1"]),
-            },
-          ],
-          [
-            "p_0001",
-            {
-              insertions: 3,
-              deletions: 1,
-              commits: 1,
-              lines: 0,
-              commitShas: new Set(["sha-a2"]),
-            },
-          ],
+        lines: 80,
+        authorLines: new Map([
+          ["p_0000", 60],
+          ["p_0001", 20],
         ]),
       },
-    ]
+    ],
+    personDbOverlay: { persons: [], identityIndex: new Map() },
+    delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
   }
+}
 
-  function makeBlameResult(): BlameResult {
-    return {
-      fileBlames: [],
-      authorSummaries: [
-        {
-          personId: "p_0000",
-          canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
-          lines: 60,
-          linesPercent: 75,
-        },
-        {
-          personId: "p_0001",
-          canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
-          lines: 20,
-          linesPercent: 25,
-        },
-      ],
-      fileSummaries: [
-        {
-          path: "src/a.ts",
-          lines: 80,
-          authorLines: new Map([
-            ["p_0000", 60],
-            ["p_0001", 20],
-          ]),
-        },
-      ],
-      personDbOverlay: { persons: [], identityIndex: new Map() },
-      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
-    }
-  }
+beforeEach(() => {
+  useAnalysisStore.getState().reset()
+  useExaminationStore.getState().reset()
+})
 
-  it("passes raw stats through when blameResult is null", () => {
+describe("analysis view state", () => {
+  it("builds blame workflow config from course inputs and blame fields", () => {
     const store = useAnalysisStore.getState()
-    const result = makeBaseResult()
-    result.fileStats = makeFileStatsWithBreakdown()
-    store.setResult(result)
+    store.setBlameConfig({ copyMove: 3 })
+
+    const course = makeCourse({
+      subfolder: "src",
+      extensions: ["ts", "tsx"],
+      includeFiles: ["*.ts"],
+      excludeFiles: ["*.spec.ts"],
+      excludeAuthors: ["bot*"],
+      excludeEmails: ["noreply@*"],
+      whitespace: true,
+    })
+
+    const merged = buildEffectiveBlameWorkflowConfig(
+      course,
+      useAnalysisStore.getState().blameConfig,
+      ["py"],
+      4,
+    )
+    assert.equal(merged.subfolder, "src")
+    assert.deepEqual(merged.extensions, ["ts", "tsx"])
+    assert.deepEqual(merged.includeFiles, ["*.ts"])
+    assert.deepEqual(merged.excludeFiles, ["*.spec.ts"])
+    assert.deepEqual(merged.excludeAuthors, ["bot*"])
+    assert.deepEqual(merged.excludeEmails, ["noreply@*"])
+    assert.equal(merged.whitespace, true)
+    assert.equal(merged.maxConcurrency, 4)
+    assert.equal(merged.copyMove, 3)
+  })
+
+  it("opens blame by storing only view focus", () => {
+    const store = useAnalysisStore.getState()
+    store.openFileForBlame("src/a.ts")
 
     const state = useAnalysisStore.getState()
-    const authors = selectBlameMergedAuthorStats(state)
-    const files = selectBlameMergedFileStats(state)
+    assert.equal(state.activeView, "blame")
+    assert.equal(state.activeBlameFile, "src/a.ts")
+    assert.equal(state.focusedFilePath, "src/a.ts")
+  })
 
-    assert.equal(authors, result.authorStats)
-    assert.equal(files, result.fileStats)
+  it("hydrates only persisted sidebar settings", () => {
+    const store = useAnalysisStore.getState()
+    store.setSelectedRepoPath("/repo")
+    store.hydrateFromPersistedSettings({
+      searchDepth: 8,
+      sectionState: {},
+      repoViewMode: "list",
+      fileViewMode: "tree",
+      fileSortMode: "alpha",
+      blameConfig: { copyMove: 4 },
+    })
+
+    const state = useAnalysisStore.getState()
+    assert.equal(state.selectedRepoPath, "/repo")
+    assert.equal(state.searchDepth, 8)
+    assert.equal(state.blameConfig.copyMove, 4)
+  })
+})
+
+describe("analysis view models", () => {
+  it("passes raw stats through when blameResult is null", () => {
+    const result = makeBaseResult()
+    result.fileStats = makeFileStatsWithBreakdown()
+
+    assert.equal(
+      mergeAuthorStats({
+        result,
+        blameResult: null,
+        partialAuthorLines: new Map(),
+      }),
+      result.authorStats,
+    )
+    assert.equal(
+      mergeFileStats({ result, blameResult: null }),
+      result.fileStats,
+    )
   })
 
   it("fills author and file LOC from blame summaries", () => {
-    const store = useAnalysisStore.getState()
     const result = makeBaseResult()
     result.fileStats = makeFileStatsWithBreakdown()
-    store.setResult(result)
-    store.setBlameResult(makeBlameResult())
+    const blameResult = makeBlameResult()
 
-    const state = useAnalysisStore.getState()
-    const authors = selectBlameMergedAuthorStats(state)
-    const files = selectBlameMergedFileStats(state)
+    const authors = mergeAuthorStats({
+      result,
+      blameResult,
+      partialAuthorLines: new Map(),
+    })
+    const files = mergeFileStats({ result, blameResult })
 
     const alice = authors.find((a) => a.personId === "p_0000")
     const bob = authors.find((a) => a.personId === "p_0001")
@@ -641,18 +319,16 @@ describe("blame-merged selectors", () => {
     assert.equal(file.authorBreakdown.get("p_0001")?.lines, 20)
   })
 
-  it("does not mutate source FileStats or its authorBreakdown map", () => {
-    const store = useAnalysisStore.getState()
+  it("does not mutate source file stats while merging blame summaries", () => {
     const result = makeBaseResult()
     const sourceFiles = makeFileStatsWithBreakdown()
     const retainedFile = sourceFiles[0]
     const retainedBreakdown = retainedFile.authorBreakdown
     const retainedEntry = retainedBreakdown.get("p_0000")
     result.fileStats = sourceFiles
-    store.setResult(result)
-    store.setBlameResult(makeBlameResult())
 
-    const files = selectBlameMergedFileStats(useAnalysisStore.getState())
+    const files = mergeFileStats({ result, blameResult: makeBlameResult() })
+
     assert.notEqual(files[0], retainedFile)
     assert.notEqual(files[0].authorBreakdown, retainedBreakdown)
     assert.notEqual(files[0].authorBreakdown.get("p_0000"), retainedEntry)
@@ -661,12 +337,10 @@ describe("blame-merged selectors", () => {
   })
 
   it("sums author lines across alias entries sharing one personId", () => {
-    const store = useAnalysisStore.getState()
     const result = makeBaseResult()
     result.fileStats = makeFileStatsWithBreakdown()
-    store.setResult(result)
-    store.setBlameResult({
-      fileBlames: [],
+    const blameResult = {
+      ...makeBlameResult(),
       authorSummaries: [
         {
           personId: "p_0000",
@@ -690,12 +364,13 @@ describe("blame-merged selectors", () => {
           linesPercent: 25,
         },
       ],
-      fileSummaries: [],
-      personDbOverlay: { persons: [], identityIndex: new Map() },
-      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
-    })
+    }
 
-    const authors = selectBlameMergedAuthorStats(useAnalysisStore.getState())
+    const authors = mergeAuthorStats({
+      result,
+      blameResult,
+      partialAuthorLines: new Map(),
+    })
     const alice = authors.find((a) => a.personId === "p_0000")
     const bob = authors.find((a) => a.personId === "p_0001")
     assert.equal(alice?.lines, 60)
@@ -703,85 +378,44 @@ describe("blame-merged selectors", () => {
     assert.equal(alice?.linesPercent, 75)
   })
 
-  it("memoizes on (result, blameResult) and invalidates when blame changes", () => {
-    const store = useAnalysisStore.getState()
+  it("projects empty surviving author and file selections back to all", () => {
     const result = makeBaseResult()
     result.fileStats = makeFileStatsWithBreakdown()
-    store.setResult(result)
-    store.setBlameResult(makeBlameResult())
 
-    const first = selectBlameMergedFileStats(useAnalysisStore.getState())
-    const firstAuthors = selectBlameMergedAuthorStats(
-      useAnalysisStore.getState(),
+    assert.deepEqual(
+      filterAuthorStats(result.authorStats, new Set(["missing"])).map(
+        (author) => author.personId,
+      ),
+      ["p_0000", "p_0001"],
     )
-    const second = selectBlameMergedFileStats(useAnalysisStore.getState())
-    const secondAuthors = selectBlameMergedAuthorStats(
-      useAnalysisStore.getState(),
+    assert.deepEqual(
+      filterFileStats({
+        merged: result.fileStats,
+        fileSelectionMode: "subset",
+        selectedFiles: new Set(["missing"]),
+      }).map((file) => file.path),
+      ["src/a.ts"],
     )
-    assert.equal(first, second)
-    assert.equal(firstAuthors, secondAuthors)
+  })
 
-    store.setBlameResult(makeBlameResult())
-    const third = selectBlameMergedFileStats(useAnalysisStore.getState())
-    const thirdAuthors = selectBlameMergedAuthorStats(
-      useAnalysisStore.getState(),
+  it("projects active focus only when the file survives", () => {
+    assert.equal(
+      selectEffectiveFocusedFile({
+        storedPath: "src/a.ts",
+        filePaths: ["src/a.ts", "src/b.ts"],
+      }),
+      "src/a.ts",
     )
-    assert.notEqual(first, third)
-    assert.notEqual(firstAuthors, thirdAuthors)
-  })
-})
-
-describe("selectRosterMatchByPersonId", () => {
-  it("returns empty map when no result", () => {
-    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
-    assert.equal(map.size, 0)
+    assert.equal(
+      selectEffectiveFocusedFile({
+        storedPath: "deleted.ts",
+        filePaths: ["src/a.ts"],
+      }),
+      "src/a.ts",
+    )
   })
 
-  it("returns empty map when result has no rosterMatches", () => {
-    useAnalysisStore.getState().setResult(makeBaseResult())
-    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
-    assert.equal(map.size, 0)
-  })
-
-  it("indexes matches by personId", () => {
-    const result = makeBaseResult()
-    result.rosterMatches = {
-      matches: [
-        {
-          personId: "p_0000",
-          canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
-          memberId: "m_001",
-          memberName: "Alice Smith",
-          confidence: "exact-email",
-        },
-        {
-          personId: "p_0001",
-          canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
-          memberId: "m_002",
-          memberName: "Robert Jones",
-          confidence: "fuzzy-name",
-        },
-      ],
-      unmatchedPersonIds: [],
-      unmatchedMemberIds: [],
-    }
-    useAnalysisStore.getState().setResult(result)
-
-    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
-    assert.equal(map.size, 2)
-
-    const alice = map.get("p_0000")
-    assert.equal(alice?.memberName, "Alice Smith")
-    assert.equal(alice?.confidence, "exact-email")
-
-    const bob = map.get("p_0001")
-    assert.equal(bob?.memberName, "Robert Jones")
-    assert.equal(bob?.confidence, "fuzzy-name")
-  })
-
-  it("omits unmatched persons from the map", () => {
+  it("indexes roster matches by personId", () => {
     const result = makeBaseResult()
     result.rosterMatches = {
       matches: [
@@ -797,119 +431,93 @@ describe("selectRosterMatchByPersonId", () => {
       unmatchedPersonIds: ["p_0001"],
       unmatchedMemberIds: [],
     }
-    useAnalysisStore.getState().setResult(result)
 
-    const map = selectRosterMatchByPersonId(useAnalysisStore.getState())
+    const map = buildRosterMatchByPersonId(result)
     assert.equal(map.size, 1)
-    assert.equal(map.has("p_0000"), true)
+    assert.equal(map.get("p_0000")?.memberName, "Alice Smith")
     assert.equal(map.has("p_0001"), false)
   })
-})
 
-describe("analysis selectors", () => {
   it("assigns author colors by merged LOC ranking", () => {
     const result = makeBaseResult()
-    useAnalysisStore.getState().setResult(result)
-
-    let colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
-    assert.equal(colors.get("p_0000"), authorColor(0))
-    assert.equal(colors.get("p_0001"), authorColor(1))
-
-    useAnalysisStore.getState().setBlameResult({
-      fileBlames: [],
-      authorSummaries: [
-        {
-          personId: "p_0000",
-          canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
-          lines: 25,
-          linesPercent: 20,
-        },
-        {
-          personId: "p_0001",
-          canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
-          lines: 100,
-          linesPercent: 80,
-        },
-      ],
-      fileSummaries: [],
-      personDbOverlay: { persons: [], identityIndex: new Map() },
-      delta: { newPersons: [], newAliases: [], relinkedIdentities: [] },
-    })
-
-    colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
-    assert.equal(colors.get("p_0001"), authorColor(0))
-    assert.equal(colors.get("p_0000"), authorColor(1))
-  })
-
-  it("keeps author color ranking based on unfiltered authors", () => {
-    const result = makeBaseResult()
-    useAnalysisStore.getState().setResult(result)
-    useAnalysisStore.getState().setSelectedAuthors(new Set(["p_0001"]))
-
-    const colors = selectAuthorColorsByPersonId(useAnalysisStore.getState())
+    const colors = buildAuthorColorsByPersonId(result.authorStats)
     assert.equal(colors.get("p_0000"), authorColor(0))
     assert.equal(colors.get("p_0001"), authorColor(1))
   })
 
-  it("returns stable references for unchanged empty snapshots", () => {
-    const state = useAnalysisStore.getState()
-
-    assert.equal(
-      selectFilteredAuthorStats(state),
-      selectFilteredAuthorStats(state),
-    )
-    assert.equal(selectFilteredFileStats(state), selectFilteredFileStats(state))
-    assert.equal(
-      selectAuthorDisplayByPersonId(state),
-      selectAuthorDisplayByPersonId(state),
-    )
-    assert.equal(
-      selectRosterMatchByPersonId(state),
-      selectRosterMatchByPersonId(state),
-    )
-    assert.equal(
-      selectAuthorColorsByPersonId(state),
-      selectAuthorColorsByPersonId(state),
-    )
-  })
-
-  it("returns stable references for unchanged populated snapshots", () => {
+  it("builds author display identities with rename aliases", () => {
     const result = makeBaseResult()
-    result.rosterMatches = {
-      matches: [
+    result.personDbBaseline.persons[0] = {
+      ...result.personDbBaseline.persons[0],
+      aliases: [
         {
-          personId: "p_0000",
-          canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
-          memberId: "m_001",
-          memberName: "Alice Smith",
-          confidence: "exact-email",
+          name: "Alice Smith",
+          email: "alice.smith@uni.edu",
+          evidence: "email-link",
         },
       ],
-      unmatchedPersonIds: ["p_0001"],
-      unmatchedMemberIds: [],
     }
-    useAnalysisStore.getState().setResult(result)
 
-    const state = useAnalysisStore.getState()
+    const display = buildAuthorDisplayByPersonId({
+      result,
+      showRenames: true,
+    })
+    assert.equal(display.get("p_0000")?.name, "Alice | Alice Smith")
     assert.equal(
-      selectFilteredAuthorStats(state),
-      selectFilteredAuthorStats(state),
+      display.get("p_0000")?.email,
+      "alice@uni.edu | alice.smith@uni.edu",
     )
-    assert.equal(selectFilteredFileStats(state), selectFilteredFileStats(state))
-    assert.equal(
-      selectAuthorDisplayByPersonId(state),
-      selectAuthorDisplayByPersonId(state),
+  })
+})
+
+describe("course removal lifecycle", () => {
+  it("removes examination sessions scoped to the deleted course", () => {
+    const store = useExaminationStore.getState()
+    const courseAKey = { kind: "course" as const, courseId: "course-a" }
+    const courseBKey = { kind: "course" as const, courseId: "course-b" }
+    const submissionAKey = {
+      kind: "submission" as const,
+      path: "/submission-a",
+      courseId: "course-a",
+    }
+    const repositoryASessionKey = buildSourceSessionKey(
+      repositoryIdentity,
+      courseAKey,
     )
-    assert.equal(
-      selectRosterMatchByPersonId(state),
-      selectRosterMatchByPersonId(state),
+    const repositoryBSessionKey = buildSourceSessionKey(
+      repositoryIdentity,
+      courseBKey,
     )
-    assert.equal(
-      selectAuthorColorsByPersonId(state),
-      selectAuthorColorsByPersonId(state),
+    const submissionASessionKey = buildSourceSessionKey(
+      submissionIdentity,
+      submissionAKey,
     )
+
+    for (const [sourceSessionKey, sourceIdentity] of [
+      [repositoryASessionKey, repositoryIdentity],
+      [repositoryBSessionKey, repositoryIdentity],
+      [submissionASessionKey, submissionIdentity],
+    ] as const) {
+      store.activateSource({
+        sourceSummaryKey: `${sourceSessionKey}-summary`,
+        sourceSessionKey,
+        sourceIdentity,
+        subjectIds: ["p_1"],
+        selectedSubjectId: "p_1",
+        defaultPreferences: {
+          questionCount: 4,
+          activeConnectionId: "llm-1",
+          modelCode: "22",
+          effort: "medium",
+        },
+      })
+    }
+
+    publishCourseRemoval("course-a")
+
+    const state = useExaminationStore.getState()
+    assert.equal(state.sourceSessions.has(repositoryASessionKey), false)
+    assert.equal(state.sourceSessions.has(submissionASessionKey), false)
+    assert.equal(state.sourceSessions.has(repositoryBSessionKey), true)
   })
 })

@@ -6,6 +6,7 @@ import {
   RadioGroupItem,
   Separator,
 } from "@repo-edu/ui"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import {
   type AnalysisActiveMetric,
   type AnalysisDisplayMode,
@@ -55,9 +56,8 @@ export function AnalysisDisplayControls({
   const setShowEmail = useAnalysisStore((s) => s.setShowEmail)
   const showRosterMatch = useAnalysisStore((s) => s.showRosterMatch)
   const setShowRosterMatch = useAnalysisStore((s) => s.setShowRosterMatch)
-  const hasRosterMatches = useAnalysisStore(
-    (s) => s.result?.rosterMatches != null,
-  )
+  const { result } = useAnalysisCoordinator()
+  const hasRosterMatches = result?.rosterMatches != null
   const chartMetric = useAnalysisStore((s) => s.chartMetric)
   const setChartMetric = useAnalysisStore((s) => s.setChartMetric)
 

@@ -18,14 +18,12 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import {
   FILES_PANEL_CHART_FLEX,
   FILES_PANEL_TABLE_FLEX,
 } from "../../../constants/layout.js"
-import {
-  selectFilteredFileStats,
-  useAnalysisStore,
-} from "../../../stores/analysis-store.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import {
@@ -36,8 +34,7 @@ import { FileCharts } from "./charts/FileCharts.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
 
 export function FilePanel() {
-  const result = useAnalysisStore((s) => s.result)
-  const fileStats = useAnalysisStore(selectFilteredFileStats)
+  const { result, filteredFileStats: fileStats } = useAnalysisCoordinator()
   const authorStats = result?.authorStats ?? []
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)

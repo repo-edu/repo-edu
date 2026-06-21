@@ -40,6 +40,7 @@ import type {
   AnalysisProgress,
   AnalysisReadFolderFileInput,
   AnalysisReadFolderFileResult,
+  AnalysisResolveSnapshotHeadInput,
   AnalysisRunInput,
   AssignmentValidationInput,
   ConnectionVerificationResult,
@@ -281,6 +282,12 @@ export type WorkflowPayloads = {
     progress: AnalysisProgress
     output: DiagnosticOutput
     result: AnalysisResult
+  }
+  "analysis.resolveSnapshotHead": {
+    input: AnalysisResolveSnapshotHeadInput
+    progress: never
+    output: never
+    result: string
   }
   "analysis.blame": {
     input: AnalysisBlameInput

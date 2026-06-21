@@ -55,6 +55,7 @@ describe("application-contract workflow catalog", () => {
       "userFile.inspectSelection",
       "userFile.exportPreview",
       "analysis.run",
+      "analysis.resolveSnapshotHead",
       "analysis.blame",
       "analysis.discoverRepos",
       "analysis.listFolderFiles",
@@ -165,7 +166,7 @@ describe("application-contract workflow catalog", () => {
     }
   })
 
-  it("analysis workflows exclude CLI delivery and use granular progress", () => {
+  it("analysis execution workflows exclude CLI delivery and use granular progress", () => {
     const analysisWorkflows: WorkflowId[] = ["analysis.run", "analysis.blame"]
 
     for (const id of analysisWorkflows) {
@@ -185,6 +186,13 @@ describe("application-contract workflow catalog", () => {
         `Analysis workflow '${id}' should be cooperatively cancellable`,
       )
     }
+  })
+
+  it("analysis snapshot-head workflow excludes CLI delivery and has no progress", () => {
+    const meta = workflowCatalog["analysis.resolveSnapshotHead"]
+    assert.ok(!meta.delivery.includes("cli"))
+    assert.equal(meta.progress, "none")
+    assert.equal(meta.cancellation, "cooperative")
   })
 
   it("setup-phase workflows exclude CLI delivery", () => {

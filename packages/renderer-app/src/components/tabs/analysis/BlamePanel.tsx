@@ -1,24 +1,34 @@
 import { EmptyState } from "@repo-edu/ui"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { BlameTab } from "./BlameTab.js"
 
 export function BlamePanel() {
-  const result = useAnalysisStore((s) => s.result)
+  const { result, blameErrorMessage } = useAnalysisCoordinator()
   const activeBlameFile = useAnalysisStore((s) => s.activeBlameFile)
-  const blameErrorMessage = useAnalysisStore((s) => s.blameErrorMessage)
   const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
   const blameSkip = useAnalysisContext().analysisInputs.blameSkip ?? false
+  const resultFilePaths = useMemo(
+    () => result?.fileStats.map((file) => file.path) ?? [],
+    [result],
+  )
+  const effectiveActiveBlameFile =
+    activeBlameFile !== null && resultFilePaths.includes(activeBlameFile)
+      ? activeBlameFile
+      : focusedFilePath !== null && resultFilePaths.includes(focusedFilePath)
+        ? focusedFilePath
+        : null
 
   useEffect(() => {
     if (blameSkip) return
-    if (!result) return
-    if (activeBlameFile) return
-    if (!focusedFilePath) return
-    openFileForBlame(focusedFilePath)
-  }, [blameSkip, result, activeBlameFile, focusedFilePath, openFileForBlame])
+    if (effectiveActiveBlameFile !== null) return
+    const firstPath = resultFilePaths[0]
+    if (firstPath === undefined) return
+    openFileForBlame(firstPath)
+  }, [blameSkip, effectiveActiveBlameFile, openFileForBlame, resultFilePaths])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -29,8 +39,8 @@ export function BlamePanel() {
       )}
 
       <div className="flex-1 min-h-0 overflow-auto">
-        {activeBlameFile ? (
-          <BlameTab filePath={activeBlameFile} />
+        {effectiveActiveBlameFile ? (
+          <BlameTab filePath={effectiveActiveBlameFile} />
         ) : (
           <div className="flex h-full items-center justify-center">
             <EmptyState message="Select a file in the sidebar." />

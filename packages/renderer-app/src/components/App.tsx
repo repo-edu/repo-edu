@@ -14,7 +14,9 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useLayoutEffect, useState } from "react"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -35,6 +37,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
+import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
 import type { AppWorkflowId } from "../session/workflow-types.js"
 import {
   selectTheme,
@@ -104,6 +107,7 @@ export function RendererSessionRoot({
   // mount/unmount/remount); the layout-effect state update is flushed before
   // paint, so the brief null render is never visible.
   const [controller, setController] = useState<SessionController | null>(null)
+  const [queryClient] = useState(() => createRendererQueryClient())
 
   useLayoutEffect(() => {
     const instance = new SessionController({ workflowClient })
@@ -156,15 +160,54 @@ export function RendererSessionRoot({
 
   return (
     <WorkflowClientProvider value={narrowedClient}>
-      <RendererHostProvider value={rendererHost}>
-        <SessionControllerProvider controller={controller}>
-          <TooltipProvider>
-            <AppView />
-          </TooltipProvider>
-        </SessionControllerProvider>
-      </RendererHostProvider>
+      <QueryClientProvider client={queryClient}>
+        <RendererHostProvider value={rendererHost}>
+          <SessionControllerProvider controller={controller}>
+            <TooltipProvider>
+              <AnalysisQueryLifecycleBridge />
+              <AppView />
+            </TooltipProvider>
+          </SessionControllerProvider>
+        </RendererHostProvider>
+      </QueryClientProvider>
     </WorkflowClientProvider>
   )
+}
+
+function analysisQueryKeyBelongsToCourse(
+  value: unknown,
+  courseId: string,
+): boolean {
+  if (Array.isArray(value)) {
+    if (value[0] === "course" && value[1] === courseId) return true
+    if (value[0] === "submission" && value[2] === courseId) return true
+    return value.some((entry) =>
+      analysisQueryKeyBelongsToCourse(entry, courseId),
+    )
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).some((entry) =>
+      analysisQueryKeyBelongsToCourse(entry, courseId),
+    )
+  }
+  return false
+}
+
+function AnalysisQueryLifecycleBridge() {
+  const queryClient = useQueryClient()
+
+  useEffect(
+    () =>
+      subscribeCourseRemoval((courseId) => {
+        queryClient.removeQueries({
+          predicate: (query) =>
+            analysisQueryKeyBelongsToCourse(query.queryKey, courseId),
+        })
+      }),
+    [queryClient],
+  )
+
+  return null
 }
 
 function AppView() {

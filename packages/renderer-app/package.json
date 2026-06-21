@@ -21,6 +21,7 @@
     "@repo-edu/ui": "workspace:*",
     "@shikijs/langs": "^4.0.2",
     "@shikijs/themes": "^4.0.2",
+    "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",
     "d3-scale-chromatic": "^3.1.0",
     "immer": "^11.1.4",

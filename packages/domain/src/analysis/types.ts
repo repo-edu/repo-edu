@@ -36,7 +36,7 @@ export type AuthorStats = {
   lines: number
   linesPercent: number
   insertionsPercent: number
-  age: number
+  weightedActivityTimestamp: number
   commitShas: Set<string>
 }
 
@@ -180,7 +180,6 @@ export type AnalysisRosterContext = {
 // ---------------------------------------------------------------------------
 
 export type AnalysisResult = {
-  resolvedAsOfOid: string
   authorStats: AuthorStats[]
   fileStats: FileStats[]
   authorDailyActivity: AuthorDailyActivity[]

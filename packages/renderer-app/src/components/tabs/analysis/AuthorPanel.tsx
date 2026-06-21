@@ -22,13 +22,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import {
-  selectAuthorColorsByPersonId,
-  selectAuthorDisplayByPersonId,
-  selectFilteredAuthorStats,
-  selectRosterMatchByPersonId,
-  useAnalysisStore,
-} from "../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 import { formatAge, type MetricTotals } from "../../../utils/analysis-format.js"
 import { SortHeaderButton } from "../../common/SortHeaderButton.js"
 import {
@@ -38,6 +33,7 @@ import {
 import { AuthorFilterControls } from "./AuthorFilterControls.js"
 import { AuthorCharts } from "./charts/AuthorCharts.js"
 import { MetricTotalsRow, useMetricColumns } from "./metric-columns.js"
+import { useElapsedSeconds } from "./use-elapsed-seconds.js"
 
 export const confidenceStyles: Record<IdentityConfidence, string> = {
   "exact-email": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
@@ -87,21 +83,25 @@ export function ConfidenceBadge({
 }
 
 export function AuthorPanel() {
-  const result = useAnalysisStore((s) => s.result)
-  const authorStats = useAnalysisStore(selectFilteredAuthorStats)
+  const {
+    result,
+    filteredAuthorStats: authorStats,
+    authorDisplayByPersonId: authorDisplayById,
+    rosterMatchByPersonId: rosterMatchById,
+    authorColorsByPersonId: colors,
+  } = useAnalysisCoordinator()
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
   const showInsertions = useAnalysisStore((s) => s.showInsertions)
   const showDeletions = useAnalysisStore((s) => s.showDeletions)
   const showLinesOfCode = useAnalysisStore((s) => s.showLinesOfCode)
   const chartMetric = useAnalysisStore((s) => s.chartMetric)
-  const authorDisplayById = useAnalysisStore(selectAuthorDisplayByPersonId)
-  const rosterMatchById = useAnalysisStore(selectRosterMatchByPersonId)
   const showEmail = useAnalysisStore((s) => s.showEmail)
   const showRosterMatch = useAnalysisStore((s) => s.showRosterMatch)
   const showAge = useAnalysisStore((s) => s.showAge)
   const toggleAuthor = useAnalysisStore((s) => s.toggleAuthor)
-  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
+  useElapsedSeconds(showAge)
+  const nowSeconds = Date.now() / 1000
 
   const hasRosterMatches = result?.rosterMatches != null
   const rosterMatchColumnVisible = hasRosterMatches && showRosterMatch
@@ -227,7 +227,8 @@ export function AuthorPanel() {
     if (showAge) {
       cols.push({
         id: "age",
-        accessorFn: (row) => row.age,
+        accessorFn: (row) =>
+          Math.max(0, nowSeconds - row.weightedActivityTimestamp),
         header: ({ column }) => (
           <SortHeaderButton
             label="Age"
@@ -236,7 +237,10 @@ export function AuthorPanel() {
             onToggle={() => column.toggleSorting()}
           />
         ),
-        cell: ({ row }) => formatAge(row.original.age),
+        cell: ({ row }) =>
+          formatAge(
+            Math.max(0, nowSeconds - row.original.weightedActivityTimestamp),
+          ),
       })
     }
 
@@ -247,6 +251,7 @@ export function AuthorPanel() {
     metricColumns,
     rosterMatchById,
     rosterMatchColumnVisible,
+    nowSeconds,
     showAge,
     showEmail,
   ])

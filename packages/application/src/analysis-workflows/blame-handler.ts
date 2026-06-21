@@ -25,7 +25,7 @@ import { parseBlameOutput } from "./blame-parser.js"
 import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot, validationError } from "./repo-root.js"
-import { resolveSnapshotHead } from "./snapshot-engine.js"
+import { verifySnapshotCommitOid } from "./snapshot-engine.js"
 
 // ---------------------------------------------------------------------------
 // Tuning constants
@@ -267,11 +267,10 @@ export function createAnalysisBlameHandler(
         }
 
         throwIfAborted(options?.signal)
-        const commitOid = await resolveSnapshotHead(
+        const commitOid = await verifySnapshotCommitOid(
           ports.gitCommand,
           repoRoot,
-          input.asOfCommit,
-          undefined,
+          input.snapshotCommitOid,
           options?.signal,
         )
 

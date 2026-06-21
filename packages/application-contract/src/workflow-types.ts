@@ -348,7 +348,7 @@ export type AnalysisRunSource =
 export type AnalysisRunInput = AnalysisRepositoryInput & {
   config: AnalysisConfig
   analysisSource?: AnalysisRunSource
-  asOfCommit?: string
+  snapshotCommitOid: string
 }
 
 export type AnalysisBlameInput = AnalysisRepositoryInput & {
@@ -356,5 +356,10 @@ export type AnalysisBlameInput = AnalysisRepositoryInput & {
   personDbBaseline: PersonDbSnapshot
   personDbOverlay?: PersonDbSnapshot
   files: string[]
-  asOfCommit: string
+  snapshotCommitOid: string
+}
+
+export type AnalysisResolveSnapshotHeadInput = AnalysisRepositoryInput & {
+  asOfCommit?: string
+  until?: string
 }

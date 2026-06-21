@@ -101,6 +101,45 @@ export async function resolveSnapshotHead(
   return headOid
 }
 
+export async function verifySnapshotCommitOid(
+  gitCommand: GitCommandPort,
+  repoRoot: string,
+  snapshotCommitOid: string,
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  const result = await gitCommand.run({
+    args: ["rev-parse", "--verify", `${snapshotCommitOid}^{commit}`],
+    cwd: repoRoot,
+    signal,
+  })
+  if (result.exitCode !== 0) {
+    throw {
+      type: "validation",
+      message: `snapshotCommitOid '${snapshotCommitOid}' does not resolve to a valid commit.`,
+      issues: [
+        {
+          path: "snapshotCommitOid",
+          message: result.stderr.trim() || "Invalid commit reference",
+        },
+      ],
+    } satisfies AppError
+  }
+  const resolvedOid = result.stdout.trim()
+  if (resolvedOid.length === 0) {
+    throw {
+      type: "validation",
+      message: `snapshotCommitOid '${snapshotCommitOid}' does not resolve to a valid commit.`,
+      issues: [
+        {
+          path: "snapshotCommitOid",
+          message: "Git returned an empty commit oid.",
+        },
+      ],
+    } satisfies AppError
+  }
+  return resolvedOid
+}
+
 // ---------------------------------------------------------------------------
 // File candidate listing from snapshot tree
 // ---------------------------------------------------------------------------
@@ -266,7 +305,7 @@ export function buildPerFileLogArgs(
 /**
  * Builds git log arguments for a single repo-wide traversal of the snapshot
  * head. Used to drive author-level aggregates that must not depend on the
- * `nFiles` cap (commits, insertions, deletions, age, daily activity).
+ * `nFiles` cap (commits, insertions, deletions, recency and daily activity).
  *
  * Path filtering (subfolder/extensions/include/exclude) is applied later in
  * code on the parsed numstat output; this keeps the git invocation simple

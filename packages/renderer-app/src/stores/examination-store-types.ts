@@ -253,6 +253,7 @@ export type ExaminationActions = {
   invalidateAnalysisSource: (
     analysisSourceKey: AnalysisSourceKey | null,
   ) => void
+  invalidateCourseAnalysisSources: (courseId: string) => void
   resetRepositoryAnalysis: () => void
   reset: () => void
 }

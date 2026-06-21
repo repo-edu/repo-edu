@@ -1,23 +1,24 @@
 import { Button, Checkbox, Label } from "@repo-edu/ui"
-import {
-  selectAuthorColorsByPersonId,
-  useAnalysisStore,
-} from "../../../stores/analysis-store.js"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
+import { useAnalysisStore } from "../../../stores/analysis-store.js"
 
 export function AuthorFilterControls() {
-  const result = useAnalysisStore((s) => s.result)
+  const { mergedAuthorStats, authorColorsByPersonId } = useAnalysisCoordinator()
   const selectedAuthors = useAnalysisStore((s) => s.selectedAuthors)
   const setSelectedAuthors = useAnalysisStore((s) => s.setSelectedAuthors)
-  const selectAllAuthors = useAnalysisStore((s) => s.selectAllAuthors)
   const clearAuthorSelection = useAnalysisStore((s) => s.clearAuthorSelection)
-  const colors = useAnalysisStore(selectAuthorColorsByPersonId)
 
-  const authorStats = result?.authorStats ?? []
+  const authorStats = mergedAuthorStats
 
   if (authorStats.length === 0) return null
 
-  const allSelected = selectedAuthors.size === authorStats.length
+  const allSelected =
+    selectedAuthors.size === authorStats.length &&
+    authorStats.every((author) => selectedAuthors.has(author.personId))
   const noneSelected = selectedAuthors.size === 0
+  const selectAllAuthors = () => {
+    setSelectedAuthors(new Set(authorStats.map((author) => author.personId)))
+  }
 
   const handleToggleAuthor = (personId: string) => {
     if (noneSelected) {
@@ -64,7 +65,7 @@ export function AuthorFilterControls() {
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {authorStats.map((a) => {
-          const color = colors.get(a.personId) ?? "#888"
+          const color = authorColorsByPersonId.get(a.personId) ?? "#888"
           const isSelected = noneSelected || selectedAuthors.has(a.personId)
           return (
             <div key={a.personId} className="flex items-center gap-1.5">

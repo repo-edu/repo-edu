@@ -1,11 +1,9 @@
 import { buildExaminationLocalIdentityContext } from "@repo-edu/application-contract"
 import { Button, EmptyState } from "@repo-edu/ui"
 import { useMemo } from "react"
+import { useAnalysisCoordinator } from "../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
-import {
-  selectAuthorDisplayByPersonId,
-  useAnalysisStore,
-} from "../../stores/analysis-store.js"
+import { useAnalysisStore } from "../../stores/analysis-store.js"
 import {
   buildExcerptFileSources,
   buildMemberExcerpts,
@@ -26,11 +24,13 @@ import {
 
 export function RepositoryAnalysisExaminationTab() {
   const analysisContext = useAnalysisContext()
-  const blameResult = useAnalysisStore((state) => state.blameResult)
-  const analysisResult = useAnalysisStore((state) => state.result)
+  const {
+    blameResult,
+    result: analysisResult,
+    snapshotCommitOid,
+    authorDisplayByPersonId: authorDisplays,
+  } = useAnalysisCoordinator()
   const selectedRepoPath = useAnalysisStore((state) => state.selectedRepoPath)
-  const asOfCommit = useAnalysisStore((state) => state.asOfCommit)
-  const authorDisplays = useAnalysisStore(selectAuthorDisplayByPersonId)
 
   const authorSummaries = blameResult?.authorSummaries ?? []
   const emptyStateMessage = resolveExaminationEmptyState({
@@ -38,11 +38,7 @@ export function RepositoryAnalysisExaminationTab() {
     hasBlameResult: blameResult !== null,
     authorCount: authorSummaries.length,
   })
-  const commitOid = useMemo(() => {
-    const resolved = analysisResult?.resolvedAsOfOid
-    if (resolved && resolved.length > 0) return resolved
-    return asOfCommit ?? ""
-  }, [analysisResult, asOfCommit])
+  const commitOid = snapshotCommitOid ?? ""
 
   const source = useMemo<RepositoryAnalysisExaminationSource | null>(() => {
     if (

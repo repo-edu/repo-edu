@@ -1,4 +1,3 @@
-import { resolveAnalysisConfig } from "@repo-edu/domain/types"
 import {
   Button,
   Input,
@@ -16,17 +15,15 @@ import {
   Loader2,
   RefreshCw,
 } from "@repo-edu/ui/components/icons"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
+import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useAnalysisStore } from "../../../stores/analysis-store.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
-import { buildAnalysisStoreFingerprint } from "../../../utils/analysis-store-fingerprint.js"
 import {
   RepoFolderNode,
   RepoLeafButton,
   RepoTreeProvider,
 } from "./analysis-tree.js"
-import { useAnalysisWorkflows } from "./use-analysis-workflows.js"
 import type { RepoTree } from "./use-repo-tree.js"
 
 type RepositoriesToolbarProps = {
@@ -48,7 +45,7 @@ export function RepositoriesToolbar({
 }: RepositoriesToolbarProps) {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
   const setSearchDepth = useAnalysisStore((s) => s.setSearchDepth)
-  const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
+  const { discoveredRepos } = useAnalysisCoordinator()
 
   const [depthDraft, setDepthDraft] = useState<string | null>(null)
   const commitDepthDraft = useCallback(() => {
@@ -172,25 +169,18 @@ export function RepositoriesSection({
   browseTooltipKey,
   repoViewMode,
 }: RepositoriesSectionProps) {
-  const { runAnalysis } = useAnalysisWorkflows()
   const analysisContext = useAnalysisContext()
+  const {
+    discoveredRepos,
+    discoveryStatus,
+    discoveryError,
+    discoveryCurrentFolder,
+    lastDiscoveryOutcome,
+  } = useAnalysisCoordinator()
 
   const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
   const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const searchFolder = analysisContext.searchFolder
-  const defaultExtensions = useAppSettingsStore(
-    (s) => s.settings.defaultExtensions,
-  )
-  const filesPerRepo = useAppSettingsStore(
-    (s) => s.settings.analysisConcurrency.filesPerRepo,
-  )
-  const discoveredRepos = useAnalysisStore((s) => s.discoveredRepos)
-  const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
-  const discoveryError = useAnalysisStore((s) => s.discoveryError)
-  const discoveryCurrentFolder = useAnalysisStore(
-    (s) => s.discoveryCurrentFolder,
-  )
-  const lastDiscoveryOutcome = useAnalysisStore((s) => s.lastDiscoveryOutcome)
 
   const {
     repoTree,
@@ -200,43 +190,12 @@ export function RepositoriesSection({
     searchFolderIsRepo,
     toggleRepoFolderOpen,
   } = tree
-  const currentConfigFingerprint = useMemo(() => {
-    if (analysisContext.kind === "none") return null
-    const config = resolveAnalysisConfig(
-      {
-        searchFolder: analysisContext.searchFolder,
-        analysisInputs: analysisContext.analysisInputs,
-      },
-      defaultExtensions,
-      filesPerRepo,
-    )
-    return buildAnalysisStoreFingerprint(config, analysisContext.rosterContext)
-  }, [analysisContext, defaultExtensions, filesPerRepo])
-
   const handleSelectRepo = useCallback(
     (path: string) => {
       if (path === selectedRepoPath) return
       setSelectedRepoPath(path)
-      // Only kick off analysis when we don't already have a result for this
-      // repo. `setSelectedRepoPath` restores the cached per-repo entry, so
-      // switching back to a previously-analysed repo must not re-run — doing
-      // so would wipe the restored blame/filter state and flash the Cancel
-      // button. An explicit "Re-run Analysis" click bypasses this check.
-      const entry = useAnalysisStore.getState().repoStates.get(path)
-      const cached =
-        entry !== undefined &&
-        currentConfigFingerprint !== null &&
-        entry.configFingerprint === currentConfigFingerprint
-      if (!cached) {
-        runAnalysis(path)
-      }
     },
-    [
-      currentConfigFingerprint,
-      selectedRepoPath,
-      setSelectedRepoPath,
-      runAnalysis,
-    ],
+    [selectedRepoPath, setSelectedRepoPath],
   )
 
   return (

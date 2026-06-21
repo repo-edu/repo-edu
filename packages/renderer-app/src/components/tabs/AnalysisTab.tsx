@@ -10,6 +10,10 @@ import {
 } from "@repo-edu/ui"
 import { useCallback, useEffect, useRef } from "react"
 import {
+  AnalysisCoordinatorProvider,
+  useAnalysisCoordinator,
+} from "../../analysis/analysis-query-coordinator.js"
+import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
@@ -25,8 +29,6 @@ import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
 import { BlameProgressBar } from "./analysis/BlameProgressBar.js"
 import { FilePanel } from "./analysis/FilePanel.js"
-import { useAnalysisWorkflows } from "./analysis/use-analysis-workflows.js"
-import { useBlameAutoRun } from "./analysis/use-blame-autorun.js"
 import { RepositoryAnalysisExaminationTab } from "./ExaminationTab.js"
 import { canShowExaminationView } from "./examination/view-state.js"
 import { SubmissionExaminationTab } from "./SubmissionExaminationTab.js"
@@ -52,6 +54,14 @@ export function AnalysisTab() {
 }
 
 function RepositoryAnalysisTab() {
+  return (
+    <AnalysisCoordinatorProvider>
+      <RepositoryAnalysisTabContent />
+    </AnalysisCoordinatorProvider>
+  )
+}
+
+function RepositoryAnalysisTabContent() {
   const analysisContext = useAnalysisContext()
   const hasActiveDocument = analysisContext.kind !== "none"
 
@@ -81,43 +91,22 @@ function RepositoryAnalysisTab() {
     }
   }, [blameSkip, canShowExamination, activeView, setActiveView])
 
-  const { runRepoDiscovery } = useAnalysisWorkflows()
+  const { runRepoDiscovery, discoveredRepos, discoveryStatus } =
+    useAnalysisCoordinator()
   const searchFolder = analysisContext.searchFolder
-  const hasDiscoveredRepos = useAnalysisStore(
-    (s) => s.discoveredRepos.length > 0,
-  )
-  const discoveryStatus = useAnalysisStore((s) => s.discoveryStatus)
-  const pendingRepoDiscoveryFolder = useAnalysisStore(
-    (s) => s.pendingRepoDiscoveryFolder,
-  )
-  const clearPendingRepoDiscovery = useAnalysisStore(
-    (s) => s.clearPendingRepoDiscovery,
-  )
+  const hasDiscoveredRepos = discoveredRepos.length > 0
   const autoDiscoveredFolderRef = useRef<string | null>(null)
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
   useEffect(() => {
     if (!searchFolder) return
-    const hasPendingDiscovery = pendingRepoDiscoveryFolder === searchFolder
-    if (hasPendingDiscovery) {
-      clearPendingRepoDiscovery(searchFolder)
-      autoDiscoveredFolderRef.current = searchFolder
-    }
     if (discoveryStatus === "loading") return
     const shouldAutoDiscover =
       autoDiscoveredFolderRef.current !== searchFolder && !hasDiscoveredRepos
-    if (!hasPendingDiscovery && !shouldAutoDiscover) return
+    if (!shouldAutoDiscover) return
     autoDiscoveredFolderRef.current = searchFolder
     void runRepoDiscoveryRef.current(searchFolder)
-  }, [
-    searchFolder,
-    hasDiscoveredRepos,
-    discoveryStatus,
-    pendingRepoDiscoveryFolder,
-    clearPendingRepoDiscovery,
-  ])
-
-  useBlameAutoRun()
+  }, [searchFolder, hasDiscoveredRepos, discoveryStatus])
 
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
