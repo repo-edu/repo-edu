@@ -37,6 +37,7 @@ import {
 } from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import { refreshSourceSnapshotHeadQueries } from "./analysis-query-client.js"
 import {
   type AnalysisQueryIdentity,
   analysisQueryKeys,
@@ -46,7 +47,6 @@ import {
   blameResultScopeKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
-  queryKeyMatchesSourceSnapshotHead,
 } from "./analysis-query-keys.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
@@ -269,6 +269,31 @@ export function buildDiscoveryCompletionMarker(
   dataUpdatedAt: number,
 ): string {
   return JSON.stringify([queryKey, dataUpdatedAt])
+}
+
+export function selectCurrentAnalysisResult(params: {
+  snapshotCommitOid: string | null
+  analysisIsFetching: boolean
+  analysisIsError: boolean
+  data: AnalysisResult | undefined
+}): AnalysisResult | null {
+  if (
+    params.snapshotCommitOid === null ||
+    params.analysisIsFetching ||
+    params.analysisIsError
+  ) {
+    return null
+  }
+  return params.data ?? null
+}
+
+export function selectCurrentBlameResult(params: {
+  blameIsFetching: boolean
+  blameIsError: boolean
+  data: BlameResult | undefined
+}): BlameResult | null {
+  if (params.blameIsFetching || params.blameIsError) return null
+  return params.data ?? null
 }
 
 export function AnalysisCoordinatorProvider({
@@ -726,10 +751,12 @@ export function AnalysisCoordinatorProvider({
       : (state.analysisByRequestKey.get(analysisScopeKey)?.progress ?? null),
   )
 
-  const result =
-    selectedSnapshotCommitOid === null || selectedAnalysisQuery.isFetching
-      ? null
-      : (selectedAnalysisQuery.data ?? null)
+  const result = selectCurrentAnalysisResult({
+    snapshotCommitOid: selectedSnapshotCommitOid,
+    analysisIsFetching: selectedAnalysisQuery.isFetching,
+    analysisIsError: selectedAnalysisQuery.isError,
+    data: selectedAnalysisQuery.data,
+  })
   const analysisStatus: AnalysisWorkflowStatus =
     selectedSnapshotQuery.isFetching || selectedAnalysisQuery.isFetching
       ? "running"
@@ -844,9 +871,11 @@ export function AnalysisCoordinatorProvider({
       ? null
       : (state.blameByRequestKey.get(selectedBlameScopeKey) ?? null),
   )
-  const blameResult = selectedBlameQuery.isFetching
-    ? null
-    : (selectedBlameQuery.data ?? null)
+  const blameResult = selectCurrentBlameResult({
+    blameIsFetching: selectedBlameQuery.isFetching,
+    blameIsError: selectedBlameQuery.isError,
+    data: selectedBlameQuery.data,
+  })
   const blameStatus: AnalysisWorkflowStatus = selectedBlameQuery.isFetching
     ? "running"
     : selectedBlameQuery.isError
@@ -933,13 +962,12 @@ export function AnalysisCoordinatorProvider({
         discoveryInput.depth === input.depth
       prefetchBatchRef.current += 1
       setLastDiscoveryOutcomeForSource(activeSourceText, "none")
-      void queryClient.cancelQueries({
-        queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
-      })
-      queryClient.removeQueries({
-        predicate: (query) =>
-          queryKeyMatchesSourceSnapshotHead(query.queryKey, activeSourceParts),
-      })
+      void (async () => {
+        await queryClient.cancelQueries({
+          queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
+        })
+        await refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
+      })()
       setDiscoveryInputForSource(activeSourceText, input)
       if (sameInput) {
         void discoveryQuery.refetch()

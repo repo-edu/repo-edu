@@ -7,7 +7,11 @@ import type {
   FileStats,
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { buildDiscoveryCompletionMarker } from "../analysis/analysis-query-coordinator.js"
+import {
+  buildDiscoveryCompletionMarker,
+  selectCurrentAnalysisResult,
+  selectCurrentBlameResult,
+} from "../analysis/analysis-query-coordinator.js"
 import {
   analysisAutoDiscoveryScopeKey,
   analysisQueryKeys,
@@ -543,6 +547,35 @@ describe("analysis query keys", () => {
     assert.notEqual(
       analysisAutoDiscoveryScopeKey(["folder", folder], folder),
       analysisAutoDiscoveryScopeKey(["course", "course-a"], folder),
+    )
+  })
+})
+
+describe("analysis query value projection", () => {
+  it("hides previous analysis data while the current query is errored", () => {
+    const result = makeBaseResult()
+
+    assert.equal(
+      selectCurrentAnalysisResult({
+        snapshotCommitOid: "a".repeat(40),
+        analysisIsFetching: false,
+        analysisIsError: true,
+        data: result,
+      }),
+      null,
+    )
+  })
+
+  it("hides previous blame data while the current query is errored", () => {
+    const blameResult = makeBlameResult()
+
+    assert.equal(
+      selectCurrentBlameResult({
+        blameIsFetching: false,
+        blameIsError: true,
+        data: blameResult,
+      }),
+      null,
     )
   })
 })

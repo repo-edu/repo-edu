@@ -1,12 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { QueryObserver } from "@tanstack/react-query"
-import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import {
+  createRendererQueryClient,
+  refreshSourceSnapshotHeadQueries,
+} from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
-  queryKeyMatchesSourceSnapshotHead,
 } from "../analysis/analysis-query-keys.js"
 
 const source = ["folder", "/courses"] as const
@@ -25,7 +27,7 @@ function buildResultKey(snapshotCommitOid: string) {
 }
 
 describe("renderer analysis query cache", () => {
-  it("removes source snapshot heads without dropping settled repo data", () => {
+  it("refreshes active snapshot heads and removes inactive ones without dropping settled repo data", async () => {
     const queryClient = createRendererQueryClient()
     const analysis = buildAnalysisQueryIdentity({
       source,
@@ -45,24 +47,42 @@ describe("renderer analysis query cache", () => {
       repoPath,
       until: null,
     })
+    const inactiveSnapshotKey = analysisQueryKeys.snapshotHead({
+      source,
+      repoPath: "/courses/repo-b",
+      until: null,
+    })
     const discoveryKey = analysisQueryKeys.discovery(source, "/courses", 5)
     const resultKey = analysisQueryKeys.result(analysis)
     const blameKey = analysisQueryKeys.blame(blame)
+    let snapshotFetchCount = 0
 
     queryClient.setQueryData(snapshotKey, "old-head")
+    queryClient.setQueryData(inactiveSnapshotKey, "inactive-head")
     queryClient.setQueryData(discoveryKey, { repos: [] })
     queryClient.setQueryData(resultKey, { result: true })
     queryClient.setQueryData(blameKey, { blame: true })
-
-    queryClient.removeQueries({
-      predicate: (query) =>
-        queryKeyMatchesSourceSnapshotHead(query.queryKey, source),
+    const observer = new QueryObserver(queryClient, {
+      queryKey: snapshotKey,
+      queryFn: async () => {
+        snapshotFetchCount++
+        return "new-head"
+      },
     })
+    const unsubscribe = observer.subscribe(() => {})
 
-    assert.equal(queryClient.getQueryData(snapshotKey), undefined)
-    assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
-    assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
-    assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
+    try {
+      await refreshSourceSnapshotHeadQueries(queryClient, source)
+
+      assert.equal(queryClient.getQueryData(snapshotKey), "new-head")
+      assert.equal(queryClient.getQueryData(inactiveSnapshotKey), undefined)
+      assert.equal(snapshotFetchCount, 1)
+      assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
+      assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
+      assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
+    } finally {
+      unsubscribe()
+    }
   })
 
   it("evicts oldest inactive analysis data over the size budget", () => {

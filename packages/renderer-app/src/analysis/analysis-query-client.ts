@@ -1,4 +1,8 @@
 import { type Query, QueryClient } from "@tanstack/react-query"
+import {
+  type AnalysisSourceKeyParts,
+  queryKeyMatchesSourceSnapshotHead,
+} from "./analysis-query-keys.js"
 
 const DEFAULT_ANALYSIS_QUERY_CACHE_BUDGET_BYTES = 1_000_000_000
 
@@ -110,4 +114,29 @@ export function createRendererQueryClient(
   })
 
   return queryClient
+}
+
+export async function refreshSourceSnapshotHeadQueries(
+  queryClient: QueryClient,
+  source: AnalysisSourceKeyParts,
+): Promise<void> {
+  const snapshotHeadQueries = queryClient.getQueryCache().findAll({
+    predicate: (query) =>
+      queryKeyMatchesSourceSnapshotHead(query.queryKey, source),
+  })
+  const activeSnapshotHeadKeys: Query["queryKey"][] = []
+
+  for (const query of snapshotHeadQueries) {
+    if (query.getObserversCount() > 0) {
+      activeSnapshotHeadKeys.push(query.queryKey)
+      continue
+    }
+    queryClient.removeQueries({ queryKey: query.queryKey, exact: true })
+  }
+
+  await Promise.all(
+    activeSnapshotHeadKeys.map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey, exact: true }),
+    ),
+  )
 }
