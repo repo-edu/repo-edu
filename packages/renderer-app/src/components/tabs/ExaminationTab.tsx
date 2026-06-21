@@ -3,7 +3,6 @@ import { Button, EmptyState } from "@repo-edu/ui"
 import { useMemo } from "react"
 import { useAnalysisCoordinator } from "../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
-import { useAnalysisStore } from "../../stores/analysis-store.js"
 import {
   buildExcerptFileSources,
   buildMemberExcerpts,
@@ -29,8 +28,8 @@ export function RepositoryAnalysisExaminationTab() {
     result: analysisResult,
     snapshotCommitOid,
     authorDisplayByPersonId: authorDisplays,
+    selectedRepoPath,
   } = useAnalysisCoordinator()
-  const selectedRepoPath = useAnalysisStore((state) => state.selectedRepoPath)
 
   const authorSummaries = blameResult?.authorSummaries ?? []
   const emptyStateMessage = resolveExaminationEmptyState({

@@ -12,7 +12,10 @@ import { useMemo } from "react"
 import type { ThemedToken } from "shiki/types"
 import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectBlameVisibleAuthorsForScope,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { buildBlameCommitNumberMap } from "./blame-commit-numbering.js"
@@ -191,7 +194,7 @@ function AuthorSummary({
 }: {
   contributions: AuthorContribution[]
   colorMap: ReadonlyMap<string, string>
-  visibleAuthors: Set<string> | null
+  visibleAuthors: ReadonlySet<string> | null
   onToggle: (personId: string) => void
 }) {
   return (
@@ -417,6 +420,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
     blameStatus,
     blameErrorMessage,
     authorColorsByPersonId: colorMap,
+    analysisScopeKey,
   } = useAnalysisCoordinator()
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
 
@@ -425,7 +429,9 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const syntaxColorize = useAnalysisStore((s) => s.blameSyntaxColorize)
   const hideEmpty = useAnalysisStore((s) => s.blameHideEmpty)
   const hideComments = useAnalysisStore((s) => s.blameHideComments)
-  const visibleAuthors = useAnalysisStore((s) => s.blameVisibleAuthors)
+  const visibleAuthors = useAnalysisStore((s) =>
+    selectBlameVisibleAuthorsForScope(s, analysisScopeKey),
+  )
   const toggleAuthor = useAnalysisStore((s) => s.toggleBlameAuthorVisible)
 
   const setBlameShowMetadata = useAnalysisStore((s) => s.setBlameShowMetadata)
@@ -607,12 +613,14 @@ export function BlameTab({ filePath }: { filePath: string }) {
             contributions={contributions}
             colorMap={colorMap}
             visibleAuthors={effectiveVisibleAuthors}
-            onToggle={(personId) =>
+            onToggle={(personId) => {
+              if (analysisScopeKey === null) return
               toggleAuthor(
+                analysisScopeKey,
                 personId,
                 contributions.map((c) => c.personId),
               )
-            }
+            }}
           />
         )}
 

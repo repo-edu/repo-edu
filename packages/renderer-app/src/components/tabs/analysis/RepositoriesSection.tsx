@@ -176,10 +176,9 @@ export function RepositoriesSection({
     discoveryError,
     discoveryCurrentFolder,
     lastDiscoveryOutcome,
+    selectedRepoPath,
+    selectRepository,
   } = useAnalysisCoordinator()
-
-  const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
-  const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
   const searchFolder = analysisContext.searchFolder
 
   const {
@@ -193,9 +192,9 @@ export function RepositoriesSection({
   const handleSelectRepo = useCallback(
     (path: string) => {
       if (path === selectedRepoPath) return
-      setSelectedRepoPath(path)
+      selectRepository(path)
     },
-    [selectedRepoPath, setSelectedRepoPath],
+    [selectedRepoPath, selectRepository],
   )
 
   return (

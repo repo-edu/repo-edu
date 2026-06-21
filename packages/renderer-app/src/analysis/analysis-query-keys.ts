@@ -84,6 +84,16 @@ export function analysisSourceKeyParts(
   return ["submission", sourceKey.path, sourceKey.courseId]
 }
 
+export function analysisSourceScopeKey(source: AnalysisSourceKeyParts): string {
+  return JSON.stringify(source)
+}
+
+export function analysisResultScopeKey(
+  identity: AnalysisQueryIdentity,
+): string {
+  return JSON.stringify(identity)
+}
+
 export function buildAnalysisOutputConfigKey(
   config: AnalysisConfig,
 ): AnalysisOutputConfigKey {

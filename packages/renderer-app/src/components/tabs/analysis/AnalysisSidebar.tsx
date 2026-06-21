@@ -13,7 +13,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectFileSelectionModeForScope,
+  selectFocusedFilePathForScope,
+  selectSelectedFilesForScope,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
   type AnalysisSidebarFileSortMode,
@@ -59,6 +64,9 @@ export function AnalysisSidebar() {
     analysisErrorMessage,
     discoveredRepos,
     discoveryStatus,
+    selectedRepoPath,
+    selectRepository,
+    analysisScopeKey,
   } = useAnalysisCoordinator()
   const rendererHost = useRendererHost()
 
@@ -67,17 +75,20 @@ export function AnalysisSidebar() {
   const config = analysisContext.analysisInputs
   const searchFolder = analysisContext.searchFolder
 
-  const selectedRepoPath = useAnalysisStore((s) => s.selectedRepoPath)
-  const setSelectedRepoPath = useAnalysisStore((s) => s.setSelectedRepoPath)
-
   const blameConfig = useAnalysisStore((s) => s.blameConfig)
   const setBlameConfig = useAnalysisStore((s) => s.setBlameConfig)
 
   const activeView = useAnalysisStore((s) => s.activeView)
-  const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
+  const focusedFilePath = useAnalysisStore((s) =>
+    selectFocusedFilePathForScope(s, analysisScopeKey),
+  )
   const setFocusedFilePath = useAnalysisStore((s) => s.setFocusedFilePath)
-  const fileSelectionMode = useAnalysisStore((s) => s.fileSelectionMode)
-  const selectedFiles = useAnalysisStore((s) => s.selectedFiles)
+  const fileSelectionMode = useAnalysisStore((s) =>
+    selectFileSelectionModeForScope(s, analysisScopeKey),
+  )
+  const selectedFiles = useAnalysisStore((s) =>
+    selectSelectedFilesForScope(s, analysisScopeKey),
+  )
 
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
 
@@ -223,7 +234,7 @@ export function AnalysisSidebar() {
 
   const effectiveFileSelection = useMemo(() => {
     if (fileSelectionMode === "all") return new Set(sortedFilePaths)
-    return selectedFiles
+    return new Set(selectedFiles)
   }, [fileSelectionMode, selectedFiles, sortedFilePaths])
 
   const toggleFolderOpen = useCallback((folder: string) => {
@@ -237,10 +248,11 @@ export function AnalysisSidebar() {
 
   const handleFileClick = useCallback(
     (path: string) => {
-      setFocusedFilePath(path)
-      openFileForBlame(path)
+      if (analysisScopeKey === null) return
+      setFocusedFilePath(analysisScopeKey, path)
+      openFileForBlame(analysisScopeKey, path)
     },
-    [openFileForBlame, setFocusedFilePath],
+    [analysisScopeKey, openFileForBlame, setFocusedFilePath],
   )
 
   useEffect(() => {
@@ -269,8 +281,15 @@ export function AnalysisSidebar() {
     if (!result) return
     if (focusedFilePath) return
     if (listFilePaths.length === 0) return
-    setFocusedFilePath(listFilePaths[0])
-  }, [result, focusedFilePath, listFilePaths, setFocusedFilePath])
+    if (analysisScopeKey === null) return
+    setFocusedFilePath(analysisScopeKey, listFilePaths[0])
+  }, [
+    analysisScopeKey,
+    result,
+    focusedFilePath,
+    listFilePaths,
+    setFocusedFilePath,
+  ])
 
   const expandAllFolders = useCallback(
     () => setOpenFolders(new Set(allFolderNames)),
@@ -293,7 +312,7 @@ export function AnalysisSidebar() {
       title: "Open repository search folder",
     })
     if (!dir) return
-    setSelectedRepoPath(null)
+    selectRepository(null)
     setSections((prev) => ({ ...prev, repositories: true }))
     if (analysisContext.kind === "folder") {
       await analysisContext.activateFolderPath(dir)
@@ -301,7 +320,7 @@ export function AnalysisSidebar() {
       analysisContext.updateCourseSearchFolder(dir)
     }
     void runRepoDiscovery(dir)
-  }, [analysisContext, rendererHost, runRepoDiscovery, setSelectedRepoPath])
+  }, [analysisContext, rendererHost, runRepoDiscovery, selectRepository])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)

@@ -32,13 +32,21 @@ import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
 import { selectActiveAnalysisSourceKey } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
-import { useAnalysisStore } from "../stores/analysis-store.js"
+import {
+  selectFileSelectionModeForScope,
+  selectSelectedAuthorsForScope,
+  selectSelectedFilesForScope,
+  selectSelectedRepoPathForScope,
+  useAnalysisStore,
+} from "../stores/analysis-store.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import {
   type AnalysisQueryIdentity,
   analysisQueryKeys,
+  analysisResultScopeKey,
   analysisSourceKeyParts,
+  analysisSourceScopeKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
 } from "./analysis-query-keys.js"
@@ -73,11 +81,14 @@ export type AnalysisCoordinatorValue = {
   lastDiscoveryOutcome: "none" | "completed" | "cancelled"
   runRepoDiscovery: (folder: string) => void
   cancelDiscovery: () => void
+  selectedRepoPath: string | null
+  selectRepository: (repoPath: string | null) => void
   runAnalysis: (repoPath: string) => void
   cancelAnalysis: () => void
   result: AnalysisResult | null
   snapshotCommitOid: string | null
   analysisIdentity: AnalysisQueryIdentity | null
+  analysisScopeKey: string | null
   analysisStatus: AnalysisWorkflowStatus
   analysisProgress: AnalysisProgress | null
   analysisErrorMessage: string | null
@@ -167,18 +178,17 @@ export function AnalysisCoordinatorProvider({
     [activeSourceKey],
   )
   const activeSourceText = useMemo(
-    () => JSON.stringify(activeSourceParts),
+    () => analysisSourceScopeKey(activeSourceParts),
     [activeSourceParts],
   )
 
-  const selectedRepoPath = useAnalysisStore((state) => state.selectedRepoPath)
+  const selectedRepoPath = useAnalysisStore((state) =>
+    selectSelectedRepoPathForScope(state, activeSourceText),
+  )
   const setSelectedRepoPath = useAnalysisStore(
     (state) => state.setSelectedRepoPath,
   )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
-  const selectedAuthors = useAnalysisStore((state) => state.selectedAuthors)
-  const fileSelectionMode = useAnalysisStore((state) => state.fileSelectionMode)
-  const selectedFiles = useAnalysisStore((state) => state.selectedFiles)
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
   const showRenames = useAnalysisStore((state) => state.showRenames)
 
@@ -236,12 +246,11 @@ export function AnalysisCoordinatorProvider({
     setDiscoveryInput(null)
     setLastDiscoveryOutcome("none")
     prefetchBatchRef.current += 1
-    setSelectedRepoPath(null)
     void queryClient.cancelQueries({
       predicate: (query) =>
         queryMatchesSource(query.queryKey, previousSourceText),
     })
-  }, [activeSourceText, queryClient, setSelectedRepoPath])
+  }, [activeSourceText, queryClient])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -389,7 +398,7 @@ export function AnalysisCoordinatorProvider({
           analysisContext.updateCourseSearchFolder(firstRepoPath)
         }
       }
-      setSelectedRepoPath(firstRepoPath)
+      setSelectedRepoPath(activeSourceText, firstRepoPath)
       const batchId = ++prefetchBatchRef.current
       void mapBounded(
         discoveryQuery.data.repos.map((repo) => repo.path),
@@ -407,6 +416,7 @@ export function AnalysisCoordinatorProvider({
     discoveryQuery.data,
     discoveryQueryKey,
     prefetchRepoAnalysis,
+    activeSourceText,
     setSelectedRepoPath,
   ])
 
@@ -465,6 +475,23 @@ export function AnalysisCoordinatorProvider({
     selectedRepoPath,
     selectedSnapshotQuery.data,
   ])
+
+  const analysisScopeKey = useMemo(
+    () =>
+      selectedAnalysisIdentity === null
+        ? null
+        : analysisResultScopeKey(selectedAnalysisIdentity),
+    [selectedAnalysisIdentity],
+  )
+  const selectedAuthors = useAnalysisStore((state) =>
+    selectSelectedAuthorsForScope(state, analysisScopeKey),
+  )
+  const fileSelectionMode = useAnalysisStore((state) =>
+    selectFileSelectionModeForScope(state, analysisScopeKey),
+  )
+  const selectedFiles = useAnalysisStore((state) =>
+    selectSelectedFilesForScope(state, analysisScopeKey),
+  )
 
   const selectedAnalysisQuery = useQuery({
     queryKey:
@@ -740,6 +767,13 @@ export function AnalysisCoordinatorProvider({
     })
   }, [discoveryQueryKey, queryClient])
 
+  const selectRepository = useCallback(
+    (repoPath: string | null) => {
+      setSelectedRepoPath(activeSourceText, repoPath)
+    },
+    [activeSourceText, setSelectedRepoPath],
+  )
+
   const value = useMemo<AnalysisCoordinatorValue>(
     () => ({
       discoveredRepos,
@@ -749,11 +783,14 @@ export function AnalysisCoordinatorProvider({
       lastDiscoveryOutcome,
       runRepoDiscovery,
       cancelDiscovery,
+      selectedRepoPath,
+      selectRepository,
       runAnalysis,
       cancelAnalysis,
       result,
       snapshotCommitOid: selectedSnapshotQuery.data ?? null,
       analysisIdentity: selectedAnalysisIdentity,
+      analysisScopeKey,
       analysisStatus,
       analysisProgress: selectedAnalysisProgress,
       analysisErrorMessage,
@@ -774,6 +811,7 @@ export function AnalysisCoordinatorProvider({
     }),
     [
       analysisErrorMessage,
+      analysisScopeKey,
       analysisStatus,
       authorColorsByPersonId,
       authorDisplayByPersonId,
@@ -799,7 +837,9 @@ export function AnalysisCoordinatorProvider({
       selectedAnalysisProgress,
       selectedBlameTransient?.partialAuthorLines,
       selectedBlameTransient?.progress,
+      selectedRepoPath,
       selectedSnapshotQuery.data,
+      selectRepository,
     ],
   )
 

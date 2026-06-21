@@ -89,6 +89,7 @@ export function AuthorPanel() {
     authorDisplayByPersonId: authorDisplayById,
     rosterMatchByPersonId: rosterMatchById,
     authorColorsByPersonId: colors,
+    analysisScopeKey,
   } = useAnalysisCoordinator()
   const displayMode = useAnalysisStore((s) => s.displayMode)
   const showCommits = useAnalysisStore((s) => s.showCommits)
@@ -325,7 +326,10 @@ export function AuthorPanel() {
                   <DataTableRow
                     key={row.id}
                     className="group cursor-pointer"
-                    onClick={() => toggleAuthor(row.original.personId)}
+                    onClick={() => {
+                      if (analysisScopeKey === null) return
+                      toggleAuthor(analysisScopeKey, row.original.personId)
+                    }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <DataTableCell

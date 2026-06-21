@@ -1,10 +1,16 @@
 import { Button, Checkbox, Label } from "@repo-edu/ui"
 import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectSelectedAuthorsForScope,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 
 export function AuthorFilterControls() {
-  const { mergedAuthorStats, authorColorsByPersonId } = useAnalysisCoordinator()
-  const selectedAuthors = useAnalysisStore((s) => s.selectedAuthors)
+  const { mergedAuthorStats, authorColorsByPersonId, analysisScopeKey } =
+    useAnalysisCoordinator()
+  const selectedAuthors = useAnalysisStore((s) =>
+    selectSelectedAuthorsForScope(s, analysisScopeKey),
+  )
   const setSelectedAuthors = useAnalysisStore((s) => s.setSelectedAuthors)
   const clearAuthorSelection = useAnalysisStore((s) => s.clearAuthorSelection)
 
@@ -17,14 +23,19 @@ export function AuthorFilterControls() {
     authorStats.every((author) => selectedAuthors.has(author.personId))
   const noneSelected = selectedAuthors.size === 0
   const selectAllAuthors = () => {
-    setSelectedAuthors(new Set(authorStats.map((author) => author.personId)))
+    if (analysisScopeKey === null) return
+    setSelectedAuthors(
+      analysisScopeKey,
+      new Set(authorStats.map((author) => author.personId)),
+    )
   }
 
   const handleToggleAuthor = (personId: string) => {
+    if (analysisScopeKey === null) return
     if (noneSelected) {
       const next = new Set(authorStats.map((a) => a.personId))
       next.delete(personId)
-      setSelectedAuthors(next)
+      setSelectedAuthors(analysisScopeKey, next)
       return
     }
     const next = new Set(selectedAuthors)
@@ -33,7 +44,7 @@ export function AuthorFilterControls() {
     } else {
       next.add(personId)
     }
-    setSelectedAuthors(next)
+    setSelectedAuthors(analysisScopeKey, next)
   }
 
   return (
@@ -57,7 +68,10 @@ export function AuthorFilterControls() {
             size="sm"
             className="h-6 text-xs"
             disabled={noneSelected}
-            onClick={clearAuthorSelection}
+            onClick={() => {
+              if (analysisScopeKey === null) return
+              clearAuthorSelection(analysisScopeKey)
+            }}
           >
             Clear
           </Button>

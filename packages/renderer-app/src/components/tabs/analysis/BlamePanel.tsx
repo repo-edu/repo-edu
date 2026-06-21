@@ -2,13 +2,22 @@ import { EmptyState } from "@repo-edu/ui"
 import { useEffect, useMemo } from "react"
 import { useAnalysisCoordinator } from "../../../analysis/analysis-query-coordinator.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
-import { useAnalysisStore } from "../../../stores/analysis-store.js"
+import {
+  selectActiveBlameFileForScope,
+  selectFocusedFilePathForScope,
+  useAnalysisStore,
+} from "../../../stores/analysis-store.js"
 import { BlameTab } from "./BlameTab.js"
 
 export function BlamePanel() {
-  const { result, blameErrorMessage } = useAnalysisCoordinator()
-  const activeBlameFile = useAnalysisStore((s) => s.activeBlameFile)
-  const focusedFilePath = useAnalysisStore((s) => s.focusedFilePath)
+  const { result, blameErrorMessage, analysisScopeKey } =
+    useAnalysisCoordinator()
+  const activeBlameFile = useAnalysisStore((s) =>
+    selectActiveBlameFileForScope(s, analysisScopeKey),
+  )
+  const focusedFilePath = useAnalysisStore((s) =>
+    selectFocusedFilePathForScope(s, analysisScopeKey),
+  )
   const openFileForBlame = useAnalysisStore((s) => s.openFileForBlame)
   const blameSkip = useAnalysisContext().analysisInputs.blameSkip ?? false
   const resultFilePaths = useMemo(
@@ -27,8 +36,15 @@ export function BlamePanel() {
     if (effectiveActiveBlameFile !== null) return
     const firstPath = resultFilePaths[0]
     if (firstPath === undefined) return
-    openFileForBlame(firstPath)
-  }, [blameSkip, effectiveActiveBlameFile, openFileForBlame, resultFilePaths])
+    if (analysisScopeKey === null) return
+    openFileForBlame(analysisScopeKey, firstPath)
+  }, [
+    analysisScopeKey,
+    blameSkip,
+    effectiveActiveBlameFile,
+    openFileForBlame,
+    resultFilePaths,
+  ])
 
   return (
     <div className="flex h-full min-h-0 flex-col">

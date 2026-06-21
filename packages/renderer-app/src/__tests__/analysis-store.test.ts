@@ -23,7 +23,16 @@ import {
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
 import { publishCourseRemoval } from "../session/source-lifecycle-events.js"
-import { useAnalysisStore } from "../stores/analysis-store.js"
+import {
+  selectActiveBlameFileForScope,
+  selectBlameVisibleAuthorsForScope,
+  selectFileSelectionModeForScope,
+  selectFocusedFilePathForScope,
+  selectSelectedAuthorsForScope,
+  selectSelectedFilesForScope,
+  selectSelectedRepoPathForScope,
+  useAnalysisStore,
+} from "../stores/analysis-store.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 import { authorColor } from "../utils/author-colors.js"
 
@@ -249,17 +258,18 @@ describe("analysis view state", () => {
 
   it("opens blame by storing only view focus", () => {
     const store = useAnalysisStore.getState()
-    store.openFileForBlame("src/a.ts")
+    store.openFileForBlame("analysis-a", "src/a.ts")
 
     const state = useAnalysisStore.getState()
     assert.equal(state.activeView, "blame")
-    assert.equal(state.activeBlameFile, "src/a.ts")
-    assert.equal(state.focusedFilePath, "src/a.ts")
+    assert.equal(selectActiveBlameFileForScope(state, "analysis-a"), "src/a.ts")
+    assert.equal(selectFocusedFilePathForScope(state, "analysis-a"), "src/a.ts")
+    assert.equal(selectActiveBlameFileForScope(state, "analysis-b"), null)
   })
 
   it("hydrates only persisted sidebar settings", () => {
     const store = useAnalysisStore.getState()
-    store.setSelectedRepoPath("/repo")
+    store.setSelectedRepoPath("source-a", "/repo")
     store.hydrateFromPersistedSettings({
       searchDepth: 8,
       sectionState: {},
@@ -270,9 +280,58 @@ describe("analysis view state", () => {
     })
 
     const state = useAnalysisStore.getState()
-    assert.equal(state.selectedRepoPath, "/repo")
+    assert.equal(selectSelectedRepoPathForScope(state, "source-a"), "/repo")
     assert.equal(state.searchDepth, 8)
     assert.equal(state.blameConfig.copyMove, 4)
+  })
+
+  it("scopes selected repositories by analysis source", () => {
+    const store = useAnalysisStore.getState()
+    store.setSelectedRepoPath("course-a", "/repo-a")
+
+    let state = useAnalysisStore.getState()
+    assert.equal(selectSelectedRepoPathForScope(state, "course-a"), "/repo-a")
+    assert.equal(selectSelectedRepoPathForScope(state, "course-b"), null)
+
+    store.setSelectedRepoPath("course-b", "/repo-b")
+    state = useAnalysisStore.getState()
+    assert.equal(selectSelectedRepoPathForScope(state, "course-a"), null)
+    assert.equal(selectSelectedRepoPathForScope(state, "course-b"), "/repo-b")
+  })
+
+  it("scopes result-local filters and focus by analysis identity", () => {
+    const store = useAnalysisStore.getState()
+    store.setSelectedAuthors("analysis-a", new Set(["p_0000"]))
+    store.setSelectedFiles("analysis-a", new Set(["src/main.ts"]))
+    store.openFileForBlame("analysis-a", "src/main.ts")
+    store.toggleBlameAuthorVisible("analysis-a", "p_0001", ["p_0000", "p_0001"])
+
+    const state = useAnalysisStore.getState()
+    assert.deepEqual(
+      [...selectSelectedAuthorsForScope(state, "analysis-a")],
+      ["p_0000"],
+    )
+    assert.deepEqual(
+      [...selectSelectedAuthorsForScope(state, "analysis-b")],
+      [],
+    )
+    assert.equal(selectFileSelectionModeForScope(state, "analysis-a"), "subset")
+    assert.equal(selectFileSelectionModeForScope(state, "analysis-b"), "all")
+    assert.deepEqual(
+      [...selectSelectedFilesForScope(state, "analysis-a")],
+      ["src/main.ts"],
+    )
+    assert.deepEqual([...selectSelectedFilesForScope(state, "analysis-b")], [])
+    assert.equal(
+      selectFocusedFilePathForScope(state, "analysis-a"),
+      "src/main.ts",
+    )
+    assert.equal(selectFocusedFilePathForScope(state, "analysis-b"), null)
+    assert.deepEqual(
+      [...(selectBlameVisibleAuthorsForScope(state, "analysis-a") ?? [])],
+      ["p_0000"],
+    )
+    assert.equal(selectBlameVisibleAuthorsForScope(state, "analysis-b"), null)
   })
 })
 
