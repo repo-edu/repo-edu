@@ -314,7 +314,7 @@ describe("analysis view state", () => {
 
   it("caps blame workflow concurrency at the workflow schema limit", () => {
     const merged = buildEffectiveBlameWorkflowConfig(
-      makeCourse(),
+      makeCourse({}),
       useAnalysisStore.getState().blameConfig,
       ["ts"],
       MAX_ANALYSIS_WORKFLOW_CONCURRENCY * 8,
