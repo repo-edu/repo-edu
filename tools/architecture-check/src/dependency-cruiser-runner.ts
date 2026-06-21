@@ -27,7 +27,6 @@ type CruiseModule = {
 type CruiseDependency = {
   readonly resolved?: string
   readonly module: string
-  readonly rules?: readonly CruiseRuleSummary[]
 }
 
 type CruiseViolation = {
@@ -94,6 +93,9 @@ export async function runDependencyCruiserRules(
   )
 
   const cruiseResult = normalizeCruiseResult(result.output)
+  // summary.violations already aggregates and de-duplicates every rule breach
+  // dependency-cruiser found; reading the per-dependency rules as well would
+  // report each violation twice.
   const summaryViolations =
     cruiseResult.summary?.violations?.map((violation) => ({
       file: violation.from ?? violation.to ?? "dependency-cruiser",
@@ -102,21 +104,8 @@ export async function runDependencyCruiserRules(
       }`,
     })) ?? []
 
-  const dependencyViolations =
-    cruiseResult.modules?.flatMap((module) =>
-      module.dependencies.flatMap((dependency) =>
-        (dependency.rules ?? [])
-          .filter((rule) => rule.severity === "error")
-          .map((rule) => ({
-            file: module.source,
-            message: `imports ${dependency.resolved || dependency.module} and violates graph rule ${rule.name}`,
-          })),
-      ),
-    ) ?? []
-
   return dedupeViolations([
     ...summaryViolations,
-    ...dependencyViolations,
     ...workspaceImportProjectionViolations(
       canonicalRoot,
       inventory,

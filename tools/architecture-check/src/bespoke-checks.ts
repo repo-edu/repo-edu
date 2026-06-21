@@ -1,5 +1,4 @@
 import * as fs from "node:fs"
-import * as path from "node:path"
 import * as ts from "typescript"
 
 import { readGitTrackedPaths, type TrackedPathProvider } from "./git.js"
@@ -10,6 +9,11 @@ import type { Violation } from "./violations.js"
 
 const CLAUDE_CODER_PACKAGE = "@repo-edu/claude-coder"
 const CLAUDE_AGENT_SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk"
+
+const PACKAGE_MANIFEST_PATTERN =
+  /^(?:apps|packages|tools)\/[^/]+\/package\.json$/
+
+const RENDERER_SRC_PREFIX = "packages/renderer-app/src/"
 
 const CONTROLLER_WORKFLOW_IDS = new Set([
   "settings.loadApp",
@@ -69,8 +73,8 @@ export function runBespokeChecks(
 ): Violation[] {
   return [
     ...checkNonSourceClaudeCoderImports(root, inventory, trackedPathProvider),
-    ...checkClaudeCoderPackageDeclarations(root),
-    ...checkRendererSessionOwnership(root),
+    ...checkClaudeCoderPackageDeclarations(root, trackedPathProvider),
+    ...checkRendererSessionOwnership(root, trackedPathProvider),
   ]
 }
 
@@ -131,25 +135,19 @@ function pushClaudeCoderImportViolation(
   }
 }
 
-function checkClaudeCoderPackageDeclarations(root: string): Violation[] {
+function checkClaudeCoderPackageDeclarations(
+  root: string,
+  trackedPathProvider: TrackedPathProvider,
+): Violation[] {
   const violations: Violation[] = []
-  const packageJsonFiles = [
-    "package.json",
-    ...["apps", "packages", "tools"].flatMap((scope) => {
-      const scopeDir = repoPathToAbsolute(root, scope)
-      if (!fs.existsSync(scopeDir)) return []
-      return fs
-        .readdirSync(scopeDir, { withFileTypes: true })
-        .flatMap((entry) =>
-          entry.isDirectory() ? [`${scope}/${entry.name}/package.json`] : [],
-        )
-    }),
-  ]
+  const packageJsonFiles = trackedPathProvider(root).filter(
+    (file) => file === "package.json" || PACKAGE_MANIFEST_PATTERN.test(file),
+  )
 
   for (const file of packageJsonFiles) {
-    const fullPath = repoPathToAbsolute(root, file)
-    if (!fs.existsSync(fullPath)) continue
-    const packageJson = JSON.parse(fs.readFileSync(fullPath, "utf8")) as {
+    const packageJson = JSON.parse(
+      fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
+    ) as {
       dependencies?: Record<string, string>
       devDependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
@@ -189,22 +187,26 @@ function checkClaudeCoderPackageDeclarations(root: string): Violation[] {
   return violations
 }
 
-function checkRendererSessionOwnership(root: string): Violation[] {
-  const rendererSrc = repoPathToAbsolute(root, "packages/renderer-app/src")
-  if (!fs.existsSync(rendererSrc)) return []
-
-  const files = findFiles(
-    rendererSrc,
-    [".ts", ".tsx"],
-    ["node_modules", "dist"],
-  )
-    .filter((file) => !/(^|\/)__tests__\//.test(file))
+function checkRendererSessionOwnership(
+  root: string,
+  trackedPathProvider: TrackedPathProvider,
+): Violation[] {
+  const files = trackedPathProvider(root)
+    .filter(
+      (file) =>
+        file.startsWith(RENDERER_SRC_PREFIX) &&
+        /\.tsx?$/.test(file) &&
+        !/(^|\/)__tests__\//.test(file),
+    )
+    .map((file) => file.slice(RENDERER_SRC_PREFIX.length))
     .filter((file) => !isRendererSessionInternal(file))
   const violations: Violation[] = []
 
   for (const file of files) {
-    const fullPath = path.join(rendererSrc, ...file.split("/"))
-    const content = fs.readFileSync(fullPath, "utf8")
+    const content = fs.readFileSync(
+      repoPathToAbsolute(root, `${RENDERER_SRC_PREFIX}${file}`),
+      "utf8",
+    )
     const sourceFile = ts.createSourceFile(
       file,
       content,
@@ -419,27 +421,4 @@ function selectedCourseActionFromUseCourseStoreCall(
 
   visitSelection(selector.body)
   return selectedAction
-}
-
-function findFiles(
-  dir: string,
-  extensions: readonly string[],
-  ignoredSegments: readonly string[],
-): string[] {
-  const results: string[] = []
-  function walk(current: string, relative: string): void {
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      const rel = relative ? `${relative}/${entry.name}` : entry.name
-      if (ignoredSegments.some((segment) => rel.split("/").includes(segment))) {
-        continue
-      }
-      if (entry.isDirectory()) {
-        walk(path.join(current, entry.name), rel)
-      } else if (extensions.some((ext) => entry.name.endsWith(ext))) {
-        results.push(rel)
-      }
-    }
-  }
-  walk(dir, "")
-  return results.sort()
 }

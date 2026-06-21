@@ -113,12 +113,21 @@ function readAreaModelSnapshots(
   for (const commit of commits) {
     const content = readGitFileAtCommit(root, commit.hash, AREA_MODEL_PATH)
     if (content === null) continue
-    snapshots.set(
-      commit.hash,
-      compileAreaModel(parseAreaModel(JSON.parse(content))),
-    )
+    const snapshot = compileAreaModelSnapshot(content)
+    if (snapshot !== null) snapshots.set(commit.hash, snapshot)
   }
   return snapshots
+}
+
+function compileAreaModelSnapshot(content: string): CompiledAreaModel | null {
+  // A historical snapshot under an older or newer schema is a lineage hint, not
+  // a hard input. Skip the ones the current schema cannot parse so density
+  // degrades to current-model attribution instead of failing the whole check.
+  try {
+    return compileAreaModel(parseAreaModel(JSON.parse(content)))
+  } catch {
+    return null
+  }
 }
 
 function attributeChangedPath(

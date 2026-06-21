@@ -47,6 +47,7 @@ describe("graph policy", () => {
       violations.map((violation) => violation.message).join("\n"),
       /domain-not-to-application/,
     )
+    assert.equal(violations.length, 1)
   })
 
   it("fails closed when workspace imports resolve outside the source inventory", async () => {
