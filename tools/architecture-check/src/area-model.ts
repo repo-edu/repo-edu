@@ -354,25 +354,3 @@ export function reconcileAreaModel(
     violations,
   }
 }
-
-export function findPrimaryArea(
-  model: CompiledAreaModel,
-  filePath: string,
-): string | undefined {
-  return model.partitions.find((area) => {
-    const matcher = model.partitionMatchers.get(area.id)
-    return matcher ? matcherMatchesFile(matcher, filePath) : false
-  })?.id
-}
-
-export function findCoverAreas(
-  model: CompiledAreaModel,
-  filePath: string,
-): string[] {
-  return model.covers
-    .filter((area) => {
-      const matcher = model.coverMatchers.get(area.id)
-      return matcher ? matcherMatchesFile(matcher, filePath) : false
-    })
-    .map((area) => area.id)
-}

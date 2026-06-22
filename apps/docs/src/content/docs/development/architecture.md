@@ -145,17 +145,11 @@ primary owner for a file and feed dependency-cruiser boundary rules. Cover
 areas may overlap partition areas and record cross-cutting concerns for audit
 and drift reporting, but they do not create dependency-cruiser boundaries.
 
-The same normalized source inventory feeds area reconciliation,
-dependency-cruiser graph checks, and redesign-density attribution. Graph-level
-rules such as layer boundaries, domain module order, claude-coder source
-confinement, and whole-source import cycles run through dependency-cruiser.
-Symbol-level renderer session ownership and package declaration checks remain
-bespoke in architecture-check.
-
-The redesign-density report counts severity-stripped `redesign:` and
-`refactor:` commits over the last ten repo commits by stable area ID. It is a
-drift report, not a boundary failure; missing shallow history fails that report
-closed while the history-independent checks still run.
+The same normalized source inventory feeds area reconciliation and
+dependency-cruiser graph checks. Graph-level rules such as layer boundaries,
+domain module order, claude-coder source confinement, and whole-source import
+cycles run through dependency-cruiser. Symbol-level renderer session ownership
+and package declaration checks remain bespoke in architecture-check.
 
 - Electron code stays inside `apps/desktop`. Never import Electron in shared packages.
 - Shared packages must stay platform-agnostic. The browser guardrail test enforces this.

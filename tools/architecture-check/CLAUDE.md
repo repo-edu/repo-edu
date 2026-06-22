@@ -7,7 +7,7 @@ via `pnpm check:architecture` from the workspace root.
 ## What it checks
 
 `src/main.ts` composes one pass (`runArchitectureCheck`) that returns sorted
-violations plus a redesign-density report. Five concerns feed it:
+violations. Four concerns feed it:
 
 - Area reconciliation (`area-model.ts`): loads and zod-validates the committed
   model, then reconciles it against the source inventory.
@@ -16,7 +16,6 @@ violations plus a redesign-density report. Five concerns feed it:
 - Bespoke symbol checks (`bespoke-checks.ts`): renderer session-ownership and
   Claude-coder / Claude-agent-SDK confinement that the import graph cannot
   express.
-- Redesign density (`density.ts` + `git.ts`): a drift report, not a boundary.
 - Source inventory (`inventory.ts`): the single tracked-file list every check
   shares.
 
@@ -41,9 +40,8 @@ partition matches no file, or when a cover member is stale.
 
 `inventory.ts` lists tracked `.ts`/`.tsx` files under `apps/*/src`,
 `packages/*/src` and `tools/*/src`, excluding generated fixtures, build output,
-`node_modules` and vendored runtime notices. The same list feeds reconciliation,
-graph projection and density attribution, so the boundaries match exactly what
-ships.
+`node_modules` and vendored runtime notices. The same list feeds reconciliation
+and graph projection, so the boundaries match exactly what ships.
 
 ## Graph rules
 
@@ -55,15 +53,6 @@ rule breaks the moment a real file crosses a boundary.
 `dependency-cruiser-runner.ts` reads `summary.violations` (already
 de-duplicated) and adds a workspace-import projection check that flags
 `@repo-edu/*` imports resolving outside the inventory.
-
-## Redesign density
-
-`density.ts` counts severity-stripped `redesign:` and `refactor:` commits over
-the last ten commits, attributed by stable area ID. It reads each commit's area
-model snapshot, so historical attribution survives splits through `splitFrom`
-lineage. It is a drift report surfaced as warnings, not a boundary failure.
-Unreadable or too-shallow history fails the report closed (a violation) while
-the history-independent checks still run.
 
 ## Conventions
 

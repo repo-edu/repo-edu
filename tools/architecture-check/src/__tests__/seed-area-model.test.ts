@@ -3,8 +3,6 @@ import { describe, it } from "node:test"
 
 import {
   compileAreaModel,
-  findCoverAreas,
-  findPrimaryArea,
   loadAreaModel,
   reconcileAreaModel,
 } from "../area-model.js"
@@ -14,30 +12,25 @@ import { ROOT } from "../repo-paths.js"
 describe("seed area model", () => {
   const model = compileAreaModel(loadAreaModel(ROOT))
   const inventory = readSourceInventory(ROOT)
+  const result = reconcileAreaModel(model, inventory)
 
   it("tiles the current source inventory", () => {
-    const result = reconcileAreaModel(model, inventory)
-
     assert.deepEqual(result.violations, [])
   })
 
   it("assigns the license gate carve-out to its own partition", () => {
-    assert.equal(
-      findPrimaryArea(model, "tools/release/src/license-gate.ts"),
-      "tool-release-license-gate",
-    )
-    assert.equal(
-      findPrimaryArea(model, "tools/release/src/license-gate-cli.ts"),
-      "tool-release-license-gate",
-    )
-    assert.equal(
-      findPrimaryArea(model, "tools/release/src/license-gate.test.ts"),
-      "tool-release-license-gate",
-    )
-    assert.equal(
-      findPrimaryArea(model, "tools/release/src/license-gate/scanner.ts"),
-      "tool-release-license-gate",
-    )
+    for (const file of [
+      "tools/release/src/license-gate.ts",
+      "tools/release/src/license-gate-cli.ts",
+      "tools/release/src/license-gate.test.ts",
+      "tools/release/src/license-gate/scanner.ts",
+    ]) {
+      assert.equal(
+        result.primaryByFile.get(file),
+        "tool-release-license-gate",
+        file,
+      )
+    }
   })
 
   it("assigns renderer feature utilities and tests to their feature partitions", () => {
@@ -47,12 +40,15 @@ describe("seed area model", () => {
       "packages/renderer-app/src/utils/blame-highlighter.ts",
       "packages/renderer-app/src/utils/blame-language-map.ts",
     ]) {
-      assert.equal(findPrimaryArea(model, file), "pkg-renderer-analysis", file)
+      assert.equal(
+        result.primaryByFile.get(file),
+        "pkg-renderer-analysis",
+        file,
+      )
     }
 
     assert.equal(
-      findPrimaryArea(
-        model,
+      result.primaryByFile.get(
         "packages/renderer-app/src/__tests__/session-controller.test.ts",
       ),
       "pkg-renderer-session",
@@ -66,7 +62,10 @@ describe("seed area model", () => {
       "packages/tree-sitter-grammar-assets/src/index.ts",
       "apps/docs/src/demo-runtime.ts",
     ]) {
-      assert.ok(findCoverAreas(model, file).includes("cover-analysis-workflow"))
+      assert.ok(
+        result.coversByFile.get(file)?.includes("cover-analysis-workflow"),
+        file,
+      )
     }
   })
 
@@ -77,7 +76,8 @@ describe("seed area model", () => {
       "packages/renderer-app/src/stores/examination-preferences.ts",
     ]) {
       assert.ok(
-        findCoverAreas(model, file).includes("cover-examination-workflow"),
+        result.coversByFile.get(file)?.includes("cover-examination-workflow"),
+        file,
       )
     }
   })
@@ -97,7 +97,10 @@ describe("seed area model", () => {
       "packages/application/src/llm-connection-workflows.ts",
       "packages/application/src/llm-error-normalization.ts",
     ]) {
-      assert.ok(findCoverAreas(model, file).includes("cover-llm-runtime"), file)
+      assert.ok(
+        result.coversByFile.get(file)?.includes("cover-llm-runtime"),
+        file,
+      )
     }
   })
 })
