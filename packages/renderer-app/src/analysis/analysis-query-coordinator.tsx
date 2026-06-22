@@ -624,7 +624,6 @@ export function AnalysisCoordinatorProvider({
 
   useEffect(() => {
     if (
-      !discoveryQuery.data ||
       discoveryQuery.dataUpdatedAt === 0 ||
       analysisConfig === null ||
       discoveredRepoPaths.length === 0
@@ -663,7 +662,6 @@ export function AnalysisCoordinatorProvider({
     analysisConcurrency.repoParallelism,
     analysisConfig,
     discoveredRepoPaths,
-    discoveryQuery.data,
     discoveryQuery.dataUpdatedAt,
     prefetchRepoAnalysis,
   ])
@@ -1020,21 +1018,21 @@ export function AnalysisCoordinatorProvider({
           exact: true,
         })
       }
+      setPendingRepoDiscoveryRequest(activeSourceText, input)
       void (async () => {
         await queryClient.cancelQueries({
           queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
         })
         await refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
+        if (sameInput) {
+          await queryClient.invalidateQueries({
+            queryKey: nextDiscoveryQueryKey,
+            exact: true,
+            refetchType: "none",
+          })
+          await discoveryQuery.refetch()
+        }
       })()
-      setPendingRepoDiscoveryRequest(activeSourceText, input)
-      if (sameInput) {
-        void queryClient.invalidateQueries({
-          queryKey: nextDiscoveryQueryKey,
-          exact: true,
-          refetchType: "none",
-        })
-        void discoveryQuery.refetch()
-      }
     },
     [
       abortCohortPrefetch,

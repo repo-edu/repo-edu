@@ -121,9 +121,6 @@ function RepositoryAnalysisTabContent() {
   const markedAutoDiscoveryRequest = useAnalysisStore((state) =>
     selectAutoDiscoveryRequestForScope(state, activeSourceText),
   )
-  const markAutoDiscoveryRequest = useAnalysisStore(
-    (state) => state.markAutoDiscoveryRequest,
-  )
   const hasDiscoveredRepos = discoveredRepos.length > 0
   const runRepoDiscoveryRef = useRef(runRepoDiscovery)
   runRepoDiscoveryRef.current = runRepoDiscovery
@@ -136,15 +133,12 @@ function RepositoryAnalysisTabContent() {
         autoDiscoveryRequest,
       ) && !hasDiscoveredRepos
     if (!shouldAutoDiscover) return
-    markAutoDiscoveryRequest(activeSourceText, autoDiscoveryRequest)
     void runRepoDiscoveryRef.current(autoDiscoveryRequest.folder)
   }, [
-    activeSourceText,
     autoDiscoveryRequest,
     discoveryStatus,
     hasDiscoveredRepos,
     markedAutoDiscoveryRequest,
-    markAutoDiscoveryRequest,
   ])
 
   const handleLayoutChanged = useCallback(() => {
