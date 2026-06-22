@@ -116,6 +116,12 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
+The architecture-check tool and the analysis-workflows sub-area carry their own
+`CLAUDE.md` too:
+
+- [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
+- [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
+
 Core flow:
 
 1. `packages/renderer-app` invokes workflows through `WorkflowClient` from

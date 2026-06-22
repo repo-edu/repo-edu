@@ -31,7 +31,7 @@ await client.run("course.list", undefined)
 
 ## State management with Zustand
 
-All application state lives in [Zustand](https://zustand-demo.pmnd.rs/) stores — lightweight, subscription-based stores that sit outside the React component tree. Components subscribe to specific slices of state through selectors, which means they only re-render when the data they actually use changes.
+Most application state lives in [Zustand](https://zustand-demo.pmnd.rs/) stores — lightweight, subscription-based stores that sit outside the React component tree. Components subscribe to specific slices of state through selectors, which means they only re-render when the data they actually use changes. The analysis tab is the exception: its server state (repository discovery, snapshot heads, statistics, and blame) lives in React Query rather than a store — see [Analysis server state](#analysis-server-state) below.
 
 ### Store inventory
 
@@ -45,6 +45,12 @@ All application state lives in [Zustand](https://zustand-demo.pmnd.rs/) stores �
 | `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |
 | `useConnectionsStore` | Transient LMS, Git and LLM connection verification status. |
+| `useAnalysisStore` | Scope-keyed analysis-tab view intent: repo selection, author and file filters, display mode, and blame options. |
+| `useExaminationStore` | Examination-tab session state: per-source generation and lookup requests, streamed questions, and archive entries. |
+
+### Analysis server state
+
+The analysis tab does not keep its workflow results in a Zustand store. `src/analysis/` wires a React Query client (`analysis-query-client.ts`) and a coordinator (`analysis-query-coordinator.tsx`) that run repository discovery, snapshot-head resolution, `analysis.run`, and per-file blame through the query lifecycle, keyed by input identity. `useAnalysisStore` holds only the view intent that selects what to run, and `useExaminationStore` holds examination session state alongside it. Closing the app drops the in-memory query data; nothing analysis-related is cached to disk. See [Analysis Execution](/repo-edu/development/analysis-caching/) for the full runtime and snapshot rules.
 
 ### Slice composition
 
