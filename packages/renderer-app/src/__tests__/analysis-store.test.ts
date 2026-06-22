@@ -10,10 +10,9 @@ import {
 } from "@repo-edu/domain/analysis"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
-  buildCohortPrefetchMarker,
-  buildDiscoveryCompletionMarker,
   selectCurrentAnalysisResult,
   selectCurrentBlameResult,
+  selectEffectiveDiscoveryOutcome,
 } from "../analysis/analysis-query-coordinator.js"
 import {
   analysisAutoDiscoveryScopeKey,
@@ -379,7 +378,7 @@ describe("analysis view state", () => {
     const courseBRequest = { folder: "/courses/b", depth: 6 }
 
     store.setPendingRepoDiscoveryRequest("course-a", courseARequest)
-    store.setLastDiscoveryOutcome("course-a", "completed")
+    store.setLastDiscoveryOutcome("course-a", "none")
     store.markAutoDiscoveryRequest("course-a", courseARequest)
     store.setPendingRepoDiscoveryRequest("course-b", courseBRequest)
     store.setLastDiscoveryOutcome("course-b", "cancelled")
@@ -393,10 +392,7 @@ describe("analysis view state", () => {
       selectPendingRepoDiscoveryRequestForScope(state, "course-b"),
       courseBRequest,
     )
-    assert.equal(
-      selectLastDiscoveryOutcomeForScope(state, "course-a"),
-      "completed",
-    )
+    assert.equal(selectLastDiscoveryOutcomeForScope(state, "course-a"), "none")
     assert.equal(
       selectLastDiscoveryOutcomeForScope(state, "course-b"),
       "cancelled",
@@ -699,65 +695,6 @@ describe("analysis query keys", () => {
     )
   })
 
-  it("treats same-data discovery refetches as new completions", () => {
-    const key = analysisQueryKeys.discovery(
-      ["folder", "/courses"],
-      "/courses",
-      5,
-    )
-
-    assert.notEqual(
-      buildDiscoveryCompletionMarker(key, 100),
-      buildDiscoveryCompletionMarker(key, 101),
-    )
-  })
-
-  it("keys cohort prefetch by discovery completion and analysis identity", () => {
-    const key = analysisQueryKeys.discovery(
-      ["course", "course-a"],
-      "/courses",
-      5,
-    )
-    const base = buildCohortPrefetchMarker({
-      discoveryQueryKey: key,
-      dataUpdatedAt: 100,
-      analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
-      rosterContext: undefined,
-      repoPaths: ["/courses/repo-a"],
-    })
-
-    assert.equal(
-      base,
-      buildCohortPrefetchMarker({
-        discoveryQueryKey: key,
-        dataUpdatedAt: 100,
-        analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
-        rosterContext: undefined,
-        repoPaths: ["/courses/repo-a"],
-      }),
-    )
-    assert.notEqual(
-      base,
-      buildCohortPrefetchMarker({
-        discoveryQueryKey: key,
-        dataUpdatedAt: 100,
-        analysisConfig: { includeFiles: ["*"], extensions: ["py"] },
-        rosterContext: undefined,
-        repoPaths: ["/courses/repo-a"],
-      }),
-    )
-    assert.notEqual(
-      base,
-      buildCohortPrefetchMarker({
-        discoveryQueryKey: key,
-        dataUpdatedAt: 101,
-        analysisConfig: { includeFiles: ["*"], extensions: ["ts"] },
-        rosterContext: undefined,
-        repoPaths: ["/courses/repo-a"],
-      }),
-    )
-  })
-
   it("scopes auto-discovery markers by source, folder and depth", () => {
     const folder = "/courses/shared"
 
@@ -777,6 +714,30 @@ describe("analysis query keys", () => {
 })
 
 describe("analysis query value projection", () => {
+  it("derives discovery completion unless cancellation masks query success", () => {
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "none",
+        discoveryIsSuccess: false,
+      }),
+      "none",
+    )
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "none",
+        discoveryIsSuccess: true,
+      }),
+      "completed",
+    )
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "cancelled",
+        discoveryIsSuccess: true,
+      }),
+      "cancelled",
+    )
+  })
+
   it("hides previous analysis data while the current query is errored", () => {
     const result = makeBaseResult()
 

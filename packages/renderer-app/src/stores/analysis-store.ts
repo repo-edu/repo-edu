@@ -17,6 +17,10 @@ export type AnalysisView = "authors" | "files" | "blame" | "examination"
 export type AnalysisFileSelectionMode = "all" | "subset"
 
 export type AnalysisDiscoveryOutcome = "none" | "completed" | "cancelled"
+export type AnalysisDiscoveryCommandOutcome = Exclude<
+  AnalysisDiscoveryOutcome,
+  "completed"
+>
 
 export type AnalysisDiscoveryRequest = {
   readonly folder: string
@@ -30,7 +34,7 @@ type DiscoveredRepoPath = {
 export type AnalysisState = {
   selectedRepoPaths: Map<string, string>
   pendingRepoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
-  lastDiscoveryOutcomesByScope: Map<string, AnalysisDiscoveryOutcome>
+  lastDiscoveryOutcomesByScope: Map<string, AnalysisDiscoveryCommandOutcome>
   autoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
   searchDepth: number
   blameConfig: AnalysisBlameConfig
@@ -70,7 +74,7 @@ export type AnalysisActions = {
   ) => void
   setLastDiscoveryOutcome: (
     scopeKey: string,
-    outcome: AnalysisDiscoveryOutcome,
+    outcome: AnalysisDiscoveryCommandOutcome,
   ) => void
   markAutoDiscoveryRequest: (
     scopeKey: string,
@@ -180,7 +184,7 @@ export function selectPendingRepoDiscoveryRequestForScope(
 export function selectLastDiscoveryOutcomeForScope(
   state: AnalysisState,
   scopeKey: string,
-): AnalysisDiscoveryOutcome {
+): AnalysisDiscoveryCommandOutcome {
   return (
     selectScopedValue(state.lastDiscoveryOutcomesByScope, scopeKey) ?? "none"
   )

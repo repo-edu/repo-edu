@@ -7,7 +7,6 @@ import type {
   AnalysisBlameConfig,
   AnalysisConfig,
   AnalysisResult,
-  AnalysisRosterContext,
   AuthorStats,
   BlameResult,
   FileStats,
@@ -30,6 +29,7 @@ import { useAnalysisContext } from "../hooks/use-analysis-context.js"
 import { selectActiveAnalysisSourceKey } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import {
+  type AnalysisDiscoveryCommandOutcome,
   type AnalysisDiscoveryOutcome,
   type AnalysisDiscoveryRequest,
   selectEffectiveSelectedRepoPath,
@@ -51,10 +51,8 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
   blameResultScopeKey,
-  buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
-  buildRosterOutputContextKey,
 } from "./analysis-query-keys.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
@@ -266,32 +264,12 @@ function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
 }
 
-export function buildDiscoveryCompletionMarker(
-  queryKey: readonly unknown[],
-  dataUpdatedAt: number,
-): string {
-  return JSON.stringify([queryKey, dataUpdatedAt])
-}
-
-export function buildCohortPrefetchMarker(params: {
-  discoveryQueryKey: readonly unknown[]
-  dataUpdatedAt: number
-  analysisConfig: AnalysisConfig | null
-  rosterContext: AnalysisRosterContext | undefined
-  repoPaths: readonly string[]
-}): string | null {
-  if (params.analysisConfig === null || params.repoPaths.length === 0) {
-    return null
-  }
-  return JSON.stringify([
-    buildDiscoveryCompletionMarker(
-      params.discoveryQueryKey,
-      params.dataUpdatedAt,
-    ),
-    buildAnalysisOutputConfigKey(params.analysisConfig),
-    buildRosterOutputContextKey(params.rosterContext),
-    params.repoPaths,
-  ])
+export function selectEffectiveDiscoveryOutcome(params: {
+  commandOutcome: AnalysisDiscoveryCommandOutcome
+  discoveryIsSuccess: boolean
+}): AnalysisDiscoveryOutcome {
+  if (params.commandOutcome === "cancelled") return "cancelled"
+  return params.discoveryIsSuccess ? "completed" : "none"
 }
 
 export function selectCurrentAnalysisResult(params: {
@@ -348,7 +326,7 @@ export function AnalysisCoordinatorProvider({
   const discoveryInput = useAnalysisStore((state) =>
     selectPendingRepoDiscoveryRequestForScope(state, activeSourceText),
   )
-  const lastDiscoveryOutcome = useAnalysisStore((state) =>
+  const commandDiscoveryOutcome = useAnalysisStore((state) =>
     selectLastDiscoveryOutcomeForScope(state, activeSourceText),
   )
   const setPendingRepoDiscoveryRequest = useAnalysisStore(
@@ -402,21 +380,20 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
-  const prefetchBatchRef = useRef(0)
-  const previousSourceTextRef = useRef(activeSourceText)
-  const previousSourcePartsRef = useRef(activeSourceParts)
+  const cohortPrefetchRunRef = useRef(Symbol("idle-cohort-prefetch"))
+  const abortCohortPrefetch = useCallback(() => {
+    cohortPrefetchRunRef.current = Symbol("aborted-cohort-prefetch")
+  }, [])
 
   useEffect(() => {
-    const previousSourceText = previousSourceTextRef.current
-    if (previousSourceText === activeSourceText) return
-    const previousSourceParts = previousSourcePartsRef.current
-    previousSourceTextRef.current = activeSourceText
-    previousSourcePartsRef.current = activeSourceParts
-    prefetchBatchRef.current += 1
-    void queryClient.cancelQueries({
-      queryKey: analysisQueryKeys.source(previousSourceParts),
-    })
-  }, [activeSourceParts, activeSourceText, queryClient])
+    const sourceParts = activeSourceParts
+    return () => {
+      abortCohortPrefetch()
+      void queryClient.cancelQueries({
+        queryKey: analysisQueryKeys.source(sourceParts),
+      })
+    }
+  }, [abortCohortPrefetch, activeSourceParts, queryClient])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -485,14 +462,18 @@ export function AnalysisCoordinatorProvider({
   const discoveryError = discoveryQuery.isError
     ? toAppErrorMessage(discoveryQuery.error, "Discovery failed")
     : null
+  const lastDiscoveryOutcome = selectEffectiveDiscoveryOutcome({
+    commandOutcome: commandDiscoveryOutcome,
+    discoveryIsSuccess: discoveryQuery.isSuccess,
+  })
 
   const prefetchRepoAnalysis = useCallback(
     async (
       repoPath: string,
       isCurrentBatch: () => boolean,
-      config = analysisConfig,
+      config: AnalysisConfig,
     ): Promise<void> => {
-      if (analysisContext.kind === "none" || config === null) return
+      if (analysisContext.kind === "none") return
       const snapshotKey = analysisQueryKeys.snapshotHead({
         source: activeSourceParts,
         repoPath,
@@ -563,20 +544,23 @@ export function AnalysisCoordinatorProvider({
         },
       })
     },
-    [activeSourceParts, analysisConfig, analysisContext, client, queryClient],
+    [
+      activeSourceParts,
+      analysisContext.kind,
+      analysisContext.rosterContext,
+      client,
+      queryClient,
+    ],
   )
 
-  const discoveryHandledRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!discoveryInput || !discoveryQuery.data) return
-    const handledKey = buildDiscoveryCompletionMarker(
-      discoveryQueryKey,
-      discoveryQuery.dataUpdatedAt,
-    )
-    if (discoveryHandledRef.current === handledKey) return
-    discoveryHandledRef.current = handledKey
-    setLastDiscoveryOutcome(activeSourceText, "completed")
-
+    if (
+      !discoveryInput ||
+      !discoveryQuery.isSuccess ||
+      discoveryQuery.dataUpdatedAt === 0
+    ) {
+      return
+    }
     const firstRepoPath = discoveredRepos[0]?.path ?? null
     if (firstRepoPath !== null) {
       const normalizedFolder = discoveryInput.folder.replaceAll("\\", "/")
@@ -585,6 +569,7 @@ export function AnalysisCoordinatorProvider({
         discoveredRepos.length === 1 &&
         normalizedFolder.startsWith(`${normalizedRepo}/`)
       ) {
+        if (analysisContext.searchFolder === firstRepoPath) return
         if (analysisContext.kind === "folder") {
           void analysisContext.activateFolderPath(firstRepoPath)
         } else {
@@ -596,58 +581,44 @@ export function AnalysisCoordinatorProvider({
     analysisContext,
     discoveredRepos,
     discoveryInput,
-    discoveryQuery.data,
     discoveryQuery.dataUpdatedAt,
-    discoveryQueryKey,
-    activeSourceText,
-    setLastDiscoveryOutcome,
+    discoveryQuery.isSuccess,
   ])
 
-  const cohortPrefetchMarker = useMemo(
-    () =>
-      discoveryQuery.data
-        ? buildCohortPrefetchMarker({
-            discoveryQueryKey,
-            dataUpdatedAt: discoveryQuery.dataUpdatedAt,
-            analysisConfig,
-            rosterContext: analysisContext.rosterContext,
-            repoPaths: discoveredRepoPaths,
-          })
-        : null,
-    [
-      analysisConfig,
-      analysisContext.rosterContext,
-      discoveredRepoPaths,
-      discoveryQuery.data,
-      discoveryQuery.dataUpdatedAt,
-      discoveryQueryKey,
-    ],
-  )
-
   useEffect(() => {
-    if (cohortPrefetchMarker === null) return
-    const batchId = ++prefetchBatchRef.current
+    if (
+      !discoveryQuery.data ||
+      discoveryQuery.dataUpdatedAt === 0 ||
+      analysisConfig === null ||
+      discoveredRepoPaths.length === 0
+    ) {
+      return
+    }
+    const runToken = Symbol("cohort-prefetch")
+    cohortPrefetchRunRef.current = runToken
+    const isCurrentRun = () => cohortPrefetchRunRef.current === runToken
     void mapBounded(
       discoveredRepoPaths,
       analysisConcurrency.repoParallelism,
       async (repoPath) => {
-        const isCurrentBatch = () => prefetchBatchRef.current === batchId
-        if (!isCurrentBatch()) return
-        await prefetchRepoAnalysis(repoPath, isCurrentBatch)
+        if (!isCurrentRun()) return
+        await prefetchRepoAnalysis(repoPath, isCurrentRun, analysisConfig)
       },
     ).catch(() => {})
+    return () => {
+      if (cohortPrefetchRunRef.current === runToken) {
+        abortCohortPrefetch()
+      }
+    }
   }, [
+    abortCohortPrefetch,
     analysisConcurrency.repoParallelism,
-    cohortPrefetchMarker,
+    analysisConfig,
     discoveredRepoPaths,
+    discoveryQuery.data,
+    discoveryQuery.dataUpdatedAt,
     prefetchRepoAnalysis,
   ])
-
-  useEffect(() => {
-    if (discoveryQuery.isError) {
-      setLastDiscoveryOutcome(activeSourceText, "none")
-    }
-  }, [activeSourceText, discoveryQuery.isError, setLastDiscoveryOutcome])
 
   const selectedSnapshotQueryKey =
     selectedRepoPath === null || analysisConfig === null
@@ -954,11 +925,11 @@ export function AnalysisCoordinatorProvider({
   )
 
   const cancelAnalysis = useCallback(() => {
-    prefetchBatchRef.current += 1
+    abortCohortPrefetch()
     void queryClient.cancelQueries({
       queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
     })
-  }, [activeSourceParts, queryClient])
+  }, [abortCohortPrefetch, activeSourceParts, queryClient])
 
   const runAnalysis = useCallback(
     (repoPath: string) => {
@@ -992,7 +963,7 @@ export function AnalysisCoordinatorProvider({
         input.folder,
         input.depth,
       )
-      prefetchBatchRef.current += 1
+      abortCohortPrefetch()
       setLastDiscoveryOutcome(activeSourceText, "none")
       markAutoDiscoveryRequest(activeSourceText, input)
       if (!sameInput) {
@@ -1009,10 +980,17 @@ export function AnalysisCoordinatorProvider({
       })()
       setPendingRepoDiscoveryRequest(activeSourceText, input)
       if (sameInput) {
-        void discoveryQuery.refetch()
+        void (async () => {
+          await queryClient.invalidateQueries({
+            queryKey: nextDiscoveryQueryKey,
+            exact: true,
+          })
+          await discoveryQuery.refetch()
+        })()
       }
     },
     [
+      abortCohortPrefetch,
       activeSourceParts,
       activeSourceText,
       discoveryInput,
@@ -1027,11 +1005,12 @@ export function AnalysisCoordinatorProvider({
 
   const cancelDiscovery = useCallback(() => {
     setLastDiscoveryOutcome(activeSourceText, "cancelled")
-    prefetchBatchRef.current += 1
+    abortCohortPrefetch()
     void queryClient.cancelQueries({
       queryKey: discoveryQueryKey,
     })
   }, [
+    abortCohortPrefetch,
     activeSourceText,
     discoveryQueryKey,
     queryClient,
