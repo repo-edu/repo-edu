@@ -980,13 +980,12 @@ export function AnalysisCoordinatorProvider({
       })()
       setPendingRepoDiscoveryRequest(activeSourceText, input)
       if (sameInput) {
-        void (async () => {
-          await queryClient.invalidateQueries({
-            queryKey: nextDiscoveryQueryKey,
-            exact: true,
-          })
-          await discoveryQuery.refetch()
-        })()
+        void queryClient.invalidateQueries({
+          queryKey: nextDiscoveryQueryKey,
+          exact: true,
+          refetchType: "none",
+        })
+        void discoveryQuery.refetch()
       }
     },
     [
