@@ -12,7 +12,11 @@ import type {
   FileStats,
 } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  type QueryClient,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { nanoid } from "nanoid"
 import {
   type Context,
@@ -260,6 +264,32 @@ async function mapBounded<T>(
   await Promise.all(workers)
 }
 
+export type CohortPrefetchRun = {
+  readonly queryKeys: Set<readonly unknown[]>
+}
+
+export function createCohortPrefetchRun(): CohortPrefetchRun {
+  return { queryKeys: new Set() }
+}
+
+export function abortCohortPrefetchRun(
+  queryClient: QueryClient,
+  run: CohortPrefetchRun,
+): void {
+  for (const queryKey of run.queryKeys) {
+    const query = queryClient.getQueryCache().find({ queryKey, exact: true })
+    if (query === undefined || query.getObserversCount() > 0) continue
+    void queryClient.cancelQueries({ queryKey, exact: true })
+  }
+}
+
+function registerCohortPrefetchQuery(
+  run: CohortPrefetchRun,
+  queryKey: readonly unknown[],
+): void {
+  run.queryKeys.add(queryKey)
+}
+
 function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
 }
@@ -380,10 +410,13 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
-  const cohortPrefetchRunRef = useRef(Symbol("idle-cohort-prefetch"))
+  const cohortPrefetchRunRef = useRef<CohortPrefetchRun | null>(null)
   const abortCohortPrefetch = useCallback(() => {
-    cohortPrefetchRunRef.current = Symbol("aborted-cohort-prefetch")
-  }, [])
+    const run = cohortPrefetchRunRef.current
+    if (run === null) return
+    cohortPrefetchRunRef.current = null
+    abortCohortPrefetchRun(queryClient, run)
+  }, [queryClient])
 
   useEffect(() => {
     const sourceParts = activeSourceParts
@@ -470,15 +503,17 @@ export function AnalysisCoordinatorProvider({
   const prefetchRepoAnalysis = useCallback(
     async (
       repoPath: string,
+      run: CohortPrefetchRun,
       isCurrentBatch: () => boolean,
       config: AnalysisConfig,
     ): Promise<void> => {
-      if (analysisContext.kind === "none") return
+      if (analysisContext.kind === "none" || !isCurrentBatch()) return
       const snapshotKey = analysisQueryKeys.snapshotHead({
         source: activeSourceParts,
         repoPath,
         until: config.until ?? null,
       })
+      registerCohortPrefetchQuery(run, snapshotKey)
       const snapshotCommitOid = await queryClient.ensureQueryData({
         queryKey: snapshotKey,
         queryFn: ({ signal }) =>
@@ -500,8 +535,10 @@ export function AnalysisCoordinatorProvider({
         rosterContext: analysisContext.rosterContext,
       })
       const prefetchAnalysisScopeKey = analysisResultScopeKey(identity)
+      const prefetchAnalysisQueryKey = analysisQueryKeys.result(identity)
+      registerCohortPrefetchQuery(run, prefetchAnalysisQueryKey)
       await queryClient.ensureQueryData({
-        queryKey: analysisQueryKeys.result(identity),
+        queryKey: prefetchAnalysisQueryKey,
         queryFn: async ({ signal }) => {
           const requestId = nanoid()
           const transient = useAnalysisTransientStore.getState()
@@ -594,19 +631,30 @@ export function AnalysisCoordinatorProvider({
     ) {
       return
     }
-    const runToken = Symbol("cohort-prefetch")
-    cohortPrefetchRunRef.current = runToken
-    const isCurrentRun = () => cohortPrefetchRunRef.current === runToken
+    const run = createCohortPrefetchRun()
+    cohortPrefetchRunRef.current = run
+    const isCurrentRun = () => cohortPrefetchRunRef.current === run
     void mapBounded(
       discoveredRepoPaths,
       analysisConcurrency.repoParallelism,
       async (repoPath) => {
         if (!isCurrentRun()) return
-        await prefetchRepoAnalysis(repoPath, isCurrentRun, analysisConfig)
+        await prefetchRepoAnalysis(
+          repoPath,
+          run,
+          isCurrentRun,
+          analysisConfig,
+        ).catch(() => {})
       },
-    ).catch(() => {})
+    )
+      .catch(() => {})
+      .finally(() => {
+        if (cohortPrefetchRunRef.current === run) {
+          cohortPrefetchRunRef.current = null
+        }
+      })
     return () => {
-      if (cohortPrefetchRunRef.current === runToken) {
+      if (cohortPrefetchRunRef.current === run) {
         abortCohortPrefetch()
       }
     }

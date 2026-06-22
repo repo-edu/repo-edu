@@ -6,6 +6,10 @@ import {
   refreshSourceSnapshotHeadQueries,
 } from "../analysis/analysis-query-client.js"
 import {
+  abortCohortPrefetchRun,
+  createCohortPrefetchRun,
+} from "../analysis/analysis-query-coordinator.js"
+import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
@@ -124,6 +128,70 @@ describe("renderer analysis query cache", () => {
       assert.equal(queryClient.getQueryData(inactiveKey), undefined)
     } finally {
       unsubscribe()
+    }
+  })
+
+  it("cancels only unobserved queries registered by cohort prefetch", async () => {
+    const queryClient = createRendererQueryClient()
+    const unobservedKey = analysisQueryKeys.snapshotHead({
+      source,
+      repoPath,
+      until: null,
+    })
+    const observedKey = buildResultKey("observed")
+    const run = createCohortPrefetchRun()
+    run.queryKeys.add(unobservedKey)
+    run.queryKeys.add(observedKey)
+
+    let unobservedAborted = false
+    let observedAborted = false
+    let markUnobservedReady: () => void = () => {}
+    let markObservedReady: () => void = () => {}
+    const unobservedReady = new Promise<void>((resolve) => {
+      markUnobservedReady = resolve
+    })
+    const observedReady = new Promise<void>((resolve) => {
+      markObservedReady = resolve
+    })
+
+    void queryClient
+      .fetchQuery({
+        queryKey: unobservedKey,
+        queryFn: ({ signal }) =>
+          new Promise<string>((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              unobservedAborted = true
+              reject(new Error("aborted"))
+            })
+            markUnobservedReady()
+          }),
+      })
+      .catch(() => {})
+
+    const observer = new QueryObserver(queryClient, {
+      queryKey: observedKey,
+      queryFn: ({ signal }) =>
+        new Promise<unknown>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            observedAborted = true
+            reject(new Error("aborted"))
+          })
+          markObservedReady()
+        }),
+    })
+    const unsubscribe = observer.subscribe(() => {})
+    void observer.refetch()
+
+    try {
+      await Promise.all([unobservedReady, observedReady])
+
+      abortCohortPrefetchRun(queryClient, run)
+
+      assert.equal(unobservedAborted, true)
+      assert.equal(observedAborted, false)
+    } finally {
+      unsubscribe()
+      await queryClient.cancelQueries({ queryKey: observedKey, exact: true })
     }
   })
 })
