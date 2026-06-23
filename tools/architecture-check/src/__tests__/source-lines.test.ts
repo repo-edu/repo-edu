@@ -1,7 +1,14 @@
 import assert from "node:assert/strict"
+import { randomUUID } from "node:crypto"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 
-import { countLinesInBuffer, isProbablyBinary } from "../source-lines.js"
+import {
+  countFileLines,
+  countLinesInBuffer,
+  isProbablyBinary,
+} from "../source-lines.js"
 
 describe("source line counts", () => {
   it("counts newline bytes plus a trailing partial line", () => {
@@ -17,5 +24,14 @@ describe("source line counts", () => {
 
     assert.equal(isProbablyBinary(binary), true)
     assert.equal(countLinesInBuffer(binary), 0)
+  })
+
+  it("counts a missing tracked worktree file as zero lines", () => {
+    const missingPath = join(
+      tmpdir(),
+      `repo-edu-missing-line-file-${randomUUID()}.ts`,
+    )
+
+    assert.equal(countFileLines(missingPath), 0)
   })
 })

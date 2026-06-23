@@ -9,7 +9,12 @@ export function countRepoFileLines(root: string, repoPath: string): number {
 }
 
 export function countFileLines(filePath: string): number {
-  return countLinesInBuffer(fs.readFileSync(filePath))
+  try {
+    return countLinesInBuffer(fs.readFileSync(filePath))
+  } catch (error) {
+    if (isMissingFileError(error)) return 0
+    throw error
+  }
 }
 
 export function countLinesInBuffer(content: Buffer): number {
@@ -30,4 +35,8 @@ export function isProbablyBinary(content: Buffer): boolean {
     if (content[index] === 0) return true
   }
   return false
+}
+
+function isMissingFileError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT"
 }

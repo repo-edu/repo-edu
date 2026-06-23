@@ -15,6 +15,12 @@ describe("overview HTML rendering", () => {
     assert.doesNotMatch(html, /Renderer <Session>/)
     assert.doesNotMatch(html, /Cover & Runtime/)
   })
+
+  it("renders the treemap at its intended intrinsic size", () => {
+    const html = renderAreaOverviewHtml(report())
+
+    assert.match(html, /<svg width="1180" height="640" viewBox="0 0 1180 640"/)
+  })
 })
 
 function report(): AreaOverviewReport {

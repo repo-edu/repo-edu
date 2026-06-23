@@ -384,7 +384,7 @@ function renderTreemap(structure: AreaStructureAggregate): string {
     .join("\n")
   const leaves = layoutRoot.leaves().map(renderPartitionLeaf).join("\n")
 
-  return `<svg viewBox="0 0 ${TREEMAP_WIDTH} ${TREEMAP_HEIGHT}" role="img" aria-label="Partition treemap">
+  return `<svg width="${TREEMAP_WIDTH}" height="${TREEMAP_HEIGHT}" viewBox="0 0 ${TREEMAP_WIDTH} ${TREEMAP_HEIGHT}" role="img" aria-label="Partition treemap">
   ${groups ?? ""}
   ${leaves}
 </svg>`
