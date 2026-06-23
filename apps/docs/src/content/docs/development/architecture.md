@@ -143,7 +143,9 @@ reconciles it against tracked `.ts` and `.tsx` files under `apps/*/src`,
 Partition areas tile that source inventory exactly once. They define the
 primary owner for a file and feed dependency-cruiser boundary rules. Cover
 areas may overlap partition areas and record cross-cutting concerns for audit
-and drift reporting, but they do not create dependency-cruiser boundaries.
+and drift reporting, but they do not create dependency-cruiser boundaries. See
+[Source Areas](/repo-edu/development/area-model/) for the partition/cover model,
+the area overview and how to read it for split and redesign triage.
 
 The same normalized source inventory feeds area reconciliation and
 dependency-cruiser graph checks. Graph-level rules such as layer boundaries,

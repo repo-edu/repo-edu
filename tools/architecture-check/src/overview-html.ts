@@ -8,9 +8,10 @@ import { escape as escapeHtml } from "html-escaper"
 
 import type {
   AreaStructureAggregate,
-  PartitionOverview,
   SourceRootId,
 } from "./overview-aggregate.js"
+import { renderCoverSection } from "./overview-cover-html.js"
+import { formatLinesShort } from "./overview-format.js"
 import type {
   LocalGitStamp,
   ReconciliationFreshnessClaim,
@@ -38,7 +39,7 @@ const numberFormatter = new Intl.NumberFormat("en-US")
 
 export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
   const treemapSvg = renderTreemap(report.structure)
-  const matrix = renderCoverMatrix(report.structure)
+  const coverSection = renderCoverSection(report.structure)
 
   return `<!doctype html>
 <html lang="en">
@@ -48,7 +49,7 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
   <title>repo-edu area overview</title>
   <style>
     :root {
-      color-scheme: light;
+      color-scheme: light dark;
       --bg: #f7f8f5;
       --panel: #ffffff;
       --text: #202124;
@@ -60,6 +61,36 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       --apps: #3b82a0;
       --packages: #5b8f49;
       --tools: #b25f3c;
+      --bar: #d9822b;
+      --bar-track: #ece6dc;
+      --root-frame: rgba(32, 33, 36, 0.35);
+      --rect-stroke: rgba(255, 255, 255, 0.88);
+      --th-bg: #f1f4f0;
+      --badge-bg: #eef1ec;
+      --zero: #a0a7ad;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141414;
+        --panel: #1f1f1f;
+        --text: #e5e5e5;
+        --muted: #a0a0a0;
+        --line: #404040;
+        --fresh: #22c55e;
+        --stale: #f59e0b;
+        --dirty: #fb923c;
+        --apps: #4c97b5;
+        --packages: #6fa55c;
+        --tools: #cb6f46;
+        --bar: #f59e0b;
+        --bar-track: #2e2e2e;
+        --root-frame: rgba(229, 229, 229, 0.3);
+        --rect-stroke: rgba(15, 15, 15, 0.5);
+        --th-bg: #262626;
+        --badge-bg: #333333;
+        --zero: #6b6b6b;
+      }
     }
 
     * {
@@ -206,19 +237,31 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
 
     .root-frame {
       fill: transparent;
-      stroke: rgba(32, 33, 36, 0.35);
+      stroke: var(--root-frame);
       stroke-width: 1.2;
     }
 
     .root-label {
-      fill: #202124;
+      fill: var(--text);
       font-size: 14px;
       font-weight: 720;
     }
 
     .partition-rect {
-      stroke: rgba(255, 255, 255, 0.88);
+      stroke: var(--rect-stroke);
       stroke-width: 1;
+    }
+
+    .partition-rect.apps {
+      fill: var(--apps);
+    }
+
+    .partition-rect.packages {
+      fill: var(--packages);
+    }
+
+    .partition-rect.tools {
+      fill: var(--tools);
     }
 
     .partition-label {
@@ -234,47 +277,202 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       pointer-events: none;
     }
 
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex: none;
+      display: inline-block;
+    }
+
+    .cover {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .cover-legend {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .cover-legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cover-block h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .conc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .conc-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .conc-name {
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .conc-stat {
+      font-size: 13px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .conc-bar {
+      display: flex;
+      height: 28px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .conc-seg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      color: #ffffff;
+      font-size: 11px;
+      white-space: nowrap;
+      border-right: 2px solid var(--panel);
+    }
+
+    .conc-seg:last-child {
+      border-right: none;
+    }
+
     .matrix-wrap {
       overflow-x: auto;
     }
 
-    table {
+    .cover-matrix {
       border-collapse: collapse;
-      min-width: 1040px;
       width: 100%;
-      font-size: 12px;
+      font-size: 13px;
     }
 
-    th,
-    td {
-      border: 1px solid var(--line);
-      padding: 7px 8px;
-      text-align: right;
-      white-space: nowrap;
+    .cover-matrix th,
+    .cover-matrix td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      vertical-align: middle;
     }
 
-    th {
-      color: var(--muted);
-      font-weight: 650;
-      background: #f1f4f0;
-    }
-
-    th:first-child,
-    td:first-child {
-      position: sticky;
-      left: 0;
-      z-index: 1;
-      min-width: 220px;
+    .cover-matrix thead th {
       text-align: left;
-      background: #f8faf7;
+      background: var(--th-bg);
+      color: var(--muted);
     }
 
-    td.zero {
-      color: #a0a7ad;
-      background: #fbfcfa;
+    .cover-matrix .cm-part {
+      width: 42%;
     }
 
-    .muted {
+    .cover-matrix .cm-cover {
+      display: block;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+    }
+
+    .cover-matrix .cm-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .cm-part-inner {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .cm-name {
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cm-badge {
+      flex: none;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--badge-bg);
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cm-badge.hot {
+      color: #ffffff;
+      background: var(--bar);
+    }
+
+    .cm-lines {
+      flex: none;
+      min-width: 42px;
+      text-align: right;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cm-cell-inner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cm-track {
+      flex: 1;
+      min-width: 36px;
+      height: 12px;
+      border-radius: 6px;
+      background: var(--bar-track);
+      overflow: hidden;
+    }
+
+    .cm-fill {
+      display: block;
+      height: 100%;
+      border-radius: 6px;
+      background: var(--bar);
+    }
+
+    .cm-num {
+      flex: none;
+      width: 22px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cm-num.zero {
+      color: var(--zero);
+    }
+
+    .cover-note {
+      margin: 12px 0 0;
+      font-size: 12px;
       color: var(--muted);
     }
 
@@ -320,8 +518,8 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       <div class="treemap-wrap">${treemapSvg}</div>
     </section>
     <section>
-      <h2>Cover matrix</h2>
-      <div class="matrix-wrap">${matrix}</div>
+      <h2>Cross-cutting covers</h2>
+      ${coverSection}
     </section>
   </main>
 </body>
@@ -405,68 +603,42 @@ function renderPartitionLeaf(
   const width = Math.max(0, node.x1 - node.x0)
   const height = Math.max(0, node.y1 - node.y0)
   const sourceRoot = node.data.sourceRoot ?? "packages"
-  const color = partitionColor(sourceRoot)
+  const lines = node.data.lines ?? 0
   const title = `${node.data.name} (${node.data.id}): ${formatNumber(
-    node.data.lines ?? 0,
+    lines,
   )} lines, ${formatNumber(node.data.files ?? 0)} files`
   const showPrimaryLabel = width >= 74 && height >= 38
   const showMetaLabel = width >= 94 && height >= 58
-  const label = fitLabel(node.data.name, width)
+  const innerX = node.x0 + 7
+  const maxChars = Math.max(4, Math.floor((width - 14) / 7))
+  const maxTitleLines = showMetaLabel
+    ? Math.max(1, Math.floor((height - 38) / 14) + 1)
+    : Math.max(1, Math.floor((height - 22) / 14) + 1)
+  const titleLines = showPrimaryLabel
+    ? wrapLabel(node.data.name, maxChars, maxTitleLines)
+    : []
+  const titleTspans = titleLines
+    .map(
+      (line, index) =>
+        `<tspan x="${innerX}"${index === 0 ? "" : ' dy="14"'}>${escapeHtml(line)}</tspan>`,
+    )
+    .join("")
 
   return `<g>
-  <rect class="partition-rect" x="${node.x0}" y="${node.y0}" width="${width}" height="${height}" rx="3" fill="${color}">
+  <rect class="partition-rect ${sourceRoot}" x="${node.x0}" y="${node.y0}" width="${width}" height="${height}" rx="3">
     <title>${escapeHtml(title)}</title>
   </rect>
   ${
-    showPrimaryLabel
-      ? `<text class="partition-label" x="${node.x0 + 7}" y="${node.y0 + 18}">${escapeHtml(label)}</text>`
+    titleTspans
+      ? `<text class="partition-label" x="${innerX}" y="${node.y0 + 16}">${titleTspans}</text>`
       : ""
   }
   ${
     showMetaLabel
-      ? `<text class="partition-meta" x="${node.x0 + 7}" y="${node.y0 + 34}">${formatNumber(node.data.lines ?? 0)} lines</text>`
+      ? `<text class="partition-meta" x="${innerX}" y="${node.y1 - 8}">${escapeHtml(formatLinesShort(lines))} lines</text>`
       : ""
   }
 </g>`
-}
-
-function renderCoverMatrix(structure: AreaStructureAggregate): string {
-  const partitionById = new Map(
-    structure.partitions.map((partition) => [partition.id, partition]),
-  )
-  const headers = structure.partitions
-    .map(
-      (partition) =>
-        `<th title="${escapeHtml(partition.name)}">${escapeHtml(shortPartitionLabel(partition))}</th>`,
-    )
-    .join("")
-  const rows = structure.covers
-    .map((cover) => {
-      const cells = cover.counts
-        .map((count) => {
-          const partition = partitionById.get(count.partitionId)
-          const title = `${cover.name} in ${partition?.name ?? count.partitionId}`
-          return `<td class="${count.count === 0 ? "zero" : ""}" title="${escapeHtml(title)}">${formatNumber(count.count)}</td>`
-        })
-        .join("")
-      return `<tr>
-  <td>${escapeHtml(cover.name)} <span class="muted">(${formatNumber(cover.totalFiles)})</span></td>
-  ${cells}
-</tr>`
-    })
-    .join("\n")
-
-  return `<table>
-  <thead>
-    <tr>
-      <th>Cover</th>
-      ${headers}
-    </tr>
-  </thead>
-  <tbody>
-    ${rows}
-  </tbody>
-</table>`
 }
 
 function compareTreemapNodes(
@@ -478,21 +650,38 @@ function compareTreemapNodes(
   return left.data.name.localeCompare(right.data.name)
 }
 
-function partitionColor(sourceRoot: SourceRootId): string {
-  if (sourceRoot === "apps") return "#3b82a0"
-  if (sourceRoot === "tools") return "#b25f3c"
-  return "#5b8f49"
-}
+function wrapLabel(
+  label: string,
+  maxChars: number,
+  maxLines: number,
+): readonly string[] {
+  const words = label.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ""
 
-function shortPartitionLabel(partition: PartitionOverview): string {
-  return partition.id.replace(/^(app|pkg|tool)-/, "")
-}
+  for (const word of words) {
+    const piece =
+      word.length <= maxChars
+        ? word
+        : `${word.slice(0, Math.max(1, maxChars - 1))}…`
+    const candidate = current ? `${current} ${piece}` : piece
+    if (candidate.length <= maxChars) {
+      current = candidate
+      continue
+    }
+    if (current) lines.push(current)
+    current = piece
+  }
+  if (current) lines.push(current)
+  if (lines.length <= maxLines) return lines
 
-function fitLabel(label: string, width: number): string {
-  const maxChars = Math.max(4, Math.floor((width - 14) / 7))
-  if (label.length <= maxChars) return label
-  const ellipsis = "..."
-  return `${label.slice(0, Math.max(1, maxChars - ellipsis.length))}${ellipsis}`
+  const kept = lines.slice(0, maxLines)
+  const last = kept[maxLines - 1] ?? ""
+  kept[maxLines - 1] =
+    last.length + 1 <= maxChars
+      ? `${last}…`
+      : `${last.slice(0, Math.max(1, maxChars - 1))}…`
+  return kept
 }
 
 function formatDate(date: Date): string {

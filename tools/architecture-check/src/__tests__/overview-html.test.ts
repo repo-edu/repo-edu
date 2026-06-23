@@ -22,7 +22,7 @@ describe("overview HTML rendering", () => {
     assert.match(html, /<svg width="1180" height="640" viewBox="0 0 1180 640"/)
   })
 
-  it("fits rendered treemap labels inside their width budget", () => {
+  it("fits each wrapped treemap label line inside its width budget", () => {
     const html = renderAreaOverviewHtml(buildAreaOverviewReport())
     const svg = html.slice(html.indexOf("<svg"), html.indexOf("</svg>"))
     const groups = svg.matchAll(/<g>\n([\s\S]*?)\n<\/g>/g)
@@ -33,16 +33,23 @@ describe("overview HTML rendering", () => {
 
       const widthMatch = /width="([^"]+)"/.exec(content)
       const labelMatch =
-        /<text class="partition-label"[^>]*>([^<]*)<\/text>/.exec(content)
+        /<text class="partition-label"[^>]*>([\s\S]*?)<\/text>/.exec(content)
       if (!widthMatch || !labelMatch) continue
 
       const width = Number(widthMatch[1])
-      const label = labelMatch[1]
       const maxChars = Math.max(4, Math.floor((width - 14) / 7))
+      const lines = [...labelMatch[1].matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)]
       assert.ok(
-        label.length <= maxChars,
-        `Expected "${label}" to fit ${maxChars} chars within ${width}px.`,
+        lines.length > 0,
+        "Expected a labelled leaf to wrap into lines.",
       )
+      for (const line of lines) {
+        const text = line[1]
+        assert.ok(
+          text.length <= maxChars,
+          `Expected "${text}" to fit ${maxChars} chars within ${width}px.`,
+        )
+      }
     }
   })
 })

@@ -95,6 +95,7 @@ export default defineConfig({
                     { label: "Renderer App", slug: "development/renderer-app" },
                     { label: "CLI-GUI Parity", slug: "development/cli-gui-parity" },
                     { label: "Data Model", slug: "development/data-model" },
+                    { label: "Source Areas", slug: "development/area-model" },
                     { label: "Repository Records", slug: "development/repository-records" },
                     { label: "Analysis Execution", slug: "development/analysis-caching" },
                   ],
