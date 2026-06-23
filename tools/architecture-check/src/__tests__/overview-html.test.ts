@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-
+import { buildAreaOverviewReport } from "../overview.js"
 import {
   type AreaOverviewReport,
   renderAreaOverviewHtml,
@@ -20,6 +20,30 @@ describe("overview HTML rendering", () => {
     const html = renderAreaOverviewHtml(report())
 
     assert.match(html, /<svg width="1180" height="640" viewBox="0 0 1180 640"/)
+  })
+
+  it("fits rendered treemap labels inside their width budget", () => {
+    const html = renderAreaOverviewHtml(buildAreaOverviewReport())
+    const svg = html.slice(html.indexOf("<svg"), html.indexOf("</svg>"))
+    const groups = svg.matchAll(/<g>\n([\s\S]*?)\n<\/g>/g)
+
+    for (const group of groups) {
+      const content = group[1]
+      if (!content.includes('class="partition-rect"')) continue
+
+      const widthMatch = /width="([^"]+)"/.exec(content)
+      const labelMatch =
+        /<text class="partition-label"[^>]*>([^<]*)<\/text>/.exec(content)
+      if (!widthMatch || !labelMatch) continue
+
+      const width = Number(widthMatch[1])
+      const label = labelMatch[1]
+      const maxChars = Math.max(4, Math.floor((width - 14) / 7))
+      assert.ok(
+        label.length <= maxChars,
+        `Expected "${label}" to fit ${maxChars} chars within ${width}px.`,
+      )
+    }
   })
 })
 

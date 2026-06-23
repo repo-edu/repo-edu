@@ -13,7 +13,7 @@
     "zod": "4.4.3"
   },
   "scripts": {
-    "overview": "pnpm run check && tsx src/overview.ts",
+    "overview": "tsx src/overview.ts",
     "start": "pnpm run check && tsx src/main.ts",
     "test": "node --import tsx --test src/__tests__/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",

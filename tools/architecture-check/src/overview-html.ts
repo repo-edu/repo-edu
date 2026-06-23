@@ -491,7 +491,8 @@ function shortPartitionLabel(partition: PartitionOverview): string {
 function fitLabel(label: string, width: number): string {
   const maxChars = Math.max(4, Math.floor((width - 14) / 7))
   if (label.length <= maxChars) return label
-  return `${label.slice(0, Math.max(1, maxChars - 1))}...`
+  const ellipsis = "..."
+  return `${label.slice(0, Math.max(1, maxChars - ellipsis.length))}${ellipsis}`
 }
 
 function formatDate(date: Date): string {
