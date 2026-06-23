@@ -4,7 +4,7 @@ import {
   hierarchy,
   treemap,
 } from "d3-hierarchy"
-import { escape as escapeHtmlEntity } from "html-escaper"
+import { escape as escapeHtml } from "html-escaper"
 
 import type {
   AreaStructureAggregate,
@@ -504,8 +504,4 @@ function formatDate(date: Date): string {
 
 function formatNumber(value: number): string {
   return numberFormatter.format(value)
-}
-
-function escapeHtml(value: string): string {
-  return escapeHtmlEntity(value)
 }

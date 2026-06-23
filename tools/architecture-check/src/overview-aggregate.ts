@@ -58,8 +58,6 @@ type BuildAreaStructureAggregateOptions = {
 }
 
 type MutablePartitionOverview = {
-  readonly id: string
-  readonly name: string
   readonly sourceRoots: Set<SourceRootId>
   files: number
   lines: number
@@ -95,8 +93,6 @@ export function createAreaStructureAggregate(input: {
     input.model.partitions.map((partition) => [
       partition.id,
       {
-        id: partition.id,
-        name: partition.name,
         sourceRoots: new Set<SourceRootId>(),
         files: 0,
         lines: 0,
