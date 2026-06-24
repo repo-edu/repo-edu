@@ -17,8 +17,18 @@ export type PartitionOverview = {
   readonly id: string
   readonly name: string
   readonly sourceRoot: SourceRootId
+  readonly packageId: string
   readonly files: number
   readonly lines: number
+}
+
+export type PackageOverview = {
+  readonly id: string
+  readonly name: string
+  readonly sourceRoot: SourceRootId
+  readonly files: number
+  readonly lines: number
+  readonly partitions: readonly PartitionOverview[]
 }
 
 export type SourceRootOverview = {
@@ -26,7 +36,7 @@ export type SourceRootOverview = {
   readonly name: string
   readonly files: number
   readonly lines: number
-  readonly partitions: readonly PartitionOverview[]
+  readonly packages: readonly PackageOverview[]
 }
 
 export type CoverPartitionCount = {
@@ -59,6 +69,7 @@ type BuildAreaStructureAggregateOptions = {
 
 type MutablePartitionOverview = {
   readonly sourceRoots: Set<SourceRootId>
+  readonly packages: Set<string>
   files: number
   lines: number
 }
@@ -94,6 +105,7 @@ export function createAreaStructureAggregate(input: {
       partition.id,
       {
         sourceRoots: new Set<SourceRootId>(),
+        packages: new Set<string>(),
         files: 0,
         lines: 0,
       } satisfies MutablePartitionOverview,
@@ -116,6 +128,7 @@ export function createAreaStructureAggregate(input: {
     partition.files += 1
     partition.lines += input.countLines(input.root, file)
     partition.sourceRoots.add(readSourceRootFromPath(file))
+    partition.packages.add(readPackageFromPath(file))
 
     for (const coverId of input.reconciliation.coversByFile.get(file) ?? []) {
       const partitionCounts = coverCounts.get(coverId)
@@ -174,11 +187,13 @@ function finalizePartitionOverview(
     totals?.sourceRoots ?? new Set<SourceRootId>(),
     area,
   )
+  const packageId = readOnlyPackage(totals?.packages ?? new Set<string>(), area)
 
   return {
     id: area.id,
     name: area.name,
     sourceRoot,
+    packageId,
     files: totals?.files ?? 0,
     lines: totals?.lines ?? 0,
   }
@@ -191,6 +206,34 @@ function buildRootOverview(
   const rootPartitions = partitions.filter(
     (partition) => partition.sourceRoot === sourceRoot,
   )
+  const byPackage = new Map<string, PartitionOverview[]>()
+  for (const partition of rootPartitions) {
+    const members = byPackage.get(partition.packageId) ?? []
+    members.push(partition)
+    byPackage.set(partition.packageId, members)
+  }
+  const packages = [...byPackage.entries()]
+    .map(
+      ([id, members]) =>
+        ({
+          id,
+          name: packageNameFromId(id),
+          sourceRoot,
+          files: members.reduce(
+            (total, partition) => total + partition.files,
+            0,
+          ),
+          lines: members.reduce(
+            (total, partition) => total + partition.lines,
+            0,
+          ),
+          partitions: members,
+        }) satisfies PackageOverview,
+    )
+    .sort(
+      (left, right) =>
+        right.lines - left.lines || left.name.localeCompare(right.name),
+    )
 
   return {
     id: sourceRoot,
@@ -203,7 +246,7 @@ function buildRootOverview(
       (total, partition) => total + partition.lines,
       0,
     ),
-    partitions: rootPartitions,
+    packages,
   }
 }
 
@@ -227,6 +270,58 @@ function readOnlySourceRoot(
   throw new Error(
     `Partition ${area.id} has no source root; overview treemap requires one root per partition.`,
   )
+}
+
+function readOnlyPackage(
+  packages: ReadonlySet<string>,
+  area: PartitionArea,
+): string {
+  const [packageId] = packages
+  if (packageId !== undefined && packages.size === 1) return packageId
+  if (packages.size > 1) {
+    throw new Error(
+      `Partition ${area.id} spans multiple packages; overview treemap requires one package per partition.`,
+    )
+  }
+
+  const memberPackages = new Set(area.members.map(readPackageFromMember))
+  memberPackages.delete(undefined)
+  const [memberPackage] = memberPackages
+  if (memberPackage !== undefined && memberPackages.size === 1) {
+    return memberPackage
+  }
+
+  throw new Error(
+    `Partition ${area.id} has no package; overview treemap requires one package per partition.`,
+  )
+}
+
+function readPackageFromMember(member: AreaMember): string | undefined {
+  const [root, name] = member.path.replace(/^\^/, "").split("/")
+  if (
+    (root === "apps" || root === "packages" || root === "tools") &&
+    name !== undefined &&
+    name !== ""
+  ) {
+    return `${root}/${name}`
+  }
+  return undefined
+}
+
+function readPackageFromPath(filePath: string): string {
+  const [root, name] = filePath.split("/")
+  if (
+    (root === "apps" || root === "packages" || root === "tools") &&
+    name !== undefined &&
+    name !== ""
+  ) {
+    return `${root}/${name}`
+  }
+  throw new Error(`Source inventory path has no package: ${filePath}`)
+}
+
+function packageNameFromId(packageId: string): string {
+  return packageId.split("/")[1] ?? packageId
 }
 
 function readSourceRootFromMember(

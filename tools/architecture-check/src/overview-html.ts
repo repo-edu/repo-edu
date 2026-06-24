@@ -11,6 +11,7 @@ import type {
   SourceRootId,
 } from "./overview-aggregate.js"
 import { renderCoverSection } from "./overview-cover-html.js"
+import { renderFilesSection } from "./overview-files-html.js"
 import { formatLinesShort } from "./overview-format.js"
 import type {
   LocalGitStamp,
@@ -25,6 +26,7 @@ export type AreaOverviewReport = {
 }
 
 type TreemapDatum = {
+  readonly kind: "source" | "root" | "package" | "partition"
   readonly id: string
   readonly name: string
   readonly sourceRoot?: SourceRootId
@@ -40,6 +42,7 @@ const numberFormatter = new Intl.NumberFormat("en-US")
 export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
   const treemapSvg = renderTreemap(report.structure)
   const coverSection = renderCoverSection(report.structure)
+  const filesSection = renderFilesSection(report.structure)
 
   return `<!doctype html>
 <html lang="en">
@@ -64,6 +67,7 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       --bar: #d9822b;
       --bar-track: #ece6dc;
       --root-frame: rgba(32, 33, 36, 0.35);
+      --package-frame: rgba(32, 33, 36, 0.5);
       --rect-stroke: rgba(255, 255, 255, 0.88);
       --th-bg: #f1f4f0;
       --badge-bg: #eef1ec;
@@ -86,6 +90,7 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
         --bar: #f59e0b;
         --bar-track: #2e2e2e;
         --root-frame: rgba(229, 229, 229, 0.3);
+        --package-frame: rgba(229, 229, 229, 0.45);
         --rect-stroke: rgba(15, 15, 15, 0.5);
         --th-bg: #262626;
         --badge-bg: #333333;
@@ -245,6 +250,66 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       fill: var(--text);
       font-size: 14px;
       font-weight: 720;
+    }
+
+    .package-frame {
+      fill: transparent;
+      stroke: var(--package-frame);
+      stroke-width: 1.2;
+    }
+
+    .package-label {
+      fill: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .map-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .map-legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex: none;
+    }
+
+    .legend-folder {
+      border: 1.4px solid var(--root-frame);
+    }
+
+    .legend-package {
+      border: 1.4px solid var(--package-frame);
+    }
+
+    .legend-label {
+      margin-left: 2px;
+    }
+
+    .legend-apps {
+      background: var(--apps);
+      border: 1px solid var(--rect-stroke);
+    }
+
+    .legend-packages {
+      background: var(--packages);
+      border: 1px solid var(--rect-stroke);
+    }
+
+    .legend-tools {
+      background: var(--tools);
+      border: 1px solid var(--rect-stroke);
     }
 
     .partition-rect {
@@ -476,6 +541,62 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       color: var(--muted);
     }
 
+    .files {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .files-folder {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+    }
+
+    .files-folder > summary {
+      cursor: pointer;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .files-children {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 8px 8px 18px;
+    }
+
+    .files-package > summary,
+    .files-partition > summary {
+      cursor: pointer;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .files-partition > summary {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .files-package > summary:hover,
+    .files-partition > summary:hover {
+      background: var(--th-bg);
+    }
+
+    .files-tree {
+      margin: 2px 0 8px 20px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+      white-space: pre;
+      overflow-x: auto;
+    }
+
     @media (max-width: 820px) {
       main {
         padding: 22px 16px 32px;
@@ -514,12 +635,24 @@ export function renderAreaOverviewHtml(report: AreaOverviewReport): string {
       ${renderStat("Partitions", report.structure.partitions.length)}
     </div>
     <section>
-      <h2>Partition treemap</h2>
+      <h2>Source map</h2>
+      <div class="map-legend">
+        <span><span class="legend-box legend-folder"></span>source folder</span>
+        <span><span class="legend-box legend-package"></span>package</span>
+        <span class="legend-label">partition:</span>
+        <span><span class="legend-box legend-apps"></span>apps</span>
+        <span><span class="legend-box legend-packages"></span>packages</span>
+        <span><span class="legend-box legend-tools"></span>tools</span>
+      </div>
       <div class="treemap-wrap">${treemapSvg}</div>
     </section>
     <section>
       <h2>Cross-cutting covers</h2>
       ${coverSection}
+    </section>
+    <section>
+      <h2>Files by partition</h2>
+      ${filesSection}
     </section>
   </main>
 </body>
@@ -551,18 +684,28 @@ function renderStat(label: string, value: number): string {
 
 function renderTreemap(structure: AreaStructureAggregate): string {
   const data: TreemapDatum = {
+    kind: "source",
     id: "source",
     name: "source",
     children: structure.roots.map((root) => ({
+      kind: "root",
       id: root.id,
       name: root.name,
       sourceRoot: root.id,
-      children: root.partitions.map((partition) => ({
-        id: partition.id,
-        name: partition.name,
-        sourceRoot: partition.sourceRoot,
-        lines: partition.lines,
-        files: partition.files,
+      children: root.packages.map((pkg) => ({
+        kind: "package",
+        id: pkg.id,
+        name: pkg.name,
+        sourceRoot: pkg.sourceRoot,
+        files: pkg.files,
+        children: pkg.partitions.map((partition) => ({
+          kind: "partition",
+          id: partition.id,
+          name: partition.name,
+          sourceRoot: partition.sourceRoot,
+          lines: partition.lines,
+          files: partition.files,
+        })),
       })),
     })),
   }
@@ -572,20 +715,59 @@ function renderTreemap(structure: AreaStructureAggregate): string {
     .sort(compareTreemapNodes)
   const layoutRoot = treemap<TreemapDatum>()
     .size([TREEMAP_WIDTH, TREEMAP_HEIGHT])
-    .paddingOuter(6)
-    .paddingTop(26)
+    .paddingOuter(treemapPaddingOuter)
+    .paddingTop(treemapPaddingTop)
     .paddingInner(3)
     .round(true)(hierarchyRoot)
 
-  const groups = layoutRoot.children
-    ?.map((node) => renderRootGroup(node))
+  const nodes = layoutRoot.descendants()
+  const rootGroups = nodes
+    .filter((node) => node.data.kind === "root")
+    .map(renderRootGroup)
     .join("\n")
-  const leaves = layoutRoot.leaves().map(renderPartitionLeaf).join("\n")
+  const packageGroups = nodes
+    .filter(isFramedPackage)
+    .map(renderPackageGroup)
+    .join("\n")
+  const leaves = nodes
+    .filter((node) => node.data.kind === "partition")
+    .map(renderPartitionLeaf)
+    .join("\n")
 
-  return `<svg width="${TREEMAP_WIDTH}" height="${TREEMAP_HEIGHT}" viewBox="0 0 ${TREEMAP_WIDTH} ${TREEMAP_HEIGHT}" role="img" aria-label="Partition treemap">
-  ${groups ?? ""}
+  return `<svg width="${TREEMAP_WIDTH}" height="${TREEMAP_HEIGHT}" viewBox="0 0 ${TREEMAP_WIDTH} ${TREEMAP_HEIGHT}" role="img" aria-label="Source map">
+  ${rootGroups}
+  ${packageGroups}
   ${leaves}
 </svg>`
+}
+
+function isFramedPackage(
+  node: HierarchyRectangularNode<TreemapDatum>,
+): boolean {
+  if (node.data.kind !== "package") return false
+  return node.x1 - node.x0 >= 28 && node.y1 - node.y0 >= 28
+}
+
+function packageBandHeight(
+  node: HierarchyRectangularNode<TreemapDatum>,
+): number {
+  return node.x1 - node.x0 >= 64 && node.y1 - node.y0 >= 44 ? 18 : 0
+}
+
+function treemapPaddingTop(
+  node: HierarchyRectangularNode<TreemapDatum>,
+): number {
+  if (node.data.kind === "source") return 6
+  if (node.data.kind === "root") return 26
+  if (isFramedPackage(node)) return packageBandHeight(node)
+  return 0
+}
+
+function treemapPaddingOuter(
+  node: HierarchyRectangularNode<TreemapDatum>,
+): number {
+  if (node.data.kind === "package") return isFramedPackage(node) ? 3 : 0
+  return 6
 }
 
 function renderRootGroup(node: HierarchyRectangularNode<TreemapDatum>): string {
@@ -593,7 +775,36 @@ function renderRootGroup(node: HierarchyRectangularNode<TreemapDatum>): string {
   const height = Math.max(0, node.y1 - node.y0)
   return `<g>
   <rect class="root-frame" x="${node.x0}" y="${node.y0}" width="${width}" height="${height}" rx="4"></rect>
-  <text class="root-label" x="${node.x0 + 8}" y="${node.y0 + 18}">${escapeHtml(node.data.name)}</text>
+  <text class="root-label" x="${node.x0 + 8}" y="${node.y0 + 18}">${escapeHtml(fitSingleLine(`${node.data.name}/`, width - 2))}</text>
+</g>`
+}
+
+function renderPackageGroup(
+  node: HierarchyRectangularNode<TreemapDatum>,
+): string {
+  const width = Math.max(0, node.x1 - node.x0)
+  const height = Math.max(0, node.y1 - node.y0)
+  const partitionCount = node.children?.length ?? 0
+  const fileCount =
+    node.children?.reduce(
+      (total, child) => total + (child.data.files ?? 0),
+      0,
+    ) ?? 0
+  const title = `${node.data.name}/ package: ${formatNumber(
+    node.value ?? 0,
+  )} lines, ${formatNumber(fileCount)} files, ${partitionCount} ${
+    partitionCount === 1 ? "partition" : "partitions"
+  }`
+  const label =
+    packageBandHeight(node) > 0
+      ? `<text class="package-label" x="${node.x0 + 7}" y="${node.y0 + 15}">${escapeHtml(fitSingleLine(`${node.data.name}/`, width))}</text>`
+      : ""
+
+  return `<g>
+  <rect class="package-frame" x="${node.x0}" y="${node.y0}" width="${width}" height="${height}" rx="3">
+    <title>${escapeHtml(title)}</title>
+  </rect>
+  ${label}
 </g>`
 }
 
@@ -604,7 +815,9 @@ function renderPartitionLeaf(
   const height = Math.max(0, node.y1 - node.y0)
   const sourceRoot = node.data.sourceRoot ?? "packages"
   const lines = node.data.lines ?? 0
-  const title = `${node.data.name} (${node.data.id}): ${formatNumber(
+  const packageName = node.parent?.data.name
+  const location = packageName ? ` · ${packageName}/` : ""
+  const title = `${node.data.name}${location} · ${formatNumber(
     lines,
   )} lines, ${formatNumber(node.data.files ?? 0)} files`
   const showPrimaryLabel = width >= 74 && height >= 38
@@ -648,6 +861,12 @@ function compareTreemapNodes(
   const valueDiff = (right.value ?? 0) - (left.value ?? 0)
   if (valueDiff !== 0) return valueDiff
   return left.data.name.localeCompare(right.data.name)
+}
+
+function fitSingleLine(text: string, width: number): string {
+  const maxChars = Math.max(1, Math.floor((width - 14) / 7))
+  if (text.length <= maxChars) return text
+  return `${text.slice(0, Math.max(1, maxChars - 1))}…`
 }
 
 function wrapLabel(

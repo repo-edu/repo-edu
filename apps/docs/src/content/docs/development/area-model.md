@@ -117,16 +117,22 @@ set would not.
 ## The area overview
 
 `pnpm area-view` renders the model as a single browser page, served once from
-memory and never written to disk. It shows three things.
+memory and never written to disk. It shows four things.
 
-1. **Partition treemap**: the partitions grouped by source root (`apps`,
-   `packages`, `tools`), each rectangle sized by its lines of code. This is the
-   ownership-and-size picture.
+1. **Source map**: a treemap nested `folder/` → `package/` → `partition`, sized
+   by lines of code. Every package is drawn as a labelled frame: a one-partition
+   package holds a single area, a split package (such as `renderer-app`) holds
+   several inset inside it, so the package boundary is always visible. A legend
+   keys the source-folder, package and partition edges, and each area's tooltip
+   names its package and size. This is the ownership-and-size picture.
 2. **Cover concentration**: one stacked bar per cover, segmented by partition.
    This shows whether a concern is owned or scattered.
 3. **Cover matrix**: partitions as rows, the covers as columns, an orange bar
    and a count in each cell. This is the drill-down: exactly which partitions a
    cover marks, and how many files.
+4. **Files by partition**: a collapsed list, one row per partition, expanding to
+   its files as package-relative paths. This is the only per-file detail in the
+   view; everything else stays at area level.
 
 The matrix omits partitions that no cover marks, since those rows would be empty
 (see the completeness asymmetry above). It reports declared membership: it shows

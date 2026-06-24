@@ -77,28 +77,39 @@ function report(): AreaOverviewReport {
           id: "pkg-renderer-session",
           name: "Renderer <Session>",
           sourceRoot: "packages",
+          packageId: "packages/renderer-app",
           files: 1,
           lines: 12,
         },
       ],
       roots: [
-        { id: "apps", name: "apps", files: 0, lines: 0, partitions: [] },
+        { id: "apps", name: "apps", files: 0, lines: 0, packages: [] },
         {
           id: "packages",
           name: "packages",
           files: 1,
           lines: 12,
-          partitions: [
+          packages: [
             {
-              id: "pkg-renderer-session",
-              name: "Renderer <Session>",
+              id: "packages/renderer-app",
+              name: "renderer-app",
               sourceRoot: "packages",
               files: 1,
               lines: 12,
+              partitions: [
+                {
+                  id: "pkg-renderer-session",
+                  name: "Renderer <Session>",
+                  sourceRoot: "packages",
+                  packageId: "packages/renderer-app",
+                  files: 1,
+                  lines: 12,
+                },
+              ],
             },
           ],
         },
-        { id: "tools", name: "tools", files: 0, lines: 0, partitions: [] },
+        { id: "tools", name: "tools", files: 0, lines: 0, packages: [] },
       ],
       covers: [
         {
