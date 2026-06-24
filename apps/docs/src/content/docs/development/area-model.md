@@ -5,9 +5,10 @@ description: Partitions and covers in the area model, and how to read the area o
 
 The codebase is divided into named **areas** of source files. The committed
 model lives at `tools/architecture-check/src/area-model.json`, is written by the
-AI and checked by CI. It answers three questions at a glance: which area owns
-each file, how large each area is, and which cross-cutting concerns spread across
-many areas.
+AI and checked by CI through the [Architecture
+Check](/repo-edu/development/architecture-check/) tool. It answers three
+questions at a glance: which area owns each file, how large each area is, and
+which cross-cutting concerns spread across many areas.
 
 The model has two kinds of area, and the difference between them is the key to
 everything else on this page.
@@ -25,6 +26,53 @@ file can sit in several covers, and a cover owns nothing. Covers never create
 boundaries. They only label, for audit and overview.
 
 So a file always has one partition, and zero, one or several covers.
+
+## Partitions and packages
+
+A partition is not the same as a package, and the difference matters. A package
+is a build and dependency unit: a workspace member with its own `package.json`,
+version and public `exports`, the thing other code imports as `@repo-edu/x`. A
+partition is an ownership unit defined by path patterns. They have different
+natural sizes.
+
+Most packages map one to one to a single partition. Two do not. `renderer-app`
+is one package split into seven partitions, one per feature area (session,
+analysis, examination, groups, settings, shell, persistence). The `release` tool
+is one package split into two. A partition never spans more than one package and
+never crosses a source root, so the grain is package, or finer. The relation is
+`source root` contains `package` contains `partition`.
+
+Why not refactor those packages so each partition becomes its own package?
+Because a package is a *consumption* boundary and a partition is an *ownership*
+boundary. Nothing consumes the analysis tab on its own; the desktop and docs
+apps mount the whole renderer. Splitting it into seven packages would create
+seven build units that are always used together, with their own manifests and
+version coordination, for no consumer that benefits. The boundary you want is
+already enforced finer than the package, so promotion to a real package is
+reserved for a partition that earns it: an independent consumer, independent
+versioning or a hard runtime isolation. That is exactly why the `*-contract`
+areas *are* separate packages, while the renderer features are not.
+
+## How each boundary is enforced
+
+The three kinds of boundary are enforced by different machinery, with different
+strength.
+
+- **Package** is structural. The resolver, pnpm's isolated `node_modules`, the
+  package `exports` and the TypeScript build all cooperate, so an import of a
+  package you do not depend on cannot even resolve. The boundary is part of the
+  toolchain.
+- **Partition** is a lint. TypeScript and pnpm are blind to it: inside one
+  package a partition-crossing import compiles, type-checks and bundles. Only
+  dependency-cruiser, run by [Architecture
+  Check](/repo-edu/development/architecture-check/) in CI, rejects it. The code
+  runs regardless; the check is what fails.
+- **Cover** is only checked for staleness. It creates no import rules at all.
+  The single check is that each of its patterns still matches a real file.
+
+That gradient is the point. TypeScript and pnpm cannot express a boundary finer
+than a package, so partitions exist as a separate, lint-enforced layer to draw
+the ownership lines the language cannot.
 
 ## Why partitions are complete but covers are not
 
