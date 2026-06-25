@@ -33,6 +33,67 @@ export function RosterSourceBadge({ roster }: { roster: Roster | null }) {
   )
 }
 
+export function memberTypeLabel(member: RosterMember): string {
+  switch (member.enrollmentType) {
+    case "student":
+      return "Student"
+    case "teacher":
+      return "Teacher"
+    case "ta":
+      return "TA"
+    case "designer":
+      return "Designer"
+    case "observer":
+      return "Observer"
+    default:
+      return "Other"
+  }
+}
+
+/** Build a map of active memberId → group names, excluding system groups. */
+export function buildMemberGroupNames(
+  roster: Roster | null,
+): Map<string, string[]> {
+  const index = new Map<string, string[]>()
+  if (!roster) return index
+
+  const allMembers = [...roster.students, ...roster.staff]
+  const activeIds = new Set(
+    allMembers.filter((m) => m.status === "active").map((m) => m.id),
+  )
+
+  const systemGroupIds = new Set(
+    roster.groupSets.flatMap((groupSet) => {
+      if (
+        groupSet.connection?.kind !== "system" ||
+        groupSet.nameMode !== "named"
+      ) {
+        return []
+      }
+      return groupSet.groupIds
+    }),
+  )
+
+  for (const group of roster.groups) {
+    if (systemGroupIds.has(group.id)) continue
+    for (const memberId of group.memberIds) {
+      if (!activeIds.has(memberId)) continue
+      let names = index.get(memberId)
+      if (!names) {
+        names = []
+        index.set(memberId, names)
+      }
+      names.push(group.name)
+    }
+  }
+
+  for (const names of index.values()) {
+    names.sort((a, b) => a.localeCompare(b))
+  }
+
+  return index
+}
+
 export function columnLabel(id: string): string {
   switch (id) {
     case "name":
