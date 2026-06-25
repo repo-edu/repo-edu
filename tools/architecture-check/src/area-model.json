@@ -418,6 +418,12 @@
       ]
     },
     {
+      "id": "tool-sweep",
+      "name": "File-growth sweep tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/sweep/src/" }]
+    },
+    {
       "id": "cover-analysis-workflow",
       "name": "Analysis workflow",
       "kind": "cover",

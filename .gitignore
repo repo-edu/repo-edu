@@ -26,6 +26,10 @@ plan/
 # Tools
 .rumdl_cache/
 
+# pnpm sweep state (tool-owned, never committed)
+tools/sweep/skip-cache
+tools/sweep/refactor-todo
+
 # Dependencies
 .pnpm-store/
 node_modules/

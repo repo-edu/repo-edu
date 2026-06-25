@@ -1,0 +1,13 @@
+{
+  "name": "@repo-edu/sweep",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
+  }
+}
