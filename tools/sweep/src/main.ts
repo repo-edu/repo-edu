@@ -13,8 +13,9 @@ function buildProgram(): Command {
     .name("sweep")
     .description(
       "File-growth sweep over repo-edu source files. Surfaces the biggest " +
-        "file not yet judged at its current content; records ok and flag " +
-        "verdicts in two gitignored, hash-keyed state files.",
+        "file not yet judged at its current content; records ok verdicts in a " +
+        "gitignored local skip cache and flag verdicts in the refactor backlog " +
+        "committed to the sibling plan repo.",
     )
 
   program

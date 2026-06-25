@@ -26,9 +26,9 @@ plan/
 # Tools
 .rumdl_cache/
 
-# pnpm sweep state (tool-owned, never committed)
+# pnpm sweep skip cache: disposable, hash-keyed, never committed.
+# The refactor backlog is the durable half and lives in the sibling plan repo.
 tools/sweep/skip-cache.tsv
-tools/sweep/refactor-todo.tsv
 
 # Dependencies
 .pnpm-store/

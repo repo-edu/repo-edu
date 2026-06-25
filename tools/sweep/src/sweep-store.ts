@@ -3,16 +3,28 @@ import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 
 /**
- * Both state files live beside the tool, gitignored. They are tool-owned and
- * never committed, so co-locating them with the tool keeps the cache out of
- * both repos and out of the source inventory.
+ * The two state files split by lifetime. The skip cache is a disposable,
+ * hash-keyed record of "already judged at this content": it churns on every
+ * edit and costs only machine time to rebuild, so it stays beside the tool,
+ * gitignored and out of both repos' history. The refactor backlog is the
+ * durable half, path-keyed reasons and routing status the queue drains, so it
+ * lives committed in the sibling plan repo where planning churn belongs and its
+ * routing reasons already point. The plan path assumes plan and repo-edu sit
+ * side by side; trivial to make configurable when that stops holding.
  */
-const STATE_DIR = path.resolve(
+const TOOL_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 )
-const SKIP_CACHE = path.join(STATE_DIR, "skip-cache.tsv")
-const REFACTOR_TODO = path.join(STATE_DIR, "refactor-todo.tsv")
+const REPO_EDU_ROOT = path.resolve(TOOL_DIR, "..", "..")
+const SKIP_CACHE = path.join(TOOL_DIR, "skip-cache.tsv")
+const REFACTOR_BACKLOG = path.resolve(
+  REPO_EDU_ROOT,
+  "..",
+  "plan",
+  "notes",
+  "refactor-backlog.tsv",
+)
 
 const FIELD_SEPARATOR = "\t"
 
@@ -40,7 +52,7 @@ export function appendSkipEntry(entry: SkipEntry): void {
 }
 
 export function readFlagEntries(): FlagEntry[] {
-  return readRecords(REFACTOR_TODO).flatMap((fields) => {
+  return readRecords(REFACTOR_BACKLOG).flatMap((fields) => {
     const [hash, repoPath, ...reasonParts] = fields
     if (!hash || !repoPath) return []
     return [{ hash, path: repoPath, reason: reasonParts.join(FIELD_SEPARATOR) }]
@@ -48,12 +60,12 @@ export function readFlagEntries(): FlagEntry[] {
 }
 
 export function appendFlagEntry(entry: FlagEntry): void {
-  appendRecord(REFACTOR_TODO, [entry.hash, entry.path, entry.reason])
+  appendRecord(REFACTOR_BACKLOG, [entry.hash, entry.path, entry.reason])
 }
 
 export function writeFlagEntries(entries: readonly FlagEntry[]): void {
   writeRecords(
-    REFACTOR_TODO,
+    REFACTOR_BACKLOG,
     entries.map((entry) => [entry.hash, entry.path, entry.reason]),
   )
 }
