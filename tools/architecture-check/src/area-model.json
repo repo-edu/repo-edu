@@ -167,7 +167,7 @@
         { "type": "pattern", "path": "^packages/renderer-app/src/session/" },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/__tests__/session-controller"
+          "path": "^packages/renderer-app/src/__tests__/session-"
         }
       ]
     },
@@ -328,7 +328,7 @@
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/(analysis-store|app-settings-store|connections-store|course-store|course-store-selectors|credentials-store|examination|operation-store)" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/slices/" },
         { "type": "pattern", "path": "^packages/renderer-app/src/utils/(analysis-[^/]*|author-colors|blame-[^/]*|course-navigation|export-group-set|history-boundary|lms-provider|repository-workflow|token-estimate)\\.ts$" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-workflow|session-controller|use-courses)" }
+        { "type": "pattern", "path": "^packages/renderer-app/src/__tests__/(analysis|app-settings-store|blame|course-navigation|examination|history-boundary|process-blame-lines|profile-store|repository-workflow|session-|use-courses)" }
       ]
     },
     {

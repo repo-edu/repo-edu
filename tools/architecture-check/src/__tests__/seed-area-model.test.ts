@@ -47,12 +47,13 @@ describe("seed area model", () => {
       )
     }
 
-    assert.equal(
-      result.primaryByFile.get(
-        "packages/renderer-app/src/__tests__/session-controller.test.ts",
-      ),
-      "pkg-renderer-session",
-    )
+    for (const file of [
+      "packages/renderer-app/src/__tests__/session-controller-bootstrap.test.ts",
+      "packages/renderer-app/src/__tests__/session-controller.test-support.ts",
+      "packages/renderer-app/src/__tests__/session-reducer.test.ts",
+    ]) {
+      assert.equal(result.primaryByFile.get(file), "pkg-renderer-session", file)
+    }
   })
 
   it("covers the analysis workflow seed", () => {
