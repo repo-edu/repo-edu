@@ -11,8 +11,8 @@ const STATE_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 )
-const SKIP_CACHE = path.join(STATE_DIR, "skip-cache")
-const REFACTOR_TODO = path.join(STATE_DIR, "refactor-todo")
+const SKIP_CACHE = path.join(STATE_DIR, "skip-cache.tsv")
+const REFACTOR_TODO = path.join(STATE_DIR, "refactor-todo.tsv")
 
 const FIELD_SEPARATOR = "\t"
 

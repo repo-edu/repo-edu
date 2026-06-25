@@ -27,8 +27,8 @@ plan/
 .rumdl_cache/
 
 # pnpm sweep state (tool-owned, never committed)
-tools/sweep/skip-cache
-tools/sweep/refactor-todo
+tools/sweep/skip-cache.tsv
+tools/sweep/refactor-todo.tsv
 
 # Dependencies
 .pnpm-store/
