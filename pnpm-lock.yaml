@@ -63,8 +63,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/integrations-lms-contract
       commander:
-        specifier: ^14.0.3
-        version: 14.0.3
+        specifier: ^15.0.0
+        version: 15.0.0
     devDependencies:
       '@repo-edu/test-fixtures':
         specifier: workspace:*
@@ -698,8 +698,8 @@ importers:
   tools/file-sizes:
     dependencies:
       commander:
-        specifier: ^14.0.3
-        version: 14.0.3
+        specifier: ^15.0.0
+        version: 15.0.0
 
   tools/fixture-cli:
     dependencies:
