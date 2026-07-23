@@ -215,15 +215,18 @@ export function createRepoCreateHandler(
           (batch) => batch.template !== null,
         )
 
-        const newlyCreatedNames = new Set(created.map((r) => r.repositoryName))
+        const createdByRepositoryName = new Map(
+          created.map((repository) => [repository.repositoryName, repository]),
+        )
         const tmpDirsToCleanup: string[] = []
 
         for (const batch of templateBatches) {
           const template = batch.template
           if (template === null) continue
-          const reposToPopulate = batch.repositoryNames.filter((name) =>
-            newlyCreatedNames.has(name),
-          )
+          const reposToPopulate = batch.repositoryNames.flatMap((name) => {
+            const repository = createdByRepositoryName.get(name)
+            return repository === undefined ? [] : [repository]
+          })
 
           if (reposToPopulate.length === 0) {
             continue
@@ -281,16 +284,9 @@ export function createRepoCreateHandler(
             options?.signal,
           )
 
-          // Resolve auth URLs for target repos.
-          const targetUrls = await ports.git.resolveRepositoryCloneUrls(
-            gitDraft,
-            { organization, repositoryNames: reposToPopulate },
-            options?.signal,
-          )
-
-          const pushItems = targetUrls.resolved.map((r) => ({
-            repoName: r.repositoryName,
-            authUrl: r.cloneUrl,
+          const pushItems = reposToPopulate.map((repository) => ({
+            repoName: repository.repositoryName,
+            authUrl: repository.cloneUrl,
           }))
 
           const pushResults = await mapConcurrent(
@@ -385,6 +381,7 @@ export function createRepoCreateHandler(
               message: `Team '${team.teamName}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
             })
           } catch (error) {
+            throwIfAborted(options?.signal)
             options?.onOutput?.({
               channel: "warn",
               message: `Failed to create team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,
@@ -425,6 +422,7 @@ export function createRepoCreateHandler(
               message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,
             })
           } catch (error) {
+            throwIfAborted(options?.signal)
             options?.onOutput?.({
               channel: "warn",
               message: `Failed to assign repositories to team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,

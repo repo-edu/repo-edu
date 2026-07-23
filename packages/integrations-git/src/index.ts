@@ -28,18 +28,14 @@ export function createGitProviderClient(
 }
 
 export function createGitProviderDispatch(http: HttpPort): GitProviderClient {
-  const clients = new Map<GitProviderKind, GitProviderClient>()
-
-  const resolveClient = (provider: GitProviderKind): GitProviderClient => {
-    const existing = clients.get(provider)
-    if (existing) {
-      return existing
-    }
-
-    const next = createGitProviderClient(provider, http)
-    clients.set(provider, next)
-    return next
+  const clients: Record<GitProviderKind, GitProviderClient> = {
+    github: createGitHubClient(http),
+    gitlab: createGitLabClient(http),
+    gitea: createGiteaClient(http),
   }
+
+  const resolveClient = (provider: GitProviderKind): GitProviderClient =>
+    clients[provider]
 
   return {
     verifyConnection(draft, signal) {

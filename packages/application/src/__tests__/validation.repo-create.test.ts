@@ -34,6 +34,7 @@ describe("application repository create workflow helpers", () => {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
               repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
             })),
             alreadyExisted: [],
             failed: [],
@@ -85,6 +86,7 @@ describe("application repository create workflow helpers", () => {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
               repositoryUrl: `https://github.com/${request.organization}/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/${request.organization}/${repositoryName}.git`,
             })),
             alreadyExisted: [],
             failed: [],
@@ -153,6 +155,7 @@ describe("application repository create workflow helpers", () => {
             alreadyExisted: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
               repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
             })),
             failed: [],
           }
@@ -223,6 +226,7 @@ describe("application repository create workflow helpers", () => {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
               repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
             })),
             alreadyExisted: [],
             failed: [],
@@ -239,6 +243,85 @@ describe("application repository create workflow helpers", () => {
     })
 
     assert.equal(receivedVisibility, assignmentTemplate.visibility)
+  })
+
+  it("pushes local templates through clone URLs returned by creation", async () => {
+    const cloneUrls: string[] = []
+    let resolutionCalls = 0
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        createRepositories: async (_draft, request) => ({
+          created: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            cloneUrl: `https://created-token@github.com/repo-edu/${repositoryName}.git`,
+          })),
+          alreadyExisted: [],
+          failed: [],
+        }),
+        resolveRepositoryCloneUrls: async () => {
+          resolutionCalls += 1
+          return { resolved: [], missing: [] }
+        },
+      },
+      gitCommand: {
+        run: async (request) => {
+          if (request.args[0] === "push") {
+            cloneUrls.push(request.args[1] ?? "")
+          }
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout: request.args.includes("--abbrev-ref") ? "main\n" : "sha\n",
+            stderr: "",
+          }
+        },
+      },
+    })
+
+    const result = await handlers["repo.create"]({
+      course,
+      credentials: settings,
+      assignmentId: "a1",
+      template: {
+        kind: "local",
+        path: "/course-template",
+        visibility: "private",
+      },
+    })
+
+    assert.equal(resolutionCalls, 0)
+    assert.equal(cloneUrls.length, result.repositoriesCreated)
+    assert.ok(cloneUrls.every((url) => url.includes("created-token")))
+  })
+
+  it("does not turn caller cancellation during team creation into a warning", async () => {
+    const controller = new AbortController()
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        createTeam: async () => {
+          controller.abort(new Error("stop"))
+          throw new DOMException("The operation was aborted.", "AbortError")
+        },
+      },
+    })
+
+    await assert.rejects(
+      handlers["repo.create"](
+        {
+          course,
+          credentials: settings,
+          assignmentId: "a1",
+          template: null,
+        },
+        { signal: controller.signal },
+      ),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "cancelled",
+    )
   })
 
   it("forwards the normalized user-agent from git connection into the adapter draft", async () => {
@@ -269,6 +352,7 @@ describe("application repository create workflow helpers", () => {
             created: request.repositoryNames.map((repositoryName) => ({
               repositoryName,
               repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+              cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
             })),
             alreadyExisted: [],
             failed: [],

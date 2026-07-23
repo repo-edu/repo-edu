@@ -154,6 +154,7 @@ async function executeRequest<T extends ResponseBody>(
   http: HttpPort,
   resourceOptions: ResourceOptions,
   resolvedUserAgent: string,
+  callerSignal: AbortSignal | undefined,
   method: RequestMethod,
   endpoint: string,
   options?: RequestOptions,
@@ -194,18 +195,22 @@ async function executeRequest<T extends ResponseBody>(
     headers["content-type"] = "application/json"
   }
 
+  const signal =
+    callerSignal && options?.signal
+      ? AbortSignal.any([callerSignal, options.signal])
+      : (callerSignal ?? options?.signal)
   const request = new Request(url, {
     method,
     headers,
     body,
-    signal: options?.signal,
+    signal,
   })
   const httpResponse = await http.fetch({
     url: url.toString(),
     method,
     headers,
     body,
-    signal: options?.signal,
+    signal,
   })
 
   if (httpResponse.status < 200 || httpResponse.status >= 300) {
@@ -230,7 +235,11 @@ async function executeRequest<T extends ResponseBody>(
   }
 }
 
-function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
+function createGitLabRequester(
+  http: HttpPort,
+  resolvedUserAgent: string,
+  callerSignal?: AbortSignal,
+) {
   return (resourceOptions: ResourceOptions) => ({
     get<T extends ResponseBody = ResponseBody>(
       endpoint: string,
@@ -240,6 +249,7 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
         http,
         resourceOptions,
         resolvedUserAgent,
+        callerSignal,
         "GET",
         endpoint,
         options,
@@ -253,6 +263,7 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
         http,
         resourceOptions,
         resolvedUserAgent,
+        callerSignal,
         "POST",
         endpoint,
         options,
@@ -266,6 +277,7 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
         http,
         resourceOptions,
         resolvedUserAgent,
+        callerSignal,
         "PUT",
         endpoint,
         options,
@@ -279,6 +291,7 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
         http,
         resourceOptions,
         resolvedUserAgent,
+        callerSignal,
         "PATCH",
         endpoint,
         options,
@@ -292,6 +305,7 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
         http,
         resourceOptions,
         resolvedUserAgent,
+        callerSignal,
         "DELETE",
         endpoint,
         options,
@@ -303,14 +317,17 @@ function createGitLabRequester(http: HttpPort, resolvedUserAgent: string) {
 export function createGitLabApi(
   http: HttpPort,
   draft: GitConnectionDraft,
+  signal?: AbortSignal,
 ): Gitlab {
-  // Frozen per createGitLabApi call: if we ever cache the Gitlab client, we must
-  // invalidate whenever the draft (specifically its user-agent) changes.
   const resolvedUserAgent = resolveUserAgent(draft)
   return new Gitlab({
     host: resolveHost(draft),
     token: draft.token,
-    requesterFn: createGitLabRequester(http, resolvedUserAgent) as never,
+    requesterFn: createGitLabRequester(
+      http,
+      resolvedUserAgent,
+      signal,
+    ) as never,
   })
 }
 
@@ -368,8 +385,4 @@ export async function gitLabRestGet(
   signal?: AbortSignal,
 ): Promise<{ status: number; data: unknown }> {
   return gitLabRestRequest(http, draft, "GET", path, undefined, signal)
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

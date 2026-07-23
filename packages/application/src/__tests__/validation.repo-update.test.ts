@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import { createRepositoryWorkflowHandlers } from "../repository-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
+import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
 describe("application repository update workflow helpers", () => {
   it("creates template update pull requests for planned repositories", async () => {
@@ -230,5 +231,69 @@ describe("application repository update workflow helpers", () => {
     assert.equal(result.prsSkipped, result.repositoriesPlanned)
     assert.equal(result.prsFailed, 0)
     assert.equal(getTemplateDiffCalls, 0)
+  })
+
+  it("does not turn caller cancellation during branch or pull-request creation into warnings", async () => {
+    for (const failedOperation of ["branch", "pull-request"] as const) {
+      const controller = new AbortController()
+      const { course, settings, handlers } = createRepoHarness({
+        git: {
+          getRepositoryDefaultBranchHead: async (_draft, request) =>
+            request.owner === "template-org"
+              ? { sha: "new-template-sha", branchName: "main" }
+              : { sha: "repo-base-sha", branchName: "main" },
+          getTemplateDiff: async () => ({
+            files: [
+              {
+                path: "README.md",
+                previousPath: null,
+                status: "modified",
+                contentBase64: "VXBkYXRlZA==",
+              },
+            ],
+          }),
+          createBranch: async () => {
+            if (failedOperation === "branch") {
+              controller.abort(new Error("stop"))
+              throw new DOMException("The operation was aborted.", "AbortError")
+            }
+          },
+          createPullRequest: async () => {
+            if (failedOperation === "pull-request") {
+              controller.abort(new Error("stop"))
+              throw new DOMException("The operation was aborted.", "AbortError")
+            }
+            return { url: "https://example.com/pr/1", created: true }
+          },
+        },
+      })
+      course.repositoryTemplate = {
+        kind: "remote",
+        owner: "template-org",
+        name: "course-template",
+        visibility: "private",
+      }
+      const assignment = course.roster.assignments.find(
+        (candidate) => candidate.id === "a1",
+      )
+      assert.ok(assignment)
+      assignment.templateCommitSha = "old-template-sha"
+
+      await assert.rejects(
+        handlers["repo.update"](
+          {
+            course,
+            credentials: settings,
+            assignmentId: "a1",
+          },
+          { signal: controller.signal },
+        ),
+        (error: unknown) =>
+          typeof error === "object" &&
+          error !== null &&
+          "type" in error &&
+          error.type === "cancelled",
+      )
+    }
   })
 })

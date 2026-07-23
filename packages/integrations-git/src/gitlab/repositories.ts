@@ -1,123 +1,128 @@
-import type { Gitlab } from "@gitbeaker/rest"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
-import type {
-  CreateRepositoriesRequest,
-  GitConnectionDraft,
-  PatchFile,
-} from "@repo-edu/integrations-git-contract"
-import { gitLabRestGet } from "./transport.js"
+import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { withGitLabToken } from "./auth.js"
+import {
+  gitLabErrorMessage,
+  isAlreadyExistsError,
+  isNotFoundError,
+} from "./errors.js"
+import {
+  createProject,
+  extractProjectCloneUrl,
+  extractProjectUrls,
+} from "./repository-api.js"
+import { resolveGroupId } from "./teams.js"
+import { createGitLabApi } from "./transport.js"
 
-function resolveVisibility(
-  request: CreateRepositoriesRequest,
-): "public" | "internal" | "private" {
-  return request.visibility
-}
+type RepositoriesCapability = Pick<
+  GitProviderClient,
+  "createRepositories" | "resolveRepositoryCloneUrls"
+>
 
-export function extractProjectUrl(project: unknown): string {
-  if (typeof project !== "object" || project === null) {
-    return ""
-  }
-
-  const record = project as {
-    web_url?: unknown
-    http_url_to_repo?: unknown
-  }
-
-  if (typeof record.web_url === "string") {
-    return record.web_url
-  }
-  if (typeof record.http_url_to_repo === "string") {
-    return record.http_url_to_repo
-  }
-  return ""
-}
-
-export async function createProject(
-  api: Gitlab,
-  namespaceId: number,
-  repoName: string,
-  request: CreateRepositoriesRequest,
-): Promise<string> {
-  const options: {
-    name: string
-    path: string
-    namespaceId: number
-    visibility: "public" | "internal" | "private"
-    initializeWithReadme?: boolean
-  } = {
-    name: repoName,
-    path: repoName,
-    namespaceId,
-    visibility: resolveVisibility(request),
-  }
-
-  if (request.autoInit) {
-    options.initializeWithReadme = true
-  }
-
-  const project = await api.Projects.create(options)
-  return extractProjectUrl(project)
-}
-
-export async function resolveProjectId(
-  api: Gitlab,
-  projectPath: string,
-): Promise<number | null> {
-  const project = await api.Projects.show(projectPath)
-  const id = (project as { id?: unknown }).id
-  return typeof id === "number" ? id : null
-}
-
-export function toBase64FromGitLabFile(data: unknown): string | null {
-  if (typeof data !== "object" || data === null) {
-    return null
-  }
-  const record = data as { content?: unknown; encoding?: unknown }
-  if (typeof record.content !== "string") {
-    return null
-  }
-  if (record.encoding === "base64") {
-    return record.content.replace(/\n/g, "")
-  }
-  return Buffer.from(record.content, "utf8").toString("base64")
-}
-
-export async function fileExistsInBranch(
+export function createGitLabRepositories(
   http: HttpPort,
-  draft: GitConnectionDraft,
-  projectId: number,
-  path: string,
-  branchName: string,
-  signal?: AbortSignal,
-): Promise<boolean> {
-  const response = await gitLabRestGet(
-    http,
-    draft,
-    `/projects/${projectId}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(branchName)}`,
-    signal,
-  )
-  if (response.status === 404) {
-    return false
-  }
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(
-      `Failed to inspect file '${path}' on '${branchName}' (${response.status}).`,
-    )
-  }
-  return true
-}
+): RepositoriesCapability {
+  return {
+    async createRepositories(draft, request, signal) {
+      if (!request.organization) {
+        return { created: [], alreadyExisted: [], failed: [] }
+      }
+      const api = createGitLabApi(http, draft, signal)
+      let namespaceId: number | null
+      try {
+        namespaceId = await resolveGroupId(api, request.organization)
+      } catch {
+        return { created: [], alreadyExisted: [], failed: [] }
+      }
+      if (namespaceId === null) {
+        return { created: [], alreadyExisted: [], failed: [] }
+      }
 
-export function normalizeTemplateDiffStatus(
-  diff: Record<string, unknown>,
-): PatchFile["status"] {
-  if (diff.deleted_file === true) {
-    return "removed"
+      const created = []
+      const alreadyExisted = []
+      const failed = []
+      for (const repositoryName of request.repositoryNames) {
+        if (signal?.aborted) break
+        try {
+          const urls = await createProject(
+            api,
+            namespaceId,
+            repositoryName,
+            request.visibility,
+            request.autoInit,
+          )
+          if (urls === null) {
+            failed.push({
+              repositoryName,
+              reason: "Provider returned incomplete repository URLs.",
+            })
+          } else {
+            created.push({
+              repositoryName,
+              repositoryUrl: urls.repositoryUrl,
+              cloneUrl: withGitLabToken(urls.cloneUrl, draft.token),
+            })
+          }
+        } catch (error) {
+          if (isAlreadyExistsError(error)) {
+            try {
+              const project = await api.Projects.show(
+                `${request.organization}/${repositoryName}`,
+              )
+              const urls = extractProjectUrls(project)
+              if (urls === null) {
+                failed.push({
+                  repositoryName,
+                  reason: "Repository exists but URLs could not be resolved.",
+                })
+              } else {
+                alreadyExisted.push({
+                  repositoryName,
+                  repositoryUrl: urls.repositoryUrl,
+                  cloneUrl: withGitLabToken(urls.cloneUrl, draft.token),
+                })
+              }
+            } catch (lookupError) {
+              failed.push({
+                repositoryName,
+                reason: `Repository exists but lookup failed: ${gitLabErrorMessage(lookupError)}`,
+              })
+            }
+            continue
+          }
+          failed.push({ repositoryName, reason: gitLabErrorMessage(error) })
+        }
+      }
+      return { created, alreadyExisted, failed }
+    },
+    async resolveRepositoryCloneUrls(draft, request, signal) {
+      if (!request.organization) {
+        return { resolved: [], missing: [...request.repositoryNames] }
+      }
+      const api = createGitLabApi(http, draft, signal)
+      const resolved = []
+      const missing = []
+      for (const repositoryName of request.repositoryNames) {
+        if (signal?.aborted) break
+        try {
+          const project = await api.Projects.show(
+            `${request.organization}/${repositoryName}`,
+          )
+          const cloneUrl = extractProjectCloneUrl(project)
+          if (cloneUrl === null) {
+            missing.push(repositoryName)
+            continue
+          }
+          resolved.push({
+            repositoryName,
+            cloneUrl: withGitLabToken(cloneUrl, draft.token),
+          })
+        } catch (error) {
+          if (!isNotFoundError(error)) throw error
+          missing.push(repositoryName)
+        }
+      }
+      return { resolved, missing }
+    },
   }
-  if (diff.renamed_file === true) {
-    return "renamed"
-  }
-  if (diff.new_file === true) {
-    return "added"
-  }
-  return "modified"
 }

@@ -45,6 +45,7 @@ export function createRepoHarness(options?: {
           created: request.repositoryNames.map((repositoryName) => ({
             repositoryName,
             repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
+            cloneUrl: `https://x-access-token:token@github.com/repo-edu/${repositoryName}.git`,
           })),
           alreadyExisted: [],
           failed: [],

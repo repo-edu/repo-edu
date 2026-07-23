@@ -5,7 +5,10 @@ import type {
   HttpRequest,
   HttpResponse,
 } from "@repo-edu/host-runtime-contract"
-import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
+import type {
+  GitConnectionDraft,
+  GitProviderClient,
+} from "@repo-edu/integrations-git-contract"
 import { createGiteaClient } from "../gitea/index.js"
 import { createGitHubClient } from "../github/index.js"
 import { createGitLabClient } from "../gitlab/index.js"
@@ -113,7 +116,7 @@ describe("Gitea error paths", () => {
       assert.equal(results[1].exists, false)
     })
 
-    it("stops processing usernames when signal is aborted", async () => {
+    it("throws canonical cancellation before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -135,14 +138,17 @@ describe("Gitea error paths", () => {
       controller.abort()
 
       const client = createGiteaClient(http)
-      const results = await client.verifyGitUsernames(
-        giteaDraft,
-        ["alice", "bob", "carol"],
-        controller.signal,
+      await assert.rejects(
+        client.verifyGitUsernames(
+          giteaDraft,
+          ["alice", "bob", "carol"],
+          controller.signal,
+        ),
+        (error: unknown) =>
+          error instanceof DOMException && error.name === "AbortError",
       )
 
       assert.equal(fetchCount, 0)
-      assert.equal(results.length, 0)
     })
 
     it("returns exists: false for all usernames on empty baseUrl", async () => {
@@ -203,7 +209,7 @@ describe("GitHub error paths", () => {
       assert.equal(results[0].exists, false)
     })
 
-    it("stops processing usernames when signal is aborted", async () => {
+    it("throws canonical cancellation before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -221,14 +227,17 @@ describe("GitHub error paths", () => {
       controller.abort()
 
       const client = createGitHubClient(http)
-      const results = await client.verifyGitUsernames(
-        githubDraft,
-        ["alice", "bob"],
-        controller.signal,
+      await assert.rejects(
+        client.verifyGitUsernames(
+          githubDraft,
+          ["alice", "bob"],
+          controller.signal,
+        ),
+        (error: unknown) =>
+          error instanceof DOMException && error.name === "AbortError",
       )
 
       assert.equal(fetchCount, 0)
-      assert.equal(results.length, 0)
     })
   })
 })
@@ -279,7 +288,7 @@ describe("GitLab error paths", () => {
       assert.equal(results[0].exists, false)
     })
 
-    it("stops processing when signal is aborted", async () => {
+    it("throws canonical cancellation before username lookup", async () => {
       let fetchCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -297,14 +306,17 @@ describe("GitLab error paths", () => {
       controller.abort()
 
       const client = createGitLabClient(http)
-      const results = await client.verifyGitUsernames(
-        gitlabDraft,
-        ["alice", "bob"],
-        controller.signal,
+      await assert.rejects(
+        client.verifyGitUsernames(
+          gitlabDraft,
+          ["alice", "bob"],
+          controller.signal,
+        ),
+        (error: unknown) =>
+          error instanceof DOMException && error.name === "AbortError",
       )
 
       assert.equal(fetchCount, 0)
-      assert.equal(results.length, 0)
     })
   })
 })
@@ -378,30 +390,122 @@ describe("error handling consistency across git providers", () => {
     assert.deepStrictEqual(gitea, [{ username: "alice", exists: false }])
   })
 
-  it("all providers handle aborted signal in verifyGitUsernames by returning early", async () => {
+  it("all operations and providers canonicalize custom caller abort reasons", async () => {
     const controller = new AbortController()
-    controller.abort()
+    controller.abort(new Error("custom reason"))
 
     const http = createAbortedHttpPort()
+    const operations: Array<
+      (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
+    > = [
+      (client, draft) => client.verifyConnection(draft, controller.signal),
+      (client, draft) =>
+        client.verifyGitUsernames(draft, ["alice"], controller.signal),
+      (client, draft) =>
+        client.createRepositories(
+          draft,
+          {
+            organization: "course-org",
+            repositoryNames: ["repo-1"],
+            visibility: "private",
+            autoInit: true,
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.createTeam(
+          draft,
+          {
+            organization: "course-org",
+            teamName: "team-1",
+            memberUsernames: ["alice"],
+            permission: "push",
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.assignRepositoriesToTeam(
+          draft,
+          {
+            organization: "course-org",
+            teamSlug: "team-1",
+            repositoryNames: ["repo-1"],
+            permission: "push",
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.getRepositoryDefaultBranchHead(
+          draft,
+          { owner: "course-org", repositoryName: "repo-1" },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.getTemplateDiff(
+          draft,
+          {
+            owner: "course-org",
+            repositoryName: "repo-1",
+            fromSha: "old",
+            toSha: "new",
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.createBranch(
+          draft,
+          {
+            owner: "course-org",
+            repositoryName: "repo-1",
+            branchName: "template-update",
+            baseSha: "base",
+            commitMessage: "Update template",
+            files: [],
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.createPullRequest(
+          draft,
+          {
+            owner: "course-org",
+            repositoryName: "repo-1",
+            headBranch: "template-update",
+            baseBranch: "main",
+            title: "Template update",
+            body: "",
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.resolveRepositoryCloneUrls(
+          draft,
+          { organization: "course-org", repositoryNames: ["repo-1"] },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.listRepositories(
+          draft,
+          { namespace: "course-org" },
+          controller.signal,
+        ),
+    ]
+    const providers: Array<[GitProviderClient, GitConnectionDraft]> = [
+      [createGitHubClient(http), githubDraft],
+      [createGitLabClient(http), gitlabDraft],
+      [createGiteaClient(http), giteaDraft],
+    ]
 
-    const github = await createGitHubClient(http).verifyGitUsernames(
-      githubDraft,
-      ["alice"],
-      controller.signal,
-    )
-    const gitlab = await createGitLabClient(http).verifyGitUsernames(
-      gitlabDraft,
-      ["alice"],
-      controller.signal,
-    )
-    const gitea = await createGiteaClient(http).verifyGitUsernames(
-      giteaDraft,
-      ["alice"],
-      controller.signal,
-    )
-
-    assert.equal(github.length, 0, "GitHub should return empty on abort")
-    assert.equal(gitlab.length, 0, "GitLab should return empty on abort")
-    assert.equal(gitea.length, 0, "Gitea should return empty on abort")
+    for (const [client, draft] of providers) {
+      for (const operation of operations) {
+        await assert.rejects(
+          operation(client, draft),
+          (error: unknown) =>
+            error instanceof DOMException &&
+            error.name === "AbortError" &&
+            error.message === "The operation was aborted.",
+        )
+      }
+    }
   })
 })

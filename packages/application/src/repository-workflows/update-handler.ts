@@ -435,6 +435,7 @@ export function createRepoUpdateHandler(
               baseBranch: head.branchName,
             })
           } catch (error) {
+            throwIfAborted(options?.signal)
             prsFailed += 1
             options?.onOutput?.({
               channel: "warn",
@@ -478,6 +479,7 @@ export function createRepoUpdateHandler(
               })
             }
           } catch (error) {
+            throwIfAborted(options?.signal)
             prsFailed += 1
             options?.onOutput?.({
               channel: "warn",

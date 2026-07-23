@@ -26,7 +26,10 @@ export type CreateRepositoriesRequest = {
 
 export type CreatedRepository = {
   repositoryName: string
+  /** Provider web URL suitable for user-facing output. */
   repositoryUrl: string
+  /** Authenticated HTTP URL for immediate clone or push operations. */
+  cloneUrl: string
 }
 
 export type FailedRepositoryCreate = {

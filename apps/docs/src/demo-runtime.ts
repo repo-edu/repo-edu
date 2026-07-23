@@ -211,6 +211,7 @@ export function createDocsDemoRuntime() {
         created: request.repositoryNames.map((name) => ({
           repositoryName: name,
           repositoryUrl: `https://github.com/${request.organization}/${name}`,
+          cloneUrl: `https://x-access-token:demo-token@github.com/${request.organization}/${name}.git`,
         })),
         alreadyExisted: [],
         failed: [],
