@@ -10,3 +10,6 @@ allowBuilds:
   esbuild: true
   sharp: true
   tree-sitter-cli: true
+
+patchedDependencies:
+  outmatch@1.0.0: patches/outmatch@1.0.0.patch

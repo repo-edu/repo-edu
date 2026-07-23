@@ -18,6 +18,41 @@ import {
 const SNAPSHOT_COMMIT_OID = "a".repeat(40)
 
 describe("analysis.blame handler", () => {
+  it("rejects malformed patterns before any Git operation", async () => {
+    let gitCalled = false
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run() {
+        gitCalled = true
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      handlers["analysis.blame"]({
+        course: createMockCourse(),
+        repositoryRelativePath: "test-repo",
+        config: { excludeAuthors: ["[z-a]"] },
+        personDbBaseline: emptyPersonDb(),
+        files: ["src/main.ts"],
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
+      }),
+      (error: unknown) => {
+        assert.ok(isAppError(error))
+        assert.equal(error.type, "validation")
+        const issue = error.issues[0]
+        assert.ok(issue && "path" in issue)
+        assert.equal(issue.path, "excludeAuthors.0")
+        return true
+      },
+    )
+    assert.equal(gitCalled, false)
+  })
+
   it("returns empty result for empty files list", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({

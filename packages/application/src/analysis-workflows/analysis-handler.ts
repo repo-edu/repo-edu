@@ -8,7 +8,6 @@ import type {
 } from "@repo-edu/application-contract"
 import type {
   AnalysisCommit,
-  AnalysisConfig,
   AnalysisResult,
   AnalysisRosterContext,
   AuthorDailyActivity,
@@ -24,7 +23,10 @@ import {
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
-import { fnmatchFilter } from "./filter-utils.js"
+import {
+  type CompiledAnalysisMatchers,
+  createCompiledAnalysisMatchers,
+} from "./analysis-matchers.js"
 import { parseLogOutput } from "./log-parser.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot, validationError } from "./repo-root.js"
@@ -397,22 +399,15 @@ function toPersonDbIdentityKey(name: string, email: string): string {
 function shouldExcludeIdentity(
   name: string,
   email: string,
-  excludeAuthors: readonly string[],
-  excludeEmails: readonly string[],
+  matchers: CompiledAnalysisMatchers,
 ): boolean {
   const normalizedName = normalizeAuthorName(name)
   const normalizedEmail = normalizeAuthorEmail(email)
 
-  if (
-    excludeAuthors.length > 0 &&
-    fnmatchFilter(normalizedName, excludeAuthors)
-  ) {
+  if (matchers.excludeAuthors(normalizedName)) {
     return true
   }
-  if (
-    excludeEmails.length > 0 &&
-    fnmatchFilter(normalizedEmail, excludeEmails)
-  ) {
+  if (matchers.excludeEmails(normalizedEmail)) {
     return true
   }
   return false
@@ -422,23 +417,15 @@ function applyAuthorExclusions(
   authorStats: AuthorStats[],
   fileStats: FileStats[],
   personDb: AnalysisResult["personDbBaseline"],
-  config: AnalysisConfig,
+  matchers: CompiledAnalysisMatchers,
 ): { authorStats: AuthorStats[]; fileStats: FileStats[] } {
-  const excludeAuthors = config.excludeAuthors ?? []
-  const excludeEmails = config.excludeEmails ?? []
-
-  if (excludeAuthors.length === 0 && excludeEmails.length === 0) {
-    return { authorStats, fileStats }
-  }
-
   const excludedPersonIds = new Set<string>()
   for (const person of personDb.persons) {
     if (
       shouldExcludeIdentity(
         person.canonicalName,
         person.canonicalEmail,
-        excludeAuthors,
-        excludeEmails,
+        matchers,
       )
     ) {
       excludedPersonIds.add(person.id)
@@ -446,12 +433,7 @@ function applyAuthorExclusions(
     }
     if (
       person.aliases.some((alias) =>
-        shouldExcludeIdentity(
-          alias.name,
-          alias.email,
-          excludeAuthors,
-          excludeEmails,
-        ),
+        shouldExcludeIdentity(alias.name, alias.email, matchers),
       )
     ) {
       excludedPersonIds.add(person.id)
@@ -668,6 +650,14 @@ export function createAnalysisRunHandler(
           )
         }
         const config = validation.value
+        const matcherValidation = createCompiledAnalysisMatchers(config)
+        if (!matcherValidation.ok) {
+          throw createValidationAppError(
+            "Analysis pattern validation failed.",
+            matcherValidation.issues,
+          )
+        }
+        const matchers = matcherValidation.value
 
         options?.onProgress?.({
           phase: "init",
@@ -720,7 +710,7 @@ export function createAnalysisRunHandler(
           options?.signal,
         )
 
-        const filePaths = filterFileCandidates(treeEntries, config)
+        const filePaths = filterFileCandidates(treeEntries, config, matchers)
         const totalFiles = filePaths.length
 
         const subfolder = config.subfolder
@@ -771,8 +761,13 @@ export function createAnalysisRunHandler(
         }
 
         const repoWideCommits = filterCommitsByPathScope(
-          applyCommitExclusions(parseLogOutput(repoWideResult.stdout), config),
+          applyCommitExclusions(
+            parseLogOutput(repoWideResult.stdout),
+            config,
+            matchers,
+          ),
           config,
+          matchers,
         )
 
         // Phase 4b: Per-file git log --follow with bounded concurrency.
@@ -828,7 +823,7 @@ export function createAnalysisRunHandler(
               }
 
               const commits = parseLogOutput(result.stdout)
-              const filtered = applyCommitExclusions(commits, config)
+              const filtered = applyCommitExclusions(commits, config, matchers)
               return { filePath, commits: filtered }
             },
           )
@@ -898,7 +893,7 @@ export function createAnalysisRunHandler(
           authorStats,
           fileStats,
           personDbBaseline,
-          config,
+          matchers,
         )
         const visibleAuthorIds = new Set(
           filteredStats.authorStats.map((author) => author.personId),

@@ -1,3 +1,4 @@
+import { compileRepoNamePattern } from "@repo-edu/domain/pattern-matching"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   AssignRepositoriesToTeamRequest,
@@ -21,7 +22,6 @@ import type {
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
-import { matchesGlob } from "../glob-match.js"
 import { withGitHubToken } from "./auth.js"
 import {
   isAlreadyExistsError,
@@ -451,6 +451,7 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
       signal?: AbortSignal,
     ): Promise<ListRepositoriesResult> {
       const octokit = createOctokit(http, draft)
+      const matchesRepositoryName = compileRepoNamePattern(request.filter)
       const repositories: ListRepositoriesResult["repositories"] = []
       try {
         const iterator = octokit.paginate.iterator(octokit.repos.listForOrg, {
@@ -461,7 +462,7 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
         for await (const page of iterator) {
           if (signal?.aborted) break
           for (const repo of page.data) {
-            if (!matchesGlob(repo.name, request.filter)) continue
+            if (!matchesRepositoryName(repo.name)) continue
             const archived = Boolean(repo.archived)
             if (archived && !request.includeArchived) continue
             repositories.push({
@@ -485,7 +486,7 @@ export function createGitHubClient(http: HttpPort): GitProviderClient {
       for await (const page of iterator) {
         if (signal?.aborted) break
         for (const repo of page.data) {
-          if (!matchesGlob(repo.name, request.filter)) continue
+          if (!matchesRepositoryName(repo.name)) continue
           const archived = Boolean(repo.archived)
           if (archived && !request.includeArchived) continue
           repositories.push({

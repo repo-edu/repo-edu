@@ -1,3 +1,4 @@
+import { compileRepoNamePattern } from "@repo-edu/domain/pattern-matching"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   AssignRepositoriesToTeamRequest,
@@ -21,7 +22,6 @@ import type {
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
-import { matchesGlob } from "../glob-match.js"
 import { withGitLabToken } from "./auth.js"
 import {
   gitLabDataMessage,
@@ -661,6 +661,7 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
       if (!request.namespace) {
         return { repositories: [] }
       }
+      const matchesRepositoryName = compileRepoNamePattern(request.filter)
       const api = createGitLabApi(http, draft)
       let groupId: number | null = null
       try {
@@ -688,7 +689,7 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
           // Filter matches the leaf name that the user sees in the preview,
           // never the subgroup-qualified identifier. A leaf that doesn't match
           // the pattern must not appear in the results.
-          if (!matchesGlob(identity.name, request.filter)) continue
+          if (!matchesRepositoryName(identity.name)) continue
           const archived = Boolean((project as { archived?: unknown }).archived)
           if (archived && !request.includeArchived) continue
           repositories.push({ ...identity, archived })
@@ -712,7 +713,7 @@ export function createGitLabClient(http: HttpPort): GitProviderClient {
               request.namespace,
             )
             if (identity === null) continue
-            if (!matchesGlob(identity.name, request.filter)) continue
+            if (!matchesRepositoryName(identity.name)) continue
             const archived = Boolean(
               (project as { archived?: unknown }).archived,
             )

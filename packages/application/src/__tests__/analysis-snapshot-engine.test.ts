@@ -2,14 +2,16 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AppError } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
+import type { AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
+import { createCompiledAnalysisMatchers } from "../analysis-workflows/analysis-matchers.js"
 import {
-  applyCommitExclusions,
+  applyCommitExclusions as applyCommitExclusionsWithMatchers,
   buildCommitGroups,
   buildRepoWideLogArgs,
   type CommitGroup,
-  filterCommitsByPathScope,
-  filterFileCandidates,
+  filterCommitsByPathScope as filterCommitsByPathScopeWithMatchers,
+  filterFileCandidates as filterFileCandidatesWithMatchers,
   reduceCommitGroupOverlap,
   verifySnapshotCommitOid,
 } from "../analysis-workflows/snapshot-engine.js"
@@ -25,6 +27,46 @@ type AnalysisCommit = {
 
 const SNAPSHOT_COMMIT_OID = "a".repeat(40)
 const DIFFERENT_COMMIT_OID = "b".repeat(40)
+
+function compileMatchers(config: AnalysisConfig) {
+  const result = createCompiledAnalysisMatchers(config)
+  assert.equal(result.ok, true)
+  if (!result.ok) throw new Error("Expected analysis matchers to compile")
+  return result.value
+}
+
+function filterFileCandidates(
+  entries: Parameters<typeof filterFileCandidatesWithMatchers>[0],
+  config: AnalysisConfig,
+) {
+  return filterFileCandidatesWithMatchers(
+    entries,
+    config,
+    compileMatchers(config),
+  )
+}
+
+function filterCommitsByPathScope(
+  commits: Parameters<typeof filterCommitsByPathScopeWithMatchers>[0],
+  config: AnalysisConfig,
+) {
+  return filterCommitsByPathScopeWithMatchers(
+    commits,
+    config,
+    compileMatchers(config),
+  )
+}
+
+function applyCommitExclusions(
+  commits: Parameters<typeof applyCommitExclusionsWithMatchers>[0],
+  config: AnalysisConfig,
+) {
+  return applyCommitExclusionsWithMatchers(
+    commits,
+    config,
+    compileMatchers(config),
+  )
+}
 
 function isValidationError(error: unknown): boolean {
   return isAppError(error) && (error as AppError).type === "validation"

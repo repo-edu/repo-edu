@@ -19,6 +19,39 @@ import {
 const SNAPSHOT_COMMIT_OID = "a".repeat(40)
 
 describe("analysis.run handler", () => {
+  it("rejects malformed patterns before any Git operation", async () => {
+    let gitCalled = false
+    const gitCommand: GitCommandPort = {
+      cancellation: "cooperative",
+      async run() {
+        gitCalled = true
+        return { exitCode: 0, stdout: "", stderr: "", signal: null }
+      },
+    }
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      handlers["analysis.run"]({
+        course: createMockCourse(),
+        repositoryRelativePath: "test-repo",
+        config: { includeFiles: ["[z-a]"] },
+        snapshotCommitOid: SNAPSHOT_COMMIT_OID,
+      }),
+      (error: unknown) => {
+        assert.ok(isAppError(error))
+        assert.equal(error.type, "validation")
+        const issue = error.issues[0]
+        assert.ok(issue && "path" in issue)
+        assert.equal(issue.path, "includeFiles.0")
+        return true
+      },
+    )
+    assert.equal(gitCalled, false)
+  })
+
   it("validates config and rejects invalid input", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort({}),

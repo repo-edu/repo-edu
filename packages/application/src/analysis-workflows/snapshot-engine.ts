@@ -1,7 +1,7 @@
 import type { AppError, DiagnosticOutput } from "@repo-edu/application-contract"
 import type { AnalysisCommit, AnalysisConfig } from "@repo-edu/domain/analysis"
 import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
-import { fnmatchFilter } from "./filter-utils.js"
+import type { CompiledAnalysisMatchers } from "./analysis-matchers.js"
 import { LOG_PRETTY_FORMAT } from "./log-parser.js"
 
 const FULL_COMMIT_OID_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
@@ -223,6 +223,7 @@ export async function listSnapshotFiles(
 export function filterFileCandidates(
   entries: TreeEntry[],
   config: AnalysisConfig,
+  matchers: CompiledAnalysisMatchers,
 ): string[] {
   const subfolder = config.subfolder
   const extensions = config.extensions ?? []
@@ -256,7 +257,7 @@ export function filterFileCandidates(
             (subfolder.endsWith("/") ? subfolder : `${subfolder}/`).length,
           )
         : e.path
-      return !fnmatchFilter(relPath, excludeFiles)
+      return !matchers.excludeFiles(relPath)
     })
   }
 
@@ -271,7 +272,7 @@ export function filterFileCandidates(
             (subfolder.endsWith("/") ? subfolder : `${subfolder}/`).length,
           )
         : e.path
-      return fnmatchFilter(relPath, includeFiles)
+      return matchers.includeFiles(relPath)
     })
   }
 
@@ -362,6 +363,7 @@ export function buildRepoWideLogArgs(
 export function filterCommitsByPathScope(
   commits: AnalysisCommit[],
   config: AnalysisConfig,
+  matchers: CompiledAnalysisMatchers,
 ): AnalysisCommit[] {
   const subfolder = config.subfolder
   const extensions = config.extensions ?? []
@@ -392,10 +394,10 @@ export function filterCommitsByPathScope(
       if (dotIndex === -1) return false
       if (!extSet.has(path.slice(dotIndex + 1).toLowerCase())) return false
     }
-    if (excludeFiles.length > 0 && fnmatchFilter(path, excludeFiles)) {
+    if (excludeFiles.length > 0 && matchers.excludeFiles(path)) {
       return false
     }
-    if (!includeAll && !fnmatchFilter(path, includeFiles)) {
+    if (!includeAll && !matchers.includeFiles(path)) {
       return false
     }
     return true
@@ -422,6 +424,7 @@ export function filterCommitsByPathScope(
 export function applyCommitExclusions(
   commits: AnalysisCommit[],
   config: AnalysisConfig,
+  matchers: CompiledAnalysisMatchers,
 ): AnalysisCommit[] {
   const excludeRevisions = config.excludeRevisions ?? []
   const excludeMessages = config.excludeMessages ?? []
@@ -437,7 +440,7 @@ export function applyCommitExclusions(
     }
 
     // Case-insensitive fnmatch for message exclusion
-    if (fnmatchFilter(commit.message, excludeMessages)) {
+    if (matchers.excludeMessages(commit.message)) {
       return false
     }
 

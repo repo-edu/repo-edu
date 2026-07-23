@@ -1,3 +1,4 @@
+import { compileRepoNamePattern } from "@repo-edu/domain/pattern-matching"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type {
   AssignRepositoriesToTeamRequest,
@@ -21,7 +22,6 @@ import type {
   ResolveRepositoryCloneUrlsRequest,
   ResolveRepositoryCloneUrlsResult,
 } from "@repo-edu/integrations-git-contract"
-import { matchesGlob } from "../glob-match.js"
 import { withGiteaToken } from "./auth.js"
 import {
   isAlreadyExists,
@@ -656,6 +656,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
       if (!resolveApiBase(draft) || !request.namespace) {
         return { repositories: [] }
       }
+      const matchesRepositoryName = compileRepoNamePattern(request.filter)
       const repositories: ListRepositoriesResult["repositories"] = []
       const namespace = encodeURIComponent(request.namespace)
       let page = 1
@@ -696,7 +697,7 @@ export function createGiteaClient(http: HttpPort): GitProviderClient {
           if (entry === null || typeof entry !== "object") continue
           const record = entry as Record<string, unknown>
           const name = typeof record.name === "string" ? record.name : ""
-          if (!name || !matchesGlob(name, request.filter)) continue
+          if (!name || !matchesRepositoryName(name)) continue
           const archived = Boolean(record.archived)
           if (archived && !request.includeArchived) continue
           repositories.push({ name, identifier: name, archived })

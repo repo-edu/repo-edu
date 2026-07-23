@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  outmatch@1.0.0: 00736bb8dea770a48a56b89f9bebc9b2bb5e3d5cf7106f7615c258d9f99619e0
+
 importers:
 
   .:
@@ -318,6 +321,9 @@ importers:
       '@noble/hashes':
         specifier: ^2.2.0
         version: 2.2.0
+      outmatch:
+        specifier: 1.0.0
+        version: 1.0.0(patch_hash=00736bb8dea770a48a56b89f9bebc9b2bb5e3d5cf7106f7615c258d9f99619e0)
       web-tree-sitter:
         specifier: 0.26.9
         version: 0.26.9
@@ -5111,6 +5117,9 @@ packages:
   ora@5.4.1:
     resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
     engines: {node: '>=10'}
+
+  outmatch@1.0.0:
+    resolution: {integrity: sha512-Dro+1hlvosA7DUKFqeHUA2g+xdWGoGTGZ+19go5vwxqS7iSTXQtajrEdhTdBXdahzGBEV2NH89vouFWpLyOuPg==}
 
   p-cancelable@2.1.1:
     resolution: {integrity: sha512-BZOr3nRQHOntUjTrH8+Lh54smKHoHyur8We1V8DSMVrl5A2malOOwuJRnKRDjSnkoeBh4at6BwEnb5I7Jl31wg==}
@@ -11569,6 +11578,8 @@ snapshots:
       log-symbols: 4.1.0
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
+
+  outmatch@1.0.0(patch_hash=00736bb8dea770a48a56b89f9bebc9b2bb5e3d5cf7106f7615c258d9f99619e0): {}
 
   p-cancelable@2.1.1: {}
 

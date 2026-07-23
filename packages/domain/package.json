@@ -48,6 +48,11 @@
       "types": "./dist/group-selection.d.ts",
       "default": "./dist/group-selection.js"
     },
+    "./pattern-matching": {
+      "source": "./src/pattern-matching.ts",
+      "types": "./dist/pattern-matching.d.ts",
+      "default": "./dist/pattern-matching.js"
+    },
     "./id-allocator": {
       "source": "./src/id-allocator.ts",
       "types": "./dist/id-allocator.d.ts",
@@ -87,6 +92,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
+    "outmatch": "1.0.0",
     "web-tree-sitter": "0.26.9",
     "zod": "^4.3.6"
   },

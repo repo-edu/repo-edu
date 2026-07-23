@@ -1,7 +1,5 @@
-import {
-  globMatches,
-  validateGlobPattern,
-} from "@repo-edu/domain/group-selection"
+import { compileGroupNamePattern } from "@repo-edu/domain/pattern-matching"
+import type { ValidationResult } from "@repo-edu/domain/types"
 import {
   Button,
   Checkbox,
@@ -23,7 +21,7 @@ import {
   Text,
 } from "@repo-edu/ui"
 import { cn } from "@repo-edu/ui/lib/utils"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectConnectedGroupSets,
@@ -34,6 +32,41 @@ import {
   useCourseStore,
 } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
+
+type GroupNameCompiler = typeof compileGroupNamePattern
+
+export function matchGroupIndexes(
+  pattern: string,
+  groups: readonly { name: string }[],
+  compile: GroupNameCompiler = compileGroupNamePattern,
+): ValidationResult<number[]> {
+  if (pattern === "") {
+    return { ok: true, value: groups.map((_, index) => index) }
+  }
+
+  const compilation = compile(pattern)
+  if (!compilation.ok) return compilation
+
+  const matchedIndexes: number[] = []
+  for (let index = 0; index < groups.length; index += 1) {
+    if (compilation.value(groups[index].name)) {
+      matchedIndexes.push(index)
+    }
+  }
+  return { ok: true, value: matchedIndexes }
+}
+
+export function scheduleGroupIndexMatch(
+  pattern: string,
+  groups: readonly { name: string }[],
+  onResult: (result: ValidationResult<number[]>) => void,
+): () => void {
+  const timeout = setTimeout(() => {
+    onResult(matchGroupIndexes(pattern, groups))
+  }, 400)
+
+  return () => clearTimeout(timeout)
+}
 
 export function NewLocalGroupSetDialog() {
   const controller = useSessionController()
@@ -54,9 +87,11 @@ export function NewLocalGroupSetDialog() {
     selectSystemGroupSet("individual_students"),
   )
   const staffSet = useCourseStore(selectSystemGroupSet("staff"))
-  const sourceGroups = useCourseStore(
-    selectGroupsForGroupSet(sourceGroupSetId ?? ""),
+  const sourceGroupsSelector = useMemo(
+    () => selectGroupsForGroupSet(sourceGroupSetId ?? ""),
+    [sourceGroupSetId],
   )
+  const sourceGroups = useCourseStore(sourceGroupsSelector)
   const roster = useCourseStore(selectRoster)
   const courseId = useCourseStore((state) => state.course?.id ?? null)
 
@@ -119,69 +154,37 @@ export function NewLocalGroupSetDialog() {
     checkedCount > 0 &&
     !creating
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const validationIdRef = useRef(0)
-  const sourceGroupsRef = useRef(sourceGroups)
-  sourceGroupsRef.current = sourceGroups
+  useEffect(() => {
+    if (!sourceGroupSetId) return
+    if (!pattern) {
+      setPatternError(null)
+      setMatchedIndexes(null)
+      setCheckedGroupIds(new Set(sourceGroups.map((group) => group.id)))
+      return
+    }
 
-  const validatePattern = useCallback((value: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      const requestId = ++validationIdRef.current
-      const groups = sourceGroupsRef.current
-
-      const validation = validateGlobPattern(value)
-      if (validationIdRef.current !== requestId) return
+    return scheduleGroupIndexMatch(pattern, sourceGroups, (validation) => {
       if (!validation.ok) {
         setPatternError(validation.issues[0]?.message ?? "Invalid pattern")
         setMatchedIndexes(null)
         return
       }
 
-      const matched: number[] = []
-      for (let i = 0; i < groups.length; i++) {
-        const result = globMatches(value, groups[i].name)
-        if (result.ok && result.value) {
-          matched.push(i)
-        }
-      }
-
       setPatternError(null)
-      setMatchedIndexes(matched)
-      setCheckedGroupIds(new Set(matched.map((index) => groups[index].id)))
-    }, 400)
-  }, [])
-
-  useEffect(() => {
-    if (pattern) {
-      validatePattern(pattern)
-    }
-  }, [pattern, validatePattern])
-
-  useEffect(() => {
-    if (!sourceGroupSetId) return
-    const groups = sourceGroupsRef.current
-    setPattern("")
-    setPatternError(null)
-    setMatchedIndexes(null)
-    setCheckedGroupIds(new Set(groups.map((g) => g.id)))
-  }, [sourceGroupSetId])
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [])
+      setMatchedIndexes(validation.value)
+      setCheckedGroupIds(
+        new Set(validation.value.map((index) => sourceGroups[index].id)),
+      )
+    })
+  }, [pattern, sourceGroupSetId, sourceGroups])
 
   const handlePatternChange = (value: string) => {
     setPattern(value)
-    if (!value) {
-      setPatternError(null)
-      setMatchedIndexes(null)
-      setCheckedGroupIds(new Set(sourceGroups.map((g) => g.id)))
-      return
-    }
-    validatePattern(value)
+  }
+
+  const handleSourceGroupSetChange = (value: string) => {
+    setSourceGroupSetId(value)
+    setPattern("")
   }
 
   const handleToggleGroup = (groupId: string) => {
@@ -347,7 +350,7 @@ export function NewLocalGroupSetDialog() {
             <FormField label="Source group set" htmlFor="source-gs-select">
               <Select
                 value={sourceGroupSetId ?? undefined}
-                onValueChange={setSourceGroupSetId}
+                onValueChange={handleSourceGroupSetChange}
               >
                 <SelectTrigger id="source-gs-select">
                   <SelectValue placeholder="Select a group set" />

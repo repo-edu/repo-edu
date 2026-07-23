@@ -1,0 +1,52 @@
+diff --git a/build/index.es.mjs b/build/index.es.mjs
+index 541d29854c5bb6213b4b4fab06a9de8797152ce6..53a81147c519fd50491215bcc9924d18ae055351 100644
+--- a/build/index.es.mjs
++++ b/build/index.es.mjs
+@@ -129,8 +129,10 @@ function negate(pattern, options) {
+     return { pattern: pattern, isNegated: isNegated };
+ }
+ 
+-function escapeRegExpChar(char) { if (char === '-' ||
+-    char === '^' ||
++function escapeRegExpChar(char) { if (char === '-') {
++    return "\\x2d";
++}
++else if (char === '^' ||
+     char === '$' ||
+     char === '+' ||
+     char === '.' ||
+@@ -271,7 +273,7 @@ function convertSegment(pattern, segment, result) {
+     while (++state.i <= segment.end) {
+         state.char = state.segment.source[state.i];
+         state.nextChar = state.i < segment.end ? segment.source[state.i + 1] : '';
+-        if (state.char === '\\') {
++        if (state.char === '\\' && !state.escapeChar) {
+             if (state.i < state.segment.end) {
+                 state.escapeChar = true;
+                 continue;
+diff --git a/build/index.js b/build/index.js
+index 1f7c2359677ecfd53a7ce905c3ff3b11058fd6b8..3c2247b58f5138753e9f07dd9f2f0be04bc15a18 100644
+--- a/build/index.js
++++ b/build/index.js
+@@ -131,8 +131,10 @@ function negate(pattern, options) {
+     return { pattern: pattern, isNegated: isNegated };
+ }
+ 
+-function escapeRegExpChar(char) { if (char === '-' ||
+-    char === '^' ||
++function escapeRegExpChar(char) { if (char === '-') {
++    return "\\x2d";
++}
++else if (char === '^' ||
+     char === '$' ||
+     char === '+' ||
+     char === '.' ||
+@@ -273,7 +275,7 @@ function convertSegment(pattern, segment, result) {
+     while (++state.i <= segment.end) {
+         state.char = state.segment.source[state.i];
+         state.nextChar = state.i < segment.end ? segment.source[state.i + 1] : '';
+-        if (state.char === '\\') {
++        if (state.char === '\\' && !state.escapeChar) {
+             if (state.i < state.segment.end) {
+                 state.escapeChar = true;
+                 continue;

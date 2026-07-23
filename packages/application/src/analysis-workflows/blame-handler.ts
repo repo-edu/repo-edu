@@ -21,8 +21,11 @@ import {
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
 import { normalizeProviderError, throwIfAborted } from "../workflow-helpers.js"
+import {
+  type CompiledAnalysisMatchers,
+  createCompiledAnalysisMatchers,
+} from "./analysis-matchers.js"
 import { parseBlameOutput } from "./blame-parser.js"
-import { fnmatchFilter } from "./filter-utils.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 import { resolveAnalysisRepoRoot, validationError } from "./repo-root.js"
 import { verifySnapshotCommitOid } from "./snapshot-engine.js"
@@ -158,6 +161,7 @@ function normalizeSubfolderPrefix(subfolder: string | undefined): string {
 function buildBlameTargets(
   files: readonly string[],
   config: AnalysisBlameConfig,
+  matchers: CompiledAnalysisMatchers,
 ): BlameFileTarget[] {
   const subfolderPrefix = normalizeSubfolderPrefix(config.subfolder)
   const includeFiles = config.includeFiles ?? ["*"]
@@ -196,13 +200,13 @@ function buildBlameTargets(
 
   if (excludeFiles.length > 0) {
     targets = targets.filter(
-      (target) => !fnmatchFilter(target.displayPath, excludeFiles),
+      (target) => !matchers.excludeFiles(target.displayPath),
     )
   }
 
   if (!(includeFiles.length === 1 && includeFiles[0] === "*")) {
     targets = targets.filter((target) =>
-      fnmatchFilter(target.displayPath, includeFiles),
+      matchers.includeFiles(target.displayPath),
     )
   }
 
@@ -247,6 +251,14 @@ export function createAnalysisBlameHandler(
           )
         }
         const config = validation.value
+        const matcherValidation = createCompiledAnalysisMatchers(config)
+        if (!matcherValidation.ok) {
+          throw createValidationAppError(
+            "Blame pattern validation failed.",
+            matcherValidation.issues,
+          )
+        }
+        const matchers = matcherValidation.value
 
         const repoRoot = resolveAnalysisRepoRoot(input)
 
@@ -274,7 +286,7 @@ export function createAnalysisBlameHandler(
           options?.signal,
         )
 
-        const targets = buildBlameTargets(input.files, config)
+        const targets = buildBlameTargets(input.files, config, matchers)
 
         if (targets.length === 0) {
           const snapshot = clonePersonDbSnapshot(input.personDbBaseline)
@@ -313,8 +325,6 @@ export function createAnalysisBlameHandler(
         // produced enough cross-IPC + React work to roughly double total
         // blame time for large cohorts.
         const baselineIdentityIndex = input.personDbBaseline.identityIndex
-        const excludeAuthorsForPartial = config.excludeAuthors ?? []
-        const excludeEmailsForPartial = config.excludeEmails ?? []
         const partialLinesByPerson = new Map<string, number>()
         let lastPartialEmitMs = 0
         let partialsDirty = false
@@ -349,16 +359,10 @@ export function createAnalysisBlameHandler(
             const parsed = parseBlameOutput(displayPath, result.stdout)
 
             for (const line of parsed.lines) {
-              if (
-                excludeAuthorsForPartial.length > 0 &&
-                fnmatchFilter(line.authorName, excludeAuthorsForPartial)
-              ) {
+              if (matchers.excludeAuthors(line.authorName)) {
                 continue
               }
-              if (
-                excludeEmailsForPartial.length > 0 &&
-                fnmatchFilter(line.authorEmail, excludeEmailsForPartial)
-              ) {
+              if (matchers.excludeEmails(line.authorEmail)) {
                 continue
               }
               const personId = baselineIdentityIndex.get(
@@ -411,9 +415,6 @@ export function createAnalysisBlameHandler(
 
         let personDb = clonePersonDbSnapshot(input.personDbBaseline)
 
-        const excludeAuthors = config.excludeAuthors ?? []
-        const excludeEmails = config.excludeEmails ?? []
-
         const accumulatedDelta: PersonDbDelta = {
           newPersons: [],
           newAliases: [],
@@ -441,16 +442,10 @@ export function createAnalysisBlameHandler(
           }
 
           const filteredLines = blame.lines.filter((line) => {
-            if (
-              excludeAuthors.length > 0 &&
-              fnmatchFilter(line.authorName, excludeAuthors)
-            ) {
+            if (matchers.excludeAuthors(line.authorName)) {
               return false
             }
-            if (
-              excludeEmails.length > 0 &&
-              fnmatchFilter(line.authorEmail, excludeEmails)
-            ) {
+            if (matchers.excludeEmails(line.authorEmail)) {
               return false
             }
             return true

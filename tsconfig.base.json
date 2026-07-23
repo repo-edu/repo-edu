@@ -47,6 +47,9 @@
       "@repo-edu/domain/group-selection": [
         "./packages/domain/src/group-selection.ts"
       ],
+      "@repo-edu/domain/pattern-matching": [
+        "./packages/domain/src/pattern-matching.ts"
+      ],
       "@repo-edu/domain/repository-planning": [
         "./packages/domain/src/repository-planning.ts"
       ],
