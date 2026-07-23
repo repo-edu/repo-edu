@@ -125,12 +125,14 @@ describe("github repositories", () => {
       })
 
       assert.deepStrictEqual(result.created, [])
-      assert.equal(result.alreadyExisted.length, 1)
-      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
-      assert.equal(
-        result.alreadyExisted[0]?.repositoryUrl,
-        "https://github.com/test-org/repo-1",
-      )
+      assert.deepStrictEqual(result.alreadyExisted, [
+        {
+          repositoryName: "repo-1",
+          repositoryUrl: "https://github.com/test-org/repo-1",
+          cloneUrl:
+            "https://x-access-token:ghp_test_token@github.com/test-org/repo-1.git",
+        },
+      ])
       assert.deepStrictEqual(result.failed, [])
     })
   })

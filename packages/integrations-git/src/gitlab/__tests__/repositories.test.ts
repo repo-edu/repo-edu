@@ -39,8 +39,14 @@ describe("gitlab repositories", () => {
         autoInit: true,
       })
 
-      assert.equal(result.created.length, 1)
-      assert.ok(result.created[0]?.repositoryUrl.includes("repo-1"))
+      assert.deepStrictEqual(result.created, [
+        {
+          repositoryName: "repo-1",
+          repositoryUrl: "https://gitlab.example.com/target-group/repo-1",
+          cloneUrl:
+            "https://oauth2:glpat-test-token@gitlab.example.com/target-group/repo-1.git",
+        },
+      ])
     })
 
     it("creates repos with internal visibility", async () => {
@@ -111,6 +117,29 @@ describe("gitlab repositories", () => {
       })
 
       assert.equal(result.created.length, 0)
+    })
+
+    it("propagates provider failures while resolving the namespace", async () => {
+      const timeout = new DOMException(
+        "The operation timed out.",
+        "TimeoutError",
+      )
+      const http: HttpPort = {
+        async fetch(): Promise<HttpResponse> {
+          throw timeout
+        },
+      }
+
+      const client = createGitLabClient(http)
+      await assert.rejects(
+        client.createRepositories(baseDraft, {
+          organization: "my-group",
+          repositoryNames: ["repo-1"],
+          visibility: "private",
+          autoInit: true,
+        }),
+        timeout,
+      )
     })
 
     it("URL-encodes group paths with slashes", async () => {
@@ -205,8 +234,14 @@ describe("gitlab repositories", () => {
 
       assert.ok(projectPostCalled)
       assert.deepStrictEqual(result.created, [])
-      assert.equal(result.alreadyExisted.length, 1)
-      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
+      assert.deepStrictEqual(result.alreadyExisted, [
+        {
+          repositoryName: "repo-1",
+          repositoryUrl: "https://gitlab.example.com/my-group/repo-1",
+          cloneUrl:
+            "https://oauth2:glpat-test-token@gitlab.example.com/my-group/repo-1.git",
+        },
+      ])
       assert.deepStrictEqual(result.failed, [])
     })
   })

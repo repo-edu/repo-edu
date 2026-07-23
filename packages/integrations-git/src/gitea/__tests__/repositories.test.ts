@@ -44,8 +44,14 @@ describe("gitea repositories", () => {
         autoInit: true,
       })
 
-      assert.equal(result.created.length, 1)
-      assert.ok(result.created[0]?.repositoryUrl.includes("repo-1"))
+      assert.deepStrictEqual(result.created, [
+        {
+          repositoryName: "repo-1",
+          repositoryUrl: "https://gitea.example.com/course-org/repo-1",
+          cloneUrl:
+            "https://token:gitea-test-token@gitea.example.com/course-org/repo-1.git",
+        },
+      ])
       assert.ok(capturedBody.includes('"private":true'))
       assert.ok(capturedBody.includes('"auto_init":true'))
     })
@@ -159,8 +165,14 @@ describe("gitea repositories", () => {
       })
 
       assert.deepStrictEqual(result.created, [])
-      assert.equal(result.alreadyExisted.length, 1)
-      assert.equal(result.alreadyExisted[0]?.repositoryName, "repo-1")
+      assert.deepStrictEqual(result.alreadyExisted, [
+        {
+          repositoryName: "repo-1",
+          repositoryUrl: "https://gitea.example.com/course-org/repo-1",
+          cloneUrl:
+            "https://token:gitea-test-token@gitea.example.com/course-org/repo-1.git",
+        },
+      ])
       assert.deepStrictEqual(result.failed, [])
     })
   })

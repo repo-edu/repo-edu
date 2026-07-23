@@ -295,33 +295,47 @@ describe("application repository create workflow helpers", () => {
     assert.ok(cloneUrls.every((url) => url.includes("created-token")))
   })
 
-  it("does not turn caller cancellation during team creation into a warning", async () => {
-    const controller = new AbortController()
-    const { course, settings, handlers } = createRepoHarness({
-      git: {
-        createTeam: async () => {
-          controller.abort(new Error("stop"))
-          throw new DOMException("The operation was aborted.", "AbortError")
+  it("does not turn caller cancellation during team setup into a warning", async () => {
+    for (const failedOperation of ["create", "assign"] as const) {
+      const controller = new AbortController()
+      const abort = () => {
+        controller.abort(new Error("stop"))
+        throw new DOMException("The operation was aborted.", "AbortError")
+      }
+      const { course, settings, handlers } = createRepoHarness({
+        git: {
+          createTeam: async (_draft, request) => {
+            if (failedOperation === "create") abort()
+            return {
+              created: true,
+              teamSlug: request.teamName,
+              membersAdded: request.memberUsernames,
+              membersNotFound: [],
+            }
+          },
+          assignRepositoriesToTeam: async () => {
+            if (failedOperation === "assign") abort()
+          },
         },
-      },
-    })
+      })
 
-    await assert.rejects(
-      handlers["repo.create"](
-        {
-          course,
-          credentials: settings,
-          assignmentId: "a1",
-          template: null,
-        },
-        { signal: controller.signal },
-      ),
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "cancelled",
-    )
+      await assert.rejects(
+        handlers["repo.create"](
+          {
+            course,
+            credentials: settings,
+            assignmentId: "a1",
+            template: null,
+          },
+          { signal: controller.signal },
+        ),
+        (error: unknown) =>
+          typeof error === "object" &&
+          error !== null &&
+          "type" in error &&
+          error.type === "cancelled",
+      )
+    }
   })
 
   it("forwards the normalized user-agent from git connection into the adapter draft", async () => {

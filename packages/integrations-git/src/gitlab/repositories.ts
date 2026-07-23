@@ -6,12 +6,12 @@ import {
   isAlreadyExistsError,
   isNotFoundError,
 } from "./errors.js"
+import { resolveGroupId } from "./namespace.js"
 import {
   createProject,
   extractProjectCloneUrl,
   extractProjectUrls,
 } from "./repository-api.js"
-import { resolveGroupId } from "./teams.js"
 import { createGitLabApi } from "./transport.js"
 
 type RepositoriesCapability = Pick<
@@ -31,7 +31,8 @@ export function createGitLabRepositories(
       let namespaceId: number | null
       try {
         namespaceId = await resolveGroupId(api, request.organization)
-      } catch {
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error
         return { created: [], alreadyExisted: [], failed: [] }
       }
       if (namespaceId === null) {

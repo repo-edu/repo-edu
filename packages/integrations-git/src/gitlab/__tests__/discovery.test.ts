@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import { createGitLabClient } from "../gitlab-client.js"
 import { baseDraft, createMockHttpPort } from "./harness.js"
 
@@ -198,6 +199,24 @@ describe("gitlab discovery", () => {
       })
 
       assert.deepStrictEqual(result.repositories, [])
+    })
+
+    it("propagates provider failures instead of returning an empty namespace", async () => {
+      const timeout = new DOMException(
+        "The operation timed out.",
+        "TimeoutError",
+      )
+      const http: HttpPort = {
+        async fetch(): Promise<HttpResponse> {
+          throw timeout
+        },
+      }
+
+      const client = createGitLabClient(http)
+      await assert.rejects(
+        client.listRepositories(baseDraft, { namespace: "my-group" }),
+        timeout,
+      )
     })
   })
 })

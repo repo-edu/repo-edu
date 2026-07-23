@@ -1,6 +1,6 @@
-import type { Gitlab } from "@gitbeaker/rest"
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { resolveGroupId } from "./namespace.js"
 import { resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestPost } from "./transport.js"
 import { resolveGitLabUserId } from "./users.js"
@@ -12,15 +12,6 @@ function toTeamPathSlug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
   return slug.startsWith("team-") ? slug : `team-${slug}`
-}
-
-export async function resolveGroupId(
-  api: Gitlab,
-  groupPath: string,
-): Promise<number | null> {
-  const group = await api.Groups.show(groupPath)
-  const id = (group as { id?: unknown }).id
-  return typeof id === "number" ? id : null
 }
 
 type TeamsCapability = Pick<

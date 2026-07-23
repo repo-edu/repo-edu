@@ -4,7 +4,8 @@ import type {
   GitProviderClient,
   ListRepositoriesResult,
 } from "@repo-edu/integrations-git-contract"
-import { resolveGroupId } from "./teams.js"
+import { isNotFoundError } from "./errors.js"
+import { resolveGroupId } from "./namespace.js"
 import { createGitLabApi } from "./transport.js"
 import { resolveGitLabUserId } from "./users.js"
 
@@ -73,7 +74,8 @@ export function createGitLabDiscovery(http: HttpPort): DiscoveryCapability {
       let groupId: number | null = null
       try {
         groupId = await resolveGroupId(api, request.namespace)
-      } catch {
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error
         groupId = null
       }
       if (groupId !== null) {
@@ -103,7 +105,8 @@ export function createGitLabDiscovery(http: HttpPort): DiscoveryCapability {
             signal,
           )
         }
-      } catch {
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error
         // An unresolved namespace has no repository result.
       }
       return { repositories }

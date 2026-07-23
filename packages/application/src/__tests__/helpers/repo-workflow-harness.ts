@@ -58,7 +58,8 @@ export function createRepoHarness(options?: {
           membersAdded: request.memberUsernames,
           membersNotFound: [],
         })),
-      assignRepositoriesToTeam: async () => {},
+      assignRepositoriesToTeam:
+        options?.git?.assignRepositoriesToTeam ?? (async () => {}),
       getRepositoryDefaultBranchHead:
         options?.git?.getRepositoryDefaultBranchHead ??
         (async () => ({
