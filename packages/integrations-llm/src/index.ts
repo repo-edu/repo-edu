@@ -14,10 +14,8 @@ export const packageId = "@repo-edu/integrations-llm"
 export { createClaudeLlmTextClient } from "./claude"
 export type { CodexClientFactory } from "./codex"
 export {
-  buildCodexFixtureCoderThreadOptions,
   buildCodexThreadOptions,
   createCodexLlmTextClient,
-  runCodexFixtureCoder,
 } from "./codex"
 
 export type CreateLlmTextClientOptions = {

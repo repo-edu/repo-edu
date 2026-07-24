@@ -1,31 +1,35 @@
+import type { CodexOptions } from "@openai/codex-sdk"
 import {
+  type CodexLlmProviderRuntimeConfig,
   type LlmAuthMode,
   LlmError,
-  type LlmProviderRuntimeConfig,
 } from "@repo-edu/integrations-llm-contract"
-import { applyEnvOverrides as applyEnvOverridesShared } from "../env"
 
 const CODEX_API_KEY_VAR = "CODEX_API_KEY"
 
 export type ResolvedCodexAuth = {
-  authMode: LlmAuthMode
-  apiKey: string | undefined
-  baseUrl: string | undefined
-  envOverrides: Record<string, string>
-  unsetVars: string[]
+  readonly authMode: LlmAuthMode
+  readonly clientOptions: CodexOptions
 }
 
-function resolveBaseEnv(
-  config: LlmProviderRuntimeConfig | undefined,
-): Record<string, string | undefined> {
-  return { ...process.env, ...(config?.env ?? {}) }
+function buildChildEnvironment(
+  overrides: Readonly<Record<string, string>> | undefined,
+): Record<string, string> {
+  const childEnvironment: Record<string, string> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      childEnvironment[key] = value
+    }
+  }
+  Object.assign(childEnvironment, overrides)
+  return childEnvironment
 }
 
 export function resolveCodexAuth(
-  config: LlmProviderRuntimeConfig | undefined,
+  config: CodexLlmProviderRuntimeConfig | undefined,
 ): ResolvedCodexAuth {
-  const baseEnv = resolveBaseEnv(config)
-  const envApiKey = baseEnv[CODEX_API_KEY_VAR]
+  const childEnvironment = buildChildEnvironment(config?.env)
+  const envApiKey = childEnvironment[CODEX_API_KEY_VAR]
   const explicitKey = config?.apiKey
   const effectiveKey = explicitKey ?? envApiKey
   const explicitMode = config?.authMode
@@ -34,8 +38,6 @@ export function resolveCodexAuth(
     explicitMode ??
     (effectiveKey && effectiveKey.length > 0 ? "api" : "subscription")
 
-  const envOverrides: Record<string, string> = {}
-  const unsetVars: string[] = []
   let apiKey: string | undefined
 
   if (authMode === "api") {
@@ -47,31 +49,23 @@ export function resolveCodexAuth(
       )
     }
     apiKey = effectiveKey
+    childEnvironment[CODEX_API_KEY_VAR] = effectiveKey
   } else {
     apiKey = undefined
-    if (envApiKey || config?.env?.[CODEX_API_KEY_VAR]) {
-      unsetVars.push(CODEX_API_KEY_VAR)
-    }
+    delete childEnvironment[CODEX_API_KEY_VAR]
   }
 
-  // Forward additional config.env overrides (excluding the API-key var, which
-  // is handled separately above so the auth mode stays authoritative).
-  for (const [key, value] of Object.entries(config?.env ?? {})) {
-    if (key === CODEX_API_KEY_VAR) continue
-    envOverrides[key] = value
-  }
-
-  return {
-    authMode,
+  const clientOptions: CodexOptions = {
     apiKey,
     baseUrl: config?.baseUrl,
-    envOverrides,
-    unsetVars,
+    codexPathOverride: config?.binaryPath,
+    env: childEnvironment,
   }
-}
+  Object.freeze(childEnvironment)
+  Object.freeze(clientOptions)
 
-export function applyEnvOverrides(resolved: ResolvedCodexAuth): {
-  restore: () => void
-} {
-  return applyEnvOverridesShared(resolved)
+  return Object.freeze({
+    authMode,
+    clientOptions,
+  })
 }

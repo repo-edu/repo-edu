@@ -185,4 +185,30 @@ describe("connection.verifyLlmDraft", () => {
         (error as { retryable?: unknown }).retryable === false,
     )
   })
+
+  it("normalizes provider AbortError into app-level cancellation", async () => {
+    const handlers = createLlmConnectionWorkflowHandlers({
+      createDraftLlmTextClient: () => ({
+        async generateText() {
+          throw new DOMException("Operation cancelled.", "AbortError")
+        },
+        streamText() {
+          throw new Error("streamText is not used by connection verification.")
+        },
+      }),
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["connection.verifyLlmDraft"]({
+          provider: "codex",
+          authMode: "subscription",
+          apiKey: "",
+        }),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "cancelled",
+    )
+  })
 })

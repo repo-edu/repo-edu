@@ -409,7 +409,7 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
     assert.equal(calls[0].constructorOptions.apiKey, "config-key")
   })
 
-  it("explicit subscription strips CODEX_API_KEY from process.env during the call", async () => {
+  it("explicit subscription omits CODEX_API_KEY from the child environment", async () => {
     process.env[CODEX] = "shell-key"
     const { factory, calls } = createFakeCodex({
       events: [
@@ -434,9 +434,9 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
     )
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.authMode, "subscription")
-    assert.equal(calls[0].observedEnvKey, undefined)
+    assert.equal(calls[0].constructorOptions.env?.[CODEX], undefined)
     assert.equal(calls[0].constructorOptions.apiKey, undefined)
-    // restored after the call
+    assert.equal(calls[0].observedProcessEnvKey, "shell-key")
     assert.equal(process.env[CODEX], "shell-key")
   })
 
@@ -531,5 +531,34 @@ describe("createCodexLlmTextClient — error classification", () => {
         err.context.provider === "codex" &&
         err.context.authMode === "api",
     )
+  })
+
+  it("surfaces cancellation as AbortError and removes the temporary directory", async () => {
+    process.env[CODEX] = "k"
+    const controller = new AbortController()
+    const { factory, calls } = createFakeCodex({
+      onRun: () => controller.abort(),
+      events: [
+        {
+          type: "item.completed",
+          item: { id: "1", type: "agent_message", text: "ignored" },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+
+    await assert.rejects(
+      () =>
+        client.generateText({
+          ...request(codexSpec),
+          signal: controller.signal,
+        }),
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+
+    const workingDirectory = calls[0]?.threadOptions.workingDirectory
+    assert.ok(workingDirectory)
+    await assert.rejects(() => fs.access(workingDirectory))
   })
 })

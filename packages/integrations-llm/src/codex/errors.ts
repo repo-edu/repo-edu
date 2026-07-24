@@ -128,3 +128,19 @@ export function toCodexLlmError(
     },
   })
 }
+
+export function toCodexError(
+  cause: unknown,
+  authMode: LlmAuthMode,
+  signal: AbortSignal | undefined,
+): LlmError | DOMException {
+  if (signal?.aborted) {
+    return new DOMException(
+      cause instanceof Error && cause.message.length > 0
+        ? cause.message
+        : "Operation cancelled.",
+      "AbortError",
+    )
+  }
+  return toCodexLlmError(cause, authMode)
+}

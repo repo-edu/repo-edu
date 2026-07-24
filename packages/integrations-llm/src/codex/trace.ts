@@ -7,9 +7,8 @@ import type {
   ThreadItem,
 } from "@openai/codex-sdk"
 
-// Trace recorder for Codex turns. Prompt/reply calls are read-only, while
-// fixture-repo calls can emit command and file-change events. The shape mirrors
-// the Claude trace recorder so consumers can use one TraceSink for both.
+// Trace recorder for read-only Codex prompt/reply turns. The shape mirrors the
+// Claude trace recorder so consumers can use one TraceSink for both.
 
 export type TraceSink = (text: string) => void
 

@@ -12,11 +12,9 @@ import {
 } from "./runner"
 import type { TraceSink } from "./trace"
 
-export type { CodexClientFactory, CodexFixtureCoderRequest } from "./runner"
+export type { CodexClientFactory } from "./runner"
 export {
-  buildCodexFixtureCoderThreadOptions,
   buildCodexThreadOptions,
-  runCodexFixtureCoder,
   runCodexQuery,
   runCodexQueryStream,
 } from "./runner"

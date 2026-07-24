@@ -39,13 +39,14 @@ export type FakeCall = {
   constructorOptions: CodexOptions
   threadOptions: ThreadOptions
   promptInput: string
-  observedEnvKey: string | undefined
+  observedProcessEnvKey: string | undefined
 }
 
 export type FakeOutcome = {
   events?: ThreadEvent[]
   throwOnRun?: unknown
   delayBeforeEventsMs?: number
+  onRun?: () => void
 }
 
 export function installCodexEnvHooks(): void {
@@ -82,8 +83,9 @@ export function createFakeCodex(outcome: FakeOutcome): {
               constructorOptions,
               threadOptions,
               promptInput: typeof input === "string" ? input : "",
-              observedEnvKey: process.env[CODEX],
+              observedProcessEnvKey: process.env[CODEX],
             })
+            outcome.onRun?.()
             const events = outcome.events ?? []
             const throwOnRun = outcome.throwOnRun
             return {

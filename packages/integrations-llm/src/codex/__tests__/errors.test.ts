@@ -4,7 +4,7 @@ import {
   LlmError,
   QUOTA_RETRY_AFTER_THRESHOLD_MS,
 } from "@repo-edu/integrations-llm-contract"
-import { classifyCodexSdkError, toCodexLlmError } from "../errors"
+import { classifyCodexSdkError, toCodexError, toCodexLlmError } from "../errors"
 
 describe("classifyCodexSdkError", () => {
   it("classifies authentication failures via 401/unauthorized", () => {
@@ -104,5 +104,37 @@ describe("toCodexLlmError", () => {
     assert.notEqual(err, original)
     assert.equal(err.context.provider, "codex")
     assert.equal(err.context.authMode, "subscription")
+  })
+})
+
+describe("toCodexError", () => {
+  it("uses the caller signal to construct AbortError", () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const error = toCodexError(
+      Object.assign(new Error("The operation was aborted."), {
+        code: "ABORT_ERR",
+      }),
+      "subscription",
+      controller.signal,
+    )
+
+    assert.ok(error instanceof DOMException)
+    assert.equal(error.name, "AbortError")
+    assert.equal(error.message, "The operation was aborted.")
+  })
+
+  it("keeps abort-shaped failures on LlmError classification when the caller signal is active", () => {
+    const error = toCodexError(
+      Object.assign(new Error("The operation was aborted."), {
+        code: "ABORT_ERR",
+      }),
+      "subscription",
+      new AbortController().signal,
+    )
+
+    assert.ok(error instanceof LlmError)
+    assert.equal(error.kind, "other")
   })
 })
