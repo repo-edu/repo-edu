@@ -33,6 +33,6 @@
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "@types/linkify-it": "^5.0.0",
     "@types/papaparse": "^5.5.2",
-    "web-tree-sitter": "0.26.9"
+    "web-tree-sitter": "0.26.11"
   }
 }

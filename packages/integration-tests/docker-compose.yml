@@ -1,6 +1,6 @@
 services:
   gitea:
-    image: gitea/gitea:1.25.4@sha256:17d18218be2dad1f8ed402a4f906989505c90ab8b66ee9befcecfb5d470133e7
+    image: gitea/gitea:1.27.0@sha256:7dff60d7ea6df9d0bdf78971cdb1350e9b7df3fda5f115c77afe12122887bd64
     ports:
       - "${GITEA_PORT:-3000}:3000"
     environment:
@@ -15,7 +15,7 @@ services:
       retries: 30
       start_period: 10s
   gitlab:
-    image: gitlab/gitlab-ce:19.0.1-ce.0@sha256:c7082004a0f64123634fda345e849453d52956621893bed7d2218fa6f088247f
+    image: gitlab/gitlab-ce:19.2.0-ce.0@sha256:d450658c70156b30730d2938c14f7599664e009236b9664a98f5c82160ec510b
     hostname: gitlab.local
     environment:
       - GITLAB_OMNIBUS_CONFIG=external_url 'http://localhost:${GITLAB_PORT:-8929}'; nginx['listen_port'] = ${GITLAB_PORT:-8929}; gitlab_rails['initial_root_password'] = '${GITLAB_INITIAL_ROOT_PASSWORD:-R7vK2pQ9mL4xT8nC5bH3jF6sD1wZ}';

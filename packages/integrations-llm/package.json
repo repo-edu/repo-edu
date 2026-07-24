@@ -4,7 +4,7 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
-    "@openai/codex-sdk": "0.128.0",
+    "@openai/codex-sdk": "0.144.6",
     "@repo-edu/integrations-llm-contract": "workspace:*"
   },
   "exports": {

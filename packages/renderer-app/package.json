@@ -28,7 +28,7 @@
     "nanoid": "^5.1.7",
     "recharts": "^3.8.1",
     "shiki": "^4.0.2",
-    "web-tree-sitter": "0.26.9",
+    "web-tree-sitter": "0.26.11",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
