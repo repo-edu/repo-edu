@@ -25,30 +25,27 @@ export function createGiteaDiscovery(http: HttpPort): DiscoveryCapability {
         const route = tryingOrganization
           ? `/orgs/${namespace}/repos?limit=${perPage}&page=${page}`
           : `/users/${namespace}/repos?limit=${perPage}&page=${page}`
-        let response: Awaited<ReturnType<typeof giteaRequest>>
-        try {
-          response = await giteaRequest(
-            http,
-            draft,
-            "GET",
-            route,
-            undefined,
-            signal,
-          )
-        } catch {
-          if (tryingOrganization && page === 1) {
+        const response = await giteaRequest(
+          http,
+          draft,
+          "GET",
+          route,
+          undefined,
+          signal,
+        )
+        if (response.status === 404 && page === 1) {
+          if (tryingOrganization) {
             tryingOrganization = false
-            page = 1
             continue
           }
+          // An unresolved namespace has no repository result.
           break
         }
-        if (response.status === 404 && tryingOrganization && page === 1) {
-          tryingOrganization = false
-          page = 1
-          continue
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(
+            `Failed to list repositories for '${request.namespace}' (${response.status}).`,
+          )
         }
-        if (response.status < 200 || response.status >= 300) break
         if (!Array.isArray(response.data) || response.data.length === 0) break
         for (const entry of response.data) {
           if (typeof entry !== "object" || entry === null) continue

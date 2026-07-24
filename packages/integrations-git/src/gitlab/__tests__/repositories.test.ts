@@ -98,7 +98,7 @@ describe("gitlab repositories", () => {
       assert.ok(capturedBody.includes('"visibility":"internal"'))
     })
 
-    it("returns empty result when org has no namespace id", async () => {
+    it("reports every repository as failed when the group has no namespace id", async () => {
       const http = createMockHttpPort([
         {
           method: "GET",
@@ -116,7 +116,46 @@ describe("gitlab repositories", () => {
         autoInit: true,
       })
 
-      assert.equal(result.created.length, 0)
+      assert.deepStrictEqual(result.created, [])
+      assert.deepStrictEqual(result.alreadyExisted, [])
+      assert.deepStrictEqual(result.failed, [
+        {
+          repositoryName: "repo-1",
+          reason: "GitLab group 'my-group' was not found.",
+        },
+      ])
+    })
+
+    it("reports every repository as failed when the group is missing", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: "/groups/no-such-group",
+          status: 404,
+          body: { message: "404 Group Not Found" },
+        },
+      ])
+
+      const client = createGitLabClient(http)
+      const result = await client.createRepositories(baseDraft, {
+        organization: "no-such-group",
+        repositoryNames: ["repo-1", "repo-2"],
+        visibility: "private",
+        autoInit: true,
+      })
+
+      assert.deepStrictEqual(result.created, [])
+      assert.deepStrictEqual(result.alreadyExisted, [])
+      assert.deepStrictEqual(result.failed, [
+        {
+          repositoryName: "repo-1",
+          reason: "GitLab group 'no-such-group' was not found.",
+        },
+        {
+          repositoryName: "repo-2",
+          reason: "GitLab group 'no-such-group' was not found.",
+        },
+      ])
     })
 
     it("propagates provider failures while resolving the namespace", async () => {

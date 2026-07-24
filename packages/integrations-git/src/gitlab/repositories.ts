@@ -28,15 +28,17 @@ export function createGitLabRepositories(
         return { created: [], alreadyExisted: [], failed: [] }
       }
       const api = createGitLabApi(http, draft, signal)
-      let namespaceId: number | null
-      try {
-        namespaceId = await resolveGroupId(api, request.organization)
-      } catch (error) {
-        if (!isNotFoundError(error)) throw error
-        return { created: [], alreadyExisted: [], failed: [] }
-      }
+      const namespaceId = await resolveGroupId(api, request.organization)
       if (namespaceId === null) {
-        return { created: [], alreadyExisted: [], failed: [] }
+        const reason = `GitLab group '${request.organization}' was not found.`
+        return {
+          created: [],
+          alreadyExisted: [],
+          failed: request.repositoryNames.map((repositoryName) => ({
+            repositoryName,
+            reason,
+          })),
+        }
       }
 
       const created = []

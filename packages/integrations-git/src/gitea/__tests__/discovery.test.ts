@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { HttpPort, HttpResponse } from "@repo-edu/host-runtime-contract"
 import { createGiteaClient } from "../gitea-client.js"
 import { baseDraft, createMockHttpPort } from "./harness.js"
 
@@ -87,6 +88,47 @@ describe("gitea discovery", () => {
       assert.deepStrictEqual(
         result.repositories.map((entry) => entry.name),
         ["personal-repo"],
+      )
+    })
+
+    it("returns an empty list when neither organization nor user namespace exists", async () => {
+      const client = createGiteaClient(createMockHttpPort([]))
+      const result = await client.listRepositories(baseDraft, {
+        namespace: "ghost",
+      })
+
+      assert.deepStrictEqual(result.repositories, [])
+    })
+
+    it("propagates provider failures instead of returning an empty listing", async () => {
+      const http = createMockHttpPort([
+        {
+          method: "GET",
+          urlPattern: /\/api\/v1\/orgs\/course-org\/repos/,
+          status: 500,
+          body: { message: "internal error" },
+        },
+      ])
+
+      const client = createGiteaClient(http)
+      await assert.rejects(
+        client.listRepositories(baseDraft, { namespace: "course-org" }),
+        /Failed to list repositories for 'course-org' \(500\)\./,
+      )
+    })
+
+    it("propagates network failures instead of returning an empty listing", async () => {
+      const failure = new Error("Connection refused")
+      const http: HttpPort = {
+        async fetch(): Promise<HttpResponse> {
+          throw failure
+        },
+      }
+
+      const client = createGiteaClient(http)
+      await assert.rejects(
+        client.listRepositories(baseDraft, { namespace: "course-org" }),
+        failure,
       )
     })
 

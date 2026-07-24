@@ -199,12 +199,6 @@ async function executeRequest<T extends ResponseBody>(
     callerSignal && options?.signal
       ? AbortSignal.any([callerSignal, options.signal])
       : (callerSignal ?? options?.signal)
-  const request = new Request(url, {
-    method,
-    headers,
-    body,
-    signal,
-  })
   const httpResponse = await http.fetch({
     url: url.toString(),
     method,
@@ -214,6 +208,12 @@ async function executeRequest<T extends ResponseBody>(
   })
 
   if (httpResponse.status < 200 || httpResponse.status >= 300) {
+    const request = new Request(url, {
+      method,
+      headers,
+      body,
+      signal,
+    })
     const response = new Response(httpResponse.body, {
       status: httpResponse.status,
       statusText: httpResponse.statusText,

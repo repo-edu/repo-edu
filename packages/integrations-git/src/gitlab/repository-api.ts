@@ -4,6 +4,7 @@ import type {
   GitConnectionDraft,
   PatchFile,
 } from "@repo-edu/integrations-git-contract"
+import { isNotFoundError } from "./errors.js"
 import { gitLabRestGet } from "./transport.js"
 
 export type GitLabProjectUrls = {
@@ -54,7 +55,13 @@ export async function resolveProjectId(
   api: Gitlab,
   projectPath: string,
 ): Promise<number | null> {
-  const project = await api.Projects.show(projectPath)
+  let project: unknown
+  try {
+    project = await api.Projects.show(projectPath)
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error
+    return null
+  }
   const id = (project as { id?: unknown }).id
   return typeof id === "number" ? id : null
 }

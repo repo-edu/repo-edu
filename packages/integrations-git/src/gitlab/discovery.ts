@@ -71,13 +71,7 @@ export function createGitLabDiscovery(http: HttpPort): DiscoveryCapability {
       const matches = compileRepoNamePattern(request.filter)
       const api = createGitLabApi(http, draft, signal)
       const repositories: ListRepositoriesResult["repositories"] = []
-      let groupId: number | null = null
-      try {
-        groupId = await resolveGroupId(api, request.namespace)
-      } catch (error) {
-        if (!isNotFoundError(error)) throw error
-        groupId = null
-      }
+      const groupId = await resolveGroupId(api, request.namespace)
       if (groupId !== null) {
         const projects = await api.Groups.allProjects(groupId, {
           perPage: 100,

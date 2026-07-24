@@ -93,6 +93,30 @@ describe("gitlab teams", () => {
       assert.deepStrictEqual(result.membersAdded, ["alice"])
       assert.deepStrictEqual(result.membersNotFound, ["nobody"])
     })
+
+    it("reports a missing organization with a clear error", async () => {
+      const http: HttpPort = {
+        async fetch(): Promise<HttpResponse> {
+          return {
+            status: 404,
+            statusText: "Not Found",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: "404 Group Not Found" }),
+          }
+        },
+      }
+
+      const client = createGitLabClient(http)
+      await assert.rejects(
+        client.createTeam(baseDraft, {
+          organization: "ghost-org",
+          teamName: "hw1-team",
+          memberUsernames: [],
+          permission: "push",
+        }),
+        /Organization 'ghost-org' was not found on GitLab\./,
+      )
+    })
   })
 
   describe("assignRepositoriesToTeam", () => {
