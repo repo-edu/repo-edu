@@ -19,6 +19,6 @@ provider:
 
 - Browser-safe: no Node/Electron imports.
 - Zero implementation — types, the `LlmError` class, and constants only.
-- Prompt/reply only. Provider-specific coding helpers live in
-  `@repo-edu/integrations-llm`; they are not part of this contract.
+- Prompt/reply only. Coding workflows live in `@repo-edu/fixture-engine` and
+  `@repo-edu/claude-coder`; they are not part of this contract.
 - Implementations live in `@repo-edu/integrations-llm`.

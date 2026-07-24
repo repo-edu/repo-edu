@@ -4,6 +4,7 @@ import { describe, it } from "node:test"
 import {
   LlmError,
   type LlmModelSpec,
+  type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import { createCodexLlmTextClient } from "../index"
 import {
@@ -40,6 +41,7 @@ describe("createCodexLlmTextClient — guard rails", () => {
         err instanceof LlmError &&
         err.kind === "other" &&
         err.context.provider === "codex" &&
+        err.context.authMode === "subscription" &&
         /'max' is not supported/.test(err.message),
     )
   })
@@ -479,6 +481,70 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
 })
 
 describe("createCodexLlmTextClient — error classification", () => {
+  it("rejects a raw stream that ends without a terminal event", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "item.completed",
+          item: { id: "1", type: "agent_message", text: "incomplete" },
+        },
+      ],
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of client.streamText(request(codexSpec))) {
+          // Consume the complete public stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.context.provider === "codex" &&
+        error.context.authMode === "api" &&
+        /without a terminal usage event/.test(error.message),
+    )
+  })
+
+  it("withholds done when the SDK fails after turn completion", async () => {
+    process.env[CODEX] = "k"
+    const { factory } = createFakeCodex({
+      events: [
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 1,
+            cached_input_tokens: 0,
+            output_tokens: 1,
+            reasoning_output_tokens: 0,
+          },
+        },
+      ],
+      throwAfterEvents: new Error("ECONNRESET after terminal event"),
+    })
+    const client = createCodexLlmTextClient(undefined, { factory })
+    const publicEvents: LlmStreamEvent[] = []
+
+    await assert.rejects(
+      async () => {
+        for await (const event of client.streamText(request(codexSpec))) {
+          publicEvents.push(event)
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "network" &&
+        error.context.provider === "codex" &&
+        error.context.authMode === "api",
+    )
+    assert.equal(
+      publicEvents.some((event) => event.kind === "done"),
+      false,
+    )
+  })
+
   it("wraps a turn.failed event into an LlmError with codex context", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({

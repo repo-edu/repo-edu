@@ -45,6 +45,7 @@ export type FakeCall = {
 export type FakeOutcome = {
   events?: ThreadEvent[]
   throwOnRun?: unknown
+  throwAfterEvents?: unknown
   delayBeforeEventsMs?: number
   onRun?: () => void
 }
@@ -97,6 +98,7 @@ export function createFakeCodex(outcome: FakeOutcome): {
                   )
                 }
                 for (const event of events) yield event
+                if (outcome.throwAfterEvents) throw outcome.throwAfterEvents
               })(),
             }
           },

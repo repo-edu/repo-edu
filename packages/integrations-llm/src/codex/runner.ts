@@ -44,6 +44,10 @@ export type CodexRunOptions = {
   factory?: CodexClientFactory
 }
 
+type CodexTurnTerminalOutcome =
+  | { readonly kind: "completed"; readonly usage: LlmResult["usage"] }
+  | { readonly kind: "failed"; readonly message: string }
+
 const SUPPORTED_EFFORTS: ReadonlySet<LlmEffort> = new Set([
   "minimal",
   "low",
@@ -114,11 +118,7 @@ async function collectCodexStream(
     }
   }
   if (usage === null) {
-    throw new LlmError(
-      "other",
-      "Codex stream ended without a terminal usage event.",
-      { context: { provider: "codex" } },
-    )
+    throw new Error("Codex stream ended without a terminal usage event.")
   }
   return { reply, usage }
 }
@@ -134,13 +134,13 @@ async function* runCodexTurnStream(
       `Codex adapter received non-codex spec.provider="${options.spec.provider}"`,
     )
   }
+  const resolved = resolveCodexAuth(config)
   if (options.spec.effort === "max") {
     throw new LlmError("other", "effort 'max' is not supported on Codex", {
-      context: { provider: "codex" },
+      context: { provider: "codex", authMode: resolved.authMode },
     })
   }
 
-  const resolved = resolveCodexAuth(config)
   const start = Date.now()
   const recorder: CodexTraceRecorder = createCodexTraceRecorder(options.trace)
 
@@ -158,8 +158,7 @@ async function* runCodexTurnStream(
     })
 
     const emittedTextLengthsByItemId = new Map<string, number>()
-    let turnFailure: string | null = null
-    let streamError: string | null = null
+    let terminalOutcome: CodexTurnTerminalOutcome | null = null
     for await (const event of streamed.events as AsyncIterable<ThreadEvent>) {
       if (options.signal?.aborted) {
         throw new Error("Operation cancelled.")
@@ -221,8 +220,8 @@ async function* runCodexTurnStream(
       }
       if (event.type === "turn.completed") {
         recorder.recordUsage(event.usage)
-        yield {
-          kind: "done",
+        terminalOutcome = {
+          kind: "completed",
           usage: mapCodexUsage(
             event.usage,
             Date.now() - start,
@@ -232,25 +231,26 @@ async function* runCodexTurnStream(
         continue
       }
       if (event.type === "turn.failed") {
-        turnFailure = event.error.message
-        recorder.recordError(turnFailure)
+        terminalOutcome = { kind: "failed", message: event.error.message }
+        recorder.recordError(terminalOutcome.message)
         break
       }
       if (event.type === "error") {
-        streamError = event.message
-        recorder.recordError(streamError)
+        terminalOutcome = { kind: "failed", message: event.message }
+        recorder.recordError(terminalOutcome.message)
         break
       }
     }
     if (options.signal?.aborted) {
       throw new Error("Operation cancelled.")
     }
-    if (turnFailure) {
-      throw new Error(turnFailure)
+    if (terminalOutcome === null) {
+      throw new Error("Codex stream ended without a terminal usage event.")
     }
-    if (streamError) {
-      throw new Error(streamError)
+    if (terminalOutcome.kind === "failed") {
+      throw new Error(terminalOutcome.message)
     }
+    yield { kind: "done", usage: terminalOutcome.usage }
   } catch (cause) {
     throw toCodexError(cause, resolved.authMode, options.signal)
   }
