@@ -28,7 +28,6 @@ export type ExaminationProviderPromptExcerpt = {
 }
 
 export type ExaminationProviderPromptPayload = {
-  anonymousContributorLabel: string
   questionCount: number
   excerpts: ExaminationProviderPromptExcerpt[]
 }
@@ -168,7 +167,6 @@ export async function prepareExaminationProviderExcerpts(params: {
 
   return {
     promptPayload: {
-      anonymousContributorLabel: "Contributor 1",
       questionCount: params.questionCount,
       excerpts: promptExcerpts,
     },

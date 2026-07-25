@@ -5,6 +5,7 @@ import type {
 } from "./provider-excerpts.js"
 
 export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 2 as const
+const EXAMINATION_ANONYMOUS_CONTRIBUTOR_LABEL = "Contributor 1" as const
 
 type BuildExaminationPromptOptions = {
   seedQuestions?: readonly ExaminationQuestion[]
@@ -19,7 +20,7 @@ export function buildExaminationPrompt(
     "The selected contributor below is associated with the selected software project excerpts.",
     "Using only the redacted code excerpts attributed to the selected contributor, produce questions that probe whether the contributor genuinely understands the code.",
     "",
-    `Contributor label: ${payload.anonymousContributorLabel}`,
+    `Contributor label: ${EXAMINATION_ANONYMOUS_CONTRIBUTOR_LABEL}`,
   ]
     .filter((line) => line !== "")
     .join("\n")

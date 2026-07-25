@@ -21,7 +21,6 @@ import { createValidationAppError } from "../core.js"
 import { basename, isAbsolutePath } from "../path-utils.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
-import { EXAMINATION_REDACTION_POLICY_VERSION } from "./redaction.js"
 
 const GENERIC_FOLDER_LABELS = new Set([
   "code",
@@ -489,7 +488,6 @@ export function createPrepareSubmissionSourceHandler(
           folderPath,
           attachedRosterIdentities: validated.attachedRosterIdentities ?? [],
         }),
-        redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
         excerpts: files.map((file) => ({
           filePath: file.relativePath,
           startLine: 1,

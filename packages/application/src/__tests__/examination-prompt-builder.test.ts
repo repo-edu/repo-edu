@@ -5,7 +5,6 @@ import { buildExaminationPrompt } from "../examination-workflows/prompt-builder.
 describe("examination prompt builder", () => {
   it("uses backing-neutral examination wording", () => {
     const prompt = buildExaminationPrompt({
-      anonymousContributorLabel: "Contributor 1",
       questionCount: 2,
       excerpts: [
         {
@@ -18,6 +17,7 @@ describe("examination prompt builder", () => {
     })
 
     assert.match(prompt, /selected software project excerpts/)
+    assert.match(prompt, /Contributor label: Contributor 1/)
     assert.doesNotMatch(prompt, /final repository state/)
   })
 })

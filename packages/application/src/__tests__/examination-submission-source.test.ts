@@ -119,6 +119,7 @@ describe("examination.prepareSubmissionSource", () => {
     assert.equal(result.excerpts[0]?.filePath, "src/main.ts")
     assert.deepEqual(result.localIdentityContext.names, ["Ada Lovelace"])
     assert.equal(result.contentScopeId.length, 64)
+    assert.equal("redactionPolicyVersion" in result, false)
   })
 
   it("rejects invalid UTF-8 and files over the line limit", async () => {

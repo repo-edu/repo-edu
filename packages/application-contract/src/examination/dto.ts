@@ -67,7 +67,6 @@ export type ExaminationPreparedSubmissionSource = {
   displaySubtitle: string
   contentScopeId: string
   localIdentityContext: ExaminationLocalIdentityContext
-  redactionPolicyVersion: number
   excerpts: ExaminationCodeExcerpt[]
   excerptFileSources: Record<string, string>
 }
