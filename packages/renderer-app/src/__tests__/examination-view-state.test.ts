@@ -24,7 +24,7 @@ const courseIdentity: SourceIdentity = {
   commitOid: courseCommitOid,
   subjectId: "p_1",
   excerptScopeId: "scope-a",
-  redactionIdentityScopeId: "redaction-a",
+  localIdentityContextFingerprint: "identity-a",
   questionCount: 4,
   model: "22",
   effort: "medium",

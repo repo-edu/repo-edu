@@ -28,7 +28,7 @@ const identity: SourceIdentity = {
   commitOid: repositoryCommitOid,
   subjectId: "p_1",
   excerptScopeId: "scope-1",
-  redactionIdentityScopeId: "redaction-1",
+  localIdentityContextFingerprint: "identity-1",
   questionCount: 4,
   model: "22",
   effort: "medium",
@@ -40,7 +40,7 @@ const submissionIdentity = {
   contentScopeId: "submission-scope",
   subjectId: "submission",
   excerptScopeId: "submission-scope",
-  redactionIdentityScopeId: "redaction-1",
+  localIdentityContextFingerprint: "identity-1",
   questionCount: 4,
   model: "22",
   effort: "medium",
@@ -700,7 +700,7 @@ function repositorySummaryKey(repoPath: string): string {
     "repository-analysis-summary",
     repoPath,
     repositoryCommitOid,
-    identity.redactionIdentityScopeId,
+    identity.localIdentityContextFingerprint,
     [[identity.subjectId, identity.excerptScopeId]],
   ])
 }
@@ -721,7 +721,7 @@ function submissionSummaryKey(folderPath: string): string {
     "submission-summary",
     folderPath,
     submissionIdentity.contentScopeId,
-    submissionIdentity.redactionIdentityScopeId,
+    submissionIdentity.localIdentityContextFingerprint,
     [[submissionIdentity.subjectId, submissionIdentity.excerptScopeId]],
   ])
 }

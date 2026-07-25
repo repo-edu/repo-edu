@@ -1,6 +1,11 @@
+import { sha256 } from "@noble/hashes/sha2.js"
+import { bytesToHex } from "@noble/hashes/utils.js"
 import type { PersonDbSnapshot } from "@repo-edu/domain/analysis"
 import { bridgeAuthorsToRoster } from "@repo-edu/domain/analysis"
 import type { Roster } from "@repo-edu/domain/types"
+
+const EXAMINATION_LOCAL_IDENTITY_CONTEXT_VERSION =
+  "examination-local-identity-context-v1" as const
 
 export type ExaminationLocalIdentityContext = {
   names: string[]
@@ -38,7 +43,14 @@ function canonicalizeIdentityValues(
   values: readonly string[],
   compare: (value: string) => string,
 ): string[] {
-  return dedupeByComparison(values, compare).toSorted(compareStrings)
+  return [
+    ...new Set(
+      values
+        .map(normalizeIdentityText)
+        .filter((value) => value.length > 0)
+        .map(compare),
+    ),
+  ].toSorted(compareStrings)
 }
 
 export function canonicalizeExaminationLocalIdentityContext(
@@ -59,6 +71,25 @@ export function canonicalizeExaminationLocalIdentityContext(
       value.toLowerCase(),
     ),
   }
+}
+
+export function buildExaminationLocalIdentityContextFingerprint(
+  context: ExaminationLocalIdentityContext,
+): string {
+  const canonical = canonicalizeExaminationLocalIdentityContext(context)
+  return bytesToHex(
+    sha256(
+      new TextEncoder().encode(
+        JSON.stringify([
+          EXAMINATION_LOCAL_IDENTITY_CONTEXT_VERSION,
+          canonical.names,
+          canonical.emails,
+          canonical.opaqueIdentifiers,
+          canonical.gitUsernames,
+        ]),
+      ),
+    ),
+  )
 }
 
 function containsAsciiLetter(value: string): boolean {

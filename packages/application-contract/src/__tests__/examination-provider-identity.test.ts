@@ -4,7 +4,6 @@ import {
   assignExaminationSourceIds,
   buildExaminationProviderPayloadFingerprint,
   buildExaminationRedactedContentFingerprint,
-  buildExaminationRedactionIdentityScopeId,
   compareExaminationSourceIds,
   type ExaminationProviderExcerptIdentity,
   isExaminationSourceId,
@@ -31,14 +30,9 @@ describe("examination provider identity", () => {
       redactionPolicyVersion: 2,
       sourceIds: ["E1"],
     })
-    const scope = buildExaminationRedactionIdentityScopeId(
-      { names: ["Ada"], emails: [], opaqueIdentifiers: [], gitUsernames: [] },
-      1,
-    )
 
     assert.match(identity.redactedContentFingerprint, /^[0-9a-f]{64}$/)
     assert.match(first, /^[0-9a-f]{64}$/)
-    assert.match(scope, /^[0-9a-f]{64}$/)
     assert.notEqual(first, nextVersion)
   })
 

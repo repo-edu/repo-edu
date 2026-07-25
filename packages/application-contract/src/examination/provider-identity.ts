@@ -1,13 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js"
 import { bytesToHex } from "@noble/hashes/utils.js"
 import type { ExaminationCodeExcerpt } from "./dto.js"
-import {
-  canonicalizeExaminationLocalIdentityContext,
-  type ExaminationLocalIdentityContext,
-} from "./local-identity.js"
 
-const EXAMINATION_REDACTION_IDENTITY_SCOPE_VERSION =
-  "examination-redaction-identity-scope-v1" as const
 const EXAMINATION_PROVIDER_PAYLOAD_VERSION =
   "examination-provider-payload-v1" as const
 
@@ -65,23 +59,6 @@ function providerExcerptIdentityKey(
     String(identity.startLine),
     String(identity.lineCount),
   ].join("\u001f")
-}
-
-export function buildExaminationRedactionIdentityScopeId(
-  context: ExaminationLocalIdentityContext,
-  redactionPolicyVersion: number,
-): string {
-  const canonical = canonicalizeExaminationLocalIdentityContext(context)
-  return sha256Hex(
-    JSON.stringify([
-      EXAMINATION_REDACTION_IDENTITY_SCOPE_VERSION,
-      redactionPolicyVersion,
-      canonical.names,
-      canonical.emails,
-      canonical.opaqueIdentifiers,
-      canonical.gitUsernames,
-    ]),
-  )
 }
 
 export function buildExaminationProviderPayloadFingerprint(

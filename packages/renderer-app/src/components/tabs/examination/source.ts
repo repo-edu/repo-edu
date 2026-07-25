@@ -1,10 +1,9 @@
-import { EXAMINATION_REDACTION_POLICY_VERSION } from "@repo-edu/application"
 import type {
   ExaminationCodeExcerpt,
   ExaminationLocalIdentityContext,
 } from "@repo-edu/application-contract"
 import {
-  buildExaminationRedactionIdentityScopeId,
+  buildExaminationLocalIdentityContextFingerprint,
   buildSubmissionContentScopeId,
   canonicalizeExaminationExcerpts,
 } from "@repo-edu/application-contract"
@@ -52,7 +51,7 @@ export type RepositoryAnalysisSourceIdentity = {
   commitOid: string
   subjectId: string
   excerptScopeId: string
-  redactionIdentityScopeId: string
+  localIdentityContextFingerprint: string
   questionCount: number
   model: string
   effort: LlmEffort
@@ -64,7 +63,7 @@ export type SubmissionSourceIdentity = {
   contentScopeId: string
   subjectId: string
   excerptScopeId: string
-  redactionIdentityScopeId: string
+  localIdentityContextFingerprint: string
   questionCount: number
   model: string
   effort: LlmEffort
@@ -145,10 +144,10 @@ export function buildRepositoryAnalysisSourceIdentity(params: {
     commitOid: params.source.commitOid,
     subjectId: params.subject.id,
     excerptScopeId: params.subject.excerptScopeId,
-    redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
-      params.source.localIdentityContext,
-      EXAMINATION_REDACTION_POLICY_VERSION,
-    ),
+    localIdentityContextFingerprint:
+      buildExaminationLocalIdentityContextFingerprint(
+        params.source.localIdentityContext,
+      ),
     questionCount: params.questionCount,
     model: params.model,
     effort: params.effort,
@@ -167,10 +166,10 @@ export function buildSubmissionSourceIdentity(params: {
     contentScopeId: params.source.contentScopeId,
     subjectId: params.source.subject.id,
     excerptScopeId: params.source.subject.excerptScopeId,
-    redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
-      params.source.localIdentityContext,
-      EXAMINATION_REDACTION_POLICY_VERSION,
-    ),
+    localIdentityContextFingerprint:
+      buildExaminationLocalIdentityContextFingerprint(
+        params.source.localIdentityContext,
+      ),
     questionCount: params.questionCount,
     model: params.model,
     effort: params.effort,
@@ -204,7 +203,7 @@ export function buildSourceSessionKey(
           identity.repoPath,
           identity.commitOid,
           identity.subjectId,
-          identity.redactionIdentityScopeId,
+          identity.localIdentityContextFingerprint,
           identity.excerptScopeId,
         ],
         analysisSourceKey,
@@ -218,7 +217,7 @@ export function buildSourceSessionKey(
         identity.folderPath,
         identity.contentScopeId,
         identity.subjectId,
-        identity.redactionIdentityScopeId,
+        identity.localIdentityContextFingerprint,
         identity.excerptScopeId,
       ],
       analysisSourceKey,
@@ -239,7 +238,7 @@ export function buildArchiveKeyIdentityKey(
           identity.repoPath,
           identity.commitOid,
           identity.subjectId,
-          identity.redactionIdentityScopeId,
+          identity.localIdentityContextFingerprint,
           identity.excerptScopeId,
           identity.questionCount,
           identity.model,
@@ -256,7 +255,7 @@ export function buildArchiveKeyIdentityKey(
         identity.folderPath,
         identity.contentScopeId,
         identity.subjectId,
-        identity.redactionIdentityScopeId,
+        identity.localIdentityContextFingerprint,
         identity.excerptScopeId,
         identity.questionCount,
         identity.model,
@@ -271,10 +270,8 @@ export function buildSourceSummaryKey(
   source: ExaminationSource,
   analysisSourceKey?: AnalysisSourceKey | null,
 ): string {
-  const redactionIdentityScopeId = buildExaminationRedactionIdentityScopeId(
-    source.localIdentityContext,
-    EXAMINATION_REDACTION_POLICY_VERSION,
-  )
+  const localIdentityContextFingerprint =
+    buildExaminationLocalIdentityContextFingerprint(source.localIdentityContext)
   if (source.kind === "repository-analysis") {
     return JSON.stringify(
       withAnalysisSourceScope(
@@ -282,7 +279,7 @@ export function buildSourceSummaryKey(
           "repository-analysis-summary",
           source.selectedRepoPath,
           source.commitOid,
-          redactionIdentityScopeId,
+          localIdentityContextFingerprint,
           source.subjects
             .map((subject) => [subject.id, subject.excerptScopeId] as const)
             .toSorted(([leftId], [rightId]) => leftId.localeCompare(rightId)),
@@ -297,7 +294,7 @@ export function buildSourceSummaryKey(
         "submission-summary",
         source.folderPath,
         source.contentScopeId,
-        redactionIdentityScopeId,
+        localIdentityContextFingerprint,
         [[source.subject.id, source.subject.excerptScopeId]],
       ],
       analysisSourceKey,
