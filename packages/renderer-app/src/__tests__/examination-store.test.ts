@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
-import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
+  serializeExaminationArchiveStorageKey,
+} from "@repo-edu/application-contract"
 import {
   analysisSourceKeyScopeId,
   buildArchiveKeyIdentityKey,
@@ -10,6 +14,7 @@ import {
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
 import { examinationRequestSidecar } from "../stores/examination-request-sidecar.js"
 import { useExaminationStore } from "../stores/examination-store.js"
+import { clampQuestionCount } from "../stores/examination-store-helpers.js"
 import type {
   AvailableArchiveEntry,
   ExaminationEntry,
@@ -104,18 +109,29 @@ function availableArchiveEntry(
 
 function archiveStorageKey(
   questionCount: number,
-  generationContextFingerprint = "generation-context-a",
+  generationContextFingerprint = "c".repeat(64),
 ): string {
   return serializeExaminationArchiveStorageKey({
     personId: identity.subjectId,
     contentScopeId: repositoryCommitOid,
     questionCount,
-    providerPayloadFingerprint: "provider-payload-a",
+    providerPayloadFingerprint: "b".repeat(64),
     generationContextFingerprint,
   })
 }
 
 describe("examination store", () => {
+  it("clamps preferences to the shared question-count bounds", () => {
+    assert.equal(
+      clampQuestionCount(EXAMINATION_QUESTION_COUNT_MIN - 1),
+      EXAMINATION_QUESTION_COUNT_MIN,
+    )
+    assert.equal(
+      clampQuestionCount(EXAMINATION_QUESTION_COUNT_MAX + 1),
+      EXAMINATION_QUESTION_COUNT_MAX,
+    )
+  })
+
   it("replaces partial questions and source references on loading entries", () => {
     const store = useExaminationStore.getState()
     store.setEntry("entry", entry("loading"))
@@ -245,7 +261,7 @@ describe("examination store", () => {
   it("removes superseded archive chips after extending a generated set", () => {
     const store = activateSession()
     const fourQuestionKey = archiveStorageKey(4)
-    const alternateContextKey = archiveStorageKey(4, "generation-context-b")
+    const alternateContextKey = archiveStorageKey(4, "d".repeat(64))
     const eightQuestionKey = archiveStorageKey(8)
     const lookup = store.startLookup(sourceSessionKey)
     if (lookup === null) throw new Error("Lookup did not start.")

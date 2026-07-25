@@ -6,7 +6,10 @@ import type {
   ExaminationSourceReference,
   MilestoneProgress,
 } from "@repo-edu/application-contract"
-import { serializeExaminationArchiveStorageKey } from "@repo-edu/application-contract"
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  serializeExaminationArchiveStorageKey,
+} from "@repo-edu/application-contract"
 import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
 import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
@@ -828,14 +831,15 @@ export function useExaminationEngine({
         regenerate: options?.regenerate ?? false,
       })
       if (generationPlan.additionalQuestionCount < 1) {
-        addToast("This set already has the maximum 20 examination questions.", {
-          tone: "warning",
-        })
+        addToast(
+          `This set already has the maximum ${EXAMINATION_QUESTION_COUNT_MAX} examination questions.`,
+          { tone: "warning" },
+        )
         return
       }
       if (generationPlan.capped) {
         addToast(
-          `Generation is capped at 20 total questions, so only ${generationPlan.additionalQuestionCount} additional question${
+          `Generation is capped at ${EXAMINATION_QUESTION_COUNT_MAX} total questions, so only ${generationPlan.additionalQuestionCount} additional question${
             generationPlan.additionalQuestionCount === 1 ? "" : "s"
           } will be generated.`,
           { tone: "warning" },

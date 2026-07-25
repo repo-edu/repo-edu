@@ -4,6 +4,8 @@ import type {
 } from "@repo-edu/application-contract"
 import LinkifyIt from "linkify-it"
 
+export const EXAMINATION_REDACTION_POLICY_VERSION = 1 as const
+
 type Span = {
   start: number
   end: number

@@ -29,7 +29,7 @@ import type {
   ExaminationPrepareSubmissionSourceInput,
   ExaminationStopGenerationInput,
   ExaminationStopGenerationResult,
-} from "./examination-contract.js"
+} from "./examination/dto.js"
 import type { DiagnosticOutput, MilestoneProgress } from "./workflow-core.js"
 import type {
   AnalysisBlameInput,

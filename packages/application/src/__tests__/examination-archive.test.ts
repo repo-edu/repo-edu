@@ -3,8 +3,8 @@ import { describe, it } from "node:test"
 import {
   buildExaminationGenerationContextFingerprint,
   EXAMINATION_ARCHIVE_BUNDLE_VERSION,
-  EXAMINATION_PROMPT_TEMPLATE_VERSION,
-  EXAMINATION_REDACTION_POLICY_VERSION,
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
   type ExaminationArchiveKey,
   type ExaminationArchiveRecord,
 } from "@repo-edu/application-contract"
@@ -18,6 +18,8 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
+import { EXAMINATION_REDACTION_POLICY_VERSION } from "../examination-workflows/redaction.js"
 
 const contentScopeId = "a".repeat(40)
 
@@ -45,10 +47,12 @@ const baseKey: ExaminationArchiveKey = {
   personId: "p_1",
   contentScopeId,
   questionCount: 1,
-  providerPayloadFingerprint: "payload-1",
+  providerPayloadFingerprint: "b".repeat(64),
   generationContextFingerprint: buildExaminationGenerationContextFingerprint({
     model: "22",
     effort: "medium",
+    promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+    redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
   }),
 }
 
@@ -200,7 +204,7 @@ function inputWithPathMappedContent(mapping: Record<string, string>) {
 }
 
 describe("examination archive adapter", () => {
-  it("put/get preserves v2 pathless records", () => {
+  it("put/get preserves current pathless records", () => {
     const archive = createInMemoryExaminationArchive()
     archive.put(baseRecord)
 
@@ -238,10 +242,36 @@ describe("examination archive adapter", () => {
     const archive = createInMemoryExaminationArchive()
     const oldSummary = archive.importBundle({
       format: "repo-edu-examination-archive",
-      bundleVersion: 1,
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION - 1,
       records: [baseRecord],
     })
     assert.equal(oldSummary.rejected, 1)
+
+    const outOfBoundsCount = EXAMINATION_QUESTION_COUNT_MAX + 1
+    const outOfBoundsSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          key: {
+            ...baseRecord.key,
+            questionCount: EXAMINATION_QUESTION_COUNT_MAX,
+          },
+          questions: Array.from({ length: outOfBoundsCount }, (_, index) => ({
+            ...baseRecord.questions[0],
+            question: `Q${index + 1}?`,
+            answer: `A${index + 1}.`,
+          })),
+          provenance: {
+            ...baseRecord.provenance,
+            questionCount: outOfBoundsCount,
+          },
+        },
+      ],
+    })
+    assert.equal(outOfBoundsSummary.rejected, 1)
 
     const emailSummary = archive.importBundle({
       format: "repo-edu-examination-archive",
@@ -332,6 +362,32 @@ describe("examination archive adapter", () => {
 })
 
 describe("examination.generateQuestions archive behavior", () => {
+  it("enforces the shared question-count bounds at input admission", async () => {
+    const handlers = createExaminationWorkflowHandlers({
+      llm: createRecordingLlm(sampleLlmReply(1)),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    for (const questionCount of [
+      EXAMINATION_QUESTION_COUNT_MIN - 1,
+      EXAMINATION_QUESTION_COUNT_MAX + 1,
+    ]) {
+      await assert.rejects(
+        () =>
+          handlers["examination.generateQuestions"]({
+            ...baseInput(),
+            questionCount,
+          }),
+        (error: unknown) =>
+          typeof error === "object" &&
+          error !== null &&
+          (error as { type?: unknown }).type === "validation",
+      )
+    }
+  })
+
   it("persists clean output and returns cache hits with source references", async () => {
     const archive = createInMemoryExaminationArchive()
     const llm = createRecordingLlm(sampleLlmReply(2))

@@ -13,7 +13,7 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - cross-surface file reference DTOs (`UserFileRef`, `UserSaveTargetRef`)
 - re-exported domain types used in workflows (`IdSequences`, `GroupSetImportFormat`, `PersistedCourse`, `LmsProviderKind`, `GitProviderKind`, etc.)
 - re-exported LLM contract types (`LlmProvider`, `LlmEffort`, `LlmAuthMode`, `LlmUsage`) from `@repo-edu/integrations-llm-contract`
-- examination archive key helpers (`ExaminationArchiveKey`, repository/excerpt/context fingerprinting, storage-key serialization) plus `ExaminationArchiveImportSummary` from `@repo-edu/host-runtime-contract`
+- examination DTOs and cross-surface rules, including local/provider identity, archive keys, content scopes, source descriptors and question bounds; these live in private `src/examination/` owners behind the root-only `examination-contract.ts` facade
 - course persistence workflow entries: `course.{list,load,save,delete}` and app settings entries: `settings.{loadApp,saveCredentials,savePreferences}`
 - connection draft verification: `connection.verifyLmsDraft`, `connection.listLmsCoursesDraft`, `connection.verifyGitDraft`, `connection.verifyLlmDraft`
 - roster workflow entries: `roster.importFromFile`, `roster.importFromLms`, `roster.exportMembers`

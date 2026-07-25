@@ -4,6 +4,8 @@ import type {
   ExaminationProviderPromptPayload,
 } from "./provider-excerpts.js"
 
+export const EXAMINATION_PROMPT_TEMPLATE_VERSION = 2 as const
+
 type BuildExaminationPromptOptions = {
   seedQuestions?: readonly ExaminationQuestion[]
 }

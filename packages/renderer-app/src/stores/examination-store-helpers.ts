@@ -1,3 +1,7 @@
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
+} from "@repo-edu/application-contract"
 import type { SourceIdentity } from "../components/tabs/examination/source.js"
 import {
   mergeSupersedingAvailableArchiveEntries,
@@ -229,8 +233,12 @@ export function acceptGenerationEvent(
 export function clampQuestionCount(count: number): number {
   if (!Number.isFinite(count)) return 4
   const integer = Math.round(count)
-  if (integer < 1) return 1
-  if (integer > 20) return 20
+  if (integer < EXAMINATION_QUESTION_COUNT_MIN) {
+    return EXAMINATION_QUESTION_COUNT_MIN
+  }
+  if (integer > EXAMINATION_QUESTION_COUNT_MAX) {
+    return EXAMINATION_QUESTION_COUNT_MAX
+  }
   return integer
 }
 

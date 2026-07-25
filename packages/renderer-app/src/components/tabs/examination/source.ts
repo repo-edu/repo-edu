@@ -1,3 +1,4 @@
+import { EXAMINATION_REDACTION_POLICY_VERSION } from "@repo-edu/application"
 import type {
   ExaminationCodeExcerpt,
   ExaminationLocalIdentityContext,
@@ -146,6 +147,7 @@ export function buildRepositoryAnalysisSourceIdentity(params: {
     excerptScopeId: params.subject.excerptScopeId,
     redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
       params.source.localIdentityContext,
+      EXAMINATION_REDACTION_POLICY_VERSION,
     ),
     questionCount: params.questionCount,
     model: params.model,
@@ -167,6 +169,7 @@ export function buildSubmissionSourceIdentity(params: {
     excerptScopeId: params.source.subject.excerptScopeId,
     redactionIdentityScopeId: buildExaminationRedactionIdentityScopeId(
       params.source.localIdentityContext,
+      EXAMINATION_REDACTION_POLICY_VERSION,
     ),
     questionCount: params.questionCount,
     model: params.model,
@@ -270,6 +273,7 @@ export function buildSourceSummaryKey(
 ): string {
   const redactionIdentityScopeId = buildExaminationRedactionIdentityScopeId(
     source.localIdentityContext,
+    EXAMINATION_REDACTION_POLICY_VERSION,
   )
   if (source.kind === "repository-analysis") {
     return JSON.stringify(

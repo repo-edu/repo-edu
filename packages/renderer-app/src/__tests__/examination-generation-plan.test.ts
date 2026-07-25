@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { ExaminationSourceReference } from "@repo-edu/application-contract"
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  type ExaminationSourceReference,
+} from "@repo-edu/application-contract"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import type { ExaminationDisplaySelection } from "../components/tabs/examination/display-selectors.js"
 import { resolveExaminationGenerationPlan } from "../components/tabs/examination/generation-plan.js"
@@ -105,5 +108,26 @@ describe("examination generation plan", () => {
     assert.equal(plan.requestedQuestionCount, 4)
     assert.equal(plan.additionalQuestionCount, 4)
     assert.equal(plan.targetQuestionCount, 12)
+  })
+
+  it("caps extensions at the shared maximum question count", () => {
+    const displayed = archiveEntry({
+      key: "sonnet-near-limit",
+      questionCount: EXAMINATION_QUESTION_COUNT_MAX - 1,
+      model: "22",
+      effort: "medium",
+    })
+
+    const plan = resolveExaminationGenerationPlan({
+      display: displayFor(displayed),
+      modelCode: "22",
+      effort: "medium",
+      questionCount: 4,
+      regenerate: false,
+    })
+
+    assert.equal(plan.additionalQuestionCount, 1)
+    assert.equal(plan.targetQuestionCount, EXAMINATION_QUESTION_COUNT_MAX)
+    assert.equal(plan.capped, true)
   })
 })

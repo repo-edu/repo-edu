@@ -7,7 +7,6 @@ import type {
 } from "@repo-edu/application-contract"
 import {
   buildSubmissionFolderContentScopeId,
-  EXAMINATION_REDACTION_POLICY_VERSION,
   SUBMISSION_FILE_MAX_BYTES,
   SUBMISSION_FILE_MAX_LINES,
   SUBMISSION_FOLDER_PERSON_ID,
@@ -22,6 +21,7 @@ import { createValidationAppError } from "../core.js"
 import { basename, isAbsolutePath } from "../path-utils.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
+import { EXAMINATION_REDACTION_POLICY_VERSION } from "./redaction.js"
 
 const GENERIC_FOLDER_LABELS = new Set([
   "code",

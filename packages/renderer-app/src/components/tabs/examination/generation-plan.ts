@@ -2,11 +2,10 @@ import type {
   ExaminationQuestion,
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
+import { EXAMINATION_QUESTION_COUNT_MAX } from "@repo-edu/application-contract"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
 import type { ExaminationDisplaySelection } from "./display-selectors.js"
-
-export const MAX_EXAMINATION_QUESTION_COUNT = 20
 
 export type ExaminationGenerationPlan = {
   seedQuestions: ExaminationQuestion[]
@@ -26,7 +25,7 @@ export function resolveExaminationGenerationPlan(params: {
   maxQuestionCount?: number
 }): ExaminationGenerationPlan {
   const maxQuestionCount =
-    params.maxQuestionCount ?? MAX_EXAMINATION_QUESTION_COUNT
+    params.maxQuestionCount ?? EXAMINATION_QUESTION_COUNT_MAX
   const seedEntry = selectSeedEntry(params)
   const seedQuestions = seedEntry?.questions ?? []
   const requestedQuestionCount =

@@ -12,10 +12,6 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import {
-  EXAMINATION_PROMPT_TEMPLATE_VERSION,
-  EXAMINATION_REDACTION_POLICY_VERSION,
-} from "@repo-edu/application-contract"
 import type { LlmUsage } from "@repo-edu/host-runtime-contract"
 import { createValidationAppError } from "../core.js"
 import { normalizeLlmProviderError } from "../llm-error-normalization.js"
@@ -37,7 +33,10 @@ import {
 } from "./input-validation.js"
 import { llmRuntimeConfigFromConnection } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
-import { buildExaminationPrompt } from "./prompt-builder.js"
+import {
+  buildExaminationPrompt,
+  EXAMINATION_PROMPT_TEMPLATE_VERSION,
+} from "./prompt-builder.js"
 import { prepareExaminationProviderExcerpts } from "./provider-excerpts.js"
 import {
   buildPromptSourceLineRanges,
@@ -48,7 +47,10 @@ import {
   parseQuestions,
   providerError,
 } from "./question-parser.js"
-import { assertNoRequiredRedactionLeaks } from "./redaction.js"
+import {
+  assertNoRequiredRedactionLeaks,
+  EXAMINATION_REDACTION_POLICY_VERSION,
+} from "./redaction.js"
 import {
   createSoftStopSession,
   type SoftStopSession,

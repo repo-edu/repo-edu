@@ -37,6 +37,7 @@ export type { ExaminationArchiveWorkflowPorts } from "./examination-workflows/ar
 export { createExaminationArchiveWorkflowHandlers } from "./examination-workflows/archive-workflows.js"
 export { createExaminationWorkflowHandlers } from "./examination-workflows/examination-workflows.js"
 export type { ExaminationWorkflowPorts } from "./examination-workflows/ports.js"
+export { EXAMINATION_REDACTION_POLICY_VERSION } from "./examination-workflows/redaction.js"
 export { createGitUsernameWorkflowHandlers } from "./git-username-workflows.js"
 export { createGroupSetWorkflowHandlers } from "./group-set-workflows.js"
 export type {

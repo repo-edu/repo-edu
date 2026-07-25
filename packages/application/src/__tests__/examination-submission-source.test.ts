@@ -3,8 +3,6 @@ import { describe, it } from "node:test"
 import {
   type AppError,
   buildExaminationGenerationContextFingerprint,
-  EXAMINATION_PROMPT_TEMPLATE_VERSION,
-  EXAMINATION_REDACTION_POLICY_VERSION,
   type ExaminationArchiveRecord,
   type ExaminationLookupQuestionsInput,
   SUBMISSION_SELECTION_MAX_FILES,
@@ -18,6 +16,8 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
+import { EXAMINATION_REDACTION_POLICY_VERSION } from "../examination-workflows/redaction.js"
 import { createTokenizerPortForTests } from "./helpers/tokenizer.js"
 
 const tokenizer = createTokenizerPortForTests()
@@ -233,6 +233,8 @@ describe("examination.lookupQuestionSummaries", () => {
           buildExaminationGenerationContextFingerprint({
             model: "33",
             effort: "high",
+            promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
+            redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
           }),
       },
       questions: archivedQuestions(4),

@@ -8,20 +8,20 @@ import type {
   ExaminationQuestion,
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
-import {
-  buildExaminationGenerationContextFingerprint,
-  EXAMINATION_PROMPT_TEMPLATE_VERSION,
-  EXAMINATION_REDACTION_POLICY_VERSION,
-} from "@repo-edu/application-contract"
+import { buildExaminationGenerationContextFingerprint } from "@repo-edu/application-contract"
 import { createValidationAppError } from "../core.js"
 import type { ExaminationModelResolution } from "./model-resolution.js"
 import { resolveExaminationModel } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
+import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "./prompt-builder.js"
 import {
   buildReferenceSourceLineRanges,
   normalizeQuestionAnchors,
 } from "./question-parser.js"
-import { scanExaminationOutputForLeaks } from "./redaction.js"
+import {
+  EXAMINATION_REDACTION_POLICY_VERSION,
+  scanExaminationOutputForLeaks,
+} from "./redaction.js"
 
 export function archiveSoftStoppedQuestions(params: {
   acceptedQuestions: readonly ExaminationQuestion[]

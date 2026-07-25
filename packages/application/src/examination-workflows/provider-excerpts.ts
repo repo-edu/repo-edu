@@ -2,7 +2,8 @@ import {
   assignExaminationSourceIds,
   buildExaminationProviderPayloadFingerprint,
   buildExaminationRedactedContentFingerprint,
-  EXAMINATION_REDACTION_POLICY_VERSION,
+  canonicalizeExaminationExcerpts,
+  compareExaminationSourceIds,
   type ExaminationCodeExcerpt,
   type ExaminationLocalIdentityContext,
   type ExaminationProviderExcerptIdentity,
@@ -12,6 +13,7 @@ import {
 import type { TokenizerPort } from "@repo-edu/host-runtime-contract"
 import {
   buildRedactionPlaceholderPlan,
+  EXAMINATION_REDACTION_POLICY_VERSION,
   type RedactionReport,
   type RedactionRequiredCheck,
   redactExaminationSource,
@@ -39,49 +41,11 @@ export type PreparedExaminationProviderExcerpts = {
   requiredChecks: RedactionRequiredCheck[]
 }
 
-function compareRawExcerpts(
-  left: ExaminationCodeExcerpt,
-  right: ExaminationCodeExcerpt,
-): number {
-  if (left.filePath !== right.filePath) {
-    return left.filePath < right.filePath ? -1 : 1
-  }
-  return left.startLine - right.startLine
-}
-
 function sourceReferenceLineRange(excerpt: ExaminationCodeExcerpt) {
   return {
     start: excerpt.startLine,
     end: excerpt.startLine + excerpt.lines.length - 1,
   }
-}
-
-function compareSourceIds(left: string, right: string): number {
-  const leftParts = sourceIdSortParts(left)
-  const rightParts = sourceIdSortParts(right)
-  return (
-    leftParts.index - rightParts.index ||
-    leftParts.attempt - rightParts.attempt ||
-    left.localeCompare(right)
-  )
-}
-
-function sourceIdSortParts(sourceId: string): {
-  index: number
-  attempt: number
-} {
-  const eMatch = /^E(\d+)$/.exec(sourceId)
-  if (eMatch) {
-    return { index: Number.parseInt(eMatch[1] ?? "0", 10), attempt: 0 }
-  }
-  const srcMatch = /^SRC(\d+)(?:_(\d+))?$/.exec(sourceId)
-  if (srcMatch) {
-    return {
-      index: Number.parseInt(srcMatch[1] ?? "0", 10),
-      attempt: Number.parseInt(srcMatch[2] ?? "0", 10) + 1,
-    }
-  }
-  return { index: Number.MAX_SAFE_INTEGER, attempt: Number.MAX_SAFE_INTEGER }
 }
 
 function localIdentityValues(
@@ -102,7 +66,7 @@ export async function prepareExaminationProviderExcerpts(params: {
   tokenizer: TokenizerPort
   questionCount: number
 }): Promise<PreparedExaminationProviderExcerpts> {
-  const rawExcerpts = [...params.excerpts].toSorted(compareRawExcerpts)
+  const rawExcerpts = canonicalizeExaminationExcerpts(params.excerpts)
   const strippedEntries: {
     raw: ExaminationCodeExcerpt
     sourceDescriptor: string
@@ -199,7 +163,7 @@ export async function prepareExaminationProviderExcerpts(params: {
   }
 
   const promptExcerpts = [...promptExcerptById.values()].toSorted((a, b) =>
-    compareSourceIds(a.sourceId, b.sourceId),
+    compareExaminationSourceIds(a.sourceId, b.sourceId),
   )
 
   return {
@@ -210,10 +174,13 @@ export async function prepareExaminationProviderExcerpts(params: {
     },
     providerPayloadFingerprint: buildExaminationProviderPayloadFingerprint(
       preparedWithoutIds.map((entry) => entry.identity),
-      { sourceIds },
+      {
+        redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+        sourceIds,
+      },
     ),
     sourceReferences: [...sourceReferenceById.values()].toSorted((a, b) =>
-      compareSourceIds(a.sourceId, b.sourceId),
+      compareExaminationSourceIds(a.sourceId, b.sourceId),
     ),
     redactionReports: preparedWithoutIds.map((entry) => entry.report),
     requiredChecks,

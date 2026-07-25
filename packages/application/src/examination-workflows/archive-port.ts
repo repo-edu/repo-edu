@@ -2,6 +2,8 @@ import {
   buildExaminationGenerationContextFingerprint,
   EXAMINATION_ARCHIVE_BUNDLE_FORMAT,
   EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
   type ExaminationArchiveBundle,
   type ExaminationArchivedProvenance,
   type ExaminationArchiveImportSummary,
@@ -10,6 +12,7 @@ import {
   type ExaminationLineRange,
   type ExaminationQuestion,
   type ExaminationSourceAnchor,
+  isExaminationSourceId,
   serializeExaminationArchiveStorageKey,
   validateExaminationArchiveKey,
 } from "@repo-edu/application-contract"
@@ -318,8 +321,7 @@ function validateLineRange(raw: unknown): ExaminationLineRange | null {
 function validateAnchor(raw: unknown): ExaminationSourceAnchor | null {
   if (!isRecord(raw)) return null
   const sourceId =
-    typeof raw.sourceId === "string" &&
-    /^(?:E[1-9]\d*|SRC[1-9]\d*(?:_[1-9]\d*)?)$/.test(raw.sourceId)
+    typeof raw.sourceId === "string" && isExaminationSourceId(raw.sourceId)
       ? raw.sourceId
       : raw.sourceId === null
         ? null
@@ -371,8 +373,8 @@ function validateProvenance(
   }
   if (
     !Number.isInteger(questionCount) ||
-    questionCount < 1 ||
-    questionCount > 20
+    questionCount < EXAMINATION_QUESTION_COUNT_MIN ||
+    questionCount > EXAMINATION_QUESTION_COUNT_MAX
   ) {
     return null
   }

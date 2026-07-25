@@ -4,7 +4,11 @@ import type {
   ExaminationLookupQuestionSummariesInput,
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
-import { isExaminationContentScopeIdShape } from "@repo-edu/application-contract"
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
+  isExaminationContentScopeIdShape,
+} from "@repo-edu/application-contract"
 import {
   validatePersistedAppCredentials,
   validatePersistedAppPreferences,
@@ -157,12 +161,12 @@ function validateInput(
   validateLocalIdentityContext(input.localIdentityContext, issues)
   if (
     !Number.isInteger(input.questionCount) ||
-    input.questionCount < 1 ||
-    input.questionCount > 20
+    input.questionCount < EXAMINATION_QUESTION_COUNT_MIN ||
+    input.questionCount > EXAMINATION_QUESTION_COUNT_MAX
   ) {
     issues.push({
       path: "questionCount",
-      message: "questionCount must be between 1 and 20.",
+      message: `questionCount must be between ${EXAMINATION_QUESTION_COUNT_MIN} and ${EXAMINATION_QUESTION_COUNT_MAX}.`,
     })
   }
   validateExcerpts(input.excerpts, issues)

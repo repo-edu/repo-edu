@@ -1,3 +1,7 @@
+import {
+  EXAMINATION_QUESTION_COUNT_MAX,
+  EXAMINATION_QUESTION_COUNT_MIN,
+} from "@repo-edu/application-contract"
 import { Button, Card, CardContent, Input, Label } from "@repo-edu/ui"
 
 type ExaminationControlsCardProps = {
@@ -40,8 +44,8 @@ export function ExaminationControlsCard({
             <Input
               id="examination-question-count"
               type="number"
-              min={1}
-              max={20}
+              min={EXAMINATION_QUESTION_COUNT_MIN}
+              max={EXAMINATION_QUESTION_COUNT_MAX}
               value={questionCount}
               disabled={isGenerating}
               onChange={(event) =>
