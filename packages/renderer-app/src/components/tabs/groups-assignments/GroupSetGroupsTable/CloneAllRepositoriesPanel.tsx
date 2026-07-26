@@ -74,18 +74,28 @@ export function CloneAllRepositoriesPanel({
         listResult={cloneAll.listResult}
         listError={cloneAll.listError}
         isListing={cloneAll.isListing}
-        isCloning={cloneAll.isCloning}
+        isCloning={cloneAll.isCloning && cloneAll.mutationBelongsToCurrentInput}
         hasConnection={cloneAll.hasConnection}
         hasNamespace={cloneAll.hasNamespace}
         onClone={cloneAll.handleBulkClone}
         canClone={cloneAll.canClone}
       />
 
+      {cloneAll.isCloning && !cloneAll.mutationBelongsToCurrentInput && (
+        <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
+          <Loader2 className="size-4 animate-spin" />
+          Cloning repositories from the previous listing…
+        </p>
+      )}
       {cloneAll.cloneError && (
-        <p className="text-sm text-destructive">{cloneAll.cloneError}</p>
+        <p className="text-sm text-destructive">
+          {!cloneAll.mutationBelongsToCurrentInput && "Previous clone: "}
+          {cloneAll.cloneError}
+        </p>
       )}
       {cloneAll.resultSummary && (
         <p className="text-sm text-muted-foreground">
+          {!cloneAll.mutationBelongsToCurrentInput && "Previous clone: "}
           {cloneAll.resultSummary}
         </p>
       )}

@@ -9,6 +9,10 @@ import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useCredentialsStore } from "../../../../stores/credentials-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
+  executeRegisteredCloneAllCommand,
+  registerCloneAllCommand,
+} from "./clone-all-command.js"
+import {
   buildCloneAllWorkflowInput,
   type CloneAllMutationVariables,
   type CloneAllPublishedListingInput,
@@ -128,15 +132,7 @@ export function useCloneAllRepositories({
     CloneAllMutationVariables
   >({
     ...createCloneAllMutationPolicy(),
-    mutationFn: async (variables) =>
-      client.run(
-        "repo.bulkClone",
-        buildCloneAllWorkflowInput({
-          variables,
-          publishedInput: publishedListingInput,
-          listResult: listingQuery.data,
-        }),
-      ),
+    mutationFn: executeRegisteredCloneAllCommand,
   })
 
   const canClone = selectCloneAllCanClone({
@@ -152,21 +148,28 @@ export function useCloneAllRepositories({
     publishedInput: publishedListingInput,
     mutationAdmissionId: cloneMutation.variables?.listingAdmissionId,
   })
-  const cloneError =
-    mutationBelongsToCurrentInput && cloneMutation.isError
-      ? getErrorMessage(cloneMutation.error)
-      : null
-  const resultSummary =
-    mutationBelongsToCurrentInput && cloneMutation.isSuccess
-      ? formatCloneAllResult(cloneMutation.data)
-      : null
+  const cloneError = cloneMutation.isError
+    ? getErrorMessage(cloneMutation.error)
+    : null
+  const resultSummary = cloneMutation.isSuccess
+    ? formatCloneAllResult(cloneMutation.data)
+    : null
 
   const handleBulkClone = () => {
     if (!canClone || publishedListingInput === null) return
-    cloneMutation.mutate({
+    const variables: CloneAllMutationVariables = {
       listingAdmissionId: publishedListingInput.admissionId,
       targetDirectory: targetDirectory.trim(),
+    }
+    const workflowInput = buildCloneAllWorkflowInput({
+      variables,
+      publishedInput: publishedListingInput,
+      listResult: listingQuery.data,
     })
+    registerCloneAllCommand(variables, () =>
+      client.run("repo.bulkClone", workflowInput),
+    )
+    cloneMutation.mutate(variables)
   }
 
   return {
@@ -182,6 +185,7 @@ export function useCloneAllRepositories({
       : null,
     isListing: listingQuery.isFetching,
     isCloning: cloneMutation.isPending,
+    mutationBelongsToCurrentInput,
     hasConnection,
     hasNamespace,
     canClone,

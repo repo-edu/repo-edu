@@ -1,11 +1,22 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
+import type {
+  RepositoryCloneResult,
+  RepositoryListNamespaceResult,
+} from "@repo-edu/application-contract"
 import {
   defaultAppCredentials,
   type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
-import { QueryClient, QueryObserver } from "@tanstack/react-query"
+import {
+  MutationObserver,
+  QueryClient,
+  QueryObserver,
+} from "@tanstack/react-query"
+import {
+  executeRegisteredCloneAllCommand,
+  registerCloneAllCommand,
+} from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-command.js"
 import {
   buildCloneAllWorkflowInput,
   type CloneAllPublishedListingInput,
@@ -66,6 +77,14 @@ const listingResult: RepositoryListNamespaceResult = {
       archived: false,
     },
   ],
+}
+
+const cloneResult: RepositoryCloneResult = {
+  repositoriesPlanned: 1,
+  repositoriesCloned: 1,
+  repositoriesFailed: 0,
+  recordedRepositories: {},
+  completedAt: "2026-07-26T20:00:00.000Z",
 }
 
 type ManualScheduler = {
@@ -370,6 +389,57 @@ describe("clone-all query ownership", () => {
       gcTime: 0,
       retry: false,
     })
+  })
+
+  it("keeps an admitted command stable while React Query pauses it", async () => {
+    const queryClient = new QueryClient()
+    const scope = { id: "clone-all-command-test" }
+    let markFirstStarted: () => void = () => {}
+    let releaseFirst: () => void = () => {}
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve
+    })
+    const firstExecution = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const firstObserver = new MutationObserver(queryClient, {
+      scope,
+      mutationFn: () => {
+        markFirstStarted()
+        return firstExecution
+      },
+    })
+    const firstMutation = firstObserver.mutate(undefined)
+    await firstStarted
+
+    const variables = {
+      listingAdmissionId: initialPublishedInput.admissionId,
+      targetDirectory: "/tmp/repos",
+    }
+    let executionCount = 0
+    registerCloneAllCommand(variables, async () => {
+      executionCount++
+      return cloneResult
+    })
+    const secondOptions = {
+      ...createCloneAllMutationPolicy(),
+      scope,
+      mutationFn: executeRegisteredCloneAllCommand,
+    }
+    const secondObserver = new MutationObserver(queryClient, secondOptions)
+    const secondMutation = secondObserver.mutate(variables)
+
+    assert.equal(secondObserver.getCurrentResult().isPaused, true)
+    secondObserver.setOptions(secondOptions)
+    releaseFirst()
+
+    await firstMutation
+    assert.equal(await secondMutation, cloneResult)
+    assert.equal(executionCount, 1)
+    assert.throws(
+      () => executeRegisteredCloneAllCommand(variables),
+      /not registered/,
+    )
   })
 })
 
