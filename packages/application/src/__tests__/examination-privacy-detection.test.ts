@@ -94,6 +94,20 @@ describe("examination privacy detection", () => {
     assert.deepEqual(prepared.sources[0]?.report.replacementClasses, ["secret"])
   })
 
+  it("redacts an unterminated PEM private-key block through end-of-input", () => {
+    const privateKeyBody = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo="
+    const prepared = prepare(["-----BEGIN PRIVATE KEY-----", privateKeyBody])
+    const source = prepared.sources[0]
+
+    assert.equal(source?.lines.length, 2)
+    assert.doesNotMatch(
+      source?.lines.join("\n") ?? "",
+      new RegExp(privateKeyBody),
+    )
+    assert.deepEqual(source?.report.replacementClasses, ["secret"])
+    assert.equal(source?.report.residualScan.secrets, 0)
+  })
+
   it("reports secrets in provider output separately from identifiers", () => {
     const prepared = prepare(["const value = 1"])
     const result = admitExaminationQuestions({

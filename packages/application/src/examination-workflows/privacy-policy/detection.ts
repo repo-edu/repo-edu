@@ -1,4 +1,7 @@
 import { LinkifyIt } from "linkify-it"
+
+export { collectSecretCandidates } from "./secret-detection.js"
+
 import type { ReplacementCandidate, Span } from "./types.js"
 
 const linkify = new LinkifyIt()
@@ -10,7 +13,6 @@ linkify.set({
 })
 
 const protectedBoundaryCharacter = /^[\p{L}\p{N}\p{M}\p{Pc}$'-]$/u
-const base64UrlCharacter = /^[A-Za-z0-9_-]$/
 
 export function normalizeKnownText(value: string): string {
   return value.trim().split(/\s+/).join(" ")
@@ -133,102 +135,4 @@ export function collectLiteralCandidates(params: {
     }
   }
   return candidates
-}
-
-function collectRegexSecretCandidates(
-  text: string,
-  regex: RegExp,
-): ReplacementCandidate[] {
-  const candidates: ReplacementCandidate[] = []
-  for (const match of text.matchAll(regex)) {
-    if (match.index === undefined) continue
-    candidates.push({
-      start: match.index,
-      end: match.index + match[0].length,
-      replacementClass: "secret",
-      value: match[0],
-      comparisonKey: match[0],
-      caseSensitive: true,
-      assertGlobally: true,
-      assertInStringLiteral: false,
-    })
-  }
-  return candidates
-}
-
-function collectJwtCandidates(text: string): ReplacementCandidate[] {
-  const regex = /[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g
-  const candidates: ReplacementCandidate[] = []
-  for (const match of text.matchAll(regex)) {
-    if (match.index === undefined) continue
-    const start = match.index
-    const end = start + match[0].length
-    const before = codePointBefore(text, start)
-    const after = codePointAfter(text, end)
-    if (
-      (before !== null && base64UrlCharacter.test(before)) ||
-      (after !== null && base64UrlCharacter.test(after))
-    ) {
-      continue
-    }
-    candidates.push({
-      start,
-      end,
-      replacementClass: "secret",
-      value: match[0],
-      comparisonKey: match[0],
-      caseSensitive: true,
-      assertGlobally: true,
-      assertInStringLiteral: false,
-    })
-  }
-  return candidates
-}
-
-function collectPemCandidates(text: string): ReplacementCandidate[] {
-  const candidates: ReplacementCandidate[] = []
-  const begin = /^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$/gm
-  for (const match of text.matchAll(begin)) {
-    if (match.index === undefined) continue
-    const start = match.index
-    const label = match[0].slice("-----BEGIN ".length, -"-----".length)
-    const endMarker = `-----END ${label}-----`
-    const markerIndex = text.indexOf(endMarker, start + match[0].length)
-    const end =
-      markerIndex < 0 ? start + match[0].length : markerIndex + endMarker.length
-    const value = text.slice(start, end)
-    candidates.push({
-      start,
-      end,
-      replacementClass: "secret",
-      value,
-      comparisonKey: value,
-      caseSensitive: true,
-      assertGlobally: true,
-      assertInStringLiteral: false,
-    })
-  }
-  return candidates
-}
-
-export function collectSecretCandidates(text: string): ReplacementCandidate[] {
-  return [
-    ...collectRegexSecretCandidates(text, /\bsk-[A-Za-z0-9_-]{20,}\b/g),
-    ...collectRegexSecretCandidates(
-      text,
-      /\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g,
-    ),
-    ...collectRegexSecretCandidates(
-      text,
-      /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b/g,
-    ),
-    ...collectRegexSecretCandidates(text, /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g),
-    ...collectRegexSecretCandidates(
-      text,
-      /\bxoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{20,}\b/g,
-    ),
-    ...collectRegexSecretCandidates(text, /\bAKIA[A-Z0-9]{16}\b/g),
-    ...collectJwtCandidates(text),
-    ...collectPemCandidates(text),
-  ]
 }
