@@ -30,14 +30,21 @@ export type ExaminationGenerateQuestionsBaseInput = {
   localIdentityContext: ExaminationLocalIdentityContext
   excerpts: ExaminationCodeExcerpt[]
   excerptFileSources: Record<string, string>
+  /** Target size of the returned and archived question set. */
   questionCount: number
   llmSettings: ExaminationLlmSettings
 }
 
 export type ExaminationGenerateQuestionsInput =
   ExaminationGenerateQuestionsBaseInput & {
+    /**
+     * Accepted questions retained while extending a set. The workflow generates
+     * only enough additional questions to reach `questionCount`.
+     */
     seedQuestions?: ExaminationQuestion[]
+    /** Process-local handle used to stop this generation request. */
     generationControlId: string
+    /** Skip the matching archive read and request a fresh generated set. */
     regenerate?: boolean
   }
 
