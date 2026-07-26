@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
-import type { ActiveTab } from "../types/index.js"
+import type {
+  ActiveTab,
+  PersistedActiveSurface,
+} from "@repo-edu/domain/active-surface"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 
 describe("history boundary", () => {

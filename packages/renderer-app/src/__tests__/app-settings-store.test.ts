@@ -3,8 +3,8 @@ import { beforeEach, describe, it } from "node:test"
 import {
   defaultAppPreferences,
   type PersistedAppPreferences,
+  persistedAppPreferencesKind,
 } from "@repo-edu/domain/settings"
-import { persistedAppPreferencesKind } from "@repo-edu/domain/types"
 import {
   effectiveLlmConnectionId,
   emptyLlmDraft,

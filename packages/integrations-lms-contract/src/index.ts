@@ -1,9 +1,23 @@
-import type { ConnectionBase } from "@repo-edu/domain/connection"
-import type { LmsProviderKind } from "@repo-edu/domain/types"
+import type {
+  ConnectionBase,
+  LmsProviderKind,
+} from "@repo-edu/domain/connection"
 
 export const packageId = "@repo-edu/integrations-lms-contract"
 
 export const supportedLmsProviders = ["canvas", "moodle"] as const
+
+type LmsContractProvider = (typeof supportedLmsProviders)[number]
+type AssertEqual<A, B> = [A] extends [B]
+  ? [B] extends [A]
+    ? true
+    : false
+  : false
+const _providerKindMatchesDomain: AssertEqual<
+  LmsContractProvider,
+  LmsProviderKind
+> = true
+void _providerKindMatchesDomain
 
 export type LmsConnectionDraft = ConnectionBase & {
   provider: LmsProviderKind

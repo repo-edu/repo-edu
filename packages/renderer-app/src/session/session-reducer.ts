@@ -1,12 +1,12 @@
 import {
+  type ActiveTab,
   activeCourseIdFromSurface,
   type PersistedActiveSurface,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/active-surface"
 import {
   idleSyncStatus,
   type PersistenceSyncStatus,
 } from "../persistence/create-persister.js"
-import type { ActiveTab } from "../types/index.js"
 
 export type CourseLoadStatus =
   | { state: "empty"; message: null }

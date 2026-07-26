@@ -5,14 +5,14 @@ import {
   SUBMISSION_SELECTION_MAX_FILES,
 } from "@repo-edu/application-contract"
 import {
+  activeSurfaceRecentSubmission,
+  activeSurfaceSubmissionStateKey,
+} from "@repo-edu/domain/active-surface"
+import {
   DEFAULT_EXTENSIONS,
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
-import {
-  activeSurfaceRecentSubmission,
-  activeSurfaceSubmissionStateKey,
-  type SubmissionSurfaceState,
-} from "@repo-edu/domain/settings"
+import type { SubmissionSurfaceState } from "@repo-edu/domain/settings"
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Checkbox, Label } from "@repo-edu/ui"
 import { type ReactNode, useEffect, useMemo, useState } from "react"

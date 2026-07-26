@@ -9,7 +9,10 @@ import {
   createCancelledAppError,
   isAppError,
 } from "@repo-edu/application-contract"
-import { normalizeUserAgent } from "@repo-edu/domain/connection"
+import {
+  normalizeUserAgent,
+  resolveActiveGitConnection,
+} from "@repo-edu/domain/connection"
 import { allocateMemberId } from "@repo-edu/domain/id-allocator"
 import {
   normalizeEmail,
@@ -30,7 +33,6 @@ import {
   defaultAppCredentials,
   defaultAppPreferences,
   type PersistedAppCredentials,
-  resolveActiveGitConnection,
 } from "@repo-edu/domain/settings"
 import {
   courseSupportsLms,
@@ -222,7 +224,10 @@ export function resolveLmsDraft(
 export function resolveGitDraft(
   settings: PersistedAppCredentials,
 ): GitConnectionDraft | null {
-  const connection = resolveActiveGitConnection(settings)
+  const connection = resolveActiveGitConnection(
+    settings.gitConnections,
+    settings.activeGitConnectionId,
+  )
   if (connection === null) {
     return null
   }

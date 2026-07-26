@@ -2,7 +2,7 @@ import type { ExaminationLlmSettings } from "@repo-edu/application-contract"
 import {
   type PersistedLlmConnection,
   resolveActiveLlmConnection,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/connection"
 import type { LlmRuntimeConfig } from "@repo-edu/host-runtime-contract"
 import {
   type FixtureModelSpec,
@@ -22,7 +22,10 @@ export type ExaminationModelResolution = {
 export function resolveExaminationModel(
   settings: ExaminationLlmSettings,
 ): ExaminationModelResolution {
-  const connection = resolveActiveLlmConnection(settings)
+  const connection = resolveActiveLlmConnection(
+    settings.llmConnections,
+    settings.activeLlmConnectionId,
+  )
   if (connection === null) {
     throw createValidationAppError("No LLM connection is configured.", [
       {

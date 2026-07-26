@@ -7,7 +7,7 @@ import type {
 import {
   gitNamespaceTerminology,
   normalizeGitNamespaceInput,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/repository-namespace"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"

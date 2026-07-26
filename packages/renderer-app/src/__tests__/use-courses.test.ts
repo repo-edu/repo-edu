@@ -3,12 +3,9 @@ import { beforeEach, describe, it } from "node:test"
 import {
   defaultAppPreferences,
   type PersistedAppPreferences,
-} from "@repo-edu/domain/settings"
-import {
-  type CourseBacking,
-  type CourseSummary,
   persistedAppPreferencesKind,
-} from "@repo-edu/domain/types"
+} from "@repo-edu/domain/settings"
+import type { CourseBacking, CourseSummary } from "@repo-edu/domain/types"
 import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
 import { useAppSettingsStore } from "../stores/app-settings-store.js"

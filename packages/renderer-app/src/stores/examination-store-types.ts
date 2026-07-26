@@ -4,7 +4,7 @@ import type {
   ExaminationStreamProgress,
   ExaminationUsage,
 } from "@repo-edu/application-contract"
-import type { LlmProviderKind } from "@repo-edu/domain/settings"
+import type { LlmProviderKind } from "@repo-edu/domain/connection"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
 import type { SourceIdentity } from "../components/tabs/examination/source.js"
 import type { AnalysisSourceKey } from "../session/session-reducer.js"

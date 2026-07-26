@@ -1,5 +1,7 @@
-import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
-import type { ActiveTab } from "../types/index.js"
+import type {
+  ActiveTab,
+  PersistedActiveSurface,
+} from "@repo-edu/domain/active-surface"
 
 export function isDocumentEditingSurface(
   activeSurface: PersistedActiveSurface,

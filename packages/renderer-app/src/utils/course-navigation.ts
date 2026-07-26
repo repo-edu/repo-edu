@@ -1,5 +1,8 @@
-import type { PersistedActiveSurface } from "@repo-edu/domain/settings"
-import type { ActiveTab, CourseBacking } from "@repo-edu/domain/types"
+import type {
+  ActiveTab,
+  PersistedActiveSurface,
+} from "@repo-edu/domain/active-surface"
+import type { CourseBacking } from "@repo-edu/domain/types"
 
 export type CourseTabVisibility = {
   roster: boolean

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { llmProviderKinds } from "@repo-edu/domain/connection"
 import {
   LlmError,
   packageId,
@@ -12,8 +13,8 @@ describe("integrations-llm-contract", () => {
     assert.equal(packageId, "@repo-edu/integrations-llm-contract")
   })
 
-  it("supportedLlmProviders matches LlmProvider union", () => {
-    assert.deepEqual([...supportedLlmProviders], ["claude", "codex"])
+  it("supportedLlmProviders matches domain llmProviderKinds", () => {
+    assert.deepEqual([...supportedLlmProviders], [...llmProviderKinds])
   })
 
   it("threshold is 6 hours in ms", () => {

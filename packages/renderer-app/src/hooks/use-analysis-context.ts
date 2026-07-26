@@ -1,4 +1,4 @@
-import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
+import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import type { AnalysisInputs } from "@repo-edu/domain/types"
 import { useCallback, useMemo } from "react"
 import { selectActiveSurface } from "../session/selectors.js"

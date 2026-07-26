@@ -4,14 +4,15 @@ import {
   isAppError,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
-import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import {
+  type ActiveTab,
   activeCourseIdFromSurface,
   activeSurfaceEquals,
   activeSurfaceRecentSubmission,
   normalizeActiveSurface,
   type PersistedActiveSurface,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/active-surface"
+import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import {
   type CourseBacking,
   courseHasRoster,
@@ -34,7 +35,6 @@ import { useCourseStore } from "../stores/course-store.js"
 import { useCredentialsStore } from "../stores/credentials-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
-import type { ActiveTab } from "../types/index.js"
 import {
   resolveSupportedActiveTab,
   surfaceTabBacking,

@@ -30,6 +30,12 @@
       "@repo-edu/domain/connection": [
         "./packages/domain/src/connection.ts"
       ],
+      "@repo-edu/domain/repository-namespace": [
+        "./packages/domain/src/repository-namespace.ts"
+      ],
+      "@repo-edu/domain/active-surface": [
+        "./packages/domain/src/active-surface.ts"
+      ],
       "@repo-edu/domain/roster": ["./packages/domain/src/roster.ts"],
       "@repo-edu/domain/roster-lms-merge": [
         "./packages/domain/src/roster-lms-merge.ts"

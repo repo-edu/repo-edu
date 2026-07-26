@@ -1,8 +1,8 @@
 import type {
-  FileFormat,
   ThemePreference,
   WindowChromeMode,
-} from "@repo-edu/domain/types"
+} from "@repo-edu/domain/settings"
+import type { FileFormat } from "@repo-edu/domain/types"
 import type {
   UserFileRef,
   UserSaveTargetRef,

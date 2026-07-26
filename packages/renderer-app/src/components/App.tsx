@@ -1,5 +1,8 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
+import {
+  type ActiveTab,
+  activeCourseIdFromSurface,
+} from "@repo-edu/domain/active-surface"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
@@ -53,7 +56,6 @@ import {
 } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { selectCourseListLoaded, useUiStore } from "../stores/ui-store.js"
-import type { ActiveTab } from "../types/index.js"
 import {
   resolveTabVisibility,
   surfaceTabBacking,

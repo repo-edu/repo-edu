@@ -1,27 +1,29 @@
 import {
+  normalizeAnalysisFolderPath,
+  normalizeSubmissionFolderPath,
+  type SubmissionFolderRecent,
+  submissionSurfaceStateKey,
+} from "@repo-edu/domain/active-surface"
+import type { LlmProviderKind } from "@repo-edu/domain/connection"
+import {
+  type DateFormatPreference,
   defaultAppPreferences,
   type ExaminationModelsByProvider,
-  type LlmProviderKind,
-  normalizeAnalysisFolderPath,
   normalizeRecentAnalysisFolders,
   normalizeRecentSubmissionFolders,
-  normalizeSubmissionFolderPath,
   type PersistedAnalysisConcurrency,
   type PersistedAnalysisSidebarSettings,
   type PersistedAppPreferences,
   pruneSubmissionStateForRecents,
-  type SubmissionFolderRecent,
   type SubmissionSurfaceState,
   type SyntaxThemeId,
-  submissionSurfaceStateKey,
+  type ThemePreference,
+  type TimeFormatPreference,
 } from "@repo-edu/domain/settings"
 import type {
   AnalysisInputs,
   CourseBacking,
   CourseSummary,
-  DateFormatPreference,
-  ThemePreference,
-  TimeFormatPreference,
 } from "@repo-edu/domain/types"
 import { create } from "zustand"
 

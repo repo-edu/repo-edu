@@ -1,8 +1,8 @@
-import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import {
   type PersistedLlmConnection,
   resolveActiveLlmConnection,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/connection"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type { LlmRuntimeConfig } from "@repo-edu/integrations-llm-contract"
 
 type DesktopLlmRuntimeConfigOptions = {
@@ -71,7 +71,10 @@ export function desktopLlmRuntimeConfigFromSettings(
   options: DesktopLlmRuntimeConfigOptions,
 ): LlmRuntimeConfig {
   const carrier = hostCarrierConfig(options)
-  const active = resolveActiveLlmConnection(settings)
+  const active = resolveActiveLlmConnection(
+    settings.llmConnections,
+    settings.activeLlmConnectionId,
+  )
   if (active === null) return carrier
   return mergeRuntimeConfig(carrier, connectionRuntimeConfig(active, options))
 }

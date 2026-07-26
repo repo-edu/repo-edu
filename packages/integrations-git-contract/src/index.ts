@@ -1,12 +1,24 @@
-import type { ConnectionBase } from "@repo-edu/domain/connection"
 import type {
+  ConnectionBase,
   GitProviderKind,
-  RepositoryTemplateVisibility,
-} from "@repo-edu/domain/types"
+} from "@repo-edu/domain/connection"
+import type { RepositoryTemplateVisibility } from "@repo-edu/domain/types"
 
 export const packageId = "@repo-edu/integrations-git-contract"
 
 export const supportedGitProviders = ["github", "gitlab", "gitea"] as const
+
+type GitContractProvider = (typeof supportedGitProviders)[number]
+type AssertEqual<A, B> = [A] extends [B]
+  ? [B] extends [A]
+    ? true
+    : false
+  : false
+const _providerKindMatchesDomain: AssertEqual<
+  GitContractProvider,
+  GitProviderKind
+> = true
+void _providerKindMatchesDomain
 
 export type GitConnectionDraft = ConnectionBase & {
   provider: GitProviderKind

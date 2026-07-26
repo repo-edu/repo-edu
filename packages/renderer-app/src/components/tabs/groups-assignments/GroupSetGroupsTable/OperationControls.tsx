@@ -1,10 +1,12 @@
 import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import {
+  type GitProviderKind,
   gitConnectionDisplayLabel,
+} from "@repo-edu/domain/connection"
+import {
   gitNamespaceTerminology,
   normalizeGitNamespaceInput,
-} from "@repo-edu/domain/settings"
-import type { GitProviderKind } from "@repo-edu/domain/types"
+} from "@repo-edu/domain/repository-namespace"
 import {
   Button,
   Checkbox,

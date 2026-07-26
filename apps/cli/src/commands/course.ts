@@ -1,5 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import { activeCourseIdFromSurface } from "@repo-edu/domain/settings"
+import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import type { Command } from "commander"
 import {
   emitCommandError,

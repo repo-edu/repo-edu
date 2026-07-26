@@ -1,4 +1,4 @@
-import type { LlmProviderKind } from "@repo-edu/domain/settings"
+import type { LlmProviderKind } from "@repo-edu/domain/connection"
 import { useShallow } from "zustand/react/shallow"
 import {
   selectExaminationModelsByProvider,

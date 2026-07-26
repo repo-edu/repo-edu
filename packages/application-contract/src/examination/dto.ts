@@ -1,7 +1,5 @@
-import type {
-  ExaminationModelsByProvider,
-  PersistedLlmConnection,
-} from "@repo-edu/domain/settings"
+import type { PersistedLlmConnection } from "@repo-edu/domain/connection"
+import type { ExaminationModelsByProvider } from "@repo-edu/domain/settings"
 import type {
   ExaminationArchiveImportSummary as HostExaminationArchiveImportSummary,
   UserSaveTargetRef,

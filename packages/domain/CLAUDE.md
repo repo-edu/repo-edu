@@ -16,7 +16,10 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 - discriminated `GroupSet` union (`NamedGroupSet` / `UsernameGroupSet`) on `nameMode`
 - group-set import/export semantics (CSV → named sets, RepoBee → unnamed sets via `GroupSetImportFormat`)
 - named pattern-matching contracts for repository discovery, analysis filters and group selection
-- LMS / Git connection types (`connection.ts`) and persisted app settings sections (`settings.ts`): credentials own LMS/Git/LLM records and active credential ids, while preferences own active surface/tab, recents, folder-analysis inputs, appearance, layout and model preferences
+- configured connection records, provider value sets, provider presentation and active selection (`connection.ts`)
+- repository-provider namespace terminology and pasted-path normalization (`repository-namespace.ts`)
+- active tab, surface and submission-recent identity (`active-surface.ts`)
+- persisted app settings sections (`settings.ts`): credentials and preferences field membership, defaults, recent collection policy, appearance, layout, model preferences and section composition
 - repository planning and collision semantics
 - git analysis primitives (`src/analysis/`):
   - `types.ts` — `AnalysisConfig`, `AnalysisBlameConfig`, `AnalysisResult`, `BlameResult`, `PersonDbSnapshot`, `AuthorStats`, `FileStats`, `SupportedLanguage`

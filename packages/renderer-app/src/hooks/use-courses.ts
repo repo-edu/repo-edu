@@ -1,7 +1,7 @@
 import {
   activeCourseIdFromSurface,
   type PersistedActiveSurface,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/active-surface"
 import type {
   CourseBacking,
   CourseSummary,

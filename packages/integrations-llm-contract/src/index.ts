@@ -1,3 +1,5 @@
+import type { LlmProviderKind } from "@repo-edu/domain/connection"
+
 export const packageId = "@repo-edu/integrations-llm-contract"
 
 // Threshold separating short-window rate limits from long-window quota
@@ -7,6 +9,15 @@ export const QUOTA_RETRY_AFTER_THRESHOLD_MS = 6 * 60 * 60 * 1000
 
 export const supportedLlmProviders = ["claude", "codex"] as const
 export type LlmProvider = (typeof supportedLlmProviders)[number]
+
+type AssertEqual<A, B> = [A] extends [B]
+  ? [B] extends [A]
+    ? true
+    : false
+  : false
+const _providerKindMatchesDomain: AssertEqual<LlmProvider, LlmProviderKind> =
+  true
+void _providerKindMatchesDomain
 
 export type LlmEffort =
   | "none"

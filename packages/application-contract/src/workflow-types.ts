@@ -4,15 +4,17 @@ import type {
   AnalysisRosterContext,
   PersonDbSnapshot,
 } from "@repo-edu/domain/analysis"
-import type { ConnectionBase } from "@repo-edu/domain/connection"
+import type {
+  ConnectionBase,
+  GitProviderKind,
+  LmsProviderKind,
+} from "@repo-edu/domain/connection"
 import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type {
   ExportFormat,
-  GitProviderKind,
   GroupSet,
   GroupSetImportFormat,
   IdSequences,
-  LmsProviderKind,
   PersistedCourse,
   RepositoryTemplate,
   Roster,

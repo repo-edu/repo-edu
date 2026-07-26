@@ -1,4 +1,4 @@
-import type { PersistedLlmConnection } from "@repo-edu/domain/settings"
+import type { PersistedLlmConnection } from "@repo-edu/domain/connection"
 import {
   listCatalogSpecsForProvider,
   modelCode,

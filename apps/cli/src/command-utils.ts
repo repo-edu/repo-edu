@@ -3,11 +3,9 @@ import type {
   SettingsRecoveryEntry,
   WorkflowClient,
 } from "@repo-edu/application-contract"
-import {
-  activeCourseIdFromSurface,
-  type PersistedAppCredentials,
-  resolveActiveGitConnection,
-} from "@repo-edu/domain/settings"
+import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
+import { resolveActiveGitConnection } from "@repo-edu/domain/connection"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
 import type { Command } from "commander"
 
@@ -136,7 +134,10 @@ export function requireLmsConnection(
 }
 
 export function requireGitConnection(credentials: PersistedAppCredentials) {
-  const connection = resolveActiveGitConnection(credentials)
+  const connection = resolveActiveGitConnection(
+    credentials.gitConnections,
+    credentials.activeGitConnectionId,
+  )
   if (connection === null) {
     throw new Error("No Git connection is configured in settings.")
   }

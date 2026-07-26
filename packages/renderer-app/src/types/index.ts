@@ -1,7 +1,5 @@
 import type { RosterValidationKind } from "@repo-edu/domain/types"
 
-export type { ActiveTab } from "@repo-edu/domain/types"
-
 export type ConnectionStatus =
   | "disconnected"
   | "verifying"

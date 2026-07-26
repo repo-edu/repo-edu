@@ -2,6 +2,9 @@
   "name": "@repo-edu/integrations-llm-contract",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@repo-edu/domain": "workspace:*"
+  },
   "exports": {
     ".": {
       "source": "./src/index.ts",

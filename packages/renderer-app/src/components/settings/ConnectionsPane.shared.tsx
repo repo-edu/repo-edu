@@ -2,13 +2,13 @@ import {
   DEFAULT_CLAUDE_API_MAX_TOKENS,
   gitProviderDefaultBaseUrls,
   type LlmProviderKind,
-  type PersistedAppCredentials,
+  type LmsProviderKind,
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
   resolveActiveLlmConnection,
-} from "@repo-edu/domain/settings"
-import type { LmsProviderKind } from "@repo-edu/domain/types"
+} from "@repo-edu/domain/connection"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import { Check, Loader2, X } from "@repo-edu/ui/components/icons"
 import type { ConnectionStatus } from "../../types/index.js"
 
@@ -169,7 +169,12 @@ export function effectiveLlmConnectionId(
     "llmConnections" | "activeLlmConnectionId"
   >,
 ): string | null {
-  return resolveActiveLlmConnection(settings)?.id ?? null
+  return (
+    resolveActiveLlmConnection(
+      settings.llmConnections,
+      settings.activeLlmConnectionId,
+    )?.id ?? null
+  )
 }
 
 export type {

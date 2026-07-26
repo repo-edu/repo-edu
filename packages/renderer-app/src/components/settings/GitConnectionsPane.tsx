@@ -1,9 +1,9 @@
-import { normalizeUserAgent } from "@repo-edu/domain/connection"
 import {
+  type GitProviderKind,
   gitConnectionDisplayLabel,
   gitProviderDefaultBaseUrls,
-} from "@repo-edu/domain/settings"
-import type { GitProviderKind } from "@repo-edu/domain/types"
+  normalizeUserAgent,
+} from "@repo-edu/domain/connection"
 import {
   Button,
   FormField,

@@ -1,7 +1,7 @@
 import {
   activeSurfaceEquals,
   type SubmissionFolderRecent,
-} from "@repo-edu/domain/settings"
+} from "@repo-edu/domain/active-surface"
 import type { CourseSummary } from "@repo-edu/domain/types"
 import {
   AlertDialog,

@@ -1,6 +1,8 @@
 import type {
   GitProviderKind,
   LmsProviderKind,
+} from "@repo-edu/domain/connection"
+import type {
   RosterValidationIssue,
   ValidationIssue,
 } from "@repo-edu/domain/types"

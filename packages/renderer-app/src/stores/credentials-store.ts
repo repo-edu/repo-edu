@@ -1,11 +1,13 @@
 import {
-  defaultAppCredentials,
-  type PersistedAppCredentials,
   type PersistedGitConnection,
   type PersistedLlmConnection,
   type PersistedLmsConnection,
   resolveActiveGitConnection,
   resolveActiveLlmConnection,
+} from "@repo-edu/domain/connection"
+import {
+  defaultAppCredentials,
+  type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
 import { create } from "zustand"
 import { useConnectionsStore } from "./connections-store.js"
@@ -168,12 +170,18 @@ export const selectGitConnection = (id: string) => (state: CredentialsState) =>
 export const selectActiveGitConnectionId = (state: CredentialsState) =>
   state.credentials.activeGitConnectionId
 export const selectActiveGitConnection = (state: CredentialsState) =>
-  resolveActiveGitConnection(state.credentials)
+  resolveActiveGitConnection(
+    state.credentials.gitConnections,
+    state.credentials.activeGitConnectionId,
+  )
 export const selectLlmConnections = (state: CredentialsState) =>
   state.credentials.llmConnections
 export const selectActiveLlmConnectionId = (state: CredentialsState) =>
   state.credentials.activeLlmConnectionId
 export const selectActiveLlmConnection = (state: CredentialsState) =>
-  resolveActiveLlmConnection(state.credentials)
+  resolveActiveLlmConnection(
+    state.credentials.llmConnections,
+    state.credentials.activeLlmConnectionId,
+  )
 export const selectCredentialsSnapshot = (state: CredentialsState) =>
   state.credentials

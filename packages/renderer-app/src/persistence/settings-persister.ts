@@ -1,8 +1,8 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import {
-  activeSurfaceEquals,
-  type PersistedAppCredentials,
-  type PersistedAppPreferences,
+import { activeSurfaceEquals } from "@repo-edu/domain/active-surface"
+import type {
+  PersistedAppCredentials,
+  PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { getErrorMessage } from "../utils/error-message.js"

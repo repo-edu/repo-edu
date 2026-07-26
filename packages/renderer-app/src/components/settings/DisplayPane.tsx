@@ -1,9 +1,10 @@
-import { type SyntaxThemeId, syntaxThemeIds } from "@repo-edu/domain/settings"
 import type {
   DateFormatPreference,
+  SyntaxThemeId,
   ThemePreference,
   TimeFormatPreference,
-} from "@repo-edu/domain/types"
+} from "@repo-edu/domain/settings"
+import { syntaxThemeIds } from "@repo-edu/domain/settings"
 import {
   FormField,
   Select,

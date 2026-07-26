@@ -18,6 +18,16 @@
       "types": "./dist/connection.d.ts",
       "default": "./dist/connection.js"
     },
+    "./repository-namespace": {
+      "source": "./src/repository-namespace.ts",
+      "types": "./dist/repository-namespace.d.ts",
+      "default": "./dist/repository-namespace.js"
+    },
+    "./active-surface": {
+      "source": "./src/active-surface.ts",
+      "types": "./dist/active-surface.d.ts",
+      "default": "./dist/active-surface.js"
+    },
     "./roster": {
       "source": "./src/roster.ts",
       "types": "./dist/roster.d.ts",
@@ -93,6 +103,8 @@
   "dependencies": {
     "@noble/hashes": "^2.2.0",
     "outmatch": "1.0.0",
+    "pathe": "2.0.3",
+    "ufo": "1.6.4",
     "web-tree-sitter": "0.26.9",
     "zod": "^4.3.6"
   },

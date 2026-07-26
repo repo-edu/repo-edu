@@ -5,14 +5,8 @@ export type { AnalysisInputs } from "./analysis-input-types.js"
 
 export const packageId = "@repo-edu/domain"
 
-export const persistedAppSettingsKind = "repo-edu.app-settings.v2" as const
-export const persistedAppCredentialsKind =
-  "repo-edu.app-credentials.v1" as const
-export const persistedAppPreferencesKind =
-  "repo-edu.app-preferences.v1" as const
 export const persistedCourseKind = "repo-edu.course.v1" as const
 
-export const gitProviderKinds = ["github", "gitlab", "gitea"] as const
 export const gitUsernameStatusKinds = ["unknown", "valid", "invalid"] as const
 export const memberStatusKinds = ["active", "incomplete", "dropped"] as const
 export const enrollmentTypeKinds = [
@@ -25,22 +19,14 @@ export const enrollmentTypeKinds = [
 ] as const
 export const groupOriginKinds = ["system", "lms", "local"] as const
 
-export type LmsProviderKind = "canvas" | "moodle"
-export type GitProviderKind = (typeof gitProviderKinds)[number]
 export type CourseBacking = "lms" | "repobee"
-export type ProviderKind = LmsProviderKind | GitProviderKind | "git"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]
 export type MemberStatus = (typeof memberStatusKinds)[number]
 export type EnrollmentType = (typeof enrollmentTypeKinds)[number]
 export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
-export type ActiveTab = "roster" | "groups-assignments" | "analysis"
 export type FileFormat = "csv" | "xlsx" | "json" | "txt"
-export type ThemePreference = "system" | "light" | "dark"
-export type WindowChromeMode = "system" | "hiddenInset"
-export type DateFormatPreference = "MDY" | "DMY"
-export type TimeFormatPreference = "12h" | "24h"
 export type ExportFormat = Extract<FileFormat, "csv" | "xlsx">
 
 export type RosterConnection =

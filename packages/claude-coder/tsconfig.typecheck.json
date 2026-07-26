@@ -6,6 +6,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "../integrations-llm-contract/src/**/*.ts"
+    "../domain/src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts",
+    "../tree-sitter-grammar-assets/src/index.ts"
   ]
 }
