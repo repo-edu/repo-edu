@@ -9,6 +9,7 @@ import {
   type ClassifiedSourceSpan,
   prepareExaminationPrivacy,
 } from "../examination-workflows/privacy-policy.js"
+import { buildExaminationPrompt } from "../examination-workflows/prompt-builder.js"
 
 const identityContext = {
   names: ["Ada Lovelace", "Will"],
@@ -106,7 +107,7 @@ describe("examination privacy policy", () => {
       prepared.sources[1]?.lines.join("\n") ?? "",
       /<redacted-name-1>/,
     )
-    assert.equal(prepared.context.redactionPolicyVersion, 6)
+    assert.equal(prepared.context.redactionPolicyVersion, 7)
     assert.ok(Object.isFrozen(prepared.context))
   })
 
@@ -237,6 +238,48 @@ describe("examination privacy policy", () => {
       () =>
         assertExaminationPromptPrivacy({
           renderedPrompt: lines.join("\n"),
+          context: prepared.context,
+        }),
+      /name remained/,
+    )
+  })
+
+  it("does not treat apostrophes inside prompt words as quote delimiters", () => {
+    const lines = ["const Will = 1", 'const label = "Made by Will"']
+    const prepared = prepare({ lines, names: ["Will"] })
+    const renderedPrompt = buildExaminationPrompt(
+      {
+        questionCount: 1,
+        excerpts: [
+          {
+            sourceId: "E1",
+            sourceDescriptor: "TypeScript",
+            startLine: 1,
+            lines: prepared.sources[0]?.lines ?? [],
+          },
+        ],
+      },
+      {
+        seedQuestions: [
+          {
+            question: "What's shown by contributors' reviews about Will?",
+            answer: "The accepted answer stays local.",
+            anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+          },
+        ],
+      },
+    )
+
+    assert.doesNotThrow(() =>
+      assertExaminationPromptPrivacy({
+        renderedPrompt,
+        context: prepared.context,
+      }),
+    )
+    assert.throws(
+      () =>
+        assertExaminationPromptPrivacy({
+          renderedPrompt: "The identifier is 'Will'.",
           context: prepared.context,
         }),
       /name remained/,

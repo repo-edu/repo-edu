@@ -51,24 +51,56 @@ function isInsideSingleLineQuotedSpan(
   const localEnd = end - lineStart
 
   for (const quote of ["'", '"', "`"]) {
-    let open = false
+    let openingIndex: number | null = null
     let escaped = false
-    let startedInside = false
-    for (let index = 0; index <= line.length; index++) {
-      if (index === localStart && open) startedInside = true
-      if (index === localEnd && startedInside && open) return true
+    for (let index = 0; index < line.length; index++) {
       const character = line[index]
-      if (character === undefined) continue
       if (escaped) {
         escaped = false
       } else if (character === "\\") {
         escaped = true
       } else if (character === quote) {
-        open = !open
+        if (
+          quote === "'" &&
+          isWordApostrophe(line, index, openingIndex !== null)
+        ) {
+          continue
+        }
+        if (openingIndex === null) {
+          openingIndex = index
+          continue
+        }
+        if (localStart > openingIndex && localEnd <= index) return true
+        openingIndex = null
       }
     }
   }
   return false
+}
+
+const wordCharacter = /^[\p{L}\p{N}\p{M}]$/u
+
+function codePointBefore(text: string, index: number): string | null {
+  if (index <= 0) return null
+  const prefix = text.slice(0, index)
+  return Array.from(prefix).at(-1) ?? null
+}
+
+function codePointAfter(text: string, index: number): string | null {
+  if (index >= text.length) return null
+  return Array.from(text.slice(index))[0] ?? null
+}
+
+function isWordApostrophe(
+  text: string,
+  index: number,
+  insideSingleQuotedSpan: boolean,
+): boolean {
+  const before = codePointBefore(text, index)
+  if (before === null || !wordCharacter.test(before)) return false
+  if (!insideSingleQuotedSpan) return true
+  const after = codePointAfter(text, index + 1)
+  return after !== null && wordCharacter.test(after)
 }
 
 function containsRequiredCheckInStringLiteralContext(
