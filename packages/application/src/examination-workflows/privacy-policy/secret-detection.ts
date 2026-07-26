@@ -5,8 +5,8 @@ const base64UrlCharacter = /^[A-Za-z0-9_-]$/
 const TOKEN_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{20,}\b/g,
   /\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{16,}\b/g,
-  /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b/g,
-  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
+  /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_.-]{36,251}\b/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,244}\b/g,
   /\bxoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{20,}\b/g,
   /\bAKIA[A-Z0-9]{16}\b/g,
 ] as const

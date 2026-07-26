@@ -63,14 +63,26 @@ describe("examination privacy detection", () => {
   it("redacts every supported GitHub token family", () => {
     const suffix = "a".repeat(36)
     const fineGrained = `github_pat_${"b".repeat(82)}`
+    const refresh = `ghr_${"c".repeat(76)}`
+    const statelessInstallation = `ghs_123456_${"d".repeat(24)}.${"e".repeat(24)}.${"f".repeat(48)}`
     const tokens = ["ghp", "gho", "ghu", "ghs", "ghr"].map(
       (prefix) => `${prefix}_${suffix}`,
     )
-    const prepared = prepare([...tokens, fineGrained])
+    const prepared = prepare([
+      ...tokens,
+      fineGrained,
+      refresh,
+      statelessInstallation,
+    ])
     const text = prepared.sources[0]?.lines.join("\n") ?? ""
 
-    for (const token of [...tokens, fineGrained]) {
-      assert.doesNotMatch(text, new RegExp(token))
+    for (const token of [
+      ...tokens,
+      fineGrained,
+      refresh,
+      statelessInstallation,
+    ]) {
+      assert.equal(text.includes(token), false)
     }
     assert.deepEqual(prepared.sources[0]?.report.replacementClasses, ["secret"])
   })

@@ -38,7 +38,6 @@ export function toExaminationEntry(
         : null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    inProgressQuestion: null,
     generationControlId: null,
     stopRequested: false,
   }

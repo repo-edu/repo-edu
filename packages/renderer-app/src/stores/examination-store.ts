@@ -522,7 +522,6 @@ export const useExaminationStore = create<
           ...current,
           questions: payload.questions,
           sourceReferences: payload.sourceReferences,
-          inProgressQuestion: payload.inProgressQuestion,
           partialQuestionCount:
             current.partialQuestionCount === null
               ? null

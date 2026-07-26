@@ -166,11 +166,6 @@ export type ExaminationArchiveRecord = {
   provenance: ExaminationArchivedProvenance
 }
 
-export type ExaminationInProgressQuestion = {
-  question: string
-  answer: string
-}
-
 export type ExaminationStreamProgress = {
   streamedCharacterCount: number
   activityLabel: string | null
@@ -184,7 +179,6 @@ export type ExaminationGenerateOutput =
       acceptedQuestionCount: number
       questions: ExaminationQuestion[]
       sourceReferences: ExaminationSourceReference[]
-      inProgressQuestion: ExaminationInProgressQuestion | null
     }
 
 export type ExaminationStopGenerationInput = {

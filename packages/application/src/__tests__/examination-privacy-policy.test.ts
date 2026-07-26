@@ -106,7 +106,7 @@ describe("examination privacy policy", () => {
       prepared.sources[1]?.lines.join("\n") ?? "",
       /<redacted-name-1>/,
     )
-    assert.equal(prepared.context.redactionPolicyVersion, 5)
+    assert.equal(prepared.context.redactionPolicyVersion, 6)
     assert.ok(Object.isFrozen(prepared.context))
   })
 
@@ -163,6 +163,48 @@ describe("examination privacy policy", () => {
       }),
       { ok: false, reason: "known-identifier" },
     )
+  })
+
+  it("redacts and rejects identities delimited by ASCII apostrophes", () => {
+    const lines = [
+      "const name = 'Ada Lovelace'",
+      "const email = 'ADA@LOCALHOST'",
+      "const id = 'Student-A'",
+      "const username = 'AdaGit'",
+    ]
+    const prepared = prepare({ lines })
+    const source = prepared.sources[0]?.lines.join("\n") ?? ""
+
+    for (const identity of [
+      "Ada Lovelace",
+      "ADA@LOCALHOST",
+      "Student-A",
+      "AdaGit",
+    ]) {
+      assert.equal(source.includes(identity), false)
+    }
+
+    for (const answer of [
+      "'Ada Lovelace' owns it.",
+      "Ask 'ADA@LOCALHOST'.",
+      "Use 'Student-A'.",
+      "Review 'AdaGit'.",
+      "Ada Lovelace's implementation owns it.",
+    ]) {
+      assert.equal(
+        admitExaminationQuestions({
+          questions: [
+            {
+              question: "Who?",
+              answer,
+              anchor: { sourceId: null, lineRange: null },
+            },
+          ],
+          context: prepared.context,
+        }).ok,
+        false,
+      )
+    }
   })
 
   it("rejects a known local email literal that is not email-shaped", () => {

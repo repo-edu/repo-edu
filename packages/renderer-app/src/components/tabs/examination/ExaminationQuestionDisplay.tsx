@@ -68,9 +68,7 @@ export function ExaminationQuestionDisplay({
           {display.isLoading && entry !== null ? (
             <StreamingGenerationDetail
               entry={entry}
-              index={display.displayEntry.questions.length}
               requestedQuestionCount={loadingRequestedQuestionCount}
-              showAnswers={showAnswers}
             />
           ) : null}
         </div>
@@ -81,9 +79,7 @@ export function ExaminationQuestionDisplay({
       ) : display.isLoading && entry !== null ? (
         <StreamingGenerationDetail
           entry={entry}
-          index={0}
           requestedQuestionCount={loadingRequestedQuestionCount}
-          showAnswers={showAnswers}
         />
       ) : entry.status === "error" ? (
         <Alert variant="destructive">

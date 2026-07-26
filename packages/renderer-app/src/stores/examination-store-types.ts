@@ -1,5 +1,4 @@
 import type {
-  ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
   ExaminationStreamProgress,
@@ -29,7 +28,6 @@ export type ExaminationEntry = {
   } | null
   generationProgressLabel: string | null
   streamedResponseCharacterCount: number
-  inProgressQuestion: ExaminationInProgressQuestion | null
   generationControlId: string | null
   stopRequested: boolean
 }
@@ -220,7 +218,6 @@ export type ExaminationActions = {
     payload: {
       questions: ExaminationQuestion[]
       sourceReferences: ExaminationSourceReference[]
-      inProgressQuestion: ExaminationInProgressQuestion | null
     },
     sourceSessionKey?: string,
     requestId?: string,

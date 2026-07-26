@@ -1,5 +1,4 @@
 import type {
-  ExaminationInProgressQuestion,
   ExaminationQuestion,
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
@@ -9,37 +8,6 @@ type QuestionListProps = {
   questions: ExaminationQuestion[]
   sourceReferences: ExaminationSourceReference[]
   showAnswers: boolean
-}
-
-export function InProgressQuestionCard({
-  index,
-  inProgress,
-  showAnswers,
-}: {
-  index: number
-  inProgress: ExaminationInProgressQuestion
-  showAnswers: boolean
-}) {
-  const hasQuestion = inProgress.question.length > 0
-  const hasAnswer = inProgress.answer.length > 0
-  return (
-    <div className="rounded border border-dashed p-3 text-muted-foreground">
-      <div className="text-sm font-medium">
-        {index + 1}.{" "}
-        {hasQuestion ? (
-          <span className="whitespace-pre-wrap">{inProgress.question}</span>
-        ) : (
-          <span className="italic">Streaming...</span>
-        )}
-      </div>
-      {showAnswers && hasAnswer ? (
-        <div className="mt-2 whitespace-pre-wrap rounded bg-muted/30 p-2 text-sm">
-          <span className="text-xs font-semibold uppercase">Answer</span>
-          <div>{inProgress.answer}</div>
-        </div>
-      ) : null}
-    </div>
-  )
 }
 
 export function QuestionList({

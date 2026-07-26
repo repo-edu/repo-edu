@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
-import { InProgressQuestionCard } from "./QuestionList.js"
 
 export function StreamingGenerationDetail({
   entry,
-  index,
   requestedQuestionCount,
-  showAnswers,
 }: {
   entry: ExaminationEntry
-  index: number
   requestedQuestionCount: number
-  showAnswers: boolean
 }) {
   const topRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -24,13 +19,6 @@ export function StreamingGenerationDetail({
         entry={entry}
         requestedQuestionCount={requestedQuestionCount}
       />
-      {entry.inProgressQuestion !== null ? (
-        <InProgressQuestionCard
-          index={index}
-          inProgress={entry.inProgressQuestion}
-          showAnswers={showAnswers}
-        />
-      ) : null}
     </div>
   )
 }

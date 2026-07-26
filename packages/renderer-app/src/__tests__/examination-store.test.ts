@@ -68,7 +68,6 @@ function entry(status: ExaminationEntry["status"]): ExaminationEntry {
       status === "loading" ? { requested: 2, accepted: 0 } : null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    inProgressQuestion: null,
     generationControlId: status === "loading" ? "control-1" : null,
     stopRequested: false,
   }
@@ -151,7 +150,6 @@ describe("examination store", () => {
           ],
         },
       ],
-      inProgressQuestion: { question: "Q2 in progress", answer: "" },
     })
 
     const updated = useExaminationStore.getState().entriesByKey.get("entry")
@@ -161,7 +159,6 @@ describe("examination store", () => {
       updated.sourceReferences[0]?.occurrences[0]?.filePath,
       "src/a.ts",
     )
-    assert.equal(updated.inProgressQuestion?.question, "Q2 in progress")
     assert.equal(updated.partialQuestionCount?.accepted, 1)
   })
 
@@ -178,7 +175,6 @@ describe("examination store", () => {
         },
       ],
       sourceReferences: [],
-      inProgressQuestion: null,
     })
 
     const updated = useExaminationStore.getState().entriesByKey.get("entry")

@@ -756,7 +756,6 @@ export function useExaminationEngine({
                 {
                   questions: output.questions,
                   sourceReferences: output.sourceReferences,
-                  inProgressQuestion: output.inProgressQuestion,
                 },
                 runSourceSessionKey,
                 started.requestId,

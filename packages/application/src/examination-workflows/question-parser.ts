@@ -15,8 +15,6 @@ export type PartialQuestionEmissionState = {
   acceptedQuestions: ExaminationQuestion[]
   emittedQuestionCount: number
   warnedOverQuota: boolean
-  emittedInProgressQuestion: string
-  emittedInProgressAnswer: string
 }
 
 export function maybeEmitPartial(params: {
@@ -45,13 +43,9 @@ export function maybeEmitPartial(params: {
   if (!isRecord(parsed) || !Array.isArray(parsed.questions)) return
 
   const completeQuestions: ExaminationQuestion[] = []
-  let firstIncompleteRaw: unknown = null
   for (const raw of parsed.questions) {
     const question = coerceCompleteStreamQuestion(raw, params.sourceLineRanges)
-    if (question === null) {
-      firstIncompleteRaw = raw
-      break
-    }
+    if (question === null) break
     completeQuestions.push(question)
   }
   if (completeQuestions.length > params.requestedQuestionCount) {
@@ -72,63 +66,22 @@ export function maybeEmitPartial(params: {
     return
   }
 
-  const inProgress = extractInProgressFields(firstIncompleteRaw, {
-    hasRoomForMore:
-      acceptedGeneratedQuestions.length < params.requestedQuestionCount,
-  })
   const acceptedGrew =
     acceptedQuestions.length > params.emittedQuestionCount.emittedQuestionCount
-  const inProgressChanged =
-    inProgress.question !==
-      params.emittedQuestionCount.emittedInProgressQuestion ||
-    inProgress.answer !== params.emittedQuestionCount.emittedInProgressAnswer
+  if (!acceptedGrew) return
 
-  if (!acceptedGrew && !inProgressChanged) return
-
-  if (acceptedGrew) {
-    const newQuestions = acceptedQuestions.slice(
-      params.emittedQuestionCount.emittedQuestionCount,
-    )
-    params.assertOutputAllowed(newQuestions)
-    params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
-    params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
-  }
-  if (
-    inProgressChanged &&
-    (inProgress.question.length > 0 || inProgress.answer.length > 0)
-  ) {
-    params.assertOutputAllowed([
-      {
-        question: inProgress.question,
-        answer: inProgress.answer,
-        anchor: { sourceId: null, lineRange: null },
-      },
-    ])
-  }
-  params.emittedQuestionCount.emittedInProgressQuestion = inProgress.question
-  params.emittedQuestionCount.emittedInProgressAnswer = inProgress.answer
+  const newQuestions = acceptedQuestions.slice(
+    params.emittedQuestionCount.emittedQuestionCount,
+  )
+  params.assertOutputAllowed(newQuestions)
+  params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
+  params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
   params.onOutput?.({
     kind: "partial-questions",
     acceptedQuestionCount: acceptedQuestions.length,
     questions: acceptedQuestions,
     sourceReferences: params.sourceReferences,
-    inProgressQuestion:
-      inProgress.question.length === 0 && inProgress.answer.length === 0
-        ? null
-        : { question: inProgress.question, answer: inProgress.answer },
   })
-}
-
-function extractInProgressFields(
-  raw: unknown,
-  context: { hasRoomForMore: boolean },
-): { question: string; answer: string } {
-  if (!context.hasRoomForMore || !isRecord(raw)) {
-    return { question: "", answer: "" }
-  }
-  const question = typeof raw.question === "string" ? raw.question : ""
-  const answer = typeof raw.answer === "string" ? raw.answer : ""
-  return { question, answer }
 }
 
 function stripOpeningJsonFence(text: string): string {
@@ -181,12 +134,10 @@ export function parseQuestions(
   let parsed: unknown
   try {
     parsed = JSON.parse(stripped)
-  } catch (error) {
+  } catch {
     throw {
       type: "provider",
-      message: `LLM reply was not valid JSON: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      message: "LLM reply was not valid JSON.",
       provider: "llm",
       operation: "examination.generateQuestions",
       retryable: true,

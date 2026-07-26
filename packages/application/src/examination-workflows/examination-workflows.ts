@@ -193,8 +193,6 @@ export function createExaminationWorkflowHandlers(
         acceptedQuestions: seedQuestions,
         emittedQuestionCount: seedQuestions.length,
         warnedOverQuota: false,
-        emittedInProgressQuestion: "",
-        emittedInProgressAnswer: "",
       }
       const warnOverQuota = (actualCount: number): void => {
         if (partialState.warnedOverQuota) return
@@ -259,7 +257,7 @@ export function createExaminationWorkflowHandlers(
                 options?.onOutput?.({
                   kind: "stream-progress",
                   streamedCharacterCount: buffer.length,
-                  activityLabel: event.label,
+                  activityLabel: "LLM is working.",
                 })
               } else {
                 finalUsage = event.usage

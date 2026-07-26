@@ -12,7 +12,7 @@ linkify.set({
   urlAuth: true,
 })
 
-const protectedBoundaryCharacter = /^[\p{L}\p{N}\p{M}\p{Pc}$'-]$/u
+const identifierContinuationCharacter = /^[\p{L}\p{N}\p{M}\p{Pc}$-]$/u
 
 export function normalizeKnownText(value: string): string {
   return value.trim().split(/\s+/).join(" ")
@@ -47,8 +47,8 @@ function hasBoundary(text: string, start: number, end: number): boolean {
   const before = codePointBefore(text, start)
   const after = codePointAfter(text, end)
   return (
-    (before === null || !protectedBoundaryCharacter.test(before)) &&
-    (after === null || !protectedBoundaryCharacter.test(after))
+    (before === null || !identifierContinuationCharacter.test(before)) &&
+    (after === null || !identifierContinuationCharacter.test(after))
   )
 }
 

@@ -173,7 +173,7 @@ function blockingStreamLlm(delta: string): LlmPort {
 }
 
 describe("examination.generateQuestions streaming", () => {
-  it("streams in-progress fields and only accepts a question once its anchor is complete", async () => {
+  it("emits only complete questions after their anchors are valid", async () => {
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
         {
@@ -207,22 +207,7 @@ describe("examination.generateQuestions streaming", () => {
     const acceptedCounts = partialEvents.map((output) =>
       output.kind === "partial-questions" ? output.acceptedQuestionCount : -1,
     )
-    assert.deepEqual([...new Set(acceptedCounts)].sort(), [0, 1])
-    const inProgressBeforeAccept = partialEvents.find(
-      (output) =>
-        output.kind === "partial-questions" &&
-        output.acceptedQuestionCount === 0,
-    )
-    assert.equal(
-      inProgressBeforeAccept?.kind === "partial-questions" &&
-        inProgressBeforeAccept.inProgressQuestion?.question,
-      "Q1?",
-    )
-    assert.equal(
-      inProgressBeforeAccept?.kind === "partial-questions" &&
-        inProgressBeforeAccept.inProgressQuestion?.answer,
-      "A1.",
-    )
+    assert.deepEqual([...new Set(acceptedCounts)].sort(), [1])
     assert.equal(result.questions.length, 1)
   })
 
@@ -266,24 +251,18 @@ describe("examination.generateQuestions streaming", () => {
     assert.deepEqual(timeline.slice(0, 2), ["stream:1", "stream:14"])
   })
 
-  it("never emits raw provider text before privacy admission", async () => {
-    const leakedEmail = "student@example.test"
+  it("never emits an incomplete secret before privacy admission", async () => {
+    const secretPrefix = `ghp_${"a".repeat(35)}`
+    const secret = `${secretPrefix}a`
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
         {
           kind: "text-delta",
-          text: JSON.stringify({
-            questions: [
-              {
-                question: "Who owns this?",
-                answer: `Ask ${leakedEmail}.`,
-                anchor: {
-                  sourceId: "E1",
-                  lineRange: { start: 1, end: 2 },
-                },
-              },
-            ],
-          }),
+          text: `{"questions":[{"question":"Who owns this?","answer":"${secretPrefix}`,
+        },
+        {
+          kind: "text-delta",
+          text: `a","anchor":{"sourceId":"E1","lineRange":{"start":1,"end":2}}}]}`,
         },
         { kind: "done", usage },
       ]),
@@ -305,7 +284,34 @@ describe("examination.generateQuestions streaming", () => {
         (error as { type?: unknown }).type === "validation",
     )
 
-    assert.equal(JSON.stringify(outputs).includes(leakedEmail), false)
+    assert.equal(JSON.stringify(outputs).includes(secretPrefix), false)
+    assert.equal(JSON.stringify(outputs).includes(secret), false)
+  })
+
+  it("keeps malformed provider replies out of workflow errors", async () => {
+    const providerText = "student@example.test"
+    const handlers = createExaminationWorkflowHandlers({
+      llm: streamLlm([
+        { kind: "text-delta", text: providerText },
+        { kind: "done", usage },
+      ]),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+
+    await assert.rejects(
+      () =>
+        handlers["examination.generateQuestions"](
+          baseInput({ questionCount: 1 }),
+        ),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        error.message === "LLM reply was not valid JSON." &&
+        !String(error.message).includes(providerText),
+    )
   })
 
   it("warns once when generated or archived prose contains an ambiguous name", async () => {
@@ -362,10 +368,11 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(lookupWarnings.length, 1)
   })
 
-  it("surfaces provider activity before response text starts", async () => {
+  it("maps provider activity to a static privacy-safe label", async () => {
+    const providerText = "Codex is running student@example.test"
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
-        { kind: "activity", label: "Codex is reasoning." },
+        { kind: "activity", label: providerText },
         { kind: "text-delta", text: replyJson(1) },
         { kind: "done", usage },
       ]),
@@ -388,9 +395,10 @@ describe("examination.generateQuestions streaming", () => {
 
     assert.equal(result.questions.length, 1)
     assert.deepEqual(progressLabels.slice(0, 2), [
-      "Codex is reasoning.",
+      "LLM is working.",
       "Receiving model response.",
     ])
+    assert.equal(JSON.stringify(progressLabels).includes(providerText), false)
   })
 
   it("tolerates an opening JSON fence while streaming", async () => {
