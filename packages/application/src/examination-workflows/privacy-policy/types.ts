@@ -26,6 +26,7 @@ export type RedactionReport = {
   redactionPolicyVersion: number
   replacementClasses: string[]
   residualScan: {
+    ambiguousKnownIdentifiers: number
     emails: number
     knownIdentifiers: number
     secrets: number
@@ -61,8 +62,10 @@ export type ExaminationPrivacyAdmissionReason =
   | "known-identifier"
   | "redaction-policy-version"
 
+export type ExaminationPrivacyWarning = "ambiguous-known-identifier"
+
 export type ExaminationPrivacyAdmissionResult =
-  | { ok: true }
+  | { ok: true; warnings: readonly ExaminationPrivacyWarning[] }
   | { ok: false; reason: ExaminationPrivacyAdmissionReason }
 
 export type ReplacementClass =

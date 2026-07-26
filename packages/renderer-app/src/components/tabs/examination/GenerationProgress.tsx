@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { ExaminationEntry } from "../../../stores/examination-store-types.js"
-import { InProgressQuestionCard, StreamPreviewCard } from "./QuestionList.js"
+import { InProgressQuestionCard } from "./QuestionList.js"
 
 export function StreamingGenerationDetail({
   entry,
@@ -30,9 +30,7 @@ export function StreamingGenerationDetail({
           inProgress={entry.inProgressQuestion}
           showAnswers={showAnswers}
         />
-      ) : (
-        <StreamPreviewCard preview={entry.streamedResponsePreview} />
-      )}
+      ) : null}
     </div>
   )
 }

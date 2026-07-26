@@ -16,7 +16,9 @@ import {
   admitExaminationQuestions,
   admitExaminationRecord,
   type ExaminationPrivacyAdmissionReason,
+  type ExaminationPrivacyAdmissionResult,
   type ExaminationPrivacyContext,
+  type ExaminationPrivacyWarning,
 } from "./privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "./prompt-builder.js"
 import {
@@ -33,6 +35,7 @@ export function archiveSoftStoppedQuestions(params: {
   resolution: ExaminationModelResolution
   sourceReferences: ExaminationSourceReference[]
   privacyContext: ExaminationPrivacyContext
+  onPrivacyWarnings?: (warnings: readonly ExaminationPrivacyWarning[]) => void
 }): ExaminationGenerateQuestionsResult {
   const acceptedQuestionCount = params.acceptedQuestions.length
   if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) {
@@ -66,7 +69,9 @@ export function archiveSoftStoppedQuestions(params: {
     },
   }
 
-  assertRecordAllowedForPrivacy(record, params.privacyContext)
+  params.onPrivacyWarnings?.(
+    assertRecordAllowedForPrivacy(record, params.privacyContext),
+  )
   putSupersedingArchiveRecord(params.ports.archive, record)
   return toResult(record, {
     fromArchive: false,
@@ -147,11 +152,11 @@ export function toResult(
   }
 }
 
-export function isRecordAllowedForCurrentContext(
+export function admitRecordForCurrentContext(
   record: ExaminationArchiveRecord,
   privacyContext: ExaminationPrivacyContext,
-): boolean {
-  return admitExaminationRecord({ record, context: privacyContext }).ok
+): ExaminationPrivacyAdmissionResult {
+  return admitExaminationRecord({ record, context: privacyContext })
 }
 
 export function isRecordCurrentPromptTemplate(
@@ -166,12 +171,12 @@ export function isRecordCurrentPromptTemplate(
 export function assertOutputAllowedForCurrentContext(
   questions: readonly ExaminationQuestion[],
   privacyContext: ExaminationPrivacyContext,
-): void {
+): readonly ExaminationPrivacyWarning[] {
   const result = admitExaminationQuestions({
     questions,
     context: privacyContext,
   })
-  if (result.ok) return
+  if (result.ok) return result.warnings
   const message = admissionMessage(result.reason)
   throw createValidationAppError("Provider output failed privacy validation.", [
     { path: "questions", message },
@@ -181,12 +186,21 @@ export function assertOutputAllowedForCurrentContext(
 export function assertRecordAllowedForPrivacy(
   record: ExaminationArchiveRecord,
   privacyContext: ExaminationPrivacyContext,
-): void {
+): readonly ExaminationPrivacyWarning[] {
   const result = admitExaminationRecord({ record, context: privacyContext })
-  if (result.ok) return
+  if (result.ok) return result.warnings
   throw createValidationAppError("Provider output failed privacy validation.", [
     { path: "questions", message: admissionMessage(result.reason) },
   ])
+}
+
+export function privacyWarningMessage(
+  warning: ExaminationPrivacyWarning,
+): string {
+  switch (warning) {
+    case "ambiguous-known-identifier":
+      return "Generated text contains a local name that is also a common word. Privacy validation could not classify that occurrence safely; review the questions before use."
+  }
 }
 
 function admissionMessage(reason: ExaminationPrivacyAdmissionReason): string {

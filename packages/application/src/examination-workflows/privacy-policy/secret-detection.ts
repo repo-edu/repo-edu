@@ -64,15 +64,18 @@ function collectJwtCandidates(text: string): ReplacementCandidate[] {
 
 function collectPemCandidates(text: string): ReplacementCandidate[] {
   const candidates: ReplacementCandidate[] = []
-  const begin = /^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$/gm
-  for (const match of text.matchAll(begin)) {
+  const begin = /-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----/g
+  for (let match = begin.exec(text); match !== null; match = begin.exec(text)) {
     if (match.index === undefined) continue
     const start = match.index
-    const label = match[0].slice("-----BEGIN ".length, -"-----".length)
+    const label = match[1]
+    if (label === undefined) continue
     const endMarker = `-----END ${label}-----`
     const markerIndex = text.indexOf(endMarker, start + match[0].length)
     const end = markerIndex < 0 ? text.length : markerIndex + endMarker.length
     candidates.push(candidate(text, start, end))
+    if (markerIndex < 0) break
+    begin.lastIndex = end
   }
   return candidates
 }

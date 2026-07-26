@@ -108,6 +108,43 @@ describe("examination privacy detection", () => {
     assert.equal(source?.report.residualScan.secrets, 0)
   })
 
+  it("redacts embedded and indented PEM private-key blocks", () => {
+    const prepared = prepare([
+      "const first = `-----BEGIN PRIVATE KEY-----",
+      "QUJDREVGRw==",
+      "-----END PRIVATE KEY-----`;",
+      "  -----BEGIN RSA PRIVATE KEY-----",
+      "SElKS0w=",
+      "  -----END RSA PRIVATE KEY-----",
+    ])
+    const text = prepared.sources[0]?.lines.join("\n") ?? ""
+
+    assert.doesNotMatch(text, /QUJDREVGRw|SElKS0w/)
+    assert.deepEqual(prepared.sources[0]?.report.replacementClasses, ["secret"])
+    assert.equal(prepared.sources[0]?.report.residualScan.secrets, 0)
+  })
+
+  it("assigns placeholder identities with locale-independent ordering", () => {
+    const prepared = prepareExaminationPrivacy({
+      sources: [
+        {
+          lines: ["z ä"],
+          spans: allCode(["z ä"]),
+          sourceDescriptor: "Text",
+        },
+      ],
+      localIdentityContext: {
+        ...emptyIdentityContext,
+        opaqueIdentifiers: ["z", "ä"],
+      },
+    })
+
+    assert.equal(
+      prepared.sources[0]?.lines[0],
+      "<redacted-id-1> <redacted-id-2>",
+    )
+  })
+
   it("reports secrets in provider output separately from identifiers", () => {
     const prepared = prepare(["const value = 1"])
     const result = admitExaminationQuestions({

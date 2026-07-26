@@ -1,6 +1,6 @@
 import type { ExaminationLocalIdentityContext } from "@repo-edu/application-contract"
 import {
-  collectRequiredCandidates,
+  collectSourceReplacementCandidates,
   selectNonOverlappingCandidates,
 } from "./candidate-selection.js"
 import type {
@@ -44,6 +44,10 @@ function replacementClassRank(replacementClass: ReplacementClass): number {
   }
 }
 
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
 export function buildRedactionPlaceholderPlan(params: {
   sources: readonly ExaminationPrivacySource[]
   localIdentityContext: ExaminationLocalIdentityContext
@@ -55,12 +59,10 @@ export function buildRedactionPlaceholderPlan(params: {
 
   for (const source of params.sources) {
     const candidates = selectNonOverlappingCandidates(
-      collectRequiredCandidates({
+      collectSourceReplacementCandidates({
         text: source.lines.join("\n"),
         localIdentityContext: params.localIdentityContext,
         spans: source.spans,
-        mode: "source",
-        includeSecrets: true,
       }),
     )
     for (const candidate of candidates) {
@@ -81,7 +83,7 @@ export function buildRedactionPlaceholderPlan(params: {
       replacementClassRank(left.replacementClass) -
       replacementClassRank(right.replacementClass)
     return rank === 0
-      ? left.comparisonKey.localeCompare(right.comparisonKey)
+      ? compareStrings(left.comparisonKey, right.comparisonKey)
       : rank
   })
 

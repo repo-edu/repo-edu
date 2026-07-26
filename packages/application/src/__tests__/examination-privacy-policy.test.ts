@@ -106,7 +106,7 @@ describe("examination privacy policy", () => {
       prepared.sources[1]?.lines.join("\n") ?? "",
       /<redacted-name-1>/,
     )
-    assert.equal(prepared.context.redactionPolicyVersion, 4)
+    assert.equal(prepared.context.redactionPolicyVersion, 5)
     assert.ok(Object.isFrozen(prepared.context))
   })
 
@@ -148,7 +148,7 @@ describe("examination privacy policy", () => {
         ],
         context: prepared.context,
       }),
-      { ok: true },
+      { ok: true, warnings: [] },
     )
     assert.deepEqual(
       admitExaminationQuestions({
@@ -224,6 +224,7 @@ describe("examination privacy policy", () => {
     const version = prepared.context.redactionPolicyVersion
     assert.deepEqual(admitExaminationRecordWithoutContext(record(version)), {
       ok: true,
+      warnings: [],
     })
     assert.deepEqual(
       admitExaminationRecordWithoutContext(record(version - 1)),
@@ -240,6 +241,29 @@ describe("examination privacy policy", () => {
         record(version, `ghs_${"a".repeat(36)}`),
       ),
       { ok: false, reason: "secret" },
+    )
+  })
+
+  it("reports ambiguous local names without rejecting ordinary prose", () => {
+    const lines = ["const Will = 1", 'const label = "Made by Will"']
+    const prepared = prepare({ lines, names: ["Will"] })
+
+    assert.equal(
+      prepared.sources[0]?.report.residualScan.ambiguousKnownIdentifiers,
+      1,
+    )
+    assert.deepEqual(
+      admitExaminationQuestions({
+        questions: [
+          {
+            question: "Will this branch run?",
+            answer: "Will wrote it.",
+            anchor: { sourceId: null, lineRange: null },
+          },
+        ],
+        context: prepared.context,
+      }),
+      { ok: true, warnings: ["ambiguous-known-identifier"] },
     )
   })
 })

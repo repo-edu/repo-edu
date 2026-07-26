@@ -12,6 +12,7 @@ export type {
   ExaminationPrivacyContext,
   ExaminationPrivacyPreparation,
   ExaminationPrivacySource,
+  ExaminationPrivacyWarning,
   PreparedExaminationPrivacySource,
   RedactionReport,
   SourceSpanKind,

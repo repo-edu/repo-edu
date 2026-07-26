@@ -144,21 +144,19 @@ function collectNameCandidates(params: {
   return candidates
 }
 
-export function collectRequiredCandidates(params: {
+export function collectSourceReplacementCandidates(params: {
   text: string
   localIdentityContext: ExaminationLocalIdentityContext
   spans: readonly ClassifiedSourceSpan[]
-  mode: "source" | "prose"
-  includeSecrets: boolean
 }): ReplacementCandidate[] {
   return [
     ...collectEmailCandidates(params.text, params.localIdentityContext.emails),
-    ...(params.includeSecrets ? collectSecretCandidates(params.text) : []),
+    ...collectSecretCandidates(params.text),
     ...collectNameCandidates({
       text: params.text,
       names: params.localIdentityContext.names,
       spans: params.spans,
-      mode: params.mode,
+      mode: "source",
     }),
     ...collectLiteralCandidates({
       text: params.text,
@@ -173,6 +171,56 @@ export function collectRequiredCandidates(params: {
       caseSensitive: false,
     }),
   ]
+}
+
+export function collectAdmissionIdentityCandidates(params: {
+  text: string
+  localIdentityContext: ExaminationLocalIdentityContext
+}): ReplacementCandidate[] {
+  return [
+    ...collectEmailCandidates(params.text, params.localIdentityContext.emails),
+    ...collectNameCandidates({
+      text: params.text,
+      names: params.localIdentityContext.names,
+      spans: [],
+      mode: "prose",
+    }),
+    ...collectLiteralCandidates({
+      text: params.text,
+      values: params.localIdentityContext.opaqueIdentifiers,
+      replacementClass: "opaqueIdentifier",
+      caseSensitive: true,
+    }),
+    ...collectLiteralCandidates({
+      text: params.text,
+      values: params.localIdentityContext.gitUsernames,
+      replacementClass: "gitUsername",
+      caseSensitive: false,
+    }),
+  ]
+}
+
+export function countAmbiguousNameMatches(
+  text: string,
+  names: readonly string[],
+): number {
+  let count = 0
+  for (const name of names) {
+    const normalized = normalizeKnownText(name)
+    if (
+      normalized.length === 0 ||
+      /\s/.test(normalized) ||
+      !NAME_STOPLIST.has(normalized.toLowerCase())
+    ) {
+      continue
+    }
+    count += findLiteralMatches({
+      text,
+      value: normalized,
+      caseSensitive: false,
+    }).length
+  }
+  return count
 }
 
 export function selectNonOverlappingCandidates(

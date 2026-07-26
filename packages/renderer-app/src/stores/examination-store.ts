@@ -561,7 +561,6 @@ export const useExaminationStore = create<
             generationProgressLabel:
               progress.activityLabel ?? current.generationProgressLabel,
             streamedResponseCharacterCount: progress.streamedCharacterCount,
-            streamedResponsePreview: progress.streamedTextPreview,
           }
         },
         sourceSessionKey,

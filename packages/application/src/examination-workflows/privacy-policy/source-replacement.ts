@@ -1,6 +1,8 @@
 import type { ExaminationLocalIdentityContext } from "@repo-edu/application-contract"
 import {
-  collectRequiredCandidates,
+  collectAdmissionIdentityCandidates,
+  collectSourceReplacementCandidates,
+  countAmbiguousNameMatches,
   selectNonOverlappingCandidates,
 } from "./candidate-selection.js"
 import { collectEmailCandidates, collectSecretCandidates } from "./detection.js"
@@ -72,12 +74,9 @@ function countKnownIdentifierLeaks(
   text: string,
   context: ExaminationLocalIdentityContext,
 ): number {
-  return collectRequiredCandidates({
+  return collectAdmissionIdentityCandidates({
     text,
     localIdentityContext: context,
-    spans: [{ start: 0, end: text.length, kind: "code" }],
-    mode: "prose",
-    includeSecrets: false,
   }).filter((candidate) => candidate.replacementClass !== "email").length
 }
 
@@ -94,12 +93,10 @@ export function redactExaminationPrivacySource(params: {
 } {
   const text = params.lines.join("\n")
   const candidates = selectNonOverlappingCandidates(
-    collectRequiredCandidates({
+    collectSourceReplacementCandidates({
       text,
       localIdentityContext: params.localIdentityContext,
       spans: params.spans,
-      mode: "source",
-      includeSecrets: true,
     }),
   )
   const applied = applyReplacements({
@@ -114,6 +111,10 @@ export function redactExaminationPrivacySource(params: {
       redactionPolicyVersion: params.redactionPolicyVersion,
       replacementClasses: applied.replacementClasses.toSorted(),
       residualScan: {
+        ambiguousKnownIdentifiers: countAmbiguousNameMatches(
+          applied.text,
+          params.localIdentityContext.names,
+        ),
         emails: collectEmailCandidates(
           applied.text,
           params.localIdentityContext.emails,

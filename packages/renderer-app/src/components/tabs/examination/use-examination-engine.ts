@@ -351,6 +351,10 @@ export function useExaminationEngine({
       .run("examination.lookupQuestions", lookupInput, {
         signal: abort.signal,
         onProgress: (_progress: MilestoneProgress) => undefined,
+        onOutput: (output) => {
+          if (output.channel !== "warn") return
+          addToast(output.message, { tone: "warning", durationMs: 6000 })
+        },
       })
       .then((result) => {
         if (abort.signal.aborted) return
@@ -397,6 +401,7 @@ export function useExaminationEngine({
       })
     return () => abort.abort()
   }, [
+    addToast,
     archiveRevision,
     analysisSourceKey,
     lookupInput,

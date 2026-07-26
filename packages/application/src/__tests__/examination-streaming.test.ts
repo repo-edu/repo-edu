@@ -239,7 +239,6 @@ describe("examination.generateQuestions streaming", () => {
       fileSystem: stubFileSystem,
     })
     const timeline: string[] = []
-    const previews: string[] = []
 
     const result = await handlers["examination.generateQuestions"](
       baseInput({ questionCount: 1 }),
@@ -247,7 +246,6 @@ describe("examination.generateQuestions streaming", () => {
         onOutput(output) {
           if (output.kind === "stream-progress") {
             timeline.push(`stream:${output.streamedCharacterCount}`)
-            previews.push(output.streamedTextPreview)
             return
           }
           if (output.kind === "partial-questions") {
@@ -266,7 +264,102 @@ describe("examination.generateQuestions streaming", () => {
     assert.ok(firstPartial >= 0)
     assert.ok(firstStreamProgress < firstPartial)
     assert.deepEqual(timeline.slice(0, 2), ["stream:1", "stream:14"])
-    assert.deepEqual(previews.slice(0, 2), ["{", '{"questions":['])
+  })
+
+  it("never emits raw provider text before privacy admission", async () => {
+    const leakedEmail = "student@example.test"
+    const handlers = createExaminationWorkflowHandlers({
+      llm: streamLlm([
+        {
+          kind: "text-delta",
+          text: JSON.stringify({
+            questions: [
+              {
+                question: "Who owns this?",
+                answer: `Ask ${leakedEmail}.`,
+                anchor: {
+                  sourceId: "E1",
+                  lineRange: { start: 1, end: 2 },
+                },
+              },
+            ],
+          }),
+        },
+        { kind: "done", usage },
+      ]),
+      archive: createInMemoryExaminationArchive(),
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+    const outputs: ExaminationGenerateOutput[] = []
+
+    await assert.rejects(
+      () =>
+        handlers["examination.generateQuestions"](
+          baseInput({ questionCount: 1 }),
+          { onOutput: (output) => outputs.push(output) },
+        ),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "validation",
+    )
+
+    assert.equal(JSON.stringify(outputs).includes(leakedEmail), false)
+  })
+
+  it("warns once when generated or archived prose contains an ambiguous name", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const input = baseInput({
+      questionCount: 1,
+      localIdentityContext: {
+        names: ["Will"],
+        emails: [],
+        opaqueIdentifiers: [],
+        gitUsernames: [],
+      },
+    })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: streamLlm([
+        {
+          kind: "text-delta",
+          text: JSON.stringify({
+            questions: [
+              {
+                question: "Will this branch run?",
+                answer: "It will run after initialization.",
+                anchor: {
+                  sourceId: "E1",
+                  lineRange: { start: 1, end: 2 },
+                },
+              },
+            ],
+          }),
+        },
+        { kind: "done", usage },
+      ]),
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+    const generationWarnings: string[] = []
+
+    const result = await handlers["examination.generateQuestions"](input, {
+      onOutput(output) {
+        if (output.kind === "warn") generationWarnings.push(output.message)
+      },
+    })
+    const lookupWarnings: string[] = []
+    await handlers["examination.lookupQuestions"](lookupInput(input), {
+      onOutput(output) {
+        if (output.channel === "warn") lookupWarnings.push(output.message)
+      },
+    })
+
+    assert.equal(result.questions.length, 1)
+    assert.equal(generationWarnings.length, 1)
+    assert.match(generationWarnings[0] ?? "", /common word/)
+    assert.equal(lookupWarnings.length, 1)
   })
 
   it("surfaces provider activity before response text starts", async () => {

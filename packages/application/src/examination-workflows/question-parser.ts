@@ -11,8 +11,6 @@ import type {
 import { Allow, parse as parsePartialJson } from "partial-json"
 import { stripJsonFences } from "./prompt-builder.js"
 
-const STREAM_PREVIEW_MAX_CHARS = 2_000
-
 export type PartialQuestionEmissionState = {
   acceptedQuestions: ExaminationQuestion[]
   emittedQuestionCount: number
@@ -131,12 +129,6 @@ function extractInProgressFields(
   const question = typeof raw.question === "string" ? raw.question : ""
   const answer = typeof raw.answer === "string" ? raw.answer : ""
   return { question, answer }
-}
-
-export function buildStreamedTextPreview(buffer: string): string {
-  const preview = stripOpeningJsonFence(buffer)
-  if (preview.length <= STREAM_PREVIEW_MAX_CHARS) return preview
-  return `...${preview.slice(-STREAM_PREVIEW_MAX_CHARS)}`
 }
 
 function stripOpeningJsonFence(text: string): string {

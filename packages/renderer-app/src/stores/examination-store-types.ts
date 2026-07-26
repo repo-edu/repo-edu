@@ -29,7 +29,6 @@ export type ExaminationEntry = {
   } | null
   generationProgressLabel: string | null
   streamedResponseCharacterCount: number
-  streamedResponsePreview: string
   inProgressQuestion: ExaminationInProgressQuestion | null
   generationControlId: string | null
   stopRequested: boolean

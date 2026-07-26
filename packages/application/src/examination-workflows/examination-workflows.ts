@@ -17,11 +17,12 @@ import { createValidationAppError } from "../core.js"
 import { normalizeLlmProviderError } from "../llm-error-normalization.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
+  admitRecordForCurrentContext,
   archiveSoftStoppedQuestions,
   assertOutputAllowedForCurrentContext,
   assertRecordAllowedForPrivacy,
-  isRecordAllowedForCurrentContext,
   isRecordCurrentPromptTemplate,
+  privacyWarningMessage,
   putSupersedingArchiveRecord,
   resolveArchiveContext,
   toResult,
@@ -34,7 +35,10 @@ import {
 } from "./input-validation.js"
 import { llmRuntimeConfigFromConnection } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
-import { assertExaminationPromptPrivacy } from "./privacy-policy.js"
+import {
+  assertExaminationPromptPrivacy,
+  type ExaminationPrivacyWarning,
+} from "./privacy-policy.js"
 import {
   buildExaminationPrompt,
   EXAMINATION_PROMPT_TEMPLATE_VERSION,
@@ -42,7 +46,6 @@ import {
 import { prepareExaminationProviderExcerpts } from "./provider-excerpts.js"
 import {
   buildPromptSourceLineRanges,
-  buildStreamedTextPreview,
   maybeEmitPartial,
   normalizeQuestionAnchors,
   type PartialQuestionEmissionState,
@@ -62,6 +65,19 @@ type ExaminationWorkflowId =
   | "examination.prepareSubmissionSource"
   | "examination.lookupQuestionSummaries"
 
+function createPrivacyWarningEmitter(
+  emit: (message: string) => void,
+): (warnings: readonly ExaminationPrivacyWarning[]) => void {
+  const emitted = new Set<ExaminationPrivacyWarning>()
+  return (warnings) => {
+    for (const warning of warnings) {
+      if (emitted.has(warning)) continue
+      emitted.add(warning)
+      emit(privacyWarningMessage(warning))
+    }
+  }
+}
+
 export function createExaminationWorkflowHandlers(
   ports: ExaminationWorkflowPorts,
 ): Pick<WorkflowHandlerMap<ExaminationWorkflowId>, ExaminationWorkflowId> {
@@ -77,6 +93,9 @@ export function createExaminationWorkflowHandlers(
       >,
     ): Promise<ExaminationGenerateQuestionsResult> => {
       validateGenerateInput(input)
+      const emitPrivacyWarnings = createPrivacyWarningEmitter((message) =>
+        options?.onOutput?.({ kind: "warn", message }),
+      )
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
@@ -104,19 +123,23 @@ export function createExaminationWorkflowHandlers(
         input.seedQuestions === undefined
           ? []
           : normalizeQuestionAnchors(input.seedQuestions, sourceLineRanges)
-      assertOutputAllowedForCurrentContext(
-        seedQuestions,
-        prepared.privacyContext,
+      emitPrivacyWarnings(
+        assertOutputAllowedForCurrentContext(
+          seedQuestions,
+          prepared.privacyContext,
+        ),
       )
       const requestedGeneratedQuestionCount =
         input.questionCount - seedQuestions.length
 
       if (!input.regenerate) {
         const hit = ports.archive.get(archiveKey)
-        if (
-          hit &&
-          isRecordAllowedForCurrentContext(hit, prepared.privacyContext)
-        ) {
+        const admission =
+          hit === undefined
+            ? null
+            : admitRecordForCurrentContext(hit, prepared.privacyContext)
+        if (hit !== undefined && admission?.ok) {
+          emitPrivacyWarnings(admission.warnings)
           options?.onProgress?.({
             step: 3,
             totalSteps: 3,
@@ -212,7 +235,6 @@ export function createExaminationWorkflowHandlers(
                 options?.onOutput?.({
                   kind: "stream-progress",
                   streamedCharacterCount: buffer.length,
-                  streamedTextPreview: buildStreamedTextPreview(buffer),
                   activityLabel: "Receiving model response.",
                 })
                 maybeEmitPartial({
@@ -224,17 +246,19 @@ export function createExaminationWorkflowHandlers(
                   sourceReferences: prepared.sourceReferences,
                   requestedQuestionCount: requestedGeneratedQuestionCount,
                   onOverQuota: warnOverQuota,
-                  assertOutputAllowed: (questions) =>
-                    assertOutputAllowedForCurrentContext(
-                      questions,
-                      prepared.privacyContext,
-                    ),
+                  assertOutputAllowed: (questions) => {
+                    emitPrivacyWarnings(
+                      assertOutputAllowedForCurrentContext(
+                        questions,
+                        prepared.privacyContext,
+                      ),
+                    )
+                  },
                 })
               } else if (event.kind === "activity") {
                 options?.onOutput?.({
                   kind: "stream-progress",
                   streamedCharacterCount: buffer.length,
-                  streamedTextPreview: buildStreamedTextPreview(buffer),
                   activityLabel: event.label,
                 })
               } else {
@@ -253,6 +277,7 @@ export function createExaminationWorkflowHandlers(
                 resolution,
                 sourceReferences: prepared.sourceReferences,
                 privacyContext: prepared.privacyContext,
+                onPrivacyWarnings: emitPrivacyWarnings,
               })
             }
             throw error
@@ -275,6 +300,7 @@ export function createExaminationWorkflowHandlers(
             resolution,
             sourceReferences: prepared.sourceReferences,
             privacyContext: prepared.privacyContext,
+            onPrivacyWarnings: emitPrivacyWarnings,
           })
         }
         if (finalUsage === null) {
@@ -290,7 +316,12 @@ export function createExaminationWorkflowHandlers(
           { onOverQuota: warnOverQuota },
         )
         const questions = [...seedQuestions, ...generatedQuestions]
-        assertOutputAllowedForCurrentContext(questions, prepared.privacyContext)
+        emitPrivacyWarnings(
+          assertOutputAllowedForCurrentContext(
+            questions,
+            prepared.privacyContext,
+          ),
+        )
         const acceptedQuestionCount = questions.length
         if (generatedQuestions.length < requestedGeneratedQuestionCount) {
           options?.onOutput?.({
@@ -323,7 +354,9 @@ export function createExaminationWorkflowHandlers(
           provenance,
         }
 
-        assertRecordAllowedForPrivacy(record, prepared.privacyContext)
+        emitPrivacyWarnings(
+          assertRecordAllowedForPrivacy(record, prepared.privacyContext),
+        )
         putSupersedingArchiveRecord(ports.archive, record)
 
         return toResult(record, {
@@ -349,6 +382,9 @@ export function createExaminationWorkflowHandlers(
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<ExaminationLookupQuestionsResult> => {
       validateLookupInput(input)
+      const emitPrivacyWarnings = createPrivacyWarningEmitter((message) =>
+        options?.onOutput?.({ channel: "warn", message }),
+      )
 
       throwIfAborted(options?.signal)
       options?.onProgress?.({
@@ -378,30 +414,38 @@ export function createExaminationWorkflowHandlers(
       })
 
       const exact = ports.archive.get(archiveKey)
+      const exactAdmission =
+        exact === undefined
+          ? null
+          : admitRecordForCurrentContext(exact, prepared.privacyContext)
       const availableSets = ports.archive
         .listForExcerpts({
           personId: archiveKey.personId,
           contentScopeId: archiveKey.contentScopeId,
           providerPayloadFingerprint: archiveKey.providerPayloadFingerprint,
         })
-        .filter(
-          (record) =>
-            isRecordCurrentPromptTemplate(record) &&
-            isRecordAllowedForCurrentContext(record, prepared.privacyContext),
-        )
-        .map((record) =>
-          toResult(record, {
-            fromArchive: true,
-            sourceReferences: prepared.sourceReferences,
-            requestedQuestionCount: record.provenance.questionCount,
-          }),
-        )
+        .flatMap((record) => {
+          if (!isRecordCurrentPromptTemplate(record)) return []
+          const admission = admitRecordForCurrentContext(
+            record,
+            prepared.privacyContext,
+          )
+          if (!admission.ok) return []
+          emitPrivacyWarnings(admission.warnings)
+          return [
+            toResult(record, {
+              fromArchive: true,
+              sourceReferences: prepared.sourceReferences,
+              requestedQuestionCount: record.provenance.questionCount,
+            }),
+          ]
+        })
+      if (exactAdmission?.ok) emitPrivacyWarnings(exactAdmission.warnings)
       return {
         requestedKey: archiveKey,
         sourceReferences: prepared.sourceReferences,
         exact:
-          exact === undefined ||
-          !isRecordAllowedForCurrentContext(exact, prepared.privacyContext)
+          exact === undefined || exactAdmission === null || !exactAdmission.ok
             ? null
             : toResult(exact, {
                 fromArchive: true,
@@ -443,15 +487,16 @@ export function createExaminationWorkflowHandlers(
             contentScopeId: subject.contentScopeId,
             providerPayloadFingerprint: prepared.providerPayloadFingerprint,
           })
-          .filter(
-            (record) =>
-              isRecordCurrentPromptTemplate(record) &&
-              isRecordAllowedForCurrentContext(record, prepared.privacyContext),
-          )
-          .map((record) => ({
-            key: record.key,
-            provenance: record.provenance,
-          }))
+          .flatMap((record) => {
+            if (!isRecordCurrentPromptTemplate(record)) return []
+            const admission = admitRecordForCurrentContext(
+              record,
+              prepared.privacyContext,
+            )
+            return admission.ok
+              ? [{ key: record.key, provenance: record.provenance }]
+              : []
+          })
         summaries.push({ subjectId: subject.subjectId, sets })
       }
       return { summaries }

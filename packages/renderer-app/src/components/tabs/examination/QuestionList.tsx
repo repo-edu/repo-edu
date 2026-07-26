@@ -3,7 +3,6 @@ import type {
   ExaminationQuestion,
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
-import { useEffect, useRef } from "react"
 import { formatQuestionReference } from "./question-format.js"
 
 type QuestionListProps = {
@@ -40,26 +39,6 @@ export function InProgressQuestionCard({
         </div>
       ) : null}
     </div>
-  )
-}
-
-export function StreamPreviewCard({ preview }: { preview: string }) {
-  const previewRef = useRef<HTMLPreElement>(null)
-
-  useEffect(() => {
-    const previewElement = previewRef.current
-    if (previewElement === null) return
-    previewElement.scrollTop = previewElement.scrollHeight
-  })
-
-  if (preview.trim().length === 0) return null
-  return (
-    <pre
-      ref={previewRef}
-      className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-dashed bg-muted/20 p-3 font-mono text-xs text-muted-foreground"
-    >
-      {preview}
-    </pre>
   )
 }
 

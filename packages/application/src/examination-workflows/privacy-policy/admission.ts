@@ -1,7 +1,8 @@
 import type { ExaminationQuestion } from "@repo-edu/application-contract"
 import {
-  collectRequiredCandidates,
+  collectAdmissionIdentityCandidates,
   containsRequiredCheck,
+  countAmbiguousNameMatches,
   isAllowedSourceDescriptorName,
   sourceDescriptorNameSet,
 } from "./candidate-selection.js"
@@ -16,6 +17,7 @@ import { CURRENT_EXAMINATION_REDACTION_POLICY_VERSION } from "./policy-version.j
 import type {
   ExaminationPrivacyAdmissionResult,
   ExaminationPrivacyContext,
+  ExaminationPrivacyWarning,
   QuestionCarrier,
   RedactionRequiredCheck,
 } from "./types.js"
@@ -33,7 +35,7 @@ function admitContextFreeText(text: string): ExaminationPrivacyAdmissionResult {
   if (collectSecretCandidates(text).length > 0) {
     return { ok: false, reason: "secret" }
   }
-  return { ok: true }
+  return { ok: true, warnings: [] }
 }
 
 function isInsideSingleLineQuotedSpan(
@@ -132,12 +134,9 @@ export function admitExaminationQuestions(params: {
   const allowedSourceDescriptors = sourceDescriptorNameSet(
     context.allowedSourceDescriptors,
   )
-  const knownIdentifierLeaks = collectRequiredCandidates({
+  const knownIdentifierLeaks = collectAdmissionIdentityCandidates({
     text,
     localIdentityContext: context.localIdentityContext,
-    spans: [{ start: 0, end: text.length, kind: "code" }],
-    mode: "prose",
-    includeSecrets: false,
   }).filter(
     (candidate) =>
       !isAllowedSourceDescriptorName(
@@ -153,9 +152,14 @@ export function admitExaminationQuestions(params: {
   ) {
     return { ok: false, reason: "email" }
   }
-  return knownIdentifierLeaks.length > 0
-    ? { ok: false, reason: "known-identifier" }
-    : { ok: true }
+  if (knownIdentifierLeaks.length > 0) {
+    return { ok: false, reason: "known-identifier" }
+  }
+  const warnings: ExaminationPrivacyWarning[] =
+    countAmbiguousNameMatches(text, context.localIdentityContext.names) > 0
+      ? ["ambiguous-known-identifier"]
+      : []
+  return { ok: true, warnings }
 }
 
 export function admitExaminationRecord(params: {

@@ -68,7 +68,6 @@ function entry(status: ExaminationEntry["status"]): ExaminationEntry {
       status === "loading" ? { requested: 2, accepted: 0 } : null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    streamedResponsePreview: "",
     inProgressQuestion: null,
     generationControlId: status === "loading" ? "control-1" : null,
     stopRequested: false,
@@ -193,18 +192,15 @@ describe("examination store", () => {
 
     store.applyStreamProgress("entry", {
       streamedCharacterCount: 12,
-      streamedTextPreview: "newer",
       activityLabel: "Receiving model response.",
     })
     store.applyStreamProgress("entry", {
       streamedCharacterCount: 8,
-      streamedTextPreview: "older",
       activityLabel: "Older activity.",
     })
 
     const updated = useExaminationStore.getState().entriesByKey.get("entry")
     assert.equal(updated?.streamedResponseCharacterCount, 12)
-    assert.equal(updated?.streamedResponsePreview, "newer")
     assert.equal(updated?.generationProgressLabel, "Receiving model response.")
   })
 
