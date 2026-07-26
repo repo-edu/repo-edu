@@ -12,12 +12,10 @@ import {
 } from "@repo-edu/application-contract"
 import type { TokenizerPort } from "@repo-edu/host-runtime-contract"
 import {
-  buildRedactionPlaceholderPlan,
-  EXAMINATION_REDACTION_POLICY_VERSION,
+  type ExaminationPrivacyContext,
+  prepareExaminationPrivacy,
   type RedactionReport,
-  type RedactionRequiredCheck,
-  redactExaminationSource,
-} from "./redaction.js"
+} from "./privacy-policy.js"
 import { stripCommentsForExcerpt } from "./strip-comments.js"
 
 export type ExaminationProviderPromptExcerpt = {
@@ -37,7 +35,7 @@ export type PreparedExaminationProviderExcerpts = {
   providerPayloadFingerprint: string
   sourceReferences: ExaminationSourceReference[]
   redactionReports: RedactionReport[]
-  requiredChecks: RedactionRequiredCheck[]
+  privacyContext: ExaminationPrivacyContext
 }
 
 function sourceReferenceLineRange(excerpt: ExaminationCodeExcerpt) {
@@ -84,10 +82,11 @@ export async function prepareExaminationProviderExcerpts(params: {
     })
   }
 
-  const placeholderPlan = buildRedactionPlaceholderPlan({
+  const privacy = prepareExaminationPrivacy({
     sources: strippedEntries.map((entry) => ({
       lines: entry.stripped.lines,
       spans: entry.stripped.spans,
+      sourceDescriptor: entry.sourceDescriptor,
     })),
     localIdentityContext: params.localIdentityContext,
   })
@@ -100,14 +99,11 @@ export async function prepareExaminationProviderExcerpts(params: {
     report: RedactionReport
   }[] = []
 
-  for (const entry of strippedEntries) {
-    const redacted = redactExaminationSource({
-      lines: entry.stripped.lines,
-      spans: entry.stripped.spans,
-      localIdentityContext: params.localIdentityContext,
-      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
-      placeholderPlan,
-    })
+  for (const [index, entry] of strippedEntries.entries()) {
+    const redacted = privacy.sources[index]
+    if (redacted === undefined) {
+      throw new Error("Missing prepared examination privacy source.")
+    }
     preparedWithoutIds.push({
       raw: entry.raw,
       sourceDescriptor: entry.sourceDescriptor,
@@ -133,7 +129,6 @@ export async function prepareExaminationProviderExcerpts(params: {
   )
   const sourceReferenceById = new Map<string, ExaminationSourceReference>()
   const promptExcerptById = new Map<string, ExaminationProviderPromptExcerpt>()
-  const requiredChecks: RedactionRequiredCheck[] = []
 
   for (const [index, prepared] of preparedWithoutIds.entries()) {
     const sourceId = sourceIds[index]
@@ -148,8 +143,6 @@ export async function prepareExaminationProviderExcerpts(params: {
         lines: prepared.lines,
       })
     }
-    requiredChecks.push(...prepared.report.requiredChecks)
-
     const reference = sourceReferenceById.get(sourceId) ?? {
       sourceId,
       occurrences: [],
@@ -173,7 +166,7 @@ export async function prepareExaminationProviderExcerpts(params: {
     providerPayloadFingerprint: buildExaminationProviderPayloadFingerprint(
       preparedWithoutIds.map((entry) => entry.identity),
       {
-        redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+        redactionPolicyVersion: privacy.context.redactionPolicyVersion,
         sourceIds,
       },
     ),
@@ -181,6 +174,6 @@ export async function prepareExaminationProviderExcerpts(params: {
       compareExaminationSourceIds(a.sourceId, b.sourceId),
     ),
     redactionReports: preparedWithoutIds.map((entry) => entry.report),
-    requiredChecks,
+    privacyContext: privacy.context,
   }
 }

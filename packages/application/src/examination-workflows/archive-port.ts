@@ -24,7 +24,7 @@ import type {
   LlmAuthMode,
   LlmEffort,
 } from "@repo-edu/integrations-llm-contract"
-import { findEmailAddressSpans } from "./redaction.js"
+import { admitExaminationRecordWithoutContext } from "./privacy-policy.js"
 
 export type ExaminationArchivePort = {
   get(key: ExaminationArchiveKey): ExaminationArchiveRecord | undefined
@@ -234,7 +234,6 @@ function validateRecord(
   }
   const questions = validateQuestions(raw.questions)
   if (questions === null) return null
-  if (questionsContainEmail(questions)) return null
   const provenance = validateProvenance(raw.provenance)
   if (provenance === null) return null
   if (!generationContextMatchesProvenance(keyResult.key, provenance)) {
@@ -484,6 +483,13 @@ function parseBundleRecords(raw: unknown): {
       )
       continue
     }
+    const admission = admitExaminationRecordWithoutContext(record)
+    if (!admission.ok) {
+      rejections.push(
+        `${describeKey(keyResult.key)}: privacy admission failed (${admission.reason})`,
+      )
+      continue
+    }
     records.push(record)
   }
   return { records, rejections, total: raw.records.length }
@@ -491,14 +497,6 @@ function parseBundleRecords(raw: unknown): {
 
 function describeKey(key: ExaminationArchiveKey): string {
   return `person=${key.personId} scope=${key.contentScopeId.slice(0, 8)} q=${key.questionCount}`
-}
-
-function questionsContainEmail(questions: readonly ExaminationQuestion[]) {
-  return questions.some(
-    (question) =>
-      findEmailAddressSpans(`${question.question}\n${question.answer}`).length >
-      0,
-  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

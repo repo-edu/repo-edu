@@ -3,7 +3,6 @@ import type {
   ExaminationArchiveRecord,
   ExaminationGenerateQuestionsInput,
   ExaminationGenerateQuestionsResult,
-  ExaminationLocalIdentityContext,
   ExaminationLookupQuestionsInput,
   ExaminationQuestion,
   ExaminationSourceReference,
@@ -13,15 +12,17 @@ import { createValidationAppError } from "../core.js"
 import type { ExaminationModelResolution } from "./model-resolution.js"
 import { resolveExaminationModel } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
+import {
+  admitExaminationQuestions,
+  admitExaminationRecord,
+  type ExaminationPrivacyAdmissionReason,
+  type ExaminationPrivacyContext,
+} from "./privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "./prompt-builder.js"
 import {
   buildReferenceSourceLineRanges,
   normalizeQuestionAnchors,
 } from "./question-parser.js"
-import {
-  EXAMINATION_REDACTION_POLICY_VERSION,
-  scanExaminationOutputForLeaks,
-} from "./redaction.js"
 
 export function archiveSoftStoppedQuestions(params: {
   acceptedQuestions: readonly ExaminationQuestion[]
@@ -31,6 +32,7 @@ export function archiveSoftStoppedQuestions(params: {
   ports: ExaminationWorkflowPorts
   resolution: ExaminationModelResolution
   sourceReferences: ExaminationSourceReference[]
+  privacyContext: ExaminationPrivacyContext
 }): ExaminationGenerateQuestionsResult {
   const acceptedQuestionCount = params.acceptedQuestions.length
   if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) {
@@ -59,11 +61,12 @@ export function archiveSoftStoppedQuestions(params: {
       questionCount: acceptedQuestionCount,
       usage: null,
       createdAtMs: Date.now(),
-      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+      redactionPolicyVersion: params.privacyContext.redactionPolicyVersion,
       promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
     },
   }
 
+  assertRecordAllowedForPrivacy(record, params.privacyContext)
   putSupersedingArchiveRecord(params.ports.archive, record)
   return toResult(record, {
     fromArchive: false,
@@ -99,6 +102,7 @@ function sameArchiveKey(
 export function resolveArchiveContext(
   input: ExaminationLookupQuestionsInput,
   providerPayloadFingerprint: string,
+  privacyContext: ExaminationPrivacyContext,
 ): {
   archiveKey: ExaminationArchiveKey
   resolution: ExaminationModelResolution
@@ -109,7 +113,7 @@ export function resolveArchiveContext(
       model: resolution.code,
       effort: resolution.spec.effort,
       promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
-      redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+      redactionPolicyVersion: privacyContext.redactionPolicyVersion,
     })
   return {
     archiveKey: {
@@ -145,43 +149,55 @@ export function toResult(
 
 export function isRecordAllowedForCurrentContext(
   record: ExaminationArchiveRecord,
-  input: { localIdentityContext: ExaminationLocalIdentityContext },
-  sourceDescriptors: readonly string[],
+  privacyContext: ExaminationPrivacyContext,
 ): boolean {
-  return scanExaminationOutputForLeaks({
-    questions: record.questions,
-    localIdentityContext: input.localIdentityContext,
-    allowedSourceDescriptors: sourceDescriptors,
-  }).ok
+  return admitExaminationRecord({ record, context: privacyContext }).ok
 }
 
-export function isRecordCurrentArchivePolicy(
+export function isRecordCurrentPromptTemplate(
   record: ExaminationArchiveRecord,
 ): boolean {
   return (
-    record.provenance.redactionPolicyVersion ===
-      EXAMINATION_REDACTION_POLICY_VERSION &&
     record.provenance.promptTemplateVersion ===
-      EXAMINATION_PROMPT_TEMPLATE_VERSION
+    EXAMINATION_PROMPT_TEMPLATE_VERSION
   )
 }
 
 export function assertOutputAllowedForCurrentContext(
   questions: readonly ExaminationQuestion[],
-  input: ExaminationGenerateQuestionsInput,
-  sourceDescriptors: readonly string[],
+  privacyContext: ExaminationPrivacyContext,
 ): void {
-  const result = scanExaminationOutputForLeaks({
+  const result = admitExaminationQuestions({
     questions,
-    localIdentityContext: input.localIdentityContext,
-    allowedSourceDescriptors: sourceDescriptors,
+    context: privacyContext,
   })
   if (result.ok) return
-  const message =
-    result.reason === "email"
-      ? "Provider output contained an email address. Generate again to request fresh redacted output; report this if it persists."
-      : "Provider output echoed a known local identifier verbatim. Generate again to request fresh redacted output; report this if it persists."
+  const message = admissionMessage(result.reason)
   throw createValidationAppError("Provider output failed privacy validation.", [
     { path: "questions", message },
   ])
+}
+
+export function assertRecordAllowedForPrivacy(
+  record: ExaminationArchiveRecord,
+  privacyContext: ExaminationPrivacyContext,
+): void {
+  const result = admitExaminationRecord({ record, context: privacyContext })
+  if (result.ok) return
+  throw createValidationAppError("Provider output failed privacy validation.", [
+    { path: "questions", message: admissionMessage(result.reason) },
+  ])
+}
+
+function admissionMessage(reason: ExaminationPrivacyAdmissionReason): string {
+  switch (reason) {
+    case "email":
+      return "Provider output contained an email address. Generate again to request fresh redacted output; report this if it persists."
+    case "secret":
+      return "Provider output contained a secret literal. Generate again to request fresh redacted output; report this if it persists."
+    case "known-identifier":
+      return "Provider output echoed a known local identifier verbatim. Generate again to request fresh redacted output; report this if it persists."
+    case "redaction-policy-version":
+      return "Provider output used a superseded privacy policy. Generate again to create a current record."
+  }
 }

@@ -18,10 +18,19 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
-import { EXAMINATION_REDACTION_POLICY_VERSION } from "../examination-workflows/redaction.js"
 
 const contentScopeId = "a".repeat(40)
+const EXAMINATION_REDACTION_POLICY_VERSION = prepareExaminationPrivacy({
+  sources: [],
+  localIdentityContext: {
+    names: [],
+    emails: [],
+    opaqueIdentifiers: [],
+    gitUsernames: [],
+  },
+}).context.redactionPolicyVersion
 
 const tokenizer: TokenizerPort = {
   async loadTokenizerLanguage() {
@@ -238,7 +247,7 @@ describe("examination archive adapter", () => {
     assert.deepEqual(target.get(baseKey), baseRecord)
   })
 
-  it("rejects old bundle versions and email-shaped archived output", () => {
+  it("rejects old bundles, unsafe output, and superseded privacy policy", () => {
     const archive = createInMemoryExaminationArchive()
     const oldSummary = archive.importBundle({
       format: "repo-edu-examination-archive",
@@ -290,6 +299,57 @@ describe("examination archive adapter", () => {
       ],
     })
     assert.equal(emailSummary.rejected, 1)
+
+    const secretSummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          questions: [
+            {
+              ...baseRecord.questions[0],
+              answer: `Use ghr_${"a".repeat(36)}.`,
+            },
+          ],
+        },
+      ],
+    })
+    assert.equal(secretSummary.rejected, 1)
+    assert.match(secretSummary.rejections[0] ?? "", /secret/)
+
+    const oldPrivacyVersion = EXAMINATION_REDACTION_POLICY_VERSION - 1
+    const oldPrivacySummary = archive.importBundle({
+      format: "repo-edu-examination-archive",
+      bundleVersion: EXAMINATION_ARCHIVE_BUNDLE_VERSION,
+      exportedAt: "2026-05-25T00:00:00.000Z",
+      records: [
+        {
+          ...baseRecord,
+          key: {
+            ...baseRecord.key,
+            generationContextFingerprint:
+              buildExaminationGenerationContextFingerprint({
+                model: baseRecord.provenance.model,
+                effort: baseRecord.provenance.effort,
+                promptTemplateVersion:
+                  baseRecord.provenance.promptTemplateVersion,
+                redactionPolicyVersion: oldPrivacyVersion,
+              }),
+          },
+          provenance: {
+            ...baseRecord.provenance,
+            redactionPolicyVersion: oldPrivacyVersion,
+          },
+        },
+      ],
+    })
+    assert.equal(oldPrivacySummary.rejected, 1)
+    assert.match(
+      oldPrivacySummary.rejections[0] ?? "",
+      /redaction-policy-version/,
+    )
 
     const inconsistentCountSummary = archive.importBundle({
       format: "repo-edu-examination-archive",

@@ -19,8 +19,9 @@ import { throwIfAborted } from "../workflow-helpers.js"
 import {
   archiveSoftStoppedQuestions,
   assertOutputAllowedForCurrentContext,
+  assertRecordAllowedForPrivacy,
   isRecordAllowedForCurrentContext,
-  isRecordCurrentArchivePolicy,
+  isRecordCurrentPromptTemplate,
   putSupersedingArchiveRecord,
   resolveArchiveContext,
   toResult,
@@ -33,6 +34,7 @@ import {
 } from "./input-validation.js"
 import { llmRuntimeConfigFromConnection } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
+import { assertExaminationPromptPrivacy } from "./privacy-policy.js"
 import {
   buildExaminationPrompt,
   EXAMINATION_PROMPT_TEMPLATE_VERSION,
@@ -47,10 +49,6 @@ import {
   parseQuestions,
   providerError,
 } from "./question-parser.js"
-import {
-  assertNoRequiredRedactionLeaks,
-  EXAMINATION_REDACTION_POLICY_VERSION,
-} from "./redaction.js"
 import {
   createSoftStopSession,
   type SoftStopSession,
@@ -97,9 +95,7 @@ export function createExaminationWorkflowHandlers(
       const { archiveKey, resolution } = resolveArchiveContext(
         input,
         prepared.providerPayloadFingerprint,
-      )
-      const sourceDescriptors = prepared.promptPayload.excerpts.map(
-        (excerpt) => excerpt.sourceDescriptor,
+        prepared.privacyContext,
       )
       const sourceLineRanges = buildPromptSourceLineRanges(
         prepared.promptPayload.excerpts,
@@ -110,8 +106,7 @@ export function createExaminationWorkflowHandlers(
           : normalizeQuestionAnchors(input.seedQuestions, sourceLineRanges)
       assertOutputAllowedForCurrentContext(
         seedQuestions,
-        input,
-        sourceDescriptors,
+        prepared.privacyContext,
       )
       const requestedGeneratedQuestionCount =
         input.questionCount - seedQuestions.length
@@ -120,7 +115,7 @@ export function createExaminationWorkflowHandlers(
         const hit = ports.archive.get(archiveKey)
         if (
           hit &&
-          isRecordAllowedForCurrentContext(hit, input, sourceDescriptors)
+          isRecordAllowedForCurrentContext(hit, prepared.privacyContext)
         ) {
           options?.onProgress?.({
             step: 3,
@@ -150,10 +145,9 @@ export function createExaminationWorkflowHandlers(
         { seedQuestions },
       )
       try {
-        assertNoRequiredRedactionLeaks({
+        assertExaminationPromptPrivacy({
           renderedPrompt: prompt,
-          requiredChecks: prepared.requiredChecks,
-          allowedSourceDescriptors: sourceDescriptors,
+          context: prepared.privacyContext,
         })
       } catch (error) {
         const message =
@@ -233,8 +227,7 @@ export function createExaminationWorkflowHandlers(
                   assertOutputAllowed: (questions) =>
                     assertOutputAllowedForCurrentContext(
                       questions,
-                      input,
-                      sourceDescriptors,
+                      prepared.privacyContext,
                     ),
                 })
               } else if (event.kind === "activity") {
@@ -259,6 +252,7 @@ export function createExaminationWorkflowHandlers(
                 ports,
                 resolution,
                 sourceReferences: prepared.sourceReferences,
+                privacyContext: prepared.privacyContext,
               })
             }
             throw error
@@ -280,6 +274,7 @@ export function createExaminationWorkflowHandlers(
             ports,
             resolution,
             sourceReferences: prepared.sourceReferences,
+            privacyContext: prepared.privacyContext,
           })
         }
         if (finalUsage === null) {
@@ -295,11 +290,7 @@ export function createExaminationWorkflowHandlers(
           { onOverQuota: warnOverQuota },
         )
         const questions = [...seedQuestions, ...generatedQuestions]
-        assertOutputAllowedForCurrentContext(
-          questions,
-          input,
-          sourceDescriptors,
-        )
+        assertOutputAllowedForCurrentContext(questions, prepared.privacyContext)
         const acceptedQuestionCount = questions.length
         if (generatedQuestions.length < requestedGeneratedQuestionCount) {
           options?.onOutput?.({
@@ -321,7 +312,8 @@ export function createExaminationWorkflowHandlers(
           questionCount: acceptedQuestionCount,
           usage: finalUsage,
           createdAtMs: Date.now(),
-          redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+          redactionPolicyVersion:
+            prepared.privacyContext.redactionPolicyVersion,
           promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
         }
 
@@ -331,6 +323,7 @@ export function createExaminationWorkflowHandlers(
           provenance,
         }
 
+        assertRecordAllowedForPrivacy(record, prepared.privacyContext)
         putSupersedingArchiveRecord(ports.archive, record)
 
         return toResult(record, {
@@ -374,6 +367,7 @@ export function createExaminationWorkflowHandlers(
       const { archiveKey } = resolveArchiveContext(
         input,
         prepared.providerPayloadFingerprint,
+        prepared.privacyContext,
       )
 
       throwIfAborted(options?.signal)
@@ -384,9 +378,6 @@ export function createExaminationWorkflowHandlers(
       })
 
       const exact = ports.archive.get(archiveKey)
-      const sourceDescriptors = prepared.promptPayload.excerpts.map(
-        (excerpt) => excerpt.sourceDescriptor,
-      )
       const availableSets = ports.archive
         .listForExcerpts({
           personId: archiveKey.personId,
@@ -395,8 +386,8 @@ export function createExaminationWorkflowHandlers(
         })
         .filter(
           (record) =>
-            isRecordCurrentArchivePolicy(record) &&
-            isRecordAllowedForCurrentContext(record, input, sourceDescriptors),
+            isRecordCurrentPromptTemplate(record) &&
+            isRecordAllowedForCurrentContext(record, prepared.privacyContext),
         )
         .map((record) =>
           toResult(record, {
@@ -410,7 +401,7 @@ export function createExaminationWorkflowHandlers(
         sourceReferences: prepared.sourceReferences,
         exact:
           exact === undefined ||
-          !isRecordAllowedForCurrentContext(exact, input, sourceDescriptors)
+          !isRecordAllowedForCurrentContext(exact, prepared.privacyContext)
             ? null
             : toResult(exact, {
                 fromArchive: true,
@@ -446,9 +437,6 @@ export function createExaminationWorkflowHandlers(
           tokenizer: ports.tokenizer,
           questionCount: 1,
         })
-        const sourceDescriptors = prepared.promptPayload.excerpts.map(
-          (excerpt) => excerpt.sourceDescriptor,
-        )
         const sets = ports.archive
           .listForExcerpts({
             personId: subject.personId,
@@ -457,12 +445,8 @@ export function createExaminationWorkflowHandlers(
           })
           .filter(
             (record) =>
-              isRecordCurrentArchivePolicy(record) &&
-              isRecordAllowedForCurrentContext(
-                record,
-                subject,
-                sourceDescriptors,
-              ),
+              isRecordCurrentPromptTemplate(record) &&
+              isRecordAllowedForCurrentContext(record, prepared.privacyContext),
           )
           .map((record) => ({
             key: record.key,

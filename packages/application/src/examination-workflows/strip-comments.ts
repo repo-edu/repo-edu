@@ -5,7 +5,7 @@ import {
   tokenizeSource,
 } from "@repo-edu/domain/analysis"
 import type { TokenizerPort } from "@repo-edu/host-runtime-contract"
-import type { ClassifiedSourceSpan, SourceSpanKind } from "./redaction.js"
+import type { ClassifiedSourceSpan, SourceSpanKind } from "./privacy-policy.js"
 
 export type StripCommentsResult = {
   lines: string[]

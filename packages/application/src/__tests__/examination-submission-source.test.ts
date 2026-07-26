@@ -16,11 +16,20 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
-import { EXAMINATION_REDACTION_POLICY_VERSION } from "../examination-workflows/redaction.js"
 import { createTokenizerPortForTests } from "./helpers/tokenizer.js"
 
 const tokenizer = createTokenizerPortForTests()
+const EXAMINATION_REDACTION_POLICY_VERSION = prepareExaminationPrivacy({
+  sources: [],
+  localIdentityContext: {
+    names: [],
+    emails: [],
+    opaqueIdentifiers: [],
+    gitUsernames: [],
+  },
+}).context.redactionPolicyVersion
 
 const llm: LlmPort = {
   async run(_request: LlmRunRequest): Promise<LlmRunResult> {
@@ -244,6 +253,27 @@ describe("examination.lookupQuestionSummaries", () => {
         model: "33",
         effort: "high",
         questionCount: 4,
+      },
+    })
+    const stalePromptTemplateVersion = EXAMINATION_PROMPT_TEMPLATE_VERSION - 1
+    archive.put({
+      ...baseRecord,
+      key: {
+        ...baseRecord.key,
+        questionCount: 6,
+        generationContextFingerprint:
+          buildExaminationGenerationContextFingerprint({
+            model: baseRecord.provenance.model,
+            effort: baseRecord.provenance.effort,
+            promptTemplateVersion: stalePromptTemplateVersion,
+            redactionPolicyVersion: EXAMINATION_REDACTION_POLICY_VERSION,
+          }),
+      },
+      questions: archivedQuestions(6),
+      provenance: {
+        ...baseRecord.provenance,
+        questionCount: 6,
+        promptTemplateVersion: stalePromptTemplateVersion,
       },
     })
     archive.put({

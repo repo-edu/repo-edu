@@ -10,7 +10,7 @@
     "@repo-edu/integrations-llm-catalog": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
-    "linkify-it": "^5.0.1",
+    "linkify-it": "^6.1.0",
     "papaparse": "^5.5.3",
     "partial-json": "^0.1.7",
     "xlsx": "^0.18.5"
@@ -31,7 +31,6 @@
   "devDependencies": {
     "@repo-edu/test-fixtures": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
-    "@types/linkify-it": "^5.0.0",
     "@types/papaparse": "^5.5.2",
     "web-tree-sitter": "0.26.9"
   }

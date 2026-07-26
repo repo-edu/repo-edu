@@ -420,6 +420,53 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(lookup.availableSets[0]?.archivedProvenance.usage, null)
   })
 
+  it("revalidates the complete soft-stopped set before storage", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const input = baseInput({
+      seedQuestions: [
+        {
+          question: "Who owns this?",
+          answer: "Ada",
+          anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+        },
+      ],
+    })
+    const generated = JSON.stringify({
+      question: "Lovelace",
+      answer: "The owner is named across the accepted set.",
+      anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+    })
+    const handlers = createExaminationWorkflowHandlers({
+      llm: blockingStreamLlm(`{"questions":[${generated},`),
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+    let resolveFirstPartial!: () => void
+    const firstPartial = new Promise<void>((resolve) => {
+      resolveFirstPartial = resolve
+    })
+
+    const generation = handlers["examination.generateQuestions"](input, {
+      onOutput(output) {
+        if (output.kind === "partial-questions") resolveFirstPartial()
+      },
+    })
+    await firstPartial
+    await handlers["examination.stopGeneration"]({
+      generationControlId: input.generationControlId,
+    })
+
+    await assert.rejects(
+      generation,
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "validation",
+    )
+    assert.equal(archive.exportBundle().records.length, 0)
+  })
+
   it("extends seed questions by generating only the additional count", async () => {
     let capturedPrompt = ""
     const archive = createInMemoryExaminationArchive()
