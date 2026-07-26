@@ -11,6 +11,7 @@ import {
   normalizeSubmissionFolderPath,
   normalizeSubmissionFolderRecent,
   persistedActiveSurfaceSchema,
+  submissionFolderRecentSchema,
   submissionRecentKey,
 } from "../active-surface.js"
 
@@ -46,6 +47,7 @@ describe("active surface paths", () => {
       ),
       "//server/share/submission",
     )
+    assert.equal(normalizeSubmissionFolderPath("C:"), null)
     assert.equal(normalizeSubmissionFolderPath("relative/path"), null)
   })
 })
@@ -72,6 +74,20 @@ describe("active surface schemas", () => {
         courseId: "course-1",
       }),
       { kind: "submission", path: "C:/submissions/one", courseId: "course-1" },
+    )
+  })
+
+  it("enforces absolute paths for submission recents", () => {
+    assert.deepEqual(
+      submissionFolderRecentSchema.parse({
+        path: " C:\\submissions\\one\\ ",
+        courseId: "course-1",
+      }),
+      { path: "C:/submissions/one", courseId: "course-1" },
+    )
+    assert.equal(
+      submissionFolderRecentSchema.safeParse({ path: "relative/path" }).success,
+      false,
     )
   })
 })

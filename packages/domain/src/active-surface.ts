@@ -24,11 +24,11 @@ export function normalizeAnalysisFolderPath(path: string): string | null {
 }
 
 export function normalizeSubmissionFolderPath(path: string): string | null {
-  const normalized = normalizeAnalysisFolderPath(path)
-  if (normalized === null || !isAbsolute(normalized)) {
+  const trimmed = path.trim()
+  if (trimmed.length === 0 || !isAbsolute(trimmed)) {
     return null
   }
-  return normalized
+  return normalizeAnalysisFolderPath(trimmed)
 }
 
 const analysisFolderPathSchema = z.string().transform((path, context) => {
@@ -57,7 +57,7 @@ const submissionFolderPathSchema = z.string().transform((path, context) => {
 
 export const submissionFolderRecentSchema = z
   .object({
-    path: z.string(),
+    path: submissionFolderPathSchema,
     courseId: z.string().min(1).optional(),
   })
   .strict()
