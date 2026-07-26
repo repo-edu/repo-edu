@@ -57,7 +57,6 @@ function applyReplacements(params: {
       value: candidate.value,
       caseSensitive: candidate.caseSensitive,
       assertGlobally: candidate.assertGlobally,
-      assertInStringLiteral: candidate.assertInStringLiteral,
     })
     cursor = candidate.end
   }

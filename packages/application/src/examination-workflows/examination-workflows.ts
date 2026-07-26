@@ -38,6 +38,7 @@ import type { ExaminationWorkflowPorts } from "./ports.js"
 import {
   assertExaminationPromptPrivacy,
   type ExaminationPrivacyWarning,
+  prepareExaminationPromptSeedQuestions,
 } from "./privacy-policy.js"
 import {
   buildExaminationPrompt,
@@ -129,6 +130,10 @@ export function createExaminationWorkflowHandlers(
           prepared.privacyContext,
         ),
       )
+      const promptSeedQuestions = prepareExaminationPromptSeedQuestions({
+        questions: seedQuestions,
+        context: prepared.privacyContext,
+      })
       const requestedGeneratedQuestionCount =
         input.questionCount - seedQuestions.length
 
@@ -165,7 +170,7 @@ export function createExaminationWorkflowHandlers(
           ...prepared.promptPayload,
           questionCount: requestedGeneratedQuestionCount,
         },
-        { seedQuestions },
+        { seedQuestions: promptSeedQuestions },
       )
       try {
         assertExaminationPromptPrivacy({

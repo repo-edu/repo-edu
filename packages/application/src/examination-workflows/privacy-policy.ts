@@ -4,7 +4,10 @@ export {
   admitExaminationRecordWithoutContext,
   assertExaminationPromptPrivacy,
 } from "./privacy-policy/admission.js"
-export { prepareExaminationPrivacy } from "./privacy-policy/preparation.js"
+export {
+  prepareExaminationPrivacy,
+  prepareExaminationPromptSeedQuestions,
+} from "./privacy-policy/preparation.js"
 export type {
   ClassifiedSourceSpan,
   ExaminationPrivacyAdmissionReason,

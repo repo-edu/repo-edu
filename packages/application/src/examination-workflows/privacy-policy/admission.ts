@@ -10,7 +10,6 @@ import { readExaminationPrivacyContext } from "./context.js"
 import {
   collectSecretCandidates,
   findEmailAddressSpans,
-  findLiteralMatches,
   normalizeKnownText,
 } from "./detection.js"
 import { CURRENT_EXAMINATION_REDACTION_POLICY_VERSION } from "./policy-version.js"
@@ -19,7 +18,6 @@ import type {
   ExaminationPrivacyContext,
   ExaminationPrivacyWarning,
   QuestionCarrier,
-  RedactionRequiredCheck,
 } from "./types.js"
 
 function questionsText(questions: readonly ExaminationQuestion[]): string {
@@ -36,82 +34,6 @@ function admitContextFreeText(text: string): ExaminationPrivacyAdmissionResult {
     return { ok: false, reason: "secret" }
   }
   return { ok: true, warnings: [] }
-}
-
-function isInsideSingleLineQuotedSpan(
-  text: string,
-  start: number,
-  end: number,
-): boolean {
-  const lineStart = text.lastIndexOf("\n", Math.max(0, start - 1)) + 1
-  const lineEndIndex = text.indexOf("\n", end)
-  const lineEnd = lineEndIndex === -1 ? text.length : lineEndIndex
-  const line = text.slice(lineStart, lineEnd)
-  const localStart = start - lineStart
-  const localEnd = end - lineStart
-
-  for (const quote of ["'", '"', "`"]) {
-    let openingIndex: number | null = null
-    let escaped = false
-    for (let index = 0; index < line.length; index++) {
-      const character = line[index]
-      if (escaped) {
-        escaped = false
-      } else if (character === "\\") {
-        escaped = true
-      } else if (character === quote) {
-        if (
-          quote === "'" &&
-          isWordApostrophe(line, index, openingIndex !== null)
-        ) {
-          continue
-        }
-        if (openingIndex === null) {
-          openingIndex = index
-          continue
-        }
-        if (localStart > openingIndex && localEnd <= index) return true
-        openingIndex = null
-      }
-    }
-  }
-  return false
-}
-
-const wordCharacter = /^[\p{L}\p{N}\p{M}]$/u
-
-function codePointBefore(text: string, index: number): string | null {
-  if (index <= 0) return null
-  const prefix = text.slice(0, index)
-  return Array.from(prefix).at(-1) ?? null
-}
-
-function codePointAfter(text: string, index: number): string | null {
-  if (index >= text.length) return null
-  return Array.from(text.slice(index))[0] ?? null
-}
-
-function isWordApostrophe(
-  text: string,
-  index: number,
-  insideSingleQuotedSpan: boolean,
-): boolean {
-  const before = codePointBefore(text, index)
-  if (before === null || !wordCharacter.test(before)) return false
-  if (!insideSingleQuotedSpan) return true
-  const after = codePointAfter(text, index + 1)
-  return after !== null && wordCharacter.test(after)
-}
-
-function containsRequiredCheckInStringLiteralContext(
-  text: string,
-  check: RedactionRequiredCheck,
-): boolean {
-  return findLiteralMatches({
-    text,
-    value: check.value,
-    caseSensitive: check.caseSensitive,
-  }).some((match) => isInsideSingleLineQuotedSpan(text, match.start, match.end))
 }
 
 export function assertExaminationPromptPrivacy(params: {
@@ -140,12 +62,9 @@ export function assertExaminationPromptPrivacy(params: {
     ) {
       return false
     }
-    if (check.assertGlobally) {
-      return containsRequiredCheck(params.renderedPrompt, check)
-    }
     return (
-      check.assertInStringLiteral &&
-      containsRequiredCheckInStringLiteralContext(params.renderedPrompt, check)
+      check.assertGlobally &&
+      containsRequiredCheck(params.renderedPrompt, check)
     )
   })
   if (leaked) {

@@ -124,11 +124,9 @@ function collectNameCandidates(params: {
       value: normalized,
       caseSensitive: false,
     })) {
-      let assertInStringLiteral = false
       if (!isMultiToken && !distinctive) {
         if (params.mode === "prose") continue
         if (!isCoveredByKind(params.spans, match, "string-literal")) continue
-        assertInStringLiteral = true
       }
       candidates.push({
         ...match,
@@ -137,7 +135,6 @@ function collectNameCandidates(params: {
         comparisonKey: normalized.toLowerCase(),
         caseSensitive: false,
         assertGlobally: isMultiToken || distinctive,
-        assertInStringLiteral,
       })
     }
   }

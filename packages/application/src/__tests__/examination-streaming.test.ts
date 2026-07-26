@@ -211,6 +211,48 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(result.questions.length, 1)
   })
 
+  it("does not accept an unfinished string after a complete anchor", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const handlers = createExaminationWorkflowHandlers({
+      llm: blockingStreamLlm(
+        '{"questions":[{"question":"Q1?","anchor":{"sourceId":"E1","lineRange":{"start":1,"end":2}},"answer":"unfinished',
+      ),
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+    })
+    const input = baseInput({ questionCount: 1 })
+    const outputs: ExaminationGenerateOutput[] = []
+    let resolveProgress!: () => void
+    const receivedProgress = new Promise<void>((resolve) => {
+      resolveProgress = resolve
+    })
+
+    const generation = handlers["examination.generateQuestions"](input, {
+      onOutput(output) {
+        outputs.push(output)
+        if (output.kind === "stream-progress") resolveProgress()
+      },
+    })
+    await receivedProgress
+    await handlers["examination.stopGeneration"]({
+      generationControlId: input.generationControlId,
+    })
+
+    await assert.rejects(
+      generation,
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        (error as { type?: unknown }).type === "validation",
+    )
+    assert.equal(
+      outputs.some((output) => output.kind === "partial-questions"),
+      false,
+    )
+    assert.equal(archive.exportBundle().records.length, 0)
+  })
+
   it("emits stream progress before partial JSON has a question shape", async () => {
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
@@ -521,7 +563,7 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(lookup.availableSets[0]?.archivedProvenance.usage, null)
   })
 
-  it("revalidates the complete soft-stopped set before storage", async () => {
+  it("admits the complete accepted set before partial emission", async () => {
     const archive = createInMemoryExaminationArchive()
     const input = baseInput({
       seedQuestions: [
@@ -538,24 +580,18 @@ describe("examination.generateQuestions streaming", () => {
       anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
     })
     const handlers = createExaminationWorkflowHandlers({
-      llm: blockingStreamLlm(`{"questions":[${generated},`),
+      llm: streamLlm([
+        { kind: "text-delta", text: `{"questions":[${generated}]}` },
+        { kind: "done", usage },
+      ]),
       archive,
       tokenizer,
       fileSystem: stubFileSystem,
     })
-    let resolveFirstPartial!: () => void
-    const firstPartial = new Promise<void>((resolve) => {
-      resolveFirstPartial = resolve
-    })
+    const outputs: ExaminationGenerateOutput[] = []
 
     const generation = handlers["examination.generateQuestions"](input, {
-      onOutput(output) {
-        if (output.kind === "partial-questions") resolveFirstPartial()
-      },
-    })
-    await firstPartial
-    await handlers["examination.stopGeneration"]({
-      generationControlId: input.generationControlId,
+      onOutput: (output) => outputs.push(output),
     })
 
     await assert.rejects(
@@ -564,6 +600,10 @@ describe("examination.generateQuestions streaming", () => {
         typeof error === "object" &&
         error !== null &&
         (error as { type?: unknown }).type === "validation",
+    )
+    assert.equal(
+      outputs.some((output) => output.kind === "partial-questions"),
+      false,
     )
     assert.equal(archive.exportBundle().records.length, 0)
   })

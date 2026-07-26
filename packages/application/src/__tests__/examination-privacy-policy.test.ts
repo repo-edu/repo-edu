@@ -8,6 +8,7 @@ import {
   assertExaminationPromptPrivacy,
   type ClassifiedSourceSpan,
   prepareExaminationPrivacy,
+  prepareExaminationPromptSeedQuestions,
 } from "../examination-workflows/privacy-policy.js"
 import { buildExaminationPrompt } from "../examination-workflows/prompt-builder.js"
 
@@ -107,7 +108,7 @@ describe("examination privacy policy", () => {
       prepared.sources[1]?.lines.join("\n") ?? "",
       /<redacted-name-1>/,
     )
-    assert.equal(prepared.context.redactionPolicyVersion, 7)
+    assert.equal(prepared.context.redactionPolicyVersion, 8)
     assert.ok(Object.isFrozen(prepared.context))
   })
 
@@ -226,8 +227,8 @@ describe("examination privacy policy", () => {
   })
 
   it("uses context required checks for prompt admission", () => {
-    const lines = ["const Will = 1", 'const label = "Made by Will"']
-    const prepared = prepare({ lines })
+    const lines = ['const owner = "Ada Lovelace"']
+    const prepared = prepare({ lines, names: ["Ada Lovelace"] })
     assert.doesNotThrow(() =>
       assertExaminationPromptPrivacy({
         renderedPrompt: prepared.sources[0]?.lines.join("\n") ?? "",
@@ -244,9 +245,20 @@ describe("examination privacy policy", () => {
     )
   })
 
-  it("does not treat apostrophes inside prompt words as quote delimiters", () => {
+  it("redacts prompt-bound seed questions without changing admitted output", () => {
     const lines = ["const Will = 1", 'const label = "Made by Will"']
     const prepared = prepare({ lines, names: ["Will"] })
+    const seedQuestions = [
+      {
+        question: "What's shown by prefix'Will' and contributors' reviews?",
+        answer: "Will remains visible in the accepted local answer.",
+        anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
+      },
+    ]
+    const promptSeedQuestions = prepareExaminationPromptSeedQuestions({
+      questions: seedQuestions,
+      context: prepared.context,
+    })
     const renderedPrompt = buildExaminationPrompt(
       {
         questionCount: 1,
@@ -259,30 +271,24 @@ describe("examination privacy policy", () => {
           },
         ],
       },
-      {
-        seedQuestions: [
-          {
-            question: "What's shown by contributors' reviews about Will?",
-            answer: "The accepted answer stays local.",
-            anchor: { sourceId: "E1", lineRange: { start: 1, end: 2 } },
-          },
-        ],
-      },
+      { seedQuestions: promptSeedQuestions },
     )
 
+    assert.match(seedQuestions[0]?.question ?? "", /prefix'Will'/)
+    assert.doesNotMatch(promptSeedQuestions[0]?.question ?? "", /Will/)
+    assert.doesNotMatch(promptSeedQuestions[0]?.answer ?? "", /Will/)
+    assert.deepEqual(
+      admitExaminationQuestions({
+        questions: seedQuestions,
+        context: prepared.context,
+      }),
+      { ok: true, warnings: ["ambiguous-known-identifier"] },
+    )
     assert.doesNotThrow(() =>
       assertExaminationPromptPrivacy({
         renderedPrompt,
         context: prepared.context,
       }),
-    )
-    assert.throws(
-      () =>
-        assertExaminationPromptPrivacy({
-          renderedPrompt: "The identifier is 'Will'.",
-          context: prepared.context,
-        }),
-      /name remained/,
     )
   })
 

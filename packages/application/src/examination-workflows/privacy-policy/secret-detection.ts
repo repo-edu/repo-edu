@@ -25,7 +25,6 @@ function candidate(
     comparisonKey: value,
     caseSensitive: true,
     assertGlobally: true,
-    assertInStringLiteral: false,
   }
 }
 

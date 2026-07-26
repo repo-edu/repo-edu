@@ -91,7 +91,6 @@ export function collectEmailCandidates(
         comparisonKey: value.toLowerCase(),
         caseSensitive: false,
         assertGlobally: true,
-        assertInStringLiteral: false,
       }
     },
   )
@@ -130,7 +129,6 @@ export function collectLiteralCandidates(params: {
           : normalized.toLowerCase(),
         caseSensitive: params.caseSensitive,
         assertGlobally: true,
-        assertInStringLiteral: false,
       })
     }
   }

@@ -19,7 +19,6 @@ export type RedactionRequiredCheck = {
   value: string
   caseSensitive: boolean
   assertGlobally: boolean
-  assertInStringLiteral: boolean
 }
 
 export type RedactionReport = {
@@ -81,7 +80,6 @@ export type ReplacementCandidate = Span & {
   comparisonKey: string
   caseSensitive: boolean
   assertGlobally: boolean
-  assertInStringLiteral: boolean
 }
 
 export type RedactionPlaceholderPlan = {

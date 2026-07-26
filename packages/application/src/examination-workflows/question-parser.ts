@@ -35,7 +35,7 @@ export function maybeEmitPartial(params: {
   try {
     parsed = parsePartialJson(
       stripOpeningJsonFence(params.buffer),
-      Allow.OBJ | Allow.ARR | Allow.STR,
+      Allow.OBJ | Allow.ARR,
     )
   } catch {
     return
@@ -70,10 +70,7 @@ export function maybeEmitPartial(params: {
     acceptedQuestions.length > params.emittedQuestionCount.emittedQuestionCount
   if (!acceptedGrew) return
 
-  const newQuestions = acceptedQuestions.slice(
-    params.emittedQuestionCount.emittedQuestionCount,
-  )
-  params.assertOutputAllowed(newQuestions)
+  params.assertOutputAllowed(acceptedQuestions)
   params.emittedQuestionCount.acceptedQuestions = acceptedQuestions
   params.emittedQuestionCount.emittedQuestionCount = acceptedQuestions.length
   params.onOutput?.({
