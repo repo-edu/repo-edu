@@ -85,6 +85,10 @@ export function submissionRecentKey(input: {
   return `${input.courseId ?? ""}\0${path}`
 }
 
+/**
+ * State keys must stay equal to recent keys: settings prunes saved
+ * submission-surface state by matching state-map keys against recent keys.
+ */
 export function submissionSurfaceStateKey(input: {
   path: string
   courseId?: string

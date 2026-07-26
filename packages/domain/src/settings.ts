@@ -79,6 +79,9 @@ export const persistedAnalysisConcurrencySchema = z
   .strict()
   .default({ repoParallelism: 3, filesPerRepo: 4 })
 
+/** One policy for both recent folder lists: keep at most this many entries. */
+const RECENT_FOLDER_LIMIT = 8
+
 export function normalizeRecentAnalysisFolders(
   paths: readonly string[],
 ): string[] {
@@ -91,7 +94,7 @@ export function normalizeRecentAnalysisFolders(
     }
     recent.push(normalized)
     seen.add(normalized)
-    if (recent.length >= 8) {
+    if (recent.length >= RECENT_FOLDER_LIMIT) {
       break
     }
   }
@@ -116,7 +119,7 @@ export function normalizeRecentSubmissionFolders(
     if (key === null || seen.has(key)) continue
     recent.push(normalized)
     seen.add(key)
-    if (recent.length >= 8) break
+    if (recent.length >= RECENT_FOLDER_LIMIT) break
   }
   return recent
 }
@@ -289,6 +292,12 @@ const _sectionDisjointGuard: AssertDisjoint<
   keyof typeof persistedAppCredentialsFields,
   keyof typeof persistedAppPreferencesFields
 > = true
+// The satisfies clause on the schema cannot catch provider-set growth: a
+// Partial record accepts a schema that misses a newly added provider key.
+const _examinationProviderGuard: AssertEqual<
+  keyof ExaminationModelsByProvider,
+  LlmProviderKind
+> = true
 const _settingsFieldGuard: AssertEqual<
   keyof PersistedAppSettings,
   | "kind"
@@ -297,6 +306,7 @@ const _settingsFieldGuard: AssertEqual<
 > = true
 void _scopeDisjointGuard
 void _sectionDisjointGuard
+void _examinationProviderGuard
 void _settingsFieldGuard
 
 export const defaultAppCredentials: PersistedAppCredentials = {

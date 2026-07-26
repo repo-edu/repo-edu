@@ -471,6 +471,7 @@
         { "type": "file", "path": "packages/domain/src/connection.ts" },
         { "type": "file", "path": "packages/domain/src/settings.ts" },
         { "type": "file", "path": "packages/domain/src/__tests__/connection.test.ts" },
+        { "type": "file", "path": "packages/domain/src/__tests__/settings.test.ts" },
         { "type": "pattern", "path": "^packages/application-contract/src/(?:examination-contract\\.ts|examination/|workflow-catalog\\.ts|workflow-payloads\\.ts|workflow-types\\.ts)" },
         { "type": "pattern", "path": "^packages/application-contract/src/__tests__/examination" },
         { "type": "file", "path": "packages/host-runtime-contract/src/index.ts" },

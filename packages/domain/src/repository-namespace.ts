@@ -22,6 +22,8 @@ export function gitNamespaceTerminology(
 export function normalizeGitNamespaceInput(input: string): string {
   const trimmed = input.trim()
   const isProviderUrl = /^https?:\/\//i.test(trimmed)
+  // Strip leading slashes before parsing bare paths so an input such as
+  // "//parent/sub" is not read as a protocol-relative URL with host "parent".
   const parsed = parseURL(isProviderUrl ? trimmed : trimmed.replace(/^\/+/, ""))
   if (
     parsed.protocol !== undefined &&
