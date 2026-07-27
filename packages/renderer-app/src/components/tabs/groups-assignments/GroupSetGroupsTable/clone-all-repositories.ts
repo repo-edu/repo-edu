@@ -7,12 +7,32 @@ import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import { keepPreviousData } from "@tanstack/react-query"
 
 export const cloneAllListingDebounceMs = 350
+// TanStack re-arms garbage collection while an unobserved mutation is pending.
+// A bounded non-zero interval avoids a hot timer loop during background clones.
+export const cloneAllMutationGcTimeMs = 5 * 60 * 1000
 
 export type CloneAllSafeListingInput = {
   readonly connectionId: string
   readonly namespace: string
   readonly filter: string
   readonly includeArchived: boolean
+}
+
+export function createCloneAllSafeListingInput(params: {
+  readonly connectionId: string | null
+  readonly namespace: string
+  readonly filter: string
+  readonly includeArchived: boolean
+}): CloneAllSafeListingInput | null {
+  if (params.connectionId === null || params.namespace.length === 0) {
+    return null
+  }
+  return {
+    connectionId: params.connectionId,
+    namespace: params.namespace,
+    filter: params.filter,
+    includeArchived: params.includeArchived,
+  }
 }
 
 export type CloneAllListingAdmissionId = CloneAllSafeListingInput & {
@@ -65,13 +85,25 @@ export function createCloneAllListingTransition({
   if (input !== null) {
     cancelScheduledPublication = schedule(() => {
       if (disposed) return
-      updatePublishedInput((previous) => ({
-        admissionId: {
-          ...input,
-          listingGeneration: (previous?.admissionId.listingGeneration ?? 0) + 1,
-        },
-        credentials,
-      }))
+      updatePublishedInput((previous) => {
+        if (
+          cloneAllInputIsCurrent({
+            input,
+            credentials,
+            publishedInput: previous,
+          })
+        ) {
+          return previous
+        }
+        return {
+          admissionId: {
+            ...input,
+            listingGeneration:
+              (previous?.admissionId.listingGeneration ?? 0) + 1,
+          },
+          credentials,
+        }
+      })
     }, cloneAllListingDebounceMs)
   }
 
@@ -117,7 +149,7 @@ export function createCloneAllListingQueryPolicy(
 
 export function createCloneAllMutationPolicy() {
   return {
-    gcTime: 0,
+    gcTime: cloneAllMutationGcTimeMs,
     retry: false,
   } as const
 }

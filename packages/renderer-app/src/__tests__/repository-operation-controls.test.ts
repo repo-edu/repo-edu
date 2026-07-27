@@ -25,9 +25,11 @@ import {
   cloneAllInputIsCurrent,
   cloneAllListingQueryKeys,
   cloneAllMutationBelongsToCurrentInput,
+  cloneAllMutationGcTimeMs,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
   createCloneAllMutationPolicy,
+  createCloneAllSafeListingInput,
   extractSubgroupPath,
   selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
@@ -170,7 +172,7 @@ describe("clone-all listing transition", () => {
     transition.dispose()
   })
 
-  it("preserves generation while listing is disabled", () => {
+  it("reuses the admitted generation after a transient disable", () => {
     const scheduler = createManualScheduler()
     let publishedInput: CloneAllPublishedListingInput | null =
       initialPublishedInput
@@ -198,7 +200,7 @@ describe("clone-all listing transition", () => {
     })
     scheduler.flush()
 
-    assert.equal(publishedInput?.admissionId.listingGeneration, 2)
+    assert.equal(publishedInput, initialPublishedInput)
     enabledTransition.dispose()
   })
 
@@ -375,7 +377,7 @@ describe("clone-all query ownership", () => {
     }
   })
 
-  it("overrides the analysis cache defaults with panel-local retention", () => {
+  it("uses panel-local query retention and bounded mutation retention", () => {
     const policy = createCloneAllListingQueryPolicy(
       initialPublishedInput.admissionId,
     )
@@ -386,9 +388,10 @@ describe("clone-all query ownership", () => {
     assert.equal(policy.refetchOnWindowFocus, false)
     assert.equal(policy.refetchOnReconnect, false)
     assert.deepEqual(createCloneAllMutationPolicy(), {
-      gcTime: 0,
+      gcTime: cloneAllMutationGcTimeMs,
       retry: false,
     })
+    assert.ok(cloneAllMutationGcTimeMs > 0)
   })
 
   it("keeps an admitted command stable while React Query pauses it", async () => {
@@ -487,6 +490,36 @@ describe("clone-all admission and clone inputs", () => {
     )
   })
 
+  it("builds the safe listing input through one production constructor", () => {
+    assert.deepEqual(
+      createCloneAllSafeListingInput({
+        connectionId: "connection-1",
+        namespace: "course-org",
+        filter: "lab-*",
+        includeArchived: false,
+      }),
+      initialInput,
+    )
+    assert.equal(
+      createCloneAllSafeListingInput({
+        connectionId: null,
+        namespace: "course-org",
+        filter: "lab-*",
+        includeArchived: false,
+      }),
+      null,
+    )
+    assert.equal(
+      createCloneAllSafeListingInput({
+        connectionId: "connection-1",
+        namespace: "",
+        filter: "lab-*",
+        includeArchived: false,
+      }),
+      null,
+    )
+  })
+
   it("requires current non-placeholder success data and a target folder", () => {
     const base = {
       inputIsCurrent: true,
@@ -520,10 +553,6 @@ describe("clone-all admission and clone inputs", () => {
       listingAdmissionId: initialPublishedInput.admissionId,
       targetDirectory: " /tmp/repos ",
     }
-    assert.deepEqual(Object.keys(variables).sort(), [
-      "listingAdmissionId",
-      "targetDirectory",
-    ])
 
     const workflowInput = buildCloneAllWorkflowInput({
       variables,

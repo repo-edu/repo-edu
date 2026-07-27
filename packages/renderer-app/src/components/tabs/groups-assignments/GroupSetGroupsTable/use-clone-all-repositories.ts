@@ -24,6 +24,7 @@ import {
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
   createCloneAllMutationPolicy,
+  createCloneAllSafeListingInput,
   formatCloneAllResult,
   selectCloneAllCanClone,
 } from "./clone-all-repositories.js"
@@ -59,26 +60,21 @@ export function useCloneAllRepositories({
   const hasConnection = activeConnectionId !== null
   const hasNamespace = namespace.length > 0
   const rawListingInput: CloneAllSafeListingInput | null =
-    activeConnectionId !== null && hasNamespace
-      ? {
-          connectionId: activeConnectionId,
-          namespace,
-          filter: normalizedFilter,
-          includeArchived,
-        }
-      : null
+    createCloneAllSafeListingInput({
+      connectionId: activeConnectionId,
+      namespace,
+      filter: normalizedFilter,
+      includeArchived,
+    })
 
   useEffect(() => {
     const transition = createCloneAllListingTransition({
-      input:
-        activeConnectionId !== null && namespace.length > 0
-          ? {
-              connectionId: activeConnectionId,
-              namespace,
-              filter: normalizedFilter,
-              includeArchived,
-            }
-          : null,
+      input: createCloneAllSafeListingInput({
+        connectionId: activeConnectionId,
+        namespace,
+        filter: normalizedFilter,
+        includeArchived,
+      }),
       credentials,
       updatePublishedInput: setPublishedListingInput,
       schedule: scheduleCloneAllTransition,
