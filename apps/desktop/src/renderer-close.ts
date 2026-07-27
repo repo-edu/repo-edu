@@ -31,6 +31,7 @@ export async function runRendererCloseGate(options: {
   transport: RendererCloseTransport
   channels: RendererCloseChannels
   timeoutMs?: number
+  cancellationTimeoutMs?: number
   scheduler?: CloseScheduler
   log?: (message: string) => void
 }): Promise<boolean> {
@@ -53,6 +54,7 @@ function requestRendererClose({
   transport,
   channels,
   timeoutMs = 5_000,
+  cancellationTimeoutMs = timeoutMs,
   scheduler = defaultScheduler,
   log = () => undefined,
 }: {
@@ -61,6 +63,7 @@ function requestRendererClose({
   transport: RendererCloseTransport
   channels: RendererCloseChannels
   timeoutMs?: number
+  cancellationTimeoutMs?: number
   scheduler?: CloseScheduler
   log?: (message: string) => void
 }): Promise<boolean> {
@@ -100,8 +103,13 @@ function requestRendererClose({
     timeout = scheduler(() => {
       if (phase !== "waiting") return
       phase = "cancelling"
-      timeout = null
       log("renderer-close-timeout")
+      timeout = scheduler(() => {
+        if (phase !== "cancelling") return
+        timeout = null
+        log("renderer-close-cancel-timeout")
+        finish(true)
+      }, cancellationTimeoutMs)
       try {
         target.send(channels.cancel, { requestId })
       } catch {

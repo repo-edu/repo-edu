@@ -605,7 +605,6 @@ export class SessionController extends CourseMutationController {
       return
     }
 
-    emitSettingsRecoveryToasts(settings)
     try {
       await reservation.run(async (scope) => {
         if (
@@ -617,6 +616,8 @@ export class SessionController extends CourseMutationController {
           })
         )
           throw new Error("The bootstrap attempt is no longer active.")
+
+        emitSettingsRecoveryToasts(settings)
 
         const surface = normalizeActiveSurface(
           settings.preferences.activeSurface,

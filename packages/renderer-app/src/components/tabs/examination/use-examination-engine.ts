@@ -14,8 +14,9 @@ import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
 import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
-import { selectActiveAnalysisSourceKey } from "../../../session/selectors.js"
+import { selectActiveSurface } from "../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../session/session-controller-context.js"
+import { analysisSourceKeyFromSurface } from "../../../session/session-reducer.js"
 import {
   type ExaminationPreferenceSnapshot,
   examinationPreferencePersistence,
@@ -112,8 +113,10 @@ export function useExaminationEngine({
   const addToast = useToastStore((state) => state.addToast)
   const openSettings = useUiStore((state) => state.openSettings)
   const preferenceSnapshot = useExaminationPreferenceSnapshot()
-  const analysisSourceKey = useSessionControllerSelector(
-    selectActiveAnalysisSourceKey,
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
+  const analysisSourceKey = useMemo(
+    () => analysisSourceKeyFromSurface(activeSurface),
+    [activeSurface],
   )
 
   const sourceSummaryKey = useMemo(

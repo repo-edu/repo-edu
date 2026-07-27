@@ -2,7 +2,7 @@ import { Button } from "@repo-edu/ui"
 import { AlertCircle, X } from "@repo-edu/ui/components/icons"
 import {
   selectCourseSyncStatus,
-  selectSettingsSyncStatus,
+  selectSettingsSyncErrorMessage,
   selectVisibleSyncScope,
 } from "../session/selectors.js"
 import {
@@ -13,13 +13,13 @@ import {
 export function SyncErrorBanner() {
   const controller = useSessionController()
   const scope = useSessionControllerSelector(selectVisibleSyncScope)
-  const settingsSyncStatus = useSessionControllerSelector(
-    selectSettingsSyncStatus,
+  const settingsSyncErrorMessage = useSessionControllerSelector(
+    selectSettingsSyncErrorMessage,
   )
   const courseSyncStatus = useSessionControllerSelector(selectCourseSyncStatus)
   const message =
     scope === "settings"
-      ? settingsSyncStatus.message
+      ? settingsSyncErrorMessage
       : scope === "course"
         ? courseSyncStatus.message
         : null

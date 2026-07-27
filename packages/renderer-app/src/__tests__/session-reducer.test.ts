@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { savingSyncStatus } from "../persistence/create-persister.js"
-import { selectSettingsSyncStatus } from "../session/selectors.js"
+import { selectSettingsSyncState } from "../session/selectors.js"
 import {
   createInitialSessionSnapshot,
   sessionReducer,
@@ -80,7 +80,7 @@ describe("session reducer", () => {
       workerId: 4,
       status: savingSyncStatus,
     })
-    assert.equal(selectSettingsSyncStatus(state).state, "saving")
+    assert.equal(selectSettingsSyncState(state), "saving")
   })
 
   it("dismisses both document errors with one root event", () => {
@@ -101,7 +101,7 @@ describe("session reducer", () => {
         status: { state: "error", message: `${scope} failed` },
       })
     }
-    assert.equal(selectSettingsSyncStatus(state).state, "error")
+    assert.equal(selectSettingsSyncState(state), "error")
     state = sessionReducer(state, {
       type: "dismiss-sync-error",
       scope: "settings",

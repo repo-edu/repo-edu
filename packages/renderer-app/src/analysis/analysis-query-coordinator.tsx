@@ -30,11 +30,9 @@ import {
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
-import {
-  selectActiveAnalysisSourceKey,
-  selectPreferences,
-} from "../session/selectors.js"
+import { selectActiveSurface, selectPreferences } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
+import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
   type AnalysisDiscoveryCommandOutcome,
   type AnalysisDiscoveryOutcome,
@@ -337,12 +335,10 @@ export function AnalysisCoordinatorProvider({
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
   const analysisContext = useAnalysisContext()
-  const activeSourceKey = useSessionControllerSelector(
-    selectActiveAnalysisSourceKey,
-  )
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeSourceParts = useMemo(
-    () => analysisSourceKeyParts(activeSourceKey),
-    [activeSourceKey],
+    () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
+    [activeSurface],
   )
   const activeSourceText = useMemo(
     () => analysisSourceScopeKey(activeSourceParts),

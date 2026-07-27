@@ -21,13 +21,14 @@ import {
 } from "../../constants/layout.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
 import {
-  selectActiveAnalysisSourceKey,
+  selectActiveSurface,
   selectPreferences,
 } from "../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
+import { analysisSourceKeyFromSurface } from "../../session/session-reducer.js"
 import {
   type AnalysisDiscoveryRequest,
   type AnalysisView,
@@ -102,12 +103,10 @@ function RepositoryAnalysisTabContent() {
   const { runRepoDiscovery, discoveredRepos, discoveryStatus } =
     useAnalysisDiscovery()
   const searchFolder = analysisContext.searchFolder
-  const activeSourceKey = useSessionControllerSelector(
-    selectActiveAnalysisSourceKey,
-  )
+  const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeSourceParts = useMemo(
-    () => analysisSourceKeyParts(activeSourceKey),
-    [activeSourceKey],
+    () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
+    [activeSurface],
   )
   const activeSourceText = useMemo(
     () => analysisSourceScopeKey(activeSourceParts),

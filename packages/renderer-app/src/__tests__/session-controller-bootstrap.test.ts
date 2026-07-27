@@ -7,6 +7,7 @@ import { useToastStore } from "../stores/toast-store.js"
 import {
   activeCourseId,
   activeSurface,
+  deferred,
   makeCourse,
   makeSettings,
   resetStores,
@@ -106,6 +107,35 @@ describe("SessionController bootstrap", () => {
     ])
 
     controller.dispose()
+  })
+
+  it("does not emit recovery warnings after disposal", async () => {
+    const settingsLoad = deferred<ReturnType<typeof makeSettings>>()
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "settings.loadApp") {
+          return (await settingsLoad.promise) as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    controller.dispose()
+
+    const restoredSettings = makeSettings()
+    restoredSettings.recovery = [
+      {
+        unit: "preferences",
+        reason: "invalid",
+        backupPath: "/tmp/preferences.invalid-1.json",
+      },
+    ]
+    settingsLoad.resolve(restoredSettings)
+    await settingsLoad.promise
+    await new Promise<void>((resolve) => setImmediate(resolve))
+
+    assert.deepStrictEqual(useToastStore.getState().toasts, [])
   })
 
   it("recovers a missing persisted active course to home during bootstrap", async () => {

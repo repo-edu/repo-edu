@@ -4,10 +4,7 @@ import {
   resolveActiveLlmConnection,
 } from "@repo-edu/domain/connection"
 import type { PersistenceSyncStatus } from "../persistence/create-persister.js"
-import {
-  analysisSourceKeyFromSurface,
-  type SessionControllerSnapshot,
-} from "./session-reducer.js"
+import type { SessionControllerSnapshot } from "./session-reducer.js"
 
 export const selectBootstrapState = (snapshot: SessionControllerSnapshot) =>
   snapshot.bootstrap
@@ -23,29 +20,31 @@ export const selectActiveTab = (snapshot: SessionControllerSnapshot) =>
   snapshot.settings.preferences.activeTab
 export const selectActiveCourseId = (snapshot: SessionControllerSnapshot) =>
   activeCourseIdFromSurface(snapshot.settings.preferences.activeSurface)
-export const selectActiveAnalysisSourceKey = (
-  snapshot: SessionControllerSnapshot,
-) => analysisSourceKeyFromSurface(snapshot.settings.preferences.activeSurface)
 export const selectCourseLoadStatus = (snapshot: SessionControllerSnapshot) =>
   snapshot.courseLoadStatus
 
-export function selectSettingsSyncStatus(
+export function selectSettingsSyncState(
   snapshot: SessionControllerSnapshot,
-): PersistenceSyncStatus {
+): PersistenceSyncStatus["state"] {
   const credentials = snapshot.settings.credentialsSyncStatus
   const preferences = snapshot.settings.preferencesSyncStatus
-  if (credentials.state === "error" && preferences.state === "error") {
-    return {
-      state: "error",
-      message: `${credentials.message} ${preferences.message}`,
-    }
-  }
-  if (credentials.state === "error") return credentials
-  if (preferences.state === "error") return preferences
-  if (credentials.state === "saving" || preferences.state === "saving") {
-    return { state: "saving", message: null }
-  }
-  return { state: "idle", message: null }
+  if (credentials.state === "error" || preferences.state === "error")
+    return "error"
+  if (credentials.state === "saving" || preferences.state === "saving")
+    return "saving"
+  return "idle"
+}
+
+export function selectSettingsSyncErrorMessage(
+  snapshot: SessionControllerSnapshot,
+): string | null {
+  const credentials = snapshot.settings.credentialsSyncStatus
+  const preferences = snapshot.settings.preferencesSyncStatus
+  if (credentials.state === "error" && preferences.state === "error")
+    return `${credentials.message} ${preferences.message}`
+  if (credentials.state === "error") return credentials.message
+  if (preferences.state === "error") return preferences.message
+  return null
 }
 
 export const selectCourseSyncStatus = (snapshot: SessionControllerSnapshot) =>
@@ -53,7 +52,7 @@ export const selectCourseSyncStatus = (snapshot: SessionControllerSnapshot) =>
 export const selectVisibleSyncScope = (
   snapshot: SessionControllerSnapshot,
 ): "settings" | "course" | null => {
-  if (selectSettingsSyncStatus(snapshot).state === "error") return "settings"
+  if (selectSettingsSyncState(snapshot) === "error") return "settings"
   if (snapshot.courseSyncStatus.state === "error") return "course"
   return null
 }

@@ -21,7 +21,9 @@ function harness() {
       for (const listener of listeners.get(channel) ?? []) listener(response)
     },
     fireTimeout() {
-      timeout?.()
+      const callback = timeout
+      timeout = null
+      callback?.()
     },
     options: {
       requestId: "close-1",
@@ -90,5 +92,15 @@ describe("desktop renderer close gate", () => {
     state.emit(channels.cancelComplete, { requestId: "close-1" })
     assert.equal(await closing, false)
     assert.deepEqual(state.enabled, [false, true])
+  })
+
+  it("force closes when the renderer cannot acknowledge cancellation", async () => {
+    const state = harness()
+    const closing = runRendererCloseGate(state.options)
+    state.fireTimeout()
+    assert.equal(state.sent.at(-1)?.channel, channels.cancel)
+    state.fireTimeout()
+    assert.equal(await closing, true)
+    assert.deepEqual(state.enabled, [false])
   })
 })
