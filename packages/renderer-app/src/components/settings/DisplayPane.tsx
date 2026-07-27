@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import { selectPreferences } from "../../session/selectors.js"
+import { selectAppearance } from "../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -47,7 +47,7 @@ const TIME_FORMATS: Array<{
 export function DisplayPane() {
   const controller = useSessionController()
   const { theme, dateFormat, timeFormat, syntaxTheme } =
-    useSessionControllerSelector(selectPreferences).appearance
+    useSessionControllerSelector(selectAppearance)
 
   const handleThemeChange = (value: ThemePreference) => {
     controller.setTheme(value)

@@ -61,6 +61,29 @@ export const selectCommandError = (snapshot: SessionControllerSnapshot) =>
 
 export const selectTheme = (snapshot: SessionControllerSnapshot) =>
   snapshot.settings.preferences.appearance.theme
+export const selectAppearance = (snapshot: SessionControllerSnapshot) =>
+  snapshot.settings.preferences.appearance
+export const selectSyntaxTheme = (snapshot: SessionControllerSnapshot) =>
+  snapshot.settings.preferences.appearance.syntaxTheme
+export const selectDefaultExtensions = (snapshot: SessionControllerSnapshot) =>
+  snapshot.settings.preferences.defaultExtensions
+export const selectAnalysisConcurrency = (
+  snapshot: SessionControllerSnapshot,
+) => snapshot.settings.preferences.analysisConcurrency
+export const selectAnalysisSidebar = (snapshot: SessionControllerSnapshot) =>
+  snapshot.settings.preferences.analysisSidebar
+export const selectFolderViewAnalysisInputs = (
+  snapshot: SessionControllerSnapshot,
+) => snapshot.settings.preferences.folderViewAnalysisInputs
+export const selectRecentAnalysisFolders = (
+  snapshot: SessionControllerSnapshot,
+) => snapshot.settings.preferences.recentAnalysisFolders
+export const selectRecentSubmissionFolders = (
+  snapshot: SessionControllerSnapshot,
+) => snapshot.settings.preferences.recentSubmissionFolders
+export const selectSubmissionSurfaceStates = (
+  snapshot: SessionControllerSnapshot,
+) => snapshot.settings.preferences.submissionSurfaceStates
 export const selectExaminationModelsByProvider = (
   snapshot: SessionControllerSnapshot,
 ) => snapshot.settings.preferences.examinationModelsByProvider

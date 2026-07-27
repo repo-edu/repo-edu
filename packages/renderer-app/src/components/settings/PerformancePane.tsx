@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { HelpCircle } from "@repo-edu/ui/components/icons"
-import { selectPreferences } from "../../session/selectors.js"
+import { selectAnalysisConcurrency } from "../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -35,8 +35,9 @@ function HelpIcon({ children }: { children: React.ReactNode }) {
 
 export function PerformancePane() {
   const controller = useSessionController()
-  const analysisConcurrency =
-    useSessionControllerSelector(selectPreferences).analysisConcurrency
+  const analysisConcurrency = useSessionControllerSelector(
+    selectAnalysisConcurrency,
+  )
 
   const handleRepoParallelismChange = (raw: string) => {
     const parsed = Number.parseInt(raw, 10)

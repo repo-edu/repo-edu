@@ -64,8 +64,8 @@ import {
 } from "./session-reducer.js"
 import {
   type CredentialEvent,
+  credentialRemovalFromEvent,
   type PreferenceEvent,
-  reduceCredentials,
   SessionSettings,
 } from "./session-settings.js"
 import {
@@ -912,10 +912,7 @@ export class SessionController extends CourseMutationController {
   }
 
   private credential(event: CredentialEvent): boolean {
-    const removed = reduceCredentials(
-      this.snapshot.settings.credentials,
-      event,
-    ).removed
+    const removed = credentialRemovalFromEvent(event)
     return this.dispatch({ type: "credential", event }, () => {
       if (removed?.kind === "lms")
         useConnectionsStore.getState().removeLmsConnectionStatus(removed.id)

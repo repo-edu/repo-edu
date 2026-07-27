@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron"
 import {
+  invokeRendererCloseHandler,
+  type RendererCloseHandler,
+} from "./renderer-close"
+import {
   type DesktopRendererHostBridge,
   type DownloadProgress,
   desktopRendererHostChannels,
@@ -18,12 +22,8 @@ const electronTRPCBridge = {
   },
 }
 
-let closeCallback: ((attemptId: string) => Promise<void>) | null = null
+let closeCallback: RendererCloseHandler | null = null
 let closeCancelCallback: ((attemptId: string) => void) | null = null
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 ipcRenderer.on(
   desktopRendererHostChannels.requestClose,
@@ -36,19 +36,8 @@ ipcRenderer.on(
       return
     }
     const requestId = (request as { requestId: string }).requestId
-    try {
-      await closeCallback?.(requestId)
-      ipcRenderer.send(desktopRendererHostChannels.closeComplete, {
-        requestId,
-        ok: true,
-      })
-    } catch (error) {
-      ipcRenderer.send(desktopRendererHostChannels.closeComplete, {
-        requestId,
-        ok: false,
-        message: getErrorMessage(error),
-      })
-    }
+    const response = await invokeRendererCloseHandler(closeCallback, requestId)
+    ipcRenderer.send(desktopRendererHostChannels.closeComplete, response)
   },
 )
 

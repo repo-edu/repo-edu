@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { runRendererCloseGate } from "../renderer-close.js"
+import {
+  invokeRendererCloseHandler,
+  runRendererCloseGate,
+} from "../renderer-close.js"
 
 const channels = {
   request: "request",
@@ -58,6 +61,14 @@ function harness() {
 }
 
 describe("desktop renderer close gate", () => {
+  it("refuses to acknowledge close before the renderer handler is ready", async () => {
+    assert.deepEqual(await invokeRendererCloseHandler(null, "close-1"), {
+      requestId: "close-1",
+      ok: false,
+      message: "The renderer session is not ready to close.",
+    })
+  })
+
   it("disables input before requesting close and leaves success disabled", async () => {
     const state = harness()
     const closing = runRendererCloseGate(state.options)

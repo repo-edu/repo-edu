@@ -19,7 +19,8 @@ import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveSurface,
-  selectPreferences,
+  selectDefaultExtensions,
+  selectSubmissionSurfaceStates,
 } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -267,7 +268,12 @@ function useSubmissionExaminationSource() {
     activeSurface.kind === "submission" ? activeSurface.path : null
   const workflowClient = useWorkflowClient()
   const course = useCourseStore((state) => state.course)
-  const settings = useSessionControllerSelector(selectPreferences)
+  const defaultExtensions = useSessionControllerSelector(
+    selectDefaultExtensions,
+  )
+  const submissionSurfaceStates = useSessionControllerSelector(
+    selectSubmissionSurfaceStates,
+  )
   const [fileList, setFileList] = useState<FileListState>({
     status: "loading",
     files: [],
@@ -286,10 +292,10 @@ function useSubmissionExaminationSource() {
   const submissionState =
     stateKey === null
       ? EMPTY_SUBMISSION_STATE
-      : (settings.submissionSurfaceStates[stateKey] ?? EMPTY_SUBMISSION_STATE)
+      : (submissionSurfaceStates[stateKey] ?? EMPTY_SUBMISSION_STATE)
   const configuredExtensions = useMemo(
-    () => normalizeConfiguredExtensions(settings.defaultExtensions),
-    [settings.defaultExtensions],
+    () => normalizeConfiguredExtensions(defaultExtensions),
+    [defaultExtensions],
   )
   const attachedCourseId =
     activeSurface.kind === "submission" ? activeSurface.courseId : undefined

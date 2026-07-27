@@ -1,6 +1,8 @@
 import type { LlmProviderKind } from "@repo-edu/domain/connection"
 import {
   selectActiveLlmConnection,
+  selectActiveLlmConnectionId,
+  selectExaminationModelsByProvider,
   selectLlmConnections,
 } from "../session/selectors.js"
 import {
@@ -29,11 +31,16 @@ export function selectExaminationPreferenceSnapshot(
 }
 
 export function useExaminationPreferenceSnapshot(): ExaminationPreferenceSnapshot {
-  const settings = useSessionControllerSelector((state) => state.settings)
-  return selectExaminationPreferenceSnapshot({
-    ...getSessionController().getSnapshot(),
-    settings,
-  })
+  return {
+    connections: useSessionControllerSelector(selectLlmConnections),
+    activeConnection: useSessionControllerSelector(selectActiveLlmConnection),
+    activeConnectionId: useSessionControllerSelector(
+      selectActiveLlmConnectionId,
+    ),
+    examinationModelsByProvider: useSessionControllerSelector(
+      selectExaminationModelsByProvider,
+    ),
+  }
 }
 
 export const examinationPreferencePersistence = {

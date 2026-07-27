@@ -18,7 +18,10 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useMemo, useState } from "react"
-import { selectPreferences } from "../../../session/selectors.js"
+import {
+  selectRosterColumnSizing,
+  selectRosterColumnVisibility,
+} from "../../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -80,9 +83,12 @@ export function MemberListPane({
 }: MemberListPaneProps) {
   const openSettings = useUiStore((s) => s.openSettings)
   const controller = useSessionController()
-  const preferences = useSessionControllerSelector(selectPreferences)
-  const rosterColumnVisibility = preferences.rosterColumnVisibility
-  const rosterColumnSizing = preferences.rosterColumnSizing
+  const rosterColumnVisibility = useSessionControllerSelector(
+    selectRosterColumnVisibility,
+  )
+  const rosterColumnSizing = useSessionControllerSelector(
+    selectRosterColumnSizing,
+  )
 
   const { scrollRef, showBackToTop, scrollToTop } = useScrollBackToTop()
 

@@ -18,7 +18,7 @@ import {
   useAnalysisSelection,
 } from "../../../analysis/analysis-query-coordinator.js"
 import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
-import { selectPreferences } from "../../../session/selectors.js"
+import { selectSyntaxTheme } from "../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../session/session-controller-context.js"
 import {
   selectBlameVisibleAuthorsForScope,
@@ -448,8 +448,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const setBlameHideEmpty = useAnalysisStore((s) => s.setBlameHideEmpty)
   const setBlameHideComments = useAnalysisStore((s) => s.setBlameHideComments)
 
-  const syntaxTheme =
-    useSessionControllerSelector(selectPreferences).appearance.syntaxTheme
+  const syntaxTheme = useSessionControllerSelector(selectSyntaxTheme)
   const fileBlame = useMemo(
     () =>
       blameResult?.fileBlames.find(

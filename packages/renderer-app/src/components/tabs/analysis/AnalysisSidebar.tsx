@@ -21,7 +21,7 @@ import {
 import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
-import { selectPreferences } from "../../../session/selectors.js"
+import { selectAnalysisSidebar } from "../../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -109,8 +109,7 @@ export function AnalysisSidebar() {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
 
   // Persistence
-  const analysisSidebar =
-    useSessionControllerSelector(selectPreferences).analysisSidebar
+  const analysisSidebar = useSessionControllerSelector(selectAnalysisSidebar)
   const hydrateFromPersistedSettings = useAnalysisStore(
     (s) => s.hydrateFromPersistedSettings,
   )

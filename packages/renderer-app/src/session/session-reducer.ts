@@ -273,7 +273,7 @@ export function sessionReducer(
       const credentials = reduceCredentials(
         state.settings.credentials,
         event.event,
-      ).credentials
+      )
       return updateSettings(
         state,
         credentials === state.settings.credentials

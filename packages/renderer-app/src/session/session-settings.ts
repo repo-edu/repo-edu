@@ -123,6 +123,21 @@ export type RemovedCredential =
   | { kind: "git"; id: string }
   | { kind: "llm"; id: string }
 
+export function credentialRemovalFromEvent(
+  event: CredentialEvent,
+): RemovedCredential | null {
+  switch (event.type) {
+    case "remove-lms-connection":
+      return { kind: "lms", id: event.id }
+    case "remove-git-connection":
+      return { kind: "git", id: event.id }
+    case "remove-llm-connection":
+      return { kind: "llm", id: event.id }
+    default:
+      return null
+  }
+}
+
 export type SessionSettingsState = {
   preferences: PersistedAppPreferences
   credentials: PersistedAppCredentials
@@ -379,7 +394,7 @@ export function reducePreferences(
 export function reduceCredentials(
   credentials: PersistedAppCredentials,
   event: CredentialEvent,
-): { credentials: PersistedAppCredentials; removed: RemovedCredential | null } {
+): PersistedAppCredentials {
   let next: PersistedAppCredentials
   switch (event.type) {
     case "set-active-git-connection":
@@ -401,13 +416,10 @@ export function reduceCredentials(
       break
     case "remove-lms-connection":
       return {
-        credentials: {
-          ...credentials,
-          lmsConnections: credentials.lmsConnections.filter(
-            (value) => value.id !== event.id,
-          ),
-        },
-        removed: { kind: "lms", id: event.id },
+        ...credentials,
+        lmsConnections: credentials.lmsConnections.filter(
+          (value) => value.id !== event.id,
+        ),
       }
     case "add-git-connection":
       next = {
@@ -425,17 +437,14 @@ export function reduceCredentials(
       break
     case "remove-git-connection":
       return {
-        credentials: {
-          ...credentials,
-          gitConnections: credentials.gitConnections.filter(
-            (value) => value.id !== event.id,
-          ),
-          activeGitConnectionId:
-            credentials.activeGitConnectionId === event.id
-              ? null
-              : credentials.activeGitConnectionId,
-        },
-        removed: { kind: "git", id: event.id },
+        ...credentials,
+        gitConnections: credentials.gitConnections.filter(
+          (value) => value.id !== event.id,
+        ),
+        activeGitConnectionId:
+          credentials.activeGitConnectionId === event.id
+            ? null
+            : credentials.activeGitConnectionId,
       }
     case "set-active-llm-connection":
       next = { ...credentials, activeLlmConnectionId: event.id }
@@ -456,20 +465,17 @@ export function reduceCredentials(
       break
     case "remove-llm-connection":
       return {
-        credentials: {
-          ...credentials,
-          llmConnections: credentials.llmConnections.filter(
-            (value) => value.id !== event.id,
-          ),
-          activeLlmConnectionId:
-            credentials.activeLlmConnectionId === event.id
-              ? null
-              : credentials.activeLlmConnectionId,
-        },
-        removed: { kind: "llm", id: event.id },
+        ...credentials,
+        llmConnections: credentials.llmConnections.filter(
+          (value) => value.id !== event.id,
+        ),
+        activeLlmConnectionId:
+          credentials.activeLlmConnectionId === event.id
+            ? null
+            : credentials.activeLlmConnectionId,
       }
   }
-  return { credentials: next, removed: null }
+  return next
 }
 
 type WorkerSlot = { id: number; worker: Persister }

@@ -48,7 +48,8 @@ import { useCourses } from "../hooks/use-courses.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
-  selectPreferences,
+  selectRecentAnalysisFolders,
+  selectRecentSubmissionFolders,
 } from "../session/selectors.js"
 import {
   runSessionOperationBestEffort,
@@ -86,9 +87,12 @@ export function CourseSwitcher() {
   const activeSubmissionPath =
     activeSurface.kind === "submission" ? activeSurface.path : null
   const isHomeSurface = activeSurface.kind === "home"
-  const preferences = useSessionControllerSelector(selectPreferences)
-  const recentFolders = preferences.recentAnalysisFolders
-  const recentSubmissionFolders = preferences.recentSubmissionFolders
+  const recentFolders = useSessionControllerSelector(
+    selectRecentAnalysisFolders,
+  )
+  const recentSubmissionFolders = useSessionControllerSelector(
+    selectRecentSubmissionFolders,
+  )
   const rendererHost = useRendererHost()
   const {
     courses,

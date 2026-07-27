@@ -15,6 +15,14 @@ export type RendererCloseTransport = {
   subscribe(channel: string, listener: (response: unknown) => void): () => void
 }
 
+export type RendererCloseHandler = (requestId: string) => Promise<void>
+
+export type RendererCloseResponse = {
+  requestId: string
+  ok: boolean
+  message?: string
+}
+
 type CloseScheduler = (
   callback: () => void,
   timeoutMs: number,
@@ -23,6 +31,30 @@ type CloseScheduler = (
 const defaultScheduler: CloseScheduler = (callback, timeoutMs) => {
   const timer = setTimeout(callback, timeoutMs)
   return { cancel: () => clearTimeout(timer) }
+}
+
+export async function invokeRendererCloseHandler(
+  handler: RendererCloseHandler | null,
+  requestId: string,
+): Promise<RendererCloseResponse> {
+  if (handler === null) {
+    return {
+      requestId,
+      ok: false,
+      message: "The renderer session is not ready to close.",
+    }
+  }
+
+  try {
+    await handler(requestId)
+    return { requestId, ok: true }
+  } catch (error) {
+    return {
+      requestId,
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    }
+  }
 }
 
 export async function runRendererCloseGate(options: {

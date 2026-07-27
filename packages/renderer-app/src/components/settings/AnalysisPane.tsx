@@ -1,5 +1,5 @@
 import { FormField } from "@repo-edu/ui"
-import { selectPreferences } from "../../session/selectors.js"
+import { selectDefaultExtensions } from "../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -8,8 +8,9 @@ import { ExtensionTagInput } from "./ExtensionTagInput.js"
 
 export function AnalysisPane() {
   const controller = useSessionController()
-  const defaultExtensions =
-    useSessionControllerSelector(selectPreferences).defaultExtensions
+  const defaultExtensions = useSessionControllerSelector(
+    selectDefaultExtensions,
+  )
 
   const handleChange = (next: string[]) => {
     controller.setDefaultExtensions(next)

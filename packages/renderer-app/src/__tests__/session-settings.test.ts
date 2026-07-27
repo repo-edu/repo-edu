@@ -5,6 +5,7 @@ import {
   defaultAppPreferences,
 } from "@repo-edu/domain/settings"
 import {
+  credentialRemovalFromEvent,
   reduceCredentials,
   reducePreferences,
 } from "../session/session-settings.js"
@@ -86,27 +87,35 @@ describe("session settings reducers", () => {
     })
   })
 
-  it("returns credential removal identity and clears matching active ids", () => {
+  it("derives credential cleanup identity and clears matching active ids", () => {
     const git = {
       id: "git-a",
       provider: "github" as const,
       baseUrl: "https://api.github.com",
       token: "token",
     }
-    let result = reduceCredentials(defaultAppCredentials, {
+    let credentials = reduceCredentials(defaultAppCredentials, {
       type: "add-git-connection",
       connection: git,
     })
-    result = reduceCredentials(result.credentials, {
+    credentials = reduceCredentials(credentials, {
       type: "set-active-git-connection",
       id: git.id,
     })
-    result = reduceCredentials(result.credentials, {
-      type: "remove-git-connection",
+    const removal = { type: "remove-git-connection", id: git.id } as const
+    credentials = reduceCredentials(credentials, removal)
+    assert.deepEqual(credentialRemovalFromEvent(removal), {
+      kind: "git",
       id: git.id,
     })
-    assert.deepEqual(result.removed, { kind: "git", id: git.id })
-    assert.equal(result.credentials.activeGitConnectionId, null)
-    assert.deepEqual(result.credentials.gitConnections, [])
+    assert.equal(credentials.activeGitConnectionId, null)
+    assert.deepEqual(credentials.gitConnections, [])
+    assert.equal(
+      credentialRemovalFromEvent({
+        type: "set-active-git-connection",
+        id: git.id,
+      }),
+      null,
+    )
   })
 })

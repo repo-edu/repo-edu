@@ -30,7 +30,11 @@ import {
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
-import { selectActiveSurface, selectPreferences } from "../session/selectors.js"
+import {
+  selectActiveSurface,
+  selectAnalysisConcurrency,
+  selectDefaultExtensions,
+} from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
@@ -370,9 +374,12 @@ export function AnalysisCoordinatorProvider({
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
   const showRenames = useAnalysisStore((state) => state.showRenames)
 
-  const preferences = useSessionControllerSelector(selectPreferences)
-  const defaultExtensions = preferences.defaultExtensions
-  const analysisConcurrency = preferences.analysisConcurrency
+  const defaultExtensions = useSessionControllerSelector(
+    selectDefaultExtensions,
+  )
+  const analysisConcurrency = useSessionControllerSelector(
+    selectAnalysisConcurrency,
+  )
 
   const analysisConfig = useMemo(() => {
     if (analysisContext.kind === "none") return null

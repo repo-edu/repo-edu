@@ -1,7 +1,10 @@
 import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import type { AnalysisInputs } from "@repo-edu/domain/types"
 import { useCallback, useMemo } from "react"
-import { selectActiveSurface, selectPreferences } from "../session/selectors.js"
+import {
+  selectActiveSurface,
+  selectFolderViewAnalysisInputs,
+} from "../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -15,8 +18,9 @@ export function useAnalysisContext() {
   const controller = useSessionController()
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const course = useCourseStore((s) => s.course)
-  const folderViewAnalysisInputs =
-    useSessionControllerSelector(selectPreferences).folderViewAnalysisInputs
+  const folderViewAnalysisInputs = useSessionControllerSelector(
+    selectFolderViewAnalysisInputs,
+  )
 
   const activeCourseId = activeCourseIdFromSurface(activeSurface)
   const courseContext =
