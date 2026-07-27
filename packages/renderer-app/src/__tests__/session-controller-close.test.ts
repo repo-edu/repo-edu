@@ -79,6 +79,74 @@ describe("SessionController close protocol", () => {
     controller.dispose()
   })
 
+  it("settles every persistence branch before restoring a failed close", async () => {
+    const credentialsSave = deferred<void>()
+    const courseSave = deferred<{ revision: number; updatedAt: string }>()
+    const credentialsSaveStarted = deferred<void>()
+    const courseSaveStarted = deferred<void>()
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          return makeCourse("course-a", "Original") as WorkflowResult<
+            typeof workflowId
+          >
+        }
+        if (workflowId === "settings.savePreferences") {
+          throw new Error("preferences save failed")
+        }
+        if (workflowId === "settings.saveCredentials") {
+          credentialsSaveStarted.resolve()
+          await credentialsSave.promise
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.save") {
+          courseSaveStarted.resolve()
+          return (await courseSave.promise) as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+    controller.setTheme("dark")
+    controller.addGitConnection({
+      id: "git-a",
+      provider: "github",
+      baseUrl: "https://api.github.com",
+      token: "token",
+    })
+    controller.setDisplayName("course-a", "Changed")
+
+    let closeSettled = false
+    const closing = controller.requestClose("close-1").finally(() => {
+      closeSettled = true
+    })
+    await Promise.all([
+      credentialsSaveStarted.promise,
+      courseSaveStarted.promise,
+    ])
+    await new Promise<void>((resolve) => setImmediate(resolve))
+
+    assert.equal(closeSettled, false)
+    assert.equal(controller.getSnapshot().lifecycle.kind, "closing")
+
+    credentialsSave.resolve()
+    courseSave.resolve({
+      revision: 1,
+      updatedAt: "2026-05-29T00:00:01.000Z",
+    })
+    await assert.rejects(closing, /preferences save failed/)
+    assert.equal(controller.getSnapshot().lifecycle.kind, "live")
+    controller.dispose()
+  })
+
   it("uses matching cancellation acknowledgement to reopen input", async () => {
     const courseLoad = deferred<ReturnType<typeof makeCourse>>()
     const controller = startController({

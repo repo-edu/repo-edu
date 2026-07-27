@@ -134,9 +134,15 @@ describe("SessionController creation", () => {
       },
     ])
     const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
+      workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
-          return makeSettings() as WorkflowResult<typeof workflowId>
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
         }
         if (workflowId === "course.save") {
           return {
@@ -154,6 +160,19 @@ describe("SessionController creation", () => {
       controller,
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
+
+    const missingAtNotification: string[] = []
+    const unsubscribe = controller.subscribe(() => {
+      const activeId = activeCourseId(controller.getSnapshot())
+      if (
+        activeId !== null &&
+        !useUiStore
+          .getState()
+          .courseList.some((course) => course.id === activeId)
+      ) {
+        missingAtNotification.push(activeId)
+      }
+    })
 
     const draft = await controller.createCourse({
       backing: "lms",
@@ -175,6 +194,8 @@ describe("SessionController creation", () => {
         updatedAt: "2026-05-29T00:00:01.000Z",
       },
     )
+    unsubscribe()
+    assert.deepStrictEqual(missingAtNotification, [])
 
     controller.dispose()
   })

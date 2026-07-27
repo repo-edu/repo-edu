@@ -36,6 +36,7 @@ import {
   createBlankCourse,
   type PersistedCourse,
 } from "@repo-edu/domain/types"
+import { settlePersistenceOperations } from "../persistence/create-persister.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
@@ -301,7 +302,10 @@ export class SessionController extends CourseMutationController {
 
   async flush(): Promise<void> {
     await this.transactions.flush()
-    await Promise.all([this.settings.flush(), this.persistence.flush()])
+    await settlePersistenceOperations([
+      this.settings.flush(),
+      this.persistence.flush(),
+    ])
   }
 
   async waitForIdle(): Promise<void> {
@@ -323,7 +327,10 @@ export class SessionController extends CourseMutationController {
     }
     try {
       await this.transactions.flush()
-      await Promise.all([this.settings.flush(), this.persistence.flush()])
+      await settlePersistenceOperations([
+        this.settings.flush(),
+        this.persistence.flush(),
+      ])
     } catch (error) {
       this.dispatch({ type: "close-restore", attemptId })
       throw error

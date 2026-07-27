@@ -74,6 +74,9 @@ export class SessionPersistence {
   }
 
   installCourse(courseId: string, loadedCourse: PersistedCourse | null): void {
+    if (this.activeCourseWorkerSlot?.courseId !== courseId) {
+      this.disposeActiveCourseWorker(false)
+    }
     if (loadedCourse !== null) useCourseStore.getState().hydrate(loadedCourse)
     this.ensureActiveCourseWorker(courseId)
   }

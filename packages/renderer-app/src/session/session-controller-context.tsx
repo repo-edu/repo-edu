@@ -26,6 +26,15 @@ export function getSessionController(): SessionController {
   return currentController
 }
 
+export function runSessionOperationBestEffort(
+  operation: Promise<unknown>,
+  description: string,
+): void {
+  void operation.catch((error: unknown) => {
+    console.error(`Session ${description} failed`, error)
+  })
+}
+
 const SessionControllerContext = createContext<SessionController | null>(null)
 
 export function SessionControllerProvider({

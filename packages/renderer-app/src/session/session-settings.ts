@@ -38,6 +38,7 @@ import {
   idleSyncStatus,
   type PersistenceSyncStatus,
   type Persister,
+  settlePersistenceOperations,
 } from "../persistence/create-persister.js"
 import {
   createCredentialsPersisterWorker,
@@ -525,10 +526,14 @@ export class SessionSettings {
   }
 
   async flush(): Promise<void> {
-    await Promise.all([
-      this.credentialsSlot?.worker.flush(),
-      this.preferencesSlot?.worker.flush(),
-    ])
+    await settlePersistenceOperations(
+      [
+        this.credentialsSlot?.worker.flush(),
+        this.preferencesSlot?.worker.flush(),
+      ].filter(
+        (operation): operation is Promise<void> => operation !== undefined,
+      ),
+    )
   }
 
   async waitForIdle(): Promise<void> {

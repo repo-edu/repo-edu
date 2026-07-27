@@ -51,6 +51,7 @@ import {
   selectPreferences,
 } from "../session/selectors.js"
 import {
+  runSessionOperationBestEffort,
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
@@ -149,13 +150,19 @@ export function CourseSwitcher() {
       return
     }
     setOpen(false)
-    void switchCourse(id, course.backing)
+    runSessionOperationBestEffort(
+      switchCourse(id, course.backing),
+      "course activation",
+    )
   }
 
   const handleRecentFolderSelect = (path: string) => {
     if (path === activeFolderPath) return
     setOpen(false)
-    void controller.activateSurface({ kind: "folder", path })
+    runSessionOperationBestEffort(
+      controller.activateSurface({ kind: "folder", path }),
+      "folder activation",
+    )
   }
 
   const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
@@ -182,7 +189,10 @@ export function CourseSwitcher() {
           }
     if (activeSurfaceEquals(activeSurface, surface)) return
     setOpen(false)
-    void controller.activateSurface(surface)
+    runSessionOperationBestEffort(
+      controller.activateSurface(surface),
+      "submission activation",
+    )
   }
 
   const handleRowKeyDown = (
@@ -273,7 +283,10 @@ export function CourseSwitcher() {
       return
     }
     setOpen(false)
-    void controller.activateSurface({ kind: "home" })
+    runSessionOperationBestEffort(
+      controller.activateSurface({ kind: "home" }),
+      "home activation",
+    )
   }
 
   const handleRemoveRecentFolder = (path: string) => {

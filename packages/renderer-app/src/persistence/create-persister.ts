@@ -27,6 +27,17 @@ export type Persister = {
   dispose: () => void
 }
 
+export async function settlePersistenceOperations(
+  operations: readonly Promise<void>[],
+): Promise<void> {
+  const outcomes = await Promise.allSettled(operations)
+  const failure = outcomes.find(
+    (outcome): outcome is PromiseRejectedResult =>
+      outcome.status === "rejected",
+  )
+  if (failure !== undefined) throw failure.reason
+}
+
 type SaveWorkflowId<TSnapshot> = {
   [TId in WorkflowId]: WorkflowInput<TId> extends TSnapshot
     ? TSnapshot extends WorkflowInput<TId>

@@ -37,6 +37,7 @@ import {
 import { SessionController } from "../session/session-controller.js"
 import {
   clearSessionController,
+  runSessionOperationBestEffort,
   SessionControllerProvider,
   setSessionController,
   useSessionController,
@@ -156,7 +157,7 @@ export function RendererSessionRoot({
     // for it, so durable browser persistence (when a host gains one) must use a
     // synchronous or unload-safe write path rather than relying on this.
     const flushOnExit = () => {
-      void controller.flush()
+      runSessionOperationBestEffort(controller.flush(), "exit flush")
     }
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") flushOnExit()
@@ -330,10 +331,16 @@ function AppShell() {
       activeCourseIdFromSurface(activeSurface) !== null &&
       !courseList.some((course) => course.id === activeCourseId)
     if (activeCourseMissing) {
-      void controller.recoverMissingActiveCourse(redirect.surface)
+      runSessionOperationBestEffort(
+        controller.recoverMissingActiveCourse(redirect.surface),
+        "missing-course recovery",
+      )
       return
     }
-    void controller.activateSurface(redirect.surface)
+    runSessionOperationBestEffort(
+      controller.activateSurface(redirect.surface),
+      "surface redirect",
+    )
   }, [activeCourseId, activeSurface, controller, courseList, courseListLoaded])
 
   // Keyboard shortcuts.
@@ -390,7 +397,10 @@ function AppShell() {
                   aria-pressed={isHomeSurface}
                   onClick={() => {
                     if (isHomeSurface) return
-                    void controller.activateSurface({ kind: "home" })
+                    runSessionOperationBestEffort(
+                      controller.activateSurface({ kind: "home" }),
+                      "home activation",
+                    )
                   }}
                 >
                   <Home className="size-[18px]" />
