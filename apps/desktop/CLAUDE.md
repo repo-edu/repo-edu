@@ -11,6 +11,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
+- `src/renderer-close.ts`: attempt-identified renderer close and cancellation gate
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
 - `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus `settings/credentials.json` and `settings/preferences.json`)
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of app preferences.
@@ -22,3 +23,5 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - Desktop transport uses `trpc-electron` (not `electron-trpc`).
 - Preload output is CommonJS (`preload.cjs`) due Electron sandbox/runtime constraints.
 - Keep Electron-specific code inside `apps/desktop`; shared packages stay platform-agnostic.
+- Disable `BrowserWindow` input before requesting a renderer close. Re-enable it
+  only after a matching failure or cancellation acknowledgement.

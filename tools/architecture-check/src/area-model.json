@@ -293,11 +293,11 @@
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/stores/(app-settings-store|connections-store|credentials-store)\\.ts$"
+          "path": "^packages/renderer-app/src/stores/connections-store\\.ts$"
         },
         {
           "type": "pattern",
-          "path": "^packages/renderer-app/src/__tests__/(app-settings-store|profile-store)"
+          "path": "^packages/renderer-app/src/__tests__/profile-store"
         }
       ]
     },
@@ -483,7 +483,8 @@
         { "type": "pattern", "path": "^packages/application/src/__tests__/(llm|examination-(?:llm|privacy|prompt|streaming|strip-comments))" },
         { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/.*Llm" },
         { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/examination/(LlmControls|llm-models)\\.ts" },
-        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(credentials-store|connections-store|examination-preferences)\\.ts$" },
+        { "type": "pattern", "path": "^packages/renderer-app/src/stores/(connections-store|examination-preferences)\\.ts$" },
+        { "type": "file", "path": "packages/renderer-app/src/session/session-settings.ts" },
         { "type": "pattern", "path": "^apps/docs/src/(demo-runtime|components/DemoApp)\\.tsx?$" },
         { "type": "pattern", "path": "^packages/host-browser-mock/src/" }
       ]

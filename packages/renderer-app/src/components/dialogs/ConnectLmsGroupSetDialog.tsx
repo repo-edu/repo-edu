@@ -23,9 +23,12 @@ import {
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useSessionController } from "../../session/session-controller-context.js"
+import { selectCredentials } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -46,7 +49,7 @@ export function ConnectLmsGroupSetDialog() {
   const course = useCourseStore((state) => state.course)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
   const controller = useSessionController()
-  const credentials = useCredentialsStore((state) => state.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const supportsLms = course !== null && courseSupportsLms(course)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])

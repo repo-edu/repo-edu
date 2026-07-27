@@ -17,9 +17,14 @@ import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Checkbox, Label } from "@repo-edu/ui"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
-import { selectActiveSurface } from "../../session/selectors.js"
-import { useSessionControllerSelector } from "../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import {
+  selectActiveSurface,
+  selectPreferences,
+} from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
@@ -256,15 +261,13 @@ function LoadedSubmissionExaminationShell({
 }
 
 function useSubmissionExaminationSource() {
+  const controller = useSessionController()
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const submissionFolderPath =
     activeSurface.kind === "submission" ? activeSurface.path : null
   const workflowClient = useWorkflowClient()
   const course = useCourseStore((state) => state.course)
-  const settings = useAppSettingsStore((state) => state.settings)
-  const setSubmissionSurfaceState = useAppSettingsStore(
-    (state) => state.setSubmissionSurfaceState,
-  )
+  const settings = useSessionControllerSelector(selectPreferences)
   const [fileList, setFileList] = useState<FileListState>({
     status: "loading",
     files: [],
@@ -477,7 +480,7 @@ function useSubmissionExaminationSource() {
 
   const updateIncludedFiles = (next: string[] | null) => {
     if (recent === null) return
-    setSubmissionSurfaceState(recent, { includedFiles: next })
+    controller.setSubmissionSurfaceState(recent, { includedFiles: next })
   }
 
   const handleToggleFile = (relativePath: string) => {

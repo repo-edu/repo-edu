@@ -4,6 +4,7 @@ import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import {
+  activeCourseId,
   deferred,
   makeCourse,
   makeSettings,
@@ -136,6 +137,6 @@ describe("SessionController mutation admission", () => {
     await controller.waitForIdle()
 
     assert.equal(useCourseStore.getState().course, null)
-    assert.equal(controller.getSnapshot().activeCourseId, null)
+    assert.equal(activeCourseId(controller.getSnapshot()), null)
   })
 })

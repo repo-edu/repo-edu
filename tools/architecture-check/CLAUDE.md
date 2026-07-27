@@ -16,8 +16,8 @@ violations. Four concerns feed it:
 - Bespoke symbol checks (`bespoke-checks.ts`): renderer session-ownership and
   Claude-coder / Claude-agent-SDK confinement that the import graph cannot
   express.
-- Source inventory (`inventory.ts`): the single tracked-file list every check
-  shares.
+- Source inventory (`inventory.ts`): the single current-worktree file list
+  every check shares.
 
 ## Area model
 
@@ -38,10 +38,12 @@ partition matches no file, or when a cover member is stale.
 
 ## Source inventory
 
-`inventory.ts` lists tracked `.ts`/`.tsx` files under `apps/*/src`,
-`packages/*/src` and `tools/*/src`, excluding generated fixtures, build output,
-`node_modules` and vendored runtime notices. The same list feeds reconciliation
-and graph projection, so the boundaries match exactly what ships.
+`inventory.ts` lists current `.ts`/`.tsx` files under `apps/*/src`,
+`packages/*/src` and `tools/*/src`. It combines tracked files that still exist
+with non-ignored untracked files, so checks work before staging. It excludes
+generated fixtures, build output, `node_modules` and vendored runtime notices.
+The same list feeds reconciliation and graph projection, so the boundaries
+match the worktree being checked.
 
 ## Graph rules
 

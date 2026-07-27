@@ -30,7 +30,10 @@ import {
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
-import { selectActiveAnalysisSourceKey } from "../session/selectors.js"
+import {
+  selectActiveAnalysisSourceKey,
+  selectPreferences,
+} from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import {
   type AnalysisDiscoveryCommandOutcome,
@@ -45,7 +48,6 @@ import {
   selectSelectedRepoPathForScope,
   useAnalysisStore,
 } from "../stores/analysis-store.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { refreshSourceSnapshotHeadQueries } from "./analysis-query-client.js"
 import {
@@ -372,12 +374,9 @@ export function AnalysisCoordinatorProvider({
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
   const showRenames = useAnalysisStore((state) => state.showRenames)
 
-  const defaultExtensions = useAppSettingsStore(
-    (state) => state.settings.defaultExtensions,
-  )
-  const analysisConcurrency = useAppSettingsStore(
-    (state) => state.settings.analysisConcurrency,
-  )
+  const preferences = useSessionControllerSelector(selectPreferences)
+  const defaultExtensions = preferences.defaultExtensions
+  const analysisConcurrency = preferences.analysisConcurrency
 
   const analysisConfig = useMemo(() => {
     if (analysisContext.kind === "none") return null

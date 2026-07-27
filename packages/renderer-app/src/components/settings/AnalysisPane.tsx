@@ -1,17 +1,18 @@
 import { FormField } from "@repo-edu/ui"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { selectPreferences } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { ExtensionTagInput } from "./ExtensionTagInput.js"
 
 export function AnalysisPane() {
-  const defaultExtensions = useAppSettingsStore(
-    (state) => state.settings.defaultExtensions,
-  )
-  const setDefaultExtensions = useAppSettingsStore(
-    (state) => state.setDefaultExtensions,
-  )
+  const controller = useSessionController()
+  const defaultExtensions =
+    useSessionControllerSelector(selectPreferences).defaultExtensions
 
   const handleChange = (next: string[]) => {
-    setDefaultExtensions(next)
+    controller.setDefaultExtensions(next)
   }
 
   return (

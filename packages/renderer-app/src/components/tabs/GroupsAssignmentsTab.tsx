@@ -14,9 +14,14 @@ import {
   GROUPS_SIDEBAR_MAX_WIDTH_PX,
   GROUPS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
-import { selectActiveCourseId } from "../../session/selectors.js"
-import { useSessionControllerSelector } from "../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import {
+  selectActiveCourseId,
+  selectPreferences,
+} from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { GroupsAssignmentsPanel } from "./groups-assignments/GroupsAssignmentsPanel.js"
@@ -31,6 +36,7 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 }
 
 export function GroupsAssignmentsTab() {
+  const controller = useSessionController()
   const panelRef = useRef<HTMLDivElement>(null)
 
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
@@ -47,7 +53,7 @@ export function GroupsAssignmentsTab() {
 
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(
-      useAppSettingsStore.getState().settings.groupsSidebarSize,
+      selectPreferences(controller.getSnapshot()).groupsSidebarSize,
     ),
   )
   const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
@@ -70,9 +76,10 @@ export function GroupsAssignmentsTab() {
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setGroupsSidebarSize } = useAppSettingsStore.getState()
-    setGroupsSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
-  }, [])
+    controller.setGroupsSidebarSize(
+      clampSidebarWidthPx(panel.getSize().inPixels),
+    )
+  }, [controller])
 
   const handleRequestFocusPanel = useCallback(() => {
     if (!panelRef.current) return

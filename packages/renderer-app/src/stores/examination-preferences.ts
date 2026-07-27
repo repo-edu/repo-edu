@@ -1,70 +1,53 @@
 import type { LlmProviderKind } from "@repo-edu/domain/connection"
-import { useShallow } from "zustand/react/shallow"
-import {
-  selectExaminationModelsByProvider,
-  useAppSettingsStore,
-} from "./app-settings-store.js"
 import {
   selectActiveLlmConnection,
   selectLlmConnections,
-  useCredentialsStore,
-} from "./credentials-store.js"
+} from "../session/selectors.js"
+import {
+  getSessionController,
+  useSessionControllerSelector,
+} from "../session/session-controller-context.js"
+import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 
 export type ExaminationPreferenceSnapshot = {
   connections: ReturnType<typeof selectLlmConnections>
   activeConnection: ReturnType<typeof selectActiveLlmConnection>
   activeConnectionId: string | null
-  examinationModelsByProvider: ReturnType<
-    typeof selectExaminationModelsByProvider
-  >
+  examinationModelsByProvider: SessionControllerSnapshot["settings"]["preferences"]["examinationModelsByProvider"]
 }
 
 export function selectExaminationPreferenceSnapshot(
-  state: Parameters<typeof selectLlmConnections>[0],
-  examinationModelsByProvider: ReturnType<
-    typeof selectExaminationModelsByProvider
-  >,
+  state: SessionControllerSnapshot,
 ): ExaminationPreferenceSnapshot {
   return {
     connections: selectLlmConnections(state),
     activeConnection: selectActiveLlmConnection(state),
-    activeConnectionId: state.credentials.activeLlmConnectionId,
-    examinationModelsByProvider,
+    activeConnectionId: state.settings.credentials.activeLlmConnectionId,
+    examinationModelsByProvider:
+      state.settings.preferences.examinationModelsByProvider,
   }
 }
 
 export function useExaminationPreferenceSnapshot(): ExaminationPreferenceSnapshot {
-  const credentialSnapshot = useCredentialsStore(
-    useShallow((state) => ({
-      connections: selectLlmConnections(state),
-      activeConnection: selectActiveLlmConnection(state),
-      activeConnectionId: state.credentials.activeLlmConnectionId,
-    })),
-  )
-  const examinationModelsByProvider = useAppSettingsStore(
-    selectExaminationModelsByProvider,
-  )
-  return {
-    ...credentialSnapshot,
-    examinationModelsByProvider,
-  }
+  const settings = useSessionControllerSelector((state) => state.settings)
+  return selectExaminationPreferenceSnapshot({
+    ...getSessionController().getSnapshot(),
+    settings,
+  })
 }
 
 export const examinationPreferencePersistence = {
   getSnapshot(): ExaminationPreferenceSnapshot {
     return selectExaminationPreferenceSnapshot(
-      useCredentialsStore.getState(),
-      selectExaminationModelsByProvider(useAppSettingsStore.getState()),
+      getSessionController().getSnapshot(),
     )
   },
 
   persistActiveConnection(activeConnectionId: string | null): void {
-    const settings = useCredentialsStore.getState()
-    settings.setActiveLlmConnectionId(activeConnectionId)
+    getSessionController().setActiveLlmConnectionId(activeConnectionId)
   },
 
   persistModel(provider: LlmProviderKind, modelCode: string): void {
-    const settings = useAppSettingsStore.getState()
-    settings.setExaminationModelForProvider(provider, modelCode)
+    getSessionController().setExaminationModelForProvider(provider, modelCode)
   },
 }

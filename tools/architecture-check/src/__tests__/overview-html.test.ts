@@ -60,7 +60,7 @@ function report(): AreaOverviewReport {
     freshness: {
       status: "fresh",
       violationCount: 0,
-      text: "Area model matches the tracked source inventory.",
+      text: "Area model matches the current worktree source inventory.",
     },
     localStamp: {
       status: "clean",

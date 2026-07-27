@@ -11,7 +11,16 @@ import {
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback, useState } from "react"
 import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
-import { useSessionController } from "../../../../session/session-controller-context.js"
+import {
+  selectActiveGitConnection,
+  selectActiveGitConnectionId,
+  selectCredentials,
+  selectGitConnections,
+} from "../../../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../../../session/session-controller-context.js"
 import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
@@ -19,12 +28,6 @@ import {
   selectRepositoryTemplate,
   useCourseStore,
 } from "../../../../stores/course-store.js"
-import {
-  selectActiveGitConnection,
-  selectActiveGitConnectionId,
-  selectGitConnections,
-  useCredentialsStore,
-} from "../../../../stores/credentials-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   buildRepositoryWorkflowRequest,
@@ -63,11 +66,12 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   const { effectiveAssignmentId, nonEmptyCount, emptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
-  const gitConnections = useCredentialsStore(selectGitConnections)
-  const activeGitConnection = useCredentialsStore(selectActiveGitConnection)
-  const activeGitConnectionId = useCredentialsStore(selectActiveGitConnectionId)
-  const setActiveGitConnectionId = useCredentialsStore(
-    (s) => s.setActiveGitConnectionId,
+  const gitConnections = useSessionControllerSelector(selectGitConnections)
+  const activeGitConnection = useSessionControllerSelector(
+    selectActiveGitConnection,
+  )
+  const activeGitConnectionId = useSessionControllerSelector(
+    selectActiveGitConnectionId,
   )
   const organization = useCourseStore(selectOrganization)
   const repositoryTemplate = useCourseStore(selectRepositoryTemplate)
@@ -78,7 +82,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     selectRepositoryCloneDirectoryLayout,
   )
   const controller = useSessionController()
-  const credentials = useCredentialsStore((s) => s.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const courseId = course?.id ?? null
 
   const [operationStatus, setOperationStatus] =
@@ -372,9 +376,9 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
   const handleSelectActiveGitConnection = useCallback(
     (id: string | null) => {
-      setActiveGitConnectionId(id)
+      controller.setActiveGitConnectionId(id)
     },
-    [setActiveGitConnectionId],
+    [controller],
   )
 
   const setOrganizationForCourse = useCallback(

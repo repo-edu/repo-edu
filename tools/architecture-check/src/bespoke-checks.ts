@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as ts from "typescript"
 
-import { readGitTrackedPaths, type TrackedPathProvider } from "./git.js"
+import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
@@ -69,22 +69,22 @@ const SEMANTIC_COURSE_ACTIONS = new Set([
 export function runBespokeChecks(
   root: string,
   inventory: SourceInventory,
-  trackedPathProvider: TrackedPathProvider = readGitTrackedPaths,
+  pathProvider: GitPathProvider = readGitWorktreePaths,
 ): Violation[] {
   return [
-    ...checkNonSourceClaudeCoderImports(root, inventory, trackedPathProvider),
-    ...checkClaudeCoderPackageDeclarations(root, trackedPathProvider),
-    ...checkRendererSessionOwnership(root, trackedPathProvider),
+    ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
+    ...checkClaudeCoderPackageDeclarations(root, pathProvider),
+    ...checkRendererSessionOwnership(root, pathProvider),
   ]
 }
 
 function checkNonSourceClaudeCoderImports(
   root: string,
   inventory: SourceInventory,
-  trackedPathProvider: TrackedPathProvider,
+  pathProvider: GitPathProvider,
 ): Violation[] {
   const sourceFiles = inventory.fileSet
-  const files = trackedPathProvider(root).filter(
+  const files = pathProvider(root).filter(
     (file) =>
       /^(apps|packages|tools)\/.+\.tsx?$/.test(file) &&
       !sourceFiles.has(file) &&
@@ -137,10 +137,10 @@ function pushClaudeCoderImportViolation(
 
 function checkClaudeCoderPackageDeclarations(
   root: string,
-  trackedPathProvider: TrackedPathProvider,
+  pathProvider: GitPathProvider,
 ): Violation[] {
   const violations: Violation[] = []
-  const packageJsonFiles = trackedPathProvider(root).filter(
+  const packageJsonFiles = pathProvider(root).filter(
     (file) => file === "package.json" || PACKAGE_MANIFEST_PATTERN.test(file),
   )
 
@@ -189,9 +189,9 @@ function checkClaudeCoderPackageDeclarations(
 
 function checkRendererSessionOwnership(
   root: string,
-  trackedPathProvider: TrackedPathProvider,
+  pathProvider: GitPathProvider,
 ): Violation[] {
-  const files = trackedPathProvider(root)
+  const files = pathProvider(root)
     .filter(
       (file) =>
         file.startsWith(RENDERER_SRC_PREFIX) &&

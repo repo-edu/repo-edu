@@ -21,13 +21,17 @@ import {
 import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
+import { selectPreferences } from "../../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../../session/session-controller-context.js"
 import {
   selectFileSelectionModeForScope,
   selectFocusedFilePathForScope,
   selectSelectedFilesForScope,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import {
   type AnalysisSidebarFileSortMode,
   AnalysisSidebarFilesSection,
@@ -59,6 +63,7 @@ function serializeSidebarSettings(
 // ---------------------------------------------------------------------------
 
 export function AnalysisSidebar() {
+  const controller = useSessionController()
   const {
     runRepoDiscovery,
     cancelDiscovery,
@@ -104,8 +109,8 @@ export function AnalysisSidebar() {
   const searchDepth = useAnalysisStore((s) => s.searchDepth)
 
   // Persistence
-  const analysisSidebar = useAppSettingsStore((s) => s.settings.analysisSidebar)
-  const setAnalysisSidebar = useAppSettingsStore((s) => s.setAnalysisSidebar)
+  const analysisSidebar =
+    useSessionControllerSelector(selectPreferences).analysisSidebar
   const hydrateFromPersistedSettings = useAnalysisStore(
     (s) => s.hydrateFromPersistedSettings,
   )
@@ -181,7 +186,7 @@ export function AnalysisSidebar() {
     if (snapshotSerialized === lastPersistedSnapshotRef.current) {
       return
     }
-    setAnalysisSidebar(snapshot)
+    controller.setAnalysisSidebar(snapshot)
     lastPersistedSnapshotRef.current = snapshotSerialized
   }, [
     searchDepth,
@@ -190,7 +195,7 @@ export function AnalysisSidebar() {
     fileViewMode,
     fileSortMode,
     blameConfig,
-    setAnalysisSidebar,
+    controller,
   ])
 
   const configInputResetKey = useMemo(

@@ -13,9 +13,12 @@ import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { getRendererHost } from "../../contexts/renderer-host.js"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
-import { useSessionController } from "../../session/session-controller-context.js"
+import { selectCredentials } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
@@ -23,7 +26,7 @@ export function ImportGitUsernamesDialog() {
   const open = useUiStore((state) => state.importGitUsernamesDialogOpen)
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
   const course = useCourseStore((state) => state.course)
-  const credentials = useCredentialsStore((state) => state.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const controller = useSessionController()
 
   const [fileName, setFileName] = useState("")

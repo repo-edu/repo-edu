@@ -12,7 +12,8 @@ import {
   EXAMINATION_SUBMISSION_SIDEBAR_MAX_WIDTH_PX,
   EXAMINATION_SUBMISSION_SIDEBAR_MIN_WIDTH_PX,
 } from "../../../constants/layout.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import { selectPreferences } from "../../../session/selectors.js"
+import { useSessionController } from "../../../session/session-controller-context.js"
 import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
 import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { ExaminationControlsCard } from "./ExaminationControlsCard.js"
@@ -80,9 +81,11 @@ export function SubmissionExaminationPane({
   onCopyMarkdown,
   emptyMessage,
 }: SubmissionExaminationPaneProps) {
+  const controller = useSessionController()
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(
-      useAppSettingsStore.getState().settings.examinationSubmissionSidebarSize,
+      selectPreferences(controller.getSnapshot())
+        .examinationSubmissionSidebarSize,
     ),
   )
   const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
@@ -90,15 +93,14 @@ export function SubmissionExaminationPane({
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setExaminationSubmissionSidebarSize } =
-      useAppSettingsStore.getState()
     const nextSize = clampSidebarWidthPx(panel.getSize().inPixels)
     const currentSize = clampSidebarWidthPx(
-      useAppSettingsStore.getState().settings.examinationSubmissionSidebarSize,
+      selectPreferences(controller.getSnapshot())
+        .examinationSubmissionSidebarSize,
     )
     if (nextSize === currentSize) return
-    setExaminationSubmissionSidebarSize(nextSize)
-  }, [])
+    controller.setExaminationSubmissionSidebarSize(nextSize)
+  }, [controller])
 
   return (
     <ResizablePanelGroup

@@ -13,10 +13,13 @@ import {
   type PersistedCourse,
   persistedCourseKind,
 } from "@repo-edu/domain/types"
+import {
+  selectActiveCourseId,
+  selectActiveSurface,
+} from "../session/selectors.js"
 import { SessionController } from "../session/session-controller.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
+import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useCredentialsStore } from "../stores/credentials-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 
@@ -117,9 +120,16 @@ export async function waitForSnapshot(
 }
 
 export function resetStores() {
-  useAppSettingsStore.getState().reset()
-  useCredentialsStore.getState().reset()
   useCourseStore.getState().clear()
   useToastStore.getState().clearToasts()
   useUiStore.getState().reset()
+}
+
+export const activeCourseId = selectActiveCourseId
+export const activeSurface = selectActiveSurface
+export function pendingTransaction(snapshot: SessionControllerSnapshot) {
+  const turnId = snapshot.transactions.runningTurnId
+  return turnId === null
+    ? null
+    : (snapshot.transactions.admitted.get(turnId) ?? null)
 }

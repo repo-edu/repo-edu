@@ -5,6 +5,8 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import {
+  activeCourseId,
+  activeSurface,
   makeCourse,
   makeSettings,
   resetStores,
@@ -53,7 +55,7 @@ describe("SessionController creation", () => {
     })
 
     assert.equal(courseLoadCalls.includes(draft.id), false)
-    assert.equal(controller.getSnapshot().activeCourseId, draft.id)
+    assert.equal(activeCourseId(controller.getSnapshot()), draft.id)
     assert.equal(useCourseStore.getState().course?.id, draft.id)
     assert.equal(useCourseStore.getState().course?.revision, 1)
 
@@ -116,7 +118,7 @@ describe("SessionController creation", () => {
       savedCourses.some((course) => course.displayName === "New Course"),
       false,
     )
-    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(useCourseStore.getState().course?.displayName, "Dirty A")
 
     controller.dispose()
@@ -160,7 +162,7 @@ describe("SessionController creation", () => {
       lmsCourseId: null,
     })
 
-    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+    assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "course",
       courseId: draft.id,
     })

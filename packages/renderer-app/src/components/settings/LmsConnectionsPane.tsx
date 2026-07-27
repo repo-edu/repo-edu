@@ -22,8 +22,12 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { selectCredentials } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   displayUrl,
@@ -47,16 +51,8 @@ type LmsViewState =
   | { view: "editor"; originalId: string | null }
 
 export function LmsConnectionsPane() {
-  const credentials = useCredentialsStore((state) => state.credentials)
-  const addLmsConnection = useCredentialsStore(
-    (state) => state.addLmsConnection,
-  )
-  const updateLmsConnection = useCredentialsStore(
-    (state) => state.updateLmsConnection,
-  )
-  const removeLmsConnection = useCredentialsStore(
-    (state) => state.removeLmsConnection,
-  )
+  const controller = useSessionController()
+  const credentials = useSessionControllerSelector(selectCredentials)
   const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
   const lmsSavedErrors = useConnectionsStore((state) => state.lmsErrors)
   const setLmsConnectionStatus = useConnectionsStore(
@@ -196,16 +192,16 @@ export function LmsConnectionsPane() {
     }
 
     if (editorOriginalId === null) {
-      addLmsConnection(nextConnection)
+      controller.addLmsConnection(nextConnection)
     } else {
-      updateLmsConnection(editorOriginalId, nextConnection)
+      controller.updateLmsConnection(editorOriginalId, nextConnection)
     }
 
     resetEditor()
   }
 
   const handleRemove = (id: string) => {
-    removeLmsConnection(id)
+    controller.removeLmsConnection(id)
   }
 
   const handleVerifySaved = async (connection: PersistedLmsConnection) => {

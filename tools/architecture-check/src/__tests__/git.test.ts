@@ -1,7 +1,23 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
-import { parseGitStatusOutput } from "../git.js"
+import { parseGitStatusOutput, reconcileGitWorktreePaths } from "../git.js"
+
+describe("git worktree paths", () => {
+  it("includes untracked candidates and excludes deleted tracked paths", () => {
+    assert.deepEqual(
+      reconcileGitWorktreePaths(
+        [
+          "packages/domain/src/current.ts",
+          "packages/domain/src/new.ts",
+          "packages/domain/src/removed.ts",
+        ],
+        ["packages/domain/src/removed.ts"],
+      ),
+      ["packages/domain/src/current.ts", "packages/domain/src/new.ts"],
+    )
+  })
+})
 
 describe("git worktree status parsing", () => {
   it("reports clean status from empty porcelain output", () => {

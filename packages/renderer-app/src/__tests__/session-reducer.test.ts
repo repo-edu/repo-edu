@@ -1,70 +1,112 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import {
-  idleSyncStatus,
-  savingSyncStatus,
-} from "../persistence/create-persister.js"
+import { savingSyncStatus } from "../persistence/create-persister.js"
+import { selectSettingsSyncStatus } from "../session/selectors.js"
 import {
   createInitialSessionSnapshot,
   sessionReducer,
 } from "../session/session-reducer.js"
 
 describe("session reducer", () => {
-  it("treats disposal as terminal in the session reducer", () => {
-    const disposed = sessionReducer(createInitialSessionSnapshot(), {
-      type: "dispose",
+  it("makes disposal terminal and rejects queued transaction starts", () => {
+    let state = createInitialSessionSnapshot()
+    state = sessionReducer(state, {
+      type: "transaction-enter",
+      turnId: 1,
+      descriptor: {
+        kind: "enter",
+        targetSurface: { kind: "course", courseId: "course-b" },
+        leavingCourseId: null,
+      },
     })
-    assert.equal(disposed.disposed, true)
+    const disposed = sessionReducer(state, { type: "dispose" })
+    assert.equal(disposed.lifecycle.kind, "disposed")
+    assert.equal(disposed.transactions.admitted.size, 0)
 
-    // A queued transition that resolved past dispose must not re-arm pending.
-    const reArmed = sessionReducer(disposed, {
-      type: "enter-start",
-      requestId: 1,
-      targetSurface: { kind: "course", courseId: "course-b" },
-      leavingCourseId: null,
+    const rearmed = sessionReducer(disposed, {
+      type: "transaction-start",
+      turnId: 1,
+      descriptor: { kind: "duplicate" },
     })
-    assert.equal(reArmed, disposed)
-    assert.equal(reArmed.pending, null)
+    assert.equal(rearmed, disposed)
   })
 
-  it("derives settings sync status from both settings workers", () => {
+  it("closes external settings input in one lifecycle transition", () => {
     let state = createInitialSessionSnapshot()
-
     state = sessionReducer(state, {
-      type: "set-sync-status",
-      scope: "credentials",
-      status: { state: "error", message: "Could not save app credentials." },
+      type: "preference",
+      event: { type: "set-theme", theme: "dark" },
     })
-    assert.equal(state.settingsSyncStatus.state, "error")
-    assert.equal(
-      state.settingsSyncStatus.message,
-      "Could not save app credentials.",
-    )
+    assert.equal(state.settings.preferences.appearance.theme, "dark")
 
+    state = sessionReducer(state, { type: "close-start", attemptId: "close-1" })
+    const refused = sessionReducer(state, {
+      type: "preference",
+      event: { type: "set-theme", theme: "light" },
+    })
+    assert.equal(refused, state)
+
+    const staleRestore = sessionReducer(state, {
+      type: "close-restore",
+      attemptId: "close-0",
+    })
+    assert.equal(staleRestore, state)
+    const restored = sessionReducer(state, {
+      type: "close-restore",
+      attemptId: "close-1",
+    })
+    assert.equal(restored.lifecycle.kind, "live")
+  })
+
+  it("admits settings status only for the active worker slot while closing", () => {
+    let state = createInitialSessionSnapshot()
     state = sessionReducer(state, {
-      type: "set-sync-status",
+      type: "settings-workers-installed",
+      credentialsWorkerId: 3,
+      preferencesWorkerId: 4,
+    })
+    state = sessionReducer(state, { type: "close-start", attemptId: "close-1" })
+    const stale = sessionReducer(state, {
+      type: "settings-worker-status",
       scope: "preferences",
-      status: idleSyncStatus,
+      workerId: 2,
+      status: savingSyncStatus,
     })
-    assert.equal(state.settingsSyncStatus.state, "error")
-    assert.equal(
-      state.settingsSyncStatus.message,
-      "Could not save app credentials.",
-    )
+    assert.equal(stale, state)
 
+    state = sessionReducer(state, {
+      type: "settings-worker-status",
+      scope: "preferences",
+      workerId: 4,
+      status: savingSyncStatus,
+    })
+    assert.equal(selectSettingsSyncStatus(state).state, "saving")
+  })
+
+  it("dismisses both document errors with one root event", () => {
+    let state = createInitialSessionSnapshot()
+    state = sessionReducer(state, {
+      type: "settings-workers-installed",
+      credentialsWorkerId: 1,
+      preferencesWorkerId: 2,
+    })
+    for (const [scope, workerId] of [
+      ["credentials", 1],
+      ["preferences", 2],
+    ] as const) {
+      state = sessionReducer(state, {
+        type: "settings-worker-status",
+        scope,
+        workerId,
+        status: { state: "error", message: `${scope} failed` },
+      })
+    }
+    assert.equal(selectSettingsSyncStatus(state).state, "error")
     state = sessionReducer(state, {
       type: "dismiss-sync-error",
       scope: "settings",
     })
-    assert.equal(state.credentialsSyncStatus.state, "idle")
-    assert.equal(state.preferencesSyncStatus.state, "idle")
-    assert.equal(state.settingsSyncStatus.state, "idle")
-
-    state = sessionReducer(state, {
-      type: "set-sync-status",
-      scope: "preferences",
-      status: savingSyncStatus,
-    })
-    assert.equal(state.settingsSyncStatus.state, "saving")
+    assert.equal(state.settings.credentialsSyncStatus.state, "idle")
+    assert.equal(state.settings.preferencesSyncStatus.state, "idle")
   })
 })

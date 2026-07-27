@@ -1,9 +1,9 @@
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
-import { useCredentialsStore } from "../stores/credentials-store.js"
+import { selectCredentials, selectPreferences } from "../session/selectors.js"
+import { useSessionControllerSelector } from "../session/session-controller-context.js"
 
 export function useAppSettings() {
-  const settings = useAppSettingsStore((s) => s.settings)
-  const credentials = useCredentialsStore((s) => s.credentials)
+  const settings = useSessionControllerSelector(selectPreferences)
+  const credentials = useSessionControllerSelector(selectCredentials)
 
   return {
     settings,

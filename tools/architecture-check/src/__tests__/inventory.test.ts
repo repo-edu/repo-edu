@@ -4,7 +4,7 @@ import { describe, it } from "node:test"
 import { readSourceInventory } from "../inventory.js"
 
 describe("source inventory", () => {
-  it("uses tracked paths and excludes generated fixture output", () => {
+  it("uses worktree paths and excludes generated fixture output", () => {
     const inventory = readSourceInventory("/repo", () => [
       "apps/docs/src/fixtures/projects/calculator/generated/team-01.fixture.ts",
       "apps/docs/src/fixtures/projects/calculator/index.ts",
@@ -30,14 +30,15 @@ describe("source inventory", () => {
     ])
   })
 
-  it("cannot include an untracked local source file", () => {
-    const trackedOnly = readSourceInventory("/repo", () => [
+  it("includes non-ignored untracked source files from the worktree", () => {
+    const worktreeInventory = readSourceInventory("/repo", () => [
+      "packages/domain/src/local-only.ts",
       "packages/domain/src/settings.ts",
     ])
 
     assert.equal(
-      trackedOnly.fileSet.has("packages/domain/src/local-only.ts"),
-      false,
+      worktreeInventory.fileSet.has("packages/domain/src/local-only.ts"),
+      true,
     )
   })
 })

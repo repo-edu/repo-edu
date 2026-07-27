@@ -1,26 +1,12 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
-import {
-  defaultAppPreferences,
-  type PersistedAppPreferences,
-  persistedAppPreferencesKind,
-} from "@repo-edu/domain/settings"
+import { defaultAppPreferences } from "@repo-edu/domain/settings"
 import type { CourseBacking, CourseSummary } from "@repo-edu/domain/types"
 import { clearWorkflowClient } from "../contexts/workflow-client.js"
 import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
+import { reducePreferences } from "../session/session-settings.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
-
-function makeSettings(
-  overrides: Partial<PersistedAppPreferences> = {},
-): PersistedAppPreferences {
-  return {
-    ...defaultAppPreferences,
-    kind: persistedAppPreferencesKind,
-    ...overrides,
-  }
-}
 
 function courseSummary(id: string, backing: CourseBacking): CourseSummary {
   return {
@@ -33,7 +19,6 @@ function courseSummary(id: string, backing: CourseBacking): CourseSummary {
 
 beforeEach(() => {
   clearWorkflowClient()
-  useAppSettingsStore.getState().reset()
   useCourseStore.getState().clear()
   useUiStore.getState().reset()
 })
@@ -94,37 +79,27 @@ describe("course refresh submission pruning", () => {
   })
 
   it("does not change submission recents when all attached courses remain valid", () => {
-    useAppSettingsStore.getState().hydrate(makeSettings())
-
-    const changed = useAppSettingsStore
-      .getState()
-      .pruneSubmissionFoldersForCourses([courseSummary("course-1", "lms")])
-
-    assert.equal(changed, false)
+    const next = reducePreferences(defaultAppPreferences, {
+      type: "prune-submissions-for-courses",
+      courses: [courseSummary("course-1", "lms")],
+    })
+    assert.equal(next, defaultAppPreferences)
   })
 
   it("prunes stale submission recents", () => {
-    useAppSettingsStore.getState().hydrate(makeSettings())
-    useAppSettingsStore.getState().pushRecentSubmissionFolder({
-      path: "/submissions/ada",
-      courseId: "course-1",
+    const recent = reducePreferences(defaultAppPreferences, {
+      type: "push-recent-submission",
+      recent: { path: "/submissions/ada", courseId: "course-1" },
     })
-
-    assert.equal(
-      useAppSettingsStore
-        .getState()
-        .pruneSubmissionFoldersForCourses([courseSummary("course-1", "lms")]),
-      false,
-    )
-
-    assert.equal(
-      useAppSettingsStore.getState().pruneSubmissionFoldersForCourses([]),
-      true,
-    )
-
-    assert.deepStrictEqual(
-      useAppSettingsStore.getState().settings.recentSubmissionFolders,
-      [],
-    )
+    const unchanged = reducePreferences(recent, {
+      type: "prune-submissions-for-courses",
+      courses: [courseSummary("course-1", "lms")],
+    })
+    assert.equal(unchanged, recent)
+    const pruned = reducePreferences(recent, {
+      type: "prune-submissions-for-courses",
+      courses: [],
+    })
+    assert.deepStrictEqual(pruned.recentSubmissionFolders, [])
   })
 })

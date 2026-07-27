@@ -48,12 +48,12 @@ import { useCourses } from "../hooks/use-courses.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
+  selectPreferences,
 } from "../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -85,16 +85,9 @@ export function CourseSwitcher() {
   const activeSubmissionPath =
     activeSurface.kind === "submission" ? activeSurface.path : null
   const isHomeSurface = activeSurface.kind === "home"
-  const recentFolders = useAppSettingsStore(
-    (s) => s.settings.recentAnalysisFolders,
-  )
-  const recentSubmissionFolders = useAppSettingsStore(
-    (s) => s.settings.recentSubmissionFolders,
-  )
-  const removeRecentFolder = useAppSettingsStore((s) => s.removeRecentFolder)
-  const removeRecentSubmissionFolder = useAppSettingsStore(
-    (s) => s.removeRecentSubmissionFolder,
-  )
+  const preferences = useSessionControllerSelector(selectPreferences)
+  const recentFolders = preferences.recentAnalysisFolders
+  const recentSubmissionFolders = preferences.recentSubmissionFolders
   const rendererHost = useRendererHost()
   const {
     courses,
@@ -284,13 +277,13 @@ export function CourseSwitcher() {
   }
 
   const handleRemoveRecentFolder = (path: string) => {
-    removeRecentFolder(path)
+    controller.removeRecentFolder(path)
   }
 
   const handleRemoveRecentSubmissionFolder = (
     recent: SubmissionFolderRecent,
   ) => {
-    removeRecentSubmissionFolder(recent)
+    controller.removeRecentSubmissionFolder(recent)
   }
 
   const canDuplicate = duplicateDialog.newCourseName.trim().length > 0

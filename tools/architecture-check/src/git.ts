@@ -2,15 +2,43 @@ import { spawnSync } from "node:child_process"
 
 import { normalizeRepoPath } from "./repo-paths.js"
 
-export type TrackedPathProvider = (root: string) => readonly string[]
+export type GitPathProvider = (root: string) => readonly string[]
 
 export type GitWorktreeStatus = {
   readonly dirtyPaths: readonly string[]
   readonly untrackedPaths: readonly string[]
 }
 
-export function readGitTrackedPaths(root: string): string[] {
-  const result = spawnSync("git", ["ls-files", "-z"], {
+export function readGitWorktreePaths(root: string): string[] {
+  const candidates = readGitPaths(
+    root,
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+    "tracked and untracked files",
+  )
+  const deleted = readGitPaths(
+    root,
+    ["ls-files", "-z", "--deleted"],
+    "deleted files",
+  )
+
+  return reconcileGitWorktreePaths(candidates, deleted)
+}
+
+export function reconcileGitWorktreePaths(
+  candidates: readonly string[],
+  deleted: readonly string[],
+): string[] {
+  const files = new Set(candidates)
+  for (const filePath of deleted) files.delete(filePath)
+  return [...files].sort()
+}
+
+function readGitPaths(
+  root: string,
+  args: readonly string[],
+  description: string,
+): string[] {
+  const result = spawnSync("git", args, {
     cwd: root,
     encoding: "buffer",
   })
@@ -18,7 +46,7 @@ export function readGitTrackedPaths(root: string): string[] {
   if (result.status !== 0) {
     const stderr = result.stderr.toString("utf8").trim()
     throw new Error(
-      `Unable to read tracked files with git ls-files: ${stderr || "unknown error"}`,
+      `Unable to read ${description} with git ls-files: ${stderr || "unknown error"}`,
     )
   }
 

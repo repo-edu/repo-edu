@@ -6,9 +6,11 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import {
+  activeCourseId,
   deferred,
   makeCourse,
   makeSettings,
+  pendingTransaction,
   resetStores,
   startController,
   waitForSnapshot,
@@ -50,7 +52,7 @@ describe("SessionController activation", () => {
     })
     await waitForSnapshot(
       controller,
-      (snapshot) => snapshot.pending?.kind === "enter",
+      (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
     )
 
     const closeFlush = controller.flush()
@@ -68,7 +70,7 @@ describe("SessionController activation", () => {
     await transition
     await closeFlush
 
-    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.deepStrictEqual(savedSettings.at(-1)?.activeSurface, {
       kind: "course",
       courseId: "course-a",
@@ -137,7 +139,7 @@ describe("SessionController activation", () => {
     await second
 
     assert.equal(courseBLoadCount, 1)
-    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
     assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
@@ -180,7 +182,7 @@ describe("SessionController activation", () => {
       false,
     )
 
-    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(controller.getSnapshot().courseLoadStatus.state, "loaded")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
 
@@ -233,7 +235,7 @@ describe("SessionController activation", () => {
     )
 
     assert.equal(savedCourses.length, 0)
-    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
     assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
@@ -279,7 +281,7 @@ describe("SessionController activation", () => {
     })
     await waitForSnapshot(
       controller,
-      (snapshot) => snapshot.pending?.kind === "enter",
+      (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
     )
 
     controller.setDisplayName("course-a", "Rejected")
@@ -336,7 +338,7 @@ describe("SessionController activation", () => {
     })
     await waitForSnapshot(
       controller,
-      (snapshot) => snapshot.pending?.kind === "enter",
+      (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
     )
 
     const renamed = controller.renameCourse("course-a", "Renamed A")

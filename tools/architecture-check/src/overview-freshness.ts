@@ -23,14 +23,14 @@ export function createReconciliationFreshnessClaim(
     return {
       status: "fresh",
       violationCount,
-      text: "Area model matches the tracked source inventory.",
+      text: "Area model matches the current worktree source inventory.",
     }
   }
 
   return {
     status: "stale",
     violationCount,
-    text: `Area model is out of date for the tracked source inventory: ${violationCount} reconciliation violation(s).`,
+    text: `Area model is out of date for the current worktree source inventory: ${violationCount} reconciliation violation(s).`,
   }
 }
 
@@ -62,6 +62,6 @@ export function createLocalGitStamp(status: GitWorktreeStatus): LocalGitStamp {
     status: "dirty",
     dirtyPathCount,
     untrackedPathCount,
-    text: `Rendered report may not match the local worktree: ${parts.join(", ")}.`,
+    text: `Rendered report includes local worktree changes: ${parts.join(", ")}.`,
   }
 }

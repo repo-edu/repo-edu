@@ -14,7 +14,7 @@ describe("overview freshness claims", () => {
       {
         status: "fresh",
         violationCount: 0,
-        text: "Area model matches the tracked source inventory.",
+        text: "Area model matches the current worktree source inventory.",
       },
     )
 
@@ -23,7 +23,7 @@ describe("overview freshness claims", () => {
       {
         status: "stale",
         violationCount: 2,
-        text: "Area model is out of date for the tracked source inventory: 2 reconciliation violation(s).",
+        text: "Area model is out of date for the current worktree source inventory: 2 reconciliation violation(s).",
       },
     )
   })
@@ -42,7 +42,7 @@ describe("overview freshness claims", () => {
         status: "dirty",
         dirtyPathCount: 1,
         untrackedPathCount: 1,
-        text: "Rendered report may not match the local worktree: 1 dirty tracked path(s), 1 untracked path(s).",
+        text: "Rendered report includes local worktree changes: 1 dirty tracked path(s), 1 untracked path(s).",
       },
     )
   })

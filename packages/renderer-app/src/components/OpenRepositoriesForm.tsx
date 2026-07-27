@@ -33,7 +33,8 @@ import { getWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
-import { useCredentialsStore } from "../stores/credentials-store.js"
+import { selectCredentials } from "../session/selectors.js"
+import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
@@ -115,7 +116,7 @@ export function OpenRepositoriesForm() {
   const setRosterSyncDialogOpen = useUiStore(
     (state) => state.setRosterSyncDialogOpen,
   )
-  const credentials = useCredentialsStore((state) => state.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const { createCourse } = useCourses()
   const openRepositoriesFolder = useOpenRepositoriesFolder()
   const openSubmissionFolder = useOpenSubmissionFolder()

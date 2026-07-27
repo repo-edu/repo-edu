@@ -1,12 +1,11 @@
 import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import type { AnalysisInputs } from "@repo-edu/domain/types"
 import { useCallback, useMemo } from "react"
-import { selectActiveSurface } from "../session/selectors.js"
+import { selectActiveSurface, selectPreferences } from "../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { buildAnalysisRosterContext } from "../utils/analysis-roster-context.js"
 
@@ -16,12 +15,8 @@ export function useAnalysisContext() {
   const controller = useSessionController()
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const course = useCourseStore((s) => s.course)
-  const folderViewAnalysisInputs = useAppSettingsStore(
-    (s) => s.settings.folderViewAnalysisInputs,
-  )
-  const setFolderViewAnalysisInputs = useAppSettingsStore(
-    (s) => s.setFolderViewAnalysisInputs,
-  )
+  const folderViewAnalysisInputs =
+    useSessionControllerSelector(selectPreferences).folderViewAnalysisInputs
 
   const activeCourseId = activeCourseIdFromSurface(activeSurface)
   const courseContext =
@@ -53,19 +48,14 @@ export function useAnalysisContext() {
   const setAnalysisInputs = useCallback(
     (patch: Partial<AnalysisInputs>) => {
       if (activeSurface.kind === "folder") {
-        setFolderViewAnalysisInputs(patch)
+        controller.setFolderViewAnalysisInputs(patch)
         return
       }
       if (courseContext !== null) {
         controller.setAnalysisInputs(courseContext.id, patch)
       }
     },
-    [
-      activeSurface.kind,
-      controller,
-      courseContext,
-      setFolderViewAnalysisInputs,
-    ],
+    [activeSurface.kind, controller, courseContext],
   )
 
   const updateCourseSearchFolder = useCallback(

@@ -89,7 +89,7 @@ describe("seed area model", () => {
       "packages/application-contract/src/workflow-payloads.ts",
       "packages/application-contract/src/examination-contract.ts",
       "packages/host-runtime-contract/src/index.ts",
-      "packages/renderer-app/src/stores/credentials-store.ts",
+      "packages/renderer-app/src/session/session-settings.ts",
       "packages/renderer-app/src/stores/connections-store.ts",
       "packages/renderer-app/src/components/settings/LlmConnectionsPane.tsx",
       "packages/renderer-app/src/components/tabs/examination/LlmControls.tsx",

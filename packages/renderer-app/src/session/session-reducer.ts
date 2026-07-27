@@ -1,12 +1,24 @@
 import {
-  type ActiveTab,
   activeCourseIdFromSurface,
   type PersistedActiveSurface,
 } from "@repo-edu/domain/active-surface"
+import type {
+  PersistedAppCredentials,
+  PersistedAppPreferences,
+} from "@repo-edu/domain/settings"
 import {
   idleSyncStatus,
   type PersistenceSyncStatus,
 } from "../persistence/create-persister.js"
+import {
+  type CredentialEvent,
+  createInitialSessionSettingsState,
+  type PreferenceEvent,
+  reduceCredentials,
+  reducePreferences,
+  type SessionSettingsState,
+  type SettingsWorkerScope,
+} from "./session-settings.js"
 
 export type CourseLoadStatus =
   | { state: "empty"; message: null }
@@ -19,36 +31,45 @@ export type SessionBootstrapState =
   | { status: "ready"; attempt: number }
   | { status: "error"; attempt: number; message: string }
 
+export type SessionLifecyclePhase =
+  | { kind: "live" }
+  | { kind: "closing"; attemptId: string }
+  | { kind: "disposed" }
+
 export type AnalysisSourceKey =
   | { kind: "course"; courseId: string }
   | { kind: "folder"; path: string }
   | { kind: "submission"; path: string; courseId: string | null }
 
-export type SessionPendingState =
+export type SessionTransactionDescriptor =
+  | { kind: "bootstrap" }
   | {
       kind: "enter"
-      requestId: number
       targetSurface: PersistedActiveSurface
       leavingCourseId: string | null
     }
-  | { kind: "delete"; requestId: number; courseId: string }
+  | {
+      kind: "create"
+      targetSurface: PersistedActiveSurface
+      leavingCourseId: string | null
+    }
+  | { kind: "duplicate" }
+  | { kind: "rename" }
+  | { kind: "delete"; courseId: string; blocksCourseMutation: boolean }
 
-export type SettingsSyncScope = "credentials" | "preferences"
+export type SessionTransactionsState = {
+  admitted: ReadonlyMap<number, SessionTransactionDescriptor>
+  runningTurnId: number | null
+}
 
 export type SessionControllerSnapshot = {
   bootstrap: SessionBootstrapState
-  activeSurface: PersistedActiveSurface
-  activeTab: ActiveTab
-  activeCourseId: string | null
-  activeAnalysisSourceKey: AnalysisSourceKey | null
+  lifecycle: SessionLifecyclePhase
+  settings: SessionSettingsState
   courseLoadStatus: CourseLoadStatus
-  credentialsSyncStatus: PersistenceSyncStatus
-  preferencesSyncStatus: PersistenceSyncStatus
-  settingsSyncStatus: PersistenceSyncStatus
   courseSyncStatus: PersistenceSyncStatus
-  pending: SessionPendingState | null
+  transactions: SessionTransactionsState
   commandError: string | null
-  disposed: boolean
 }
 
 export const emptyCourseLoadStatus: CourseLoadStatus = {
@@ -56,49 +77,12 @@ export const emptyCourseLoadStatus: CourseLoadStatus = {
   message: null,
 }
 
-function deriveSettingsSyncStatus(
-  credentials: PersistenceSyncStatus,
-  preferences: PersistenceSyncStatus,
-): PersistenceSyncStatus {
-  if (credentials.state === "error" && preferences.state === "error") {
-    return {
-      state: "error",
-      message: `${credentials.message} ${preferences.message}`,
-    }
-  }
-  if (credentials.state === "error") return credentials
-  if (preferences.state === "error") return preferences
-  if (credentials.state === "saving" || preferences.state === "saving") {
-    return { state: "saving", message: null }
-  }
-  return idleSyncStatus
-}
-
-function buildSettingsSyncState(input: {
-  credentialsSyncStatus: PersistenceSyncStatus
-  preferencesSyncStatus: PersistenceSyncStatus
-}): Pick<
-  SessionControllerSnapshot,
-  "credentialsSyncStatus" | "preferencesSyncStatus" | "settingsSyncStatus"
-> {
-  return {
-    ...input,
-    settingsSyncStatus: deriveSettingsSyncStatus(
-      input.credentialsSyncStatus,
-      input.preferencesSyncStatus,
-    ),
-  }
-}
-
 export function analysisSourceKeyFromSurface(
   surface: PersistedActiveSurface,
 ): AnalysisSourceKey | null {
-  if (surface.kind === "course") {
+  if (surface.kind === "course")
     return { kind: "course", courseId: surface.courseId }
-  }
-  if (surface.kind === "folder") {
-    return { kind: "folder", path: surface.path }
-  }
+  if (surface.kind === "folder") return { kind: "folder", path: surface.path }
   if (surface.kind === "submission") {
     return {
       kind: "submission",
@@ -110,96 +94,147 @@ export function analysisSourceKeyFromSurface(
 }
 
 export function createInitialSessionSnapshot(): SessionControllerSnapshot {
-  const activeSurface: PersistedActiveSurface = { kind: "home" }
   return {
     bootstrap: { status: "loading", attempt: 0 },
-    activeSurface,
-    activeTab: "roster",
-    activeCourseId: activeCourseIdFromSurface(activeSurface),
-    activeAnalysisSourceKey: analysisSourceKeyFromSurface(activeSurface),
+    lifecycle: { kind: "live" },
+    settings: createInitialSessionSettingsState(),
     courseLoadStatus: emptyCourseLoadStatus,
-    ...buildSettingsSyncState({
-      credentialsSyncStatus: idleSyncStatus,
-      preferencesSyncStatus: idleSyncStatus,
-    }),
     courseSyncStatus: idleSyncStatus,
-    pending: null,
+    transactions: { admitted: new Map(), runningTurnId: null },
     commandError: null,
-    disposed: false,
   }
 }
 
 export type SessionReducerEvent =
   | { type: "bootstrap-start"; attempt: number }
+  | {
+      type: "bootstrap-seed"
+      attempt: number
+      credentials: PersistedAppCredentials
+      preferences: PersistedAppPreferences
+    }
   | { type: "bootstrap-ready"; attempt: number }
   | { type: "bootstrap-failed"; attempt: number; message: string }
+  | { type: "close-start"; attemptId: string }
+  | { type: "close-restore"; attemptId: string }
+  | { type: "preference"; event: PreferenceEvent }
+  | { type: "credential"; event: CredentialEvent }
   | {
-      type: "enter-start"
-      requestId: number
-      targetSurface: PersistedActiveSurface
-      leavingCourseId: string | null
+      type: "settings-workers-installed"
+      credentialsWorkerId: number
+      preferencesWorkerId: number
     }
+  | { type: "settings-workers-retired" }
   | {
-      type: "enter-commit"
-      requestId: number
-      activeSurface: PersistedActiveSurface
-      activeTab: ActiveTab
-      courseLoadStatus: CourseLoadStatus
-    }
-  | {
-      type: "enter-failed"
-      requestId: number
-      message: string
-      courseLoadStatus: CourseLoadStatus
-    }
-  | { type: "set-active-tab"; activeTab: ActiveTab }
-  | { type: "set-course-load-status"; status: CourseLoadStatus }
-  | {
-      type: "set-sync-status"
-      scope: SettingsSyncScope | "course"
+      type: "settings-worker-status"
+      scope: SettingsWorkerScope
+      workerId: number
       status: PersistenceSyncStatus
     }
   | { type: "dismiss-sync-error"; scope: "settings" | "course" }
-  | { type: "delete-start"; requestId: number; courseId: string }
   | {
-      type: "delete-commit"
-      requestId: number
-      activeSurface: PersistedActiveSurface
-      activeTab: ActiveTab
-      courseLoadStatus: CourseLoadStatus
+      type: "transaction-enter"
+      turnId: number
+      descriptor: SessionTransactionDescriptor
     }
-  | { type: "delete-failed"; requestId: number; message: string }
+  | {
+      type: "transaction-start"
+      turnId: number
+      descriptor: SessionTransactionDescriptor
+    }
+  | { type: "transaction-retire"; turnId: number }
+  | {
+      type: "surface-commit"
+      turnId: number
+      surface: PersistedActiveSurface
+      tab: PersistedAppPreferences["activeTab"]
+      courseLoadStatus: CourseLoadStatus
+      preferenceEvents: readonly PreferenceEvent[]
+    }
+  | { type: "set-course-load-status"; turnId: number; status: CourseLoadStatus }
+  | { type: "set-course-sync-status"; status: PersistenceSyncStatus }
+  | {
+      type: "command-failed"
+      turnId: number
+      message: string
+      courseLoadStatus?: CourseLoadStatus
+    }
   | { type: "clear-command-error" }
   | { type: "dispose" }
+
+function updateSettings(
+  state: SessionControllerSnapshot,
+  settings: SessionSettingsState,
+): SessionControllerSnapshot {
+  return settings === state.settings ? state : { ...state, settings }
+}
+
+function retireTurn(
+  transactions: SessionTransactionsState,
+  turnId: number,
+): SessionTransactionsState {
+  if (!transactions.admitted.has(turnId)) return transactions
+  const admitted = new Map(transactions.admitted)
+  admitted.delete(turnId)
+  return {
+    admitted,
+    runningTurnId:
+      transactions.runningTurnId === turnId ? null : transactions.runningTurnId,
+  }
+}
 
 export function sessionReducer(
   state: SessionControllerSnapshot,
   event: SessionReducerEvent,
 ): SessionControllerSnapshot {
-  // Disposal is terminal: once a controller is disposed no later event may
-  // mutate its snapshot. This is the single liveness gate. It stops queued
-  // transitions (e.g. a create/delete that awaited past dispose) from
-  // re-arming `pending` and slipping a commit through after teardown.
-  if (state.disposed && event.type !== "dispose") return state
+  if (state.lifecycle.kind === "disposed" && event.type !== "dispose")
+    return state
+
   switch (event.type) {
     case "bootstrap-start":
+      if (state.bootstrap.status === "loading" && state.bootstrap.attempt !== 0)
+        return state
       return {
         ...state,
         bootstrap: { status: "loading", attempt: event.attempt },
         courseLoadStatus: emptyCourseLoadStatus,
-        pending: null,
         commandError: null,
-        disposed: false,
+      }
+    case "bootstrap-seed":
+      if (
+        state.bootstrap.status !== "loading" ||
+        state.bootstrap.attempt !== event.attempt
+      )
+        return state
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          credentials: event.credentials,
+          preferences: {
+            ...event.preferences,
+            activeSurface: state.settings.preferences.activeSurface,
+            activeTab: state.settings.preferences.activeTab,
+          },
+        },
       }
     case "bootstrap-ready":
-      if (state.bootstrap.attempt !== event.attempt) return state
+      if (
+        state.bootstrap.status !== "loading" ||
+        state.bootstrap.attempt !== event.attempt
+      )
+        return state
       return {
         ...state,
         bootstrap: { status: "ready", attempt: event.attempt },
         commandError: null,
       }
     case "bootstrap-failed":
-      if (state.bootstrap.attempt !== event.attempt) return state
+      if (
+        state.bootstrap.status !== "loading" ||
+        state.bootstrap.attempt !== event.attempt
+      )
+        return state
       return {
         ...state,
         bootstrap: {
@@ -208,152 +243,228 @@ export function sessionReducer(
           message: event.message,
         },
       }
-    case "enter-start":
+    case "close-start":
+      return state.lifecycle.kind === "live"
+        ? {
+            ...state,
+            lifecycle: { kind: "closing", attemptId: event.attemptId },
+          }
+        : state
+    case "close-restore":
+      return state.lifecycle.kind === "closing" &&
+        state.lifecycle.attemptId === event.attemptId
+        ? { ...state, lifecycle: { kind: "live" } }
+        : state
+    case "preference": {
+      if (state.lifecycle.kind !== "live") return state
+      const preferences = reducePreferences(
+        state.settings.preferences,
+        event.event,
+      )
+      return updateSettings(
+        state,
+        preferences === state.settings.preferences
+          ? state.settings
+          : { ...state.settings, preferences },
+      )
+    }
+    case "credential": {
+      if (state.lifecycle.kind !== "live") return state
+      const credentials = reduceCredentials(
+        state.settings.credentials,
+        event.event,
+      ).credentials
+      return updateSettings(
+        state,
+        credentials === state.settings.credentials
+          ? state.settings
+          : { ...state.settings, credentials },
+      )
+    }
+    case "settings-workers-installed":
       return {
         ...state,
-        pending: {
-          kind: "enter",
-          requestId: event.requestId,
-          targetSurface: event.targetSurface,
-          leavingCourseId: event.leavingCourseId,
+        settings: {
+          ...state.settings,
+          credentialsWorkerId: event.credentialsWorkerId,
+          preferencesWorkerId: event.preferencesWorkerId,
+          credentialsSyncStatus: idleSyncStatus,
+          preferencesSyncStatus: idleSyncStatus,
         },
-        commandError: null,
       }
-    case "enter-commit":
-      if (
-        state.pending?.kind !== "enter" ||
-        state.pending.requestId !== event.requestId
-      ) {
-        return state
-      }
+    case "settings-workers-retired":
       return {
         ...state,
-        activeSurface: event.activeSurface,
-        activeTab: event.activeTab,
-        activeCourseId: activeCourseIdFromSurface(event.activeSurface),
-        activeAnalysisSourceKey: analysisSourceKeyFromSurface(
-          event.activeSurface,
-        ),
-        courseLoadStatus: event.courseLoadStatus,
-        pending: null,
-        commandError: null,
+        settings: {
+          ...state.settings,
+          credentialsWorkerId: null,
+          preferencesWorkerId: null,
+          credentialsSyncStatus: idleSyncStatus,
+          preferencesSyncStatus: idleSyncStatus,
+        },
       }
-    case "enter-failed":
-      if (
-        state.pending?.kind !== "enter" ||
-        state.pending.requestId !== event.requestId
-      ) {
-        return state
-      }
+    case "settings-worker-status": {
+      if (state.lifecycle.kind === "disposed") return state
+      const workerId =
+        event.scope === "credentials"
+          ? state.settings.credentialsWorkerId
+          : state.settings.preferencesWorkerId
+      if (workerId !== event.workerId) return state
       return {
         ...state,
-        courseLoadStatus: event.courseLoadStatus,
-        pending: null,
-        commandError: event.message,
-      }
-    case "set-active-tab":
-      if (state.activeTab === event.activeTab) return state
-      return { ...state, activeTab: event.activeTab }
-    case "set-course-load-status":
-      return { ...state, courseLoadStatus: event.status }
-    case "set-sync-status": {
-      if (event.scope === "course") {
-        return { ...state, courseSyncStatus: event.status }
-      }
-      return {
-        ...state,
-        ...buildSettingsSyncState({
-          credentialsSyncStatus:
-            event.scope === "credentials"
-              ? event.status
-              : state.credentialsSyncStatus,
-          preferencesSyncStatus:
-            event.scope === "preferences"
-              ? event.status
-              : state.preferencesSyncStatus,
-        }),
+        settings: {
+          ...state.settings,
+          ...(event.scope === "credentials"
+            ? { credentialsSyncStatus: event.status }
+            : { preferencesSyncStatus: event.status }),
+        },
       }
     }
     case "dismiss-sync-error":
-      if (event.scope === "settings") {
-        if (state.settingsSyncStatus.state !== "error") return state
-        return {
-          ...state,
-          ...buildSettingsSyncState({
-            credentialsSyncStatus:
-              state.credentialsSyncStatus.state === "error"
-                ? idleSyncStatus
-                : state.credentialsSyncStatus,
-            preferencesSyncStatus:
-              state.preferencesSyncStatus.state === "error"
-                ? idleSyncStatus
-                : state.preferencesSyncStatus,
-          }),
-        }
+      if (event.scope === "course") {
+        return state.courseSyncStatus.state === "error"
+          ? { ...state, courseSyncStatus: idleSyncStatus }
+          : state
       }
-      return state.courseSyncStatus.state === "error"
-        ? { ...state, courseSyncStatus: idleSyncStatus }
-        : state
-    case "delete-start":
       return {
         ...state,
-        pending: {
-          kind: "delete",
-          requestId: event.requestId,
-          courseId: event.courseId,
+        settings: {
+          ...state.settings,
+          credentialsSyncStatus:
+            state.settings.credentialsSyncStatus.state === "error"
+              ? idleSyncStatus
+              : state.settings.credentialsSyncStatus,
+          preferencesSyncStatus:
+            state.settings.preferencesSyncStatus.state === "error"
+              ? idleSyncStatus
+              : state.settings.preferencesSyncStatus,
         },
+      }
+    case "transaction-enter": {
+      if (
+        state.lifecycle.kind !== "live" ||
+        state.transactions.admitted.has(event.turnId)
+      )
+        return state
+      const admitted = new Map(state.transactions.admitted)
+      admitted.set(event.turnId, event.descriptor)
+      return {
+        ...state,
+        transactions: { ...state.transactions, admitted },
         commandError: null,
       }
-    case "delete-commit":
+    }
+    case "transaction-start":
       if (
-        state.pending?.kind !== "delete" ||
-        state.pending.requestId !== event.requestId
-      ) {
+        !state.transactions.admitted.has(event.turnId) ||
+        state.transactions.runningTurnId !== null
+      )
         return state
+      return {
+        ...state,
+        transactions: {
+          admitted: new Map(state.transactions.admitted).set(
+            event.turnId,
+            event.descriptor,
+          ),
+          runningTurnId: event.turnId,
+        },
+      }
+    case "transaction-retire": {
+      const transactions = retireTurn(state.transactions, event.turnId)
+      return transactions === state.transactions
+        ? state
+        : { ...state, transactions }
+    }
+    case "surface-commit": {
+      if (state.transactions.runningTurnId !== event.turnId) return state
+      const switchingCourse =
+        activeCourseIdFromSurface(state.settings.preferences.activeSurface) !==
+        activeCourseIdFromSurface(event.surface)
+      let preferences = reducePreferences(state.settings.preferences, {
+        type: "set-navigation",
+        surface: event.surface,
+        tab: event.tab,
+      })
+      for (const contribution of event.preferenceEvents) {
+        preferences = reducePreferences(preferences, contribution)
       }
       return {
         ...state,
-        activeSurface: event.activeSurface,
-        activeTab: event.activeTab,
-        activeCourseId: activeCourseIdFromSurface(event.activeSurface),
-        activeAnalysisSourceKey: analysisSourceKeyFromSurface(
-          event.activeSurface,
-        ),
+        settings: { ...state.settings, preferences },
         courseLoadStatus: event.courseLoadStatus,
-        pending: null,
+        courseSyncStatus: switchingCourse
+          ? idleSyncStatus
+          : state.courseSyncStatus,
         commandError: null,
       }
-    case "delete-failed":
-      if (
-        state.pending?.kind !== "delete" ||
-        state.pending.requestId !== event.requestId
-      ) {
-        return state
+    }
+    case "set-course-load-status":
+      return state.transactions.runningTurnId === event.turnId
+        ? { ...state, courseLoadStatus: event.status }
+        : state
+    case "set-course-sync-status":
+      return { ...state, courseSyncStatus: event.status }
+    case "command-failed":
+      if (state.transactions.runningTurnId !== event.turnId) return state
+      return {
+        ...state,
+        ...(event.courseLoadStatus === undefined
+          ? {}
+          : { courseLoadStatus: event.courseLoadStatus }),
+        commandError: event.message,
       }
-      return { ...state, pending: null, commandError: event.message }
     case "clear-command-error":
       return state.commandError === null
         ? state
         : { ...state, commandError: null }
     case "dispose":
-      return { ...state, disposed: true, pending: null }
+      return {
+        ...state,
+        lifecycle: { kind: "disposed" },
+        transactions: { admitted: new Map(), runningTurnId: null },
+      }
   }
+}
+
+export function transactionDescriptor(
+  snapshot: SessionControllerSnapshot,
+  turnId: number,
+): SessionTransactionDescriptor | null {
+  return snapshot.transactions.admitted.get(turnId) ?? null
+}
+
+export function canContinueTransaction(
+  snapshot: SessionControllerSnapshot,
+  turnId: number,
+): boolean {
+  return (
+    snapshot.lifecycle.kind !== "disposed" &&
+    snapshot.transactions.runningTurnId === turnId
+  )
 }
 
 export function canAdmitCourseMutation(
   snapshot: SessionControllerSnapshot,
   targetCourseId: string | null,
 ): boolean {
-  if (snapshot.disposed) return false
-  if (snapshot.pending?.kind === "delete") {
-    return targetCourseId !== snapshot.pending.courseId
-  }
-  if (snapshot.pending?.kind === "enter") {
-    return targetCourseId !== snapshot.pending.leavingCourseId
-  }
-  return (
-    targetCourseId !== null &&
-    snapshot.activeCourseId !== null &&
-    targetCourseId === snapshot.activeCourseId
+  if (snapshot.lifecycle.kind !== "live") return false
+  if (
+    targetCourseId === null ||
+    targetCourseId !==
+      activeCourseIdFromSurface(snapshot.settings.preferences.activeSurface)
   )
+    return false
+  const running = snapshot.transactions.runningTurnId
+  if (running === null) return true
+  const descriptor = snapshot.transactions.admitted.get(running)
+  if (descriptor?.kind === "delete" && descriptor.blocksCourseMutation)
+    return targetCourseId !== descriptor.courseId
+  if (
+    (descriptor?.kind === "enter" || descriptor?.kind === "create") &&
+    descriptor.leavingCourseId !== null
+  ) {
+    return targetCourseId !== descriptor.leavingCourseId
+  }
+  return true
 }

@@ -42,7 +42,7 @@ ${areaOverviewStyles}
       <div class="meta">Generated ${escapeHtml(formatDate(report.generatedAt))}</div>
     </header>
     <div class="banner">
-      ${renderClaim("Tracked inventory", report.freshness.status, report.freshness.text)}
+      ${renderClaim("Worktree inventory", report.freshness.status, report.freshness.text)}
       ${renderClaim("Local worktree", report.localStamp.status, report.localStamp.text)}
     </div>
     <div class="stats">

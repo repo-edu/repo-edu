@@ -18,11 +18,12 @@ import {
   useAnalysisSelection,
 } from "../../../analysis/analysis-query-coordinator.js"
 import { selectEffectiveBlameVisibleAuthors } from "../../../analysis/analysis-view-models.js"
+import { selectPreferences } from "../../../session/selectors.js"
+import { useSessionControllerSelector } from "../../../session/session-controller-context.js"
 import {
   selectBlameVisibleAuthorsForScope,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
 import { splitOffLeading } from "../../../utils/blame-highlighter.js"
 import { buildBlameCommitNumberMap } from "./blame-commit-numbering.js"
 import { type ProcessedLine, processBlameLines } from "./process-blame-lines.js"
@@ -447,9 +448,8 @@ export function BlameTab({ filePath }: { filePath: string }) {
   const setBlameHideEmpty = useAnalysisStore((s) => s.setBlameHideEmpty)
   const setBlameHideComments = useAnalysisStore((s) => s.setBlameHideComments)
 
-  const syntaxTheme = useAppSettingsStore(
-    (s) => s.settings.appearance.syntaxTheme,
-  )
+  const syntaxTheme =
+    useSessionControllerSelector(selectPreferences).appearance.syntaxTheme
   const fileBlame = useMemo(
     () =>
       blameResult?.fileBlames.find(

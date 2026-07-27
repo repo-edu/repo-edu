@@ -2,11 +2,11 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
-import { useAppSettingsStore } from "../stores/app-settings-store.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { useCredentialsStore } from "../stores/credentials-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import {
+  activeCourseId,
+  activeSurface,
   makeCourse,
   makeSettings,
   resetStores,
@@ -43,7 +43,7 @@ describe("SessionController bootstrap", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(controller.getSnapshot().courseLoadStatus.state, "loaded")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
 
@@ -87,11 +87,11 @@ describe("SessionController bootstrap", () => {
     )
 
     assert.deepStrictEqual(
-      useCredentialsStore.getState().credentials.gitConnections,
+      controller.getSnapshot().settings.credentials.gitConnections,
       restoredSettings.credentials.gitConnections,
     )
     assert.equal(
-      useAppSettingsStore.getState().settings.kind,
+      controller.getSnapshot().settings.preferences.kind,
       "repo-edu.app-preferences.v1",
     )
     assert.deepStrictEqual(useToastStore.getState().toasts, [
@@ -142,10 +142,10 @@ describe("SessionController bootstrap", () => {
     )
     await controller.flush()
 
-    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+    assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "home",
     })
-    assert.equal(controller.getSnapshot().activeCourseId, null)
+    assert.equal(activeCourseId(controller.getSnapshot()), null)
     assert.equal(useCourseStore.getState().course, null)
     assert.deepStrictEqual(savedSettings.at(-1)?.activeSurface, {
       kind: "home",

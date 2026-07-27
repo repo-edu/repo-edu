@@ -18,10 +18,16 @@ It consumes:
 
 - `src/configure-app.ts`: app wiring and dependency injection
 - `src/contexts/*`: workflow and renderer-host providers
-- `src/session/*`: `SessionController`, session reducer, controller selectors and React context; owns bootstrap, active surface/tab/course, course loading, close flush and course mutation admission
-- `src/stores/*`: Zustand stores — `course-store.ts` (with `course-store-selectors.ts`), `credentials-store.ts`, `app-settings-store.ts`, `connections-store.ts`, `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`, `ui-store.ts`, `toast-store.ts`
+- `src/session/*`: the `SessionController` facade and its private lifecycle,
+  settings, surface-transaction and course-persistence owners. The root session
+  snapshot is canonical for preferences, credentials and navigation.
+- `src/stores/*`: Zustand stores for course content and transient or view state:
+  `course-store.ts` (with `course-store-selectors.ts`), `connections-store.ts`,
+  `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`,
+  `ui-store.ts`, `toast-store.ts`
 - `src/stores/slices/*`: course store slices (`roster-actions.ts`, `lifecycle.ts`, `history.ts`, `metadata-actions.ts`); roster-actions uses domain `id-allocator` for group/member creation
-- `src/persistence/*`: controller-owned document persister workers, including the shared `createPersister` machinery and credentials/preferences/course worker wrappers
+- `src/persistence/*`: shared persister machinery and document-specific worker
+  wrappers. Session owners construct and control the workers.
 - `src/components/*`: tabs, dialogs, sheets, settings panes (incl. LMS / Git / LLM connection panes; per-provider examination model picker)
 - `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts (Recharts), display controls; folder analysis uses the controller active surface instead of a course document
 - `src/analysis/*`: analysis-tab runtime owned by React Query — `analysis-query-client.ts` (renderer query client), `analysis-query-coordinator.tsx` (`AnalysisCoordinatorProvider`, runs discovery, snapshot-head, `analysis.run` and per-file blame through the query lifecycle), `analysis-query-keys.ts` (keys results by input identity), `analysis-transient-store.ts` (in-flight progress and cancellation), `analysis-view-models.ts`, `analysis-workflow-inputs.ts`. `App.tsx` wraps the shell in `QueryClientProvider` and `AnalysisCoordinatorProvider`. `stores/analysis-store.ts` now holds only scope-keyed view intent (repo selection, author/file filters, display and blame options); it neither runs nor caches workflows. `hooks/use-analysis-context.ts` derives the active surface, course, search folder and analysis inputs the coordinator runs against.
@@ -37,9 +43,15 @@ It consumes:
 
 ## Persistence
 
-- Renderer-owned documents live canonically in Zustand stores. Credentials live in `useCredentialsStore`; preferences live in `useAppSettingsStore`; transient verification status lives in `useConnectionsStore`. Save workflows write snapshots to disk and report success/failure; only load workflows hydrate full documents back into memory.
+- Preferences and credentials live canonically in the root session snapshot.
+  Components select them through `useSessionControllerSelector` and dispatch
+  semantic writes through `SessionController`. Transient verification status
+  remains in `useConnectionsStore`.
 - `RendererSessionRoot` constructs `SessionController` with the full workflow client, wires the rest of the renderer with a narrowed client, and renders `AppShell` only after controller bootstrap is ready.
-- Persister workers live in `src/persistence/` and are owned by the controller. They subscribe to controller/store snapshots, debounce writes, run one save at a time, retry retryable workflow errors, expose `flush()` / `waitForIdle()`, and report sync status through the controller snapshot. Credentials and preferences have separate workers and save workflows.
-- Stores expose document setters for the controller implementation seam. They do not expose `save()` methods, own persistence timers, or own persistence sync status.
+- `SessionSettings` owns the credentials and preferences worker slots. It
+  subscribes them only to committed root snapshots and admits status by active
+  slot identity. `SessionPersistence` owns the active course worker.
+- Desktop close disables renderer input before entering attempt-identified
+  `closing`. Browser lifecycle signals use only the non-terminal ordinary flush.
 - `course.save` may return only the host-stamped `{ revision, updatedAt }`; the controller applies that stamp to the loaded course when the active worker and course id still match. No save response may replace the full renderer document.
 - Components use `useSessionController()` for session flushes, navigation, active tab changes and course mutations. Non-component helpers use `getSessionController()`, which throws before the controller is installed.

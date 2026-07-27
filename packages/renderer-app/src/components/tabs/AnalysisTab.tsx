@@ -20,8 +20,14 @@ import {
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
-import { selectActiveAnalysisSourceKey } from "../../session/selectors.js"
-import { useSessionControllerSelector } from "../../session/session-controller-context.js"
+import {
+  selectActiveAnalysisSourceKey,
+  selectPreferences,
+} from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import {
   type AnalysisDiscoveryRequest,
   type AnalysisView,
@@ -29,7 +35,6 @@ import {
   selectAutoDiscoveryRequestForScope,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
 import { AuthorPanel } from "./analysis/AuthorPanel.js"
 import { BlamePanel } from "./analysis/BlamePanel.js"
@@ -64,12 +69,13 @@ function RepositoryAnalysisTab() {
 }
 
 function RepositoryAnalysisTabContent() {
+  const controller = useSessionController()
   const analysisContext = useAnalysisContext()
   const hasActiveDocument = analysisContext.kind !== "none"
 
   const initialSidebarWidthPxRef = useRef(
     clampSidebarWidthPx(
-      useAppSettingsStore.getState().settings.analysisSidebarSize,
+      selectPreferences(controller.getSnapshot()).analysisSidebarSize,
     ),
   )
   const sidebarPanelRef = useRef<ResizablePanelHandle | null>(null)
@@ -144,9 +150,10 @@ function RepositoryAnalysisTabContent() {
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
     if (!panel) return
-    const { setAnalysisSidebarSize } = useAppSettingsStore.getState()
-    setAnalysisSidebarSize(clampSidebarWidthPx(panel.getSize().inPixels))
-  }, [])
+    controller.setAnalysisSidebarSize(
+      clampSidebarWidthPx(panel.getSize().inPixels),
+    )
+  }, [controller])
 
   if (!hasActiveDocument) {
     return null

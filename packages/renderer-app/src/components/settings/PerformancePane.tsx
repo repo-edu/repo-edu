@@ -8,7 +8,11 @@ import {
   TooltipTrigger,
 } from "@repo-edu/ui"
 import { HelpCircle } from "@repo-edu/ui/components/icons"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { selectPreferences } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 
 function HelpIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -30,23 +34,26 @@ function HelpIcon({ children }: { children: React.ReactNode }) {
 }
 
 export function PerformancePane() {
-  const analysisConcurrency = useAppSettingsStore(
-    (s) => s.settings.analysisConcurrency,
-  )
-  const setAnalysisConcurrency = useAppSettingsStore(
-    (s) => s.setAnalysisConcurrency,
-  )
+  const controller = useSessionController()
+  const analysisConcurrency =
+    useSessionControllerSelector(selectPreferences).analysisConcurrency
 
   const handleRepoParallelismChange = (raw: string) => {
     const parsed = Number.parseInt(raw, 10)
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return
-    setAnalysisConcurrency({ ...analysisConcurrency, repoParallelism: parsed })
+    controller.setAnalysisConcurrency({
+      ...analysisConcurrency,
+      repoParallelism: parsed,
+    })
   }
 
   const handleFilesPerRepoChange = (raw: string) => {
     const parsed = Number.parseInt(raw, 10)
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 16) return
-    setAnalysisConcurrency({ ...analysisConcurrency, filesPerRepo: parsed })
+    controller.setAnalysisConcurrency({
+      ...analysisConcurrency,
+      filesPerRepo: parsed,
+    })
   }
 
   const totalProcesses =

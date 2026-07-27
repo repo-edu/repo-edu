@@ -27,8 +27,12 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { selectCredentials } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   displayUrl,
@@ -49,16 +53,8 @@ type GitViewState =
   | { view: "editor"; originalId: string | null }
 
 export function GitConnectionsPane() {
-  const credentials = useCredentialsStore((state) => state.credentials)
-  const addGitConnection = useCredentialsStore(
-    (state) => state.addGitConnection,
-  )
-  const updateGitConnection = useCredentialsStore(
-    (state) => state.updateGitConnection,
-  )
-  const removeGitConnection = useCredentialsStore(
-    (state) => state.removeGitConnection,
-  )
+  const controller = useSessionController()
+  const credentials = useSessionControllerSelector(selectCredentials)
   const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
   const gitSavedErrors = useConnectionsStore((state) => state.gitErrors)
   const setGitStatus = useConnectionsStore((state) => state.setGitStatus)
@@ -171,16 +167,16 @@ export function GitConnectionsPane() {
     }
 
     if (editorOriginalId === null) {
-      addGitConnection(nextConnection)
+      controller.addGitConnection(nextConnection)
     } else {
-      updateGitConnection(editorOriginalId, nextConnection)
+      controller.updateGitConnection(editorOriginalId, nextConnection)
     }
 
     resetEditor()
   }
 
   const handleRemove = (id: string) => {
-    removeGitConnection(id)
+    controller.removeGitConnection(id)
   }
 
   const handleVerifySaved = async (connection: PersistedGitConnection) => {

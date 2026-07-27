@@ -32,6 +32,7 @@ import {
   selectActiveTab,
   selectBootstrapState,
   selectCommandError,
+  selectTheme,
 } from "../session/selectors.js"
 import { SessionController } from "../session/session-controller.js"
 import {
@@ -43,10 +44,6 @@ import {
 } from "../session/session-controller-context.js"
 import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
 import type { AppWorkflowId } from "../session/workflow-types.js"
-import {
-  selectTheme,
-  useAppSettingsStore,
-} from "../stores/app-settings-store.js"
 import {
   selectCanRedo,
   selectCanUndo,
@@ -131,10 +128,25 @@ export function RendererSessionRoot({
   useEffect(() => {
     if (controller === null) return
     const bridge = getDesktopHostBridge<{
-      onCloseFlushRequest?: (callback: () => Promise<void> | void) => () => void
+      onCloseRequest?: (
+        callback: (attemptId: string) => Promise<void>,
+      ) => () => void
+      onCloseCancel?: (callback: (attemptId: string) => void) => () => void
     }>()
-    if (bridge?.onCloseFlushRequest !== undefined) {
-      return bridge.onCloseFlushRequest(() => controller.flush())
+    if (
+      bridge?.onCloseRequest !== undefined &&
+      bridge.onCloseCancel !== undefined
+    ) {
+      const unsubscribeClose = bridge.onCloseRequest((attemptId) =>
+        controller.requestClose(attemptId),
+      )
+      const unsubscribeCancel = bridge.onCloseCancel((attemptId) => {
+        controller.cancelClose(attemptId)
+      })
+      return () => {
+        unsubscribeClose()
+        unsubscribeCancel()
+      }
     }
 
     // Browser fallback: there is no awaitable host close path, so flush on the
@@ -265,7 +277,7 @@ function AppShell() {
   const courseList = useUiStore((s) => s.courseList)
   const courseListLoaded = useUiStore(selectCourseListLoaded)
 
-  const theme = useAppSettingsStore(selectTheme)
+  const theme = useSessionControllerSelector(selectTheme)
 
   const isHomeSurface = activeSurface.kind === "home"
   const showHistoryControls = isDocumentEditingSurface(activeSurface, activeTab)

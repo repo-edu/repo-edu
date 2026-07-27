@@ -5,9 +5,12 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import {
+  activeCourseId,
+  activeSurface,
   deferred,
   makeCourse,
   makeSettings,
+  pendingTransaction,
   resetStores,
   startController,
   waitForSnapshot,
@@ -63,10 +66,10 @@ describe("SessionController deletion", () => {
 
     await controller.deleteCourse("course-a")
 
-    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+    assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "home",
     })
-    assert.equal(controller.getSnapshot().activeCourseId, null)
+    assert.equal(activeCourseId(controller.getSnapshot()), null)
     assert.equal(useCourseStore.getState().course, null)
 
     controller.dispose()
@@ -122,7 +125,7 @@ describe("SessionController deletion", () => {
     const deleting = controller.deleteCourse("course-a")
     await waitForSnapshot(
       controller,
-      (snapshot) => snapshot.pending?.kind === "delete",
+      (snapshot) => pendingTransaction(snapshot)?.kind === "delete",
     )
     const activating = controller.activateSurface({
       kind: "course",
@@ -139,14 +142,14 @@ describe("SessionController deletion", () => {
       "pending",
     )
     assert.equal(courseBLoadCount, 0)
-    assert.equal(controller.getSnapshot().pending?.kind, "delete")
+    assert.equal(pendingTransaction(controller.getSnapshot())?.kind, "delete")
 
     deleteGate.resolve()
     await deleting
     await activating
 
     assert.equal(courseBLoadCount, 1)
-    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
     assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
@@ -195,11 +198,11 @@ describe("SessionController deletion", () => {
 
     await controller.deleteCourse("course-a")
 
-    assert.deepStrictEqual(controller.getSnapshot().activeSurface, {
+    assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "course",
       courseId: "course-b",
     })
-    assert.equal(controller.getSnapshot().activeCourseId, "course-b")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
     assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
@@ -251,9 +254,9 @@ describe("SessionController deletion", () => {
 
     await assert.rejects(controller.deleteCourse("course-a"))
 
-    assert.equal(controller.getSnapshot().activeCourseId, "course-a")
+    assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
-    assert.equal(controller.getSnapshot().pending, null)
+    assert.equal(pendingTransaction(controller.getSnapshot()), null)
 
     // The active worker is resumed, so a later edit still persists.
     controller.setDisplayName("course-a", "Renamed A")
@@ -307,7 +310,7 @@ describe("SessionController deletion", () => {
     const deleting = controller.deleteCourse("course-a")
     await waitForSnapshot(
       controller,
-      (snapshot) => snapshot.pending?.kind === "delete",
+      (snapshot) => pendingTransaction(snapshot)?.kind === "delete",
     )
 
     controller.setDisplayName("course-a", "Rejected")
@@ -316,6 +319,61 @@ describe("SessionController deletion", () => {
     deleteGate.resolve()
     await deleting
 
+    controller.dispose()
+  })
+
+  it("classifies a queued delete against the surface active at its turn", async () => {
+    const courseBLoad = deferred<PersistedCourse>()
+    const deleted: string[] = []
+    const controller = startController({
+      workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "settings.loadApp") {
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          }) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.load") {
+          const { courseId } = input as { courseId: string }
+          return (
+            courseId === "course-b"
+              ? await courseBLoad.promise
+              : makeCourse(courseId)
+          ) as WorkflowResult<typeof workflowId>
+        }
+        if (workflowId === "course.delete") {
+          deleted.push((input as { courseId: string }).courseId)
+          return undefined as WorkflowResult<typeof workflowId>
+        }
+        if (
+          workflowId === "course.save" ||
+          workflowId === "settings.savePreferences" ||
+          workflowId === "settings.saveCredentials"
+        ) {
+          return (
+            workflowId === "course.save"
+              ? { revision: 1, updatedAt: "2026-05-30T00:00:00.000Z" }
+              : undefined
+          ) as WorkflowResult<typeof workflowId>
+        }
+        throw new Error(`Unexpected workflow ${workflowId}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+
+    const activation = controller.activateSurface({
+      kind: "course",
+      courseId: "course-b",
+    })
+    const deletion = controller.deleteCourse("course-b")
+    courseBLoad.resolve(makeCourse("course-b"))
+    await activation
+    await deletion
+
+    assert.deepEqual(deleted, ["course-b"])
+    assert.deepEqual(activeSurface(controller.getSnapshot()), { kind: "home" })
     controller.dispose()
   })
 })

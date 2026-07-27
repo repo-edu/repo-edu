@@ -60,6 +60,7 @@ import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
+import { runRendererCloseGate } from "./renderer-close"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
@@ -680,66 +681,6 @@ async function saveWindowState(storageRoot: string) {
   await saveDesktopWindowState(storageRoot, { width, height })
 }
 
-function requestRendererPersistenceFlush(
-  mainWindow: BrowserWindow,
-  timeoutMs = 5_000,
-): Promise<boolean> {
-  if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
-    return Promise.resolve(true)
-  }
-
-  const requestId = randomUUID()
-  return new Promise((resolve) => {
-    let settled = false
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-
-    const finish = (flushed: boolean) => {
-      if (settled) return
-      settled = true
-      ipcMain.removeListener(
-        desktopRendererHostChannels.closeFlushComplete,
-        handleResponse,
-      )
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId)
-      }
-      resolve(flushed)
-    }
-
-    const handleResponse = (event: IpcMainEvent, response: unknown) => {
-      if (event.sender !== mainWindow.webContents) return
-      if (typeof response !== "object" || response === null) return
-      const result = response as {
-        requestId?: unknown
-        ok?: unknown
-        message?: unknown
-      }
-      if (result.requestId !== requestId) return
-      if (result.ok !== true && typeof result.message === "string") {
-        process.stderr.write(
-          `[desktop] renderer-close-flush-failed ${result.message}\n`,
-        )
-      }
-      finish(result.ok === true)
-    }
-
-    ipcMain.on(desktopRendererHostChannels.closeFlushComplete, handleResponse)
-    timeoutId = setTimeout(() => {
-      process.stderr.write("[desktop] renderer-close-flush-timeout\n")
-      finish(false)
-    }, timeoutMs)
-
-    try {
-      mainWindow.webContents.send(
-        desktopRendererHostChannels.requestCloseFlush,
-        { requestId },
-      )
-    } catch {
-      finish(true)
-    }
-  })
-}
-
 async function createWindow(): Promise<BrowserWindow> {
   const isMac = process.platform === "darwin"
   const storageRoot = currentStorageRootPath()
@@ -796,8 +737,33 @@ async function createWindow(): Promise<BrowserWindow> {
     }
 
     void (async () => {
-      const rendererFlushed = await requestRendererPersistenceFlush(mainWindow)
-      if (!rendererFlushed) {
+      const rendererClosed = await runRendererCloseGate({
+        requestId: randomUUID(),
+        target: {
+          isUnavailable: () =>
+            mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed(),
+          setEnabled: (enabled) => mainWindow.setEnabled(enabled),
+          send: (channel, payload) =>
+            mainWindow.webContents.send(channel, payload),
+        },
+        transport: {
+          subscribe: (channel, listener) => {
+            const handler = (event: IpcMainEvent, response: unknown) => {
+              if (event.sender === mainWindow.webContents) listener(response)
+            }
+            ipcMain.on(channel, handler)
+            return () => ipcMain.removeListener(channel, handler)
+          },
+        },
+        channels: {
+          request: desktopRendererHostChannels.requestClose,
+          cancel: desktopRendererHostChannels.cancelClose,
+          complete: desktopRendererHostChannels.closeComplete,
+          cancelComplete: desktopRendererHostChannels.closeCancelComplete,
+        },
+        log: (message) => process.stderr.write(`[desktop] ${message}\n`),
+      })
+      if (!rendererClosed) {
         closePhase = "idle"
         quitRequested = false
         return
@@ -829,6 +795,7 @@ async function createWindow(): Promise<BrowserWindow> {
       process.stderr.write(`[desktop] close-failed ${text}\n`)
       closePhase = "idle"
       quitRequested = false
+      if (!mainWindow.isDestroyed()) mainWindow.setEnabled(true)
     })
   })
 

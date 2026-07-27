@@ -23,13 +23,13 @@ import { getWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveCourseId,
   selectCourseLoadStatus,
+  selectCredentials,
 } from "../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
@@ -46,7 +46,7 @@ export function StudentSyncDialog() {
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const course = useCourseStore((state) => state.course)
   const courseLoadStatus = useSessionControllerSelector(selectCourseLoadStatus)
-  const credentials = useCredentialsStore((state) => state.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const loadedCourse = course && course.id === activeCourseId ? course : null
   const supportsLms = loadedCourse !== null && courseSupportsLms(loadedCourse)
   const lmsCourseId = loadedCourse?.lmsCourseId ?? null

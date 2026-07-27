@@ -18,8 +18,11 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useCallback, useMemo, useState } from "react"
-import { useSessionController } from "../../../session/session-controller-context.js"
-import { useAppSettingsStore } from "../../../stores/app-settings-store.js"
+import { selectPreferences } from "../../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../../session/session-controller-context.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { formatMemberStatus } from "../../../utils/labels.js"
 import {
@@ -76,20 +79,10 @@ export function MemberListPane({
   onExport,
 }: MemberListPaneProps) {
   const openSettings = useUiStore((s) => s.openSettings)
-  const rosterColumnVisibility = useAppSettingsStore(
-    (s) => s.settings.rosterColumnVisibility,
-  )
-  const setRosterColumnVisibility = useAppSettingsStore(
-    (s) => s.setRosterColumnVisibility,
-  )
-  const rosterColumnSizing = useAppSettingsStore(
-    (s) => s.settings.rosterColumnSizing,
-  )
-  const setRosterColumnSizing = useAppSettingsStore(
-    (s) => s.setRosterColumnSizing,
-  )
-
   const controller = useSessionController()
+  const preferences = useSessionControllerSelector(selectPreferences)
+  const rosterColumnVisibility = preferences.rosterColumnVisibility
+  const rosterColumnSizing = preferences.rosterColumnSizing
 
   const { scrollRef, showBackToTop, scrollToTop } = useScrollBackToTop()
 
@@ -218,14 +211,14 @@ export function MemberListPane({
     onColumnSizingChange: (updater) => {
       const next =
         typeof updater === "function" ? updater(rosterColumnSizing) : updater
-      setRosterColumnSizing(next)
+      controller.setRosterColumnSizing(next)
     },
     onColumnVisibilityChange: (updater: Updater<VisibilityState>) => {
       const next =
         typeof updater === "function"
           ? updater(rosterColumnVisibility)
           : updater
-      setRosterColumnVisibility(next)
+      controller.setRosterColumnVisibility(next)
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

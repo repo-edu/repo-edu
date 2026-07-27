@@ -1,4 +1,4 @@
-import { readGitTrackedPaths, type TrackedPathProvider } from "./git.js"
+import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 
 const SOURCE_ROOT_PATTERN = /^(apps|packages|tools)\/[^/]+\/src\/.+\.tsx?$/
 
@@ -30,9 +30,9 @@ export function isSourceInventoryPath(filePath: string): boolean {
 
 export function readSourceInventory(
   root: string,
-  trackedPathProvider: TrackedPathProvider = readGitTrackedPaths,
+  pathProvider: GitPathProvider = readGitWorktreePaths,
 ): SourceInventory {
-  const files = trackedPathProvider(root).filter(isSourceInventoryPath).sort()
+  const files = pathProvider(root).filter(isSourceInventoryPath).sort()
   return {
     files,
     fileSet: new Set(files),

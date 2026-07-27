@@ -6,7 +6,8 @@ import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespac
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
-import { useCredentialsStore } from "../../../../stores/credentials-store.js"
+import { selectCredentials } from "../../../../session/selectors.js"
+import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   executeRegisteredCloneAllCommand,
@@ -47,7 +48,7 @@ export function useCloneAllRepositories({
 }: UseCloneAllRepositoriesParams) {
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
-  const credentials = useCredentialsStore((state) => state.credentials)
+  const credentials = useSessionControllerSelector(selectCredentials)
   const [filter, setFilter] = useState("")
   const [includeArchived, setIncludeArchived] = useState(false)
   const [targetDirectory, setTargetDirectory] = useState(initialTargetDirectory)

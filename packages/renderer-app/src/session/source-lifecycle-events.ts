@@ -12,7 +12,15 @@ export function subscribeCourseRemoval(
 }
 
 export function publishCourseRemoval(courseId: string): void {
+  const errors: unknown[] = []
   for (const listener of [...courseRemovalListeners]) {
-    listener(courseId)
+    try {
+      listener(courseId)
+    } catch (error) {
+      errors.push(error)
+    }
+  }
+  for (const error of errors) {
+    console.error("Course-removal subscriber failed", error)
   }
 }

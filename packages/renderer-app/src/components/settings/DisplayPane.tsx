@@ -13,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo-edu/ui"
-import { useAppSettingsStore } from "../../stores/app-settings-store.js"
+import { selectPreferences } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { SYNTAX_THEMES } from "../../utils/blame-highlighter.js"
 
 const THEMES: Array<{ value: ThemePreference; label: string }> = [
@@ -41,35 +45,24 @@ const TIME_FORMATS: Array<{
 ]
 
 export function DisplayPane() {
-  const theme = useAppSettingsStore((state) => state.settings.appearance.theme)
-  const dateFormat = useAppSettingsStore(
-    (state) => state.settings.appearance.dateFormat,
-  )
-  const timeFormat = useAppSettingsStore(
-    (state) => state.settings.appearance.timeFormat,
-  )
-  const syntaxTheme = useAppSettingsStore(
-    (state) => state.settings.appearance.syntaxTheme,
-  )
-  const setTheme = useAppSettingsStore((state) => state.setTheme)
-  const setDateFormat = useAppSettingsStore((state) => state.setDateFormat)
-  const setTimeFormat = useAppSettingsStore((state) => state.setTimeFormat)
-  const setSyntaxTheme = useAppSettingsStore((state) => state.setSyntaxTheme)
+  const controller = useSessionController()
+  const { theme, dateFormat, timeFormat, syntaxTheme } =
+    useSessionControllerSelector(selectPreferences).appearance
 
   const handleThemeChange = (value: ThemePreference) => {
-    setTheme(value)
+    controller.setTheme(value)
   }
 
   const handleDateFormatChange = (value: DateFormatPreference) => {
-    setDateFormat(value)
+    controller.setDateFormat(value)
   }
 
   const handleTimeFormatChange = (value: TimeFormatPreference) => {
-    setTimeFormat(value)
+    controller.setTimeFormat(value)
   }
 
   const handleSyntaxThemeChange = (value: SyntaxThemeId) => {
-    setSyntaxTheme(value)
+    controller.setSyntaxTheme(value)
   }
 
   return (

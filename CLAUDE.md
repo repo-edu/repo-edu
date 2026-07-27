@@ -84,9 +84,9 @@ repo-edu/
 ```
 
 The committed area model is
-`tools/architecture-check/src/area-model.json`. Partition areas tile tracked
-source files exactly once and define primary ownership. Cover areas overlap the
-partition for cross-cutting audit and drift context only.
+`tools/architecture-check/src/area-model.json`. Partition areas tile the current
+Git worktree source files exactly once and define primary ownership. Cover areas
+overlap the partition for cross-cutting audit and drift context only.
 
 Each app and package has its own `CLAUDE.md` with purpose, constraints, and
 non-obvious conventions:
@@ -140,11 +140,12 @@ Core flow:
 - Keep side effects in adapters/ports (`host-node`, integration adapters), not
   in domain logic.
 - Do not introduce legacy settings/profile migration logic.
-- Documents the user edits live canonically in the in-memory zustand store; save
-  workflows write to disk and report success or failure. Only Load brings disk
-  state into memory. Save handlers may return server-stamped fields the store
-  cannot compute itself (e.g. a revision counter), never the full persisted
-  document.
+- Documents the user edits live canonically in one in-memory owner. The renderer
+  session owns preferences and credentials; the course Zustand store owns the
+  active course. Save workflows write to disk and report success or failure.
+  Only Load brings disk state into memory. Save handlers may return
+  server-stamped fields the owner cannot compute itself (e.g. a revision
+  counter), never the full persisted document.
 
 ## Dependency Currency
 

@@ -68,8 +68,12 @@ describe("desktop renderer host bridge parity", () => {
       async revealCoursesDirectory() {
         calls.push("revealCoursesDirectory")
       },
-      onCloseFlushRequest() {
-        calls.push("onCloseFlushRequest")
+      onCloseRequest() {
+        calls.push("onCloseRequest")
+        return () => {}
+      },
+      onCloseCancel() {
+        calls.push("onCloseCancel")
         return () => {}
       },
     }

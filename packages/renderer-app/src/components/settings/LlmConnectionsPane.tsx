@@ -22,9 +22,12 @@ import {
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
 import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { selectCredentials } from "../../session/selectors.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useConnectionsStore } from "../../stores/connections-store.js"
-import { useCredentialsStore } from "../../stores/credentials-store.js"
-import { examinationPreferencePersistence } from "../../stores/examination-preferences.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import {
   effectiveLlmConnectionId,
@@ -53,16 +56,8 @@ const AUTH_MODE_LABEL = {
 } as const
 
 export function LlmConnectionsPane() {
-  const credentials = useCredentialsStore((state) => state.credentials)
-  const addLlmConnection = useCredentialsStore(
-    (state) => state.addLlmConnection,
-  )
-  const updateLlmConnection = useCredentialsStore(
-    (state) => state.updateLlmConnection,
-  )
-  const removeLlmConnection = useCredentialsStore(
-    (state) => state.removeLlmConnection,
-  )
+  const controller = useSessionController()
+  const credentials = useSessionControllerSelector(selectCredentials)
   const llmSavedStatuses = useConnectionsStore((state) => state.llmStatuses)
   const llmSavedErrors = useConnectionsStore((state) => state.llmErrors)
   const setLlmStatus = useConnectionsStore((state) => state.setLlmStatus)
@@ -212,20 +207,20 @@ export function LlmConnectionsPane() {
             }
 
     if (editorOriginalId === null) {
-      addLlmConnection(nextConnection)
+      controller.addLlmConnection(nextConnection)
       // First connection becomes active automatically.
       if (activeLlmConnectionId === null) {
-        examinationPreferencePersistence.persistActiveConnection(id)
+        controller.setActiveLlmConnectionId(id)
       }
     } else {
-      updateLlmConnection(editorOriginalId, nextConnection)
+      controller.updateLlmConnection(editorOriginalId, nextConnection)
     }
 
     resetEditor()
   }
 
   const handleRemove = (id: string) => {
-    removeLlmConnection(id)
+    controller.removeLlmConnection(id)
   }
 
   const handleVerifySaved = async (connection: PersistedLlmConnection) => {
@@ -441,9 +436,7 @@ export function LlmConnectionsPane() {
                       name="active-llm-connection"
                       checked={isActive}
                       onChange={() => {
-                        examinationPreferencePersistence.persistActiveConnection(
-                          connection.id,
-                        )
+                        controller.setActiveLlmConnectionId(connection.id)
                       }}
                       aria-label={`Use ${displayName} for examination`}
                     />

@@ -18,14 +18,15 @@ const electronTRPCBridge = {
   },
 }
 
-let closeFlushCallback: (() => Promise<void> | void) | null = null
+let closeCallback: ((attemptId: string) => Promise<void>) | null = null
+let closeCancelCallback: ((attemptId: string) => void) | null = null
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
 ipcRenderer.on(
-  desktopRendererHostChannels.requestCloseFlush,
+  desktopRendererHostChannels.requestClose,
   async (_event, request: unknown) => {
     if (
       typeof request !== "object" ||
@@ -36,18 +37,35 @@ ipcRenderer.on(
     }
     const requestId = (request as { requestId: string }).requestId
     try {
-      await closeFlushCallback?.()
-      ipcRenderer.send(desktopRendererHostChannels.closeFlushComplete, {
+      await closeCallback?.(requestId)
+      ipcRenderer.send(desktopRendererHostChannels.closeComplete, {
         requestId,
         ok: true,
       })
     } catch (error) {
-      ipcRenderer.send(desktopRendererHostChannels.closeFlushComplete, {
+      ipcRenderer.send(desktopRendererHostChannels.closeComplete, {
         requestId,
         ok: false,
         message: getErrorMessage(error),
       })
     }
+  },
+)
+
+ipcRenderer.on(
+  desktopRendererHostChannels.cancelClose,
+  (_event, request: unknown) => {
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      typeof (request as { requestId?: unknown }).requestId !== "string"
+    )
+      return
+    const requestId = (request as { requestId: string }).requestId
+    closeCancelCallback?.(requestId)
+    ipcRenderer.send(desktopRendererHostChannels.closeCancelComplete, {
+      requestId,
+    })
   },
 )
 
@@ -91,12 +109,17 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     await ipcRenderer.invoke(desktopRendererHostChannels.revealCoursesDirectory)
   },
 
-  onCloseFlushRequest(callback) {
-    closeFlushCallback = callback
+  onCloseRequest(callback) {
+    closeCallback = callback
     return () => {
-      if (closeFlushCallback === callback) {
-        closeFlushCallback = null
-      }
+      if (closeCallback === callback) closeCallback = null
+    }
+  },
+
+  onCloseCancel(callback) {
+    closeCancelCallback = callback
+    return () => {
+      if (closeCancelCallback === callback) closeCancelCallback = null
     }
   },
 

@@ -26,7 +26,7 @@ describe("source line counts", () => {
     assert.equal(countLinesInBuffer(binary), 0)
   })
 
-  it("counts a missing tracked worktree file as zero lines", () => {
+  it("counts a missing worktree file as zero lines", () => {
     const missingPath = join(
       tmpdir(),
       `repo-edu-missing-line-file-${randomUUID()}.ts`,

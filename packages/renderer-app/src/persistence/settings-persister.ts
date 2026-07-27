@@ -4,7 +4,6 @@ import type {
   PersistedAppCredentials,
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
-import type { SessionControllerSnapshot } from "../session/session-reducer.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import {
   createPersister,
@@ -12,17 +11,6 @@ import {
   type Persister,
 } from "./create-persister.js"
 import { isRetryableWorkflowError } from "./retry.js"
-
-export function composePersistedPreferences(
-  session: Pick<SessionControllerSnapshot, "activeSurface" | "activeTab">,
-  preferences: PersistedAppPreferences,
-): PersistedAppPreferences {
-  return {
-    ...preferences,
-    activeSurface: session.activeSurface,
-    activeTab: session.activeTab,
-  }
-}
 
 function persistedPreferencesEqual(
   left: PersistedAppPreferences,
