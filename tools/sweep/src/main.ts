@@ -66,9 +66,11 @@ function buildProgram(): Command {
         console.log("queue: empty.")
         return
       }
-      for (const item of items) {
-        console.log(`${item.path}\t${item.lines}\t${item.reason}`)
-      }
+      console.log(
+        items
+          .map((item) => `${item.path} (${item.lines} lines)\n  ${item.reason}`)
+          .join("\n\n"),
+      )
     })
 
   program

@@ -72,9 +72,10 @@ export function recordFlag(filePath: string, reason: string): FlagEntry {
   }
   const repoPath = requireInventoryPath(filePath)
   const entry: FlagEntry = {
-    hash: hashOf(repoPath),
+    lines: countRepoFileLines(ROOT, repoPath),
     path: repoPath,
     reason: cleanReason,
+    hash: hashOf(repoPath),
   }
   appendFlagEntry(entry)
   return entry

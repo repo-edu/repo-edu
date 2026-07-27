@@ -34,9 +34,12 @@ export type SkipEntry = {
   readonly path: string
 }
 
-/** A flag verdict: the file at this content was judged worth refactoring. */
-export type FlagEntry = SkipEntry & {
+/** A flag verdict: the file at this size and content was judged for refactor. */
+export type FlagEntry = {
+  readonly lines: number
+  readonly path: string
   readonly reason: string
+  readonly hash: string
 }
 
 export function readSkipEntries(): SkipEntry[] {
@@ -53,20 +56,40 @@ export function appendSkipEntry(entry: SkipEntry): void {
 
 export function readFlagEntries(): FlagEntry[] {
   return readRecords(REFACTOR_BACKLOG).flatMap((fields) => {
-    const [hash, repoPath, ...reasonParts] = fields
-    if (!hash || !repoPath) return []
-    return [{ hash, path: repoPath, reason: reasonParts.join(FIELD_SEPARATOR) }]
+    const [lineCount, repoPath, reason, hash] = fields
+    const lines = Number(lineCount)
+    if (
+      fields.length !== 4 ||
+      !Number.isSafeInteger(lines) ||
+      lines < 0 ||
+      !repoPath ||
+      !reason ||
+      !hash
+    ) {
+      return []
+    }
+    return [{ lines, path: repoPath, reason, hash }]
   })
 }
 
 export function appendFlagEntry(entry: FlagEntry): void {
-  appendRecord(REFACTOR_BACKLOG, [entry.hash, entry.path, entry.reason])
+  appendRecord(REFACTOR_BACKLOG, [
+    String(entry.lines),
+    entry.path,
+    entry.reason,
+    entry.hash,
+  ])
 }
 
 export function writeFlagEntries(entries: readonly FlagEntry[]): void {
   writeRecords(
     REFACTOR_BACKLOG,
-    entries.map((entry) => [entry.hash, entry.path, entry.reason]),
+    entries.map((entry) => [
+      String(entry.lines),
+      entry.path,
+      entry.reason,
+      entry.hash,
+    ]),
   )
 }
 

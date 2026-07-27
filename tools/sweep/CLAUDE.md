@@ -17,22 +17,25 @@ intended callers; the CLI is their backend.
   current content.
 - `flag <path> --reason <why>`: record a flag verdict ("worth refactoring") with
   a required reason.
-- `queue`: print the refactor backlog biggest first, as
-  `path<TAB>lines<TAB>reason`.
+- `queue`: print the refactor backlog biggest first. Each entry shows
+  `path (<line count> lines)` followed by its indented reason, with a blank
+  line between entries.
 - `done <path>`: drop every backlog entry for a path.
 
 ## State files
 
-`src/sweep-store.ts` owns two tab-separated files, both written beside the tool
-at `tools/sweep/` and both gitignored. They are tool-owned scratch state, never
-committed, so they stay out of both repos and out of the source inventory.
+`src/sweep-store.ts` owns two tab-separated files with different lifetimes.
+Both stay out of the source inventory.
 
-- `skip-cache.tsv` holds ok verdicts, one row per `hash<TAB>path`.
-- `refactor-todo.tsv` holds flag verdicts, one row per `hash<TAB>path<TAB>reason`.
+- `tools/sweep/skip-cache.tsv` is gitignored and holds ok verdicts, one row per
+  `hash<TAB>path`.
+- `../plan/notes/refactor-backlog.tsv` is committed in the sibling plan repo and
+  holds flag verdicts, one row per
+  `lines<TAB>path<TAB>reason<TAB>hash`. The line count and hash capture the file
+  at flag time; `queue` reports its current line count.
 
-Both files are absent until the first verdict of their kind is recorded; a
-missing file reads as an empty list. Appends are line-oriented, so a verdict is
-one new row.
+Either file may be absent before its first verdict; a missing file reads as an
+empty list. Appends are line-oriented, so a verdict is one new row.
 
 ## Verdict keying
 
