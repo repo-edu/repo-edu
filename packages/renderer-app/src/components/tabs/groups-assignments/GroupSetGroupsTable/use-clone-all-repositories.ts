@@ -20,7 +20,7 @@ import {
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
   cloneAllListingQueryKeys,
-  cloneAllMutationBelongsToCurrentInput,
+  cloneAllMutationBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
   createCloneAllMutationPolicy,
@@ -139,11 +139,13 @@ export function useCloneAllRepositories({
     targetDirectory,
     mutationIsPending: cloneMutation.isPending,
   })
-  const mutationBelongsToCurrentInput = cloneAllMutationBelongsToCurrentInput({
-    inputIsCurrent,
-    publishedInput: publishedListingInput,
-    mutationAdmissionId: cloneMutation.variables?.listingAdmissionId,
-  })
+  const mutationBelongsToCurrentCommand =
+    cloneAllMutationBelongsToCurrentCommand({
+      inputIsCurrent,
+      publishedInput: publishedListingInput,
+      currentTargetDirectory: targetDirectory,
+      mutationVariables: cloneMutation.variables,
+    })
   const cloneError = cloneMutation.isError
     ? getErrorMessage(cloneMutation.error)
     : null
@@ -181,7 +183,7 @@ export function useCloneAllRepositories({
       : null,
     isListing: listingQuery.isFetching,
     isCloning: cloneMutation.isPending,
-    mutationBelongsToCurrentInput,
+    mutationBelongsToCurrentCommand,
     hasConnection,
     hasNamespace,
     canClone,

@@ -24,7 +24,7 @@ import {
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
   cloneAllListingQueryKeys,
-  cloneAllMutationBelongsToCurrentInput,
+  cloneAllMutationBelongsToCurrentCommand,
   cloneAllMutationGcTimeMs,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
@@ -473,18 +473,38 @@ describe("clone-all admission and clone inputs", () => {
       false,
     )
     assert.equal(
-      cloneAllMutationBelongsToCurrentInput({
+      cloneAllMutationBelongsToCurrentCommand({
         inputIsCurrent: true,
         publishedInput: initialPublishedInput,
-        mutationAdmissionId: initialPublishedInput.admissionId,
+        currentTargetDirectory: " /tmp/repos ",
+        mutationVariables: {
+          listingAdmissionId: initialPublishedInput.admissionId,
+          targetDirectory: "/tmp/repos",
+        },
       }),
       true,
     )
     assert.equal(
-      cloneAllMutationBelongsToCurrentInput({
+      cloneAllMutationBelongsToCurrentCommand({
         inputIsCurrent: false,
         publishedInput: initialPublishedInput,
-        mutationAdmissionId: initialPublishedInput.admissionId,
+        currentTargetDirectory: "/tmp/repos",
+        mutationVariables: {
+          listingAdmissionId: initialPublishedInput.admissionId,
+          targetDirectory: "/tmp/repos",
+        },
+      }),
+      false,
+    )
+    assert.equal(
+      cloneAllMutationBelongsToCurrentCommand({
+        inputIsCurrent: true,
+        publishedInput: initialPublishedInput,
+        currentTargetDirectory: "/tmp/other-repos",
+        mutationVariables: {
+          listingAdmissionId: initialPublishedInput.admissionId,
+          targetDirectory: "/tmp/repos",
+        },
       }),
       false,
     )

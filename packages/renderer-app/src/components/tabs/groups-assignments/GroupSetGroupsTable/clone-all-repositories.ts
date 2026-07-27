@@ -215,17 +215,20 @@ export function cloneAllAdmissionIdsEqual(
   )
 }
 
-export function cloneAllMutationBelongsToCurrentInput(params: {
+export function cloneAllMutationBelongsToCurrentCommand(params: {
   readonly inputIsCurrent: boolean
   readonly publishedInput: CloneAllPublishedListingInput | null
-  readonly mutationAdmissionId: CloneAllListingAdmissionId | undefined
+  readonly currentTargetDirectory: string
+  readonly mutationVariables: CloneAllMutationVariables | undefined
 }): boolean {
   return (
     params.inputIsCurrent &&
     params.publishedInput !== null &&
-    params.mutationAdmissionId !== undefined &&
+    params.mutationVariables !== undefined &&
+    params.currentTargetDirectory.trim() ===
+      params.mutationVariables.targetDirectory &&
     cloneAllAdmissionIdsEqual(
-      params.mutationAdmissionId,
+      params.mutationVariables.listingAdmissionId,
       params.publishedInput.admissionId,
     )
   )
