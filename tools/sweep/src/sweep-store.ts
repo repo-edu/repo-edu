@@ -72,19 +72,19 @@ export function readFlagEntries(): FlagEntry[] {
   })
 }
 
-export function appendFlagEntry(entry: FlagEntry): void {
-  appendRecord(REFACTOR_BACKLOG, [
-    String(entry.lines),
-    entry.path,
-    entry.reason,
-    entry.hash,
-  ])
-}
-
+/**
+ * The backlog is always written whole in canonical order, flagged line count
+ * descending with path as tie-break, so one set of outstanding flags produces
+ * one byte-identical file and its diffs show only real backlog changes.
+ */
 export function writeFlagEntries(entries: readonly FlagEntry[]): void {
+  const ordered = [...entries].sort(
+    (left, right) =>
+      right.lines - left.lines || left.path.localeCompare(right.path),
+  )
   writeRecords(
     REFACTOR_BACKLOG,
-    entries.map((entry) => [
+    ordered.map((entry) => [
       String(entry.lines),
       entry.path,
       entry.reason,

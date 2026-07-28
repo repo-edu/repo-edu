@@ -6,7 +6,6 @@ import {
 import { countRepoFileLines } from "../../architecture-check/src/source-lines.js"
 import { gitHashObject } from "./git-hash.js"
 import {
-  appendFlagEntry,
   appendSkipEntry,
   type FlagEntry,
   readFlagEntries,
@@ -64,7 +63,11 @@ export function recordOk(filePath: string): SkipEntry {
   return entry
 }
 
-/** Flag the file for refactor at its current content, with a reason. */
+/**
+ * Flag the file for refactor at its current content, with a reason. The
+ * backlog holds one outstanding refactor per path, so a re-flag supersedes any
+ * prior row for the path instead of accumulating judgment events.
+ */
 export function recordFlag(filePath: string, reason: string): FlagEntry {
   const cleanReason = normalizeReason(reason)
   if (cleanReason.length === 0) {
@@ -77,20 +80,14 @@ export function recordFlag(filePath: string, reason: string): FlagEntry {
     reason: cleanReason,
     hash: hashOf(repoPath),
   }
-  appendFlagEntry(entry)
+  const others = readFlagEntries().filter((prior) => prior.path !== repoPath)
+  writeFlagEntries([...others, entry])
   return entry
 }
 
-/**
- * The refactor backlog, biggest first. Multiple verdicts for one path collapse
- * to the latest, since the backlog tracks a file's outstanding refactor, not
- * each judgment event.
- */
+/** The refactor backlog at current line counts, biggest first. */
 export function readQueue(): QueueItem[] {
-  const latestByPath = new Map<string, FlagEntry>()
-  for (const entry of readFlagEntries()) latestByPath.set(entry.path, entry)
-
-  return [...latestByPath.values()]
+  return readFlagEntries()
     .map((entry) => ({
       path: entry.path,
       lines: countRepoFileLines(ROOT, entry.path),

@@ -35,7 +35,11 @@ Both stay out of the source inventory.
   at flag time; `queue` reports its current line count.
 
 Either file may be absent before its first verdict; a missing file reads as an
-empty list. Appends are line-oriented, so a verdict is one new row.
+empty list. The skip cache is append-only, one new row per ok verdict. The
+backlog holds one row per path and is rewritten whole on every flag and done,
+in canonical order: flagged line count descending, path as tie-break. One set
+of outstanding flags therefore produces one byte-identical file, so its diffs
+in the plan repo show only real backlog changes.
 
 ## Verdict keying
 
@@ -49,8 +53,9 @@ current `(hash, path)` appears in either file. So editing a judged file changes
 its hash and re-surfaces it for a fresh judgment. An ok verdict does not hide a
 file forever; it silences that exact content.
 
-The backlog collapses to the latest verdict per path (`readQueue`), since it
-tracks a file's outstanding refactor, not each judgment event.
+The backlog tracks a file's outstanding refactor, not each judgment event: a
+re-flag supersedes the path's prior row at write time (`recordFlag`), so the
+stored file never holds two rows for one path.
 
 ## Source inventory
 
@@ -62,7 +67,7 @@ line count descending, ties broken by path.
 
 ## Conventions
 
-- Treat the two `.tsv` files as machine-owned. The skills append to them through
+- Treat the two `.tsv` files as machine-owned. The skills write them through
   the CLI; do not hand-edit them.
 - The `.tsv` extension is deliberate, so editor TSV tooling renders the columns.
 - A flag with an empty reason is rejected; `ok` takes no reason.
