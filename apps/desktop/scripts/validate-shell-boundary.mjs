@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "..", "..", "..");
@@ -10,55 +10,38 @@ const blockedImportPatterns = [
   /require\(["']trpc-electron\//,
 ];
 
-async function listWorkspacePackageJsonFiles() {
-  const files = [];
+async function listSharedWorkspacePackages() {
+  const workspaces = [];
 
-  const packageDirEntries = await readdir(join(repoRoot, "packages"), {
-    withFileTypes: true,
-  });
-  for (const entry of packageDirEntries) {
-    if (!entry.isDirectory()) {
-      continue;
+  for (const parentName of ["apps", "packages"]) {
+    const entries = await readdir(join(repoRoot, parentName), {
+      withFileTypes: true,
+    });
+
+    for (const entry of entries) {
+      if (
+        !entry.isDirectory() ||
+        (parentName === "apps" && entry.name === "desktop")
+      ) {
+        continue;
+      }
+
+      const root = join(repoRoot, parentName, entry.name);
+      const packageJsonPath = join(root, "package.json");
+      try {
+        await access(packageJsonPath);
+      } catch (error) {
+        if (error && typeof error === "object" && error.code === "ENOENT") {
+          continue;
+        }
+        throw error;
+      }
+
+      workspaces.push({ packageJsonPath, sourceRoot: join(root, "src") });
     }
-    files.push(join(repoRoot, "packages", entry.name, "package.json"));
   }
 
-  const appDirEntries = await readdir(join(repoRoot, "apps"), {
-    withFileTypes: true,
-  });
-  for (const entry of appDirEntries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-
-    if (entry.name === "desktop") {
-      continue;
-    }
-
-    files.push(join(repoRoot, "apps", entry.name, "package.json"));
-  }
-
-  return files;
-}
-
-async function listSourceRoots() {
-  const roots = [];
-
-  const packageDirEntries = await readdir(join(repoRoot, "packages"), {
-    withFileTypes: true,
-  });
-  for (const entry of packageDirEntries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    roots.push(join(repoRoot, "packages", entry.name, "src"));
-  }
-
-  for (const appName of ["docs", "cli"]) {
-    roots.push(join(repoRoot, "apps", appName, "src"));
-  }
-
-  return roots;
+  return workspaces;
 }
 
 function collectBlockedDependencies(pkg, packageJsonPath) {
@@ -160,15 +143,15 @@ function emitFailure(error) {
 
 async function main() {
   const allViolations = [];
+  const workspaces = await listSharedWorkspacePackages();
 
-  for (const packageJsonPath of await listWorkspacePackageJsonFiles()) {
-    const raw = await readFile(packageJsonPath, "utf8");
+  for (const workspace of workspaces) {
+    const raw = await readFile(workspace.packageJsonPath, "utf8");
     const pkg = JSON.parse(raw);
-    allViolations.push(...collectBlockedDependencies(pkg, packageJsonPath));
-  }
-
-  for (const srcRoot of await listSourceRoots()) {
-    allViolations.push(...(await scanSourceImports(srcRoot)));
+    allViolations.push(
+      ...collectBlockedDependencies(pkg, workspace.packageJsonPath),
+      ...(await scanSourceImports(workspace.sourceRoot)),
+    );
   }
 
   if (allViolations.length > 0) {

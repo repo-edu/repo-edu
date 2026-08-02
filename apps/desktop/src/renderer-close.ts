@@ -23,6 +23,22 @@ export type RendererCloseResponse = {
   message?: string
 }
 
+type RendererSessionWindowClose = {
+  owner: "renderer-session"
+  requestId: string
+  target: RendererCloseTarget
+  transport: RendererCloseTransport
+  channels: RendererCloseChannels
+  timeoutMs?: number
+  cancellationTimeoutMs?: number
+  scheduler?: CloseScheduler
+  log?: (message: string) => void
+}
+
+export type WindowCloseAdmission =
+  | { owner: "main-process" }
+  | RendererSessionWindowClose
+
 type CloseScheduler = (
   callback: () => void,
   timeoutMs: number,
@@ -57,16 +73,11 @@ export async function invokeRendererCloseHandler(
   }
 }
 
-export async function runRendererCloseGate(options: {
-  requestId: string
-  target: RendererCloseTarget
-  transport: RendererCloseTransport
-  channels: RendererCloseChannels
-  timeoutMs?: number
-  cancellationTimeoutMs?: number
-  scheduler?: CloseScheduler
-  log?: (message: string) => void
-}): Promise<boolean> {
+export async function runWindowCloseAdmission(
+  options: WindowCloseAdmission,
+): Promise<boolean> {
+  if (options.owner === "main-process") return true
+
   const { target } = options
   if (target.isUnavailable()) return true
   target.setEnabled(false)

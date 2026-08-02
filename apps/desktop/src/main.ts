@@ -60,7 +60,10 @@ import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
-import { runRendererCloseGate } from "./renderer-close"
+import {
+  runWindowCloseAdmission,
+  type WindowCloseAdmission,
+} from "./renderer-close"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
@@ -706,6 +709,40 @@ async function createWindow(): Promise<BrowserWindow> {
   let saveInFlight: Promise<void> = Promise.resolve()
   let closePhase: "idle" | "saving" | "ready" = "idle"
 
+  const windowCloseAdmission = (): WindowCloseAdmission => {
+    if (isTRPCValidationMode) {
+      return { owner: "main-process" }
+    }
+
+    return {
+      owner: "renderer-session",
+      requestId: randomUUID(),
+      target: {
+        isUnavailable: () =>
+          mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed(),
+        setEnabled: (enabled) => mainWindow.setEnabled(enabled),
+        send: (channel, payload) =>
+          mainWindow.webContents.send(channel, payload),
+      },
+      transport: {
+        subscribe: (channel, listener) => {
+          const handler = (event: IpcMainEvent, response: unknown) => {
+            if (event.sender === mainWindow.webContents) listener(response)
+          }
+          ipcMain.on(channel, handler)
+          return () => ipcMain.removeListener(channel, handler)
+        },
+      },
+      channels: {
+        request: desktopRendererHostChannels.requestClose,
+        cancel: desktopRendererHostChannels.cancelClose,
+        complete: desktopRendererHostChannels.closeComplete,
+        cancelComplete: desktopRendererHostChannels.closeCancelComplete,
+      },
+      log: (message) => process.stderr.write(`[desktop] ${message}\n`),
+    }
+  }
+
   mainWindow.on("resize", () => {
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
@@ -730,33 +767,10 @@ async function createWindow(): Promise<BrowserWindow> {
     }
 
     void (async () => {
-      const rendererClosed = await runRendererCloseGate({
-        requestId: randomUUID(),
-        target: {
-          isUnavailable: () =>
-            mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed(),
-          setEnabled: (enabled) => mainWindow.setEnabled(enabled),
-          send: (channel, payload) =>
-            mainWindow.webContents.send(channel, payload),
-        },
-        transport: {
-          subscribe: (channel, listener) => {
-            const handler = (event: IpcMainEvent, response: unknown) => {
-              if (event.sender === mainWindow.webContents) listener(response)
-            }
-            ipcMain.on(channel, handler)
-            return () => ipcMain.removeListener(channel, handler)
-          },
-        },
-        channels: {
-          request: desktopRendererHostChannels.requestClose,
-          cancel: desktopRendererHostChannels.cancelClose,
-          complete: desktopRendererHostChannels.closeComplete,
-          cancelComplete: desktopRendererHostChannels.closeCancelComplete,
-        },
-        log: (message) => process.stderr.write(`[desktop] ${message}\n`),
-      })
-      if (!rendererClosed) {
+      const closeAdmitted = await runWindowCloseAdmission(
+        windowCloseAdmission(),
+      )
+      if (!closeAdmitted) {
         closePhase = "idle"
         quitRequested = false
         return

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   invokeRendererCloseHandler,
-  runRendererCloseGate,
+  runWindowCloseAdmission,
 } from "../renderer-close.js"
 
 const channels = {
@@ -60,7 +60,11 @@ function harness() {
   }
 }
 
-describe("desktop renderer close gate", () => {
+describe("desktop window close admission", () => {
+  it("admits a main-process-owned window without renderer coordination", async () => {
+    assert.equal(await runWindowCloseAdmission({ owner: "main-process" }), true)
+  })
+
   it("refuses to acknowledge close before the renderer handler is ready", async () => {
     assert.deepEqual(await invokeRendererCloseHandler(null, "close-1"), {
       requestId: "close-1",
@@ -71,7 +75,10 @@ describe("desktop renderer close gate", () => {
 
   it("disables input before requesting close and leaves success disabled", async () => {
     const state = harness()
-    const closing = runRendererCloseGate(state.options)
+    const closing = runWindowCloseAdmission({
+      owner: "renderer-session",
+      ...state.options,
+    })
     assert.deepEqual(state.enabled, [false])
     assert.equal(state.sent[0]?.channel, channels.request)
     state.emit(channels.complete, { requestId: "close-1", ok: true })
@@ -81,7 +88,10 @@ describe("desktop renderer close gate", () => {
 
   it("re-enables input only after a matching failure response", async () => {
     const state = harness()
-    const closing = runRendererCloseGate(state.options)
+    const closing = runWindowCloseAdmission({
+      owner: "renderer-session",
+      ...state.options,
+    })
     state.emit(channels.complete, { requestId: "stale", ok: false })
     assert.deepEqual(state.enabled, [false])
     state.emit(channels.complete, {
@@ -95,7 +105,10 @@ describe("desktop renderer close gate", () => {
 
   it("waits for matching cancellation acknowledgement after timeout", async () => {
     const state = harness()
-    const closing = runRendererCloseGate(state.options)
+    const closing = runWindowCloseAdmission({
+      owner: "renderer-session",
+      ...state.options,
+    })
     state.fireTimeout()
     assert.equal(state.sent.at(-1)?.channel, channels.cancel)
     state.emit(channels.cancelComplete, { requestId: "stale" })
@@ -107,7 +120,10 @@ describe("desktop renderer close gate", () => {
 
   it("force closes when the renderer cannot acknowledge cancellation", async () => {
     const state = harness()
-    const closing = runRendererCloseGate(state.options)
+    const closing = runWindowCloseAdmission({
+      owner: "renderer-session",
+      ...state.options,
+    })
     state.fireTimeout()
     assert.equal(state.sent.at(-1)?.channel, channels.cancel)
     state.fireTimeout()
