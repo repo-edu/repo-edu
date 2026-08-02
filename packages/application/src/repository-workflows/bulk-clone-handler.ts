@@ -25,6 +25,7 @@ import {
   mapConcurrent,
 } from "./git-helpers.js"
 import {
+  findRepositoryClonePathCollisions,
   normalizeTargetDirectory,
   repositoryCloneLeafPath,
   repositoryCloneTempPath,
@@ -93,28 +94,16 @@ export function createRepoBulkCloneHandler(
         // Detect folder-name collisions up-front: entries whose leaf names
         // collapse to the same local path would otherwise race into the same
         // directory. We surface them as a validation error.
-        const folderCollisionsByPath = new Map<string, string[]>()
-        for (const entry of input.repositories) {
-          const folderPath = repositoryCloneLeafPath(
-            targetDirectory,
-            entry.name,
-          )
-          const existing = folderCollisionsByPath.get(folderPath)
-          if (existing === undefined) {
-            folderCollisionsByPath.set(folderPath, [entry.identifier])
-          } else {
-            existing.push(entry.identifier)
-          }
-        }
-        const collisionIssues: AppValidationIssue[] = []
-        for (const [folderPath, identifiers] of folderCollisionsByPath) {
-          if (identifiers.length > 1) {
-            collisionIssues.push({
-              path: "repositories",
-              message: `Multiple repositories would clone into '${folderPath}': ${identifiers.join(", ")}.`,
-            })
-          }
-        }
+        const collisionIssues: AppValidationIssue[] =
+          findRepositoryClonePathCollisions(
+            input.repositories.map((entry) => ({
+              path: repositoryCloneLeafPath(targetDirectory, entry.name),
+              label: entry.identifier,
+            })),
+          ).map((collision) => ({
+            path: "repositories",
+            message: `Multiple repositories would clone into '${collision.path}': ${collision.labels.join(", ")}.`,
+          }))
         if (collisionIssues.length > 0) {
           throw createValidationAppError(
             "Repository bulk clone would produce colliding local folder names.",

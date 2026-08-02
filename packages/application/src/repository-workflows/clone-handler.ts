@@ -30,6 +30,7 @@ import {
   mapConcurrent,
 } from "./git-helpers.js"
 import {
+  findRepositoryClonePathCollisions,
   normalizeDirectoryLayout,
   normalizeTargetDirectory,
   repositoryCloneParentPath,
@@ -116,6 +117,28 @@ export function createRepoCloneHandler(
           }
         }
 
+        const layout = normalizeDirectoryLayout(input.directoryLayout)
+        const plannedCloneTargets = planned.value.map((group) => ({
+          group,
+          parentPath: repositoryCloneParentPath(targetDirectory, layout, group),
+          path: repositoryClonePath(targetDirectory, layout, group),
+        }))
+        const collisionIssues = findRepositoryClonePathCollisions(
+          plannedCloneTargets.map(({ group, path }) => ({
+            path,
+            label: `${group.assignmentId}/${group.groupId} (${group.repoName})`,
+          })),
+        ).map((collision) => ({
+          path: "targetDirectory",
+          message: `Multiple planned repositories would clone into '${collision.path}': ${collision.labels.join(", ")}.`,
+        }))
+        if (collisionIssues.length > 0) {
+          throw createValidationAppError(
+            "Repository clone would produce colliding local paths.",
+            collisionIssues,
+          )
+        }
+
         options?.onProgress?.({
           step: 3,
           totalSteps,
@@ -136,7 +159,6 @@ export function createRepoCloneHandler(
             entry.cloneUrl,
           ]),
         )
-        const layout = normalizeDirectoryLayout(input.directoryLayout)
         const tempCloneRoot = repositoryCloneTempRoot(targetDirectory)
         const parentDirectories = new Set<string>([
           targetDirectory,
@@ -150,21 +172,17 @@ export function createRepoCloneHandler(
           groupId: string
           isRecorded: boolean
         }> = []
-        for (const group of planned.value) {
+        for (const plannedTarget of plannedCloneTargets) {
+          const { group } = plannedTarget
           const cloneUrl = cloneUrlByRepoName.get(group.repoName)
           if (cloneUrl === undefined) {
             continue
           }
-          const parentPath = repositoryCloneParentPath(
-            targetDirectory,
-            layout,
-            group,
-          )
-          parentDirectories.add(parentPath)
+          parentDirectories.add(plannedTarget.parentPath)
           cloneTargets.push({
             repoName: group.repoName,
             cloneUrl,
-            path: repositoryClonePath(targetDirectory, layout, group),
+            path: plannedTarget.path,
             assignmentId: group.assignmentId,
             groupId: group.groupId,
             isRecorded: group.isRecorded,

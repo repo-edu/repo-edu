@@ -338,4 +338,58 @@ describe("application repository clone workflow helpers", () => {
       },
     )
   })
+
+  it("rejects planned repositories that normalize to the same clone path", async () => {
+    let providerCalls = 0
+    const { course, settings, handlers } = createRepoHarness({
+      git: {
+        resolveRepositoryCloneUrls: async () => {
+          providerCalls += 1
+          return { resolved: [], missing: [] }
+        },
+      },
+    })
+    const assignment = course.roster.assignments.find(
+      (candidate) => candidate.id === "a1",
+    )
+    assert.ok(assignment)
+    const groupSet = course.roster.groupSets.find(
+      (candidate) => candidate.id === assignment.groupSetId,
+    )
+    assert.ok(groupSet)
+    assert.equal(groupSet.nameMode, "named")
+    if (groupSet.nameMode !== "named") {
+      throw new Error("Expected assignment a1 to use a named group set.")
+    }
+    const [firstGroupId, secondGroupId] = groupSet.groupIds
+    assert.ok(firstGroupId)
+    assert.ok(secondGroupId)
+    assignment.repositories[firstGroupId] = "CON"
+    assignment.repositories[secondGroupId] = "CON_"
+
+    await assert.rejects(
+      async () =>
+        handlers["repo.clone"]({
+          course,
+          credentials: settings,
+          assignmentId: "a1",
+          template: null,
+          targetDirectory: "/work/repos",
+          directoryLayout: "flat",
+        }),
+      (error: unknown) => {
+        const appError = error as {
+          type?: string
+          message?: string
+          issues?: Array<{ path?: string; message?: string }>
+        }
+        assert.equal(appError.type, "validation")
+        assert.match(appError.message ?? "", /colliding local paths/i)
+        assert.equal(appError.issues?.[0]?.path, "targetDirectory")
+        assert.match(appError.issues?.[0]?.message ?? "", /CON_/)
+        return true
+      },
+    )
+    assert.equal(providerCalls, 0)
+  })
 })

@@ -7,6 +7,16 @@ import filenamify from "filenamify"
 export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
 type PathOperations = Pick<typeof path, "isAbsolute" | "join">
 
+export type RepositoryClonePathCandidate = {
+  readonly path: string
+  readonly label: string
+}
+
+export type RepositoryClonePathCollision = {
+  readonly path: string
+  readonly labels: readonly string[]
+}
+
 export function normalizeDirectoryLayout(
   value: RepositoryBatchInput["directoryLayout"],
 ): RepositoryDirectoryLayout {
@@ -50,6 +60,32 @@ function expandHomeDirectory(
 
 export function repositoryPathSegment(value: string): string {
   return filenamify(value.trim(), { replacement: "_" })
+}
+
+export function findRepositoryClonePathCollisions(
+  candidates: readonly RepositoryClonePathCandidate[],
+): RepositoryClonePathCollision[] {
+  const candidatesByPath = new Map<string, { path: string; labels: string[] }>()
+
+  for (const candidate of candidates) {
+    const collisionKey = path
+      .normalize(candidate.path)
+      .normalize("NFC")
+      .toLowerCase()
+    const existing = candidatesByPath.get(collisionKey)
+    if (existing === undefined) {
+      candidatesByPath.set(collisionKey, {
+        path: candidate.path,
+        labels: [candidate.label],
+      })
+      continue
+    }
+    existing.labels.push(candidate.label)
+  }
+
+  return [...candidatesByPath.values()].filter(
+    (candidate) => candidate.labels.length > 1,
+  )
 }
 
 export function repositoryCloneParentPath(

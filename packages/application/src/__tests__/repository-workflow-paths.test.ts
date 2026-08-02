@@ -3,6 +3,7 @@ import { posix, win32 } from "node:path"
 import { describe, it } from "node:test"
 import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
 import {
+  findRepositoryClonePathCollisions,
   normalizeTargetDirectory,
   repositoryCloneLeafPath,
   repositoryClonePath,
@@ -103,5 +104,32 @@ describe("repository clone paths", () => {
       repositoryCloneLeafPath("/safe/repos", "../repository"),
       "/safe/repos/_repository",
     )
+  })
+
+  it("finds clone targets that collide after portable path normalization", () => {
+    const collisions = findRepositoryClonePathCollisions([
+      {
+        path: repositoryCloneLeafPath("/safe/repos", "CON"),
+        label: "reserved-name",
+      },
+      {
+        path: repositoryCloneLeafPath("/safe/repos", "CON_"),
+        label: "literal-name",
+      },
+      { path: "/safe/repos/Team", label: "upper-case" },
+      { path: "/safe/repos/team", label: "lower-case" },
+      { path: "/safe/repos/other", label: "unique" },
+    ])
+
+    assert.deepEqual(collisions, [
+      {
+        path: "/safe/repos/CON_",
+        labels: ["reserved-name", "literal-name"],
+      },
+      {
+        path: "/safe/repos/Team",
+        labels: ["upper-case", "lower-case"],
+      },
+    ])
   })
 })

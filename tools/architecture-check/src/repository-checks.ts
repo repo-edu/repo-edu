@@ -131,14 +131,14 @@ export function checkBrowserSafeSourceBoundary(
       isProductionSource(file) &&
       INDEPENDENT_BROWSER_SAFE_ROOTS.some((root) => file.startsWith(root)),
   )
-  const admitted = runtimeSourceClosure(
+  const closure = runtimeSourceClosure(
     [DESKTOP_RENDERER_ENTRY, ...independentRoots],
     inventory,
     graph,
   )
 
-  const violations: Violation[] = []
-  for (const file of [...admitted].sort()) {
+  const violations: Violation[] = [...closure.violations]
+  for (const file of [...closure.files].sort()) {
     for (const edge of graph.get(file) ?? []) {
       if (!isRuntimeEdge(edge) || !NODE_BUILTIN_IMPORTS.has(edge.module)) {
         continue
@@ -156,13 +156,19 @@ function runtimeSourceClosure(
   entries: readonly string[],
   inventory: SourceInventory,
   graph: DependencyGraph,
-): Set<string> {
+): { readonly files: Set<string>; readonly violations: Violation[] } {
   const visited = new Set<string>()
+  const violations: Violation[] = []
+  const testImportKeys = new Set<string>()
   const pending = [...entries]
 
   while (pending.length > 0) {
     const file = pending.pop()
-    if (file === undefined || visited.has(file) || !isProductionSource(file)) {
+    if (
+      file === undefined ||
+      visited.has(file) ||
+      !inventory.fileSet.has(file)
+    ) {
       continue
     }
     visited.add(file)
@@ -175,11 +181,22 @@ function runtimeSourceClosure(
       ) {
         continue
       }
+      if (!isProductionSource(edge.resolved)) {
+        const key = `${file}\0${edge.resolved}`
+        if (!testImportKeys.has(key)) {
+          testImportKeys.add(key)
+          violations.push({
+            file,
+            message: `browser-safe production source imports test source "${edge.resolved}"`,
+          })
+        }
+        continue
+      }
       pending.push(edge.resolved)
     }
   }
 
-  return visited
+  return { files: visited, violations }
 }
 
 function isRuntimeEdge(edge: DependencyEdge): boolean {

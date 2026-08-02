@@ -198,6 +198,51 @@ describe("repository checks", () => {
       },
     ])
   })
+
+  it("rejects runtime imports from production sources into test sources", () => {
+    const files = [
+      "apps/desktop/src/renderer.ts",
+      "packages/renderer-app/src/index.ts",
+      "packages/renderer-app/src/__tests__/runtime-helper.ts",
+    ]
+    const graph: DependencyGraph = new Map([
+      [
+        "apps/desktop/src/renderer.ts",
+        [
+          runtimeEdge(
+            "@repo-edu/renderer-app",
+            "packages/renderer-app/src/index.ts",
+          ),
+        ],
+      ],
+      [
+        "packages/renderer-app/src/index.ts",
+        [
+          runtimeEdge(
+            "./__tests__/runtime-helper",
+            "packages/renderer-app/src/__tests__/runtime-helper.ts",
+          ),
+        ],
+      ],
+      [
+        "packages/renderer-app/src/__tests__/runtime-helper.ts",
+        [runtimeEdge("node:fs")],
+      ],
+    ])
+
+    const violations = checkBrowserSafeSourceBoundary(
+      { files, fileSet: new Set(files) },
+      graph,
+    )
+
+    assert.deepEqual(violations, [
+      {
+        file: "packages/renderer-app/src/index.ts",
+        message:
+          'browser-safe production source imports test source "packages/renderer-app/src/__tests__/runtime-helper.ts"',
+      },
+    ])
+  })
 })
 
 function runtimeEdge(module: string, resolved?: string): DependencyEdge {
