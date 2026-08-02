@@ -10,6 +10,7 @@
     "@repo-edu/integrations-llm-catalog": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/integrations-lms-contract": "workspace:*",
+    "filenamify": "^7.0.2",
     "linkify-it": "^6.1.0",
     "papaparse": "^5.5.3",
     "partial-json": "^0.1.7",

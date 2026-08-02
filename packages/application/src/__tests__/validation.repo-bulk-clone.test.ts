@@ -37,8 +37,8 @@ describe("application repository bulk clone validation", () => {
           credentials: settings,
           namespace: "repo-edu",
           repositories: [
-            { name: "lab-1", identifier: "team-alpha/lab-1" },
-            { name: "lab-1", identifier: "team-beta/lab-1" },
+            { name: "lab/1", identifier: "team-alpha/lab-1" },
+            { name: "lab\\1", identifier: "team-beta/lab-1" },
           ],
           targetDirectory: "/tmp/repo-edu-bulk-clone-collision",
         }),

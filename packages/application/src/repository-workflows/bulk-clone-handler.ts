@@ -26,16 +26,11 @@ import {
 } from "./git-helpers.js"
 import {
   normalizeTargetDirectory,
+  repositoryCloneLeafPath,
   repositoryCloneTempPath,
   repositoryCloneTempRoot,
 } from "./paths.js"
 import type { RepositoryWorkflowPorts } from "./ports.js"
-
-function sanitizeRepoName(name: string): string {
-  // Leaf repo names returned from a provider are already safe slugs, but guard
-  // against separators to prevent path traversal.
-  return name.replaceAll(/[\\/]/g, "_")
-}
 
 export function createRepoBulkCloneHandler(
   ports: RepositoryWorkflowPorts,
@@ -100,7 +95,10 @@ export function createRepoBulkCloneHandler(
         // directory. We surface them as a validation error.
         const folderCollisionsByPath = new Map<string, string[]>()
         for (const entry of input.repositories) {
-          const folderPath = `${targetDirectory}/${sanitizeRepoName(entry.name)}`
+          const folderPath = repositoryCloneLeafPath(
+            targetDirectory,
+            entry.name,
+          )
           const existing = folderCollisionsByPath.get(folderPath)
           if (existing === undefined) {
             folderCollisionsByPath.set(folderPath, [entry.identifier])
@@ -154,7 +152,7 @@ export function createRepoBulkCloneHandler(
             return {
               repoName: entry.name,
               cloneUrl,
-              path: `${targetDirectory}/${sanitizeRepoName(entry.name)}`,
+              path: repositoryCloneLeafPath(targetDirectory, entry.name),
             }
           })
           .filter(

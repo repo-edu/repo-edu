@@ -1,7 +1,24 @@
 import assert from "node:assert/strict"
 import { posix, win32 } from "node:path"
 import { describe, it } from "node:test"
-import { normalizeTargetDirectory } from "../repository-workflows/paths.js"
+import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
+import {
+  normalizeTargetDirectory,
+  repositoryCloneLeafPath,
+  repositoryClonePath,
+  repositoryPathSegment,
+} from "../repository-workflows/paths.js"
+
+const plannedGroup: PlannedRepositoryGroup = {
+  assignmentId: "a_0001",
+  assignmentName: "Assignment 1",
+  groupId: "g_0001",
+  groupName: "Team 1",
+  repoName: "assignment-1-team-1",
+  activeMemberIds: [],
+  gitUsernames: [],
+  isRecorded: false,
+}
 
 describe("normalizeTargetDirectory", () => {
   it("rejects empty input", () => {
@@ -64,6 +81,27 @@ describe("normalizeTargetDirectory", () => {
         win32,
       ),
       "C:\\Users\\teacher\\repos",
+    )
+  })
+})
+
+describe("repository clone paths", () => {
+  it("normalizes local names with cross-platform filename rules", () => {
+    assert.equal(repositoryPathSegment("../team"), "_team")
+    assert.equal(repositoryPathSegment("CON"), "CON_")
+    assert.equal(repositoryPathSegment("team. "), "team")
+  })
+
+  it("keeps clone paths beneath their selected target", () => {
+    const traversalName = { ...plannedGroup, groupName: ".." }
+
+    assert.equal(
+      repositoryClonePath("/safe/repos", "by-team", traversalName),
+      "/safe/repos/_/assignment-1-team-1",
+    )
+    assert.equal(
+      repositoryCloneLeafPath("/safe/repos", "../repository"),
+      "/safe/repos/_repository",
     )
   })
 })

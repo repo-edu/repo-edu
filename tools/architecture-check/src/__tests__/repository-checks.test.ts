@@ -162,6 +162,42 @@ describe("repository checks", () => {
       },
     ])
   })
+
+  it("follows runtime dependencies from independent browser-safe roots", () => {
+    const files = [
+      "apps/desktop/src/renderer.ts",
+      "packages/renderer-host-contract/src/index.ts",
+      "packages/domain/src/transitive.ts",
+      "packages/domain/src/unreachable.ts",
+    ]
+    const graph: DependencyGraph = new Map([
+      ["apps/desktop/src/renderer.ts", []],
+      [
+        "packages/renderer-host-contract/src/index.ts",
+        [
+          runtimeEdge(
+            "@repo-edu/domain/transitive",
+            "packages/domain/src/transitive.ts",
+          ),
+        ],
+      ],
+      ["packages/domain/src/transitive.ts", [runtimeEdge("node:fs")]],
+      ["packages/domain/src/unreachable.ts", [runtimeEdge("node:os")]],
+    ])
+
+    const violations = checkBrowserSafeSourceBoundary(
+      { files, fileSet: new Set(files) },
+      graph,
+    )
+
+    assert.deepEqual(violations, [
+      {
+        file: "packages/domain/src/transitive.ts",
+        message:
+          'browser-safe production source imports Node built-in module "node:fs"',
+      },
+    ])
+  })
 })
 
 function runtimeEdge(module: string, resolved?: string): DependencyEdge {

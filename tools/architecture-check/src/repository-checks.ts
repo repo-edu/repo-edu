@@ -126,19 +126,16 @@ export function checkBrowserSafeSourceBoundary(
     ]
   }
 
+  const independentRoots = inventory.files.filter(
+    (file) =>
+      isProductionSource(file) &&
+      INDEPENDENT_BROWSER_SAFE_ROOTS.some((root) => file.startsWith(root)),
+  )
   const admitted = runtimeSourceClosure(
-    DESKTOP_RENDERER_ENTRY,
+    [DESKTOP_RENDERER_ENTRY, ...independentRoots],
     inventory,
     graph,
   )
-  for (const file of inventory.files) {
-    if (
-      isProductionSource(file) &&
-      INDEPENDENT_BROWSER_SAFE_ROOTS.some((root) => file.startsWith(root))
-    ) {
-      admitted.add(file)
-    }
-  }
 
   const violations: Violation[] = []
   for (const file of [...admitted].sort()) {
@@ -156,12 +153,12 @@ export function checkBrowserSafeSourceBoundary(
 }
 
 function runtimeSourceClosure(
-  entry: string,
+  entries: readonly string[],
   inventory: SourceInventory,
   graph: DependencyGraph,
 ): Set<string> {
   const visited = new Set<string>()
-  const pending = [entry]
+  const pending = [...entries]
 
   while (pending.length > 0) {
     const file = pending.pop()

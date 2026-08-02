@@ -2,6 +2,7 @@ import { homedir } from "node:os"
 import * as path from "node:path"
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
 import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
+import filenamify from "filenamify"
 
 export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
 type PathOperations = Pick<typeof path, "isAbsolute" | "join">
@@ -47,12 +48,8 @@ function expandHomeDirectory(
   return pathOperations.join(homeDirectory, value.slice(2))
 }
 
-function sanitizePathSegment(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed === "") {
-    return "unnamed"
-  }
-  return trimmed.replace(/[\\/]/g, "_")
+export function repositoryPathSegment(value: string): string {
+  return filenamify(value.trim(), { replacement: "_" })
 }
 
 export function repositoryCloneParentPath(
@@ -66,10 +63,10 @@ export function repositoryCloneParentPath(
 
   const folderName =
     layout === "by-team"
-      ? sanitizePathSegment(
+      ? repositoryPathSegment(
           group.groupName.trim().length > 0 ? group.groupName : group.groupId,
         )
-      : sanitizePathSegment(group.assignmentName)
+      : repositoryPathSegment(group.assignmentName)
   return path.join(targetDirectory, folderName)
 }
 
@@ -80,8 +77,15 @@ export function repositoryClonePath(
 ): string {
   return path.join(
     repositoryCloneParentPath(targetDirectory, layout, group),
-    sanitizePathSegment(group.repoName),
+    repositoryPathSegment(group.repoName),
   )
+}
+
+export function repositoryCloneLeafPath(
+  targetDirectory: string,
+  repoName: string,
+): string {
+  return path.join(targetDirectory, repositoryPathSegment(repoName))
 }
 
 const TEMP_CLONE_DIRECTORY_NAME = ".repo-edu-clone-tmp"
@@ -95,5 +99,5 @@ export function repositoryCloneTempPath(
   repoName: string,
   index: number,
 ): string {
-  return path.join(tempRoot, `${sanitizePathSegment(repoName)}-${index}`)
+  return path.join(tempRoot, `${repositoryPathSegment(repoName)}-${index}`)
 }
