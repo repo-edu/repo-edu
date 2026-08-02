@@ -13,6 +13,9 @@ const VENDORED_RUNTIME_PATTERN =
 export type SourceInventory = {
   readonly files: readonly string[]
   readonly fileSet: ReadonlySet<string>
+  // The unfiltered worktree listing the source files were selected from, for
+  // checks that also cover manifests and non-source files.
+  readonly worktreePaths: readonly string[]
 }
 
 export function isSourceInventoryPath(filePath: string): boolean {
@@ -28,10 +31,12 @@ export function readSourceInventory(
   root: string,
   pathProvider: GitPathProvider = readGitWorktreePaths,
 ): SourceInventory {
-  const files = pathProvider(root).filter(isSourceInventoryPath).sort()
+  const worktreePaths = pathProvider(root)
+  const files = worktreePaths.filter(isSourceInventoryPath).sort()
   return {
     files,
     fileSet: new Set(files),
+    worktreePaths,
   }
 }
 

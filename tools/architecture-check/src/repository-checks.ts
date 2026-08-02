@@ -6,7 +6,6 @@ import type {
   DependencyEdge,
   DependencyGraph,
 } from "./dependency-cruiser-runner.js"
-import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { normalizeRepoPath, repoPathToAbsolute } from "./repo-paths.js"
@@ -24,25 +23,25 @@ const INDEPENDENT_BROWSER_SAFE_ROOTS = [
   "packages/test-fixtures/src/",
 ] as const
 
+// Prefix-only builtins (node:test, node:sqlite, ...) are listed with their
+// prefix and stay prefix-only here: their bare names resolve to npm packages,
+// not to Node.
 const NODE_BUILTIN_IMPORTS = new Set(
-  builtinModules.flatMap((moduleName) => {
-    const bare = moduleName.startsWith("node:")
-      ? moduleName.slice("node:".length)
-      : moduleName
-    return [bare, `node:${bare}`]
-  }),
+  builtinModules.flatMap((moduleName) =>
+    moduleName.startsWith("node:")
+      ? [moduleName]
+      : [moduleName, `node:${moduleName}`],
+  ),
 )
 
 export function runRepositoryChecks(
   root: string,
   inventory: SourceInventory,
   graph: DependencyGraph,
-  pathProvider: GitPathProvider = readGitWorktreePaths,
 ): Violation[] {
-  const worktreePaths = pathProvider(root)
   return [
-    ...checkWorkspaceExportSources(root, worktreePaths),
-    ...checkWorkspaceTestRunner(root, worktreePaths),
+    ...checkWorkspaceExportSources(root, inventory.worktreePaths),
+    ...checkWorkspaceTestRunner(root, inventory.worktreePaths),
     ...checkBrowserSafeSourceBoundary(inventory, graph),
   ]
 }
@@ -57,9 +56,20 @@ export function checkWorkspaceExportSources(
   for (const manifestPath of worktreePaths.filter((file) =>
     WORKSPACE_MANIFEST_PATTERN.test(file),
   )) {
-    const manifest = JSON.parse(
-      fs.readFileSync(repoPathToAbsolute(root, manifestPath), "utf8"),
-    ) as { readonly exports?: unknown }
+    let manifest: { readonly exports?: unknown }
+    try {
+      manifest = JSON.parse(
+        fs.readFileSync(repoPathToAbsolute(root, manifestPath), "utf8"),
+      ) as { readonly exports?: unknown }
+    } catch (error) {
+      violations.push({
+        file: manifestPath,
+        message: `manifest is not valid JSON: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      })
+      continue
+    }
     if (!isRecord(manifest.exports)) continue
 
     const packageDirectory = path.posix.dirname(manifestPath)
@@ -213,9 +223,10 @@ function isProductionSource(file: string): boolean {
   return !TEST_SOURCE_PATTERN.test(file)
 }
 
+// Node's exports `*` is plain string substitution and may span `/`.
 function wildcardPathMatcher(value: string): RegExp {
   const escaped = value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")
-  return new RegExp(`^${escaped.replaceAll("\\*", "[^/]+")}$`)
+  return new RegExp(`^${escaped.replaceAll("\\*", ".+")}$`)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

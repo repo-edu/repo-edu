@@ -10,7 +10,7 @@ import {
 } from "@repo-edu/domain/repository-namespace"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback, useState } from "react"
-import { getWorkflowClient } from "../../../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import {
   selectActiveGitConnection,
   selectActiveGitConnectionId,
@@ -66,6 +66,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   const { effectiveAssignmentId, nonEmptyCount, emptyCount, disabled } = params
 
   const course = useCourseStore((s) => s.course)
+  const workflowClient = useWorkflowClient()
   const gitConnections = useSessionControllerSelector(selectGitConnections)
   const activeGitConnection = useSessionControllerSelector(
     selectActiveGitConnection,
@@ -325,8 +326,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       })
 
       try {
-        const client = getWorkflowClient()
-        const result = await client.run(workflowId, input)
+        const result = await workflowClient.run(workflowId, input)
         setOperationStatus("success")
         if (operation === "create") {
           const typed = result as RepositoryCreateResult
@@ -371,6 +371,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       credentials,
       effectiveAssignmentId,
       repositoryTemplate,
+      workflowClient,
     ],
   )
 

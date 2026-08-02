@@ -178,6 +178,11 @@ describe("area reconciliation", () => {
         "packages/a/src/index.ts",
         "packages/b/src/cross.ts",
       ]),
+      worktreePaths: [
+        "packages/a/src/cross-one.ts",
+        "packages/a/src/index.ts",
+        "packages/b/src/cross.ts",
+      ],
     })
 
     assert.deepEqual([...result.violations], [])
@@ -229,6 +234,10 @@ describe("area reconciliation", () => {
         "packages/a/src/overlap.ts",
         "packages/orphan/src/index.ts",
       ]),
+      worktreePaths: [
+        "packages/a/src/overlap.ts",
+        "packages/orphan/src/index.ts",
+      ],
     })
 
     assert.match(

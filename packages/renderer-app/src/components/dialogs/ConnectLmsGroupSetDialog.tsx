@@ -22,7 +22,7 @@ import {
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -50,6 +50,7 @@ export function ConnectLmsGroupSetDialog() {
   const roster = useCourseStore((state) => state.course?.roster ?? null)
   const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
+  const workflowClient = useWorkflowClient()
   const supportsLms = course !== null && courseSupportsLms(course)
 
   const [groupSets, setGroupSets] = useState<GroupSetLmsSummary[]>([])
@@ -89,8 +90,7 @@ export function ConnectLmsGroupSetDialog() {
     setLoading(true)
     setError(null)
 
-    const client = getWorkflowClient()
-    client
+    workflowClient
       .run("groupSet.fetchAvailableFromLms", {
         course,
         credentials,
@@ -114,7 +114,7 @@ export function ConnectLmsGroupSetDialog() {
     return () => {
       cancelled = true
     }
-  }, [open, course, credentials, supportsLms])
+  }, [open, course, credentials, supportsLms, workflowClient])
 
   const selectedGroupSet = useMemo(
     () => availableGroupSets.find((groupSet) => groupSet.id === selectedId),
@@ -155,15 +155,13 @@ export function ConnectLmsGroupSetDialog() {
     const requestId = connectRequestIdRef.current + 1
     connectRequestIdRef.current = requestId
 
-    const client = getWorkflowClient()
-
     setConnecting(true)
     setError(null)
     setProgressMessage("Connecting to LMS...")
     setGroupSetOperation({ kind: "connect" })
 
     try {
-      const result = await client.run(
+      const result = await workflowClient.run(
         "groupSet.connectFromLms",
         {
           course,

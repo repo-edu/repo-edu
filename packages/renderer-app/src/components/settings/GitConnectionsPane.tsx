@@ -26,7 +26,7 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -53,6 +53,7 @@ type GitViewState =
   | { view: "editor"; originalId: string | null }
 
 export function GitConnectionsPane() {
+  const workflowClient = useWorkflowClient()
   const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
   const gitSavedStatuses = useConnectionsStore((state) => state.gitStatuses)
@@ -125,8 +126,7 @@ export function GitConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run("connection.verifyGitDraft", {
+      const result = await workflowClient.run("connection.verifyGitDraft", {
         provider: d.provider,
         baseUrl,
         token,
@@ -190,8 +190,7 @@ export function GitConnectionsPane() {
 
     setGitStatus(connection.id, "verifying", null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run("connection.verifyGitDraft", {
+      const result = await workflowClient.run("connection.verifyGitDraft", {
         provider: connection.provider,
         baseUrl: normalizedBaseUrl,
         token: connection.token,

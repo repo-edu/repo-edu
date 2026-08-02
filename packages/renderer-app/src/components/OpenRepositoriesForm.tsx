@@ -29,7 +29,7 @@ import {
   useMemo,
   useState,
 } from "react"
-import { getWorkflowClient } from "../contexts/workflow-client.js"
+import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder.js"
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
@@ -117,6 +117,7 @@ export function OpenRepositoriesForm() {
     (state) => state.setRosterSyncDialogOpen,
   )
   const credentials = useSessionControllerSelector(selectCredentials)
+  const workflowClient = useWorkflowClient()
   const { createCourse } = useCourses()
   const openRepositoriesFolder = useOpenRepositoriesFolder()
   const openSubmissionFolder = useOpenSubmissionFolder()
@@ -186,8 +187,7 @@ export function OpenRepositoriesForm() {
     setCourseFetchStatus("loading")
     setCourseFetchError(null)
 
-    const client = getWorkflowClient()
-    client
+    workflowClient
       .run("connection.listLmsCoursesDraft", {
         provider: selectedLmsDraft.provider,
         baseUrl: selectedLmsDraft.baseUrl,
@@ -221,7 +221,7 @@ export function OpenRepositoriesForm() {
     return () => {
       cancelled = true
     }
-  }, [selectedLmsDraft])
+  }, [selectedLmsDraft, workflowClient])
 
   const canCommitCourse = useMemo(() => {
     if (creating || !isCourseSource) return false

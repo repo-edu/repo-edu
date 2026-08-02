@@ -26,6 +26,7 @@ import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
 import { useTheme } from "../hooks/use-theme.js"
+import { registerRendererCloseHandlers } from "../session/renderer-close-registration.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -93,23 +94,6 @@ import { StudentsTab } from "./tabs/StudentsTab.js"
 export type RendererSessionRootProps = {
   workflowClient: WorkflowClient
   rendererHost: RendererHost
-}
-
-export function registerRendererCloseHandlers(
-  rendererHost: Pick<RendererHost, "onCloseRequest" | "onCloseCancel">,
-  controller: Pick<SessionController, "requestClose" | "cancelClose">,
-): () => void {
-  const unsubscribeClose = rendererHost.onCloseRequest((attemptId) =>
-    controller.requestClose(attemptId),
-  )
-  const unsubscribeCancel = rendererHost.onCloseCancel((attemptId) => {
-    controller.cancelClose(attemptId)
-  })
-
-  return () => {
-    unsubscribeClose()
-    unsubscribeCancel()
-  }
 }
 
 export function RendererSessionRoot({

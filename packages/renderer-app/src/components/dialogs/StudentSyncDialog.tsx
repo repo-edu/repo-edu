@@ -19,7 +19,7 @@ import {
 } from "@repo-edu/ui"
 import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveCourseId,
   selectCourseLoadStatus,
@@ -40,6 +40,7 @@ type RosterSyncPreview = {
 }
 
 export function StudentSyncDialog() {
+  const workflowClient = useWorkflowClient()
   const open = useUiStore((state) => state.rosterSyncDialogOpen)
   const setOpen = useUiStore((state) => state.setRosterSyncDialogOpen)
   const controller = useSessionController()
@@ -121,8 +122,7 @@ export function StudentSyncDialog() {
     setProgressMessage("Connecting to LMS...")
 
     try {
-      const client = getWorkflowClient()
-      const result = await client.run(
+      const result = await workflowClient.run(
         "roster.importFromLms",
         {
           course: loadedCourse,
@@ -157,6 +157,7 @@ export function StudentSyncDialog() {
     courseLoadStatus.state,
     lmsConnectionId,
     lmsCourseId,
+    workflowClient,
   ])
 
   useEffect(() => {

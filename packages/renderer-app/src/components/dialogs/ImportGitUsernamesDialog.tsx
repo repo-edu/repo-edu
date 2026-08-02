@@ -11,8 +11,8 @@ import {
 } from "@repo-edu/ui"
 import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
-import { getRendererHost } from "../../contexts/renderer-host.js"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useRendererHost } from "../../contexts/renderer-host.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -28,6 +28,8 @@ export function ImportGitUsernamesDialog() {
   const course = useCourseStore((state) => state.course)
   const credentials = useSessionControllerSelector(selectCredentials)
   const controller = useSessionController()
+  const rendererHost = useRendererHost()
+  const workflowClient = useWorkflowClient()
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -45,8 +47,7 @@ export function ImportGitUsernamesDialog() {
 
   const handleBrowse = async () => {
     try {
-      const host = getRendererHost()
-      const file = await host.pickUserFile({
+      const file = await rendererHost.pickUserFile({
         title: "Select Git username CSV",
         acceptFormats: ["csv"],
       })
@@ -67,8 +68,7 @@ export function ImportGitUsernamesDialog() {
     setError(null)
 
     try {
-      const client = getWorkflowClient()
-      const importedRoster = await client.run("gitUsernames.import", {
+      const importedRoster = await workflowClient.run("gitUsernames.import", {
         course,
         credentials,
         file: fileRef,

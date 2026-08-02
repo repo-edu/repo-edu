@@ -10,8 +10,8 @@ import {
 } from "@repo-edu/ui"
 import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
-import { getRendererHost } from "../../contexts/renderer-host.js"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useRendererHost } from "../../contexts/renderer-host.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
@@ -25,6 +25,8 @@ export function ImportStudentsFromFileDialog() {
 
   const controller = useSessionController()
   const course = useCourseStore((state) => state.course)
+  const rendererHost = useRendererHost()
+  const workflowClient = useWorkflowClient()
 
   const [fileName, setFileName] = useState("")
   const [fileRef, setFileRef] = useState<{
@@ -39,8 +41,7 @@ export function ImportStudentsFromFileDialog() {
 
   const handleBrowse = async () => {
     try {
-      const host = getRendererHost()
-      const ref = await host.pickUserFile({
+      const ref = await rendererHost.pickUserFile({
         title: "Select file to import",
         acceptFormats: ["csv", "xlsx"],
       })
@@ -68,8 +69,7 @@ export function ImportStudentsFromFileDialog() {
     setError(null)
 
     try {
-      const client = getWorkflowClient()
-      const imported = await client.run("roster.importFromFile", {
+      const imported = await workflowClient.run("roster.importFromFile", {
         course,
         file: fileRef,
       })

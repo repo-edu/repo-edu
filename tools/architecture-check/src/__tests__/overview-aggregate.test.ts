@@ -73,6 +73,12 @@ describe("overview structure aggregate", () => {
         "packages/b/src/marked.ts",
         "packages/b/src/plain.ts",
       ]),
+      worktreePaths: [
+        "packages/a/src/one.ts",
+        "packages/a/src/two.ts",
+        "packages/b/src/marked.ts",
+        "packages/b/src/plain.ts",
+      ],
     }
     const aggregate = createAreaStructureAggregate({
       root: "/repo",

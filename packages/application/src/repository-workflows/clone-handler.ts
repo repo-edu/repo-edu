@@ -1,6 +1,5 @@
 import type {
   AppError,
-  AppValidationIssue,
   DiagnosticOutput,
   MilestoneProgress,
   RecordedRepositoriesByAssignment,
@@ -10,7 +9,6 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
 import { createValidationAppError } from "../core.js"
 import {
   isSharedAppError,
@@ -21,21 +19,16 @@ import {
   throwIfAborted,
 } from "../workflow-helpers.js"
 import {
-  normalizeRepositoryExecutionError,
-  requireGitOrganization,
-} from "./common.js"
-import {
-  initPullClone,
-  isGitRepositoryPath,
-  mapConcurrent,
-} from "./git-helpers.js"
+  admitRepositoryCloneTargets,
+  runRepositoryClones,
+} from "./clone-execution.js"
+import { requireGitOrganization } from "./common.js"
 import {
   findRepositoryClonePathCollisions,
   normalizeDirectoryLayout,
   normalizeTargetDirectory,
   repositoryCloneParentPath,
   repositoryClonePath,
-  repositoryCloneTempPath,
   repositoryCloneTempRoot,
 } from "./paths.js"
 import { collectRepositoryGroups, uniqueRepositoryNames } from "./planning.js"
@@ -189,90 +182,20 @@ export function createRepoCloneHandler(
           })
         }
 
-        try {
-          await ports.fileSystem.applyBatch({
-            operations: Array.from(parentDirectories).map((path) => ({
-              kind: "ensure-directory" as const,
-              path,
-            })),
-            signal: options?.signal,
-          })
-        } catch (error) {
-          throw normalizeRepositoryExecutionError(error, "ensureDirectories")
-        }
-
-        let inspected: Awaited<ReturnType<FileSystemPort["inspect"]>> = []
-        try {
-          inspected = await ports.fileSystem.inspect({
-            paths: cloneTargets.map((target) => target.path),
-            signal: options?.signal,
-          })
-        } catch (error) {
-          throw normalizeRepositoryExecutionError(error, "inspectCloneTargets")
-        }
-        const targetByPath = new Map(
-          cloneTargets.map((target) => [target.path, target]),
-        )
-        const clashIssues: AppValidationIssue[] = []
-        const existingDirectoryPaths: string[] = []
-        for (const entry of inspected) {
-          if (entry.kind === "missing") {
-            continue
-          }
-          const target = targetByPath.get(entry.path)
-          if (target === undefined) {
-            continue
-          }
-          if (entry.kind === "file") {
-            clashIssues.push({
-              path: "targetDirectory",
-              message: `Target path '${entry.path}' for repository '${target.repoName}' already exists as a file.`,
-            })
-            continue
-          }
-          existingDirectoryPaths.push(entry.path)
-        }
-        const existingGitRepoPaths = new Set<string>()
-        const existingDirectoryChecks = await mapConcurrent(
-          existingDirectoryPaths,
-          async (path) => {
-            const isGitRepo = await isGitRepositoryPath(
-              ports.gitCommand,
-              path,
-              options?.signal,
-            )
-            return { path, isGitRepo }
-          },
-          8,
-        )
-        for (const check of existingDirectoryChecks) {
-          const target = targetByPath.get(check.path)
-          if (target === undefined) {
-            continue
-          }
-          if (check.isGitRepo) {
-            existingGitRepoPaths.add(check.path)
-            continue
-          }
-          clashIssues.push({
-            path: "targetDirectory",
-            message: `Target path '${check.path}' for repository '${target.repoName}' already exists and is not a Git repository.`,
-          })
-        }
-        if (clashIssues.length > 0) {
-          throw createValidationAppError(
+        const admission = await admitRepositoryCloneTargets({
+          ports,
+          targets: cloneTargets,
+          parentDirectories,
+          conflictMessage:
             "Repository clone target paths conflict with existing non-git entries.",
-            clashIssues,
-          )
-        }
+          signal: options?.signal,
+        })
 
         options?.onProgress?.({
           step: 4,
           totalSteps,
           label: "Cloning repositories via system git.",
         })
-        let cloned = 0
-        let failed = 0
         const skippedExistingNames: string[] = []
         const recordedRepositories: RecordedRepositoriesByAssignment = {}
         const stageRecord = (target: {
@@ -287,83 +210,22 @@ export function createRepoCloneHandler(
           recordedRepositories[target.assignmentId] = existing
         }
 
-        const toClone = cloneTargets.filter((target) => {
-          if (existingGitRepoPaths.has(target.path)) {
-            skippedExistingNames.push(target.repoName)
-            stageRecord(target)
-            return false
-          }
-          return true
-        })
-        const cloneItems = toClone.map((target, index) => ({
-          ...target,
-          tempPath: repositoryCloneTempPath(
-            tempCloneRoot,
-            target.repoName,
-            index,
-          ),
-        }))
-
-        const cloneResults = await mapConcurrent(
-          cloneItems,
-          async (target) => {
-            const cleanupTempPath = async () => {
-              try {
-                await ports.fileSystem.applyBatch({
-                  operations: [{ kind: "delete-path", path: target.tempPath }],
-                  signal: options?.signal,
-                })
-              } catch {
-                // Best effort cleanup.
-              }
-            }
-            try {
-              await cleanupTempPath()
-              const ok = await initPullClone(
-                ports.gitCommand,
-                target.cloneUrl,
-                target.tempPath,
-                options?.signal,
-              )
-              if (ok) {
-                await ports.fileSystem.applyBatch({
-                  operations: [
-                    {
-                      kind: "copy-directory",
-                      sourcePath: target.tempPath,
-                      destinationPath: target.path,
-                    },
-                  ],
-                  signal: options?.signal,
-                })
-                await cleanupTempPath()
-                return "cloned" as const
-              }
-              await cleanupTempPath()
-              options?.onOutput?.({
-                channel: "warn",
-                message: `git clone failed for '${target.repoName}': git pull returned non-zero exit code`,
-              })
-              return "failed" as const
-            } catch (error) {
-              await cleanupTempPath()
-              options?.onOutput?.({
-                channel: "warn",
-                message: `git clone failed for '${target.repoName}': ${error instanceof Error ? error.message : String(error)}`,
-              })
-              return "failed" as const
-            }
-          },
-          8,
-        )
-        for (let index = 0; index < cloneResults.length; index += 1) {
-          if (cloneResults[index] === "cloned") {
-            cloned += 1
-            stageRecord(cloneItems[index])
-          } else {
-            failed += 1
-          }
+        for (const target of admission.existing) {
+          skippedExistingNames.push(target.repoName)
+          stageRecord(target)
         }
+        const execution = await runRepositoryClones({
+          ports,
+          targets: admission.toClone,
+          tempCloneRoot,
+          signal: options?.signal,
+          onOutput: options?.onOutput,
+        })
+        for (const target of execution.cloned) {
+          stageRecord(target)
+        }
+        const cloned = execution.cloned.length
+        const failed = execution.failed.length
         options?.onOutput?.({
           channel: "info",
           message: `Repository clone summary: planned ${planned.value.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${skippedExistingNames.length}${skippedExistingNames.length > 0 ? ` (${skippedExistingNames.join(", ")})` : ""}, failed ${failed}.`,

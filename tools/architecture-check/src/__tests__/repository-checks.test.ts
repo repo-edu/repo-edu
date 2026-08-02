@@ -17,6 +17,7 @@ import {
 describe("repository checks", () => {
   it("validates exact and wildcard workspace source exports", async () => {
     const root = await createFixture({
+      "packages/broken/package.json": "{ not json",
       "packages/example/package.json": JSON.stringify({
         exports: {
           ".": { source: "./src/index.ts" },
@@ -25,18 +26,24 @@ describe("repository checks", () => {
         },
       }),
       "packages/example/src/index.ts": "export const value = true\n",
-      "packages/example/src/features/one.ts": "export const one = true\n",
+      "packages/example/src/features/deep/one.ts": "export const one = true\n",
     })
     const paths = [
+      "packages/broken/package.json",
       "packages/example/package.json",
       "packages/example/src/index.ts",
-      "packages/example/src/features/one.ts",
+      // Node's exports `*` substitution spans `/`, so this nested file is the
+      // wildcard target's only match.
+      "packages/example/src/features/deep/one.ts",
     ]
 
     const violations = checkWorkspaceExportSources(root, paths)
 
-    assert.equal(violations.length, 1)
-    assert.match(violations[0].message, /src\/missing\.ts/)
+    assert.equal(violations.length, 2)
+    assert.equal(violations[0].file, "packages/broken/package.json")
+    assert.match(violations[0].message, /not valid JSON/)
+    assert.equal(violations[1].file, "packages/example/package.json")
+    assert.match(violations[1].message, /src\/missing\.ts/)
   })
 
   it("applies the Node test convention to TypeScript and TSX tests", async () => {
@@ -85,6 +92,8 @@ describe("repository checks", () => {
         "apps/desktop/src/UpdateDialog.tsx",
         [
           runtimeEdge("node:os"),
+          // Bare "test" resolves to an npm package; only node:test is builtin.
+          runtimeEdge("test"),
           runtimeEdge(
             "@repo-edu/renderer-app",
             "packages/renderer-app/src/index.ts",
@@ -125,7 +134,7 @@ describe("repository checks", () => {
     ])
 
     const violations = checkBrowserSafeSourceBoundary(
-      { files, fileSet: new Set(files) },
+      { files, fileSet: new Set(files), worktreePaths: files },
       graph,
     )
 
@@ -186,7 +195,7 @@ describe("repository checks", () => {
     ])
 
     const violations = checkBrowserSafeSourceBoundary(
-      { files, fileSet: new Set(files) },
+      { files, fileSet: new Set(files), worktreePaths: files },
       graph,
     )
 
@@ -231,7 +240,7 @@ describe("repository checks", () => {
     ])
 
     const violations = checkBrowserSafeSourceBoundary(
-      { files, fileSet: new Set(files) },
+      { files, fileSet: new Set(files), worktreePaths: files },
       graph,
     )
 

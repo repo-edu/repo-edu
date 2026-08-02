@@ -41,5 +41,9 @@ describe("source inventory", () => {
       worktreeInventory.fileSet.has("packages/domain/src/local-only.ts"),
       true,
     )
+    assert.deepEqual(worktreeInventory.worktreePaths, [
+      "packages/domain/src/local-only.ts",
+      "packages/domain/src/settings.ts",
+    ])
   })
 })

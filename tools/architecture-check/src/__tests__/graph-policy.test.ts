@@ -258,5 +258,6 @@ function inventory(files: readonly string[]) {
   return {
     files,
     fileSet: new Set(files),
+    worktreePaths: files,
   }
 }

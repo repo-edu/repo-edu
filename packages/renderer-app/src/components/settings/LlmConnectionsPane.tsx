@@ -21,7 +21,7 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -56,6 +56,7 @@ const AUTH_MODE_LABEL = {
 } as const
 
 export function LlmConnectionsPane() {
+  const workflowClient = useWorkflowClient()
   const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
   const llmSavedStatuses = useConnectionsStore((state) => state.llmStatuses)
@@ -159,8 +160,7 @@ export function LlmConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run(
+      const result = await workflowClient.run(
         "connection.verifyLlmDraft",
         verifyInputFromDraft(d),
       )
@@ -226,8 +226,7 @@ export function LlmConnectionsPane() {
   const handleVerifySaved = async (connection: PersistedLlmConnection) => {
     setLlmStatus(connection.id, "verifying", null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run(
+      const result = await workflowClient.run(
         "connection.verifyLlmDraft",
         verifyInputFromConnection(connection),
       )

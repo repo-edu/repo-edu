@@ -18,7 +18,7 @@ describe("bespoke checks", () => {
 
     const violations = runBespokeChecks(
       root,
-      { files: [], fileSet: new Set() },
+      { files: [], fileSet: new Set(), worktreePaths: [] },
       () => ["tools/config/build.ts"],
     )
 
@@ -47,7 +47,7 @@ describe("bespoke checks", () => {
 
     const violations = runBespokeChecks(
       root,
-      { files: [], fileSet: new Set() },
+      { files: [], fileSet: new Set(), worktreePaths: [] },
       () => ["tools/config/build.ts", "tools/config/import-equals.ts"],
     )
 
@@ -70,7 +70,7 @@ describe("bespoke checks", () => {
 
     const violations = runBespokeChecks(
       root,
-      { files: [], fileSet: new Set() },
+      { files: [], fileSet: new Set(), worktreePaths: [] },
       () => ["tools/config/types.ts"],
     )
 

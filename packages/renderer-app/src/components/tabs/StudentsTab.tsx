@@ -1,6 +1,6 @@
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
-import { getRendererHost } from "../../contexts/renderer-host.js"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useRendererHost } from "../../contexts/renderer-host.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectCourseId,
@@ -17,6 +17,8 @@ export function StudentsTab() {
   const roster = useCourseStore(selectRoster)
   const course = useCourseStore((s) => s.course)
   const controller = useSessionController()
+  const rendererHost = useRendererHost()
+  const workflowClient = useWorkflowClient()
   const lmsConnectionId = useCourseStore(selectLmsConnectionId)
   const courseId = useCourseStore(selectCourseId)
   const addToast = useToastStore((s) => s.addToast)
@@ -58,14 +60,12 @@ export function StudentsTab() {
     if (!course || !roster) return
 
     try {
-      const host = getRendererHost()
-      const target = await host.pickSaveTarget({
+      const target = await rendererHost.pickSaveTarget({
         suggestedName: `students.${format}`,
       })
       if (!target) return
 
-      const client = getWorkflowClient()
-      await client.run("roster.exportMembers", {
+      await workflowClient.run("roster.exportMembers", {
         course,
         target,
         format,

@@ -21,7 +21,7 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import { useMemo, useState } from "react"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
   useSessionController,
@@ -51,6 +51,7 @@ type LmsViewState =
   | { view: "editor"; originalId: string | null }
 
 export function LmsConnectionsPane() {
+  const workflowClient = useWorkflowClient()
   const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
   const lmsSavedStatuses = useConnectionsStore((state) => state.lmsStatuses)
@@ -148,8 +149,7 @@ export function LmsConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run("connection.verifyLmsDraft", {
+      const result = await workflowClient.run("connection.verifyLmsDraft", {
         provider: d.provider,
         baseUrl,
         token,
@@ -219,8 +219,7 @@ export function LmsConnectionsPane() {
 
     setLmsConnectionStatus(connection.id, "verifying", null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run("connection.verifyLmsDraft", {
+      const result = await workflowClient.run("connection.verifyLmsDraft", {
         provider: connection.provider,
         baseUrl: normalizedBaseUrl,
         token: connection.token,

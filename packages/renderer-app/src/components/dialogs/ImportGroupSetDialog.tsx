@@ -18,8 +18,8 @@ import {
 
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
-import { getRendererHost } from "../../contexts/renderer-host.js"
-import { getWorkflowClient } from "../../contexts/workflow-client.js"
+import { useRendererHost } from "../../contexts/renderer-host.js"
+import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
 import {
   selectGroupSetById,
@@ -67,6 +67,8 @@ export function ImportGroupSetDialog() {
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
   const controller = useSessionController()
+  const rendererHost = useRendererHost()
+  const workflowClient = useWorkflowClient()
 
   const reimportGroupSet = useCourseStore(
     selectGroupSetById(reimportTargetId ?? ""),
@@ -117,13 +119,15 @@ export function ImportGroupSetDialog() {
     setLoading(true)
     setError(null)
     try {
-      const client = getWorkflowClient()
-      const result = await client.run("groupSet.previewImportFromFile", {
-        course,
-        file: nextFileRef,
-        format: nextFormat,
-        targetGroupSetId,
-      })
+      const result = await workflowClient.run(
+        "groupSet.previewImportFromFile",
+        {
+          course,
+          file: nextFileRef,
+          format: nextFormat,
+          targetGroupSetId,
+        },
+      )
       setPreview(result)
     } catch (cause) {
       setPreview(null)
@@ -136,10 +140,9 @@ export function ImportGroupSetDialog() {
   const handleBrowse = async () => {
     if (!format) return
     try {
-      const host = getRendererHost()
       const acceptFormats =
         format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
-      const picked = await host.pickUserFile({
+      const picked = await rendererHost.pickUserFile({
         title: "Select group-set import file",
         acceptFormats,
       })
@@ -165,8 +168,7 @@ export function ImportGroupSetDialog() {
     )
 
     try {
-      const client = getWorkflowClient()
-      const nextCourse = await client.run("groupSet.importFromFile", {
+      const nextCourse = await workflowClient.run("groupSet.importFromFile", {
         course,
         file: fileRef,
         format,
