@@ -9,7 +9,6 @@ import type {
 } from "@repo-edu/host-runtime-contract"
 import type {
   OpenUserFileDialogOptions,
-  RendererEnvironmentSnapshot,
   RendererOpenUserFileRef,
   RendererSaveTargetRef,
   SaveUserFileDialogOptions,
@@ -126,7 +125,6 @@ export type DesktopHostEnvironment = {
     options?: { title?: string },
   ): Promise<string | null>
   openExternalUrl(url: string): Promise<void>
-  getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
 }
 
 type DesktopHostOptions = {
@@ -141,7 +139,6 @@ export function createDesktopHostEnvironment(
   const writableReferences = new Map<string, WriteReferenceRecord>()
   const queuedUserFilePaths = [...(options.queuedUserFilePaths ?? [])]
   const queuedSaveTargetPaths = [...(options.queuedSaveTargetPaths ?? [])]
-  let lastOpenedExternalUrl: string | null = null
 
   const registerReadable = async (
     filePath: string,
@@ -355,17 +352,6 @@ export function createDesktopHostEnvironment(
 
     async openExternalUrl(url: string) {
       await shell.openExternal(url)
-      lastOpenedExternalUrl = url
-    },
-
-    async getEnvironmentSnapshot() {
-      return {
-        shell: "electron-renderer",
-        theme: "system",
-        windowChrome: "hiddenInset",
-        canPromptForFiles: true,
-        lastOpenedExternalUrl,
-      } satisfies RendererEnvironmentSnapshot
     },
   }
 }

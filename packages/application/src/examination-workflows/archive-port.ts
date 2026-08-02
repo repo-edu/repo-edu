@@ -42,59 +42,6 @@ export type ExaminationArchivePort = {
   importBundle(bundle: unknown): ExaminationArchiveImportSummary
 }
 
-/**
- * In-memory storage backing for CLI/docs/test environments that don't
- * require archive persistence. Mirrors the persistent port surface but
- * holds entries in a Map. Trusts its caller to pass validated entries —
- * the application archive adapter owns validation.
- */
-export function createInMemoryExaminationArchiveStorage(): ExaminationArchiveStoragePort {
-  const entries = new Map<string, ExaminationArchiveStoredEntry>()
-  return {
-    get(storageKey) {
-      return entries.get(storageKey)
-    },
-    put(entry) {
-      entries.set(entry.storageKey, entry)
-    },
-    remove(storageKey) {
-      entries.delete(storageKey)
-    },
-    exportAll() {
-      return [...entries.values()]
-    },
-    importAll(incoming) {
-      let inserted = 0
-      let updated = 0
-      let skipped = 0
-      for (const entry of incoming) {
-        const existing = entries.get(entry.storageKey)
-        if (existing === undefined) {
-          entries.set(entry.storageKey, entry)
-          inserted += 1
-        } else if (entry.createdAtMs > existing.createdAtMs) {
-          entries.set(entry.storageKey, entry)
-          updated += 1
-        } else {
-          skipped += 1
-        }
-      }
-      return {
-        totalInBundle: incoming.length,
-        inserted,
-        updated,
-        skipped,
-        rejected: 0,
-        rejections: [],
-      }
-    },
-  }
-}
-
-export function createInMemoryExaminationArchive(): ExaminationArchivePort {
-  return createExaminationArchive(createInMemoryExaminationArchiveStorage())
-}
-
 export function createExaminationArchive(
   storage: ExaminationArchiveStoragePort,
 ): ExaminationArchivePort {

@@ -104,9 +104,6 @@
       "@repo-edu/host-node/examination-archive": [
         "./packages/host-node/src/examination-archive/index.ts"
       ],
-      "@repo-edu/host-browser-mock": [
-        "./packages/host-browser-mock/src/index.ts"
-      ],
       "@repo-edu/test-fixtures": [
         "./packages/test-fixtures/src/index.ts"
       ],

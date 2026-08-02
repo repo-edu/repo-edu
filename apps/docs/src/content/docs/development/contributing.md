@@ -1,6 +1,6 @@
 ---
 title: Contributing
-description: Where logic belongs, validation commands, high-risk areas, and guardrail tests
+description: Where logic belongs, validation commands, high-risk areas, and repository checks
 ---
 
 ## Where logic belongs
@@ -18,7 +18,6 @@ Before making a change, decide which layer owns the behavior:
 | LMS/Git provider specifics | `packages/integrations-*` |
 | Argument parsing, output formatting | `apps/cli/src/commands/` |
 | Electron IPC, preload bridge | `apps/desktop/` |
-| Browser mock behavior | `packages/host-browser-mock` |
 
 Keep behavior in shared packages wherever possible. Shell-specific concerns (Electron IPC, Commander argument parsing, Astro page routing) stay in app shells.
 
@@ -31,11 +30,10 @@ pnpm check       # fix + typecheck + build:types + check:fixtures + check:archit
 pnpm test        # all package-level tests
 ```
 
-For changes touching desktop or docs, also run:
+For changes touching desktop, also run:
 
 ```bash
 pnpm test:runtime   # preload bridge and tRPC wiring checks
-pnpm docs:test      # smoke, workflow alignment, and browser guardrail tests
 ```
 
 Or run everything at once:
@@ -58,30 +56,19 @@ Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contr
 
 ### Cross-surface behavior mismatches
 
-All surfaces should produce the same result for the same workflow input. If you change handler behavior, verify it on all delivery surfaces. The docs demo runtime uses mock ports, so mock behavior must stay realistic enough to catch regressions.
+Desktop and CLI should produce the same result for the same workflow input. If you change handler behavior, verify it on every declared delivery surface.
 
 ### Electron boundary leakage
 
-Importing Node or Electron APIs into browser-safe packages breaks the docs site and the test suite. The browser guardrail test enforces this automatically.
+Importing Node or Electron APIs into the desktop renderer runtime closure breaks its sandbox boundary. The architecture check enforces this automatically.
 
-## Guardrail tests
+## Repository checks
 
-Two automated tests in `apps/docs/src/__tests__/` enforce architectural invariants:
+`tools/architecture-check` owns repository-wide checks that do not belong to an app:
 
-### workflow-alignment.test.ts
+- package export sources must resolve to current source files
+- TypeScript tests must use `node:test` and `node:assert/strict`
+- the desktop renderer runtime closure must not contain Node built-in imports
+- independently browser-safe contract and fixture roots must not contain Node built-in imports
 
-Verifies that:
-
-- Every workflow marked with `delivery: ["docs", ...]` in the catalog has a corresponding handler in the docs demo runtime
-- Every workflow invoked by `@repo-edu/renderer-app` source code (detected via regex on `.run("workflow.id"` calls) is present in the docs runtime
-
-This catches forgotten wiring when adding new workflows or changing delivery arrays.
-
-### browser-guardrail.test.ts
-
-Scans source files in browser-safe packages (`domain`, `tree-sitter-grammar-assets`, `application-contract`, `renderer-host-contract`, `renderer-app`, `host-browser-mock`, `test-fixtures`) for forbidden imports:
-
-- `node:*` built-in modules
-- `fs`, `path`, `child_process`, `worker_threads`, `net`, `tls`
-
-Any match fails the test. This prevents Node/Electron dependencies from leaking into packages that must run in the browser.
+The runtime closure is derived from dependency-cruiser metadata starting at `apps/desktop/src/renderer.ts`. Tests, type-only edges, and pre-compilation-only edges do not enter the closure.

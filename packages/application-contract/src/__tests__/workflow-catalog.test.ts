@@ -84,7 +84,7 @@ describe("application-contract workflow catalog", () => {
   })
 
   it("every catalog entry has valid delivery surfaces", () => {
-    const validSurfaces: DeliverySurface[] = ["desktop", "docs", "cli"]
+    const validSurfaces: DeliverySurface[] = ["desktop", "cli"]
 
     for (const [id, meta] of Object.entries(workflowCatalog)) {
       assert.ok(

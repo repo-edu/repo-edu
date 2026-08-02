@@ -3,7 +3,7 @@ title: Renderer App
 description: State management, table patterns, undo/redo, and UI conventions in the shared React frontend
 ---
 
-The `@repo-edu/renderer-app` package is the shared React frontend used by both the Electron desktop app and the browser-based docs demo. It is environment-agnostic — it never imports Node, Electron, or transport-specific code. Instead, it receives a `WorkflowClient` and a `RendererHost` at initialization and uses them for all I/O.
+The `@repo-edu/renderer-app` package is the React frontend used by the Electron desktop app. It never imports Node, Electron, or transport-specific code. Instead, it receives a `WorkflowClient` and a required `RendererHost` at initialization and uses them for all I/O.
 
 ## Dependency injection
 
@@ -15,7 +15,7 @@ The app requires two dependencies provided by the host environment:
 These are injected at startup through `RendererSessionRoot()`. The root constructs a `SessionController` with the full workflow client, then calls `configureApp()` with a narrowed `WorkflowClient<AppWorkflowId>` for the rest of the renderer. React code receives the narrowed client through context (`useWorkflowClient()`, `useRendererHost()`), and non-React helpers can use the same narrowed module-level getters (`getWorkflowClient()`, `getRendererHost()`).
 
 ```typescript
-// At mount time (desktop or docs)
+// At desktop renderer mount time
 <RendererSessionRoot workflowClient={workflowClient} rendererHost={rendererHost} />
 
 // In React components

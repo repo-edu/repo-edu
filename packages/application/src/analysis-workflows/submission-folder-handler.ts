@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer"
+import { isAbsolute } from "node:path"
 import type {
   AnalysisFolderFile,
   WorkflowCallOptions,
@@ -9,7 +11,7 @@ import {
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
-import { isAbsolutePath } from "../path-utils.js"
+import { admitSelectedRelativeFilePath } from "../selected-file-admission.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 
@@ -91,7 +93,7 @@ function normalizeExtensionFilter(extensions: readonly string[]): string[] {
 
 function validateAbsoluteFolderPath(folderPath: string): string {
   const normalized = folderPath.trim()
-  if (normalized.length === 0 || !isAbsolutePath(normalized)) {
+  if (normalized.length === 0 || !isAbsolute(normalized)) {
     throw createValidationAppError("Submission folder path is invalid.", [
       {
         path: "folderPath",
@@ -118,19 +120,9 @@ async function assertExistingDirectory(
   }
 }
 
-function normalizeRelativeFilePath(relativePath: string): string {
-  const normalized = relativePath.replaceAll("\\", "/")
-  const parts = normalized.split("/")
-  const hasInvalidSegment = parts.some(
-    (part) => part.length === 0 || part === "." || part === "..",
-  )
-  if (
-    normalized.length === 0 ||
-    normalized.startsWith("/") ||
-    /^[a-zA-Z]:/.test(normalized) ||
-    normalized.startsWith("//") ||
-    hasInvalidSegment
-  ) {
+function admitRelativeFilePath(relativePath: string): string {
+  const admission = admitSelectedRelativeFilePath(relativePath)
+  if (!admission.ok) {
     throw createValidationAppError("Submission file path is invalid.", [
       {
         path: "relativePath",
@@ -138,17 +130,11 @@ function normalizeRelativeFilePath(relativePath: string): string {
       },
     ])
   }
-  return normalized
+  return admission.path
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ""
-  const chunkSize = 0x8000
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize)
-    binary += String.fromCharCode(...chunk)
-  }
-  return btoa(binary)
+  return Buffer.from(bytes).toString("base64")
 }
 
 export function createSubmissionFolderHandlers(
@@ -197,9 +183,7 @@ export function createSubmissionFolderHandlers(
       const signal = typedOptions?.signal
       const validatedInput = validateReadFolderFileInput(input)
       const folderPath = validateAbsoluteFolderPath(validatedInput.folderPath)
-      const relativePath = normalizeRelativeFilePath(
-        validatedInput.relativePath,
-      )
+      const relativePath = admitRelativeFilePath(validatedInput.relativePath)
       throwIfAborted(signal)
       await assertExistingDirectory(ports, folderPath, signal)
       const result = await ports.fileSystem.readFileInsideRoot({

@@ -14,8 +14,8 @@ import type {
   LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
-import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
+import { createInMemoryExaminationArchive } from "./helpers/in-memory-examination-archive.js"
 
 function recordingLlm(reply: string) {
   const requests: LlmRunRequest[] = []

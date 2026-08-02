@@ -16,10 +16,10 @@ import type {
   LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
-import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
+import { createInMemoryExaminationArchive } from "./helpers/in-memory-examination-archive.js"
 
 const contentScopeId = "a".repeat(40)
 const EXAMINATION_REDACTION_POLICY_VERSION = prepareExaminationPrivacy({

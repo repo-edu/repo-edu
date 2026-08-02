@@ -622,13 +622,6 @@ function registerRendererHostIpcHandlers() {
   )
 
   ipcMain.handle(
-    desktopRendererHostChannels.getEnvironmentSnapshot,
-    async () => {
-      return await desktopHost.getEnvironmentSnapshot()
-    },
-  )
-
-  ipcMain.handle(
     desktopRendererHostChannels.setNativeTheme,
     (_event, theme: "light" | "dark" | "system") => {
       nativeTheme.themeSource = theme

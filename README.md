@@ -8,7 +8,6 @@
 Import rosters from your LMS, manage student repositories, and validate assignments — from a desktop app or the command line.
 
 **[Documentation](https://repo-edu.github.io/repo-edu/)** |
-**[Interactive Demo](https://repo-edu.github.io/repo-edu/demo/)** |
 **[Getting Started](https://repo-edu.github.io/repo-edu/getting-started/installation/)**
 
 ## Features
@@ -17,7 +16,6 @@ Import rosters from your LMS, manage student repositories, and validate assignme
 - **Git provider integration** (GitHub, GitLab, Gitea) — verify connections, plan/create/clone/delete repositories.
 - **Desktop app** — interactive workflows for roster importing and repository management.
 - **CLI (`redu`)** — scripted operations for validation and CI pipelines.
-- **Browser demo** — the real desktop app running in your browser against mock data, no installation required.
 - **Shared business logic** across all targets via typed workflows and a [ports-and-adapters architecture](https://repo-edu.github.io/repo-edu/development/architecture/).
 
 ## Install
@@ -100,7 +98,7 @@ repo-edu/
 ├── apps/
 │   ├── desktop/                    # Electron shell (main/preload/renderer bridge)
 │   ├── cli/                        # TypeScript CLI (redu)
-│   └── docs/                       # Starlight docs site + browser-safe demo
+│   └── docs/                       # Static Astro/Starlight documentation site
 └── packages/
     ├── domain/                     # Pure domain logic + invariants
     ├── application/                # Workflow orchestration / use-cases
@@ -110,7 +108,6 @@ repo-edu/
     ├── renderer-host-contract/     # Renderer-safe host capability contract
     ├── host-runtime-contract/      # Runtime port contracts (http/process/fs)
     ├── host-node/                  # Node host adapters
-    ├── host-browser-mock/          # Browser/mock adapters for docs/tests
     ├── integrations-lms-contract/  # LMS integration contract
     ├── integrations-lms/           # LMS integration implementations
     ├── integrations-git-contract/  # Git provider integration contract

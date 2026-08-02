@@ -1,7 +1,4 @@
-import type {
-  ThemePreference,
-  WindowChromeMode,
-} from "@repo-edu/domain/settings"
+import type { ThemePreference } from "@repo-edu/domain/settings"
 import type { FileFormat } from "@repo-edu/domain/types"
 import type {
   UserFileRef,
@@ -24,14 +21,6 @@ export type SaveUserFileDialogOptions = {
   defaultFormat?: FileFormat
 }
 
-export type RendererEnvironmentSnapshot = {
-  shell: "browser-mock" | "electron-renderer"
-  theme: ThemePreference
-  windowChrome: WindowChromeMode
-  canPromptForFiles: boolean
-  lastOpenedExternalUrl: string | null
-}
-
 export type PickDirectoryOptions = {
   title?: string
 }
@@ -45,5 +34,8 @@ export type RendererHost = {
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   openExternalUrl(url: string): Promise<void>
-  getEnvironmentSnapshot(): Promise<RendererEnvironmentSnapshot>
+  setNativeTheme(theme: ThemePreference): Promise<void>
+  revealCoursesDirectory(): Promise<void>
+  onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
+  onCloseCancel(callback: (attemptId: string) => void): () => void
 }

@@ -69,7 +69,7 @@ export async function runUserFileExportPreviewWorkflow(
     options?.onProgress?.({
       step: 1,
       totalSteps,
-      label: "Preparing browser-safe export payload.",
+      label: "Preparing export payload.",
     })
     options?.onOutput?.({
       channel: "info",

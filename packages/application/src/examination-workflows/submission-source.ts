@@ -1,3 +1,4 @@
+import { basename, isAbsolute } from "node:path"
 import type {
   ExaminationAttachedRosterIdentityInput,
   ExaminationPreparedSubmissionSource,
@@ -18,7 +19,7 @@ import {
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
 import { createValidationAppError } from "../core.js"
-import { basename, isAbsolutePath } from "../path-utils.js"
+import { admitSelectedRelativeFilePath } from "../selected-file-admission.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
 
@@ -129,7 +130,7 @@ function normalizeExtensionFilter(extensions: readonly string[]): string[] {
 
 function validateAbsoluteFolderPath(folderPath: string): string {
   const normalized = folderPath.trim()
-  if (normalized.length === 0 || !isAbsolutePath(normalized)) {
+  if (normalized.length === 0 || !isAbsolute(normalized)) {
     throw createValidationAppError("Submission folder path is invalid.", [
       {
         path: "folderPath",
@@ -141,18 +142,8 @@ function validateAbsoluteFolderPath(folderPath: string): string {
 }
 
 function normalizeRelativeFilePath(relativePath: string): string {
-  const normalized = relativePath.replaceAll("\\", "/")
-  const parts = normalized.split("/")
-  const hasInvalidSegment = parts.some(
-    (part) => part.length === 0 || part === "." || part === "..",
-  )
-  if (
-    normalized.length === 0 ||
-    normalized.startsWith("/") ||
-    /^[a-zA-Z]:/.test(normalized) ||
-    normalized.startsWith("//") ||
-    hasInvalidSegment
-  ) {
+  const admission = admitSelectedRelativeFilePath(relativePath)
+  if (!admission.ok) {
     throw createValidationAppError("Submission file path is invalid.", [
       {
         path: "selectedRelativePaths",
@@ -160,7 +151,7 @@ function normalizeRelativeFilePath(relativePath: string): string {
       },
     ])
   }
-  return normalized
+  return admission.path
 }
 
 function assertSelectedFileSet(paths: readonly string[]): string[] {

@@ -3,7 +3,7 @@ title: Quick Start
 description: First steps after installing repo-edu
 ---
 
-After [installing](/repo-edu/getting-started/installation/), here is how to get going. To look around first without installing, the [Interactive Demo](/repo-edu/demo/) runs the full interface in your browser against mock data.
+After [installing](/repo-edu/getting-started/installation/), here is how to get going.
 
 ## Desktop app
 

@@ -10,18 +10,18 @@ The `workflowCatalog` in `packages/application-contract/src/index.ts` is a `Reco
 Each workflow declares a `delivery` array listing which surfaces support it:
 
 ```typescript
-type DeliverySurface = "desktop" | "docs" | "cli"
+type DeliverySurface = "desktop" | "cli"
 ```
 
 Not all workflows are available everywhere. For example:
 
-- File-selection workflows (`userFile.*`) require a host file abstraction and are desktop/docs only
-- Roster/group-set workflows that depend on file dialogs are desktop and docs only
-- Validation workflows run on all three surfaces
+- File-selection workflows (`userFile.*`) require a host file abstraction and are desktop only
+- Roster/group-set workflows that depend on file dialogs are desktop only
+- Validation workflows run on both surfaces
 
-The catalog is the authoritative source for which workflows run where. The CLI filters its handler registry to workflows that include `"cli"` in their delivery array. The docs demo runtime wires only workflows that include `"docs"`.
+The catalog is the authoritative source for which workflows run where. The CLI filters its handler registry to workflows that include `"cli"` in their delivery array.
 
-Alignment tests (`workflow-alignment.test.ts` in both `apps/docs` and `apps/cli`) enforce that every workflow marked for a surface is actually wired in that surface's runtime.
+The CLI alignment test enforces that every workflow marked for CLI delivery is wired in its runtime. Desktop runtime validation covers preload and tRPC wiring.
 
 ## Execution profiles
 
@@ -53,7 +53,7 @@ The catalog lives in `packages/application-contract/src/index.ts` as the `workfl
 
 ```typescript
 "course.load": {
-  delivery: ["desktop", "docs", "cli"],
+  delivery: ["desktop", "cli"],
   progress: "milestone",
   cancellation: "cooperative",
 }

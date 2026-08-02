@@ -84,12 +84,6 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     await ipcRenderer.invoke(desktopRendererHostChannels.openExternalUrl, url)
   },
 
-  async getEnvironmentSnapshot() {
-    return await ipcRenderer.invoke(
-      desktopRendererHostChannels.getEnvironmentSnapshot,
-    )
-  },
-
   async setNativeTheme(theme) {
     await ipcRenderer.invoke(desktopRendererHostChannels.setNativeTheme, theme)
   },

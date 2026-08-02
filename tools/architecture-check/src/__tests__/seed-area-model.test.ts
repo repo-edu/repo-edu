@@ -61,7 +61,6 @@ describe("seed area model", () => {
       "packages/domain/src/analysis/tokenizer-language-mappings.ts",
       "packages/renderer-app/src/source-tokenizer.ts",
       "packages/tree-sitter-grammar-assets/src/index.ts",
-      "apps/docs/src/demo-runtime.ts",
     ]) {
       assert.ok(
         result.coversByFile.get(file)?.includes("cover-analysis-workflow"),
@@ -94,7 +93,6 @@ describe("seed area model", () => {
       "packages/renderer-app/src/components/settings/LlmConnectionsPane.tsx",
       "packages/renderer-app/src/components/tabs/examination/LlmControls.tsx",
       "packages/renderer-app/src/stores/examination-preferences.ts",
-      "apps/docs/src/demo-runtime.ts",
       "packages/application/src/llm-connection-workflows.ts",
       "packages/application/src/llm-error-normalization.ts",
     ]) {

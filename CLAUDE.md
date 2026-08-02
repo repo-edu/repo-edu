@@ -54,7 +54,7 @@ repo-edu/
 ├── apps/
 │   ├── desktop/   # Electron shell + tRPC router + preload bridge
 │   ├── cli/       # Commander-based CLI (redu)
-│   └── docs/      # Astro/Starlight site + browser-safe demo harness
+│   └── docs/      # Static Astro/Starlight documentation site
 ├── packages/
 │   ├── domain/                    # Pure product rules and validation
 │   ├── application/               # Workflow orchestration/use-cases
@@ -62,7 +62,6 @@ repo-edu/
 │   ├── renderer-host-contract/    # Renderer-safe host interface
 │   ├── host-runtime-contract/     # Runtime ports (http/process/fs/user-file/llm/exam-archive)
 │   ├── host-node/                 # Node implementations for runtime ports
-│   ├── host-browser-mock/         # Browser mock host for docs/tests
 │   ├── integrations-git(-contract)
 │   ├── integrations-lms(-contract)
 │   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
@@ -99,7 +98,6 @@ non-obvious conventions:
 - [packages/claude-coder/CLAUDE.md](packages/claude-coder/CLAUDE.md)
 - [packages/domain/CLAUDE.md](packages/domain/CLAUDE.md)
 - [packages/fixture-engine/CLAUDE.md](packages/fixture-engine/CLAUDE.md)
-- [packages/host-browser-mock/CLAUDE.md](packages/host-browser-mock/CLAUDE.md)
 - [packages/host-node/CLAUDE.md](packages/host-node/CLAUDE.md)
 - [packages/host-runtime-contract/CLAUDE.md](packages/host-runtime-contract/CLAUDE.md)
 - [packages/integration-tests/CLAUDE.md](packages/integration-tests/CLAUDE.md)
@@ -135,8 +133,10 @@ Core flow:
 
 - Do not add ad hoc IPC for workflow execution. Desktop workflow calls must go
   through the typed tRPC router.
-- Keep browser-safe packages (`domain`, `application-contract`, `renderer-app`,
-  docs-facing code) free of Node/Electron imports.
+- Keep the desktop renderer runtime closure and independently browser-safe roots
+  (`renderer-host-contract`, `integrations-llm-contract`,
+  `host-runtime-contract`, `test-fixtures`) free of Node built-ins. The
+  application package is Node-hosted.
 - Keep side effects in adapters/ports (`host-node`, integration adapters), not
   in domain logic.
 - Do not introduce legacy settings/profile migration logic.
@@ -259,4 +259,3 @@ it's structured internally. Prefer tests at package boundaries:
 - adapter/port tests in integration and host packages
 - desktop bridge checks in `apps/desktop/scripts` + tests
 - CLI golden/behavior tests in `apps/cli/src/__tests__`
-- docs smoke and guardrail tests in `apps/docs/src/__tests__`

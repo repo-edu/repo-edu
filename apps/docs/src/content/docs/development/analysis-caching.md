@@ -16,7 +16,7 @@ Repository inputs are a strict union:
 - Course-relative repository paths require clone-target source data.
 - Absolute repository paths run without course data.
 
-The handlers use cooperative cancellation for analysis and blame work. The desktop and docs runtimes wire the same handlers; the CLI does not expose the analysis workflows.
+The handlers use cooperative cancellation for analysis and blame work. The desktop runtime wires these handlers; the CLI does not expose the analysis workflows.
 
 ## Snapshot Selection
 

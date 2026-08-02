@@ -1,6 +1,6 @@
 import type { AppError } from "./app-error.js"
 
-export type DeliverySurface = "desktop" | "docs" | "cli"
+export type DeliverySurface = "desktop" | "cli"
 export type WorkflowProgressGranularity = "none" | "milestone" | "granular"
 export type WorkflowCancellationGuarantee =
   | "non-cancellable"

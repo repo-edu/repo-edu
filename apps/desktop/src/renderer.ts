@@ -69,8 +69,6 @@ function normalizeAppError(error: unknown): AppError {
 }
 
 async function collectValidationSnapshot() {
-  const environmentSnapshot = await rendererHost.getEnvironmentSnapshot()
-
   const courseList = await workflowClient.run("course.list", undefined)
   const loadedCourse = await workflowClient.run("course.load", {
     courseId: validationCourseId,
@@ -100,9 +98,6 @@ async function collectValidationSnapshot() {
         })
 
   return {
-    environmentShell: environmentSnapshot.shell,
-    environmentCanPromptForFiles: environmentSnapshot.canPromptForFiles,
-    environmentWindowChrome: environmentSnapshot.windowChrome,
     courseCount: courseList.length,
     listedCourseIds: courseList.map((entry) => entry.id),
     loadedCourseId: loadedCourse.id,

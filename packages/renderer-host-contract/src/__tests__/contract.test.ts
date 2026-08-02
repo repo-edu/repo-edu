@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type {
-  RendererEnvironmentSnapshot,
   RendererHost,
   RendererOpenUserFileRef,
   RendererSaveTargetRef,
@@ -34,38 +33,16 @@ describe("renderer-host-contract", () => {
     assert.equal(ref.kind, "user-save-target-ref")
   })
 
-  it("RendererEnvironmentSnapshot covers both shell variants", () => {
-    const browser: RendererEnvironmentSnapshot = {
-      shell: "browser-mock",
-      theme: "system",
-      windowChrome: "system",
-      canPromptForFiles: true,
-      lastOpenedExternalUrl: null,
-    }
-    const electron: RendererEnvironmentSnapshot = {
-      shell: "electron-renderer",
-      theme: "dark",
-      windowChrome: "hiddenInset",
-      canPromptForFiles: true,
-      lastOpenedExternalUrl: "https://example.com",
-    }
-    assert.equal(browser.shell, "browser-mock")
-    assert.equal(electron.shell, "electron-renderer")
-  })
-
   it("RendererHost interface is structurally implementable", () => {
     const host: RendererHost = {
       pickUserFile: async () => null,
       pickSaveTarget: async () => null,
       pickDirectory: async () => null,
       openExternalUrl: async () => {},
-      getEnvironmentSnapshot: async () => ({
-        shell: "browser-mock",
-        theme: "system",
-        windowChrome: "system",
-        canPromptForFiles: false,
-        lastOpenedExternalUrl: null,
-      }),
+      setNativeTheme: async () => {},
+      revealCoursesDirectory: async () => {},
+      onCloseRequest: () => () => {},
+      onCloseCancel: () => () => {},
     }
     assert.ok(host)
   })

@@ -7,9 +7,9 @@ A **workflow** is a named, typed unit of work — for example `"course.load"`, `
 
 ## Why workflows exist
 
-repo-edu ships three delivery surfaces: a desktop Electron app, a CLI, and a browser-based demo. Each surface has different transport mechanics (IPC, in-process, in-browser), but the underlying business logic is identical. Workflows decouple **what** the application does from **how** each surface delivers it.
+repo-edu ships two delivery surfaces: a desktop Electron app and a CLI. Each surface has different transport mechanics (IPC or in-process), but the underlying business logic is identical. Workflows decouple **what** the application does from **how** each surface delivers it.
 
-A single workflow definition in `@repo-edu/application-contract` is enough for all three surfaces to execute the same operation with full type safety — typed input, typed progress events, typed output, and typed result.
+A single workflow definition in `@repo-edu/application-contract` lets both surfaces execute the same operation with full type safety — typed input, typed progress events, typed output, and typed result.
 
 ## Core concepts
 
@@ -55,7 +55,7 @@ type WorkflowClient = {
 }
 ```
 
-Callers never know (or care) which transport delivers the execution. The React renderer receives the same client shape regardless of whether it is backed by tRPC-electron IPC, an in-process handler, or a browser mock. Renderer session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
+Callers never know (or care) which transport delivers the execution. The React renderer uses a client backed by tRPC-electron IPC, while the CLI client invokes handlers in-process. Renderer session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
 
 ### WorkflowHandler
 
@@ -98,5 +98,4 @@ Not all workflows are available on all surfaces. The [workflow catalog](/repo-ed
 | Desktop client (renderer) | `apps/desktop/src/workflow-client.ts` |
 | Renderer session owner | `packages/renderer-app/src/session/session-controller.ts` |
 | CLI transport (in-process) | `apps/cli/src/workflow-runtime.ts` |
-| Docs transport (in-browser) | `apps/docs/src/demo-runtime.ts` |
 | React context | `packages/renderer-app/src/contexts/workflow-client.tsx` |

@@ -60,7 +60,6 @@ import {
 } from "../utils/course-navigation.js"
 import { isDocumentEditingSurface } from "../utils/history-boundary.js"
 import {
-  getDesktopHostBridge,
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../utils/platform.js"
@@ -96,6 +95,23 @@ export type RendererSessionRootProps = {
   rendererHost: RendererHost
 }
 
+export function registerRendererCloseHandlers(
+  rendererHost: Pick<RendererHost, "onCloseRequest" | "onCloseCancel">,
+  controller: Pick<SessionController, "requestClose" | "cancelClose">,
+): () => void {
+  const unsubscribeClose = rendererHost.onCloseRequest((attemptId) =>
+    controller.requestClose(attemptId),
+  )
+  const unsubscribeCancel = rendererHost.onCloseCancel((attemptId) => {
+    controller.cancelClose(attemptId)
+  })
+
+  return () => {
+    unsubscribeClose()
+    unsubscribeCancel()
+  }
+}
+
 export function RendererSessionRoot({
   workflowClient,
   rendererHost,
@@ -128,49 +144,8 @@ export function RendererSessionRoot({
 
   useEffect(() => {
     if (controller === null) return
-    const bridge = getDesktopHostBridge<{
-      onCloseRequest?: (
-        callback: (attemptId: string) => Promise<void>,
-      ) => () => void
-      onCloseCancel?: (callback: (attemptId: string) => void) => () => void
-    }>()
-    if (
-      bridge?.onCloseRequest !== undefined &&
-      bridge.onCloseCancel !== undefined
-    ) {
-      const unsubscribeClose = bridge.onCloseRequest((attemptId) =>
-        controller.requestClose(attemptId),
-      )
-      const unsubscribeCancel = bridge.onCloseCancel((attemptId) => {
-        controller.cancelClose(attemptId)
-      })
-      return () => {
-        unsubscribeClose()
-        unsubscribeCancel()
-      }
-    }
-
-    // Browser fallback: there is no awaitable host close path, so flush on the
-    // earliest reliable signal. `pagehide` and the hidden `visibilitychange`
-    // fire while the document can still run script; `beforeunload` is the last
-    // resort. The flush stays async and best-effort: the browser will not wait
-    // for it, so durable browser persistence (when a host gains one) must use a
-    // synchronous or unload-safe write path rather than relying on this.
-    const flushOnExit = () => {
-      runSessionOperationBestEffort(controller.flush(), "exit flush")
-    }
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") flushOnExit()
-    }
-    window.addEventListener("pagehide", flushOnExit)
-    window.addEventListener("beforeunload", flushOnExit)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => {
-      window.removeEventListener("pagehide", flushOnExit)
-      window.removeEventListener("beforeunload", flushOnExit)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [controller])
+    return registerRendererCloseHandlers(rendererHost, controller)
+  }, [controller, rendererHost])
 
   if (controller === null) return null
 

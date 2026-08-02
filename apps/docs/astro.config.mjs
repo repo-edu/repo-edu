@@ -1,23 +1,11 @@
 import starlight from "@astrojs/starlight"
 import { defineConfig } from "astro/config"
-import react from "@astrojs/react"
-import tailwindcss from "@tailwindcss/vite"
 import starlightSidebarTopics from "starlight-sidebar-topics"
 
 export default defineConfig({
   site: "https://repo-edu.github.io",
   base: "/repo-edu",
-  vite: {
-    plugins: [tailwindcss()],
-    ssr: {
-      noExternal: [/^@repo-edu\//],
-    },
-    resolve: {
-      conditions: ["source"],
-    },
-  },
   integrations: [
-    react(),
     starlight({
       title: "repo-edu",
       description: "Educational Repository Management",
@@ -37,7 +25,6 @@ export default defineConfig({
                 {
                   label: "Getting Started",
                   items: [
-                    { label: "Interactive Demo", slug: "demo" },
                     { label: "Installation", slug: "getting-started/installation" },
                     { label: "Quick Start", slug: "getting-started/quick-start" },
                   ],

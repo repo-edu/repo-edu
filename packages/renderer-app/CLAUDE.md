@@ -4,10 +4,8 @@ This package contains the shared React app (`@repo-edu/renderer-app`).
 
 ## Purpose
 
-`@repo-edu/renderer-app` is environment-agnostic UI/state logic used by:
-
-- Electron desktop (`apps/desktop`)
-- docs/browser harness (`apps/docs`)
+`@repo-edu/renderer-app` is the sandboxed Electron renderer's shared UI and
+state logic.
 
 It consumes:
 
@@ -52,6 +50,7 @@ It consumes:
   subscribes them only to committed root snapshots and admits status by active
   slot identity. `SessionPersistence` owns the active course worker.
 - Desktop close disables renderer input before entering attempt-identified
-  `closing`. Browser lifecycle signals use only the non-terminal ordinary flush.
+  `closing`. The injected renderer host owns required close and cancellation
+  registration; browser lifecycle signals do not participate.
 - `course.save` may return only the host-stamped `{ revision, updatedAt }`; the controller applies that stamp to the loaded course when the active worker and course id still match. No save response may replace the full renderer document.
 - Components use `useSessionController()` for session flushes, navigation, active tab changes and course mutations. Non-component helpers use `getSessionController()`, which throws before the controller is installed.

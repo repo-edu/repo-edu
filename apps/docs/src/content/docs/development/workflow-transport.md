@@ -3,7 +3,7 @@ title: Transport Adapters
 description: How each delivery surface connects callers to workflow handlers
 ---
 
-The workflow system separates the execution contract (`WorkflowClient` / `WorkflowHandler`) from the transport that connects them. Each delivery surface provides its own transport adapter, but all three share the same handler implementations from `packages/application`.
+The workflow system separates the execution contract (`WorkflowClient` / `WorkflowHandler`) from the transport that connects them. Each delivery surface provides its own transport adapter, and both share the same handler implementations from `packages/application`.
 
 ## Architecture
 
@@ -18,7 +18,6 @@ WorkflowClient.run(id, input, options)
 │          Transport Adapter              │
 │  desktop: tRPC-electron subscription    │
 │  cli:     in-process direct call        │
-│  docs:    in-browser direct call        │
 └─────────────────────────────────────────┘
   │
   ▼
@@ -73,21 +72,6 @@ The CLI runs handlers directly in the same Node.js process — no transport laye
 - **Output rendering**: intercepts `onOutput` and routes diagnostic messages to stdout/stderr based on channel
 - **SIGINT handling**: first `Ctrl+C` triggers the workflow's `AbortSignal`; second `Ctrl+C` exits the process immediately
 
-## Docs: in-browser
-
-`apps/docs/src/demo-runtime.ts`
-
-The docs demo runs handlers directly in the browser — no transport, no IPC, no Node.js.
-
-`createDocsDemoRuntime(options)` composes handler factories with:
-
-- **In-memory stores** (`createInMemoryCourseStore`, `createInMemoryAppSettingsStore`) seeded with fixture data
-- **Mock ports**: LMS, Git, filesystem, Git command, user-file, and examination archive ports backed by fixture data or memory
-- **LLM stubs**: connection verification and examination generation return clear provider errors because real LLM calls are not available in-browser
-- **`createWorkflowClient(handlers)`** to produce a `WorkflowClient` with no transport overhead
-
-This runtime powers the interactive demo page and the docs smoke tests. It validates that the handler layer and contract types are browser-safe (no Node/Electron imports).
-
 ## Choosing the right transport
 
 Each surface sets up its `WorkflowClient` once at startup and injects it via `setWorkflowClient()` from `packages/renderer-app/src/contexts/workflow-client.tsx`. The React application consumes it through `useWorkflowClient()` and never knows which transport is behind it.
@@ -96,4 +80,3 @@ Each surface sets up its `WorkflowClient` once at startup and injects it via `se
 |---------|-----------|----------------|----------------|
 | Desktop | tRPC-electron | `createDesktopWorkflowClient()` | `createDesktopRouter(ports)` |
 | CLI | In-process | `createCliWorkflowClient()` | `createCliWorkflowHandlers()` |
-| Docs | In-browser | `createWorkflowClient(handlers)` | `createDocsDemoRuntime()` |

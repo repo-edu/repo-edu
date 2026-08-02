@@ -16,8 +16,6 @@ export {
   CourseSaveConflictError,
   classifyPersistenceWriteErrorCode,
   createCourseSaveConflictError,
-  createInMemoryAppSettingsStore,
-  createInMemoryCourseStore,
   createPersistenceWriteError,
   isCourseSaveConflictError,
   isPersistenceWriteError,
@@ -28,11 +26,7 @@ export {
 } from "./core.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
 export type { ExaminationArchivePort } from "./examination-workflows/archive-port.js"
-export {
-  createExaminationArchive,
-  createInMemoryExaminationArchive,
-  createInMemoryExaminationArchiveStorage,
-} from "./examination-workflows/archive-port.js"
+export { createExaminationArchive } from "./examination-workflows/archive-port.js"
 export type { ExaminationArchiveWorkflowPorts } from "./examination-workflows/archive-workflows.js"
 export { createExaminationArchiveWorkflowHandlers } from "./examination-workflows/archive-workflows.js"
 export { createExaminationWorkflowHandlers } from "./examination-workflows/examination-workflows.js"

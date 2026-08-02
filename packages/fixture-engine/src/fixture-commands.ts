@@ -9,12 +9,6 @@ import type {
   ProjectOpts,
   RepoOpts,
 } from "./cli"
-import {
-  type CohortTeamSelection,
-  loadCohortTeamSelections,
-  resolveProjectSpec,
-  resolveTeamSourcePath,
-} from "./cohort-team-source"
 import { FIXTURES_DIR } from "./constants"
 import {
   FIXTURE_SETTINGS_FILE,
@@ -35,7 +29,6 @@ import {
   latestVersion,
   loadPlanFrom,
   loadProjectFrom,
-  overlayPlanTeamIdentities,
   producePlan,
   produceProject,
   reservePlanDir,
@@ -62,7 +55,6 @@ async function archiveGeneratedPlan(
   opts: PlanOpts,
   students: number,
   runStart: number,
-  selection?: CohortTeamSelection,
 ): Promise<{ planPath: string; usage: LlmUsage }> {
   const planNameOpts: PlanNameOpts = {
     plannerSpec: opts.plannerSpec,
@@ -76,13 +68,9 @@ async function archiveGeneratedPlan(
   }
   const planDir = reservePlanDir(project, planNameOpts)
   initLogs(opts.verbosity, planDir)
-  const selectionLabel = selection
-    ? `, cohort team ${selection.teamIndex} (${selection.teamId})`
-    : ""
-  progress(`loaded project "${project.name}" from ${fromPath}${selectionLabel}`)
+  progress(`loaded project "${project.name}" from ${fromPath}`)
   const planOpts = { ...opts, students }
   const { plan, usage } = await producePlan(project, planOpts, runStart)
-  if (selection) overlayPlanTeamIdentities(plan, selection.members)
   const planPath = archivePlanIntoDir(
     project,
     plan,
@@ -116,55 +104,18 @@ export async function handlePlan(
   opts: PlanOpts,
   runStart: number,
 ): Promise<void> {
-  const resolvedProject = opts.project ? resolveProjectSpec(opts.project) : null
   const rawFrom =
-    resolvedProject?.projectPath ||
     opts.fromPath ||
     readState().project ||
     fail(
-      "plan requires --from=PATH, --project=ID, or a project in .fixture-state.json (run `fixture project` first)",
+      "plan requires --from=PATH or a project in .fixture-state.json (run `fixture project` first)",
     )
-  const resolved = resolvedProject ? rawFrom : resolveFrom(rawFrom)
+  const resolved = resolveFrom(rawFrom)
   const fromPath = isDir(resolved)
     ? (latestVersion(resolved, "project", ".md") ??
       fail(`no project.md found in directory: ${resolved}`))
     : resolved
   const project = loadProjectFrom(fromPath)
-  if (opts.teamSource) {
-    const projectId = resolvedProject?.projectId ?? project.name
-    const sourcePath = resolveTeamSourcePath(opts.teamSource)
-    const selections = loadCohortTeamSelections(
-      sourcePath,
-      projectId,
-      opts.teams,
-    )
-    let lastPlanPath = ""
-    let totalUsage = emptyUsage()
-    for (const selection of selections) {
-      const { planPath, usage } = await archiveGeneratedPlan(
-        project,
-        fromPath,
-        opts,
-        selection.members.length,
-        runStart,
-        selection,
-      )
-      lastPlanPath = planPath
-      totalUsage = {
-        ...usage,
-        inputTokens: totalUsage.inputTokens + usage.inputTokens,
-        cachedInputTokens:
-          totalUsage.cachedInputTokens + usage.cachedInputTokens,
-        outputTokens: totalUsage.outputTokens + usage.outputTokens,
-        wallMs: totalUsage.wallMs + usage.wallMs,
-      }
-    }
-    const runMs = Date.now() - runStart
-    process.stdout.write(
-      `Plan archived: ${lastPlanPath}\nGenerated ${selections.length} cohort-backed plan(s). Wall time: ${formatSeconds(runMs)} | tokens in/cached/out: ${totalUsage.inputTokens} / ${totalUsage.cachedInputTokens} / ${totalUsage.outputTokens}\n`,
-    )
-    return
-  }
   const { planPath, usage } = await archiveGeneratedPlan(
     project,
     fromPath,

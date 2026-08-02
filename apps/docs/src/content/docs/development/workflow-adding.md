@@ -87,17 +87,10 @@ If the workflow includes `"cli"` in its delivery array:
 1. Add the handler to `createCliWorkflowHandlers()` in `apps/cli/src/workflow-runtime.ts`
 2. Add a Commander command in `apps/cli/src/commands/` that calls `workflowClient.run("course.archive", input)`
 
-## 6. Wire into docs
-
-If the workflow includes `"docs"` in its delivery array:
-
-Add the handler to the workflow handlers object in `apps/docs/src/demo-runtime.ts`, providing mock port implementations as needed.
-
-## 7. Add tests
+## 6. Add tests
 
 - Add a workflow behavior test in `packages/application/src/__tests__/` that verifies the handler's logic with mock ports
-- Existing alignment tests catch missing wiring:
-  - `apps/docs/src/__tests__/workflow-alignment.test.ts` — verifies every docs-delivered workflow is wired in the demo runtime
+- Existing runtime checks catch missing wiring:
   - `apps/cli/src/__tests__/workflow-alignment.test.ts` — verifies every CLI-delivered workflow is wired in the CLI runtime
   - `pnpm test:runtime` — validates desktop preload and tRPC runtime wiring
 
@@ -108,7 +101,6 @@ Add the handler to the workflow handlers object in `apps/docs/src/demo-runtime.t
 - [ ] Handler implementation in `packages/application/src/`
 - [ ] Desktop wiring (if desktop-delivered)
 - [ ] CLI wiring + Commander command (if CLI-delivered)
-- [ ] Docs wiring + mock ports (if docs-delivered)
 - [ ] Behavior test in `packages/application/src/__tests__/`
 - [ ] Alignment tests pass (`pnpm test`)
 
@@ -120,8 +112,8 @@ When modifying an existing workflow (not adding a new one), changes propagate th
 
 2. **Update handlers** in `packages/application/src/`. Adjust the implementation to match the new types.
 
-3. **Update surface wiring** for each surface in the workflow's `delivery` array: desktop router/client, CLI runtime + Commander command, docs runtime.
+3. **Update surface wiring** for each surface in the workflow's `delivery` array: desktop router/client or CLI runtime and Commander command.
 
 4. **Update tests.** Behavior tests in `packages/application/src/__tests__/` must match the new contract. Alignment tests (`pnpm test`) will catch missing wiring automatically.
 
-The source of truth is always `packages/application-contract/src/index.ts`. The [guardrail tests](/repo-edu/development/contributing/#guardrail-tests) enforce that all surfaces stay in sync with the catalog.
+The source of truth is always `packages/application-contract/src/index.ts`. Runtime and alignment checks enforce that both surfaces stay in sync with the catalog.

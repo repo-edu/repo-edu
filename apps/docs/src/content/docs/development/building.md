@@ -58,7 +58,6 @@ For day-to-day development, run `pnpm fix` after small changes and `pnpm check` 
 | `pnpm docs:dev` | Start Astro dev server with HMR |
 | `pnpm docs:build` | Production build of the docs site |
 | `pnpm docs:preview` | Build + preview the docs site |
-| `pnpm docs:test` | Run docs smoke, workflow alignment, and browser guardrail tests |
 
 ## Integration tests
 

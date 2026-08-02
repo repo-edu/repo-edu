@@ -4,7 +4,6 @@ import type {
   CourseSaveStamp,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
-import { formatSmokeWorkflowMessage } from "@repo-edu/domain/schemas"
 import type {
   PersistedAppCredentials,
   PersistedAppPreferences,
@@ -177,13 +176,6 @@ function formatCourseSaveConflictMessage(params: {
   return `Course revision invariant violated for '${params.courseId}' (expected ${params.expectedRevision}, stored ${params.storedRevision}).`
 }
 
-export type SmokeWorkflowResult = {
-  workflowId: "phase-1.docs.smoke"
-  message: string
-  packageLine: string
-  executedAt: string
-}
-
 export type CourseStore = {
   listCourses(
     signal?: AbortSignal,
@@ -276,17 +268,6 @@ export type AppSettingsStore = {
   ): Promise<SettingsRecoveryEntry[]> | SettingsRecoveryEntry[]
 }
 
-export async function runSmokeWorkflow(
-  source: string,
-): Promise<SmokeWorkflowResult> {
-  return {
-    workflowId: "phase-1.docs.smoke",
-    message: formatSmokeWorkflowMessage(source),
-    packageLine: [packageId, contractPackageId, domainPackageId].join(" -> "),
-    executedAt: new Date().toISOString(),
-  }
-}
-
 export function createValidationAppError(
   message: string,
   issues: AppValidationIssue[],
@@ -326,86 +307,4 @@ export function runValidateAssignmentForCourse(
     assignmentId,
     options?.identityMode ?? "username",
   )
-}
-
-export function createInMemoryCourseStore(
-  courses: readonly PersistedCourse[],
-): CourseStore {
-  const coursesById = new Map(
-    courses.map((course) => [course.id, course] as const),
-  )
-
-  return {
-    listCourses() {
-      return [...coursesById.values()]
-    },
-    loadCourse(courseId: string) {
-      return coursesById.get(courseId) ?? null
-    },
-    saveCourse(course: PersistedCourse) {
-      const current = coursesById.get(course.id) ?? null
-      if (current !== null && current.revision !== course.revision) {
-        throw createCourseSaveConflictError({
-          reason: "revision-invariant",
-          courseId: course.id,
-          expectedRevision: course.revision,
-          storedRevision: current.revision,
-        })
-      }
-      if (current === null && course.revision !== 0) {
-        throw createCourseSaveConflictError({
-          reason: "course-missing",
-          courseId: course.id,
-          expectedRevision: course.revision,
-          storedRevision: null,
-        })
-      }
-
-      const savedCourse: PersistedCourse = {
-        ...course,
-        revision: course.revision + 1,
-        updatedAt: new Date().toISOString(),
-      }
-      coursesById.set(course.id, savedCourse)
-      return {
-        revision: savedCourse.revision,
-        updatedAt: savedCourse.updatedAt,
-      }
-    },
-    deleteCourse(courseId: string) {
-      coursesById.delete(courseId)
-    },
-  }
-}
-
-export function createInMemoryAppSettingsStore(
-  sections: {
-    credentials: PersistedAppCredentials
-    preferences: PersistedAppPreferences
-  } | null = null,
-): AppSettingsStore {
-  let credentials = sections?.credentials ?? null
-  let preferences = sections?.preferences ?? null
-
-  return {
-    credentials: {
-      load() {
-        return { value: credentials, recovery: [] }
-      },
-      save(nextCredentials: PersistedAppCredentials) {
-        credentials = nextCredentials
-      },
-    },
-    preferences: {
-      load() {
-        return { value: preferences, recovery: [] }
-      },
-      save(nextPreferences: PersistedAppPreferences) {
-        preferences = nextPreferences
-      },
-    },
-    recoverUnsupportedComposite() {
-      return []
-    },
-  }
 }

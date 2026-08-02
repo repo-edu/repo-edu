@@ -2,12 +2,12 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import {
-  createInMemoryAppSettingsStore,
   createPersistenceWriteError,
   isSettingsRecoveryLoadError,
 } from "../core.js"
 import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
 import { getSettingsScenario } from "./helpers/fixture-scenarios.js"
+import { createInMemoryAppSettingsStore } from "./helpers/in-memory-stores.js"
 
 describe("application settings workflow helpers", () => {
   it("substitutes section defaults and preserves recovery entries", async () => {

@@ -101,37 +101,6 @@ describe("graph policy", () => {
     assert.deepEqual(violations, [])
   })
 
-  it("allows generated fixture output as a resolver-only target", async () => {
-    const root = await createGraphFixture({
-      "apps/docs/src/fixtures/projects/calculator/index.ts":
-        'import "./generated/index.js"\n',
-      "apps/docs/src/fixtures/projects/calculator/generated/index.ts":
-        "export const generated = true\n",
-    })
-
-    const violations = await runDependencyCruiserRules(
-      root,
-      inventory(["apps/docs/src/fixtures/projects/calculator/index.ts"]),
-      {
-        forbidden: [
-          {
-            name: "source-inventory-no-circular",
-            severity: "error",
-            from: { path: "^(?:apps|packages|tools)/[^/]+/src/.+\\.tsx?$" },
-            to: {
-              circular: true,
-              viaOnly: {
-                path: "^(?:apps|packages|tools)/[^/]+/src/.+\\.tsx?$",
-              },
-            },
-          },
-        ],
-      },
-    )
-
-    assert.deepEqual(violations, [])
-  })
-
   it("fails whole-source-inventory cycles including type-only cycles", async () => {
     const root = await createGraphFixture({
       "packages/domain/src/a.ts":

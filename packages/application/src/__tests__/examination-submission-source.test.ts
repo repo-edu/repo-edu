@@ -14,10 +14,10 @@ import type {
   LlmRunResult,
   LlmStreamEvent,
 } from "@repo-edu/host-runtime-contract"
-import { createInMemoryExaminationArchive } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
+import { createInMemoryExaminationArchive } from "./helpers/in-memory-examination-archive.js"
 import { createTokenizerPortForTests } from "./helpers/tokenizer.js"
 
 const tokenizer = createTokenizerPortForTests()
@@ -177,6 +177,29 @@ describe("examination.prepareSubmissionSource", () => {
         selectedRelativePaths: ["src/main.py"],
         configuredExtensions: ["ts"],
       }),
+    )
+  })
+
+  it("maps selected-file admission failure to the examination field", async () => {
+    const { handlers: workflowHandlers } = handlers({
+      "src/main.ts": bytes("const answer = 42\n"),
+    })
+
+    await assert.rejects(
+      () =>
+        workflowHandlers["examination.prepareSubmissionSource"]({
+          folderPath: "/tmp/submission",
+          selectedRelativePaths: ["../main.ts"],
+          configuredExtensions: ["ts"],
+        }),
+      (error) => {
+        const appError = error as AppError
+        assert.equal(appError.type, "validation")
+        const issue = appError.issues?.[0]
+        assert.ok(issue !== undefined && "path" in issue)
+        assert.equal(issue.path, "selectedRelativePaths")
+        return true
+      },
     )
   })
 })

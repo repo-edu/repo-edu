@@ -125,10 +125,6 @@ Common issues:
 
 ## Tests
 
-### Workflow alignment test fails
+### Architecture check fails
 
-This means the docs demo runtime is missing a handler for a workflow that's marked as docs-deliverable. See [Adding a Workflow](/repo-edu/development/workflow-adding/) for how to wire new workflows into the docs runtime.
-
-### Browser guardrail test fails
-
-A browser-safe package imported a Node or Electron API. Check the test output for the specific file and import pattern, then move the Node-dependent code to `@repo-edu/host-node` or the appropriate app shell.
+Read the violation for the owning repository rule. Runtime-closure failures mean the desktop renderer or an independent browser-safe root imported a Node built-in through a production dependency. Move the Node-dependent behavior to `@repo-edu/host-node` or the desktop main process. Export-source and test-runner failures name the manifest or test file that needs correction.

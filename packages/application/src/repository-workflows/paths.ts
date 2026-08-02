@@ -1,14 +1,10 @@
+import { homedir } from "node:os"
+import * as path from "node:path"
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
 import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
-import { isAbsolutePath, joinPath } from "../path-utils.js"
 
 export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
-type RuntimeEnv = {
-  HOME?: string
-  USERPROFILE?: string
-  HOMEDRIVE?: string
-  HOMEPATH?: string
-}
+type PathOperations = Pick<typeof path, "isAbsolute" | "join">
 
 export function normalizeDirectoryLayout(
   value: RepositoryBatchInput["directoryLayout"],
@@ -21,64 +17,34 @@ export function normalizeDirectoryLayout(
 
 export function normalizeTargetDirectory(
   value: string | undefined,
-  env: RuntimeEnv = resolveRuntimeEnv(),
+  homeDirectory = homedir(),
+  pathOperations: PathOperations = path,
 ): string | null {
   const normalized = value?.trim()
   if (normalized === undefined || normalized === "") {
     return null
   }
-  const expanded = expandHomeDirectory(normalized, env)
-  return isAbsolutePath(expanded) ? expanded : null
+  const expanded = expandHomeDirectory(
+    normalized,
+    homeDirectory,
+    pathOperations,
+  )
+  return pathOperations.isAbsolute(expanded) ? expanded : null
 }
 
-function resolveRuntimeEnv(): RuntimeEnv {
-  if (typeof globalThis !== "object" || globalThis === null) {
-    return {}
-  }
-  const runtime = globalThis as {
-    process?: { env?: Record<string, string | undefined> }
-  }
-  const env = runtime.process?.env
-  return env ?? {}
-}
-
-function resolveHomeDirectory(env: RuntimeEnv): string | null {
-  const home = env.HOME?.trim()
-  if (home) return home
-  const userProfile = env.USERPROFILE?.trim()
-  if (userProfile) return userProfile
-
-  const homeDrive = env.HOMEDRIVE?.trim() ?? ""
-  const homePath = env.HOMEPATH?.trim() ?? ""
-  if (homeDrive !== "" && homePath !== "") {
-    return `${homeDrive}${homePath}`
-  }
-  return null
-}
-
-function joinToHome(home: string, suffix: string): string {
-  const separator = home.includes("\\") && !home.includes("/") ? "\\" : "/"
-  const normalizedHome = home.replace(/[\\/]+$/g, "")
-  const normalizedSuffix = suffix.replace(/^[\\/]+/g, "")
-  if (normalizedSuffix === "") {
-    return normalizedHome
-  }
-  return `${normalizedHome}${separator}${normalizedSuffix}`
-}
-
-function expandHomeDirectory(value: string, env: RuntimeEnv): string {
+function expandHomeDirectory(
+  value: string,
+  homeDirectory: string,
+  pathOperations: PathOperations,
+): string {
   if (value === "~") {
-    return resolveHomeDirectory(env) ?? value
+    return homeDirectory
   }
   if (!value.startsWith("~/") && !value.startsWith("~\\")) {
     return value
   }
 
-  const home = resolveHomeDirectory(env)
-  if (home === null) {
-    return value
-  }
-  return joinToHome(home, value.slice(2))
+  return pathOperations.join(homeDirectory, value.slice(2))
 }
 
 function sanitizePathSegment(value: string): string {
@@ -104,7 +70,7 @@ export function repositoryCloneParentPath(
           group.groupName.trim().length > 0 ? group.groupName : group.groupId,
         )
       : sanitizePathSegment(group.assignmentName)
-  return joinPath(targetDirectory, folderName)
+  return path.join(targetDirectory, folderName)
 }
 
 export function repositoryClonePath(
@@ -112,7 +78,7 @@ export function repositoryClonePath(
   layout: RepositoryDirectoryLayout,
   group: PlannedRepositoryGroup,
 ): string {
-  return joinPath(
+  return path.join(
     repositoryCloneParentPath(targetDirectory, layout, group),
     sanitizePathSegment(group.repoName),
   )
@@ -121,7 +87,7 @@ export function repositoryClonePath(
 const TEMP_CLONE_DIRECTORY_NAME = ".repo-edu-clone-tmp"
 
 export function repositoryCloneTempRoot(targetDirectory: string): string {
-  return joinPath(targetDirectory, TEMP_CLONE_DIRECTORY_NAME)
+  return path.join(targetDirectory, TEMP_CLONE_DIRECTORY_NAME)
 }
 
 export function repositoryCloneTempPath(
@@ -129,5 +95,5 @@ export function repositoryCloneTempPath(
   repoName: string,
   index: number,
 ): string {
-  return joinPath(tempRoot, `${sanitizePathSegment(repoName)}-${index}`)
+  return path.join(tempRoot, `${sanitizePathSegment(repoName)}-${index}`)
 }

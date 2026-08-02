@@ -1,35 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
     "noEmit": true,
-    "types": [
-      "node",
-      "astro/client"
-    ],
+    "types": ["astro/client"],
     "tsBuildInfoFile": "./.tsbuildinfo"
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
-  ],
-  "references": [
-    {
-      "path": "../../packages/renderer-app"
-    },
-    {
-      "path": "../../packages/tree-sitter-grammar-assets"
-    },
-    {
-      "path": "../../packages/host-browser-mock"
-    },
-    {
-      "path": "../../packages/test-fixtures"
-    }
-  ],
-  "exclude": [
-    "src/**/__tests__/**",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx"
-  ]
+  "include": [".astro/types.d.ts", "src/**/*.ts", "src/**/*.astro"]
 }

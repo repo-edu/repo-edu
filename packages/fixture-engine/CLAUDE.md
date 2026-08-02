@@ -27,13 +27,10 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
   that this package validates and applies).
 - `repo-context.ts` — embeds current repo snapshot and target file contents for
   coder prompts.
-- `cohort-team-source.ts` — resolves demo cohort team-source JSON used when
-  seeding docs fixtures.
 - `sampler.ts`, `markers.ts`, `sweep-buckets.ts` — deterministic sampling
   utilities; tests pin the distributions.
 - `prompts/`, `coder-agreement.md` — prompt templates and shared coder working
-  agreement. Curated docs-demo project specs live under
-  `apps/docs/src/fixtures/projects/`.
+  agreement.
 
 ## Rules
 

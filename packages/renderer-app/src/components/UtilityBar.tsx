@@ -11,9 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@repo-edu/ui"
 import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
+import { useRendererHost } from "../contexts/renderer-host.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import { getDesktopHostBridge } from "../utils/platform.js"
 import { CourseSwitcher } from "./CourseSwitcher.js"
 
 export function UtilityBar() {
@@ -35,13 +35,11 @@ export function UtilityBar() {
  */
 function UtilityMenu() {
   const addToast = useToastStore((s) => s.addToast)
-  const bridge = getDesktopHostBridge<{
-    revealCoursesDirectory?: () => Promise<void>
-  }>()
+  const rendererHost = useRendererHost()
 
   const handleShowCourseLocation = async () => {
     try {
-      await bridge?.revealCoursesDirectory?.()
+      await rendererHost.revealCoursesDirectory()
     } catch (error) {
       const message = getErrorMessage(error)
       addToast(`Failed to open courses directory: ${message}`, {

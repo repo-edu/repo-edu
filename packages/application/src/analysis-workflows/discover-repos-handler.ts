@@ -1,3 +1,4 @@
+import { basename, join, normalize } from "node:path"
 import type {
   DiscoveredRepo,
   DiscoverReposProgress,
@@ -5,13 +6,12 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
-import { basename, joinPath } from "../path-utils.js"
 import { resolveGitRepositoryRoot } from "../repository-workflows/git-helpers.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 
 function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/").replace(/\/+$/, "")
+  return normalize(path)
 }
 
 function isCancellationError(error: unknown): boolean {
@@ -57,7 +57,7 @@ async function discoverRepos(
 
   for (const dir of directories) {
     throwIfAborted(signal)
-    const fullPath = joinPath(searchFolder, dir.name)
+    const fullPath = join(searchFolder, dir.name)
     if (systemDirectories.has(fullPath)) continue
     const dirToplevel = await resolveGitRepositoryRoot(
       ports.gitCommand,

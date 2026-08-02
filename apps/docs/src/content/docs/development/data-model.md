@@ -3,7 +3,7 @@ title: Data Model
 description: Persisted settings, course schema, roster entities, and boundary validation
 ---
 
-The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, which means it runs identically in the Electron desktop app, the CLI, and the browser-based docs demo.
+The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, so desktop and CLI share the same product rules.
 
 Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppCredentials`, `PersistedAppPreferences`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion validators in `packages/domain/src/schemas.ts` validate persisted files at boundaries: the points where the application reads or writes JSON. When a persisted course file is loaded from disk, the schema checks that its shape matches what the code expects. Settings sections recover independently, so a corrupt preferences file can be backed aside without rejecting valid credentials.
 

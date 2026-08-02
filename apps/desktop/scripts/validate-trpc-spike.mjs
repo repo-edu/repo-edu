@@ -408,24 +408,6 @@ async function main() {
       );
     }
 
-    if (marker.environmentShell !== "electron-renderer") {
-      throw new Error(
-        `unexpected environmentShell: ${String(marker.environmentShell)}`,
-      );
-    }
-
-    if (marker.environmentCanPromptForFiles !== true) {
-      throw new Error(
-        `unexpected environmentCanPromptForFiles: ${String(marker.environmentCanPromptForFiles)}`,
-      );
-    }
-
-    if (marker.environmentWindowChrome !== "hiddenInset") {
-      throw new Error(
-        `unexpected environmentWindowChrome: ${String(marker.environmentWindowChrome)}`,
-      );
-    }
-
     if (!Array.isArray(marker.listedCourseIds)) {
       throw new Error("listedCourseIds was not an array.");
     }

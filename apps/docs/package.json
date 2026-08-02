@@ -3,38 +3,19 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@astrojs/react": "^5.0.1",
     "@astrojs/starlight": "^0.38.2",
-    "@repo-edu/application": "workspace:*",
-    "@repo-edu/application-contract": "workspace:*",
-    "@repo-edu/domain": "workspace:*",
-    "@repo-edu/host-browser-mock": "workspace:*",
-    "@repo-edu/host-runtime-contract": "workspace:*",
-    "@repo-edu/integrations-git-contract": "workspace:*",
-    "@repo-edu/integrations-lms-contract": "workspace:*",
-    "@repo-edu/renderer-app": "workspace:*",
-    "@repo-edu/test-fixtures": "workspace:*",
     "astro": "^6.0.8",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
     "sharp": "^0.34.5",
     "starlight-sidebar-topics": "0.7.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.8",
-    "@tailwindcss/vite": "^4.2.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "tailwindcss": "^4.2.2"
+    "@astrojs/check": "^0.9.8"
   },
   "scripts": {
     "dev": "astro dev --host --port 4321",
     "build": "astro build",
     "preview": "astro preview --host --port 4321",
-    "typecheck": "astro check && tsc -p tsconfig.typecheck.json --noEmit",
-    "check": "pnpm run typecheck",
-    "record:analysis-fixtures": "tsx scripts/record-analysis-fixtures.ts",
-    "record:fixtures": "tsx scripts/record-analysis-fixtures.ts",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "typecheck": "astro check",
+    "check": "pnpm run typecheck"
   }
 }

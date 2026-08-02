@@ -9,19 +9,25 @@ import {
 
 describe("desktop renderer host bridge parity", () => {
   it("bridge channels cover all RendererHost methods plus desktop extras", () => {
-    const rendererHostMethods: (keyof RendererHost)[] = [
-      "pickUserFile",
-      "pickSaveTarget",
-      "pickDirectory",
-      "openExternalUrl",
-      "getEnvironmentSnapshot",
-    ]
+    const rendererHostChannels: Record<
+      keyof RendererHost,
+      keyof typeof desktopRendererHostChannels
+    > = {
+      pickUserFile: "pickUserFile",
+      pickSaveTarget: "pickSaveTarget",
+      pickDirectory: "pickDirectory",
+      openExternalUrl: "openExternalUrl",
+      setNativeTheme: "setNativeTheme",
+      revealCoursesDirectory: "revealCoursesDirectory",
+      onCloseRequest: "requestClose",
+      onCloseCancel: "cancelClose",
+    }
 
     const channelKeys = Object.keys(desktopRendererHostChannels)
 
-    for (const method of rendererHostMethods) {
+    for (const [method, channel] of Object.entries(rendererHostChannels)) {
       assert.ok(
-        channelKeys.includes(method),
+        channelKeys.includes(channel),
         `Missing bridge channel for RendererHost.${method}`,
       )
     }
@@ -52,16 +58,6 @@ describe("desktop renderer host bridge parity", () => {
       async openExternalUrl() {
         calls.push("openExternalUrl")
       },
-      async getEnvironmentSnapshot() {
-        calls.push("getEnvironmentSnapshot")
-        return {
-          shell: "electron-renderer" as const,
-          theme: "system" as const,
-          windowChrome: "system" as const,
-          canPromptForFiles: true,
-          lastOpenedExternalUrl: null,
-        }
-      },
       async setNativeTheme() {
         calls.push("setNativeTheme")
       },
@@ -84,14 +80,22 @@ describe("desktop renderer host bridge parity", () => {
     await host.pickSaveTarget()
     await host.pickDirectory()
     await host.openExternalUrl("https://example.com")
-    await host.getEnvironmentSnapshot()
+    await host.setNativeTheme("system")
+    await host.revealCoursesDirectory()
+    const unsubscribeClose = host.onCloseRequest(async () => {})
+    const unsubscribeCancel = host.onCloseCancel(() => {})
+    unsubscribeClose()
+    unsubscribeCancel()
 
     assert.deepEqual(calls, [
       "pickUserFile",
       "pickSaveTarget",
       "pickDirectory",
       "openExternalUrl",
-      "getEnvironmentSnapshot",
+      "setNativeTheme",
+      "revealCoursesDirectory",
+      "onCloseRequest",
+      "onCloseCancel",
     ])
   })
 })

@@ -2,9 +2,6 @@ import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 
 const SOURCE_ROOT_PATTERN = /^(apps|packages|tools)\/[^/]+\/src\/.+\.tsx?$/
 
-const GENERATED_FIXTURE_PATTERN =
-  /^apps\/docs\/src\/fixtures\/projects\/[^/]+\/generated\//
-
 const GENERATED_OUTPUT_SEGMENT_PATTERN =
   /(^|\/)(dist|out|build|coverage|\.turbo|\.vite)\//
 
@@ -21,7 +18,6 @@ export type SourceInventory = {
 export function isSourceInventoryPath(filePath: string): boolean {
   return (
     SOURCE_ROOT_PATTERN.test(filePath) &&
-    !GENERATED_FIXTURE_PATTERN.test(filePath) &&
     !GENERATED_OUTPUT_SEGMENT_PATTERN.test(filePath) &&
     !DEPENDENCY_SEGMENT_PATTERN.test(filePath) &&
     !VENDORED_RUNTIME_PATTERN.test(filePath)

@@ -68,12 +68,11 @@ The live-provider suite in `@repo-edu/integration-tests` reads its endpoints and
 | --- | --- | --- | --- |
 | `REPO_EDU_RELEASE_FORBID_ELECTRON_RUNTIME_INSTALL` | `tools/release` | `"1"` makes the license gate fail rather than run Electron's runtime install when a packaged `dist/LICENSES.chromium.html` is missing. | off |
 
-### Workspace and fixture-recording scripts
+### Workspace scripts
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
 | `REDU_WORKSPACE_ROOT` | `pnpm fixture` | Explicit workspace root. | auto-detected by walking up to `pnpm-workspace.yaml` |
-| `DOCS_ANALYSIS_FIXTURE_ROOT` | `pnpm docs:record-fixtures` recorder | Output root for recorded analysis fixtures. | `/repo-edu-demo/shared-analysis-fixture` |
 
 ## Variables repo-edu inherits
 

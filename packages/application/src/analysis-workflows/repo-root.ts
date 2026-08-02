@@ -1,5 +1,8 @@
+import * as path from "node:path"
 import type { AppError } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
+
+type PathOperations = Pick<typeof path, "isAbsolute" | "join" | "normalize">
 
 type AnalysisRepositoryInputLike = {
   course?: Pick<PersistedCourse, "repositoryCloneTargetDirectory">
@@ -50,25 +53,29 @@ function normalizeRepositoryRelativePath(relativePath: string): string {
   return segments.join("/")
 }
 
-function normalizeAbsolutePath(absolutePath: string): string {
-  const normalized = absolutePath.trim().replace(/\\/g, "/").replace(/\/+$/, "")
-  if (normalized.length === 0) {
+function normalizeAbsolutePath(
+  absolutePath: string,
+  pathOperations: PathOperations,
+): string {
+  const trimmed = absolutePath.trim()
+  if (trimmed.length === 0) {
     throw validationError(
       "Repository absolute path is required.",
       "repositoryAbsolutePath",
     )
   }
-  if (!normalized.startsWith("/") && !/^[a-zA-Z]:\//.test(normalized)) {
+  if (!pathOperations.isAbsolute(trimmed)) {
     throw validationError(
       "Repository absolute path must be an absolute path.",
       "repositoryAbsolutePath",
     )
   }
-  return normalized
+  return pathOperations.normalize(trimmed)
 }
 
 export function resolveAnalysisRepoRoot(
   input: AnalysisRepositoryInputLike,
+  pathOperations: PathOperations = path,
 ): string {
   const hasRelative = input.repositoryRelativePath !== undefined
   const hasAbsolute = input.repositoryAbsolutePath !== undefined
@@ -93,7 +100,7 @@ export function resolveAnalysisRepoRoot(
         "repositoryAbsolutePath",
       )
     }
-    return normalizeAbsolutePath(input.repositoryAbsolutePath)
+    return normalizeAbsolutePath(input.repositoryAbsolutePath, pathOperations)
   }
 
   if (!hasRelative) {
@@ -135,11 +142,11 @@ export function resolveAnalysisRepoRoot(
     )
   }
 
-  const normalizedCloneTarget = cloneTarget
-    .trim()
-    .replace(/\\/g, "/")
-    .replace(/\/+$/, "")
-  if (normalizedCloneTarget.length === 0) {
+  const normalizedCloneTarget = cloneTarget.trim()
+  if (
+    normalizedCloneTarget.length === 0 ||
+    !pathOperations.isAbsolute(normalizedCloneTarget)
+  ) {
     throw validationError(
       "Course repository clone target directory is invalid.",
       "course.repositoryCloneTargetDirectory",
@@ -149,5 +156,5 @@ export function resolveAnalysisRepoRoot(
   const relativePath = normalizeRepositoryRelativePath(
     input.repositoryRelativePath,
   )
-  return `${normalizedCloneTarget}/${relativePath}`
+  return pathOperations.join(normalizedCloneTarget, relativePath)
 }

@@ -7,7 +7,7 @@ via `pnpm check:architecture` from the workspace root.
 ## What it checks
 
 `src/main.ts` composes one pass (`runArchitectureCheck`) that returns sorted
-violations. Four concerns feed it:
+violations. Five concerns feed it:
 
 - Area reconciliation (`area-model.ts`): loads and zod-validates the committed
   model, then reconciles it against the source inventory.
@@ -16,6 +16,9 @@ violations. Four concerns feed it:
 - Bespoke symbol checks (`bespoke-checks.ts`): renderer session-ownership and
   Claude-coder / Claude-agent-SDK confinement that the import graph cannot
   express.
+- Repository checks (`repository-checks.ts`): package export-source resolution,
+  Node test-runner imports, and Node built-in exclusion from the desktop
+  renderer runtime closure and independent browser-safe roots.
 - Source inventory (`inventory.ts`): the single current-worktree file list
   every check shares.
 
@@ -41,7 +44,7 @@ partition matches no file, or when a cover member is stale.
 `inventory.ts` lists current `.ts`/`.tsx` files under `apps/*/src`,
 `packages/*/src` and `tools/*/src`. It combines tracked files that still exist
 with non-ignored untracked files, so checks work before staging. It excludes
-generated fixtures, build output, `node_modules` and vendored runtime notices.
+build output, `node_modules` and vendored runtime notices.
 The same list feeds reconciliation and graph projection, so the boundaries
 match the worktree being checked.
 
@@ -53,8 +56,9 @@ claude-agent-SDK source confinement, and a whole-inventory acyclic rule. When an
 inventory is supplied the selectors compile to exact per-file patterns, so a
 rule breaks the moment a real file crosses a boundary.
 `dependency-cruiser-runner.ts` reads `summary.violations` (already
-de-duplicated) and adds a workspace-import projection check that flags
-`@repo-edu/*` imports resolving outside the inventory.
+de-duplicated), exposes normalized dependency metadata for runtime-closure
+checks, and adds a workspace-import projection check that flags `@repo-edu/*`
+imports resolving outside the inventory.
 
 ## Conventions
 

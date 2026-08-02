@@ -13,7 +13,7 @@ enforces them and the file you edit to change ownership.
 ## What it checks
 
 `src/main.ts` composes one pass, `runArchitectureCheck`, that returns sorted
-violations. Four concerns feed it.
+violations. Five concerns feed it.
 
 1. **Area reconciliation** (`area-model.ts`). Loads and validates the committed
    `area-model.json`, then reconciles it against the source inventory. It fails
@@ -23,13 +23,20 @@ violations. Four concerns feed it.
    Projects the area model into dependency-cruiser rules and runs them:
    cross-layer boundaries, domain module import order, claude-coder and
    claude-agent-SDK source confinement, and a whole-inventory acyclic rule. It
-   also flags `@repo-edu/*` imports that resolve outside the inventory.
+   also flags `@repo-edu/*` imports that resolve outside the inventory and
+   exposes normalized dependency metadata for runtime-closure checks.
 3. **Bespoke symbol checks** (`bespoke-checks.ts`). Renderer session-ownership
    and claude-coder confinement that the import graph cannot express on its own.
-4. **Source inventory** (`inventory.ts`). The single tracked-file list every
+4. **Repository checks** (`repository-checks.ts`). Validates workspace source
+   exports, Node test-runner imports, and the browser-safe production boundary.
+   That boundary combines the emitted dependency closure from the desktop
+   renderer entry with the renderer-host contract, LLM contract, host-runtime
+   contract and deterministic test fixtures. Tests and erased type-only edges
+   are excluded.
+5. **Source inventory** (`inventory.ts`). The single tracked-file list every
    check shares: tracked `.ts` and `.tsx` files under `apps/*/src`,
-   `packages/*/src` and `tools/*/src`, minus generated fixtures, build output,
-   `node_modules` and vendored notices.
+   `packages/*/src` and `tools/*/src`, minus build output, `node_modules` and
+   vendored notices.
 
 Because reconciliation and the graph rules read the *same* inventory, the
 boundaries CI enforces match exactly the files that ship.

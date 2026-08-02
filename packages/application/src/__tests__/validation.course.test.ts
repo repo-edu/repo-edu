@@ -3,11 +3,11 @@ import { describe, it } from "node:test"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createCourseSaveConflictError,
-  createInMemoryCourseStore,
   createPersistenceWriteError,
 } from "../core.js"
 import { createCourseWorkflowHandlers } from "../course-workflows.js"
 import { getCourseScenario } from "./helpers/fixture-scenarios.js"
+import { createInMemoryCourseStore } from "./helpers/in-memory-stores.js"
 import { makeInvalidCourseWrongKind } from "./helpers/test-builders.js"
 
 describe("application course workflow helpers", () => {

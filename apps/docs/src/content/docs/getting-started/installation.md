@@ -3,7 +3,7 @@ title: Installation
 description: Download and install the repo-edu desktop app or CLI
 ---
 
-repo-edu ships as a desktop app and a command-line tool (`redu`). Both are pre-built, so installing needs nothing else on your machine. To explore the interface first without installing anything, open the [Interactive Demo](/repo-edu/demo/).
+repo-edu ships as a desktop app and a command-line tool (`redu`). Both are pre-built, so installing needs nothing else on your machine.
 
 ## Desktop app
 

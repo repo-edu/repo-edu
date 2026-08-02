@@ -5,6 +5,7 @@ This package contains shared workflow orchestration (`@repo-edu/application`).
 ## Responsibility
 
 `@repo-edu/application` owns use-case orchestration and workflow handlers.
+It runs in Node hosts and uses Node path semantics for filesystem workflows.
 
 It composes:
 
@@ -36,10 +37,11 @@ It composes:
 - Keep business semantics in domain where possible; keep orchestration here.
 - Do not import Electron/Commander/React into this package.
 - Keep all side effects behind explicit ports/contracts.
+- Admit selected relative file paths before passing them to filesystem ports. The Node filesystem adapter remains responsible for real-path containment.
 
 ## Adding a Workflow
 
 1. Add id/payload types and metadata in `@repo-edu/application-contract`.
 2. Implement handler in this package.
-3. Wire handler in the relevant desktop router/client and CLI/docs runtimes.
+3. Wire handler in the relevant desktop router/client and CLI runtime.
 4. Add tests at workflow and boundary levels.

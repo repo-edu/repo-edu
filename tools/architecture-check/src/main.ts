@@ -6,10 +6,11 @@ import {
   reconcileAreaModel,
 } from "./area-model.js"
 import { runBespokeChecks } from "./bespoke-checks.js"
-import { runDependencyCruiserRules } from "./dependency-cruiser-runner.js"
+import { runDependencyCruiserAnalysis } from "./dependency-cruiser-runner.js"
 import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
 import { ROOT } from "./repo-paths.js"
+import { runRepositoryChecks } from "./repository-checks.js"
 import { compareViolations, type Violation } from "./violations.js"
 
 export async function runArchitectureCheck(root = ROOT): Promise<{
@@ -19,16 +20,22 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
   const areaModel = compileAreaModel(loadAreaModel(root))
   const reconciliation = reconcileAreaModel(areaModel, inventory)
   const graphPolicy = buildDependencyCruiserRuleSet(areaModel, inventory)
-  const [graphViolations, bespokeViolations] = await Promise.all([
-    runDependencyCruiserRules(root, inventory, graphPolicy),
+  const [graphAnalysis, bespokeViolations] = await Promise.all([
+    runDependencyCruiserAnalysis(root, inventory, graphPolicy),
     Promise.resolve(runBespokeChecks(root, inventory)),
   ])
+  const repositoryViolations = runRepositoryChecks(
+    root,
+    inventory,
+    graphAnalysis.graph,
+  )
 
   return {
     violations: [
       ...reconciliation.violations,
-      ...graphViolations,
+      ...graphAnalysis.violations,
       ...bespokeViolations,
+      ...repositoryViolations,
     ].sort(compareViolations),
   }
 }

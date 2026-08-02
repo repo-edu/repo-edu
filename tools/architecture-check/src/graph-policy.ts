@@ -157,9 +157,6 @@ const NAMED_SELECTORS: readonly Selector[] = [
   },
 ]
 
-const GENERATED_FIXTURE_TARGET_PATTERN =
-  "^apps/docs/src/fixtures/projects/[^/]+/generated/"
-
 export function buildDependencyCruiserRuleSet(
   model: CompiledAreaModel,
   inventory?: SourceInventory,
@@ -389,7 +386,7 @@ function sourceInventorySelector(
 
   return {
     path: [sourceInventoryPathPattern()],
-    pathNot: [GENERATED_FIXTURE_TARGET_PATTERN],
+    pathNot: [],
   }
 }
 

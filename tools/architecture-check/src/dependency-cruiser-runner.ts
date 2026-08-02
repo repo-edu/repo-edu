@@ -27,6 +27,10 @@ type CruiseModule = {
 type CruiseDependency = {
   readonly resolved?: string
   readonly module: string
+  readonly coreModule?: boolean
+  readonly dependencyTypes?: readonly string[]
+  readonly preCompilationOnly?: boolean
+  readonly typeOnly?: boolean
 }
 
 type CruiseViolation = {
@@ -49,11 +53,36 @@ type DependencyCruiserModule = {
   ) => Promise<{ readonly output: unknown; readonly exitCode: number }>
 }
 
+export type DependencyEdge = {
+  readonly module: string
+  readonly resolved?: string
+  readonly coreModule: boolean
+  readonly dependencyTypes: readonly string[]
+  readonly preCompilationOnly: boolean
+  readonly typeOnly: boolean
+}
+
+export type DependencyGraph = ReadonlyMap<string, readonly DependencyEdge[]>
+
+export type DependencyCruiserAnalysis = {
+  readonly violations: readonly Violation[]
+  readonly graph: DependencyGraph
+}
+
 export async function runDependencyCruiserRules(
   root: string,
   inventory: SourceInventory,
   ruleSet: DependencyCruiserRuleSet,
 ): Promise<Violation[]> {
+  const analysis = await runDependencyCruiserAnalysis(root, inventory, ruleSet)
+  return [...analysis.violations]
+}
+
+export async function runDependencyCruiserAnalysis(
+  root: string,
+  inventory: SourceInventory,
+  ruleSet: DependencyCruiserRuleSet,
+): Promise<DependencyCruiserAnalysis> {
   const dependencyCruiser = await loadDependencyCruiser()
   const canonicalRoot = await realpath(root)
   const tsConfigPath = repoPathToAbsolute(canonicalRoot, "tsconfig.base.json")
@@ -104,14 +133,41 @@ export async function runDependencyCruiserRules(
       }`,
     })) ?? []
 
-  return dedupeViolations([
-    ...summaryViolations,
-    ...workspaceImportProjectionViolations(
-      canonicalRoot,
-      inventory,
-      cruiseResult,
-    ),
-  ])
+  return {
+    violations: dedupeViolations([
+      ...summaryViolations,
+      ...workspaceImportProjectionViolations(
+        canonicalRoot,
+        inventory,
+        cruiseResult,
+      ),
+    ]),
+    graph: buildDependencyGraph(canonicalRoot, cruiseResult),
+  }
+}
+
+function buildDependencyGraph(
+  root: string,
+  cruiseResult: CruiseResult,
+): DependencyGraph {
+  const graph = new Map<string, readonly DependencyEdge[]>()
+  for (const module of cruiseResult.modules ?? []) {
+    const source = normalizeCruisePath(root, module.source)
+    graph.set(
+      source,
+      module.dependencies.map((dependency) => ({
+        module: dependency.module,
+        resolved: dependency.resolved
+          ? normalizeCruisePath(root, dependency.resolved)
+          : undefined,
+        coreModule: dependency.coreModule ?? false,
+        dependencyTypes: dependency.dependencyTypes ?? [],
+        preCompilationOnly: dependency.preCompilationOnly ?? false,
+        typeOnly: dependency.typeOnly ?? false,
+      })),
+    )
+  }
+  return graph
 }
 
 function workspaceImportProjectionViolations(

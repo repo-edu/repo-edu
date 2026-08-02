@@ -54,14 +54,6 @@
       ]
     },
     {
-      "id": "pkg-host-browser-mock",
-      "name": "Browser mock host",
-      "kind": "partition",
-      "members": [
-        { "type": "pattern", "path": "^packages/host-browser-mock/src/" }
-      ]
-    },
-    {
       "id": "pkg-host-node",
       "name": "Node host",
       "kind": "partition",
@@ -437,10 +429,7 @@
         { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/AnalysisTab\\.tsx$" },
         { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/analysis/" },
         { "type": "file", "path": "packages/renderer-app/src/source-tokenizer.ts" },
-        { "type": "pattern", "path": "^packages/tree-sitter-grammar-assets/src/" },
-        { "type": "pattern", "path": "^apps/docs/src/fixtures/" },
-        { "type": "pattern", "path": "^apps/docs/src/__tests__/(analysis|fixture-workflow|runtime-selection)" },
-        { "type": "file", "path": "apps/docs/src/demo-runtime.ts" }
+        { "type": "pattern", "path": "^packages/tree-sitter-grammar-assets/src/" }
       ]
     },
     {
@@ -484,9 +473,7 @@
         { "type": "pattern", "path": "^packages/renderer-app/src/components/settings/.*Llm" },
         { "type": "pattern", "path": "^packages/renderer-app/src/components/tabs/examination/(LlmControls|llm-models)\\.ts" },
         { "type": "pattern", "path": "^packages/renderer-app/src/stores/(connections-store|examination-preferences)\\.ts$" },
-        { "type": "file", "path": "packages/renderer-app/src/session/session-settings.ts" },
-        { "type": "pattern", "path": "^apps/docs/src/(demo-runtime|components/DemoApp)\\.tsx?$" },
-        { "type": "pattern", "path": "^packages/host-browser-mock/src/" }
+        { "type": "file", "path": "packages/renderer-app/src/session/session-settings.ts" }
       ]
     }
   ]

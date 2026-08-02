@@ -44,8 +44,8 @@ never crosses a source root, so the grain is package, or finer. The relation is
 
 Why not refactor those packages so each partition becomes its own package?
 Because a package is a *consumption* boundary and a partition is an *ownership*
-boundary. Nothing consumes the analysis tab on its own; the desktop and docs
-apps mount the whole renderer. Splitting it into seven packages would create
+boundary. Nothing consumes the analysis tab on its own; the desktop app mounts
+the whole renderer. Splitting it into seven packages would create
 seven build units that are always used together, with their own manifests and
 version coordination, for no consumer that benefits. The boundary you want is
 already enforced finer than the package, so promotion to a real package is

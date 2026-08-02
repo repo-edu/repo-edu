@@ -18,7 +18,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 
 ## Rules
 
-- Node-only package — never import from browser-safe packages (`renderer-app`, `docs`).
+- Node-only package — never import it into the renderer runtime or browser-safe contracts.
 - Side effects belong here, not in domain or application.
+- Reads inside a selected root must resolve both paths and enforce real-path containment before reading bytes.
 - `createNodeGitCommandPort` accepts an optional `processPort` for testability.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.

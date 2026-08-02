@@ -18,7 +18,6 @@ import {
   initRepo,
   runCoderLoop,
 } from "./coder"
-import type { CohortTeamIdentity } from "./cohort-team-source"
 import {
   FIXTURES_DIR,
   LOG_BASENAME,
@@ -369,22 +368,6 @@ export function settingsForPlan(prev: Settings, opts: PlanGenOpts): Settings {
     refactors: opts.refactors,
     style: opts.style,
   }
-}
-
-export function overlayPlanTeamIdentities(
-  plan: Plan,
-  identities: readonly CohortTeamIdentity[],
-): void {
-  if (plan.team.length !== identities.length) {
-    fail(
-      `cohort team has ${identities.length} member(s), but planner returned ${plan.team.length}`,
-    )
-  }
-  plan.team = plan.team.map((member, index) => ({
-    ...member,
-    name: identities[index].name,
-    email: identities[index].email,
-  }))
 }
 
 export function settingsForRepo(

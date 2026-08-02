@@ -437,7 +437,3 @@ export function validatePersistedCourse(
   }
   return { ok: false, issues: toValidationIssues(result.error) }
 }
-
-export function formatSmokeWorkflowMessage(source: string) {
-  return `Shared workflow executed from ${source}.`
-}

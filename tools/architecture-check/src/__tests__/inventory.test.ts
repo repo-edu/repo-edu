@@ -4,7 +4,7 @@ import { describe, it } from "node:test"
 import { readSourceInventory } from "../inventory.js"
 
 describe("source inventory", () => {
-  it("uses worktree paths and excludes generated fixture output", () => {
+  it("uses worktree source paths and excludes build or vendored output", () => {
     const inventory = readSourceInventory("/repo", () => [
       "apps/docs/src/fixtures/projects/calculator/generated/team-01.fixture.ts",
       "apps/docs/src/fixtures/projects/calculator/index.ts",
@@ -20,6 +20,7 @@ describe("source inventory", () => {
     ])
 
     assert.deepEqual(inventory.files, [
+      "apps/docs/src/fixtures/projects/calculator/generated/team-01.fixture.ts",
       "apps/docs/src/fixtures/projects/calculator/index.ts",
       "packages/application/src/adapters/tabular/index.d.ts",
       "packages/application/src/index.ts",
