@@ -132,6 +132,11 @@ jobs:
             apps/cli/src/main.ts \
             --outfile redu-darwin-arm64
 
+      - name: Smoke test
+        run: |
+          ./redu-darwin-arm64 --version
+          node scripts/validate-program-gate-artifact.mjs --cli ./redu-darwin-arm64
+
       - name: Generate CLI notices
         run: pnpm --filter @repo-edu/release license-gate --app cli --platform darwin-arm64 --artifact-targets binary --manifest-out redu-darwin-arm64.third-party-notices.txt
 

@@ -136,6 +136,20 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Compile CLI artifact
+        if: inputs.platform == 'linux-arm64' || inputs.platform == 'linux-x64' || inputs.platform == 'macos-arm64'
+        shell: bash
+        run: |
+          case "${{ inputs.platform }}" in
+            linux-arm64) cli_target="bun-linux-arm64" ;;
+            linux-x64) cli_target="bun-linux-x64" ;;
+            macos-arm64) cli_target="bun-darwin-arm64" ;;
+          esac
+          pnpm exec bun build --compile \
+            --target="$cli_target" \
+            apps/cli/src/main.ts \
+            --outfile apps/cli/dist/redu-program-gate
+
       - name: Test
         run: pnpm test
 
@@ -145,8 +159,12 @@ jobs:
 
       - name: Runtime validation (Linux)
         if: inputs.runtime_validation == 'linux-xvfb'
+        env:
+          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: apps/cli/dist/redu-program-gate
         run: xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
 
       - name: Runtime validation
         if: inputs.runtime_validation == 'plain'
+        env:
+          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: ${{ inputs.platform == 'macos-arm64' && 'apps/cli/dist/redu-program-gate' || '' }}
         run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt

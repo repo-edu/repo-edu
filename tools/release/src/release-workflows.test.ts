@@ -44,6 +44,7 @@ describe("release workflow wiring", () => {
     )
 
     assert.match(releaseScript, /"bun"[\s\S]*"build"[\s\S]*"--compile"/)
+    assert.match(releaseScript, /validate-program-gate-artifact\.mjs/)
     assert.doesNotMatch(releaseScript, /--metafile/)
     assert.doesNotMatch(releaseScript, /--bun-metafile/)
     assert.doesNotMatch(releaseScript, /--desktop-bundle-manifest/)
@@ -212,12 +213,34 @@ describe("release workflow wiring", () => {
       for (const snippet of expectation.snippets) {
         assert.ok(workflow.includes(snippet), `missing ${snippet}`)
       }
+      const hasCliBuild = workflow.includes("cli-build-")
+      assert.equal(
+        workflow.includes("validate-program-gate-artifact.mjs"),
+        hasCliBuild,
+      )
       assert.doesNotMatch(workflow, /--metafile/)
       assert.doesNotMatch(workflow, /--bun-metafile/)
       assert.doesNotMatch(workflow, /--desktop-bundle-manifest/)
       assert.doesNotMatch(workflow, /path: redu-[^\n*]*\*/)
     })
   }
+
+  it("every packaged desktop runtime runs the program-gate proof", async () => {
+    const ciPlatform = await readFile(
+      join(repoRoot, ".github/workflows/ci-platform.yml"),
+      "utf8",
+    )
+    const desktopPackage = JSON.parse(
+      await readFile(join(repoRoot, "apps/desktop/package.json"), "utf8"),
+    ) as { scripts?: Record<string, string> }
+
+    assert.match(ciPlatform, /Compile CLI artifact/)
+    assert.match(ciPlatform, /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/)
+    assert.match(
+      desktopPackage.scripts?.["validate:runtime:prebuilt"] ?? "",
+      /validate:program-gate/,
+    )
+  })
 
   it("installer scripts download and install CLI notice sidecars", async () => {
     const shellInstaller = await readFile(

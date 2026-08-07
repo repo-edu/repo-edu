@@ -1,11 +1,46 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { resolveRepoEduAppDataRoot } from "../app-data-root.js"
+import {
+  type ResolveRepoEduAppDataRootOptions,
+  resolveRepoEduAppDataRoot,
+} from "../app-data-root.js"
+
+function resolveWithoutStorageOverride(
+  options: ResolveRepoEduAppDataRootOptions,
+): string {
+  return resolveRepoEduAppDataRoot({
+    ...options,
+    storageRootOverride: null,
+  })
+}
 
 describe("resolveRepoEduAppDataRoot", () => {
-  it("uses XDG config on Linux when supplied", () => {
+  it("resolves an explicit storage-root override", () => {
     assert.equal(
       resolveRepoEduAppDataRoot({
+        platform: "linux",
+        storageRootOverride: "relative-storage",
+      }),
+      `${process.cwd()}/relative-storage`,
+    )
+  })
+
+  it("ignores an empty explicit storage-root override", () => {
+    assert.equal(
+      resolveRepoEduAppDataRoot({
+        platform: "linux",
+        homeDirectory: "/home/ada",
+        storageRootOverride: "  ",
+        xdgConfigHome: null,
+        roamingAppDataDirectory: null,
+      }),
+      "/home/ada/.config/repo-edu",
+    )
+  })
+
+  it("uses XDG config on Linux when supplied", () => {
+    assert.equal(
+      resolveWithoutStorageOverride({
         platform: "linux",
         homeDirectory: "/home/ada",
         xdgConfigHome: "/tmp/xdg-config",
@@ -17,7 +52,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("ignores relative XDG config homes", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "linux",
         homeDirectory: "/home/ada",
         xdgConfigHome: "relative-config",
@@ -29,7 +64,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("falls back to the Linux home config directory", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "linux",
         homeDirectory: "/home/ada",
         xdgConfigHome: null,
@@ -41,7 +76,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("uses the macOS application-support directory", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "darwin",
         homeDirectory: "/Users/ada",
         xdgConfigHome: null,
@@ -53,7 +88,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("uses Windows roaming app data when supplied", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "win32",
         homeDirectory: "C:\\Users\\Ada",
         roamingAppDataDirectory: "C:\\Users\\Ada\\AppData\\Roaming",
@@ -65,7 +100,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("ignores relative Windows roaming app data", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "win32",
         homeDirectory: "C:\\Users\\Ada",
         roamingAppDataDirectory: "AppData\\Roaming",
@@ -77,7 +112,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("uses an injected platform app-data base for desktop", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "darwin",
         homeDirectory: "/unused",
         platformAppDataDirectory: "/electron/app-data",
@@ -90,7 +125,7 @@ describe("resolveRepoEduAppDataRoot", () => {
 
   it("ignores a relative injected platform app-data base", () => {
     assert.equal(
-      resolveRepoEduAppDataRoot({
+      resolveWithoutStorageOverride({
         platform: "darwin",
         homeDirectory: "/Users/ada",
         platformAppDataDirectory: "relative-app-data",

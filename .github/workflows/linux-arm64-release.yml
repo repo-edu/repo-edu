@@ -83,7 +83,9 @@ jobs:
             --outfile redu-linux-arm64
 
       - name: Smoke test
-        run: ./redu-linux-arm64 --version
+        run: |
+          ./redu-linux-arm64 --version
+          node scripts/validate-program-gate-artifact.mjs --cli ./redu-linux-arm64
 
       - name: Generate CLI notices
         run: pnpm --filter @repo-edu/release license-gate --app cli --platform linux-arm64 --artifact-targets binary --manifest-out redu-linux-arm64.third-party-notices.txt

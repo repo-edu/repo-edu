@@ -70,6 +70,16 @@ export {
   createWriteQueue,
   writeTextFileAtomic,
 } from "./atomic-write.js"
+export type { ProgramGateClaim } from "./program-gate.js"
+export {
+  claimProgramGate,
+  isProgramGateArtifactProbe,
+  programConflictMessage,
+  programGateArtifactProbeEnvironmentVariable,
+  programGateArtifactProbeMarker,
+  waitForProgramGateArtifactProbeRelease,
+  writeProgramGateArtifactProbeMarker,
+} from "./program-gate.js"
 export type {
   NodeSettingsRecoveryEntry,
   NodeSettingsRecoveryReason,

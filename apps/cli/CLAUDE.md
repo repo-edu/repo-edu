@@ -2,7 +2,7 @@
 
 This is the TypeScript CLI app (`@repo-edu/cli`).
 
-Run CLI after build: `node apps/cli/dist/redu.js --help`
+Run CLI after the TypeScript build: `node apps/cli/dist/main.js --help`
 
 ## Architecture
 

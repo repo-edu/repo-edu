@@ -136,6 +136,11 @@ function runCliLicensePreflight(platform: CliPreflightPlatform): void {
       "--outfile",
       outputPath,
     ])
+    runFile(process.execPath, [
+      "scripts/validate-program-gate-artifact.mjs",
+      "--cli",
+      outputPath,
+    ])
     runFile("pnpm", [
       "--filter",
       "@repo-edu/release",

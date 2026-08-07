@@ -6,6 +6,7 @@ export type ResolveRepoEduAppDataRootOptions = {
   homeDirectory?: string
   platformAppDataDirectory?: string | null
   roamingAppDataDirectory?: string | null
+  storageRootOverride?: string | null
   xdgConfigHome?: string | null
 }
 
@@ -72,8 +73,17 @@ export function resolveRepoEduAppDataRoot(
   options: ResolveRepoEduAppDataRootOptions = {},
 ): string {
   const platform = options.platform ?? process.platform
-  const homeDirectory = options.homeDirectory ?? homedir()
   const platformPath = pathForPlatform(platform)
+  const storageRootOverride = nonEmpty(
+    "storageRootOverride" in options
+      ? options.storageRootOverride
+      : process.env.REPO_EDU_STORAGE_ROOT,
+  )
+  if (storageRootOverride !== null) {
+    return platformPath.resolve(storageRootOverride)
+  }
+
+  const homeDirectory = options.homeDirectory ?? homedir()
   const roamingAppDataDirectory =
     "roamingAppDataDirectory" in options
       ? options.roamingAppDataDirectory

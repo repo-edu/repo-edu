@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { mkdirSync, rmSync } from "node:fs"
 import { createRequire } from "node:module"
 import os from "node:os"
-import { delimiter, dirname, join, resolve } from "node:path"
+import { delimiter, dirname, join } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createSettingsWorkflowHandlers } from "@repo-edu/application"
@@ -12,12 +12,18 @@ import {
   type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
 import {
+  claimProgramGate,
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
   createNodeLlmPort,
   createNodeTokenizerPort,
+  isProgramGateArtifactProbe,
+  type ProgramGateClaim,
+  programConflictMessage,
   resolveRepoEduAppDataRoot,
+  waitForProgramGateArtifactProbeRelease,
+  writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
 import {
   createExaminationArchiveStorage,
@@ -77,13 +83,35 @@ import {
   saveDesktopWindowState,
 } from "./window-state-store"
 
+const desktopAppName = "Repo Edu"
+
+function desktopErrorText(error: unknown): string {
+  return error instanceof Error ? (error.stack ?? error.message) : String(error)
+}
+
+function desktopErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function terminateDesktop(label: string, error: unknown): void {
+  process.stderr.write(`[desktop] ${label} ${desktopErrorText(error)}\n`)
+  app.exit(1)
+}
+
+process.on("uncaughtException", (error) => {
+  terminateDesktop("uncaught-exception", error)
+})
+
+process.on("unhandledRejection", (reason) => {
+  terminateDesktop("unhandled-rejection", reason)
+})
+
 const { createIPCHandler } = createRequire(import.meta.url)(
   "trpc-electron/main",
 ) as typeof import("trpc-electron/main")
 
 const startupMarker = "repo-edu-desktop-cold-start"
 const trpcMarker = "repo-edu-desktop-trpc"
-const desktopAppName = "Repo Edu"
 const docsWebsiteUrl = "https://repo-edu.github.io/repo-edu/"
 const startupStartedAt = performance.now()
 const isMeasureMode = process.env.REPO_EDU_DESKTOP_MEASURE === "1"
@@ -325,9 +353,6 @@ if (process.platform === "linux") {
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) {
-  app.quit()
-}
 
 app.setName(desktopAppName)
 
@@ -362,10 +387,6 @@ function resolveRendererUrl() {
 }
 
 function resolveStorageRootPath() {
-  const override = process.env.REPO_EDU_STORAGE_ROOT?.trim()
-  if (override) {
-    return resolve(override)
-  }
   return resolveRepoEduAppDataRoot({
     platform: process.platform,
     platformAppDataDirectory: app.getPath("appData"),
@@ -930,109 +951,147 @@ async function createWindow(): Promise<BrowserWindow> {
   return mainWindow
 }
 
-if (hasSingleInstanceLock) {
-  app.whenReady().then(async () => {
-    storageRootPath = resolveStorageRootPath()
-    bindUpdaterMenu()
+async function startDesktop(): Promise<void> {
+  bindUpdaterMenu()
 
-    let shutdownPhase: "idle" | "draining" | "ready" = "idle"
-    app.on("before-quit", (event) => {
-      quitRequested = true
-      const liveWindows = BrowserWindow.getAllWindows().filter(
-        (window) => !window.isDestroyed(),
-      )
-      if (shutdownPhase === "idle" && liveWindows.length > 0) {
-        event.preventDefault()
-        for (const window of liveWindows) {
-          window.close()
-        }
-        return
-      }
-      if (shutdownPhase === "ready") return
-      // Shutdown: signal in-flight workflows to abort, give them a bounded
-      // grace period so mid-commit cache writes complete, then close the DB.
-      const gracePeriodMs = 5_000
+  let shutdownPhase: "idle" | "draining" | "ready" = "idle"
+  app.on("before-quit", (event) => {
+    quitRequested = true
+    const liveWindows = BrowserWindow.getAllWindows().filter(
+      (window) => !window.isDestroyed(),
+    )
+    if (shutdownPhase === "idle" && liveWindows.length > 0) {
       event.preventDefault()
-      if (shutdownPhase === "draining") return
-      shutdownPhase = "draining"
-      if (!shutdownController.signal.aborted) {
-        try {
-          shutdownController.abort()
-        } catch {
-          // Node ignores abort on already-aborted signals; swallow other errors.
-        }
+      for (const window of liveWindows) {
+        window.close()
       }
-      void (async () => {
-        await waitForInFlightWorkflows(gracePeriodMs)
-        // Examination archive runs in WAL mode: closing checkpoints the WAL
-        // and any acknowledged write is already on disk. Close even on a
-        // forced quit so the archive (where data is not regenerable) never
-        // stays open.
-        closeExaminationArchiveDatabase()
-      })()
-        .catch((error) => {
-          // Close paths already catch internally; anything reaching here is
-          // unexpected. Surface it to stderr so the quit still completes.
-          const text =
-            error instanceof Error
-              ? (error.stack ?? error.message)
-              : String(error)
-          process.stderr.write(`[desktop] shutdown-drain-failed ${text}\n`)
-        })
-        .finally(() => {
-          shutdownPhase = "ready"
-          app.quit()
-        })
-    })
-
-    const userFileQueue = parsePathQueue(
-      process.env.REPO_EDU_TEST_USER_FILE_QUEUE,
-    )
-    for (const path of userFileQueue) {
-      desktopHost.queueUserFilePath(path)
+      return
     }
-
-    const saveTargetQueue = parsePathQueue(
-      process.env.REPO_EDU_TEST_SAVE_TARGET_QUEUE,
-    )
-    for (const path of saveTargetQueue) {
-      desktopHost.queueSaveTargetPath(path)
+    if (shutdownPhase === "ready") return
+    // Shutdown: signal in-flight workflows to abort, give them a bounded
+    // grace period so mid-commit cache writes complete, then close the DB.
+    const gracePeriodMs = 5_000
+    event.preventDefault()
+    if (shutdownPhase === "draining") return
+    shutdownPhase = "draining"
+    if (!shutdownController.signal.aborted) {
+      try {
+        shutdownController.abort()
+      } catch {
+        // Node ignores abort on already-aborted signals; swallow other errors.
+      }
     }
+    void (async () => {
+      await waitForInFlightWorkflows(gracePeriodMs)
+      // Examination archive runs in WAL mode: closing checkpoints the WAL
+      // and any acknowledged write is already on disk. Close even on a
+      // forced quit so the archive (where data is not regenerable) never
+      // stays open.
+      closeExaminationArchiveDatabase()
+    })()
+      .catch((error) => {
+        // Close paths already catch internally; anything reaching here is
+        // unexpected. Surface it to stderr so the quit still completes.
+        process.stderr.write(
+          `[desktop] shutdown-drain-failed ${desktopErrorText(error)}\n`,
+        )
+      })
+      .finally(() => {
+        shutdownPhase = "ready"
+        app.quit()
+      })
+  })
 
-    const validationCourseOverride =
-      process.env.REPO_EDU_VALIDATION_COURSE_ID?.trim()
-    if (validationCourseOverride) {
-      validationCourseId = validationCourseOverride
-    }
+  const userFileQueue = parsePathQueue(
+    process.env.REPO_EDU_TEST_USER_FILE_QUEUE,
+  )
+  for (const path of userFileQueue) {
+    desktopHost.queueUserFilePath(path)
+  }
 
-    registerRendererHostIpcHandlers()
-    const mainWindow = await createWindow()
-    initAutoUpdater(mainWindow)
+  const saveTargetQueue = parsePathQueue(
+    process.env.REPO_EDU_TEST_SAVE_TARGET_QUEUE,
+  )
+  for (const path of saveTargetQueue) {
+    desktopHost.queueSaveTargetPath(path)
+  }
 
-    app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        void createWindow().then((window) => {
+  const validationCourseOverride =
+    process.env.REPO_EDU_VALIDATION_COURSE_ID?.trim()
+  if (validationCourseOverride) {
+    validationCourseId = validationCourseOverride
+  }
+
+  registerRendererHostIpcHandlers()
+  const mainWindow = await createWindow()
+  initAutoUpdater(mainWindow)
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createWindow()
+        .then((window) => {
           bindAutoUpdaterWindow(window)
         })
-      }
-    })
+        .catch((error) => {
+          terminateDesktop("activate-failed", error)
+        })
+    }
   })
 }
 
-process.on("uncaughtException", (error) => {
-  process.stderr.write(
-    `[desktop] uncaught-exception ${error.stack ?? error.message}\n`,
-  )
-})
+function reportProgramGateFailure(message: string): void {
+  dialog.showErrorBox(`${desktopAppName} could not start`, message)
+  app.exit(1)
+}
 
-process.on("unhandledRejection", (reason) => {
-  const text =
-    reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)
-  process.stderr.write(`[desktop] unhandled-rejection ${text}\n`)
-})
+async function bootstrapDesktop(): Promise<void> {
+  let claim: ProgramGateClaim
+  try {
+    storageRootPath = resolveStorageRootPath()
+    claim = await claimProgramGate(storageRootPath)
+  } catch (error) {
+    reportProgramGateFailure(
+      `Program gate failed: ${desktopErrorMessage(error)}`,
+    )
+    return
+  }
+
+  if (claim.status === "busy") {
+    if (isProgramGateArtifactProbe()) {
+      writeProgramGateArtifactProbeMarker("busy")
+      process.stderr.write(`${programConflictMessage}\n`)
+      app.exit(1)
+      return
+    }
+    reportProgramGateFailure(programConflictMessage)
+    return
+  }
+
+  // The listener keeps the connection reachable for the full process lifetime.
+  // Process exit closes it; desktop shutdown never releases it early.
+  app.once("quit", () => {
+    void claim.status
+  })
+
+  if (isProgramGateArtifactProbe()) {
+    writeProgramGateArtifactProbeMarker("held")
+    await waitForProgramGateArtifactProbeRelease()
+    app.exit(0)
+    return
+  }
+
+  await app.whenReady()
+  await startDesktop()
+}
+
+if (hasSingleInstanceLock) {
+  void bootstrapDesktop().catch((error) => {
+    terminateDesktop("startup-failed", error)
+  })
+} else {
+  app.quit()
+}
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit()
-  }
+  app.quit()
 })
