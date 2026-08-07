@@ -1,4 +1,4 @@
-import { resolve } from "node:path"
+import { isAbsolute, resolve } from "node:path"
 import { validateProgramGateArtifacts } from "../../../scripts/validate-program-gate-artifact.mjs"
 import {
   findPackagedElectronExecutable,
@@ -14,6 +14,9 @@ async function main() {
   }
 
   const cliArtifact = process.env.REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT?.trim()
+  if (cliArtifact && !isAbsolute(cliArtifact)) {
+    throw new Error("The compiled CLI artifact path must be absolute.")
+  }
   await validateProgramGateArtifacts({
     desktop: {
       command: resolve(executable),
@@ -23,7 +26,7 @@ async function main() {
     ...(cliArtifact
       ? {
           cli: {
-            command: resolve(cliArtifact),
+            command: cliArtifact,
             label: "compiled CLI",
           },
         }

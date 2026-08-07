@@ -15,13 +15,24 @@ function resolveWithoutStorageOverride(
 }
 
 describe("resolveRepoEduAppDataRoot", () => {
-  it("resolves an explicit storage-root override", () => {
+  it("resolves an absolute storage-root override", () => {
     assert.equal(
       resolveRepoEduAppDataRoot({
         platform: "linux",
-        storageRootOverride: "relative-storage",
+        storageRootOverride: "/tmp/repo-edu-storage",
       }),
-      `${process.cwd()}/relative-storage`,
+      "/tmp/repo-edu-storage",
+    )
+  })
+
+  it("rejects a relative storage-root override", () => {
+    assert.throws(
+      () =>
+        resolveRepoEduAppDataRoot({
+          platform: "linux",
+          storageRootOverride: "relative-storage",
+        }),
+      /storage-root override must be absolute/,
     )
   })
 

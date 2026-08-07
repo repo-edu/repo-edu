@@ -104,12 +104,30 @@ export function isProgramGateArtifactProbe(): boolean {
   )
 }
 
-export function writeProgramGateArtifactProbeMarker(
+export async function writeProgramGateArtifactProbeMarker(
   state: ProgramGateClaim["status"],
-): void {
-  process.stdout.write(
-    `${JSON.stringify({ marker: programGateArtifactProbeMarker, state })}\n`,
-  )
+  claimDurationMs: number,
+): Promise<void> {
+  if (!Number.isFinite(claimDurationMs) || claimDurationMs < 0) {
+    throw new Error(
+      "The program-gate probe claim duration must be non-negative.",
+    )
+  }
+
+  const line = `${JSON.stringify({
+    marker: programGateArtifactProbeMarker,
+    state,
+    claimDurationMs,
+  })}\n`
+  await new Promise<void>((resolve, reject) => {
+    process.stdout.write(line, (error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve()
+    })
+  })
 }
 
 export async function waitForProgramGateArtifactProbeRelease(): Promise<void> {

@@ -1045,9 +1045,12 @@ function reportProgramGateFailure(message: string): void {
 }
 
 async function bootstrapDesktop(): Promise<void> {
+  const artifactProbe = isProgramGateArtifactProbe()
   let claim: ProgramGateClaim
+  let claimStartedAt = 0
   try {
     storageRootPath = resolveStorageRootPath()
+    claimStartedAt = performance.now()
     claim = await claimProgramGate(storageRootPath)
   } catch (error) {
     reportProgramGateFailure(
@@ -1055,10 +1058,11 @@ async function bootstrapDesktop(): Promise<void> {
     )
     return
   }
+  const claimDurationMs = performance.now() - claimStartedAt
 
   if (claim.status === "busy") {
-    if (isProgramGateArtifactProbe()) {
-      writeProgramGateArtifactProbeMarker("busy")
+    if (artifactProbe) {
+      await writeProgramGateArtifactProbeMarker("busy", claimDurationMs)
       process.stderr.write(`${programConflictMessage}\n`)
       app.exit(1)
       return
@@ -1073,8 +1077,8 @@ async function bootstrapDesktop(): Promise<void> {
     void claim.status
   })
 
-  if (isProgramGateArtifactProbe()) {
-    writeProgramGateArtifactProbeMarker("held")
+  if (artifactProbe) {
+    await writeProgramGateArtifactProbeMarker("held", claimDurationMs)
     await waitForProgramGateArtifactProbeRelease()
     app.exit(0)
     return

@@ -160,11 +160,11 @@ jobs:
       - name: Runtime validation (Linux)
         if: inputs.runtime_validation == 'linux-xvfb'
         env:
-          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: apps/cli/dist/redu-program-gate
+          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: ${{ github.workspace }}/apps/cli/dist/redu-program-gate
         run: xvfb-run -a pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
 
       - name: Runtime validation
         if: inputs.runtime_validation == 'plain'
         env:
-          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: ${{ inputs.platform == 'macos-arm64' && 'apps/cli/dist/redu-program-gate' || '' }}
+          REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: ${{ inputs.platform == 'macos-arm64' && format('{0}/apps/cli/dist/redu-program-gate', github.workspace) || '' }}
         run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt

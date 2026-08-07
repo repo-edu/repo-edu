@@ -8,16 +8,18 @@ const conflictMessage = "Another Repo Edu program is running"
 const marker = "repo-edu-program-gate-artifact"
 const probeEnvironmentVariable = "REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE"
 const processTimeoutMs = 30_000
+const cleanupTimeoutMs = 5_000
+const maximumBusyClaimDurationMs = 2_000
 
 function errorText(error) {
   return error instanceof Error ? error.message : String(error)
 }
 
-function withTimeout(promise, label) {
+function withTimeout(promise, label, timeoutMs = processTimeoutMs) {
   return new Promise((resolvePromise, rejectPromise) => {
     const timeout = setTimeout(() => {
       rejectPromise(new Error(`${label} timed out.`))
-    }, processTimeoutMs)
+    }, timeoutMs)
     promise.then(
       (value) => {
         clearTimeout(timeout)
@@ -41,7 +43,10 @@ function parseMarker(stdout) {
         value.marker === marker &&
         (value.state === "busy" || value.state === "held")
       ) {
-        return value.state
+        return {
+          state: value.state,
+          claimDurationMs: value.claimDurationMs,
+        }
       }
     } catch {
       // Ignore unrelated runtime output and incomplete lines.
@@ -109,26 +114,64 @@ function launchArtifact(artifact, root) {
     artifact,
     child,
     output,
-    marker: withTimeout(markerPromise, `${artifact.label} marker`),
-    exit: withTimeout(exitPromise, `${artifact.label} exit`),
+    marker: markerPromise,
+    exit: exitPromise,
   }
 }
 
+function isArtifactRunning(running) {
+  return running.child.exitCode === null && running.child.signalCode === null
+}
+
+async function readArtifactMarker(running) {
+  const report = await withTimeout(
+    running.marker,
+    `${running.artifact.label} marker`,
+  )
+  if (
+    typeof report.claimDurationMs !== "number" ||
+    !Number.isFinite(report.claimDurationMs) ||
+    report.claimDurationMs < 0
+  ) {
+    throw new Error(
+      `${running.artifact.label} reported an invalid gate-claim duration.`,
+    )
+  }
+  return report
+}
+
+async function waitForArtifactExit(running, label) {
+  return await withTimeout(running.exit, `${running.artifact.label} ${label}`)
+}
+
 async function stopArtifact(running) {
-  running.child.kill()
+  running.child.stdin.destroy()
+  if (isArtifactRunning(running)) {
+    running.child.kill()
+  }
   try {
-    await running.exit
+    await withTimeout(
+      running.exit,
+      `${running.artifact.label} cleanup`,
+      cleanupTimeoutMs,
+    )
   } catch {
-    // Preserve the failure that required cleanup.
+    if (isArtifactRunning(running)) {
+      running.child.kill("SIGKILL")
+    }
+    running.child.stdout.destroy()
+    running.child.stderr.destroy()
   }
 }
 
 async function startHolder(artifact, root) {
   const running = launchArtifact(artifact, root)
   try {
-    const state = await running.marker
-    if (state !== "held") {
-      throw new Error(`${artifact.label} reported ${state} instead of held.`)
+    const report = await readArtifactMarker(running)
+    if (report.state !== "held") {
+      throw new Error(
+        `${artifact.label} reported ${report.state} instead of held.`,
+      )
     }
     return running
   } catch (error) {
@@ -137,9 +180,18 @@ async function startHolder(artifact, root) {
   }
 }
 
+async function withHolder(artifact, root, operation) {
+  const holder = await startHolder(artifact, root)
+  try {
+    return await operation(holder)
+  } finally {
+    await stopArtifact(holder)
+  }
+}
+
 async function releaseHolder(running) {
   running.child.stdin.end("release\n")
-  const result = await running.exit
+  const result = await waitForArtifactExit(running, "normal release")
   if (result.code !== 0) {
     throw new Error(
       `${running.artifact.label} normal release exited with ${result.code ?? result.signal ?? "unknown"}: ${running.output.stderr.trim() || running.output.stdout.trim() || "<no output>"}`,
@@ -149,17 +201,24 @@ async function releaseHolder(running) {
 
 async function killHolder(running) {
   running.child.kill()
-  await running.exit
+  await waitForArtifactExit(running, "process death")
 }
 
 async function requireBusy(artifact, root) {
   const contender = launchArtifact(artifact, root)
   try {
-    const state = await contender.marker
-    if (state !== "busy") {
-      throw new Error(`${artifact.label} reported ${state} instead of busy.`)
+    const report = await readArtifactMarker(contender)
+    if (report.state !== "busy") {
+      throw new Error(
+        `${artifact.label} reported ${report.state} instead of busy.`,
+      )
     }
-    const result = await contender.exit
+    if (report.claimDurationMs > maximumBusyClaimDurationMs) {
+      throw new Error(
+        `${artifact.label} took ${report.claimDurationMs.toFixed(0)}ms to refuse the held gate; maximum is ${maximumBusyClaimDurationMs}ms.`,
+      )
+    }
+    const result = await waitForArtifactExit(contender, "busy refusal")
     if (result.code === 0) {
       throw new Error(`${artifact.label} accepted an already-held program gate.`)
     }
@@ -226,42 +285,45 @@ async function validateDesktopOnly(desktop, root) {
     proofOwner.release()
   }
 
-  const normalHolder = await startHolder(desktop, root)
-  const proofContender = await claimFromProof(root)
-  if (proofContender.status !== "busy") {
-    proofContender.release()
-    await stopArtifact(normalHolder)
-    throw new Error("The proof connection acquired the desktop-held gate.")
-  }
-  await releaseHolder(normalHolder)
+  await withHolder(desktop, root, async (normalHolder) => {
+    const proofContender = await claimFromProof(root)
+    if (proofContender.status !== "busy") {
+      proofContender.release()
+      throw new Error("The proof connection acquired the desktop-held gate.")
+    }
+    await releaseHolder(normalHolder)
+  })
   await requireProofCanClaim(root, "normal desktop exit")
 
-  const deathHolder = await startHolder(desktop, root)
-  await killHolder(deathHolder)
-  await requireProofCanClaim(root, "desktop process death")
+  await withHolder(desktop, root, async (deathHolder) => {
+    await killHolder(deathHolder)
+    await requireProofCanClaim(root, "desktop process death")
+  })
 }
 
 async function validateCliOnly(cli, root) {
-  const normalHolder = await startHolder(cli, root)
-  await requireBusy(cli, root)
-  await releaseHolder(normalHolder)
+  await withHolder(cli, root, async (normalHolder) => {
+    await requireBusy(cli, root)
+    await releaseHolder(normalHolder)
+  })
 
-  const successor = await startHolder(cli, root)
-  await releaseHolder(successor)
+  await withHolder(cli, root, async (successor) => {
+    await releaseHolder(successor)
+  })
 
-  const deathHolder = await startHolder(cli, root)
-  await killHolder(deathHolder)
-  const deathSuccessor = await startHolder(cli, root)
-  await releaseHolder(deathSuccessor)
+  await withHolder(cli, root, async (deathHolder) => {
+    await killHolder(deathHolder)
+    await withHolder(cli, root, async (deathSuccessor) => {
+      await releaseHolder(deathSuccessor)
+    })
+  })
 }
 
 async function validateCrossProgram(owner, contender, root) {
-  const holder = await startHolder(owner, root)
-  try {
+  await withHolder(owner, root, async (holder) => {
     await requireBusy(contender, root)
-  } finally {
     await releaseHolder(holder)
-  }
+  })
 }
 
 export async function validateProgramGateArtifacts(options) {

@@ -237,6 +237,10 @@ describe("release workflow wiring", () => {
     assert.match(ciPlatform, /Compile CLI artifact/)
     assert.match(ciPlatform, /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/)
     assert.match(
+      ciPlatform,
+      /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT:.*github\.workspace/,
+    )
+    assert.match(
       desktopPackage.scripts?.["validate:runtime:prebuilt"] ?? "",
       /validate:program-gate/,
     )

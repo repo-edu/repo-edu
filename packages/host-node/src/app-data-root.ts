@@ -80,6 +80,9 @@ export function resolveRepoEduAppDataRoot(
       : process.env.REPO_EDU_STORAGE_ROOT,
   )
   if (storageRootOverride !== null) {
+    if (!platformPath.isAbsolute(storageRootOverride)) {
+      throw new Error("The Repo Edu storage-root override must be absolute.")
+    }
     return platformPath.resolve(storageRootOverride)
   }
 

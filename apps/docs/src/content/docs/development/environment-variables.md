@@ -13,7 +13,7 @@ Most of repo-edu's own variables exist for one structural reason. The desktop ru
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
-| `REPO_EDU_STORAGE_ROOT` | desktop `main.ts` | Overrides the app-data root for the desktop process. Set by the e2e smoke test and the runtime-validation harness, which each launch Electron against a fresh temporary directory. | the canonical per-platform app-data root |
+| `REPO_EDU_STORAGE_ROOT` | desktop and CLI entry points | Overrides the shared app-data root with an absolute path. Set by the e2e smoke test and runtime-validation harnesses, which launch programs against a fresh temporary directory. | the canonical per-platform app-data root |
 
 ### Desktop runtime-validation harness
 
