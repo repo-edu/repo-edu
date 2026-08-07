@@ -29,6 +29,16 @@ These configure the Electron process that `pnpm --filter @repo-edu/desktop run v
 | `REPO_EDU_TEST_USER_FILE_QUEUE` | desktop `main.ts` | Delimiter-joined paths returned in order from the open-file dialog, so a headless run needs no real picker. | empty |
 | `REPO_EDU_TEST_SAVE_TARGET_QUEUE` | desktop `main.ts` | The same, for the save-target dialog. | empty |
 
+### Program-gate artifact validation
+
+The packaged-artifact proof starts the desktop and CLI as child processes.
+These variables form its private test protocol. They are not product settings.
+
+| Variable | Read by | Effect | Default |
+| --- | --- | --- | --- |
+| `REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE` | desktop and CLI entry points | `"1"` runs only the program-gate probe, reports its claim result and waits for the harness to release it. | off |
+| `REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT` | desktop program-gate harness | Supplies the absolute path of a compiled CLI artifact for paired desktop and CLI validation. An empty value runs desktop-only validation. | empty |
+
 ### Fixture seeding
 
 | Variable | Read by | Effect | Default |
