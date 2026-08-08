@@ -7,7 +7,7 @@
     "@repo-edu/integrations-llm": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
-    "web-tree-sitter": "0.26.9"
+    "web-tree-sitter": "0.26.11"
   },
   "exports": {
     ".": {
