@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
@@ -7,6 +8,8 @@ import { DatabaseSync } from "node:sqlite"
 const conflictMessage = "Another Repo Edu program is running"
 const marker = "repo-edu-program-gate-artifact"
 const probeEnvironmentVariable = "REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE"
+const probeReleaseEnvironmentVariable =
+  "REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE_RELEASE"
 const processTimeoutMs = 30_000
 const cleanupTimeoutMs = 5_000
 const maximumBusyClaimDurationMs = 2_000
@@ -56,13 +59,15 @@ function parseMarker(stdout) {
 }
 
 function launchArtifact(artifact, root) {
+  const releasePath = join(root, `program-gate-release-${randomUUID()}`)
   const child = spawn(artifact.command, artifact.arguments ?? [], {
     env: {
       ...process.env,
       REPO_EDU_STORAGE_ROOT: root,
       [probeEnvironmentVariable]: "1",
+      [probeReleaseEnvironmentVariable]: releasePath,
     },
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   })
   child.stdout.setEncoding("utf8")
@@ -114,6 +119,7 @@ function launchArtifact(artifact, root) {
     artifact,
     child,
     output,
+    releasePath,
     marker: markerPromise,
     exit: exitPromise,
   }
@@ -145,7 +151,6 @@ async function waitForArtifactExit(running, label) {
 }
 
 async function stopArtifact(running) {
-  running.child.stdin.destroy()
   if (isArtifactRunning(running)) {
     running.child.kill()
   }
@@ -190,7 +195,7 @@ async function withHolder(artifact, root, operation) {
 }
 
 async function releaseHolder(running) {
-  running.child.stdin.end("release\n")
+  await writeFile(running.releasePath, "", { flag: "wx" })
   const result = await waitForArtifactExit(running, "normal release")
   if (result.code !== 0) {
     throw new Error(

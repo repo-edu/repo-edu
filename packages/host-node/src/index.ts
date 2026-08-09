@@ -77,6 +77,7 @@ export {
   programConflictMessage,
   programGateArtifactProbeEnvironmentVariable,
   programGateArtifactProbeMarker,
+  programGateArtifactProbeReleaseEnvironmentVariable,
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "./program-gate.js"

@@ -1,19 +1,24 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { access, mkdtemp, rm } from "node:fs/promises"
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
+import { setTimeout as delay } from "node:timers/promises"
 import { fileURLToPath } from "node:url"
 import {
   claimProgramGate,
   programGateArtifactProbeMarker,
+  programGateArtifactProbeReleaseEnvironmentVariable,
+  waitForProgramGateArtifactProbeRelease,
 } from "../program-gate.js"
 
 const temporaryRoots = new Set<string>()
 const childPath = fileURLToPath(
   new URL("./fixtures/program-gate-child.ts", import.meta.url),
 )
+const initialArtifactProbeReleasePath =
+  process.env[programGateArtifactProbeReleaseEnvironmentVariable]
 
 async function createTemporaryRoot(removeAfterCreate = false): Promise<string> {
   const parent = await mkdtemp(join(tmpdir(), "repo-edu-program-gate-test-"))
@@ -99,6 +104,12 @@ async function waitForExit(
 }
 
 afterEach(async () => {
+  if (initialArtifactProbeReleasePath === undefined) {
+    delete process.env[programGateArtifactProbeReleaseEnvironmentVariable]
+  } else {
+    process.env[programGateArtifactProbeReleaseEnvironmentVariable] =
+      initialArtifactProbeReleasePath
+  }
   await Promise.all(
     [...temporaryRoots].map((root) =>
       rm(root, { force: true, recursive: true }),
@@ -160,5 +171,22 @@ describe("claimProgramGate", () => {
     if (successor.status === "held") {
       successor.release()
     }
+  })
+
+  it("waits for the artifact harness release path", async () => {
+    const root = await createTemporaryRoot()
+    const releasePath = join(root, "release")
+    process.env[programGateArtifactProbeReleaseEnvironmentVariable] =
+      releasePath
+
+    const waiting = waitForProgramGateArtifactProbeRelease()
+    const earlyResult = await Promise.race([
+      waiting.then(() => "released" as const),
+      delay(75, "waiting" as const),
+    ])
+    assert.equal(earlyResult, "waiting")
+
+    await writeFile(releasePath, "", { flag: "wx" })
+    await waiting
   })
 })

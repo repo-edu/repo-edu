@@ -37,6 +37,7 @@ These variables form its private test protocol. They are not product settings.
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
 | `REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE` | desktop and CLI entry points | `"1"` runs only the program-gate probe, reports its claim result and waits for the harness to release it. | off |
+| `REPO_EDU_PROGRAM_GATE_ARTIFACT_PROBE_RELEASE` | desktop and CLI entry points | Absolute path created by the private program-gate harness to release one probe process. | unset |
 | `REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT` | desktop program-gate harness | Supplies the absolute path of a compiled CLI artifact for paired desktop and CLI validation. An empty value runs desktop-only validation. | empty |
 
 ### Fixture seeding
