@@ -252,6 +252,7 @@ async function startAssignedLauncher(
 
   const job = await createWindowsKillOnCloseJob()
   let child: ChildProcess | null = null
+  let controlInput: Writable | null = null
   let identity: SavedWindowsProcessIdentity | null = null
   let controlLines: Interface | null = null
   let assigned = false
@@ -272,8 +273,9 @@ async function startAssignedLauncher(
     // No event-loop yield may let Node release its own process handle first.
     identity = job.saveProcessIdentity(requiredProcessId(child))
 
-    const controlInput = requiredControlInput(child)
-    controlInput.on("error", () => {
+    const assignedControlInput = requiredControlInput(child)
+    controlInput = assignedControlInput
+    assignedControlInput.on("error", () => {
       // A pending write receives the same error through its callback. Later
       // channel loss is reported by the launcher exit and control reader.
     })
@@ -309,7 +311,7 @@ async function startAssignedLauncher(
     let resourcesClosed = false
     return {
       child,
-      controlInput,
+      controlInput: assignedControlInput,
       controlLines: iterator,
       evidence: {
         assignedToJob: true,
@@ -324,18 +326,20 @@ async function startAssignedLauncher(
       job,
       output,
       closeControl() {
-        controlInput.end()
+        assignedControlInput.end()
       },
       closeResources() {
         if (resourcesClosed) {
           return
         }
         resourcesClosed = true
+        assignedControlInput.destroy()
         controlLines?.close()
         job.close()
       },
     }
   } catch (error) {
+    controlInput?.destroy()
     controlLines?.close()
     identity?.close()
     if (child && !assigned) {
@@ -368,13 +372,21 @@ async function writeLaunchCommand(
     },
   }
   await new Promise<void>((resolve, reject) => {
-    launcher.controlInput.write(`${JSON.stringify(command)}\n`, (error) => {
-      if (error) {
-        reject(error)
-        return
-      }
+    const removeListeners = () => {
+      launcher.controlInput.off("error", onError)
+      launcher.controlInput.off("finish", onFinish)
+    }
+    const onError = (error: Error) => {
+      removeListeners()
+      reject(error)
+    }
+    const onFinish = () => {
+      removeListeners()
       resolve()
-    })
+    }
+    launcher.controlInput.once("error", onError)
+    launcher.controlInput.once("finish", onFinish)
+    launcher.controlInput.end(`${JSON.stringify(command)}\n`)
   })
 }
 
