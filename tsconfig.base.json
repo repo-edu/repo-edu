@@ -104,6 +104,9 @@
       "@repo-edu/host-node/examination-archive": [
         "./packages/host-node/src/examination-archive/index.ts"
       ],
+      "@repo-edu/host-node/windows-child-lifetime": [
+        "./packages/host-node/src/windows-child-lifetime.ts"
+      ],
       "@repo-edu/test-fixtures": [
         "./packages/test-fixtures/src/index.ts"
       ],

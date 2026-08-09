@@ -33,3 +33,35 @@ describe("desktop Linux metadata", () => {
     )
   })
 })
+
+describe("desktop Windows child-lifetime packaging", () => {
+  it("ships the fixed launcher and keeps Electron Node mode enabled", async () => {
+    const packageJson = (await readJson(join(desktopRoot, "package.json"))) as {
+      scripts?: Record<string, string>
+    }
+    const builderConfig = (await readJson(
+      join(desktopRoot, "electron-builder.json"),
+    )) as {
+      asarUnpack?: unknown
+      electronFuses?: { runAsNode?: unknown }
+      win?: { extraResources?: unknown }
+    }
+
+    assert.equal(builderConfig.electronFuses?.runAsNode, true)
+    assert.deepEqual(builderConfig.asarUnpack, [
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/koffi-win32-*/**/*",
+    ])
+    assert.deepEqual(builderConfig.win?.extraResources, [
+      {
+        from: "resources/host-child-lifetime",
+        to: "host-child-lifetime",
+        filter: ["windows-launcher.cjs"],
+      },
+    ])
+    assert.match(
+      packageJson.scripts?.["validate:runtime:prebuilt"] ?? "",
+      /validate:child-lifetime/,
+    )
+  })
+})

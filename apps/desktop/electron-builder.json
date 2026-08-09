@@ -4,6 +4,13 @@
     "productName": "RepoEdu",
     "artifactName": "RepoEdu-${os}-${arch}.${ext}",
     "asar": true,
+    "asarUnpack": [
+        "node_modules/koffi/**/*",
+        "node_modules/@koromix/koffi-win32-*/**/*"
+    ],
+    "electronFuses": {
+        "runAsNode": true
+    },
     "npmRebuild": false,
     "directories": {
         "output": "release"
@@ -47,6 +54,15 @@
     },
     "win": {
         "executableName": "RepoEdu",
+        "extraResources": [
+            {
+                "from": "resources/host-child-lifetime",
+                "to": "host-child-lifetime",
+                "filter": [
+                    "windows-launcher.cjs"
+                ]
+            }
+        ],
         "target": [
             "nsis"
         ]

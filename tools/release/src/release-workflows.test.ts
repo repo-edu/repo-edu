@@ -225,7 +225,7 @@ describe("release workflow wiring", () => {
     })
   }
 
-  it("every packaged desktop runtime runs the program-gate proof", async () => {
+  it("every packaged desktop runtime runs the host artifact proofs", async () => {
     const ciPlatform = await readFile(
       join(repoRoot, ".github/workflows/ci-platform.yml"),
       "utf8",
@@ -243,6 +243,10 @@ describe("release workflow wiring", () => {
     assert.match(
       desktopPackage.scripts?.["validate:runtime:prebuilt"] ?? "",
       /validate:program-gate/,
+    )
+    assert.match(
+      desktopPackage.scripts?.["validate:runtime:prebuilt"] ?? "",
+      /validate:child-lifetime/,
     )
   })
 

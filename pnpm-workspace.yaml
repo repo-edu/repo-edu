@@ -8,6 +8,7 @@ allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
+  koffi: true
   sharp: true
   tree-sitter-cli: true
 

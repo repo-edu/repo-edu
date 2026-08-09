@@ -4,12 +4,12 @@
   "type": "module",
   "dependencies": {
     "@astrojs/starlight": "^0.38.2",
-    "astro": "^6.0.8",
+    "astro": "^6.4.8",
     "sharp": "^0.34.5",
     "starlight-sidebar-topics": "0.7.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.8"
+    "@astrojs/check": "^0.9.10"
   },
   "scripts": {
     "dev": "astro dev --host --port 4321",

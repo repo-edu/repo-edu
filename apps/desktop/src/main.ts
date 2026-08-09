@@ -62,6 +62,10 @@ import {
   onAutoUpdaterStateChange,
   quitAndInstall,
 } from "./auto-updater"
+import {
+  isChildLifetimeArtifactProbe,
+  runChildLifetimeArtifactProbe,
+} from "./child-lifetime-artifact-probe"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
@@ -1045,6 +1049,18 @@ function reportProgramGateFailure(message: string): void {
 }
 
 async function bootstrapDesktop(): Promise<void> {
+  if (isChildLifetimeArtifactProbe()) {
+    if (!app.isPackaged) {
+      throw new Error("The child-lifetime artifact probe requires a package.")
+    }
+    await runChildLifetimeArtifactProbe({
+      resourcesPath: process.resourcesPath,
+      executablePath: process.execPath,
+    })
+    app.exit(0)
+    return
+  }
+
   const artifactProbe = isProgramGateArtifactProbe()
   let claim: ProgramGateClaim
   let claimStartedAt = 0

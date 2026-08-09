@@ -7,6 +7,7 @@
     "@repo-edu/integrations-llm": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
+    "koffi": "3.1.4",
     "web-tree-sitter": "0.26.9"
   },
   "exports": {
@@ -19,6 +20,11 @@
       "source": "./src/examination-archive/index.ts",
       "types": "./dist/examination-archive/index.d.ts",
       "default": "./dist/examination-archive/index.js"
+    },
+    "./windows-child-lifetime": {
+      "source": "./src/windows-child-lifetime.ts",
+      "types": "./dist/windows-child-lifetime.d.ts",
+      "default": "./dist/windows-child-lifetime.js"
     }
   },
   "scripts": {
