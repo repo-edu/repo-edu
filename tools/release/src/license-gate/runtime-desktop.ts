@@ -2,7 +2,10 @@ import { execFile } from "node:child_process"
 import { existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { promisify } from "node:util"
-import { findReachedPackage } from "./closure.js"
+import {
+  findReachedPackage,
+  findReachedPackageByReachedName,
+} from "./closure.js"
 import {
   type AdditionalNoticeFile,
   resolveAdditionalNoticeCandidates,
@@ -74,7 +77,45 @@ export async function resolveDesktopRuntimePackageEntries(options: {
     )
   }
 
+  const koffiRoot = options.productionReached
+    ? findReachedPackageByReachedName(options.productionReached, "koffi")
+    : undefined
+  if (koffiRoot) {
+    const packageName = koffiRuntimePackageName(options.platform)
+    const platformPackage = findReachedPackageByReachedName(
+      options.productionReached ?? [],
+      packageName,
+    )
+    if (!platformPackage?.packageDirectoryExists) {
+      throw new Error(
+        `Installed Koffi native runtime ${packageName} is missing for ${options.platform}.`,
+      )
+    }
+    subjects.push(
+      runtimePackageRecord(packageName, {
+        reachedPackage: platformPackage,
+        root: koffiRoot.packagePath,
+        source: `Koffi native runtime for ${options.platform}`,
+      }),
+    )
+  }
+
   return Promise.all(subjects)
+}
+
+export function koffiRuntimePackageName(platform: ReleasePlatform): string {
+  switch (platform) {
+    case "darwin-arm64":
+      return "@koromix/koffi-darwin-arm64"
+    case "linux-arm64":
+      return "@koromix/koffi-linux-arm64"
+    case "linux-x64":
+      return "@koromix/koffi-linux-x64"
+    case "windows-arm64":
+      return "@koromix/koffi-win32-arm64"
+    case "windows-x64":
+      return "@koromix/koffi-win32-x64"
+  }
 }
 
 function electronChromiumNoticeCandidates(

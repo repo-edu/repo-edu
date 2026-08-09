@@ -110,10 +110,21 @@ export async function scanPackageNoticesFromStart(
 export function assertScannerParity(options: {
   readonly scannerPackages: readonly ScannedPackageNotice[]
   readonly thirdParty: readonly ReachedPackage[]
+  readonly runtimePackages?: readonly NoticeEntry[]
 }): void {
   const scannerByBase = groupByBaseIdentity(options.scannerPackages)
   const thirdPartyByBase = groupByBaseIdentity(options.thirdParty)
+  const runtimePackageIds = new Set(
+    (options.runtimePackages ?? []).map((entry) => entry.id),
+  )
   const misses = options.thirdParty.filter((pkg) => {
+    if (
+      runtimePackageIds.has(
+        packageKey(pkg.packageName, pkg.version, pkg.packagePath),
+      )
+    ) {
+      return false
+    }
     const scannerMatches = scannerByBase.get(baseIdentity(pkg))
     if (!scannerMatches) {
       return true
@@ -350,12 +361,27 @@ function baseIdentity(pkg: {
 
 function isExpectedScannerMiss(pkg: ReachedPackage): boolean {
   return (
-    isOpenAiCodexPlatformOptional(pkg) || isElectronBuildTimeSubtreeMiss(pkg)
+    isOpenAiCodexPlatformOptional(pkg) ||
+    isAbsentKoffiPlatformOptional(pkg) ||
+    isElectronBuildTimeSubtreeMiss(pkg)
   )
 }
 
 function isOpenAiCodexPlatformOptional(pkg: ReachedPackage): boolean {
   return /^@openai\/codex-(?:darwin|linux|win32)-/.test(pkg.reachedName)
+}
+
+function isAbsentKoffiPlatformOptional(pkg: ReachedPackage): boolean {
+  return (
+    !pkg.packageDirectoryExists &&
+    /^@koromix\/koffi-(?:darwin|freebsd|linux|openbsd|win32)-/.test(
+      pkg.reachedName,
+    ) &&
+    pkg.paths.length > 0 &&
+    pkg.paths.every(
+      (path) => path.at(-1) === pkg.reachedName && path.at(-2) === "koffi",
+    )
+  )
 }
 
 function isElectronBuildTimeSubtreeMiss(pkg: ReachedPackage): boolean {

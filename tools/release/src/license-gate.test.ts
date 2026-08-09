@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { resolveDesktopRuntimePackageEntries } from "./license-gate/runtime-assets.js"
+import { koffiRuntimePackageName } from "./license-gate/runtime-desktop.js"
 import {
   currentReleasePlatform,
   desktopTargetsForPlatform,
@@ -113,6 +114,7 @@ describe("ripgrep notice evidence", () => {
 
       const manifest = await readFile(manifestPath, "utf8")
       assert.match(manifest, /ripgrep vendored by @openai\/codex/)
+      assert.ok(manifest.includes(koffiRuntimePackageName(platform)))
       assert.match(manifest, /vendored vendor\/.*\/path\/rg/)
       assert.match(manifest, /root @openai\/codex 0\.128\.0 bin\/rg/)
       assert.doesNotMatch(

@@ -8,6 +8,7 @@ import {
   resolveCliRuntimeNoticeEntries,
   resolveDesktopRuntimePackageEntries,
 } from "./runtime-assets.js"
+import { koffiRuntimePackageName } from "./runtime-desktop.js"
 import { scanPackageNotices } from "./scanner.js"
 import {
   currentCliReleasePlatform,
@@ -366,6 +367,12 @@ fs.writeFileSync(path.join(__dirname, "path.txt"), "electron\\n")
     assert.equal(
       mergedEntries.filter((entry) => entry.name === "builder-util-runtime")
         .length,
+      1,
+    )
+    assert.equal(
+      mergedEntries.filter(
+        (entry) => entry.name === koffiRuntimePackageName(platform),
+      ).length,
       1,
     )
   })

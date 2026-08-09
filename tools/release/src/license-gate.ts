@@ -97,17 +97,18 @@ export async function runLicenseGate(
   const manifestOut = resolveRepoRelativePath(root, options.manifestOut)
   const dependencies = await enumerateProductionDependencies(options.app, root)
   const scannerPackages = await scanPackageNotices(options.app, root)
-
-  assertScannerParity({
-    scannerPackages,
-    thirdParty: dependencies.thirdParty,
-  })
-
   const runtime = await collectRuntimeNoticeEntries(
     options,
     root,
     dependencies.productionReached,
   )
+
+  assertScannerParity({
+    scannerPackages,
+    thirdParty: dependencies.thirdParty,
+    runtimePackages: runtime.entries,
+  })
+
   const noticeEntries = mergeNoticeEntries([
     ...scannerPackages,
     ...runtime.entries,

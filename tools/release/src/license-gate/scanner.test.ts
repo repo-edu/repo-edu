@@ -179,8 +179,60 @@ describe("scanner parity guard", () => {
             version: "0.128.0-linux-x64",
             packageDirectoryExists: false,
           }),
+          reachedPackage("@koromix/koffi-linux-x64", {
+            packageDirectoryExists: false,
+            path: ["@repo-edu/host-node", "koffi", "@koromix/koffi-linux-x64"],
+          }),
         ],
       }),
+    )
+  })
+
+  it("requires explicit runtime evidence for the installed Koffi package", () => {
+    const packagePath = "/repo/node_modules/@koromix/koffi-win32-x64"
+    const thirdParty = [
+      reachedPackage("@koromix/koffi-win32-x64", {
+        packagePath,
+        path: ["@repo-edu/host-node", "koffi", "@koromix/koffi-win32-x64"],
+      }),
+    ]
+
+    assert.throws(
+      () => assertScannerParity({ scannerPackages: [], thirdParty }),
+      /missed production package/,
+    )
+    assert.doesNotThrow(() =>
+      assertScannerParity({
+        scannerPackages: [],
+        thirdParty,
+        runtimePackages: [
+          {
+            id: packageKey("@koromix/koffi-win32-x64", "1.0.0", packagePath),
+            kind: "runtime-asset",
+            name: "@koromix/koffi-win32-x64",
+            version: "1.0.0",
+            licenseExpression: "MIT",
+            source: "runtime",
+            licenseEvidence: "metadata",
+          },
+        ],
+      }),
+    )
+  })
+
+  it("does not exempt a Koffi-named package outside Koffi", () => {
+    assert.throws(
+      () =>
+        assertScannerParity({
+          scannerPackages: [],
+          thirdParty: [
+            reachedPackage("@koromix/koffi-win32-x64", {
+              packageDirectoryExists: false,
+              path: ["other-runtime", "@koromix/koffi-win32-x64"],
+            }),
+          ],
+        }),
+      /missed production package/,
     )
   })
 
