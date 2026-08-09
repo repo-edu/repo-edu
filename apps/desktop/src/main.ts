@@ -1087,11 +1087,9 @@ async function bootstrapDesktop(): Promise<void> {
     return
   }
 
-  // The listener keeps the connection reachable for the full process lifetime.
-  // Process exit closes it; desktop shutdown never releases it early.
-  app.once("quit", () => {
-    void claim.status
-  })
+  // The listener retains the connection for the full process lifetime and
+  // closes it only when no further product work can run.
+  process.once("exit", claim.release)
 
   if (artifactProbe) {
     await writeProgramGateArtifactProbeMarker("held", claimDurationMs)
