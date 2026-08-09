@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 import type {
   AnalysisBlameInput,
@@ -16,6 +18,11 @@ import {
 } from "./analysis-test-helpers.js"
 
 const SNAPSHOT_COMMIT_OID = "a".repeat(40)
+const absoluteRepositoryPath = join(
+  tmpdir(),
+  "repo-edu-blame-absolute-repository",
+)
+const testRepositoryPath = join(tmpdir(), "repo-edu-blame-test-repository")
 
 describe("analysis.blame handler", () => {
   it("rejects malformed patterns before any Git operation", async () => {
@@ -107,7 +114,7 @@ describe("analysis.blame handler", () => {
     })
 
     const result = await handlers["analysis.blame"]({
-      repositoryAbsolutePath: "/tmp/repos/absolute-repo",
+      repositoryAbsolutePath: absoluteRepositoryPath,
       config: {},
       personDbBaseline: emptyPersonDb(),
       files: [],
@@ -115,7 +122,7 @@ describe("analysis.blame handler", () => {
     })
 
     assert.equal(result.fileBlames.length, 0)
-    assert.ok(cwds.every((cwd) => cwd === "/tmp/repos/absolute-repo"))
+    assert.ok(cwds.every((cwd) => cwd === absoluteRepositoryPath))
   })
 
   it("respects AbortSignal", async () => {
@@ -426,7 +433,7 @@ describe("analysis.blame handler", () => {
       handlers["analysis.blame"]({
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
@@ -443,7 +450,7 @@ describe("analysis.blame handler", () => {
 
     await assertValidationError(() =>
       handlers["analysis.blame"]({
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],
@@ -453,7 +460,7 @@ describe("analysis.blame handler", () => {
     )
     await assertValidationError(() =>
       handlers["analysis.blame"]({
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         personDbBaseline: emptyPersonDb(),
         files: ["src/main.ts"],

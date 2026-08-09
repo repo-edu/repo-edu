@@ -1,8 +1,12 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
+
+const cloneTargetDirectory = join(tmpdir(), "repo-edu-clone-target")
 
 function planForAssignment(course: PersistedCourse, assignmentId: string) {
   const plan = planRepositoryOperation(course, assignmentId, "clone")
@@ -59,7 +63,7 @@ describe("application repository clone workflow helpers", () => {
       credentials: settings,
       assignmentId: "a1",
       template: null,
-      targetDirectory: "/work/repos",
+      targetDirectory: cloneTargetDirectory,
       directoryLayout: "flat",
     })
     const plan = planForAssignment(course, "a1")
@@ -94,7 +98,9 @@ describe("application repository clone workflow helpers", () => {
     assert.deepStrictEqual(
       new Set(copyOperations.map((operation) => operation.destinationPath)),
       new Set(
-        plannedRepositoryNames.map((repository) => `/work/repos/${repository}`),
+        plannedRepositoryNames.map((repository) =>
+          join(cloneTargetDirectory, repository),
+        ),
       ),
     )
   })
@@ -145,7 +151,7 @@ describe("application repository clone workflow helpers", () => {
       credentials: settings,
       assignmentId: "a1",
       template: null,
-      targetDirectory: "/work/repos",
+      targetDirectory: cloneTargetDirectory,
       directoryLayout: "flat",
     })
     const plan = planForAssignment(course, "a1")
@@ -211,7 +217,7 @@ describe("application repository clone workflow helpers", () => {
           credentials: settings,
           assignmentId: "a1",
           template: null,
-          targetDirectory: "/work/repos",
+          targetDirectory: cloneTargetDirectory,
           directoryLayout: "flat",
         }),
       (error: unknown) => {
@@ -285,7 +291,7 @@ describe("application repository clone workflow helpers", () => {
       credentials: settings,
       assignmentId: "a1",
       template: null,
-      targetDirectory: "/work/repos",
+      targetDirectory: cloneTargetDirectory,
       directoryLayout: "flat",
     })
     const plan = planForAssignment(course, "a1")
@@ -374,7 +380,7 @@ describe("application repository clone workflow helpers", () => {
           credentials: settings,
           assignmentId: "a1",
           template: null,
-          targetDirectory: "/work/repos",
+          targetDirectory: cloneTargetDirectory,
           directoryLayout: "flat",
         }),
       (error: unknown) => {

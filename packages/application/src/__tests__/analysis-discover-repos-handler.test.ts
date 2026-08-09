@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
+import { join, sep } from "node:path"
 import { describe, it } from "node:test"
 import {
   createCancelledAppError,
@@ -9,6 +11,12 @@ import type {
   GitCommandPort,
 } from "@repo-edu/host-runtime-contract"
 import { createAnalysisWorkflowHandlers } from "../analysis-workflows/analysis-workflows.js"
+
+const discoveryRoot = join(tmpdir(), "repo-edu-analysis-discovery")
+const repoAPath = join(discoveryRoot, "repo-a")
+const nestedPath = join(discoveryRoot, "nested")
+const repoBPath = join(nestedPath, "repo-b")
+const blockedPath = join(discoveryRoot, "blocked")
 
 function createMockGitCommandPort(
   repositoryPaths: readonly string[],
@@ -27,7 +35,7 @@ function createMockGitCommandPort(
         const match = repos.has(queryPath)
           ? queryPath
           : [...repos].find(
-              (r) => queryPath === r || queryPath.startsWith(`${r}/`),
+              (r) => queryPath === r || queryPath.startsWith(`${r}${sep}`),
             )
         if (match) {
           return {
@@ -73,7 +81,7 @@ function createStubFileSystemPort(
       return { completed: request.operations }
     },
     async createTempDirectory() {
-      return "/tmp/test"
+      return join(tmpdir(), "repo-edu-analysis-test")
     },
     listDirectory,
     async listFiles() {
@@ -88,22 +96,19 @@ function createStubFileSystemPort(
 describe("analysis.discoverRepos handler", () => {
   it("continues discovery when one nested directory is unreadable", async () => {
     const handlers = createAnalysisWorkflowHandlers({
-      gitCommand: createMockGitCommandPort([
-        "/root/repo-a",
-        "/root/nested/repo-b",
-      ]),
+      gitCommand: createMockGitCommandPort([repoAPath, repoBPath]),
       fileSystem: createStubFileSystemPort(async (request) => {
-        if (request.path === "/root") {
+        if (request.path === discoveryRoot) {
           return [
             { name: "repo-a", kind: "directory" as const },
             { name: "nested", kind: "directory" as const },
             { name: "blocked", kind: "directory" as const },
           ]
         }
-        if (request.path === "/root/nested") {
+        if (request.path === nestedPath) {
           return [{ name: "repo-b", kind: "directory" as const }]
         }
-        if (request.path === "/root/blocked") {
+        if (request.path === blockedPath) {
           throw new Error("EACCES: permission denied")
         }
         return []
@@ -111,38 +116,38 @@ describe("analysis.discoverRepos handler", () => {
     })
 
     const result = await handlers["analysis.discoverRepos"]({
-      searchFolder: "/root",
+      searchFolder: discoveryRoot,
       maxDepth: 2,
     })
 
     assert.deepEqual(result.repos, [
-      { name: "repo-a", path: "/root/repo-a" },
-      { name: "repo-b", path: "/root/nested/repo-b" },
+      { name: "repo-a", path: repoAPath },
+      { name: "repo-b", path: repoBPath },
     ])
   })
 
   it("returns the enclosing repo root when the search folder is inside a repo", async () => {
     const handlers = createAnalysisWorkflowHandlers({
-      gitCommand: createMockGitCommandPort(["/root/repo-a"]),
+      gitCommand: createMockGitCommandPort([repoAPath]),
       fileSystem: createStubFileSystemPort(async () => []),
     })
 
     const result = await handlers["analysis.discoverRepos"]({
-      searchFolder: "/root/repo-a/src/nested",
+      searchFolder: join(repoAPath, "src", "nested"),
       maxDepth: 2,
     })
 
-    assert.deepEqual(result.repos, [{ name: "repo-a", path: "/root/repo-a" }])
+    assert.deepEqual(result.repos, [{ name: "repo-a", path: repoAPath }])
   })
 
   it("rethrows cancellation instead of swallowing it", async () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort([]),
       fileSystem: createStubFileSystemPort(async (request) => {
-        if (request.path === "/root") {
+        if (request.path === discoveryRoot) {
           return [{ name: "blocked", kind: "directory" as const }]
         }
-        if (request.path === "/root/blocked") {
+        if (request.path === blockedPath) {
           throw createCancelledAppError("Workflow was cancelled.")
         }
         return []
@@ -151,7 +156,7 @@ describe("analysis.discoverRepos handler", () => {
 
     try {
       await handlers["analysis.discoverRepos"]({
-        searchFolder: "/root",
+        searchFolder: discoveryRoot,
         maxDepth: 2,
       })
       assert.fail("Expected cancellation error")

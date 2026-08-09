@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, it } from "node:test"
 import type {
   AnalysisProgress,
@@ -17,6 +19,11 @@ import {
 } from "./analysis-test-helpers.js"
 
 const SNAPSHOT_COMMIT_OID = "a".repeat(40)
+const absoluteRepositoryPath = join(
+  tmpdir(),
+  "repo-edu-analysis-absolute-repository",
+)
+const testRepositoryPath = join(tmpdir(), "repo-edu-analysis-test-repository")
 
 describe("analysis.run handler", () => {
   it("rejects malformed patterns before any Git operation", async () => {
@@ -203,14 +210,14 @@ describe("analysis.run handler", () => {
     })
 
     const result = await handlers["analysis.run"]({
-      repositoryAbsolutePath: "/tmp/repos/absolute-repo",
+      repositoryAbsolutePath: absoluteRepositoryPath,
       config: {},
       analysisSource: { kind: "folder" },
       snapshotCommitOid: SNAPSHOT_COMMIT_OID,
     })
 
     assert.equal(result.authorStats.length, 0)
-    assert.ok(cwds.every((cwd) => cwd === "/tmp/repos/absolute-repo"))
+    assert.ok(cwds.every((cwd) => cwd === absoluteRepositoryPath))
   })
 
   it("emits progress events through all phases", async () => {
@@ -494,7 +501,7 @@ describe("analysis.run handler", () => {
       handlers["analysis.run"]({
         course: createMockCourse(),
         repositoryRelativePath: "test-repo",
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         snapshotCommitOid: SNAPSHOT_COMMIT_OID,
       } as unknown as AnalysisRunInput),
@@ -509,7 +516,7 @@ describe("analysis.run handler", () => {
 
     await assertValidationError(() =>
       handlers["analysis.run"]({
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         rosterContext: { members: [] },
@@ -525,7 +532,7 @@ describe("analysis.run handler", () => {
 
     await assertValidationError(() =>
       handlers["analysis.run"]({
-        repositoryAbsolutePath: "/tmp/repos/test-repo",
+        repositoryAbsolutePath: testRepositoryPath,
         config: {},
         snapshotCommitOid: SNAPSHOT_COMMIT_OID,
         analysisSource: {

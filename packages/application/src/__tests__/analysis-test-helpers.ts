@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import type { AppError } from "@repo-edu/application-contract"
 import { isAppError } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
@@ -13,7 +15,10 @@ export function createMockCourse(
   return {
     id: "course-1",
     name: "Test Course",
-    repositoryCloneTargetDirectory: "/tmp/repos",
+    repositoryCloneTargetDirectory: join(
+      tmpdir(),
+      "repo-edu-analysis-repositories",
+    ),
     repositoryCloneDirectoryLayout: "flat",
     ...overrides,
   } as PersistedCourse
@@ -61,7 +66,7 @@ export const stubFileSystem: FileSystemPort = {
     return { completed: request.operations }
   },
   async createTempDirectory() {
-    return "/tmp/test"
+    return join(tmpdir(), "repo-edu-analysis-test")
   },
   async listDirectory() {
     return []

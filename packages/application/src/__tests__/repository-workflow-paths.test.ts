@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
-import { posix, win32 } from "node:path"
+import { tmpdir } from "node:os"
+import { join, posix, win32 } from "node:path"
 import { describe, it } from "node:test"
 import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
 import {
@@ -20,6 +21,7 @@ const plannedGroup: PlannedRepositoryGroup = {
   gitUsernames: [],
   isRecorded: false,
 }
+const safeRepositoriesPath = join(tmpdir(), "repo-edu-safe-repositories")
 
 describe("normalizeTargetDirectory", () => {
   it("rejects empty input", () => {
@@ -97,37 +99,37 @@ describe("repository clone paths", () => {
     const traversalName = { ...plannedGroup, groupName: ".." }
 
     assert.equal(
-      repositoryClonePath("/safe/repos", "by-team", traversalName),
-      "/safe/repos/_/assignment-1-team-1",
+      repositoryClonePath(safeRepositoriesPath, "by-team", traversalName),
+      join(safeRepositoriesPath, "_", "assignment-1-team-1"),
     )
     assert.equal(
-      repositoryCloneLeafPath("/safe/repos", "../repository"),
-      "/safe/repos/_repository",
+      repositoryCloneLeafPath(safeRepositoriesPath, "../repository"),
+      join(safeRepositoriesPath, "_repository"),
     )
   })
 
   it("finds clone targets that collide after portable path normalization", () => {
     const collisions = findRepositoryClonePathCollisions([
       {
-        path: repositoryCloneLeafPath("/safe/repos", "CON"),
+        path: repositoryCloneLeafPath(safeRepositoriesPath, "CON"),
         label: "reserved-name",
       },
       {
-        path: repositoryCloneLeafPath("/safe/repos", "CON_"),
+        path: repositoryCloneLeafPath(safeRepositoriesPath, "CON_"),
         label: "literal-name",
       },
-      { path: "/safe/repos/Team", label: "upper-case" },
-      { path: "/safe/repos/team", label: "lower-case" },
-      { path: "/safe/repos/other", label: "unique" },
+      { path: join(safeRepositoriesPath, "Team"), label: "upper-case" },
+      { path: join(safeRepositoriesPath, "team"), label: "lower-case" },
+      { path: join(safeRepositoriesPath, "other"), label: "unique" },
     ])
 
     assert.deepEqual(collisions, [
       {
-        path: "/safe/repos/CON_",
+        path: join(safeRepositoriesPath, "CON_"),
         labels: ["reserved-name", "literal-name"],
       },
       {
-        path: "/safe/repos/Team",
+        path: join(safeRepositoriesPath, "Team"),
         labels: ["upper-case", "lower-case"],
       },
     ])
