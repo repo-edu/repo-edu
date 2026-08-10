@@ -12,6 +12,7 @@ import {
   claudeSpec,
   codexMaxSpec,
   codexSpec,
+  completedTurn,
   createFakeCodex,
   installCodexEnvHooks,
   request,
@@ -63,15 +64,11 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "msg", type: "agent_message", text: "hello!" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 3,
-            cached_input_tokens: 1,
-            output_tokens: 2,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn({
+          input_tokens: 3,
+          cached_input_tokens: 1,
+          output_tokens: 2,
+        }),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -108,15 +105,11 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "msg", type: "agent_message", text: "ok" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 3,
-            cached_input_tokens: 1,
-            output_tokens: 2,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn({
+          input_tokens: 3,
+          cached_input_tokens: 1,
+          output_tokens: 2,
+        }),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -200,15 +193,11 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "msg", type: "agent_message", text: "ok" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 3,
-            cached_input_tokens: 1,
-            output_tokens: 2,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn({
+          input_tokens: 3,
+          cached_input_tokens: 1,
+          output_tokens: 2,
+        }),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -243,15 +232,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "pong" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 10,
-            cached_input_tokens: 0,
-            output_tokens: 4,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn({ input_tokens: 10, output_tokens: 4 }),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -308,15 +289,12 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "ok" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 100,
-            cached_input_tokens: 40,
-            output_tokens: 5,
-            reasoning_output_tokens: 1,
-          },
-        },
+        completedTurn({
+          input_tokens: 100,
+          cached_input_tokens: 40,
+          output_tokens: 5,
+          reasoning_output_tokens: 1,
+        }),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -335,15 +313,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "x" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 0,
-            cached_input_tokens: 0,
-            output_tokens: 0,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn(),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -360,15 +330,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "x" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 0,
-            cached_input_tokens: 0,
-            output_tokens: 0,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn(),
       ],
     })
     const miniSpec: LlmModelSpec = {
@@ -391,15 +353,7 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "x" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 0,
-            cached_input_tokens: 0,
-            output_tokens: 0,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn(),
       ],
     })
     const client = createCodexLlmTextClient(
@@ -419,15 +373,7 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "x" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 0,
-            cached_input_tokens: 0,
-            output_tokens: 0,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn(),
       ],
     })
     const client = createCodexLlmTextClient(
@@ -462,15 +408,7 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
           type: "item.completed",
           item: { id: "1", type: "agent_message", text: "x" },
         },
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 0,
-            cached_input_tokens: 0,
-            output_tokens: 0,
-            reasoning_output_tokens: 0,
-          },
-        },
+        completedTurn(),
       ],
     })
     const client = createCodexLlmTextClient(undefined, { factory })
@@ -511,17 +449,7 @@ describe("createCodexLlmTextClient — error classification", () => {
   it("withholds done when the SDK fails after turn completion", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({
-      events: [
-        {
-          type: "turn.completed",
-          usage: {
-            input_tokens: 1,
-            cached_input_tokens: 0,
-            output_tokens: 1,
-            reasoning_output_tokens: 0,
-          },
-        },
-      ],
+      events: [completedTurn({ input_tokens: 1, output_tokens: 1 })],
       throwAfterEvents: new Error("ECONNRESET after terminal event"),
     })
     const client = createCodexLlmTextClient(undefined, { factory })

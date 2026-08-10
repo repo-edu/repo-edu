@@ -5,7 +5,9 @@ import type {
   CodexOptions,
   ThreadEvent,
   ThreadOptions,
+  TurnCompletedEvent,
   TurnOptions,
+  Usage,
 } from "@openai/codex-sdk"
 import type {
   GenerateTextRequest,
@@ -48,6 +50,27 @@ export type FakeOutcome = {
   throwAfterEvents?: unknown
   delayBeforeEventsMs?: number
   onRun?: () => void
+}
+
+type CodexUsageFixture = Usage & {
+  cache_write_input_tokens: number
+}
+
+const ZERO_CODEX_USAGE: CodexUsageFixture = {
+  input_tokens: 0,
+  cached_input_tokens: 0,
+  cache_write_input_tokens: 0,
+  output_tokens: 0,
+  reasoning_output_tokens: 0,
+}
+
+export function completedTurn(
+  usage: Partial<CodexUsageFixture> = {},
+): TurnCompletedEvent {
+  return {
+    type: "turn.completed",
+    usage: { ...ZERO_CODEX_USAGE, ...usage },
+  }
 }
 
 export function installCodexEnvHooks(): void {
