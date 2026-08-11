@@ -61,7 +61,7 @@ repo-edu/
 │   ├── application-contract/      # Workflow ids/payloads/catalog + AppError
 │   ├── renderer-host-contract/    # Renderer-safe host interface
 │   ├── host-runtime-contract/     # Runtime ports (http/process/fs/user-file/llm/exam-archive)
-│   ├── host-node/                 # Node implementations for runtime ports
+│   ├── host-node/                 # Node ports, program gate and host lifetime helpers
 │   ├── integrations-git(-contract)
 │   ├── integrations-lms(-contract)
 │   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
@@ -79,7 +79,8 @@ repo-edu/
     ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
     ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine
     ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
-    └── release/                   # Versioning/release helper
+    ├── release/                   # Versioning, signing and runtime-notice gates
+    └── sweep/                     # Source-growth triage (pnpm sweep)
 ```
 
 The committed area model is
@@ -114,10 +115,12 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
-The architecture-check tool and the analysis-workflows sub-area carry their own
-`CLAUDE.md` too:
+The architecture-check, release and sweep tools and the analysis-workflows
+sub-area carry their own `CLAUDE.md` too:
 
 - [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
+- [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
+- [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
 - [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
 
 Core flow:
@@ -139,6 +142,16 @@ Core flow:
   application package is Node-hosted.
 - Keep side effects in adapters/ports (`host-node`, integration adapters), not
   in domain logic.
+- The desktop and compiled CLI claim the same program gate at the resolved
+  application-data root before product work starts. Hold the claim until no
+  more product work can run. The gate and app-data-root resolution belong to
+  `host-node`.
+- Preserve the packaged Windows child-lifetime proof: a fixed launcher entry,
+  explicit Electron `runAsNode`, job assignment before target admission, a
+  saved same-turn process identity and a non-inherited job handle.
+- Release validation must prove the program gate in the packaged desktop and
+  compiled CLI artifacts. Packaged Windows validation must also prove the
+  child-lifetime contract.
 - Do not introduce legacy settings/profile migration logic.
 - Documents the user edits live canonically in one in-memory owner. The renderer
   session owns preferences and credentials; the course Zustand store owns the

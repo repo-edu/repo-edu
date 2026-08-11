@@ -17,6 +17,10 @@ Each provider facade composes the same capability files: `identity.ts`,
 `discovery.ts`. Facades compose and guard operations; capability files own
 provider semantics.
 
+GitLab namespace and project resolution live in provider-local infrastructure,
+not in the teams or repositories capability. All capabilities share those
+absence rules.
+
 ## Rules
 
 - Keep provider API details isolated inside this package.
@@ -27,6 +31,9 @@ provider semantics.
 - Return authenticated clone URLs from repository creation rather than relying
   on a later visibility-sensitive lookup.
 - Route every public provider operation through the shared invocation guard.
+- Translate only an explicit provider not-found response into `null`, an empty
+  listing or a per-repository missing result. Network, timeout, authentication
+  and provider failures must propagate to the application layer.
 
 ## Adding Git Capabilities
 

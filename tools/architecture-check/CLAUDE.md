@@ -16,11 +16,11 @@ violations. Five concerns feed it:
 - Bespoke symbol checks (`bespoke-checks.ts`): renderer session-ownership and
   Claude-coder / Claude-agent-SDK confinement that the import graph cannot
   express.
-- Repository checks (`repository-checks.ts`): package export-source resolution,
-  Node test-runner imports, and Node built-in exclusion from the desktop
-  renderer runtime closure and independent browser-safe roots.
-- Source inventory (`inventory.ts`): the single current-worktree file list
-  every check shares.
+- Repository checks (`repository-checks.ts`): package manifest and export-source
+  validation, Node test-runner imports, production-to-test import rejection and
+  Node built-in exclusion from browser-safe runtime closures.
+- Source inventory (`inventory.ts`): one raw current-worktree listing plus the
+  selected source list and set that every check shares.
 
 ## Area model
 
@@ -48,6 +48,10 @@ build output, `node_modules` and vendored runtime notices.
 The same list feeds reconciliation and graph projection, so the boundaries
 match the worktree being checked.
 
+The inventory also retains the raw worktree listing. Manifest and test-runner
+checks consume that value. They must not re-read Git and create a second view of
+the worktree.
+
 ## Graph rules
 
 `graph-policy.ts` builds the dependency-cruiser rule set from the area model:
@@ -60,12 +64,20 @@ de-duplicated), exposes normalized dependency metadata for runtime-closure
 checks, and adds a workspace-import projection check that flags `@repo-edu/*`
 imports resolving outside the inventory.
 
+Browser-safe closure checking starts from the desktop renderer entry and every
+production file in each independent browser-safe root. It follows runtime
+dependencies transitively. It rejects Node built-ins and production imports of
+test sources. Package export wildcards follow Node string substitution, so `*`
+may span `/`.
+
 ## Conventions
 
 - Change ownership by editing `src/area-model.json`, not the matchers. Record
   `splitFrom` when splitting an area.
 - Keep partition coverage total: every inventory file maps to exactly one
   partition.
+- Report malformed workspace manifests as violations. Do not let one invalid
+  JSON file abort the rest of the architecture pass.
 - `dependency-cruiser` and `zod` are runtime dependencies; run `pnpm install`
   after pulling a change that adds them.
 - Tests live in `src/__tests__/`. `start` runs the tool's own typecheck and

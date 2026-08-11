@@ -15,10 +15,12 @@ It consumes:
 ## Architecture
 
 - `src/configure-app.ts`: app wiring and dependency injection
-- `src/contexts/*`: workflow and renderer-host providers
+- `src/contexts/*`: workflow and renderer-host providers. React components use
+  the context hooks. Module getters are reserved for non-component helpers.
 - `src/session/*`: the `SessionController` facade and its private lifecycle,
-  settings, surface-transaction and course-persistence owners. The root session
-  snapshot is canonical for preferences, credentials and navigation.
+  settings, surface-transaction, renderer-close registration and
+  course-persistence owners. The root session snapshot is canonical for
+  preferences, credentials and navigation.
 - `src/stores/*`: Zustand stores for course content and transient or view state:
   `course-store.ts` (with `course-store-selectors.ts`), `connections-store.ts`,
   `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`,
@@ -36,6 +38,9 @@ It consumes:
 
 - Do not import Electron, Node, or tRPC directly into this package.
 - All workflow calls must go through injected `WorkflowClient`; settings/course persistence workflow calls stay inside `src/session/*` or `src/persistence/*`.
+- Components obtain `WorkflowClient` and `RendererHost` through
+  `useWorkflowClient()` and `useRendererHost()`. Do not call their module
+  getters during component render or effects.
 - Renderer components invoke semantic course mutations through `SessionController`, not by selecting course-store actions directly. `setAssignmentSelection` is the direct course-store action exception because it is view state.
 - Keep store/component behavior deterministic and testable in browser contexts.
 

@@ -26,7 +26,12 @@ It composes:
 - Connection workflows are split: `src/connection-workflows.ts` (LMS/Git draft verification + LMS course listing) and `src/llm-connection-workflows.ts` (`connection.verifyLlmDraft`, exercising provider adapters via `LlmPort`).
 - Group-set workflows live in `src/group-set-workflows/` (`file-handlers.ts`, `lms-handlers.ts`, `helpers.ts`, `ports.ts`). CSV import produces `NamedGroupSet`; RepoBee import produces `UsernameGroupSet`. Export dispatches by `nameMode` (CSV for named, TXT for unnamed).
 - Git username import lives in `src/git-username-workflows.ts` (`gitUsernames.import`) and validates imported usernames through the Git provider client.
-- Repository workflows live in `src/repository-workflows/` (also re-exported from `src/repository-workflows.ts`): `repo.create|clone|update|listNamespace|bulkClone`.
+- Repository workflows live in `src/repository-workflows/` (also re-exported
+  from `src/repository-workflows.ts`):
+  `repo.create|clone|update|listNamespace|bulkClone`. `clone-execution.ts` is
+  the single owner for target admission and temporary clone execution across
+  planned and bulk cloning. `paths.ts` owns portable local names, clone paths
+  and collision detection.
 - Analysis workflows are in `src/analysis-workflows/`, assembled by `analysis-workflows.ts` (`createAnalysisWorkflowHandlers`): `analysis-handler.ts` (`analysis.run`), `snapshot-head-handler.ts` (`analysis.resolveSnapshotHead`), `blame-handler.ts` (`analysis.blame`), `discover-repos-handler.ts` (`analysis.discoverRepos`), `submission-folder-handler.ts` (`analysis.listFolderFiles`, `analysis.readFolderFile`), plus `log-parser.ts`, `blame-parser.ts`, `snapshot-engine.ts`, `analysis-matchers.ts`, `repo-root.ts`, `ports.ts` (`AnalysisWorkflowPorts` over `GitCommandPort` + `FileSystemPort`). `analysis-matchers.ts` owns one immutable compiled predicate set per analysis invocation. `repo-root.ts` validates the repository locator union: course-relative paths require clone-target source data, while absolute paths run without course data. There is no application-level analysis cache — handlers recompute against the ports on every call (a previous LRU/persistent cache was removed deliberately; see `analysis-workflows/CLAUDE.md`).
 - Examination workflows are in `src/examination-workflows/`. `examination-workflows.ts` owns generation and lookup orchestration. `prompt-builder.ts` owns prompt construction and the current prompt-template version. `privacy-policy.ts` is the only consumer boundary for privacy preparation and admission. Private mechanism modules live under `privacy-policy/`. `ports.ts` wraps the `LlmPort` workflow dependency.
 - The examination archive surface is `archive-workflows.ts` and `archive-port.ts`. Generation parses strict provider JSON into `ExaminationQuestion[]`. Lookup prepares a fresh privacy context and revalidates archive records without calling the LLM.
@@ -38,6 +43,11 @@ It composes:
 - Do not import Electron/Commander/React into this package.
 - Keep all side effects behind explicit ports/contracts.
 - Admit selected relative file paths before passing them to filesystem ports. The Node filesystem adapter remains responsible for real-path containment.
+- Reject clone-path collisions before filesystem clone execution. Existing Git
+  repositories are admitted as existing results. Files and non-Git directories
+  at target paths are validation failures.
+- Filesystem tests must derive paths through `node:path` and `node:os`.
+  Do not use Unix-only `/tmp` literals in cross-platform workflow fixtures.
 
 ## Adding a Workflow
 
