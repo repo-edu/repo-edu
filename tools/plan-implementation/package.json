@@ -2,8 +2,12 @@
   "name": "@repo-edu/plan-implementation",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@repo-edu/host-node": "workspace:*"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run typecheck"
+    "check": "pnpm run typecheck",
+    "test": "node --import tsx --test src/__tests__/*.test.ts"
   }
 }

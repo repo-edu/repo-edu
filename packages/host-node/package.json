@@ -21,6 +21,11 @@
       "types": "./dist/examination-archive/index.d.ts",
       "default": "./dist/examination-archive/index.js"
     },
+    "./exclusive-claim": {
+      "source": "./src/exclusive-claim.ts",
+      "types": "./dist/exclusive-claim.d.ts",
+      "default": "./dist/exclusive-claim.js"
+    },
     "./windows-child-lifetime": {
       "source": "./src/windows-child-lifetime.ts",
       "types": "./dist/windows-child-lifetime.d.ts",

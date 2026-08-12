@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { access, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import { setTimeout as delay } from "node:timers/promises"
 import { fileURLToPath } from "node:url"
@@ -126,7 +126,7 @@ describe("claimProgramGate", () => {
     if (claim.status === "held") {
       claim.release()
     }
-    await access(dirname(join(root, "program-gate.db")))
+    await access(join(root, "program-gate.db"))
   })
 
   it("refuses a second same-process claim and releases idempotently", async () => {

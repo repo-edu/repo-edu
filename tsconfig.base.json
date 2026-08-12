@@ -98,6 +98,9 @@
         "./packages/claude-coder/src/index.ts"
       ],
       "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
+      "@repo-edu/host-node/exclusive-claim": [
+        "./packages/host-node/src/exclusive-claim.ts"
+      ],
       "@repo-edu/host-node/cache": [
         "./packages/host-node/src/cache/index.ts"
       ],

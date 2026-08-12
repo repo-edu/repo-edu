@@ -22,6 +22,9 @@ the desktop app or the compiled command-line product.
   enforces this private boundary.
 - Use shared host-node admission and child-lifetime parts only through their
   narrow subpaths. Do not duplicate their policy in this tool.
+- `runner-admission.ts` resolves
+  `repo-edu/plan-implementation/admission.db` through Git. The runner holds its
+  claim for the whole invocation and releases it only after owned work settles.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.

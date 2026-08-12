@@ -666,7 +666,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/test-fixtures
 
-  tools/plan-implementation: {}
+  tools/plan-implementation:
+    dependencies:
+      '@repo-edu/host-node':
+        specifier: workspace:*
+        version: link:../../packages/host-node
 
   tools/release:
     dependencies:
