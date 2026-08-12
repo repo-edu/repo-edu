@@ -55,10 +55,11 @@ the worktree.
 ## Graph rules
 
 `graph-policy.ts` builds the dependency-cruiser rule set from the area model:
-cross-layer boundaries, domain module import order, claude-coder and
-claude-agent-SDK source confinement, and a whole-inventory acyclic rule. When an
-inventory is supplied the selectors compile to exact per-file patterns, so a
-rule breaks the moment a real file crosses a boundary.
+cross-layer boundaries, domain module import order, private plan implementation
+tool confinement, claude-coder and claude-agent-SDK source confinement, and a
+whole-inventory acyclic rule. When an inventory is supplied the selectors
+compile to exact per-file patterns, so a rule breaks the moment a real file
+crosses a boundary.
 `dependency-cruiser-runner.ts` reads `summary.violations` (already
 de-duplicated), exposes normalized dependency metadata for runtime-closure
 checks, and adds a workspace-import projection check that flags `@repo-edu/*`

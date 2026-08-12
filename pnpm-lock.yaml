@@ -666,6 +666,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/test-fixtures
 
+  tools/plan-implementation: {}
+
   tools/release:
     dependencies:
       '@repo-edu/tree-sitter-grammar-assets':

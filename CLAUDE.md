@@ -79,6 +79,7 @@ repo-edu/
     ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
     ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine
     ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
+    ├── plan-implementation/       # Private deterministic plan runner
     ├── release/                   # Versioning, signing and runtime-notice gates
     └── sweep/                     # Source-growth triage (pnpm sweep)
 ```
@@ -115,10 +116,11 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
-The architecture-check, release and sweep tools and the analysis-workflows
-sub-area carry their own `CLAUDE.md` too:
+The architecture-check, plan-implementation, release and sweep tools and the
+analysis-workflows sub-area carry their own `CLAUDE.md` too:
 
 - [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
+- [tools/plan-implementation/CLAUDE.md](tools/plan-implementation/CLAUDE.md)
 - [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
 - [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
 - [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
@@ -238,6 +240,12 @@ the `plan-` prefix dropped for peer plans (`plan-persister.md` →
 `persister`), the plan's title for the root `plan.md`, or the topic the
 plan was given when designed only in chat. Commits unattached to any
 plan omit this line.
+
+The automated plan runner's cursor-reset commit is the only severity-free
+exception. It addresses no finding and starts no implementation work. Its
+subject is exactly
+`chore(plan-implementation): reset <plan-name> cursor to step <n>`. The runner
+owns this empty commit and its exact `Plan-Cursor-Reset` body shape.
 
 ## Watched implementation rounds
 

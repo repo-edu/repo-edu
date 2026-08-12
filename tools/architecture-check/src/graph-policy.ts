@@ -166,6 +166,7 @@ export function buildDependencyCruiserRuleSet(
   const forbidden: DependencyCruiserRule[] = [
     ...domainModuleOrderRules(),
     ...crossLayerRules(selectors),
+    planImplementationToolRule(selectors, sourceInventory),
     claudeCoderPackageRule(selectors, sourceInventory),
     claudeAgentSdkRule(selectors, sourceInventory),
     wholeInventoryCycleRule(sourceInventory),
@@ -310,6 +311,26 @@ function crossLayerRules(
       }
     })
   })
+}
+
+function planImplementationToolRule(
+  selectors: ReadonlyMap<string, CompiledSelector>,
+  sourceInventory: CompiledSelector,
+): DependencyCruiserRule {
+  const planImplementation = selector(selectors, "tool-plan-implementation")
+  return {
+    name: "plan-implementation-confined-to-its-tool",
+    severity: "error",
+    comment:
+      "The private plan implementation tool may only be used by its own source.",
+    from: {
+      path: sourceInventory.path,
+      pathNot: [...sourceInventory.pathNot, ...planImplementation.path],
+    },
+    to: {
+      path: planImplementation.path,
+    },
+  }
 }
 
 function claudeCoderPackageRule(

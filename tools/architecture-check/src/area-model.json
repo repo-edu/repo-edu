@@ -374,6 +374,14 @@
       "members": [{ "type": "pattern", "path": "^tools/fixtures-check/src/" }]
     },
     {
+      "id": "tool-plan-implementation",
+      "name": "Plan implementation tool",
+      "kind": "partition",
+      "members": [
+        { "type": "pattern", "path": "^tools/plan-implementation/src/" }
+      ]
+    },
+    {
       "id": "tool-release-license-gate",
       "name": "Release license gate",
       "kind": "partition",
