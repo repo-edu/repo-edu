@@ -30,6 +30,14 @@ the desktop app or the compiled command-line product.
   blob without rejecting unrelated plan-checkout changes.
 - The plan reader owns the single `## Implementation plan` section, its one
   top-level ordered list, step source spans and strict `repo-edu-proofs` JSON.
+- `commit-proposal.ts` owns normal severity subjects and decision-and-reason
+  bullet checks. `plan-record.ts` owns the exact step and cursor-reset message
+  forms. `git-log.ts` owns zero-separated Git history fields.
+- `git-cursor.ts` resolves one contiguous current-source ledger from the
+  newest reset for the plan name. Source commits stay background; source blobs
+  decide identity.
+- `reset-cursor.ts` is the sole owner of the clean-checkout, severity-free,
+  empty current-branch reset commit.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.
