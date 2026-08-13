@@ -3,6 +3,9 @@ packages:
   - packages/*
   - tools/*
 
+# Headless installs must not stop at the modules-dir purge prompt.
+confirmModulesPurge: false
+
 allowBuilds:
   bun: true
   electron: true
