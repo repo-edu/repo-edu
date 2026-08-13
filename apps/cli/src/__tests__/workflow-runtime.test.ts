@@ -16,22 +16,13 @@ import {
 
 type RuntimeProcessProbe = {
   runtimeProcess: CliRuntimeProcess
-  sigintHandlers: Array<() => void>
-  offCalls: Array<{ event: string; listener: (...args: unknown[]) => void }>
   stderrWrites: string[]
   stdoutWrites: string[]
-  exitCodes: number[]
 }
 
 function createRuntimeProcessProbe(): RuntimeProcessProbe {
-  const sigintHandlers: Array<() => void> = []
-  const offCalls: Array<{
-    event: string
-    listener: (...args: unknown[]) => void
-  }> = []
   const stderrWrites: string[] = []
   const stdoutWrites: string[] = []
-  const exitCodes: number[] = []
 
   const runtimeProcess = {
     stdout: {
@@ -50,33 +41,19 @@ function createRuntimeProcessProbe(): RuntimeProcessProbe {
         return true
       },
     },
-    on(event: string, listener: (...args: unknown[]) => void) {
-      if (event === "SIGINT") {
-        sigintHandlers.push(listener as () => void)
-      }
-      return process
-    },
-    off(event: string, listener: (...args: unknown[]) => void) {
-      offCalls.push({ event, listener })
-      return process
-    },
-    exit(code?: number) {
-      exitCodes.push(code ?? 0)
-      return undefined as never
-    },
-  } as unknown as CliRuntimeProcess
+  } satisfies CliRuntimeProcess
 
   return {
     runtimeProcess,
-    sigintHandlers,
-    offCalls,
     stderrWrites,
     stdoutWrites,
-    exitCodes,
   }
 }
 
-function createTestCliClient(handlers: Partial<WorkflowHandlerMap>): {
+function createTestCliClient(
+  handlers: Partial<WorkflowHandlerMap>,
+  defaultSignal?: AbortSignal,
+): {
   client: WorkflowClient
   probe: RuntimeProcessProbe
 } {
@@ -84,7 +61,11 @@ function createTestCliClient(handlers: Partial<WorkflowHandlerMap>): {
   const base = createWorkflowClient(handlers as unknown as WorkflowHandlerMap)
 
   return {
-    client: createCliWorkflowClientFromBase(base, probe.runtimeProcess),
+    client: createCliWorkflowClientFromBase(
+      base,
+      probe.runtimeProcess,
+      defaultSignal,
+    ),
     probe,
   }
 }
@@ -215,75 +196,70 @@ describe("cli workflow runtime", () => {
       )
     })
 
-    it("aborts on first SIGINT and exits on second SIGINT", async () => {
-      const { client, probe } = createTestCliClient({
-        "course.load": async (
-          _input: unknown,
-          options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-        ) => {
-          await new Promise<void>((_resolve, reject) => {
-            if (options?.signal?.aborted) {
-              const error: AppError = {
-                type: "cancelled",
-                message: "Workflow was cancelled.",
-              }
-              reject(error)
-              return
-            }
-
-            options?.signal?.addEventListener(
-              "abort",
-              () => {
-                const error: AppError = {
-                  type: "cancelled",
-                  message: "Workflow was cancelled.",
-                }
-                reject(error)
-              },
-              { once: true },
-            )
-          })
-          return {} as never
+    it("uses the command-line host signal when a call has none", async () => {
+      const hostAbortController = new AbortController()
+      let receivedSignal: AbortSignal | undefined
+      const { client } = createTestCliClient(
+        {
+          "course.load": async (
+            _input: unknown,
+            options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+          ) => {
+            receivedSignal = options?.signal
+            await new Promise<void>((_resolve, reject) => {
+              options?.signal?.addEventListener(
+                "abort",
+                () => {
+                  const error: AppError = {
+                    type: "cancelled",
+                    message: "Workflow was cancelled.",
+                  }
+                  reject(error)
+                },
+                { once: true },
+              )
+            })
+            return {} as never
+          },
         },
-      })
+        hostAbortController.signal,
+      )
 
       const runPromise = client.run("course.load", { courseId: "c1" })
-      assert.equal(probe.sigintHandlers.length, 1)
-
-      probe.sigintHandlers[0]()
-      probe.sigintHandlers[0]()
+      hostAbortController.abort()
 
       await assert.rejects(runPromise, (error: unknown) => {
         const err = error as AppError
         assert.equal(err.type, "cancelled")
         return true
       })
-
-      assert.deepStrictEqual(probe.exitCodes, [130])
-      assert.equal(probe.stderrWrites.includes("\nAborting...\n"), true)
-      assert.equal(probe.offCalls.length, 1)
-      assert.equal(probe.offCalls[0].event, "SIGINT")
-      assert.equal(probe.offCalls[0].listener, probe.sigintHandlers[0])
+      assert.equal(receivedSignal, hostAbortController.signal)
     })
 
-    it("removes SIGINT handler when base client throws synchronously", () => {
-      const probe = createRuntimeProcessProbe()
-      const base: WorkflowClient = {
-        run: () => {
-          throw new Error("sync failure")
+    it("keeps a caller signal instead of the command-line host signal", async () => {
+      const hostAbortController = new AbortController()
+      const callerAbortController = new AbortController()
+      let receivedSignal: AbortSignal | undefined
+      const { client } = createTestCliClient(
+        {
+          "course.load": async (
+            _input: unknown,
+            options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+          ) => {
+            receivedSignal = options?.signal
+            return {} as never
+          },
         },
-      }
-      const client = createCliWorkflowClientFromBase(base, probe.runtimeProcess)
-
-      assert.throws(
-        () => client.run("course.load", { courseId: "c1" }),
-        /sync failure/,
+        hostAbortController.signal,
       )
 
-      assert.equal(probe.sigintHandlers.length, 1)
-      assert.equal(probe.offCalls.length, 1)
-      assert.equal(probe.offCalls[0].event, "SIGINT")
-      assert.equal(probe.offCalls[0].listener, probe.sigintHandlers[0])
+      await client.run(
+        "course.load",
+        { courseId: "c1" },
+        { signal: callerAbortController.signal },
+      )
+
+      assert.equal(receivedSignal, callerAbortController.signal)
     })
   })
 

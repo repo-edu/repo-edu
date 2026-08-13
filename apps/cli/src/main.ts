@@ -8,7 +8,9 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createProgram } from "./cli.js"
+import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -39,16 +41,25 @@ async function runCli(): Promise<void> {
     return
   }
 
-  try {
-    if (artifactProbe) {
-      await writeProgramGateArtifactProbeMarker("held", claimDurationMs)
-      await waitForProgramGateArtifactProbeRelease()
-      return
-    }
-    await createProgram({ storageRoot }).parseAsync(process.argv)
-  } finally {
-    claim.release()
-  }
+  const childProcessLifetime = createChildProcessLifetimeAdapter()
+  await runWithCommandLineLifetime(
+    {
+      childProcessLifetime,
+      releaseProgramGate: claim.release,
+    },
+    async (signal) => {
+      if (artifactProbe) {
+        await writeProgramGateArtifactProbeMarker("held", claimDurationMs)
+        await waitForProgramGateArtifactProbeRelease()
+        return
+      }
+      await createProgram({
+        childProcessLifetime,
+        signal,
+        storageRoot,
+      }).parseAsync(process.argv)
+    },
+  )
 }
 
 await runCli()

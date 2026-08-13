@@ -17,7 +17,10 @@ import {
   createNodeHttpPort,
   createNodeProcessPort,
 } from "@repo-edu/host-node"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import {
+  type ChildProcessLifetimeAdapter,
+  createChildProcessLifetimeAdapter,
+} from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
@@ -26,13 +29,16 @@ import {
 } from "./state-store.js"
 
 export type CliWorkflowRuntimeOptions = {
+  childProcessLifetime?: ChildProcessLifetimeAdapter
+  signal?: AbortSignal
   storageRoot?: string
 }
 
 export function createCliWorkflowHandlers(
   options: CliWorkflowRuntimeOptions = {},
 ) {
-  const childProcessLifetime = createChildProcessLifetimeAdapter()
+  const childProcessLifetime =
+    options.childProcessLifetime ?? createChildProcessLifetimeAdapter()
   const courseStore = createCliCourseStore(options.storageRoot)
   const appSettingsStore = createCliAppSettingsStore(options.storageRoot)
   const http = createNodeHttpPort()
@@ -64,7 +70,7 @@ export function createCliWorkflowHandlers(
   }
 }
 
-export type CliRuntimeProcess = Pick<NodeJS.Process, "on" | "off" | "exit"> & {
+export type CliRuntimeProcess = {
   stdout: Pick<NodeJS.WriteStream, "write">
   stderr: Pick<NodeJS.WriteStream, "write">
 }
@@ -72,6 +78,7 @@ export type CliRuntimeProcess = Pick<NodeJS.Process, "on" | "off" | "exit"> & {
 export function createCliWorkflowClientFromBase(
   base: WorkflowClient,
   runtimeProcess: CliRuntimeProcess = process,
+  defaultSignal?: AbortSignal,
 ): WorkflowClient {
   function writeProgressToRuntime(event: MilestoneProgress): void {
     runtimeProcess.stderr.write(
@@ -89,46 +96,14 @@ export function createCliWorkflowClientFromBase(
 
   return {
     run(workflowId, input, options) {
-      if (options?.signal) {
-        return base.run(workflowId, input, {
-          ...options,
-          onProgress: options.onProgress ?? (writeProgressToRuntime as never),
-          onOutput: options.onOutput ?? (writeOutputToRuntime as never),
-        })
-      }
-
-      const abortController = new AbortController()
-      let sigintCount = 0
-      const onSigint = () => {
-        sigintCount++
-        if (sigintCount === 1) {
-          abortController.abort()
-          runtimeProcess.stderr.write("\nAborting...\n")
-        } else {
-          runtimeProcess.exit(130)
-        }
-      }
-
-      runtimeProcess.on("SIGINT", onSigint)
-
-      try {
-        return base
-          .run(workflowId, input, {
-            ...options,
-            signal: abortController.signal,
-            // Safe: all workflow progress types are MilestoneProgress,
-            // and all output types are DiagnosticOutput.
-            onProgress:
-              options?.onProgress ?? (writeProgressToRuntime as never),
-            onOutput: options?.onOutput ?? (writeOutputToRuntime as never),
-          })
-          .finally(() => {
-            runtimeProcess.off("SIGINT", onSigint)
-          })
-      } catch (error) {
-        runtimeProcess.off("SIGINT", onSigint)
-        throw error
-      }
+      return base.run(workflowId, input, {
+        ...options,
+        signal: options?.signal ?? defaultSignal,
+        // Safe: all workflow progress types are MilestoneProgress,
+        // and all output types are DiagnosticOutput.
+        onProgress: options?.onProgress ?? (writeProgressToRuntime as never),
+        onOutput: options?.onOutput ?? (writeOutputToRuntime as never),
+      })
     },
   }
 }
@@ -138,5 +113,7 @@ export function createCliWorkflowClient(
 ): WorkflowClient {
   return createCliWorkflowClientFromBase(
     createWorkflowClient(createCliWorkflowHandlers(options)),
+    process,
+    options.signal,
   )
 }

@@ -1,4 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
+import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { Command } from "commander"
 import pkg from "../package.json" with { type: "json" }
 import { registerCourseCommands } from "./commands/course.js"
@@ -10,14 +11,21 @@ import { registerValidateCommand } from "./commands/validate.js"
 import { createCliWorkflowClient } from "./workflow-runtime.js"
 
 export type CreateProgramOptions = {
+  childProcessLifetime?: ChildProcessLifetimeAdapter
   createWorkflowClient?: () => WorkflowClient
+  signal?: AbortSignal
   storageRoot?: string
 }
 
 export function createProgram(options?: CreateProgramOptions): Command {
   const createWorkflowClient =
     options?.createWorkflowClient ??
-    (() => createCliWorkflowClient({ storageRoot: options?.storageRoot }))
+    (() =>
+      createCliWorkflowClient({
+        childProcessLifetime: options?.childProcessLifetime,
+        signal: options?.signal,
+        storageRoot: options?.storageRoot,
+      }))
   const program = new Command()
   program
     .name("redu")
