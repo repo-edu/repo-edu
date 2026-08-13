@@ -56,7 +56,7 @@
         "validate:trpc": "node ./scripts/validate-trpc-spike.mjs",
         "validate:shell-boundary": "node ./scripts/validate-shell-boundary.mjs",
         "validate:program-gate": "node ./scripts/validate-program-gate-artifact.mjs",
-        "validate:child-lifetime": "node ./scripts/validate-child-lifetime-windows.mjs",
+        "validate:child-lifetime": "node ./scripts/validate-child-lifetime-artifact.mjs",
         "validate:runtime:prebuilt": "pnpm run validate:trpc && pnpm run validate:program-gate && pnpm run validate:child-lifetime && pnpm run validate:shell-boundary",
         "validate:runtime": "pnpm run package:app && pnpm run validate:runtime:prebuilt",
         "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",

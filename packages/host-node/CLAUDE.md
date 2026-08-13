@@ -28,6 +28,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   subpath — one launch registry and stop-and-confirm boundary. macOS and Linux
   targets start in their own process groups. Windows composition supplies the
   platform returned by `createWindowsChildProcessLifetimePlatform(...)`.
+- `child-process-lifetime-artifact-probe.ts` — shared direct-route proof used
+  unchanged by Electron, Node command-line development and compiled Bun.
 - `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver.
   Desktop passes Electron's platform app-data base; CLI uses the same resolver
   directly. `REPO_EDU_STORAGE_ROOT` is accepted only as an absolute override.
@@ -65,9 +67,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - The Windows child-lifetime route is not the generic `ProcessPort`. It must
   save the launcher process identity in the same synchronous turn as spawn,
   assign it to the job before sending the target command, use the fixed helper
-  entry and remove `ELECTRON_RUN_AS_NODE` from the target environment. A lost
-  launcher after target admission reports an unknown outcome only after its
-  job is confirmed empty.
+  entry and pass the host-supplied target environment unchanged. The Codex
+  helper removes `ELECTRON_RUN_AS_NODE` before the SDK starts Codex or tools. A
+  lost launcher after target admission reports an unknown outcome only after
+  its job is confirmed empty.
 - The shared child-process lifetime adapter owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.

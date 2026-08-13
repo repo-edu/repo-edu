@@ -233,6 +233,13 @@ describe("release workflow wiring", () => {
     const desktopPackage = JSON.parse(
       await readFile(join(repoRoot, "apps/desktop/package.json"), "utf8"),
     ) as { scripts?: Record<string, string> }
+    const childLifetimeValidator = await readFile(
+      join(
+        repoRoot,
+        "apps/desktop/scripts/validate-child-lifetime-artifact.mjs",
+      ),
+      "utf8",
+    )
 
     assert.match(ciPlatform, /Compile CLI artifact/)
     assert.match(ciPlatform, /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/)
@@ -248,6 +255,15 @@ describe("release workflow wiring", () => {
       desktopPackage.scripts?.["validate:runtime:prebuilt"] ?? "",
       /validate:child-lifetime/,
     )
+    for (const proof of [
+      "packaged Electron child lifetime",
+      "Node development desktop child lifetime",
+      "Node development CLI child lifetime",
+      "compiled Bun CLI child lifetime",
+    ]) {
+      assert.ok(childLifetimeValidator.includes(proof), `missing ${proof}`)
+    }
+    assert.match(childLifetimeValidator, /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/)
   })
 
   it("installer scripts download and install CLI notice sidecars", async () => {

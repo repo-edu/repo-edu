@@ -2,7 +2,8 @@
 
 This is the TypeScript CLI app (`@repo-edu/cli`).
 
-Run CLI after the TypeScript build: `node apps/cli/dist/main.js --help`
+Run the CLI in Node development with
+`node --import tsx apps/cli/src/main.ts --help`.
 
 ## Architecture
 
@@ -41,12 +42,15 @@ constructors.
 The production entry claims the shared desktop/CLI program gate before it
 creates the Commander program. A busy gate exits with the shared conflict
 message. Unexpected gate failures are terminal. Compiled release artifacts
-must pass `scripts/validate-program-gate-artifact.mjs`.
+must pass `scripts/validate-program-gate-artifact.mjs` and the child-lifetime
+artifact validator owned by the desktop package.
 
 The production entry owns one child-lifetime adapter and one shutdown order.
 Normal completion, repeated interrupt and termination all stop and confirm the
 adapter before the program gate is released or the process exits. In-process
 `createProgram` callers own their surrounding lifetime.
+The artifact probe runs this order in Node development and the shipped Bun
+binary. The command-line program never starts the managed Codex helper.
 
 Settings are stored under `settings/credentials.json` and
 `settings/preferences.json`. CLI commands print recovery warnings when a corrupt

@@ -13,7 +13,10 @@ import type {
   LlmRuntimeConfig,
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
-import type { ChildProcessLifetimeAdapter } from "./child-process-lifetime.js"
+import type {
+  ChildProcessLifetimeAdapter,
+  OwnedChildProcess,
+} from "./child-process-lifetime.js"
 import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
 export type CreateNodeLlmTextClientOptions = Pick<
@@ -66,19 +69,24 @@ function buildCodexHelperEnvironment(
   return environment
 }
 
+export async function launchNodeCodexHelper(
+  childProcessLifetime: ChildProcessLifetimeAdapter,
+  command: NodeCodexHelperCommand,
+): Promise<OwnedChildProcess> {
+  return await childProcessLifetime.launch({
+    command: command.command,
+    args: command.args,
+    cwd: command.cwd,
+    env: buildCodexHelperEnvironment(command),
+    route: "managed-helper",
+  })
+}
+
 function createCodexHelperLaunch(
   childProcessLifetime: ChildProcessLifetimeAdapter,
   command: NodeCodexHelperCommand,
 ): NonNullable<CreateLlmTextClientOptions["codexHelper"]>["launch"] {
-  return async () => {
-    return await childProcessLifetime.launch({
-      command: command.command,
-      args: command.args,
-      cwd: command.cwd,
-      env: buildCodexHelperEnvironment(command),
-      route: "managed-helper",
-    })
-  }
+  return async () => await launchNodeCodexHelper(childProcessLifetime, command)
 }
 
 export function createNodeLlmTextClient(

@@ -1088,12 +1088,12 @@ function reportProgramGateFailure(message: string): void {
 
 async function bootstrapDesktop(): Promise<void> {
   if (isChildLifetimeArtifactProbe()) {
-    if (!app.isPackaged) {
-      throw new Error("The child-lifetime artifact probe requires a package.")
-    }
     await runChildLifetimeArtifactProbe({
+      childProcessLifetime,
+      codexHelperCommand,
       resourcesPath: process.resourcesPath,
       executablePath: process.execPath,
+      isPackaged: app.isPackaged,
     })
     app.exit(0)
     return

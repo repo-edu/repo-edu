@@ -50,7 +50,6 @@ function buildTargetEnvironment(
       environment[name] = value
     }
   }
-  delete environment.ELECTRON_RUN_AS_NODE
   return environment
 }
 

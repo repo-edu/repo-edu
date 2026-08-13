@@ -18,8 +18,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/renderer-close.ts`: owner-tagged window-close admission. Normal windows
   use attempt-identified renderer close and cancellation. Main-process
   validation windows bypass the renderer session.
-- `src/child-lifetime-artifact-probe.ts`: packaged Windows proof for the fixed
-  Electron `runAsNode` launcher and kill-on-close job route
+- `src/child-lifetime-artifact-probe.ts`: packaged and development Electron
+  proof for the shared adapter and managed Codex helper. Packaged Windows also
+  proves the fixed `runAsNode` launcher and kill-on-close job route.
 - `src/codex-helper-command.ts`: fixed managed-helper command. Electron runs
   the bundled `codex-helper.js` entry in Node mode through the shared
   child-lifetime adapter.
@@ -31,7 +32,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `resources/host-child-lifetime/windows-launcher.cjs`: fixed packaged helper
   entry used only by the Windows child-lifetime route
 - `scripts/validate-program-gate-artifact.mjs` and
-  `scripts/validate-child-lifetime-windows.mjs`: packaged host-contract proofs
+  `scripts/validate-child-lifetime-artifact.mjs`: shipped host-contract proofs
 
 ## Notes
 
@@ -46,7 +47,7 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   only after a matching failure or cancellation acknowledgement. If renderer
   cancellation itself cannot settle, the main process owns terminal close.
 - `validate:runtime` must package first. Its prebuilt phase proves tRPC, the
-  program gate, Windows child lifetime where applicable, and the shell boundary
+  program gate, the shipped child-lifetime matrix and the shell boundary
   against that packaged output.
 - Windows packaging must keep the `runAsNode` fuse enabled, unpack Koffi native
   files and ship the fixed launcher as an extra resource.

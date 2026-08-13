@@ -57,8 +57,31 @@ export {
   createWriteQueue,
   writeTextFileAtomic,
 } from "./atomic-write.js"
-export type { CreateNodeLlmTextClientOptions } from "./llm.js"
-export { createNodeLlmPort, createNodeLlmTextClient } from "./llm.js"
+export type {
+  ChildProcessLifetimeArtifactProbeClaims,
+  ChildProcessLifetimeArtifactProbeRun,
+  ChildProcessLifetimeArtifactProbeTarget,
+} from "./child-process-lifetime-artifact-probe.js"
+export {
+  childProcessLifetimeArtifactProbeEnvironmentVariable,
+  childProcessLifetimeArtifactProbeFixtureEnvironmentVariable,
+  childProcessLifetimeArtifactProbeMarker,
+  childProcessLifetimeArtifactProbeMarkerEnvironmentVariable,
+  childProcessLifetimeArtifactProbeRuntimeEnvironmentVariable,
+  finishChildProcessLifetimeArtifactProbe,
+  isChildProcessLifetimeArtifactProbe,
+  resolveChildProcessLifetimeArtifactProbeTarget,
+  startChildProcessLifetimeArtifactProbe,
+} from "./child-process-lifetime-artifact-probe.js"
+export type {
+  CreateNodeLlmTextClientOptions,
+  NodeCodexHelperCommand,
+} from "./llm.js"
+export {
+  createNodeLlmPort,
+  createNodeLlmTextClient,
+  launchNodeCodexHelper,
+} from "./llm.js"
 export {
   createNodeGitCommandPort,
   createNodeProcessPort,

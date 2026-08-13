@@ -6,6 +6,11 @@ import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import {
+  finishChildProcessLifetimeArtifactProbe,
+  resolveChildProcessLifetimeArtifactProbeTarget,
+  startChildProcessLifetimeArtifactProbe,
+} from "../child-process-lifetime-artifact-probe.js"
 
 const fixturePath = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
@@ -147,6 +152,36 @@ describe("child-process lifetime adapter", {
           route: "direct-adapter",
         }),
       /adapter is stopped/,
+    )
+  })
+
+  it("proves the artifact target through the shared adapter contract", async () => {
+    const marker = await markerPath("artifact-probe.txt")
+    const adapter = createChildProcessLifetimeAdapter()
+    const run = await startChildProcessLifetimeArtifactProbe(adapter, {
+      fixturePath,
+      markerPath: marker,
+      runtimePath: process.execPath,
+    })
+
+    await adapter.stopAndConfirm()
+
+    assert.deepEqual(await finishChildProcessLifetimeArtifactProbe(run), {
+      directAdapterRoute: true,
+      ownedDescendantStopped: true,
+      ownedDescendantStable: true,
+    })
+  })
+
+  it("requires absolute artifact probe paths", () => {
+    assert.throws(
+      () =>
+        resolveChildProcessLifetimeArtifactProbeTarget({
+          REPO_EDU_CHILD_LIFETIME_ARTIFACT_FIXTURE: "relative-fixture.cjs",
+          REPO_EDU_CHILD_LIFETIME_ARTIFACT_MARKER: "/absolute-marker.txt",
+          REPO_EDU_CHILD_LIFETIME_ARTIFACT_RUNTIME: process.execPath,
+        }),
+      /ARTIFACT_FIXTURE must be an absolute path/,
     )
   })
 

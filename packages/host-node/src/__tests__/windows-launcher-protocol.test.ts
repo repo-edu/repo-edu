@@ -7,7 +7,7 @@ import {
 } from "../windows-launcher-protocol.js"
 
 describe("Windows launcher protocol", () => {
-  it("serializes one complete target without leaking Electron Node mode", () => {
+  it("serializes one complete target environment unchanged", () => {
     const command = createWindowsLaunchCommand({
       command: "target.exe",
       args: ["--flag"],
@@ -23,7 +23,10 @@ describe("Windows launcher protocol", () => {
     assert.equal(command.protocolVersion, windowsLauncherProtocolVersion)
     assert.deepEqual(command.target.args, ["--flag"])
     assert.equal(command.target.cwd, "C:\\repo-edu")
-    assert.equal(command.target.env.ELECTRON_RUN_AS_NODE, undefined)
+    assert.equal(
+      command.target.env.ELECTRON_RUN_AS_NODE,
+      "must-not-reach-target",
+    )
     assert.equal(command.target.env.REPO_EDU_PROTOCOL_TEST, "present")
     assert.equal(command.target.shell, "cmd.exe")
   })
