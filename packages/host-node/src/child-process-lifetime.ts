@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import type { Readable, Writable } from "node:stream"
 
-const stopGracePeriodMs = 5_000
+export const childProcessStopGracePeriodMs = 5_000
 const groupExitPollMs = 20
 
 export type ChildProcessLifetimeRoute = "direct-adapter" | "managed-helper"
@@ -31,14 +31,28 @@ export type OwnedChildProcess = {
 }
 
 export type ChildProcessLifetimeAdapter = {
-  launch(request: ChildProcessLifetimeLaunch): OwnedChildProcess
+  launch(request: ChildProcessLifetimeLaunch): Promise<OwnedChildProcess>
   stopAndConfirm(): Promise<void>
 }
 
-type RegisteredProcessTree = {
-  requestStop(): void
+export type ChildProcessLifetimePlatformTree = OwnedChildProcess & {
   stopAndConfirm(): Promise<void>
 }
+
+export type ChildProcessLifetimePlatform = {
+  launch(
+    request: ChildProcessLifetimeLaunch,
+  ): Promise<ChildProcessLifetimePlatformTree>
+}
+
+export type ChildProcessLifetimeAdapterOptions = {
+  readonly windows?: ChildProcessLifetimePlatform
+}
+
+type RegisteredProcessTree = Pick<
+  ChildProcessLifetimePlatformTree,
+  "requestStop" | "stopAndConfirm"
+>
 
 type ProcessGroup = {
   requestStop(): void
@@ -138,7 +152,7 @@ function createProcessGroup(processGroupId: number): ProcessGroup {
 
         const remainingGraceMs = Math.max(
           0,
-          stopGracePeriodMs -
+          childProcessStopGracePeriodMs -
             (Date.now() - (gracefulStopStartedAt ?? Date.now())),
         )
         if (await waitForProcessGroupExit(processGroupId, remainingGraceMs)) {
@@ -188,59 +202,99 @@ async function holdResultUntilTreeIsGone(
   return result
 }
 
-function requireSupportedPlatform(): void {
-  if (process.platform !== "darwin" && process.platform !== "linux") {
-    throw new Error(
-      "The shared child-process lifetime adapter currently supports macOS and Linux.",
-    )
-  }
-}
-
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw new Error("The child-process launch was cancelled.")
   }
 }
 
-export function createChildProcessLifetimeAdapter(): ChildProcessLifetimeAdapter {
+const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
+  async launch(request) {
+    const child = spawn(request.command, [...(request.args ?? [])], {
+      cwd: request.cwd,
+      detached: true,
+      env:
+        request.env === undefined
+          ? process.env
+          : { ...process.env, ...request.env },
+      shell: request.shell,
+      stdio: "pipe",
+    })
+
+    const terminal = waitForTerminalResult(child)
+    const group =
+      child.pid === undefined ? noProcessGroup : createProcessGroup(child.pid)
+
+    return {
+      route: request.route,
+      stdin: child.stdin,
+      stdout: child.stdout,
+      stderr: child.stderr,
+      result: holdResultUntilTreeIsGone(terminal, group),
+      requestStop: group.requestStop,
+      async stopAndConfirm() {
+        const [cleanup] = await Promise.allSettled([
+          group.stopAndConfirm(),
+          terminal,
+        ])
+        if (cleanup.status === "rejected") {
+          throw cleanup.reason
+        }
+      },
+    }
+  },
+}
+
+function selectPlatform(
+  options: ChildProcessLifetimeAdapterOptions,
+): ChildProcessLifetimePlatform {
+  if (process.platform === "darwin" || process.platform === "linux") {
+    return posixChildProcessLifetimePlatform
+  }
+  if (process.platform === "win32") {
+    if (options.windows === undefined) {
+      throw new Error(
+        "The Windows child-process lifetime platform is not configured.",
+      )
+    }
+    return options.windows
+  }
+  throw new Error(
+    `The child-process lifetime adapter does not support ${process.platform}.`,
+  )
+}
+
+export class ChildProcessOutcomeUnknownError extends Error {
+  override readonly name = "ChildProcessOutcomeUnknownError"
+}
+
+export function createChildProcessLifetimeAdapter(
+  options: ChildProcessLifetimeAdapterOptions = {},
+): ChildProcessLifetimeAdapter {
   const activeTrees = new Map<symbol, RegisteredProcessTree>()
+  const pendingLaunches = new Set<Promise<ChildProcessLifetimePlatformTree>>()
   let shutdown: Promise<void> | undefined
 
   return {
-    launch(request) {
+    async launch(request) {
       if (shutdown !== undefined) {
         throw new Error("The child-process lifetime adapter is stopped.")
       }
-      requireSupportedPlatform()
       throwIfAborted(request.signal)
 
-      const child = spawn(request.command, [...(request.args ?? [])], {
-        cwd: request.cwd,
-        detached: true,
-        env:
-          request.env === undefined
-            ? process.env
-            : { ...process.env, ...request.env },
-        shell: request.shell,
-        stdio: "pipe",
-      })
+      const pending = selectPlatform(options).launch(request)
+      pendingLaunches.add(pending)
+      let platformTree: ChildProcessLifetimePlatformTree
+      try {
+        platformTree = await pending
+      } finally {
+        pendingLaunches.delete(pending)
+      }
 
       const key = Symbol("owned-process-tree")
-      const terminal = waitForTerminalResult(child)
-      const group =
-        child.pid === undefined ? noProcessGroup : createProcessGroup(child.pid)
-      const result = holdResultUntilTreeIsGone(terminal, group)
       const tree: RegisteredProcessTree = {
-        requestStop: group.requestStop,
-        async stopAndConfirm() {
-          const [cleanup] = await Promise.allSettled([
-            group.stopAndConfirm(),
-            terminal,
-          ])
-          if (cleanup.status === "rejected") {
-            throw cleanup.reason
-          }
-        },
+        requestStop: platformTree.requestStop,
+        stopAndConfirm: platformTree.stopAndConfirm,
       }
       activeTrees.set(key, tree)
 
@@ -253,38 +307,44 @@ export function createChildProcessLifetimeAdapter(): ChildProcessLifetimeAdapter
         }
       }
       request.signal?.addEventListener("abort", onAbort, { once: true })
+      if (request.signal?.aborted || shutdown !== undefined) {
+        onAbort()
+      }
       const forgetTree = () => {
         activeTrees.delete(key)
       }
       const detachAbort = () => {
         request.signal?.removeEventListener("abort", onAbort)
       }
-      void result.then(
+      void platformTree.result.then(
         () => {
           detachAbort()
           forgetTree()
         },
         () => {
           detachAbort()
-          void group.stopAndConfirm().then(forgetTree, () => undefined)
+          void tree.stopAndConfirm().then(forgetTree, () => undefined)
         },
       )
 
       return {
         route: request.route,
-        stdin: child.stdin,
-        stdout: child.stdout,
-        stderr: child.stderr,
-        result,
+        stdin: platformTree.stdin,
+        stdout: platformTree.stdout,
+        stderr: platformTree.stderr,
+        result: platformTree.result,
         requestStop: tree.requestStop,
       }
     },
     stopAndConfirm() {
-      shutdown ??= Promise.all(
-        [...activeTrees.values()].map(async (tree) => {
-          await tree.stopAndConfirm()
-        }),
-      ).then(() => undefined)
+      shutdown ??= (async () => {
+        await Promise.allSettled([...pendingLaunches])
+        await Promise.all(
+          [...activeTrees.values()].map(async (tree) => {
+            await tree.stopAndConfirm()
+          }),
+        )
+      })()
 
       return shutdown
     },

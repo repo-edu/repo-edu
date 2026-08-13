@@ -17,8 +17,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   committed grammar-asset manifest
 - `createChildProcessLifetimeAdapter()` from the `child-process-lifetime`
   subpath — one launch registry and stop-and-confirm boundary. macOS and Linux
-  targets start in their own process groups; the Windows route stays in its
-  separate package slice until it joins this boundary.
+  targets start in their own process groups. Windows composition supplies the
+  platform returned by `createWindowsChildProcessLifetimePlatform(...)`.
 - `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver.
   Desktop passes Electron's platform app-data base; CLI uses the same resolver
   directly. `REPO_EDU_STORAGE_ROOT` is accepted only as an absolute override.
@@ -28,8 +28,9 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `claimProgramGate(...)` — one shared desktop/CLI `BEGIN EXCLUSIVE` claim in
   `program-gate.db`. It delegates to the generic claim without changing the
   product path or meaning.
-- `windows-child-lifetime.ts` + `windows-job.ts` — separate packaged-Windows
-  launcher proof and Koffi-backed kill-on-close job building blocks
+- `windows-child-lifetime.ts` — public packaged-Windows entry. Its platform,
+  proof and launcher-protocol modules keep host lifetime, artifact evidence and
+  wire grammar separate. `windows-job.ts` owns the Koffi job calls.
 - `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)` (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in `src/sqlite/transaction.ts` wrap statements in transactions.
 - File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
 - Settings section-store helpers validate strict JSON sections, write atomically, and back invalid, unparseable or unsupported composite settings files aside for recovery-aware loads.
@@ -48,7 +49,9 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - The Windows child-lifetime route is not the generic `ProcessPort`. It must
   save the launcher process identity in the same synchronous turn as spawn,
   assign it to the job before sending the target command, use the fixed helper
-  entry and remove `ELECTRON_RUN_AS_NODE` from the target environment.
+  entry and remove `ELECTRON_RUN_AS_NODE` from the target environment. A lost
+  launcher after target admission reports an unknown outcome only after its
+  job is confirmed empty.
 - The shared child-process lifetime adapter owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.

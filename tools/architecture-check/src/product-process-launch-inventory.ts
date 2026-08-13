@@ -35,7 +35,7 @@ export const productProcessLaunchInventory = [
   },
   {
     id: "windows-launcher-host",
-    file: "packages/host-node/src/windows-child-lifetime.ts",
+    file: "packages/host-node/src/windows-child-lifetime-platform.ts",
     mechanism: "node-child-process",
     targetRoute: "direct-adapter",
     launches: ["fixed inert Windows launcher"],

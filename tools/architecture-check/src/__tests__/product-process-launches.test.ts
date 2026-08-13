@@ -12,7 +12,7 @@ const REGISTERED_SOURCES: Record<string, string> = {
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/src/index.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
-  "packages/host-node/src/windows-child-lifetime.ts":
+  "packages/host-node/src/windows-child-lifetime-platform.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs":
     'const { spawn } = require("node:child_process")\nvoid spawn\n',
@@ -41,7 +41,7 @@ describe("product process launch policy", () => {
       },
       {
         id: "windows-launcher-host",
-        file: "packages/host-node/src/windows-child-lifetime.ts",
+        file: "packages/host-node/src/windows-child-lifetime-platform.ts",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
         launches: ["fixed inert Windows launcher"],

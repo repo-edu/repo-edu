@@ -1,4 +1,5 @@
 const killOnJobCloseLimit = 0x0000_2000
+const basicAccountingInformationClass = 1
 const extendedLimitInformationClass = 9
 const processTerminate = 0x0001
 const processSetQuota = 0x0100
@@ -11,6 +12,7 @@ type WindowsJobApi = {
   configureKillOnClose(job: NativeHandle): void
   openProcess(processId: number): NativeHandle
   assignProcess(job: NativeHandle, process: NativeHandle): void
+  hasActiveProcesses(job: NativeHandle): boolean
   isProcessInJob(job: NativeHandle, process: NativeHandle): boolean
   terminateJob(job: NativeHandle, exitCode: number): void
   closeHandle(handle: NativeHandle): void
@@ -25,6 +27,7 @@ export type WindowsKillOnCloseJob = {
   saveProcessIdentity(processId: number): SavedWindowsProcessIdentity
   assign(identity: SavedWindowsProcessIdentity): void
   contains(identity: SavedWindowsProcessIdentity): boolean
+  hasActiveProcesses(): boolean
   terminate(exitCode: number): void
   close(): void
 }
@@ -92,6 +95,19 @@ async function loadWindowsJobApi(): Promise<WindowsJobApi> {
       WriteTransferCount: "uint64_t",
       OtherTransferCount: "uint64_t",
     })
+    const basicAccountingInformation = koffi.struct(
+      "JOBOBJECT_BASIC_ACCOUNTING_INFORMATION",
+      {
+        TotalUserTime: "int64_t",
+        TotalKernelTime: "int64_t",
+        ThisPeriodTotalUserTime: "int64_t",
+        ThisPeriodTotalKernelTime: "int64_t",
+        TotalPageFaultCount: "uint32_t",
+        TotalProcesses: "uint32_t",
+        ActiveProcesses: "uint32_t",
+        TotalTerminatedProcesses: "uint32_t",
+      },
+    )
     const extendedLimitInformation = koffi.struct(
       "JOBOBJECT_EXTENDED_LIMIT_INFORMATION",
       {
@@ -122,6 +138,17 @@ async function loadWindowsJobApi(): Promise<WindowsJobApi> {
       "AssignProcessToJobObject",
       "int",
       [handle, handle],
+    )
+    const queryInformationJobObject = kernel32.func(
+      "QueryInformationJobObject",
+      "int",
+      [
+        handle,
+        "int",
+        koffi.out(koffi.pointer(basicAccountingInformation)),
+        "uint32_t",
+        koffi.pointer("uint32_t"),
+      ],
     )
     const isProcessInJob = kernel32.func("IsProcessInJob", "int", [
       handle,
@@ -192,6 +219,30 @@ async function loadWindowsJobApi(): Promise<WindowsJobApi> {
           "AssignProcessToJobObject",
           getLastError,
         )
+      },
+      hasActiveProcesses(job) {
+        const accounting = {
+          TotalUserTime: 0,
+          TotalKernelTime: 0,
+          ThisPeriodTotalUserTime: 0,
+          ThisPeriodTotalKernelTime: 0,
+          TotalPageFaultCount: 0,
+          TotalProcesses: 0,
+          ActiveProcesses: 0,
+          TotalTerminatedProcesses: 0,
+        }
+        requiredSuccess(
+          queryInformationJobObject(
+            job,
+            basicAccountingInformationClass,
+            accounting,
+            koffi.sizeof(basicAccountingInformation),
+            null,
+          ),
+          "QueryInformationJobObject",
+          getLastError,
+        )
+        return accounting.ActiveProcesses !== 0
       },
       isProcessInJob(job, processHandle) {
         const result = [0]
@@ -277,6 +328,12 @@ export async function createWindowsKillOnCloseJob(): Promise<WindowsKillOnCloseJ
         throw new Error("The Windows job is closed.")
       }
       return api.isProcessInJob(jobHandle, nativeProcessHandle(identity))
+    },
+    hasActiveProcesses() {
+      if (jobClosed) {
+        return false
+      }
+      return api.hasActiveProcesses(jobHandle)
     },
     terminate(exitCode) {
       if (jobClosed) {

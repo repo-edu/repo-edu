@@ -10,7 +10,7 @@ const controlLines = createInterface({
   crlfDelay: Infinity,
 })
 
-let targetStarted = false
+let targetAdmitted = false
 let settled = false
 
 function writeControl(message, callback) {
@@ -59,7 +59,12 @@ function parseLaunchCommand(line) {
       command.target.cwd === undefined ||
       typeof command.target.cwd === "string"
     ) ||
-    !isStringRecord(command.target.env)
+    !isStringRecord(command.target.env) ||
+    !(
+      command.target.shell === undefined ||
+      typeof command.target.shell === "boolean" ||
+      typeof command.target.shell === "string"
+    )
   ) {
     throw new Error("Invalid Windows launcher command.")
   }
@@ -70,7 +75,7 @@ function launchTarget(target) {
   const child = spawn(target.command, target.args, {
     cwd: target.cwd,
     env: target.env,
-    shell: false,
+    shell: target.shell,
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   })
@@ -87,6 +92,9 @@ function launchTarget(target) {
     terminalReported = true
     fail(error)
   })
+  child.once("spawn", () => {
+    writeControl({ kind: "started" })
+  })
   child.once("close", (exitCode, signal) => {
     if (terminalReported) {
       return
@@ -99,11 +107,11 @@ function launchTarget(target) {
 }
 
 controlLines.on("line", (line) => {
-  if (targetStarted || settled) {
+  if (targetAdmitted || settled) {
     fail(new Error("The Windows launcher accepts exactly one target."))
     return
   }
-  targetStarted = true
+  targetAdmitted = true
   try {
     launchTarget(parseLaunchCommand(line))
   } catch (error) {
@@ -112,7 +120,7 @@ controlLines.on("line", (line) => {
 })
 
 controlLines.once("close", () => {
-  if (!targetStarted && !settled) {
+  if (!targetAdmitted && !settled) {
     finish(0)
   }
 })

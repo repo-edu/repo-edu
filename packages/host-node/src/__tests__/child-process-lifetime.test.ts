@@ -50,7 +50,7 @@ describe("child-process lifetime adapter", {
     context.after(async () => {
       await adapter.stopAndConfirm()
     })
-    const run = adapter.launch({
+    const run = await adapter.launch({
       command: process.execPath,
       args: [fixturePath, "parent-exits", marker],
       route: "direct-adapter",
@@ -73,7 +73,7 @@ describe("child-process lifetime adapter", {
       await adapter.stopAndConfirm()
     })
     const controller = new AbortController()
-    const run = adapter.launch({
+    const run = await adapter.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", marker],
       route: "direct-adapter",
@@ -96,12 +96,12 @@ describe("child-process lifetime adapter", {
     context.after(async () => {
       await adapter.stopAndConfirm()
     })
-    const direct = adapter.launch({
+    const direct = await adapter.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", directMarker],
       route: "direct-adapter",
     })
-    const helper = adapter.launch({
+    const helper = await adapter.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", helperMarker],
       route: "managed-helper",
@@ -117,8 +117,8 @@ describe("child-process lifetime adapter", {
 
     assert.match(await readMarker(directMarker), /grandchild-stopped/)
     assert.match(await readMarker(helperMarker), /grandchild-stopped/)
-    assert.throws(
-      () =>
+    await assert.rejects(
+      async () =>
         adapter.launch({
           command: process.execPath,
           route: "direct-adapter",
@@ -127,12 +127,12 @@ describe("child-process lifetime adapter", {
     )
   })
 
-  it("refuses an already-cancelled launch before creating a tree", () => {
+  it("refuses an already-cancelled launch before creating a tree", async () => {
     const controller = new AbortController()
     controller.abort()
 
-    assert.throws(
-      () =>
+    await assert.rejects(
+      async () =>
         createChildProcessLifetimeAdapter().launch({
           command: process.execPath,
           route: "direct-adapter",
@@ -149,7 +149,7 @@ describe("child-process lifetime adapter", {
       await adapter.stopAndConfirm()
     })
 
-    const run = adapter.launch({
+    const run = await adapter.launch({
       command: missingExecutable,
       route: "direct-adapter",
     })
