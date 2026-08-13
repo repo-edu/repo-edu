@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@repo-edu/host-node": "workspace:*",
+    "commander": "^15.0.0",
     "mdast-util-from-markdown": "2.0.3",
     "zod": "4.4.3"
   },
