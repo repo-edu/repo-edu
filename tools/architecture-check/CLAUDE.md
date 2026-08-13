@@ -7,7 +7,7 @@ via `pnpm check:architecture` from the workspace root.
 ## What it checks
 
 `src/main.ts` composes one pass (`runArchitectureCheck`) that returns sorted
-violations. Five concerns feed it:
+violations. Six concerns feed it:
 
 - Area reconciliation (`area-model.ts`): loads and zod-validates the committed
   model, then reconciles it against the source inventory.
@@ -19,6 +19,12 @@ violations. Five concerns feed it:
 - Repository checks (`repository-checks.ts`): package manifest and export-source
   validation, Node test-runner imports, production-to-test import rejection and
   Node built-in exclusion from browser-safe runtime closures.
+- Product process launches (`product-process-launch-inventory.ts`,
+  `product-process-launch-syntax.ts` and `product-process-launches.ts`):
+  reconciles every product runtime process entry against the child-lifetime
+  direct-adapter or managed-helper route. It includes the packaged CommonJS
+  launcher and rejects unregistered Node, Bun, Deno and dependency-owned launch
+  paths.
 - Source inventory (`inventory.ts`): one raw current-worktree listing plus the
   selected source list and set that every check shares.
 
@@ -79,6 +85,8 @@ may span `/`.
   partition.
 - Report malformed workspace manifests as violations. Do not let one invalid
   JSON file abort the rest of the architecture pass.
+- Keep the process-launch inventory exact. A product source that gains or loses
+  a process mechanism must update the inventory and name its target route.
 - `dependency-cruiser` and `zod` are runtime dependencies; run `pnpm install`
   after pulling a change that adds them.
 - Tests live in `src/__tests__/`. `start` runs the tool's own typecheck and

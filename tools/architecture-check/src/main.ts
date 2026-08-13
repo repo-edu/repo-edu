@@ -9,6 +9,7 @@ import { runBespokeChecks } from "./bespoke-checks.js"
 import { runDependencyCruiserAnalysis } from "./dependency-cruiser-runner.js"
 import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
+import { checkProductProcessLaunches } from "./product-process-launches.js"
 import { ROOT } from "./repo-paths.js"
 import { runRepositoryChecks } from "./repository-checks.js"
 import { compareViolations, type Violation } from "./violations.js"
@@ -29,6 +30,10 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
     inventory,
     graphAnalysis.graph,
   )
+  const processLaunchViolations = checkProductProcessLaunches(
+    root,
+    inventory.worktreePaths,
+  )
 
   return {
     violations: [
@@ -36,6 +41,7 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
       ...graphAnalysis.violations,
       ...bespokeViolations,
       ...repositoryViolations,
+      ...processLaunchViolations,
     ].sort(compareViolations),
   }
 }
