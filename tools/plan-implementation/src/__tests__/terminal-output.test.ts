@@ -5,6 +5,8 @@ import { createTerminalDisplay } from "../terminal-output.js"
 describe("terminal display", () => {
   it("keeps TTY detail on one replaceable terminal-width line", () => {
     const calls: string[] = []
+    const refreshes: Array<() => void> = []
+    let elapsed = "12:34"
     const update = Object.assign(
       (line: string) => calls.push(`detail:${line}`),
       {
@@ -27,15 +29,29 @@ describe("terminal display", () => {
         readonly isTTY: boolean
       },
       () => update,
+      (callback) => {
+        calls.push("schedule")
+        refreshes.push(callback)
+        return () => calls.push("cancel")
+      },
     )
 
-    display.detail("[12:34] Search files for a very long expression")
+    display.detail(() => `[${elapsed}] Search files for a very long expression`)
+    elapsed = "12:35"
+    refreshes[0]?.()
+    display.detail(() => `[${elapsed}] Inspect Git commit`)
     display.overview("[12:35] Phase: checking")
+    refreshes[0]?.()
     display.close()
 
+    assert.equal(refreshes.length, 1)
     assert.deepEqual(calls, [
       "detail:[12:34] Search files fo…",
+      "schedule",
+      "detail:[12:35] Search files fo…",
+      "detail:[12:35] Inspect Git com…",
       "overview:[12:35] Phase: checking",
+      "cancel",
       "clear",
       "done",
     ])
@@ -57,9 +73,12 @@ describe("terminal display", () => {
       () => {
         throw new Error("Redirected output must not create a line updater.")
       },
+      () => {
+        throw new Error("Redirected output must not schedule refreshes.")
+      },
     )
 
-    display.detail("[0:01] Search files")
+    display.detail(() => "[0:01] Search files")
     display.overview("[0:02] Phase: checking")
     display.close()
 

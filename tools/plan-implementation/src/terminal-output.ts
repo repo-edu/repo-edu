@@ -3,7 +3,7 @@ import { createLogUpdate } from "log-update"
 
 export type TerminalDisplay = {
   overview(line: string): void
-  detail(line: string): void
+  detail(render: () => string): void
   close(): void
 }
 
@@ -13,13 +13,22 @@ type TerminalOutput = NodeJS.WritableStream & {
 }
 
 type LogUpdate = ReturnType<typeof createLogUpdate>
+type ScheduleRefresh = (refresh: () => void) => () => void
 
 const FALLBACK_TERMINAL_WIDTH = 80
+const REFRESH_INTERVAL_MS = 1_000
+
+const scheduleRefresh: ScheduleRefresh = (refresh) => {
+  const timer = setInterval(refresh, REFRESH_INTERVAL_MS)
+  timer.unref()
+  return () => clearInterval(timer)
+}
 
 export function createTerminalDisplay(
   output: TerminalOutput,
   createUpdate: (output: NodeJS.WritableStream) => LogUpdate = (stream) =>
     createLogUpdate(stream, { showCursor: true }),
+  schedule: ScheduleRefresh = scheduleRefresh,
 ): TerminalDisplay {
   if (output.isTTY !== true) {
     return {
@@ -32,15 +41,28 @@ export function createTerminalDisplay(
   }
 
   const update = createUpdate(output)
+  let activeDetail: (() => string) | null = null
+  let stopRefresh: (() => void) | null = null
+  const renderDetail = (): void => {
+    if (activeDetail === null) return
+    const width = Math.max(1, output.columns ?? FALLBACK_TERMINAL_WIDTH)
+    update(cliTruncate(activeDetail(), width))
+  }
+
   return {
     overview(line) {
+      activeDetail = null
       update.persist(line)
     },
-    detail(line) {
-      const width = Math.max(1, output.columns ?? FALLBACK_TERMINAL_WIDTH)
-      update(cliTruncate(line, width))
+    detail(render) {
+      activeDetail = render
+      renderDetail()
+      stopRefresh ??= schedule(renderDetail)
     },
     close() {
+      stopRefresh?.()
+      stopRefresh = null
+      activeDetail = null
       update.clear()
       update.done()
     },

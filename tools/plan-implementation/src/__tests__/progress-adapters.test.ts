@@ -53,20 +53,26 @@ describe("progress adapters", () => {
     let tick = 0
     const overview: string[] = []
     const detail: string[] = []
+    const detailRenderers: Array<() => string> = []
+    let liveElapsedMs = 0
     let displayClosed = false
     const events = createPlanImplementationEventStream({
       transcript,
-      presentation: createTerminalView({
-        overview(line) {
-          overview.push(`${line}\n`)
+      presentation: createTerminalView(
+        {
+          overview(line) {
+            overview.push(`${line}\n`)
+          },
+          detail(render) {
+            detailRenderers.push(render)
+            detail.push(render())
+          },
+          close() {
+            displayClosed = true
+          },
         },
-        detail(line) {
-          detail.push(line)
-        },
-        close() {
-          displayClosed = true
-        },
-      }),
+        () => liveElapsedMs,
+      ),
       now: () =>
         new Date(runStart + (clock[Math.min(tick++, clock.length - 1)] ?? 0)),
     })
@@ -250,7 +256,9 @@ describe("progress adapters", () => {
       displayed,
       /^\[1:11\] Failed: Check TypeScript \(exit 2\) — error TS2304: Cannot find name 'missing'\.$/m,
     )
+    assert.match(displayed, /^\[1:10\] Finished: Search files$/m)
     assert.match(displayed, /\[12:05\] Phase: checking/)
+    assert.match(displayed, /^\[12:25\] Finished: Repository test$/m)
     assert.match(displayed, /\[12:30\] Committed step 9 after 12m 25s: c{12}/)
     assert.match(displayed, /\[13:00\] Result: bound-reached\. Total 13m 0s\./)
     assert.match(
@@ -259,12 +267,23 @@ describe("progress adapters", () => {
     )
     assert.equal(/Command succeeded: rg -n/.test(displayed), false)
     assert.deepEqual(detail, [
+      "[0:00]",
+      "[0:00]",
+      "[0:05]",
+      "[0:05]",
+      "[1:05]",
       "[1:06] Search files",
-      "[1:10] Finished: Search files",
+      "[1:10]",
+      "[1:11]",
       "[1:12] Edited: updated tools/plan-implementation/src/run-progress.ts, created tools/plan-implementation/src/terminal-view.ts",
+      "[12:05]",
       "[12:06] Run: Repository test",
-      "[12:25] Finished: Repository test",
+      "[12:25]",
+      "[12:26]",
+      "[12:30]",
     ])
+    liveElapsedMs = 2_000
+    assert.equal(detailRenderers.at(-1)?.(), "[12:32]")
     assert.equal(displayClosed, true)
   })
 })

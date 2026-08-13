@@ -57,6 +57,7 @@ function failedOutputSummary(output: string): string {
 
 export function createTerminalView(
   display: TerminalDisplay,
+  now: () => number = Date.now,
 ): PlanImplementationEventObserver {
   let totalSteps = 0
   let runStartMs: number | null = null
@@ -69,9 +70,6 @@ export function createTerminalView(
   const writeBlank = (): void => {
     writeLine("")
   }
-  const writeDetail = (line: string): void => {
-    display.detail(line.replaceAll(/\s+/g, " ").trim())
-  }
   const elapsedMs = (event: PlanImplementationEvent): number => {
     const eventMs = Date.parse(event.timestamp)
     return runStartMs === null || Number.isNaN(eventMs)
@@ -80,6 +78,32 @@ export function createTerminalView(
   }
   const stamp = (event: PlanImplementationEvent): string =>
     `[${formatClock(elapsedMs(event))}]`
+  const liveLine = (
+    event: PlanImplementationEvent,
+    line?: string,
+  ): (() => string) => {
+    const initialElapsedMs = elapsedMs(event)
+    const observedAtMs = now()
+    const detail = line?.replaceAll(/\s+/g, " ").trim()
+    return () => {
+      const liveElapsedMs = initialElapsedMs + Math.max(0, now() - observedAtMs)
+      const liveStamp = `[${formatClock(liveElapsedMs)}]`
+      return detail === undefined ? liveStamp : `${liveStamp} ${detail}`
+    }
+  }
+  const writeDetail = (event: PlanImplementationEvent, line: string): void => {
+    display.detail(liveLine(event, line))
+  }
+  const writeIdle = (event: PlanImplementationEvent): void => {
+    display.detail(liveLine(event))
+  }
+  const writeOverview = (
+    event: PlanImplementationEvent,
+    line: string,
+  ): void => {
+    writeLine(line)
+    writeIdle(event)
+  }
 
   const codingLine = (
     event: PlanImplementationEvent,
@@ -87,23 +111,30 @@ export function createTerminalView(
   ): void => {
     switch (coding.kind) {
       case "thread-started":
-        writeDetail(`${stamp(event)} Codex thread ${coding.threadId}`)
+        writeDetail(event, `Codex thread ${coding.threadId}`)
         return
       case "narrative":
         writeBlank()
         writeLine(`${stamp(event)} ${coding.text}`)
         writeBlank()
+        writeIdle(event)
         return
       case "command":
-        if (coding.status === "failed") {
-          const exit =
-            coding.exitCode === null ? "" : ` (exit ${coding.exitCode})`
-          writeLine(
-            `${stamp(event)} ${codingCommandActivity(coding.command, coding.status)}${exit}${failedOutputSummary(coding.output)}`,
+        if (coding.status === "started") {
+          writeDetail(
+            event,
+            codingCommandActivity(coding.command, coding.status),
           )
         } else {
-          writeDetail(
-            `${stamp(event)} ${codingCommandActivity(coding.command, coding.status)}`,
+          const exit =
+            coding.status === "failed" && coding.exitCode !== null
+              ? ` (exit ${coding.exitCode})`
+              : ""
+          const output =
+            coding.status === "failed" ? failedOutputSummary(coding.output) : ""
+          writeOverview(
+            event,
+            `${stamp(event)} ${codingCommandActivity(coding.command, coding.status)}${exit}${output}`,
           )
         }
         return
@@ -112,35 +143,33 @@ export function createTerminalView(
           .map((change) => `${FILE_CHANGE_VERBS[change.kind]} ${change.path}`)
           .join(", ")
         writeDetail(
+          event,
           coding.status === "completed"
-            ? `${stamp(event)} Edited: ${changes}`
-            : `${stamp(event)} Edit failed: ${changes}`,
+            ? `Edited: ${changes}`
+            : `Edit failed: ${changes}`,
         )
         return
       }
       case "todo":
-        writeDetail(`${stamp(event)} Plan: ${coding.text}`)
+        writeDetail(event, `Plan: ${coding.text}`)
         return
       case "tool-call":
         if (coding.status === "started") {
-          writeDetail(
-            `${stamp(event)} Use tool: ${coding.server}.${coding.tool}`,
-          )
+          writeDetail(event, `Use tool: ${coding.server}.${coding.tool}`)
         } else if (coding.status === "succeeded") {
-          writeDetail(
+          writeOverview(
+            event,
             `${stamp(event)} Finished tool: ${coding.server}.${coding.tool}`,
           )
         } else if (coding.status === "failed") {
-          writeDetail(
-            `${stamp(event)} Tool failed: ${coding.server}.${coding.tool}`,
-          )
+          writeDetail(event, `Tool failed: ${coding.server}.${coding.tool}`)
         }
         return
       case "web-search":
-        writeDetail(`${stamp(event)} Search web: ${coding.query}`)
+        writeDetail(event, `Search web: ${coding.query}`)
         return
       case "error":
-        writeLine(`${stamp(event)} Codex error: ${coding.message}`)
+        writeOverview(event, `${stamp(event)} Codex error: ${coding.message}`)
         return
     }
   }
@@ -168,7 +197,8 @@ export function createTerminalView(
           const startMs = Date.parse(event.timestamp)
           runStartMs = Number.isNaN(startMs) ? null : startMs
           totalSteps = event.totalSteps
-          writeLine(
+          writeOverview(
+            event,
             `${stamp(event)} Plan ${event.source.planName}: ${totalSteps} ${totalSteps === 1 ? "step" : "steps"}, ${runMode(event.request)}, ceiling ${event.resolvedCeiling ?? "unresolved"}.`,
           )
           return
@@ -176,31 +206,32 @@ export function createTerminalView(
         case "step-started":
           stepStartMs = Date.parse(event.timestamp)
           writeBlank()
-          writeLine(
+          writeOverview(
+            event,
             `${stamp(event)} Step ${event.step}/${totalSteps}: ${event.title}`,
           )
           return
         case "phase-changed":
-          writeLine(`${stamp(event)} Phase: ${event.phase}`)
+          writeOverview(event, `${stamp(event)} Phase: ${event.phase}`)
           return
         case "coding":
           codingLine(event, event.event)
           return
         case "command-started":
           commandLabels.set(event.commandId, event.label)
-          writeDetail(`${stamp(event)} Run: ${event.label}`)
+          writeDetail(event, `Run: ${event.label}`)
           return
         case "command-finished": {
           const label = commandLabels.get(event.commandId) ?? event.commandId
           if (event.status === "failed") {
-            writeLine(`${stamp(event)} Failed: ${label}`)
+            writeOverview(event, `${stamp(event)} Failed: ${label}`)
           } else {
-            writeDetail(`${stamp(event)} Finished: ${label}`)
+            writeOverview(event, `${stamp(event)} Finished: ${label}`)
           }
           return
         }
         case "stop-requested":
-          writeLine(`${stamp(event)} Stop requested.`)
+          writeOverview(event, `${stamp(event)} Stop requested.`)
           return
         case "step-committed": {
           const eventMs = Date.parse(event.timestamp)
@@ -208,7 +239,8 @@ export function createTerminalView(
             stepStartMs === null || Number.isNaN(eventMs)
               ? ""
               : ` after ${formatDuration(eventMs - stepStartMs)}`
-          writeLine(
+          writeOverview(
+            event,
             `${stamp(event)} Committed step ${event.step}${duration}: ${event.commitOid.slice(0, 12)} ${event.subject}`,
           )
           return
