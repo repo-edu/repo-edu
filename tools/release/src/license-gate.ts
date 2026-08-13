@@ -28,10 +28,6 @@ import type {
 } from "./license-gate/types.js"
 
 export {
-  extractRipgrepVersion,
-  parseDotslashManifest,
-} from "./license-gate/archive.js"
-export {
   assertNoForbiddenProductionDependencies,
   enumeratePackageClosureFromList,
   findReachedPackageByReachedName,

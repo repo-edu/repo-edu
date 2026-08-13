@@ -1,15 +1,10 @@
 import { execFile } from "node:child_process"
 import { createHash } from "node:crypto"
-import { readdir, readFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
-import {
-  dotslashPlatformKey,
-  extractRipgrepVersion,
-  parseDotslashManifest,
-  resolveOpenAiCodexDotslashManifest,
-} from "./archive.js"
+import { resolveCodexPackageRipgrep } from "./codex-package.js"
 import {
   resolvePackageJsonPath,
   runtimePackageRecord,
@@ -23,7 +18,7 @@ import type { NoticeEntry, ReachedPackage, ReleasePlatform } from "./types.js"
 
 const releaseGateDirectory = dirname(fileURLToPath(import.meta.url))
 const execFileAsync = promisify(execFile)
-const ripgrepNoticeVersion = "15.1.0"
+const ripgrepNoticeVersion = "15.2.0"
 const ripgrepNoticeFiles = [
   "COPYING.txt",
   "LICENSE-MIT.txt",
@@ -43,19 +38,6 @@ const pcre2NoticeFile = join(
   `pcre2-${pcre2NoticeVersion}`,
   "LICENCE.txt",
 )
-
-const ripgrepDotslashDigestByPlatform = {
-  "darwin-arm64":
-    "378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715",
-  "linux-arm64":
-    "2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e",
-  "linux-x64":
-    "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599",
-  "windows-arm64":
-    "00d931fb5237c9696ca49308818edb76d8eb6fc132761cb2a1bd616b2df02f8e",
-  "windows-x64":
-    "124510b94b6baa3380d051fdf4650eaa80a302c876d611e9dba0b2e18d87493a",
-} satisfies Record<ReleasePlatform, string>
 
 export async function resolveOpenAiCodexPlatformRuntime(
   codexRoot: ReachedPackage,
@@ -91,42 +73,13 @@ export async function resolveRipgrepNoticeEntries(options: {
   readonly platformPackageName: string
   readonly platformPackagePath: string
 }): Promise<NoticeEntry[]> {
-  const manifestPath = resolveOpenAiCodexDotslashManifest(
-    options.codexRoot.packagePath,
-    options.codexRoot.version,
-  )
-  const manifest = parseDotslashManifest(await readFile(manifestPath, "utf8"))
-  const platformKey = dotslashPlatformKey(options.platform)
-  const record = manifest.platforms[platformKey]
-
-  if (!record) {
-    throw new Error(
-      `@openai/codex ripgrep DotSlash manifest has no ${platformKey} platform entry.`,
-    )
-  }
-
-  const provider = record.providers[0]
-  if (!provider) {
-    throw new Error("@openai/codex ripgrep DotSlash manifest has no provider.")
-  }
-  const ripgrepVersion = extractRipgrepVersion(record, provider.url)
-  if (ripgrepVersion !== ripgrepNoticeVersion) {
-    throw new Error(
-      `@openai/codex ripgrep version ${ripgrepVersion} does not match committed notice evidence ${ripgrepNoticeVersion}.`,
-    )
-  }
-  if (record.hash !== "sha256") {
-    throw new Error(
-      `@openai/codex ripgrep DotSlash manifest uses unsupported hash ${record.hash}.`,
-    )
-  }
-  if (record.digest !== ripgrepDotslashDigestByPlatform[options.platform]) {
-    throw new Error(
-      `@openai/codex ripgrep DotSlash digest for ${options.platform} changed. Refresh committed ripgrep notice evidence before release.`,
-    )
-  }
-
+  const packageLayout = await resolveCodexPackageRipgrep({
+    packagePath: options.platformPackagePath,
+    packageVersion: options.codexRoot.version,
+    platform: options.platform,
+  })
   const binary = await inspectVendoredRipgrepBinary({
+    path: packageLayout.binaryPath,
     expectedVersion: ripgrepNoticeVersion,
     platformPackageName: options.platformPackageName,
     platformPackagePath: options.platformPackagePath,
@@ -137,9 +90,9 @@ export async function resolveRipgrepNoticeEntries(options: {
       id: `ripgrep:${binary.sha256}`,
       kind: "package-sub-asset",
       name: "ripgrep vendored by @openai/codex",
-      version: ripgrepVersion,
+      version: binary.version,
       licenseExpression: "Unlicense OR MIT",
-      source: `${options.platformPackageName} vendored ${binary.relativePath}; root @openai/codex ${options.codexRoot.version} bin/rg DotSlash provider ${provider.url}; notice text from committed ripgrep ${ripgrepVersion} source-tag files`,
+      source: `${options.platformPackageName} vendored ${binary.relativePath}; root @openai/codex ${options.codexRoot.version} layout from ${packageLayout.manifestRelativePath}; notice text from committed ripgrep ${binary.version} source-tag files`,
       licenseText: noticeTexts.join("\n\n"),
       noticeText: binary.versionOutput,
     },
@@ -163,18 +116,20 @@ export async function resolveRipgrepNoticeEntries(options: {
 }
 
 async function inspectVendoredRipgrepBinary(options: {
+  readonly path: string
   readonly expectedVersion: string
   readonly platformPackageName: string
   readonly platformPackagePath: string
 }): Promise<{
   readonly path: string
   readonly relativePath: string
+  readonly version: string
   readonly sha256: string
   readonly versionOutput: string
   readonly pcre2Output: string
   readonly pcre2Version: string | undefined
 }> {
-  const path = await findVendoredRipgrepBinary(options.platformPackagePath)
+  const path = options.path
   const relativePath = formatPackageRelativePath(
     options.platformPackagePath,
     path,
@@ -198,6 +153,7 @@ async function inspectVendoredRipgrepBinary(options: {
   return {
     path,
     relativePath,
+    version,
     sha256: createHash("sha256")
       .update(await readFile(path))
       .digest("hex"),
@@ -205,42 +161,6 @@ async function inspectVendoredRipgrepBinary(options: {
     pcre2Output: pcre2Output.trim(),
     pcre2Version,
   }
-}
-
-async function findVendoredRipgrepBinary(packagePath: string): Promise<string> {
-  const vendorPath = join(packagePath, "vendor")
-  const candidates: string[] = []
-
-  async function walk(directory: string): Promise<void> {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) {
-        await walk(path)
-        continue
-      }
-      if (
-        entry.isFile() &&
-        (entry.name === "rg" || entry.name === "rg.exe") &&
-        path.split(/[\\/]/).includes("path")
-      ) {
-        candidates.push(path)
-      }
-    }
-  }
-
-  await walk(vendorPath)
-
-  if (candidates.length !== 1) {
-    throw new Error(
-      `Expected exactly one vendored ripgrep binary under ${vendorPath}, found ${candidates.length}.`,
-    )
-  }
-
-  const [candidate] = candidates
-  if (!candidate) {
-    throw new Error(`No vendored ripgrep binary was found under ${vendorPath}.`)
-  }
-  return candidate
 }
 
 async function runRuntimeBinary(
