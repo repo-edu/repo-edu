@@ -20,6 +20,13 @@ type ProductProcessLaunch = {
 
 export const productProcessLaunchInventory = [
   {
+    id: "child-lifetime-adapter",
+    file: "packages/host-node/src/child-process-lifetime.ts",
+    mechanism: "node-child-process",
+    targetRoute: "direct-adapter",
+    launches: ["POSIX direct targets and managed-helper entries"],
+  },
+  {
     id: "node-process-port",
     file: "packages/host-node/src/index.ts",
     mechanism: "node-child-process",

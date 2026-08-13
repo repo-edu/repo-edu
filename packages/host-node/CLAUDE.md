@@ -15,6 +15,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `createNodeLlmPort(config?)` — `LlmPort` that delegates to the `createLlmTextClient` dispatcher in `@repo-edu/integrations-llm`; routes per call by `spec.provider` to either the Claude or Codex adapter, with auth/env resolved through their respective SDKs
 - `createNodeTokenizerPort()` — live `web-tree-sitter` parser loading over the
   committed grammar-asset manifest
+- `createChildProcessLifetimeAdapter()` from the `child-process-lifetime`
+  subpath — one launch registry and stop-and-confirm boundary. macOS and Linux
+  targets start in their own process groups; the Windows route stays in its
+  separate package slice until it joins this boundary.
 - `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver.
   Desktop passes Electron's platform app-data base; CLI uses the same resolver
   directly. `REPO_EDU_STORAGE_ROOT` is accepted only as an absolute override.
@@ -45,3 +49,6 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   save the launcher process identity in the same synchronous turn as spawn,
   assign it to the job before sending the target command, use the fixed helper
   entry and remove `ELECTRON_RUN_AS_NODE` from the target environment.
+- The shared child-process lifetime adapter owns its five-second graceful stop
+  allowance. Callers may request group cancellation, but cannot change that
+  duration or report a direct target result before its descendants are gone.

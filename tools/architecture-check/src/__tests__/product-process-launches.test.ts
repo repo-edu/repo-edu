@@ -8,6 +8,8 @@ import { productProcessLaunchInventory } from "../product-process-launch-invento
 import { checkProductProcessLaunches } from "../product-process-launches.js"
 
 const REGISTERED_SOURCES: Record<string, string> = {
+  "packages/host-node/src/child-process-lifetime.ts":
+    'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/src/index.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/src/windows-child-lifetime.ts":
@@ -23,6 +25,13 @@ const REGISTERED_SOURCES: Record<string, string> = {
 describe("product process launch policy", () => {
   it("records every current launch and its target route", () => {
     assert.deepEqual(productProcessLaunchInventory, [
+      {
+        id: "child-lifetime-adapter",
+        file: "packages/host-node/src/child-process-lifetime.ts",
+        mechanism: "node-child-process",
+        targetRoute: "direct-adapter",
+        launches: ["POSIX direct targets and managed-helper entries"],
+      },
       {
         id: "node-process-port",
         file: "packages/host-node/src/index.ts",

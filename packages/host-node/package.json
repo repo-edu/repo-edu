@@ -16,6 +16,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./child-process-lifetime": {
+      "source": "./src/child-process-lifetime.ts",
+      "types": "./dist/child-process-lifetime.d.ts",
+      "default": "./dist/child-process-lifetime.js"
+    },
     "./examination-archive": {
       "source": "./src/examination-archive/index.ts",
       "types": "./dist/examination-archive/index.d.ts",
