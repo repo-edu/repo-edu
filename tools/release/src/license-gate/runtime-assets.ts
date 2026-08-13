@@ -54,7 +54,7 @@ export async function collectRuntimeNoticeEntries(
         decisions.push({
           target,
           decision:
-            "NSIS installer runtime and Windows packaging resources are represented by electron-builder-squirrel-windows and app-builder-bin package records.",
+            "NSIS installer runtime and Windows packaging resources are represented by electron-builder-squirrel-windows and app-builder-lib package records.",
         })
       }
     }

@@ -51,12 +51,11 @@ export async function resolveDesktopRuntimePackageEntries(options: {
       root: desktopRoot,
       source: "Desktop Electron Builder packaging runtime",
     }),
-    ...["app-builder-lib", "app-builder-bin", "builder-util-runtime"].map(
-      (packageName) =>
-        runtimePackageRecord(packageName, {
-          root: electronBuilderRoot,
-          source: "Desktop Electron Builder transitive packaging runtime",
-        }),
+    ...["app-builder-lib", "builder-util-runtime"].map((packageName) =>
+      runtimePackageRecord(packageName, {
+        root: electronBuilderRoot,
+        source: "Desktop Electron Builder transitive packaging runtime",
+      }),
     ),
   ]
 

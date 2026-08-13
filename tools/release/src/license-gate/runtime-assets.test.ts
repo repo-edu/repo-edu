@@ -42,13 +42,11 @@ describe("runtime notice records", () => {
             "electron",
             "electron-builder",
             "app-builder-lib",
-            "app-builder-bin",
             "builder-util-runtime",
           ].includes(name),
         )
         .sort(),
       [
-        "app-builder-bin",
         "app-builder-lib",
         "builder-util-runtime",
         "electron",

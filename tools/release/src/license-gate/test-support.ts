@@ -107,13 +107,9 @@ export async function writeDesktopRuntimeFixture(
   )
   await writePackage(root, "apps/desktop/node_modules/electron-builder", {
     name: "electron-builder",
-    version: "26.8.1",
+    version: "26.15.3",
   })
-  for (const packageName of [
-    "app-builder-lib",
-    "app-builder-bin",
-    "builder-util-runtime",
-  ]) {
+  for (const packageName of ["app-builder-lib", "builder-util-runtime"]) {
     await writePackage(
       root,
       `apps/desktop/node_modules/electron-builder/node_modules/${packageName}`,
