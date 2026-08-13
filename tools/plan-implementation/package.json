@@ -11,6 +11,7 @@
     "zod": "4.4.3"
   },
   "scripts": {
+    "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run typecheck",
     "test": "node --import tsx --test src/__tests__/*.test.ts"

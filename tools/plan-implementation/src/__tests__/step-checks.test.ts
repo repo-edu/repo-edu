@@ -40,6 +40,10 @@ describe("step checks", () => {
       readonly arguments: readonly string[]
     }> = []
     const announced: StepCommand[] = []
+    const finished: Array<{
+      readonly command: StepCommand
+      readonly status: "succeeded" | "failed" | "stopped"
+    }> = []
     const executor: StepCommandExecutor = {
       async run(request) {
         requests.push(request)
@@ -54,6 +58,12 @@ describe("step checks", () => {
     const observer = {
       commandStarted(command: StepCommand) {
         announced.push(command)
+      },
+      commandFinished(
+        command: StepCommand,
+        status: "succeeded" | "failed" | "stopped",
+      ) {
+        finished.push({ command, status })
       },
     }
 
@@ -80,6 +90,10 @@ describe("step checks", () => {
       ],
     )
     assert.equal(announced.length, requests.length)
+    assert.deepEqual(
+      finished,
+      announced.map((command) => ({ command, status: "succeeded" })),
+    )
     assert.equal(
       requests.every((request) => request.cwd === "/repo-edu"),
       true,
@@ -146,6 +160,7 @@ describe("step checks", () => {
     await assert.rejects(
       runAdmittedStepChecks("/repo-edu", stepWithProofs(), executor, {
         commandStarted() {},
+        commandFinished() {},
       }),
       /Repository check failed.*typecheck failed/,
     )

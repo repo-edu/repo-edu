@@ -28,6 +28,10 @@ export type StepCommandExecutor = {
 
 export type StepCommandObserver = {
   commandStarted(command: StepCommand): void
+  commandFinished(
+    command: StepCommand,
+    status: "succeeded" | "failed" | "stopped",
+  ): void
 }
 
 export class StepCheckError extends Error {
@@ -86,12 +90,17 @@ async function runRequiredCommand(
   command: StepCommand,
   executor: StepCommandExecutor,
   observer: StepCommandObserver,
+  stopSignal?: AbortSignal,
 ): Promise<void> {
   observer.commandStarted(command)
   let result: StepCommandResult
   try {
     result = await executor.run({ ...command, cwd: repoEduRoot })
   } catch (error) {
+    observer.commandFinished(
+      command,
+      stopSignal?.aborted ? "stopped" : "failed",
+    )
     throw new StepCheckError(
       command,
       `${command.label} could not start or settle.`,
@@ -99,12 +108,17 @@ async function runRequiredCommand(
     )
   }
   if (result.exitCode !== 0 || result.signal !== null) {
+    observer.commandFinished(
+      command,
+      stopSignal?.aborted ? "stopped" : "failed",
+    )
     const detail = result.stderr.trim() || result.stdout.trim()
     throw new StepCheckError(
       command,
       `${command.label} failed (${result.exitCode ?? "no exit"}, ${result.signal ?? "no signal"})${detail.length > 0 ? `: ${detail}` : "."}`,
     )
   }
+  observer.commandFinished(command, "succeeded")
 }
 
 function isMachineProof(
@@ -117,6 +131,7 @@ export async function repeatDependencyInstall(
   repoEduRoot: string,
   executor: StepCommandExecutor,
   observer: StepCommandObserver,
+  stopSignal?: AbortSignal,
 ): Promise<void> {
   await runRequiredCommand(
     repoEduRoot,
@@ -128,6 +143,7 @@ export async function repeatDependencyInstall(
     },
     executor,
     observer,
+    stopSignal,
   )
 }
 
@@ -136,6 +152,7 @@ export async function runAdmittedStepChecks(
   step: PlanImplementationStep,
   executor: StepCommandExecutor,
   observer: StepCommandObserver,
+  stopSignal?: AbortSignal,
 ): Promise<void> {
   const fixedCommands: readonly StepCommand[] = [
     {
@@ -158,7 +175,13 @@ export async function runAdmittedStepChecks(
     },
   ]
   for (const command of fixedCommands) {
-    await runRequiredCommand(repoEduRoot, command, executor, observer)
+    await runRequiredCommand(
+      repoEduRoot,
+      command,
+      executor,
+      observer,
+      stopSignal,
+    )
   }
 
   const machineProofs = step.proofs.items.filter(isMachineProof)
@@ -173,6 +196,7 @@ export async function runAdmittedStepChecks(
       },
       executor,
       observer,
+      stopSignal,
     )
   }
 }

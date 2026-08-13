@@ -58,6 +58,13 @@ the desktop app or the compiled command-line product.
   later context only after an exact commit and a clean checkout.
 - `run-lifetime.ts` turns one stop signal into reducer admission closure, Codex
   abort and shared stop-and-confirm for every Codex and check tree.
+- `run-progress.ts` turns runner facts into the one ordered semantic event
+  stream. `transcript.ts` writes every event under the Git administrative
+  directory, while `terminal-view.ts` removes repeated display detail without
+  changing runner state.
+- `main.ts` wires Commander, the shared child lifetime, the runner and the
+  terminal view. Command-input errors and cursor resets never open a
+  transcript.
 - Runner admission remains held until all owned children settle. A Git commit
   that already started settles without rollback and starts no later step.
 - Keep Git history as the only durable step cursor. Do not add progress files

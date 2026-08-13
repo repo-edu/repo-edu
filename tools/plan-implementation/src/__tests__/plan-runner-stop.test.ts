@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import { access, chmod, writeFile } from "node:fs/promises"
+import { access, chmod, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
-import type { CodingResult } from "../contracts.js"
+import type { CodingResult, PlanImplementationEvent } from "../contracts.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import {
   commitAdmittedRepositoryDiff,
@@ -166,6 +166,22 @@ describe("runPlanImplementation stop paths", () => {
       (await git(repoEduRoot, ["status", "--porcelain"])).stdout,
       /step-1\.txt/,
     )
+    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PlanImplementationEvent)
+    assert.equal(
+      events.some((event) => event.kind === "stop-requested"),
+      true,
+    )
+    assert.equal(
+      events.some(
+        (event) =>
+          event.kind === "command-finished" && event.status === "stopped",
+      ),
+      true,
+    )
+    assert.equal(events.at(-1)?.kind, "run-finished")
   })
 
   it("stops during pre-commit admission and preserves the staged diff", async () => {

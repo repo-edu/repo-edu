@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
-import { writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { readFile, writeFile } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
+import type { PlanImplementationEvent } from "../contracts.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import type { StepCommand, StepCommandRequest } from "../step-checks.js"
 import {
@@ -43,21 +44,25 @@ describe("runPlanImplementation", () => {
         }),
         commands: successfulCommands(commandCalls),
         ownedChildren: settledChildren,
-        observer: {
-          codingEvent() {},
-          commandStarted(command) {
-            announced.push(command)
+        presentation: {
+          event(event) {
+            if (event.kind === "command-started") {
+              announced.push({
+                id: event.commandId,
+                label: event.label,
+                program: event.program,
+                arguments: event.arguments,
+              })
+            }
           },
         },
       },
     )
 
-    assert.deepEqual(result, {
-      mode: "complete",
-      resolvedCeiling: 2,
-      transcriptPath: null,
-      outcome: "completed",
-    })
+    assert.equal(result.mode, "complete")
+    assert.equal(result.resolvedCeiling, 2)
+    assert.match(result.transcriptPath ?? "", /\.jsonl$/)
+    assert.equal(result.outcome, "completed")
     assert.deepEqual(codingSteps, [1, 2])
     assert.deepEqual(
       commandCalls.map((command) => command.id),
@@ -82,6 +87,117 @@ describe("runPlanImplementation", () => {
       ).stdout.match(/Plan-Step: [12]/g),
       ["Plan-Step: 2", "Plan-Step: 1"],
     )
+    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PlanImplementationEvent)
+    assert.deepEqual(
+      events
+        .filter((event) => event.kind === "step-started")
+        .map((event) => event.step),
+      [1, 2],
+    )
+    assert.deepEqual(
+      events
+        .filter((event) => event.kind === "step-committed")
+        .map((event) => event.step),
+      [1, 2],
+    )
+    assert.equal(
+      events.filter((event) => event.kind === "command-started").length,
+      commandCalls.length,
+    )
+    assert.equal(
+      events.filter(
+        (event) =>
+          event.kind === "command-finished" && event.status === "succeeded",
+      ).length,
+      commandCalls.length,
+    )
+    assert.deepEqual(events.at(-1), {
+      timestamp: events.at(-1)?.timestamp,
+      kind: "run-finished",
+      result,
+    })
+  })
+
+  it("records a stopped transcript for a committed plan-structure defect", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    await writeFile(planPath, "# Invalid committed plan\n")
+    await git(dirname(planPath), ["add", "--", basename(planPath)])
+    await git(dirname(planPath), [
+      "commit",
+      "--quiet",
+      "-m",
+      "break plan structure",
+    ])
+    let codingStarted = false
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "complete" } },
+      {
+        coding: codingAdapter(async () => {
+          codingStarted = true
+          return succeededResult(1)
+        }),
+        commands: successfulCommands([]),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "stopped")
+    assert.equal(result.resolvedCeiling, null)
+    assert.equal(codingStarted, false)
+    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PlanImplementationEvent)
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ["run-started", "phase-changed", "run-finished"],
+    )
+    assert.equal(
+      events[0]?.kind === "run-started" ? events[0].totalSteps : null,
+      0,
+    )
+  })
+
+  it("records a stopped transcript when repository preflight fails", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    await writeFile(join(repoEduRoot, "outside.txt"), "not admitted\n")
+    let codingStarted = false
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          codingStarted = true
+          return succeededResult(1)
+        }),
+        commands: successfulCommands([]),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "stopped")
+    assert.equal(result.resolvedCeiling, null)
+    assert.equal(codingStarted, false)
+    assert.match(
+      result.outcome === "stopped" ? result.reason : "",
+      /requires no staged, unstaged or untracked files/,
+    )
+    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as PlanImplementationEvent)
+    assert.equal(events[0]?.kind, "run-started")
+    assert.equal(
+      events[0]?.kind === "run-started" ? events[0].resolvedCeiling : undefined,
+      null,
+    )
+    assert.equal(events.at(-1)?.kind, "run-finished")
   })
 
   it("announces and repeats install before admitting a manifest diff", async () => {
@@ -174,11 +290,8 @@ describe("runPlanImplementation", () => {
         }),
         commands: successfulCommands(commandCalls),
         ownedChildren: settledChildren,
-        observer: {
-          codingEvent() {
-            throw new Error("display failed")
-          },
-          commandStarted() {
+        presentation: {
+          event() {
             throw new Error("display failed")
           },
         },

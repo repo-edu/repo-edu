@@ -68,6 +68,11 @@ export type CommittedImplementationPlan = {
   readonly steps: readonly PlanImplementationStep[]
 }
 
+export type CommittedPlanSource = Pick<
+  CommittedImplementationPlan,
+  "source" | "markdown"
+>
+
 export type CodingCommitProposal = {
   readonly subject: string
   readonly decisionBullets: readonly string[]

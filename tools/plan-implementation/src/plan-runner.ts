@@ -4,12 +4,17 @@ import type {
   CodingEvent,
   CodingResult,
   CodingRun,
+  CommittedImplementationPlan,
   PlanImplementationFinalResult,
   PlanImplementationRunRequest,
 } from "./contracts.js"
 import { resolvePlanCursor } from "./git-cursor.js"
-import { readCommittedImplementationPlan } from "./plan-reader.js"
+import {
+  parseCommittedImplementationPlan,
+  readCommittedPlanSource,
+} from "./plan-reader.js"
 import { requireUnchangedPlanSource } from "./plan-source-admission.js"
+import type { PlanImplementationEventObserver } from "./progress-events.js"
 import {
   type AdmittedRepositoryDiff,
   admitOwnedRepositoryDiff,
@@ -35,6 +40,10 @@ import {
   reduceRunOwnerState,
 } from "./run-owner.js"
 import {
+  createPlanImplementationRunProgress,
+  type PlanImplementationRunProgress,
+} from "./run-progress.js"
+import {
   claimPlanImplementationRunnerAdmission,
   type PlanImplementationRunnerAdmission,
 } from "./runner-admission.js"
@@ -42,8 +51,8 @@ import {
   repeatDependencyInstall,
   runAdmittedStepChecks,
   type StepCommandExecutor,
-  type StepCommandObserver,
 } from "./step-checks.js"
+import type { PlanImplementationTranscriptFactory } from "./transcript.js"
 
 export type RunPlanImplementationRequest = {
   readonly repoEduRoot: string
@@ -52,15 +61,13 @@ export type RunPlanImplementationRequest = {
   readonly signal?: AbortSignal
 }
 
-export type PlanImplementationRunObserver = StepCommandObserver & {
-  codingEvent(step: number, event: CodingEvent): void
-}
-
 export type PlanImplementationRunDependencies = {
   readonly coding: CodingAdapter
   readonly commands: StepCommandExecutor
   readonly ownedChildren: PlanImplementationOwnedChildren
-  readonly observer?: PlanImplementationRunObserver
+  readonly presentation?: PlanImplementationEventObserver
+  readonly createTranscript?: PlanImplementationTranscriptFactory
+  readonly now?: () => Date
   readonly claimAdmission?: (
     repoEduRoot: string,
   ) => Promise<PlanImplementationRunnerAdmission>
@@ -89,56 +96,31 @@ export class PlanImplementationRunError extends Error {
   }
 }
 
-const noObserver: PlanImplementationRunObserver = {
-  codingEvent() {},
-  commandStarted() {},
-}
-
 const defaultRepositoryCommit: PlanImplementationRepositoryCommit = {
   stage: stageAdmittedRepositoryDiff,
   commit: commitAdmittedRepositoryDiff,
 }
 
-function safeObserver(
-  observer: PlanImplementationRunObserver,
-): PlanImplementationRunObserver {
-  return {
-    codingEvent(step, event) {
-      try {
-        observer.codingEvent(step, event)
-      } catch {
-        // Presentation cannot move the run owner.
-      }
-    },
-    commandStarted(command) {
-      try {
-        observer.commandStarted(command)
-      } catch {
-        // Presentation cannot move the run owner.
-      }
-    },
-  }
-}
-
 async function drainCodingEvents(
   step: number,
   events: AsyncIterable<CodingEvent>,
-  observer: PlanImplementationRunObserver,
+  progress: PlanImplementationRunProgress,
 ): Promise<void> {
   for await (const event of events) {
-    observer.codingEvent(step, event)
+    progress.codingEvent(step, event)
   }
 }
 
 function stoppedResult(
   request: PlanImplementationRunRequest,
-  resolvedCeiling: number,
+  resolvedCeiling: number | null,
+  transcriptPath: string,
   reason: string,
 ): PlanImplementationFinalResult {
   return {
     ...request,
     resolvedCeiling,
-    transcriptPath: null,
+    transcriptPath,
     outcome: "stopped",
     reason,
   }
@@ -147,6 +129,7 @@ function stoppedResult(
 function successfulResult(
   request: PlanImplementationRunRequest,
   resolvedCeiling: number,
+  transcriptPath: string,
   state: PlanImplementationRunState,
 ): PlanImplementationFinalResult {
   if (state.status !== "completed" && state.status !== "bound-reached") {
@@ -157,7 +140,7 @@ function successfulResult(
   return {
     ...request,
     resolvedCeiling,
-    transcriptPath: null,
+    transcriptPath,
     outcome: state.status,
   }
 }
@@ -169,9 +152,9 @@ function errorMessage(error: unknown): string {
 async function runCodingStep(
   coding: CodingAdapter,
   repoEduRoot: string,
-  plan: Awaited<ReturnType<typeof readCommittedImplementationPlan>>,
+  plan: CommittedImplementationPlan,
   step: number,
-  observer: PlanImplementationRunObserver,
+  progress: PlanImplementationRunProgress,
   setActiveRun: (run: CodingRun | null) => void,
 ): Promise<CodingResult> {
   const run = await coding.start({ repoEduRoot, plan, activeStep: step })
@@ -179,7 +162,7 @@ async function runCodingStep(
   try {
     const [result] = await Promise.all([
       run.result,
-      drainCodingEvents(step, run.events, observer),
+      drainCodingEvents(step, run.events, progress),
     ])
     return result
   } finally {
@@ -192,20 +175,49 @@ export async function runPlanImplementation(
   dependencies: PlanImplementationRunDependencies,
 ): Promise<PlanImplementationFinalResult> {
   const repoEduRoot = await resolveRepoEduRoot(request.repoEduRoot)
-  const plan = await readCommittedImplementationPlan(request.planPath)
+  const committedSource = await readCommittedPlanSource(request.planPath)
   const claim =
     dependencies.claimAdmission ?? claimPlanImplementationRunnerAdmission
-  const admissionClaim = await claim(repoEduRoot)
-  if (admissionClaim.status === "busy") {
-    throw new PlanImplementationRunError(
-      "Another plan implementation runner owns this checkout.",
-    )
-  }
-
-  const observer = safeObserver(dependencies.observer ?? noObserver)
   const repositoryCommit =
     dependencies.repositoryCommit ?? defaultRepositoryCommit
+  let plan: CommittedImplementationPlan
+  try {
+    plan = parseCommittedImplementationPlan(committedSource)
+  } catch (error) {
+    const progress = await createPlanImplementationRunProgress({
+      repoEduRoot,
+      source: committedSource.source,
+      request: request.run,
+      totalSteps: 0,
+      presentation: dependencies.presentation,
+      createTranscript: dependencies.createTranscript,
+      now: dependencies.now,
+    })
+    try {
+      progress.start(null)
+      const result = stoppedResult(
+        request.run,
+        null,
+        progress.transcriptPath,
+        errorMessage(error),
+      )
+      progress.finish(result)
+      return result
+    } finally {
+      progress.close()
+    }
+  }
+  const progress = await createPlanImplementationRunProgress({
+    repoEduRoot,
+    source: plan.source,
+    request: request.run,
+    totalSteps: plan.steps.length,
+    presentation: dependencies.presentation,
+    createTranscript: dependencies.createTranscript,
+    now: dependencies.now,
+  })
   let state: PlanImplementationRunState | null = null
+  let releaseAdmission: (() => void) | null = null
   let pendingStopReason: string | null = null
   const closeNewWork = (reason: string): void => {
     pendingStopReason ??= reason
@@ -221,16 +233,56 @@ export async function runPlanImplementation(
       })
     }
   }
+  const finishPreflightStop = (
+    reason: string,
+  ): PlanImplementationFinalResult => {
+    progress.start(null)
+    const result = stoppedResult(
+      request.run,
+      null,
+      progress.transcriptPath,
+      reason,
+    )
+    progress.finish(result)
+    return result
+  }
   const lifetime = createRunLifetime({
     signal: request.signal,
     ownedChildren: dependencies.ownedChildren,
-    stopRequested: closeNewWork,
+    stopRequested(reason) {
+      progress.requestStop()
+      closeNewWork(reason)
+    },
   })
 
   try {
-    let repository = await openRepositoryAdmission(repoEduRoot)
-    const cursor = await resolvePlanCursor(repoEduRoot, plan)
-    const authorization = resolveRunAuthorization(plan, cursor, request.run)
+    if (pendingStopReason !== null) {
+      return finishPreflightStop(pendingStopReason)
+    }
+    let admissionClaim: Awaited<ReturnType<typeof claim>>
+    try {
+      admissionClaim = await claim(repoEduRoot)
+    } catch (error) {
+      return finishPreflightStop(errorMessage(error))
+    }
+    if (admissionClaim.status === "busy") {
+      return finishPreflightStop(
+        "Another plan implementation runner owns this checkout.",
+      )
+    }
+    releaseAdmission = admissionClaim.release
+
+    let repository: RepositoryAdmission
+    let cursor: Awaited<ReturnType<typeof resolvePlanCursor>>
+    let authorization: ReturnType<typeof resolveRunAuthorization>
+    try {
+      repository = await openRepositoryAdmission(repoEduRoot)
+      cursor = await resolvePlanCursor(repoEduRoot, plan)
+      authorization = resolveRunAuthorization(plan, cursor, request.run)
+    } catch (error) {
+      return finishPreflightStop(errorMessage(error))
+    }
+    progress.start(authorization.resolvedCeiling)
     state = createRunOwnerState(authorization)
     if (pendingStopReason !== null) {
       closeNewWork(pendingStopReason)
@@ -264,18 +316,26 @@ export async function runPlanImplementation(
         return stoppedResult(
           authorization.request,
           authorization.resolvedCeiling,
+          progress.transcriptPath,
           state.reason,
         )
       }
 
+    const finishRun = (
+      result: PlanImplementationFinalResult,
+    ): PlanImplementationFinalResult => {
+      progress.finish(result)
+      return result
+    }
+
     if (state.status === "stopped") {
-      return await finishStoppedRun()
+      return finishRun(await finishStoppedRun())
     }
 
     try {
       while (state.status === "implementing") {
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         const stepNumber = state.step
         const step = plan.steps[stepNumber - 1]
@@ -284,28 +344,30 @@ export async function runPlanImplementation(
             `The run owner selected missing implementation step ${stepNumber}.`,
           )
         }
+        progress.stepStarted(stepNumber, step.title)
+        progress.phaseChanged("implementing")
 
         await requireUnchangedPlanSource(plan.source)
         await requireCodingRepositoryControl(repository)
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         const codingResult = await runCodingStep(
           dependencies.coding,
           repoEduRoot,
           plan,
           stepNumber,
-          observer,
+          progress,
           lifetime.setActiveCodingRun,
         )
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         await requireCodingRepositoryControl(repository)
 
         if (codingResult.status === "blocked") {
           closeNewWork(codingResult.reason)
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         if (codingResult.status !== "succeeded") {
           throw new PlanImplementationRunError(
@@ -317,48 +379,52 @@ export async function runPlanImplementation(
           kind: "implementation-completed",
           step: stepNumber,
         })
+        progress.phaseChanged("checking")
 
         const preliminaryDiff = await admitOwnedRepositoryDiff(repository)
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         if (preliminaryDiff.dependencyManifestChanged) {
           await repeatDependencyInstall(
             repoEduRoot,
             dependencies.commands,
-            observer,
+            progress.commands,
+            request.signal,
           )
           if (!isNewWorkAdmissionOpen(state)) {
-            return await finishStoppedRun()
+            return finishRun(await finishStoppedRun())
           }
         }
         const admittedDiff = await admitOwnedRepositoryDiff(repository)
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         await runAdmittedStepChecks(
           repoEduRoot,
           step,
           dependencies.commands,
-          observer,
+          progress.commands,
+          request.signal,
         )
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         await requireAdmittedRepositoryDiff(repository, admittedDiff)
         await requireUnchangedPlanSource(plan.source)
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
 
         state = reduceRunOwnerState(state, {
           kind: "checks-completed",
           step: stepNumber,
         })
+        progress.phaseChanged("committing")
         await repositoryCommit.stage(repository, admittedDiff)
         await requireUnchangedPlanSource(plan.source)
         if (!isNewWorkAdmissionOpen(state)) {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
         const committed = await repositoryCommit.commit(
           repository,
@@ -374,23 +440,32 @@ export async function runPlanImplementation(
           step: stepNumber,
           checkout: "clean",
         })
+        progress.stepCommitted(
+          stepNumber,
+          committed.commitOid,
+          codingResult.commit.subject,
+        )
         if (state.status === "stopped") {
-          return await finishStoppedRun()
+          return finishRun(await finishStoppedRun())
         }
       }
     } catch (error) {
       closeNewWork(readRunClosureReason(state) ?? errorMessage(error))
-      return await finishStoppedRun()
+      return finishRun(await finishStoppedRun())
     }
 
-    return successfulResult(
-      authorization.request,
-      authorization.resolvedCeiling,
-      state,
+    return finishRun(
+      successfulResult(
+        authorization.request,
+        authorization.resolvedCeiling,
+        progress.transcriptPath,
+        state,
+      ),
     )
   } finally {
     lifetime.dispose()
     await lifetime.stopAndConfirm()
-    admissionClaim.release()
+    releaseAdmission?.()
+    progress.close()
   }
 }

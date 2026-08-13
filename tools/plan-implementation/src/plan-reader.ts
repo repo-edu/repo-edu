@@ -13,6 +13,7 @@ import { fromMarkdown } from "mdast-util-from-markdown"
 import { z } from "zod"
 import type {
   CommittedImplementationPlan,
+  CommittedPlanSource,
   PlanImplementationStep,
   PlanProof,
   PlanSourceIdentity,
@@ -400,9 +401,9 @@ async function readSourceIdentity(absolutePlanPath: string): Promise<{
   }
 }
 
-export async function readCommittedImplementationPlan(
+export async function readCommittedPlanSource(
   planPath: string,
-): Promise<CommittedImplementationPlan> {
+): Promise<CommittedPlanSource> {
   const absolutePlanPath = await realpath(resolve(planPath))
   const workingBytes = await readFile(absolutePlanPath)
   const { identity, committedBytes } =
@@ -416,10 +417,25 @@ export async function readCommittedImplementationPlan(
   if (!Buffer.from(markdown, "utf8").equals(workingBytes)) {
     throw new PlanReaderError("The committed plan is not valid UTF-8.")
   }
-  const parsed = parseImplementationSteps(fromMarkdown(markdown))
   return {
     source: identity,
     markdown,
-    ...parsed,
   }
+}
+
+export function parseCommittedImplementationPlan(
+  source: CommittedPlanSource,
+): CommittedImplementationPlan {
+  return {
+    ...source,
+    ...parseImplementationSteps(fromMarkdown(source.markdown)),
+  }
+}
+
+export async function readCommittedImplementationPlan(
+  planPath: string,
+): Promise<CommittedImplementationPlan> {
+  return parseCommittedImplementationPlan(
+    await readCommittedPlanSource(planPath),
+  )
 }
