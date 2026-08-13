@@ -56,6 +56,10 @@ the desktop app or the compiled command-line product.
   each commit and later coding context.
 - `plan-runner.ts` joins these owners through the pure run reducer. It starts a
   later context only after an exact commit and a clean checkout.
+- `run-lifetime.ts` turns one stop signal into reducer admission closure, Codex
+  abort and shared stop-and-confirm for every Codex and check tree.
+- Runner admission remains held until all owned children settle. A Git commit
+  that already started settles without rollback and starts no later step.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.

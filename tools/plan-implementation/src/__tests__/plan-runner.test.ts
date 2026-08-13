@@ -1,124 +1,22 @@
 import assert from "node:assert/strict"
-import { execFile } from "node:child_process"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
-import { promisify } from "node:util"
-import type {
-  CodingAdapter,
-  CodingRequest,
-  CodingResult,
-} from "../contracts.js"
 import { runPlanImplementation } from "../plan-runner.js"
-import type {
-  StepCommand,
-  StepCommandExecutor,
-  StepCommandRequest,
-} from "../step-checks.js"
+import type { StepCommand, StepCommandRequest } from "../step-checks.js"
+import {
+  cleanupTestRepositories,
+  codingAdapter,
+  createPlan,
+  createRepoEdu,
+  git,
+  planMarkdown,
+  settledChildren,
+  succeededResult,
+  successfulCommands,
+} from "./plan-runner-test-harness.js"
 
-const execFileAsync = promisify(execFile)
-const temporaryRoots = new Set<string>()
-
-const planMarkdown = `# Example
-
-## Implementation plan
-
-1. **First step.** Make the first change.
-
-   \`\`\`repo-edu-proofs
-   [
-     { "program": "node", "arguments": ["proof.mjs", "--first"] }
-   ]
-   \`\`\`
-
-2. **Second step.** Make the second change.
-`
-
-async function git(root: string, arguments_: readonly string[]) {
-  return await execFileAsync("git", [...arguments_], {
-    cwd: root,
-    encoding: "utf8",
-  })
-}
-
-async function createRepository(prefix: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), prefix))
-  temporaryRoots.add(root)
-  await git(root, ["init", "--quiet"])
-  await git(root, ["config", "user.name", "Plan Runner Test"])
-  await git(root, ["config", "user.email", "runner@example.invalid"])
-  return root
-}
-
-async function createPlan(): Promise<string> {
-  const root = await createRepository("plan-runner-plan-test-")
-  const planPath = join(root, "plan-example.md")
-  await writeFile(planPath, planMarkdown)
-  await git(root, ["add", "--", "plan-example.md"])
-  await git(root, ["commit", "--quiet", "-m", "add plan"])
-  return planPath
-}
-
-async function createRepoEdu(): Promise<string> {
-  const root = await createRepository("plan-runner-code-test-")
-  await writeFile(join(root, "README.md"), "clean\n")
-  await git(root, ["add", "--", "README.md"])
-  await git(root, ["commit", "--quiet", "-m", "initial"])
-  return root
-}
-
-function succeededResult(step: number): CodingResult {
-  return {
-    status: "succeeded",
-    commit: {
-      subject: `A1 redesign(plan-implementation): admit step ${step}`,
-      decisionBullets: [
-        `Step ${step} enters one independently checked runner-owned commit.`,
-      ],
-    },
-  }
-}
-
-function codingAdapter(
-  run: (request: CodingRequest) => Promise<CodingResult>,
-): CodingAdapter {
-  return {
-    async start(request) {
-      return {
-        events: (async function* () {
-          yield { kind: "activity" as const, label: "Coding test activity." }
-        })(),
-        result: run(request),
-        abort() {},
-      }
-    },
-  }
-}
-
-function successfulCommands(
-  calls: StepCommandRequest[],
-  beforeResult?: (
-    request: Parameters<StepCommandExecutor["run"]>[0],
-  ) => void | Promise<void>,
-): StepCommandExecutor {
-  return {
-    async run(request) {
-      calls.push(request)
-      await beforeResult?.(request)
-      return { exitCode: 0, signal: null, stdout: "", stderr: "" }
-    },
-  }
-}
-
-afterEach(async () => {
-  await Promise.all(
-    [...temporaryRoots].map((root) =>
-      rm(root, { force: true, recursive: true }),
-    ),
-  )
-  temporaryRoots.clear()
-})
+afterEach(cleanupTestRepositories)
 
 describe("runPlanImplementation", () => {
   it("commits each admitted step before starting the next clean context", async () => {
@@ -144,6 +42,7 @@ describe("runPlanImplementation", () => {
           return succeededResult(request.activeStep)
         }),
         commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
         observer: {
           codingEvent() {},
           commandStarted(command) {
@@ -204,6 +103,7 @@ describe("runPlanImplementation", () => {
           return succeededResult(1)
         }),
         commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
       },
     )
 
@@ -240,6 +140,7 @@ describe("runPlanImplementation", () => {
           }
         }),
         commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
       },
     )
 
@@ -272,6 +173,7 @@ describe("runPlanImplementation", () => {
           return succeededResult(1)
         }),
         commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
         observer: {
           codingEvent() {
             throw new Error("display failed")
@@ -287,23 +189,26 @@ describe("runPlanImplementation", () => {
     assert.equal(commandCalls.length, 4)
   })
 
-  it("rejects Codex index writes before any check starts", async () => {
+  it("stops after Codex index writes before any check starts", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
 
-    await assert.rejects(
-      runPlanImplementation(
-        { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
-        {
-          coding: codingAdapter(async () => {
-            await writeFile(join(repoEduRoot, "staged.txt"), "forbidden\n")
-            await git(repoEduRoot, ["add", "--", "staged.txt"])
-            return succeededResult(1)
-          }),
-          commands: successfulCommands(commandCalls),
-        },
-      ),
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "staged.txt"), "forbidden\n")
+          await git(repoEduRoot, ["add", "--", "staged.txt"])
+          return succeededResult(1)
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+      },
+    )
+    assert.equal(result.outcome, "stopped")
+    assert.match(
+      result.outcome === "stopped" ? result.reason : "",
       /changed the Git index/,
     )
     assert.deepEqual(commandCalls, [])
@@ -314,21 +219,24 @@ describe("runPlanImplementation", () => {
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
 
-    await assert.rejects(
-      runPlanImplementation(
-        { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
-        {
-          coding: codingAdapter(async () => {
-            await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
-            return succeededResult(1)
-          }),
-          commands: successfulCommands(commandCalls, async (command) => {
-            if (command.id === "repository-test") {
-              await writeFile(planPath, `${planMarkdown}\nChanged outside.\n`)
-            }
-          }),
-        },
-      ),
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
+          return succeededResult(1)
+        }),
+        commands: successfulCommands(commandCalls, async (command) => {
+          if (command.id === "repository-test") {
+            await writeFile(planPath, `${planMarkdown}\nChanged outside.\n`)
+          }
+        }),
+        ownedChildren: settledChildren,
+      },
+    )
+    assert.equal(result.outcome, "stopped")
+    assert.match(
+      result.outcome === "stopped" ? result.reason : "",
       /plan source no longer matches the source fixed at launch/,
     )
     assert.equal(

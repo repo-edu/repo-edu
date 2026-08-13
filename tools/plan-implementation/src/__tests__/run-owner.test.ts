@@ -115,14 +115,49 @@ describe("reduceRunOwnerState", () => {
       kind: "admission-completed",
     })
     const stopped = reduceRunOwnerState(implementing, {
-      kind: "stop",
+      kind: "close-new-work",
       reason: "The coding result was blocked.",
     })
-    assert.equal(stopped.status, "stopped")
+    assert.equal(stopped.status, "implementing")
     assert.equal(
-      "reason" in stopped ? stopped.reason : null,
+      "newWorkAdmission" in stopped ? stopped.newWorkAdmission : null,
+      "closed",
+    )
+    const settled = reduceRunOwnerState(stopped, {
+      kind: "closed-work-settled",
+    })
+    assert.equal(settled.status, "stopped")
+    assert.equal(
+      "reason" in settled ? settled.reason : null,
       "The coding result was blocked.",
     )
+  })
+
+  it("closes new work during a commit and stops after that commit settles", () => {
+    let state = reduceRunOwnerState(createRunOwnerState(authorization(2)), {
+      kind: "admission-completed",
+    })
+    state = apply(
+      state,
+      { kind: "implementation-completed", step: 1 },
+      { kind: "checks-completed", step: 1 },
+      { kind: "close-new-work", reason: "Stop was requested." },
+    )
+
+    assert.equal(state.status, "committing")
+    assert.equal(
+      "newWorkAdmission" in state ? state.newWorkAdmission : null,
+      "closed",
+    )
+
+    state = reduceRunOwnerState(state, {
+      kind: "commit-completed",
+      step: 1,
+      checkout: "clean",
+    })
+
+    assert.equal(state.status, "stopped")
+    assert.equal("reason" in state ? state.reason : null, "Stop was requested.")
   })
 
   it("does not accept semantic display events as owner transitions", () => {

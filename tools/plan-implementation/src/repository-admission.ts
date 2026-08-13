@@ -290,6 +290,7 @@ export async function commitAdmittedRepositoryDiff(
   source: PlanSourceIdentity,
   step: number,
   proposal: CodingCommitProposal,
+  stopSignal?: AbortSignal,
 ): Promise<RepositoryStepCommit> {
   await requireControlState(admission, { compareIndex: false })
   const stagedPaths = await readStagedPaths(admission.repoEduRoot)
@@ -301,6 +302,11 @@ export async function commitAdmittedRepositoryDiff(
   await requireNoUnstagedOrUntracked(admission.repoEduRoot)
 
   const message = createPlanStepCommitMessage(source, step, proposal)
+  if (stopSignal?.aborted) {
+    throw new RepositoryAdmissionError(
+      "The stop request prevented the runner-owned step commit from starting.",
+    )
+  }
   try {
     await runGit(admission.repoEduRoot, [
       "commit",

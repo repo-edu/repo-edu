@@ -16,6 +16,18 @@ import {
 
 const execFileAsync = promisify(execFile)
 const temporaryRoots = new Set<string>()
+const testSource = {
+  planName: "example",
+  planPath: "/plans/plan-example.md",
+  commitOid: "a".repeat(40),
+  blobOid: "b".repeat(40),
+}
+const testProposal = {
+  subject: "A1 redesign(plan-implementation): admit repository truth",
+  decisionBullets: [
+    "One exact path set enters the runner-owned commit after every independent gate passes.",
+  ],
+}
 
 async function git(root: string, arguments_: readonly string[]) {
   return await execFileAsync("git", [...arguments_], {
@@ -61,23 +73,12 @@ describe("repository admission", () => {
     assert.equal(diff.dependencyManifestChanged, true)
 
     await stageAdmittedRepositoryDiff(admission, diff)
-    const source = {
-      planName: "example",
-      planPath: "/plans/plan-example.md",
-      commitOid: "a".repeat(40),
-      blobOid: "b".repeat(40),
-    }
     const committed = await commitAdmittedRepositoryDiff(
       admission,
       diff,
-      source,
+      testSource,
       7,
-      {
-        subject: "A1 redesign(plan-implementation): admit repository truth",
-        decisionBullets: [
-          "One exact path set enters the runner-owned commit after every independent gate passes.",
-        ],
-      },
+      testProposal,
     )
 
     assert.equal(
@@ -128,6 +129,37 @@ describe("repository admission", () => {
     await assert.rejects(
       requireAdmittedRepositoryDiff(admission, diff),
       /path set changed after repository admission/,
+    )
+  })
+
+  it("does not start a commit after a stop request", async () => {
+    const root = await createRepository()
+    const admission = await openRepositoryAdmission(root)
+    await writeFile(join(root, "stopped.txt"), "inspect me\n")
+    const diff = await admitOwnedRepositoryDiff(admission)
+    await stageAdmittedRepositoryDiff(admission, diff)
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      commitAdmittedRepositoryDiff(
+        admission,
+        diff,
+        testSource,
+        1,
+        testProposal,
+        controller.signal,
+      ),
+      /stop request prevented.*commit from starting/,
+    )
+
+    assert.equal(
+      (await git(root, ["log", "-1", "--format=%s"])).stdout.trim(),
+      "initial",
+    )
+    assert.equal(
+      (await git(root, ["diff", "--cached", "--name-only"])).stdout.trim(),
+      "stopped.txt",
     )
   })
 })
