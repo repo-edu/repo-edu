@@ -65,6 +65,14 @@ const attestedBunLinkedRuntimes = {
     },
     { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
   ],
+  "1.3.14": [
+    {
+      id: "javascriptcore",
+      subject: "JavaScriptCore/WebKit",
+      license: "LGPL-2.1-only",
+    },
+    { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
+  ],
 } as const satisfies Record<string, readonly BunLinkedRuntime[]>
 
 function attestedBunLinkedRuntimesFor(
