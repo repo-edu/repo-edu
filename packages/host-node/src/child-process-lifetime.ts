@@ -28,6 +28,7 @@ export type OwnedChildProcess = {
   readonly stderr: Readable
   readonly result: Promise<ChildProcessLifetimeResult>
   requestStop(): void
+  stopAndConfirm(): Promise<void>
 }
 
 export type ChildProcessLifetimeAdapter = {
@@ -334,6 +335,7 @@ export function createChildProcessLifetimeAdapter(
         stderr: platformTree.stderr,
         result: platformTree.result,
         requestStop: tree.requestStop,
+        stopAndConfirm: tree.stopAndConfirm,
       }
     },
     stopAndConfirm() {

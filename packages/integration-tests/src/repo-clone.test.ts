@@ -13,7 +13,9 @@ import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
+  createNodeProcessPort,
 } from "@repo-edu/host-node"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderClient } from "@repo-edu/integrations-git"
 
 import {
@@ -38,7 +40,9 @@ for (const harness of harnesses) {
       const git = createGitProviderClient(draft.provider, http)
       handlers = createRepositoryWorkflowHandlers({
         git,
-        gitCommand: createNodeGitCommandPort(),
+        gitCommand: createNodeGitCommandPort(
+          createNodeProcessPort(createChildProcessLifetimeAdapter()),
+        ),
         fileSystem: createNodeFileSystemPort(),
       })
     })

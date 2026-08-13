@@ -12,9 +12,9 @@
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../claude-coder" },
+    { "path": "../host-node" },
     { "path": "../integrations-llm-contract" },
-    { "path": "../integrations-llm-catalog" },
-    { "path": "../integrations-llm" }
+    { "path": "../integrations-llm-catalog" }
   ],
   "exclude": [
     "src/**/__tests__/**",

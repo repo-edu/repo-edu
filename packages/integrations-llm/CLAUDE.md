@@ -9,7 +9,8 @@ Provider adapters for the `LlmTextClient` contract from
   `LlmModelSpec.provider`.
 - `src/claude/*`: Claude prompt/reply adapter
   (`createClaudeLlmTextClient`) with API-key Messages SDK and subscription CLI
-  transports.
+  transports. The CLI receives a narrow launch capability from its Node host;
+  it never creates or owns a direct child process.
 - `src/codex/*`: Codex prompt/reply adapter
   (`createCodexLlmTextClient`). Its turn owner is the only consumer of raw SDK
   events. Auth, trace, usage and error mapping remain separate owners.
@@ -23,6 +24,9 @@ Provider adapters for the `LlmTextClient` contract from
   `LlmError` includes `context.provider` and the effective `context.authMode`.
 - An aborted Codex turn throws a `DOMException` named `AbortError`. The
   application layer maps this to public cancellation.
+- Subscription Claude keeps prompt, stream and terminal-result meaning here.
+  The injected host launch owns the process tree and confirms it stopped before
+  the adapter reports a local failure or returns early.
 - Codex auth builds immutable SDK options with a complete invocation-scoped
   child environment. Subscription mode omits `CODEX_API_KEY`. Never mutate
   `process.env` around a Codex turn.

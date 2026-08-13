@@ -17,6 +17,8 @@ import {
   createNodeGitCommandPort,
   createNodeHttpPort,
   createNodeLlmPort,
+  createNodeLlmTextClient,
+  createNodeProcessPort,
   createNodeTokenizerPort,
   isProgramGateArtifactProbe,
   type ProgramGateClaim,
@@ -25,11 +27,13 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import {
   createExaminationArchiveStorage,
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
 } from "@repo-edu/host-node/examination-archive"
+import { createWindowsChildProcessLifetimePlatform } from "@repo-edu/host-node/windows-child-lifetime"
 import type {
   ExaminationArchiveStoragePort,
   LlmPort,
@@ -37,7 +41,6 @@ import type {
   LlmRunResult,
   LlmStreamEvent,
 } from "@repo-edu/host-runtime-contract"
-import { createLlmTextClient } from "@repo-edu/integrations-llm"
 import type {
   LlmRuntimeConfig,
   LlmTextClient,
@@ -127,14 +130,34 @@ const trpcValidationTimeoutMs = readPositiveIntegerEnv(
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const desktopHost = createDesktopHostEnvironment()
+const childProcessLifetime = createChildProcessLifetimeAdapter({
+  windows:
+    process.platform === "win32"
+      ? createWindowsChildProcessLifetimePlatform({
+          executablePath: process.execPath,
+          launcherEntryPath: app.isPackaged
+            ? join(
+                process.resourcesPath,
+                "host-child-lifetime",
+                "windows-launcher.cjs",
+              )
+            : join(
+                currentDir,
+                "../../resources/host-child-lifetime/windows-launcher.cjs",
+              ),
+        })
+      : undefined,
+})
 const nodeHttpPort = createNodeHttpPort()
-const nodeGitCommandPort = createNodeGitCommandPort()
+const nodeGitCommandPort = createNodeGitCommandPort(
+  createNodeProcessPort(childProcessLifetime),
+)
 const nodeFileSystemPort = createNodeFileSystemPort()
 const nodeTokenizerPort = createNodeTokenizerPort()
 // Stable LLM port delegate. The underlying adapter is rebuilt whenever the
 // active LLM connection or its credentials change so a settings save reaches
 // the next workflow invocation without recreating the tRPC router.
-let activeLlmPort: LlmPort = createNodeLlmPort()
+let activeLlmPort: LlmPort = createNodeLlmPort(childProcessLifetime)
 const nodeLlmPort: LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult> {
     return activeLlmPort.run(request)
@@ -171,7 +194,7 @@ export function createDraftLlmTextClient(draft: {
   maxTokens?: number
 }): LlmTextClient {
   const config = configForDraft(draft)
-  return createLlmTextClient(config)
+  return createNodeLlmTextClient(childProcessLifetime, config)
 }
 
 function configForDraft(draft: {
@@ -224,7 +247,10 @@ function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
   // resolve to no active connection and contribute only the host carrier.
   const resolved = settings ?? defaultAppCredentials
   activeLlmCredentialsKey = llmCredentialsSubsetKey(resolved)
-  activeLlmPort = createNodeLlmPort(configFromSettings(resolved))
+  activeLlmPort = createNodeLlmPort(
+    childProcessLifetime,
+    configFromSettings(resolved),
+  )
 }
 
 // Credential saves rebuild the port only when the LLM subset changes, so an

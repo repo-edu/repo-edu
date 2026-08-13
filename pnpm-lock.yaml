@@ -298,9 +298,9 @@ importers:
       '@repo-edu/claude-coder':
         specifier: workspace:*
         version: link:../claude-coder
-      '@repo-edu/integrations-llm':
+      '@repo-edu/host-node':
         specifier: workspace:*
-        version: link:../integrations-llm
+        version: link:../host-node
       '@repo-edu/integrations-llm-catalog':
         specifier: workspace:*
         version: link:../integrations-llm-catalog

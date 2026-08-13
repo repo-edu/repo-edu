@@ -31,6 +31,11 @@
       "types": "./dist/exclusive-claim.d.ts",
       "default": "./dist/exclusive-claim.js"
     },
+    "./llm": {
+      "source": "./src/llm.ts",
+      "types": "./dist/llm.d.ts",
+      "default": "./dist/llm.js"
+    },
     "./windows-child-lifetime": {
       "source": "./src/windows-child-lifetime.ts",
       "types": "./dist/windows-child-lifetime.d.ts",

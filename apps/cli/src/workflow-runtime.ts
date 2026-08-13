@@ -15,7 +15,9 @@ import {
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
+  createNodeProcessPort,
 } from "@repo-edu/host-node"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
@@ -30,6 +32,7 @@ export type CliWorkflowRuntimeOptions = {
 export function createCliWorkflowHandlers(
   options: CliWorkflowRuntimeOptions = {},
 ) {
+  const childProcessLifetime = createChildProcessLifetimeAdapter()
   const courseStore = createCliCourseStore(options.storageRoot)
   const appSettingsStore = createCliAppSettingsStore(options.storageRoot)
   const http = createNodeHttpPort()
@@ -53,7 +56,9 @@ export function createCliWorkflowHandlers(
     ...createValidationWorkflowHandlers(),
     ...createRepositoryWorkflowHandlers({
       git,
-      gitCommand: createNodeGitCommandPort(),
+      gitCommand: createNodeGitCommandPort(
+        createNodeProcessPort(childProcessLifetime),
+      ),
       fileSystem: createNodeFileSystemPort(),
     }),
   }

@@ -98,6 +98,9 @@
         "./packages/claude-coder/src/index.ts"
       ],
       "@repo-edu/host-node": ["./packages/host-node/src/index.ts"],
+      "@repo-edu/host-node/child-process-lifetime": [
+        "./packages/host-node/src/child-process-lifetime.ts"
+      ],
       "@repo-edu/host-node/exclusive-claim": [
         "./packages/host-node/src/exclusive-claim.ts"
       ],
@@ -107,6 +110,7 @@
       "@repo-edu/host-node/examination-archive": [
         "./packages/host-node/src/examination-archive/index.ts"
       ],
+      "@repo-edu/host-node/llm": ["./packages/host-node/src/llm.ts"],
       "@repo-edu/host-node/windows-child-lifetime": [
         "./packages/host-node/src/windows-child-lifetime.ts"
       ],

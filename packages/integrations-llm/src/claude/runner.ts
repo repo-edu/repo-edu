@@ -6,7 +6,8 @@ import type {
 } from "@repo-edu/integrations-llm-contract"
 import { type ClaudeApiClientFactory, runClaudeApiStream } from "./api-runner"
 import { resolveClaudeAuth } from "./auth"
-import { type ClaudeCliSpawn, runClaudeCliStream } from "./cli-runner"
+import type { ClaudeCliLaunch } from "./cli-process"
+import { runClaudeCliStream } from "./cli-runner"
 import type { TraceSink } from "./trace"
 
 export type ClaudeRunOptions = {
@@ -15,7 +16,7 @@ export type ClaudeRunOptions = {
   signal?: AbortSignal
   trace?: TraceSink
   apiFactory?: ClaudeApiClientFactory
-  cliSpawn?: ClaudeCliSpawn
+  cliLaunch?: ClaudeCliLaunch
   cliExecutable?: string
 }
 
@@ -62,7 +63,7 @@ export async function* runClaudeStream(
       prompt: options.prompt,
       signal: options.signal,
       trace: options.trace,
-      spawn: options.cliSpawn,
+      launch: options.cliLaunch,
       executable: options.cliExecutable,
     },
     resolved,

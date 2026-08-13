@@ -10,14 +10,10 @@ import { checkProductProcessLaunches } from "../product-process-launches.js"
 const REGISTERED_SOURCES: Record<string, string> = {
   "packages/host-node/src/child-process-lifetime.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
-  "packages/host-node/src/index.ts":
-    'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/src/windows-child-lifetime-platform.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs":
     'const { spawn } = require("node:child_process")\nvoid spawn\n',
-  "packages/integrations-llm/src/claude/cli-runner.ts":
-    'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/integrations-llm/src/codex/runner.ts":
     'import { Codex } from "@openai/codex-sdk"\nvoid Codex\n',
 }
@@ -30,14 +26,12 @@ describe("product process launch policy", () => {
         file: "packages/host-node/src/child-process-lifetime.ts",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
-        launches: ["POSIX direct targets and managed-helper entries"],
-      },
-      {
-        id: "node-process-port",
-        file: "packages/host-node/src/index.ts",
-        mechanism: "node-child-process",
-        targetRoute: "direct-adapter",
-        launches: ["Git commands", "ProcessPort tool commands"],
+        launches: [
+          "POSIX Git commands",
+          "POSIX ProcessPort tool commands",
+          "POSIX Claude CLI",
+          "POSIX managed-helper entries",
+        ],
       },
       {
         id: "windows-launcher-host",
@@ -51,14 +45,12 @@ describe("product process launch policy", () => {
         file: "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
-        launches: ["target admitted after Windows job assignment"],
-      },
-      {
-        id: "claude-cli",
-        file: "packages/integrations-llm/src/claude/cli-runner.ts",
-        mechanism: "node-child-process",
-        targetRoute: "direct-adapter",
-        launches: ["Claude CLI"],
+        launches: [
+          "Windows Git commands",
+          "Windows ProcessPort tool commands",
+          "Windows Claude CLI",
+          "Windows managed-helper entries",
+        ],
       },
       {
         id: "codex-sdk",

@@ -8,11 +8,21 @@ import type {
 import type { ClaudeRunOptions } from "./runner"
 import { runClaudeGenerate, runClaudeStream } from "./runner"
 
+export type {
+  ClaudeCliLaunch,
+  ClaudeCliLaunchRequest,
+  ClaudeCliProcess,
+  ClaudeCliProcessResult,
+} from "./cli-process"
 export type { ClaudeRunOptions } from "./runner"
 export { runClaudeGenerate, runClaudeStream } from "./runner"
 export type { TraceSink } from "./trace"
 
 export type CreateClaudeLlmTextClientOptions = {
+  cli?: {
+    readonly launch: import("./cli-process").ClaudeCliLaunch
+    readonly executable?: string
+  }
   trace?: import("./trace").TraceSink
 }
 
@@ -22,28 +32,24 @@ export function createClaudeLlmTextClient(
 ): LlmTextClient {
   return {
     async generateText(request: GenerateTextRequest): Promise<LlmResult> {
-      return runClaudeGenerate(
-        buildClaudeRunOptions(request, options?.trace),
-        config,
-      )
+      return runClaudeGenerate(buildClaudeRunOptions(request, options), config)
     },
     streamText(request: GenerateTextRequest): AsyncIterable<LlmStreamEvent> {
-      return runClaudeStream(
-        buildClaudeRunOptions(request, options?.trace),
-        config,
-      )
+      return runClaudeStream(buildClaudeRunOptions(request, options), config)
     },
   }
 }
 
 function buildClaudeRunOptions(
   request: GenerateTextRequest,
-  trace: import("./trace").TraceSink | undefined,
+  options: CreateClaudeLlmTextClientOptions | undefined,
 ): ClaudeRunOptions {
   return {
     spec: request.spec,
     prompt: request.prompt,
     signal: request.signal,
-    trace,
+    cliExecutable: options?.cli?.executable,
+    cliLaunch: options?.cli?.launch,
+    trace: options?.trace,
   }
 }

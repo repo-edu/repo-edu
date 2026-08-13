@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import {
   cp,
@@ -28,23 +27,12 @@ import type {
   FileSystemReadFileInsideRootRequest,
   FileSystemReadFileInsideRootResult,
   FileSystemStatResult,
-  GitCommandPort,
-  GitCommandRequest,
   HttpPort,
   HttpRequest,
   HttpResponse,
-  LlmPort,
-  LlmRunRequest,
-  LlmRunResult,
-  LlmStreamEvent,
-  ProcessPort,
-  ProcessRequest,
-  ProcessResult,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
 import { packageId as hostRuntimePackageId } from "@repo-edu/host-runtime-contract"
-import { createLlmTextClient } from "@repo-edu/integrations-llm"
-import type { LlmRuntimeConfig } from "@repo-edu/integrations-llm-contract"
 import {
   getTokenizerGrammarAsset,
   packageId as grammarAssetsPackageId,
@@ -55,7 +43,6 @@ import {
   MIN_COMPATIBLE_VERSION,
   Parser,
 } from "web-tree-sitter"
-import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
 export const packageId = "@repo-edu/host-node"
 export const workspaceDependencies = [
@@ -70,6 +57,12 @@ export {
   createWriteQueue,
   writeTextFileAtomic,
 } from "./atomic-write.js"
+export type { CreateNodeLlmTextClientOptions } from "./llm.js"
+export { createNodeLlmPort, createNodeLlmTextClient } from "./llm.js"
+export {
+  createNodeGitCommandPort,
+  createNodeProcessPort,
+} from "./process-port.js"
 export type { ProgramGateClaim } from "./program-gate.js"
 export {
   claimProgramGate,
@@ -123,109 +116,6 @@ export function createNodeHttpPort(): HttpPort {
         headers,
         body: await response.text(),
       }
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// NodeProcessPort — explicit child_process.spawn wrapper (architecture plan §3)
-// ---------------------------------------------------------------------------
-
-export function createNodeProcessPort(): ProcessPort {
-  return {
-    cancellation: "best-effort",
-
-    async run(request: ProcessRequest): Promise<ProcessResult> {
-      throwIfAborted(request.signal)
-
-      return await new Promise((resolve, reject) => {
-        const child = spawn(request.command, request.args ?? [], {
-          cwd: request.cwd,
-          env: request.env ? { ...process.env, ...request.env } : process.env,
-          stdio: "pipe",
-        })
-
-        let settled = false
-        let stdout = ""
-        let stderr = ""
-
-        const onAbort = () => {
-          if (settled) {
-            return
-          }
-
-          child.stdin?.destroy()
-          child.kill("SIGTERM")
-        }
-
-        const cleanup = () => {
-          request.signal?.removeEventListener("abort", onAbort)
-        }
-
-        const settle = (callback: () => void) => {
-          if (settled) {
-            return
-          }
-
-          settled = true
-          cleanup()
-          callback()
-        }
-
-        request.signal?.addEventListener("abort", onAbort, { once: true })
-
-        child.stdout?.setEncoding("utf8")
-        child.stdout?.on("data", (chunk: string) => {
-          stdout += chunk
-        })
-
-        child.stderr?.setEncoding("utf8")
-        child.stderr?.on("data", (chunk: string) => {
-          stderr += chunk
-        })
-
-        child.on("error", (error) => {
-          settle(() => {
-            reject(error)
-          })
-        })
-
-        child.on("close", (exitCode, signal) => {
-          settle(() => {
-            resolve({
-              exitCode,
-              signal,
-              stdout,
-              stderr,
-            })
-          })
-        })
-
-        child.stdin?.end(request.stdinText)
-      })
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// NodeGitCommandPort — thin explicit system git wrapper for repo workflows (§3)
-// ---------------------------------------------------------------------------
-
-export function createNodeGitCommandPort(
-  processPort: ProcessPort = createNodeProcessPort(),
-): GitCommandPort {
-  return {
-    cancellation: processPort.cancellation,
-
-    async run(request: GitCommandRequest): Promise<ProcessResult> {
-      return await processPort.run({
-        command: "git",
-        args: request.args,
-        cwd: request.cwd,
-        env: request.env,
-        stdinText: request.stdinText,
-        signal: request.signal,
-      })
     },
   }
 }
@@ -529,48 +419,6 @@ export function createNodeFileSystemPort(): FileSystemPort {
       request,
     ): Promise<FileSystemReadFileInsideRootResult> {
       return readFileInsideRootPath(request)
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// NodeLlmPort — thin adapter over the multi-provider LlmTextClient dispatcher
-// from @repo-edu/integrations-llm. Routes by `spec.provider` to either the
-// Claude or Codex prompt/reply adapter.
-// ---------------------------------------------------------------------------
-
-export function createNodeLlmPort(config?: LlmRuntimeConfig): LlmPort {
-  const client = createLlmTextClient(config)
-  const clientForRequest = (request: LlmRunRequest) =>
-    request.runtimeConfig === undefined
-      ? client
-      : createLlmTextClient(
-          mergeLlmRuntimeConfig(
-            config,
-            request.runtimeConfig as LlmRuntimeConfig,
-          ),
-        )
-
-  return {
-    async run(request: LlmRunRequest): Promise<LlmRunResult> {
-      throwIfAborted(request.signal)
-      const result = await clientForRequest(request).generateText({
-        spec: request.spec,
-        prompt: request.prompt,
-        signal: request.signal,
-      })
-      return {
-        reply: result.reply,
-        usage: result.usage,
-      }
-    },
-    async *stream(request: LlmRunRequest): AsyncIterable<LlmStreamEvent> {
-      throwIfAborted(request.signal)
-      yield* clientForRequest(request).streamText({
-        spec: request.spec,
-        prompt: request.prompt,
-        signal: request.signal,
-      })
     },
   }
 }

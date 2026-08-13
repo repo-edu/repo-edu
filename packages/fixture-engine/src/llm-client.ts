@@ -9,7 +9,8 @@ import {
   win32,
 } from "node:path"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
-import { createLlmTextClient } from "@repo-edu/integrations-llm"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createNodeLlmTextClient } from "@repo-edu/host-node/llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type {
   LlmTextClient,
@@ -22,10 +23,13 @@ const xtraceSink = (text: string): void => {
 }
 
 let cachedClient: LlmTextClient | null = null
+const childProcessLifetime = createChildProcessLifetimeAdapter()
 
 function getClient(): LlmTextClient {
   if (!cachedClient) {
-    cachedClient = createLlmTextClient(undefined, { trace: xtraceSink })
+    cachedClient = createNodeLlmTextClient(childProcessLifetime, undefined, {
+      trace: xtraceSink,
+    })
   }
   return cachedClient
 }

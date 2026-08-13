@@ -13,7 +13,8 @@ Run CLI after the TypeScript build: `node apps/cli/dist/main.js --help`
   releases it after the command settles.
 - `src/cli.ts`: Commander command tree (`redu`)
 - `src/commands/*`: command handlers and shell output formatting
-- `src/workflow-runtime.ts`: builds in-process `WorkflowClient` from `@repo-edu/application`
+- `src/workflow-runtime.ts`: builds the in-process `WorkflowClient` from
+  `@repo-edu/application` and routes Git through one child-lifetime adapter
 - `src/state-store.ts`: filesystem-backed course store plus settings credentials/preferences section stores
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).

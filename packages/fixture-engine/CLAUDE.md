@@ -39,8 +39,8 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
   via `@repo-edu/claude-coder` — never depend on this package from
   browser-safe code.
 - Talk to prompt/reply LLMs only through the contract types in
-  `@repo-edu/integrations-llm-contract` and the dispatcher in
-  `@repo-edu/integrations-llm`. Claude fixture coder rounds go through
+  `@repo-edu/integrations-llm-contract` and the host-owned dispatcher in
+  `@repo-edu/host-node`. Claude fixture coder rounds go through
   `@repo-edu/claude-coder`. Do not import provider SDKs directly here.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
   (`parseShortCode`, `modelCode`, `tokenCostUsd`).

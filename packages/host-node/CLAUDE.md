@@ -7,12 +7,21 @@ Node.js implementations of the runtime ports defined in `@repo-edu/host-runtime-
 Concrete side-effect layer for desktop and CLI hosts. Each factory returns a plain object satisfying its port interface.
 
 - `createNodeHttpPort()` — `globalThis.fetch`-based `HttpPort`
-- `createNodeProcessPort()` — `child_process.spawn`-based `ProcessPort` with SIGTERM cancellation
-- `createNodeGitCommandPort(processPort?)` — `GitCommandPort` wrapping `ProcessPort`, calls system `git`
+- `createNodeProcessPort(childProcessLifetime)` — `ProcessPort` over one shared
+  child-lifetime adapter; it captures streams while the adapter owns the full
+  process tree
+- `createNodeGitCommandPort(processPort)` — `GitCommandPort` wrapping the
+  adapter-backed production port or an injected test port; it calls system
+  `git`
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises`
   (inspect/stat, batch operations, temp directories, directory/file listing and
   contained reads)
-- `createNodeLlmPort(config?)` — `LlmPort` that delegates to the `createLlmTextClient` dispatcher in `@repo-edu/integrations-llm`; routes per call by `spec.provider` to either the Claude or Codex adapter, with auth/env resolved through their respective SDKs
+- `createNodeLlmPort(childProcessLifetime, config?)` — `LlmPort` that delegates
+  to the `createLlmTextClient` dispatcher in `@repo-edu/integrations-llm` and
+  gives subscription Claude the shared direct-launch route
+- `createNodeLlmTextClient(childProcessLifetime, config?, options?)` — the
+  host-owned prompt/reply composition used by desktop draft checks and fixture
+  tools
 - `createNodeTokenizerPort()` — live `web-tree-sitter` parser loading over the
   committed grammar-asset manifest
 - `createChildProcessLifetimeAdapter()` from the `child-process-lifetime`
@@ -40,7 +49,9 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - Node-only package — never import it into the renderer runtime or browser-safe contracts.
 - Side effects belong here, not in domain or application.
 - Reads inside a selected root must resolve both paths and enforce real-path containment before reading bytes.
-- `createNodeGitCommandPort` accepts an optional `processPort` for testability.
+- Production Git and subscription Claude composition receives the same shared
+  child-lifetime adapter from its host. Tests may give the Git wrapper a
+  `ProcessPort` instead.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
 - Exclusive-claim contention returns `busy`. Every other SQLite or filesystem
   failure propagates. A held claim is idempotently released by closing its
@@ -55,3 +66,5 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - The shared child-process lifetime adapter owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.
+  A caller-side stream or protocol failure must await the tree's
+  `stopAndConfirm` result before it reports the failure.
