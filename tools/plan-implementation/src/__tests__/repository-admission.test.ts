@@ -9,8 +9,8 @@ import {
   admitOwnedRepositoryDiff,
   commitAdmittedRepositoryDiff,
   openRepositoryAdmission,
+  reconcileCodingRepositoryControl,
   requireAdmittedRepositoryDiff,
-  requireCodingRepositoryControl,
   stageAdmittedRepositoryDiff,
 } from "../repository-admission.js"
 
@@ -93,7 +93,44 @@ describe("repository admission", () => {
     )
   })
 
-  it("rejects forbidden HEAD, branch and index writes", async () => {
+  it("adopts a disjoint same-branch HEAD advance", async () => {
+    const root = await createRepository()
+    const admission = await openRepositoryAdmission(root)
+    await writeFile(join(root, "README.md"), "active step\n")
+    await writeFile(join(root, "outside.txt"), "outside commit\n")
+    await git(root, ["add", "--", "outside.txt"])
+    await git(root, ["commit", "--quiet", "-m", "outside"])
+
+    const reconciled = await reconcileCodingRepositoryControl(admission)
+
+    assert.equal(reconciled.headAdvanced, true)
+    assert.deepEqual(reconciled.changedPaths, ["outside.txt"])
+    assert.equal(reconciled.dependencyManifestChanged, false)
+    assert.equal(
+      reconciled.admission.headOid,
+      (await git(root, ["rev-parse", "HEAD"])).stdout.trim(),
+    )
+    assert.deepEqual(
+      (await admitOwnedRepositoryDiff(reconciled.admission)).paths,
+      ["README.md"],
+    )
+  })
+
+  it("rejects a HEAD advance that overlaps the active step", async () => {
+    const root = await createRepository()
+    const admission = await openRepositoryAdmission(root)
+    await writeFile(join(root, "README.md"), "outside commit\n")
+    await git(root, ["add", "--", "README.md"])
+    await writeFile(join(root, "README.md"), "active step\n")
+    await git(root, ["commit", "--quiet", "-m", "outside"])
+
+    await assert.rejects(
+      reconcileCodingRepositoryControl(admission),
+      /advanced HEAD overlaps the active step: README\.md/,
+    )
+  })
+
+  it("rejects branch, rewritten HEAD and index changes", async () => {
     for (const mutate of [
       async (root: string) => {
         await writeFile(join(root, "staged.txt"), "staged\n")
@@ -103,7 +140,14 @@ describe("repository admission", () => {
         await git(root, ["switch", "--quiet", "-c", "other"])
       },
       async (root: string) => {
-        await git(root, ["commit", "--quiet", "--allow-empty", "-m", "outside"])
+        await git(root, [
+          "commit",
+          "--quiet",
+          "--amend",
+          "--allow-empty",
+          "-m",
+          "rewritten",
+        ])
       },
       async (root: string) => {
         await git(root, ["update-index", "--assume-unchanged", "README.md"])
@@ -113,10 +157,25 @@ describe("repository admission", () => {
       const admission = await openRepositoryAdmission(root)
       await mutate(root)
       await assert.rejects(
-        requireCodingRepositoryControl(admission),
-        /changed (HEAD|the current branch|the Git index)/,
+        reconcileCodingRepositoryControl(admission),
+        /changed (the current branch|the Git index)|does not advance/,
       )
     }
+  })
+
+  it("freezes HEAD when staging starts", async () => {
+    const root = await createRepository()
+    const admission = await openRepositoryAdmission(root)
+    await writeFile(join(root, "README.md"), "active step\n")
+    const diff = await admitOwnedRepositoryDiff(admission)
+    await writeFile(join(root, "outside.txt"), "outside commit\n")
+    await git(root, ["add", "--", "outside.txt"])
+    await git(root, ["commit", "--quiet", "-m", "outside"])
+
+    await assert.rejects(
+      stageAdmittedRepositoryDiff(admission, diff),
+      /changed HEAD outside the runner-owned commit/,
+    )
   })
 
   it("rejects paths that enter or leave after admission", async () => {

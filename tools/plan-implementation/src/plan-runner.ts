@@ -17,13 +17,15 @@ import { requireUnchangedPlanSource } from "./plan-source-admission.js"
 import type { PlanImplementationEventObserver } from "./progress-events.js"
 import {
   type AdmittedRepositoryDiff,
-  admitOwnedRepositoryDiff,
+  admitReconciledRepositoryDiff,
   commitAdmittedRepositoryDiff,
   openRepositoryAdmission,
+  type ReconciledRepositoryControl,
+  type ReconciledRepositoryDiff,
   type RepositoryAdmission,
   type RepositoryStepCommit,
-  requireAdmittedRepositoryDiff,
-  requireCodingRepositoryControl,
+  reconcileCodingRepositoryControl,
+  requireMatchingRepositoryDiff,
   resolveRepoEduRoot,
   stageAdmittedRepositoryDiff,
 } from "./repository-admission.js"
@@ -147,6 +149,33 @@ function successfulResult(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+async function requireActiveStepCursor(
+  control: ReconciledRepositoryControl,
+  plan: CommittedImplementationPlan,
+  step: number,
+): Promise<RepositoryAdmission> {
+  if (!control.headAdvanced) {
+    return control.admission
+  }
+  const cursor = await resolvePlanCursor(control.admission.repoEduRoot, plan)
+  if (cursor.nextStep !== step) {
+    throw new PlanImplementationRunError(
+      `The current branch plan cursor moved from step ${step} to step ${cursor.nextStep} during implementation.`,
+    )
+  }
+  return control.admission
+}
+
+async function admitActiveStepDiff(
+  repository: RepositoryAdmission,
+  plan: CommittedImplementationPlan,
+  step: number,
+): Promise<ReconciledRepositoryDiff> {
+  const reconciled = await admitReconciledRepositoryDiff(repository)
+  await requireActiveStepCursor(reconciled, plan, step)
+  return reconciled
 }
 
 async function runCodingStep(
@@ -348,7 +377,12 @@ export async function runPlanImplementation(
         progress.phaseChanged("implementing")
 
         await requireUnchangedPlanSource(plan.source)
-        await requireCodingRepositoryControl(repository)
+        const beforeCoding = await reconcileCodingRepositoryControl(repository)
+        repository = await requireActiveStepCursor(
+          beforeCoding,
+          plan,
+          stepNumber,
+        )
         if (!isNewWorkAdmissionOpen(state)) {
           return finishRun(await finishStoppedRun())
         }
@@ -363,8 +397,6 @@ export async function runPlanImplementation(
         if (!isNewWorkAdmissionOpen(state)) {
           return finishRun(await finishStoppedRun())
         }
-        await requireCodingRepositoryControl(repository)
-
         if (codingResult.status === "blocked") {
           closeNewWork(codingResult.reason)
           return finishRun(await finishStoppedRun())
@@ -381,13 +413,50 @@ export async function runPlanImplementation(
         })
         progress.phaseChanged("checking")
 
-        const preliminaryDiff = await admitOwnedRepositoryDiff(repository)
-        if (!isNewWorkAdmissionOpen(state)) {
-          return finishRun(await finishStoppedRun())
-        }
-        if (preliminaryDiff.dependencyManifestChanged) {
-          await repeatDependencyInstall(
+        let admittedDiff: AdmittedRepositoryDiff
+        let dependencyInstallRequired = false
+        while (true) {
+          const preliminary = await admitActiveStepDiff(
+            repository,
+            plan,
+            stepNumber,
+          )
+          repository = preliminary.admission
+          if (!isNewWorkAdmissionOpen(state)) {
+            return finishRun(await finishStoppedRun())
+          }
+          dependencyInstallRequired ||=
+            preliminary.diff.dependencyManifestChanged ||
+            preliminary.dependencyManifestChanged
+          if (dependencyInstallRequired) {
+            await repeatDependencyInstall(
+              repoEduRoot,
+              dependencies.commands,
+              progress.commands,
+              request.signal,
+            )
+            if (!isNewWorkAdmissionOpen(state)) {
+              return finishRun(await finishStoppedRun())
+            }
+            dependencyInstallRequired = false
+            const afterInstall = await admitActiveStepDiff(
+              repository,
+              plan,
+              stepNumber,
+            )
+            repository = afterInstall.admission
+            if (afterInstall.headAdvanced) {
+              dependencyInstallRequired ||=
+                afterInstall.dependencyManifestChanged
+              continue
+            }
+            admittedDiff = afterInstall.diff
+          } else {
+            admittedDiff = preliminary.diff
+          }
+          await runAdmittedStepChecks(
             repoEduRoot,
+            step,
             dependencies.commands,
             progress.commands,
             request.signal,
@@ -395,22 +464,19 @@ export async function runPlanImplementation(
           if (!isNewWorkAdmissionOpen(state)) {
             return finishRun(await finishStoppedRun())
           }
+          const afterChecks = await admitActiveStepDiff(
+            repository,
+            plan,
+            stepNumber,
+          )
+          repository = afterChecks.admission
+          if (afterChecks.headAdvanced) {
+            dependencyInstallRequired ||= afterChecks.dependencyManifestChanged
+            continue
+          }
+          requireMatchingRepositoryDiff(admittedDiff, afterChecks.diff)
+          break
         }
-        const admittedDiff = await admitOwnedRepositoryDiff(repository)
-        if (!isNewWorkAdmissionOpen(state)) {
-          return finishRun(await finishStoppedRun())
-        }
-        await runAdmittedStepChecks(
-          repoEduRoot,
-          step,
-          dependencies.commands,
-          progress.commands,
-          request.signal,
-        )
-        if (!isNewWorkAdmissionOpen(state)) {
-          return finishRun(await finishStoppedRun())
-        }
-        await requireAdmittedRepositoryDiff(repository, admittedDiff)
         await requireUnchangedPlanSource(plan.source)
         if (!isNewWorkAdmissionOpen(state)) {
           return finishRun(await finishStoppedRun())

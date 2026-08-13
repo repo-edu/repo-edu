@@ -13,12 +13,23 @@ export type RepositoryAdmission = {
   readonly repoEduRoot: string
   readonly branchRef: string
   readonly headOid: string
-  readonly cleanIndexFingerprint: string
+  readonly indexFlagsFingerprint: string
 }
 
 export type AdmittedRepositoryDiff = {
   readonly paths: readonly string[]
   readonly dependencyManifestChanged: boolean
+}
+
+export type ReconciledRepositoryControl = {
+  readonly admission: RepositoryAdmission
+  readonly headAdvanced: boolean
+  readonly changedPaths: readonly string[]
+  readonly dependencyManifestChanged: boolean
+}
+
+export type ReconciledRepositoryDiff = ReconciledRepositoryControl & {
+  readonly diff: AdmittedRepositoryDiff
 }
 
 export type RepositoryStepCommit = {
@@ -105,16 +116,14 @@ async function readBranchRef(repoEduRoot: string): Promise<string> {
   }
 }
 
-async function readIndexFingerprint(repoEduRoot: string): Promise<string> {
-  const [entries, flags] = await Promise.all([
-    runGit(repoEduRoot, ["ls-files", "--stage", "-z"]),
-    runGit(repoEduRoot, ["ls-files", "-v", "-z"]),
-  ])
-  return createHash("sha256")
-    .update(entries.stdout)
-    .update("\0index-flags\0")
-    .update(flags.stdout)
-    .digest("hex")
+async function readIndexFlagsFingerprint(repoEduRoot: string): Promise<string> {
+  const flags = await runGit(repoEduRoot, ["ls-files", "-v", "-z"])
+  const controlledFlags = flags.stdout
+    .toString("utf8")
+    .split("\0")
+    .filter((entry) => entry.length > 0 && !entry.startsWith("H "))
+    .sort()
+  return createHash("sha256").update(controlledFlags.join("\0")).digest("hex")
 }
 
 async function readCheckoutStatus(repoEduRoot: string): Promise<Buffer> {
@@ -155,17 +164,91 @@ async function readStagedPaths(
   )
 }
 
-async function requireControlState(
+async function readChangedPaths(
+  repoEduRoot: string,
+  fromOid: string,
+  toOid: string,
+): Promise<readonly string[]> {
+  const changed = await runGit(repoEduRoot, [
+    "diff",
+    "--name-only",
+    "-z",
+    "--no-renames",
+    fromOid,
+    toOid,
+    "--",
+  ])
+  return canonicalPathSet(
+    parseNullSeparatedPaths(changed.stdout, "The advanced HEAD diff"),
+  )
+}
+
+async function readMergeBase(
+  repoEduRoot: string,
+  firstOid: string,
+  secondOid: string,
+): Promise<string> {
+  try {
+    return await readGitText(repoEduRoot, ["merge-base", firstOid, secondOid])
+  } catch (error) {
+    throw new RepositoryAdmissionError(
+      "The current HEAD does not advance from the admitted commit.",
+      { cause: error },
+    )
+  }
+}
+
+function findPathOverlap(
+  first: readonly string[],
+  second: readonly string[],
+): readonly string[] {
+  const secondPaths = new Set(second)
+  return first.filter((path) => secondPaths.has(path))
+}
+
+function unchangedRepositoryControl(
+  admission: RepositoryAdmission,
+): ReconciledRepositoryControl {
+  return {
+    admission,
+    headAdvanced: false,
+    changedPaths: [],
+    dependencyManifestChanged: false,
+  }
+}
+
+function mergeRepositoryControl(
+  first: ReconciledRepositoryControl,
+  second: ReconciledRepositoryControl,
+): ReconciledRepositoryControl {
+  const changedPaths = canonicalPathSet([
+    ...first.changedPaths,
+    ...second.changedPaths,
+  ])
+  return {
+    admission: second.admission,
+    headAdvanced: first.headAdvanced || second.headAdvanced,
+    changedPaths,
+    dependencyManifestChanged: changedPaths.some(isDependencyManifest),
+  }
+}
+
+async function requireExactControlState(
   admission: RepositoryAdmission,
   options: { readonly compareIndex: boolean },
 ): Promise<void> {
-  const [headOid, branchRef, indexFingerprint] = await Promise.all([
-    readFullObjectId(admission.repoEduRoot, "HEAD"),
-    readBranchRef(admission.repoEduRoot),
-    options.compareIndex
-      ? readIndexFingerprint(admission.repoEduRoot)
-      : Promise.resolve(admission.cleanIndexFingerprint),
-  ])
+  const [headOid, branchRef, indexFingerprint, stagedPaths] = await Promise.all(
+    [
+      readFullObjectId(admission.repoEduRoot, "HEAD"),
+      readBranchRef(admission.repoEduRoot),
+      options.compareIndex
+        ? readIndexFlagsFingerprint(admission.repoEduRoot)
+        : Promise.resolve(admission.indexFlagsFingerprint),
+      options.compareIndex
+        ? readStagedPaths(admission.repoEduRoot)
+        : Promise.resolve([]),
+    ],
+  )
   if (headOid !== admission.headOid) {
     throw new RepositoryAdmissionError(
       "Codex or another process changed HEAD outside the runner-owned commit.",
@@ -178,7 +261,8 @@ async function requireControlState(
   }
   if (
     options.compareIndex &&
-    indexFingerprint !== admission.cleanIndexFingerprint
+    (stagedPaths.length > 0 ||
+      indexFingerprint !== admission.indexFlagsFingerprint)
   ) {
     throw new RepositoryAdmissionError(
       "Codex or another process changed the Git index.",
@@ -221,29 +305,127 @@ export async function openRepositoryAdmission(
       "Plan implementation requires no staged, unstaged or untracked files.",
     )
   }
-  const [headOid, branchRef, cleanIndexFingerprint] = await Promise.all([
+  const [headOid, branchRef, indexFlagsFingerprint] = await Promise.all([
     readFullObjectId(root, "HEAD"),
     readBranchRef(root),
-    readIndexFingerprint(root),
+    readIndexFlagsFingerprint(root),
   ])
   return Object.freeze({
     repoEduRoot: root,
     branchRef,
     headOid,
-    cleanIndexFingerprint,
+    indexFlagsFingerprint,
   })
 }
 
-export async function requireCodingRepositoryControl(
+export async function reconcileCodingRepositoryControl(
   admission: RepositoryAdmission,
-): Promise<void> {
-  await requireControlState(admission, { compareIndex: true })
+): Promise<ReconciledRepositoryControl> {
+  while (true) {
+    const [headOid, branchRef] = await Promise.all([
+      readFullObjectId(admission.repoEduRoot, "HEAD"),
+      readBranchRef(admission.repoEduRoot),
+    ])
+    if (branchRef !== admission.branchRef) {
+      throw new RepositoryAdmissionError(
+        "Codex or another process changed the current branch.",
+      )
+    }
+    if (headOid === admission.headOid) {
+      await requireExactControlState(admission, { compareIndex: true })
+      return unchangedRepositoryControl(admission)
+    }
+
+    const [mergeBase, changedPaths, ownedPaths, stagedPaths, indexFingerprint] =
+      await Promise.all([
+        readMergeBase(admission.repoEduRoot, admission.headOid, headOid),
+        readChangedPaths(admission.repoEduRoot, admission.headOid, headOid),
+        readOwnedPaths(admission.repoEduRoot),
+        readStagedPaths(admission.repoEduRoot),
+        readIndexFlagsFingerprint(admission.repoEduRoot),
+      ])
+    const [stableHeadOid, stableBranchRef] = await Promise.all([
+      readFullObjectId(admission.repoEduRoot, "HEAD"),
+      readBranchRef(admission.repoEduRoot),
+    ])
+    if (stableBranchRef !== admission.branchRef) {
+      throw new RepositoryAdmissionError(
+        "Codex or another process changed the current branch.",
+      )
+    }
+    if (stableHeadOid !== headOid) {
+      continue
+    }
+    if (mergeBase !== admission.headOid) {
+      throw new RepositoryAdmissionError(
+        "The current HEAD does not advance linearly from the admitted commit.",
+      )
+    }
+    if (
+      stagedPaths.length > 0 ||
+      indexFingerprint !== admission.indexFlagsFingerprint
+    ) {
+      throw new RepositoryAdmissionError(
+        "Codex or another process changed the Git index.",
+      )
+    }
+    const overlappingPaths = findPathOverlap(changedPaths, ownedPaths)
+    if (overlappingPaths.length > 0) {
+      throw new RepositoryAdmissionError(
+        `The advanced HEAD overlaps the active step: ${overlappingPaths.join(", ")}.`,
+      )
+    }
+
+    return {
+      admission: Object.freeze({
+        repoEduRoot: admission.repoEduRoot,
+        branchRef: admission.branchRef,
+        headOid,
+        indexFlagsFingerprint: indexFingerprint,
+      }),
+      headAdvanced: true,
+      changedPaths,
+      dependencyManifestChanged: changedPaths.some(isDependencyManifest),
+    }
+  }
+}
+
+export async function admitReconciledRepositoryDiff(
+  admission: RepositoryAdmission,
+): Promise<ReconciledRepositoryDiff> {
+  let control = unchangedRepositoryControl(admission)
+  while (true) {
+    control = mergeRepositoryControl(
+      control,
+      await reconcileCodingRepositoryControl(control.admission),
+    )
+    const paths = await readOwnedPaths(control.admission.repoEduRoot)
+    if (paths.length === 0) {
+      throw new RepositoryAdmissionError(
+        "A succeeded coding result requires a non-empty owned diff.",
+      )
+    }
+    const stableControl = await reconcileCodingRepositoryControl(
+      control.admission,
+    )
+    control = mergeRepositoryControl(control, stableControl)
+    if (stableControl.headAdvanced) {
+      continue
+    }
+    return {
+      ...control,
+      diff: Object.freeze({
+        paths,
+        dependencyManifestChanged: paths.some(isDependencyManifest),
+      }),
+    }
+  }
 }
 
 export async function admitOwnedRepositoryDiff(
   admission: RepositoryAdmission,
 ): Promise<AdmittedRepositoryDiff> {
-  await requireControlState(admission, { compareIndex: true })
+  await requireExactControlState(admission, { compareIndex: true })
   const paths = await readOwnedPaths(admission.repoEduRoot)
   if (paths.length === 0) {
     throw new RepositoryAdmissionError(
@@ -260,9 +442,19 @@ export async function requireAdmittedRepositoryDiff(
   admission: RepositoryAdmission,
   admitted: AdmittedRepositoryDiff,
 ): Promise<void> {
-  await requireControlState(admission, { compareIndex: true })
+  await requireExactControlState(admission, { compareIndex: true })
   const currentPaths = await readOwnedPaths(admission.repoEduRoot)
-  if (!samePaths(currentPaths, admitted.paths)) {
+  requireMatchingRepositoryDiff(admitted, {
+    paths: currentPaths,
+    dependencyManifestChanged: currentPaths.some(isDependencyManifest),
+  })
+}
+
+export function requireMatchingRepositoryDiff(
+  admitted: AdmittedRepositoryDiff,
+  current: AdmittedRepositoryDiff,
+): void {
+  if (!samePaths(current.paths, admitted.paths)) {
     throw new RepositoryAdmissionError(
       "The worktree path set changed after repository admission.",
     )
@@ -282,6 +474,7 @@ export async function stageAdmittedRepositoryDiff(
     )
   }
   await requireNoUnstagedOrUntracked(admission.repoEduRoot)
+  await requireExactControlState(admission, { compareIndex: false })
 }
 
 export async function commitAdmittedRepositoryDiff(
@@ -292,7 +485,7 @@ export async function commitAdmittedRepositoryDiff(
   proposal: CodingCommitProposal,
   stopSignal?: AbortSignal,
 ): Promise<RepositoryStepCommit> {
-  await requireControlState(admission, { compareIndex: false })
+  await requireExactControlState(admission, { compareIndex: false })
   const stagedPaths = await readStagedPaths(admission.repoEduRoot)
   if (!samePaths(stagedPaths, admitted.paths)) {
     throw new RepositoryAdmissionError(
@@ -383,7 +576,9 @@ export async function commitAdmittedRepositoryDiff(
       repoEduRoot: admission.repoEduRoot,
       branchRef: admission.branchRef,
       headOid: commitOid,
-      cleanIndexFingerprint: await readIndexFingerprint(admission.repoEduRoot),
+      indexFlagsFingerprint: await readIndexFlagsFingerprint(
+        admission.repoEduRoot,
+      ),
     }),
   }
 }

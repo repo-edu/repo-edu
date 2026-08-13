@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import type { PlanImplementationEvent } from "../contracts.js"
+import { createPlanStepCommitMessage } from "../plan-record.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import type { StepCommand, StepCommandRequest } from "../step-checks.js"
 import {
@@ -329,6 +330,158 @@ describe("runPlanImplementation", () => {
       /changed the Git index/,
     )
     assert.deepEqual(commandCalls, [])
+  })
+
+  it("adopts a disjoint commit created while Codex works", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const commandCalls: StepCommandRequest[] = []
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
+          await writeFile(join(repoEduRoot, "outside.txt"), "outside\n")
+          await git(repoEduRoot, ["add", "--", "outside.txt"])
+          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+          return succeededResult(1)
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "bound-reached")
+    assert.deepEqual(
+      commandCalls.map((command) => command.id),
+      [
+        "git-diff-check",
+        "repository-check",
+        "repository-test",
+        "machine-proof-1",
+      ],
+    )
+    assert.equal(
+      (
+        await git(repoEduRoot, ["log", "-1", "--format=%s", "HEAD^"])
+      ).stdout.trim(),
+      "outside",
+    )
+  })
+
+  it("rejects an adopted commit that overlaps the active step", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const commandCalls: StepCommandRequest[] = []
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "README.md"), "outside\n")
+          await git(repoEduRoot, ["add", "--", "README.md"])
+          await writeFile(join(repoEduRoot, "README.md"), "active step\n")
+          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+          return succeededResult(1)
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "stopped")
+    assert.match(
+      result.outcome === "stopped" ? result.reason : "",
+      /advanced HEAD overlaps the active step: README\.md/,
+    )
+    assert.deepEqual(commandCalls, [])
+  })
+
+  it("rejects an adopted commit that moves the active plan cursor", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const commandCalls: StepCommandRequest[] = []
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async (request) => {
+          await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
+          const codingResult = succeededResult(1)
+          if (codingResult.status !== "succeeded") {
+            throw new Error("The test coding result must succeed.")
+          }
+          const message = createPlanStepCommitMessage(
+            request.plan.source,
+            1,
+            codingResult.commit,
+          )
+          await git(repoEduRoot, [
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "--message",
+            message.subject,
+            "--message",
+            message.body,
+          ])
+          return codingResult
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "stopped")
+    assert.match(
+      result.outcome === "stopped" ? result.reason : "",
+      /plan cursor moved from step 1 to step 2/,
+    )
+    assert.deepEqual(commandCalls, [])
+  })
+
+  it("repeats final checks after adopting a commit during checking", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const commandCalls: StepCommandRequest[] = []
+    let outsideCommitted = false
+    const commands = successfulCommands(commandCalls, async (command) => {
+      if (command.id === "repository-check" && !outsideCommitted) {
+        outsideCommitted = true
+        await writeFile(join(repoEduRoot, "package.json"), '{"private":true}\n')
+        await git(repoEduRoot, ["add", "--", "package.json"])
+        await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+      }
+    })
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
+          return succeededResult(1)
+        }),
+        commands,
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "bound-reached")
+    assert.deepEqual(
+      commandCalls.map((command) => command.id),
+      [
+        "git-diff-check",
+        "repository-check",
+        "repository-test",
+        "machine-proof-1",
+        "dependency-install",
+        "git-diff-check",
+        "repository-check",
+        "repository-test",
+        "machine-proof-1",
+      ],
+    )
   })
 
   it("rechecks the fixed plan source before the commit", async () => {
