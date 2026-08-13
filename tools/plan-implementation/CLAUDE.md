@@ -38,6 +38,14 @@ the desktop app or the compiled command-line product.
   decide identity.
 - `reset-cursor.ts` is the sole owner of the clean-checkout, severity-free,
   empty current-branch reset commit.
+- `coding-adapter.ts` starts one runner-owned helper per step through the shared
+  managed child-lifetime route. The helper starts one fresh Codex SDK thread
+  and streams semantic coding events before its exact structured result.
+- `coding-prompt.ts` gives Codex the complete committed plan with one
+  parser-owned active-step marker. It permits Repo Edu writes and needed
+  dependency installation while forbidding plan, Git and later-step writes.
+- `CodingResult` is the helper's only terminal payload. Keep its succeeded and
+  blocked forms strict and never add proof data to it.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.

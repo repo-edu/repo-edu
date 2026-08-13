@@ -674,6 +674,9 @@ importers:
 
   tools/plan-implementation:
     dependencies:
+      '@openai/codex-sdk':
+        specifier: 0.147.0
+        version: 0.147.0
       '@repo-edu/host-node':
         specifier: workspace:*
         version: link:../../packages/host-node
@@ -683,6 +686,9 @@ importers:
       mdast-util-from-markdown:
         specifier: 2.0.3
         version: 2.0.3
+      vscode-jsonrpc:
+        specifier: 9.0.1
+        version: 9.0.1
       zod:
         specifier: 4.4.3
         version: 4.4.3

@@ -83,6 +83,32 @@ export type CodingResult =
       readonly reason: string
     }
 
+export type CodingRequest = {
+  readonly repoEduRoot: string
+  readonly plan: CommittedImplementationPlan
+  readonly activeStep: number
+}
+
+export type CodingEvent =
+  | {
+      readonly kind: "thread-started"
+      readonly threadId: string
+    }
+  | {
+      readonly kind: "activity"
+      readonly label: string
+    }
+
+export type CodingRun = {
+  readonly events: AsyncIterable<CodingEvent>
+  readonly result: Promise<CodingResult>
+  abort(): void
+}
+
+export type CodingAdapter = {
+  start(request: CodingRequest): Promise<CodingRun>
+}
+
 export const PLAN_IMPLEMENTATION_PHASES = [
   "admission",
   "implementing",
