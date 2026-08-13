@@ -94,6 +94,7 @@ describe("createPlanImplementationCommand", () => {
         }),
       )
       assert.deepEqual(fixture.recorded.runs, [])
+      assert.deepEqual(fixture.recorded.resets, [])
     }
   })
 })

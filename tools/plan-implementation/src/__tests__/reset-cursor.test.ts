@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
@@ -136,6 +136,18 @@ Plan-Source-Blob: ${result.source.blobOid}
     assert.equal(branchAfter, branchBefore)
     assert.equal(changedPaths, "")
     assert.equal(status, "")
+    await assert.rejects(
+      readdir(
+        join(
+          repoEduRoot,
+          ".git",
+          "repo-edu",
+          "plan-implementation",
+          "transcripts",
+        ),
+      ),
+      { code: "ENOENT" },
+    )
 
     const plan = await readCommittedImplementationPlan(planPath)
     assert.deepEqual(await resolvePlanCursor(repoEduRoot, plan), {
