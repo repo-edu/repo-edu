@@ -42,6 +42,9 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
   `@repo-edu/integrations-llm-contract` and the host-owned dispatcher in
   `@repo-edu/host-node`. Claude fixture coder rounds go through
   `@repo-edu/claude-coder`. Do not import provider SDKs directly here.
+- Codex fixture turns use the shared managed-helper entry through the same
+  child-lifetime adapter. The fixture engine never runs the Codex SDK in its
+  own process.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
   (`parseShortCode`, `modelCode`, `tokenCostUsd`).
 - Keep Codex patch parsing/path validation in `llm-client.ts`; prompts may

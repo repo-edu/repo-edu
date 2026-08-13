@@ -7,32 +7,41 @@ function mark(value) {
   appendFileSync(markerPath, `${value}\n`)
 }
 
-if (mode === "grandchild") {
-  mark("grandchild-started")
+if (mode === "grandchild" || mode === "tool-descendant") {
+  mark(`${mode}-started`)
   process.send?.("ready")
   process.on("SIGTERM", () => {
-    mark("grandchild-stopped")
+    mark(`${mode}-stopped`)
     process.exit(0)
   })
   setInterval(() => {
-    mark("grandchild-tick")
+    mark(`${mode}-tick`)
   }, 20)
 } else {
+  const descendantMode =
+    mode === "managed-helper-exits"
+      ? "sdk-child"
+      : mode === "sdk-child"
+        ? "tool-descendant"
+        : "grandchild"
   const grandchild = spawn(
     process.execPath,
-    [__filename, "grandchild", markerPath],
+    [__filename, descendantMode, markerPath],
     { stdio: ["ignore", "ignore", "ignore", "ipc"] },
   )
   grandchild.once("message", () => {
-    if (mode === "parent-exits") {
-      process.exit(23)
+    if (mode === "sdk-child") {
+      process.send?.("ready")
+    }
+    if (mode === "parent-exits" || mode === "managed-helper-exits") {
+      process.exit(mode === "parent-exits" ? 23 : 24)
     }
     if (mode === "tree-waits") {
       process.stdout.write("ready\n")
     }
   })
   process.on("SIGTERM", () => {
-    mark("parent-stopped")
+    mark(mode === "sdk-child" ? "sdk-child-stopped" : "parent-stopped")
     process.exit(0)
   })
 }

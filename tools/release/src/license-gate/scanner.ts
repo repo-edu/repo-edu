@@ -43,7 +43,7 @@ const scannerCustomFormat = {
 // oversight, because it forces a re-check whenever the package, and therefore
 // its licensing, changes.
 const checkerClarifications = {
-  "@openai/codex@0.128.0": {
+  "@openai/codex@0.147.0": {
     license: "Apache-2.0",
     context:
       "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",

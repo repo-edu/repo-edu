@@ -7,22 +7,29 @@ import type {
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
 import { type ClaudeCliLaunch, createClaudeLlmTextClient } from "./claude"
-import { createCodexLlmTextClient, type TraceSink } from "./codex"
+import {
+  type CodexHelperLaunch,
+  createCodexLlmTextClient,
+  type TraceSink,
+} from "./codex"
 
 export const packageId = "@repo-edu/integrations-llm"
 
 export type { ClaudeCliLaunch } from "./claude"
 export { createClaudeLlmTextClient } from "./claude"
-export type { CodexClientFactory } from "./codex"
+export type { CodexHelperLaunch, CodexHelperProcess } from "./codex"
 export {
-  buildCodexThreadOptions,
   createCodexLlmTextClient,
+  resolveCodexManagedHelperEntryUrl,
 } from "./codex"
 
 export type CreateLlmTextClientOptions = {
   claudeCli?: {
     readonly launch: ClaudeCliLaunch
     readonly executable?: string
+  }
+  codexHelper?: {
+    readonly launch: CodexHelperLaunch
   }
   trace?: TraceSink
 }
@@ -36,6 +43,7 @@ export function createLlmTextClient(
     trace: options?.trace,
   })
   const codex = createCodexLlmTextClient(config.codex, {
+    launch: options?.codexHelper?.launch,
     trace: options?.trace,
   })
   const route = (provider: LlmProvider): LlmTextClient => {

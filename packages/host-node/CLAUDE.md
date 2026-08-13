@@ -21,7 +21,7 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   gives subscription Claude the shared direct-launch route
 - `createNodeLlmTextClient(childProcessLifetime, config?, options?)` — the
   host-owned prompt/reply composition used by desktop draft checks and fixture
-  tools
+  tools. A configured Codex helper starts through the adapter's managed route.
 - `createNodeTokenizerPort()` — live `web-tree-sitter` parser loading over the
   committed grammar-asset manifest
 - `createChildProcessLifetimeAdapter()` from the `child-process-lifetime`
@@ -53,6 +53,11 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   child-lifetime adapter from its host. Tests may give the Git wrapper a
   `ProcessPort` instead.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
+- Electron Codex composition supplies one fixed helper command with
+  `runAsNode: true`. The host copies the complete environment, adds
+  `ELECTRON_RUN_AS_NODE` only for that helper start and never passes the caller
+  abort signal directly to the process-tree adapter. The helper protocol owns
+  the cooperative stop request first.
 - Exclusive-claim contention returns `busy`. Every other SQLite or filesystem
   failure propagates. A held claim is idempotently released by closing its
   connection. The claim uses `node:sqlite` under Node and `bun:sqlite` in a

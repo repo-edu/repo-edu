@@ -6,6 +6,7 @@ import {
 } from "@repo-edu/integrations-llm-contract"
 
 const CODEX_API_KEY_VAR = "CODEX_API_KEY"
+const ELECTRON_RUN_AS_NODE_VAR = "ELECTRON_RUN_AS_NODE"
 
 export type ResolvedCodexAuth = {
   readonly authMode: LlmAuthMode
@@ -22,6 +23,7 @@ function buildChildEnvironment(
     }
   }
   Object.assign(childEnvironment, overrides)
+  delete childEnvironment[ELECTRON_RUN_AS_NODE_VAR]
   return childEnvironment
 }
 

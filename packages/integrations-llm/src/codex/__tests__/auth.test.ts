@@ -7,12 +7,15 @@ const CODEX = "CODEX_API_KEY"
 
 let saved: string | undefined
 let savedParent: string | undefined
+let savedRunAsNode: string | undefined
 
 beforeEach(() => {
   saved = process.env[CODEX]
   savedParent = process.env.CODEX_TEST_PARENT
+  savedRunAsNode = process.env.ELECTRON_RUN_AS_NODE
   delete process.env[CODEX]
   delete process.env.CODEX_TEST_PARENT
+  delete process.env.ELECTRON_RUN_AS_NODE
 })
 
 afterEach(() => {
@@ -25,6 +28,11 @@ afterEach(() => {
     delete process.env.CODEX_TEST_PARENT
   } else {
     process.env.CODEX_TEST_PARENT = savedParent
+  }
+  if (savedRunAsNode === undefined) {
+    delete process.env.ELECTRON_RUN_AS_NODE
+  } else {
+    process.env.ELECTRON_RUN_AS_NODE = savedRunAsNode
   }
 })
 
@@ -86,6 +94,7 @@ describe("resolveCodexAuth", () => {
 
   it("builds immutable SDK options with the complete child environment", () => {
     process.env.CODEX_TEST_PARENT = "parent"
+    process.env.ELECTRON_RUN_AS_NODE = "1"
     const resolved = resolveCodexAuth({
       authMode: "api",
       apiKey: "k",
@@ -97,6 +106,7 @@ describe("resolveCodexAuth", () => {
     assert.equal(resolved.clientOptions.codexPathOverride, "/opt/codex")
     assert.equal(resolved.clientOptions.env?.OPENAI_ORG, "org-1")
     assert.equal(resolved.clientOptions.env?.CODEX_TEST_PARENT, "parent")
+    assert.equal(resolved.clientOptions.env?.ELECTRON_RUN_AS_NODE, undefined)
     assert.equal(resolved.clientOptions.env?.[CODEX], "k")
     assert.equal(Object.isFrozen(resolved), true)
     assert.equal(Object.isFrozen(resolved.clientOptions), true)

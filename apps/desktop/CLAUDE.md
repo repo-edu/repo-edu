@@ -20,6 +20,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   validation windows bypass the renderer session.
 - `src/child-lifetime-artifact-probe.ts`: packaged Windows proof for the fixed
   Electron `runAsNode` launcher and kill-on-close job route
+- `src/codex-helper-command.ts`: fixed managed-helper command. Electron runs
+  the bundled `codex-helper.js` entry in Node mode through the shared
+  child-lifetime adapter.
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
 - `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus `settings/credentials.json` and `settings/preferences.json`)
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of app preferences.
@@ -47,3 +50,6 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   against that packaged output.
 - Windows packaging must keep the `runAsNode` fuse enabled, unpack Koffi native
   files and ship the fixed launcher as an extra resource.
+- The main bundle and Codex helper are separate fixed entries. The main process
+  owns request admission and outcome truth. The helper owns one SDK turn and
+  never receives saved desktop state or retry policy.

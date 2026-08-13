@@ -70,6 +70,7 @@ import {
   runChildLifetimeArtifactProbe,
 } from "./child-lifetime-artifact-probe"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
+import { createDesktopCodexHelperCommand } from "./codex-helper-command"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
@@ -129,6 +130,10 @@ const trpcValidationTimeoutMs = readPositiveIntegerEnv(
 )
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
+const codexHelperCommand = createDesktopCodexHelperCommand({
+  currentDir,
+  executablePath: process.execPath,
+})
 const desktopHost = createDesktopHostEnvironment()
 const childProcessLifetime = createChildProcessLifetimeAdapter({
   windows:
@@ -157,7 +162,11 @@ const nodeTokenizerPort = createNodeTokenizerPort()
 // Stable LLM port delegate. The underlying adapter is rebuilt whenever the
 // active LLM connection or its credentials change so a settings save reaches
 // the next workflow invocation without recreating the tRPC router.
-let activeLlmPort: LlmPort = createNodeLlmPort(childProcessLifetime)
+let activeLlmPort: LlmPort = createNodeLlmPort(
+  childProcessLifetime,
+  undefined,
+  { codexHelper: codexHelperCommand },
+)
 const nodeLlmPort: LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult> {
     return activeLlmPort.run(request)
@@ -194,7 +203,9 @@ export function createDraftLlmTextClient(draft: {
   maxTokens?: number
 }): LlmTextClient {
   const config = configForDraft(draft)
-  return createNodeLlmTextClient(childProcessLifetime, config)
+  return createNodeLlmTextClient(childProcessLifetime, config, {
+    codexHelper: codexHelperCommand,
+  })
 }
 
 function configForDraft(draft: {
@@ -250,6 +261,7 @@ function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
   activeLlmPort = createNodeLlmPort(
     childProcessLifetime,
     configFromSettings(resolved),
+    { codexHelper: codexHelperCommand },
   )
 }
 

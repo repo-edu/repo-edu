@@ -13,6 +13,7 @@ import {
   codexMaxSpec,
   codexSpec,
   completedTurn,
+  createCodexRunnerTestClient,
   createFakeCodex,
   installCodexEnvHooks,
   request,
@@ -22,8 +23,7 @@ installCodexEnvHooks()
 
 describe("createCodexLlmTextClient — guard rails", () => {
   it("throws plain Error for non-codex specs", async () => {
-    const { factory } = createFakeCodex({ events: [] })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexLlmTextClient()
     await assert.rejects(
       () => client.generateText(request(claudeSpec)),
       (err: unknown) =>
@@ -34,8 +34,7 @@ describe("createCodexLlmTextClient — guard rails", () => {
   })
 
   it("throws LlmError('other', ...) for effort 'max'", async () => {
-    const { factory } = createFakeCodex({ events: [] })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexLlmTextClient()
     await assert.rejects(
       () => client.generateText(request(codexMaxSpec)),
       (err: unknown) =>
@@ -48,7 +47,7 @@ describe("createCodexLlmTextClient — guard rails", () => {
   })
 })
 
-describe("createCodexLlmTextClient — thread options snapshot", () => {
+describe("createCodexRunnerTestClient — thread options snapshot", () => {
   it("streams only appended agent-message suffixes from updated and completed snapshots", async () => {
     const { factory } = createFakeCodex({
       events: [
@@ -71,7 +70,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         }),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const events = []
 
     for await (const event of client.streamText(request(codexSpec))) {
@@ -112,7 +111,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         }),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const events = []
 
     for await (const event of client.streamText(request(codexSpec))) {
@@ -200,7 +199,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         }),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const events = []
 
     for await (const event of client.streamText(request(codexSpec))) {
@@ -235,7 +234,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         completedTurn({ input_tokens: 10, output_tokens: 4 }),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.reply, "pong")
     assert.equal(result.usage.inputTokens, 10)
@@ -272,7 +271,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         { type: "turn.completed", usage: null as never },
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.inputTokens, 0)
     assert.equal(result.usage.cachedInputTokens, 0)
@@ -297,7 +296,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         }),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.inputTokens, 60)
     assert.equal(result.usage.cachedInputTokens, 40)
@@ -316,7 +315,7 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
         completedTurn(),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const xhighSpec: LlmModelSpec = { ...codexSpec, effort: "xhigh" }
     await client.generateText(request(xhighSpec))
     assert.equal(calls[0].threadOptions.modelReasoningEffort, "xhigh")
@@ -339,13 +338,13 @@ describe("createCodexLlmTextClient — thread options snapshot", () => {
       modelId: "gpt-5.4-mini",
       effort: "none",
     }
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     await client.generateText(request(miniSpec))
     assert.equal(calls[0].threadOptions.modelReasoningEffort, undefined)
   })
 })
 
-describe("createCodexLlmTextClient — auth-mode handling", () => {
+describe("createCodexRunnerTestClient — auth-mode handling", () => {
   it("explicit api passes apiKey to the SDK", async () => {
     const { factory, calls } = createFakeCodex({
       events: [
@@ -356,9 +355,9 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
         completedTurn(),
       ],
     })
-    const client = createCodexLlmTextClient(
+    const client = createCodexRunnerTestClient(
       { authMode: "api", apiKey: "config-key" },
-      { factory },
+      factory,
     )
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.authMode, "api")
@@ -376,9 +375,9 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
         completedTurn(),
       ],
     })
-    const client = createCodexLlmTextClient(
+    const client = createCodexRunnerTestClient(
       { authMode: "subscription" },
-      { factory },
+      factory,
     )
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.authMode, "subscription")
@@ -390,7 +389,7 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
 
   it("explicit api with no resolved key throws LlmError('auth')", async () => {
     const { factory } = createFakeCodex({ events: [] })
-    const client = createCodexLlmTextClient({ authMode: "api" }, { factory })
+    const client = createCodexRunnerTestClient({ authMode: "api" }, factory)
     await assert.rejects(
       () => client.generateText(request(codexSpec)),
       (err: unknown) =>
@@ -411,14 +410,14 @@ describe("createCodexLlmTextClient — auth-mode handling", () => {
         completedTurn(),
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const result = await client.generateText(request(codexSpec))
     assert.equal(result.usage.authMode, "subscription")
     assert.equal(calls[0].constructorOptions.apiKey, undefined)
   })
 })
 
-describe("createCodexLlmTextClient — error classification", () => {
+describe("createCodexRunnerTestClient — error classification", () => {
   it("rejects a raw stream that ends without a terminal event", async () => {
     process.env[CODEX] = "k"
     const { factory } = createFakeCodex({
@@ -429,7 +428,7 @@ describe("createCodexLlmTextClient — error classification", () => {
         },
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
 
     await assert.rejects(
       async () => {
@@ -452,7 +451,7 @@ describe("createCodexLlmTextClient — error classification", () => {
       events: [completedTurn({ input_tokens: 1, output_tokens: 1 })],
       throwAfterEvents: new Error("ECONNRESET after terminal event"),
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     const publicEvents: LlmStreamEvent[] = []
 
     await assert.rejects(
@@ -483,7 +482,7 @@ describe("createCodexLlmTextClient — error classification", () => {
         },
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     await assert.rejects(
       () => client.generateText(request(codexSpec)),
       (err: unknown) =>
@@ -503,7 +502,7 @@ describe("createCodexLlmTextClient — error classification", () => {
         },
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     await assert.rejects(
       () => client.generateText(request(codexSpec)),
       (err: unknown) =>
@@ -516,7 +515,7 @@ describe("createCodexLlmTextClient — error classification", () => {
     const { factory } = createFakeCodex({
       throwOnRun: new Error("ECONNRESET: connection reset"),
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
     await assert.rejects(
       () => client.generateText(request(codexSpec)),
       (err: unknown) =>
@@ -539,7 +538,7 @@ describe("createCodexLlmTextClient — error classification", () => {
         },
       ],
     })
-    const client = createCodexLlmTextClient(undefined, { factory })
+    const client = createCodexRunnerTestClient(undefined, factory)
 
     await assert.rejects(
       () =>

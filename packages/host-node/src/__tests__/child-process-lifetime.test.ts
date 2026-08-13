@@ -66,6 +66,29 @@ describe("child-process lifetime adapter", {
     assert.equal(await readMarker(marker), contentAtResult)
   })
 
+  it("holds a managed helper result until its SDK child and tool descendant are stopped", async (context) => {
+    const marker = await markerPath("managed-helper-descendants.txt")
+    const adapter = createChildProcessLifetimeAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+    const run = await adapter.launch({
+      command: process.execPath,
+      args: [fixturePath, "managed-helper-exits", marker],
+      route: "managed-helper",
+    })
+
+    const result = await run.result
+    const contentAtResult = await readMarker(marker)
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    assert.deepEqual(result, { exitCode: 24, signal: null })
+    assert.match(contentAtResult, /sdk-child-stopped/)
+    assert.match(contentAtResult, /tool-descendant-started/)
+    assert.match(contentAtResult, /tool-descendant-stopped/)
+    assert.equal(await readMarker(marker), contentAtResult)
+  })
+
   it("addresses cancellation to the whole process group", async (context) => {
     const marker = await markerPath("cancelled-tree.txt")
     const adapter = createChildProcessLifetimeAdapter()

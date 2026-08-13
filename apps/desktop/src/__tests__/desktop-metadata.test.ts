@@ -65,3 +65,30 @@ describe("desktop Windows child-lifetime packaging", () => {
     )
   })
 })
+
+describe("desktop Codex helper packaging", () => {
+  it("builds and ships the fixed managed-helper entry", async () => {
+    const builderConfig = (await readJson(
+      join(desktopRoot, "electron-builder.json"),
+    )) as {
+      files?: unknown
+      electronFuses?: { runAsNode?: unknown }
+    }
+    const viteConfig = await readFile(
+      join(desktopRoot, "electron.vite.config.ts"),
+      "utf8",
+    )
+
+    assert.equal(builderConfig.electronFuses?.runAsNode, true)
+    assert.ok(
+      Array.isArray(builderConfig.files) &&
+        builderConfig.files.includes("out/main/**/*"),
+    )
+    assert.match(viteConfig, /"codex-helper": resolve\(/)
+    assert.match(viteConfig, /entryFileNames: "\[name\]\.js"/)
+    assert.match(
+      viteConfig,
+      /packages\/integrations-llm\/src\/codex\/helper-entry\.ts/,
+    )
+  })
+})

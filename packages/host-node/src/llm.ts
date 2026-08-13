@@ -21,6 +21,15 @@ export type CreateNodeLlmTextClientOptions = Pick<
   "trace"
 > & {
   readonly claudeCliExecutable?: string
+  readonly codexHelper?: NodeCodexHelperCommand
+}
+
+export type NodeCodexHelperCommand = {
+  readonly command: string
+  readonly args: readonly string[]
+  readonly cwd?: string
+  readonly env?: Readonly<NodeJS.ProcessEnv>
+  readonly runAsNode: boolean
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -45,6 +54,33 @@ function createClaudeCliLaunch(
   }
 }
 
+function buildCodexHelperEnvironment(
+  command: NodeCodexHelperCommand,
+): NodeJS.ProcessEnv {
+  const environment = { ...process.env, ...command.env }
+  if (command.runAsNode) {
+    environment.ELECTRON_RUN_AS_NODE = "1"
+  } else {
+    delete environment.ELECTRON_RUN_AS_NODE
+  }
+  return environment
+}
+
+function createCodexHelperLaunch(
+  childProcessLifetime: ChildProcessLifetimeAdapter,
+  command: NodeCodexHelperCommand,
+): NonNullable<CreateLlmTextClientOptions["codexHelper"]>["launch"] {
+  return async () => {
+    return await childProcessLifetime.launch({
+      command: command.command,
+      args: command.args,
+      cwd: command.cwd,
+      env: buildCodexHelperEnvironment(command),
+      route: "managed-helper",
+    })
+  }
+}
+
 export function createNodeLlmTextClient(
   childProcessLifetime: ChildProcessLifetimeAdapter,
   config?: LlmRuntimeConfig,
@@ -55,6 +91,15 @@ export function createNodeLlmTextClient(
       launch: createClaudeCliLaunch(childProcessLifetime),
       executable: options?.claudeCliExecutable,
     },
+    codexHelper:
+      options?.codexHelper === undefined
+        ? undefined
+        : {
+            launch: createCodexHelperLaunch(
+              childProcessLifetime,
+              options.codexHelper,
+            ),
+          },
     trace: options?.trace,
   })
 }
@@ -62,8 +107,9 @@ export function createNodeLlmTextClient(
 export function createNodeLlmPort(
   childProcessLifetime: ChildProcessLifetimeAdapter,
   config?: LlmRuntimeConfig,
+  options?: CreateNodeLlmTextClientOptions,
 ): LlmPort {
-  const client = createNodeLlmTextClient(childProcessLifetime, config)
+  const client = createNodeLlmTextClient(childProcessLifetime, config, options)
   const clientForRequest = (request: LlmRunRequest) =>
     request.runtimeConfig === undefined
       ? client
@@ -73,6 +119,7 @@ export function createNodeLlmPort(
             config,
             request.runtimeConfig as LlmRuntimeConfig,
           ),
+          options,
         )
 
   return {

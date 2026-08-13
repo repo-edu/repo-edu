@@ -4,8 +4,9 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
-    "@openai/codex-sdk": "0.128.0",
-    "@repo-edu/integrations-llm-contract": "workspace:*"
+    "@openai/codex-sdk": "0.147.0",
+    "@repo-edu/integrations-llm-contract": "workspace:*",
+    "vscode-jsonrpc": "9.0.1"
   },
   "exports": {
     ".": {

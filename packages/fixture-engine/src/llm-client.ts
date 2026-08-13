@@ -8,9 +8,11 @@ import {
   sep,
   win32,
 } from "node:path"
+import { fileURLToPath } from "node:url"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
 import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createNodeLlmTextClient } from "@repo-edu/host-node/llm"
+import { resolveCodexManagedHelperEntryUrl } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type {
   LlmTextClient,
@@ -28,6 +30,15 @@ const childProcessLifetime = createChildProcessLifetimeAdapter()
 function getClient(): LlmTextClient {
   if (!cachedClient) {
     cachedClient = createNodeLlmTextClient(childProcessLifetime, undefined, {
+      codexHelper: {
+        command: process.execPath,
+        args: [
+          "--import",
+          "tsx",
+          fileURLToPath(resolveCodexManagedHelperEntryUrl()),
+        ],
+        runAsNode: false,
+      },
       trace: xtraceSink,
     })
   }

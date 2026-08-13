@@ -10,9 +10,14 @@ import type {
   Usage,
 } from "@openai/codex-sdk"
 import type {
+  CodexLlmProviderRuntimeConfig,
   GenerateTextRequest,
   LlmModelSpec,
+  LlmResult,
+  LlmStreamEvent,
+  LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
+import { runCodexQuery, runCodexQueryStream } from "../runner"
 
 export const CODEX = "CODEX_API_KEY"
 
@@ -136,6 +141,36 @@ export function createFakeCodex(outcome: FakeOutcome): {
     } as unknown as Codex
   }
   return { factory, calls }
+}
+
+export function createCodexRunnerTestClient(
+  config: CodexLlmProviderRuntimeConfig | undefined,
+  factory: (options: CodexOptions) => Codex,
+): LlmTextClient {
+  return {
+    generateText(request): Promise<LlmResult> {
+      return runCodexQuery(
+        {
+          spec: request.spec,
+          prompt: request.prompt,
+          signal: request.signal,
+          factory,
+        },
+        config,
+      )
+    },
+    streamText(request): AsyncIterable<LlmStreamEvent> {
+      return runCodexQueryStream(
+        {
+          spec: request.spec,
+          prompt: request.prompt,
+          signal: request.signal,
+          factory,
+        },
+        config,
+      )
+    },
+  }
 }
 
 export function request(

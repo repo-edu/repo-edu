@@ -8,13 +8,12 @@ import {
   type ThreadItem,
   type ThreadOptions,
 } from "@openai/codex-sdk"
-import {
-  type CodexLlmProviderRuntimeConfig,
-  type LlmEffort,
-  LlmError,
-  type LlmModelSpec,
-  type LlmResult,
-  type LlmStreamEvent,
+import type {
+  CodexLlmProviderRuntimeConfig,
+  LlmEffort,
+  LlmModelSpec,
+  LlmResult,
+  LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import { resolveCodexAuth } from "./auth"
 import { toCodexError } from "./errors"
@@ -129,17 +128,7 @@ async function* runCodexTurnStream(
   threadOptions: ThreadOptions,
   prompt: string,
 ): AsyncIterable<LlmStreamEvent> {
-  if (options.spec.provider !== "codex") {
-    throw new Error(
-      `Codex adapter received non-codex spec.provider="${options.spec.provider}"`,
-    )
-  }
   const resolved = resolveCodexAuth(config)
-  if (options.spec.effort === "max") {
-    throw new LlmError("other", "effort 'max' is not supported on Codex", {
-      context: { provider: "codex", authMode: resolved.authMode },
-    })
-  }
 
   const start = Date.now()
   const recorder: CodexTraceRecorder = createCodexTraceRecorder(options.trace)

@@ -118,7 +118,16 @@ export default defineConfig({
       externalizeDeps: false,
       outDir: "out/main",
       rollupOptions: {
-        input: resolve(configDir, "src/main.ts"),
+        input: {
+          main: resolve(configDir, "src/main.ts"),
+          "codex-helper": resolve(
+            repoRoot,
+            "packages/integrations-llm/src/codex/helper-entry.ts",
+          ),
+        },
+        output: {
+          entryFileNames: "[name].js",
+        },
         // @openai/codex-sdk resolves its native CLI binary via
         // createRequire(import.meta.url). Bundling it points that URL at the
         // Vite output, where optional platform-specific sibling packages

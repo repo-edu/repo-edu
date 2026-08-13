@@ -1,58 +1,13 @@
-import type {
-  CodexLlmProviderRuntimeConfig,
-  GenerateTextRequest,
-  LlmResult,
-  LlmStreamEvent,
-  LlmTextClient,
-} from "@repo-edu/integrations-llm-contract"
-import {
-  type CodexClientFactory,
-  runCodexQuery,
-  runCodexQueryStream,
-} from "./runner"
-import type { TraceSink } from "./trace"
+export type {
+  CodexHelperLaunch,
+  CodexHelperProcess,
+  CodexHelperProcessResult,
+  CreateCodexLlmTextClientOptions,
+} from "./helper-client.js"
+export { createCodexLlmTextClient } from "./helper-client.js"
+export type { TraceSink } from "./trace.js"
 
-export type { CodexClientFactory } from "./runner"
-export {
-  buildCodexThreadOptions,
-  runCodexQuery,
-  runCodexQueryStream,
-} from "./runner"
-export type { TraceSink } from "./trace"
-
-export type CreateCodexLlmTextClientOptions = {
-  trace?: TraceSink
-  factory?: CodexClientFactory
-}
-
-export function createCodexLlmTextClient(
-  config?: CodexLlmProviderRuntimeConfig,
-  options?: CreateCodexLlmTextClientOptions,
-): LlmTextClient {
-  return {
-    async generateText(request: GenerateTextRequest): Promise<LlmResult> {
-      return runCodexQuery(
-        {
-          spec: request.spec,
-          prompt: request.prompt,
-          signal: request.signal,
-          trace: options?.trace,
-          factory: options?.factory,
-        },
-        config,
-      )
-    },
-    streamText(request: GenerateTextRequest): AsyncIterable<LlmStreamEvent> {
-      return runCodexQueryStream(
-        {
-          spec: request.spec,
-          prompt: request.prompt,
-          signal: request.signal,
-          trace: options?.trace,
-          factory: options?.factory,
-        },
-        config,
-      )
-    },
-  }
+export function resolveCodexManagedHelperEntryUrl(): URL {
+  const extension = import.meta.url.endsWith(".ts") ? "ts" : "js"
+  return new URL(`./helper-entry.${extension}`, import.meta.url)
 }
