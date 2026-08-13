@@ -60,7 +60,8 @@ the desktop app or the compiled command-line product.
   abort and shared stop-and-confirm for every Codex and check tree.
 - `run-progress.ts` turns runner facts into the one ordered semantic event
   stream. `transcript.ts` writes every event under the Git administrative
-  directory, while `terminal-view.ts` renders Codex narrative and runner
+  directory. `coding-command-display.ts` decodes SDK shell wrappers for display
+  without running them. `terminal-view.ts` renders Codex narrative and runner
   authority lines with elapsed time, shows Codex commands only when they fail
   and never changes runner state.
 - `main.ts` wires Commander, the shared child lifetime, the runner and the

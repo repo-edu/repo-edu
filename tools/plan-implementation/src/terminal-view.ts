@@ -1,3 +1,4 @@
+import { unwrapCodingCommand } from "./coding-command-display.js"
 import type {
   CodingEvent,
   PlanImplementationEvent,
@@ -43,12 +44,10 @@ function formatDuration(elapsedMs: number): string {
 }
 
 function displayCommand(command: string): string {
-  const singleLine = command.replaceAll(/\s+/g, " ").trim()
-  const wrapped = singleLine.match(
-    /^(?:\S+\/)?(?:zsh|bash|sh) -l?c (?:'(.*)'|"(.*)")$/,
-  )
-  const inner = wrapped?.[1] ?? wrapped?.[2] ?? singleLine
-  return inner.length <= 200 ? inner : `${inner.slice(0, 197)}...`
+  const singleLine = unwrapCodingCommand(command).replaceAll(/\s+/g, " ").trim()
+  return singleLine.length <= 200
+    ? singleLine
+    : `${singleLine.slice(0, 197)}...`
 }
 
 const FILE_CHANGE_VERBS = {
