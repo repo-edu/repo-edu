@@ -1,4 +1,4 @@
-import { unwrapCodingCommand } from "./coding-command-display.js"
+import { codingCommandActivity } from "./coding-command-display.js"
 import type {
   CodingEvent,
   PlanImplementationEvent,
@@ -6,10 +6,7 @@ import type {
   PlanImplementationRunRequest,
 } from "./contracts.js"
 import type { PlanImplementationEventObserver } from "./progress-events.js"
-
-type TerminalOutput = {
-  write(text: string): unknown
-}
+import type { TerminalDisplay } from "./terminal-output.js"
 
 function runMode(request: PlanImplementationRunRequest): string {
   switch (request.mode) {
@@ -43,41 +40,37 @@ function formatDuration(elapsedMs: number): string {
   return `${seconds}s`
 }
 
-function displayCommand(command: string): string {
-  const singleLine = unwrapCodingCommand(command).replaceAll(/\s+/g, " ").trim()
-  return singleLine.length <= 200
-    ? singleLine
-    : `${singleLine.slice(0, 197)}...`
-}
-
 const FILE_CHANGE_VERBS = {
   add: "created",
   update: "updated",
   delete: "deleted",
 } as const
 
-const FAILED_OUTPUT_LINE_LIMIT = 20
-
-function failedOutputLines(output: string): readonly string[] {
+function failedOutputSummary(output: string): string {
   const lines = output.split("\n").filter((line) => line.trim() !== "")
-  return lines.slice(-FAILED_OUTPUT_LINE_LIMIT)
+  const lastLine = lines.at(-1)?.replaceAll(/\s+/g, " ").trim()
+  if (lastLine === undefined) return ""
+  return lastLine.length <= 160
+    ? ` — ${lastLine}`
+    : ` — ${lastLine.slice(0, 157)}...`
 }
 
 export function createTerminalView(
-  output: TerminalOutput,
+  display: TerminalDisplay,
 ): PlanImplementationEventObserver {
   let totalSteps = 0
   let runStartMs: number | null = null
   let stepStartMs: number | null = null
-  let lastLineWasBlank = true
   const commandLabels = new Map<string, string>()
 
   const writeLine = (line: string): void => {
-    output.write(`${line}\n`)
-    lastLineWasBlank = line === ""
+    display.overview(line)
   }
   const writeBlank = (): void => {
-    if (!lastLineWasBlank) writeLine("")
+    writeLine("")
+  }
+  const writeDetail = (line: string): void => {
+    display.detail(line.replaceAll(/\s+/g, " ").trim())
   }
   const elapsedMs = (event: PlanImplementationEvent): number => {
     const eventMs = Date.parse(event.timestamp)
@@ -94,7 +87,7 @@ export function createTerminalView(
   ): void => {
     switch (coding.kind) {
       case "thread-started":
-        writeLine(`${stamp(event)} Codex thread ${coding.threadId}.`)
+        writeDetail(`${stamp(event)} Codex thread ${coding.threadId}`)
         return
       case "narrative":
         writeBlank()
@@ -106,36 +99,45 @@ export function createTerminalView(
           const exit =
             coding.exitCode === null ? "" : ` (exit ${coding.exitCode})`
           writeLine(
-            `  Command failed${exit}: ${displayCommand(coding.command)}`,
+            `${stamp(event)} ${codingCommandActivity(coding.command, coding.status)}${exit}${failedOutputSummary(coding.output)}`,
           )
-          for (const line of failedOutputLines(coding.output)) {
-            writeLine(`    ${line}`)
-          }
+        } else {
+          writeDetail(
+            `${stamp(event)} ${codingCommandActivity(coding.command, coding.status)}`,
+          )
         }
         return
       case "file-change": {
         const changes = coding.changes
           .map((change) => `${FILE_CHANGE_VERBS[change.kind]} ${change.path}`)
           .join(", ")
-        writeLine(
+        writeDetail(
           coding.status === "completed"
-            ? `  Edited: ${changes}`
-            : `  Edit failed: ${changes}`,
+            ? `${stamp(event)} Edited: ${changes}`
+            : `${stamp(event)} Edit failed: ${changes}`,
         )
         return
       }
       case "todo":
-        writeLine(`  Plan: ${coding.text}`)
+        writeDetail(`${stamp(event)} Plan: ${coding.text}`)
         return
       case "tool-call":
         if (coding.status === "started") {
-          writeLine(`  Tool: ${coding.server}.${coding.tool}`)
+          writeDetail(
+            `${stamp(event)} Use tool: ${coding.server}.${coding.tool}`,
+          )
+        } else if (coding.status === "succeeded") {
+          writeDetail(
+            `${stamp(event)} Finished tool: ${coding.server}.${coding.tool}`,
+          )
         } else if (coding.status === "failed") {
-          writeLine(`  Tool failed: ${coding.server}.${coding.tool}`)
+          writeDetail(
+            `${stamp(event)} Tool failed: ${coding.server}.${coding.tool}`,
+          )
         }
         return
       case "web-search":
-        writeLine(`  Search: ${coding.query}`)
+        writeDetail(`${stamp(event)} Search web: ${coding.query}`)
         return
       case "error":
         writeLine(`${stamp(event)} Codex error: ${coding.message}`)
@@ -186,15 +188,17 @@ export function createTerminalView(
           return
         case "command-started":
           commandLabels.set(event.commandId, event.label)
-          writeLine(
-            `${stamp(event)} Command started: ${event.label} (${[event.program, ...event.arguments].join(" ")})`,
-          )
+          writeDetail(`${stamp(event)} Run: ${event.label}`)
           return
-        case "command-finished":
-          writeLine(
-            `${stamp(event)} Command ${event.status}: ${commandLabels.get(event.commandId) ?? event.commandId}`,
-          )
+        case "command-finished": {
+          const label = commandLabels.get(event.commandId) ?? event.commandId
+          if (event.status === "failed") {
+            writeLine(`${stamp(event)} Failed: ${label}`)
+          } else {
+            writeDetail(`${stamp(event)} Finished: ${label}`)
+          }
           return
+        }
         case "stop-requested":
           writeLine(`${stamp(event)} Stop requested.`)
           return
@@ -212,6 +216,9 @@ export function createTerminalView(
         case "run-finished":
           writeLine(finalLine(event, event.result))
       }
+    },
+    close() {
+      display.close()
     },
   }
 }

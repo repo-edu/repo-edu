@@ -51,12 +51,20 @@ describe("progress adapters", () => {
       780_000, // run-finished
     ]
     let tick = 0
-    const terminal: string[] = []
+    const overview: string[] = []
+    const detail: string[] = []
+    let displayClosed = false
     const events = createPlanImplementationEventStream({
       transcript,
       presentation: createTerminalView({
-        write(text) {
-          terminal.push(text)
+        overview(line) {
+          overview.push(`${line}\n`)
+        },
+        detail(line) {
+          detail.push(line)
+        },
+        close() {
+          displayClosed = true
         },
       }),
       now: () =>
@@ -221,7 +229,7 @@ describe("progress adapters", () => {
       },
     )
 
-    const displayed = terminal.join("")
+    const displayed = overview.join("")
     assert.match(
       displayed,
       /\[0:00\] Plan example: 11 steps, through step 9, ceiling 9\./,
@@ -240,19 +248,9 @@ describe("progress adapters", () => {
     )
     assert.match(
       displayed,
-      /^ {2}Command failed \(exit 2\): pnpm --filter @repo-edu\/plan-implementation typecheck$/m,
-    )
-    assert.match(displayed, /^ {4}error TS2304: Cannot find name 'missing'\.$/m)
-    assert.match(
-      displayed,
-      /^ {2}Edited: updated tools\/plan-implementation\/src\/run-progress\.ts, created tools\/plan-implementation\/src\/terminal-view\.ts$/m,
+      /^\[1:11\] Failed: Check TypeScript \(exit 2\) — error TS2304: Cannot find name 'missing'\.$/m,
     )
     assert.match(displayed, /\[12:05\] Phase: checking/)
-    assert.match(
-      displayed,
-      /\[12:06\] Command started: Repository test \(pnpm test\)/,
-    )
-    assert.match(displayed, /\[12:25\] Command succeeded: Repository test/)
     assert.match(displayed, /\[12:30\] Committed step 9 after 12m 25s: c{12}/)
     assert.match(displayed, /\[13:00\] Result: bound-reached\. Total 13m 0s\./)
     assert.match(
@@ -260,5 +258,13 @@ describe("progress adapters", () => {
       new RegExp(transcript.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
     )
     assert.equal(/Command succeeded: rg -n/.test(displayed), false)
+    assert.deepEqual(detail, [
+      "[1:06] Search files",
+      "[1:10] Finished: Search files",
+      "[1:12] Edited: updated tools/plan-implementation/src/run-progress.ts, created tools/plan-implementation/src/terminal-view.ts",
+      "[12:06] Run: Repository test",
+      "[12:25] Finished: Repository test",
+    ])
+    assert.equal(displayClosed, true)
   })
 })

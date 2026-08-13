@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { unwrapCodingCommand } from "../coding-command-display.js"
+import {
+  codingCommandActivity,
+  unwrapCodingCommand,
+} from "../coding-command-display.js"
 
 describe("Codex command display", () => {
   it("decodes the failed SDK shell command without quote artifacts", () => {
@@ -25,6 +28,41 @@ describe("Codex command display", () => {
     assert.equal(
       unwrapCodingCommand("zsh -lc 'pnpm test"),
       "zsh -lc 'pnpm test",
+    )
+  })
+
+  it("turns common decoded commands into short activity labels", () => {
+    assert.equal(
+      codingCommandActivity(
+        "/bin/zsh -lc 'rg -n terminal-view src'",
+        "started",
+      ),
+      "Search files",
+    )
+    assert.equal(
+      codingCommandActivity(
+        "sed -n '1,120p' src/terminal-view.ts",
+        "succeeded",
+      ),
+      "Finished: Read src/terminal-view.ts",
+    )
+    assert.equal(
+      codingCommandActivity(
+        "TSX_TSCONFIG_PATH=tsconfig.base.json pnpm --filter @repo-edu/plan-implementation typecheck",
+        "failed",
+      ),
+      "Failed: Check TypeScript",
+    )
+    assert.equal(
+      codingCommandActivity("git diff --check", "started"),
+      "Inspect Git changes",
+    )
+  })
+
+  it("falls back to a decoded command when its program has no label", () => {
+    assert.equal(
+      codingCommandActivity("/bin/zsh -lc 'custom-tool --flag'", "started"),
+      "Run: custom-tool --flag",
     )
   })
 })

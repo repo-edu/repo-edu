@@ -5,7 +5,9 @@
   "dependencies": {
     "@openai/codex-sdk": "0.147.0",
     "@repo-edu/host-node": "workspace:*",
+    "cli-truncate": "6.1.1",
     "commander": "^15.0.0",
+    "log-update": "8.0.0",
     "mdast-util-from-markdown": "2.0.3",
     "shell-quote": "1.10.0",
     "vscode-jsonrpc": "9.0.1",

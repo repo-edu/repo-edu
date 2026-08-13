@@ -55,6 +55,7 @@ describe("runPlanImplementation", () => {
               })
             }
           },
+          close() {},
         },
       },
     )
@@ -293,6 +294,9 @@ describe("runPlanImplementation", () => {
         presentation: {
           event() {
             throw new Error("display failed")
+          },
+          close() {
+            throw new Error("display close failed")
           },
         },
       },

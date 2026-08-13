@@ -10,6 +10,7 @@ export type PlanImplementationEventInput =
 
 export type PlanImplementationEventObserver = {
   event(event: PlanImplementationEvent): void
+  close(): void
 }
 
 export type PlanImplementationEventStream = {
@@ -19,6 +20,7 @@ export type PlanImplementationEventStream = {
 
 const noPresentation: PlanImplementationEventObserver = {
   event() {},
+  close() {},
 }
 
 export function createPlanImplementationEventStream(options: {
@@ -49,7 +51,13 @@ export function createPlanImplementationEventStream(options: {
     close() {
       if (closed) return
       closed = true
-      options.transcript.close()
+      try {
+        presentation.close()
+      } catch {
+        // Presentation cannot keep the transcript open.
+      } finally {
+        options.transcript.close()
+      }
     },
   }
 }

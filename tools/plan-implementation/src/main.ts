@@ -4,6 +4,7 @@ import { createPlanImplementationCommand } from "./command.js"
 import { runPlanImplementation } from "./plan-runner.js"
 import { resetPlanCursor } from "./reset-cursor.js"
 import { createStepCommandExecutor } from "./step-checks.js"
+import { createTerminalDisplay } from "./terminal-output.js"
 import { createTerminalView } from "./terminal-view.js"
 
 function errorMessage(error: unknown): string {
@@ -37,7 +38,9 @@ async function main(): Promise<void> {
             coding: createCodingAdapter(childLifetime),
             commands: createStepCommandExecutor(childLifetime),
             ownedChildren: childLifetime,
-            presentation: createTerminalView(process.stdout),
+            presentation: createTerminalView(
+              createTerminalDisplay(process.stdout),
+            ),
           },
         )
         if (result.outcome === "stopped") {
