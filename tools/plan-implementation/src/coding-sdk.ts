@@ -47,43 +47,136 @@ function abortedError(): DOMException {
   return new DOMException("The Codex coding turn was aborted.", "AbortError")
 }
 
-function shortText(value: string): string {
-  const singleLine = value.replaceAll(/\s+/g, " ").trim()
-  return singleLine.length <= 96 ? singleLine : `${singleLine.slice(0, 93)}...`
+const FAILED_COMMAND_OUTPUT_LIMIT = 2_000
+
+function failedCommandOutput(value: string): string {
+  const trimmed = value.trimEnd()
+  return trimmed.length <= FAILED_COMMAND_OUTPUT_LIMIT
+    ? trimmed
+    : trimmed.slice(-FAILED_COMMAND_OUTPUT_LIMIT)
 }
 
-function itemActivity(item: ThreadItem): string | null {
+type ItemEventState = {
+  readonly emittedIds: Set<string>
+  readonly settledIds: Set<string>
+  lastTodo: string | null
+}
+
+function createItemEventState(): ItemEventState {
+  return { emittedIds: new Set(), settledIds: new Set(), lastTodo: null }
+}
+
+function commandFailed(
+  item: ThreadItem & { readonly type: "command_execution" },
+): boolean {
+  return (
+    item.status === "failed" ||
+    (item.exit_code !== undefined && item.exit_code !== 0)
+  )
+}
+
+function itemEvents(
+  completed: boolean,
+  item: ThreadItem,
+  state: ItemEventState,
+): CodingEvent[] {
   switch (item.type) {
-    case "reasoning":
-      return "Codex is reasoning."
+    case "reasoning": {
+      const text = item.text.trim()
+      if (!completed || text === "" || state.emittedIds.has(item.id)) return []
+      state.emittedIds.add(item.id)
+      return [{ kind: "narrative", text }]
+    }
     case "agent_message":
-      return "Codex is preparing the structured coding result."
-    case "command_execution":
-      return `Codex command ${item.status}: ${shortText(item.command)}`
-    case "file_change":
-      return `Codex file change ${item.status}: ${item.changes.length} path(s).`
-    case "mcp_tool_call":
-      return `Codex tool ${item.status}: ${item.server}.${item.tool}.`
-    case "web_search":
-      return `Codex web search: ${shortText(item.query)}`
+      return []
+    case "command_execution": {
+      const events: CodingEvent[] = []
+      if (!state.emittedIds.has(item.id)) {
+        state.emittedIds.add(item.id)
+        events.push({
+          kind: "command",
+          command: item.command,
+          status: "started",
+          exitCode: null,
+          output: "",
+        })
+      }
+      if (completed && !state.settledIds.has(item.id)) {
+        state.settledIds.add(item.id)
+        const failed = commandFailed(item)
+        events.push({
+          kind: "command",
+          command: item.command,
+          status: failed ? "failed" : "succeeded",
+          exitCode: item.exit_code ?? null,
+          output: failed ? failedCommandOutput(item.aggregated_output) : "",
+        })
+      }
+      return events
+    }
+    case "file_change": {
+      if (!completed || state.settledIds.has(item.id)) return []
+      state.settledIds.add(item.id)
+      return [
+        {
+          kind: "file-change",
+          status: item.status,
+          changes: item.changes.map((change) => ({
+            path: change.path,
+            kind: change.kind,
+          })),
+        },
+      ]
+    }
+    case "mcp_tool_call": {
+      const events: CodingEvent[] = []
+      if (!state.emittedIds.has(item.id)) {
+        state.emittedIds.add(item.id)
+        events.push({
+          kind: "tool-call",
+          server: item.server,
+          tool: item.tool,
+          status: "started",
+        })
+      }
+      if (completed && !state.settledIds.has(item.id)) {
+        state.settledIds.add(item.id)
+        events.push({
+          kind: "tool-call",
+          server: item.server,
+          tool: item.tool,
+          status: item.status === "failed" ? "failed" : "succeeded",
+        })
+      }
+      return events
+    }
+    case "web_search": {
+      if (state.emittedIds.has(item.id)) return []
+      state.emittedIds.add(item.id)
+      return [{ kind: "web-search", query: item.query }]
+    }
     case "todo_list": {
       const current = item.items.find((todo) => !todo.completed)
-      return current
-        ? `Codex plan: ${shortText(current.text)}`
-        : "Codex completed its task list."
+      if (current === undefined || current.text === state.lastTodo) return []
+      state.lastTodo = current.text
+      return [{ kind: "todo", text: current.text }]
     }
-    case "error":
-      return `Codex error: ${shortText(item.message)}`
+    case "error": {
+      if (state.emittedIds.has(item.id)) return []
+      state.emittedIds.add(item.id)
+      return [{ kind: "error", message: item.message }]
+    }
   }
 }
 
-async function emitItemActivity(
+async function emitItemEvents(
+  completed: boolean,
   item: ThreadItem,
+  state: ItemEventState,
   emit: CodingSdkRunOptions["emit"],
 ): Promise<void> {
-  const label = itemActivity(item)
-  if (label !== null) {
-    await emit({ kind: "activity", label })
+  for (const event of itemEvents(completed, item, state)) {
+    await emit(event)
   }
 }
 
@@ -111,6 +204,7 @@ export async function runCodexCodingStep(
   let finalResponse: string | null = null
   let terminal: "completed" | "failed" | null = null
   let failureMessage = ""
+  const itemState = createItemEventState()
 
   for await (const event of streamed.events) {
     if (options.signal.aborted) {
@@ -124,20 +218,16 @@ export async function runCodexCodingStep(
         })
         break
       case "turn.started":
-        await options.emit({
-          kind: "activity",
-          label: "Codex started working.",
-        })
         break
       case "item.started":
       case "item.updated":
-        await emitItemActivity(event.item, options.emit)
-        if (event.item.type === "agent_message") {
-          finalResponse = event.item.text
-        }
-        break
       case "item.completed":
-        await emitItemActivity(event.item, options.emit)
+        await emitItemEvents(
+          event.type === "item.completed",
+          event.item,
+          itemState,
+          options.emit,
+        )
         if (event.item.type === "agent_message") {
           finalResponse = event.item.text
         }

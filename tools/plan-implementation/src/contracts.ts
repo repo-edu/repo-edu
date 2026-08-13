@@ -94,14 +94,49 @@ export type CodingRequest = {
   readonly activeStep: number
 }
 
+export type CodingFileChange = {
+  readonly path: string
+  readonly kind: "add" | "delete" | "update"
+}
+
 export type CodingEvent =
   | {
       readonly kind: "thread-started"
       readonly threadId: string
     }
   | {
-      readonly kind: "activity"
-      readonly label: string
+      readonly kind: "narrative"
+      readonly text: string
+    }
+  | {
+      readonly kind: "command"
+      readonly command: string
+      readonly status: "started" | "succeeded" | "failed"
+      readonly exitCode: number | null
+      readonly output: string
+    }
+  | {
+      readonly kind: "file-change"
+      readonly status: "completed" | "failed"
+      readonly changes: readonly CodingFileChange[]
+    }
+  | {
+      readonly kind: "todo"
+      readonly text: string
+    }
+  | {
+      readonly kind: "tool-call"
+      readonly server: string
+      readonly tool: string
+      readonly status: "started" | "succeeded" | "failed"
+    }
+  | {
+      readonly kind: "web-search"
+      readonly query: string
+    }
+  | {
+      readonly kind: "error"
+      readonly message: string
     }
 
 export type CodingRun = {
@@ -170,9 +205,9 @@ export type PlanImplementationEvent =
       readonly phase: PlanImplementationPhase
     })
   | (EventFields & {
-      readonly kind: "coding-activity"
+      readonly kind: "coding"
       readonly step: number
-      readonly label: string
+      readonly event: CodingEvent
     })
   | (EventFields & {
       readonly kind: "command-started"

@@ -82,7 +82,7 @@ describe("runner-owned coding helper", () => {
   it("starts the fixed entry through the managed child-lifetime route", async () => {
     const harness = createLifetimeHarness(async ({ emit }) => {
       await emit({ kind: "thread-started", threadId: "fresh-thread" })
-      await emit({ kind: "activity", label: "Codex changed one file." })
+      await emit({ kind: "narrative", text: "Codex changed one file." })
       return {
         status: "succeeded",
         commit: {
@@ -98,7 +98,7 @@ describe("runner-owned coding helper", () => {
     assert.equal((await run.result).status, "succeeded")
     assert.deepEqual(await events, [
       { kind: "thread-started", threadId: "fresh-thread" },
-      { kind: "activity", label: "Codex changed one file." },
+      { kind: "narrative", text: "Codex changed one file." },
     ])
     assert.equal(harness.launches.length, 1)
     assert.deepEqual(harness.launches[0], {

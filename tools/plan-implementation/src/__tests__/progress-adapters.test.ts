@@ -25,13 +25,32 @@ const source: PlanSourceIdentity = {
 }
 
 describe("progress adapters", () => {
-  it("stores every fact while the terminal removes repeated detail", async () => {
+  it("stores every fact while the terminal renders narrative with elapsed time", async () => {
     const repoEduRoot = await createRepoEdu()
     const invocationId = "00000000-0000-4000-8000-000000000009"
     const transcript = await createPlanImplementationTranscript(repoEduRoot, {
       now: () => new Date("2026-08-13T12:34:56.789Z"),
       createInvocationId: () => invocationId,
     })
+    const runStart = Date.parse("2026-08-13T12:35:00.000Z")
+    const clock = [
+      0, // run-started
+      0, // phase admission
+      5_000, // step-started
+      5_000, // phase implementing
+      65_000, // narrative
+      66_000, // codex command started
+      70_000, // codex command succeeded
+      71_000, // codex command failed
+      72_000, // file change
+      725_000, // phase checking
+      726_000, // runner command started
+      745_000, // runner command finished
+      746_000, // phase committing
+      750_000, // step-committed
+      780_000, // run-finished
+    ]
+    let tick = 0
     const terminal: string[] = []
     const events = createPlanImplementationEventStream({
       transcript,
@@ -40,7 +59,8 @@ describe("progress adapters", () => {
           terminal.push(text)
         },
       }),
-      now: () => new Date("2026-08-13T12:35:00.000Z"),
+      now: () =>
+        new Date(runStart + (clock[Math.min(tick++, clock.length - 1)] ?? 0)),
     })
     const result: PlanImplementationFinalResult = {
       mode: "through-step",
@@ -66,14 +86,63 @@ describe("progress adapters", () => {
     })
     events.emit({ kind: "phase-changed", phase: "implementing" })
     events.emit({
-      kind: "coding-activity",
+      kind: "coding",
       step: 9,
-      label: "Updated the event stream.",
+      event: {
+        kind: "narrative",
+        text: "I'll update the event stream and its adapters first.",
+      },
     })
     events.emit({
-      kind: "coding-activity",
+      kind: "coding",
       step: 9,
-      label: "Updated the event stream.",
+      event: {
+        kind: "command",
+        command: "rg -n createPlanImplementationEventStream",
+        status: "started",
+        exitCode: null,
+        output: "",
+      },
+    })
+    events.emit({
+      kind: "coding",
+      step: 9,
+      event: {
+        kind: "command",
+        command: "rg -n createPlanImplementationEventStream",
+        status: "succeeded",
+        exitCode: 0,
+        output: "",
+      },
+    })
+    events.emit({
+      kind: "coding",
+      step: 9,
+      event: {
+        kind: "command",
+        command: "pnpm --filter @repo-edu/plan-implementation typecheck",
+        status: "failed",
+        exitCode: 2,
+        output: "error TS2304: Cannot find name 'missing'.",
+      },
+    })
+    events.emit({
+      kind: "coding",
+      step: 9,
+      event: {
+        kind: "file-change",
+        status: "completed",
+        changes: [
+          {
+            path: "tools/plan-implementation/src/run-progress.ts",
+            kind: "update",
+          },
+          {
+            path: "tools/plan-implementation/src/terminal-view.ts",
+            kind: "add",
+          },
+        ],
+      },
     })
     events.emit({ kind: "phase-changed", phase: "checking" })
     events.emit({
@@ -114,8 +183,11 @@ describe("progress adapters", () => {
         "phase-changed",
         "step-started",
         "phase-changed",
-        "coding-activity",
-        "coding-activity",
+        "coding",
+        "coding",
+        "coding",
+        "coding",
+        "coding",
         "phase-changed",
         "command-started",
         "command-finished",
@@ -124,6 +196,13 @@ describe("progress adapters", () => {
         "run-finished",
       ],
     )
+    const storedSucceeded = stored.find(
+      (event) =>
+        event.kind === "coding" &&
+        event.event.kind === "command" &&
+        event.event.status === "succeeded",
+    )
+    assert.notEqual(storedSucceeded, undefined)
     assert.deepEqual(
       stored[0]?.kind === "run-started"
         ? {
@@ -142,17 +221,43 @@ describe("progress adapters", () => {
     )
 
     const displayed = terminal.join("")
-    assert.match(displayed, /Plan example: 11 steps, through step 9/)
-    assert.match(displayed, /Step 9\/11: Add progress and transcript adapters/)
-    assert.match(displayed, /Phase: checking/)
-    assert.match(displayed, /Command started: Repository test \(pnpm test\)/)
-    assert.match(displayed, /Command succeeded: Repository test/)
-    assert.match(displayed, /Committed step 9: c{12}/)
-    assert.match(displayed, /Result: bound-reached/)
+    assert.match(
+      displayed,
+      /\[0:00\] Plan example: 11 steps, through step 9, ceiling 9\./,
+    )
+    assert.match(
+      displayed,
+      /\[0:05\] Step 9\/11: Add progress and transcript adapters/,
+    )
+    assert.match(
+      displayed,
+      /\[1:05\] I'll update the event stream and its adapters first\./,
+    )
+    assert.match(
+      displayed,
+      /^ {2}\$ rg -n createPlanImplementationEventStream$/m,
+    )
+    assert.match(
+      displayed,
+      /^ {2}Command failed \(exit 2\): pnpm --filter @repo-edu\/plan-implementation typecheck$/m,
+    )
+    assert.match(displayed, /^ {4}error TS2304: Cannot find name 'missing'\.$/m)
+    assert.match(
+      displayed,
+      /^ {2}Edited: updated tools\/plan-implementation\/src\/run-progress\.ts, created tools\/plan-implementation\/src\/terminal-view\.ts$/m,
+    )
+    assert.match(displayed, /\[12:05\] Phase: checking/)
+    assert.match(
+      displayed,
+      /\[12:06\] Command started: Repository test \(pnpm test\)/,
+    )
+    assert.match(displayed, /\[12:25\] Command succeeded: Repository test/)
+    assert.match(displayed, /\[12:30\] Committed step 9 after 12m 25s: c{12}/)
+    assert.match(displayed, /\[13:00\] Result: bound-reached\. Total 13m 0s\./)
     assert.match(
       displayed,
       new RegExp(transcript.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
     )
-    assert.equal(displayed.match(/Updated the event stream\./g)?.length, 1)
+    assert.equal(/Command succeeded: rg -n/.test(displayed), false)
   })
 })

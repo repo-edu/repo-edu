@@ -103,14 +103,7 @@ export async function createPlanImplementationRunProgress(options: {
       events.emit({ kind: "phase-changed", phase })
     },
     codingEvent(step, event) {
-      events.emit({
-        kind: "coding-activity",
-        step,
-        label:
-          event.kind === "thread-started"
-            ? `Started Codex thread ${event.threadId}.`
-            : event.label,
-      })
+      events.emit({ kind: "coding", step, event })
     },
     stepCommitted(step, commitOid, subject) {
       events.emit({

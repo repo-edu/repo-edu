@@ -23,6 +23,14 @@ function codingEvents(result: unknown, threadId: string): ThreadEvent[] {
     { type: "thread.started", thread_id: threadId },
     { type: "turn.started" },
     {
+      type: "item.completed",
+      item: {
+        id: "reasoning-1",
+        type: "reasoning",
+        text: "I'll add the coding boundary and its test first.",
+      },
+    },
+    {
       type: "item.started",
       item: {
         id: "command-1",
@@ -30,6 +38,38 @@ function codingEvents(result: unknown, threadId: string): ThreadEvent[] {
         command: "pnpm --filter @repo-edu/plan-implementation test",
         aggregated_output: "",
         status: "in_progress",
+      },
+    },
+    {
+      type: "item.updated",
+      item: {
+        id: "command-1",
+        type: "command_execution",
+        command: "pnpm --filter @repo-edu/plan-implementation test",
+        aggregated_output: "running",
+        status: "in_progress",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "command-1",
+        type: "command_execution",
+        command: "pnpm --filter @repo-edu/plan-implementation test",
+        aggregated_output: "all tests pass",
+        exit_code: 0,
+        status: "completed",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        id: "command-2",
+        type: "command_execution",
+        command: "pnpm --filter @repo-edu/plan-implementation typecheck",
+        aggregated_output: "error TS2304: Cannot find name 'missing'.",
+        exit_code: 2,
+        status: "failed",
       },
     },
     {
@@ -131,20 +171,66 @@ describe("Codex coding SDK boundary", () => {
         { kind: "thread-started", threadId: "thread-2" },
       ],
     )
-    assert.equal(
-      emitted.some(
+    const firstRunEvents = emitted.slice(
+      0,
+      emitted.findIndex(
         (event) =>
-          event.kind === "activity" && /command in_progress/.test(event.label),
+          event.kind === "thread-started" && event.threadId === "thread-2",
       ),
-      true,
     )
-    assert.equal(
-      emitted.some(
-        (event) =>
-          event.kind === "activity" &&
-          /file change completed/.test(event.label),
-      ),
-      true,
+    assert.deepEqual(
+      firstRunEvents.filter((event) => event.kind === "narrative"),
+      [
+        {
+          kind: "narrative",
+          text: "I'll add the coding boundary and its test first.",
+        },
+      ],
+    )
+    assert.deepEqual(
+      firstRunEvents.filter((event) => event.kind === "command"),
+      [
+        {
+          kind: "command",
+          command: "pnpm --filter @repo-edu/plan-implementation test",
+          status: "started",
+          exitCode: null,
+          output: "",
+        },
+        {
+          kind: "command",
+          command: "pnpm --filter @repo-edu/plan-implementation test",
+          status: "succeeded",
+          exitCode: 0,
+          output: "",
+        },
+        {
+          kind: "command",
+          command: "pnpm --filter @repo-edu/plan-implementation typecheck",
+          status: "started",
+          exitCode: null,
+          output: "",
+        },
+        {
+          kind: "command",
+          command: "pnpm --filter @repo-edu/plan-implementation typecheck",
+          status: "failed",
+          exitCode: 2,
+          output: "error TS2304: Cannot find name 'missing'.",
+        },
+      ],
+    )
+    assert.deepEqual(
+      firstRunEvents.filter((event) => event.kind === "file-change"),
+      [
+        {
+          kind: "file-change",
+          status: "completed",
+          changes: [
+            { path: "tools/plan-implementation/src/coding.ts", kind: "add" },
+          ],
+        },
+      ],
     )
   })
 

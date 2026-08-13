@@ -93,7 +93,7 @@ export function codingAdapter(
     async start(request) {
       return {
         events: (async function* () {
-          yield { kind: "activity" as const, label: "Coding test activity." }
+          yield { kind: "narrative" as const, text: "Coding test narrative." }
         })(),
         result: run(request),
         abort() {},
