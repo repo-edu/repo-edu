@@ -42,11 +42,13 @@ function formatDuration(elapsedMs: number): string {
   return `${seconds}s`
 }
 
-function singleLineCommand(command: string): string {
+function displayCommand(command: string): string {
   const singleLine = command.replaceAll(/\s+/g, " ").trim()
-  return singleLine.length <= 200
-    ? singleLine
-    : `${singleLine.slice(0, 197)}...`
+  const wrapped = singleLine.match(
+    /^(?:\S+\/)?(?:zsh|bash|sh) -l?c (?:'(.*)'|"(.*)")$/,
+  )
+  const inner = wrapped?.[1] ?? wrapped?.[2] ?? singleLine
+  return inner.length <= 200 ? inner : `${inner.slice(0, 197)}...`
 }
 
 const FILE_CHANGE_VERBS = {
@@ -101,15 +103,11 @@ export function createTerminalView(
         writeBlank()
         return
       case "command":
-        if (coding.status === "started") {
-          writeLine(`  $ ${singleLineCommand(coding.command)}`)
-          return
-        }
         if (coding.status === "failed") {
           const exit =
             coding.exitCode === null ? "" : ` (exit ${coding.exitCode})`
           writeLine(
-            `  Command failed${exit}: ${singleLineCommand(coding.command)}`,
+            `  Command failed${exit}: ${displayCommand(coding.command)}`,
           )
           for (const line of failedOutputLines(coding.output)) {
             writeLine(`    ${line}`)

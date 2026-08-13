@@ -120,7 +120,8 @@ describe("progress adapters", () => {
       step: 9,
       event: {
         kind: "command",
-        command: "pnpm --filter @repo-edu/plan-implementation typecheck",
+        command:
+          "/bin/zsh -lc 'pnpm --filter @repo-edu/plan-implementation typecheck'",
         status: "failed",
         exitCode: 2,
         output: "error TS2304: Cannot find name 'missing'.",
@@ -233,9 +234,9 @@ describe("progress adapters", () => {
       displayed,
       /\[1:05\] I'll update the event stream and its adapters first\./,
     )
-    assert.match(
-      displayed,
-      /^ {2}\$ rg -n createPlanImplementationEventStream$/m,
+    assert.equal(
+      /rg -n createPlanImplementationEventStream/.test(displayed),
+      false,
     )
     assert.match(
       displayed,

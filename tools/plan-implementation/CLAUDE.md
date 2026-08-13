@@ -61,8 +61,8 @@ the desktop app or the compiled command-line product.
 - `run-progress.ts` turns runner facts into the one ordered semantic event
   stream. `transcript.ts` writes every event under the Git administrative
   directory, while `terminal-view.ts` renders Codex narrative and runner
-  authority lines with elapsed time, demotes Codex command detail and never
-  changes runner state.
+  authority lines with elapsed time, shows Codex commands only when they fail
+  and never changes runner state.
 - `main.ts` wires Commander, the shared child lifetime, the runner and the
   terminal view. Command-input errors and cursor resets never open a
   transcript.
