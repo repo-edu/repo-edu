@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
@@ -89,7 +89,7 @@ describe("readCommittedImplementationPlan", () => {
     const plan = await readCommittedImplementationPlan(planPath)
 
     assert.equal(plan.source.planName, "example")
-    assert.equal(plan.source.planPath, planPath)
+    assert.equal(plan.source.planPath, await realpath(planPath))
     assert.match(plan.source.commitOid, /^[0-9a-f]{40,}$/)
     assert.match(plan.source.blobOid, /^[0-9a-f]{40,}$/)
     const { stdout: committedBlob } = await git(root, [
