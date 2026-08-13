@@ -5,6 +5,7 @@ import { readGitText, runGit } from "./git-command.js"
 import { parseZeroSeparatedGitLog } from "./git-log.js"
 import { readCommittedImplementationPlan } from "./plan-reader.js"
 import { createCursorResetCommitMessage } from "./plan-record.js"
+import { requireUnchangedPlanSource } from "./plan-source-admission.js"
 import { claimPlanImplementationRunnerAdmission } from "./runner-admission.js"
 
 const singleCommitFormat = "format:%H%x00%s%x00%b%x00"
@@ -78,21 +79,6 @@ async function requireCleanCheckout(repoEduRoot: string): Promise<void> {
   if (status.length > 0) {
     throw new ResetCursorError(
       "The reset action requires no staged, unstaged or untracked files.",
-    )
-  }
-}
-
-async function requireUnchangedPlanSource(
-  source: PlanSourceIdentity,
-): Promise<void> {
-  const current = await readCommittedImplementationPlan(source.planPath)
-  if (
-    current.source.planName !== source.planName ||
-    current.source.planPath !== source.planPath ||
-    current.source.blobOid !== source.blobOid
-  ) {
-    throw new ResetCursorError(
-      "The committed plan source changed before the reset commit.",
     )
   }
 }

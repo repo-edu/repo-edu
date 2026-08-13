@@ -46,6 +46,16 @@ the desktop app or the compiled command-line product.
   dependency installation while forbidding plan, Git and later-step writes.
 - `CodingResult` is the helper's only terminal payload. Keep its succeeded and
   blocked forms strict and never add proof data to it.
+- `repository-admission.ts` fixes the clean branch, `HEAD` and index before
+  Codex. It owns the non-empty path set, complete staging and exact step
+  commit.
+- `step-checks.ts` owns dependency install, the fixed checks and ordered
+  machine proofs. Every command uses its program and arguments without a
+  shell.
+- `plan-source-admission.ts` rechecks the working plan and source blob before
+  each commit and later coding context.
+- `plan-runner.ts` joins these owners through the pure run reducer. It starts a
+  later context only after an exact commit and a clean checkout.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.
