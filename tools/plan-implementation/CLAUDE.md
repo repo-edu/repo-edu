@@ -25,6 +25,11 @@ the desktop app or the compiled command-line product.
 - `runner-admission.ts` resolves
   `repo-edu/plan-implementation/admission.db` through Git. The runner holds its
   claim for the whole invocation and releases it only after owned work settles.
+- `plan-reader.ts` accepts one committed Markdown plan whose working bytes
+  still match its Git blob. It records the plan file's last-touch commit and
+  blob without rejecting unrelated plan-checkout changes.
+- The plan reader owns the single `## Implementation plan` section, its one
+  top-level ordered list, step source spans and strict `repo-edu-proofs` JSON.
 - Keep Git history as the only durable step cursor. Do not add progress files
   or completion marks to plans.
 - Never create a branch. Runner-owned commits stay on the current branch.

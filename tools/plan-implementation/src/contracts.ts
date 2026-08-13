@@ -5,6 +5,17 @@ export type PlanSourceIdentity = {
   readonly blobOid: string
 }
 
+export type PlanSourcePoint = {
+  readonly line: number
+  readonly column: number
+  readonly offset: number
+}
+
+export type PlanSourceSpan = {
+  readonly start: PlanSourcePoint
+  readonly end: PlanSourcePoint
+}
+
 export type CompleteRunRequest = {
   readonly mode: "complete"
 }
@@ -37,6 +48,25 @@ export type PlanUserActionProof = {
 }
 
 export type PlanProof = PlanMachineProof | PlanUserActionProof
+
+export type PlanStepProofList = {
+  readonly items: readonly PlanProof[]
+  readonly sourceSpan: PlanSourceSpan | null
+}
+
+export type PlanImplementationStep = {
+  readonly number: number
+  readonly title: string
+  readonly sourceSpan: PlanSourceSpan
+  readonly proofs: PlanStepProofList
+}
+
+export type CommittedImplementationPlan = {
+  readonly source: PlanSourceIdentity
+  readonly markdown: string
+  readonly implementationListSpan: PlanSourceSpan
+  readonly steps: readonly PlanImplementationStep[]
+}
 
 export type CodingCommitProposal = {
   readonly subject: string

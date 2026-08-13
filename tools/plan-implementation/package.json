@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@repo-edu/host-node": "workspace:*"
+    "@repo-edu/host-node": "workspace:*",
+    "mdast-util-from-markdown": "2.0.3",
+    "zod": "4.4.3"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
