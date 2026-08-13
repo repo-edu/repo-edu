@@ -1,0 +1,294 @@
+import assert from "node:assert/strict"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { Readable } from "node:stream"
+import { afterEach, describe, it } from "node:test"
+import { fileURLToPath } from "node:url"
+import type {
+  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimePlatformTree,
+} from "../child-process-lifetime.js"
+import {
+  ChildProcessOutcomeUnknownError,
+  createChildProcessLifetimeAdapter,
+} from "../child-process-lifetime.js"
+import { createNodeProcessPort } from "../index.js"
+import {
+  createWindowsChildProcessLifetimePlatform,
+  proveWindowsLauncherReadiness,
+  runWindowsChildLifetimeTarget,
+} from "../windows-child-lifetime.js"
+
+const fixturePath = fileURLToPath(
+  new URL("./fixtures/child-process-tree.cjs", import.meta.url),
+)
+const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url))
+const windowsLauncherEntryPath = join(
+  repoRoot,
+  "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
+)
+const supportsAdapter =
+  process.platform === "darwin" ||
+  process.platform === "linux" ||
+  process.platform === "win32"
+const supportsProcessGroups =
+  process.platform === "darwin" || process.platform === "linux"
+const temporaryRoots = new Set<string>()
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs)
+  })
+}
+
+async function markerPath(name: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "repo-edu-containment-"))
+  temporaryRoots.add(root)
+  return join(root, name)
+}
+
+async function readMarker(path: string): Promise<string> {
+  return await readFile(path, "utf8")
+}
+
+async function waitForMarker(path: string, pattern: RegExp): Promise<string> {
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    const content = await readFile(path, "utf8").catch(() => "")
+    if (pattern.test(content)) {
+      return content
+    }
+    await delay(20)
+  }
+  throw new Error(`Timed out waiting for marker ${pattern}.`)
+}
+
+async function assertMarkerStable(path: string): Promise<void> {
+  const content = await readMarker(path)
+  await delay(120)
+  assert.equal(await readMarker(path), content)
+}
+
+function createAdapter(): ChildProcessLifetimeAdapter {
+  const windows =
+    process.platform === "win32"
+      ? createWindowsChildProcessLifetimePlatform({
+          executablePath: process.execPath,
+          launcherEntryPath: windowsLauncherEntryPath,
+        })
+      : undefined
+  return createChildProcessLifetimeAdapter({ windows })
+}
+
+async function launchTree(
+  adapter: ChildProcessLifetimeAdapter,
+  mode: string,
+  marker: string,
+  route: "direct-adapter" | "managed-helper" = "direct-adapter",
+): Promise<ChildProcessLifetimePlatformTree> {
+  return await adapter.launch({
+    command: process.execPath,
+    args: [fixturePath, mode, marker],
+    route,
+  })
+}
+
+function processIds(content: string): number[] {
+  return [...content.matchAll(/-pid:(\d+)/g)].map((match) => Number(match[1]))
+}
+
+function createLocalOutputFailure(
+  adapter: ChildProcessLifetimeAdapter,
+): ChildProcessLifetimeAdapter {
+  return {
+    async launch(request) {
+      const tree = await adapter.launch(request)
+      let reading = false
+      const stdout = new Readable({
+        read() {
+          if (reading) {
+            return
+          }
+          reading = true
+          tree.stdout.once("data", () => {
+            this.destroy(new Error("local output failure"))
+          })
+          tree.stdout.resume()
+        },
+      })
+      return { ...tree, stdout }
+    },
+    stopAndConfirm: adapter.stopAndConfirm,
+  }
+}
+
+afterEach(async () => {
+  await Promise.all(
+    [...temporaryRoots].map(async (root) => {
+      await rm(root, { force: true, recursive: true })
+    }),
+  )
+  temporaryRoots.clear()
+})
+
+describe("child-process containment", { skip: !supportsAdapter }, () => {
+  it("freezes a changing descendant before reporting normal completion", async (context) => {
+    const marker = await markerPath("normal-completion.txt")
+    const adapter = createAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+
+    const tree = await launchTree(adapter, "tree-completes", marker)
+
+    assert.deepEqual(await tree.result, { exitCode: 0, signal: null })
+    await assertMarkerStable(marker)
+  })
+
+  it("freezes a changing descendant after a requested stop", async (context) => {
+    const marker = await markerPath("requested-stop.txt")
+    const adapter = createAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+    const tree = await launchTree(adapter, "tree-waits", marker)
+    await waitForMarker(marker, /grandchild-tick/)
+
+    tree.requestStop()
+    await tree.result
+
+    await assertMarkerStable(marker)
+  })
+
+  it("forces an uncooperative changing tree to stop", async (context) => {
+    const marker = await markerPath("forced-stop.txt")
+    const adapter = createAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+    const tree = await launchTree(adapter, "tree-ignores-stop", marker)
+    await waitForMarker(marker, /grandchild-ignores-stop-tick/)
+
+    await tree.stopAndConfirm()
+    if (process.platform === "win32") {
+      await assert.rejects(tree.result, ChildProcessOutcomeUnknownError)
+    } else {
+      assert.deepEqual(await tree.result, {
+        exitCode: null,
+        signal: "SIGKILL",
+      })
+    }
+
+    await assertMarkerStable(marker)
+  })
+
+  it("stops a changing tree before reporting a local stream failure", async (context) => {
+    const marker = await markerPath("local-failure.txt")
+    const adapter = createAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+    const processPort = createNodeProcessPort(createLocalOutputFailure(adapter))
+
+    await assert.rejects(
+      processPort.run({
+        command: process.execPath,
+        args: [fixturePath, "tree-waits", marker],
+      }),
+      /local output failure/,
+    )
+
+    await waitForMarker(marker, /grandchild-started/)
+    await assertMarkerStable(marker)
+  })
+
+  for (const proof of [
+    { label: "Git", mode: "tree-waits", route: "direct-adapter" as const },
+    {
+      label: "Claude",
+      mode: "tree-waits",
+      route: "direct-adapter" as const,
+    },
+    {
+      label: "Codex",
+      mode: "managed-helper-tree-waits",
+      route: "managed-helper" as const,
+    },
+  ]) {
+    it(`keeps every ${proof.label} descendant in its process group`, {
+      skip: !supportsProcessGroups,
+    }, async (context) => {
+      const marker = await markerPath(`${proof.label.toLowerCase()}-group.txt`)
+      const adapter = createAdapter()
+      context.after(async () => {
+        await adapter.stopAndConfirm()
+      })
+      const tree = await launchTree(adapter, proof.mode, marker, proof.route)
+      const content = await waitForMarker(
+        marker,
+        proof.label === "Codex" ? /tool-descendant-tick/ : /grandchild-tick/,
+      )
+      const ids = processIds(content)
+
+      assert.equal(ids.length, proof.label === "Codex" ? 3 : 2)
+      assert.doesNotThrow(() => {
+        process.kill(-(ids[0] ?? 0), 0)
+      })
+
+      tree.requestStop()
+      await tree.result
+      const stopped = await readMarker(marker)
+      assert.match(stopped, /parent-stopped/)
+      if (proof.label === "Codex") {
+        assert.match(stopped, /sdk-child-stopped/)
+        assert.match(stopped, /tool-descendant-stopped/)
+      } else {
+        assert.match(stopped, /grandchild-stopped/)
+      }
+      await assertMarkerStable(marker)
+    })
+  }
+
+  it("exits the Windows launcher when control closes before target admission", {
+    skip: process.platform !== "win32",
+  }, async () => {
+    const evidence = await proveWindowsLauncherReadiness({
+      executablePath: process.execPath,
+      launcherEntryPath: windowsLauncherEntryPath,
+    })
+
+    assert.equal(evidence.assignedToJob, true)
+    assert.equal(evidence.identitySavedInSpawnTurn, true)
+    assert.equal(evidence.jobHandleInherited, false)
+    assert.equal(evidence.targetAdmittedAfterAssignment, false)
+    assert.equal(evidence.exitCode, 0)
+  })
+
+  it("assigns the Windows launcher before changing descendant work starts", {
+    skip: process.platform !== "win32",
+  }, async () => {
+    const marker = await markerPath("windows-assignment.txt")
+    const run = await runWindowsChildLifetimeTarget(
+      {
+        executablePath: process.execPath,
+        launcherEntryPath: windowsLauncherEntryPath,
+      },
+      {
+        command: process.execPath,
+        args: [fixturePath, "tree-completes", marker],
+      },
+    )
+
+    assert.equal(run.evidence.assignedToJob, true)
+    assert.equal(run.evidence.targetAdmittedAfterAssignment, true)
+    assert.equal(run.evidence.jobHandleInherited, false)
+    assert.deepEqual(run.result, {
+      exitCode: 0,
+      signal: null,
+      stderr: "",
+      stdout: "",
+    })
+    await assertMarkerStable(marker)
+  })
+})
