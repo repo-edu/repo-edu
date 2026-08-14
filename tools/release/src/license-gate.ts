@@ -7,10 +7,8 @@ import {
 } from "./license-gate/notices.js"
 import { classifyLicenseExpression } from "./license-gate/policy.js"
 import { collectRuntimeNoticeEntries } from "./license-gate/runtime-assets.js"
-import {
-  assertScannerParity,
-  scanPackageNotices,
-} from "./license-gate/scanner.js"
+import { scanPackageNotices } from "./license-gate/scanner.js"
+import { completeScannerPackageNotices } from "./license-gate/scanner-coverage.js"
 import {
   appDirectoryByApp,
   resolveRepoRelativePath,
@@ -45,10 +43,13 @@ export {
   resolveDesktopRuntimePackageEntries,
 } from "./license-gate/runtime-assets.js"
 export {
-  assertScannerParity,
   scanPackageNotices,
   scanPackageNoticesFromStart,
 } from "./license-gate/scanner.js"
+export {
+  assertScannerParity,
+  completeScannerPackageNotices,
+} from "./license-gate/scanner-coverage.js"
 export { readRequiredTextFiles } from "./license-gate/shared.js"
 export type {
   CliLicenseGateOptions,
@@ -92,17 +93,17 @@ export async function runLicenseGate(
   const root = options.root ?? rootDirectory
   const manifestOut = resolveRepoRelativePath(root, options.manifestOut)
   const dependencies = await enumerateProductionDependencies(options.app, root)
-  const scannerPackages = await scanPackageNotices(options.app, root)
+  const initialScannerPackages = await scanPackageNotices(options.app, root)
   const runtime = await collectRuntimeNoticeEntries(
     options,
     root,
     dependencies.productionReached,
   )
-
-  assertScannerParity({
-    scannerPackages,
+  const scannerPackages = await completeScannerPackageNotices({
+    scannerPackages: initialScannerPackages,
     thirdParty: dependencies.thirdParty,
     runtimePackages: runtime.entries,
+    sourceRoot: root,
   })
 
   const noticeEntries = mergeNoticeEntries([

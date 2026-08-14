@@ -3,11 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
+import { scanPackageNotices, scanPackageNoticesFromStart } from "./scanner.js"
 import {
   assertScannerParity,
-  scanPackageNotices,
-  scanPackageNoticesFromStart,
-} from "./scanner.js"
+  completeScannerPackageNotices,
+} from "./scanner-coverage.js"
 import { packageKey } from "./shared.js"
 import { reachedPackage, repoRoot, writePackage } from "./test-support.js"
 
@@ -111,6 +111,61 @@ describe("scanner package notices", () => {
       /<year>|<copyright holders>/,
     )
     assert.equal(trpcElectron.source.includes(repoRoot), false)
+  })
+
+  it("scans production closure packages omitted from package-manifest traversal", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const supportsColorPath = await writePackage(
+        root,
+        "node_modules/supports-color",
+        {
+          name: "supports-color",
+          version: "7.2.0",
+        },
+        { LICENSE: "supports-color fixture license text\n" },
+      )
+      const hasFlagPath = await writePackage(
+        root,
+        "node_modules/has-flag",
+        {
+          name: "has-flag",
+          version: "4.0.0",
+        },
+        { LICENSE: "has-flag fixture license text\n" },
+      )
+      const dependencyPath = [
+        "electron-updater",
+        "builder-util-runtime",
+        "debug",
+        "supports-color",
+      ]
+
+      const notices = await completeScannerPackageNotices({
+        scannerPackages: [],
+        thirdParty: [
+          reachedPackage("supports-color", {
+            version: "7.2.0",
+            packagePath: supportsColorPath,
+            path: dependencyPath,
+          }),
+          reachedPackage("has-flag", {
+            version: "4.0.0",
+            packagePath: hasFlagPath,
+            path: [...dependencyPath, "has-flag"],
+          }),
+        ],
+        sourceRoot: root,
+      })
+
+      assert.deepEqual(
+        notices.map((entry) => entry.name),
+        ["has-flag", "supports-color"],
+      )
+      assert.ok(notices.every((entry) => entry.source.includes(root) === false))
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 })
 

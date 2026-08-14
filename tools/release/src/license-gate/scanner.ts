@@ -17,7 +17,7 @@ import {
   readPackageJson,
   readRequiredTextFile,
 } from "./shared.js"
-import type { LicenseGateApp, NoticeEntry, ReachedPackage } from "./types.js"
+import type { LicenseGateApp, NoticeEntry } from "./types.js"
 
 export type ScannedPackageNotice = NoticeEntry & {
   readonly packageName: string
@@ -104,45 +104,6 @@ export async function scanPackageNoticesFromStart(
     )
   } finally {
     await rm(clarificationsDirectory, { force: true, recursive: true })
-  }
-}
-
-export function assertScannerParity(options: {
-  readonly scannerPackages: readonly ScannedPackageNotice[]
-  readonly thirdParty: readonly ReachedPackage[]
-  readonly runtimePackages?: readonly NoticeEntry[]
-}): void {
-  const scannerByBase = groupByBaseIdentity(options.scannerPackages)
-  const thirdPartyByBase = groupByBaseIdentity(options.thirdParty)
-  const runtimePackageIds = new Set(
-    (options.runtimePackages ?? []).map((entry) => entry.id),
-  )
-  const misses = options.thirdParty.filter((pkg) => {
-    if (
-      runtimePackageIds.has(
-        packageKey(pkg.packageName, pkg.version, pkg.packagePath),
-      )
-    ) {
-      return false
-    }
-    const scannerMatches = scannerByBase.get(baseIdentity(pkg))
-    if (!scannerMatches) {
-      return true
-    }
-    const thirdPartyMatches = thirdPartyByBase.get(baseIdentity(pkg)) ?? []
-    if (scannerMatches.length === 1 && thirdPartyMatches.length === 1) {
-      return false
-    }
-    return !scannerMatches.some(
-      (match) => match.packagePath === pkg.packagePath,
-    )
-  })
-
-  const unexpected = misses.filter((pkg) => !isExpectedScannerMiss(pkg))
-  if (unexpected.length > 0) {
-    throw new Error(
-      `License checker missed production package(s): ${unexpected.map(formatReachedPackageDiagnostic).join(", ")}`,
-    )
   }
 }
 
@@ -339,61 +300,4 @@ function scannerSource(options: {
   return options.licenseFile
     ? `license-checker-rseidelsohn package notice from ${formatEvidencePath(options.licenseFile, options.sourceRoot)}`
     : "license-checker-rseidelsohn package notice"
-}
-
-function groupByBaseIdentity<
-  T extends { readonly packageName: string; readonly version: string },
->(packages: readonly T[]): Map<string, T[]> {
-  const grouped = new Map<string, T[]>()
-  for (const pkg of packages) {
-    const key = baseIdentity(pkg)
-    grouped.set(key, [...(grouped.get(key) ?? []), pkg])
-  }
-  return grouped
-}
-
-function baseIdentity(pkg: {
-  readonly packageName: string
-  readonly version: string
-}): string {
-  return `${pkg.packageName}@${pkg.version}`
-}
-
-function isExpectedScannerMiss(pkg: ReachedPackage): boolean {
-  return (
-    isOpenAiCodexPlatformOptional(pkg) ||
-    isAbsentKoffiPlatformOptional(pkg) ||
-    isElectronBuildTimeSubtreeMiss(pkg)
-  )
-}
-
-function isOpenAiCodexPlatformOptional(pkg: ReachedPackage): boolean {
-  return /^@openai\/codex-(?:darwin|linux|win32)-/.test(pkg.reachedName)
-}
-
-function isAbsentKoffiPlatformOptional(pkg: ReachedPackage): boolean {
-  return (
-    !pkg.packageDirectoryExists &&
-    /^@koromix\/koffi-(?:darwin|freebsd|linux|openbsd|win32)-/.test(
-      pkg.reachedName,
-    ) &&
-    pkg.paths.length > 0 &&
-    pkg.paths.every(
-      (path) => path.at(-1) === pkg.reachedName && path.at(-2) === "koffi",
-    )
-  )
-}
-
-function isElectronBuildTimeSubtreeMiss(pkg: ReachedPackage): boolean {
-  return (
-    pkg.paths.length > 0 &&
-    pkg.paths.every((path) => {
-      const electronIndex = path.indexOf("electron")
-      return electronIndex > 0 && path[electronIndex - 1] === "trpc-electron"
-    })
-  )
-}
-
-function formatReachedPackageDiagnostic(pkg: ReachedPackage): string {
-  return `${pkg.reachedName} (${pkg.packageName}@${pkg.version}) via ${pkg.paths.map((path) => path.join(" > ")).join(" | ")}`
 }

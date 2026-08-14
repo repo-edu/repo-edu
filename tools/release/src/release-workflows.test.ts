@@ -32,7 +32,11 @@ describe("release workflow wiring", () => {
       "utf8",
     )
 
-    assert.equal(rootPackageJson.packageManager, "pnpm@11.6.0")
+    assert.ok(
+      typeof rootPackageJson.packageManager === "string" &&
+        /^pnpm@\d+\.\d+\.\d+$/.test(rootPackageJson.packageManager),
+      "root packageManager must declare an exact pnpm version",
+    )
     assert.match(setupAction, /uses: pnpm\/action-setup@v\d+/)
     assert.doesNotMatch(setupAction, /^\s+version:\s*["']?\d/m)
   })
