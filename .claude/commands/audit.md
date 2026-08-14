@@ -25,12 +25,13 @@ range the round is scoped; without one it is complete.
 ## Ready gate
 
 Before any audit work, run the stem scan in `../plan`: `git log --oneline`
-filtered to subjects starting with `<file-stem>/`. The gate passes when the
-newest commit in that scan is `<file-stem>/ready:` or, once implementation
-has finished, `<file-stem>/implemented:`. Any other newest stem commit
-fails the gate, because a later plan change voids both markers. When the
-gate fails, name the newest stem commit, state that the plan is not in a
-ready or implemented state and stop. Continue only when the user
+filtered to subjects starting with `<file-stem>/`. The gate passes while
+the plan's newest standing marker is `<file-stem>/ready:` or
+`<file-stem>/implemented:`, read by the plan repo's recognition rule:
+empty stem commits, the markers and the `clean:` records, never void a
+marker, while any file-changing stem commit after a marker voids it. When
+the gate fails, name the newest stem commit, state that the plan is not in
+a ready or implemented state and stop. Continue only when the user
 explicitly says to.
 
 ## Round strategy
