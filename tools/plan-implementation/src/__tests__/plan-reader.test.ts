@@ -138,13 +138,13 @@ describe("readCommittedImplementationPlan", () => {
     )
   })
 
-  it("allows unrelated working changes in the plan checkout", async () => {
+  it("allows outside work in the plan checkout", async () => {
     const { root, planPath } = await createPlanRepository()
-    const unrelatedPath = join(root, "notes.md")
-    await writeFile(unrelatedPath, "committed\n")
+    const outsideWorkPath = join(root, "notes.md")
+    await writeFile(outsideWorkPath, "committed\n")
     await git(root, ["add", "--", "notes.md"])
     await git(root, ["commit", "--quiet", "-m", "add notes"])
-    await writeFile(unrelatedPath, "changed\n")
+    await writeFile(outsideWorkPath, "changed\n")
 
     const plan = await readCommittedImplementationPlan(planPath)
     const { stdout: lastTouchCommit } = await git(root, [

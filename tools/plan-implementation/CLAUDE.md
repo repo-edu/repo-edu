@@ -15,6 +15,16 @@ the desktop app or the compiled command-line product.
 - Presentation reads semantic events. It cannot move runner state and may only
   request a stop.
 
+## Outside work
+
+Outside work is planned or ad hoc work that is not part of and does not affect
+the active plan. `repository-admission.ts` owns its practical admission rule:
+outside work advances the same branch in a straight line, leaves the index
+unchanged and has no path in common with the active step. `plan-runner.ts`
+keeps the active plan cursor fixed and repeats dependency installation and
+checks after it admits outside work. These facts are practical evidence. The
+runner does not try to prove the meaning of the work.
+
 ## Boundaries
 
 - Keep all tool source in the `tool-plan-implementation` primary area.
@@ -27,7 +37,7 @@ the desktop app or the compiled command-line product.
   claim for the whole invocation and releases it only after owned work settles.
 - `plan-reader.ts` accepts one committed Markdown plan whose working bytes
   still match its Git blob. It records the plan file's last-touch commit and
-  blob without rejecting unrelated plan-checkout changes.
+  blob without rejecting outside work in the plan checkout.
 - The plan reader owns the single `## Implementation plan` section, its one
   top-level ordered list, step source spans and strict `repo-edu-proofs` JSON.
 - `commit-proposal.ts` owns normal severity subjects and decision-and-reason
@@ -47,16 +57,16 @@ the desktop app or the compiled command-line product.
 - `CodingResult` is the helper's only terminal payload. Keep its succeeded and
   blocked forms strict and never add proof data to it.
 - `repository-admission.ts` fixes the clean branch and index before Codex. It
-  adopts same-branch linear commits only while their paths remain disjoint from
-  the active step. It freezes `HEAD` before staging and owns the non-empty path
-  set, complete staging and exact step commit.
+  owns outside work admission under the rule above. It freezes `HEAD` before
+  staging and owns the non-empty path set, complete staging and exact step
+  commit.
 - `step-checks.ts` owns dependency install, the fixed checks and ordered
   machine proofs. Every command uses its program and arguments without a
   shell.
 - `plan-source-admission.ts` rechecks the working plan and source blob before
   each commit and later coding context.
 - `plan-runner.ts` joins these owners through the pure run reducer. It keeps the
-  active plan cursor fixed and repeats final checks after an adopted commit. It
+  active plan cursor fixed and repeats final checks after outside work. It
   starts a later context only after an exact commit and a clean checkout.
 - `run-lifetime.ts` turns one stop signal into reducer admission closure, Codex
   abort and shared stop-and-confirm for every Codex and check tree.

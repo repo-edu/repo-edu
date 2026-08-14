@@ -21,14 +21,14 @@ export type AdmittedRepositoryDiff = {
   readonly dependencyManifestChanged: boolean
 }
 
-export type ReconciledRepositoryControl = {
+export type OutsideWorkAdmission = {
   readonly admission: RepositoryAdmission
-  readonly headAdvanced: boolean
-  readonly changedPaths: readonly string[]
-  readonly dependencyManifestChanged: boolean
+  readonly outsideWorkFound: boolean
+  readonly outsideWorkPaths: readonly string[]
+  readonly outsideWorkDependencyManifestChanged: boolean
 }
 
-export type ReconciledRepositoryDiff = ReconciledRepositoryControl & {
+export type RepositoryDiffWithOutsideWork = OutsideWorkAdmission & {
   readonly diff: AdmittedRepositoryDiff
 }
 
@@ -164,7 +164,7 @@ async function readStagedPaths(
   )
 }
 
-async function readChangedPaths(
+async function readOutsideWorkPaths(
   repoEduRoot: string,
   fromOid: string,
   toOid: string,
@@ -179,7 +179,7 @@ async function readChangedPaths(
     "--",
   ])
   return canonicalPathSet(
-    parseNullSeparatedPaths(changed.stdout, "The advanced HEAD diff"),
+    parseNullSeparatedPaths(changed.stdout, "The outside work diff"),
   )
 }
 
@@ -192,7 +192,7 @@ async function readMergeBase(
     return await readGitText(repoEduRoot, ["merge-base", firstOid, secondOid])
   } catch (error) {
     throw new RepositoryAdmissionError(
-      "The current HEAD does not advance from the admitted commit.",
+      "Outside work does not advance from the admitted commit.",
       { cause: error },
     )
   }
@@ -206,30 +206,29 @@ function findPathOverlap(
   return first.filter((path) => secondPaths.has(path))
 }
 
-function unchangedRepositoryControl(
-  admission: RepositoryAdmission,
-): ReconciledRepositoryControl {
+function noOutsideWork(admission: RepositoryAdmission): OutsideWorkAdmission {
   return {
     admission,
-    headAdvanced: false,
-    changedPaths: [],
-    dependencyManifestChanged: false,
+    outsideWorkFound: false,
+    outsideWorkPaths: [],
+    outsideWorkDependencyManifestChanged: false,
   }
 }
 
-function mergeRepositoryControl(
-  first: ReconciledRepositoryControl,
-  second: ReconciledRepositoryControl,
-): ReconciledRepositoryControl {
-  const changedPaths = canonicalPathSet([
-    ...first.changedPaths,
-    ...second.changedPaths,
+function mergeOutsideWork(
+  first: OutsideWorkAdmission,
+  second: OutsideWorkAdmission,
+): OutsideWorkAdmission {
+  const outsideWorkPaths = canonicalPathSet([
+    ...first.outsideWorkPaths,
+    ...second.outsideWorkPaths,
   ])
   return {
     admission: second.admission,
-    headAdvanced: first.headAdvanced || second.headAdvanced,
-    changedPaths,
-    dependencyManifestChanged: changedPaths.some(isDependencyManifest),
+    outsideWorkFound: first.outsideWorkFound || second.outsideWorkFound,
+    outsideWorkPaths,
+    outsideWorkDependencyManifestChanged:
+      outsideWorkPaths.some(isDependencyManifest),
   }
 }
 
@@ -251,7 +250,7 @@ async function requireExactControlState(
   )
   if (headOid !== admission.headOid) {
     throw new RepositoryAdmissionError(
-      "Codex or another process changed HEAD outside the runner-owned commit.",
+      "HEAD changed after repository admission.",
     )
   }
   if (branchRef !== admission.branchRef) {
@@ -318,9 +317,9 @@ export async function openRepositoryAdmission(
   })
 }
 
-export async function reconcileCodingRepositoryControl(
+export async function admitOutsideWork(
   admission: RepositoryAdmission,
-): Promise<ReconciledRepositoryControl> {
+): Promise<OutsideWorkAdmission> {
   while (true) {
     const [headOid, branchRef] = await Promise.all([
       readFullObjectId(admission.repoEduRoot, "HEAD"),
@@ -333,17 +332,22 @@ export async function reconcileCodingRepositoryControl(
     }
     if (headOid === admission.headOid) {
       await requireExactControlState(admission, { compareIndex: true })
-      return unchangedRepositoryControl(admission)
+      return noOutsideWork(admission)
     }
 
-    const [mergeBase, changedPaths, ownedPaths, stagedPaths, indexFingerprint] =
-      await Promise.all([
-        readMergeBase(admission.repoEduRoot, admission.headOid, headOid),
-        readChangedPaths(admission.repoEduRoot, admission.headOid, headOid),
-        readOwnedPaths(admission.repoEduRoot),
-        readStagedPaths(admission.repoEduRoot),
-        readIndexFlagsFingerprint(admission.repoEduRoot),
-      ])
+    const [
+      mergeBase,
+      outsideWorkPaths,
+      ownedPaths,
+      stagedPaths,
+      indexFingerprint,
+    ] = await Promise.all([
+      readMergeBase(admission.repoEduRoot, admission.headOid, headOid),
+      readOutsideWorkPaths(admission.repoEduRoot, admission.headOid, headOid),
+      readOwnedPaths(admission.repoEduRoot),
+      readStagedPaths(admission.repoEduRoot),
+      readIndexFlagsFingerprint(admission.repoEduRoot),
+    ])
     const [stableHeadOid, stableBranchRef] = await Promise.all([
       readFullObjectId(admission.repoEduRoot, "HEAD"),
       readBranchRef(admission.repoEduRoot),
@@ -358,7 +362,7 @@ export async function reconcileCodingRepositoryControl(
     }
     if (mergeBase !== admission.headOid) {
       throw new RepositoryAdmissionError(
-        "The current HEAD does not advance linearly from the admitted commit.",
+        "Outside work does not advance linearly from the admitted commit.",
       )
     }
     if (
@@ -369,10 +373,10 @@ export async function reconcileCodingRepositoryControl(
         "Codex or another process changed the Git index.",
       )
     }
-    const overlappingPaths = findPathOverlap(changedPaths, ownedPaths)
+    const overlappingPaths = findPathOverlap(outsideWorkPaths, ownedPaths)
     if (overlappingPaths.length > 0) {
       throw new RepositoryAdmissionError(
-        `The advanced HEAD overlaps the active step: ${overlappingPaths.join(", ")}.`,
+        `Outside work overlaps the active step: ${overlappingPaths.join(", ")}.`,
       )
     }
 
@@ -383,37 +387,36 @@ export async function reconcileCodingRepositoryControl(
         headOid,
         indexFlagsFingerprint: indexFingerprint,
       }),
-      headAdvanced: true,
-      changedPaths,
-      dependencyManifestChanged: changedPaths.some(isDependencyManifest),
+      outsideWorkFound: true,
+      outsideWorkPaths,
+      outsideWorkDependencyManifestChanged:
+        outsideWorkPaths.some(isDependencyManifest),
     }
   }
 }
 
-export async function admitReconciledRepositoryDiff(
+export async function admitRepositoryDiffWithOutsideWork(
   admission: RepositoryAdmission,
-): Promise<ReconciledRepositoryDiff> {
-  let control = unchangedRepositoryControl(admission)
+): Promise<RepositoryDiffWithOutsideWork> {
+  let outsideWork = noOutsideWork(admission)
   while (true) {
-    control = mergeRepositoryControl(
-      control,
-      await reconcileCodingRepositoryControl(control.admission),
+    outsideWork = mergeOutsideWork(
+      outsideWork,
+      await admitOutsideWork(outsideWork.admission),
     )
-    const paths = await readOwnedPaths(control.admission.repoEduRoot)
+    const paths = await readOwnedPaths(outsideWork.admission.repoEduRoot)
     if (paths.length === 0) {
       throw new RepositoryAdmissionError(
         "A succeeded coding result requires a non-empty owned diff.",
       )
     }
-    const stableControl = await reconcileCodingRepositoryControl(
-      control.admission,
-    )
-    control = mergeRepositoryControl(control, stableControl)
-    if (stableControl.headAdvanced) {
+    const stableOutsideWork = await admitOutsideWork(outsideWork.admission)
+    outsideWork = mergeOutsideWork(outsideWork, stableOutsideWork)
+    if (stableOutsideWork.outsideWorkFound) {
       continue
     }
     return {
-      ...control,
+      ...outsideWork,
       diff: Object.freeze({
         paths,
         dependencyManifestChanged: paths.some(isDependencyManifest),

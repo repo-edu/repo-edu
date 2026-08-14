@@ -168,7 +168,7 @@ describe("runPlanImplementation", () => {
   it("records a stopped transcript when repository preflight fails", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
-    await writeFile(join(repoEduRoot, "outside.txt"), "not admitted\n")
+    await writeFile(join(repoEduRoot, "unadmitted.txt"), "not admitted\n")
     let codingStarted = false
 
     const result = await runPlanImplementation(
@@ -332,7 +332,7 @@ describe("runPlanImplementation", () => {
     assert.deepEqual(commandCalls, [])
   })
 
-  it("adopts a disjoint commit created while Codex works", async () => {
+  it("admits outside work while Codex works", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
@@ -342,9 +342,12 @@ describe("runPlanImplementation", () => {
       {
         coding: codingAdapter(async () => {
           await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
-          await writeFile(join(repoEduRoot, "outside.txt"), "outside\n")
-          await git(repoEduRoot, ["add", "--", "outside.txt"])
-          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+          await writeFile(
+            join(repoEduRoot, "outside-work.txt"),
+            "outside work\n",
+          )
+          await git(repoEduRoot, ["add", "--", "outside-work.txt"])
+          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside work"])
           return succeededResult(1)
         }),
         commands: successfulCommands(commandCalls),
@@ -366,11 +369,11 @@ describe("runPlanImplementation", () => {
       (
         await git(repoEduRoot, ["log", "-1", "--format=%s", "HEAD^"])
       ).stdout.trim(),
-      "outside",
+      "outside work",
     )
   })
 
-  it("rejects an adopted commit that overlaps the active step", async () => {
+  it("rejects outside work that overlaps the active step", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
@@ -379,10 +382,10 @@ describe("runPlanImplementation", () => {
       { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
       {
         coding: codingAdapter(async () => {
-          await writeFile(join(repoEduRoot, "README.md"), "outside\n")
+          await writeFile(join(repoEduRoot, "README.md"), "outside work\n")
           await git(repoEduRoot, ["add", "--", "README.md"])
           await writeFile(join(repoEduRoot, "README.md"), "active step\n")
-          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+          await git(repoEduRoot, ["commit", "--quiet", "-m", "outside work"])
           return succeededResult(1)
         }),
         commands: successfulCommands(commandCalls),
@@ -393,12 +396,12 @@ describe("runPlanImplementation", () => {
     assert.equal(result.outcome, "stopped")
     assert.match(
       result.outcome === "stopped" ? result.reason : "",
-      /advanced HEAD overlaps the active step: README\.md/,
+      /Outside work overlaps the active step: README\.md/,
     )
     assert.deepEqual(commandCalls, [])
   })
 
-  it("rejects an adopted commit that moves the active plan cursor", async () => {
+  it("rejects outside work that moves the active plan cursor", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
@@ -441,17 +444,17 @@ describe("runPlanImplementation", () => {
     assert.deepEqual(commandCalls, [])
   })
 
-  it("repeats final checks after adopting a commit during checking", async () => {
+  it("repeats final checks after admitting outside work during checking", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const commandCalls: StepCommandRequest[] = []
-    let outsideCommitted = false
+    let outsideWorkCommitted = false
     const commands = successfulCommands(commandCalls, async (command) => {
-      if (command.id === "repository-check" && !outsideCommitted) {
-        outsideCommitted = true
+      if (command.id === "repository-check" && !outsideWorkCommitted) {
+        outsideWorkCommitted = true
         await writeFile(join(repoEduRoot, "package.json"), '{"private":true}\n')
         await git(repoEduRoot, ["add", "--", "package.json"])
-        await git(repoEduRoot, ["commit", "--quiet", "-m", "outside"])
+        await git(repoEduRoot, ["commit", "--quiet", "-m", "outside work"])
       }
     })
 
@@ -498,7 +501,7 @@ describe("runPlanImplementation", () => {
         }),
         commands: successfulCommands(commandCalls, async (command) => {
           if (command.id === "repository-test") {
-            await writeFile(planPath, `${planMarkdown}\nChanged outside.\n`)
+            await writeFile(planPath, `${planMarkdown}\nChanged externally.\n`)
           }
         }),
         ownedChildren: settledChildren,

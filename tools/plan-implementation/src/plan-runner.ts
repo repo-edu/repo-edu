@@ -17,14 +17,14 @@ import { requireUnchangedPlanSource } from "./plan-source-admission.js"
 import type { PlanImplementationEventObserver } from "./progress-events.js"
 import {
   type AdmittedRepositoryDiff,
-  admitReconciledRepositoryDiff,
+  admitOutsideWork,
+  admitRepositoryDiffWithOutsideWork,
   commitAdmittedRepositoryDiff,
+  type OutsideWorkAdmission,
   openRepositoryAdmission,
-  type ReconciledRepositoryControl,
-  type ReconciledRepositoryDiff,
   type RepositoryAdmission,
+  type RepositoryDiffWithOutsideWork,
   type RepositoryStepCommit,
-  reconcileCodingRepositoryControl,
   requireMatchingRepositoryDiff,
   resolveRepoEduRoot,
   stageAdmittedRepositoryDiff,
@@ -152,30 +152,33 @@ function errorMessage(error: unknown): string {
 }
 
 async function requireActiveStepCursor(
-  control: ReconciledRepositoryControl,
+  outsideWork: OutsideWorkAdmission,
   plan: CommittedImplementationPlan,
   step: number,
 ): Promise<RepositoryAdmission> {
-  if (!control.headAdvanced) {
-    return control.admission
+  if (!outsideWork.outsideWorkFound) {
+    return outsideWork.admission
   }
-  const cursor = await resolvePlanCursor(control.admission.repoEduRoot, plan)
+  const cursor = await resolvePlanCursor(
+    outsideWork.admission.repoEduRoot,
+    plan,
+  )
   if (cursor.nextStep !== step) {
     throw new PlanImplementationRunError(
       `The current branch plan cursor moved from step ${step} to step ${cursor.nextStep} during implementation.`,
     )
   }
-  return control.admission
+  return outsideWork.admission
 }
 
 async function admitActiveStepDiff(
   repository: RepositoryAdmission,
   plan: CommittedImplementationPlan,
   step: number,
-): Promise<ReconciledRepositoryDiff> {
-  const reconciled = await admitReconciledRepositoryDiff(repository)
-  await requireActiveStepCursor(reconciled, plan, step)
-  return reconciled
+): Promise<RepositoryDiffWithOutsideWork> {
+  const withOutsideWork = await admitRepositoryDiffWithOutsideWork(repository)
+  await requireActiveStepCursor(withOutsideWork, plan, step)
+  return withOutsideWork
 }
 
 async function runCodingStep(
@@ -377,7 +380,7 @@ export async function runPlanImplementation(
         progress.phaseChanged("implementing")
 
         await requireUnchangedPlanSource(plan.source)
-        const beforeCoding = await reconcileCodingRepositoryControl(repository)
+        const beforeCoding = await admitOutsideWork(repository)
         repository = await requireActiveStepCursor(
           beforeCoding,
           plan,
@@ -427,7 +430,7 @@ export async function runPlanImplementation(
           }
           dependencyInstallRequired ||=
             preliminary.diff.dependencyManifestChanged ||
-            preliminary.dependencyManifestChanged
+            preliminary.outsideWorkDependencyManifestChanged
           if (dependencyInstallRequired) {
             await repeatDependencyInstall(
               repoEduRoot,
@@ -445,9 +448,9 @@ export async function runPlanImplementation(
               stepNumber,
             )
             repository = afterInstall.admission
-            if (afterInstall.headAdvanced) {
+            if (afterInstall.outsideWorkFound) {
               dependencyInstallRequired ||=
-                afterInstall.dependencyManifestChanged
+                afterInstall.outsideWorkDependencyManifestChanged
               continue
             }
             admittedDiff = afterInstall.diff
@@ -470,8 +473,9 @@ export async function runPlanImplementation(
             stepNumber,
           )
           repository = afterChecks.admission
-          if (afterChecks.headAdvanced) {
-            dependencyInstallRequired ||= afterChecks.dependencyManifestChanged
+          if (afterChecks.outsideWorkFound) {
+            dependencyInstallRequired ||=
+              afterChecks.outsideWorkDependencyManifestChanged
             continue
           }
           requireMatchingRepositoryDiff(admittedDiff, afterChecks.diff)
