@@ -241,11 +241,15 @@ the `plan-` prefix dropped for peer plans (`plan-persister.md` →
 plan was given when designed only in chat. Commits unattached to any
 plan omit this line.
 
-The automated plan runner's cursor-reset commit is the only severity-free
-exception. It addresses no finding and starts no implementation work. Its
-subject is exactly
-`chore(plan-implementation): reset <plan-name> cursor to step <n>`. The runner
-owns this empty commit and its exact `Plan-Cursor-Reset` body shape.
+Two severity-free exceptions exist, both empty marker commits owned by the
+mechanism that writes them. The automated plan runner's cursor-reset commit
+addresses no finding and starts no implementation work; its subject is exactly
+`chore(plan-implementation): reset <plan-name> cursor to step <n>` and the
+runner owns its exact `Plan-Cursor-Reset` body shape. The /audit command's
+round-record commit records an implementation-audit round that changed no
+file, a clean round or one whose findings the user declined; its subject is
+`chore(audit): <plan-name> <scope> <outcome>` and the command owns its
+`Plan:` and `Audit:` body lines.
 
 ## Watched implementation rounds
 

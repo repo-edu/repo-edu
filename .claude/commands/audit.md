@@ -25,36 +25,43 @@ range the round is scoped; without one it is complete.
 ## Ready gate
 
 Before any audit work, run the stem scan in `../plan`: `git log --oneline`
-filtered to subjects starting with `<file-stem>/`. The plan is ready exactly
-when `<file-stem>/ready:` is the newest commit in that scan; any later stem
-commit voids the marker. When the gate fails, name the newest stem commit,
-state that the plan is not marked ready and stop. Continue only when the
-user explicitly says to.
+filtered to subjects starting with `<file-stem>/`. The gate passes when the
+newest commit in that scan is `<file-stem>/ready:` or, once implementation
+has finished, `<file-stem>/implemented:`. Any other newest stem commit
+fails the gate, because a later plan change voids both markers. When the
+gate fails, name the newest stem commit, state that the plan is not in a
+ready or implemented state and stop. Continue only when the user
+explicitly says to.
 
 ## Round strategy
 
 A plan is audited by complete rounds alone, or by scoped rounds over step
 ranges followed by one complete closing round. On a plan's first round,
-invoked without a range and with no audit fix commit for this plan in the
-log, do not start inspecting. Size the work from cheap evidence only: the
+invoked without a range and with no audit commit, fix or record, for this
+plan in the log, do not start inspecting. Size the work from cheap evidence only: the
 plan's step count, the episode's commit count and the files and packages
 it touches. Recommend one strategy, complete rounds only for a small plan
 or scoped rounds plus the closing round for a large one, and propose the
 ranges. Cut ranges where the plan's step groups fall, steps that share a
 package or an invariant staying in one range, never into equal arithmetic
 parts. Then wait for the user's choice. The advice fires only on that
-first round; a given range or an existing audit fix commit skips it.
+first round; a given range or an existing audit commit skips it.
 
 ## Round
 
 Run one read-only implementation-audit round: judge whether this repo
 correctly implemented the plan. Report in the order prescribed below, then
-stop for discussion. Edit and commit only after the user accepts or revises
-the findings and asks for them to be applied. The fix commit follows this
-repo's severity-prefix convention; its body opens with the `Plan: <name>`
-line, followed by `Audit: complete` or `Audit: steps <a>-<b>` naming the
-round's scope, so the log alone shows which rounds ran, over which ranges,
-and when.
+stop for discussion. Edit only after the user accepts or revises the
+findings and asks for them to be applied. Every round then closes with
+exactly one commit. A round whose accepted findings changed files lands
+the fix commit: severity-prefixed per this repo's convention, its body
+opening with the `Plan: <name>` line followed by `Audit: complete` or
+`Audit: steps <a>-<b>` naming the round's scope. Any other outcome, a
+clean round or findings the user declined, lands an empty record commit:
+`chore(audit): <plan-name> <scope> clean` or `... declined`, carrying the
+same `Plan:` and `Audit:` body lines. One round, one commit: the log alone
+shows every round that ran, its scope and its outcome, including the clean
+rounds that would otherwise exist only in chat.
 
 ## Evidence
 
@@ -115,11 +122,18 @@ This audit never edits plan files.
 Scoped rounds never close the plan, even when their ranges tile every
 step: each scoped verdict describes the HEAD it ran on, and later steps
 age it. The proof that the plan is implemented is one complete round on
-the finished code whose table is clean. Prior audit fix commits inform
-that round, ranking its report and naming the fixes to re-verify; they
-never excuse a row from inspection. The closing round is advice, not a
-gate: asked to treat the implementation as done without one, name the
-missing round once and continue on the user's word.
+the finished code whose table is clean. Prior audit commits inform that
+round, ranking its report and naming the fixes to re-verify; they never
+excuse a row from inspection. The closing round expects
+`<file-stem>/implemented:` as the newest stem commit; when it is missing,
+name that once and continue on the user's word. When the closing round's
+table is clean and the user accepts it, land the round's record commit
+here, then the `<file-stem>/implementation-audited:` marker commit in
+`../plan`: severity-free, its body naming the HEAD this round inspected
+and compiling the audit round history from this repo's audit commits. The
+closing round is advice, not a gate: asked to treat the implementation as
+done without one, name the missing round once and continue on the user's
+word.
 
 ## Report order
 
