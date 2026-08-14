@@ -57,7 +57,7 @@ export function createPlanImplementationCommand(
         "Implement at most the next N authorised steps.",
       )
         .argParser(canonicalPositiveInteger)
-        .conflicts("throughStep"),
+        .conflicts(["throughStep", "resetCursor"]),
     )
     .addOption(
       new Option(
@@ -65,33 +65,34 @@ export function createPlanImplementationCommand(
         "Implement through and including absolute step N.",
       )
         .argParser(canonicalPositiveInteger)
-        .conflicts("count"),
+        .conflicts(["count", "resetCursor"]),
+    )
+    .addOption(
+      new Option(
+        "--reset-cursor <n>",
+        "Write an empty cursor-reset commit so step N is next.",
+      )
+        .argParser(canonicalPositiveInteger)
+        .conflicts(["count", "throughStep"]),
     )
     .showHelpAfterError("(See --help for usage.)")
     .action(
       async (
         planPath: string,
-        options: { readonly count?: number; readonly throughStep?: number },
+        options: {
+          readonly count?: number
+          readonly resetCursor?: number
+          readonly throughStep?: number
+        },
       ) => {
+        if (options.resetCursor !== undefined) {
+          await handlers.resetCursor({
+            planPath,
+            nextStep: options.resetCursor,
+          })
+          return
+        }
         await handlers.run({ planPath, run: runRequest(options) })
-      },
-    )
-
-  program
-    .command("reset-cursor")
-    .description("Write one empty current-branch cursor-reset commit.")
-    .argument("<plan-path>", "Path to the committed plan Markdown file.")
-    .requiredOption(
-      "--next-step <n>",
-      "Set the next implementation step.",
-      canonicalPositiveInteger,
-    )
-    .action(
-      async (planPath: string, options: { readonly nextStep: number }) => {
-        await handlers.resetCursor({
-          planPath,
-          nextStep: options.nextStep,
-        })
       },
     )
 

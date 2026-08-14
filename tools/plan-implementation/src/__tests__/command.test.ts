@@ -61,13 +61,10 @@ describe("createPlanImplementationCommand", () => {
     ])
   })
 
-  it("routes the cursor-reset command with its exact positive step", async () => {
+  it("routes the cursor-reset root option with its exact positive step", async () => {
     const fixture = commandFixture()
 
-    await parse(
-      ["reset-cursor", "plan-example.md", "--next-step", "3"],
-      fixture.handlers,
-    )
+    await parse(["plan-example.md", "--reset-cursor", "3"], fixture.handlers)
 
     assert.deepEqual(fixture.recorded.resets, [
       { planPath: "plan-example.md", nextStep: 3 },
@@ -82,6 +79,11 @@ describe("createPlanImplementationCommand", () => {
       ["plan-example.md", "--count", "01"],
       ["plan-example.md", "--through-step", "1.0"],
       ["plan-example.md", "--count", "9007199254740992"],
+      ["plan-example.md", "--reset-cursor", "0"],
+      ["plan-example.md", "--reset-cursor", "01"],
+      ["plan-example.md", "--reset-cursor", "3", "--count", "1"],
+      ["plan-example.md", "--reset-cursor", "3", "--through-step", "4"],
+      ["reset-cursor", "plan-example.md", "--next-step", "3"],
     ]) {
       const fixture = commandFixture()
       const command = createPlanImplementationCommand(fixture.handlers)
