@@ -22,7 +22,7 @@ const REFACTOR_BACKLOG = path.resolve(
   REPO_EDU_ROOT,
   "..",
   "plan",
-  "notes",
+  "state",
   "refactor-backlog.tsv",
 )
 

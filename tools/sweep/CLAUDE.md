@@ -29,7 +29,7 @@ Both stay out of the source inventory.
 
 - `tools/sweep/skip-cache.tsv` is gitignored and holds ok verdicts, one row per
   `hash<TAB>path`.
-- `../plan/notes/refactor-backlog.tsv` is committed in the sibling plan repo and
+- `../plan/state/refactor-backlog.tsv` is committed in the sibling plan repo and
   holds flag verdicts, one row per
   `lines<TAB>path<TAB>reason<TAB>hash`. The line count and hash capture the file
   at flag time; `queue` reports its current line count.
