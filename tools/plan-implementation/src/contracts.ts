@@ -168,8 +168,20 @@ export const PLAN_IMPLEMENTATION_OUTCOMES = [
 export type PlanImplementationOutcome =
   (typeof PLAN_IMPLEMENTATION_OUTCOMES)[number]
 
-type FinalResultFields = {
+type RunCeilingField = {
+  /**
+   * The inclusive highest step number in the work range granted to this run.
+   *
+   * A number is a positive integer no greater than the plan's final step.
+   * `null` means preflight stopped before the runner granted a work range.
+   * This value reports the allowed range, not progress.
+   * It does not name the last started or committed step.
+   * An already complete plan uses its final step even though no work remains.
+   */
   readonly resolvedCeiling: number | null
+}
+
+type FinalResultFields = RunCeilingField & {
   readonly transcriptPath: string | null
 }
 
@@ -187,14 +199,14 @@ type EventFields = {
 }
 
 export type PlanImplementationEvent =
-  | (EventFields & {
-      readonly kind: "run-started"
-      readonly invocationId: string
-      readonly source: PlanSourceIdentity
-      readonly request: PlanImplementationRunRequest
-      readonly resolvedCeiling: number | null
-      readonly totalSteps: number
-    })
+  | (EventFields &
+      RunCeilingField & {
+        readonly kind: "run-started"
+        readonly invocationId: string
+        readonly source: PlanSourceIdentity
+        readonly request: PlanImplementationRunRequest
+        readonly totalSteps: number
+      })
   | (EventFields & {
       readonly kind: "step-started"
       readonly step: number
