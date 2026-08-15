@@ -52,7 +52,6 @@ describe("createNodeLlmTextClient", () => {
           ]),
           stderr: Readable.from([]),
           result: Promise.resolve({ exitCode: 0, signal: null }),
-          requestStop() {},
           async stopAndConfirm() {
             stopConfirmations++
           },
@@ -141,7 +140,6 @@ describe("createNodeLlmTextClient", () => {
             stdout,
             stderr,
             result,
-            requestStop() {},
             async stopAndConfirm() {
               stopConfirmations += 1
               if (!stdin.writableEnded) stdin.end()

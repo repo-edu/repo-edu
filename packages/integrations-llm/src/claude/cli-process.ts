@@ -8,7 +8,6 @@ export type ClaudeCliProcess = {
   readonly stdout: NodeJS.ReadableStream
   readonly stderr: NodeJS.ReadableStream
   readonly result: Promise<ClaudeCliProcessResult>
-  requestStop(): void
   stopAndConfirm(): Promise<void>
 }
 

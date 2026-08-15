@@ -195,7 +195,7 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     const tree = await launchTree(adapter, "tree-waits", marker)
     await waitForMarker(marker, /grandchild-tick/)
 
-    tree.requestStop()
+    await tree.stopAndConfirm()
     await tree.result
 
     await assertMarkerStable(marker)
@@ -276,7 +276,7 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
         process.kill(-(ids[0] ?? 0), 0)
       })
 
-      tree.requestStop()
+      await tree.stopAndConfirm()
       await tree.result
       const stopped = await readMarker(marker)
       assert.match(stopped, /parent-stopped/)

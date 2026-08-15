@@ -146,7 +146,7 @@ export type CodingRun = {
 }
 
 export type CodingAdapter = {
-  start(request: CodingRequest): Promise<CodingRun>
+  start(request: CodingRequest, signal?: AbortSignal): Promise<CodingRun>
 }
 
 export const PLAN_IMPLEMENTATION_PHASES = [

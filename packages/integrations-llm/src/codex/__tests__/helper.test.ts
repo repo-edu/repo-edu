@@ -110,7 +110,7 @@ describe("Codex managed helper", () => {
 
     assert.deepEqual(requests, ["ping"])
     assert.equal(harness.launchCount(), 1)
-    assert.equal(harness.stopCount(), 0)
+    assert.equal(harness.stopCount(), 1)
     assert.deepEqual(traces, ["trace-one"])
     assert.deepEqual(events, [
       { kind: "activity", label: "Contacting Codex." },
@@ -142,6 +142,46 @@ describe("Codex managed helper", () => {
         error.kind === "rate_limit" &&
         error.context.retryAfterMs === 5_000,
     )
+    assert.equal(harness.stopCount(), 1)
+  })
+
+  it("starts bounded stop after a known reply before waiting for process completion", {
+    timeout: 1_000,
+  }, async () => {
+    let stops = 0
+    const launch: CodexHelperLaunch = async () => {
+      const hostToHelper = new PassThrough()
+      const helperToHost = new PassThrough()
+      const stderr = new PassThrough()
+      const server = runCodexHelperServer(hostToHelper, helperToHost, {
+        run: async function* () {
+          yield { kind: "text-delta", text: "pong" }
+          yield { kind: "done", usage }
+        },
+      })
+      const terminal = Promise.withResolvers<{
+        exitCode: number
+        signal: null
+      }>()
+      return {
+        stdin: hostToHelper,
+        stdout: helperToHost,
+        stderr,
+        result: terminal.promise,
+        async stopAndConfirm() {
+          stops += 1
+          if (!hostToHelper.writableEnded) hostToHelper.end()
+          await server
+          terminal.resolve({ exitCode: 0, signal: null })
+        },
+      }
+    }
+    const client = createCodexLlmTextClient(undefined, { launch })
+
+    const result = await client.generateText(request(codexSpec))
+
+    assert.equal(result.reply, "pong")
+    assert.equal(stops, 1)
   })
 
   it("cancels the helper request and confirms its process tree", async () => {

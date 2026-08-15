@@ -1,5 +1,4 @@
 import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
-import type { CodingRun } from "./contracts.js"
 
 export type PlanImplementationOwnedChildren = Pick<
   ChildProcessLifetimeAdapter,
@@ -7,7 +6,6 @@ export type PlanImplementationOwnedChildren = Pick<
 >
 
 export type PlanImplementationRunLifetime = {
-  setActiveCodingRun(run: CodingRun | null): void
   stopAndConfirm(): Promise<void>
   dispose(): void
 }
@@ -17,7 +15,6 @@ export function createRunLifetime(options: {
   readonly ownedChildren: PlanImplementationOwnedChildren
   readonly stopRequested: (reason: string) => void
 }): PlanImplementationRunLifetime {
-  let activeCodingRun: CodingRun | null = null
   let childShutdown: Promise<void> | null = null
 
   const stopAndConfirm = (): Promise<void> => {
@@ -35,23 +32,12 @@ export function createRunLifetime(options: {
   }
   const requestStop = (): void => {
     options.stopRequested(requestedReason())
-    try {
-      activeCodingRun?.abort()
-    } finally {
-      void stopAndConfirm()
-    }
   }
 
   options.signal?.addEventListener("abort", requestStop, { once: true })
   if (options.signal?.aborted) requestStop()
 
   return {
-    setActiveCodingRun(run) {
-      activeCodingRun = run
-      if (run !== null && options.signal?.aborted) {
-        run.abort()
-      }
-    },
     stopAndConfirm,
     dispose() {
       options.signal?.removeEventListener("abort", requestStop)

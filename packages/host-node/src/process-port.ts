@@ -74,7 +74,6 @@ export function createNodeProcessPort(
           stderr: capturedStderr,
         }
       } catch (error) {
-        child.requestStop()
         try {
           await child.stopAndConfirm()
         } catch (cleanupError) {

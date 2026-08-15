@@ -72,10 +72,8 @@ function fakeLaunch(
         exitCode: fakeOptions.exitCode ?? 0,
         signal: fakeOptions.exitSignal ?? null,
       }),
-      requestStop() {
-        call.stopped = true
-      },
       async stopAndConfirm() {
+        call.stopped = true
         if (fakeOptions.stopAndConfirmError) {
           throw fakeOptions.stopAndConfirmError
         }

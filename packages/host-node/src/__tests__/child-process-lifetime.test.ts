@@ -3,6 +3,7 @@ import { once } from "node:events"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { PassThrough } from "node:stream"
 import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
@@ -152,6 +153,65 @@ describe("pending child-process launches", () => {
         (error) => error === cleanupFailure,
       )
       await launchRejected
+    } finally {
+      if (platformDescriptor) {
+        Object.defineProperty(process, "platform", platformDescriptor)
+      }
+    }
+  })
+})
+
+describe("child-process cancellation", () => {
+  it("starts bounded stop and holds the result until the tree is confirmed gone", async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "platform",
+    )
+    const terminal = Promise.withResolvers<{
+      exitCode: number | null
+      signal: string | null
+    }>()
+    let stopRequests = 0
+    let stopConfirmations = 0
+    const windows: ChildProcessLifetimePlatform = {
+      async launch(request) {
+        const input = new PassThrough()
+        const requestStop = () => {
+          stopRequests += 1
+          input.end()
+        }
+        return {
+          route: request.route,
+          stdin: input,
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          result: terminal.promise,
+          async stopAndConfirm() {
+            stopConfirmations += 1
+            requestStop()
+            terminal.resolve({ exitCode: 0, signal: null })
+          },
+        }
+      },
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...platformDescriptor,
+        value: "win32",
+      })
+      const controller = new AbortController()
+      const adapter = createChildProcessLifetimeAdapter({ windows })
+      const run = await adapter.launch({
+        command: "waiting-target",
+        route: "direct-adapter",
+        signal: controller.signal,
+      })
+
+      controller.abort()
+      assert.deepEqual(await run.result, { exitCode: 0, signal: null })
+      assert.equal(stopRequests, 1)
+      assert.equal(stopConfirmations, 1)
     } finally {
       if (platformDescriptor) {
         Object.defineProperty(process, "platform", platformDescriptor)

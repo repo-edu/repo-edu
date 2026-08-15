@@ -572,7 +572,6 @@ export async function launchAssignedTarget(
         stdout: requiredOutput(launcher.child),
         stderr: requiredErrorOutput(launcher.child),
         result,
-        requestStop: lifecycle.requestStop,
         stopAndConfirm: lifecycle.stopAndConfirm,
       },
     }

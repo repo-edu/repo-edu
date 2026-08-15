@@ -36,6 +36,7 @@ type CodingHelperProcess = {
 
 export type CodingHelperLaunch = (
   request: CodingRequest,
+  signal?: AbortSignal,
 ) => Promise<CodingHelperProcess>
 
 export class CodingHelperOutcomeUnknownError extends Error {
@@ -77,7 +78,7 @@ function mappedHelperError(error: unknown): Error {
 function defaultLaunch(
   childLifetime: ChildProcessLifetimeAdapter,
 ): CodingHelperLaunch {
-  return async (request) => {
+  return async (request, signal) => {
     const helper = createCodingHelperCommand()
     return await childLifetime.launch({
       command: helper.command,
@@ -86,6 +87,7 @@ function defaultLaunch(
       env: { ...process.env },
       route: "managed-helper",
       shell: false,
+      ...(signal === undefined ? {} : { signal }),
     })
   }
 }
@@ -93,6 +95,7 @@ function defaultLaunch(
 function createCodingRun(
   request: CodingRequest,
   helper: CodingHelperProcess,
+  signal?: AbortSignal,
 ): CodingRun {
   const errorOutput = readErrorOutputTail(helper.stderr)
   const connection = createMessageConnection(
@@ -102,12 +105,29 @@ function createCodingRun(
   )
   const events = new CodingEventQueue<CodingEvent>()
   const cancellation = new CancellationTokenSource()
+  let abortRequested = false
+  let helperStop: Promise<void> | null = null
+  const stopHelper = (): Promise<void> => {
+    helperStop ??= Promise.resolve().then(
+      async () => await helper.stopAndConfirm(),
+    )
+    void helperStop.catch(() => {
+      // The result path awaits the same promise and keeps the failure visible.
+    })
+    return helperStop
+  }
+  const abort = () => {
+    abortRequested = true
+    cancellation.cancel()
+    void stopHelper()
+  }
+  signal?.addEventListener("abort", abort, { once: true })
+  if (signal?.aborted) abort()
   let requestSettled = false
   const processState: {
     endedBeforeRequest: boolean
     error: unknown
-    result: CodingHelperProcessResult | null
-  } = { endedBeforeRequest: false, error: undefined, result: null }
+  } = { endedBeforeRequest: false, error: undefined }
 
   const eventSubscription = connection.onNotification(
     codingHelperEventNotification,
@@ -116,8 +136,7 @@ function createCodingRun(
   connection.listen()
 
   const helperCompletion = helper.result.then(
-    (processResult) => {
-      processState.result = processResult
+    () => {
       if (!requestSettled) {
         processState.endedBeforeRequest = true
         events.close()
@@ -150,9 +169,9 @@ function createCodingRun(
       try {
         codingResult = await requestCompletion
       } catch (error) {
-        await helper.stopAndConfirm()
+        await stopHelper()
         await helperCompletion
-        if (processState.endedBeforeRequest) {
+        if (processState.endedBeforeRequest && !abortRequested) {
           throw new CodingHelperOutcomeUnknownError(
             withErrorOutput(
               "The coding helper exited before its result was known.",
@@ -161,34 +180,17 @@ function createCodingRun(
             { cause: processState.error ?? error },
           )
         }
+        if (abortRequested) {
+          throw new DOMException("Coding was stopped.", "AbortError")
+        }
         throw mappedHelperError(error)
       }
 
+      await stopHelper()
       await helperCompletion
-      if (processState.error !== undefined) {
-        throw new CodingHelperOutcomeUnknownError(
-          withErrorOutput(
-            `The coding helper process failed: ${errorMessage(processState.error)}`,
-            errorOutput(),
-          ),
-          { cause: processState.error },
-        )
-      }
-      const processResult = processState.result
-      if (
-        processResult === null ||
-        processResult.exitCode !== 0 ||
-        processResult.signal !== null
-      ) {
-        throw new CodingHelperOutcomeUnknownError(
-          withErrorOutput(
-            `The coding helper outcome is unknown (${processResult?.exitCode ?? "no exit"}, ${processResult?.signal ?? "no signal"}).`,
-            errorOutput(),
-          ),
-        )
-      }
       return codingResult
     } finally {
+      signal?.removeEventListener("abort", abort)
       eventSubscription.dispose()
       connection.dispose()
       cancellation.dispose()
@@ -198,9 +200,7 @@ function createCodingRun(
   return {
     events,
     result,
-    abort() {
-      cancellation.cancel()
-    },
+    abort,
   }
 }
 
@@ -210,8 +210,8 @@ export function createCodingAdapter(
 ): CodingAdapter {
   const launch = options.launch ?? defaultLaunch(childLifetime)
   return {
-    async start(request) {
-      return createCodingRun(request, await launch(request))
+    async start(request, signal) {
+      return createCodingRun(request, await launch(request, signal), signal)
     },
   }
 }

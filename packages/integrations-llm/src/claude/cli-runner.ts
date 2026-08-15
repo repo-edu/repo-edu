@@ -134,7 +134,9 @@ export async function* runClaudeCliStream(
     destroyStream(child.stderr)
   }
   const terminateChild = () => {
-    child.requestStop()
+    void child.stopAndConfirm().catch(() => {
+      // The final awaited call keeps the cleanup failure observable.
+    })
     destroyChildStreams()
   }
   const abort = () => {
@@ -157,7 +159,9 @@ export async function* runClaudeCliStream(
       (error: unknown) => {
         if (abortRequested) return
         promptWriteError = error
-        child.requestStop()
+        void child.stopAndConfirm().catch(() => {
+          // The final awaited call keeps the cleanup failure observable.
+        })
       },
     )
 

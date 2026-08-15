@@ -86,7 +86,7 @@ describe("packaged Windows child-lifetime runtime", () => {
     })
 
     run.stdin.write("repo-edu")
-    run.requestStop()
+    await run.stopAndConfirm()
     assert.deepEqual(await run.result, { exitCode: 0, signal: null })
     await adapter.stopAndConfirm()
     assert.equal(output, "REPO-EDU")

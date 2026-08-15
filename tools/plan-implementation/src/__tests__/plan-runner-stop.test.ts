@@ -54,18 +54,21 @@ describe("runPlanImplementation stop paths", () => {
       },
       {
         coding: {
-          async start() {
+          async start(_request, signal) {
             await writeFile(join(repoEduRoot, "partial.txt"), "inspect me\n")
             codingStarted.resolve()
+            const abort = () => {
+              codingAborted = true
+              codingResult.reject(
+                new DOMException("Coding was stopped.", "AbortError"),
+              )
+            }
+            signal?.addEventListener("abort", abort, { once: true })
+            if (signal?.aborted) abort()
             return {
               events: (async function* () {})(),
               result: codingResult.promise,
-              abort() {
-                codingAborted = true
-                codingResult.reject(
-                  new DOMException("Coding was stopped.", "AbortError"),
-                )
-              },
+              abort,
             }
           },
         },
@@ -129,6 +132,18 @@ describe("runPlanImplementation stop paths", () => {
           async run(request) {
             commandCalls.push(request)
             checkStarted.resolve()
+            request.signal?.addEventListener(
+              "abort",
+              () => {
+                checkResult.resolve({
+                  exitCode: null,
+                  signal: "SIGTERM",
+                  stdout: "",
+                  stderr: "",
+                })
+              },
+              { once: true },
+            )
             return await checkResult.promise
           },
         },

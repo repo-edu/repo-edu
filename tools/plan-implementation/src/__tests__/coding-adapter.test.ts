@@ -39,9 +39,6 @@ function createLifetimeHarness(run: CodingHelperRun): {
         stdout: helperToHost,
         stderr,
         result: server.then(() => ({ exitCode: 0, signal: null })),
-        requestStop() {
-          if (!hostToHelper.writableEnded) hostToHelper.end()
-        },
         async stopAndConfirm() {
           stops += 1
           if (!hostToHelper.writableEnded) hostToHelper.end()
@@ -101,6 +98,7 @@ describe("runner-owned coding helper", () => {
       { kind: "narrative", text: "Codex changed one file." },
     ])
     assert.equal(harness.launches.length, 1)
+    assert.equal(harness.stopCount(), 1)
     assert.deepEqual(harness.launches[0], {
       command: process.execPath,
       args: createCodingHelperCommand().arguments,
@@ -109,6 +107,50 @@ describe("runner-owned coding helper", () => {
       route: "managed-helper",
       shell: false,
     })
+  })
+
+  it("starts bounded stop after a known result before waiting for process completion", {
+    timeout: 1_000,
+  }, async () => {
+    let stops = 0
+    const adapter: ChildProcessLifetimeAdapter = {
+      async launch(request) {
+        const hostToHelper = new PassThrough()
+        const helperToHost = new PassThrough()
+        const stderr = new PassThrough()
+        const server = runCodingHelperServer(hostToHelper, helperToHost, {
+          run: async () => ({
+            status: "succeeded",
+            commit: {
+              subject: "A1 redesign(plan-implementation): own helper shutdown",
+              decisionBullets: ["The adapter owns helper shutdown."],
+            },
+          }),
+        })
+        const terminal = Promise.withResolvers<{
+          exitCode: number
+          signal: null
+        }>()
+        return {
+          route: request.route,
+          stdin: hostToHelper,
+          stdout: helperToHost,
+          stderr,
+          result: terminal.promise,
+          async stopAndConfirm() {
+            stops += 1
+            if (!hostToHelper.writableEnded) hostToHelper.end()
+            await server
+            terminal.resolve({ exitCode: 0, signal: null })
+          },
+        }
+      },
+      async stopAndConfirm() {},
+    }
+    const run = await createCodingAdapter(adapter).start(testCodingRequest())
+
+    assert.equal((await run.result).status, "succeeded")
+    assert.equal(stops, 1)
   })
 
   it("cancels the helper request and confirms its owned process tree", async () => {
@@ -128,12 +170,14 @@ describe("runner-owned coding helper", () => {
       })
       throw new DOMException("cancelled", "AbortError")
     })
+    const controller = new AbortController()
     const run = await createCodingAdapter(harness.adapter).start(
       testCodingRequest(),
+      controller.signal,
     )
 
     await started.promise
-    run.abort()
+    controller.abort()
 
     await assert.rejects(
       run.result,
@@ -142,6 +186,7 @@ describe("runner-owned coding helper", () => {
     )
     assert.equal(observedAbort, true)
     assert.equal(harness.stopCount(), 1)
+    assert.equal(harness.launches[0]?.signal, controller.signal)
   })
 
   it("reports helper loss before a result as an unknown outcome", async () => {
@@ -167,7 +212,6 @@ describe("runner-owned coding helper", () => {
           stdout,
           stderr,
           result,
-          requestStop() {},
           async stopAndConfirm() {
             if (!stdin.writableEnded) stdin.end()
             await result

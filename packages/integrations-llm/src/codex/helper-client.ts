@@ -175,14 +175,6 @@ async function* runCodexHelperStream(
     failure: null,
     settled: false,
   }
-  const processState: {
-    error: unknown
-    result: CodexHelperProcessResult | null
-  } = {
-    error: undefined,
-    result: null,
-  }
-
   const eventSubscription = connection.onNotification(
     codexHelperEventNotification,
     (event) => events.push(event),
@@ -222,8 +214,7 @@ async function* runCodexHelperStream(
   }
 
   const processCompletion = helper.result.then(
-    (result) => {
-      processState.result = result
+    () => {
       if (!requestState.settled) {
         requestState.failure = {
           error: unknownOutcomeError(authMode, {
@@ -236,7 +227,6 @@ async function* runCodexHelperStream(
       }
     },
     (error: unknown) => {
-      processState.error = error
       if (!requestState.settled) {
         requestState.failure = {
           error: unknownOutcomeError(authMode, {
@@ -287,17 +277,8 @@ async function* runCodexHelperStream(
       await helper.stopAndConfirm()
       await waitForActiveWork(processCompletion)
     } else {
+      await waitForActiveWork(helper.stopAndConfirm())
       await waitForActiveWork(processCompletion)
-      if (processState.error !== undefined) {
-        throw unknownOutcomeError(authMode, {
-          cause: processState.error,
-          output: readHelperOutput(),
-        })
-      }
-      const result = processState.result
-      if (result === null || result.exitCode !== 0 || result.signal !== null) {
-        throw unknownOutcomeError(authMode, { output: readHelperOutput() })
-      }
     }
 
     if (requestState.failure !== null) {

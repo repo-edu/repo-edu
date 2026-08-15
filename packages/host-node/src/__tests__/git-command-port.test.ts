@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { Readable, Writable } from "node:stream"
+import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import type {
   ProcessPort,
@@ -9,7 +9,9 @@ import type {
 import type {
   ChildProcessLifetimeAdapter,
   ChildProcessLifetimeLaunch,
+  ChildProcessLifetimePlatform,
 } from "../child-process-lifetime.js"
+import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
 import { createNodeGitCommandPort, createNodeProcessPort } from "../index.js"
 
 describe("createNodeGitCommandPort", () => {
@@ -73,7 +75,6 @@ describe("createNodeGitCommandPort", () => {
           stdout: Readable.from(["git output"]),
           stderr: Readable.from([]),
           result: Promise.resolve({ exitCode: 0, signal: null }),
-          requestStop() {},
           async stopAndConfirm() {},
         }
       },
@@ -94,5 +95,68 @@ describe("createNodeGitCommandPort", () => {
     assert.equal(launches[0]?.route, "direct-adapter")
     assert.deepEqual(launches[0]?.args, ["status", "--short"])
     assert.equal(result.stdout, "git output")
+  })
+
+  it("settles process-port cancellation through the adapter's bounded stop", async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "platform",
+    )
+    const terminal = Promise.withResolvers<{
+      exitCode: null
+      signal: string
+    }>()
+    let stopConfirmations = 0
+    const windows: ChildProcessLifetimePlatform = {
+      async launch(request) {
+        const stdin = new PassThrough()
+        const stdout = new PassThrough()
+        const stderr = new PassThrough()
+        return {
+          route: request.route,
+          stdin,
+          stdout,
+          stderr,
+          result: terminal.promise,
+          async stopAndConfirm() {
+            stopConfirmations += 1
+            stdin.end()
+            stdout.end()
+            stderr.end()
+            terminal.resolve({ exitCode: null, signal: "SIGTERM" })
+          },
+        }
+      },
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...platformDescriptor,
+        value: "win32",
+      })
+      const controller = new AbortController()
+      const processPort = createNodeProcessPort(
+        createChildProcessLifetimeAdapter({ windows }),
+      )
+      const result = processPort.run({
+        command: "waiting-target",
+        args: [],
+        signal: controller.signal,
+      })
+
+      controller.abort()
+
+      assert.deepEqual(await result, {
+        exitCode: null,
+        signal: "SIGTERM",
+        stdout: "",
+        stderr: "",
+      })
+      assert.equal(stopConfirmations, 1)
+    } finally {
+      if (platformDescriptor) {
+        Object.defineProperty(process, "platform", platformDescriptor)
+      }
+    }
   })
 })

@@ -27,7 +27,6 @@ export type OwnedChildProcess = {
   readonly stdout: Readable
   readonly stderr: Readable
   readonly result: Promise<ChildProcessLifetimeResult>
-  requestStop(): void
   stopAndConfirm(): Promise<void>
 }
 
@@ -36,9 +35,7 @@ export type ChildProcessLifetimeAdapter = {
   stopAndConfirm(): Promise<void>
 }
 
-export type ChildProcessLifetimePlatformTree = OwnedChildProcess & {
-  stopAndConfirm(): Promise<void>
-}
+export type ChildProcessLifetimePlatformTree = OwnedChildProcess
 
 export type ChildProcessLifetimePlatform = {
   launch(
@@ -67,7 +64,7 @@ export function isPendingLaunchStoppedError(
 
 type RegisteredProcessTree = Pick<
   ChildProcessLifetimePlatformTree,
-  "requestStop" | "stopAndConfirm"
+  "stopAndConfirm"
 >
 
 type PendingProcessTree = {
@@ -282,7 +279,6 @@ const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
       stdout: child.stdout,
       stderr: child.stderr,
       result: holdResultUntilTreeIsGone(terminal, group),
-      requestStop: group.requestStop,
       async stopAndConfirm() {
         const [cleanup] = await Promise.allSettled([
           group.stopAndConfirm(),
@@ -354,18 +350,17 @@ export function createChildProcessLifetimeAdapter(
 
       const key = Symbol("owned-process-tree")
       const tree: RegisteredProcessTree = {
-        requestStop: platformTree.requestStop,
         stopAndConfirm: platformTree.stopAndConfirm,
       }
       activeTrees.set(key, tree)
 
       const onAbort = () => {
-        try {
-          tree.requestStop()
-        } catch {
-          // Cancellation stays a best-effort request. Stop-and-confirm keeps
-          // the observable cleanup failure for host shutdown.
-        }
+        void Promise.resolve()
+          .then(async () => await tree.stopAndConfirm())
+          .catch(() => {
+            // The result path and host shutdown retain the observable cleanup
+            // failure. This handler only starts the bounded stop operation.
+          })
       }
       request.signal?.addEventListener("abort", onAbort, { once: true })
       if (request.signal?.aborted || shutdown !== undefined) {
@@ -394,7 +389,6 @@ export function createChildProcessLifetimeAdapter(
         stdout: platformTree.stdout,
         stderr: platformTree.stderr,
         result: platformTree.result,
-        requestStop: tree.requestStop,
         stopAndConfirm: tree.stopAndConfirm,
       }
     },

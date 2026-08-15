@@ -3,7 +3,6 @@ import type {
   CodingAdapter,
   CodingEvent,
   CodingResult,
-  CodingRun,
   CommittedImplementationPlan,
   PlanImplementationFinalResult,
   PlanImplementationRunRequest,
@@ -187,19 +186,17 @@ async function runCodingStep(
   plan: CommittedImplementationPlan,
   step: number,
   progress: PlanImplementationRunProgress,
-  setActiveRun: (run: CodingRun | null) => void,
+  signal?: AbortSignal,
 ): Promise<CodingResult> {
-  const run = await coding.start({ repoEduRoot, plan, activeStep: step })
-  setActiveRun(run)
-  try {
-    const [result] = await Promise.all([
-      run.result,
-      drainCodingEvents(step, run.events, progress),
-    ])
-    return result
-  } finally {
-    setActiveRun(null)
-  }
+  const run = await coding.start(
+    { repoEduRoot, plan, activeStep: step },
+    signal,
+  )
+  const [result] = await Promise.all([
+    run.result,
+    drainCodingEvents(step, run.events, progress),
+  ])
+  return result
 }
 
 export async function runPlanImplementation(
@@ -397,7 +394,7 @@ export async function runPlanImplementation(
           plan,
           stepNumber,
           progress,
-          lifetime.setActiveCodingRun,
+          request.signal,
         )
         if (!isNewWorkAdmissionOpen(state)) {
           return finishRun(await finishStoppedRun())

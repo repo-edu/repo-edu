@@ -13,6 +13,7 @@ export type StepCommand = {
 
 export type StepCommandRequest = StepCommand & {
   readonly cwd: string
+  readonly signal?: AbortSignal
 }
 
 export type StepCommandResult = {
@@ -73,6 +74,7 @@ export function createStepCommandExecutor(
         env: { ...process.env },
         route: "direct-adapter",
         shell: false,
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
       })
       child.stdin.end()
       const [result, stdout, stderr] = await Promise.all([
@@ -95,7 +97,11 @@ async function runRequiredCommand(
   observer.commandStarted(command)
   let result: StepCommandResult
   try {
-    result = await executor.run({ ...command, cwd: repoEduRoot })
+    result = await executor.run({
+      ...command,
+      cwd: repoEduRoot,
+      ...(stopSignal === undefined ? {} : { signal: stopSignal }),
+    })
   } catch (error) {
     observer.commandFinished(
       command,

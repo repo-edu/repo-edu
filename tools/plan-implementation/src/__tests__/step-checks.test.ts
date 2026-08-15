@@ -115,19 +115,20 @@ describe("step checks", () => {
           stdout: Readable.from(["standard output"]),
           stderr: Readable.from([]),
           result: Promise.resolve({ exitCode: 0, signal: null }),
-          requestStop() {},
           async stopAndConfirm() {},
         }
       },
       async stopAndConfirm() {},
     }
 
+    const controller = new AbortController()
     const result = await createStepCommandExecutor(childLifetime).run({
       id: "proof",
       label: "Proof",
       program: "proof-program",
       arguments: ["one", "two words"],
       cwd: "/repo-edu",
+      signal: controller.signal,
     })
 
     assert.equal(result.stdout, "standard output")
@@ -139,6 +140,7 @@ describe("step checks", () => {
         env: { ...process.env },
         route: "direct-adapter",
         shell: false,
+        signal: controller.signal,
       },
     ])
   })
