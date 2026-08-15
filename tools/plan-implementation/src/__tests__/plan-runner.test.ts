@@ -63,7 +63,7 @@ describe("runPlanImplementation", () => {
 
     assert.equal(result.mode, "complete")
     assert.equal(result.resolvedCeiling, 2)
-    assert.match(result.transcriptPath ?? "", /\.jsonl$/)
+    assert.match(result.transcriptPath, /\.jsonl$/)
     assert.equal(result.outcome, "completed")
     assert.deepEqual(codingSteps, [1, 2])
     assert.deepEqual(
@@ -89,7 +89,7 @@ describe("runPlanImplementation", () => {
       ).stdout.match(/Plan-Step: [12]/g),
       ["Plan-Step: 2", "Plan-Step: 1"],
     )
-    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+    const events = (await readFile(result.transcriptPath, "utf8"))
       .trimEnd()
       .split("\n")
       .map((line) => JSON.parse(line) as PlanImplementationEvent)
@@ -151,7 +151,7 @@ describe("runPlanImplementation", () => {
     assert.equal(result.outcome, "stopped")
     assert.equal(result.resolvedCeiling, null)
     assert.equal(codingStarted, false)
-    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+    const events = (await readFile(result.transcriptPath, "utf8"))
       .trimEnd()
       .split("\n")
       .map((line) => JSON.parse(line) as PlanImplementationEvent)
@@ -190,7 +190,7 @@ describe("runPlanImplementation", () => {
       result.outcome === "stopped" ? result.reason : "",
       /requires no staged, unstaged or untracked files/,
     )
-    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+    const events = (await readFile(result.transcriptPath, "utf8"))
       .trimEnd()
       .split("\n")
       .map((line) => JSON.parse(line) as PlanImplementationEvent)

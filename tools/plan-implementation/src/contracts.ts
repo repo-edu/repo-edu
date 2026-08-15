@@ -182,7 +182,14 @@ type RunCeilingField = {
 }
 
 type FinalResultFields = RunCeilingField & {
-  readonly transcriptPath: string | null
+  /**
+   * The absolute path of this run's JSON Lines transcript.
+   *
+   * Every run that produces a final result has already opened its transcript,
+   * so this path is always present. A command-input error and the cursor-reset
+   * action report their result directly and produce no final result at all.
+   */
+  readonly transcriptPath: string
 }
 
 type FinalOutcome =

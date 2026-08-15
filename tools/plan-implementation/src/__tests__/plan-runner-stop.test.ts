@@ -166,7 +166,7 @@ describe("runPlanImplementation stop paths", () => {
       (await git(repoEduRoot, ["status", "--porcelain"])).stdout,
       /step-1\.txt/,
     )
-    const events = (await readFile(result.transcriptPath ?? "", "utf8"))
+    const events = (await readFile(result.transcriptPath, "utf8"))
       .trimEnd()
       .split("\n")
       .map((line) => JSON.parse(line) as PlanImplementationEvent)

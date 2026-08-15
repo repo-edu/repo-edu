@@ -28,7 +28,6 @@ afterEach(cleanupTestRepositories)
 async function readTranscript(
   result: PlanImplementationFinalResult,
 ): Promise<readonly PlanImplementationEvent[]> {
-  assert.ok(result.transcriptPath)
   return (await readFile(result.transcriptPath, "utf8"))
     .trimEnd()
     .split("\n")

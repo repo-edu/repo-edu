@@ -201,10 +201,7 @@ export function createTerminalView(
         ? ` — ${result.reason.replace(/\.$/, "")}`
         : ""
     const total = ` Total ${formatDuration(elapsedMs(event))}.`
-    const transcript = result.transcriptPath
-      ? ` Transcript: ${result.transcriptPath}`
-      : ""
-    return `${base}${reason}.${total}${transcript}`
+    return `${base}${reason}.${total} Transcript: ${result.transcriptPath}`
   }
 
   return {

@@ -533,9 +533,12 @@ export async function runPlanImplementation(
       ),
     )
   } finally {
-    lifetime.dispose()
-    await lifetime.stopAndConfirm()
-    releaseAdmission?.()
-    progress.close()
+    try {
+      lifetime.dispose()
+      await lifetime.stopAndConfirm()
+      releaseAdmission?.()
+    } finally {
+      progress.close()
+    }
   }
 }
