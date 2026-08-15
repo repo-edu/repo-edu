@@ -11,16 +11,26 @@ Follow this repo's `CLAUDE.md` throughout the audit. This workflow audits
 implementation code. Planning artifact audits belong to the sibling plan
 repo's own audit workflow.
 
+Before any audit work, read the named file for the plan-repo artifacts this
+workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
+a `draft-<topic>.md` or a `carry-<topic>.md`. Each is a planning artifact, so
+naming one means the round was meant for the plan repo's own audit. Name the
+file, say the round belongs there and stop. Continue only when the user
+explicitly says to.
+
 ## Ready gate
 
 Before any audit work, run the stem scan in `../plan`: `git log --oneline`
-filtered to subjects starting with `<file-stem>/`. The gate passes while the
-plan's newest standing marker is `<file-stem>/ready:` or
-`<file-stem>/implemented:`, read by the plan repo's recognition rule: empty
-stem commits, the markers and the `clean:` records never void a marker, while
-any file-changing stem commit after a marker voids it. When the gate fails,
-name the newest stem commit, state that the plan is not in a ready or
-implemented state and stop. Continue only when the user explicitly says to.
+filtered to subjects starting with `<file-stem>/`. The gate passes when the
+scan holds a `<file-stem>/implemented:` marker, or a standing
+`<file-stem>/ready:` one, read by the plan repo's recognition rule: a
+file-changing stem commit voids a standing `ready:`, while the
+`implemented:` marker records what held at the sibling commit its body names
+and no later plan commit withdraws it. A plan correction this audit's own
+feedback produced therefore never blocks the next round. When the gate fails,
+name the newest stem commit, state that the plan reached neither a ready nor
+an implemented state and stop. Continue only when the user explicitly says
+to.
 
 ## Round strategy
 
@@ -147,8 +157,10 @@ classifying every row. A round that finds nothing is not required. Prior audit
 commits inform those rounds, ranking their reports and naming the fixes to
 re-verify. They never excuse a row from inspection.
 
-The closing round expects `<file-stem>/implemented:` as the newest stem commit.
-When it is missing, name that once and continue on the user's word. The round
+The closing round expects a `<file-stem>/implemented:` marker in the stem
+scan. A later plan commit does not unseat it, so a plan correction earlier
+rounds fed back leaves the marker standing. When the marker is missing, name
+that once and continue on the user's word. The round
 closes with its own single commit under the one-round-one-commit rule above: a
 fix commit when its accepted findings changed files, the empty record commit
 otherwise. It lands no further status commit here. The status is recorded once,
@@ -167,7 +179,8 @@ word.
 
 ## Report order
 
-Open by naming the plan file, its ready commit, the episode's commit range and
+Open by naming the workflow that ran, an implementation audit in this Repo Edu
+repo, then the plan file, its ready commit, the episode's commit range and
 the round's scope: complete, or the audited step range. Then report the
 coverage table with its coverage line, the tiered findings and the plan
 feedback. Stop there.
