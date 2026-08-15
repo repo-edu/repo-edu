@@ -23,6 +23,11 @@ session. Skip its confirm-and-wait step: continue directly with the audit.
 Read the text after `$audit` as a plan file and an optional implementation-step
 range. When no plan is named, ask which plan to audit and wait.
 
+Apply the Claude command's archive evidence rule. When the plan is under
+`../plan/archive/<name>/`, read `README.md` in the same folder first when it
+exists. Treat its later outcomes under the command's deviation rules when
+judging the frozen plan.
+
 Run one read-only implementation-audit round by following
 `.claude/commands/audit.md` and this repo's `CLAUDE.md`. Apply the command's
 ready gate, first-round strategy gate, evidence scope, coverage table,

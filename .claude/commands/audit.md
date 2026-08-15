@@ -70,9 +70,13 @@ Scope the implementation episode the way the watch does. Anchor on the
 earliest commit whose `Plan: <name>` first body line names this plan, where
 `<name>` is the file stem with the `plan-` prefix dropped. Walk from that
 anchor to HEAD, including every commit that carries the same `Plan:` line or
-touches the same files. Read the plan end to end, and read the final state
-of the code the episode touched. `pnpm check` and `pnpm test` may run as
-read-only evidence.
+touches the same files. When the plan is under
+`../plan/archive/<name>/`, first read `README.md` in the same folder when it
+exists. It records later outcomes that the frozen plan cannot carry. Treat a
+recorded correct departure under the deviation rules below, not as a strict
+conformance failure. Read the plan end to end, and read the final state of the
+code the episode touched. `pnpm check` and `pnpm test` may run as read-only
+evidence.
 
 ## Coverage
 
