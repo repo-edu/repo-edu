@@ -118,16 +118,21 @@ never edits plan files.
 
 Scoped rounds never close the plan, even when their ranges tile every step.
 Each scoped verdict describes the HEAD it ran on, and later steps age it. The
-proof that the plan is implemented is one complete round on the finished code
-whose table is clean. Prior audit commits inform that round, ranking its report
-and naming the fixes to re-verify. They never excuse a row from inspection.
+proof that the plan is implemented is complete rounds on the finished code
+whose severity has stabilised at C or below with no new A, each round's table
+classifying every row. A round that finds nothing is not required. Prior audit
+commits inform those rounds, ranking their reports and naming the fixes to
+re-verify. They never excuse a row from inspection.
 
 The closing round expects `<file-stem>/implemented:` as the newest stem commit.
-When it is missing, name that once and continue on the user's word. When the
-closing round's table is clean and the user accepts it, land the round's record
-commit here, then the `<file-stem>/implementation-audited:` marker commit in
-`../plan`. The marker is severity-free. Its body names the HEAD this round
-inspected and compiles the audit round history from this repo's audit commits.
+When it is missing, name that once and continue on the user's word. The round
+closes with its own single commit under the one-round-one-commit rule above: a
+fix commit when its accepted findings changed files, the empty record commit
+otherwise. It lands no further status commit here. The status is recorded once,
+in `../plan`, by the `<file-stem>/implementation-audited:` marker this session
+writes there on the user's word. The marker is severity-free. Its body names
+the HEAD the closing round inspected and compiles the audit round history from
+this repo's audit commits.
 The closing round is advice, not a gate. When asked to treat the implementation
 as done without one, name the missing round once and continue on the user's
 word.
