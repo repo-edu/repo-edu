@@ -1,4 +1,4 @@
-export const windowsLauncherProtocolVersion = 1
+export const windowsLauncherProtocolVersion = 2
 
 export type WindowsChildLifetimeTarget = {
   readonly command: string
@@ -19,6 +19,12 @@ export type WindowsLauncherStartedMessage = {
   readonly kind: "started"
 }
 
+export type WindowsLauncherExitedMessage = {
+  readonly kind: "exited"
+  readonly exitCode: number | null
+  readonly signal: string | null
+}
+
 export type WindowsLauncherTerminalMessage = {
   readonly kind: "terminal"
   readonly exitCode: number | null
@@ -33,6 +39,7 @@ export type WindowsLauncherFailureMessage = {
 export type WindowsLauncherMessage =
   | WindowsLauncherReadyMessage
   | WindowsLauncherStartedMessage
+  | WindowsLauncherExitedMessage
   | WindowsLauncherTerminalMessage
   | WindowsLauncherFailureMessage
 
@@ -81,7 +88,7 @@ export function parseWindowsLauncherMessage(
   if (value.kind === "started") {
     return value as WindowsLauncherStartedMessage
   }
-  if (value.kind === "terminal") {
+  if (value.kind === "exited" || value.kind === "terminal") {
     if (
       !(
         value.exitCode === null ||
@@ -91,10 +98,12 @@ export function parseWindowsLauncherMessage(
       !(value.signal === null || typeof value.signal === "string")
     ) {
       throw new Error(
-        "The Windows launcher reported an invalid terminal state.",
+        `The Windows launcher reported an invalid ${value.kind} state.`,
       )
     }
-    return value as WindowsLauncherTerminalMessage
+    return value as
+      | WindowsLauncherExitedMessage
+      | WindowsLauncherTerminalMessage
   }
   if (value.kind === "failure" && typeof value.message === "string") {
     return value as WindowsLauncherFailureMessage

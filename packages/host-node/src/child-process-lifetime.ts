@@ -186,27 +186,43 @@ function createProcessGroup(processGroupId: number): ProcessGroup {
   }
 }
 
-function waitForTerminalResult(
+type ChildProcessTerminal = {
+  readonly outcome: Promise<ChildProcessLifetimeResult>
+  readonly streamsClosed: Promise<void>
+}
+
+function observeTerminalResult(
   child: ChildProcessWithoutNullStreams,
-): Promise<ChildProcessLifetimeResult> {
-  return new Promise((resolve, reject) => {
-    child.once("error", reject)
-    child.once("close", (exitCode, signal) => {
+): ChildProcessTerminal {
+  const outcome = new Promise<ChildProcessLifetimeResult>((resolve, reject) => {
+    let settled = false
+    child.once("error", (error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    })
+    child.once("exit", (exitCode, signal) => {
+      if (settled) return
+      settled = true
       resolve({ exitCode, signal })
     })
   })
+  const streamsClosed = new Promise<void>((resolve) => {
+    child.once("close", () => resolve())
+  })
+  return { outcome, streamsClosed }
 }
 
 async function holdResultUntilTreeIsGone(
-  terminal: Promise<ChildProcessLifetimeResult>,
+  terminal: ChildProcessTerminal,
   group: ProcessGroup,
 ): Promise<ChildProcessLifetimeResult> {
   let result: ChildProcessLifetimeResult
   try {
-    result = await terminal
+    result = await terminal.outcome
   } catch (error) {
     try {
-      await group.stopAndConfirm()
+      await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
     } catch (cleanupError) {
       throw new AggregateError(
         [error, cleanupError],
@@ -216,7 +232,7 @@ async function holdResultUntilTreeIsGone(
     throw error
   }
 
-  await group.stopAndConfirm()
+  await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
   return result
 }
 
@@ -269,20 +285,21 @@ const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
       stdio: "pipe",
     })
 
-    const terminal = waitForTerminalResult(child)
+    const terminal = observeTerminalResult(child)
     const group =
       child.pid === undefined ? noProcessGroup : createProcessGroup(child.pid)
+    const result = holdResultUntilTreeIsGone(terminal, group)
 
     return {
       route: request.route,
       stdin: child.stdin,
       stdout: child.stdout,
       stderr: child.stderr,
-      result: holdResultUntilTreeIsGone(terminal, group),
+      result,
       async stopAndConfirm() {
         const [cleanup] = await Promise.allSettled([
           group.stopAndConfirm(),
-          terminal,
+          result,
         ])
         if (cleanup.status === "rejected") {
           throw cleanup.reason

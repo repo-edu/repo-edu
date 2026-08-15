@@ -40,7 +40,7 @@ if (mode === "readiness") {
     exitWhenTargetInputCloses()
   })
   controlOutput.write(
-    `${JSON.stringify({ kind: "ready", protocolVersion: 1, runtime: "node" })}\n`,
+    `${JSON.stringify({ kind: "ready", protocolVersion: 2, runtime: "node" })}\n`,
   )
 } else {
   throw new Error(`Unknown stalled Windows launcher mode: ${mode}`)

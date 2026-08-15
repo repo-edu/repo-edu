@@ -48,7 +48,12 @@ if (
   const grandchild = spawn(
     process.execPath,
     [__filename, descendantMode, markerPath],
-    { stdio: ["ignore", "ignore", "ignore", "ipc"] },
+    {
+      stdio:
+        mode === "parent-exits-inherited-output"
+          ? ["ignore", "inherit", "inherit", "ipc"]
+          : ["ignore", "ignore", "ignore", "ipc"],
+    },
   )
   grandchild.once("message", () => {
     if (mode === "sdk-child") {
@@ -56,11 +61,18 @@ if (
     }
     if (
       mode === "parent-exits" ||
+      mode === "parent-exits-inherited-output" ||
       mode === "managed-helper-exits" ||
       mode === "tree-completes"
     ) {
       process.exit(
-        mode === "parent-exits" ? 23 : mode === "managed-helper-exits" ? 24 : 0,
+        mode === "parent-exits"
+          ? 23
+          : mode === "parent-exits-inherited-output"
+            ? 25
+            : mode === "managed-helper-exits"
+              ? 24
+              : 0,
       )
     }
     if (mode === "tree-waits" || mode === "managed-helper-tree-waits") {

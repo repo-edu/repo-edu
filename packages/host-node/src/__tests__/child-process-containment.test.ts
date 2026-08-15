@@ -49,13 +49,13 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
-async function completeWithin(
-  promise: Promise<void>,
+async function valueWithin<T>(
+  promise: Promise<T>,
   durationMs: number,
-): Promise<void> {
+): Promise<T> {
   let timeout: NodeJS.Timeout | undefined
   try {
-    await Promise.race([
+    return await Promise.race([
       promise,
       new Promise<never>((_resolve, reject) => {
         timeout = setTimeout(() => {
@@ -68,6 +68,13 @@ async function completeWithin(
       clearTimeout(timeout)
     }
   }
+}
+
+async function completeWithin(
+  promise: Promise<void>,
+  durationMs: number,
+): Promise<void> {
+  await valueWithin(promise, durationMs)
 }
 
 function restoreEnvironmentVariable(
@@ -183,6 +190,32 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     const tree = await launchTree(adapter, "tree-completes", marker)
 
     assert.deepEqual(await tree.result, { exitCode: 0, signal: null })
+    await assertMarkerStable(marker)
+  })
+
+  it("stops an outliving descendant that inherits target output", async (context) => {
+    const marker = await markerPath("inherited-output.txt")
+    const adapter = createAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+
+    const tree = await launchTree(
+      adapter,
+      "parent-exits-inherited-output",
+      marker,
+    )
+    const result = await valueWithin(
+      tree.result,
+      childProcessStopGracePeriodMs + 2_000,
+    )
+    const stopped = await readMarker(marker)
+
+    assert.deepEqual(result, { exitCode: 25, signal: null })
+    assert.match(stopped, /grandchild-started/)
+    if (supportsProcessGroups) {
+      assert.match(stopped, /grandchild-stopped/)
+    }
     await assertMarkerStable(marker)
   })
 

@@ -58,11 +58,17 @@ export type WindowsLauncherReadinessEvidence = WindowsChildLifetimeEvidence & {
 type LauncherExit = {
   readonly code: number | null
   readonly error?: Error
+  readonly forcedByCleanup: boolean
   readonly signal: NodeJS.Signals | null
+}
+
+type LauncherCleanupState = {
+  forceStarted: boolean
 }
 
 type AssignedLauncher = {
   readonly child: ChildProcess
+  readonly cleanupState: LauncherCleanupState
   readonly controlInput: Writable
   readonly controlLines: AsyncIterator<string>
   readonly evidence: WindowsChildLifetimeEvidence
@@ -169,7 +175,10 @@ function requiredControlOutput(child: ChildProcess): Readable {
   return stream
 }
 
-function waitForExit(child: ChildProcess): Promise<LauncherExit> {
+function waitForExit(
+  child: ChildProcess,
+  cleanupState: LauncherCleanupState,
+): Promise<LauncherExit> {
   return new Promise((resolve) => {
     let settled = false
     child.once("error", (error) => {
@@ -177,14 +186,23 @@ function waitForExit(child: ChildProcess): Promise<LauncherExit> {
         return
       }
       settled = true
-      resolve({ code: null, error, signal: null })
+      resolve({
+        code: null,
+        error,
+        forcedByCleanup: cleanupState.forceStarted,
+        signal: null,
+      })
     })
     child.once("close", (code, signal) => {
       if (settled) {
         return
       }
       settled = true
-      resolve({ code, signal })
+      resolve({
+        code,
+        forcedByCleanup: cleanupState.forceStarted,
+        signal,
+      })
     })
   })
 }
@@ -270,6 +288,7 @@ async function startAssignedLauncher(
   }
 
   const job = await createWindowsKillOnCloseJob()
+  const cleanupState: LauncherCleanupState = { forceStarted: false }
   let child: ChildProcess | null = null
   let controlInput: Writable | null = null
   let identity: SavedWindowsProcessIdentity | null = null
@@ -285,7 +304,7 @@ async function startAssignedLauncher(
       stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
       windowsHide: true,
     })
-    exit = waitForExit(child)
+    exit = waitForExit(child, cleanupState)
     requiredInput(child)
     requiredOutput(child)
     requiredErrorOutput(child)
@@ -332,6 +351,7 @@ async function startAssignedLauncher(
     let resourcesClosed = false
     return {
       child,
+      cleanupState,
       controlInput: assignedControlInput,
       controlLines: iterator,
       evidence: {
@@ -441,6 +461,7 @@ function createStopAndConfirm(launcher: AssignedLauncher): {
             (Date.now() - (gracefulStopStartedAt ?? Date.now())),
         )
         if (!(await waitForJobExit(launcher.job, remainingGraceMs))) {
+          launcher.cleanupState.forceStarted = true
           launcher.job.terminate(forcedJobExitCode)
           await waitForJobExit(launcher.job)
         }
@@ -474,30 +495,71 @@ async function monitorTerminalResult(
   stopAndConfirm: () => Promise<void>,
 ): Promise<ChildProcessLifetimeResult> {
   try {
-    const terminal = await readLauncherMessage(launcher, "terminal result")
-    if (terminal.kind === "failure") {
-      throw new Error(`The Windows launcher failed: ${terminal.message}`)
+    const exited = await readLauncherMessage(launcher, "target exit")
+    if (exited.kind === "failure") {
+      throw new Error(`The Windows launcher failed: ${exited.message}`)
     }
-    if (terminal.kind !== "terminal") {
+    if (exited.kind !== "exited") {
       throw new Error(
-        `The Windows launcher reported ${terminal.kind} instead of a terminal result.`,
+        `The Windows launcher reported ${exited.kind} instead of a target exit.`,
       )
     }
 
+    const terminalReport = readLauncherMessage(
+      launcher,
+      "stream completion",
+    ).then(
+      (message) => ({ status: "fulfilled", message }) as const,
+      (error: unknown) =>
+        ({
+          status: "rejected",
+          error,
+          forcedByCleanup: launcher.cleanupState.forceStarted,
+        }) as const,
+    )
+
+    await stopAndConfirm()
     const launcherExit = await withTimeout(
       launcher.exit,
       "Windows launcher terminal exit",
     )
-    if (launcherExit.code !== 0 || launcherExit.signal !== null) {
+    const terminal = await terminalReport
+
+    if (terminal.status === "fulfilled") {
+      if (terminal.message.kind === "failure") {
+        throw new Error(
+          `The Windows launcher failed: ${terminal.message.message}`,
+        )
+      }
+      if (terminal.message.kind !== "terminal") {
+        throw new Error(
+          `The Windows launcher reported ${terminal.message.kind} instead of stream completion.`,
+        )
+      }
+      if (
+        terminal.message.exitCode !== exited.exitCode ||
+        terminal.message.signal !== exited.signal
+      ) {
+        throw new Error(
+          "The Windows launcher changed the target result after its output streams closed.",
+        )
+      }
+    } else if (!terminal.forcedByCleanup) {
+      throw terminal.error
+    }
+
+    if (
+      !launcherExit.forcedByCleanup &&
+      (launcherExit.code !== 0 || launcherExit.signal !== null)
+    ) {
       throw new Error(
         `The Windows launcher failed after its target: ${formatLauncherExit(launcherExit)}`,
       )
     }
 
-    await stopAndConfirm()
     return {
-      exitCode: terminal.exitCode,
-      signal: terminal.signal,
+      exitCode: exited.exitCode,
+      signal: exited.signal,
     }
   } catch (error) {
     return await unknownAfterTargetAdmission(error, stopAndConfirm)

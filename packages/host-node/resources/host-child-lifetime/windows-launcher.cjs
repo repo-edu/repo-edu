@@ -2,7 +2,7 @@ const { spawn } = require("node:child_process")
 const { createReadStream, createWriteStream } = require("node:fs")
 const { createInterface } = require("node:readline")
 
-const protocolVersion = 1
+const protocolVersion = 2
 const controlInput = createReadStream(null, { fd: 3, autoClose: false })
 const controlOutput = createWriteStream(null, { fd: 4, autoClose: false })
 const controlLines = createInterface({
@@ -79,29 +79,57 @@ function launchTarget(target) {
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   })
+  let targetSettled = false
+  let exited
+  let exitReported = false
+  let openOutputStreams = 2
   let terminalReported = false
+
+  function maybeReportTerminal() {
+    if (
+      !exited ||
+      !exitReported ||
+      openOutputStreams !== 0 ||
+      terminalReported
+    ) {
+      return
+    }
+    terminalReported = true
+    writeControl({ kind: "terminal", ...exited }, () => {
+      finish(0)
+    })
+  }
+
+  function outputStreamClosed() {
+    openOutputStreams -= 1
+    maybeReportTerminal()
+  }
 
   process.stdin.pipe(child.stdin)
   child.stdout.pipe(process.stdout, { end: false })
   child.stderr.pipe(process.stderr, { end: false })
+  child.stdout.once("close", outputStreamClosed)
+  child.stderr.once("close", outputStreamClosed)
 
   child.once("error", (error) => {
-    if (terminalReported) {
+    if (targetSettled) {
       return
     }
-    terminalReported = true
+    targetSettled = true
     fail(error)
   })
   child.once("spawn", () => {
     writeControl({ kind: "started" })
   })
-  child.once("close", (exitCode, signal) => {
-    if (terminalReported) {
+  child.once("exit", (exitCode, signal) => {
+    if (targetSettled) {
       return
     }
-    terminalReported = true
-    writeControl({ kind: "terminal", exitCode, signal }, () => {
-      finish(0)
+    targetSettled = true
+    exited = { exitCode, signal }
+    writeControl({ kind: "exited", ...exited }, () => {
+      exitReported = true
+      maybeReportTerminal()
     })
   })
 }

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict"
+import { spawn } from "node:child_process"
+import { once } from "node:events"
 import { access } from "node:fs/promises"
+import { createInterface } from "node:readline"
+import type { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { resolveWindowsChildLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
@@ -9,6 +13,12 @@ import {
   parseWindowsLauncherMessage,
   windowsLauncherProtocolVersion,
 } from "../windows-launcher-protocol.js"
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs)
+  })
+}
 
 describe("Windows launcher protocol", () => {
   it("resolves the fixed launcher from the host-node package", async () => {
@@ -85,10 +95,16 @@ describe("Windows launcher protocol", () => {
     }
   })
 
-  it("accepts started and terminal messages but rejects invalid readiness", () => {
+  it("accepts started, exited, and terminal messages but rejects invalid readiness", () => {
     assert.deepEqual(parseWindowsLauncherMessage('{"kind":"started"}'), {
       kind: "started",
     })
+    assert.deepEqual(
+      parseWindowsLauncherMessage(
+        '{"kind":"exited","exitCode":7,"signal":null}',
+      ),
+      { kind: "exited", exitCode: 7, signal: null },
+    )
     assert.deepEqual(
       parseWindowsLauncherMessage(
         '{"kind":"terminal","exitCode":7,"signal":null}',
@@ -102,5 +118,72 @@ describe("Windows launcher protocol", () => {
         ),
       /invalid ready state/,
     )
+  })
+
+  it("reports target exit before inherited output pipes close", {
+    timeout: 5_000,
+  }, async (context) => {
+    const launcher = spawn(
+      process.execPath,
+      [fileURLToPath(resolveWindowsChildLifetimeLauncherEntryUrl())],
+      { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
+    )
+    context.after(() => {
+      if (launcher.exitCode === null && launcher.signalCode === null) {
+        launcher.kill()
+      }
+    })
+    launcher.stdout?.resume()
+    launcher.stderr?.resume()
+
+    const commandInput = launcher.stdio[3] as Writable
+    const controlOutput = launcher.stdio[4] as Readable
+    const controlLines = createInterface({
+      input: controlOutput,
+      crlfDelay: Infinity,
+    })[Symbol.asyncIterator]()
+    const launcherClosed = once(launcher, "close")
+    const nextMessage = async () => {
+      const next = await controlLines.next()
+      assert.equal(next.done, false)
+      return parseWindowsLauncherMessage(next.value)
+    }
+
+    assert.equal((await nextMessage()).kind, "ready")
+    const descendant = "setTimeout(() => {}, 1000)"
+    const target = [
+      'const { spawn } = require("node:child_process")',
+      `spawn(process.execPath, ["-e", ${JSON.stringify(descendant)}], { stdio: ["ignore", "inherit", "inherit"] })`,
+      "process.exit(27)",
+    ].join("; ")
+    commandInput.end(
+      `${JSON.stringify(
+        createWindowsLaunchCommand({
+          command: process.execPath,
+          args: ["-e", target],
+        }),
+      )}\n`,
+    )
+    launcher.stdin?.end()
+
+    assert.equal((await nextMessage()).kind, "started")
+    assert.deepEqual(await nextMessage(), {
+      kind: "exited",
+      exitCode: 27,
+      signal: null,
+    })
+    assert.equal(
+      await Promise.race([
+        launcherClosed.then(() => true),
+        delay(100).then(() => false),
+      ]),
+      false,
+    )
+    assert.deepEqual(await nextMessage(), {
+      kind: "terminal",
+      exitCode: 27,
+      signal: null,
+    })
+    assert.deepEqual(await launcherClosed, [0, null])
   })
 })
