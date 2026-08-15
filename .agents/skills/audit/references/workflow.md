@@ -148,6 +148,43 @@ Grade each finding with the [A]-[D] implementation tiers in this repo's
 finding's root cause is the plan itself, say so in the finding and carry the
 plan-side correction into the plan corrections below.
 
+## Finding shape
+
+State the required correction first, even when the evidence behind it is
+subtle. The reader should see what to do before they have to decode anything.
+Each finding then gives its evidence and, at tiers A to C, its failure trace. A
+D-tier finding derives the trace to grade itself and leaves it out of the
+report, because D is the floor and there is nothing below to check against.
+
+The trace starts on its own line prefixed `Failure trace:`, never run into the
+end of the finding's prose, so the correction and the trace read as separate
+parts. It carries up to two short sentences.
+
+- What goes wrong. The wrong behaviour the shipped code produces. Always
+  written.
+- How rare. The condition that has to hold before that behaviour appears.
+  Written only when the situation is rare.
+
+Silence on the second sentence means the situation arises in ordinary use. So a
+fault the user meets normally carries the first sentence alone, and the reader
+may take a one-sentence trace as a common fault rather than a forgotten rating.
+
+Do not restate how serious the fault is. Severity is the tier itself, graded by
+the [A]-[D] rubric in this repo's `CLAUDE.md`, so a severity clause in the trace
+says the same thing twice. Rarity is the part no other piece of the finding
+carries: it is why a rare fault may still be worth leaving, while a fault met in
+ordinary use is fixed whatever its tier.
+
+A finding whose whole cost is rework, re-derivation or a later reader mistaking
+intent for drift has no runtime situation to rate. Its trace states that cost
+and stops. It carries no rarity sentence and none is implied.
+
+The trace is the tier's evidence, so a tier claim without one does not stand.
+Rarity is evidence for the user's accept-or-challenge ruling on the finding and
+on any guard behind it. It never moves the tier: a rare A-tier fault is still
+A-tier. A trace that ends with the same behaviour shipping is not a finding, so
+drop it rather than report it.
+
 ## Plan corrections
 
 The plan is a live document while its steps are still being implemented, so an
