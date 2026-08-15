@@ -85,6 +85,14 @@ Two runs of `pnpm check` at once corrupt each other's tree and each other's
 result, because both auto-fix the same files and both drive `tsc -b` over the
 same build info.
 
+## Fix phase
+
+After the user accepts the round's findings, apply them, then verify. Run
+`pnpm check`, then `pnpm --filter <package> test` for every package the fixes
+touched. The read-only rule above defers `pnpm check` to this phase; it does
+not exempt the round from it. What the closing round reserves is the whole
+test suite, not the check.
+
 ## Coverage
 
 Before drafting findings, build a coverage table, one row per item in scope,
@@ -148,10 +156,10 @@ in `../plan`, by the `<file-stem>/implementation-audited:` marker this session
 writes there on the user's word. The marker is severity-free. Its body names
 the HEAD the closing round inspected and compiles the audit round history from
 this repo's audit commits.
-The closing round runs the full `pnpm check` and `pnpm test`, once. Run them
-after the fixes when the round lands fixes, so the single run verifies the state
-the commit records. Run them up front as evidence when the round comes back
-clean.
+The closing round runs `pnpm check` and the whole `pnpm test` suite, once.
+Run them after the fixes when the round lands fixes, so the single run
+verifies the state the commit records. Run them up front as evidence when the
+round comes back clean.
 
 The closing round is advice, not a gate. When asked to treat the implementation
 as done without one, name the missing round once and continue on the user's
