@@ -68,7 +68,22 @@ cannot carry. Treat a recorded correct departure under the deviation rules
 below, not as a strict conformance failure.
 
 Read the plan end to end. Read the final state of the code the episode touched.
-`pnpm check` and `pnpm test` may run as read-only evidence.
+
+A round is read-only until the user accepts its findings, so its evidence
+commands must be read-only too. `pnpm check` is not one. It expands to
+`pnpm fix && pnpm typecheck && pnpm build:types && ...`, where `fix` writes
+Biome and rumdl corrections across the tree and `build:types` writes `dist/`
+and the `tsc -b` build info. Run `pnpm lint`, `pnpm fmt:check` and
+`pnpm typecheck` instead. They report the same state and touch nothing.
+
+Scope the tests to the packages the round's range touches, with
+`pnpm --filter <package> test`. The whole suite belongs to the closing round.
+
+The writing commands belong to the fix phase alone, after the user accepts the
+findings. Run them only while no other round is running in this working tree.
+Two runs of `pnpm check` at once corrupt each other's tree and each other's
+result, because both auto-fix the same files and both drive `tsc -b` over the
+same build info.
 
 ## Coverage
 
@@ -133,6 +148,11 @@ in `../plan`, by the `<file-stem>/implementation-audited:` marker this session
 writes there on the user's word. The marker is severity-free. Its body names
 the HEAD the closing round inspected and compiles the audit round history from
 this repo's audit commits.
+The closing round runs the full `pnpm check` and `pnpm test`, once. Run them
+after the fixes when the round lands fixes, so the single run verifies the state
+the commit records. Run them up front as evidence when the round comes back
+clean.
+
 The closing round is advice, not a gate. When asked to treat the implementation
 as done without one, name the missing round once and continue on the user's
 word.
