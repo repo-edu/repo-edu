@@ -12,10 +12,8 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
-import {
-  type ChildProcessLifetimeAdapter,
-  createChildProcessLifetimeAdapter,
-} from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createCommandLineChildProcessLifetimeAdapter } from "./child-process-lifetime.js"
 import { createProgram } from "./cli.js"
 import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
 
@@ -52,7 +50,8 @@ async function runCli(): Promise<void> {
     return
   }
 
-  const childProcessLifetime = createChildProcessLifetimeAdapter()
+  const childProcessLifetime =
+    await createCommandLineChildProcessLifetimeAdapter()
   let childLifetimeStopConfirmed = false
   const observedChildProcessLifetime: ChildProcessLifetimeAdapter =
     childLifetimeArtifactProbe

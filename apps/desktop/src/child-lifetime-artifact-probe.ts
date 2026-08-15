@@ -32,6 +32,7 @@ export function resolvePackagedWindowsChildLifetimeRuntime(
       "host-child-lifetime",
       "windows-launcher.cjs",
     ),
+    runAsNode: true,
   }
 }
 

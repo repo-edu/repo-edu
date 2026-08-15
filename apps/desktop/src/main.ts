@@ -150,6 +150,7 @@ const childProcessLifetime = createChildProcessLifetimeAdapter({
                 currentDir,
                 "../../resources/host-child-lifetime/windows-launcher.cjs",
               ),
+          runAsNode: true,
         })
       : undefined,
 })

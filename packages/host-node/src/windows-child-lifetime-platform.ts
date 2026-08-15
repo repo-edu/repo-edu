@@ -35,6 +35,7 @@ const forcedJobExitCode = 1
 export type WindowsChildLifetimeRuntime = {
   readonly executablePath: string
   readonly launcherEntryPath: string
+  readonly runAsNode: boolean
 }
 
 export type WindowsChildLifetimeEvidence = {
@@ -43,7 +44,7 @@ export type WindowsChildLifetimeEvidence = {
   readonly jobHandleInherited: false
   readonly koffiLoaded: true
   readonly launcherArguments: readonly [string]
-  readonly runAsNode: true
+  readonly runAsNode: boolean
   readonly targetAdmittedAfterAssignment: boolean
 }
 
@@ -217,6 +218,19 @@ function launcherArguments(
   return [runtime.launcherEntryPath]
 }
 
+export function buildWindowsLauncherEnvironment(
+  runAsNode: boolean,
+  parentEnvironment: Readonly<NodeJS.ProcessEnv> = process.env,
+): NodeJS.ProcessEnv {
+  const environment = { ...parentEnvironment }
+  if (runAsNode) {
+    environment.ELECTRON_RUN_AS_NODE = "1"
+  } else {
+    delete environment.ELECTRON_RUN_AS_NODE
+  }
+  return environment
+}
+
 async function cleanBeforeTargetAdmission(options: {
   readonly assigned: boolean
   readonly child: ChildProcess | null
@@ -265,10 +279,7 @@ async function startAssignedLauncher(
     throwIfLaunchStopRequested(stopSignals)
     const fixedLauncherArguments = launcherArguments(runtime)
     child = spawn(runtime.executablePath, fixedLauncherArguments, {
-      env: {
-        ...process.env,
-        ELECTRON_RUN_AS_NODE: "1",
-      },
+      env: buildWindowsLauncherEnvironment(runtime.runAsNode),
       stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
       windowsHide: true,
     })
@@ -327,7 +338,7 @@ async function startAssignedLauncher(
         jobHandleInherited: false,
         koffiLoaded: true,
         launcherArguments: fixedLauncherArguments,
-        runAsNode: true,
+        runAsNode: runtime.runAsNode,
         targetAdmittedAfterAssignment: false,
       },
       exit,

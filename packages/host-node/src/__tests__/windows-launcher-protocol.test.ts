@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { buildWindowsLauncherEnvironment } from "../windows-child-lifetime-platform.js"
 import {
   createWindowsLaunchCommand,
   parseWindowsLauncherMessage,
@@ -7,6 +8,23 @@ import {
 } from "../windows-launcher-protocol.js"
 
 describe("Windows launcher protocol", () => {
+  it("sets Electron Node mode only for an Electron launcher", () => {
+    assert.deepEqual(
+      buildWindowsLauncherEnvironment(true, {
+        ELECTRON_RUN_AS_NODE: "parent-value",
+        SAFE: "present",
+      }),
+      { ELECTRON_RUN_AS_NODE: "1", SAFE: "present" },
+    )
+    assert.deepEqual(
+      buildWindowsLauncherEnvironment(false, {
+        ELECTRON_RUN_AS_NODE: "parent-value",
+        SAFE: "present",
+      }),
+      { SAFE: "present" },
+    )
+  })
+
   it("serializes one complete target environment unchanged", () => {
     const command = createWindowsLaunchCommand({
       command: "target.exe",

@@ -18,6 +18,7 @@ const windows =
           (() => {
             throw new Error("The Windows launcher entry is missing.")
           })(),
+        runAsNode: false,
       })
     : undefined
 const adapter = createChildProcessLifetimeAdapter({ windows })

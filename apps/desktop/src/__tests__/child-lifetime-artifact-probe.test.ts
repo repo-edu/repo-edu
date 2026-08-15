@@ -39,6 +39,7 @@ describe("packaged Windows child-lifetime runtime", () => {
           "host-child-lifetime",
           "windows-launcher.cjs",
         ),
+        runAsNode: true,
       },
     )
   })
@@ -72,6 +73,7 @@ describe("packaged Windows child-lifetime runtime", () => {
     const windows = createWindowsChildProcessLifetimePlatform({
       executablePath: process.execPath,
       launcherEntryPath,
+      runAsNode: false,
     })
     const adapter = createChildProcessLifetimeAdapter({ windows })
     const run = await adapter.launch({

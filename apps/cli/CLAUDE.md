@@ -12,6 +12,9 @@ Run the CLI in Node development with
 - `src/main.ts`: production and compiled-artifact entry. Resolves the shared
   app-data root, claims the program gate and gives command composition one
   child-lifetime adapter.
+- `src/child-process-lifetime.ts`: child-lifetime composition. macOS and Linux
+  keep the default process-group route. Windows loads the job route on demand
+  and uses the fixed launcher source shared with desktop packaging.
 - `src/command-line-lifetime.ts`: command-line signal and shutdown owner. It
   stops and confirms the shared adapter before releasing the program gate or
   exiting the host.

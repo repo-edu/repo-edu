@@ -116,6 +116,7 @@ function createAdapter(): ChildProcessLifetimeAdapter {
       ? createWindowsChildProcessLifetimePlatform({
           executablePath: process.execPath,
           launcherEntryPath: windowsLauncherEntryPath,
+          runAsNode: false,
         })
       : undefined
   return createChildProcessLifetimeAdapter({ windows })
@@ -296,6 +297,7 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     const evidence = await proveWindowsLauncherReadiness({
       executablePath: process.execPath,
       launcherEntryPath: windowsLauncherEntryPath,
+      runAsNode: false,
     })
 
     assert.equal(evidence.assignedToJob, true)
@@ -313,6 +315,7 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
       {
         executablePath: process.execPath,
         launcherEntryPath: windowsLauncherEntryPath,
+        runAsNode: false,
       },
       {
         command: process.execPath,
@@ -358,6 +361,7 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
         windows: createWindowsChildProcessLifetimePlatform({
           executablePath: process.execPath,
           launcherEntryPath: stalledWindowsLauncherEntryPath,
+          runAsNode: false,
         }),
       })
       context.after(async () => {

@@ -23,6 +23,7 @@ function createProcessPort() {
       ? createWindowsChildProcessLifetimePlatform({
           executablePath: process.execPath,
           launcherEntryPath: windowsLauncherEntryPath,
+          runAsNode: false,
         })
       : undefined
   const controller = createChildProcessLifetimeAdapter({
