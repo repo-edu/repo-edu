@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
+import { access, readFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
@@ -52,13 +52,15 @@ describe("desktop Windows child-lifetime packaging", () => {
       "node_modules/koffi/**/*",
       "node_modules/@koromix/koffi-win32-*/**/*",
     ])
-    assert.deepEqual(builderConfig.win?.extraResources, [
-      {
-        from: "resources/host-child-lifetime",
-        to: "host-child-lifetime",
-        filter: ["windows-launcher.cjs"],
-      },
-    ])
+    const launcherResource = {
+      from: "../../packages/host-node/resources/host-child-lifetime",
+      to: "host-child-lifetime",
+      filter: ["windows-launcher.cjs"],
+    }
+    assert.deepEqual(builderConfig.win?.extraResources, [launcherResource])
+    await access(
+      join(desktopRoot, launcherResource.from, launcherResource.filter[0]),
+    )
     assert.match(
       packageJson.scripts?.["validate:runtime:prebuilt"] ?? "",
       /validate:child-lifetime/,

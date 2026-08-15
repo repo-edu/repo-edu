@@ -56,7 +56,7 @@
         "executableName": "RepoEdu",
         "extraResources": [
             {
-                "from": "resources/host-child-lifetime",
+                "from": "../../packages/host-node/resources/host-child-lifetime",
                 "to": "host-child-lifetime",
                 "filter": [
                     "windows-launcher.cjs"

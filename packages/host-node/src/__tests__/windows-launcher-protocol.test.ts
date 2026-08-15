@@ -1,5 +1,8 @@
 import assert from "node:assert/strict"
+import { access } from "node:fs/promises"
 import { describe, it } from "node:test"
+import { fileURLToPath } from "node:url"
+import { resolveWindowsChildLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
 import { buildWindowsLauncherEnvironment } from "../windows-child-lifetime-platform.js"
 import {
   createWindowsLaunchCommand,
@@ -8,6 +11,21 @@ import {
 } from "../windows-launcher-protocol.js"
 
 describe("Windows launcher protocol", () => {
+  it("resolves the fixed launcher from the host-node package", async () => {
+    const launcherEntryUrl = resolveWindowsChildLifetimeLauncherEntryUrl()
+
+    assert.equal(
+      fileURLToPath(launcherEntryUrl),
+      fileURLToPath(
+        new URL(
+          "../../resources/host-child-lifetime/windows-launcher.cjs",
+          import.meta.url,
+        ),
+      ),
+    )
+    await access(launcherEntryUrl)
+  })
+
   it("sets Electron Node mode only for an Electron launcher", () => {
     assert.deepEqual(
       buildWindowsLauncherEnvironment(true, {

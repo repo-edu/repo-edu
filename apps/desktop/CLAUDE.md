@@ -29,8 +29,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of app preferences.
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
 - `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side dialog
-- `resources/host-child-lifetime/windows-launcher.cjs`: fixed packaged helper
-  entry used only by the Windows child-lifetime route
+- `packages/host-node/resources/host-child-lifetime/windows-launcher.cjs`:
+  shared launcher source copied into the packaged Windows resources
 - `scripts/validate-program-gate-artifact.mjs` and
   `scripts/validate-child-lifetime-artifact.mjs`: shipped host-contract proofs
 

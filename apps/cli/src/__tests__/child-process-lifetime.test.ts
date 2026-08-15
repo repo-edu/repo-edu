@@ -10,6 +10,15 @@ const unusedWindowsPlatform: ChildProcessLifetimePlatform = {
   },
 }
 
+const unusedWindowsModule = {
+  createWindowsChildProcessLifetimePlatform() {
+    return unusedWindowsPlatform
+  },
+  resolveWindowsChildLifetimeLauncherEntryUrl() {
+    throw new Error("The test Windows module must not resolve its launcher.")
+  },
+}
+
 describe("command-line child-process lifetime", () => {
   it("keeps the Windows module unloaded on macOS and Linux", async () => {
     let windowsModuleLoaded = false
@@ -18,7 +27,7 @@ describe("command-line child-process lifetime", () => {
       runtimePlatform: "linux",
       async loadWindowsPlatform() {
         windowsModuleLoaded = true
-        return unusedWindowsPlatform
+        return unusedWindowsModule
       },
     })
 
@@ -33,25 +42,28 @@ describe("command-line child-process lifetime", () => {
       runAsNode: boolean
     }[] = []
     const executablePath = "C:\\Program Files\\nodejs\\node.exe"
+    const launcherEntryUrl = pathToFileURL("/host-node/windows-launcher.cjs")
 
     const adapter = await createCommandLineChildProcessLifetimeAdapter({
       executablePath,
       runtimePlatform: "win32",
-      async loadWindowsPlatform(runtime) {
-        runtimes.push(runtime)
-        return unusedWindowsPlatform
+      async loadWindowsPlatform() {
+        return {
+          createWindowsChildProcessLifetimePlatform(runtime) {
+            runtimes.push(runtime)
+            return unusedWindowsPlatform
+          },
+          resolveWindowsChildLifetimeLauncherEntryUrl() {
+            return launcherEntryUrl
+          },
+        }
       },
     })
 
     assert.deepEqual(runtimes, [
       {
         executablePath,
-        launcherEntryPath: fileURLToPath(
-          new URL(
-            "../../../desktop/resources/host-child-lifetime/windows-launcher.cjs",
-            import.meta.url,
-          ),
-        ),
+        launcherEntryPath: fileURLToPath(launcherEntryUrl),
         runAsNode: false,
       },
     ])
@@ -65,9 +77,16 @@ describe("command-line child-process lifetime", () => {
     await createCommandLineChildProcessLifetimeAdapter({
       launcherEntryUrl,
       runtimePlatform: "win32",
-      async loadWindowsPlatform(runtime) {
-        launcherEntryPath = runtime.launcherEntryPath
-        return unusedWindowsPlatform
+      async loadWindowsPlatform() {
+        return {
+          createWindowsChildProcessLifetimePlatform(runtime) {
+            launcherEntryPath = runtime.launcherEntryPath
+            return unusedWindowsPlatform
+          },
+          resolveWindowsChildLifetimeLauncherEntryUrl() {
+            throw new Error("An explicit launcher entry must win.")
+          },
+        }
       },
     })
 

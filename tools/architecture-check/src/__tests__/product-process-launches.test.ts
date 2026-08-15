@@ -12,7 +12,7 @@ const REGISTERED_SOURCES: Record<string, string> = {
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/src/windows-child-lifetime-platform.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
-  "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs":
+  "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs":
     'const { spawn } = require("node:child_process")\nvoid spawn\n',
   "packages/integrations-llm/src/codex/runner.ts":
     'import { Codex } from "@openai/codex-sdk"\nvoid Codex\n',
@@ -42,7 +42,7 @@ describe("product process launch policy", () => {
       },
       {
         id: "windows-assigned-target",
-        file: "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
+        file: "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
         launches: [

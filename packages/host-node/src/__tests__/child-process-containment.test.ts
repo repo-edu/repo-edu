@@ -18,16 +18,15 @@ import { createNodeProcessPort } from "../index.js"
 import {
   createWindowsChildProcessLifetimePlatform,
   proveWindowsLauncherReadiness,
+  resolveWindowsChildLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "../windows-child-lifetime.js"
 
 const fixturePath = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
 )
-const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url))
-const windowsLauncherEntryPath = join(
-  repoRoot,
-  "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
+const windowsLauncherEntryPath = fileURLToPath(
+  resolveWindowsChildLifetimeLauncherEntryUrl(),
 )
 const stalledWindowsLauncherEntryPath = fileURLToPath(
   new URL("./fixtures/windows-launcher-stall.cjs", import.meta.url),

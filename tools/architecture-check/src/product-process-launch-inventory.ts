@@ -40,7 +40,7 @@ export const productProcessLaunchInventory = [
   },
   {
     id: "windows-assigned-target",
-    file: "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
+    file: "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs",
     mechanism: "node-child-process",
     targetRoute: "direct-adapter",
     launches: [

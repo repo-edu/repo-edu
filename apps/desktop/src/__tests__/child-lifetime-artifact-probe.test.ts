@@ -8,15 +8,13 @@ import {
 } from "@repo-edu/host-node/child-process-lifetime"
 import {
   createWindowsChildProcessLifetimePlatform,
+  resolveWindowsChildLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "@repo-edu/host-node/windows-child-lifetime"
 import { resolvePackagedWindowsChildLifetimeRuntime } from "../child-lifetime-artifact-probe.js"
 
 const launcherEntryPath = fileURLToPath(
-  new URL(
-    "../../resources/host-child-lifetime/windows-launcher.cjs",
-    import.meta.url,
-  ),
+  resolveWindowsChildLifetimeLauncherEntryUrl(),
 )
 const targetScript = [
   "process.stdin.setEncoding('utf8')",

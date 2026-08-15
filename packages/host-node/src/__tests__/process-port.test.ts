@@ -6,15 +6,16 @@ import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
-import { createWindowsChildProcessLifetimePlatform } from "../windows-child-lifetime.js"
+import {
+  createWindowsChildProcessLifetimePlatform,
+  resolveWindowsChildLifetimeLauncherEntryUrl,
+} from "../windows-child-lifetime.js"
 
 const childTreeFixture = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
 )
-const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url))
-const windowsLauncherEntryPath = join(
-  repoRoot,
-  "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
+const windowsLauncherEntryPath = fileURLToPath(
+  resolveWindowsChildLifetimeLauncherEntryUrl(),
 )
 
 function createProcessPort() {

@@ -11,7 +11,7 @@ import type { Violation } from "./violations.js"
 const PRODUCT_SOURCE_PATTERN = /\.[cm]?[jt]sx?$/
 const TEST_SOURCE_PATTERN = /(^|\/)__tests__\/|\.(?:test|spec)\.[cm]?[jt]sx?$/
 const PRODUCT_APP_ROOT_PATTERN = /^apps\/(?:cli|desktop)\/(?:src|resources)\//
-const PACKAGE_SOURCE_PATTERN = /^packages\/([^/]+)\/src\//
+const PACKAGE_SOURCE_PATTERN = /^packages\/([^/]+)\/(?:resources|src)\//
 const NON_PRODUCT_PACKAGES = new Set([
   "claude-coder",
   "fixture-engine",

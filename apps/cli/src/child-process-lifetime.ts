@@ -11,9 +11,14 @@ type WindowsChildLifetimeRuntime = {
   readonly runAsNode: boolean
 }
 
-type WindowsPlatformLoader = (
-  runtime: WindowsChildLifetimeRuntime,
-) => Promise<ChildProcessLifetimePlatform>
+type WindowsChildLifetimeModule = {
+  createWindowsChildProcessLifetimePlatform(
+    runtime: WindowsChildLifetimeRuntime,
+  ): ChildProcessLifetimePlatform
+  resolveWindowsChildLifetimeLauncherEntryUrl(): URL
+}
+
+type WindowsPlatformLoader = () => Promise<WindowsChildLifetimeModule>
 
 export type CommandLineChildProcessLifetimeOptions = {
   readonly executablePath?: string
@@ -22,18 +27,8 @@ export type CommandLineChildProcessLifetimeOptions = {
   readonly runtimePlatform?: NodeJS.Platform
 }
 
-const windowsLauncherEntryUrl = new URL(
-  "../../desktop/resources/host-child-lifetime/windows-launcher.cjs",
-  import.meta.url,
-)
-
-async function loadWindowsPlatform(
-  runtime: WindowsChildLifetimeRuntime,
-): Promise<ChildProcessLifetimePlatform> {
-  const { createWindowsChildProcessLifetimePlatform } = await import(
-    "@repo-edu/host-node/windows-child-lifetime"
-  )
-  return createWindowsChildProcessLifetimePlatform(runtime)
+async function loadWindowsPlatform(): Promise<WindowsChildLifetimeModule> {
+  return await import("@repo-edu/host-node/windows-child-lifetime")
 }
 
 export async function createCommandLineChildProcessLifetimeAdapter(
@@ -44,10 +39,14 @@ export async function createCommandLineChildProcessLifetimeAdapter(
     return createChildProcessLifetimeAdapter()
   }
 
-  const windows = await (options.loadWindowsPlatform ?? loadWindowsPlatform)({
+  const windowsModule = await (
+    options.loadWindowsPlatform ?? loadWindowsPlatform
+  )()
+  const windows = windowsModule.createWindowsChildProcessLifetimePlatform({
     executablePath: options.executablePath ?? process.execPath,
     launcherEntryPath: fileURLToPath(
-      options.launcherEntryUrl ?? windowsLauncherEntryUrl,
+      options.launcherEntryUrl ??
+        windowsModule.resolveWindowsChildLifetimeLauncherEntryUrl(),
     ),
     runAsNode: false,
   })

@@ -42,6 +42,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `windows-child-lifetime.ts` — public packaged-Windows entry. Its platform,
   proof and launcher-protocol modules keep host lifetime, artifact evidence and
   wire grammar separate. `windows-job.ts` owns the Koffi job calls.
+- `resources/host-child-lifetime/windows-launcher.cjs` — fixed launcher source
+  shared by Node command-line development and desktop packaging.
 - `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)` (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in `src/sqlite/transaction.ts` wrap statements in transactions.
 - File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
 - Settings section-store helpers validate strict JSON sections, write atomically, and back invalid, unparseable or unsupported composite settings files aside for recovery-aware loads.

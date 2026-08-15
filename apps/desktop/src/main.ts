@@ -33,7 +33,10 @@ import {
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
 } from "@repo-edu/host-node/examination-archive"
-import { createWindowsChildProcessLifetimePlatform } from "@repo-edu/host-node/windows-child-lifetime"
+import {
+  createWindowsChildProcessLifetimePlatform,
+  resolveWindowsChildLifetimeLauncherEntryUrl,
+} from "@repo-edu/host-node/windows-child-lifetime"
 import type {
   ExaminationArchiveStoragePort,
   LlmPort,
@@ -146,10 +149,7 @@ const childProcessLifetime = createChildProcessLifetimeAdapter({
                 "host-child-lifetime",
                 "windows-launcher.cjs",
               )
-            : join(
-                currentDir,
-                "../../resources/host-child-lifetime/windows-launcher.cjs",
-              ),
+            : fileURLToPath(resolveWindowsChildLifetimeLauncherEntryUrl()),
           runAsNode: true,
         })
       : undefined,
