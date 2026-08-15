@@ -116,6 +116,10 @@ async function* runCodexHelperStream(
   }
 
   const helper = await options.launch()
+  if (request.signal?.aborted) {
+    await helper.stopAndConfirm()
+    throw abortError()
+  }
   const readHelperOutput = collectHelperOutput(helper.stderr)
   const connection = createMessageConnection(
     helper.stdout,
