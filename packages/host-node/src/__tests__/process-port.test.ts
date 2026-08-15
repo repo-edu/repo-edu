@@ -44,6 +44,20 @@ async function waitForMarker(path: string, pattern: RegExp): Promise<void> {
 }
 
 describe("createNodeProcessPort", () => {
+  it("keeps cancellation distinct before launch", async () => {
+    const processPort = createProcessPort()
+    const controller = new AbortController()
+    controller.abort()
+
+    await assert.rejects(
+      processPort.run({
+        command: process.execPath,
+        signal: controller.signal,
+      }),
+      (error) => error instanceof DOMException && error.name === "AbortError",
+    )
+  })
+
   it("captures stdout, stderr, and non-zero exit codes", async () => {
     const processPort = createProcessPort()
 
@@ -130,7 +144,9 @@ describe("createNodeProcessPort", () => {
     }
   })
 
-  it("honors abort requests with best-effort termination", async () => {
+  it("honors POSIX abort requests with best-effort termination", {
+    skip: process.platform !== "darwin" && process.platform !== "linux",
+  }, async () => {
     const processPort = createProcessPort()
     const controller = new AbortController()
 

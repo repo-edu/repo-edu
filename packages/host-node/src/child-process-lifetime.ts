@@ -51,6 +51,20 @@ export type ChildProcessLifetimeAdapterOptions = {
   readonly windows?: ChildProcessLifetimePlatform
 }
 
+export class PendingLaunchStoppedError extends Error {
+  override readonly name = "PendingLaunchStoppedError"
+
+  constructor(readonly signal?: AbortSignal) {
+    super("The pending child-process launch was stopped.")
+  }
+}
+
+export function isPendingLaunchStoppedError(
+  error: unknown,
+): error is PendingLaunchStoppedError {
+  return error instanceof PendingLaunchStoppedError
+}
+
 type RegisteredProcessTree = Pick<
   ChildProcessLifetimePlatformTree,
   "requestStop" | "stopAndConfirm"
@@ -209,10 +223,37 @@ async function holdResultUntilTreeIsGone(
   return result
 }
 
+export function createChildProcessLaunchAbortError(): DOMException {
+  return new DOMException(
+    "The child-process launch was cancelled.",
+    "AbortError",
+  )
+}
+
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
-    throw new Error("The child-process launch was cancelled.")
+    throw createChildProcessLaunchAbortError()
   }
+}
+
+function isExpectedPendingLaunchStop(error: unknown): boolean {
+  return (
+    isPendingLaunchStoppedError(error) ||
+    (error instanceof DOMException && error.name === "AbortError")
+  )
+}
+
+function throwShutdownFailures(failures: readonly unknown[]): void {
+  if (failures.length === 0) {
+    return
+  }
+  if (failures.length === 1) {
+    throw failures[0]
+  }
+  throw new AggregateError(
+    failures,
+    "Child-process shutdown could not confirm every owned tree.",
+  )
 }
 
 const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
@@ -363,14 +404,26 @@ export function createChildProcessLifetimeAdapter(
         for (const launch of pending) {
           launch.requestStop()
         }
-        await Promise.allSettled(
+        const pendingResults = await Promise.allSettled(
           pending.map(async (launch) => await launch.completion),
         )
-        await Promise.all(
+        const activeResults = await Promise.allSettled(
           [...activeTrees.values()].map(async (tree) => {
             await tree.stopAndConfirm()
           }),
         )
+        const failures = pendingResults.flatMap((result) =>
+          result.status === "rejected" &&
+          !isExpectedPendingLaunchStop(result.reason)
+            ? [result.reason]
+            : [],
+        )
+        for (const result of activeResults) {
+          if (result.status === "rejected") {
+            failures.push(result.reason)
+          }
+        }
+        throwShutdownFailures(failures)
       })()
 
       return shutdown

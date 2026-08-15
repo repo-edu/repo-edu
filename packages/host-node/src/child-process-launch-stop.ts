@@ -1,16 +1,21 @@
+import { PendingLaunchStoppedError } from "./child-process-lifetime.js"
+
 export type LaunchStopSignals = readonly (AbortSignal | undefined)[]
 
 export function launchStopRequested(signals: LaunchStopSignals): boolean {
   return signals.some((signal) => signal?.aborted === true)
 }
 
-export function pendingLaunchStoppedError(): Error {
-  return new Error("The pending child-process launch was stopped.")
+export function pendingLaunchStoppedError(
+  signal?: AbortSignal,
+): PendingLaunchStoppedError {
+  return new PendingLaunchStoppedError(signal)
 }
 
 export function throwIfLaunchStopRequested(signals: LaunchStopSignals): void {
-  if (launchStopRequested(signals)) {
-    throw pendingLaunchStoppedError()
+  const stoppedSignal = signals.find((signal) => signal?.aborted === true)
+  if (stoppedSignal !== undefined) {
+    throw pendingLaunchStoppedError(stoppedSignal)
   }
 }
 
@@ -28,27 +33,33 @@ export function waitForLaunchStop<T>(
 
   return new Promise<T>((resolve, reject) => {
     let settled = false
+    const stopListeners = new Map<AbortSignal, () => void>()
     const cleanup = () => {
-      for (const signal of activeSignals) {
-        signal.removeEventListener("abort", onStop)
+      for (const [signal, listener] of stopListeners) {
+        signal.removeEventListener("abort", listener)
       }
+      stopListeners.clear()
     }
-    const onStop = () => {
+    const stop = (signal: AbortSignal) => {
       if (settled) {
         return
       }
       settled = true
       cleanup()
-      reject(pendingLaunchStoppedError())
+      reject(pendingLaunchStoppedError(signal))
     }
 
     for (const signal of activeSignals) {
       if (settled) {
         break
       }
-      signal.addEventListener("abort", onStop, { once: true })
+      const listener = () => {
+        stop(signal)
+      }
+      stopListeners.set(signal, listener)
+      signal.addEventListener("abort", listener, { once: true })
       if (signal.aborted) {
-        onStop()
+        stop(signal)
       }
     }
     promise.then(

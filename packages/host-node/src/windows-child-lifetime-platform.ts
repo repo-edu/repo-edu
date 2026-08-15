@@ -15,6 +15,8 @@ import {
   type ChildProcessLifetimeResult,
   ChildProcessOutcomeUnknownError,
   childProcessStopGracePeriodMs,
+  createChildProcessLaunchAbortError,
+  isPendingLaunchStoppedError,
 } from "./child-process-lifetime.js"
 import {
   createWindowsKillOnCloseJob,
@@ -511,8 +513,17 @@ export async function launchAssignedTarget(
   pendingStopSignal?: AbortSignal,
 ): Promise<LaunchedWindowsTarget> {
   const stopSignals = [pendingStopSignal]
-  throwIfLaunchStopRequested(stopSignals)
-  const launcher = await startAssignedLauncher(runtime, stopSignals)
+  const readinessStopSignals = [pendingStopSignal, target.signal]
+  let launcher: AssignedLauncher
+  try {
+    throwIfLaunchStopRequested(readinessStopSignals)
+    launcher = await startAssignedLauncher(runtime, readinessStopSignals)
+  } catch (error) {
+    if (isPendingLaunchStoppedError(error) && error.signal === target.signal) {
+      throw createChildProcessLaunchAbortError()
+    }
+    throw error
+  }
   const lifecycle = createStopAndConfirm(launcher)
   let targetMayBeAdmitted = false
   let targetLaunchRejected = false
@@ -522,7 +533,7 @@ export async function launchAssignedTarget(
       launcher.closeControl()
       await lifecycle.stopAndConfirm()
       if (target.signal?.aborted) {
-        throw new Error("The child-process launch was cancelled.")
+        throw createChildProcessLaunchAbortError()
       }
       throw pendingLaunchStoppedError()
     }

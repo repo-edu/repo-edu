@@ -5,7 +5,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { waitForLaunchStop } from "../child-process-launch-stop.js"
+import {
+  pendingLaunchStoppedError,
+  waitForLaunchStop,
+} from "../child-process-launch-stop.js"
 import {
   type ChildProcessLifetimePlatform,
   createChildProcessLifetimeAdapter,
@@ -75,7 +78,7 @@ describe("pending child-process launches", () => {
           stopSignal.addEventListener(
             "abort",
             () => {
-              reject(new Error("pending startup stopped"))
+              reject(pendingLaunchStoppedError(stopSignal))
             },
             { once: true },
           )
@@ -93,11 +96,61 @@ describe("pending child-process launches", () => {
         command: "pending-target",
         route: "direct-adapter",
       })
-      const launchRejected = assert.rejects(launch, /pending startup stopped/)
+      const launchRejected = assert.rejects(
+        launch,
+        /pending child-process launch was stopped/,
+      )
 
       await adapter.stopAndConfirm()
 
       assert.equal(pendingStopSignal?.aborted, true)
+      await launchRejected
+    } finally {
+      if (platformDescriptor) {
+        Object.defineProperty(process, "platform", platformDescriptor)
+      }
+    }
+  })
+
+  it("reports a pending launch whose cleanup was not confirmed", async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "platform",
+    )
+    const cleanupFailure = new Error("pending cleanup was not confirmed")
+    const windows: ChildProcessLifetimePlatform = {
+      launch(_request, stopSignal) {
+        return new Promise((_resolve, reject) => {
+          stopSignal.addEventListener(
+            "abort",
+            () => {
+              reject(cleanupFailure)
+            },
+            { once: true },
+          )
+        })
+      },
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...platformDescriptor,
+        value: "win32",
+      })
+      const adapter = createChildProcessLifetimeAdapter({ windows })
+      const launch = adapter.launch({
+        command: "pending-target",
+        route: "direct-adapter",
+      })
+      const launchRejected = assert.rejects(
+        launch,
+        (error) => error === cleanupFailure,
+      )
+
+      await assert.rejects(
+        adapter.stopAndConfirm(),
+        (error) => error === cleanupFailure,
+      )
       await launchRejected
     } finally {
       if (platformDescriptor) {
@@ -287,7 +340,7 @@ describe("child-process lifetime adapter", {
           route: "direct-adapter",
           signal: controller.signal,
         }),
-      /launch was cancelled/,
+      (error) => error instanceof DOMException && error.name === "AbortError",
     )
   })
 
