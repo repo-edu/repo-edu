@@ -223,11 +223,22 @@ export async function* runClaudeCliStream(
     await errorOutputSettled
     await promptWritten
     const errorOutputFailure = takeErrorOutputFailure()
+    if (exitStatus.exitCode !== 0) {
+      // The classified exit error carries the guidance, such as the login
+      // message, so it stays the error the application receives. A failed
+      // error-output read rides along as its cause.
+      const exitError = cliExitError(
+        exitStatus.exitCode,
+        exitStatus.signal,
+        stderr,
+      )
+      if (errorOutputFailure !== null) {
+        addCleanupCause(exitError, errorOutputFailure.error)
+      }
+      throw exitError
+    }
     if (errorOutputFailure !== null) {
       throw errorOutputFailure.error
-    }
-    if (exitStatus.exitCode !== 0) {
-      throw cliExitError(exitStatus.exitCode, exitStatus.signal, stderr)
     }
     if (promptWriteError !== null) {
       throw promptWriteError

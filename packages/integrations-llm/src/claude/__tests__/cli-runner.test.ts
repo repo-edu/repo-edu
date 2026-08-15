@@ -372,6 +372,45 @@ describe("runClaudeCliStream", () => {
     )
   })
 
+  it("keeps the login guidance when the error-output read also fails", async () => {
+    const readFailure = new Error("error output read failed")
+    const live = liveLaunch()
+    let failure: unknown
+
+    await withoutUnhandledRejections(async () => {
+      const drained = (async () => {
+        try {
+          for await (const _event of runClaudeCliStream(
+            {
+              spec: claudeSpec,
+              prompt: "Reply ok.",
+              executable: "/bin/claude",
+              launch: live.launch,
+            },
+            { authMode: "subscription", childEnv: {} },
+          )) {
+            // Drain stream.
+          }
+        } catch (error) {
+          failure = error
+        }
+      })()
+
+      setImmediate(() => {
+        live.stdout.end()
+        live.result.resolve({ exitCode: 1, signal: null })
+        live.errorOutput.destroy(readFailure)
+      })
+      await drained
+    })
+
+    assert.ok(failure instanceof LlmError)
+    assert.equal(failure.kind, "auth")
+    assert.ok(failure.message.includes("claude auth login"))
+    assert.equal(failure.cause, readFailure)
+    assert.equal(live.stopped(), true)
+  })
+
   it("does not emit done before a failed CLI close is classified", async () => {
     const { launch } = fakeLaunch(
       [

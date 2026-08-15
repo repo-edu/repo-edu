@@ -214,14 +214,18 @@ function formatLauncherExit(exit: LauncherExit): string {
   return String(exit.code ?? exit.signal ?? "unknown")
 }
 
+// The target decides how long it runs, so the wait for its exit line carries no
+// bound. Decision 11 gives the adapter one five-second graceful-stop allowance
+// and no second bound, and a bound here would end a long clone or AI turn and
+// report an outcome nobody observed.
 async function readLauncherMessage(
   launcher: Pick<AssignedLauncher, "controlLines" | "exit">,
   label: string,
   stopSignals: LaunchStopSignals = [],
 ): Promise<WindowsLauncherMessage> {
-  const next = await withTimeout(
-    waitForLaunchStop(launcher.controlLines.next(), stopSignals),
-    `Windows launcher ${label}`,
+  const next = await waitForLaunchStop(
+    launcher.controlLines.next(),
+    stopSignals,
   )
   if (next.done) {
     const exit = await withTimeout(launcher.exit, "Windows launcher exit")
@@ -230,6 +234,19 @@ async function readLauncherMessage(
     )
   }
   return parseWindowsLauncherMessage(next.value)
+}
+
+// A handshake step is bounded, because the launcher owes its answer at once:
+// readiness, target start and the reads that follow the target's own exit.
+async function readLauncherHandshakeMessage(
+  launcher: Pick<AssignedLauncher, "controlLines" | "exit">,
+  label: string,
+  stopSignals: LaunchStopSignals = [],
+): Promise<WindowsLauncherMessage> {
+  return await withTimeout(
+    readLauncherMessage(launcher, label, stopSignals),
+    `Windows launcher ${label}`,
+  )
 }
 
 function launcherArguments(
@@ -326,7 +343,7 @@ async function startAssignedLauncher(
     })
     const iterator = controlLines[Symbol.asyncIterator]()
 
-    const ready = await readLauncherMessage(
+    const ready = await readLauncherHandshakeMessage(
       { controlLines: iterator, exit },
       "readiness",
       stopSignals,
@@ -505,7 +522,7 @@ async function monitorTerminalResult(
       )
     }
 
-    const terminalReport = readLauncherMessage(
+    const terminalReport = readLauncherHandshakeMessage(
       launcher,
       "stream completion",
     ).then(
@@ -602,7 +619,7 @@ export async function launchAssignedTarget(
 
     targetMayBeAdmitted = true
     await writeLaunchCommand(launcher, target, launchStopSignals)
-    const started = await readLauncherMessage(
+    const started = await readLauncherHandshakeMessage(
       launcher,
       "target start",
       launchStopSignals,
