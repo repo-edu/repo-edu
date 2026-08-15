@@ -411,6 +411,38 @@ describe("runClaudeCliStream", () => {
     assert.equal(live.stopped(), true)
   })
 
+  it("classifies an unconfirmed tree as the failure of a clean turn", async () => {
+    const cleanupError = new Error("The owned tree could not be confirmed.")
+    const { launch } = fakeLaunch(
+      [
+        '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+      ],
+      [],
+      { exitCode: 0, stopAndConfirmError: cleanupError },
+    )
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.context.provider === "claude" &&
+        error.context.authMode === "subscription" &&
+        error.message.includes("could not be confirmed"),
+    )
+  })
+
   it("does not emit done before a failed CLI close is classified", async () => {
     const { launch } = fakeLaunch(
       [

@@ -28,10 +28,16 @@ Provider adapters for the `LlmTextClient` contract from
   application layer maps this to public cancellation.
 - Subscription Claude keeps prompt, stream and terminal-result meaning here.
   The injected host launch owns the process tree and confirms it stopped before
-  the adapter reports a local failure or returns early. When that confirmation
-  itself fails, the classified `LlmError` stays the error the application
-  receives and the cleanup failure is attached as its cause, so guidance such
-  as the login message is never replaced.
+  the adapter reports a local failure or returns early.
+- A Claude turn can fail in more than one way at once, so one owner ranks those
+  failures and no path may re-decide the ranking. The classified turn failure
+  comes first, because it carries the guidance such as the login message. An
+  owned tree that could not be confirmed gone comes next, because no turn is
+  successful while that is true. An error output that could not be read comes
+  last, because it is still the only account of that run. The highest-ranked
+  failure present is the one the application receives, every other failure
+  present is attached to it as a cause, and the reported failure always carries
+  the provider and auth mode.
 - Codex auth builds immutable SDK options with a complete invocation-scoped
   child environment. Subscription mode omits `CODEX_API_KEY`, and every mode
   omits `ELECTRON_RUN_AS_NODE`. Never mutate `process.env` around a Codex turn.

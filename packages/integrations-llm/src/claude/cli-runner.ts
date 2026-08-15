@@ -71,6 +71,65 @@ export function buildClaudeCliLaunchOptions(
   }
 }
 
+// One owner decides what a failed Claude turn reports. The roles are ranked
+// here once, most important first, and the rule holds on every path: the
+// highest-ranked recorded failure is the error the caller receives, and every
+// other recorded failure attaches to it as a cause. No path may re-decide this,
+// because each re-decision has displaced a report that carried guidance.
+//
+// - "turn" is the classified failure of the turn itself, carrying guidance such
+//   as the login message, so nothing may take its place.
+// - "cleanup" means an owned process tree could not be confirmed gone. No turn
+//   may be reported as successful while that is true.
+// - "errorOutput" is the only account of a run whose error output could not be
+//   read, so it may not be dropped either.
+const claudeTurnFailureRanking = ["turn", "cleanup", "errorOutput"] as const
+
+type ClaudeTurnFailureRole = (typeof claudeTurnFailureRanking)[number]
+
+type ClaudeTurnFailures = {
+  record(role: ClaudeTurnFailureRole, error: unknown): void
+  isEmpty(): boolean
+  reported(): { readonly error: unknown } | null
+}
+
+function createClaudeTurnFailures(): ClaudeTurnFailures {
+  // A role keeps its first failure. A later failure in the same role is a
+  // consequence of the one already recorded.
+  const recorded = new Map<ClaudeTurnFailureRole, unknown>()
+  return {
+    record(role, error) {
+      if (!recorded.has(role)) {
+        recorded.set(role, error)
+      }
+    },
+    isEmpty() {
+      return recorded.size === 0
+    },
+    reported() {
+      const [primary, ...causes] = claudeTurnFailureRanking.filter((role) =>
+        recorded.has(role),
+      )
+      if (primary === undefined) {
+        return null
+      }
+      // Only the turn role arrives classified. Any other role reaching the
+      // caller is classified here, so every reported failure carries the
+      // provider and auth mode this package promises.
+      const error =
+        primary === "turn"
+          ? recorded.get(primary)
+          : toClaudeLlmError(recorded.get(primary), "subscription")
+      if (error instanceof Error) {
+        for (const role of causes) {
+          addCleanupCause(error, recorded.get(role))
+        }
+      }
+      return { error }
+    },
+  }
+}
+
 export async function* runClaudeCliStream(
   options: ClaudeCliRunOptions,
   resolved: ResolvedClaudeSubscriptionAuth,
@@ -96,18 +155,7 @@ export async function* runClaudeCliStream(
   let abortRequested = false
   let completed = false
   let childStreamsDestroyed = false
-  let reportedFailure: Error | null = null
-  let cleanupFailure: { readonly error: unknown } | null = null
-  // A failed error-output read is reported exactly once. Taking it clears it,
-  // so the error that carried it out is never also attached to itself.
-  const errorOutputState: { failure: { readonly error: unknown } | null } = {
-    failure: null,
-  }
-  const takeErrorOutputFailure = (): { readonly error: unknown } | null => {
-    const failure = errorOutputState.failure
-    errorOutputState.failure = null
-    return failure
-  }
+  const failures = createClaudeTurnFailures()
   const workingDirectory = createClaudeCliWorkingDirectory()
   const launchOptions = buildClaudeCliLaunchOptions(
     executable,
@@ -165,7 +213,7 @@ export async function* runClaudeCliStream(
     stderr += chunk
   }).catch((error: unknown) => {
     if (!abortRequested && !childStreamsDestroyed) {
-      errorOutputState.failure = { error }
+      failures.record("errorOutput", error)
     }
   })
 
@@ -222,23 +270,8 @@ export async function* runClaudeCliStream(
     const exitStatus = await child.result
     await errorOutputSettled
     await promptWritten
-    const errorOutputFailure = takeErrorOutputFailure()
     if (exitStatus.exitCode !== 0) {
-      // The classified exit error carries the guidance, such as the login
-      // message, so it stays the error the application receives. A failed
-      // error-output read rides along as its cause.
-      const exitError = cliExitError(
-        exitStatus.exitCode,
-        exitStatus.signal,
-        stderr,
-      )
-      if (errorOutputFailure !== null) {
-        addCleanupCause(exitError, errorOutputFailure.error)
-      }
-      throw exitError
-    }
-    if (errorOutputFailure !== null) {
-      throw errorOutputFailure.error
+      throw cliExitError(exitStatus.exitCode, exitStatus.signal, stderr)
     }
     if (promptWriteError !== null) {
       throw promptWriteError
@@ -257,16 +290,23 @@ export async function* runClaudeCliStream(
         { context: { provider: "claude", authMode: "subscription" } },
       )
     }
-    completed = true
-    yield finalizeClaudeStreamJsonState(state)
+    // A clean exit is not a result while something else failed. The recorded
+    // failure is assembled once after cleanup, like every other path.
+    if (failures.isEmpty()) {
+      completed = true
+      yield finalizeClaudeStreamJsonState(state)
+    }
   } catch (cause) {
-    // The failure is classified here but thrown after cleanup, so a cleanup
-    // failure can be added to it instead of taking its place.
+    // The failure is classified here and recorded rather than thrown, so
+    // cleanup still runs and the one assembly below decides what the caller
+    // receives.
     terminateChild()
-    reportedFailure =
+    failures.record(
+      "turn",
       abortRequested || options.signal?.aborted || isAbortLikeError(cause)
         ? claudeAbortError(cause)
-        : toClaudeLlmError(cause, "subscription")
+        : toClaudeLlmError(cause, "subscription"),
+    )
   } finally {
     options.signal?.removeEventListener("abort", abort)
     if (!completed) {
@@ -278,34 +318,15 @@ export async function* runClaudeCliStream(
     try {
       await child.stopAndConfirm()
     } catch (error) {
-      cleanupFailure = { error }
+      failures.record("cleanup", error)
     } finally {
       cleanupClaudeCliWorkingDirectory(workingDirectory)
     }
   }
 
-  const remainingErrorOutputFailure = takeErrorOutputFailure()
-  if (reportedFailure !== null) {
-    // The classified failure stays the error the application receives, so its
-    // guidance survives. A cleanup or error-output failure rides along as the
-    // cause.
-    if (cleanupFailure !== null) {
-      addCleanupCause(reportedFailure, cleanupFailure.error)
-    }
-    if (remainingErrorOutputFailure !== null) {
-      addCleanupCause(reportedFailure, remainingErrorOutputFailure.error)
-    }
-    throw reportedFailure
-  }
-  if (cleanupFailure !== null) {
-    // A result may not be reported while the owned tree cannot be confirmed
-    // gone.
-    throw cleanupFailure.error
-  }
-  if (remainingErrorOutputFailure !== null) {
-    // Nothing else failed, so the failed error-output read is the only account
-    // of what went wrong and may not be dropped.
-    throw remainingErrorOutputFailure.error
+  const reported = failures.reported()
+  if (reported !== null) {
+    throw reported.error
   }
 }
 
