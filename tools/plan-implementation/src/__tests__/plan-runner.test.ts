@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { execFileSync } from "node:child_process"
+import { writeFileSync } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
@@ -237,6 +239,54 @@ describe("runPlanImplementation", () => {
         ["pnpm", ["check"]],
         ["pnpm", ["test"]],
         ["node", ["proof.mjs", "--first"]],
+      ],
+    )
+  })
+
+  it("repeats install for outside work admitted before coding", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const commandCalls: StepCommandRequest[] = []
+    let outsideWorkCommitted = false
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "count", count: 1 } },
+      {
+        coding: codingAdapter(async () => {
+          await writeFile(join(repoEduRoot, "step-1.txt"), "step 1\n")
+          return succeededResult(1)
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+        presentation: {
+          event(event) {
+            if (event.kind !== "run-started" || outsideWorkCommitted) return
+            outsideWorkCommitted = true
+            writeFileSync(
+              join(repoEduRoot, "package.json"),
+              '{"private":true}\n',
+            )
+            execFileSync("git", ["add", "--", "package.json"], {
+              cwd: repoEduRoot,
+            })
+            execFileSync("git", ["commit", "--quiet", "-m", "outside work"], {
+              cwd: repoEduRoot,
+            })
+          },
+          close() {},
+        },
+      },
+    )
+
+    assert.equal(result.outcome, "bound-reached")
+    assert.deepEqual(
+      commandCalls.map((command) => command.id),
+      [
+        "dependency-install",
+        "git-diff-check",
+        "repository-check",
+        "repository-test",
+        "machine-proof-1",
       ],
     )
   })

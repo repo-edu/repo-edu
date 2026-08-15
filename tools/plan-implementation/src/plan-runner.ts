@@ -381,6 +381,8 @@ export async function runPlanImplementation(
 
         await requireUnchangedPlanSource(plan.source)
         const beforeCoding = await admitOutsideWork(repository)
+        let dependencyInstallRequired =
+          beforeCoding.outsideWorkDependencyManifestChanged
         repository = await requireActiveStepCursor(
           beforeCoding,
           plan,
@@ -417,7 +419,6 @@ export async function runPlanImplementation(
         progress.phaseChanged("checking")
 
         let admittedDiff: AdmittedRepositoryDiff
-        let dependencyInstallRequired = false
         while (true) {
           const preliminary = await admitActiveStepDiff(
             repository,
