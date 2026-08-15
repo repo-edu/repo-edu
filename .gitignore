@@ -58,9 +58,8 @@ apps/docs/src/**/*.js
 # Logs
 *.log
 
-# Generated via pnpm claude2assistants
+# Symlinked to CLAUDE.md via pnpm claude2assistants
 AGENTS.md
-GEMINI.md
 
 # Link to /Users/Shared
 shared
