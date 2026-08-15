@@ -26,8 +26,8 @@ scan holds a `<file-stem>/implemented:` marker, or a standing
 `<file-stem>/ready:` one, read by the plan repo's recognition rule: a
 file-changing stem commit voids a standing `ready:`, while the
 `implemented:` marker records what held at the sibling commit its body names
-and no later plan commit withdraws it. A plan correction this audit's own
-feedback produced therefore never blocks the next round. When the gate fails,
+and no later plan commit withdraws it. A plan correction this audit wrote
+therefore never blocks the next round. When the gate fails,
 name the newest stem commit, state that the plan reached neither a ready nor
 an implemented state and stop. Continue only when the user explicitly says
 to.
@@ -60,9 +60,11 @@ severity-prefixed per this repo's convention, with its body opening with the
 naming the round's scope. Any other outcome, a clean round or findings the user
 declined, lands an empty record commit: `chore(audit): <plan-name> <scope>
 clean` or `... declined`, carrying the same `Plan:` and `Audit:` body lines.
-One round, one commit: the log alone shows every round that ran, its scope and
-its outcome, including the clean rounds that would otherwise exist only in
-chat.
+One round, one commit per repo the round changes: exactly one commit here, plus
+the single `../plan` commit described under [Plan corrections](#plan-corrections)
+when the round corrected the plan. The log alone shows every round that ran, its
+scope and its outcome, including the clean rounds that would otherwise exist only
+in chat.
 
 ## Evidence
 
@@ -95,9 +97,10 @@ is running. The round's scope decides the checks and tests.
 
 ## Fix phase
 
-After the user accepts the round's findings, apply them, then rebuild the
-verification set from the packages the round audited and the packages the
-fixes touched. Format only the fixed files. Run each affected package's
+After the user accepts the round's findings, apply them. One acceptance covers
+the whole round: the code fixes here and the plan corrections in `../plan`. Then
+rebuild the verification set from the packages the round audited and the packages
+the fixes touched. Format only the fixed files. Run each affected package's
 required `check`, `test` and validation scripts. Include a repo tool only when
 the audit or fix concerns the rule it enforces.
 
@@ -142,14 +145,46 @@ one only on correctness or quality evidence, never on taste.
 
 Grade each finding with the [A]-[D] implementation tiers in this repo's
 `CLAUDE.md`, sorted A through D. Findings land on the implementation. When a
-finding's root cause is the plan itself, say so in the finding and repeat the
-plan-side correction as a plan feedback entry.
+finding's root cause is the plan itself, say so in the finding and carry the
+plan-side correction into the plan corrections below.
 
-## Plan feedback
+## Plan corrections
 
-After the tiered list, report every error or imperfection the audit found in the
-plan itself, one line each, for the user to take back to `../plan`. This audit
-never edits plan files.
+The plan is a live document while its steps are still being implemented, so an
+error the audit finds in it is fixed by the round that found it. This audit
+writes the plan file. It never writes a topology, a detail topology, a draft or
+a carry: those belong to the plan repo's own rounds.
+
+Split each correction by whether the fix needs a choice.
+
+- No choice needed. The plan states something the shipped code shows is false,
+  and one fix is plainly right: a step naming a function that no longer exists,
+  a broken cross-reference, a step the code proved impossible, a **Decisions**
+  entry the shipped code contradicts where the code is right. Write the fix and
+  show it in the report. The user strikes or revises it during the discussion.
+- A choice is needed. More than one sensible fix exists, usually because an
+  earlier step changed what a later step should do. Put the options to the user
+  during the discussion, take the answer and write it into the plan together
+  with the reason the user gave. A decision written without its reason is
+  re-derived and reversed by a later plan round, which is the failure this rule
+  exists to prevent.
+
+Before rewriting a **Decisions** entry, read the topology the plan came from,
+in `../plan` root while the transfer phase is open and under
+`../plan/archive/<name>/` after loop-close. The user should not choose against a
+reason the plan never carried forward. Absence of a topology is normal, not an
+error.
+
+Every correction traces to the shipped code this round inspected or to a choice
+the user made in this round's discussion. Do not author plan-tier work on any
+other basis.
+
+The corrections land as one commit in `../plan` under that repo's commit
+convention, subject `<file-stem>/implementation-<severity sequence>:`, graded by
+that repo's tiers. Its body follows that repo's bullet rules and names the
+commit range this round inspected here. The correction commit leaves a standing
+`ready:` marker in place. A round that corrects no plan file commits nothing
+there.
 
 ## Closing round
 
@@ -162,8 +197,8 @@ commits inform those rounds, ranking their reports and naming the fixes to
 re-verify. They never excuse a row from inspection.
 
 The closing round expects a `<file-stem>/implemented:` marker in the stem
-scan. A later plan commit does not unseat it, so a plan correction earlier
-rounds fed back leaves the marker standing. When the marker is missing, name
+scan. A later plan commit does not unseat it, so a plan correction an earlier
+round wrote leaves the marker standing. When the marker is missing, name
 that once and continue on the user's word. The round
 closes with its own single commit under the one-round-one-commit rule above: a
 fix commit when its accepted findings changed files, the empty record commit
@@ -187,4 +222,4 @@ Open by naming the workflow that ran, an implementation audit in this Repo Edu
 repo, then the plan file, its ready commit, the episode's commit range and
 the round's scope: complete, or the audited step range. Then report the
 coverage table with its coverage line, the tiered findings and the plan
-feedback. Stop there.
+corrections. Stop there.
