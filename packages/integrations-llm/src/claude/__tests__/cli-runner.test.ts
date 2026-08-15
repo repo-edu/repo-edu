@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { existsSync } from "node:fs"
-import { Readable, Writable } from "node:stream"
+import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import {
   LlmError,
@@ -96,6 +96,65 @@ async function drainCliStream(stdoutChunks: string[]): Promise<void> {
   )) {
     // Drain stream.
   }
+}
+
+type LiveCliProcess = {
+  launch: ClaudeCliLaunch
+  stdout: PassThrough
+  errorOutput: PassThrough
+  result: PromiseWithResolvers<{
+    exitCode: number | null
+    signal: string | null
+  }>
+  stopped(): boolean
+}
+
+// Streams the test opens and closes itself, so a turn can end while the error
+// output is still being read.
+function liveLaunch(): LiveCliProcess {
+  const stdout = new PassThrough()
+  const errorOutput = new PassThrough()
+  const result = Promise.withResolvers<{
+    exitCode: number | null
+    signal: string | null
+  }>()
+  let stopped = false
+  const launch: ClaudeCliLaunch = async () => ({
+    stdin: new Writable({
+      write(_chunk, _encoding, callback) {
+        callback()
+      },
+    }),
+    stdout,
+    stderr: errorOutput,
+    result: result.promise,
+    async stopAndConfirm() {
+      stopped = true
+    },
+  })
+  return { launch, stdout, errorOutput, result, stopped: () => stopped }
+}
+
+async function withoutUnhandledRejections(
+  run: () => Promise<void>,
+): Promise<void> {
+  const seen: unknown[] = []
+  const onUnhandled = (reason: unknown) => {
+    seen.push(reason)
+  }
+  process.on("unhandledRejection", onUnhandled)
+  try {
+    await run()
+    await new Promise((resolve) => setImmediate(resolve))
+    await new Promise((resolve) => setImmediate(resolve))
+  } finally {
+    process.off("unhandledRejection", onUnhandled)
+  }
+  assert.equal(
+    seen.length,
+    0,
+    `unhandled rejections: ${seen.map((reason) => String(reason)).join(", ")}`,
+  )
 }
 
 function isClaudeToolGuardrail(error: unknown): boolean {
@@ -499,5 +558,105 @@ describe("runClaudeCliStream", () => {
         ]),
       isClaudeToolGuardrail,
     )
+  })
+
+  it("settles the error-output reader when a guardrail ends the turn", async () => {
+    const live = liveLaunch()
+
+    await withoutUnhandledRejections(async () => {
+      const drained = assert.rejects(async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch: live.launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      }, isClaudeToolGuardrail)
+
+      setImmediate(() => {
+        live.stdout.write(
+          '{"type":"tool_progress","tool_name":"Read","elapsed_time_seconds":1}\n',
+        )
+        live.result.resolve({ exitCode: 0, signal: null })
+      })
+      await drained
+    })
+
+    assert.equal(live.stopped(), true)
+  })
+
+  it("reports a failed error-output read when nothing else failed", async () => {
+    const live = liveLaunch()
+
+    await withoutUnhandledRejections(async () => {
+      const drained = assert.rejects(async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch: live.launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      }, /error output read failed/)
+
+      setImmediate(() => {
+        live.stdout.end(
+          '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
+        )
+        live.result.resolve({ exitCode: 0, signal: null })
+        live.errorOutput.destroy(new Error("error output read failed"))
+      })
+      await drained
+    })
+
+    assert.equal(live.stopped(), true)
+  })
+
+  it("keeps the first reported failure when the error-output read also fails", async () => {
+    const live = liveLaunch()
+    let failure: unknown
+
+    await withoutUnhandledRejections(async () => {
+      const drained = (async () => {
+        try {
+          for await (const _event of runClaudeCliStream(
+            {
+              spec: claudeSpec,
+              prompt: "Reply ok.",
+              executable: "/bin/claude",
+              launch: live.launch,
+            },
+            { authMode: "subscription", childEnv: {} },
+          )) {
+            // Drain stream.
+          }
+        } catch (error) {
+          failure = error
+        }
+      })()
+
+      setImmediate(() => {
+        live.errorOutput.destroy(new Error("error output read failed"))
+        setImmediate(() => {
+          live.stdout.write(
+            '{"type":"tool_progress","tool_name":"Read","elapsed_time_seconds":1}\n',
+          )
+          live.result.resolve({ exitCode: 0, signal: null })
+        })
+      })
+      await drained
+    })
+
+    assert.ok(isClaudeToolGuardrail(failure))
+    assert.match(String((failure as Error).cause), /error output read failed/)
   })
 })

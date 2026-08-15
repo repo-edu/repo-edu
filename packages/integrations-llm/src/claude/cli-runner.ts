@@ -98,6 +98,16 @@ export async function* runClaudeCliStream(
   let childStreamsDestroyed = false
   let reportedFailure: Error | null = null
   let cleanupFailure: { readonly error: unknown } | null = null
+  // A failed error-output read is reported exactly once. Taking it clears it,
+  // so the error that carried it out is never also attached to itself.
+  const errorOutputState: { failure: { readonly error: unknown } | null } = {
+    failure: null,
+  }
+  const takeErrorOutputFailure = (): { readonly error: unknown } | null => {
+    const failure = errorOutputState.failure
+    errorOutputState.failure = null
+    return failure
+  }
   const workingDirectory = createClaudeCliWorkingDirectory()
   const launchOptions = buildClaudeCliLaunchOptions(
     executable,
@@ -146,15 +156,20 @@ export async function* runClaudeCliStream(
   }
   options.signal?.addEventListener("abort", abort, { once: true })
 
+  child.stderr.setEncoding("utf8")
+  // The reader is started and awaited outside the turn's own try block, so its
+  // failure can never escape as an unhandled rejection when another error ends
+  // the turn first. A close this run asked for is expected; any other failure
+  // is a real read failure and is kept for reporting.
+  const errorOutputSettled = collectStderr(child.stderr, (chunk) => {
+    stderr += chunk
+  }).catch((error: unknown) => {
+    if (!abortRequested && !childStreamsDestroyed) {
+      errorOutputState.failure = { error }
+    }
+  })
+
   try {
-    child.stderr.setEncoding("utf8")
-    const stderrDone = collectStderr(child.stderr, (chunk) => {
-      stderr += chunk
-    }).catch((error: unknown) => {
-      if (!abortRequested) {
-        throw error
-      }
-    })
     let promptWriteError: unknown = null
     const promptWritten = writePromptToChild(child.stdin, options.prompt).catch(
       (error: unknown) => {
@@ -205,8 +220,12 @@ export async function* runClaudeCliStream(
     }
 
     const exitStatus = await child.result
-    await stderrDone
+    await errorOutputSettled
     await promptWritten
+    const errorOutputFailure = takeErrorOutputFailure()
+    if (errorOutputFailure !== null) {
+      throw errorOutputFailure.error
+    }
     if (exitStatus.exitCode !== 0) {
       throw cliExitError(exitStatus.exitCode, exitStatus.signal, stderr)
     }
@@ -242,10 +261,9 @@ export async function* runClaudeCliStream(
     if (!completed) {
       terminateChild()
     } else {
-      destroyStream(child.stdin)
-      destroyStream(child.stdout)
-      destroyStream(child.stderr)
+      destroyChildStreams()
     }
+    await errorOutputSettled
     try {
       await child.stopAndConfirm()
     } catch (error) {
@@ -255,11 +273,16 @@ export async function* runClaudeCliStream(
     }
   }
 
+  const remainingErrorOutputFailure = takeErrorOutputFailure()
   if (reportedFailure !== null) {
     // The classified failure stays the error the application receives, so its
-    // guidance survives. The cleanup failure rides along as the cause.
+    // guidance survives. A cleanup or error-output failure rides along as the
+    // cause.
     if (cleanupFailure !== null) {
       addCleanupCause(reportedFailure, cleanupFailure.error)
+    }
+    if (remainingErrorOutputFailure !== null) {
+      addCleanupCause(reportedFailure, remainingErrorOutputFailure.error)
     }
     throw reportedFailure
   }
@@ -267,6 +290,11 @@ export async function* runClaudeCliStream(
     // A result may not be reported while the owned tree cannot be confirmed
     // gone.
     throw cleanupFailure.error
+  }
+  if (remainingErrorOutputFailure !== null) {
+    // Nothing else failed, so the failed error-output read is the only account
+    // of what went wrong and may not be dropped.
+    throw remainingErrorOutputFailure.error
   }
 }
 
