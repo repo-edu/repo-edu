@@ -26,6 +26,7 @@ type FakeLaunchOptions = {
   exitCode?: number
   exitSignal?: string | null
   stdinWriteError?: Error
+  stopAndConfirmError?: Error
 }
 
 function fakeLaunch(
@@ -74,7 +75,11 @@ function fakeLaunch(
       requestStop() {
         call.stopped = true
       },
-      async stopAndConfirm() {},
+      async stopAndConfirm() {
+        if (fakeOptions.stopAndConfirmError) {
+          throw fakeOptions.stopAndConfirmError
+        }
+      },
     }
   }
   return { launch, calls }
@@ -278,6 +283,35 @@ describe("runClaudeCliStream", () => {
         error.kind === "auth" &&
         error.message.includes("Claude CLI is not logged in") &&
         error.message.includes("claude auth login"),
+    )
+  })
+
+  it("keeps the login guidance when stop confirmation also fails", async () => {
+    const cleanupError = new Error("The owned tree could not be confirmed.")
+    const { launch } = fakeLaunch([], [], {
+      exitCode: 1,
+      stopAndConfirmError: cleanupError,
+    })
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "auth" &&
+        error.message.includes("claude auth login") &&
+        error.cause === cleanupError,
     )
   })
 

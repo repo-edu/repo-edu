@@ -95,6 +95,8 @@ export async function* runClaudeCliStream(
   let abortRequested = false
   let completed = false
   let childStreamsDestroyed = false
+  let reportedFailure: Error | null = null
+  let cleanupFailure: { readonly error: unknown } | null = null
   const workingDirectory = createClaudeCliWorkingDirectory()
   const launchOptions = buildClaudeCliLaunchOptions(
     executable,
@@ -223,11 +225,13 @@ export async function* runClaudeCliStream(
     completed = true
     yield finalizeClaudeStreamJsonState(state)
   } catch (cause) {
+    // The failure is classified here but thrown after cleanup, so a cleanup
+    // failure can be added to it instead of taking its place.
     terminateChild()
-    if (abortRequested || options.signal?.aborted || isAbortLikeError(cause)) {
-      throw claudeAbortError(cause)
-    }
-    throw toClaudeLlmError(cause, "subscription")
+    reportedFailure =
+      abortRequested || options.signal?.aborted || isAbortLikeError(cause)
+        ? claudeAbortError(cause)
+        : toClaudeLlmError(cause, "subscription")
   } finally {
     options.signal?.removeEventListener("abort", abort)
     if (!completed) {
@@ -239,10 +243,33 @@ export async function* runClaudeCliStream(
     }
     try {
       await child.stopAndConfirm()
+    } catch (error) {
+      cleanupFailure = { error }
     } finally {
       cleanupClaudeCliWorkingDirectory(workingDirectory)
     }
   }
+
+  if (reportedFailure !== null) {
+    // The classified failure stays the error the application receives, so its
+    // guidance survives. The cleanup failure rides along as the cause.
+    if (cleanupFailure !== null) {
+      addCleanupCause(reportedFailure, cleanupFailure.error)
+    }
+    throw reportedFailure
+  }
+  if (cleanupFailure !== null) {
+    // A result may not be reported while the owned tree cannot be confirmed
+    // gone.
+    throw cleanupFailure.error
+  }
+}
+
+function addCleanupCause(failure: Error, cleanupError: unknown): void {
+  failure.cause =
+    failure.cause === undefined
+      ? cleanupError
+      : new AggregateError([failure.cause, cleanupError])
 }
 
 export function findClaudeCliExecutable(

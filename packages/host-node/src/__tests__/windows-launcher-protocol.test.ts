@@ -67,6 +67,24 @@ describe("Windows launcher protocol", () => {
     assert.equal(command.target.shell, "cmd.exe")
   })
 
+  it("does not restore a host variable the caller removed", () => {
+    const hostOnly = "REPO_EDU_PROTOCOL_HOST_ONLY"
+    process.env[hostOnly] = "host"
+    try {
+      const supplied = { ...process.env }
+      delete supplied[hostOnly]
+
+      const command = createWindowsLaunchCommand({
+        command: "target.exe",
+        env: supplied,
+      })
+
+      assert.equal(command.target.env[hostOnly], undefined)
+    } finally {
+      delete process.env[hostOnly]
+    }
+  })
+
   it("accepts started and terminal messages but rejects invalid readiness", () => {
     assert.deepEqual(parseWindowsLauncherMessage('{"kind":"started"}'), {
       kind: "started",

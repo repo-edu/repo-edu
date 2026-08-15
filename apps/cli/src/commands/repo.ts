@@ -16,7 +16,6 @@ import {
   resolveAssignmentFromCourse,
   toErrorMessage,
 } from "../command-utils.js"
-import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 type RepoCreateOptions = {
   assignment?: string
@@ -246,7 +245,7 @@ async function promptConfirmation(message: string): Promise<boolean> {
 
 export function registerRepoCommands(
   parent: Command,
-  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+  createWorkflow: () => WorkflowClient,
 ): void {
   const repo = parent.command("repo").description("Repository operations")
 

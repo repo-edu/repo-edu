@@ -6,11 +6,10 @@ import {
   requireGitConnection,
   toErrorMessage,
 } from "../command-utils.js"
-import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 export function registerGitCommands(
   parent: Command,
-  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+  createWorkflow: () => WorkflowClient,
 ): void {
   const git = parent.command("git").description("Git platform operations")
 

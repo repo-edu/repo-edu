@@ -223,10 +223,10 @@ const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
     const child = spawn(request.command, [...(request.args ?? [])], {
       cwd: request.cwd,
       detached: true,
-      env:
-        request.env === undefined
-          ? process.env
-          : { ...process.env, ...request.env },
+      // A supplied environment is the whole target environment, never a set
+      // of changes laid over the host's. A caller that removed a variable
+      // must not get it back from `process.env`.
+      env: request.env,
       shell: request.shell,
       stdio: "pipe",
     })

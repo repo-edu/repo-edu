@@ -66,6 +66,22 @@ function validateRequest(
   return authMode
 }
 
+const helperOutputLimit = 8_192
+
+// The helper's error output is kept, not drained away, so a lost helper can
+// still say why it died. The limit keeps a noisy helper from filling memory.
+function collectHelperOutput(stream: Readable): () => string {
+  let collected = ""
+  stream.setEncoding("utf8")
+  stream.on("data", (chunk: string) => {
+    if (collected.length >= helperOutputLimit) {
+      return
+    }
+    collected = (collected + chunk).slice(0, helperOutputLimit)
+  })
+  return () => collected
+}
+
 async function collectCodexStream(
   stream: AsyncIterable<LlmStreamEvent>,
 ): Promise<LlmResult> {
@@ -100,7 +116,7 @@ async function* runCodexHelperStream(
   }
 
   const helper = await options.launch()
-  helper.stderr.resume()
+  const readHelperOutput = collectHelperOutput(helper.stderr)
   const connection = createMessageConnection(
     helper.stdout,
     helper.stdin,
@@ -146,7 +162,9 @@ async function* runCodexHelperStream(
       processState.result = result
       if (!requestState.settled) {
         requestState.failure = {
-          error: unknownOutcomeError(authMode),
+          error: unknownOutcomeError(authMode, {
+            output: readHelperOutput(),
+          }),
           outcome: "unknown",
         }
         events.close()
@@ -157,7 +175,10 @@ async function* runCodexHelperStream(
       processState.error = error
       if (!requestState.settled) {
         requestState.failure = {
-          error: unknownOutcomeError(authMode, error),
+          error: unknownOutcomeError(authMode, {
+            cause: error,
+            output: readHelperOutput(),
+          }),
           outcome: "unknown",
         }
         events.close()
@@ -177,7 +198,12 @@ async function* runCodexHelperStream(
       cancellation.token,
     )
     .catch((error: unknown) => {
-      requestState.failure = mapHelperFailure(error, authMode, request.signal)
+      requestState.failure = mapHelperFailure(
+        error,
+        authMode,
+        request.signal,
+        readHelperOutput(),
+      )
     })
     .finally(() => {
       requestState.settled = true
@@ -202,14 +228,14 @@ async function* runCodexHelperStream(
     } else {
       await processCompletion
       if (processState.error !== undefined) {
-        throw unknownOutcomeError(authMode, processState.error)
+        throw unknownOutcomeError(authMode, {
+          cause: processState.error,
+          output: readHelperOutput(),
+        })
       }
       const result = processState.result
-      if (result === null) {
-        throw unknownOutcomeError(authMode)
-      }
-      if (result.exitCode !== 0 || result.signal !== null) {
-        throw unknownOutcomeError(authMode)
+      if (result === null || result.exitCode !== 0 || result.signal !== null) {
+        throw unknownOutcomeError(authMode, { output: readHelperOutput() })
       }
     }
 

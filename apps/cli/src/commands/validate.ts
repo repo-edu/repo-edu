@@ -6,11 +6,10 @@ import {
   resolveAssignmentFromCourse,
   toErrorMessage,
 } from "../command-utils.js"
-import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 export function registerValidateCommand(
   parent: Command,
-  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+  createWorkflow: () => WorkflowClient,
 ): void {
   parent
     .command("validate")

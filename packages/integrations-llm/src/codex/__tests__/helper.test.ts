@@ -52,7 +52,7 @@ function createServerHarness(run: CodexHelperRun): {
   }
 }
 
-function createLostHelperLaunch(): CodexHelperLaunch {
+function createLostHelperLaunch(errorOutput = ""): CodexHelperLaunch {
   return async () => {
     const stdin = new PassThrough()
     const stdout = new PassThrough()
@@ -63,6 +63,7 @@ function createLostHelperLaunch(): CodexHelperLaunch {
         stdin.on("data", () => {
           writes += 1
           if (writes === 2) {
+            if (errorOutput.length > 0) stderr.write(errorOutput)
             setImmediate(() => resolve({ exitCode: 1, signal: null }))
           }
         })
@@ -193,6 +194,20 @@ describe("Codex managed helper", () => {
         error.kind === "other" &&
         error.context.provider === "codex" &&
         /outside outcome is unknown/.test(error.message),
+    )
+  })
+
+  it("keeps the lost helper's error output in the reported failure", async () => {
+    const client = createCodexLlmTextClient(undefined, {
+      launch: createLostHelperLaunch(
+        "[codex-helper] Error: cannot find module\n",
+      ),
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError && /cannot find module/.test(error.message),
     )
   })
 })

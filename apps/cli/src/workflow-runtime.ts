@@ -17,10 +17,7 @@ import {
   createNodeHttpPort,
   createNodeProcessPort,
 } from "@repo-edu/host-node"
-import {
-  type ChildProcessLifetimeAdapter,
-  createChildProcessLifetimeAdapter,
-} from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
@@ -28,17 +25,15 @@ import {
   createCliCourseStore,
 } from "./state-store.js"
 
+// The adapter is required, never defaulted. A composition that made its own
+// would own process trees that no caller can stop and confirm.
 export type CliWorkflowRuntimeOptions = {
-  childProcessLifetime?: ChildProcessLifetimeAdapter
+  childProcessLifetime: ChildProcessLifetimeAdapter
   signal?: AbortSignal
   storageRoot?: string
 }
 
-export function createCliWorkflowHandlers(
-  options: CliWorkflowRuntimeOptions = {},
-) {
-  const childProcessLifetime =
-    options.childProcessLifetime ?? createChildProcessLifetimeAdapter()
+export function createCliWorkflowHandlers(options: CliWorkflowRuntimeOptions) {
   const courseStore = createCliCourseStore(options.storageRoot)
   const appSettingsStore = createCliAppSettingsStore(options.storageRoot)
   const http = createNodeHttpPort()
@@ -63,7 +58,7 @@ export function createCliWorkflowHandlers(
     ...createRepositoryWorkflowHandlers({
       git,
       gitCommand: createNodeGitCommandPort(
-        createNodeProcessPort(childProcessLifetime),
+        createNodeProcessPort(options.childProcessLifetime),
       ),
       fileSystem: createNodeFileSystemPort(),
     }),
@@ -109,7 +104,7 @@ export function createCliWorkflowClientFromBase(
 }
 
 export function createCliWorkflowClient(
-  options: CliWorkflowRuntimeOptions = {},
+  options: CliWorkflowRuntimeOptions,
 ): WorkflowClient {
   return createCliWorkflowClientFromBase(
     createWorkflowClient(createCliWorkflowHandlers(options)),

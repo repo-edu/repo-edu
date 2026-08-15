@@ -1,11 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { workflowCatalog } from "@repo-edu/application-contract"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createCliWorkflowHandlers } from "../workflow-runtime.js"
 
 describe("cli workflow alignment", () => {
   it("wires every workflow that is marked cli-deliverable in workflowCatalog", () => {
-    const handlers = createCliWorkflowHandlers()
+    const handlers = createCliWorkflowHandlers({
+      childProcessLifetime: createChildProcessLifetimeAdapter(),
+    })
     const actual = Object.keys(handlers).sort()
     const expected = Object.entries(workflowCatalog)
       .filter(([, metadata]) => metadata.delivery.includes("cli"))
@@ -17,7 +20,9 @@ describe("cli workflow alignment", () => {
   })
 
   it("every wired workflow id exists in the catalog", () => {
-    const handlers = createCliWorkflowHandlers()
+    const handlers = createCliWorkflowHandlers({
+      childProcessLifetime: createChildProcessLifetimeAdapter(),
+    })
     const wiredIds = Object.keys(handlers)
 
     for (const workflowId of wiredIds) {

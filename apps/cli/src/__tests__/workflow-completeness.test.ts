@@ -1,7 +1,16 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { workflowCatalog } from "@repo-edu/application-contract"
+import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createProgram } from "../cli.js"
+
+// The command tree is inspected, never run, so this adapter owns no tree. It
+// is still supplied here because every caller owns the adapter it passes.
+function createInspectionProgram() {
+  return createProgram({
+    childProcessLifetime: createChildProcessLifetimeAdapter(),
+  })
+}
 
 /**
  * Maps each CLI-deliverable workflow to the command path(s) that exercise it.
@@ -62,7 +71,7 @@ describe("CLI workflow-to-command completeness", () => {
   })
 
   it("every command path in the matrix references a resolvable Commander command", () => {
-    const program = createProgram()
+    const program = createInspectionProgram()
 
     for (const [workflowId, entry] of Object.entries(workflowToCommandMatrix)) {
       for (const commandPath of entry.commands) {
@@ -82,7 +91,7 @@ describe("CLI workflow-to-command completeness", () => {
   })
 
   it("dropped commands are not resolvable in the command tree", () => {
-    const program = createProgram()
+    const program = createInspectionProgram()
 
     const droppedPaths = [
       ["course", "delete"],

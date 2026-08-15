@@ -234,6 +234,36 @@ describe("child-process lifetime adapter", {
     })
   })
 
+  it("gives the target the supplied environment as its whole environment", async (context) => {
+    const adapter = createChildProcessLifetimeAdapter()
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+    const hostOnly = "REPO_EDU_ENV_REPLACEMENT_HOST_ONLY"
+    process.env[hostOnly] = "host"
+    context.after(() => {
+      delete process.env[hostOnly]
+    })
+    const supplied = { ...process.env }
+    delete supplied[hostOnly]
+
+    const child = await adapter.launch({
+      command: process.execPath,
+      args: ["-e", `process.stdout.write(String(process.env.${hostOnly}))`],
+      env: supplied,
+      route: "direct-adapter",
+    })
+    child.stdin.end()
+    child.stdout.setEncoding("utf8")
+    let output = ""
+    for await (const chunk of child.stdout) {
+      output += String(chunk)
+    }
+    await child.result
+
+    assert.equal(output, "undefined")
+  })
+
   it("requires absolute artifact probe paths", () => {
     assert.throws(
       () =>

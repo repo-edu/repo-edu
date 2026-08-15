@@ -36,16 +36,14 @@ export type WindowsLauncherMessage =
   | WindowsLauncherTerminalMessage
   | WindowsLauncherFailureMessage
 
+// A supplied environment is the whole target environment, never a set of
+// changes laid over the host's. Only an absent environment falls back to the
+// host's own, which is what Node does for a plain spawn.
 function buildTargetEnvironment(
-  overrides: Readonly<NodeJS.ProcessEnv> | undefined,
+  env: Readonly<NodeJS.ProcessEnv> | undefined,
 ): Record<string, string> {
   const environment: Record<string, string> = {}
-  for (const [name, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      environment[name] = value
-    }
-  }
-  for (const [name, value] of Object.entries(overrides ?? {})) {
+  for (const [name, value] of Object.entries(env ?? process.env)) {
     if (value !== undefined) {
       environment[name] = value
     }

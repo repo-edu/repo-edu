@@ -65,5 +65,8 @@ or unsupported composite settings file is backed aside.
 - Do not duplicate workflow/domain logic in CLI.
 - Do not move program-gate ownership into `createProgram`. Tests and other
   in-process callers provide isolated roots and own their surrounding lifetime.
+- `createProgram` and the workflow runtime require the child-lifetime adapter
+  from their caller. Neither may build one of its own, because a composition
+  that did would own process trees no caller can stop and confirm.
 - Keep help/golden outputs stable unless command UX changes intentionally.
 - See [CLI-GUI Parity](../docs/src/content/docs/development/cli-gui-parity.md) for the decision rule on which workflows belong in CLI vs GUI.

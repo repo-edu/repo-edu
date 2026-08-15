@@ -74,6 +74,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   Node. The Codex helper removes `ELECTRON_RUN_AS_NODE` before the SDK starts
   Codex or tools. A lost launcher after target admission reports an unknown
   outcome only after its job is confirmed empty.
+- A launch environment is the complete target environment on every platform
+  route, never changes laid over `process.env`. A caller that removed a
+  variable must not get it back from the host. Only an absent environment
+  falls back to the host's own.
 - The shared child-process lifetime adapter owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.

@@ -11,18 +11,26 @@ export function abortError(message = "Operation cancelled."): DOMException {
   return new DOMException(message, "AbortError")
 }
 
+export type HelperLossDetail = {
+  readonly cause?: unknown
+  readonly output?: string
+}
+
+// The helper's own error output is the only account of why it died, so it
+// belongs in the reported message rather than in a stream nobody reads.
 export function unknownOutcomeError(
   authMode: LlmAuthMode,
-  cause?: unknown,
+  detail: HelperLossDetail = {},
 ): LlmError {
-  return new LlmError(
-    "other",
-    "The Codex helper was lost; the outside outcome is unknown.",
-    {
-      cause,
-      context: { provider: "codex", authMode },
-    },
-  )
+  const output = detail.output?.trim() ?? ""
+  const message =
+    output.length === 0
+      ? "The Codex helper was lost; the outside outcome is unknown."
+      : `The Codex helper was lost; the outside outcome is unknown. Helper output: ${output}`
+  return new LlmError("other", message, {
+    cause: detail.cause,
+    context: { provider: "codex", authMode },
+  })
 }
 
 function isHelperFailure(value: unknown): value is CodexHelperFailure {
@@ -40,13 +48,14 @@ export function mapHelperFailure(
   cause: unknown,
   authMode: LlmAuthMode,
   signal: AbortSignal | undefined,
+  output = "",
 ): HelperFailure {
   if (signal?.aborted) {
     return { error: abortError(), outcome: "known" }
   }
   if (!(cause instanceof ResponseError) || !isHelperFailure(cause.data)) {
     return {
-      error: unknownOutcomeError(authMode, cause),
+      error: unknownOutcomeError(authMode, { cause, output }),
       outcome: "unknown",
     }
   }

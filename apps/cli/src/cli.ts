@@ -10,21 +10,23 @@ import { registerUpdateCommand } from "./commands/update.js"
 import { registerValidateCommand } from "./commands/validate.js"
 import { createCliWorkflowClient } from "./workflow-runtime.js"
 
+// Every caller supplies the child-lifetime adapter it owns and stops. The
+// program never builds a lifetime owner of its own.
 export type CreateProgramOptions = {
-  childProcessLifetime?: ChildProcessLifetimeAdapter
+  childProcessLifetime: ChildProcessLifetimeAdapter
   createWorkflowClient?: () => WorkflowClient
   signal?: AbortSignal
   storageRoot?: string
 }
 
-export function createProgram(options?: CreateProgramOptions): Command {
+export function createProgram(options: CreateProgramOptions): Command {
   const createWorkflowClient =
-    options?.createWorkflowClient ??
+    options.createWorkflowClient ??
     (() =>
       createCliWorkflowClient({
-        childProcessLifetime: options?.childProcessLifetime,
-        signal: options?.signal,
-        storageRoot: options?.storageRoot,
+        childProcessLifetime: options.childProcessLifetime,
+        signal: options.signal,
+        storageRoot: options.storageRoot,
       }))
   const program = new Command()
   program

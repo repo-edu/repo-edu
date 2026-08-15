@@ -8,11 +8,10 @@ import {
   resolveRequestedCourseId,
   toErrorMessage,
 } from "../command-utils.js"
-import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 export function registerCourseCommands(
   parent: Command,
-  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+  createWorkflow: () => WorkflowClient,
 ): void {
   const course = parent.command("course").description("Course management")
 

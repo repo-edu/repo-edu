@@ -6,11 +6,10 @@ import {
   requireLmsConnection,
   toErrorMessage,
 } from "../command-utils.js"
-import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 export function registerLmsCommands(
   parent: Command,
-  createWorkflow: () => WorkflowClient = createCliWorkflowClient,
+  createWorkflow: () => WorkflowClient,
 ): void {
   const lms = parent.command("lms").description("LMS operations")
 
