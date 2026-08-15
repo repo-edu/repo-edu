@@ -3,6 +3,7 @@ import { createLogUpdate } from "log-update"
 
 export type TerminalDisplay = {
   overview(line: string): void
+  progress(render: () => string): void
   detail(render: () => string): void
   close(): void
 }
@@ -35,6 +36,9 @@ export function createTerminalDisplay(
       overview(line) {
         output.write(`${line}\n`)
       },
+      progress(render) {
+        output.write(`${render()}\n`)
+      },
       detail() {},
       close() {},
     }
@@ -48,17 +52,19 @@ export function createTerminalDisplay(
     const width = Math.max(1, output.columns ?? FALLBACK_TERMINAL_WIDTH)
     update(cliTruncate(activeDetail(), width))
   }
+  const showLive = (render: () => string): void => {
+    activeDetail = render
+    renderDetail()
+    stopRefresh ??= schedule(renderDetail)
+  }
 
   return {
     overview(line) {
       activeDetail = null
       update.persist(line)
     },
-    detail(render) {
-      activeDetail = render
-      renderDetail()
-      stopRefresh ??= schedule(renderDetail)
-    },
+    progress: showLive,
+    detail: showLive,
     close() {
       stopRefresh?.()
       stopRefresh = null

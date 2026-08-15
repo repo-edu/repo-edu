@@ -8,6 +8,17 @@ import type {
 import type { PlanImplementationEventObserver } from "./progress-events.js"
 import type { TerminalDisplay } from "./terminal-output.js"
 
+type RunnerCommandStatus = Extract<
+  PlanImplementationEvent,
+  { readonly kind: "command-finished" }
+>["status"]
+
+const RUNNER_COMMAND_RESULT = {
+  succeeded: "Finished",
+  failed: "Failed",
+  stopped: "Stopped",
+} as const satisfies Record<RunnerCommandStatus, string>
+
 function runMode(request: PlanImplementationRunRequest): string {
   switch (request.mode) {
     case "complete":
@@ -93,6 +104,12 @@ export function createTerminalView(
   }
   const writeDetail = (event: PlanImplementationEvent, line: string): void => {
     display.detail(liveLine(event, line))
+  }
+  const writeProgress = (
+    event: PlanImplementationEvent,
+    line: string,
+  ): void => {
+    display.progress(liveLine(event, line))
   }
   const writeIdle = (event: PlanImplementationEvent): void => {
     display.detail(liveLine(event))
@@ -219,15 +236,14 @@ export function createTerminalView(
           return
         case "command-started":
           commandLabels.set(event.commandId, event.label)
-          writeDetail(event, `Run: ${event.label}`)
+          writeProgress(event, `Run: ${event.label}`)
           return
         case "command-finished": {
           const label = commandLabels.get(event.commandId) ?? event.commandId
-          if (event.status === "failed") {
-            writeOverview(event, `${stamp(event)} Failed: ${label}`)
-          } else {
-            writeOverview(event, `${stamp(event)} Finished: ${label}`)
-          }
+          writeOverview(
+            event,
+            `${stamp(event)} ${RUNNER_COMMAND_RESULT[event.status]}: ${label}`,
+          )
           return
         }
         case "stop-requested":

@@ -52,6 +52,7 @@ describe("progress adapters", () => {
     ]
     let tick = 0
     const overview: string[] = []
+    const progress: string[] = []
     const detail: string[] = []
     const detailRenderers: Array<() => string> = []
     let liveElapsedMs = 0
@@ -62,6 +63,9 @@ describe("progress adapters", () => {
         {
           overview(line) {
             overview.push(`${line}\n`)
+          },
+          progress(render) {
+            progress.push(render())
           },
           detail(render) {
             detailRenderers.push(render)
@@ -277,13 +281,49 @@ describe("progress adapters", () => {
       "[1:11]",
       "[1:12] Edited: updated tools/plan-implementation/src/run-progress.ts, created tools/plan-implementation/src/terminal-view.ts",
       "[12:05]",
-      "[12:06] Run: Repository test",
       "[12:25]",
       "[12:26]",
       "[12:30]",
     ])
+    assert.deepEqual(progress, ["[12:06] Run: Repository test"])
     liveElapsedMs = 2_000
     assert.equal(detailRenderers.at(-1)?.(), "[12:32]")
     assert.equal(displayClosed, true)
+  })
+
+  it("names each runner command result by its status", () => {
+    const overview: string[] = []
+    const view = createTerminalView({
+      overview(line) {
+        overview.push(line)
+      },
+      progress() {},
+      detail() {},
+      close() {},
+    })
+    const statuses = ["succeeded", "failed", "stopped"] as const
+
+    for (const status of statuses) {
+      view.event({
+        kind: "command-started",
+        timestamp: "2026-08-13T12:35:00.000Z",
+        commandId: status,
+        label: "Repository test",
+        program: "pnpm",
+        arguments: ["test"],
+      })
+      view.event({
+        kind: "command-finished",
+        timestamp: "2026-08-13T12:35:01.000Z",
+        commandId: status,
+        status,
+      })
+    }
+
+    assert.deepEqual(overview, [
+      "[0:00] Finished: Repository test",
+      "[0:00] Failed: Repository test",
+      "[0:00] Stopped: Repository test",
+    ])
   })
 })

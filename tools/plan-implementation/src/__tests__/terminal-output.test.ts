@@ -3,7 +3,7 @@ import { describe, it } from "node:test"
 import { createTerminalDisplay } from "../terminal-output.js"
 
 describe("terminal display", () => {
-  it("keeps TTY detail on one replaceable terminal-width line", () => {
+  it("keeps TTY progress and detail on one replaceable line", () => {
     const calls: string[] = []
     const refreshes: Array<() => void> = []
     let elapsed = "12:34"
@@ -39,7 +39,7 @@ describe("terminal display", () => {
     display.detail(() => `[${elapsed}] Search files for a very long expression`)
     elapsed = "12:35"
     refreshes[0]?.()
-    display.detail(() => `[${elapsed}] Inspect Git commit`)
+    display.progress(() => `[${elapsed}] Run: Repository test`)
     display.overview("[12:35] Phase: checking")
     refreshes[0]?.()
     display.close()
@@ -49,7 +49,7 @@ describe("terminal display", () => {
       "detail:[12:34] Search files fo…",
       "schedule",
       "detail:[12:35] Search files fo…",
-      "detail:[12:35] Inspect Git com…",
+      "detail:[12:35] Run: Repository…",
       "overview:[12:35] Phase: checking",
       "cancel",
       "clear",
@@ -57,7 +57,7 @@ describe("terminal display", () => {
     ])
   })
 
-  it("writes only overview lines when output is redirected", () => {
+  it("writes required progress and overview when output is redirected", () => {
     const writes: string[] = []
     const output = {
       isTTY: false,
@@ -79,9 +79,13 @@ describe("terminal display", () => {
     )
 
     display.detail(() => "[0:01] Search files")
+    display.progress(() => "[0:01] Run: Repository test")
     display.overview("[0:02] Phase: checking")
     display.close()
 
-    assert.deepEqual(writes, ["[0:02] Phase: checking\n"])
+    assert.deepEqual(writes, [
+      "[0:01] Run: Repository test\n",
+      "[0:02] Phase: checking\n",
+    ])
   })
 })

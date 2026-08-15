@@ -75,9 +75,11 @@ runner does not try to prove the meaning of the work.
   directory. `coding-command-display.ts` decodes SDK shell wrappers for display
   without running them and maps common commands to short activity labels.
   `terminal-view.ts` appends elapsed-time overview lines and maps every detail
-  event onto one elapsed-time activity line. `terminal-output.ts` replaces that
-  line in a terminal, omits it from redirected output and clears it at
-  presentation close. Presentation never changes runner state.
+  event onto one elapsed-time activity line. Every runner command start is a
+  required progress line. `terminal-output.ts` replaces progress and detail on
+  one terminal line. Redirected output writes required progress once and omits
+  other detail. Presentation clears the live line on close and never changes
+  runner state.
 - `main.ts` wires Commander, the shared child lifetime, the runner and the
   terminal view. Command-input errors and cursor resets never open a
   transcript.
