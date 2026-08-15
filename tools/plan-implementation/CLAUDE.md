@@ -19,8 +19,10 @@ the desktop app or the compiled command-line product.
 
 Outside work is planned or ad hoc work that is not part of and does not affect
 the active plan. `repository-admission.ts` owns its practical admission rule:
-outside work advances the same branch in a straight line, leaves the index
-unchanged and has no path in common with the active step. `plan-runner.ts`
+outside work stays on the same branch, keeps the admitted `HEAD` in its own
+history, leaves the index unchanged and has no path in common with the active
+step. Keeping the admitted `HEAD` in history admits a merge commit and rejects
+rewritten history. `plan-runner.ts`
 keeps the active plan cursor fixed and repeats dependency installation and
 checks after it admits outside work. These facts are practical evidence. The
 runner does not try to prove the meaning of the work.
@@ -50,7 +52,10 @@ runner does not try to prove the meaning of the work.
   empty current-branch reset commit.
 - `coding-adapter.ts` starts one runner-owned helper per step through the shared
   managed child-lifetime route. The helper starts one fresh Codex SDK thread
-  and streams semantic coding events before its exact structured result.
+  and streams semantic coding events before its exact structured result. It
+  keeps a bounded tail of the helper's error output and reports that tail
+  whenever the helper's outcome is unknown, so a dead helper still leaves a
+  reason in the stopped result and the transcript.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
   parser-owned active-step marker. It permits Repo Edu writes and needed
   dependency installation while forbidding plan, Git and later-step writes.

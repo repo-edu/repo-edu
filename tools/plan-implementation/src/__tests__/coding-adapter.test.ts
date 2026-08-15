@@ -153,6 +153,7 @@ describe("runner-owned coding helper", () => {
         const result = new Promise<{ exitCode: number; signal: null }>(
           (resolve) => {
             stdin.once("data", () => {
+              stderr.end("Error: the Codex SDK could not start\n  at start\n")
               setImmediate(() => {
                 stdout.end()
                 resolve({ exitCode: 1, signal: null })
@@ -179,7 +180,11 @@ describe("runner-owned coding helper", () => {
 
     await assert.rejects(
       run.result,
-      (error: unknown) => error instanceof CodingHelperOutcomeUnknownError,
+      (error: unknown) =>
+        error instanceof CodingHelperOutcomeUnknownError &&
+        error.message.includes(
+          "Error: the Codex SDK could not start\n  at start",
+        ),
     )
   })
 })

@@ -42,8 +42,23 @@ export class CodingHelperOutcomeUnknownError extends Error {
   override readonly name = "CodingHelperOutcomeUnknownError"
 }
 
+const HELPER_ERROR_OUTPUT_LIMIT = 2_000
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function readErrorOutputTail(stream: Readable): () => string {
+  let tail = ""
+  stream.setEncoding("utf8")
+  stream.on("data", (chunk: string) => {
+    tail = (tail + chunk).slice(-HELPER_ERROR_OUTPUT_LIMIT)
+  })
+  return () => tail.trim()
+}
+
+function withErrorOutput(message: string, errorOutput: string): string {
+  return errorOutput.length === 0 ? message : `${message}\n${errorOutput}`
 }
 
 function mappedHelperError(error: unknown): Error {
@@ -79,7 +94,7 @@ function createCodingRun(
   request: CodingRequest,
   helper: CodingHelperProcess,
 ): CodingRun {
-  helper.stderr.resume()
+  const errorOutput = readErrorOutputTail(helper.stderr)
   const connection = createMessageConnection(
     helper.stdout,
     helper.stdin,
@@ -139,7 +154,10 @@ function createCodingRun(
         await helperCompletion
         if (processState.endedBeforeRequest) {
           throw new CodingHelperOutcomeUnknownError(
-            "The coding helper exited before its result was known.",
+            withErrorOutput(
+              "The coding helper exited before its result was known.",
+              errorOutput(),
+            ),
             { cause: processState.error ?? error },
           )
         }
@@ -149,7 +167,10 @@ function createCodingRun(
       await helperCompletion
       if (processState.error !== undefined) {
         throw new CodingHelperOutcomeUnknownError(
-          `The coding helper process failed: ${errorMessage(processState.error)}`,
+          withErrorOutput(
+            `The coding helper process failed: ${errorMessage(processState.error)}`,
+            errorOutput(),
+          ),
           { cause: processState.error },
         )
       }
@@ -160,7 +181,10 @@ function createCodingRun(
         processResult.signal !== null
       ) {
         throw new CodingHelperOutcomeUnknownError(
-          `The coding helper outcome is unknown (${processResult?.exitCode ?? "no exit"}, ${processResult?.signal ?? "no signal"}).`,
+          withErrorOutput(
+            `The coding helper outcome is unknown (${processResult?.exitCode ?? "no exit"}, ${processResult?.signal ?? "no signal"}).`,
+            errorOutput(),
+          ),
         )
       }
       return codingResult

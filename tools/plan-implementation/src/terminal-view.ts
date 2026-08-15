@@ -198,7 +198,7 @@ export function createTerminalView(
     const base = `${stamp(event)} Result: ${result.outcome}`
     const reason =
       result.outcome === "stopped"
-        ? ` — ${result.reason.replace(/\.$/, "")}`
+        ? ` — ${result.reason.replaceAll(/\s+/g, " ").trim().replace(/\.$/, "")}`
         : ""
     const total = ` Total ${formatDuration(elapsedMs(event))}.`
     return `${base}${reason}.${total} Transcript: ${result.transcriptPath}`

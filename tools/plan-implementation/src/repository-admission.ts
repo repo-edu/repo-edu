@@ -362,7 +362,7 @@ export async function admitOutsideWork(
     }
     if (mergeBase !== admission.headOid) {
       throw new RepositoryAdmissionError(
-        "Outside work does not advance linearly from the admitted commit.",
+        "Outside work does not keep the admitted commit in its history.",
       )
     }
     if (
