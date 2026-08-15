@@ -80,28 +80,32 @@ below, not as a strict conformance failure.
 Read the plan end to end. Read the final state of the code the episode touched.
 
 A round is read-only until the user accepts its findings, so its evidence
-commands must be read-only too. `pnpm check` is not one. It expands to
-`pnpm fix && pnpm typecheck && pnpm build:types && ...`, where `fix` writes
-Biome and rumdl corrections across the tree and `build:types` writes `dist/`
-and the `tsc -b` build info. Run `pnpm lint`, `pnpm fmt:check` and
-`pnpm typecheck` instead. They report the same state and touch nothing.
+commands must not change tracked files. Build the verification set from every
+package whose code or behaviour the round audits. Include a repo tool only
+when the audit concerns the rule that tool enforces.
 
-Scope the tests to the packages the round's range touches, with
-`pnpm --filter <package> test`. The whole suite belongs to the closing round.
+Read each affected package's `CLAUDE.md` and `package.json`. Run its `check`
+and `test` scripts when they exist, plus the relevant validation named by the
+package guidance or plan. Use `pnpm --filter <package> <script>` for package
+scripts. If a required command can change tracked files, defer it to the fix
+phase and use its read-only form for evidence.
 
-The writing commands belong to the fix phase alone, after the user accepts the
-findings. Run them only while no other round is running in this working tree.
-Two runs of `pnpm check` at once corrupt each other's tree and each other's
-result, because both auto-fix the same files and both drive `tsc -b` over the
-same build info.
+Do not run a root whole-workspace script only because an implementation audit
+is running. The round's scope decides the checks and tests.
 
 ## Fix phase
 
-After the user accepts the round's findings, apply them, then verify. Run
-`pnpm check`, then `pnpm --filter <package> test` for every package the fixes
-touched. The read-only rule above defers `pnpm check` to this phase; it does
-not exempt the round from it. What the closing round reserves is the whole
-test suite, not the check.
+After the user accepts the round's findings, apply them, then rebuild the
+verification set from the packages the round audited and the packages the
+fixes touched. Format only the fixed files. Run each affected package's
+required `check`, `test` and validation scripts. Include a repo tool only when
+the audit or fix concerns the rule it enforces.
+
+For implementation-audit fixes, this package-scoped rule replaces the root
+verification default. Do not run root `pnpm check` or the whole `pnpm test`
+suite unless affected package guidance or the plan requires that exact root
+command. Run writing commands only while no other audit fix is running in the
+working tree.
 
 ## Coverage
 
@@ -168,10 +172,10 @@ in `../plan`, by the `<file-stem>/implementation-audited:` marker this session
 writes there on the user's word. The marker is severity-free. Its body names
 the HEAD the closing round inspected and compiles the audit round history from
 this repo's audit commits.
-The closing round runs `pnpm check` and the whole `pnpm test` suite, once.
-Run them after the fixes when the round lands fixes, so the single run
-verifies the state the commit records. Run them up front as evidence when the
-round comes back clean.
+The closing round uses the same package-scoped verification rule. Its set
+includes every package the complete episode concerns, not every package in the
+workspace. Run the required checks and tests once after accepted fixes, or as
+evidence when the round comes back clean.
 
 The closing round is advice, not a gate. When asked to treat the implementation
 as done without one, name the missing round once and continue on the user's
