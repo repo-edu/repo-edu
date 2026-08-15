@@ -512,12 +512,12 @@ export async function launchAssignedTarget(
   },
   pendingStopSignal?: AbortSignal,
 ): Promise<LaunchedWindowsTarget> {
-  const stopSignals = [pendingStopSignal]
-  const readinessStopSignals = [pendingStopSignal, target.signal]
+  const pendingStopSignals = [pendingStopSignal]
+  const launchStopSignals = [pendingStopSignal, target.signal]
   let launcher: AssignedLauncher
   try {
-    throwIfLaunchStopRequested(readinessStopSignals)
-    launcher = await startAssignedLauncher(runtime, readinessStopSignals)
+    throwIfLaunchStopRequested(launchStopSignals)
+    launcher = await startAssignedLauncher(runtime, launchStopSignals)
   } catch (error) {
     if (isPendingLaunchStoppedError(error) && error.signal === target.signal) {
       throw createChildProcessLaunchAbortError()
@@ -529,7 +529,7 @@ export async function launchAssignedTarget(
   let targetLaunchRejected = false
 
   try {
-    if (target.signal?.aborted || launchStopRequested(stopSignals)) {
+    if (target.signal?.aborted || launchStopRequested(pendingStopSignals)) {
       launcher.closeControl()
       await lifecycle.stopAndConfirm()
       if (target.signal?.aborted) {
@@ -539,11 +539,11 @@ export async function launchAssignedTarget(
     }
 
     targetMayBeAdmitted = true
-    await writeLaunchCommand(launcher, target, stopSignals)
+    await writeLaunchCommand(launcher, target, launchStopSignals)
     const started = await readLauncherMessage(
       launcher,
       "target start",
-      stopSignals,
+      launchStopSignals,
     )
     if (started.kind === "failure") {
       targetLaunchRejected = true
@@ -556,7 +556,7 @@ export async function launchAssignedTarget(
       )
     }
 
-    if (target.signal?.aborted || launchStopRequested(stopSignals)) {
+    if (launchStopRequested(launchStopSignals)) {
       lifecycle.requestStop()
     }
     const result = monitorTerminalResult(launcher, lifecycle.stopAndConfirm)

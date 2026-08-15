@@ -72,6 +72,7 @@ function buildCodexHelperEnvironment(
 export async function launchNodeCodexHelper(
   childProcessLifetime: ChildProcessLifetimeAdapter,
   command: NodeCodexHelperCommand,
+  startupSignal: AbortSignal,
 ): Promise<OwnedChildProcess> {
   return await childProcessLifetime.launch({
     command: command.command,
@@ -79,6 +80,7 @@ export async function launchNodeCodexHelper(
     cwd: command.cwd,
     env: buildCodexHelperEnvironment(command),
     route: "managed-helper",
+    signal: startupSignal,
   })
 }
 
@@ -86,7 +88,8 @@ function createCodexHelperLaunch(
   childProcessLifetime: ChildProcessLifetimeAdapter,
   command: NodeCodexHelperCommand,
 ): NonNullable<CreateLlmTextClientOptions["codexHelper"]>["launch"] {
-  return async () => await launchNodeCodexHelper(childProcessLifetime, command)
+  return async (startupSignal) =>
+    await launchNodeCodexHelper(childProcessLifetime, command, startupSignal)
 }
 
 export function createNodeLlmTextClient(

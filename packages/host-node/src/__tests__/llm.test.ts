@@ -170,6 +170,7 @@ describe("createNodeLlmTextClient", () => {
       assert.equal(launches[0]?.command, "/fixed/electron")
       assert.deepEqual(launches[0]?.args, ["/fixed/codex-helper.js"])
       assert.equal(launches[0]?.route, "managed-helper")
+      assert.equal(launches[0]?.signal?.aborted, false)
       assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_PARENT, "inherited")
       assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_OVERRIDE, "override")
       assert.equal(launches[0]?.env?.ELECTRON_RUN_AS_NODE, "1")

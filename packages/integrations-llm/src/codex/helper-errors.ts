@@ -7,8 +7,19 @@ export type HelperFailure = {
   readonly outcome: "known" | "unknown"
 }
 
-export function abortError(message = "Operation cancelled."): DOMException {
-  return new DOMException(message, "AbortError")
+export function abortError(
+  message = "Operation cancelled.",
+  cause?: unknown,
+): DOMException {
+  const error = new DOMException(message, "AbortError")
+  if (cause !== undefined) {
+    Object.defineProperty(error, "cause", {
+      configurable: true,
+      enumerable: false,
+      value: cause,
+    })
+  }
+  return error
 }
 
 export type HelperLossDetail = {

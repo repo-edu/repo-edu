@@ -73,6 +73,7 @@ async function proveManagedCodexHelper(options: {
   const helper = await launchNodeCodexHelper(
     options.childProcessLifetime,
     options.command,
+    new AbortController().signal,
   )
   helper.stdout.resume()
   const stderr = captureText(helper.stderr)

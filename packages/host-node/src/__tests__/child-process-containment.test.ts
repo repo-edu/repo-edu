@@ -387,6 +387,59 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     }
   })
 
+  it("directs caller cancellation at the Windows group while target start is pending", {
+    skip: process.platform !== "win32",
+  }, async (context) => {
+    const marker = await markerPath("caller-cancelled-target-start.txt")
+    const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
+    const previousMarker =
+      process.env[windowsLauncherStallMarkerEnvironmentVariable]
+    process.env[windowsLauncherStallEnvironmentVariable] = "target-start"
+    process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+
+    const adapter = createChildProcessLifetimeAdapter({
+      windows: createWindowsChildProcessLifetimePlatform({
+        executablePath: process.execPath,
+        launcherEntryPath: stalledWindowsLauncherEntryPath,
+        runAsNode: false,
+      }),
+    })
+    context.after(async () => {
+      await adapter.stopAndConfirm()
+    })
+
+    try {
+      const controller = new AbortController()
+      const launch = adapter.launch({
+        command: process.execPath,
+        route: "direct-adapter",
+        signal: controller.signal,
+      })
+      await waitForMarker(marker, /target-start-pending/)
+      const launchRejected = assert.rejects(
+        launch,
+        ChildProcessOutcomeUnknownError,
+      )
+
+      controller.abort()
+
+      await completeWithin(
+        launchRejected,
+        childProcessStopGracePeriodMs + 2_000,
+      )
+      await adapter.stopAndConfirm()
+    } finally {
+      restoreEnvironmentVariable(
+        windowsLauncherStallEnvironmentVariable,
+        previousMode,
+      )
+      restoreEnvironmentVariable(
+        windowsLauncherStallMarkerEnvironmentVariable,
+        previousMarker,
+      )
+    }
+  })
+
   for (const pendingPhase of [
     {
       mode: "readiness",

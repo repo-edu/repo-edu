@@ -41,7 +41,9 @@ export type CodexHelperProcess = {
   stopAndConfirm(): Promise<void>
 }
 
-export type CodexHelperLaunch = () => Promise<CodexHelperProcess>
+export type CodexHelperLaunch = (
+  startupSignal: AbortSignal,
+) => Promise<CodexHelperProcess>
 
 export type CreateCodexLlmTextClientOptions = {
   readonly launch?: CodexHelperLaunch
@@ -100,6 +102,42 @@ async function collectCodexStream(
   return { reply, usage }
 }
 
+async function launchHelperForRequest(
+  launch: CodexHelperLaunch,
+  requestSignal: AbortSignal | undefined,
+): Promise<CodexHelperProcess> {
+  const startupStop = new AbortController()
+  const stopStartup = () => {
+    startupStop.abort(requestSignal?.reason)
+  }
+  requestSignal?.addEventListener("abort", stopStartup, { once: true })
+  if (requestSignal?.aborted) {
+    stopStartup()
+  }
+
+  try {
+    return await launch(startupStop.signal)
+  } catch (error) {
+    if (requestSignal?.aborted) {
+      throw abortError("Operation cancelled.", error)
+    }
+    throw error
+  } finally {
+    requestSignal?.removeEventListener("abort", stopStartup)
+  }
+}
+
+async function throwCancellationAfterStop(
+  stopAndConfirm: Promise<void>,
+): Promise<never> {
+  try {
+    await stopAndConfirm
+  } catch (error) {
+    throw abortError("Operation cancelled.", error)
+  }
+  throw abortError()
+}
+
 async function* runCodexHelperStream(
   request: GenerateTextRequest,
   config: CodexLlmProviderRuntimeConfig | undefined,
@@ -115,10 +153,12 @@ async function* runCodexHelperStream(
     throw abortError()
   }
 
-  const helper = await options.launch()
+  const helper = await launchHelperForRequest(options.launch, request.signal)
   if (request.signal?.aborted) {
-    await helper.stopAndConfirm()
-    throw abortError()
+    if (!helper.stdin.writableEnded) {
+      helper.stdin.end()
+    }
+    return await throwCancellationAfterStop(helper.stopAndConfirm())
   }
   const readHelperOutput = collectHelperOutput(helper.stderr)
   const connection = createMessageConnection(
@@ -153,13 +193,33 @@ async function* runCodexHelperStream(
   )
   connection.listen()
 
-  const cancel = () => {
+  const cancellationStarted = Promise.withResolvers<void>()
+  let cancellationStop: Promise<void> | null = null
+  const cancel = (): Promise<void> => {
     cancellation.cancel()
-    if (!helper.stdin.writableEnded) {
-      helper.stdin.end()
-    }
+    events.close()
+    cancellationStop ??= helper.stopAndConfirm()
+    void cancellationStop.catch(() => undefined)
+    return cancellationStop
   }
-  request.signal?.addEventListener("abort", cancel, { once: true })
+  const onAbort = () => {
+    cancellationStarted.resolve()
+    void cancel()
+  }
+  request.signal?.addEventListener("abort", onAbort, { once: true })
+
+  const waitForActiveWork = async <T>(work: Promise<T>): Promise<T> => {
+    const winner = await Promise.race([
+      work.then((value) => ({ kind: "work", value }) as const),
+      cancellationStarted.promise.then(
+        () => ({ kind: "cancellation" }) as const,
+      ),
+    ])
+    if (winner.kind === "cancellation") {
+      return await throwCancellationAfterStop(cancellationStop ?? cancel())
+    }
+    return winner.value
+  }
 
   const processCompletion = helper.result.then(
     (result) => {
@@ -212,7 +272,7 @@ async function* runCodexHelperStream(
     .finally(() => {
       requestState.settled = true
       events.close()
-      if (!helper.stdin.writableEnded) {
+      if (!request.signal?.aborted && !helper.stdin.writableEnded) {
         helper.stdin.end()
       }
     })
@@ -221,16 +281,13 @@ async function* runCodexHelperStream(
     for await (const event of events) {
       yield event
     }
-    await completion
+    await waitForActiveWork(completion)
 
-    if (
-      requestState.failure?.outcome === "unknown" ||
-      request.signal?.aborted
-    ) {
+    if (requestState.failure?.outcome === "unknown") {
       await helper.stopAndConfirm()
-      await processCompletion
+      await waitForActiveWork(processCompletion)
     } else {
-      await processCompletion
+      await waitForActiveWork(processCompletion)
       if (processState.error !== undefined) {
         throw unknownOutcomeError(authMode, {
           cause: processState.error,
@@ -247,11 +304,14 @@ async function* runCodexHelperStream(
       throw requestState.failure.error
     }
   } finally {
-    request.signal?.removeEventListener("abort", cancel)
+    request.signal?.removeEventListener("abort", onAbort)
     if (!requestState.settled) {
-      cancel()
-      await helper.stopAndConfirm()
-      await completion
+      const stop = cancellationStop ?? cancel()
+      if (request.signal?.aborted) {
+        await stop.catch(() => undefined)
+      } else {
+        await stop
+      }
     }
     eventSubscription.dispose()
     traceSubscription.dispose()

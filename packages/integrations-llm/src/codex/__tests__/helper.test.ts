@@ -182,20 +182,58 @@ describe("Codex managed helper", () => {
     assert.equal(harness.stopCount(), 1)
   })
 
-  it("cancels during helper startup without sending a request", async () => {
-    const launchStarted = Promise.withResolvers<void>()
-    const releaseLaunch = Promise.withResolvers<void>()
-    let requests = 0
-    const harness = createServerHarness(async function* () {
-      requests += 1
-      yield { kind: "done", usage }
-    })
+  it("settles cancellation through one stop-and-confirm call when the helper does not answer", async () => {
+    let stops = 0
     const controller = new AbortController()
     const client = createCodexLlmTextClient(undefined, {
       launch: async () => {
+        const stdin = new PassThrough()
+        const stdout = new PassThrough()
+        const stderr = new PassThrough()
+        return {
+          stdin,
+          stdout,
+          stderr,
+          result: new Promise(() => undefined),
+          async stopAndConfirm() {
+            stops += 1
+            stdout.end()
+            stderr.end()
+          },
+        }
+      },
+    })
+    const result = client.generateText({
+      ...request(codexSpec),
+      signal: controller.signal,
+    })
+
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    controller.abort()
+
+    await assert.rejects(
+      result,
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
+    )
+    assert.equal(stops, 1)
+  })
+
+  it("cancels pending helper startup through its launch signal", async () => {
+    const launchStarted = Promise.withResolvers<void>()
+    let startupSignal: AbortSignal | undefined
+    const controller = new AbortController()
+    const client = createCodexLlmTextClient(undefined, {
+      launch: async (signal) => {
+        startupSignal = signal
         launchStarted.resolve()
-        await releaseLaunch.promise
-        return await harness.launch()
+        return await new Promise<never>((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => reject(new Error("helper startup stopped")),
+            { once: true },
+          )
+        })
       },
     })
     const result = client.generateText({
@@ -205,15 +243,14 @@ describe("Codex managed helper", () => {
 
     await launchStarted.promise
     controller.abort()
-    releaseLaunch.resolve()
 
     await assert.rejects(
       () => result,
       (error: unknown) =>
         error instanceof DOMException && error.name === "AbortError",
     )
-    assert.equal(requests, 0)
-    assert.equal(harness.stopCount(), 1)
+    assert.notEqual(startupSignal, controller.signal)
+    assert.equal(startupSignal?.aborted, true)
   })
 
   it("reports helper loss as an unknown outside outcome", async () => {
