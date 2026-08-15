@@ -74,5 +74,7 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - The shared child-process lifetime adapter owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.
+  Shutdown requests a stop from platform startup before it waits for the
+  launch to enter the active-tree registry.
   A caller-side stream or protocol failure must await the tree's
   `stopAndConfirm` result before it reports the failure.

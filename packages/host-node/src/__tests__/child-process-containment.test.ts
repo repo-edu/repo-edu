@@ -11,6 +11,7 @@ import type {
 } from "../child-process-lifetime.js"
 import {
   ChildProcessOutcomeUnknownError,
+  childProcessStopGracePeriodMs,
   createChildProcessLifetimeAdapter,
 } from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
@@ -28,6 +29,13 @@ const windowsLauncherEntryPath = join(
   repoRoot,
   "apps/desktop/resources/host-child-lifetime/windows-launcher.cjs",
 )
+const stalledWindowsLauncherEntryPath = fileURLToPath(
+  new URL("./fixtures/windows-launcher-stall.cjs", import.meta.url),
+)
+const windowsLauncherStallEnvironmentVariable =
+  "REPO_EDU_WINDOWS_LAUNCHER_STALL"
+const windowsLauncherStallMarkerEnvironmentVariable =
+  "REPO_EDU_WINDOWS_LAUNCHER_STALL_MARKER"
 const supportsAdapter =
   process.platform === "darwin" ||
   process.platform === "linux" ||
@@ -40,6 +48,38 @@ function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs)
   })
+}
+
+async function completeWithin(
+  promise: Promise<void>,
+  durationMs: number,
+): Promise<void> {
+  let timeout: NodeJS.Timeout | undefined
+  try {
+    await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error("Pending child-process shutdown timed out."))
+        }, durationMs)
+      }),
+    ])
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout)
+    }
+  }
+}
+
+function restoreEnvironmentVariable(
+  name: string,
+  previous: string | undefined,
+): void {
+  if (previous === undefined) {
+    delete process.env[name]
+    return
+  }
+  process.env[name] = previous
 }
 
 async function markerPath(name: string): Promise<string> {
@@ -291,4 +331,62 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     })
     await assertMarkerStable(marker)
   })
+
+  for (const pendingPhase of [
+    {
+      mode: "readiness",
+      marker: /readiness-pending/,
+      error: /pending child-process launch was stopped/,
+    },
+    {
+      mode: "target-start",
+      marker: /target-start-pending/,
+      error: ChildProcessOutcomeUnknownError,
+    },
+  ] as const) {
+    it(`stops Windows startup while ${pendingPhase.mode} is pending`, {
+      skip: process.platform !== "win32",
+    }, async (context) => {
+      const marker = await markerPath(`${pendingPhase.mode}.txt`)
+      const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
+      const previousMarker =
+        process.env[windowsLauncherStallMarkerEnvironmentVariable]
+      process.env[windowsLauncherStallEnvironmentVariable] = pendingPhase.mode
+      process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+
+      const adapter = createChildProcessLifetimeAdapter({
+        windows: createWindowsChildProcessLifetimePlatform({
+          executablePath: process.execPath,
+          launcherEntryPath: stalledWindowsLauncherEntryPath,
+        }),
+      })
+      context.after(async () => {
+        await adapter.stopAndConfirm()
+      })
+
+      try {
+        const launch = adapter.launch({
+          command: process.execPath,
+          route: "direct-adapter",
+        })
+        await waitForMarker(marker, pendingPhase.marker)
+        const launchRejected = assert.rejects(launch, pendingPhase.error)
+
+        await completeWithin(
+          adapter.stopAndConfirm(),
+          childProcessStopGracePeriodMs + 2_000,
+        )
+        await launchRejected
+      } finally {
+        restoreEnvironmentVariable(
+          windowsLauncherStallEnvironmentVariable,
+          previousMode,
+        )
+        restoreEnvironmentVariable(
+          windowsLauncherStallMarkerEnvironmentVariable,
+          previousMarker,
+        )
+      }
+    })
+  }
 })

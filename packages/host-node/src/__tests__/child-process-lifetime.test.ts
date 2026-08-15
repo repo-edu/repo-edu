@@ -5,7 +5,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import { waitForLaunchStop } from "../child-process-launch-stop.js"
+import {
+  type ChildProcessLifetimePlatform,
+  createChildProcessLifetimeAdapter,
+} from "../child-process-lifetime.js"
 import {
   finishChildProcessLifetimeArtifactProbe,
   resolveChildProcessLifetimeArtifactProbeTarget,
@@ -44,6 +48,63 @@ afterEach(async () => {
     }),
   )
   temporaryRoots.clear()
+})
+
+describe("pending child-process launches", () => {
+  it("interrupts a platform wait when pending startup stops", async () => {
+    const pendingStop = new AbortController()
+    const waiting = waitForLaunchStop(new Promise<never>(() => undefined), [
+      pendingStop.signal,
+    ])
+
+    pendingStop.abort()
+
+    await assert.rejects(waiting, /pending child-process launch was stopped/)
+  })
+
+  it("requests pending startup to stop before waiting for it", async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "platform",
+    )
+    let pendingStopSignal: AbortSignal | undefined
+    const windows: ChildProcessLifetimePlatform = {
+      launch(_request, stopSignal) {
+        pendingStopSignal = stopSignal
+        return new Promise((_resolve, reject) => {
+          stopSignal.addEventListener(
+            "abort",
+            () => {
+              reject(new Error("pending startup stopped"))
+            },
+            { once: true },
+          )
+        })
+      },
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...platformDescriptor,
+        value: "win32",
+      })
+      const adapter = createChildProcessLifetimeAdapter({ windows })
+      const launch = adapter.launch({
+        command: "pending-target",
+        route: "direct-adapter",
+      })
+      const launchRejected = assert.rejects(launch, /pending startup stopped/)
+
+      await adapter.stopAndConfirm()
+
+      assert.equal(pendingStopSignal?.aborted, true)
+      await launchRejected
+    } finally {
+      if (platformDescriptor) {
+        Object.defineProperty(process, "platform", platformDescriptor)
+      }
+    }
+  })
 })
 
 describe("child-process lifetime adapter", {

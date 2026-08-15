@@ -43,6 +43,7 @@ export type ChildProcessLifetimePlatformTree = OwnedChildProcess & {
 export type ChildProcessLifetimePlatform = {
   launch(
     request: ChildProcessLifetimeLaunch,
+    pendingStopSignal: AbortSignal,
   ): Promise<ChildProcessLifetimePlatformTree>
 }
 
@@ -54,6 +55,11 @@ type RegisteredProcessTree = Pick<
   ChildProcessLifetimePlatformTree,
   "requestStop" | "stopAndConfirm"
 >
+
+type PendingProcessTree = {
+  readonly completion: Promise<ChildProcessLifetimePlatformTree>
+  requestStop(): void
+}
 
 type ProcessGroup = {
   requestStop(): void
@@ -210,7 +216,10 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 }
 
 const posixChildProcessLifetimePlatform: ChildProcessLifetimePlatform = {
-  async launch(request) {
+  async launch(request, pendingStopSignal) {
+    if (pendingStopSignal.aborted) {
+      throw new Error("The pending child-process launch was stopped.")
+    }
     const child = spawn(request.command, [...(request.args ?? [])], {
       cwd: request.cwd,
       detached: true,
@@ -273,7 +282,7 @@ export function createChildProcessLifetimeAdapter(
   options: ChildProcessLifetimeAdapterOptions = {},
 ): ChildProcessLifetimeAdapter {
   const activeTrees = new Map<symbol, RegisteredProcessTree>()
-  const pendingLaunches = new Set<Promise<ChildProcessLifetimePlatformTree>>()
+  const pendingLaunches = new Set<PendingProcessTree>()
   let shutdown: Promise<void> | undefined
 
   return {
@@ -283,11 +292,21 @@ export function createChildProcessLifetimeAdapter(
       }
       throwIfAborted(request.signal)
 
-      const pending = selectPlatform(options).launch(request)
+      const pendingStop = new AbortController()
+      const completion = selectPlatform(options).launch(
+        request,
+        pendingStop.signal,
+      )
+      const pending: PendingProcessTree = {
+        completion,
+        requestStop() {
+          pendingStop.abort()
+        },
+      }
       pendingLaunches.add(pending)
       let platformTree: ChildProcessLifetimePlatformTree
       try {
-        platformTree = await pending
+        platformTree = await completion
       } finally {
         pendingLaunches.delete(pending)
       }
@@ -340,7 +359,13 @@ export function createChildProcessLifetimeAdapter(
     },
     stopAndConfirm() {
       shutdown ??= (async () => {
-        await Promise.allSettled([...pendingLaunches])
+        const pending = [...pendingLaunches]
+        for (const launch of pending) {
+          launch.requestStop()
+        }
+        await Promise.allSettled(
+          pending.map(async (launch) => await launch.completion),
+        )
         await Promise.all(
           [...activeTrees.values()].map(async (tree) => {
             await tree.stopAndConfirm()

@@ -2,6 +2,13 @@ import { type ChildProcess, spawn } from "node:child_process"
 import { createInterface, type Interface } from "node:readline"
 import type { Readable, Writable } from "node:stream"
 import {
+  type LaunchStopSignals,
+  launchStopRequested,
+  pendingLaunchStoppedError,
+  throwIfLaunchStopRequested,
+  waitForLaunchStop,
+} from "./child-process-launch-stop.js"
+import {
   type ChildProcessLifetimeLaunch,
   type ChildProcessLifetimePlatform,
   type ChildProcessLifetimePlatformTree,
@@ -189,9 +196,10 @@ function formatLauncherExit(exit: LauncherExit): string {
 async function readLauncherMessage(
   launcher: Pick<AssignedLauncher, "controlLines" | "exit">,
   label: string,
+  stopSignals: LaunchStopSignals = [],
 ): Promise<WindowsLauncherMessage> {
   const next = await withTimeout(
-    launcher.controlLines.next(),
+    waitForLaunchStop(launcher.controlLines.next(), stopSignals),
     `Windows launcher ${label}`,
   )
   if (next.done) {
@@ -239,6 +247,7 @@ async function cleanBeforeTargetAdmission(options: {
 
 async function startAssignedLauncher(
   runtime: WindowsChildLifetimeRuntime,
+  stopSignals: LaunchStopSignals,
 ): Promise<AssignedLauncher> {
   if (process.platform !== "win32") {
     throw new Error("The Windows child-lifetime route requires Windows.")
@@ -253,6 +262,7 @@ async function startAssignedLauncher(
   let assigned = false
 
   try {
+    throwIfLaunchStopRequested(stopSignals)
     const fixedLauncherArguments = launcherArguments(runtime)
     child = spawn(runtime.executablePath, fixedLauncherArguments, {
       env: {
@@ -287,6 +297,7 @@ async function startAssignedLauncher(
     const ready = await readLauncherMessage(
       { controlLines: iterator, exit },
       "readiness",
+      stopSignals,
     )
     if (ready.kind === "failure") {
       throw new Error(`The Windows launcher failed: ${ready.message}`)
@@ -363,25 +374,29 @@ async function startAssignedLauncher(
 async function writeLaunchCommand(
   launcher: AssignedLauncher,
   target: WindowsChildLifetimeTarget,
+  stopSignals: LaunchStopSignals,
 ): Promise<void> {
   const command = createWindowsLaunchCommand(target)
-  await new Promise<void>((resolve, reject) => {
-    const removeListeners = () => {
-      launcher.controlInput.off("error", onError)
-      launcher.controlInput.off("finish", onFinish)
-    }
-    const onError = (error: Error) => {
-      removeListeners()
-      reject(error)
-    }
-    const onFinish = () => {
-      removeListeners()
-      resolve()
-    }
-    launcher.controlInput.once("error", onError)
-    launcher.controlInput.once("finish", onFinish)
-    launcher.controlInput.end(`${JSON.stringify(command)}\n`)
-  })
+  await waitForLaunchStop(
+    new Promise<void>((resolve, reject) => {
+      const removeListeners = () => {
+        launcher.controlInput.off("error", onError)
+        launcher.controlInput.off("finish", onFinish)
+      }
+      const onError = (error: Error) => {
+        removeListeners()
+        reject(error)
+      }
+      const onFinish = () => {
+        removeListeners()
+        resolve()
+      }
+      launcher.controlInput.once("error", onError)
+      launcher.controlInput.once("finish", onFinish)
+      launcher.controlInput.end(`${JSON.stringify(command)}\n`)
+    }),
+    stopSignals,
+  )
 }
 
 function createStopAndConfirm(launcher: AssignedLauncher): {
@@ -482,22 +497,32 @@ export async function launchAssignedTarget(
     readonly route: ChildProcessLifetimeLaunch["route"]
     readonly signal?: AbortSignal
   },
+  pendingStopSignal?: AbortSignal,
 ): Promise<LaunchedWindowsTarget> {
-  const launcher = await startAssignedLauncher(runtime)
+  const stopSignals = [pendingStopSignal]
+  throwIfLaunchStopRequested(stopSignals)
+  const launcher = await startAssignedLauncher(runtime, stopSignals)
   const lifecycle = createStopAndConfirm(launcher)
-  let commandAdmitted = false
+  let targetMayBeAdmitted = false
   let targetLaunchRejected = false
 
   try {
-    if (target.signal?.aborted) {
+    if (target.signal?.aborted || launchStopRequested(stopSignals)) {
       launcher.closeControl()
       await lifecycle.stopAndConfirm()
-      throw new Error("The child-process launch was cancelled.")
+      if (target.signal?.aborted) {
+        throw new Error("The child-process launch was cancelled.")
+      }
+      throw pendingLaunchStoppedError()
     }
 
-    await writeLaunchCommand(launcher, target)
-    commandAdmitted = true
-    const started = await readLauncherMessage(launcher, "target start")
+    targetMayBeAdmitted = true
+    await writeLaunchCommand(launcher, target, stopSignals)
+    const started = await readLauncherMessage(
+      launcher,
+      "target start",
+      stopSignals,
+    )
     if (started.kind === "failure") {
       targetLaunchRejected = true
       await lifecycle.stopAndConfirm()
@@ -509,7 +534,7 @@ export async function launchAssignedTarget(
       )
     }
 
-    if (target.signal?.aborted) {
+    if (target.signal?.aborted || launchStopRequested(stopSignals)) {
       lifecycle.requestStop()
     }
     const result = monitorTerminalResult(launcher, lifecycle.stopAndConfirm)
@@ -533,7 +558,7 @@ export async function launchAssignedTarget(
     if (error instanceof ChildProcessOutcomeUnknownError) {
       throw error
     }
-    if (commandAdmitted && !targetLaunchRejected) {
+    if (targetMayBeAdmitted && !targetLaunchRejected) {
       return await unknownAfterTargetAdmission(error, lifecycle.stopAndConfirm)
     }
     try {
@@ -552,17 +577,21 @@ export function createWindowsChildProcessLifetimePlatform(
   runtime: WindowsChildLifetimeRuntime,
 ): ChildProcessLifetimePlatform {
   return {
-    async launch(request) {
+    async launch(request, pendingStopSignal) {
       return (
-        await launchAssignedTarget(runtime, {
-          command: request.command,
-          args: request.args,
-          cwd: request.cwd,
-          env: request.env,
-          route: request.route,
-          shell: request.shell,
-          signal: request.signal,
-        })
+        await launchAssignedTarget(
+          runtime,
+          {
+            command: request.command,
+            args: request.args,
+            cwd: request.cwd,
+            env: request.env,
+            route: request.route,
+            shell: request.shell,
+            signal: request.signal,
+          },
+          pendingStopSignal,
+        )
       ).tree
     },
   }
@@ -571,7 +600,7 @@ export function createWindowsChildProcessLifetimePlatform(
 export async function proveWindowsLauncherReadiness(
   runtime: WindowsChildLifetimeRuntime,
 ): Promise<WindowsLauncherReadinessEvidence> {
-  const launcher = await startAssignedLauncher(runtime)
+  const launcher = await startAssignedLauncher(runtime, [])
   try {
     launcher.closeControl()
     requiredInput(launcher.child).end()
