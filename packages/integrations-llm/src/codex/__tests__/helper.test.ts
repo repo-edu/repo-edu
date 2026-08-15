@@ -21,7 +21,10 @@ const usage = {
   authMode: "subscription" as const,
 }
 
-function createServerHarness(run: CodexHelperRun): {
+function createServerHarness(
+  run: CodexHelperRun,
+  options: { readonly stopError?: Error } = {},
+): {
   readonly launch: CodexHelperLaunch
   readonly launchCount: () => number
   readonly stopCount: () => number
@@ -44,6 +47,9 @@ function createServerHarness(run: CodexHelperRun): {
           stops += 1
           if (!hostToHelper.writableEnded) hostToHelper.end()
           await server
+          if (options.stopError) {
+            throw options.stopError
+          }
         },
       }
     },
@@ -52,7 +58,10 @@ function createServerHarness(run: CodexHelperRun): {
   }
 }
 
-function createLostHelperLaunch(errorOutput = ""): CodexHelperLaunch {
+function createLostHelperLaunch(
+  errorOutput = "",
+  stopError?: Error,
+): CodexHelperLaunch {
   return async () => {
     const stdin = new PassThrough()
     const stdout = new PassThrough()
@@ -78,6 +87,9 @@ function createLostHelperLaunch(errorOutput = ""): CodexHelperLaunch {
         if (!stdin.destroyed) stdin.destroy()
         if (!stdout.destroyed) stdout.destroy()
         await result
+        if (stopError) {
+          throw stopError
+        }
       },
     }
   }
@@ -141,6 +153,37 @@ describe("Codex managed helper", () => {
         error instanceof LlmError &&
         error.kind === "rate_limit" &&
         error.context.retryAfterMs === 5_000,
+    )
+    assert.equal(harness.stopCount(), 1)
+  })
+
+  it("keeps a known helper failure when stop confirmation also fails", async () => {
+    const stopError = new Error("The helper tree could not be confirmed.")
+    const harness = createServerHarness(
+      async function* () {
+        yield await Promise.reject(
+          new LlmError("rate_limit", "429 retry-after 5s", {
+            context: {
+              provider: "codex",
+              authMode: "subscription",
+              retryAfterMs: 5_000,
+            },
+          }),
+        )
+      },
+      { stopError },
+    )
+    const client = createCodexLlmTextClient(undefined, {
+      launch: harness.launch,
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "rate_limit" &&
+        error.context.retryAfterMs === 5_000 &&
+        error.cause === stopError,
     )
     assert.equal(harness.stopCount(), 1)
   })
@@ -305,6 +348,22 @@ describe("Codex managed helper", () => {
         error.kind === "other" &&
         error.context.provider === "codex" &&
         /outside outcome is unknown/.test(error.message),
+    )
+  })
+
+  it("keeps the unknown outcome when stop confirmation also fails", async () => {
+    const stopError = new Error("The helper tree could not be confirmed.")
+    const client = createCodexLlmTextClient(undefined, {
+      launch: createLostHelperLaunch("", stopError),
+    })
+
+    await assert.rejects(
+      () => client.generateText(request(codexSpec)),
+      (error: unknown) =>
+        error instanceof LlmError &&
+        /outside outcome is unknown/.test(error.message) &&
+        error.cause instanceof AggregateError &&
+        error.cause.errors.includes(stopError),
     )
   })
 

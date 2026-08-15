@@ -6,6 +6,7 @@ import {
   type LlmModelSpec,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
+import { addCleanupCause } from "../error-cause"
 import {
   claudeAbortError,
   isAbortLikeError,
@@ -267,13 +268,6 @@ export async function* runClaudeCliStream(
     // gone.
     throw cleanupFailure.error
   }
-}
-
-function addCleanupCause(failure: Error, cleanupError: unknown): void {
-  failure.cause =
-    failure.cause === undefined
-      ? cleanupError
-      : new AggregateError([failure.cause, cleanupError])
 }
 
 export function findClaudeCliExecutable(

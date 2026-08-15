@@ -13,6 +13,7 @@ import {
   createMessageConnection,
   NullLogger,
 } from "vscode-jsonrpc/node"
+import { addCleanupCause } from "../error-cause.js"
 import { resolveCodexAuth } from "./auth.js"
 import {
   abortError,
@@ -136,6 +137,32 @@ async function throwCancellationAfterStop(
     throw abortError("Operation cancelled.", error)
   }
   throw abortError()
+}
+
+async function stopHelperAfterRequest(options: {
+  readonly failure: HelperFailure | null
+  readonly helper: CodexHelperProcess
+  readonly requestSignal?: AbortSignal
+  readonly waitForActiveWork: <T>(work: Promise<T>) => Promise<T>
+}): Promise<void> {
+  const preserveFailureDuringStop = options.failure?.outcome === "unknown"
+
+  try {
+    const stop = options.helper.stopAndConfirm()
+    if (preserveFailureDuringStop) {
+      await stop
+    } else {
+      await options.waitForActiveWork(stop)
+    }
+  } catch (error) {
+    const cancellationWon =
+      !preserveFailureDuringStop && options.requestSignal?.aborted === true
+    if (options.failure === null || cancellationWon) {
+      throw error
+    }
+    addCleanupCause(options.failure.error, error)
+    throw options.failure.error
+  }
 }
 
 async function* runCodexHelperStream(
@@ -273,13 +300,13 @@ async function* runCodexHelperStream(
     }
     await waitForActiveWork(completion)
 
-    if (requestState.failure?.outcome === "unknown") {
-      await helper.stopAndConfirm()
-      await waitForActiveWork(processCompletion)
-    } else {
-      await waitForActiveWork(helper.stopAndConfirm())
-      await waitForActiveWork(processCompletion)
-    }
+    await stopHelperAfterRequest({
+      failure: requestState.failure,
+      helper,
+      requestSignal: request.signal,
+      waitForActiveWork,
+    })
+    await waitForActiveWork(processCompletion)
 
     if (requestState.failure !== null) {
       throw requestState.failure.error
