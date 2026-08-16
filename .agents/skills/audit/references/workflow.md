@@ -160,10 +160,12 @@ one only on correctness or quality evidence, never on taste.
 ## Findings
 
 Grade each finding with the [A]-[D] implementation tiers in this repo's
-`CLAUDE.md`, sorted A through D. Findings land on the implementation. When a
-finding's root cause is the plan itself, say so in the finding and carry the
-plan-side correction into the plan corrections below. Every finding also
-carries a growth tag, per [Growth tags](#growth-tags).
+`CLAUDE.md`. Present the findings as one numbered list sorted A through D.
+Start at 1 and keep the numbers increasing across tier changes. Findings land
+on the implementation. When a finding's root cause is the plan itself, say so
+in the finding and carry the plan-side correction into the plan corrections
+below. Every finding also carries a growth tag, per
+[Growth tags](#growth-tags).
 
 ## Finding shape
 
@@ -333,5 +335,5 @@ repo, then the plan file, its ready commit, the episode's commit range and
 the round's scope: complete, or the audited step range. Then report the
 coverage table with its coverage line. Then, when a growth-tag number runs
 across rounds, the run statement and the pricing under
-[Pricing a run](#pricing-a-run). Then the tiered findings, each carrying its
-growth tag, and the plan corrections. Stop there.
+[Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
+carrying its growth tag, and the plan corrections. Stop there.

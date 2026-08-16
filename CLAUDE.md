@@ -206,7 +206,9 @@ implementation severity tier:
   non-critical path.
 - `[D]`: Wording, style, formatting or low-risk polish.
 
-Sort implementation findings from A through D.
+Present implementation findings as one numbered list sorted from A through D.
+Start at 1 and keep the numbers increasing across tier changes, so the user can
+refer to one finding without restating it.
 
 ## Commit Severity Prefix
 
