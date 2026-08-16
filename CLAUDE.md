@@ -241,6 +241,14 @@ the `plan-` prefix dropped for peer plans (`plan-persister.md` →
 plan was given when designed only in chat. Commits unattached to any
 plan omit this line.
 
+An implementation-audit round's fix commit carries more in its body. Each
+finding bullet opens with the finding's area metadata and its growth tag,
+`- [area:<primary-id>] [growth:<numbers>] <prose>`, so a later round can read
+the round's findings and their suspected growth patterns from the log alone.
+The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
+format and the tag's meaning; the patterns and their numbering live in
+`../plan/GROWTH-PATTERNS.md`.
+
 Two severity-free exceptions exist, both empty marker commits owned by the
 mechanism that writes them. The automated plan runner's cursor-reset commit
 addresses no finding and starts no implementation work; its subject is exactly

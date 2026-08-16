@@ -57,7 +57,23 @@ Close every round with exactly one commit after the user settles its outcome.
 A round whose accepted findings changed files lands the fix commit:
 severity-prefixed per this repo's convention, with its body opening with the
 `Plan: <name>` line followed by `Audit: complete` or `Audit: steps <a>-<b>`
-naming the round's scope. Any other outcome, a clean round or findings the user
+naming the round's scope.
+
+The body then carries one bullet per accepted finding, and each bullet opens
+with that finding's metadata before its prose:
+
+```text
+- [area:pkg-integrations-llm] [growth:2,6] Cleanup failure no longer displaces the login guidance.
+```
+
+`[area:<primary-id>]` is the finding's primary partition area from
+`tools/architecture-check/src/area-model.json`, followed by
+`[cover:<cover-id>]` for each cover area that applies. `[growth:...]` is the
+tag from [Growth tags](#growth-tags), in the same form the report used. Both
+are required on every finding bullet, because the commit body is the only
+place a later round can read them: chat is gone, and the finding list lives
+nowhere else. A bullet that records something other than a finding, such as a
+carried decision, takes no metadata. Any other outcome, a clean round or findings the user
 declined, lands an empty record commit: `chore(audit): <plan-name> <scope>
 clean` or `... declined`, carrying the same `Plan:` and `Audit:` body lines.
 One round, one commit per repo the round changes: exactly one commit here, plus
@@ -146,7 +162,8 @@ one only on correctness or quality evidence, never on taste.
 Grade each finding with the [A]-[D] implementation tiers in this repo's
 `CLAUDE.md`, sorted A through D. Findings land on the implementation. When a
 finding's root cause is the plan itself, say so in the finding and carry the
-plan-side correction into the plan corrections below.
+plan-side correction into the plan corrections below. Every finding also
+carries a growth tag, per [Growth tags](#growth-tags).
 
 ## Finding shape
 
@@ -184,6 +201,62 @@ Rarity is evidence for the user's accept-or-challenge ruling on the finding and
 on any guard behind it. It never moves the tier: a rare A-tier fault is still
 A-tier. A trace that ends with the same behaviour shipping is not a finding, so
 drop it rather than report it.
+
+## Growth tags
+
+Every finding carries a growth tag naming the patterns in
+`../plan/GROWTH-PATTERNS.md` it could violate: `[growth:2]` for one,
+`[growth:2,6]` when more than one could apply, numbers ascending, and
+`[growth:none]` when none does. The tag rides the finding in the report and
+the matching bullet in this round's commit body, in the bullet form fixed
+under [Round](#round), so it survives in the log after the chat is gone. A
+tag that reaches only the report is lost, and the next round is back to
+having no memory.
+
+The bar is could it be, not is it. A false positive costs one bracket. A
+false negative costs the loop this rule exists to break: a run of rounds each
+repairing machinery that no boundary asks for, every round locally defensible
+and no round able to see the run. The tag is a suspicion, never a verdict, and
+it blocks nothing. A finding tagged `[growth:2]` still lands. So there is no
+reason to suppress one, and the signal lives in the run rather than the
+instance.
+
+The tag is what gives a fresh round the memory it otherwise lacks. Before
+drafting findings, read the full bodies of the episode's audit commits, found
+by the walk under [Evidence](#evidence), and collect every `[growth:` bullet
+in them. Count the tags by pattern number. Rounds that predate this rule carry
+no tags; read their bullets on their prose and say the history is partial
+rather than reading absence as a clean run. When one number appears across several rounds, say so in the
+report above the tiered findings, naming the rounds and the number. That
+statement is the round's own output, not a diagnosis of the user's judgment.
+
+## Pricing a run
+
+When a pattern number runs across rounds, the round stops adding to the run
+and prices it instead, before its tiered findings. Two answers, both short:
+
+- The simplest mechanism that still satisfies `../plan/BOUNDARIES.md`. Read
+  the boundary the machinery invokes and state only what it actually asks
+  for.
+- What the current design buys over that mechanism, stated as what the user
+  gets, not as what the code does.
+
+Then stop for the user's ruling. Do not resolve the trade in the report. The
+plan requiring the machinery is not an answer, because the plan was written by
+rounds: `GROWTH-PATTERNS.md` records the anchor-rule trap where a round
+invents a requirement and a later round reads that requirement as
+justification. Only a written user decision or a boundary entry ends the
+question.
+
+When the answer is that no boundary asks for the machinery, say that the plan
+step is the defect and stop, rather than reporting more findings against it.
+Carry the plan-side correction into [Plan corrections](#plan-corrections) when
+the user accepts it. When the trade is genuinely worth its cost, the user says
+so, the round records the ruling in the plan with its reason and the pattern
+number stops being a signal for that machinery.
+
+Pricing is expensive, so it runs on a run of tags and not on every round. A
+single tagged finding is tagged and left alone.
 
 ## Plan corrections
 
@@ -258,5 +331,7 @@ word.
 Open by naming the workflow that ran, an implementation audit in this Repo Edu
 repo, then the plan file, its ready commit, the episode's commit range and
 the round's scope: complete, or the audited step range. Then report the
-coverage table with its coverage line, the tiered findings and the plan
-corrections. Stop there.
+coverage table with its coverage line. Then, when a growth-tag number runs
+across rounds, the run statement and the pricing under
+[Pricing a run](#pricing-a-run). Then the tiered findings, each carrying its
+growth tag, and the plan corrections. Stop there.
