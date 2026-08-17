@@ -232,6 +232,21 @@ describe("Codex coding SDK boundary", () => {
         },
       ],
     )
+    assert.deepEqual(
+      firstRunEvents.filter((event) => event.kind === "usage"),
+      [
+        {
+          kind: "usage",
+          tokens: {
+            inputTokens: 4,
+            cachedInputTokens: 1,
+            cacheWriteInputTokens: 0,
+            outputTokens: 3,
+            reasoningOutputTokens: 2,
+          },
+        },
+      ],
+    )
   })
 
   it("passes abort to the active SDK turn", async () => {

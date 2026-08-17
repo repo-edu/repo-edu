@@ -43,6 +43,7 @@ describe("progress adapters", () => {
       70_000, // codex command succeeded
       71_000, // codex command failed
       72_000, // file change
+      73_000, // SDK token usage
       725_000, // phase checking
       726_000, // runner command started
       745_000, // runner command finished
@@ -163,6 +164,20 @@ describe("progress adapters", () => {
         ],
       },
     })
+    events.emit({
+      kind: "coding",
+      step: 9,
+      event: {
+        kind: "usage",
+        tokens: {
+          inputTokens: 12_345,
+          cachedInputTokens: 10_000,
+          cacheWriteInputTokens: 2_000,
+          outputTokens: 678,
+          reasoningOutputTokens: 456,
+        },
+      },
+    })
     events.emit({ kind: "phase-changed", phase: "checking" })
     events.emit({
       kind: "command-started",
@@ -202,6 +217,7 @@ describe("progress adapters", () => {
         "phase-changed",
         "step-started",
         "phase-changed",
+        "coding",
         "coding",
         "coding",
         "coding",
@@ -261,6 +277,10 @@ describe("progress adapters", () => {
       /^\[1:11\] Failed: Check TypeScript \(exit 2\) — error TS2304: Cannot find name 'missing'\.$/m,
     )
     assert.match(displayed, /^\[1:10\] Finished: Search files$/m)
+    assert.match(
+      displayed,
+      /^\[1:13\] Context: 12345 input tokens \(10000 cached, 2000 cache write\); 678 output tokens \(456 reasoning\)\.$/m,
+    )
     assert.match(displayed, /\[12:05\] Phase: checking/)
     assert.match(displayed, /^\[12:25\] Finished: Repository test$/m)
     assert.match(displayed, /\[12:30\] Committed step 9 after 12m 25s: c{12}/)
@@ -280,6 +300,7 @@ describe("progress adapters", () => {
       "[1:10]",
       "[1:11]",
       "[1:12] Edited: updated tools/plan-implementation/src/run-progress.ts, created tools/plan-implementation/src/terminal-view.ts",
+      "[1:13]",
       "[12:05]",
       "[12:25]",
       "[12:26]",

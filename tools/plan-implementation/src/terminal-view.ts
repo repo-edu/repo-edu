@@ -188,6 +188,14 @@ export function createTerminalView(
       case "error":
         writeOverview(event, `${stamp(event)} Codex error: ${coding.message}`)
         return
+      case "usage": {
+        const tokens = coding.tokens
+        writeOverview(
+          event,
+          `${stamp(event)} Context: ${tokens.inputTokens} input tokens (${tokens.cachedInputTokens} cached, ${tokens.cacheWriteInputTokens} cache write); ${tokens.outputTokens} output tokens (${tokens.reasoningOutputTokens} reasoning).`,
+        )
+        return
+      }
     }
   }
 

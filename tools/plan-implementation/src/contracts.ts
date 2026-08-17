@@ -99,6 +99,14 @@ export type CodingFileChange = {
   readonly kind: "add" | "delete" | "update"
 }
 
+export type CodingTokenUsage = {
+  readonly inputTokens: number
+  readonly cachedInputTokens: number
+  readonly cacheWriteInputTokens: number
+  readonly outputTokens: number
+  readonly reasoningOutputTokens: number
+}
+
 export type CodingEvent =
   | {
       readonly kind: "thread-started"
@@ -137,6 +145,10 @@ export type CodingEvent =
   | {
       readonly kind: "error"
       readonly message: string
+    }
+  | {
+      readonly kind: "usage"
+      readonly tokens: CodingTokenUsage
     }
 
 export type CodingRun = {

@@ -233,6 +233,16 @@ export async function runCodexCodingStep(
         }
         break
       case "turn.completed":
+        await options.emit({
+          kind: "usage",
+          tokens: {
+            inputTokens: event.usage.input_tokens,
+            cachedInputTokens: event.usage.cached_input_tokens,
+            cacheWriteInputTokens: event.usage.cache_write_input_tokens,
+            outputTokens: event.usage.output_tokens,
+            reasoningOutputTokens: event.usage.reasoning_output_tokens,
+          },
+        })
         terminal = "completed"
         break
       case "turn.failed":
