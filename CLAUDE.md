@@ -6,9 +6,7 @@ repository.
 ## Planning
 
 Plans and design documents live in the sibling `../plan` repository, never in
-this repo. When asked to write, draft or iterate on a plan, first read
-`../plan/CLAUDE.md` and follow its workflow, file layout, naming, structure and
-commit conventions. Keep this repo free of plan files so releases stay clean.
+this repo.
 
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Before applying another fix,
@@ -260,29 +258,6 @@ round-record commit records an implementation-audit round that changed no
 file, a clean round or one whose findings the user declined; its subject is
 `chore(audit): <plan-name> <scope> <outcome>` and the command owns its
 `Plan:` and `Audit:` body lines.
-
-## Watched implementation rounds
-
-An implementation-audit round can be observed by the watch: a shared
-capability, independent of which repository is the working directory, that
-reads the episode's trajectory and surfaces drift to the user. It runs only
-when the user invokes the `/watch` slash command, never automatically
-alongside a round and never as a gate, reduces the trajectory to a graded
-verdict (green, amber or red), and detects, informs, suggests a response class
-and asks; the decision is always the user's. The watch and its full rationale are
-defined once with the planning doctrine in `../plan/CLAUDE.md`, so this note
-carries only what is specific to implementation rounds here and the two do not
-drift.
-
-Only the episode anchor is repo-specific. The watch anchors on the
-`Plan: <name>` first body line defined under
-[Commit Severity Prefix](#commit-severity-prefix), then
-applies the shared scoping rule: walk from that anchor to HEAD including every
-commit that shares the stem or touches the same churned files, and join the
-`../plan` revision history for that stem so both trajectories read together.
-Reactive rework that omits the `Plan:` line still falls in scope through the
-churned-file test, which matters here because that rework is exactly what this
-repo's commit convention leaves untagged.
 
 ## Testing Strategy
 
