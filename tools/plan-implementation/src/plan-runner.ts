@@ -405,7 +405,7 @@ export async function runPlanImplementation(
         }
         if (codingResult.status !== "succeeded") {
           throw new PlanImplementationRunError(
-            "The coding helper returned an unknown result status.",
+            "The plan-step Codex SDK host process returned an unknown result status.",
           )
         }
         validateStepCommitProposal(codingResult.commit)

@@ -38,9 +38,9 @@ if (
 } else {
   mark(`${mode}-pid:${process.pid}`)
   const descendantMode =
-    mode === "managed-helper-exits" || mode === "managed-helper-tree-waits"
-      ? "sdk-child"
-      : mode === "sdk-child"
+    mode === "codex-sdk-host-exits" || mode === "codex-sdk-host-tree-waits"
+      ? "codex-process"
+      : mode === "codex-process"
         ? "tool-descendant"
         : mode === "tree-ignores-stop"
           ? "grandchild-ignores-stop"
@@ -56,13 +56,13 @@ if (
     },
   )
   grandchild.once("message", () => {
-    if (mode === "sdk-child") {
+    if (mode === "codex-process") {
       process.send?.("ready")
     }
     if (
       mode === "parent-exits" ||
       mode === "parent-exits-inherited-output" ||
-      mode === "managed-helper-exits" ||
+      mode === "codex-sdk-host-exits" ||
       mode === "tree-completes"
     ) {
       process.exit(
@@ -70,12 +70,12 @@ if (
           ? 23
           : mode === "parent-exits-inherited-output"
             ? 25
-            : mode === "managed-helper-exits"
+            : mode === "codex-sdk-host-exits"
               ? 24
               : 0,
       )
     }
-    if (mode === "tree-waits" || mode === "managed-helper-tree-waits") {
+    if (mode === "tree-waits" || mode === "codex-sdk-host-tree-waits") {
       process.stdout.write("ready\n")
     }
   })
@@ -84,7 +84,7 @@ if (
       mark("parent-ignored-stop")
       return
     }
-    mark(mode === "sdk-child" ? "sdk-child-stopped" : "parent-stopped")
+    mark(mode === "codex-process" ? "codex-process-stopped" : "parent-stopped")
     process.exit(0)
   })
   if (process.platform === "win32") {
@@ -94,10 +94,10 @@ if (
         mark("parent-ignored-stop")
         return
       }
-      if (mode !== "tree-waits" && mode !== "managed-helper-tree-waits") {
+      if (mode !== "tree-waits" && mode !== "codex-sdk-host-tree-waits") {
         return
       }
-      mark(mode === "sdk-child" ? "sdk-child-stopped" : "parent-stopped")
+      mark(mode === "codex-process" ? "codex-process-stopped" : "parent-stopped")
       grandchild.once("exit", () => {
         process.exit(0)
       })

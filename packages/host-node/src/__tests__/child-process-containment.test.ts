@@ -281,7 +281,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
     { label: "Claude", mode: "tree-waits" },
     {
       label: "Codex",
-      mode: "managed-helper-tree-waits",
+      mode: "codex-sdk-host-tree-waits",
     },
   ]) {
     it(`keeps every ${proof.label} descendant in its process group`, {
@@ -309,7 +309,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       const stopped = await readMarker(marker)
       assert.match(stopped, /parent-stopped/)
       if (proof.label === "Codex") {
-        assert.match(stopped, /sdk-child-stopped/)
+        assert.match(stopped, /codex-process-stopped/)
         assert.match(stopped, /tool-descendant-stopped/)
       } else {
         assert.match(stopped, /grandchild-stopped/)

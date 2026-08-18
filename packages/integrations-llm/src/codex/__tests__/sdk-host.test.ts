@@ -6,10 +6,10 @@ import {
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import {
-  type CodexHelperLaunch,
+  type CodexSdkHostLaunch,
   createCodexLlmTextClient,
-} from "../helper-client"
-import { type CodexHelperRun, runCodexHelperServer } from "../helper-server"
+} from "../sdk-host-client"
+import { type CodexSdkHostRun, runCodexSdkHostServer } from "../sdk-host-server"
 import { codexSpec, request } from "./codex-runner-test-helpers"
 
 const usage = {
@@ -22,10 +22,10 @@ const usage = {
 }
 
 function createServerHarness(
-  run: CodexHelperRun,
+  run: CodexSdkHostRun,
   options: { readonly stopError?: Error } = {},
 ): {
-  readonly launch: CodexHelperLaunch
+  readonly launch: CodexSdkHostLaunch
   readonly launchCount: () => number
   readonly stopCount: () => number
 } {
@@ -34,18 +34,20 @@ function createServerHarness(
   return {
     launch: async () => {
       launches += 1
-      const hostToHelper = new PassThrough()
-      const helperToHost = new PassThrough()
+      const hostToSdkHost = new PassThrough()
+      const sdkHostToHost = new PassThrough()
       const stderr = new PassThrough()
-      const server = runCodexHelperServer(hostToHelper, helperToHost, { run })
+      const server = runCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
+        run,
+      })
       return {
-        stdin: hostToHelper,
-        stdout: helperToHost,
+        stdin: hostToSdkHost,
+        stdout: sdkHostToHost,
         stderr,
         result: server.then(() => ({ exitCode: 0, signal: null })),
         async stopAndConfirm() {
           stops += 1
-          if (!hostToHelper.writableEnded) hostToHelper.end()
+          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
           await server
           if (options.stopError) {
             throw options.stopError
@@ -58,10 +60,10 @@ function createServerHarness(
   }
 }
 
-function createLostHelperLaunch(
+function createLostSdkHostLaunch(
   errorOutput = "",
   stopError?: Error,
-): CodexHelperLaunch {
+): CodexSdkHostLaunch {
   return async () => {
     const stdin = new PassThrough()
     const stdout = new PassThrough()
@@ -95,16 +97,16 @@ function createLostHelperLaunch(
   }
 }
 
-describe("Codex managed helper", () => {
+describe("Codex SDK host process", () => {
   it("runs one request and preserves streamed events, traces, and known success", async () => {
     const requests: string[] = []
     const traces: string[] = []
     const harness = createServerHarness(async function* ({
-      request: helperRequest,
+      request: sdkHostRequest,
       trace,
     }) {
-      requests.push(helperRequest.prompt)
-      assert.deepEqual(helperRequest.spec, codexSpec)
+      requests.push(sdkHostRequest.prompt)
+      assert.deepEqual(sdkHostRequest.spec, codexSpec)
       trace("trace-one")
       yield { kind: "activity", label: "Contacting Codex." }
       yield { kind: "text-delta", text: "pong" }
@@ -131,7 +133,7 @@ describe("Codex managed helper", () => {
     ])
   })
 
-  it("reconstructs a known helper failure", async () => {
+  it("reconstructs a known Codex SDK host process failure", async () => {
     const harness = createServerHarness(async function* () {
       yield await Promise.reject(
         new LlmError("rate_limit", "429 retry-after 5s", {
@@ -157,8 +159,10 @@ describe("Codex managed helper", () => {
     assert.equal(harness.stopCount(), 1)
   })
 
-  it("keeps a known helper failure when stop confirmation also fails", async () => {
-    const stopError = new Error("The helper tree could not be confirmed.")
+  it("keeps a known Codex SDK host process failure when stop confirmation also fails", async () => {
+    const stopError = new Error(
+      "The Codex SDK host process tree could not be confirmed.",
+    )
     const harness = createServerHarness(
       async function* () {
         yield await Promise.reject(
@@ -192,11 +196,11 @@ describe("Codex managed helper", () => {
     timeout: 1_000,
   }, async () => {
     let stops = 0
-    const launch: CodexHelperLaunch = async () => {
-      const hostToHelper = new PassThrough()
-      const helperToHost = new PassThrough()
+    const launch: CodexSdkHostLaunch = async () => {
+      const hostToSdkHost = new PassThrough()
+      const sdkHostToHost = new PassThrough()
       const stderr = new PassThrough()
-      const server = runCodexHelperServer(hostToHelper, helperToHost, {
+      const server = runCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
         run: async function* () {
           yield { kind: "text-delta", text: "pong" }
           yield { kind: "done", usage }
@@ -207,13 +211,13 @@ describe("Codex managed helper", () => {
         signal: null
       }>()
       return {
-        stdin: hostToHelper,
-        stdout: helperToHost,
+        stdin: hostToSdkHost,
+        stdout: sdkHostToHost,
         stderr,
         result: terminal.promise,
         async stopAndConfirm() {
           stops += 1
-          if (!hostToHelper.writableEnded) hostToHelper.end()
+          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
           await server
           terminal.resolve({ exitCode: 0, signal: null })
         },
@@ -227,16 +231,16 @@ describe("Codex managed helper", () => {
     assert.equal(stops, 1)
   })
 
-  it("cancels the helper request and confirms its process tree", async () => {
+  it("cancels the Codex SDK host process request and confirms its tree", async () => {
     const started = Promise.withResolvers<void>()
-    let helperObservedCancellation = false
+    let sdkHostObservedCancellation = false
     const harness = createServerHarness(async function* ({ signal }) {
       started.resolve()
       await new Promise<void>((resolve) => {
         signal.addEventListener(
           "abort",
           () => {
-            helperObservedCancellation = true
+            sdkHostObservedCancellation = true
             resolve()
           },
           { once: true },
@@ -261,11 +265,11 @@ describe("Codex managed helper", () => {
       (error: unknown) =>
         error instanceof DOMException && error.name === "AbortError",
     )
-    assert.equal(helperObservedCancellation, true)
+    assert.equal(sdkHostObservedCancellation, true)
     assert.equal(harness.stopCount(), 1)
   })
 
-  it("settles cancellation through one stop-and-confirm call when the helper does not answer", async () => {
+  it("settles cancellation once when the Codex SDK host process does not answer", async () => {
     let stops = 0
     const controller = new AbortController()
     const client = createCodexLlmTextClient(undefined, {
@@ -302,7 +306,7 @@ describe("Codex managed helper", () => {
     assert.equal(stops, 1)
   })
 
-  it("cancels pending helper startup through its launch signal", async () => {
+  it("cancels pending Codex SDK host process startup through its launch signal", async () => {
     const launchStarted = Promise.withResolvers<void>()
     let startupSignal: AbortSignal | undefined
     const controller = new AbortController()
@@ -313,7 +317,7 @@ describe("Codex managed helper", () => {
         return await new Promise<never>((_resolve, reject) => {
           signal.addEventListener(
             "abort",
-            () => reject(new Error("helper startup stopped")),
+            () => reject(new Error("Codex SDK host process startup stopped")),
             { once: true },
           )
         })
@@ -336,9 +340,9 @@ describe("Codex managed helper", () => {
     assert.equal(startupSignal?.aborted, true)
   })
 
-  it("reports helper loss as an unknown outside outcome", async () => {
+  it("reports Codex SDK host process loss as an unknown outside outcome", async () => {
     const client = createCodexLlmTextClient(undefined, {
-      launch: createLostHelperLaunch(),
+      launch: createLostSdkHostLaunch(),
     })
 
     await assert.rejects(
@@ -352,9 +356,11 @@ describe("Codex managed helper", () => {
   })
 
   it("keeps the unknown outcome when stop confirmation also fails", async () => {
-    const stopError = new Error("The helper tree could not be confirmed.")
+    const stopError = new Error(
+      "The Codex SDK host process tree could not be confirmed.",
+    )
     const client = createCodexLlmTextClient(undefined, {
-      launch: createLostHelperLaunch("", stopError),
+      launch: createLostSdkHostLaunch("", stopError),
     })
 
     await assert.rejects(
@@ -367,10 +373,10 @@ describe("Codex managed helper", () => {
     )
   })
 
-  it("keeps the lost helper's error output in the reported failure", async () => {
+  it("keeps the lost Codex SDK host process output in the reported failure", async () => {
     const client = createCodexLlmTextClient(undefined, {
-      launch: createLostHelperLaunch(
-        "[codex-helper] Error: cannot find module\n",
+      launch: createLostSdkHostLaunch(
+        "[codex-sdk-host] Error: cannot find module\n",
       ),
     })
 

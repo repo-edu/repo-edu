@@ -8,18 +8,18 @@ import type {
 } from "@repo-edu/host-node/child-process-lifetime"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
-  CodingHelperOutcomeUnknownError,
   createCodingAdapter,
+  StepCodexSdkHostOutcomeUnknownError,
 } from "../coding-adapter.js"
-import { createCodingHelperCommand } from "../coding-helper-command.js"
-import {
-  type CodingHelperRun,
-  runCodingHelperServer,
-} from "../coding-helper-server.js"
 import type { CodingEvent } from "../contracts.js"
+import { createStepCodexSdkHostCommand } from "../step-codex-sdk-host-command.js"
+import {
+  runStepCodexSdkHostServer,
+  type StepCodexSdkHostRun,
+} from "../step-codex-sdk-host-server.js"
 import { testCodingRequest } from "./coding-test-plan.js"
 
-function createControllerHarness(run: CodingHelperRun): {
+function createControllerHarness(run: StepCodexSdkHostRun): {
   readonly controller: ChildProcessLifetimeController
   readonly launches: readonly ChildProcessLifetimeLaunch[]
   readonly stopCount: () => number
@@ -29,18 +29,20 @@ function createControllerHarness(run: CodingHelperRun): {
   const controller: ChildProcessLifetimeController = {
     async launch(request) {
       launches.push(request)
-      const hostToHelper = new PassThrough()
-      const helperToHost = new PassThrough()
+      const hostToSdkHost = new PassThrough()
+      const sdkHostToHost = new PassThrough()
       const stderr = new PassThrough()
-      const server = runCodingHelperServer(hostToHelper, helperToHost, { run })
+      const server = runStepCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
+        run,
+      })
       const owned: OwnedChildProcessTree = {
-        stdin: hostToHelper,
-        stdout: helperToHost,
+        stdin: hostToSdkHost,
+        stdout: sdkHostToHost,
         stderr,
         result: server.then(() => ({ exitCode: 0, signal: null })),
         async stopAndConfirm() {
           stops += 1
-          if (!hostToHelper.writableEnded) hostToHelper.end()
+          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
           await server
         },
       }
@@ -59,8 +61,8 @@ async function collectEvents(events: AsyncIterable<CodingEvent>) {
   return collected
 }
 
-describe("runner-owned coding helper", () => {
-  it("runs the fixed helper entry through the real shared adapter", {
+describe("runner-owned plan-step Codex SDK host process", () => {
+  it("runs the fixed plan-step Codex SDK host entry through the real platform adapter", {
     skip: process.platform !== "darwin" && process.platform !== "linux",
   }, async (context) => {
     const childProcessLifetimeController =
@@ -78,14 +80,15 @@ describe("runner-owned coding helper", () => {
     await assert.rejects(run.result, /does not contain implementation step 3/)
   })
 
-  it("starts the fixed entry through the managed child-lifetime route", async () => {
+  it("starts the fixed entry through the child-process lifetime controller", async () => {
     const harness = createControllerHarness(async ({ emit }) => {
       await emit({ kind: "thread-started", threadId: "fresh-thread" })
       await emit({ kind: "narrative", text: "Codex changed one file." })
       return {
         status: "succeeded",
         commit: {
-          subject: "A1 redesign(plan-implementation): own coding helper",
+          subject:
+            "A1 redesign(plan-implementation): own plan-step Codex SDK host process",
           decisionBullets: ["The runner owns its coding request."],
         },
       }
@@ -103,7 +106,7 @@ describe("runner-owned coding helper", () => {
     assert.equal(harness.stopCount(), 1)
     assert.deepEqual(harness.launches[0], {
       command: process.execPath,
-      args: createCodingHelperCommand().arguments,
+      args: createStepCodexSdkHostCommand().arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
       shell: false,
@@ -116,15 +119,16 @@ describe("runner-owned coding helper", () => {
     let stops = 0
     const controller: ChildProcessLifetimeController = {
       async launch(_request) {
-        const hostToHelper = new PassThrough()
-        const helperToHost = new PassThrough()
+        const hostToSdkHost = new PassThrough()
+        const sdkHostToHost = new PassThrough()
         const stderr = new PassThrough()
-        const server = runCodingHelperServer(hostToHelper, helperToHost, {
+        const server = runStepCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
           run: async () => ({
             status: "succeeded",
             commit: {
-              subject: "A1 redesign(plan-implementation): own helper shutdown",
-              decisionBullets: ["The adapter owns helper shutdown."],
+              subject:
+                "A1 redesign(plan-implementation): own SDK host shutdown",
+              decisionBullets: ["The adapter owns SDK host shutdown."],
             },
           }),
         })
@@ -133,13 +137,13 @@ describe("runner-owned coding helper", () => {
           signal: null
         }>()
         return {
-          stdin: hostToHelper,
-          stdout: helperToHost,
+          stdin: hostToSdkHost,
+          stdout: sdkHostToHost,
           stderr,
           result: terminal.promise,
           async stopAndConfirm() {
             stops += 1
-            if (!hostToHelper.writableEnded) hostToHelper.end()
+            if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
             await server
             terminal.resolve({ exitCode: 0, signal: null })
           },
@@ -153,7 +157,7 @@ describe("runner-owned coding helper", () => {
     assert.equal(stops, 1)
   })
 
-  it("cancels the helper request and confirms its owned process tree", async () => {
+  it("cancels the plan-step Codex SDK host request and confirms its owned tree", async () => {
     const started = Promise.withResolvers<void>()
     let observedAbort = false
     const harness = createControllerHarness(async ({ signal }) => {
@@ -189,7 +193,7 @@ describe("runner-owned coding helper", () => {
     assert.equal(harness.launches[0]?.signal, controller.signal)
   })
 
-  it("reports helper loss before a result as an unknown outcome", async () => {
+  it("reports plan-step Codex SDK host loss before a result as unknown", async () => {
     const controller: ChildProcessLifetimeController = {
       async launch(_request) {
         const stdin = new PassThrough()
@@ -224,7 +228,7 @@ describe("runner-owned coding helper", () => {
     await assert.rejects(
       run.result,
       (error: unknown) =>
-        error instanceof CodingHelperOutcomeUnknownError &&
+        error instanceof StepCodexSdkHostOutcomeUnknownError &&
         error.message.includes(
           "Error: the Codex SDK could not start\n  at start",
         ),

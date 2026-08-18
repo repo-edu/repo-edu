@@ -120,9 +120,9 @@ export default defineConfig({
       rollupOptions: {
         input: {
           main: resolve(configDir, "src/main.ts"),
-          "codex-helper": resolve(
+          "codex-sdk-host": resolve(
             repoRoot,
-            "packages/integrations-llm/src/codex/helper-entry.ts",
+            "packages/integrations-llm/src/codex/sdk-host-entry.ts",
           ),
         },
         output: {

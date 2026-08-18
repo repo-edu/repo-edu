@@ -2,20 +2,20 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import {
-  createDesktopCodexHelperCommand,
-  desktopCodexHelperFileName,
-} from "../codex-helper-command.js"
+  createDesktopCodexSdkHostCommand,
+  desktopCodexSdkHostFileName,
+} from "../codex-sdk-host-command.js"
 
-describe("createDesktopCodexHelperCommand", () => {
+describe("createDesktopCodexSdkHostCommand", () => {
   it("uses the fixed bundled entry through Electron Node mode", () => {
     assert.deepEqual(
-      createDesktopCodexHelperCommand({
+      createDesktopCodexSdkHostCommand({
         currentDir: "/fixed/out/main",
         executablePath: "/fixed/electron",
       }),
       {
         command: "/fixed/electron",
-        args: [join("/fixed/out/main", desktopCodexHelperFileName)],
+        args: [join("/fixed/out/main", desktopCodexSdkHostFileName)],
         runAsNode: true,
       },
     )

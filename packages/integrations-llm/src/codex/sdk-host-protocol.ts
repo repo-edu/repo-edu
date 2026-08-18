@@ -7,17 +7,17 @@ import type {
 } from "@repo-edu/integrations-llm-contract"
 import { NotificationType, RequestType } from "vscode-jsonrpc"
 
-export type CodexHelperRunParams = {
+export type CodexSdkHostRunParams = {
   readonly config?: CodexLlmProviderRuntimeConfig
   readonly spec: LlmModelSpec
   readonly prompt: string
 }
 
-export type CodexHelperRunResult = {
+export type CodexSdkHostRunResult = {
   readonly status: "completed"
 }
 
-export type CodexHelperFailure =
+export type CodexSdkHostProtocolFailure =
   | {
       readonly type: "llm-error"
       readonly kind: LlmErrorKind
@@ -29,19 +29,19 @@ export type CodexHelperFailure =
       readonly message: string
     }
   | {
-      readonly type: "helper-error"
+      readonly type: "sdk-host-error"
       readonly message: string
     }
 
-export const codexHelperRunRequest = new RequestType<
-  CodexHelperRunParams,
-  CodexHelperRunResult,
-  CodexHelperFailure
+export const codexSdkHostRunRequest = new RequestType<
+  CodexSdkHostRunParams,
+  CodexSdkHostRunResult,
+  CodexSdkHostProtocolFailure
 >("repoEdu/codex/run")
 
-export const codexHelperEventNotification =
+export const codexSdkHostEventNotification =
   new NotificationType<LlmStreamEvent>("repoEdu/codex/event")
 
-export const codexHelperTraceNotification = new NotificationType<string>(
+export const codexSdkHostTraceNotification = new NotificationType<string>(
   "repoEdu/codex/trace",
 )

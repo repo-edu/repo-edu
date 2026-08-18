@@ -1,22 +1,21 @@
 import { NotificationType, RequestType } from "vscode-jsonrpc"
 import type { CodingEvent, CodingRequest, CodingResult } from "./contracts.js"
 
-export type CodingHelperFailure =
+export type StepCodexSdkHostProtocolFailure =
   | {
       readonly type: "cancelled"
       readonly message: string
     }
   | {
-      readonly type: "helper-error"
+      readonly type: "sdk-host-error"
       readonly message: string
     }
 
-export const codingHelperRunRequest = new RequestType<
+export const stepCodexSdkHostRunRequest = new RequestType<
   CodingRequest,
   CodingResult,
-  CodingHelperFailure
+  StepCodexSdkHostProtocolFailure
 >("repoEdu/planImplementation/code")
 
-export const codingHelperEventNotification = new NotificationType<CodingEvent>(
-  "repoEdu/planImplementation/codingEvent",
-)
+export const stepCodexSdkHostEventNotification =
+  new NotificationType<CodingEvent>("repoEdu/planImplementation/codingEvent")

@@ -105,7 +105,8 @@ describe("Codex coding SDK boundary", () => {
       {
         status: "succeeded",
         commit: {
-          subject: "A1 redesign(plan-implementation): own coding helper",
+          subject:
+            "A1 redesign(plan-implementation): own plan-step Codex SDK host process",
           decisionBullets: ["The runner owns one fresh coding context."],
         },
       },

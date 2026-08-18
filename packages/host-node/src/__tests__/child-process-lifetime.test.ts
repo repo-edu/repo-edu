@@ -246,15 +246,15 @@ describe("child-process controller controller", {
     assert.equal(await readMarker(marker), contentAtResult)
   })
 
-  it("holds a managed helper result until its SDK child and tool descendant are stopped", async (context) => {
-    const marker = await markerPath("managed-helper-descendants.txt")
+  it("holds a simulated Codex SDK host result until its Codex process and tool descendant stop", async (context) => {
+    const marker = await markerPath("codex-sdk-host-descendants.txt")
     const controller = createChildProcessLifetimeController()
     context.after(async () => {
       await controller.stopAndConfirm()
     })
     const run = await controller.launch({
       command: process.execPath,
-      args: [fixturePath, "managed-helper-exits", marker],
+      args: [fixturePath, "codex-sdk-host-exits", marker],
     })
 
     const result = await run.result
@@ -262,7 +262,7 @@ describe("child-process controller controller", {
     await new Promise((resolve) => setTimeout(resolve, 80))
 
     assert.deepEqual(result, { exitCode: 24, signal: null })
-    assert.match(contentAtResult, /sdk-child-stopped/)
+    assert.match(contentAtResult, /codex-process-stopped/)
     assert.match(contentAtResult, /tool-descendant-started/)
     assert.match(contentAtResult, /tool-descendant-stopped/)
     assert.equal(await readMarker(marker), contentAtResult)
@@ -290,32 +290,32 @@ describe("child-process controller controller", {
     assert.match(content, /grandchild-stopped/)
   })
 
-  it("stops every registered direct and managed-helper tree", async (context) => {
-    const directMarker = await markerPath("direct-tree.txt")
-    const helperMarker = await markerPath("helper-tree.txt")
+  it("stops every registered owned tree", async (context) => {
+    const firstMarker = await markerPath("first-tree.txt")
+    const secondMarker = await markerPath("second-tree.txt")
     const controller = createChildProcessLifetimeController()
     context.after(async () => {
       await controller.stopAndConfirm()
     })
-    const direct = await controller.launch({
+    const firstTree = await controller.launch({
       command: process.execPath,
-      args: [fixturePath, "tree-waits", directMarker],
+      args: [fixturePath, "tree-waits", firstMarker],
     })
-    const helper = await controller.launch({
+    const secondTree = await controller.launch({
       command: process.execPath,
-      args: [fixturePath, "tree-waits", helperMarker],
+      args: [fixturePath, "tree-waits", secondMarker],
     })
     await Promise.all([
-      waitUntilReady(direct.stdout),
-      waitUntilReady(helper.stdout),
+      waitUntilReady(firstTree.stdout),
+      waitUntilReady(secondTree.stdout),
     ])
 
     await controller.stopAndConfirm()
-    await Promise.all([direct.result, helper.result])
+    await Promise.all([firstTree.result, secondTree.result])
     await controller.stopAndConfirm()
 
-    assert.match(await readMarker(directMarker), /grandchild-stopped/)
-    assert.match(await readMarker(helperMarker), /grandchild-stopped/)
+    assert.match(await readMarker(firstMarker), /grandchild-stopped/)
+    assert.match(await readMarker(secondMarker), /grandchild-stopped/)
     await assert.rejects(
       async () =>
         controller.launch({

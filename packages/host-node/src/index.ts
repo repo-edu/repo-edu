@@ -75,12 +75,12 @@ export {
 } from "./child-process-lifetime-artifact-probe.js"
 export type {
   CreateNodeLlmTextClientOptions,
-  NodeCodexHelperCommand,
+  NodeCodexSdkHostCommand,
 } from "./llm.js"
 export {
   createNodeLlmPort,
   createNodeLlmTextClient,
-  launchNodeCodexHelper,
+  launchNodeCodexSdkHost,
 } from "./llm.js"
 export {
   createNodeGitCommandPort,

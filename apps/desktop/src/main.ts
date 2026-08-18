@@ -73,7 +73,7 @@ import {
   runChildLifetimeArtifactProbe,
 } from "./child-lifetime-artifact-probe"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
-import { createDesktopCodexHelperCommand } from "./codex-helper-command"
+import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
@@ -133,7 +133,7 @@ const trpcValidationTimeoutMs = readPositiveIntegerEnv(
 )
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
-const codexHelperCommand = createDesktopCodexHelperCommand({
+const codexSdkHostCommand = createDesktopCodexSdkHostCommand({
   currentDir,
   executablePath: process.execPath,
 })
@@ -166,7 +166,7 @@ const nodeTokenizerPort = createNodeTokenizerPort()
 let activeLlmPort: LlmPort = createNodeLlmPort(
   childProcessLifetimeController,
   undefined,
-  { codexHelper: codexHelperCommand },
+  { codexSdkHost: codexSdkHostCommand },
 )
 const nodeLlmPort: LlmPort = {
   run(request: LlmRunRequest): Promise<LlmRunResult> {
@@ -205,7 +205,7 @@ export function createDraftLlmTextClient(draft: {
 }): LlmTextClient {
   const config = configForDraft(draft)
   return createNodeLlmTextClient(childProcessLifetimeController, config, {
-    codexHelper: codexHelperCommand,
+    codexSdkHost: codexSdkHostCommand,
   })
 }
 
@@ -262,7 +262,7 @@ function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
   activeLlmPort = createNodeLlmPort(
     childProcessLifetimeController,
     configFromSettings(resolved),
-    { codexHelper: codexHelperCommand },
+    { codexSdkHost: codexSdkHostCommand },
   )
 }
 
@@ -1091,7 +1091,7 @@ async function bootstrapDesktop(): Promise<void> {
   if (isChildLifetimeArtifactProbe()) {
     await runChildLifetimeArtifactProbe({
       childProcessLifetimeController,
-      codexHelperCommand,
+      codexSdkHostCommand,
       resourcesPath: process.resourcesPath,
       executablePath: process.execPath,
       isPackaged: app.isPackaged,

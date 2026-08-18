@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createNodeLlmTextClient } from "@repo-edu/host-node/llm"
-import { resolveCodexManagedHelperEntryUrl } from "@repo-edu/integrations-llm"
+import { resolveCodexSdkHostEntryUrl } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
 import type {
   LlmTextClient,
@@ -33,12 +33,12 @@ function getClient(): LlmTextClient {
       childProcessLifetimeController,
       undefined,
       {
-        codexHelper: {
+        codexSdkHost: {
           command: process.execPath,
           args: [
             "--import",
             "tsx",
-            fileURLToPath(resolveCodexManagedHelperEntryUrl()),
+            fileURLToPath(resolveCodexSdkHostEntryUrl()),
           ],
           runAsNode: false,
         },

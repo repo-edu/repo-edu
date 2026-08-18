@@ -24,10 +24,10 @@ export type CreateNodeLlmTextClientOptions = Pick<
   "trace"
 > & {
   readonly claudeCliExecutable?: string
-  readonly codexHelper?: NodeCodexHelperCommand
+  readonly codexSdkHost?: NodeCodexSdkHostCommand
 }
 
-export type NodeCodexHelperCommand = {
+export type NodeCodexSdkHostCommand = {
   readonly command: string
   readonly args: readonly string[]
   readonly cwd?: string
@@ -56,8 +56,8 @@ function createClaudeCliLaunch(
   }
 }
 
-function buildCodexHelperEnvironment(
-  command: NodeCodexHelperCommand,
+function buildCodexSdkHostEnvironment(
+  command: NodeCodexSdkHostCommand,
 ): NodeJS.ProcessEnv {
   const environment = { ...process.env, ...command.env }
   if (command.runAsNode) {
@@ -68,26 +68,26 @@ function buildCodexHelperEnvironment(
   return environment
 }
 
-export async function launchNodeCodexHelper(
+export async function launchNodeCodexSdkHost(
   childProcessLifetimeController: ChildProcessLifetimeController,
-  command: NodeCodexHelperCommand,
+  command: NodeCodexSdkHostCommand,
   startupSignal: AbortSignal,
 ): Promise<OwnedChildProcessTree> {
   return await childProcessLifetimeController.launch({
     command: command.command,
     args: command.args,
     cwd: command.cwd,
-    env: buildCodexHelperEnvironment(command),
+    env: buildCodexSdkHostEnvironment(command),
     signal: startupSignal,
   })
 }
 
-function createCodexHelperLaunch(
+function createCodexSdkHostLaunch(
   childProcessLifetimeController: ChildProcessLifetimeController,
-  command: NodeCodexHelperCommand,
-): NonNullable<CreateLlmTextClientOptions["codexHelper"]>["launch"] {
+  command: NodeCodexSdkHostCommand,
+): NonNullable<CreateLlmTextClientOptions["codexSdkHost"]>["launch"] {
   return async (startupSignal) =>
-    await launchNodeCodexHelper(
+    await launchNodeCodexSdkHost(
       childProcessLifetimeController,
       command,
       startupSignal,
@@ -104,13 +104,13 @@ export function createNodeLlmTextClient(
       launch: createClaudeCliLaunch(childProcessLifetimeController),
       executable: options?.claudeCliExecutable,
     },
-    codexHelper:
-      options?.codexHelper === undefined
+    codexSdkHost:
+      options?.codexSdkHost === undefined
         ? undefined
         : {
-            launch: createCodexHelperLaunch(
+            launch: createCodexSdkHostLaunch(
               childProcessLifetimeController,
-              options.codexHelper,
+              options.codexSdkHost,
             ),
           },
     trace: options?.trace,

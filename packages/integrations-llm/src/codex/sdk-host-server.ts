@@ -9,27 +9,27 @@ import {
   NullLogger,
   ResponseError,
 } from "vscode-jsonrpc/node"
-import {
-  type CodexHelperFailure,
-  type CodexHelperRunParams,
-  codexHelperEventNotification,
-  codexHelperRunRequest,
-  codexHelperTraceNotification,
-} from "./helper-protocol.js"
 import { runCodexQueryStream } from "./runner.js"
+import {
+  type CodexSdkHostProtocolFailure,
+  type CodexSdkHostRunParams,
+  codexSdkHostEventNotification,
+  codexSdkHostRunRequest,
+  codexSdkHostTraceNotification,
+} from "./sdk-host-protocol.js"
 import type { TraceSink } from "./trace.js"
 
-export type CodexHelperRun = (options: {
-  readonly request: CodexHelperRunParams
+export type CodexSdkHostRun = (options: {
+  readonly request: CodexSdkHostRunParams
   readonly signal: AbortSignal
   readonly trace: TraceSink
 }) => AsyncIterable<LlmStreamEvent>
 
-export type CodexHelperServerOptions = {
-  readonly run?: CodexHelperRun
+export type CodexSdkHostServerOptions = {
+  readonly run?: CodexSdkHostRun
 }
 
-const defaultRun: CodexHelperRun = ({ request, signal, trace }) =>
+const defaultRun: CodexSdkHostRun = ({ request, signal, trace }) =>
   runCodexQueryStream(
     {
       spec: request.spec,
@@ -44,7 +44,9 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function toHelperFailure(error: unknown): CodexHelperFailure {
+function toCodexSdkHostProtocolFailure(
+  error: unknown,
+): CodexSdkHostProtocolFailure {
   if (error instanceof LlmError) {
     return {
       type: "llm-error",
@@ -56,13 +58,13 @@ function toHelperFailure(error: unknown): CodexHelperFailure {
   if (error instanceof DOMException && error.name === "AbortError") {
     return { type: "cancelled", message: error.message }
   }
-  return { type: "helper-error", message: errorMessage(error) }
+  return { type: "sdk-host-error", message: errorMessage(error) }
 }
 
-export async function runCodexHelperServer(
+export async function runCodexSdkHostServer(
   input: Readable,
   output: Writable,
-  options: CodexHelperServerOptions = {},
+  options: CodexSdkHostServerOptions = {},
 ): Promise<void> {
   const connection = createMessageConnection(input, output, NullLogger)
   const run = options.run ?? defaultRun
@@ -76,11 +78,11 @@ export async function runCodexHelperServer(
     connection.onClose(resolve)
   })
 
-  connection.onRequest(codexHelperRunRequest, async (request, token) => {
+  connection.onRequest(codexSdkHostRunRequest, async (request, token) => {
     if (acceptedRequest) {
       throw new ResponseError(
         ErrorCodes.InvalidRequest,
-        "The Codex helper accepts exactly one request.",
+        "The Codex SDK host process accepts exactly one request.",
       )
     }
     acceptedRequest = true
@@ -99,7 +101,7 @@ export async function runCodexHelperServer(
     let traceWrite = Promise.resolve()
     const trace: TraceSink = (text) => {
       traceWrite = traceWrite.then(() =>
-        connection.sendNotification(codexHelperTraceNotification, text),
+        connection.sendNotification(codexSdkHostTraceNotification, text),
       )
     }
 
@@ -109,7 +111,7 @@ export async function runCodexHelperServer(
         signal: controller.signal,
         trace,
       })) {
-        await connection.sendNotification(codexHelperEventNotification, event)
+        await connection.sendNotification(codexSdkHostEventNotification, event)
       }
       await traceWrite
       return { status: "completed" as const }
@@ -117,7 +119,7 @@ export async function runCodexHelperServer(
       throw new ResponseError(
         ErrorCodes.InternalError,
         errorMessage(error),
-        toHelperFailure(error),
+        toCodexSdkHostProtocolFailure(error),
       )
     } finally {
       cancellation.dispose()

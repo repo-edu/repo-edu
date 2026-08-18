@@ -14,40 +14,40 @@ import {
   NullLogger,
 } from "vscode-jsonrpc/node"
 import { addCleanupCause } from "../error-cause.js"
+import { AsyncEventQueue } from "./async-event-queue.js"
 import { resolveCodexAuth } from "./auth.js"
 import {
   abortError,
-  type HelperFailure,
-  mapHelperFailure,
+  type CodexSdkHostFailure,
+  mapCodexSdkHostFailure,
   unknownOutcomeError,
-} from "./helper-errors.js"
-import { AsyncEventQueue } from "./helper-event-queue.js"
+} from "./sdk-host-errors.js"
 import {
-  codexHelperEventNotification,
-  codexHelperRunRequest,
-  codexHelperTraceNotification,
-} from "./helper-protocol.js"
+  codexSdkHostEventNotification,
+  codexSdkHostRunRequest,
+  codexSdkHostTraceNotification,
+} from "./sdk-host-protocol.js"
 import type { TraceSink } from "./trace.js"
 
-export type CodexHelperProcessResult = {
+export type CodexSdkHostProcessResult = {
   readonly exitCode: number | null
   readonly signal: string | null
 }
 
-export type CodexHelperProcess = {
+export type CodexSdkHostProcess = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
-  readonly result: Promise<CodexHelperProcessResult>
+  readonly result: Promise<CodexSdkHostProcessResult>
   stopAndConfirm(): Promise<void>
 }
 
-export type CodexHelperLaunch = (
+export type CodexSdkHostLaunch = (
   startupSignal: AbortSignal,
-) => Promise<CodexHelperProcess>
+) => Promise<CodexSdkHostProcess>
 
 export type CreateCodexLlmTextClientOptions = {
-  readonly launch?: CodexHelperLaunch
+  readonly launch?: CodexSdkHostLaunch
   readonly trace?: TraceSink
 }
 
@@ -69,18 +69,18 @@ function validateRequest(
   return authMode
 }
 
-const helperOutputLimit = 8_192
+const sdkHostOutputLimit = 8_192
 
-// The helper's error output is kept, not drained away, so a lost helper can
-// still say why it died. The limit keeps a noisy helper from filling memory.
-function collectHelperOutput(stream: Readable): () => string {
+// The Codex SDK host process's error output is kept, not drained away, so a
+// lost process can still say why it died. The limit bounds memory use.
+function collectSdkHostOutput(stream: Readable): () => string {
   let collected = ""
   stream.setEncoding("utf8")
   stream.on("data", (chunk: string) => {
-    if (collected.length >= helperOutputLimit) {
+    if (collected.length >= sdkHostOutputLimit) {
       return
     }
-    collected = (collected + chunk).slice(0, helperOutputLimit)
+    collected = (collected + chunk).slice(0, sdkHostOutputLimit)
   })
   return () => collected
 }
@@ -103,10 +103,10 @@ async function collectCodexStream(
   return { reply, usage }
 }
 
-async function launchHelperForRequest(
-  launch: CodexHelperLaunch,
+async function launchSdkHostForRequest(
+  launch: CodexSdkHostLaunch,
   requestSignal: AbortSignal | undefined,
-): Promise<CodexHelperProcess> {
+): Promise<CodexSdkHostProcess> {
   const startupStop = new AbortController()
   const stopStartup = () => {
     startupStop.abort(requestSignal?.reason)
@@ -139,16 +139,16 @@ async function throwCancellationAfterStop(
   throw abortError()
 }
 
-async function stopHelperAfterRequest(options: {
-  readonly failure: HelperFailure | null
-  readonly helper: CodexHelperProcess
+async function stopSdkHostAfterRequest(options: {
+  readonly failure: CodexSdkHostFailure | null
+  readonly sdkHostProcess: CodexSdkHostProcess
   readonly requestSignal?: AbortSignal
   readonly waitForActiveWork: <T>(work: Promise<T>) => Promise<T>
 }): Promise<void> {
   const preserveFailureDuringStop = options.failure?.outcome === "unknown"
 
   try {
-    const stop = options.helper.stopAndConfirm()
+    const stop = options.sdkHostProcess.stopAndConfirm()
     if (preserveFailureDuringStop) {
       await stop
     } else {
@@ -165,49 +165,56 @@ async function stopHelperAfterRequest(options: {
   }
 }
 
-async function* runCodexHelperStream(
+async function* runCodexSdkHostStream(
   request: GenerateTextRequest,
   config: CodexLlmProviderRuntimeConfig | undefined,
   options: CreateCodexLlmTextClientOptions,
 ): AsyncIterable<LlmStreamEvent> {
   const authMode = validateRequest(request, config)
   if (options.launch === undefined) {
-    throw new LlmError("other", "The Codex managed helper is not configured.", {
-      context: { provider: "codex", authMode },
-    })
+    throw new LlmError(
+      "other",
+      "The Codex SDK host process is not configured.",
+      {
+        context: { provider: "codex", authMode },
+      },
+    )
   }
   if (request.signal?.aborted) {
     throw abortError()
   }
 
-  const helper = await launchHelperForRequest(options.launch, request.signal)
+  const sdkHostProcess = await launchSdkHostForRequest(
+    options.launch,
+    request.signal,
+  )
   if (request.signal?.aborted) {
-    if (!helper.stdin.writableEnded) {
-      helper.stdin.end()
+    if (!sdkHostProcess.stdin.writableEnded) {
+      sdkHostProcess.stdin.end()
     }
-    return await throwCancellationAfterStop(helper.stopAndConfirm())
+    return await throwCancellationAfterStop(sdkHostProcess.stopAndConfirm())
   }
-  const readHelperOutput = collectHelperOutput(helper.stderr)
+  const readSdkHostOutput = collectSdkHostOutput(sdkHostProcess.stderr)
   const connection = createMessageConnection(
-    helper.stdout,
-    helper.stdin,
+    sdkHostProcess.stdout,
+    sdkHostProcess.stdin,
     NullLogger,
   )
   const events = new AsyncEventQueue<LlmStreamEvent>()
   const cancellation = new CancellationTokenSource()
   const requestState: {
-    failure: HelperFailure | null
+    failure: CodexSdkHostFailure | null
     settled: boolean
   } = {
     failure: null,
     settled: false,
   }
   const eventSubscription = connection.onNotification(
-    codexHelperEventNotification,
+    codexSdkHostEventNotification,
     (event) => events.push(event),
   )
   const traceSubscription = connection.onNotification(
-    codexHelperTraceNotification,
+    codexSdkHostTraceNotification,
     (text) => options.trace?.(text),
   )
   connection.listen()
@@ -217,7 +224,7 @@ async function* runCodexHelperStream(
   const cancel = (): Promise<void> => {
     cancellation.cancel()
     events.close()
-    cancellationStop ??= helper.stopAndConfirm()
+    cancellationStop ??= sdkHostProcess.stopAndConfirm()
     void cancellationStop.catch(() => undefined)
     return cancellationStop
   }
@@ -240,12 +247,12 @@ async function* runCodexHelperStream(
     return winner.value
   }
 
-  const processCompletion = helper.result.then(
+  const processCompletion = sdkHostProcess.result.then(
     () => {
       if (!requestState.settled) {
         requestState.failure = {
           error: unknownOutcomeError(authMode, {
-            output: readHelperOutput(),
+            output: readSdkHostOutput(),
           }),
           outcome: "unknown",
         }
@@ -258,7 +265,7 @@ async function* runCodexHelperStream(
         requestState.failure = {
           error: unknownOutcomeError(authMode, {
             cause: error,
-            output: readHelperOutput(),
+            output: readSdkHostOutput(),
           }),
           outcome: "unknown",
         }
@@ -270,7 +277,7 @@ async function* runCodexHelperStream(
 
   const completion = connection
     .sendRequest(
-      codexHelperRunRequest,
+      codexSdkHostRunRequest,
       {
         config,
         spec: request.spec,
@@ -279,18 +286,18 @@ async function* runCodexHelperStream(
       cancellation.token,
     )
     .catch((error: unknown) => {
-      requestState.failure = mapHelperFailure(
+      requestState.failure = mapCodexSdkHostFailure(
         error,
         authMode,
         request.signal,
-        readHelperOutput(),
+        readSdkHostOutput(),
       )
     })
     .finally(() => {
       requestState.settled = true
       events.close()
-      if (!request.signal?.aborted && !helper.stdin.writableEnded) {
-        helper.stdin.end()
+      if (!request.signal?.aborted && !sdkHostProcess.stdin.writableEnded) {
+        sdkHostProcess.stdin.end()
       }
     })
 
@@ -300,9 +307,9 @@ async function* runCodexHelperStream(
     }
     await waitForActiveWork(completion)
 
-    await stopHelperAfterRequest({
+    await stopSdkHostAfterRequest({
       failure: requestState.failure,
-      helper,
+      sdkHostProcess,
       requestSignal: request.signal,
       waitForActiveWork,
     })
@@ -334,10 +341,10 @@ export function createCodexLlmTextClient(
 ): LlmTextClient {
   return {
     generateText(request): Promise<LlmResult> {
-      return collectCodexStream(runCodexHelperStream(request, config, options))
+      return collectCodexStream(runCodexSdkHostStream(request, config, options))
     },
     streamText(request): AsyncIterable<LlmStreamEvent> {
-      return runCodexHelperStream(request, config, options)
+      return runCodexSdkHostStream(request, config, options)
     },
   }
 }

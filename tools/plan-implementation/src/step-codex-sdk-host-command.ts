@@ -1,17 +1,17 @@
 import { fileURLToPath } from "node:url"
 
-export type CodingHelperCommand = {
+export type StepCodexSdkHostCommand = {
   readonly command: string
   readonly arguments: readonly string[]
 }
 
-export function createCodingHelperCommand(): CodingHelperCommand {
+export function createStepCodexSdkHostCommand(): StepCodexSdkHostCommand {
   return {
     command: process.execPath,
     arguments: [
       "--import",
       "tsx",
-      fileURLToPath(new URL("./coding-helper-entry.ts", import.meta.url)),
+      fileURLToPath(new URL("./step-codex-sdk-host-entry.ts", import.meta.url)),
     ],
   }
 }

@@ -7,12 +7,6 @@ import {
   type ResponseError,
 } from "vscode-jsonrpc/node"
 import { CodingEventQueue } from "./coding-event-queue.js"
-import { createCodingHelperCommand } from "./coding-helper-command.js"
-import {
-  type CodingHelperFailure,
-  codingHelperEventNotification,
-  codingHelperRunRequest,
-} from "./coding-helper-protocol.js"
 import type {
   CodingAdapter,
   CodingEvent,
@@ -20,30 +14,36 @@ import type {
   CodingResult,
   CodingRun,
 } from "./contracts.js"
+import { createStepCodexSdkHostCommand } from "./step-codex-sdk-host-command.js"
+import {
+  type StepCodexSdkHostProtocolFailure,
+  stepCodexSdkHostEventNotification,
+  stepCodexSdkHostRunRequest,
+} from "./step-codex-sdk-host-protocol.js"
 
-type CodingHelperProcessResult = {
+type StepCodexSdkHostProcessResult = {
   readonly exitCode: number | null
   readonly signal: string | null
 }
 
-type CodingHelperProcess = {
+type StepCodexSdkHostProcess = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
-  readonly result: Promise<CodingHelperProcessResult>
+  readonly result: Promise<StepCodexSdkHostProcessResult>
   stopAndConfirm(): Promise<void>
 }
 
-export type CodingHelperLaunch = (
+export type StepCodexSdkHostLaunch = (
   request: CodingRequest,
   signal?: AbortSignal,
-) => Promise<CodingHelperProcess>
+) => Promise<StepCodexSdkHostProcess>
 
-export class CodingHelperOutcomeUnknownError extends Error {
-  override readonly name = "CodingHelperOutcomeUnknownError"
+export class StepCodexSdkHostOutcomeUnknownError extends Error {
+  override readonly name = "StepCodexSdkHostOutcomeUnknownError"
 }
 
-const HELPER_ERROR_OUTPUT_LIMIT = 2_000
+const SDK_HOST_ERROR_OUTPUT_LIMIT = 2_000
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -53,7 +53,7 @@ function readErrorOutputTail(stream: Readable): () => string {
   let tail = ""
   stream.setEncoding("utf8")
   stream.on("data", (chunk: string) => {
-    tail = (tail + chunk).slice(-HELPER_ERROR_OUTPUT_LIMIT)
+    tail = (tail + chunk).slice(-SDK_HOST_ERROR_OUTPUT_LIMIT)
   })
   return () => tail.trim()
 }
@@ -62,27 +62,30 @@ function withErrorOutput(message: string, errorOutput: string): string {
   return errorOutput.length === 0 ? message : `${message}\n${errorOutput}`
 }
 
-function mappedHelperError(error: unknown): Error {
-  const data = (error as ResponseError<CodingHelperFailure> | undefined)?.data
+function mapStepCodexSdkHostError(error: unknown): Error {
+  const data = (
+    error as ResponseError<StepCodexSdkHostProtocolFailure> | undefined
+  )?.data
   if (data?.type === "cancelled") {
     return new DOMException(data.message, "AbortError")
   }
-  if (data?.type === "helper-error") {
+  if (data?.type === "sdk-host-error") {
     return new Error(data.message, { cause: error })
   }
-  return new Error(`The coding helper failed: ${errorMessage(error)}`, {
-    cause: error,
-  })
+  return new Error(
+    `The plan-step Codex SDK host process failed: ${errorMessage(error)}`,
+    { cause: error },
+  )
 }
 
 function defaultLaunch(
   childProcessLifetimeController: ChildProcessLifetimeController,
-): CodingHelperLaunch {
+): StepCodexSdkHostLaunch {
   return async (request, signal) => {
-    const helper = createCodingHelperCommand()
+    const sdkHostCommand = createStepCodexSdkHostCommand()
     return await childProcessLifetimeController.launch({
-      command: helper.command,
-      args: helper.arguments,
+      command: sdkHostCommand.command,
+      args: sdkHostCommand.arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
       shell: false,
@@ -93,32 +96,32 @@ function defaultLaunch(
 
 function createCodingRun(
   request: CodingRequest,
-  helper: CodingHelperProcess,
+  sdkHostProcess: StepCodexSdkHostProcess,
   signal?: AbortSignal,
 ): CodingRun {
-  const errorOutput = readErrorOutputTail(helper.stderr)
+  const errorOutput = readErrorOutputTail(sdkHostProcess.stderr)
   const connection = createMessageConnection(
-    helper.stdout,
-    helper.stdin,
+    sdkHostProcess.stdout,
+    sdkHostProcess.stdin,
     NullLogger,
   )
   const events = new CodingEventQueue<CodingEvent>()
   const cancellation = new CancellationTokenSource()
   let abortRequested = false
-  let helperStop: Promise<void> | null = null
-  const stopHelper = (): Promise<void> => {
-    helperStop ??= Promise.resolve().then(
-      async () => await helper.stopAndConfirm(),
+  let sdkHostStop: Promise<void> | null = null
+  const stopSdkHostProcess = (): Promise<void> => {
+    sdkHostStop ??= Promise.resolve().then(
+      async () => await sdkHostProcess.stopAndConfirm(),
     )
-    void helperStop.catch(() => {
+    void sdkHostStop.catch(() => {
       // The result path awaits the same promise and keeps the failure visible.
     })
-    return helperStop
+    return sdkHostStop
   }
   const abort = () => {
     abortRequested = true
     cancellation.cancel()
-    void stopHelper()
+    void stopSdkHostProcess()
   }
   signal?.addEventListener("abort", abort, { once: true })
   if (signal?.aborted) abort()
@@ -129,12 +132,12 @@ function createCodingRun(
   } = { endedBeforeRequest: false, error: undefined }
 
   const eventSubscription = connection.onNotification(
-    codingHelperEventNotification,
+    stepCodexSdkHostEventNotification,
     (event) => events.push(event),
   )
   connection.listen()
 
-  const helperCompletion = helper.result.then(
+  const sdkHostCompletion = sdkHostProcess.result.then(
     () => {
       if (!requestSettled) {
         processState.endedBeforeRequest = true
@@ -153,12 +156,12 @@ function createCodingRun(
   )
 
   const requestCompletion = connection
-    .sendRequest(codingHelperRunRequest, request, cancellation.token)
+    .sendRequest(stepCodexSdkHostRunRequest, request, cancellation.token)
     .finally(() => {
       requestSettled = true
       events.close()
-      if (!helper.stdin.writableEnded) {
-        helper.stdin.end()
+      if (!sdkHostProcess.stdin.writableEnded) {
+        sdkHostProcess.stdin.end()
       }
     })
 
@@ -168,12 +171,12 @@ function createCodingRun(
       try {
         codingResult = await requestCompletion
       } catch (error) {
-        await stopHelper()
-        await helperCompletion
+        await stopSdkHostProcess()
+        await sdkHostCompletion
         if (processState.endedBeforeRequest && !abortRequested) {
-          throw new CodingHelperOutcomeUnknownError(
+          throw new StepCodexSdkHostOutcomeUnknownError(
             withErrorOutput(
-              "The coding helper exited before its result was known.",
+              "The plan-step Codex SDK host process exited before its result was known.",
               errorOutput(),
             ),
             { cause: processState.error ?? error },
@@ -182,11 +185,11 @@ function createCodingRun(
         if (abortRequested) {
           throw new DOMException("Coding was stopped.", "AbortError")
         }
-        throw mappedHelperError(error)
+        throw mapStepCodexSdkHostError(error)
       }
 
-      await stopHelper()
-      await helperCompletion
+      await stopSdkHostProcess()
+      await sdkHostCompletion
       return codingResult
     } finally {
       signal?.removeEventListener("abort", abort)
@@ -205,7 +208,7 @@ function createCodingRun(
 
 export function createCodingAdapter(
   childProcessLifetimeController: ChildProcessLifetimeController,
-  options: { readonly launch?: CodingHelperLaunch } = {},
+  options: { readonly launch?: StepCodexSdkHostLaunch } = {},
 ): CodingAdapter {
   const launch = options.launch ?? defaultLaunch(childProcessLifetimeController)
   return {

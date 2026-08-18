@@ -19,45 +19,45 @@ const REGISTERED_SOURCES: Record<string, string> = {
 }
 
 describe("product process launch policy", () => {
-  it("records every current launch and its target route", () => {
+  it("records every current launch and its owner", () => {
     assert.deepEqual(productProcessLaunchInventory, [
       {
         id: "posix-child-process-lifetime-adapter",
         file: "packages/host-node/src/posix-child-process-lifetime-adapter.ts",
         mechanism: "node-child-process",
-        targetRoute: "direct-adapter",
+        launchOwner: "platform-adapter",
         launches: [
           "POSIX Git commands",
           "POSIX ProcessPort tool commands",
           "POSIX Claude CLI",
-          "POSIX managed-helper entries",
+          "POSIX Codex SDK host process entries",
         ],
       },
       {
         id: "windows-launcher-host",
         file: "packages/host-node/src/windows-child-process-lifetime-adapter.ts",
         mechanism: "node-child-process",
-        targetRoute: "direct-adapter",
+        launchOwner: "platform-adapter",
         launches: ["fixed inert Windows launcher"],
       },
       {
         id: "windows-assigned-target",
         file: "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs",
         mechanism: "node-child-process",
-        targetRoute: "direct-adapter",
+        launchOwner: "platform-adapter",
         launches: [
           "Windows Git commands",
           "Windows ProcessPort tool commands",
           "Windows Claude CLI",
-          "Windows managed-helper entries",
+          "Windows Codex SDK host process entries",
         ],
       },
       {
         id: "codex-sdk",
         file: "packages/integrations-llm/src/codex/runner.ts",
         mechanism: "codex-sdk",
-        targetRoute: "managed-helper",
-        launches: ["Codex SDK child", "Codex tool descendants"],
+        launchOwner: "codex-sdk-host-process",
+        launches: ["Codex process", "Codex tool descendants"],
       },
     ])
   })
@@ -114,32 +114,32 @@ describe("product process launch policy", () => {
       {
         file: "packages/domain/src/direct.ts",
         message:
-          "Node child-process launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Node child-process launch is outside the child-process lifetime launch-owner inventory",
       },
       {
         file: "packages/application/src/bun.ts",
         message:
-          "Bun process launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Bun process launch is outside the child-process lifetime launch-owner inventory",
       },
       {
         file: "apps/cli/src/bun-shell.ts",
         message:
-          "Bun process launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Bun process launch is outside the child-process lifetime launch-owner inventory",
       },
       {
         file: "apps/desktop/src/deno.ts",
         message:
-          "Deno command launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Deno command launch is outside the child-process lifetime launch-owner inventory",
       },
       {
         file: "packages/application/src/codex.ts",
         message:
-          "Codex SDK process launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Codex SDK process launch is outside the child-process lifetime launch-owner inventory",
       },
       {
         file: "packages/application/src/cluster.ts",
         message:
-          "Node cluster process launch is outside the child-lifetime direct-adapter and managed-helper inventory",
+          "Node cluster process launch is outside the child-process lifetime launch-owner inventory",
       },
     ])
   })

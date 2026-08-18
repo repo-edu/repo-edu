@@ -63,7 +63,7 @@ export function checkProductProcessLaunches(
       if (inventoryByKey.has(inventoryKey(file, mechanism))) continue
       violations.push({
         file,
-        message: `${MECHANISM_LABELS[mechanism]} is outside the child-lifetime direct-adapter and managed-helper inventory`,
+        message: `${MECHANISM_LABELS[mechanism]} is outside the child-process lifetime launch-owner inventory`,
       })
     }
   }

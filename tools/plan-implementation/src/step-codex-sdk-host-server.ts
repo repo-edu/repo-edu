@@ -5,42 +5,44 @@ import {
   NullLogger,
   ResponseError,
 } from "vscode-jsonrpc/node"
-import {
-  type CodingHelperFailure,
-  codingHelperEventNotification,
-  codingHelperRunRequest,
-} from "./coding-helper-protocol.js"
 import { runCodexCodingStep } from "./coding-sdk.js"
 import type { CodingEvent, CodingRequest, CodingResult } from "./contracts.js"
+import {
+  type StepCodexSdkHostProtocolFailure,
+  stepCodexSdkHostEventNotification,
+  stepCodexSdkHostRunRequest,
+} from "./step-codex-sdk-host-protocol.js"
 
-export type CodingHelperRun = (options: {
+export type StepCodexSdkHostRun = (options: {
   readonly request: CodingRequest
   readonly signal: AbortSignal
   readonly emit: (event: CodingEvent) => void | Promise<void>
 }) => Promise<CodingResult>
 
-export type CodingHelperServerOptions = {
-  readonly run?: CodingHelperRun
+export type StepCodexSdkHostServerOptions = {
+  readonly run?: StepCodexSdkHostRun
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function helperFailure(error: unknown): CodingHelperFailure {
+function toStepCodexSdkHostProtocolFailure(
+  error: unknown,
+): StepCodexSdkHostProtocolFailure {
   if (error instanceof DOMException && error.name === "AbortError") {
     return { type: "cancelled", message: error.message }
   }
-  return { type: "helper-error", message: errorMessage(error) }
+  return { type: "sdk-host-error", message: errorMessage(error) }
 }
 
-export async function runCodingHelperServer(
+export async function runStepCodexSdkHostServer(
   input: Readable,
   output: Writable,
-  options: CodingHelperServerOptions = {},
+  options: StepCodexSdkHostServerOptions = {},
 ): Promise<void> {
   const connection = createMessageConnection(input, output, NullLogger)
-  const run: CodingHelperRun =
+  const run: StepCodexSdkHostRun =
     options.run ??
     (({ request, signal, emit }) =>
       runCodexCodingStep(request, { signal, emit }))
@@ -53,11 +55,11 @@ export async function runCodingHelperServer(
     connection.onClose(resolve)
   })
 
-  connection.onRequest(codingHelperRunRequest, async (request, token) => {
+  connection.onRequest(stepCodexSdkHostRunRequest, async (request, token) => {
     if (accepted) {
       throw new ResponseError(
         ErrorCodes.InvalidRequest,
-        "The coding helper accepts exactly one request.",
+        "The plan-step Codex SDK host process accepts exactly one request.",
       )
     }
     accepted = true
@@ -77,13 +79,13 @@ export async function runCodingHelperServer(
         request,
         signal: controller.signal,
         emit: (event) =>
-          connection.sendNotification(codingHelperEventNotification, event),
+          connection.sendNotification(stepCodexSdkHostEventNotification, event),
       })
     } catch (error) {
       throw new ResponseError(
         ErrorCodes.InternalError,
         errorMessage(error),
-        helperFailure(error),
+        toStepCodexSdkHostProtocolFailure(error),
       )
     } finally {
       cancellation.dispose()

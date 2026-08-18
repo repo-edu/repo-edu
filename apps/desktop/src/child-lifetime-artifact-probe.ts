@@ -4,8 +4,8 @@ import {
   childProcessLifetimeArtifactProbeMarker,
   finishChildProcessLifetimeArtifactProbe,
   isChildProcessLifetimeArtifactProbe,
-  launchNodeCodexHelper,
-  type NodeCodexHelperCommand,
+  launchNodeCodexSdkHost,
+  type NodeCodexSdkHostCommand,
   startChildProcessLifetimeArtifactProbe,
 } from "@repo-edu/host-node"
 import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
@@ -66,23 +66,23 @@ function captureText(stream: Readable): () => string {
   return () => output
 }
 
-async function proveManagedCodexHelper(options: {
+async function proveCodexSdkHost(options: {
   readonly childProcessLifetimeController: ChildProcessLifetimeController
-  readonly command: NodeCodexHelperCommand
+  readonly command: NodeCodexSdkHostCommand
 }): Promise<true> {
-  const helper = await launchNodeCodexHelper(
+  const sdkHostTree = await launchNodeCodexSdkHost(
     options.childProcessLifetimeController,
     options.command,
     new AbortController().signal,
   )
-  helper.stdout.resume()
-  const stderr = captureText(helper.stderr)
-  helper.stdin.end()
+  sdkHostTree.stdout.resume()
+  const stderr = captureText(sdkHostTree.stderr)
+  sdkHostTree.stdin.end()
 
-  const result = await helper.result
+  const result = await sdkHostTree.result
   if (result.exitCode !== 0 || result.signal !== null) {
     throw new Error(
-      `The managed Codex helper did not load and exit cleanly: ${stderr().trim() || JSON.stringify(result)}`,
+      `The Codex SDK host process did not load and exit cleanly: ${stderr().trim() || JSON.stringify(result)}`,
     )
   }
   return true
@@ -109,7 +109,7 @@ async function provePackagedWindowsClaims(
     run.result.signal === null &&
     run.result.stdout === expectedStdout &&
     run.result.stderr === expectedStderr
-  const fixedHelperEntry =
+  const fixedLauncherEntry =
     readiness.launcherArguments.length === 1 &&
     readiness.launcherArguments[0] === runtime.launcherEntryPath &&
     run.evidence.launcherArguments.length === 1 &&
@@ -124,9 +124,9 @@ async function provePackagedWindowsClaims(
     launcherAndKoffiLoading: readiness.koffiLoaded && run.evidence.koffiLoaded,
     streamContract,
     explicitRunAsNode:
-      readiness.runAsNode && run.evidence.runAsNode && fixedHelperEntry,
+      readiness.runAsNode && run.evidence.runAsNode && fixedLauncherEntry,
     launcherReadyThenExited: readiness.exitCode === 0,
-    productInputCannotChooseHelper: fixedHelperEntry,
+    productInputCannotChooseLauncher: fixedLauncherEntry,
     electronRunAsNodeExcluded: run.result.exitCode === expectedExitCode,
     jobHandleNotInherited:
       !readiness.jobHandleInherited && !run.evidence.jobHandleInherited,
@@ -141,7 +141,7 @@ async function provePackagedWindowsClaims(
 
 export async function runChildLifetimeArtifactProbe(options: {
   readonly childProcessLifetimeController: ChildProcessLifetimeController
-  readonly codexHelperCommand: NodeCodexHelperCommand
+  readonly codexSdkHostCommand: NodeCodexSdkHostCommand
   readonly executablePath: string
   readonly isPackaged: boolean
   readonly resourcesPath: string
@@ -159,9 +159,9 @@ export async function runChildLifetimeArtifactProbe(options: {
             ),
           )
         : {}
-    const managedCodexHelper = await proveManagedCodexHelper({
+    const codexSdkHostLoaded = await proveCodexSdkHost({
       childProcessLifetimeController: options.childProcessLifetimeController,
-      command: options.codexHelperCommand,
+      command: options.codexSdkHostCommand,
     })
     directProbe = await startChildProcessLifetimeArtifactProbe(
       options.childProcessLifetimeController,
@@ -178,7 +178,7 @@ export async function runChildLifetimeArtifactProbe(options: {
       architecture: process.arch,
       claims: {
         ...directClaims,
-        managedCodexHelper,
+        codexSdkHostLoaded,
         ...windowsClaims,
       },
     }

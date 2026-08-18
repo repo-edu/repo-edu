@@ -109,11 +109,11 @@ describe("createNodeLlmTextClient", () => {
     }
   })
 
-  it("starts Codex through the managed helper with a complete Node-mode environment", async () => {
+  it("starts Codex through the Codex SDK host process with a complete Node-mode environment", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     let stopConfirmations = 0
-    const parentValue = process.env.REPO_EDU_CODEX_HELPER_PARENT
-    process.env.REPO_EDU_CODEX_HELPER_PARENT = "inherited"
+    const parentValue = process.env.REPO_EDU_CODEX_SDK_HOST_PARENT
+    process.env.REPO_EDU_CODEX_SDK_HOST_PARENT = "inherited"
     try {
       const controller: ChildProcessLifetimeController = {
         async launch(request) {
@@ -148,10 +148,10 @@ describe("createNodeLlmTextClient", () => {
         async stopAndConfirm() {},
       }
       const client = createNodeLlmTextClient(controller, undefined, {
-        codexHelper: {
+        codexSdkHost: {
           command: "/fixed/electron",
-          args: ["/fixed/codex-helper.js"],
-          env: { REPO_EDU_CODEX_HELPER_OVERRIDE: "override" },
+          args: ["/fixed/codex-sdk-host.js"],
+          env: { REPO_EDU_CODEX_SDK_HOST_OVERRIDE: "override" },
           runAsNode: true,
         },
       })
@@ -163,17 +163,23 @@ describe("createNodeLlmTextClient", () => {
 
       assert.equal(launches.length, 1)
       assert.equal(launches[0]?.command, "/fixed/electron")
-      assert.deepEqual(launches[0]?.args, ["/fixed/codex-helper.js"])
+      assert.deepEqual(launches[0]?.args, ["/fixed/codex-sdk-host.js"])
       assert.equal(launches[0]?.signal?.aborted, false)
-      assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_PARENT, "inherited")
-      assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_OVERRIDE, "override")
+      assert.equal(
+        launches[0]?.env?.REPO_EDU_CODEX_SDK_HOST_PARENT,
+        "inherited",
+      )
+      assert.equal(
+        launches[0]?.env?.REPO_EDU_CODEX_SDK_HOST_OVERRIDE,
+        "override",
+      )
       assert.equal(launches[0]?.env?.ELECTRON_RUN_AS_NODE, "1")
       assert.equal(stopConfirmations, 1)
     } finally {
       if (parentValue === undefined) {
-        delete process.env.REPO_EDU_CODEX_HELPER_PARENT
+        delete process.env.REPO_EDU_CODEX_SDK_HOST_PARENT
       } else {
-        process.env.REPO_EDU_CODEX_HELPER_PARENT = parentValue
+        process.env.REPO_EDU_CODEX_SDK_HOST_PARENT = parentValue
       }
     }
   })

@@ -68,8 +68,8 @@ describe("desktop Windows child-lifetime packaging", () => {
   })
 })
 
-describe("desktop Codex helper packaging", () => {
-  it("builds and ships the fixed managed-helper entry", async () => {
+describe("desktop Codex SDK host packaging", () => {
+  it("builds and ships the fixed Codex SDK host entry", async () => {
     const builderConfig = (await readJson(
       join(desktopRoot, "electron-builder.json"),
     )) as {
@@ -86,11 +86,11 @@ describe("desktop Codex helper packaging", () => {
       Array.isArray(builderConfig.files) &&
         builderConfig.files.includes("out/main/**/*"),
     )
-    assert.match(viteConfig, /"codex-helper": resolve\(/)
+    assert.match(viteConfig, /"codex-sdk-host": resolve\(/)
     assert.match(viteConfig, /entryFileNames: "\[name\]\.js"/)
     assert.match(
       viteConfig,
-      /packages\/integrations-llm\/src\/codex\/helper-entry\.ts/,
+      /packages\/integrations-llm\/src\/codex\/sdk-host-entry\.ts/,
     )
   })
 })
