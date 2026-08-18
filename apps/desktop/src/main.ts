@@ -86,6 +86,7 @@ import {
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
 import { createDesktopAppSettingsStore } from "./settings-store"
+import { createDesktopShutdown } from "./shutdown"
 import type { DesktopRouter } from "./trpc"
 import { createDesktopRouter } from "./trpc"
 import {
@@ -1004,53 +1005,37 @@ async function createWindow(): Promise<BrowserWindow> {
 async function startDesktop(): Promise<void> {
   bindUpdaterMenu()
 
-  let shutdownPhase: "idle" | "draining" | "ready" = "idle"
-  app.on("before-quit", (event) => {
-    quitRequested = true
-    const liveWindows = BrowserWindow.getAllWindows().filter(
-      (window) => !window.isDestroyed(),
-    )
-    if (shutdownPhase === "idle" && liveWindows.length > 0) {
-      event.preventDefault()
+  const shutdown = createDesktopShutdown({
+    abortWorkflows() {
+      if (!shutdownController.signal.aborted) {
+        shutdownController.abort()
+      }
+    },
+    beginWindowClose() {
+      quitRequested = true
+      const liveWindows = BrowserWindow.getAllWindows().filter(
+        (window) => !window.isDestroyed(),
+      )
       for (const window of liveWindows) {
         window.close()
       }
-      return
-    }
-    if (shutdownPhase === "ready") return
-    // Shutdown: signal in-flight workflows to abort, give them a bounded
-    // grace period so mid-commit cache writes complete, then close the DB.
-    const gracePeriodMs = 5_000
-    event.preventDefault()
-    if (shutdownPhase === "draining") return
-    shutdownPhase = "draining"
-    if (!shutdownController.signal.aborted) {
-      try {
-        shutdownController.abort()
-      } catch {
-        // Node ignores abort on already-aborted signals; swallow other errors.
-      }
-    }
-    void (async () => {
-      await waitForInFlightWorkflows(gracePeriodMs)
-      // Examination archive runs in WAL mode: closing checkpoints the WAL
-      // and any acknowledged write is already on disk. Close even on a
-      // forced quit so the archive (where data is not regenerable) never
-      // stays open.
-      closeExaminationArchiveDatabase()
-    })()
-      .catch((error) => {
-        // Close paths already catch internally; anything reaching here is
-        // unexpected. Surface it to stderr so the quit still completes.
-        process.stderr.write(
-          `[desktop] shutdown-drain-failed ${desktopErrorText(error)}\n`,
-        )
-      })
-      .finally(() => {
-        shutdownPhase = "ready"
-        app.quit()
-      })
+      return liveWindows.length > 0
+    },
+    closeArchive: closeExaminationArchiveDatabase,
+    fail(error) {
+      terminateDesktop("shutdown-drain-failed", error)
+    },
+    quit() {
+      app.quit()
+    },
+    stopAndConfirmChildProcesses() {
+      return childProcessLifetimeController.stopAndConfirm()
+    },
+    waitForWorkflows() {
+      return waitForInFlightWorkflows(5_000)
+    },
   })
+  app.on("before-quit", shutdown.beforeQuit)
 
   const userFileQueue = parsePathQueue(
     process.env.REPO_EDU_TEST_USER_FILE_QUEUE,

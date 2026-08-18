@@ -93,11 +93,15 @@ const defaultAdapterOperations: WindowsChildLifetimeAdapterOperations = {
   createJob: createWindowsKillOnCloseJob,
 }
 
-function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = launcherTimeoutMs,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error(`${label} timed out.`))
-    }, launcherTimeoutMs)
+    }, timeoutMs)
     promise.then(
       (value) => {
         clearTimeout(timeout)
@@ -276,7 +280,7 @@ export function buildWindowsLauncherEnvironment(
   return environment
 }
 
-async function cleanBeforeTargetAdmission(options: {
+export async function cleanBeforeTargetAdmission(options: {
   readonly assigned: boolean
   readonly child: ChildProcess | null
   readonly controlInput: Writable | null
@@ -307,11 +311,18 @@ async function cleanBeforeTargetAdmission(options: {
     return
   }
 
-  options.child?.kill()
-  if (options.exit) {
-    await withTimeout(options.exit, "Windows unassigned launcher exit")
+  try {
+    options.child?.kill()
+    if (options.exit) {
+      await withTimeout(
+        options.exit,
+        "Windows unassigned launcher exit",
+        options.forcedStopConfirmationPeriodMs,
+      )
+    }
+  } finally {
+    options.job.close()
   }
-  options.job.close()
 }
 
 async function startAssignedLauncher(
