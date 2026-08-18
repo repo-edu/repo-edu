@@ -9,7 +9,8 @@
 - **Platform adapter**: the POSIX or Windows implementation that turns the
   controller's common contract into operating-system work.
 - **Owned child-process tree**: the handle returned by one launch. It owns the
-  requested command and every process descended from that command.
+  requested command and every descendant. On Windows, it also owns the fixed
+  launcher that is the job root.
 - **Windows launcher**: the fixed process that the Windows platform adapter
   starts and assigns to its job before target work is admitted. The launcher
   then starts the requested command. It is private to the adapter.
