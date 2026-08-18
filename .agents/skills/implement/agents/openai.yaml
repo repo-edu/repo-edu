@@ -1,4 +1,0 @@
-interface:
-  display_name: "Implement"
-  short_description: "Run the Repo Edu plan implementation runner"
-  default_prompt: "Use $implement <plan-file> --count 1 to run the next Repo Edu plan step."
