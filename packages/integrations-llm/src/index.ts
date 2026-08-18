@@ -15,9 +15,14 @@ import {
 
 export const packageId = "@repo-edu/integrations-llm"
 
-export type { ClaudeCliLaunch } from "./claude"
+export type { ClaudeCliFailure, ClaudeCliLaunch } from "./claude"
 export { createClaudeLlmTextClient } from "./claude"
-export type { CodexSdkHostLaunch, CodexSdkHostProcess } from "./codex"
+export type {
+  CodexSdkHostLaunch,
+  CodexSdkHostProcess,
+  CodexSdkHostProtocolFailure,
+  CodexSdkHostRunResult,
+} from "./codex"
 export {
   createCodexLlmTextClient,
   resolveCodexSdkHostEntryUrl,

@@ -72,16 +72,31 @@ export function createStepCommandExecutor(
         args: request.arguments,
         cwd: request.cwd,
         env: { ...process.env },
+        proof: "target-exit",
         shell: false,
         ...(request.signal === undefined ? {} : { signal: request.signal }),
       })
       child.stdin.end()
-      const [result, stdout, stderr] = await Promise.all([
-        child.result,
-        collectOutput(child.stdout),
-        collectOutput(child.stderr),
+      const [outcome, stdout, stderr] = await Promise.all([
+        child.outcome,
+        collectOutput(child.stdout).catch((error: unknown) => {
+          child.reportFailure(error)
+          child.requestCancellation()
+          return ""
+        }),
+        collectOutput(child.stderr).catch((error: unknown) => {
+          child.reportFailure(error)
+          child.requestCancellation()
+          return ""
+        }),
       ])
-      return { ...result, stdout, stderr }
+      if (outcome.outcome === "unknown") {
+        throw new Error("The command result could not be confirmed.")
+      }
+      if (outcome.outcome === "cancelled") {
+        throw new DOMException("The command was cancelled.", "AbortError")
+      }
+      return { ...outcome.value, stdout, stderr }
     },
   }
 }

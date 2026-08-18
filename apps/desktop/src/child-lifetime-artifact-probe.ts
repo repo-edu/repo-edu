@@ -74,12 +74,19 @@ async function proveCodexSdkHost(options: {
     options.childProcessLifetimeController,
     options.command,
     new AbortController().signal,
+    "target-exit",
   )
   sdkHostTree.stdout.resume()
   const stderr = captureText(sdkHostTree.stderr)
   sdkHostTree.stdin.end()
 
-  const result = await sdkHostTree.result
+  const outcome = await sdkHostTree.outcome
+  if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
+    throw new Error(
+      `The Codex SDK host process ended ${outcome.outcome}: ${stderr().trim() || "<no stderr>"}`,
+    )
+  }
+  const result = outcome.value
   if (result.exitCode !== 0 || result.signal !== null) {
     throw new Error(
       `The Codex SDK host process did not load and exit cleanly: ${stderr().trim() || JSON.stringify(result)}`,

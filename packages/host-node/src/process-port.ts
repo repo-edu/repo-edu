@@ -54,34 +54,42 @@ export function createNodeProcessPort(
         args: request.args,
         cwd: request.cwd,
         env: completeEnvironment(request.env),
+        proof: "target-exit",
         signal: request.signal,
       })
-      const stdout = collectOutput(child.stdout)
-      const stderr = collectOutput(child.stderr)
-      const input = writeInput(child.stdin, request.stdinText)
+      const stdout = collectOutput(child.stdout).catch((error: unknown) => {
+        child.reportFailure(error)
+        child.requestCancellation()
+        return ""
+      })
+      const stderr = collectOutput(child.stderr).catch((error: unknown) => {
+        child.reportFailure(error)
+        child.requestCancellation()
+        return ""
+      })
+      const input = writeInput(child.stdin, request.stdinText).catch(
+        (error: unknown) => {
+          child.reportFailure(error)
+          child.requestCancellation()
+        },
+      )
 
-      try {
-        const [result, capturedStdout, capturedStderr] = await Promise.all([
-          child.result,
-          stdout,
-          stderr,
-          input,
-        ])
-        return {
-          ...result,
-          stdout: capturedStdout,
-          stderr: capturedStderr,
-        }
-      } catch (error) {
-        try {
-          await child.stopAndConfirm()
-        } catch (cleanupError) {
-          throw new AggregateError(
-            [error, cleanupError],
-            "The process port failed and its owned tree could not be confirmed stopped.",
-          )
-        }
-        throw error
+      const [outcome, capturedStdout, capturedStderr] = await Promise.all([
+        child.outcome,
+        stdout,
+        stderr,
+        input,
+      ])
+      if (outcome.outcome === "unknown") {
+        throw new Error("The command result could not be confirmed.")
+      }
+      if (outcome.outcome === "cancelled") {
+        throw new DOMException("Operation cancelled.", "AbortError")
+      }
+      return {
+        ...outcome.value,
+        stdout: capturedStdout,
+        stderr: capturedStderr,
       }
     },
   }

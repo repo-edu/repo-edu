@@ -8,7 +8,12 @@ import { createProgram } from "../cli.js"
 // is still supplied here because every caller owns the controller it passes.
 function createInspectionProgram() {
   return createProgram({
-    childProcessLifetimeController: createChildProcessLifetimeController(),
+    childProcessLifetimeController: createChildProcessLifetimeController({
+      diagnosticSink() {},
+      onUnconfirmedTree(error): never {
+        throw error
+      },
+    }),
   })
 }
 

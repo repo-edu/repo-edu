@@ -1,4 +1,7 @@
-import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import {
+  childProcessUnconfirmedTreeMessage,
+  createChildProcessLifetimeController,
+} from "@repo-edu/host-node/child-process-lifetime"
 import { createCodingAdapter } from "./coding-adapter.js"
 import { createPlanImplementationCommand } from "./command.js"
 import { runPlanImplementation } from "./plan-runner.js"
@@ -13,7 +16,17 @@ function errorMessage(error: unknown): string {
 
 async function main(): Promise<void> {
   const stop = new AbortController()
-  const childProcessLifetimeController = createChildProcessLifetimeController()
+  const childProcessLifetimeController = createChildProcessLifetimeController({
+    diagnosticSink(diagnostic) {
+      process.stderr.write(
+        `implement-plan: child-process-secondary-failure ${diagnostic.command}: ${errorMessage(diagnostic.failure)}\n`,
+      )
+    },
+    onUnconfirmedTree(): never {
+      process.stderr.write(`${childProcessUnconfirmedTreeMessage}\n`)
+      return process.exit(1)
+    },
+  })
   const requestStop = (signal: "SIGINT" | "SIGTERM"): void => {
     if (!stop.signal.aborted) {
       stop.abort(`Stop requested by ${signal}.`)

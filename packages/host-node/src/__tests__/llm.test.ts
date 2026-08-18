@@ -8,9 +8,10 @@ import { fileURLToPath } from "node:url"
 import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
+  OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
 import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
-import { createNodeLlmTextClient } from "../llm.js"
+import { createNodeLlmTextClient, launchNodeCodexSdkHost } from "../llm.js"
 
 const claudeTreeFixture = fileURLToPath(
   new URL("./fixtures/claude-cli-tree.cjs", import.meta.url),
@@ -23,22 +24,19 @@ const claudeSpec = {
   effort: "max" as const,
 }
 
-const codexSpec = {
-  provider: "codex" as const,
-  family: "gpt-5.4",
-  modelId: "gpt-5.4",
-  effort: "medium" as const,
-}
-
 describe("createNodeLlmTextClient", () => {
   it("routes the Claude CLI through one controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     let prompt = ""
-    let stopConfirmations = 0
     const controller: ChildProcessLifetimeController = {
-      async launch(request) {
+      async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
         launches.push(request)
-        return {
+        const outcome = Promise.withResolvers<{
+          readonly outcome: "completed"
+          readonly targetResult: { readonly exitCode: 0; readonly signal: null }
+          readonly value: undefined
+        }>()
+        const owned = {
           stdin: new Writable({
             write(chunk, _encoding, done) {
               prompt += String(chunk)
@@ -50,11 +48,20 @@ describe("createNodeLlmTextClient", () => {
             '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
           ]),
           stderr: Readable.from([]),
-          result: Promise.resolve({ exitCode: 0, signal: null }),
-          async stopAndConfirm() {
-            stopConfirmations++
+          outcome: outcome.promise,
+          requestCancellation() {},
+          reportFailure() {},
+          reportProofLost() {},
+          reportResult() {
+            outcome.resolve({
+              outcome: "completed",
+              targetResult: { exitCode: 0, signal: null },
+              value: undefined,
+            })
           },
+          reportWorkStarted() {},
         }
+        return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
       async stopAndConfirm() {},
     }
@@ -73,7 +80,6 @@ describe("createNodeLlmTextClient", () => {
     assert.equal(launches[0]?.command, "/bin/claude")
     assert.equal(launches[0]?.env?.SAFE, "1")
     assert.equal(prompt, "Reply ok.")
-    assert.equal(stopConfirmations, 1)
     assert.equal(result.reply, "Hi")
   })
 
@@ -84,7 +90,12 @@ describe("createNodeLlmTextClient", () => {
     const marker = join(root, "outliving-descendant.txt")
     try {
       const client = createNodeLlmTextClient(
-        createChildProcessLifetimeController(),
+        createChildProcessLifetimeController({
+          diagnosticSink() {},
+          onUnconfirmedTree(error): never {
+            throw error
+          },
+        }),
         {
           claude: {
             authMode: "subscription",
@@ -111,60 +122,53 @@ describe("createNodeLlmTextClient", () => {
 
   it("starts Codex through the Codex SDK host process with a complete Node-mode environment", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
-    let stopConfirmations = 0
     const parentValue = process.env.REPO_EDU_CODEX_SDK_HOST_PARENT
     process.env.REPO_EDU_CODEX_SDK_HOST_PARENT = "inherited"
     try {
       const controller: ChildProcessLifetimeController = {
-        async launch(request) {
+        async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
           launches.push(request)
           const stdin = new PassThrough()
           const stdout = new PassThrough()
           const stderr = new PassThrough()
-          const result = new Promise<{ exitCode: number; signal: null }>(
-            (resolve) => {
-              let writes = 0
-              stdin.on("data", () => {
-                writes += 1
-                if (writes === 2) {
-                  setImmediate(() => resolve({ exitCode: 1, signal: null }))
-                }
-              })
-            },
-          )
-          return {
+          const outcome = Promise.withResolvers<
+            { readonly outcome: "unknown" } | { readonly outcome: "cancelled" }
+          >()
+          const owned = {
             stdin,
             stdout,
             stderr,
-            result,
-            async stopAndConfirm() {
-              stopConfirmations += 1
-              if (!stdin.writableEnded) stdin.end()
-              if (!stdout.destroyed) stdout.destroy()
-              await result
+            outcome: outcome.promise,
+            requestCancellation() {
+              outcome.resolve({ outcome: "cancelled" })
             },
+            reportFailure() {},
+            reportProofLost() {
+              outcome.resolve({ outcome: "unknown" })
+            },
+            reportResult() {},
+            reportWorkStarted() {},
           }
+          return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
         },
         async stopAndConfirm() {},
       }
-      const client = createNodeLlmTextClient(controller, undefined, {
-        codexSdkHost: {
+      await launchNodeCodexSdkHost(
+        controller,
+        {
           command: "/fixed/electron",
           args: ["/fixed/codex-sdk-host.js"],
           env: { REPO_EDU_CODEX_SDK_HOST_OVERRIDE: "override" },
           runAsNode: true,
         },
-      })
-
-      await assert.rejects(
-        () => client.generateText({ spec: codexSpec, prompt: "Reply ok." }),
-        /outside outcome is unknown/,
+        new AbortController().signal,
       )
 
       assert.equal(launches.length, 1)
       assert.equal(launches[0]?.command, "/fixed/electron")
       assert.deepEqual(launches[0]?.args, ["/fixed/codex-sdk-host.js"])
       assert.equal(launches[0]?.signal?.aborted, false)
+      assert.equal(launches[0]?.proof, "reported")
       assert.equal(
         launches[0]?.env?.REPO_EDU_CODEX_SDK_HOST_PARENT,
         "inherited",
@@ -174,7 +178,6 @@ describe("createNodeLlmTextClient", () => {
         "override",
       )
       assert.equal(launches[0]?.env?.ELECTRON_RUN_AS_NODE, "1")
-      assert.equal(stopConfirmations, 1)
     } finally {
       if (parentValue === undefined) {
         delete process.env.REPO_EDU_CODEX_SDK_HOST_PARENT

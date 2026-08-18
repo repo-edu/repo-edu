@@ -5,6 +5,10 @@ export type {
   CreateCodexLlmTextClientOptions,
 } from "./sdk-host-client.js"
 export { createCodexLlmTextClient } from "./sdk-host-client.js"
+export type {
+  CodexSdkHostProtocolFailure,
+  CodexSdkHostRunResult,
+} from "./sdk-host-protocol.js"
 export type { TraceSink } from "./trace.js"
 
 export function resolveCodexSdkHostEntryUrl(): URL {

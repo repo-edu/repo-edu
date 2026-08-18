@@ -11,8 +11,9 @@ import {
   createCodingAdapter,
   StepCodexSdkHostOutcomeUnknownError,
 } from "../coding-adapter.js"
-import type { CodingEvent } from "../contracts.js"
+import type { CodingEvent, CodingResult } from "../contracts.js"
 import { createStepCodexSdkHostCommand } from "../step-codex-sdk-host-command.js"
+import type { StepCodexSdkHostProtocolFailure } from "../step-codex-sdk-host-protocol.js"
 import {
   runStepCodexSdkHostServer,
   type StepCodexSdkHostRun,
@@ -27,7 +28,7 @@ function createControllerHarness(run: StepCodexSdkHostRun): {
   const launches: ChildProcessLifetimeLaunch[] = []
   let stops = 0
   const controller: ChildProcessLifetimeController = {
-    async launch(request) {
+    async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
       launches.push(request)
       const hostToSdkHost = new PassThrough()
       const sdkHostToHost = new PassThrough()
@@ -35,18 +36,62 @@ function createControllerHarness(run: StepCodexSdkHostRun): {
       const server = runStepCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
         run,
       })
-      const owned: OwnedChildProcessTree = {
+      const outcome = Promise.withResolvers<
+        | { readonly outcome: "unknown" }
+        | { readonly outcome: "cancelled" }
+        | {
+            readonly outcome: "completed"
+            readonly targetResult: {
+              readonly exitCode: 0
+              readonly signal: null
+            }
+            readonly value: CodingResult
+          }
+        | {
+            readonly outcome: "failed"
+            readonly message: string
+            readonly targetResult: {
+              readonly exitCode: 0
+              readonly signal: null
+            }
+            readonly value: StepCodexSdkHostProtocolFailure
+          }
+      >()
+      let settled = false
+      const finish = (reported: object): void => {
+        if (settled) return
+        settled = true
+        stops += 1
+        if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
+        void server.then(() => {
+          stderr.end()
+          outcome.resolve(reported as never)
+        })
+      }
+      const owned: OwnedChildProcessTree<
+        CodingResult,
+        StepCodexSdkHostProtocolFailure
+      > = {
         stdin: hostToSdkHost,
         stdout: sdkHostToHost,
         stderr,
-        result: server.then(() => ({ exitCode: 0, signal: null })),
-        async stopAndConfirm() {
-          stops += 1
-          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
-          await server
+        outcome: outcome.promise,
+        requestCancellation() {
+          finish({ outcome: "cancelled" })
         },
+        reportFailure() {},
+        reportProofLost() {
+          finish({ outcome: "unknown" })
+        },
+        reportResult(result) {
+          finish({
+            ...result,
+            targetResult: { exitCode: 0, signal: null },
+          })
+        },
+        reportWorkStarted() {},
       }
-      return owned
+      return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
     },
     async stopAndConfirm() {},
   }
@@ -65,8 +110,14 @@ describe("runner-owned plan-step Codex SDK host process", () => {
   it("runs the fixed plan-step Codex SDK host entry through the real platform adapter", {
     skip: process.platform !== "darwin" && process.platform !== "linux",
   }, async (context) => {
-    const childProcessLifetimeController =
-      createChildProcessLifetimeController()
+    const childProcessLifetimeController = createChildProcessLifetimeController(
+      {
+        diagnosticSink() {},
+        onUnconfirmedTree(error): never {
+          throw error
+        },
+      },
+    )
     context.after(async () => {
       await childProcessLifetimeController.stopAndConfirm()
     })
@@ -109,52 +160,9 @@ describe("runner-owned plan-step Codex SDK host process", () => {
       args: createStepCodexSdkHostCommand().arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
+      proof: "reported",
       shell: false,
     })
-  })
-
-  it("starts bounded stop after a known result before waiting for process completion", {
-    timeout: 1_000,
-  }, async () => {
-    let stops = 0
-    const controller: ChildProcessLifetimeController = {
-      async launch(_request) {
-        const hostToSdkHost = new PassThrough()
-        const sdkHostToHost = new PassThrough()
-        const stderr = new PassThrough()
-        const server = runStepCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
-          run: async () => ({
-            status: "succeeded",
-            commit: {
-              subject:
-                "A1 redesign(plan-implementation): own SDK host shutdown",
-              decisionBullets: ["The adapter owns SDK host shutdown."],
-            },
-          }),
-        })
-        const terminal = Promise.withResolvers<{
-          exitCode: number
-          signal: null
-        }>()
-        return {
-          stdin: hostToSdkHost,
-          stdout: sdkHostToHost,
-          stderr,
-          result: terminal.promise,
-          async stopAndConfirm() {
-            stops += 1
-            if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
-            await server
-            terminal.resolve({ exitCode: 0, signal: null })
-          },
-        }
-      },
-      async stopAndConfirm() {},
-    }
-    const run = await createCodingAdapter(controller).start(testCodingRequest())
-
-    assert.equal((await run.result).status, "succeeded")
-    assert.equal(stops, 1)
   })
 
   it("cancels the plan-step Codex SDK host request and confirms its owned tree", async () => {
@@ -195,31 +203,34 @@ describe("runner-owned plan-step Codex SDK host process", () => {
 
   it("reports plan-step Codex SDK host loss before a result as unknown", async () => {
     const controller: ChildProcessLifetimeController = {
-      async launch(_request) {
+      async launch<TCompleted, TFailed>(_request: ChildProcessLifetimeLaunch) {
         const stdin = new PassThrough()
         const stdout = new PassThrough()
         const stderr = new PassThrough()
-        const result = new Promise<{ exitCode: number; signal: null }>(
-          (resolve) => {
-            stdin.once("data", () => {
-              stderr.end("Error: the Codex SDK could not start\n  at start\n")
-              setImmediate(() => {
-                stdout.end()
-                resolve({ exitCode: 1, signal: null })
-              })
-            })
-          },
-        )
-        return {
+        const outcome = Promise.withResolvers<
+          { readonly outcome: "unknown" } | { readonly outcome: "cancelled" }
+        >()
+        setImmediate(() => {
+          stderr.end("Error: the Codex SDK could not start\n  at start\n")
+          stdout.end()
+          outcome.resolve({ outcome: "unknown" })
+        })
+        const owned = {
           stdin,
           stdout,
           stderr,
-          result,
-          async stopAndConfirm() {
-            if (!stdin.writableEnded) stdin.end()
-            await result
+          outcome: outcome.promise,
+          requestCancellation() {
+            outcome.resolve({ outcome: "cancelled" })
           },
+          reportFailure() {},
+          reportProofLost() {
+            outcome.resolve({ outcome: "unknown" })
+          },
+          reportResult() {},
+          reportWorkStarted() {},
         }
+        return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
       async stopAndConfirm() {},
     }

@@ -13,16 +13,17 @@ import {
   createMessageConnection,
   NullLogger,
 } from "vscode-jsonrpc/node"
-import { addCleanupCause } from "../error-cause.js"
 import { AsyncEventQueue } from "./async-event-queue.js"
 import { resolveCodexAuth } from "./auth.js"
 import {
   abortError,
-  type CodexSdkHostFailure,
   mapCodexSdkHostFailure,
+  readCodexSdkHostFailure,
   unknownOutcomeError,
 } from "./sdk-host-errors.js"
 import {
+  type CodexSdkHostProtocolFailure,
+  type CodexSdkHostRunResult,
   codexSdkHostEventNotification,
   codexSdkHostRunRequest,
   codexSdkHostTraceNotification,
@@ -34,12 +35,34 @@ export type CodexSdkHostProcessResult = {
   readonly signal: string | null
 }
 
+export type CodexSdkHostTargetResult =
+  | {
+      readonly outcome: "completed"
+      readonly value: CodexSdkHostRunResult
+    }
+  | {
+      readonly outcome: "failed"
+      readonly message: string
+      readonly value: CodexSdkHostProtocolFailure
+    }
+
+export type CodexSdkHostOutcome =
+  | { readonly outcome: "unknown" }
+  | { readonly outcome: "cancelled" }
+  | (CodexSdkHostTargetResult & {
+      readonly targetResult?: CodexSdkHostProcessResult
+    })
+
 export type CodexSdkHostProcess = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
-  readonly result: Promise<CodexSdkHostProcessResult>
-  stopAndConfirm(): Promise<void>
+  readonly outcome: Promise<CodexSdkHostOutcome>
+  requestCancellation(): void
+  reportFailure(error: unknown): void
+  reportProofLost(error: unknown): void
+  reportResult(result: CodexSdkHostTargetResult): void
+  reportWorkStarted(): void
 }
 
 export type CodexSdkHostLaunch = (
@@ -128,43 +151,6 @@ async function launchSdkHostForRequest(
   }
 }
 
-async function throwCancellationAfterStop(
-  stopAndConfirm: Promise<void>,
-): Promise<never> {
-  try {
-    await stopAndConfirm
-  } catch (error) {
-    throw abortError("Operation cancelled.", error)
-  }
-  throw abortError()
-}
-
-async function stopSdkHostAfterRequest(options: {
-  readonly failure: CodexSdkHostFailure | null
-  readonly sdkHostProcess: CodexSdkHostProcess
-  readonly requestSignal?: AbortSignal
-  readonly waitForActiveWork: <T>(work: Promise<T>) => Promise<T>
-}): Promise<void> {
-  const preserveFailureDuringStop = options.failure?.outcome === "unknown"
-
-  try {
-    const stop = options.sdkHostProcess.stopAndConfirm()
-    if (preserveFailureDuringStop) {
-      await stop
-    } else {
-      await options.waitForActiveWork(stop)
-    }
-  } catch (error) {
-    const cancellationWon =
-      !preserveFailureDuringStop && options.requestSignal?.aborted === true
-    if (options.failure === null || cancellationWon) {
-      throw error
-    }
-    addCleanupCause(options.failure.error, error)
-    throw options.failure.error
-  }
-}
-
 async function* runCodexSdkHostStream(
   request: GenerateTextRequest,
   config: CodexLlmProviderRuntimeConfig | undefined,
@@ -189,10 +175,9 @@ async function* runCodexSdkHostStream(
     request.signal,
   )
   if (request.signal?.aborted) {
-    if (!sdkHostProcess.stdin.writableEnded) {
-      sdkHostProcess.stdin.end()
-    }
-    return await throwCancellationAfterStop(sdkHostProcess.stopAndConfirm())
+    sdkHostProcess.requestCancellation()
+    await sdkHostProcess.outcome
+    throw abortError()
   }
   const readSdkHostOutput = collectSdkHostOutput(sdkHostProcess.stderr)
   const connection = createMessageConnection(
@@ -202,13 +187,6 @@ async function* runCodexSdkHostStream(
   )
   const events = new AsyncEventQueue<LlmStreamEvent>()
   const cancellation = new CancellationTokenSource()
-  const requestState: {
-    failure: CodexSdkHostFailure | null
-    settled: boolean
-  } = {
-    failure: null,
-    settled: false,
-  }
   const eventSubscription = connection.onNotification(
     codexSdkHostEventNotification,
     (event) => events.push(event),
@@ -219,62 +197,18 @@ async function* runCodexSdkHostStream(
   )
   connection.listen()
 
-  const cancellationStarted = Promise.withResolvers<void>()
-  let cancellationStop: Promise<void> | null = null
-  const cancel = (): Promise<void> => {
+  let resultReported = false
+  const cancel = (): void => {
     cancellation.cancel()
     events.close()
-    cancellationStop ??= sdkHostProcess.stopAndConfirm()
-    void cancellationStop.catch(() => undefined)
-    return cancellationStop
+    sdkHostProcess.requestCancellation()
   }
   const onAbort = () => {
-    cancellationStarted.resolve()
-    void cancel()
+    cancel()
   }
   request.signal?.addEventListener("abort", onAbort, { once: true })
 
-  const waitForActiveWork = async <T>(work: Promise<T>): Promise<T> => {
-    const winner = await Promise.race([
-      work.then((value) => ({ kind: "work", value }) as const),
-      cancellationStarted.promise.then(
-        () => ({ kind: "cancellation" }) as const,
-      ),
-    ])
-    if (winner.kind === "cancellation") {
-      return await throwCancellationAfterStop(cancellationStop ?? cancel())
-    }
-    return winner.value
-  }
-
-  const processCompletion = sdkHostProcess.result.then(
-    () => {
-      if (!requestState.settled) {
-        requestState.failure = {
-          error: unknownOutcomeError(authMode, {
-            output: readSdkHostOutput(),
-          }),
-          outcome: "unknown",
-        }
-        events.close()
-        connection.dispose()
-      }
-    },
-    (error: unknown) => {
-      if (!requestState.settled) {
-        requestState.failure = {
-          error: unknownOutcomeError(authMode, {
-            cause: error,
-            output: readSdkHostOutput(),
-          }),
-          outcome: "unknown",
-        }
-        events.close()
-        connection.dispose()
-      }
-    },
-  )
-
+  let observedOutcome: CodexSdkHostOutcome | undefined
   const completion = connection
     .sendRequest(
       codexSdkHostRunRequest,
@@ -285,48 +219,67 @@ async function* runCodexSdkHostStream(
       },
       cancellation.token,
     )
+    .then((result) => {
+      sdkHostProcess.reportResult({ outcome: "completed", value: result })
+      resultReported = true
+    })
     .catch((error: unknown) => {
-      requestState.failure = mapCodexSdkHostFailure(
-        error,
-        authMode,
-        request.signal,
-        readSdkHostOutput(),
-      )
+      if (request.signal?.aborted) {
+        sdkHostProcess.requestCancellation()
+      } else {
+        const failure = readCodexSdkHostFailure(error)
+        if (failure === null) {
+          sdkHostProcess.reportProofLost(error)
+        } else {
+          sdkHostProcess.reportResult({
+            outcome: "failed",
+            message: failure.message,
+            value: failure,
+          })
+        }
+      }
+      resultReported = true
     })
     .finally(() => {
-      requestState.settled = true
       events.close()
-      if (!request.signal?.aborted && !sdkHostProcess.stdin.writableEnded) {
+      if (
+        observedOutcome?.outcome !== "unknown" &&
+        observedOutcome?.outcome !== "cancelled" &&
+        !sdkHostProcess.stdin.writableEnded
+      ) {
         sdkHostProcess.stdin.end()
       }
     })
+  sdkHostProcess.reportWorkStarted()
+  const processOutcome = sdkHostProcess.outcome.then((outcome) => {
+    observedOutcome = outcome
+    if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
+      events.close()
+      connection.dispose()
+    }
+    return outcome
+  })
 
   try {
     for await (const event of events) {
       yield event
     }
-    await waitForActiveWork(completion)
-
-    await stopSdkHostAfterRequest({
-      failure: requestState.failure,
-      sdkHostProcess,
-      requestSignal: request.signal,
-      waitForActiveWork,
-    })
-    await waitForActiveWork(processCompletion)
-
-    if (requestState.failure !== null) {
-      throw requestState.failure.error
+    await completion
+    const outcome = await processOutcome
+    if (outcome.outcome === "unknown") {
+      throw unknownOutcomeError(authMode, { output: readSdkHostOutput() })
+    }
+    if (outcome.outcome === "cancelled") {
+      throw abortError()
+    }
+    if (outcome.outcome === "failed") {
+      throw mapCodexSdkHostFailure(outcome.value, authMode)
     }
   } finally {
     request.signal?.removeEventListener("abort", onAbort)
-    if (!requestState.settled) {
-      const stop = cancellationStop ?? cancel()
-      if (request.signal?.aborted) {
-        await stop.catch(() => undefined)
-      } else {
-        await stop
-      }
+    if (!resultReported && observedOutcome === undefined) {
+      cancel()
+      await sdkHostProcess.outcome
     }
     eventSubscription.dispose()
     traceSubscription.dispose()

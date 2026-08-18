@@ -5,7 +5,10 @@ import type {
   LlmStreamEvent,
 } from "@repo-edu/host-runtime-contract"
 import {
+  type ClaudeCliFailure,
   type ClaudeCliLaunch,
+  type CodexSdkHostProtocolFailure,
+  type CodexSdkHostRunResult,
   type CreateLlmTextClientOptions,
   createLlmTextClient,
 } from "@repo-edu/integrations-llm"
@@ -15,6 +18,7 @@ import type {
 } from "@repo-edu/integrations-llm-contract"
 import type {
   ChildProcessLifetimeController,
+  ChildProcessLifetimeResult,
   OwnedChildProcessTree,
 } from "./child-process-lifetime.js"
 import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
@@ -45,11 +49,15 @@ function createClaudeCliLaunch(
   childProcessLifetimeController: ChildProcessLifetimeController,
 ): ClaudeCliLaunch {
   return async (request) => {
-    return await childProcessLifetimeController.launch({
+    return await childProcessLifetimeController.launch<
+      undefined,
+      ClaudeCliFailure
+    >({
       command: request.command,
       args: request.args,
       cwd: request.cwd,
       env: request.env,
+      proof: "reported",
       shell: request.shell,
       signal: request.signal,
     })
@@ -68,16 +76,33 @@ function buildCodexSdkHostEnvironment(
   return environment
 }
 
+export function launchNodeCodexSdkHost(
+  childProcessLifetimeController: ChildProcessLifetimeController,
+  command: NodeCodexSdkHostCommand,
+  startupSignal: AbortSignal,
+  proof: "target-exit",
+): Promise<
+  OwnedChildProcessTree<ChildProcessLifetimeResult, ChildProcessLifetimeResult>
+>
+export function launchNodeCodexSdkHost(
+  childProcessLifetimeController: ChildProcessLifetimeController,
+  command: NodeCodexSdkHostCommand,
+  startupSignal: AbortSignal,
+): Promise<
+  OwnedChildProcessTree<CodexSdkHostRunResult, CodexSdkHostProtocolFailure>
+>
 export async function launchNodeCodexSdkHost(
   childProcessLifetimeController: ChildProcessLifetimeController,
   command: NodeCodexSdkHostCommand,
   startupSignal: AbortSignal,
-): Promise<OwnedChildProcessTree> {
-  return await childProcessLifetimeController.launch({
+  proof: "reported" | "target-exit" = "reported",
+): Promise<OwnedChildProcessTree<unknown, unknown>> {
+  return await childProcessLifetimeController.launch<unknown, unknown>({
     command: command.command,
     args: command.args,
     cwd: command.cwd,
     env: buildCodexSdkHostEnvironment(command),
+    proof,
     signal: startupSignal,
   })
 }

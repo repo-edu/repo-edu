@@ -28,6 +28,10 @@ function createProcessPort() {
         })
       : undefined
   const controller = createChildProcessLifetimeController({
+    diagnosticSink() {},
+    onUnconfirmedTree(error): never {
+      throw error
+    },
     windowsAdapter: windowsPlatformAdapter,
   })
   return createNodeProcessPort(controller)
@@ -167,15 +171,13 @@ describe("createNodeProcessPort", () => {
     }, 50)
 
     const startedAt = Date.now()
-    const result = await runPromise
+    await assert.rejects(
+      runPromise,
+      (error) => error instanceof DOMException && error.name === "AbortError",
+    )
     const elapsedMs = Date.now() - startedAt
 
     assert.equal(processPort.cancellation, "best-effort")
-    const exitedViaSignalHandler =
-      result.exitCode === 0 && result.signal === null
-    const terminatedBySignal =
-      result.exitCode === null && result.signal === "SIGTERM"
-    assert.ok(exitedViaSignalHandler || terminatedBySignal)
     assert.ok(elapsedMs < 1_000)
   })
 
@@ -195,7 +197,10 @@ describe("createNodeProcessPort", () => {
       await waitForMarker(marker, /grandchild-started/)
 
       abortController.abort()
-      await run
+      await assert.rejects(
+        run,
+        (error) => error instanceof DOMException && error.name === "AbortError",
+      )
 
       const contentAtResult = await readFile(marker, "utf8")
       await new Promise((resolve) => setTimeout(resolve, 80))

@@ -2,10 +2,7 @@ import assert from "node:assert/strict"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import {
-  ChildProcessOutcomeUnknownError,
-  createChildProcessLifetimeController,
-} from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   createWindowsChildProcessLifetimeAdapter,
   resolveWindowsChildProcessLifetimeLauncherEntryUrl,
@@ -73,10 +70,17 @@ describe("packaged Windows child-process lifetime runtime", () => {
       launcherEntryPath,
       runAsNode: false,
     })
-    const controller = createChildProcessLifetimeController({ windowsAdapter })
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink() {},
+      onUnconfirmedTree(error): never {
+        throw error
+      },
+      windowsAdapter,
+    })
     const run = await controller.launch({
       command: process.execPath,
       args: ["-e", targetScript],
+      proof: "target-exit",
     })
     let output = ""
     run.stdout.setEncoding("utf8")
@@ -84,9 +88,9 @@ describe("packaged Windows child-process lifetime runtime", () => {
       output += chunk
     })
 
-    run.stdin.write("repo-edu")
-    await run.stopAndConfirm()
-    assert.deepEqual(await run.result, { exitCode: 0, signal: null })
+    run.stdin.end("repo-edu")
+    const outcome = await run.outcome
+    assert.equal(outcome.outcome, "completed")
     await controller.stopAndConfirm()
     assert.equal(output, "REPO-EDU")
   })
@@ -125,9 +129,7 @@ describe("packaged Windows child-process lifetime runtime", () => {
           command: "Z:\\repo-edu-missing-target.exe",
         },
       ),
-      (error: Error) =>
-        !(error instanceof ChildProcessOutcomeUnknownError) &&
-        /Windows launcher failed/.test(error.message),
+      (error: Error) => /Windows launcher failed/.test(error.message),
     )
   })
 
@@ -148,7 +150,7 @@ describe("packaged Windows child-process lifetime runtime", () => {
           ],
         },
       ),
-      ChildProcessOutcomeUnknownError,
+      Error,
     )
   })
 })

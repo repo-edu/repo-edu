@@ -27,7 +27,10 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
-import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import {
+  childProcessUnconfirmedTreeMessage,
+  createChildProcessLifetimeController,
+} from "@repo-edu/host-node/child-process-lifetime"
 import {
   createExaminationArchiveStorage,
   type ExaminationArchiveDatabaseHandle,
@@ -139,6 +142,18 @@ const codexSdkHostCommand = createDesktopCodexSdkHostCommand({
 })
 const desktopHost = createDesktopHostEnvironment()
 const childProcessLifetimeController = createChildProcessLifetimeController({
+  diagnosticSink(diagnostic) {
+    process.stderr.write(
+      `[desktop] child-process-secondary-failure ${diagnostic.command} ${desktopErrorText(diagnostic.failure)}\n`,
+    )
+  },
+  onUnconfirmedTree(): never {
+    dialog.showErrorBox(
+      `${desktopAppName} must close`,
+      childProcessUnconfirmedTreeMessage,
+    )
+    return process.exit(1)
+  },
   windowsAdapter:
     process.platform === "win32"
       ? createWindowsChildProcessLifetimeAdapter({

@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 import {
   type ChildProcessLifetimeController,
   type ChildProcessLifetimePlatformAdapter,
+  childProcessUnconfirmedTreeMessage,
   createChildProcessLifetimeController,
 } from "@repo-edu/host-node/child-process-lifetime"
 
@@ -35,9 +36,27 @@ async function loadWindowsAdapterModule(): Promise<WindowsChildProcessLifetimeMo
 export async function createCommandLineChildProcessLifetimeController(
   options: CommandLineChildProcessLifetimeOptions = {},
 ): Promise<ChildProcessLifetimeController> {
+  const controllerOptions = {
+    diagnosticSink(diagnostic: {
+      readonly command: string
+      readonly failure: unknown
+    }) {
+      const failure =
+        diagnostic.failure instanceof Error
+          ? diagnostic.failure.message
+          : String(diagnostic.failure)
+      process.stderr.write(
+        `Child-process secondary failure for ${diagnostic.command}: ${failure}\n`,
+      )
+    },
+    onUnconfirmedTree(): never {
+      process.stderr.write(`${childProcessUnconfirmedTreeMessage}\n`)
+      return process.exit(1)
+    },
+  }
   const runtimePlatform = options.runtimePlatform ?? process.platform
   if (runtimePlatform !== "win32") {
-    return createChildProcessLifetimeController()
+    return createChildProcessLifetimeController(controllerOptions)
   }
 
   const windowsModule = await (
@@ -53,5 +72,8 @@ export async function createCommandLineChildProcessLifetimeController(
       runAsNode: false,
     },
   )
-  return createChildProcessLifetimeController({ windowsAdapter })
+  return createChildProcessLifetimeController({
+    ...controllerOptions,
+    windowsAdapter,
+  })
 }

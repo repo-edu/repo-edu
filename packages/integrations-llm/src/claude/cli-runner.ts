@@ -6,14 +6,13 @@ import {
   type LlmModelSpec,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
-import { addCleanupCause } from "../error-cause"
 import {
   claudeAbortError,
   isAbortLikeError,
   throwIfClaudeAborted,
 } from "./abort"
 import type { ResolvedClaudeSubscriptionAuth } from "./auth"
-import type { ClaudeCliLaunch } from "./cli-process"
+import type { ClaudeCliLaunch, ClaudeCliOutcome } from "./cli-process"
 import { claudeNativeEffort } from "./effort"
 import { toClaudeLlmError } from "./errors"
 import {
@@ -31,6 +30,10 @@ export type ClaudeCliRunOptions = {
   trace?: TraceSink
   launch?: ClaudeCliLaunch
   executable?: string
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
@@ -71,65 +74,6 @@ export function buildClaudeCliLaunchOptions(
   }
 }
 
-// One owner decides what a failed Claude turn reports. The roles are ranked
-// here once, most important first, and the rule holds on every path: the
-// highest-ranked recorded failure is the error the caller receives, and every
-// other recorded failure attaches to it as a cause. No path may re-decide this,
-// because each re-decision has displaced a report that carried guidance.
-//
-// - "turn" is the classified failure of the turn itself, carrying guidance such
-//   as the login message, so nothing may take its place.
-// - "cleanup" means an owned process tree could not be confirmed gone. No turn
-//   may be reported as successful while that is true.
-// - "errorOutput" is the only account of a run whose error output could not be
-//   read, so it may not be dropped either.
-const claudeTurnFailureRanking = ["turn", "cleanup", "errorOutput"] as const
-
-type ClaudeTurnFailureRole = (typeof claudeTurnFailureRanking)[number]
-
-type ClaudeTurnFailures = {
-  record(role: ClaudeTurnFailureRole, error: unknown): void
-  isEmpty(): boolean
-  reported(): { readonly error: unknown } | null
-}
-
-function createClaudeTurnFailures(): ClaudeTurnFailures {
-  // A role keeps its first failure. A later failure in the same role is a
-  // consequence of the one already recorded.
-  const recorded = new Map<ClaudeTurnFailureRole, unknown>()
-  return {
-    record(role, error) {
-      if (!recorded.has(role)) {
-        recorded.set(role, error)
-      }
-    },
-    isEmpty() {
-      return recorded.size === 0
-    },
-    reported() {
-      const [primary, ...causes] = claudeTurnFailureRanking.filter((role) =>
-        recorded.has(role),
-      )
-      if (primary === undefined) {
-        return null
-      }
-      // Only the turn role arrives classified. Any other role reaching the
-      // caller is classified here, so every reported failure carries the
-      // provider and auth mode this package promises.
-      const error =
-        primary === "turn"
-          ? recorded.get(primary)
-          : toClaudeLlmError(recorded.get(primary), "subscription")
-      if (error instanceof Error) {
-        for (const role of causes) {
-          addCleanupCause(error, recorded.get(role))
-        }
-      }
-      return { error }
-    },
-  }
-}
-
 export async function* runClaudeCliStream(
   options: ClaudeCliRunOptions,
   resolved: ResolvedClaudeSubscriptionAuth,
@@ -152,10 +96,6 @@ export async function* runClaudeCliStream(
     throw new Error("Claude subscription mode requires a host CLI launcher.")
   }
 
-  let abortRequested = false
-  let completed = false
-  let childStreamsDestroyed = false
-  const failures = createClaudeTurnFailures()
   const workingDirectory = createClaudeCliWorkingDirectory()
   const launchOptions = buildClaudeCliLaunchOptions(
     executable,
@@ -180,153 +120,143 @@ export async function* runClaudeCliStream(
     }
     throw toClaudeLlmError(error, "subscription")
   }
-  void child.result.catch(() => {
-    // The promise is still awaited on the normal path. This prevents an
-    // unhandled rejection if the consumer stops the async iterator early.
-  })
   let stderr = ""
-  const destroyChildStreams = () => {
-    if (childStreamsDestroyed) return
-    childStreamsDestroyed = true
-    destroyStream(child.stdin)
-    destroyStream(child.stdout)
-    destroyStream(child.stderr)
-  }
-  const terminateChild = () => {
-    void child.stopAndConfirm().catch(() => {
-      // The final awaited call keeps the cleanup failure observable.
-    })
-    destroyChildStreams()
-  }
-  const abort = () => {
-    abortRequested = true
-    terminateChild()
-  }
-  options.signal?.addEventListener("abort", abort, { once: true })
-
   child.stderr.setEncoding("utf8")
-  // The reader is started and awaited outside the turn's own try block, so its
-  // failure can never escape as an unhandled rejection when another error ends
-  // the turn first. A close this run asked for is expected; any other failure
-  // is a real read failure and is kept for reporting.
+  let errorOutputAvailable = true
   const errorOutputSettled = collectStderr(child.stderr, (chunk) => {
     stderr += chunk
   }).catch((error: unknown) => {
-    if (!abortRequested && !childStreamsDestroyed) {
-      failures.record("errorOutput", error)
-    }
+    errorOutputAvailable = false
+    child.reportFailure(error)
   })
 
+  let resultReported = false
+  let terminalEvent: LlmStreamEvent | undefined
+  let outcome: ClaudeCliOutcome | undefined
   try {
-    let promptWriteError: unknown = null
-    const promptWritten = writePromptToChild(child.stdin, options.prompt).catch(
-      (error: unknown) => {
-        if (abortRequested) return
-        promptWriteError = error
-        void child.stopAndConfirm().catch(() => {
-          // The final awaited call keeps the cleanup failure observable.
-        })
-      },
-    )
+    try {
+      await writePromptToChild(child.stdin, options.prompt)
+      child.reportWorkStarted()
+    } catch (error) {
+      child.reportResult({
+        outcome: "failed",
+        message: errorMessage(error),
+        value: { errorOutputAvailable, errorOutputPresent: stderr.length > 0 },
+      })
+      resultReported = true
+    }
 
-    yield { kind: "activity", label: "Contacting Claude." }
-    const state = createClaudeStreamJsonState({
-      authMode: "subscription",
-      trace: options.trace,
-    })
-    let buffer = ""
-    child.stdout.setEncoding("utf8")
-    for await (const chunk of child.stdout) {
-      if (abortRequested || options.signal?.aborted) {
-        throw claudeAbortError(options.signal?.reason)
-      }
-      buffer += String(chunk)
-      const lines = buffer.split(/\r?\n/)
-      buffer = lines.pop() ?? ""
-      for (const line of lines) {
-        const message = parseClaudeStreamJsonLine(line)
-        if (message === null) continue
-        for (const event of eventsFromClaudeStreamMessage(message, state)) {
-          yield event
-          if (abortRequested || options.signal?.aborted) {
-            throw claudeAbortError(options.signal?.reason)
+    if (!resultReported) {
+      yield { kind: "activity", label: "Contacting Claude." }
+      const state = createClaudeStreamJsonState({
+        authMode: "subscription",
+        trace: options.trace,
+      })
+      let buffer = ""
+      child.stdout.setEncoding("utf8")
+      for await (const chunk of child.stdout) {
+        if (options.signal?.aborted) {
+          throw claudeAbortError(options.signal.reason)
+        }
+        buffer += String(chunk)
+        const lines = buffer.split(/\r?\n/)
+        buffer = lines.pop() ?? ""
+        for (const line of lines) {
+          const message = parseClaudeStreamJsonLine(line)
+          if (message === null) continue
+          for (const event of eventsFromClaudeStreamMessage(message, state)) {
+            yield event
+            if (options.signal?.aborted) {
+              throw claudeAbortError(options.signal.reason)
+            }
           }
         }
       }
-    }
-    if (abortRequested || options.signal?.aborted) {
-      throw claudeAbortError(options.signal?.reason)
-    }
-    const finalMessage = parseClaudeStreamJsonLine(buffer)
-    if (finalMessage !== null) {
-      for (const event of eventsFromClaudeStreamMessage(finalMessage, state)) {
-        yield event
-        if (abortRequested || options.signal?.aborted) {
-          throw claudeAbortError(options.signal?.reason)
+      if (options.signal?.aborted) {
+        throw claudeAbortError(options.signal.reason)
+      }
+      const finalMessage = parseClaudeStreamJsonLine(buffer)
+      if (finalMessage !== null) {
+        for (const event of eventsFromClaudeStreamMessage(
+          finalMessage,
+          state,
+        )) {
+          yield event
+          if (options.signal?.aborted) {
+            throw claudeAbortError(options.signal.reason)
+          }
         }
       }
-    }
-
-    const exitStatus = await child.result
-    await errorOutputSettled
-    await promptWritten
-    if (exitStatus.exitCode !== 0) {
-      throw cliExitError(exitStatus.exitCode, exitStatus.signal, stderr)
-    }
-    if (promptWriteError !== null) {
-      throw promptWriteError
-    }
-    if (state.resultSubtype !== null && state.resultSubtype !== "success") {
-      throw new LlmError(
-        "other",
-        `Claude turn ended with subtype "${state.resultSubtype}"`,
-        { context: { provider: "claude", authMode: "subscription" } },
-      )
-    }
-    if (!state.done) {
-      throw new LlmError(
-        "other",
-        "Claude stream ended without a terminal usage event.",
-        { context: { provider: "claude", authMode: "subscription" } },
-      )
-    }
-    // A clean exit is not a result while something else failed. The recorded
-    // failure is assembled once after cleanup, like every other path.
-    if (failures.isEmpty()) {
-      completed = true
-      yield finalizeClaudeStreamJsonState(state)
+      await errorOutputSettled
+      if (state.resultSubtype !== null && state.resultSubtype !== "success") {
+        child.reportResult({
+          outcome: "failed",
+          message:
+            stderr.trim() ||
+            `Claude turn ended with subtype "${state.resultSubtype}".`,
+          value: {
+            errorOutputAvailable,
+            errorOutputPresent: stderr.trim().length > 0,
+          },
+        })
+      } else if (!state.done) {
+        child.reportResult({
+          outcome: "failed",
+          message:
+            stderr.trim() ||
+            "Claude stream ended without a terminal usage event.",
+          value: {
+            errorOutputAvailable,
+            errorOutputPresent: stderr.trim().length > 0,
+          },
+        })
+      } else {
+        terminalEvent = finalizeClaudeStreamJsonState(state)
+        child.reportResult({ outcome: "completed", value: undefined })
+      }
+      resultReported = true
     }
   } catch (cause) {
-    // The failure is classified here and recorded rather than thrown, so
-    // cleanup still runs and the one assembly below decides what the caller
-    // receives.
-    terminateChild()
-    failures.record(
-      "turn",
-      abortRequested || options.signal?.aborted || isAbortLikeError(cause)
-        ? claudeAbortError(cause)
-        : toClaudeLlmError(cause, "subscription"),
-    )
-  } finally {
-    options.signal?.removeEventListener("abort", abort)
-    if (!completed) {
-      terminateChild()
+    if (options.signal?.aborted || isAbortLikeError(cause)) {
+      child.requestCancellation()
+    } else if (cause instanceof LlmError && cause.kind === "guardrail") {
+      child.reportResult({
+        outcome: "failed",
+        message: cause.message,
+        value: {
+          errorOutputAvailable,
+          errorOutputPresent: stderr.trim().length > 0,
+          kind: cause.kind,
+        },
+      })
     } else {
-      destroyChildStreams()
+      child.reportProofLost(cause)
+    }
+    resultReported = true
+  } finally {
+    if (!resultReported) {
+      child.requestCancellation()
     }
     await errorOutputSettled
-    try {
-      await child.stopAndConfirm()
-    } catch (error) {
-      failures.record("cleanup", error)
-    } finally {
-      cleanupClaudeCliWorkingDirectory(workingDirectory)
-    }
+    outcome = await child.outcome
+    cleanupClaudeCliWorkingDirectory(workingDirectory)
   }
 
-  const reported = failures.reported()
-  if (reported !== null) {
-    throw reported.error
+  if (outcome.outcome === "unknown") {
+    throw new LlmError(
+      "other",
+      "The Claude result connection was lost; the outside outcome is unknown.",
+      { context: { provider: "claude", authMode: "subscription" } },
+    )
+  }
+  if (outcome.outcome === "cancelled") {
+    throw claudeAbortError()
+  }
+  if (outcome.outcome === "failed") {
+    throw cliOutcomeError(outcome)
+  }
+  if (terminalEvent !== undefined) {
+    yield terminalEvent
   }
 }
 
@@ -423,12 +353,6 @@ function cleanupClaudeCliWorkingDirectory(path: string): void {
   }
 }
 
-function destroyStream(
-  stream: NodeJS.ReadableStream | NodeJS.WritableStream,
-): void {
-  ;(stream as { destroy?: () => void }).destroy?.()
-}
-
 function removeWritableListener(
   stream: NodeJS.WritableStream,
   event: "error" | "finish",
@@ -482,28 +406,28 @@ async function collectStderr(
   }
 }
 
-function cliExitError(
-  code: number | null,
-  signal: string | null,
-  stderr: string,
+function cliOutcomeError(
+  outcome: Extract<ClaudeCliOutcome, { readonly outcome: "failed" }>,
 ): LlmError {
-  const message = stderr.trim()
-  if (message.length === 0 && code === 1 && signal === null) {
-    return new LlmError(
-      "auth",
-      "Claude CLI exited with code 1 before reporting an error. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again.",
-      { context: { provider: "claude", authMode: "subscription" } },
-    )
-  }
-  const detail =
-    message.length > 0
-      ? message
-      : `Claude CLI exited with code ${code ?? "null"}${signal ? ` and signal ${signal}` : ""}.`
-  if (/login|log in|auth|authenticate|unauthorized/i.test(detail)) {
-    return new LlmError("auth", detail, {
+  const exitCode = outcome.targetResult?.exitCode ?? null
+  const signal = outcome.targetResult?.signal ?? null
+  if (outcome.value.kind !== undefined) {
+    return new LlmError(outcome.value.kind, outcome.message, {
       context: { provider: "claude", authMode: "subscription" },
     })
   }
+  if (!outcome.value.errorOutputPresent && exitCode === 1 && signal === null) {
+    return new LlmError(
+      "auth",
+      outcome.value.errorOutputAvailable
+        ? "Claude CLI exited with code 1 before reporting an error. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again."
+        : "Claude CLI exited with code 1 and its error output could not be read. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again.",
+      { context: { provider: "claude", authMode: "subscription" } },
+    )
+  }
+  const detail = outcome.value.errorOutputAvailable
+    ? outcome.message
+    : `Claude CLI exited with code ${exitCode ?? "null"}${signal ? ` and signal ${signal}` : ""}, and its error output could not be read.`
   return new LlmError("other", detail, {
     context: { provider: "claude", authMode: "subscription" },
   })

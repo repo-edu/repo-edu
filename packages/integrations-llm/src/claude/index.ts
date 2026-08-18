@@ -9,6 +9,7 @@ import type { ClaudeRunOptions } from "./runner"
 import { runClaudeGenerate, runClaudeStream } from "./runner"
 
 export type {
+  ClaudeCliFailure,
   ClaudeCliLaunch,
   ClaudeCliLaunchRequest,
   ClaudeCliProcess,

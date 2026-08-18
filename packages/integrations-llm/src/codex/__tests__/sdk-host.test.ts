@@ -7,6 +7,7 @@ import {
 } from "@repo-edu/integrations-llm-contract"
 import {
   type CodexSdkHostLaunch,
+  type CodexSdkHostOutcome,
   createCodexLlmTextClient,
 } from "../sdk-host-client"
 import { type CodexSdkHostRun, runCodexSdkHostServer } from "../sdk-host-server"
@@ -21,10 +22,7 @@ const usage = {
   authMode: "subscription" as const,
 }
 
-function createServerHarness(
-  run: CodexSdkHostRun,
-  options: { readonly stopError?: Error } = {},
-): {
+function createServerHarness(run: CodexSdkHostRun): {
   readonly launch: CodexSdkHostLaunch
   readonly launchCount: () => number
   readonly stopCount: () => number
@@ -40,19 +38,37 @@ function createServerHarness(
       const server = runCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
         run,
       })
+      const outcome = Promise.withResolvers<CodexSdkHostOutcome>()
+      let settled = false
+      const finish = (reported: object): void => {
+        if (settled) return
+        settled = true
+        stops += 1
+        if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
+        void server.then(() => {
+          stderr.end()
+          outcome.resolve(reported as never)
+        })
+      }
       return {
         stdin: hostToSdkHost,
         stdout: sdkHostToHost,
         stderr,
-        result: server.then(() => ({ exitCode: 0, signal: null })),
-        async stopAndConfirm() {
-          stops += 1
-          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
-          await server
-          if (options.stopError) {
-            throw options.stopError
-          }
+        outcome: outcome.promise,
+        requestCancellation() {
+          finish({ outcome: "cancelled" })
         },
+        reportFailure() {},
+        reportProofLost() {
+          finish({ outcome: "unknown" })
+        },
+        reportResult(result) {
+          finish({
+            ...result,
+            targetResult: { exitCode: 0, signal: null },
+          })
+        },
+        reportWorkStarted() {},
       }
     },
     launchCount: () => launches,
@@ -60,39 +76,34 @@ function createServerHarness(
   }
 }
 
-function createLostSdkHostLaunch(
-  errorOutput = "",
-  stopError?: Error,
-): CodexSdkHostLaunch {
+function createLostSdkHostLaunch(errorOutput = ""): CodexSdkHostLaunch {
   return async () => {
     const stdin = new PassThrough()
     const stdout = new PassThrough()
     const stderr = new PassThrough()
-    const result = new Promise<{ exitCode: number; signal: null }>(
-      (resolve) => {
-        let writes = 0
-        stdin.on("data", () => {
-          writes += 1
-          if (writes === 2) {
-            if (errorOutput.length > 0) stderr.write(errorOutput)
-            setImmediate(() => resolve({ exitCode: 1, signal: null }))
-          }
-        })
-      },
-    )
+    const outcome = Promise.withResolvers<
+      { readonly outcome: "unknown" } | { readonly outcome: "cancelled" }
+    >()
+    setImmediate(() => {
+      if (errorOutput.length > 0) stderr.write(errorOutput)
+      stderr.end()
+      stdout.end()
+      outcome.resolve({ outcome: "unknown" })
+    })
     return {
       stdin,
       stdout,
       stderr,
-      result,
-      async stopAndConfirm() {
-        if (!stdin.destroyed) stdin.destroy()
-        if (!stdout.destroyed) stdout.destroy()
-        await result
-        if (stopError) {
-          throw stopError
-        }
+      outcome: outcome.promise,
+      requestCancellation() {
+        outcome.resolve({ outcome: "cancelled" })
       },
+      reportFailure() {},
+      reportProofLost() {
+        outcome.resolve({ outcome: "unknown" })
+      },
+      reportResult() {},
+      reportWorkStarted() {},
     }
   }
 }
@@ -159,78 +170,6 @@ describe("Codex SDK host process", () => {
     assert.equal(harness.stopCount(), 1)
   })
 
-  it("keeps a known Codex SDK host process failure when stop confirmation also fails", async () => {
-    const stopError = new Error(
-      "The Codex SDK host process tree could not be confirmed.",
-    )
-    const harness = createServerHarness(
-      async function* () {
-        yield await Promise.reject(
-          new LlmError("rate_limit", "429 retry-after 5s", {
-            context: {
-              provider: "codex",
-              authMode: "subscription",
-              retryAfterMs: 5_000,
-            },
-          }),
-        )
-      },
-      { stopError },
-    )
-    const client = createCodexLlmTextClient(undefined, {
-      launch: harness.launch,
-    })
-
-    await assert.rejects(
-      () => client.generateText(request(codexSpec)),
-      (error: unknown) =>
-        error instanceof LlmError &&
-        error.kind === "rate_limit" &&
-        error.context.retryAfterMs === 5_000 &&
-        error.cause === stopError,
-    )
-    assert.equal(harness.stopCount(), 1)
-  })
-
-  it("starts bounded stop after a known reply before waiting for process completion", {
-    timeout: 1_000,
-  }, async () => {
-    let stops = 0
-    const launch: CodexSdkHostLaunch = async () => {
-      const hostToSdkHost = new PassThrough()
-      const sdkHostToHost = new PassThrough()
-      const stderr = new PassThrough()
-      const server = runCodexSdkHostServer(hostToSdkHost, sdkHostToHost, {
-        run: async function* () {
-          yield { kind: "text-delta", text: "pong" }
-          yield { kind: "done", usage }
-        },
-      })
-      const terminal = Promise.withResolvers<{
-        exitCode: number
-        signal: null
-      }>()
-      return {
-        stdin: hostToSdkHost,
-        stdout: sdkHostToHost,
-        stderr,
-        result: terminal.promise,
-        async stopAndConfirm() {
-          stops += 1
-          if (!hostToSdkHost.writableEnded) hostToSdkHost.end()
-          await server
-          terminal.resolve({ exitCode: 0, signal: null })
-        },
-      }
-    }
-    const client = createCodexLlmTextClient(undefined, { launch })
-
-    const result = await client.generateText(request(codexSpec))
-
-    assert.equal(result.reply, "pong")
-    assert.equal(stops, 1)
-  })
-
   it("cancels the Codex SDK host process request and confirms its tree", async () => {
     const started = Promise.withResolvers<void>()
     let sdkHostObservedCancellation = false
@@ -277,16 +216,27 @@ describe("Codex SDK host process", () => {
         const stdin = new PassThrough()
         const stdout = new PassThrough()
         const stderr = new PassThrough()
+        const outcome = Promise.withResolvers<{
+          readonly outcome: "cancelled"
+        }>()
+        let cancellationRequested = false
         return {
           stdin,
           stdout,
           stderr,
-          result: new Promise(() => undefined),
-          async stopAndConfirm() {
+          outcome: outcome.promise,
+          requestCancellation() {
+            if (cancellationRequested) return
+            cancellationRequested = true
             stops += 1
             stdout.end()
             stderr.end()
+            outcome.resolve({ outcome: "cancelled" })
           },
+          reportFailure() {},
+          reportProofLost() {},
+          reportResult() {},
+          reportWorkStarted() {},
         }
       },
     })
@@ -352,24 +302,6 @@ describe("Codex SDK host process", () => {
         error.kind === "other" &&
         error.context.provider === "codex" &&
         /outside outcome is unknown/.test(error.message),
-    )
-  })
-
-  it("keeps the unknown outcome when stop confirmation also fails", async () => {
-    const stopError = new Error(
-      "The Codex SDK host process tree could not be confirmed.",
-    )
-    const client = createCodexLlmTextClient(undefined, {
-      launch: createLostSdkHostLaunch("", stopError),
-    })
-
-    await assert.rejects(
-      () => client.generateText(request(codexSpec)),
-      (error: unknown) =>
-        error instanceof LlmError &&
-        /outside outcome is unknown/.test(error.message) &&
-        error.cause instanceof AggregateError &&
-        error.cause.errors.includes(stopError),
     )
   })
 

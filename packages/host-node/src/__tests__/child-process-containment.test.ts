@@ -7,10 +7,10 @@ import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import type {
   ChildProcessLifetimeController,
+  ChildProcessLifetimeLaunch,
   OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
 import {
-  ChildProcessOutcomeUnknownError,
   childProcessStopGracePeriodMs,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
@@ -125,7 +125,13 @@ function createController(): ChildProcessLifetimeController {
           runAsNode: false,
         })
       : undefined
-  return createChildProcessLifetimeController({ windowsAdapter })
+  return createChildProcessLifetimeController({
+    diagnosticSink() {},
+    onUnconfirmedTree(error): never {
+      throw error
+    },
+    windowsAdapter,
+  })
 }
 
 async function launchTree(
@@ -136,7 +142,19 @@ async function launchTree(
   return await controller.launch({
     command: process.execPath,
     args: [fixturePath, mode, marker],
+    proof: "target-exit",
   })
+}
+
+async function targetResult(tree: OwnedChildProcessTree): Promise<{
+  readonly exitCode: number | null
+  readonly signal: string | null
+}> {
+  const outcome = await tree.outcome
+  if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
+    throw new Error(`The target ended ${outcome.outcome}.`)
+  }
+  return outcome.value
 }
 
 function processIds(content: string): number[] {
@@ -147,8 +165,8 @@ function createLocalOutputFailure(
   controller: ChildProcessLifetimeController,
 ): ChildProcessLifetimeController {
   return {
-    async launch(request) {
-      const tree = await controller.launch(request)
+    async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
+      const tree = await controller.launch<TCompleted, TFailed>(request)
       let reading = false
       const stdout = new Readable({
         read() {
@@ -187,7 +205,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
 
     const tree = await launchTree(controller, "tree-completes", marker)
 
-    assert.deepEqual(await tree.result, { exitCode: 0, signal: null })
+    assert.deepEqual(await targetResult(tree), { exitCode: 0, signal: null })
     await assertMarkerStable(marker)
   })
 
@@ -204,7 +222,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       marker,
     )
     const result = await valueWithin(
-      tree.result,
+      targetResult(tree),
       childProcessStopGracePeriodMs + 2_000,
     )
     const stopped = await readMarker(marker)
@@ -226,8 +244,8 @@ describe("child-process containment", { skip: !supportsController }, () => {
     const tree = await launchTree(controller, "tree-waits", marker)
     await waitForMarker(marker, /grandchild-tick/)
 
-    await tree.stopAndConfirm()
-    await tree.result
+    tree.requestCancellation()
+    assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
 
     await assertMarkerStable(marker)
   })
@@ -241,15 +259,8 @@ describe("child-process containment", { skip: !supportsController }, () => {
     const tree = await launchTree(controller, "tree-ignores-stop", marker)
     await waitForMarker(marker, /grandchild-ignores-stop-tick/)
 
-    await tree.stopAndConfirm()
-    if (process.platform === "win32") {
-      await assert.rejects(tree.result, ChildProcessOutcomeUnknownError)
-    } else {
-      assert.deepEqual(await tree.result, {
-        exitCode: null,
-        signal: "SIGKILL",
-      })
-    }
+    tree.requestCancellation()
+    assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
 
     await assertMarkerStable(marker)
   })
@@ -269,7 +280,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
         command: process.execPath,
         args: [fixturePath, "tree-waits", marker],
       }),
-      /local output failure/,
+      (error) => error instanceof DOMException && error.name === "AbortError",
     )
 
     await waitForMarker(marker, /grandchild-started/)
@@ -304,8 +315,8 @@ describe("child-process containment", { skip: !supportsController }, () => {
         process.kill(-(ids[0] ?? 0), 0)
       })
 
-      await tree.stopAndConfirm()
-      await tree.result
+      tree.requestCancellation()
+      assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
       const stopped = await readMarker(marker)
       assert.match(stopped, /parent-stopped/)
       if (proof.label === "Codex") {
@@ -373,6 +384,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
     process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
     const controller = createChildProcessLifetimeController({
+      diagnosticSink() {},
+      onUnconfirmedTree(error): never {
+        throw error
+      },
       windowsAdapter: createWindowsChildProcessLifetimeAdapter({
         executablePath: process.execPath,
         launcherEntryPath: stalledWindowsLauncherEntryPath,
@@ -387,6 +402,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       const abortController = new AbortController()
       const launch = controller.launch({
         command: process.execPath,
+        proof: "target-exit",
         signal: abortController.signal,
       })
       await waitForMarker(marker, /readiness-pending/)
@@ -425,6 +441,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
     process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
     const controller = createChildProcessLifetimeController({
+      diagnosticSink() {},
+      onUnconfirmedTree(error): never {
+        throw error
+      },
       windowsAdapter: createWindowsChildProcessLifetimeAdapter({
         executablePath: process.execPath,
         launcherEntryPath: stalledWindowsLauncherEntryPath,
@@ -439,13 +459,11 @@ describe("child-process containment", { skip: !supportsController }, () => {
       const abortController = new AbortController()
       const launch = controller.launch({
         command: process.execPath,
+        proof: "target-exit",
         signal: abortController.signal,
       })
       await waitForMarker(marker, /target-start-pending/)
-      const launchRejected = assert.rejects(
-        launch,
-        ChildProcessOutcomeUnknownError,
-      )
+      const launchRejected = assert.rejects(launch, Error)
 
       abortController.abort()
 
@@ -475,7 +493,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
     {
       mode: "target-start",
       marker: /target-start-pending/,
-      error: ChildProcessOutcomeUnknownError,
+      error: Error,
     },
   ] as const) {
     it(`stops Windows startup while ${pendingPhase.mode} is pending`, {
@@ -489,6 +507,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
       process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
       const controller = createChildProcessLifetimeController({
+        diagnosticSink() {},
+        onUnconfirmedTree(error): never {
+          throw error
+        },
         windowsAdapter: createWindowsChildProcessLifetimeAdapter({
           executablePath: process.execPath,
           launcherEntryPath: stalledWindowsLauncherEntryPath,
@@ -502,6 +524,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       try {
         const launch = controller.launch({
           command: process.execPath,
+          proof: "target-exit",
         })
         await waitForMarker(marker, pendingPhase.marker)
         const launchRejected = assert.rejects(launch, pendingPhase.error)

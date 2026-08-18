@@ -7,7 +7,7 @@ import {
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import { resolveClaudeAuth } from "../auth"
-import type { ClaudeCliLaunch } from "../cli-process"
+import type { ClaudeCliLaunch, ClaudeCliOutcome } from "../cli-process"
 import {
   buildClaudeCliArgs,
   buildClaudeCliLaunchOptions,
@@ -26,7 +26,6 @@ type FakeLaunchOptions = {
   exitCode?: number
   exitSignal?: string | null
   stdinWriteError?: Error
-  stopAndConfirmError?: Error
 }
 
 function fakeLaunch(
@@ -64,20 +63,30 @@ function fakeLaunch(
         callback()
       },
     })
+    const outcome = Promise.withResolvers<ClaudeCliOutcome>()
+    const targetResult = {
+      exitCode: fakeOptions.exitCode ?? 0,
+      signal: fakeOptions.exitSignal ?? null,
+    }
     return {
       stdin,
       stdout: Readable.from(stdoutChunks),
       stderr: Readable.from(stderrChunks),
-      result: Promise.resolve({
-        exitCode: fakeOptions.exitCode ?? 0,
-        signal: fakeOptions.exitSignal ?? null,
-      }),
-      async stopAndConfirm() {
+      outcome: outcome.promise,
+      requestCancellation() {
         call.stopped = true
-        if (fakeOptions.stopAndConfirmError) {
-          throw fakeOptions.stopAndConfirmError
-        }
+        outcome.resolve({ outcome: "cancelled" })
       },
+      reportFailure() {},
+      reportProofLost() {
+        call.stopped = true
+        outcome.resolve({ outcome: "unknown" })
+      },
+      reportResult(result) {
+        call.stopped = true
+        outcome.resolve({ ...result, targetResult })
+      },
+      reportWorkStarted() {},
     }
   }
   return { launch, calls }
@@ -118,7 +127,19 @@ function liveLaunch(): LiveCliProcess {
     exitCode: number | null
     signal: string | null
   }>()
+  let targetResult = {
+    exitCode: 0 as number | null,
+    signal: null as string | null,
+  }
+  void result.promise.then((value) => {
+    targetResult = value
+  })
+  const outcome = Promise.withResolvers<ClaudeCliOutcome>()
   let stopped = false
+  const stopStreams = () => {
+    stdout.destroy()
+    errorOutput.destroy()
+  }
   const launch: ClaudeCliLaunch = async () => ({
     stdin: new Writable({
       write(_chunk, _encoding, callback) {
@@ -127,10 +148,24 @@ function liveLaunch(): LiveCliProcess {
     }),
     stdout,
     stderr: errorOutput,
-    result: result.promise,
-    async stopAndConfirm() {
+    outcome: outcome.promise,
+    requestCancellation() {
       stopped = true
+      stopStreams()
+      outcome.resolve({ outcome: "cancelled" })
     },
+    reportFailure() {},
+    reportProofLost() {
+      stopped = true
+      stopStreams()
+      outcome.resolve({ outcome: "unknown" })
+    },
+    reportResult(reported) {
+      stopped = true
+      stopStreams()
+      outcome.resolve({ ...reported, targetResult })
+    },
+    reportWorkStarted() {},
   })
   return { launch, stdout, errorOutput, result, stopped: () => stopped }
 }
@@ -313,7 +348,7 @@ describe("runClaudeCliStream", () => {
       },
       (error: unknown) =>
         error instanceof LlmError &&
-        error.kind === "auth" &&
+        error.kind === "other" &&
         error.message.includes("Please log in"),
     )
   })
@@ -340,35 +375,6 @@ describe("runClaudeCliStream", () => {
         error.kind === "auth" &&
         error.message.includes("Claude CLI is not logged in") &&
         error.message.includes("claude auth login"),
-    )
-  })
-
-  it("keeps the login guidance when stop confirmation also fails", async () => {
-    const cleanupError = new Error("The owned tree could not be confirmed.")
-    const { launch } = fakeLaunch([], [], {
-      exitCode: 1,
-      stopAndConfirmError: cleanupError,
-    })
-
-    await assert.rejects(
-      async () => {
-        for await (const _event of runClaudeCliStream(
-          {
-            spec: claudeSpec,
-            prompt: "Reply ok.",
-            executable: "/bin/claude",
-            launch,
-          },
-          { authMode: "subscription", childEnv: {} },
-        )) {
-          // Drain stream.
-        }
-      },
-      (error: unknown) =>
-        error instanceof LlmError &&
-        error.kind === "auth" &&
-        error.message.includes("claude auth login") &&
-        error.cause === cleanupError,
     )
   })
 
@@ -407,43 +413,11 @@ describe("runClaudeCliStream", () => {
     assert.ok(failure instanceof LlmError)
     assert.equal(failure.kind, "auth")
     assert.ok(failure.message.includes("claude auth login"))
-    assert.equal(failure.cause, readFailure)
+    assert.equal(failure.cause, undefined)
     assert.equal(live.stopped(), true)
   })
 
-  it("classifies an unconfirmed tree as the failure of a clean turn", async () => {
-    const cleanupError = new Error("The owned tree could not be confirmed.")
-    const { launch } = fakeLaunch(
-      [
-        '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
-      ],
-      [],
-      { exitCode: 0, stopAndConfirmError: cleanupError },
-    )
-
-    await assert.rejects(
-      async () => {
-        for await (const _event of runClaudeCliStream(
-          {
-            spec: claudeSpec,
-            prompt: "Reply ok.",
-            executable: "/bin/claude",
-            launch,
-          },
-          { authMode: "subscription", childEnv: {} },
-        )) {
-          // Drain stream.
-        }
-      },
-      (error: unknown) =>
-        error instanceof LlmError &&
-        error.context.provider === "claude" &&
-        error.context.authMode === "subscription" &&
-        error.message.includes("could not be confirmed"),
-    )
-  })
-
-  it("does not emit done before a failed CLI close is classified", async () => {
+  it("uses the terminal stream result instead of reclassifying process exit", async () => {
     const { launch } = fakeLaunch(
       [
         '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}}\n',
@@ -454,28 +428,20 @@ describe("runClaudeCliStream", () => {
     )
     const events: LlmStreamEvent[] = []
 
-    await assert.rejects(
-      async () => {
-        for await (const event of runClaudeCliStream(
-          {
-            spec: claudeSpec,
-            prompt: "Reply ok.",
-            executable: "/bin/claude",
-            launch,
-          },
-          { authMode: "subscription", childEnv: {} },
-        )) {
-          events.push(event)
-        }
+    for await (const event of runClaudeCliStream(
+      {
+        spec: claudeSpec,
+        prompt: "Reply ok.",
+        executable: "/bin/claude",
+        launch,
       },
-      (error: unknown) =>
-        error instanceof LlmError &&
-        error.kind === "other" &&
-        error.message.includes("Unexpected CLI failure"),
-    )
+      { authMode: "subscription", childEnv: {} },
+    )) {
+      events.push(event)
+    }
     assert.equal(
       events.some((event) => event.kind === "done"),
-      false,
+      true,
     )
   })
 
@@ -504,7 +470,7 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("CLI rejected prompt"),
+        error.message.includes("write EPIPE"),
     )
     assert.equal(calls[0]?.stopped, true)
   })
@@ -661,11 +627,11 @@ describe("runClaudeCliStream", () => {
     assert.equal(live.stopped(), true)
   })
 
-  it("reports a failed error-output read when nothing else failed", async () => {
+  it("keeps a completed result when error output cannot be read", async () => {
     const live = liveLaunch()
 
     await withoutUnhandledRejections(async () => {
-      const drained = assert.rejects(async () => {
+      const drained = (async () => {
         for await (const _event of runClaudeCliStream(
           {
             spec: claudeSpec,
@@ -677,7 +643,7 @@ describe("runClaudeCliStream", () => {
         )) {
           // Drain stream.
         }
-      }, /error output read failed/)
+      })()
 
       setImmediate(() => {
         live.stdout.end(
@@ -728,6 +694,6 @@ describe("runClaudeCliStream", () => {
     })
 
     assert.ok(isClaudeToolGuardrail(failure))
-    assert.match(String((failure as Error).cause), /error output read failed/)
+    assert.equal((failure as Error).cause, undefined)
   })
 })

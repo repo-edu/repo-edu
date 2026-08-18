@@ -1,5 +1,7 @@
 import type { Readable, Writable } from "node:stream"
 
+export type ChildProcessLifetimeProof = "reported" | "target-exit"
+
 export type ChildProcessLifetimeLaunch = {
   readonly command: string
   readonly args?: readonly string[]
@@ -7,6 +9,7 @@ export type ChildProcessLifetimeLaunch = {
   readonly env?: Readonly<NodeJS.ProcessEnv>
   readonly shell?: boolean | string
   readonly signal?: AbortSignal
+  readonly proof: ChildProcessLifetimeProof
 }
 
 export type ChildProcessLifetimeResult = {
@@ -14,7 +17,48 @@ export type ChildProcessLifetimeResult = {
   readonly signal: string | null
 }
 
-export type OwnedChildProcessTree = {
+export type ChildProcessTargetResult<TCompleted, TFailed> =
+  | {
+      readonly outcome: "completed"
+      readonly value: TCompleted
+    }
+  | {
+      readonly outcome: "failed"
+      readonly message: string
+      readonly value: TFailed
+    }
+
+export type ChildProcessOutcome<TCompleted, TFailed> =
+  | { readonly outcome: "unknown" }
+  | { readonly outcome: "cancelled" }
+  | {
+      readonly outcome: "completed"
+      readonly targetResult?: ChildProcessLifetimeResult
+      readonly value: TCompleted
+    }
+  | {
+      readonly outcome: "failed"
+      readonly message: string
+      readonly targetResult?: ChildProcessLifetimeResult
+      readonly value: TFailed
+    }
+
+export type OwnedChildProcessTree<
+  TCompleted = ChildProcessLifetimeResult,
+  TFailed = ChildProcessLifetimeResult,
+> = {
+  readonly stdin: Writable
+  readonly stdout: Readable
+  readonly stderr: Readable
+  readonly outcome: Promise<ChildProcessOutcome<TCompleted, TFailed>>
+  requestCancellation(): void
+  reportFailure(error: unknown): void
+  reportProofLost(error: unknown): void
+  reportResult(result: ChildProcessTargetResult<TCompleted, TFailed>): void
+  reportWorkStarted(): void
+}
+
+export type PlatformOwnedChildProcessTree = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
@@ -23,6 +67,7 @@ export type OwnedChildProcessTree = {
 }
 
 export type ChildProcessLifetimeStopPolicy = {
+  readonly forcedStopConfirmationPeriodMs: number
   readonly gracefulStopPeriodMs: number
 }
 
@@ -31,7 +76,13 @@ export type ChildProcessLifetimePlatformAdapter = {
     request: ChildProcessLifetimeLaunch,
     pendingStopSignal: AbortSignal,
     stopPolicy: ChildProcessLifetimeStopPolicy,
-  ): Promise<OwnedChildProcessTree>
+  ): Promise<PlatformOwnedChildProcessTree>
+}
+
+export type ChildProcessSecondaryFailureDiagnostic = {
+  readonly command: string
+  readonly failure: unknown
+  readonly kind: "child-process-secondary-failure"
 }
 
 export class PendingLaunchStoppedError extends Error {
@@ -55,6 +106,6 @@ export function createChildProcessLaunchAbortError(): DOMException {
   )
 }
 
-export class ChildProcessOutcomeUnknownError extends Error {
-  override readonly name = "ChildProcessOutcomeUnknownError"
+export class ChildProcessTreeUnconfirmedError extends Error {
+  override readonly name = "ChildProcessTreeUnconfirmedError"
 }

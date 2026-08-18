@@ -10,7 +10,10 @@ import {
 } from "node:path"
 import { fileURLToPath } from "node:url"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
-import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import {
+  childProcessUnconfirmedTreeMessage,
+  createChildProcessLifetimeController,
+} from "@repo-edu/host-node/child-process-lifetime"
 import { createNodeLlmTextClient } from "@repo-edu/host-node/llm"
 import { resolveCodexSdkHostEntryUrl } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
@@ -25,7 +28,21 @@ const xtraceSink = (text: string): void => {
 }
 
 let cachedClient: LlmTextClient | null = null
-const childProcessLifetimeController = createChildProcessLifetimeController()
+const childProcessLifetimeController = createChildProcessLifetimeController({
+  diagnosticSink(diagnostic) {
+    const failure =
+      diagnostic.failure instanceof Error
+        ? diagnostic.failure.message
+        : String(diagnostic.failure)
+    process.stderr.write(
+      `fixture: child-process-secondary-failure ${diagnostic.command}: ${failure}\n`,
+    )
+  },
+  onUnconfirmedTree(): never {
+    process.stderr.write(`${childProcessUnconfirmedTreeMessage}\n`)
+    return process.exit(1)
+  },
+})
 
 function getClient(): LlmTextClient {
   if (!cachedClient) {

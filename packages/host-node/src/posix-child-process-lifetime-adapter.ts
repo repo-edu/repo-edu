@@ -3,6 +3,7 @@ import type {
   ChildProcessLifetimePlatformAdapter,
   ChildProcessLifetimeResult,
 } from "./child-process-lifetime-contract.js"
+import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime-contract.js"
 
 const groupExitPollMs = 20
 
@@ -80,6 +81,7 @@ async function waitForProcessGroupExit(
 function createProcessGroup(
   processGroupId: number,
   gracefulStopPeriodMs: number,
+  forcedStopConfirmationPeriodMs: number,
 ): ProcessGroup {
   let gracefulStopStartedAt: number | undefined
   let confirmation: Promise<void> | undefined
@@ -115,7 +117,16 @@ function createProcessGroup(
         }
 
         signalProcessGroup(processGroupId, "SIGKILL")
-        await waitForProcessGroupExit(processGroupId)
+        if (
+          !(await waitForProcessGroupExit(
+            processGroupId,
+            forcedStopConfirmationPeriodMs,
+          ))
+        ) {
+          throw new ChildProcessTreeUnconfirmedError(
+            "The process group remained after its forced stop.",
+          )
+        }
       })()
 
       return confirmation
@@ -150,29 +161,6 @@ function observeTerminalResult(
   return { outcome, streamsClosed }
 }
 
-async function holdResultUntilTreeIsGone(
-  terminal: ChildProcessTerminal,
-  group: ProcessGroup,
-): Promise<ChildProcessLifetimeResult> {
-  let result: ChildProcessLifetimeResult
-  try {
-    result = await terminal.outcome
-  } catch (error) {
-    try {
-      await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
-    } catch (cleanupError) {
-      throw new AggregateError(
-        [error, cleanupError],
-        "The child process failed and its process group could not be confirmed stopped.",
-      )
-    }
-    throw error
-  }
-
-  await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
-  return result
-}
-
 export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapter =
   {
     async launch(request, pendingStopSignal, stopPolicy) {
@@ -194,18 +182,21 @@ export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapt
       const group =
         child.pid === undefined
           ? noProcessGroup
-          : createProcessGroup(child.pid, stopPolicy.gracefulStopPeriodMs)
-      const result = holdResultUntilTreeIsGone(terminal, group)
+          : createProcessGroup(
+              child.pid,
+              stopPolicy.gracefulStopPeriodMs,
+              stopPolicy.forcedStopConfirmationPeriodMs,
+            )
 
       return {
         stdin: child.stdin,
         stdout: child.stdout,
         stderr: child.stderr,
-        result,
+        result: terminal.outcome,
         async stopAndConfirm() {
           const [cleanup] = await Promise.allSettled([
             group.stopAndConfirm(),
-            result,
+            terminal.streamsClosed,
           ])
           if (cleanup.status === "rejected") {
             throw cleanup.reason

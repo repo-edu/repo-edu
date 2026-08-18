@@ -4,6 +4,7 @@ import { describe, it } from "node:test"
 import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
+  OwnedChildProcessTree,
 } from "@repo-edu/host-node/child-process-lifetime"
 import type { PlanImplementationStep } from "../contracts.js"
 import {
@@ -103,9 +104,9 @@ describe("step checks", () => {
   it("launches each command through the shared controller without a shell", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     const childProcessLifetimeController: ChildProcessLifetimeController = {
-      async launch(request) {
+      async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
         launches.push(request)
-        return {
+        const owned = {
           stdin: new Writable({
             write(_chunk, _encoding, callback) {
               callback()
@@ -113,9 +114,18 @@ describe("step checks", () => {
           }),
           stdout: Readable.from(["standard output"]),
           stderr: Readable.from([]),
-          result: Promise.resolve({ exitCode: 0, signal: null }),
-          async stopAndConfirm() {},
+          outcome: Promise.resolve({
+            outcome: "completed" as const,
+            targetResult: { exitCode: 0, signal: null },
+            value: { exitCode: 0, signal: null },
+          }),
+          requestCancellation() {},
+          reportFailure() {},
+          reportProofLost() {},
+          reportResult() {},
+          reportWorkStarted() {},
         }
+        return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
       async stopAndConfirm() {},
     }
@@ -139,6 +149,7 @@ describe("step checks", () => {
         args: ["one", "two words"],
         cwd: "/repo-edu",
         env: { ...process.env },
+        proof: "target-exit",
         shell: false,
         signal: controller.signal,
       },

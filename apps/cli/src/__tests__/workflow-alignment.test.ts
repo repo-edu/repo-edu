@@ -7,7 +7,12 @@ import { createCliWorkflowHandlers } from "../workflow-runtime.js"
 describe("cli workflow alignment", () => {
   it("wires every workflow that is marked cli-deliverable in workflowCatalog", () => {
     const handlers = createCliWorkflowHandlers({
-      childProcessLifetimeController: createChildProcessLifetimeController(),
+      childProcessLifetimeController: createChildProcessLifetimeController({
+        diagnosticSink() {},
+        onUnconfirmedTree(error): never {
+          throw error
+        },
+      }),
     })
     const actual = Object.keys(handlers).sort()
     const expected = Object.entries(workflowCatalog)
@@ -21,7 +26,12 @@ describe("cli workflow alignment", () => {
 
   it("every wired workflow id exists in the catalog", () => {
     const handlers = createCliWorkflowHandlers({
-      childProcessLifetimeController: createChildProcessLifetimeController(),
+      childProcessLifetimeController: createChildProcessLifetimeController({
+        diagnosticSink() {},
+        onUnconfirmedTree(error): never {
+          throw error
+        },
+      }),
     })
     const wiredIds = Object.keys(handlers)
 

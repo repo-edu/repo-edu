@@ -35,7 +35,14 @@ for (const harness of harnesses) {
       handlers = createRepositoryWorkflowHandlers({
         git,
         gitCommand: createNodeGitCommandPort(
-          createNodeProcessPort(createChildProcessLifetimeController()),
+          createNodeProcessPort(
+            createChildProcessLifetimeController({
+              diagnosticSink() {},
+              onUnconfirmedTree(error): never {
+                throw error
+              },
+            }),
+          ),
         ),
         fileSystem: createNodeFileSystemPort(),
       })

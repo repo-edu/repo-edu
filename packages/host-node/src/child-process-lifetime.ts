@@ -1,12 +1,17 @@
 export type {
   ChildProcessLifetimeLaunch,
   ChildProcessLifetimePlatformAdapter,
+  ChildProcessLifetimeProof,
   ChildProcessLifetimeResult,
   ChildProcessLifetimeStopPolicy,
+  ChildProcessOutcome,
+  ChildProcessSecondaryFailureDiagnostic,
+  ChildProcessTargetResult,
   OwnedChildProcessTree,
+  PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
 export {
-  ChildProcessOutcomeUnknownError,
+  ChildProcessTreeUnconfirmedError,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
   PendingLaunchStoppedError,
@@ -16,6 +21,9 @@ export type {
   ChildProcessLifetimeControllerOptions,
 } from "./child-process-lifetime-controller.js"
 export {
+  childProcessForcedStopConfirmationPeriodMs,
+  childProcessLifetimeStopPolicy,
   childProcessStopGracePeriodMs,
+  childProcessUnconfirmedTreeMessage,
   createChildProcessLifetimeController,
 } from "./child-process-lifetime-controller.js"

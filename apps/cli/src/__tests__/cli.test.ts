@@ -48,7 +48,12 @@ async function runCli(
 }> {
   // This caller owns the controller it passes and stops it below, which is the
   // whole reason `createProgram` refuses to make one of its own.
-  const childProcessLifetimeController = createChildProcessLifetimeController()
+  const childProcessLifetimeController = createChildProcessLifetimeController({
+    diagnosticSink() {},
+    onUnconfirmedTree(error): never {
+      throw error
+    },
+  })
   const program = createProgram({
     childProcessLifetimeController,
     ...(options?.storageRoot ? { storageRoot: options.storageRoot } : {}),
@@ -273,7 +278,12 @@ describe("CLI command tree", () => {
     )
 
     const help = createProgram({
-      childProcessLifetimeController: createChildProcessLifetimeController(),
+      childProcessLifetimeController: createChildProcessLifetimeController({
+        diagnosticSink() {},
+        onUnconfirmedTree(error): never {
+          throw error
+        },
+      }),
     }).helpInformation()
     assert.equal(normalize(help), normalize(golden))
   })

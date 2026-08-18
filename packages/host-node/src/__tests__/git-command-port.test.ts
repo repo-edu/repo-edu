@@ -10,6 +10,7 @@ import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
   ChildProcessLifetimePlatformAdapter,
+  OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
 import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
 import { createNodeGitCommandPort, createNodeProcessPort } from "../index.js"
@@ -63,9 +64,9 @@ describe("createNodeGitCommandPort", () => {
   it("routes Git through one controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     const controller: ChildProcessLifetimeController = {
-      async launch(request) {
+      async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
         launches.push(request)
-        return {
+        const owned = {
           stdin: new Writable({
             write(_chunk, _encoding, done) {
               done()
@@ -73,9 +74,18 @@ describe("createNodeGitCommandPort", () => {
           }),
           stdout: Readable.from(["git output"]),
           stderr: Readable.from([]),
-          result: Promise.resolve({ exitCode: 0, signal: null }),
-          async stopAndConfirm() {},
+          outcome: Promise.resolve({
+            outcome: "completed" as const,
+            targetResult: { exitCode: 0, signal: null },
+            value: { exitCode: 0, signal: null },
+          }),
+          requestCancellation() {},
+          reportFailure() {},
+          reportProofLost() {},
+          reportResult() {},
+          reportWorkStarted() {},
         }
+        return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
       async stopAndConfirm() {},
     }
@@ -133,7 +143,13 @@ describe("createNodeGitCommandPort", () => {
       })
       const abortController = new AbortController()
       const processPort = createNodeProcessPort(
-        createChildProcessLifetimeController({ windowsAdapter }),
+        createChildProcessLifetimeController({
+          diagnosticSink() {},
+          onUnconfirmedTree(error): never {
+            throw error
+          },
+          windowsAdapter,
+        }),
       )
       const result = processPort.run({
         command: "waiting-target",
@@ -143,12 +159,10 @@ describe("createNodeGitCommandPort", () => {
 
       abortController.abort()
 
-      assert.deepEqual(await result, {
-        exitCode: null,
-        signal: "SIGTERM",
-        stdout: "",
-        stderr: "",
-      })
+      await assert.rejects(
+        result,
+        (error) => error instanceof DOMException && error.name === "AbortError",
+      )
       assert.equal(stopConfirmations, 1)
     } finally {
       if (platformDescriptor) {

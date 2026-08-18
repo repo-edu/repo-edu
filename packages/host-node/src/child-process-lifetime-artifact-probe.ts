@@ -133,6 +133,7 @@ export async function startChildProcessLifetimeArtifactProbe(
   const tree = await controller.launch({
     command: target.runtimePath,
     args: [target.fixturePath, "tree-waits", target.markerPath],
+    proof: "target-exit",
   })
   const stdout = captureText(tree.stdout)
   const stderr = captureText(tree.stderr)
@@ -148,7 +149,13 @@ export async function startChildProcessLifetimeArtifactProbe(
 export async function finishChildProcessLifetimeArtifactProbe(
   run: ChildProcessLifetimeArtifactProbeRun,
 ): Promise<ChildProcessLifetimeArtifactProbeClaims> {
-  const result = await run.tree.result
+  const outcome = await run.tree.outcome
+  if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
+    throw new Error(
+      `The child-process lifetime artifact ended ${outcome.outcome}.`,
+    )
+  }
+  const result = outcome.value
   if (result.exitCode !== 0 || result.signal !== null) {
     throw new Error(
       `The child-process lifetime artifact target exited with ${result.exitCode ?? result.signal ?? "unknown"}: ${run.stderr().trim() || "<no stderr>"}`,

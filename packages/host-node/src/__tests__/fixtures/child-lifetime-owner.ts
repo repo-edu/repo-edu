@@ -23,10 +23,20 @@ const windowsAdapter =
         runAsNode: false,
       })
     : undefined
-const controller = createChildProcessLifetimeController({ windowsAdapter })
+const controller = createChildProcessLifetimeController({
+  diagnosticSink(diagnostic) {
+    process.stderr.write(`${String(diagnostic.failure)}\n`)
+  },
+  onUnconfirmedTree(error): never {
+    process.stderr.write(`${error.message}\n`)
+    return process.exit(1)
+  },
+  windowsAdapter,
+})
 const tree = await controller.launch({
   command: process.execPath,
   args: [treeFixturePath, "tree-ignores-stop", markerPath],
+  proof: "target-exit",
 })
 
 tree.stdout.resume()

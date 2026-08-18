@@ -2,11 +2,6 @@ import { type LlmAuthMode, LlmError } from "@repo-edu/integrations-llm-contract"
 import { ResponseError } from "vscode-jsonrpc"
 import type { CodexSdkHostProtocolFailure } from "./sdk-host-protocol.js"
 
-export type CodexSdkHostFailure = {
-  readonly error: Error
-  readonly outcome: "known" | "unknown"
-}
-
 export function abortError(
   message = "Operation cancelled.",
   cause?: unknown,
@@ -57,40 +52,33 @@ function isCodexSdkHostProtocolFailure(
   )
 }
 
-export function mapCodexSdkHostFailure(
+export function readCodexSdkHostFailure(
   cause: unknown,
-  authMode: LlmAuthMode,
-  signal: AbortSignal | undefined,
-  output = "",
-): CodexSdkHostFailure {
-  if (signal?.aborted) {
-    return { error: abortError(), outcome: "known" }
-  }
+): CodexSdkHostProtocolFailure | null {
   if (
     !(cause instanceof ResponseError) ||
     !isCodexSdkHostProtocolFailure(cause.data)
   ) {
-    return {
-      error: unknownOutcomeError(authMode, { cause, output }),
-      outcome: "unknown",
-    }
+    return null
   }
-  const failure = cause.data
+  return cause.data
+}
+
+export function mapCodexSdkHostFailure(
+  failure: CodexSdkHostProtocolFailure,
+  authMode: LlmAuthMode,
+): Error {
   if (failure.type === "cancelled") {
-    return { error: abortError(failure.message), outcome: "known" }
+    return new LlmError("other", failure.message, {
+      context: { provider: "codex", authMode },
+    })
   }
   if (failure.type === "llm-error") {
-    return {
-      error: new LlmError(failure.kind, failure.message, {
-        context: failure.context,
-      }),
-      outcome: "known",
-    }
+    return new LlmError(failure.kind, failure.message, {
+      context: failure.context,
+    })
   }
-  return {
-    error: new LlmError("other", failure.message, {
-      context: { provider: "codex", authMode },
-    }),
-    outcome: "known",
-  }
+  return new LlmError("other", failure.message, {
+    context: { provider: "codex", authMode },
+  })
 }

@@ -30,8 +30,34 @@ type StepCodexSdkHostProcess = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
-  readonly result: Promise<StepCodexSdkHostProcessResult>
-  stopAndConfirm(): Promise<void>
+  readonly outcome: Promise<
+    | { readonly outcome: "unknown" }
+    | { readonly outcome: "cancelled" }
+    | {
+        readonly outcome: "completed"
+        readonly targetResult?: StepCodexSdkHostProcessResult
+        readonly value: CodingResult
+      }
+    | {
+        readonly outcome: "failed"
+        readonly message: string
+        readonly targetResult?: StepCodexSdkHostProcessResult
+        readonly value: StepCodexSdkHostProtocolFailure
+      }
+  >
+  requestCancellation(): void
+  reportFailure(error: unknown): void
+  reportProofLost(error: unknown): void
+  reportResult(
+    result:
+      | { readonly outcome: "completed"; readonly value: CodingResult }
+      | {
+          readonly outcome: "failed"
+          readonly message: string
+          readonly value: StepCodexSdkHostProtocolFailure
+        },
+  ): void
+  reportWorkStarted(): void
 }
 
 export type StepCodexSdkHostLaunch = (
@@ -44,10 +70,6 @@ export class StepCodexSdkHostOutcomeUnknownError extends Error {
 }
 
 const SDK_HOST_ERROR_OUTPUT_LIMIT = 2_000
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 function readErrorOutputTail(stream: Readable): () => string {
   let tail = ""
@@ -62,20 +84,22 @@ function withErrorOutput(message: string, errorOutput: string): string {
   return errorOutput.length === 0 ? message : `${message}\n${errorOutput}`
 }
 
-function mapStepCodexSdkHostError(error: unknown): Error {
-  const data = (
-    error as ResponseError<StepCodexSdkHostProtocolFailure> | undefined
-  )?.data
-  if (data?.type === "cancelled") {
-    return new DOMException(data.message, "AbortError")
+function readStepCodexSdkHostFailure(
+  error: unknown,
+): StepCodexSdkHostProtocolFailure | null {
+  const data = (error as ResponseError<StepCodexSdkHostProtocolFailure>)?.data
+  return data?.type === "cancelled" || data?.type === "sdk-host-error"
+    ? data
+    : null
+}
+
+function mapStepCodexSdkHostError(
+  failure: StepCodexSdkHostProtocolFailure,
+): Error {
+  if (failure.type === "cancelled") {
+    return new Error(failure.message)
   }
-  if (data?.type === "sdk-host-error") {
-    return new Error(data.message, { cause: error })
-  }
-  return new Error(
-    `The plan-step Codex SDK host process failed: ${errorMessage(error)}`,
-    { cause: error },
-  )
+  return new Error(failure.message)
 }
 
 function defaultLaunch(
@@ -83,11 +107,15 @@ function defaultLaunch(
 ): StepCodexSdkHostLaunch {
   return async (request, signal) => {
     const sdkHostCommand = createStepCodexSdkHostCommand()
-    return await childProcessLifetimeController.launch({
+    return await childProcessLifetimeController.launch<
+      CodingResult,
+      StepCodexSdkHostProtocolFailure
+    >({
       command: sdkHostCommand.command,
       args: sdkHostCommand.arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
+      proof: "reported",
       shell: false,
       ...(signal === undefined ? {} : { signal }),
     })
@@ -107,29 +135,13 @@ function createCodingRun(
   )
   const events = new CodingEventQueue<CodingEvent>()
   const cancellation = new CancellationTokenSource()
-  let abortRequested = false
-  let sdkHostStop: Promise<void> | null = null
-  const stopSdkHostProcess = (): Promise<void> => {
-    sdkHostStop ??= Promise.resolve().then(
-      async () => await sdkHostProcess.stopAndConfirm(),
-    )
-    void sdkHostStop.catch(() => {
-      // The result path awaits the same promise and keeps the failure visible.
-    })
-    return sdkHostStop
-  }
   const abort = () => {
-    abortRequested = true
     cancellation.cancel()
-    void stopSdkHostProcess()
+    sdkHostProcess.requestCancellation()
+    events.close()
   }
   signal?.addEventListener("abort", abort, { once: true })
   if (signal?.aborted) abort()
-  let requestSettled = false
-  const processState: {
-    endedBeforeRequest: boolean
-    error: unknown
-  } = { endedBeforeRequest: false, error: undefined }
 
   const eventSubscription = connection.onNotification(
     stepCodexSdkHostEventNotification,
@@ -137,60 +149,70 @@ function createCodingRun(
   )
   connection.listen()
 
-  const sdkHostCompletion = sdkHostProcess.result.then(
-    () => {
-      if (!requestSettled) {
-        processState.endedBeforeRequest = true
-        events.close()
-        connection.dispose()
-      }
-    },
-    (error: unknown) => {
-      processState.error = error
-      if (!requestSettled) {
-        processState.endedBeforeRequest = true
-        events.close()
-        connection.dispose()
-      }
-    },
-  )
-
+  let observedOutcome: Awaited<StepCodexSdkHostProcess["outcome"]> | undefined
   const requestCompletion = connection
     .sendRequest(stepCodexSdkHostRunRequest, request, cancellation.token)
+    .then((codingResult) => {
+      sdkHostProcess.reportResult({
+        outcome: "completed",
+        value: codingResult,
+      })
+    })
+    .catch((error: unknown) => {
+      if (signal?.aborted) {
+        sdkHostProcess.requestCancellation()
+        return
+      }
+      const failure = readStepCodexSdkHostFailure(error)
+      if (failure === null) {
+        sdkHostProcess.reportProofLost(error)
+        return
+      }
+      sdkHostProcess.reportResult({
+        outcome: "failed",
+        message: failure.message,
+        value: failure,
+      })
+    })
     .finally(() => {
-      requestSettled = true
       events.close()
-      if (!sdkHostProcess.stdin.writableEnded) {
+      if (
+        observedOutcome?.outcome !== "unknown" &&
+        observedOutcome?.outcome !== "cancelled" &&
+        !sdkHostProcess.stdin.writableEnded
+      ) {
         sdkHostProcess.stdin.end()
       }
     })
+  sdkHostProcess.reportWorkStarted()
+  const processOutcome = sdkHostProcess.outcome.then((outcome) => {
+    observedOutcome = outcome
+    if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
+      events.close()
+      connection.dispose()
+    }
+    return outcome
+  })
 
   const result = (async (): Promise<CodingResult> => {
     try {
-      let codingResult: CodingResult
-      try {
-        codingResult = await requestCompletion
-      } catch (error) {
-        await stopSdkHostProcess()
-        await sdkHostCompletion
-        if (processState.endedBeforeRequest && !abortRequested) {
-          throw new StepCodexSdkHostOutcomeUnknownError(
-            withErrorOutput(
-              "The plan-step Codex SDK host process exited before its result was known.",
-              errorOutput(),
-            ),
-            { cause: processState.error ?? error },
-          )
-        }
-        if (abortRequested) {
-          throw new DOMException("Coding was stopped.", "AbortError")
-        }
-        throw mapStepCodexSdkHostError(error)
+      await requestCompletion
+      const outcome = await processOutcome
+      if (outcome.outcome === "unknown") {
+        throw new StepCodexSdkHostOutcomeUnknownError(
+          withErrorOutput(
+            "The plan-step Codex SDK host process exited before its result was known.",
+            errorOutput(),
+          ),
+        )
       }
-
-      await stopSdkHostProcess()
-      await sdkHostCompletion
-      return codingResult
+      if (outcome.outcome === "cancelled") {
+        throw new DOMException("Coding was stopped.", "AbortError")
+      }
+      if (outcome.outcome === "failed") {
+        throw mapStepCodexSdkHostError(outcome.value)
+      }
+      return outcome.value
     } finally {
       signal?.removeEventListener("abort", abort)
       eventSubscription.dispose()

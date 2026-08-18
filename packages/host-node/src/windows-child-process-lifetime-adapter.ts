@@ -12,11 +12,12 @@ import {
   type ChildProcessLifetimePlatformAdapter,
   type ChildProcessLifetimeResult,
   type ChildProcessLifetimeStopPolicy,
-  ChildProcessOutcomeUnknownError,
+  ChildProcessTreeUnconfirmedError,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
-  type OwnedChildProcessTree,
+  type PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
+import { childProcessForcedStopConfirmationPeriodMs } from "./child-process-lifetime-controller.js"
 import {
   createWindowsKillOnCloseJob,
   type SavedWindowsProcessIdentity,
@@ -81,7 +82,7 @@ type LaunchedWindowsTarget = {
   readonly evidence: WindowsChildLifetimeEvidence & {
     readonly targetAdmittedAfterAssignment: true
   }
-  readonly tree: OwnedChildProcessTree
+  readonly tree: PlatformOwnedChildProcessTree
 }
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -274,6 +275,7 @@ async function cleanBeforeTargetAdmission(options: {
   readonly controlLines: Interface | null
   readonly exit: Promise<LauncherExit> | null
   readonly job: WindowsKillOnCloseJob
+  readonly forcedStopConfirmationPeriodMs: number
 }): Promise<void> {
   options.controlInput?.end()
   options.controlLines?.close()
@@ -281,7 +283,16 @@ async function cleanBeforeTargetAdmission(options: {
   if (options.assigned) {
     try {
       options.job.terminate(forcedJobExitCode)
-      await waitForJobExit(options.job)
+      if (
+        !(await waitForJobExit(
+          options.job,
+          options.forcedStopConfirmationPeriodMs,
+        ))
+      ) {
+        throw new ChildProcessTreeUnconfirmedError(
+          "The assigned Windows launcher remained after its forced stop.",
+        )
+      }
     } finally {
       options.job.close()
     }
@@ -298,6 +309,7 @@ async function cleanBeforeTargetAdmission(options: {
 async function startAssignedLauncher(
   runtime: WindowsChildLifetimeRuntime,
   stopSignals: LaunchStopSignals,
+  forcedStopConfirmationPeriodMs: number,
 ): Promise<AssignedLauncher> {
   if (process.platform !== "win32") {
     throw new Error(
@@ -410,12 +422,13 @@ async function startAssignedLauncher(
         controlInput,
         controlLines,
         exit,
+        forcedStopConfirmationPeriodMs,
         job,
       })
     } catch (cleanupError) {
-      throw new AggregateError(
-        [error, cleanupError],
+      throw new ChildProcessTreeUnconfirmedError(
         "The Windows launcher setup failed and its cleanup could not be confirmed.",
+        { cause: new AggregateError([error, cleanupError]) },
       )
     }
     throw error
@@ -453,6 +466,7 @@ async function writeLaunchCommand(
 function createStopAndConfirm(
   launcher: AssignedLauncher,
   gracefulStopPeriodMs: number,
+  forcedStopConfirmationPeriodMs: number,
 ): {
   readonly requestStop: () => void
   readonly stopAndConfirm: () => Promise<void>
@@ -484,7 +498,16 @@ function createStopAndConfirm(
         if (!(await waitForJobExit(launcher.job, remainingGraceMs))) {
           launcher.cleanupState.forceStarted = true
           launcher.job.terminate(forcedJobExitCode)
-          await waitForJobExit(launcher.job)
+          if (
+            !(await waitForJobExit(
+              launcher.job,
+              forcedStopConfirmationPeriodMs,
+            ))
+          ) {
+            throw new ChildProcessTreeUnconfirmedError(
+              "The Windows job remained after its forced stop.",
+            )
+          }
         }
         launcher.closeResources()
       })()
@@ -493,22 +516,19 @@ function createStopAndConfirm(
   }
 }
 
-async function unknownAfterTargetAdmission(
+async function failAfterTargetAdmission(
   error: unknown,
   stopAndConfirm: () => Promise<void>,
 ): Promise<never> {
   try {
     await stopAndConfirm()
   } catch (cleanupError) {
-    throw new ChildProcessOutcomeUnknownError(
+    throw new ChildProcessTreeUnconfirmedError(
       "The Windows launcher was lost after target admission and the job could not be confirmed stopped.",
       { cause: new AggregateError([error, cleanupError]) },
     )
   }
-  throw new ChildProcessOutcomeUnknownError(
-    "The Windows launcher was lost after target admission, so the target outcome is unknown.",
-    { cause: error },
-  )
+  throw error
 }
 
 async function monitorTerminalResult(
@@ -583,7 +603,7 @@ async function monitorTerminalResult(
       signal: exited.signal,
     }
   } catch (error) {
-    return await unknownAfterTargetAdmission(error, stopAndConfirm)
+    return await failAfterTargetAdmission(error, stopAndConfirm)
   }
 }
 
@@ -598,7 +618,11 @@ export async function launchAssignedTarget(
   let launcher: AssignedLauncher
   try {
     throwIfLaunchStopRequested(launchStopSignals)
-    launcher = await startAssignedLauncher(runtime, launchStopSignals)
+    launcher = await startAssignedLauncher(
+      runtime,
+      launchStopSignals,
+      stopPolicy.forcedStopConfirmationPeriodMs,
+    )
   } catch (error) {
     if (isPendingLaunchStoppedError(error) && error.signal === target.signal) {
       throw createChildProcessLaunchAbortError()
@@ -608,6 +632,7 @@ export async function launchAssignedTarget(
   const lifecycle = createStopAndConfirm(
     launcher,
     stopPolicy.gracefulStopPeriodMs,
+    stopPolicy.forcedStopConfirmationPeriodMs,
   )
   let targetMayBeAdmitted = false
   let targetLaunchRejected = false
@@ -659,18 +684,18 @@ export async function launchAssignedTarget(
       },
     }
   } catch (error) {
-    if (error instanceof ChildProcessOutcomeUnknownError) {
+    if (error instanceof ChildProcessTreeUnconfirmedError) {
       throw error
     }
     if (targetMayBeAdmitted && !targetLaunchRejected) {
-      return await unknownAfterTargetAdmission(error, lifecycle.stopAndConfirm)
+      return await failAfterTargetAdmission(error, lifecycle.stopAndConfirm)
     }
     try {
       await lifecycle.stopAndConfirm()
     } catch (cleanupError) {
-      throw new AggregateError(
-        [error, cleanupError],
+      throw new ChildProcessTreeUnconfirmedError(
         "The Windows target launch failed and its job could not be confirmed stopped.",
+        { cause: new AggregateError([error, cleanupError]) },
       )
     }
     throw error
@@ -704,7 +729,13 @@ export function createWindowsChildProcessLifetimeAdapter(
 export async function proveWindowsLauncherReadiness(
   runtime: WindowsChildLifetimeRuntime,
 ): Promise<WindowsLauncherReadinessEvidence> {
-  const launcher = await startAssignedLauncher(runtime, [])
+  const launcher = await startAssignedLauncher(
+    runtime,
+    [],
+    childProcessForcedStopConfirmationPeriodMs,
+  )
+  let evidence: WindowsLauncherReadinessEvidence | undefined
+  let readinessFailure: unknown
   try {
     launcher.closeControl()
     requiredInput(launcher.child).end()
@@ -717,16 +748,52 @@ export async function proveWindowsLauncherReadiness(
     if (!(await waitForJobExit(launcher.job, launcherTimeoutMs))) {
       throw new Error("The ready Windows launcher remained in its job.")
     }
-    return {
+    evidence = {
       ...launcher.evidence,
       targetAdmittedAfterAssignment: false,
       exitCode: 0,
     }
-  } finally {
+  } catch (error) {
+    readinessFailure = error
+  }
+
+  let cleanupFailure: unknown
+  try {
     if (launcher.job.hasActiveProcesses()) {
       launcher.job.terminate(forcedJobExitCode)
-      await waitForJobExit(launcher.job)
+      if (
+        !(await waitForJobExit(
+          launcher.job,
+          childProcessForcedStopConfirmationPeriodMs,
+        ))
+      ) {
+        cleanupFailure = new ChildProcessTreeUnconfirmedError(
+          "The ready Windows launcher remained after its forced stop.",
+        )
+      }
     }
+  } catch (error) {
+    cleanupFailure = error
+  } finally {
     launcher.closeResources()
   }
+
+  if (cleanupFailure !== undefined) {
+    if (readinessFailure !== undefined) {
+      throw new ChildProcessTreeUnconfirmedError(
+        "The Windows launcher readiness proof failed and its job could not be confirmed stopped.",
+        { cause: new AggregateError([readinessFailure, cleanupFailure]) },
+      )
+    }
+    throw cleanupFailure
+  }
+  if (readinessFailure !== undefined) {
+    throw readinessFailure
+  }
+  if (evidence === undefined) {
+    throw new Error(
+      "The Windows launcher readiness proof returned no evidence.",
+    )
+  }
+  return evidence
 }
