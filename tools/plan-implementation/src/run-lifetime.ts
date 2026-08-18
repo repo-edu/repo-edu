@@ -1,7 +1,7 @@
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 
 export type PlanImplementationOwnedChildren = Pick<
-  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimeController,
   "stopAndConfirm"
 >
 

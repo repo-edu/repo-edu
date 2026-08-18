@@ -4,7 +4,7 @@ import {
   launchAssignedTarget,
   type WindowsChildLifetimeEvidence,
   type WindowsChildLifetimeRuntime,
-} from "./windows-child-lifetime-platform.js"
+} from "./windows-child-process-lifetime-adapter.js"
 import type { WindowsChildLifetimeTarget } from "./windows-launcher-protocol.js"
 
 export type WindowsChildLifetimeRun = {
@@ -32,10 +32,7 @@ export async function runWindowsChildLifetimeTarget(
   runtime: WindowsChildLifetimeRuntime,
   target: WindowsChildLifetimeTarget,
 ): Promise<WindowsChildLifetimeRun> {
-  const run = await launchAssignedTarget(runtime, {
-    ...target,
-    route: "direct-adapter",
-  })
+  const run = await launchAssignedTarget(runtime, target)
   const stdout = collectOutput(run.tree.stdout)
   const stderr = collectOutput(run.tree.stderr)
   run.tree.stdin.end(target.stdinText)

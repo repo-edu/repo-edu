@@ -1,0 +1,212 @@
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
+import type {
+  ChildProcessLifetimePlatformAdapter,
+  ChildProcessLifetimeResult,
+} from "./child-process-lifetime-controller.js"
+import { childProcessStopGracePeriodMs } from "./child-process-lifetime-controller.js"
+
+const groupExitPollMs = 20
+
+type ProcessGroup = {
+  requestStop(): void
+  stopAndConfirm(): Promise<void>
+}
+
+const noProcessGroup: ProcessGroup = {
+  requestStop() {},
+  async stopAndConfirm() {},
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error
+}
+
+function processGroupExists(processGroupId: number): boolean {
+  try {
+    process.kill(-processGroupId, 0)
+    return true
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ESRCH") {
+      return false
+    }
+    if (isErrnoException(error) && error.code === "EPERM") {
+      return true
+    }
+    throw error
+  }
+}
+
+function signalProcessGroup(
+  processGroupId: number,
+  signal: "SIGKILL" | "SIGTERM",
+): boolean {
+  try {
+    process.kill(-processGroupId, signal)
+    return true
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ESRCH") {
+      return false
+    }
+    throw error
+  }
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs)
+  })
+}
+
+async function waitForProcessGroupExit(
+  processGroupId: number,
+  timeoutMs?: number,
+): Promise<boolean> {
+  const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
+
+  while (processGroupExists(processGroupId)) {
+    if (deadline !== undefined) {
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        return false
+      }
+      await delay(Math.min(groupExitPollMs, remainingMs))
+      continue
+    }
+    await delay(groupExitPollMs)
+  }
+
+  return true
+}
+
+function createProcessGroup(processGroupId: number): ProcessGroup {
+  let gracefulStopStartedAt: number | undefined
+  let confirmation: Promise<void> | undefined
+
+  const requestStop = () => {
+    if (
+      gracefulStopStartedAt !== undefined ||
+      !processGroupExists(processGroupId)
+    ) {
+      return
+    }
+
+    gracefulStopStartedAt = Date.now()
+    signalProcessGroup(processGroupId, "SIGTERM")
+  }
+
+  return {
+    requestStop,
+    stopAndConfirm() {
+      confirmation ??= (async () => {
+        requestStop()
+        if (!processGroupExists(processGroupId)) {
+          return
+        }
+
+        const remainingGraceMs = Math.max(
+          0,
+          childProcessStopGracePeriodMs -
+            (Date.now() - (gracefulStopStartedAt ?? Date.now())),
+        )
+        if (await waitForProcessGroupExit(processGroupId, remainingGraceMs)) {
+          return
+        }
+
+        signalProcessGroup(processGroupId, "SIGKILL")
+        await waitForProcessGroupExit(processGroupId)
+      })()
+
+      return confirmation
+    },
+  }
+}
+
+type ChildProcessTerminal = {
+  readonly outcome: Promise<ChildProcessLifetimeResult>
+  readonly streamsClosed: Promise<void>
+}
+
+function observeTerminalResult(
+  child: ChildProcessWithoutNullStreams,
+): ChildProcessTerminal {
+  const outcome = new Promise<ChildProcessLifetimeResult>((resolve, reject) => {
+    let settled = false
+    child.once("error", (error) => {
+      if (settled) return
+      settled = true
+      reject(error)
+    })
+    child.once("exit", (exitCode, signal) => {
+      if (settled) return
+      settled = true
+      resolve({ exitCode, signal })
+    })
+  })
+  const streamsClosed = new Promise<void>((resolve) => {
+    child.once("close", () => resolve())
+  })
+  return { outcome, streamsClosed }
+}
+
+async function holdResultUntilTreeIsGone(
+  terminal: ChildProcessTerminal,
+  group: ProcessGroup,
+): Promise<ChildProcessLifetimeResult> {
+  let result: ChildProcessLifetimeResult
+  try {
+    result = await terminal.outcome
+  } catch (error) {
+    try {
+      await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "The child process failed and its process group could not be confirmed stopped.",
+      )
+    }
+    throw error
+  }
+
+  await Promise.all([group.stopAndConfirm(), terminal.streamsClosed])
+  return result
+}
+
+export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapter =
+  {
+    async launch(request, pendingStopSignal) {
+      if (pendingStopSignal.aborted) {
+        throw new Error("The pending child-process launch was stopped.")
+      }
+      const child = spawn(request.command, [...(request.args ?? [])], {
+        cwd: request.cwd,
+        detached: true,
+        // A supplied environment is the whole target environment, never a set
+        // of changes laid over the host's. A caller that removed a variable
+        // must not get it back from `process.env`.
+        env: request.env,
+        shell: request.shell,
+        stdio: "pipe",
+      })
+
+      const terminal = observeTerminalResult(child)
+      const group =
+        child.pid === undefined ? noProcessGroup : createProcessGroup(child.pid)
+      const result = holdResultUntilTreeIsGone(terminal, group)
+
+      return {
+        stdin: child.stdin,
+        stdout: child.stdout,
+        stderr: child.stderr,
+        result,
+        async stopAndConfirm() {
+          const [cleanup] = await Promise.allSettled([
+            group.stopAndConfirm(),
+            result,
+          ])
+          if (cleanup.status === "rejected") {
+            throw cleanup.reason
+          }
+        },
+      }
+    },
+  }

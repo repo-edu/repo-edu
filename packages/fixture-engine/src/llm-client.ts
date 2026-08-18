@@ -10,7 +10,7 @@ import {
 } from "node:path"
 import { fileURLToPath } from "node:url"
 import { runClaudeCoder } from "@repo-edu/claude-coder"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createNodeLlmTextClient } from "@repo-edu/host-node/llm"
 import { resolveCodexManagedHelperEntryUrl } from "@repo-edu/integrations-llm"
 import type { FixtureModelSpec } from "@repo-edu/integrations-llm-catalog"
@@ -25,22 +25,26 @@ const xtraceSink = (text: string): void => {
 }
 
 let cachedClient: LlmTextClient | null = null
-const childProcessLifetime = createChildProcessLifetimeAdapter()
+const childProcessLifetimeController = createChildProcessLifetimeController()
 
 function getClient(): LlmTextClient {
   if (!cachedClient) {
-    cachedClient = createNodeLlmTextClient(childProcessLifetime, undefined, {
-      codexHelper: {
-        command: process.execPath,
-        args: [
-          "--import",
-          "tsx",
-          fileURLToPath(resolveCodexManagedHelperEntryUrl()),
-        ],
-        runAsNode: false,
+    cachedClient = createNodeLlmTextClient(
+      childProcessLifetimeController,
+      undefined,
+      {
+        codexHelper: {
+          command: process.execPath,
+          args: [
+            "--import",
+            "tsx",
+            fileURLToPath(resolveCodexManagedHelperEntryUrl()),
+          ],
+          runAsNode: false,
+        },
+        trace: xtraceSink,
       },
-      trace: xtraceSink,
-    })
+    )
   }
   return cachedClient
 }

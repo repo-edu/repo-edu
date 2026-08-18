@@ -2,11 +2,11 @@ import assert from "node:assert/strict"
 import { PassThrough } from "node:stream"
 import { describe, it } from "node:test"
 import type {
-  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
-  OwnedChildProcess,
+  OwnedChildProcessTree,
 } from "@repo-edu/host-node/child-process-lifetime"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   CodingHelperOutcomeUnknownError,
   createCodingAdapter,
@@ -19,22 +19,21 @@ import {
 import type { CodingEvent } from "../contracts.js"
 import { testCodingRequest } from "./coding-test-plan.js"
 
-function createLifetimeHarness(run: CodingHelperRun): {
-  readonly adapter: ChildProcessLifetimeAdapter
+function createControllerHarness(run: CodingHelperRun): {
+  readonly controller: ChildProcessLifetimeController
   readonly launches: readonly ChildProcessLifetimeLaunch[]
   readonly stopCount: () => number
 } {
   const launches: ChildProcessLifetimeLaunch[] = []
   let stops = 0
-  const adapter: ChildProcessLifetimeAdapter = {
+  const controller: ChildProcessLifetimeController = {
     async launch(request) {
       launches.push(request)
       const hostToHelper = new PassThrough()
       const helperToHost = new PassThrough()
       const stderr = new PassThrough()
       const server = runCodingHelperServer(hostToHelper, helperToHost, { run })
-      const owned: OwnedChildProcess = {
-        route: request.route,
+      const owned: OwnedChildProcessTree = {
         stdin: hostToHelper,
         stdout: helperToHost,
         stderr,
@@ -49,7 +48,7 @@ function createLifetimeHarness(run: CodingHelperRun): {
     },
     async stopAndConfirm() {},
   }
-  return { adapter, launches, stopCount: () => stops }
+  return { controller, launches, stopCount: () => stops }
 }
 
 async function collectEvents(events: AsyncIterable<CodingEvent>) {
@@ -64,20 +63,23 @@ describe("runner-owned coding helper", () => {
   it("runs the fixed helper entry through the real shared adapter", {
     skip: process.platform !== "darwin" && process.platform !== "linux",
   }, async (context) => {
-    const childLifetime = createChildProcessLifetimeAdapter()
+    const childProcessLifetimeController =
+      createChildProcessLifetimeController()
     context.after(async () => {
-      await childLifetime.stopAndConfirm()
+      await childProcessLifetimeController.stopAndConfirm()
     })
-    const run = await createCodingAdapter(childLifetime).start({
-      ...testCodingRequest(3),
-      repoEduRoot: process.cwd(),
-    })
+    const run = await createCodingAdapter(childProcessLifetimeController).start(
+      {
+        ...testCodingRequest(3),
+        repoEduRoot: process.cwd(),
+      },
+    )
 
     await assert.rejects(run.result, /does not contain implementation step 3/)
   })
 
   it("starts the fixed entry through the managed child-lifetime route", async () => {
-    const harness = createLifetimeHarness(async ({ emit }) => {
+    const harness = createControllerHarness(async ({ emit }) => {
       await emit({ kind: "thread-started", threadId: "fresh-thread" })
       await emit({ kind: "narrative", text: "Codex changed one file." })
       return {
@@ -89,7 +91,7 @@ describe("runner-owned coding helper", () => {
       }
     })
     const request = testCodingRequest()
-    const run = await createCodingAdapter(harness.adapter).start(request)
+    const run = await createCodingAdapter(harness.controller).start(request)
     const events = collectEvents(run.events)
 
     assert.equal((await run.result).status, "succeeded")
@@ -104,7 +106,6 @@ describe("runner-owned coding helper", () => {
       args: createCodingHelperCommand().arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
-      route: "managed-helper",
       shell: false,
     })
   })
@@ -113,8 +114,8 @@ describe("runner-owned coding helper", () => {
     timeout: 1_000,
   }, async () => {
     let stops = 0
-    const adapter: ChildProcessLifetimeAdapter = {
-      async launch(request) {
+    const controller: ChildProcessLifetimeController = {
+      async launch(_request) {
         const hostToHelper = new PassThrough()
         const helperToHost = new PassThrough()
         const stderr = new PassThrough()
@@ -132,7 +133,6 @@ describe("runner-owned coding helper", () => {
           signal: null
         }>()
         return {
-          route: request.route,
           stdin: hostToHelper,
           stdout: helperToHost,
           stderr,
@@ -147,7 +147,7 @@ describe("runner-owned coding helper", () => {
       },
       async stopAndConfirm() {},
     }
-    const run = await createCodingAdapter(adapter).start(testCodingRequest())
+    const run = await createCodingAdapter(controller).start(testCodingRequest())
 
     assert.equal((await run.result).status, "succeeded")
     assert.equal(stops, 1)
@@ -156,7 +156,7 @@ describe("runner-owned coding helper", () => {
   it("cancels the helper request and confirms its owned process tree", async () => {
     const started = Promise.withResolvers<void>()
     let observedAbort = false
-    const harness = createLifetimeHarness(async ({ signal }) => {
+    const harness = createControllerHarness(async ({ signal }) => {
       started.resolve()
       await new Promise<void>((resolve) => {
         signal.addEventListener(
@@ -171,7 +171,7 @@ describe("runner-owned coding helper", () => {
       throw new DOMException("cancelled", "AbortError")
     })
     const controller = new AbortController()
-    const run = await createCodingAdapter(harness.adapter).start(
+    const run = await createCodingAdapter(harness.controller).start(
       testCodingRequest(),
       controller.signal,
     )
@@ -190,8 +190,8 @@ describe("runner-owned coding helper", () => {
   })
 
   it("reports helper loss before a result as an unknown outcome", async () => {
-    const adapter: ChildProcessLifetimeAdapter = {
-      async launch(request) {
+    const controller: ChildProcessLifetimeController = {
+      async launch(_request) {
         const stdin = new PassThrough()
         const stdout = new PassThrough()
         const stderr = new PassThrough()
@@ -207,7 +207,6 @@ describe("runner-owned coding helper", () => {
           },
         )
         return {
-          route: request.route,
           stdin,
           stdout,
           stderr,
@@ -220,7 +219,7 @@ describe("runner-owned coding helper", () => {
       },
       async stopAndConfirm() {},
     }
-    const run = await createCodingAdapter(adapter).start(testCodingRequest())
+    const run = await createCodingAdapter(controller).start(testCodingRequest())
 
     await assert.rejects(
       run.result,

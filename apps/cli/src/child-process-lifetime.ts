@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url"
 import {
-  type ChildProcessLifetimeAdapter,
-  type ChildProcessLifetimePlatform,
-  createChildProcessLifetimeAdapter,
+  type ChildProcessLifetimeController,
+  type ChildProcessLifetimePlatformAdapter,
+  createChildProcessLifetimeController,
 } from "@repo-edu/host-node/child-process-lifetime"
 
 type WindowsChildLifetimeRuntime = {
@@ -12,9 +12,9 @@ type WindowsChildLifetimeRuntime = {
 }
 
 type WindowsChildLifetimeModule = {
-  createWindowsChildProcessLifetimePlatform(
+  createWindowsChildProcessLifetimeAdapter(
     runtime: WindowsChildLifetimeRuntime,
-  ): ChildProcessLifetimePlatform
+  ): ChildProcessLifetimePlatformAdapter
   resolveWindowsChildLifetimeLauncherEntryUrl(): URL
 }
 
@@ -31,24 +31,26 @@ async function loadWindowsPlatform(): Promise<WindowsChildLifetimeModule> {
   return await import("@repo-edu/host-node/windows-child-lifetime")
 }
 
-export async function createCommandLineChildProcessLifetimeAdapter(
+export async function createCommandLineChildProcessLifetimeController(
   options: CommandLineChildProcessLifetimeOptions = {},
-): Promise<ChildProcessLifetimeAdapter> {
+): Promise<ChildProcessLifetimeController> {
   const runtimePlatform = options.runtimePlatform ?? process.platform
   if (runtimePlatform !== "win32") {
-    return createChildProcessLifetimeAdapter()
+    return createChildProcessLifetimeController()
   }
 
   const windowsModule = await (
     options.loadWindowsPlatform ?? loadWindowsPlatform
   )()
-  const windows = windowsModule.createWindowsChildProcessLifetimePlatform({
-    executablePath: options.executablePath ?? process.execPath,
-    launcherEntryPath: fileURLToPath(
-      options.launcherEntryUrl ??
-        windowsModule.resolveWindowsChildLifetimeLauncherEntryUrl(),
-    ),
-    runAsNode: false,
-  })
-  return createChildProcessLifetimeAdapter({ windows })
+  const windowsAdapter = windowsModule.createWindowsChildProcessLifetimeAdapter(
+    {
+      executablePath: options.executablePath ?? process.execPath,
+      launcherEntryPath: fileURLToPath(
+        options.launcherEntryUrl ??
+          windowsModule.resolveWindowsChildLifetimeLauncherEntryUrl(),
+      ),
+      runAsNode: false,
+    },
+  )
+  return createChildProcessLifetimeController({ windowsAdapter })
 }

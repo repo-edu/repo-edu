@@ -1,14 +1,14 @@
+export type { WindowsChildLifetimeRun } from "./windows-child-lifetime-proof.js"
+export { runWindowsChildLifetimeTarget } from "./windows-child-lifetime-proof.js"
 export type {
   WindowsChildLifetimeEvidence,
   WindowsChildLifetimeRuntime,
   WindowsLauncherReadinessEvidence,
-} from "./windows-child-lifetime-platform.js"
+} from "./windows-child-process-lifetime-adapter.js"
 export {
-  createWindowsChildProcessLifetimePlatform,
+  createWindowsChildProcessLifetimeAdapter,
   proveWindowsLauncherReadiness,
-} from "./windows-child-lifetime-platform.js"
-export type { WindowsChildLifetimeRun } from "./windows-child-lifetime-proof.js"
-export { runWindowsChildLifetimeTarget } from "./windows-child-lifetime-proof.js"
+} from "./windows-child-process-lifetime-adapter.js"
 export type { WindowsChildLifetimeTarget } from "./windows-launcher-protocol.js"
 
 export function resolveWindowsChildLifetimeLauncherEntryUrl(): URL {

@@ -1,4 +1,4 @@
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 
 export type CommandLineLifetimeProcess = Pick<
   NodeJS.Process,
@@ -9,7 +9,10 @@ export type CommandLineLifetimeProcess = Pick<
 }
 
 export type CommandLineLifetimeOptions = {
-  childProcessLifetime: Pick<ChildProcessLifetimeAdapter, "stopAndConfirm">
+  childProcessLifetimeController: Pick<
+    ChildProcessLifetimeController,
+    "stopAndConfirm"
+  >
   releaseProgramGate: () => void
   runtimeProcess?: CommandLineLifetimeProcess
 }
@@ -28,7 +31,7 @@ export async function runWithCommandLineLifetime(
 
   const stopAndRelease = (): Promise<void> => {
     shutdown ??= (async () => {
-      await options.childProcessLifetime.stopAndConfirm()
+      await options.childProcessLifetimeController.stopAndConfirm()
       options.releaseProgramGate()
     })()
     return shutdown

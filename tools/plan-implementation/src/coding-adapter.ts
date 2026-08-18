@@ -1,5 +1,5 @@
 import type { Readable, Writable } from "node:stream"
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   CancellationTokenSource,
   createMessageConnection,
@@ -76,16 +76,15 @@ function mappedHelperError(error: unknown): Error {
 }
 
 function defaultLaunch(
-  childLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
 ): CodingHelperLaunch {
   return async (request, signal) => {
     const helper = createCodingHelperCommand()
-    return await childLifetime.launch({
+    return await childProcessLifetimeController.launch({
       command: helper.command,
       args: helper.arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
-      route: "managed-helper",
       shell: false,
       ...(signal === undefined ? {} : { signal }),
     })
@@ -205,10 +204,10 @@ function createCodingRun(
 }
 
 export function createCodingAdapter(
-  childLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
   options: { readonly launch?: CodingHelperLaunch } = {},
 ): CodingAdapter {
-  const launch = options.launch ?? defaultLaunch(childLifetime)
+  const launch = options.launch ?? defaultLaunch(childProcessLifetimeController)
   return {
     async start(request, signal) {
       return createCodingRun(request, await launch(request, signal), signal)

@@ -1,17 +1,17 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import type { ChildProcessLifetimePlatform } from "@repo-edu/host-node/child-process-lifetime"
-import { createCommandLineChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import type { ChildProcessLifetimePlatformAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createCommandLineChildProcessLifetimeController } from "../child-process-lifetime.js"
 
-const unusedWindowsPlatform: ChildProcessLifetimePlatform = {
+const unusedWindowsPlatform: ChildProcessLifetimePlatformAdapter = {
   async launch() {
     throw new Error("The test Windows platform must not launch a target.")
   },
 }
 
 const unusedWindowsModule = {
-  createWindowsChildProcessLifetimePlatform() {
+  createWindowsChildProcessLifetimeAdapter() {
     return unusedWindowsPlatform
   },
   resolveWindowsChildLifetimeLauncherEntryUrl() {
@@ -19,11 +19,11 @@ const unusedWindowsModule = {
   },
 }
 
-describe("command-line child-process lifetime", () => {
+describe("command-line child-process controller", () => {
   it("keeps the Windows module unloaded on macOS and Linux", async () => {
     let windowsModuleLoaded = false
 
-    const adapter = await createCommandLineChildProcessLifetimeAdapter({
+    const controller = await createCommandLineChildProcessLifetimeController({
       runtimePlatform: "linux",
       async loadWindowsPlatform() {
         windowsModuleLoaded = true
@@ -32,7 +32,7 @@ describe("command-line child-process lifetime", () => {
     })
 
     assert.equal(windowsModuleLoaded, false)
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
   })
 
   it("builds the Windows platform from the fixed launcher entry", async () => {
@@ -44,12 +44,12 @@ describe("command-line child-process lifetime", () => {
     const executablePath = "C:\\Program Files\\nodejs\\node.exe"
     const launcherEntryUrl = pathToFileURL("/host-node/windows-launcher.cjs")
 
-    const adapter = await createCommandLineChildProcessLifetimeAdapter({
+    const controller = await createCommandLineChildProcessLifetimeController({
       executablePath,
       runtimePlatform: "win32",
       async loadWindowsPlatform() {
         return {
-          createWindowsChildProcessLifetimePlatform(runtime) {
+          createWindowsChildProcessLifetimeAdapter(runtime) {
             runtimes.push(runtime)
             return unusedWindowsPlatform
           },
@@ -67,19 +67,19 @@ describe("command-line child-process lifetime", () => {
         runAsNode: false,
       },
     ])
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
   })
 
   it("accepts an explicit fixed launcher entry", async () => {
     const launcherEntryUrl = pathToFileURL("/fixed/windows-launcher.cjs")
     let launcherEntryPath = ""
 
-    await createCommandLineChildProcessLifetimeAdapter({
+    await createCommandLineChildProcessLifetimeController({
       launcherEntryUrl,
       runtimePlatform: "win32",
       async loadWindowsPlatform() {
         return {
-          createWindowsChildProcessLifetimePlatform(runtime) {
+          createWindowsChildProcessLifetimeAdapter(runtime) {
             launcherEntryPath = runtime.launcherEntryPath
             return unusedWindowsPlatform
           },

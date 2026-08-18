@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream"
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import type { PlanImplementationStep, PlanMachineProof } from "./contracts.js"
 
 const commandOutputLimit = 16 * 1024 * 1024
@@ -63,16 +63,15 @@ async function collectOutput(stream: Readable): Promise<string> {
 }
 
 export function createStepCommandExecutor(
-  childLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
 ): StepCommandExecutor {
   return {
     async run(request) {
-      const child = await childLifetime.launch({
+      const child = await childProcessLifetimeController.launch({
         command: request.program,
         args: request.arguments,
         cwd: request.cwd,
         env: { ...process.env },
-        route: "direct-adapter",
         shell: false,
         ...(request.signal === undefined ? {} : { signal: request.signal }),
       })

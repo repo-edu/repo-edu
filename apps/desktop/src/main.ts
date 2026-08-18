@@ -27,14 +27,14 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   createExaminationArchiveStorage,
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
 } from "@repo-edu/host-node/examination-archive"
 import {
-  createWindowsChildProcessLifetimePlatform,
+  createWindowsChildProcessLifetimeAdapter,
   resolveWindowsChildLifetimeLauncherEntryUrl,
 } from "@repo-edu/host-node/windows-child-lifetime"
 import type {
@@ -138,10 +138,10 @@ const codexHelperCommand = createDesktopCodexHelperCommand({
   executablePath: process.execPath,
 })
 const desktopHost = createDesktopHostEnvironment()
-const childProcessLifetime = createChildProcessLifetimeAdapter({
-  windows:
+const childProcessLifetimeController = createChildProcessLifetimeController({
+  windowsAdapter:
     process.platform === "win32"
-      ? createWindowsChildProcessLifetimePlatform({
+      ? createWindowsChildProcessLifetimeAdapter({
           executablePath: process.execPath,
           launcherEntryPath: app.isPackaged
             ? join(
@@ -156,7 +156,7 @@ const childProcessLifetime = createChildProcessLifetimeAdapter({
 })
 const nodeHttpPort = createNodeHttpPort()
 const nodeGitCommandPort = createNodeGitCommandPort(
-  createNodeProcessPort(childProcessLifetime),
+  createNodeProcessPort(childProcessLifetimeController),
 )
 const nodeFileSystemPort = createNodeFileSystemPort()
 const nodeTokenizerPort = createNodeTokenizerPort()
@@ -164,7 +164,7 @@ const nodeTokenizerPort = createNodeTokenizerPort()
 // active LLM connection or its credentials change so a settings save reaches
 // the next workflow invocation without recreating the tRPC router.
 let activeLlmPort: LlmPort = createNodeLlmPort(
-  childProcessLifetime,
+  childProcessLifetimeController,
   undefined,
   { codexHelper: codexHelperCommand },
 )
@@ -204,7 +204,7 @@ export function createDraftLlmTextClient(draft: {
   maxTokens?: number
 }): LlmTextClient {
   const config = configForDraft(draft)
-  return createNodeLlmTextClient(childProcessLifetime, config, {
+  return createNodeLlmTextClient(childProcessLifetimeController, config, {
     codexHelper: codexHelperCommand,
   })
 }
@@ -260,7 +260,7 @@ function rebuildLlmPort(settings: PersistedAppCredentials | null): void {
   const resolved = settings ?? defaultAppCredentials
   activeLlmCredentialsKey = llmCredentialsSubsetKey(resolved)
   activeLlmPort = createNodeLlmPort(
-    childProcessLifetime,
+    childProcessLifetimeController,
     configFromSettings(resolved),
     { codexHelper: codexHelperCommand },
   )
@@ -1090,7 +1090,7 @@ function reportProgramGateFailure(message: string): void {
 async function bootstrapDesktop(): Promise<void> {
   if (isChildLifetimeArtifactProbe()) {
     await runChildLifetimeArtifactProbe({
-      childProcessLifetime,
+      childProcessLifetimeController,
       codexHelperCommand,
       resourcesPath: process.resourcesPath,
       executablePath: process.execPath,

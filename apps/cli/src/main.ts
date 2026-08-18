@@ -12,8 +12,8 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
-import { createCommandLineChildProcessLifetimeAdapter } from "./child-process-lifetime.js"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import { createCommandLineChildProcessLifetimeController } from "./child-process-lifetime.js"
 import { createProgram } from "./cli.js"
 import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
 
@@ -50,25 +50,25 @@ async function runCli(): Promise<void> {
     return
   }
 
-  const childProcessLifetime =
-    await createCommandLineChildProcessLifetimeAdapter()
+  const childProcessLifetimeController =
+    await createCommandLineChildProcessLifetimeController()
   let childLifetimeStopConfirmed = false
-  const observedChildProcessLifetime: ChildProcessLifetimeAdapter =
+  const observedChildProcessLifetimeController: ChildProcessLifetimeController =
     childLifetimeArtifactProbe
       ? {
-          launch: childProcessLifetime.launch,
+          launch: childProcessLifetimeController.launch,
           async stopAndConfirm() {
-            await childProcessLifetime.stopAndConfirm()
+            await childProcessLifetimeController.stopAndConfirm()
             childLifetimeStopConfirmed = true
           },
         }
-      : childProcessLifetime
+      : childProcessLifetimeController
   let childLifetimeRun:
     | Awaited<ReturnType<typeof startChildProcessLifetimeArtifactProbe>>
     | undefined
   await runWithCommandLineLifetime(
     {
-      childProcessLifetime: observedChildProcessLifetime,
+      childProcessLifetimeController: observedChildProcessLifetimeController,
       releaseProgramGate() {
         if (childLifetimeArtifactProbe && !childLifetimeStopConfirmed) {
           throw new Error(
@@ -86,12 +86,12 @@ async function runCli(): Promise<void> {
       }
       if (childLifetimeArtifactProbe) {
         childLifetimeRun = await startChildProcessLifetimeArtifactProbe(
-          observedChildProcessLifetime,
+          observedChildProcessLifetimeController,
         )
         return
       }
       await createProgram({
-        childProcessLifetime: observedChildProcessLifetime,
+        childProcessLifetimeController: observedChildProcessLifetimeController,
         signal,
         storageRoot,
       }).parseAsync(process.argv)

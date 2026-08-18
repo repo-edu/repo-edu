@@ -14,8 +14,8 @@ import type {
   LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
 import type {
-  ChildProcessLifetimeAdapter,
-  OwnedChildProcess,
+  ChildProcessLifetimeController,
+  OwnedChildProcessTree,
 } from "./child-process-lifetime.js"
 import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
@@ -42,15 +42,14 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 }
 
 function createClaudeCliLaunch(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
 ): ClaudeCliLaunch {
   return async (request) => {
-    return await childProcessLifetime.launch({
+    return await childProcessLifetimeController.launch({
       command: request.command,
       args: request.args,
       cwd: request.cwd,
       env: request.env,
-      route: "direct-adapter",
       shell: request.shell,
       signal: request.signal,
     })
@@ -70,36 +69,39 @@ function buildCodexHelperEnvironment(
 }
 
 export async function launchNodeCodexHelper(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
   command: NodeCodexHelperCommand,
   startupSignal: AbortSignal,
-): Promise<OwnedChildProcess> {
-  return await childProcessLifetime.launch({
+): Promise<OwnedChildProcessTree> {
+  return await childProcessLifetimeController.launch({
     command: command.command,
     args: command.args,
     cwd: command.cwd,
     env: buildCodexHelperEnvironment(command),
-    route: "managed-helper",
     signal: startupSignal,
   })
 }
 
 function createCodexHelperLaunch(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
   command: NodeCodexHelperCommand,
 ): NonNullable<CreateLlmTextClientOptions["codexHelper"]>["launch"] {
   return async (startupSignal) =>
-    await launchNodeCodexHelper(childProcessLifetime, command, startupSignal)
+    await launchNodeCodexHelper(
+      childProcessLifetimeController,
+      command,
+      startupSignal,
+    )
 }
 
 export function createNodeLlmTextClient(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
   config?: LlmRuntimeConfig,
   options?: CreateNodeLlmTextClientOptions,
 ): LlmTextClient {
   return createLlmTextClient(config, {
     claudeCli: {
-      launch: createClaudeCliLaunch(childProcessLifetime),
+      launch: createClaudeCliLaunch(childProcessLifetimeController),
       executable: options?.claudeCliExecutable,
     },
     codexHelper:
@@ -107,7 +109,7 @@ export function createNodeLlmTextClient(
         ? undefined
         : {
             launch: createCodexHelperLaunch(
-              childProcessLifetime,
+              childProcessLifetimeController,
               options.codexHelper,
             ),
           },
@@ -116,16 +118,20 @@ export function createNodeLlmTextClient(
 }
 
 export function createNodeLlmPort(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
   config?: LlmRuntimeConfig,
   options?: CreateNodeLlmTextClientOptions,
 ): LlmPort {
-  const client = createNodeLlmTextClient(childProcessLifetime, config, options)
+  const client = createNodeLlmTextClient(
+    childProcessLifetimeController,
+    config,
+    options,
+  )
   const clientForRequest = (request: LlmRunRequest) =>
     request.runtimeConfig === undefined
       ? client
       : createNodeLlmTextClient(
-          childProcessLifetime,
+          childProcessLifetimeController,
           mergeLlmRuntimeConfig(
             config,
             request.runtimeConfig as LlmRuntimeConfig,

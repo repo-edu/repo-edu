@@ -11,8 +11,8 @@ import {
   waitForLaunchStop,
 } from "../child-process-launch-stop.js"
 import {
-  type ChildProcessLifetimePlatform,
-  createChildProcessLifetimeAdapter,
+  type ChildProcessLifetimePlatformAdapter,
+  createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
 import {
   finishChildProcessLifetimeArtifactProbe,
@@ -72,7 +72,7 @@ describe("pending child-process launches", () => {
       "platform",
     )
     let pendingStopSignal: AbortSignal | undefined
-    const windows: ChildProcessLifetimePlatform = {
+    const windowsAdapter: ChildProcessLifetimePlatformAdapter = {
       launch(_request, stopSignal) {
         pendingStopSignal = stopSignal
         return new Promise((_resolve, reject) => {
@@ -92,17 +92,18 @@ describe("pending child-process launches", () => {
         ...platformDescriptor,
         value: "win32",
       })
-      const adapter = createChildProcessLifetimeAdapter({ windows })
-      const launch = adapter.launch({
+      const controller = createChildProcessLifetimeController({
+        windowsAdapter,
+      })
+      const launch = controller.launch({
         command: "pending-target",
-        route: "direct-adapter",
       })
       const launchRejected = assert.rejects(
         launch,
         /pending child-process launch was stopped/,
       )
 
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
 
       assert.equal(pendingStopSignal?.aborted, true)
       await launchRejected
@@ -119,7 +120,7 @@ describe("pending child-process launches", () => {
       "platform",
     )
     const cleanupFailure = new Error("pending cleanup was not confirmed")
-    const windows: ChildProcessLifetimePlatform = {
+    const windowsAdapter: ChildProcessLifetimePlatformAdapter = {
       launch(_request, stopSignal) {
         return new Promise((_resolve, reject) => {
           stopSignal.addEventListener(
@@ -138,10 +139,11 @@ describe("pending child-process launches", () => {
         ...platformDescriptor,
         value: "win32",
       })
-      const adapter = createChildProcessLifetimeAdapter({ windows })
-      const launch = adapter.launch({
+      const controller = createChildProcessLifetimeController({
+        windowsAdapter,
+      })
+      const launch = controller.launch({
         command: "pending-target",
-        route: "direct-adapter",
       })
       const launchRejected = assert.rejects(
         launch,
@@ -149,7 +151,7 @@ describe("pending child-process launches", () => {
       )
 
       await assert.rejects(
-        adapter.stopAndConfirm(),
+        controller.stopAndConfirm(),
         (error) => error === cleanupFailure,
       )
       await launchRejected
@@ -173,15 +175,14 @@ describe("child-process cancellation", () => {
     }>()
     let stopRequests = 0
     let stopConfirmations = 0
-    const windows: ChildProcessLifetimePlatform = {
-      async launch(request) {
+    const windowsAdapter: ChildProcessLifetimePlatformAdapter = {
+      async launch(_request) {
         const input = new PassThrough()
         const requestStop = () => {
           stopRequests += 1
           input.end()
         }
         return {
-          route: request.route,
           stdin: input,
           stdout: new PassThrough(),
           stderr: new PassThrough(),
@@ -200,15 +201,16 @@ describe("child-process cancellation", () => {
         ...platformDescriptor,
         value: "win32",
       })
-      const controller = new AbortController()
-      const adapter = createChildProcessLifetimeAdapter({ windows })
-      const run = await adapter.launch({
+      const abortController = new AbortController()
+      const controller = createChildProcessLifetimeController({
+        windowsAdapter,
+      })
+      const run = await controller.launch({
         command: "waiting-target",
-        route: "direct-adapter",
-        signal: controller.signal,
+        signal: abortController.signal,
       })
 
-      controller.abort()
+      abortController.abort()
       assert.deepEqual(await run.result, { exitCode: 0, signal: null })
       assert.equal(stopRequests, 1)
       assert.equal(stopConfirmations, 1)
@@ -220,19 +222,18 @@ describe("child-process cancellation", () => {
   })
 })
 
-describe("child-process lifetime adapter", {
+describe("child-process controller controller", {
   skip: !supportsProcessGroups,
 }, () => {
   it("holds the direct result until an outliving grandchild is stopped", async (context) => {
     const marker = await markerPath("outliving-grandchild.txt")
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const run = await adapter.launch({
+    const run = await controller.launch({
       command: process.execPath,
       args: [fixturePath, "parent-exits", marker],
-      route: "direct-adapter",
     })
 
     const result = await run.result
@@ -247,14 +248,13 @@ describe("child-process lifetime adapter", {
 
   it("holds a managed helper result until its SDK child and tool descendant are stopped", async (context) => {
     const marker = await markerPath("managed-helper-descendants.txt")
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const run = await adapter.launch({
+    const run = await controller.launch({
       command: process.execPath,
       args: [fixturePath, "managed-helper-exits", marker],
-      route: "managed-helper",
     })
 
     const result = await run.result
@@ -270,20 +270,19 @@ describe("child-process lifetime adapter", {
 
   it("addresses cancellation to the whole process group", async (context) => {
     const marker = await markerPath("cancelled-tree.txt")
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const controller = new AbortController()
-    const run = await adapter.launch({
+    const abortController = new AbortController()
+    const run = await controller.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", marker],
-      route: "direct-adapter",
-      signal: controller.signal,
+      signal: abortController.signal,
     })
     await waitUntilReady(run.stdout)
 
-    controller.abort()
+    abortController.abort()
     await run.result
 
     const content = await readMarker(marker)
@@ -294,63 +293,59 @@ describe("child-process lifetime adapter", {
   it("stops every registered direct and managed-helper tree", async (context) => {
     const directMarker = await markerPath("direct-tree.txt")
     const helperMarker = await markerPath("helper-tree.txt")
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const direct = await adapter.launch({
+    const direct = await controller.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", directMarker],
-      route: "direct-adapter",
     })
-    const helper = await adapter.launch({
+    const helper = await controller.launch({
       command: process.execPath,
       args: [fixturePath, "tree-waits", helperMarker],
-      route: "managed-helper",
     })
     await Promise.all([
       waitUntilReady(direct.stdout),
       waitUntilReady(helper.stdout),
     ])
 
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
     await Promise.all([direct.result, helper.result])
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
 
     assert.match(await readMarker(directMarker), /grandchild-stopped/)
     assert.match(await readMarker(helperMarker), /grandchild-stopped/)
     await assert.rejects(
       async () =>
-        adapter.launch({
+        controller.launch({
           command: process.execPath,
-          route: "direct-adapter",
         }),
-      /adapter is stopped/,
+      /controller is stopped/,
     )
   })
 
-  it("proves the artifact target through the shared adapter contract", async () => {
+  it("proves the artifact target through the shared controller contract", async () => {
     const marker = await markerPath("artifact-probe.txt")
-    const adapter = createChildProcessLifetimeAdapter()
-    const run = await startChildProcessLifetimeArtifactProbe(adapter, {
+    const controller = createChildProcessLifetimeController()
+    const run = await startChildProcessLifetimeArtifactProbe(controller, {
       fixturePath,
       markerPath: marker,
       runtimePath: process.execPath,
     })
 
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
 
     assert.deepEqual(await finishChildProcessLifetimeArtifactProbe(run), {
-      directAdapterRoute: true,
       ownedDescendantStopped: true,
       ownedDescendantStable: true,
     })
   })
 
   it("gives the target the supplied environment as its whole environment", async (context) => {
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
     const hostOnly = "REPO_EDU_ENV_REPLACEMENT_HOST_ONLY"
     process.env[hostOnly] = "host"
@@ -360,11 +355,10 @@ describe("child-process lifetime adapter", {
     const supplied = { ...process.env }
     delete supplied[hostOnly]
 
-    const child = await adapter.launch({
+    const child = await controller.launch({
       command: process.execPath,
       args: ["-e", `process.stdout.write(String(process.env.${hostOnly}))`],
       env: supplied,
-      route: "direct-adapter",
     })
     child.stdin.end()
     child.stdout.setEncoding("utf8")
@@ -390,15 +384,14 @@ describe("child-process lifetime adapter", {
   })
 
   it("refuses an already-cancelled launch before creating a tree", async () => {
-    const controller = new AbortController()
-    controller.abort()
+    const abortController = new AbortController()
+    abortController.abort()
 
     await assert.rejects(
       async () =>
-        createChildProcessLifetimeAdapter().launch({
+        createChildProcessLifetimeController().launch({
           command: process.execPath,
-          route: "direct-adapter",
-          signal: controller.signal,
+          signal: abortController.signal,
         }),
       (error) => error instanceof DOMException && error.name === "AbortError",
     )
@@ -406,20 +399,19 @@ describe("child-process lifetime adapter", {
 
   it("keeps launch failure in the command result", async (context) => {
     const missingExecutable = await markerPath("missing-executable")
-    const adapter = createChildProcessLifetimeAdapter()
+    const controller = createChildProcessLifetimeController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
 
-    const run = await adapter.launch({
+    const run = await controller.launch({
       command: missingExecutable,
-      route: "direct-adapter",
     })
 
     await assert.rejects(
       run.result,
       (error: NodeJS.ErrnoException) => error.code === "ENOENT",
     )
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
   })
 })

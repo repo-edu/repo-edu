@@ -1,5 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { Command } from "commander"
 import pkg from "../package.json" with { type: "json" }
 import { registerCourseCommands } from "./commands/course.js"
@@ -13,7 +13,7 @@ import { createCliWorkflowClient } from "./workflow-runtime.js"
 // Every caller supplies the child-lifetime adapter it owns and stops. The
 // program never builds a lifetime owner of its own.
 export type CreateProgramOptions = {
-  childProcessLifetime: ChildProcessLifetimeAdapter
+  childProcessLifetimeController: ChildProcessLifetimeController
   createWorkflowClient?: () => WorkflowClient
   signal?: AbortSignal
   storageRoot?: string
@@ -24,7 +24,7 @@ export function createProgram(options: CreateProgramOptions): Command {
     options.createWorkflowClient ??
     (() =>
       createCliWorkflowClient({
-        childProcessLifetime: options.childProcessLifetime,
+        childProcessLifetimeController: options.childProcessLifetimeController,
         signal: options.signal,
         storageRoot: options.storageRoot,
       }))

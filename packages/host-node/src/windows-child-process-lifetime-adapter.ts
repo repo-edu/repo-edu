@@ -8,10 +8,9 @@ import {
   throwIfLaunchStopRequested,
   waitForLaunchStop,
 } from "./child-process-launch-stop.js"
+import type { OwnedChildProcessTree } from "./child-process-lifetime.js"
 import {
-  type ChildProcessLifetimeLaunch,
-  type ChildProcessLifetimePlatform,
-  type ChildProcessLifetimePlatformTree,
+  type ChildProcessLifetimePlatformAdapter,
   type ChildProcessLifetimeResult,
   ChildProcessOutcomeUnknownError,
   childProcessStopGracePeriodMs,
@@ -82,7 +81,7 @@ type LaunchedWindowsTarget = {
   readonly evidence: WindowsChildLifetimeEvidence & {
     readonly targetAdmittedAfterAssignment: true
   }
-  readonly tree: ChildProcessLifetimePlatformTree
+  readonly tree: OwnedChildProcessTree
 }
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -585,10 +584,7 @@ async function monitorTerminalResult(
 
 export async function launchAssignedTarget(
   runtime: WindowsChildLifetimeRuntime,
-  target: WindowsChildLifetimeTarget & {
-    readonly route: ChildProcessLifetimeLaunch["route"]
-    readonly signal?: AbortSignal
-  },
+  target: WindowsChildLifetimeTarget & { readonly signal?: AbortSignal },
   pendingStopSignal?: AbortSignal,
 ): Promise<LaunchedWindowsTarget> {
   const pendingStopSignals = [pendingStopSignal]
@@ -646,7 +642,6 @@ export async function launchAssignedTarget(
         targetAdmittedAfterAssignment: true,
       },
       tree: {
-        route: target.route,
         stdin: requiredInput(launcher.child),
         stdout: requiredOutput(launcher.child),
         stderr: requiredErrorOutput(launcher.child),
@@ -673,9 +668,9 @@ export async function launchAssignedTarget(
   }
 }
 
-export function createWindowsChildProcessLifetimePlatform(
+export function createWindowsChildProcessLifetimeAdapter(
   runtime: WindowsChildLifetimeRuntime,
-): ChildProcessLifetimePlatform {
+): ChildProcessLifetimePlatformAdapter {
   return {
     async launch(request, pendingStopSignal) {
       return (
@@ -686,7 +681,6 @@ export function createWindowsChildProcessLifetimePlatform(
             args: request.args,
             cwd: request.cwd,
             env: request.env,
-            route: request.route,
             shell: request.shell,
             signal: request.signal,
           },

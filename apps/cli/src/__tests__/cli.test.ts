@@ -14,7 +14,7 @@ import {
   splitAppSettings,
 } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   applyFixtureSourceOverlay,
   type FixtureSource,
@@ -48,9 +48,9 @@ async function runCli(
 }> {
   // This caller owns the adapter it passes and stops it below, which is the
   // whole reason `createProgram` refuses to make one of its own.
-  const childProcessLifetime = createChildProcessLifetimeAdapter()
+  const childProcessLifetimeController = createChildProcessLifetimeController()
   const program = createProgram({
-    childProcessLifetime,
+    childProcessLifetimeController,
     ...(options?.storageRoot ? { storageRoot: options.storageRoot } : {}),
     ...(options?.workflowClient
       ? { createWorkflowClient: () => options.workflowClient as WorkflowClient }
@@ -87,7 +87,7 @@ async function runCli(
   } finally {
     process.stdout.write = previousStdoutWrite
     process.stderr.write = previousStderrWrite
-    await childProcessLifetime.stopAndConfirm()
+    await childProcessLifetimeController.stopAndConfirm()
   }
 
   const exitCode = process.exitCode ?? 0
@@ -273,7 +273,7 @@ describe("CLI command tree", () => {
     )
 
     const help = createProgram({
-      childProcessLifetime: createChildProcessLifetimeAdapter(),
+      childProcessLifetimeController: createChildProcessLifetimeController(),
     }).helpInformation()
     assert.equal(normalize(help), normalize(golden))
   })

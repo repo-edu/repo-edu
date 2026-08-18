@@ -7,7 +7,7 @@ import type { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { resolveWindowsChildLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
-import { buildWindowsLauncherEnvironment } from "../windows-child-lifetime-platform.js"
+import { buildWindowsLauncherEnvironment } from "../windows-child-process-lifetime-adapter.js"
 import {
   createWindowsLaunchCommand,
   parseWindowsLauncherMessage,

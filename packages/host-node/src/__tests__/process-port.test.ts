@@ -4,10 +4,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
 import {
-  createWindowsChildProcessLifetimePlatform,
+  createWindowsChildProcessLifetimeAdapter,
   resolveWindowsChildLifetimeLauncherEntryUrl,
 } from "../windows-child-lifetime.js"
 
@@ -21,14 +21,14 @@ const windowsLauncherEntryPath = fileURLToPath(
 function createProcessPort() {
   const windowsPlatformAdapter =
     process.platform === "win32"
-      ? createWindowsChildProcessLifetimePlatform({
+      ? createWindowsChildProcessLifetimeAdapter({
           executablePath: process.execPath,
           launcherEntryPath: windowsLauncherEntryPath,
           runAsNode: false,
         })
       : undefined
-  const controller = createChildProcessLifetimeAdapter({
-    windows: windowsPlatformAdapter,
+  const controller = createChildProcessLifetimeController({
+    windowsAdapter: windowsPlatformAdapter,
   })
   return createNodeProcessPort(controller)
 }
@@ -46,13 +46,13 @@ async function waitForMarker(path: string, pattern: RegExp): Promise<void> {
 describe("createNodeProcessPort", () => {
   it("keeps cancellation distinct before launch", async () => {
     const processPort = createProcessPort()
-    const controller = new AbortController()
-    controller.abort()
+    const abortController = new AbortController()
+    abortController.abort()
 
     await assert.rejects(
       processPort.run({
         command: process.execPath,
-        signal: controller.signal,
+        signal: abortController.signal,
       }),
       (error) => error instanceof DOMException && error.name === "AbortError",
     )
@@ -148,7 +148,7 @@ describe("createNodeProcessPort", () => {
     skip: process.platform !== "darwin" && process.platform !== "linux",
   }, async () => {
     const processPort = createProcessPort()
-    const controller = new AbortController()
+    const abortController = new AbortController()
 
     const runPromise = processPort.run({
       command: process.execPath,
@@ -159,11 +159,11 @@ describe("createNodeProcessPort", () => {
           "setInterval(() => {}, 1_000)",
         ].join("; "),
       ],
-      signal: controller.signal,
+      signal: abortController.signal,
     })
 
     setTimeout(() => {
-      controller.abort()
+      abortController.abort()
     }, 50)
 
     const startedAt = Date.now()
@@ -184,17 +184,17 @@ describe("createNodeProcessPort", () => {
   }, async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-process-port-"))
     const marker = join(root, "cancelled-descendant.txt")
-    const controller = new AbortController()
+    const abortController = new AbortController()
     try {
       const processPort = createProcessPort()
       const run = processPort.run({
         command: process.execPath,
         args: [childTreeFixture, "tree-waits", marker],
-        signal: controller.signal,
+        signal: abortController.signal,
       })
       await waitForMarker(marker, /grandchild-started/)
 
-      controller.abort()
+      abortController.abort()
       await run
 
       const contentAtResult = await readFile(marker, "utf8")

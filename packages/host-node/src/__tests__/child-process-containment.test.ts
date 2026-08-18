@@ -6,17 +6,17 @@ import { Readable } from "node:stream"
 import { afterEach, describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import type {
-  ChildProcessLifetimeAdapter,
-  ChildProcessLifetimePlatformTree,
+  ChildProcessLifetimeController,
+  OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
 import {
   ChildProcessOutcomeUnknownError,
   childProcessStopGracePeriodMs,
-  createChildProcessLifetimeAdapter,
+  createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
 import {
-  createWindowsChildProcessLifetimePlatform,
+  createWindowsChildProcessLifetimeAdapter,
   proveWindowsLauncherReadiness,
   resolveWindowsChildLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
@@ -35,7 +35,7 @@ const windowsLauncherStallEnvironmentVariable =
   "REPO_EDU_WINDOWS_LAUNCHER_STALL"
 const windowsLauncherStallMarkerEnvironmentVariable =
   "REPO_EDU_WINDOWS_LAUNCHER_STALL_MARKER"
-const supportsAdapter =
+const supportsController =
   process.platform === "darwin" ||
   process.platform === "linux" ||
   process.platform === "win32"
@@ -116,28 +116,26 @@ async function assertMarkerStable(path: string): Promise<void> {
   assert.equal(await readMarker(path), content)
 }
 
-function createAdapter(): ChildProcessLifetimeAdapter {
-  const windows =
+function createController(): ChildProcessLifetimeController {
+  const windowsAdapter =
     process.platform === "win32"
-      ? createWindowsChildProcessLifetimePlatform({
+      ? createWindowsChildProcessLifetimeAdapter({
           executablePath: process.execPath,
           launcherEntryPath: windowsLauncherEntryPath,
           runAsNode: false,
         })
       : undefined
-  return createChildProcessLifetimeAdapter({ windows })
+  return createChildProcessLifetimeController({ windowsAdapter })
 }
 
 async function launchTree(
-  adapter: ChildProcessLifetimeAdapter,
+  controller: ChildProcessLifetimeController,
   mode: string,
   marker: string,
-  route: "direct-adapter" | "managed-helper" = "direct-adapter",
-): Promise<ChildProcessLifetimePlatformTree> {
-  return await adapter.launch({
+): Promise<OwnedChildProcessTree> {
+  return await controller.launch({
     command: process.execPath,
     args: [fixturePath, mode, marker],
-    route,
   })
 }
 
@@ -146,11 +144,11 @@ function processIds(content: string): number[] {
 }
 
 function createLocalOutputFailure(
-  adapter: ChildProcessLifetimeAdapter,
-): ChildProcessLifetimeAdapter {
+  controller: ChildProcessLifetimeController,
+): ChildProcessLifetimeController {
   return {
     async launch(request) {
-      const tree = await adapter.launch(request)
+      const tree = await controller.launch(request)
       let reading = false
       const stdout = new Readable({
         read() {
@@ -166,7 +164,7 @@ function createLocalOutputFailure(
       })
       return { ...tree, stdout }
     },
-    stopAndConfirm: adapter.stopAndConfirm,
+    stopAndConfirm: controller.stopAndConfirm,
   }
 }
 
@@ -179,15 +177,15 @@ afterEach(async () => {
   temporaryRoots.clear()
 })
 
-describe("child-process containment", { skip: !supportsAdapter }, () => {
+describe("child-process containment", { skip: !supportsController }, () => {
   it("freezes a changing descendant before reporting normal completion", async (context) => {
     const marker = await markerPath("normal-completion.txt")
-    const adapter = createAdapter()
+    const controller = createController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
 
-    const tree = await launchTree(adapter, "tree-completes", marker)
+    const tree = await launchTree(controller, "tree-completes", marker)
 
     assert.deepEqual(await tree.result, { exitCode: 0, signal: null })
     await assertMarkerStable(marker)
@@ -195,13 +193,13 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
 
   it("stops an outliving descendant that inherits target output", async (context) => {
     const marker = await markerPath("inherited-output.txt")
-    const adapter = createAdapter()
+    const controller = createController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
 
     const tree = await launchTree(
-      adapter,
+      controller,
       "parent-exits-inherited-output",
       marker,
     )
@@ -221,11 +219,11 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
 
   it("freezes a changing descendant after a requested stop", async (context) => {
     const marker = await markerPath("requested-stop.txt")
-    const adapter = createAdapter()
+    const controller = createController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const tree = await launchTree(adapter, "tree-waits", marker)
+    const tree = await launchTree(controller, "tree-waits", marker)
     await waitForMarker(marker, /grandchild-tick/)
 
     await tree.stopAndConfirm()
@@ -236,11 +234,11 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
 
   it("forces an uncooperative changing tree to stop", async (context) => {
     const marker = await markerPath("forced-stop.txt")
-    const adapter = createAdapter()
+    const controller = createController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const tree = await launchTree(adapter, "tree-ignores-stop", marker)
+    const tree = await launchTree(controller, "tree-ignores-stop", marker)
     await waitForMarker(marker, /grandchild-ignores-stop-tick/)
 
     await tree.stopAndConfirm()
@@ -258,11 +256,13 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
 
   it("stops a changing tree before reporting a local stream failure", async (context) => {
     const marker = await markerPath("local-failure.txt")
-    const adapter = createAdapter()
+    const controller = createController()
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
-    const processPort = createNodeProcessPort(createLocalOutputFailure(adapter))
+    const processPort = createNodeProcessPort(
+      createLocalOutputFailure(controller),
+    )
 
     await assert.rejects(
       processPort.run({
@@ -277,27 +277,22 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
   })
 
   for (const proof of [
-    { label: "Git", mode: "tree-waits", route: "direct-adapter" as const },
-    {
-      label: "Claude",
-      mode: "tree-waits",
-      route: "direct-adapter" as const,
-    },
+    { label: "Git", mode: "tree-waits" },
+    { label: "Claude", mode: "tree-waits" },
     {
       label: "Codex",
       mode: "managed-helper-tree-waits",
-      route: "managed-helper" as const,
     },
   ]) {
     it(`keeps every ${proof.label} descendant in its process group`, {
       skip: !supportsProcessGroups,
     }, async (context) => {
       const marker = await markerPath(`${proof.label.toLowerCase()}-group.txt`)
-      const adapter = createAdapter()
+      const controller = createController()
       context.after(async () => {
-        await adapter.stopAndConfirm()
+        await controller.stopAndConfirm()
       })
-      const tree = await launchTree(adapter, proof.mode, marker, proof.route)
+      const tree = await launchTree(controller, proof.mode, marker)
       const content = await waitForMarker(
         marker,
         proof.label === "Codex" ? /tool-descendant-tick/ : /grandchild-tick/,
@@ -377,23 +372,22 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     process.env[windowsLauncherStallEnvironmentVariable] = "readiness"
     process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
-    const adapter = createChildProcessLifetimeAdapter({
-      windows: createWindowsChildProcessLifetimePlatform({
+    const controller = createChildProcessLifetimeController({
+      windowsAdapter: createWindowsChildProcessLifetimeAdapter({
         executablePath: process.execPath,
         launcherEntryPath: stalledWindowsLauncherEntryPath,
         runAsNode: false,
       }),
     })
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
 
     try {
-      const controller = new AbortController()
-      const launch = adapter.launch({
+      const abortController = new AbortController()
+      const launch = controller.launch({
         command: process.execPath,
-        route: "direct-adapter",
-        signal: controller.signal,
+        signal: abortController.signal,
       })
       await waitForMarker(marker, /readiness-pending/)
       const launchRejected = assert.rejects(
@@ -401,13 +395,13 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
         (error) => error instanceof DOMException && error.name === "AbortError",
       )
 
-      controller.abort()
+      abortController.abort()
 
       await completeWithin(
         launchRejected,
         childProcessStopGracePeriodMs + 2_000,
       )
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     } finally {
       restoreEnvironmentVariable(
         windowsLauncherStallEnvironmentVariable,
@@ -430,23 +424,22 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
     process.env[windowsLauncherStallEnvironmentVariable] = "target-start"
     process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
-    const adapter = createChildProcessLifetimeAdapter({
-      windows: createWindowsChildProcessLifetimePlatform({
+    const controller = createChildProcessLifetimeController({
+      windowsAdapter: createWindowsChildProcessLifetimeAdapter({
         executablePath: process.execPath,
         launcherEntryPath: stalledWindowsLauncherEntryPath,
         runAsNode: false,
       }),
     })
     context.after(async () => {
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     })
 
     try {
-      const controller = new AbortController()
-      const launch = adapter.launch({
+      const abortController = new AbortController()
+      const launch = controller.launch({
         command: process.execPath,
-        route: "direct-adapter",
-        signal: controller.signal,
+        signal: abortController.signal,
       })
       await waitForMarker(marker, /target-start-pending/)
       const launchRejected = assert.rejects(
@@ -454,13 +447,13 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
         ChildProcessOutcomeUnknownError,
       )
 
-      controller.abort()
+      abortController.abort()
 
       await completeWithin(
         launchRejected,
         childProcessStopGracePeriodMs + 2_000,
       )
-      await adapter.stopAndConfirm()
+      await controller.stopAndConfirm()
     } finally {
       restoreEnvironmentVariable(
         windowsLauncherStallEnvironmentVariable,
@@ -495,27 +488,26 @@ describe("child-process containment", { skip: !supportsAdapter }, () => {
       process.env[windowsLauncherStallEnvironmentVariable] = pendingPhase.mode
       process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
 
-      const adapter = createChildProcessLifetimeAdapter({
-        windows: createWindowsChildProcessLifetimePlatform({
+      const controller = createChildProcessLifetimeController({
+        windowsAdapter: createWindowsChildProcessLifetimeAdapter({
           executablePath: process.execPath,
           launcherEntryPath: stalledWindowsLauncherEntryPath,
           runAsNode: false,
         }),
       })
       context.after(async () => {
-        await adapter.stopAndConfirm()
+        await controller.stopAndConfirm()
       })
 
       try {
-        const launch = adapter.launch({
+        const launch = controller.launch({
           command: process.execPath,
-          route: "direct-adapter",
         })
         await waitForMarker(marker, pendingPhase.marker)
         const launchRejected = assert.rejects(launch, pendingPhase.error)
 
         await completeWithin(
-          adapter.stopAndConfirm(),
+          controller.stopAndConfirm(),
           childProcessStopGracePeriodMs + 2_000,
         )
         await launchRejected

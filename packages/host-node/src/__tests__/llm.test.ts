@@ -6,10 +6,10 @@ import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import type {
-  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
 } from "../child-process-lifetime.js"
-import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
 import { createNodeLlmTextClient } from "../llm.js"
 
 const claudeTreeFixture = fileURLToPath(
@@ -31,15 +31,14 @@ const codexSpec = {
 }
 
 describe("createNodeLlmTextClient", () => {
-  it("routes the Claude CLI through one direct adapter-owned tree", async () => {
+  it("routes the Claude CLI through one direct controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     let prompt = ""
     let stopConfirmations = 0
-    const lifetime: ChildProcessLifetimeAdapter = {
+    const controller: ChildProcessLifetimeController = {
       async launch(request) {
         launches.push(request)
         return {
-          route: request.route,
           stdin: new Writable({
             write(chunk, _encoding, done) {
               prompt += String(chunk)
@@ -60,7 +59,7 @@ describe("createNodeLlmTextClient", () => {
       async stopAndConfirm() {},
     }
     const client = createNodeLlmTextClient(
-      lifetime,
+      controller,
       { claude: { authMode: "subscription", env: { SAFE: "1" } } },
       { claudeCliExecutable: "/bin/claude" },
     )
@@ -72,7 +71,6 @@ describe("createNodeLlmTextClient", () => {
 
     assert.equal(launches.length, 1)
     assert.equal(launches[0]?.command, "/bin/claude")
-    assert.equal(launches[0]?.route, "direct-adapter")
     assert.equal(launches[0]?.env?.SAFE, "1")
     assert.equal(prompt, "Reply ok.")
     assert.equal(stopConfirmations, 1)
@@ -86,7 +84,7 @@ describe("createNodeLlmTextClient", () => {
     const marker = join(root, "outliving-descendant.txt")
     try {
       const client = createNodeLlmTextClient(
-        createChildProcessLifetimeAdapter(),
+        createChildProcessLifetimeController(),
         {
           claude: {
             authMode: "subscription",
@@ -117,7 +115,7 @@ describe("createNodeLlmTextClient", () => {
     const parentValue = process.env.REPO_EDU_CODEX_HELPER_PARENT
     process.env.REPO_EDU_CODEX_HELPER_PARENT = "inherited"
     try {
-      const lifetime: ChildProcessLifetimeAdapter = {
+      const controller: ChildProcessLifetimeController = {
         async launch(request) {
           launches.push(request)
           const stdin = new PassThrough()
@@ -135,7 +133,6 @@ describe("createNodeLlmTextClient", () => {
             },
           )
           return {
-            route: request.route,
             stdin,
             stdout,
             stderr,
@@ -150,7 +147,7 @@ describe("createNodeLlmTextClient", () => {
         },
         async stopAndConfirm() {},
       }
-      const client = createNodeLlmTextClient(lifetime, undefined, {
+      const client = createNodeLlmTextClient(controller, undefined, {
         codexHelper: {
           command: "/fixed/electron",
           args: ["/fixed/codex-helper.js"],
@@ -167,7 +164,6 @@ describe("createNodeLlmTextClient", () => {
       assert.equal(launches.length, 1)
       assert.equal(launches[0]?.command, "/fixed/electron")
       assert.deepEqual(launches[0]?.args, ["/fixed/codex-helper.js"])
-      assert.equal(launches[0]?.route, "managed-helper")
       assert.equal(launches[0]?.signal?.aborted, false)
       assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_PARENT, "inherited")
       assert.equal(launches[0]?.env?.REPO_EDU_CODEX_HELPER_OVERRIDE, "override")

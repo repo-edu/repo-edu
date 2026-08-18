@@ -20,8 +20,8 @@ type ProductProcessLaunch = {
 
 export const productProcessLaunchInventory = [
   {
-    id: "child-lifetime-adapter",
-    file: "packages/host-node/src/child-process-lifetime.ts",
+    id: "posix-child-process-lifetime-adapter",
+    file: "packages/host-node/src/posix-child-process-lifetime-adapter.ts",
     mechanism: "node-child-process",
     targetRoute: "direct-adapter",
     launches: [
@@ -33,7 +33,7 @@ export const productProcessLaunchInventory = [
   },
   {
     id: "windows-launcher-host",
-    file: "packages/host-node/src/windows-child-lifetime-platform.ts",
+    file: "packages/host-node/src/windows-child-process-lifetime-adapter.ts",
     mechanism: "node-child-process",
     targetRoute: "direct-adapter",
     launches: ["fixed inert Windows launcher"],

@@ -3,8 +3,8 @@ import { isAbsolute } from "node:path"
 import type { Readable } from "node:stream"
 import { setTimeout as delay } from "node:timers/promises"
 import type {
-  ChildProcessLifetimeAdapter,
-  OwnedChildProcess,
+  ChildProcessLifetimeController,
+  OwnedChildProcessTree,
 } from "./child-process-lifetime.js"
 
 export const childProcessLifetimeArtifactProbeEnvironmentVariable =
@@ -30,11 +30,10 @@ export type ChildProcessLifetimeArtifactProbeTarget = {
 export type ChildProcessLifetimeArtifactProbeRun = {
   readonly markerPath: string
   readonly stderr: () => string
-  readonly tree: OwnedChildProcess
+  readonly tree: OwnedChildProcessTree
 }
 
 export type ChildProcessLifetimeArtifactProbeClaims = {
-  readonly directAdapterRoute: true
   readonly ownedDescendantStopped: true
   readonly ownedDescendantStable: true
 }
@@ -128,13 +127,12 @@ async function waitForReady(
 }
 
 export async function startChildProcessLifetimeArtifactProbe(
-  adapter: ChildProcessLifetimeAdapter,
+  controller: ChildProcessLifetimeController,
   target: ChildProcessLifetimeArtifactProbeTarget = resolveChildProcessLifetimeArtifactProbeTarget(),
 ): Promise<ChildProcessLifetimeArtifactProbeRun> {
-  const tree = await adapter.launch({
+  const tree = await controller.launch({
     command: target.runtimePath,
     args: [target.fixturePath, "tree-waits", target.markerPath],
-    route: "direct-adapter",
   })
   const stdout = captureText(tree.stdout)
   const stderr = captureText(tree.stderr)
@@ -156,10 +154,6 @@ export async function finishChildProcessLifetimeArtifactProbe(
       `The child-lifetime artifact target exited with ${result.exitCode ?? result.signal ?? "unknown"}: ${run.stderr().trim() || "<no stderr>"}`,
     )
   }
-  if (run.tree.route !== "direct-adapter") {
-    throw new Error("The artifact target did not use the direct adapter route.")
-  }
-
   const marker = await readFile(run.markerPath, "utf8")
   if (!marker.includes("parent-stopped")) {
     throw new Error("The artifact target parent was not confirmed stopped.")
@@ -176,7 +170,6 @@ export async function finishChildProcessLifetimeArtifactProbe(
   }
 
   return {
-    directAdapterRoute: true,
     ownedDescendantStopped: true,
     ownedDescendantStable: true,
   }

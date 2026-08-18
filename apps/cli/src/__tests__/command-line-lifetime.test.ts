@@ -80,7 +80,7 @@ describe("command-line lifetime", () => {
 
     const runPromise = runWithCommandLineLifetime(
       {
-        childProcessLifetime: {
+        childProcessLifetimeController: {
           async stopAndConfirm() {
             events.push("stop")
             await stop.promise
@@ -114,7 +114,7 @@ describe("command-line lifetime", () => {
     await assert.rejects(
       runWithCommandLineLifetime(
         {
-          childProcessLifetime: {
+          childProcessLifetimeController: {
             async stopAndConfirm() {
               events.push("stop")
             },
@@ -143,7 +143,7 @@ describe("command-line lifetime", () => {
 
     const runPromise = runWithCommandLineLifetime(
       {
-        childProcessLifetime: {
+        childProcessLifetimeController: {
           async stopAndConfirm() {
             events.push("stop")
           },
@@ -182,7 +182,7 @@ describe("command-line lifetime", () => {
 
     const runPromise = runWithCommandLineLifetime(
       {
-        childProcessLifetime: {
+        childProcessLifetimeController: {
           async stopAndConfirm() {
             events.push("stop")
           },
@@ -216,7 +216,7 @@ describe("command-line lifetime", () => {
     await assert.rejects(
       runWithCommandLineLifetime(
         {
-          childProcessLifetime: {
+          childProcessLifetimeController: {
             async stopAndConfirm() {
               events.push("stop")
               throw new Error("tree was not confirmed stopped")

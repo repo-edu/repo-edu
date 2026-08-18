@@ -8,7 +8,7 @@ import {
   type NodeCodexHelperCommand,
   startChildProcessLifetimeArtifactProbe,
 } from "@repo-edu/host-node"
-import type { ChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   proveWindowsLauncherReadiness,
   runWindowsChildLifetimeTarget,
@@ -67,11 +67,11 @@ function captureText(stream: Readable): () => string {
 }
 
 async function proveManagedCodexHelper(options: {
-  readonly childProcessLifetime: ChildProcessLifetimeAdapter
+  readonly childProcessLifetimeController: ChildProcessLifetimeController
   readonly command: NodeCodexHelperCommand
 }): Promise<true> {
   const helper = await launchNodeCodexHelper(
-    options.childProcessLifetime,
+    options.childProcessLifetimeController,
     options.command,
     new AbortController().signal,
   )
@@ -80,11 +80,7 @@ async function proveManagedCodexHelper(options: {
   helper.stdin.end()
 
   const result = await helper.result
-  if (
-    helper.route !== "managed-helper" ||
-    result.exitCode !== 0 ||
-    result.signal !== null
-  ) {
+  if (result.exitCode !== 0 || result.signal !== null) {
     throw new Error(
       `The managed Codex helper did not load and exit cleanly: ${stderr().trim() || JSON.stringify(result)}`,
     )
@@ -144,7 +140,7 @@ async function provePackagedWindowsClaims(
 }
 
 export async function runChildLifetimeArtifactProbe(options: {
-  readonly childProcessLifetime: ChildProcessLifetimeAdapter
+  readonly childProcessLifetimeController: ChildProcessLifetimeController
   readonly codexHelperCommand: NodeCodexHelperCommand
   readonly executablePath: string
   readonly isPackaged: boolean
@@ -164,13 +160,13 @@ export async function runChildLifetimeArtifactProbe(options: {
           )
         : {}
     const managedCodexHelper = await proveManagedCodexHelper({
-      childProcessLifetime: options.childProcessLifetime,
+      childProcessLifetimeController: options.childProcessLifetimeController,
       command: options.codexHelperCommand,
     })
     directProbe = await startChildProcessLifetimeArtifactProbe(
-      options.childProcessLifetime,
+      options.childProcessLifetimeController,
     )
-    await options.childProcessLifetime.stopAndConfirm()
+    await options.childProcessLifetimeController.stopAndConfirm()
     const directClaims =
       await finishChildProcessLifetimeArtifactProbe(directProbe)
     const report = {
@@ -197,6 +193,6 @@ export async function runChildLifetimeArtifactProbe(options: {
       })
     })
   } finally {
-    await options.childProcessLifetime.stopAndConfirm()
+    await options.childProcessLifetimeController.stopAndConfirm()
   }
 }

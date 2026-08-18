@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import type {
-  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
 } from "@repo-edu/host-node/child-process-lifetime"
 import type { PlanImplementationStep } from "../contracts.js"
@@ -102,11 +102,10 @@ describe("step checks", () => {
 
   it("launches each command through the direct shared route without a shell", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
-    const childLifetime: ChildProcessLifetimeAdapter = {
+    const childProcessLifetimeController: ChildProcessLifetimeController = {
       async launch(request) {
         launches.push(request)
         return {
-          route: request.route,
           stdin: new Writable({
             write(_chunk, _encoding, callback) {
               callback()
@@ -122,7 +121,9 @@ describe("step checks", () => {
     }
 
     const controller = new AbortController()
-    const result = await createStepCommandExecutor(childLifetime).run({
+    const result = await createStepCommandExecutor(
+      childProcessLifetimeController,
+    ).run({
       id: "proof",
       label: "Proof",
       program: "proof-program",
@@ -138,7 +139,6 @@ describe("step checks", () => {
         args: ["one", "two words"],
         cwd: "/repo-edu",
         env: { ...process.env },
-        route: "direct-adapter",
         shell: false,
         signal: controller.signal,
       },

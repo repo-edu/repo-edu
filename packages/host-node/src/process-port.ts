@@ -6,7 +6,7 @@ import type {
   ProcessRequest,
   ProcessResult,
 } from "@repo-edu/host-runtime-contract"
-import type { ChildProcessLifetimeAdapter } from "./child-process-lifetime.js"
+import type { ChildProcessLifetimeController } from "./child-process-lifetime.js"
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
@@ -41,7 +41,7 @@ function writeInput(
 }
 
 export function createNodeProcessPort(
-  childProcessLifetime: ChildProcessLifetimeAdapter,
+  childProcessLifetimeController: ChildProcessLifetimeController,
 ): ProcessPort {
   return {
     cancellation: "best-effort",
@@ -49,12 +49,11 @@ export function createNodeProcessPort(
     async run(request: ProcessRequest): Promise<ProcessResult> {
       throwIfAborted(request.signal)
 
-      const child = await childProcessLifetime.launch({
+      const child = await childProcessLifetimeController.launch({
         command: request.command,
         args: request.args,
         cwd: request.cwd,
         env: completeEnvironment(request.env),
-        route: "direct-adapter",
         signal: request.signal,
       })
       const stdout = collectOutput(child.stdout)

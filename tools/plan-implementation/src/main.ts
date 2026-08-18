@@ -1,4 +1,4 @@
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createCodingAdapter } from "./coding-adapter.js"
 import { createPlanImplementationCommand } from "./command.js"
 import { runPlanImplementation } from "./plan-runner.js"
@@ -13,7 +13,7 @@ function errorMessage(error: unknown): string {
 
 async function main(): Promise<void> {
   const stop = new AbortController()
-  const childLifetime = createChildProcessLifetimeAdapter()
+  const childProcessLifetimeController = createChildProcessLifetimeController()
   const requestStop = (signal: "SIGINT" | "SIGTERM"): void => {
     if (!stop.signal.aborted) {
       stop.abort(`Stop requested by ${signal}.`)
@@ -35,9 +35,9 @@ async function main(): Promise<void> {
             signal: stop.signal,
           },
           {
-            coding: createCodingAdapter(childLifetime),
-            commands: createStepCommandExecutor(childLifetime),
-            ownedChildren: childLifetime,
+            coding: createCodingAdapter(childProcessLifetimeController),
+            commands: createStepCommandExecutor(childProcessLifetimeController),
+            ownedChildren: childProcessLifetimeController,
             presentation: createTerminalView(
               createTerminalDisplay(process.stdout),
             ),
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   } finally {
     process.off("SIGINT", onSigint)
     process.off("SIGTERM", onSigterm)
-    await childLifetime.stopAndConfirm()
+    await childProcessLifetimeController.stopAndConfirm()
   }
 }
 

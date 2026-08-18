@@ -7,11 +7,11 @@ import type {
   ProcessResult,
 } from "@repo-edu/host-runtime-contract"
 import type {
-  ChildProcessLifetimeAdapter,
+  ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
-  ChildProcessLifetimePlatform,
+  ChildProcessLifetimePlatformAdapter,
 } from "../child-process-lifetime.js"
-import { createChildProcessLifetimeAdapter } from "../child-process-lifetime.js"
+import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
 import { createNodeGitCommandPort, createNodeProcessPort } from "../index.js"
 
 describe("createNodeGitCommandPort", () => {
@@ -32,13 +32,13 @@ describe("createNodeGitCommandPort", () => {
     }
 
     const gitPort = createNodeGitCommandPort(processPort)
-    const controller = new AbortController()
+    const abortController = new AbortController()
     const result = await gitPort.run({
       args: ["log", "--follow", "--", "README.md"],
       cwd: "/tmp/repo-edu",
       env: { GIT_TERMINAL_PROMPT: "0" },
       stdinText: "stdin",
-      signal: controller.signal,
+      signal: abortController.signal,
     })
 
     assert.equal(gitPort.cancellation, "best-effort")
@@ -49,7 +49,7 @@ describe("createNodeGitCommandPort", () => {
         cwd: "/tmp/repo-edu",
         env: { GIT_TERMINAL_PROMPT: "0" },
         stdinText: "stdin",
-        signal: controller.signal,
+        signal: abortController.signal,
       },
     ])
     assert.deepStrictEqual(result, {
@@ -60,13 +60,12 @@ describe("createNodeGitCommandPort", () => {
     })
   })
 
-  it("routes Git through one direct adapter-owned tree", async () => {
+  it("routes Git through one direct controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
-    const lifetime: ChildProcessLifetimeAdapter = {
+    const controller: ChildProcessLifetimeController = {
       async launch(request) {
         launches.push(request)
         return {
-          route: request.route,
           stdin: new Writable({
             write(_chunk, _encoding, done) {
               done()
@@ -82,7 +81,7 @@ describe("createNodeGitCommandPort", () => {
     }
 
     const result = await createNodeGitCommandPort(
-      createNodeProcessPort(lifetime),
+      createNodeProcessPort(controller),
     ).run({
       args: ["status", "--short"],
       cwd: "/tmp/repo-edu",
@@ -92,12 +91,11 @@ describe("createNodeGitCommandPort", () => {
 
     assert.equal(launches.length, 1)
     assert.equal(launches[0]?.command, "git")
-    assert.equal(launches[0]?.route, "direct-adapter")
     assert.deepEqual(launches[0]?.args, ["status", "--short"])
     assert.equal(result.stdout, "git output")
   })
 
-  it("settles process-port cancellation through the adapter's bounded stop", async () => {
+  it("settles process-port cancellation through the controller's bounded stop", async () => {
     const platformDescriptor = Object.getOwnPropertyDescriptor(
       process,
       "platform",
@@ -107,13 +105,12 @@ describe("createNodeGitCommandPort", () => {
       signal: string
     }>()
     let stopConfirmations = 0
-    const windows: ChildProcessLifetimePlatform = {
-      async launch(request) {
+    const windowsAdapter: ChildProcessLifetimePlatformAdapter = {
+      async launch(_request) {
         const stdin = new PassThrough()
         const stdout = new PassThrough()
         const stderr = new PassThrough()
         return {
-          route: request.route,
           stdin,
           stdout,
           stderr,
@@ -134,17 +131,17 @@ describe("createNodeGitCommandPort", () => {
         ...platformDescriptor,
         value: "win32",
       })
-      const controller = new AbortController()
+      const abortController = new AbortController()
       const processPort = createNodeProcessPort(
-        createChildProcessLifetimeAdapter({ windows }),
+        createChildProcessLifetimeController({ windowsAdapter }),
       )
       const result = processPort.run({
         command: "waiting-target",
         args: [],
-        signal: controller.signal,
+        signal: abortController.signal,
       })
 
-      controller.abort()
+      abortController.abort()
 
       assert.deepEqual(await result, {
         exitCode: null,

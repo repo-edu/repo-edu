@@ -1,14 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { workflowCatalog } from "@repo-edu/application-contract"
-import { createChildProcessLifetimeAdapter } from "@repo-edu/host-node/child-process-lifetime"
+import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createProgram } from "../cli.js"
 
 // The command tree is inspected, never run, so this adapter owns no tree. It
 // is still supplied here because every caller owns the adapter it passes.
 function createInspectionProgram() {
   return createProgram({
-    childProcessLifetime: createChildProcessLifetimeAdapter(),
+    childProcessLifetimeController: createChildProcessLifetimeController(),
   })
 }
 

@@ -8,9 +8,9 @@ import { productProcessLaunchInventory } from "../product-process-launch-invento
 import { checkProductProcessLaunches } from "../product-process-launches.js"
 
 const REGISTERED_SOURCES: Record<string, string> = {
-  "packages/host-node/src/child-process-lifetime.ts":
+  "packages/host-node/src/posix-child-process-lifetime-adapter.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
-  "packages/host-node/src/windows-child-lifetime-platform.ts":
+  "packages/host-node/src/windows-child-process-lifetime-adapter.ts":
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs":
     'const { spawn } = require("node:child_process")\nvoid spawn\n',
@@ -22,8 +22,8 @@ describe("product process launch policy", () => {
   it("records every current launch and its target route", () => {
     assert.deepEqual(productProcessLaunchInventory, [
       {
-        id: "child-lifetime-adapter",
-        file: "packages/host-node/src/child-process-lifetime.ts",
+        id: "posix-child-process-lifetime-adapter",
+        file: "packages/host-node/src/posix-child-process-lifetime-adapter.ts",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
         launches: [
@@ -35,7 +35,7 @@ describe("product process launch policy", () => {
       },
       {
         id: "windows-launcher-host",
-        file: "packages/host-node/src/windows-child-lifetime-platform.ts",
+        file: "packages/host-node/src/windows-child-process-lifetime-adapter.ts",
         mechanism: "node-child-process",
         targetRoute: "direct-adapter",
         launches: ["fixed inert Windows launcher"],

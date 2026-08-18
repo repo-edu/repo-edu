@@ -4,10 +4,10 @@ import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import {
   ChildProcessOutcomeUnknownError,
-  createChildProcessLifetimeAdapter,
+  createChildProcessLifetimeController,
 } from "@repo-edu/host-node/child-process-lifetime"
 import {
-  createWindowsChildProcessLifetimePlatform,
+  createWindowsChildProcessLifetimeAdapter,
   resolveWindowsChildLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "@repo-edu/host-node/windows-child-lifetime"
@@ -65,19 +65,18 @@ describe("packaged Windows child-lifetime runtime", () => {
     })
   })
 
-  it("joins the packaged Windows route to the shared adapter", {
+  it("joins the packaged Windows route to the shared controller", {
     skip: process.platform !== "win32",
   }, async () => {
-    const windows = createWindowsChildProcessLifetimePlatform({
+    const windowsAdapter = createWindowsChildProcessLifetimeAdapter({
       executablePath: process.execPath,
       launcherEntryPath,
       runAsNode: false,
     })
-    const adapter = createChildProcessLifetimeAdapter({ windows })
-    const run = await adapter.launch({
+    const controller = createChildProcessLifetimeController({ windowsAdapter })
+    const run = await controller.launch({
       command: process.execPath,
       args: ["-e", targetScript],
-      route: "direct-adapter",
     })
     let output = ""
     run.stdout.setEncoding("utf8")
@@ -88,7 +87,7 @@ describe("packaged Windows child-lifetime runtime", () => {
     run.stdin.write("repo-edu")
     await run.stopAndConfirm()
     assert.deepEqual(await run.result, { exitCode: 0, signal: null })
-    await adapter.stopAndConfirm()
+    await controller.stopAndConfirm()
     assert.equal(output, "REPO-EDU")
   })
 
