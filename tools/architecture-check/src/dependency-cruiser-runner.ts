@@ -64,6 +64,16 @@ export type DependencyEdge = {
 
 export type DependencyGraph = ReadonlyMap<string, readonly DependencyEdge[]>
 
+export function isRuntimeDependencyEdge(edge: DependencyEdge): boolean {
+  return (
+    !edge.preCompilationOnly &&
+    !edge.typeOnly &&
+    !edge.dependencyTypes.includes("pre-compilation-only") &&
+    !edge.dependencyTypes.includes("type-only") &&
+    !edge.dependencyTypes.includes("type-import")
+  )
+}
+
 export type DependencyCruiserAnalysis = {
   readonly violations: readonly Violation[]
   readonly graph: DependencyGraph

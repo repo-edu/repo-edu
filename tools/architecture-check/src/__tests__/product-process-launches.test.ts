@@ -4,8 +4,18 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
 
+import type {
+  DependencyEdge,
+  DependencyGraph,
+} from "../dependency-cruiser-runner.js"
 import { productProcessLaunchInventory } from "../product-process-launch-inventory.js"
 import { checkProductProcessLaunches } from "../product-process-launches.js"
+
+const CODEX_SDK_HOST_ENTRY =
+  "packages/integrations-llm/src/codex/sdk-host-entry.ts"
+const CODEX_SDK_HOST_SERVER =
+  "packages/integrations-llm/src/codex/sdk-host-server.ts"
+const CODEX_RUNNER = "packages/integrations-llm/src/codex/runner.ts"
 
 const REGISTERED_SOURCES: Record<string, string> = {
   "packages/host-node/src/posix-child-process-lifetime-adapter.ts":
@@ -14,8 +24,20 @@ const REGISTERED_SOURCES: Record<string, string> = {
     'import { spawn } from "node:child_process"\nvoid spawn\n',
   "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs":
     'const { spawn } = require("node:child_process")\nvoid spawn\n',
-  "packages/integrations-llm/src/codex/runner.ts":
-    'import { Codex } from "@openai/codex-sdk"\nvoid Codex\n',
+  [CODEX_SDK_HOST_ENTRY]: 'import "./sdk-host-server.js"\n',
+  [CODEX_SDK_HOST_SERVER]: 'import "./runner.js"\n',
+  [CODEX_RUNNER]: 'import { Codex } from "@openai/codex-sdk"\nvoid Codex\n',
+}
+
+function registeredOwnerGraph(): DependencyGraph {
+  return new Map([
+    [
+      CODEX_SDK_HOST_ENTRY,
+      [runtimeEdge("./sdk-host-server.js", CODEX_SDK_HOST_SERVER)],
+    ],
+    [CODEX_SDK_HOST_SERVER, [runtimeEdge("./runner.js", CODEX_RUNNER)]],
+    [CODEX_RUNNER, []],
+  ])
 }
 
 describe("product process launch policy", () => {
@@ -80,17 +102,46 @@ describe("product process launch policy", () => {
     })
 
     assert.deepEqual(
-      checkProductProcessLaunches(root, [
-        ...Object.keys(REGISTERED_SOURCES),
-        "packages/domain/src/process-types.ts",
-        "packages/domain/src/process-types-2.ts",
-        "packages/domain/src/process-types-3.ts",
-        "packages/domain/src/process.test.ts",
-        "packages/fixture-engine/src/coder.ts",
-        "tools/example/src/main.ts",
-      ]),
+      checkProductProcessLaunches(
+        root,
+        [
+          ...Object.keys(REGISTERED_SOURCES),
+          "packages/domain/src/process-types.ts",
+          "packages/domain/src/process-types-2.ts",
+          "packages/domain/src/process-types-3.ts",
+          "packages/domain/src/process.test.ts",
+          "packages/fixture-engine/src/coder.ts",
+          "tools/example/src/main.ts",
+        ],
+        registeredOwnerGraph(),
+      ),
       [],
     )
+  })
+
+  it("rejects a host-side path to the Codex SDK process launch", async () => {
+    const client = "packages/integrations-llm/src/codex/sdk-host-client.ts"
+    const files = {
+      ...REGISTERED_SOURCES,
+      [client]: 'import "./runner.js"\n',
+    }
+    const root = await createFixture(files)
+    const graph = new Map(registeredOwnerGraph())
+    graph.set(client, [runtimeEdge("./runner.js", CODEX_RUNNER)])
+
+    const violations = checkProductProcessLaunches(
+      root,
+      Object.keys(files),
+      graph,
+    )
+
+    assert.deepEqual(violations, [
+      {
+        file: client,
+        message:
+          "production source reaches the Codex SDK process launch outside the fixed Codex SDK host entry",
+      },
+    ])
   })
 
   it("rejects unregistered direct and dependency-owned launches", async () => {
@@ -108,7 +159,11 @@ describe("product process launch policy", () => {
     }
     const root = await createFixture(files)
 
-    const violations = checkProductProcessLaunches(root, Object.keys(files))
+    const violations = checkProductProcessLaunches(
+      root,
+      Object.keys(files),
+      registeredOwnerGraph(),
+    )
 
     assert.deepEqual(violations, [
       {
@@ -146,10 +201,14 @@ describe("product process launch policy", () => {
 
   it("rejects stale inventory entries", async () => {
     const files = { ...REGISTERED_SOURCES }
-    delete files["packages/integrations-llm/src/codex/runner.ts"]
+    delete files[CODEX_RUNNER]
     const root = await createFixture(files)
 
-    const violations = checkProductProcessLaunches(root, Object.keys(files))
+    const violations = checkProductProcessLaunches(
+      root,
+      Object.keys(files),
+      registeredOwnerGraph(),
+    )
 
     assert.deepEqual(violations, [
       {
@@ -160,6 +219,17 @@ describe("product process launch policy", () => {
     ])
   })
 })
+
+function runtimeEdge(module: string, resolved: string): DependencyEdge {
+  return {
+    module,
+    resolved,
+    coreModule: false,
+    dependencyTypes: ["import"],
+    preCompilationOnly: false,
+    typeOnly: false,
+  }
+}
 
 async function createFixture(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "repo-edu-process-launches-"))

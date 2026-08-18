@@ -1,6 +1,11 @@
 import * as fs from "node:fs"
 
 import {
+  type DependencyGraph,
+  isRuntimeDependencyEdge,
+} from "./dependency-cruiser-runner.js"
+import {
+  type ProductProcessLaunch,
   type ProductProcessMechanism,
   productProcessLaunchInventory,
 } from "./product-process-launch-inventory.js"
@@ -18,6 +23,12 @@ const NON_PRODUCT_PACKAGES = new Set([
   "integration-tests",
   "test-fixtures",
 ])
+const CODEX_SDK_HOST_ENTRY =
+  "packages/integrations-llm/src/codex/sdk-host-entry.ts"
+const WINDOWS_LAUNCHER_SOURCE =
+  "packages/host-node/resources/host-child-lifetime/windows-launcher.cjs"
+const PLATFORM_ADAPTER_SOURCE_PATTERN =
+  /^packages\/host-node\/src\/(?:posix|windows)-child-process-lifetime-adapter\.ts$/
 
 const MECHANISM_LABELS: Readonly<Record<ProductProcessMechanism, string>> = {
   "bun-process": "Bun process launch",
@@ -33,6 +44,7 @@ const MECHANISM_LABELS: Readonly<Record<ProductProcessMechanism, string>> = {
 export function checkProductProcessLaunches(
   root: string,
   worktreePaths: readonly string[],
+  graph: DependencyGraph,
 ): Violation[] {
   const productFiles = worktreePaths.filter(isProductRuntimeSource)
   const mechanismsByFile = new Map<
@@ -82,10 +94,111 @@ export function checkProductProcessLaunches(
         file: entry.file,
         message: `child-process lifetime launch inventory entry "${entry.id}" no longer uses ${MECHANISM_LABELS[entry.mechanism]}`,
       })
+      continue
     }
+    violations.push(...checkLaunchOwner(entry, graph))
   }
 
   return violations
+}
+
+function checkLaunchOwner(
+  entry: ProductProcessLaunch,
+  graph: DependencyGraph,
+): Violation[] {
+  switch (entry.launchOwner) {
+    case "platform-adapter":
+      if (
+        PLATFORM_ADAPTER_SOURCE_PATTERN.test(entry.file) ||
+        entry.file === WINDOWS_LAUNCHER_SOURCE
+      ) {
+        return []
+      }
+      return [
+        {
+          file: entry.file,
+          message: `child-process lifetime launch inventory entry "${entry.id}" names a platform-adapter owner outside the platform adapter boundary`,
+        },
+      ]
+    case "codex-sdk-host-process":
+      return checkCodexSdkHostOwner(entry, graph)
+  }
+}
+
+function checkCodexSdkHostOwner(
+  entry: ProductProcessLaunch,
+  graph: DependencyGraph,
+): Violation[] {
+  const ownerClosure = runtimeSourceClosure(CODEX_SDK_HOST_ENTRY, graph)
+  if (!ownerClosure.has(entry.file)) {
+    return [
+      {
+        file: entry.file,
+        message: `child-process lifetime launch inventory entry "${entry.id}" is not reachable from the fixed Codex SDK host entry`,
+      },
+    ]
+  }
+
+  const ownerPath = runtimeAncestorsInside(entry.file, ownerClosure, graph)
+  const allSources = new Set(graph.keys())
+  const allAncestors = runtimeAncestorsInside(entry.file, allSources, graph)
+  return [...allAncestors]
+    .filter((source) => isProductionSource(source) && !ownerPath.has(source))
+    .sort()
+    .map((source) => ({
+      file: source,
+      message:
+        "production source reaches the Codex SDK process launch outside the fixed Codex SDK host entry",
+    }))
+}
+
+function runtimeSourceClosure(
+  entry: string,
+  graph: DependencyGraph,
+): ReadonlySet<string> {
+  const visited = new Set<string>()
+  const pending = [entry]
+  while (pending.length > 0) {
+    const source = pending.pop()
+    if (source === undefined || visited.has(source)) continue
+    visited.add(source)
+    for (const edge of graph.get(source) ?? []) {
+      if (
+        isRuntimeDependencyEdge(edge) &&
+        edge.resolved !== undefined &&
+        graph.has(edge.resolved)
+      ) {
+        pending.push(edge.resolved)
+      }
+    }
+  }
+  return visited
+}
+
+function runtimeAncestorsInside(
+  target: string,
+  boundary: ReadonlySet<string>,
+  graph: DependencyGraph,
+): ReadonlySet<string> {
+  const ancestors = new Set([target])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const source of boundary) {
+      if (ancestors.has(source)) continue
+      const reachesAncestor = (graph.get(source) ?? []).some(
+        (edge) =>
+          isRuntimeDependencyEdge(edge) &&
+          edge.resolved !== undefined &&
+          ancestors.has(edge.resolved),
+      )
+      if (reachesAncestor) {
+        ancestors.add(source)
+        changed = true
+      }
+    }
+  }
+  return ancestors
 }
 
 function isProductRuntimeSource(file: string): boolean {
@@ -98,6 +211,10 @@ function isProductRuntimeSource(file: string): boolean {
   return (
     packageMatch !== null && !NON_PRODUCT_PACKAGES.has(packageMatch[1] ?? "")
   )
+}
+
+function isProductionSource(file: string): boolean {
+  return !TEST_SOURCE_PATTERN.test(file)
 }
 
 function inventoryKey(

@@ -33,6 +33,7 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
   const processLaunchViolations = checkProductProcessLaunches(
     root,
     inventory.worktreePaths,
+    graphAnalysis.graph,
   )
 
   return {

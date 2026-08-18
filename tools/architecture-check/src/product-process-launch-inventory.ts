@@ -12,7 +12,7 @@ export type ProductProcessMechanism =
   | "node-child-process"
   | "node-cluster"
 
-type ProductProcessLaunch = {
+export type ProductProcessLaunch = {
   readonly id: string
   readonly file: string
   readonly mechanism: ProductProcessMechanism

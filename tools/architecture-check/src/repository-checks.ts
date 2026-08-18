@@ -2,9 +2,9 @@ import * as fs from "node:fs"
 import { builtinModules } from "node:module"
 import * as path from "node:path"
 
-import type {
-  DependencyEdge,
-  DependencyGraph,
+import {
+  type DependencyGraph,
+  isRuntimeDependencyEdge,
 } from "./dependency-cruiser-runner.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
@@ -150,7 +150,10 @@ export function checkBrowserSafeSourceBoundary(
   const violations: Violation[] = [...closure.violations]
   for (const file of [...closure.files].sort()) {
     for (const edge of graph.get(file) ?? []) {
-      if (!isRuntimeEdge(edge) || !NODE_BUILTIN_IMPORTS.has(edge.module)) {
+      if (
+        !isRuntimeDependencyEdge(edge) ||
+        !NODE_BUILTIN_IMPORTS.has(edge.module)
+      ) {
         continue
       }
       violations.push({
@@ -184,7 +187,7 @@ function runtimeSourceClosure(
     visited.add(file)
     for (const edge of graph.get(file) ?? []) {
       if (
-        !isRuntimeEdge(edge) ||
+        !isRuntimeDependencyEdge(edge) ||
         edge.resolved === undefined ||
         !inventory.fileSet.has(edge.resolved) ||
         visited.has(edge.resolved)
@@ -207,16 +210,6 @@ function runtimeSourceClosure(
   }
 
   return { files: visited, violations }
-}
-
-function isRuntimeEdge(edge: DependencyEdge): boolean {
-  return (
-    !edge.preCompilationOnly &&
-    !edge.typeOnly &&
-    !edge.dependencyTypes.includes("pre-compilation-only") &&
-    !edge.dependencyTypes.includes("type-only") &&
-    !edge.dependencyTypes.includes("type-import")
-  )
 }
 
 function isProductionSource(file: string): boolean {
