@@ -1,5 +1,6 @@
 import type { Readable } from "node:stream"
 import type { ProcessResult } from "@repo-edu/host-runtime-contract"
+import { childProcessStopGracePeriodMs } from "./child-process-lifetime-controller.js"
 import {
   launchAssignedTarget,
   type WindowsChildLifetimeEvidence,
@@ -32,7 +33,9 @@ export async function runWindowsChildLifetimeTarget(
   runtime: WindowsChildLifetimeRuntime,
   target: WindowsChildLifetimeTarget,
 ): Promise<WindowsChildLifetimeRun> {
-  const run = await launchAssignedTarget(runtime, target)
+  const run = await launchAssignedTarget(runtime, target, {
+    gracefulStopPeriodMs: childProcessStopGracePeriodMs,
+  })
   const stdout = collectOutput(run.tree.stdout)
   const stderr = collectOutput(run.tree.stderr)
   run.tree.stdin.end(target.stdinText)

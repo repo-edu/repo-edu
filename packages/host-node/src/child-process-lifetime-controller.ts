@@ -1,28 +1,16 @@
-import type { Readable, Writable } from "node:stream"
+import {
+  type ChildProcessLifetimeLaunch,
+  type ChildProcessLifetimePlatformAdapter,
+  type ChildProcessLifetimeStopPolicy,
+  createChildProcessLaunchAbortError,
+  isPendingLaunchStoppedError,
+  type OwnedChildProcessTree,
+} from "./child-process-lifetime-contract.js"
 import { posixChildProcessLifetimeAdapter } from "./posix-child-process-lifetime-adapter.js"
 
 export const childProcessStopGracePeriodMs = 5_000
-
-export type ChildProcessLifetimeLaunch = {
-  readonly command: string
-  readonly args?: readonly string[]
-  readonly cwd?: string
-  readonly env?: Readonly<NodeJS.ProcessEnv>
-  readonly shell?: boolean | string
-  readonly signal?: AbortSignal
-}
-
-export type ChildProcessLifetimeResult = {
-  readonly exitCode: number | null
-  readonly signal: string | null
-}
-
-export type OwnedChildProcessTree = {
-  readonly stdin: Writable
-  readonly stdout: Readable
-  readonly stderr: Readable
-  readonly result: Promise<ChildProcessLifetimeResult>
-  stopAndConfirm(): Promise<void>
+const childProcessLifetimeStopPolicy: ChildProcessLifetimeStopPolicy = {
+  gracefulStopPeriodMs: childProcessStopGracePeriodMs,
 }
 
 export type ChildProcessLifetimeController = {
@@ -30,29 +18,8 @@ export type ChildProcessLifetimeController = {
   stopAndConfirm(): Promise<void>
 }
 
-export type ChildProcessLifetimePlatformAdapter = {
-  launch(
-    request: ChildProcessLifetimeLaunch,
-    pendingStopSignal: AbortSignal,
-  ): Promise<OwnedChildProcessTree>
-}
-
 export type ChildProcessLifetimeControllerOptions = {
   readonly windowsAdapter?: ChildProcessLifetimePlatformAdapter
-}
-
-export class PendingLaunchStoppedError extends Error {
-  override readonly name = "PendingLaunchStoppedError"
-
-  constructor(readonly signal?: AbortSignal) {
-    super("The pending child-process launch was stopped.")
-  }
-}
-
-export function isPendingLaunchStoppedError(
-  error: unknown,
-): error is PendingLaunchStoppedError {
-  return error instanceof PendingLaunchStoppedError
 }
 
 type RegisteredProcessTree = Pick<OwnedChildProcessTree, "stopAndConfirm">
@@ -60,13 +27,6 @@ type RegisteredProcessTree = Pick<OwnedChildProcessTree, "stopAndConfirm">
 type PendingProcessTree = {
   readonly completion: Promise<OwnedChildProcessTree>
   requestStop(): void
-}
-
-export function createChildProcessLaunchAbortError(): DOMException {
-  return new DOMException(
-    "The child-process launch was cancelled.",
-    "AbortError",
-  )
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -114,10 +74,6 @@ function selectPlatformAdapter(
   )
 }
 
-export class ChildProcessOutcomeUnknownError extends Error {
-  override readonly name = "ChildProcessOutcomeUnknownError"
-}
-
 export function createChildProcessLifetimeController(
   options: ChildProcessLifetimeControllerOptions = {},
 ): ChildProcessLifetimeController {
@@ -136,6 +92,7 @@ export function createChildProcessLifetimeController(
       const completion = selectPlatformAdapter(options).launch(
         request,
         pendingStop.signal,
+        childProcessLifetimeStopPolicy,
       )
       const pending: PendingProcessTree = {
         completion,

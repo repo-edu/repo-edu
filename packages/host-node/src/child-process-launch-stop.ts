@@ -1,4 +1,4 @@
-import { PendingLaunchStoppedError } from "./child-process-lifetime.js"
+import { PendingLaunchStoppedError } from "./child-process-lifetime-contract.js"
 
 export type LaunchStopSignals = readonly (AbortSignal | undefined)[]
 

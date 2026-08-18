@@ -2,8 +2,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import type {
   ChildProcessLifetimePlatformAdapter,
   ChildProcessLifetimeResult,
-} from "./child-process-lifetime-controller.js"
-import { childProcessStopGracePeriodMs } from "./child-process-lifetime-controller.js"
+} from "./child-process-lifetime-contract.js"
 
 const groupExitPollMs = 20
 
@@ -78,7 +77,10 @@ async function waitForProcessGroupExit(
   return true
 }
 
-function createProcessGroup(processGroupId: number): ProcessGroup {
+function createProcessGroup(
+  processGroupId: number,
+  gracefulStopPeriodMs: number,
+): ProcessGroup {
   let gracefulStopStartedAt: number | undefined
   let confirmation: Promise<void> | undefined
 
@@ -105,7 +107,7 @@ function createProcessGroup(processGroupId: number): ProcessGroup {
 
         const remainingGraceMs = Math.max(
           0,
-          childProcessStopGracePeriodMs -
+          gracefulStopPeriodMs -
             (Date.now() - (gracefulStopStartedAt ?? Date.now())),
         )
         if (await waitForProcessGroupExit(processGroupId, remainingGraceMs)) {
@@ -173,7 +175,7 @@ async function holdResultUntilTreeIsGone(
 
 export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapter =
   {
-    async launch(request, pendingStopSignal) {
+    async launch(request, pendingStopSignal, stopPolicy) {
       if (pendingStopSignal.aborted) {
         throw new Error("The pending child-process launch was stopped.")
       }
@@ -190,7 +192,9 @@ export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapt
 
       const terminal = observeTerminalResult(child)
       const group =
-        child.pid === undefined ? noProcessGroup : createProcessGroup(child.pid)
+        child.pid === undefined
+          ? noProcessGroup
+          : createProcessGroup(child.pid, stopPolicy.gracefulStopPeriodMs)
       const result = holdResultUntilTreeIsGone(terminal, group)
 
       return {

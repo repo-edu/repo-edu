@@ -8,15 +8,15 @@ import {
   throwIfLaunchStopRequested,
   waitForLaunchStop,
 } from "./child-process-launch-stop.js"
-import type { OwnedChildProcessTree } from "./child-process-lifetime.js"
 import {
   type ChildProcessLifetimePlatformAdapter,
   type ChildProcessLifetimeResult,
+  type ChildProcessLifetimeStopPolicy,
   ChildProcessOutcomeUnknownError,
-  childProcessStopGracePeriodMs,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
-} from "./child-process-lifetime.js"
+  type OwnedChildProcessTree,
+} from "./child-process-lifetime-contract.js"
 import {
   createWindowsKillOnCloseJob,
   type SavedWindowsProcessIdentity,
@@ -450,7 +450,10 @@ async function writeLaunchCommand(
   )
 }
 
-function createStopAndConfirm(launcher: AssignedLauncher): {
+function createStopAndConfirm(
+  launcher: AssignedLauncher,
+  gracefulStopPeriodMs: number,
+): {
   readonly requestStop: () => void
   readonly stopAndConfirm: () => Promise<void>
 } {
@@ -475,7 +478,7 @@ function createStopAndConfirm(launcher: AssignedLauncher): {
         requestStop()
         const remainingGraceMs = Math.max(
           0,
-          childProcessStopGracePeriodMs -
+          gracefulStopPeriodMs -
             (Date.now() - (gracefulStopStartedAt ?? Date.now())),
         )
         if (!(await waitForJobExit(launcher.job, remainingGraceMs))) {
@@ -587,6 +590,7 @@ async function monitorTerminalResult(
 export async function launchAssignedTarget(
   runtime: WindowsChildLifetimeRuntime,
   target: WindowsChildLifetimeTarget & { readonly signal?: AbortSignal },
+  stopPolicy: ChildProcessLifetimeStopPolicy,
   pendingStopSignal?: AbortSignal,
 ): Promise<LaunchedWindowsTarget> {
   const pendingStopSignals = [pendingStopSignal]
@@ -601,7 +605,10 @@ export async function launchAssignedTarget(
     }
     throw error
   }
-  const lifecycle = createStopAndConfirm(launcher)
+  const lifecycle = createStopAndConfirm(
+    launcher,
+    stopPolicy.gracefulStopPeriodMs,
+  )
   let targetMayBeAdmitted = false
   let targetLaunchRejected = false
 
@@ -674,7 +681,7 @@ export function createWindowsChildProcessLifetimeAdapter(
   runtime: WindowsChildLifetimeRuntime,
 ): ChildProcessLifetimePlatformAdapter {
   return {
-    async launch(request, pendingStopSignal) {
+    async launch(request, pendingStopSignal, stopPolicy) {
       return (
         await launchAssignedTarget(
           runtime,
@@ -686,6 +693,7 @@ export function createWindowsChildProcessLifetimeAdapter(
             shell: request.shell,
             signal: request.signal,
           },
+          stopPolicy,
           pendingStopSignal,
         )
       ).tree

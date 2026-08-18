@@ -12,6 +12,8 @@ import {
 } from "../child-process-launch-stop.js"
 import {
   type ChildProcessLifetimePlatformAdapter,
+  type ChildProcessLifetimeStopPolicy,
+  childProcessStopGracePeriodMs,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
 import {
@@ -55,6 +57,48 @@ afterEach(async () => {
 })
 
 describe("pending child-process launches", () => {
+  it("passes the controller-owned stop policy to its platform adapter", async () => {
+    const platformDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "platform",
+    )
+    let observedPolicy: ChildProcessLifetimeStopPolicy | undefined
+    const windowsAdapter: ChildProcessLifetimePlatformAdapter = {
+      async launch(_request, _stopSignal, stopPolicy) {
+        observedPolicy = stopPolicy
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          result: Promise.resolve({ exitCode: 0, signal: null }),
+          async stopAndConfirm() {},
+        }
+      },
+    }
+
+    try {
+      Object.defineProperty(process, "platform", {
+        ...platformDescriptor,
+        value: "win32",
+      })
+      const controller = createChildProcessLifetimeController({
+        windowsAdapter,
+      })
+      const tree = await controller.launch({ command: "completed-target" })
+
+      await tree.result
+      await controller.stopAndConfirm()
+
+      assert.deepEqual(observedPolicy, {
+        gracefulStopPeriodMs: childProcessStopGracePeriodMs,
+      })
+    } finally {
+      if (platformDescriptor) {
+        Object.defineProperty(process, "platform", platformDescriptor)
+      }
+    }
+  })
+
   it("interrupts a platform wait when pending startup stops", async () => {
     const pendingStop = new AbortController()
     const waiting = waitForLaunchStop(new Promise<never>(() => undefined), [
@@ -222,7 +266,7 @@ describe("child-process cancellation", () => {
   })
 })
 
-describe("child-process controller controller", {
+describe("child-process lifetime controller", {
   skip: !supportsProcessGroups,
 }, () => {
   it("holds the direct result until an outliving grandchild is stopped", async (context) => {
