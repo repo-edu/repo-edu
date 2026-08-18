@@ -20,12 +20,27 @@ import {
 } from "../step-codex-sdk-host-server.js"
 import { testCodingRequest } from "./coding-test-plan.js"
 
+type CodingReportedResult =
+  | { readonly outcome: "completed"; readonly value: CodingResult }
+  | {
+      readonly message: string
+      readonly outcome: "failed"
+      readonly value: StepCodexSdkHostProtocolFailure
+    }
+
+type ReportedFact =
+  | { readonly kind: "proof-lost"; readonly error: unknown }
+  | { readonly kind: "result"; readonly result: CodingReportedResult }
+  | { readonly kind: "work-started" }
+
 function createControllerHarness(run: StepCodexSdkHostRun): {
   readonly controller: ChildProcessLifetimeController
+  readonly facts: readonly ReportedFact[]
   readonly launches: readonly ChildProcessLifetimeLaunch[]
   readonly stopCount: () => number
 } {
   const launches: ChildProcessLifetimeLaunch[] = []
+  const facts: ReportedFact[] = []
   let stops = 0
   const controller: ChildProcessLifetimeController = {
     async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
@@ -80,22 +95,26 @@ function createControllerHarness(run: StepCodexSdkHostRun): {
           finish({ outcome: "cancelled" })
         },
         reportFailure() {},
-        reportProofLost() {
+        reportProofLost(error) {
+          facts.push({ error, kind: "proof-lost" })
           finish({ outcome: "unknown" })
         },
         reportResult(result) {
+          facts.push({ kind: "result", result })
           finish({
             ...result,
             targetResult: { exitCode: 0, signal: null },
           })
         },
-        reportWorkStarted() {},
+        reportWorkStarted() {
+          facts.push({ kind: "work-started" })
+        },
       }
       return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
     },
     async stopAndConfirm() {},
   }
-  return { controller, launches, stopCount: () => stops }
+  return { controller, facts, launches, stopCount: () => stops }
 }
 
 async function collectEvents(events: AsyncIterable<CodingEvent>) {
@@ -148,13 +167,18 @@ describe("runner-owned plan-step Codex SDK host process", () => {
     const run = await createCodingAdapter(harness.controller).start(request)
     const events = collectEvents(run.events)
 
-    assert.equal((await run.result).status, "succeeded")
+    const result = await run.result
+    assert.equal(result.status, "succeeded")
     assert.deepEqual(await events, [
       { kind: "thread-started", threadId: "fresh-thread" },
       { kind: "narrative", text: "Codex changed one file." },
     ])
     assert.equal(harness.launches.length, 1)
     assert.equal(harness.stopCount(), 1)
+    assert.deepEqual(harness.facts, [
+      { kind: "work-started" },
+      { kind: "result", result: { outcome: "completed", value: result } },
+    ])
     assert.deepEqual(harness.launches[0], {
       command: process.execPath,
       args: createStepCodexSdkHostCommand().arguments,
@@ -202,6 +226,7 @@ describe("runner-owned plan-step Codex SDK host process", () => {
   })
 
   it("reports plan-step Codex SDK host loss before a result as unknown", async () => {
+    const facts: ReportedFact[] = []
     const controller: ChildProcessLifetimeController = {
       async launch<TCompleted, TFailed>(_request: ChildProcessLifetimeLaunch) {
         const stdin = new PassThrough()
@@ -224,11 +249,14 @@ describe("runner-owned plan-step Codex SDK host process", () => {
             outcome.resolve({ outcome: "cancelled" })
           },
           reportFailure() {},
-          reportProofLost() {
+          reportProofLost(error: unknown) {
+            facts.push({ error, kind: "proof-lost" })
             outcome.resolve({ outcome: "unknown" })
           },
           reportResult() {},
-          reportWorkStarted() {},
+          reportWorkStarted() {
+            facts.push({ kind: "work-started" })
+          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -244,5 +272,7 @@ describe("runner-owned plan-step Codex SDK host process", () => {
           "Error: the Codex SDK could not start\n  at start",
         ),
     )
+    assert.equal(facts[0]?.kind, "work-started")
+    assert.equal(facts[1]?.kind, "proof-lost")
   })
 })

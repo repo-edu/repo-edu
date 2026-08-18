@@ -103,6 +103,7 @@ describe("step checks", () => {
 
   it("launches each command through the shared controller without a shell", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
+    let callerReportedFacts = 0
     const childProcessLifetimeController: ChildProcessLifetimeController = {
       async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
         launches.push(request)
@@ -120,10 +121,18 @@ describe("step checks", () => {
             value: { exitCode: 0, signal: null },
           }),
           requestCancellation() {},
-          reportFailure() {},
-          reportProofLost() {},
-          reportResult() {},
-          reportWorkStarted() {},
+          reportFailure() {
+            callerReportedFacts += 1
+          },
+          reportProofLost() {
+            callerReportedFacts += 1
+          },
+          reportResult() {
+            callerReportedFacts += 1
+          },
+          reportWorkStarted() {
+            callerReportedFacts += 1
+          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -154,6 +163,7 @@ describe("step checks", () => {
         signal: controller.signal,
       },
     ])
+    assert.equal(callerReportedFacts, 0)
   })
 
   it("stops at the first failed command", async () => {

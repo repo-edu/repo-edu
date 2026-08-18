@@ -24,9 +24,11 @@ type WindowsAdapterModuleLoader =
 
 export type CommandLineChildProcessLifetimeOptions = {
   readonly executablePath?: string
+  readonly exit?: (code: number) => never
   readonly launcherEntryUrl?: URL
   readonly loadWindowsAdapterModule?: WindowsAdapterModuleLoader
   readonly runtimePlatform?: NodeJS.Platform
+  readonly writeStderr?: (message: string) => void
 }
 
 async function loadWindowsAdapterModule(): Promise<WindowsChildProcessLifetimeModule> {
@@ -36,6 +38,12 @@ async function loadWindowsAdapterModule(): Promise<WindowsChildProcessLifetimeMo
 export async function createCommandLineChildProcessLifetimeController(
   options: CommandLineChildProcessLifetimeOptions = {},
 ): Promise<ChildProcessLifetimeController> {
+  const exit = options.exit ?? ((code: number): never => process.exit(code))
+  const writeStderr =
+    options.writeStderr ??
+    ((message: string): void => {
+      process.stderr.write(message)
+    })
   const controllerOptions = {
     diagnosticSink(diagnostic: {
       readonly command: string
@@ -45,18 +53,21 @@ export async function createCommandLineChildProcessLifetimeController(
         diagnostic.failure instanceof Error
           ? diagnostic.failure.message
           : String(diagnostic.failure)
-      process.stderr.write(
+      writeStderr(
         `Child-process secondary failure for ${diagnostic.command}: ${failure}\n`,
       )
     },
     onUnconfirmedTree(): never {
-      process.stderr.write(`${childProcessUnconfirmedTreeMessage}\n`)
-      return process.exit(1)
+      writeStderr(`${childProcessUnconfirmedTreeMessage}\n`)
+      return exit(1)
     },
   }
   const runtimePlatform = options.runtimePlatform ?? process.platform
   if (runtimePlatform !== "win32") {
-    return createChildProcessLifetimeController(controllerOptions)
+    return createChildProcessLifetimeController({
+      ...controllerOptions,
+      runtimePlatform,
+    })
   }
 
   const windowsModule = await (
@@ -74,6 +85,7 @@ export async function createCommandLineChildProcessLifetimeController(
   )
   return createChildProcessLifetimeController({
     ...controllerOptions,
+    runtimePlatform,
     windowsAdapter,
   })
 }

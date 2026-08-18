@@ -28,10 +28,6 @@ import {
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
 import {
-  childProcessUnconfirmedTreeMessage,
-  createChildProcessLifetimeController,
-} from "@repo-edu/host-node/child-process-lifetime"
-import {
   createExaminationArchiveStorage,
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
@@ -75,6 +71,7 @@ import {
   isChildLifetimeArtifactProbe,
   runChildLifetimeArtifactProbe,
 } from "./child-lifetime-artifact-probe"
+import { createDesktopChildProcessLifetimeController } from "./child-process-lifetime"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
 import { createDesktopCourseStore } from "./course-store"
@@ -141,36 +138,29 @@ const codexSdkHostCommand = createDesktopCodexSdkHostCommand({
   executablePath: process.execPath,
 })
 const desktopHost = createDesktopHostEnvironment()
-const childProcessLifetimeController = createChildProcessLifetimeController({
-  diagnosticSink(diagnostic) {
-    process.stderr.write(
-      `[desktop] child-process-secondary-failure ${diagnostic.command} ${desktopErrorText(diagnostic.failure)}\n`,
-    )
-  },
-  onUnconfirmedTree(): never {
-    dialog.showErrorBox(
-      `${desktopAppName} must close`,
-      childProcessUnconfirmedTreeMessage,
-    )
-    return process.exit(1)
-  },
-  windowsAdapter:
-    process.platform === "win32"
-      ? createWindowsChildProcessLifetimeAdapter({
-          executablePath: process.execPath,
-          launcherEntryPath: app.isPackaged
-            ? join(
-                process.resourcesPath,
-                "host-child-lifetime",
-                "windows-launcher.cjs",
-              )
-            : fileURLToPath(
-                resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
-              ),
-          runAsNode: true,
-        })
-      : undefined,
-})
+const childProcessLifetimeController =
+  createDesktopChildProcessLifetimeController({
+    appName: desktopAppName,
+    exit: (code): never => process.exit(code),
+    showErrorBox: (title, message) => dialog.showErrorBox(title, message),
+    writeStderr: (message) => process.stderr.write(message),
+    windowsAdapter:
+      process.platform === "win32"
+        ? createWindowsChildProcessLifetimeAdapter({
+            executablePath: process.execPath,
+            launcherEntryPath: app.isPackaged
+              ? join(
+                  process.resourcesPath,
+                  "host-child-lifetime",
+                  "windows-launcher.cjs",
+                )
+              : fileURLToPath(
+                  resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
+                ),
+            runAsNode: true,
+          })
+        : undefined,
+  })
 const nodeHttpPort = createNodeHttpPort()
 const nodeGitCommandPort = createNodeGitCommandPort(
   createNodeProcessPort(childProcessLifetimeController),

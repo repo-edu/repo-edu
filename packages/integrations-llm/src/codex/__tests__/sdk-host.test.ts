@@ -8,6 +8,7 @@ import {
 import {
   type CodexSdkHostLaunch,
   type CodexSdkHostOutcome,
+  type CodexSdkHostTargetResult,
   createCodexLlmTextClient,
 } from "../sdk-host-client"
 import { type CodexSdkHostRun, runCodexSdkHostServer } from "../sdk-host-server"
@@ -22,13 +23,20 @@ const usage = {
   authMode: "subscription" as const,
 }
 
+type ReportedFact =
+  | { readonly kind: "proof-lost"; readonly error: unknown }
+  | { readonly kind: "result"; readonly result: CodexSdkHostTargetResult }
+  | { readonly kind: "work-started" }
+
 function createServerHarness(run: CodexSdkHostRun): {
   readonly launch: CodexSdkHostLaunch
+  readonly facts: readonly ReportedFact[]
   readonly launchCount: () => number
   readonly stopCount: () => number
 } {
   let launches = 0
   let stops = 0
+  const facts: ReportedFact[] = []
   return {
     launch: async () => {
       launches += 1
@@ -59,24 +67,32 @@ function createServerHarness(run: CodexSdkHostRun): {
           finish({ outcome: "cancelled" })
         },
         reportFailure() {},
-        reportProofLost() {
+        reportProofLost(error) {
+          facts.push({ error, kind: "proof-lost" })
           finish({ outcome: "unknown" })
         },
         reportResult(result) {
+          facts.push({ kind: "result", result })
           finish({
             ...result,
             targetResult: { exitCode: 0, signal: null },
           })
         },
-        reportWorkStarted() {},
+        reportWorkStarted() {
+          facts.push({ kind: "work-started" })
+        },
       }
     },
+    facts,
     launchCount: () => launches,
     stopCount: () => stops,
   }
 }
 
-function createLostSdkHostLaunch(errorOutput = ""): CodexSdkHostLaunch {
+function createLostSdkHostLaunch(
+  errorOutput = "",
+  facts: ReportedFact[] = [],
+): CodexSdkHostLaunch {
   return async () => {
     const stdin = new PassThrough()
     const stdout = new PassThrough()
@@ -99,11 +115,14 @@ function createLostSdkHostLaunch(errorOutput = ""): CodexSdkHostLaunch {
         outcome.resolve({ outcome: "cancelled" })
       },
       reportFailure() {},
-      reportProofLost() {
+      reportProofLost(error) {
+        facts.push({ error, kind: "proof-lost" })
         outcome.resolve({ outcome: "unknown" })
       },
       reportResult() {},
-      reportWorkStarted() {},
+      reportWorkStarted() {
+        facts.push({ kind: "work-started" })
+      },
     }
   }
 }
@@ -136,6 +155,13 @@ describe("Codex SDK host process", () => {
     assert.deepEqual(requests, ["ping"])
     assert.equal(harness.launchCount(), 1)
     assert.equal(harness.stopCount(), 1)
+    assert.deepEqual(harness.facts, [
+      { kind: "work-started" },
+      {
+        kind: "result",
+        result: { outcome: "completed", value: { status: "completed" } },
+      },
+    ])
     assert.deepEqual(traces, ["trace-one"])
     assert.deepEqual(events, [
       { kind: "activity", label: "Contacting Codex." },
@@ -168,6 +194,26 @@ describe("Codex SDK host process", () => {
         error.context.retryAfterMs === 5_000,
     )
     assert.equal(harness.stopCount(), 1)
+    assert.deepEqual(harness.facts, [
+      { kind: "work-started" },
+      {
+        kind: "result",
+        result: {
+          message: "429 retry-after 5s",
+          outcome: "failed",
+          value: {
+            context: {
+              authMode: "subscription",
+              provider: "codex",
+              retryAfterMs: 5_000,
+            },
+            kind: "rate_limit",
+            message: "429 retry-after 5s",
+            type: "llm-error",
+          },
+        },
+      },
+    ])
   })
 
   it("cancels the Codex SDK host process request and confirms its tree", async () => {
@@ -291,8 +337,9 @@ describe("Codex SDK host process", () => {
   })
 
   it("reports Codex SDK host process loss as an unknown outside outcome", async () => {
+    const facts: ReportedFact[] = []
     const client = createCodexLlmTextClient(undefined, {
-      launch: createLostSdkHostLaunch(),
+      launch: createLostSdkHostLaunch("", facts),
     })
 
     await assert.rejects(
@@ -303,6 +350,8 @@ describe("Codex SDK host process", () => {
         error.context.provider === "codex" &&
         /outside outcome is unknown/.test(error.message),
     )
+    assert.equal(facts[0]?.kind, "work-started")
+    assert.equal(facts[1]?.kind, "proof-lost")
   })
 
   it("keeps the lost Codex SDK host process output in the reported failure", async () => {

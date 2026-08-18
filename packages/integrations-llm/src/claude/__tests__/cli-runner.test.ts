@@ -7,7 +7,11 @@ import {
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
 import { resolveClaudeAuth } from "../auth"
-import type { ClaudeCliLaunch, ClaudeCliOutcome } from "../cli-process"
+import type {
+  ClaudeCliLaunch,
+  ClaudeCliOutcome,
+  ClaudeCliTargetResult,
+} from "../cli-process"
 import {
   buildClaudeCliArgs,
   buildClaudeCliLaunchOptions,
@@ -28,22 +32,31 @@ type FakeLaunchOptions = {
   stdinWriteError?: Error
 }
 
+type ReportedFact =
+  | { readonly error: unknown; readonly kind: "failure" }
+  | { readonly error: unknown; readonly kind: "proof-lost" }
+  | { readonly kind: "result"; readonly result: ClaudeCliTargetResult }
+  | { readonly kind: "work-started"; readonly prompt: string }
+
+type FakeLaunchCall = {
+  readonly args: readonly string[]
+  readonly command: string
+  readonly cwd: string | URL | undefined
+  readonly env: NodeJS.ProcessEnv | undefined
+  readonly facts: ReportedFact[]
+  readonly shell: boolean | string | undefined
+  stdin: string
+  stopped: boolean
+}
+
 function fakeLaunch(
   stdoutChunks: AsyncIterable<string> | Iterable<string>,
   stderrChunks: AsyncIterable<string> | Iterable<string> = [],
   fakeOptions: FakeLaunchOptions = {},
 ) {
-  const calls: {
-    command: string
-    args: readonly string[]
-    cwd: string | URL | undefined
-    env: NodeJS.ProcessEnv | undefined
-    shell: boolean | string | undefined
-    stdin: string
-    stopped: boolean
-  }[] = []
+  const calls: FakeLaunchCall[] = []
   const launch: ClaudeCliLaunch = async (request) => {
-    const call = {
+    const call: FakeLaunchCall = {
       command: request.command,
       args: request.args,
       cwd: request.cwd,
@@ -51,6 +64,7 @@ function fakeLaunch(
       shell: request.shell,
       stdin: "",
       stopped: false,
+      facts: [],
     }
     calls.push(call)
     const stdin = new Writable({
@@ -77,16 +91,25 @@ function fakeLaunch(
         call.stopped = true
         outcome.resolve({ outcome: "cancelled" })
       },
-      reportFailure() {},
-      reportProofLost() {
+      reportFailure(error) {
+        call.facts.push({ error, kind: "failure" })
+      },
+      reportProofLost(error) {
+        call.facts.push({ error, kind: "proof-lost" })
         call.stopped = true
         outcome.resolve({ outcome: "unknown" })
       },
       reportResult(result) {
+        call.facts.push({ kind: "result", result })
         call.stopped = true
         outcome.resolve({ ...result, targetResult })
       },
-      reportWorkStarted() {},
+      reportWorkStarted() {
+        call.facts.push({
+          kind: "work-started",
+          prompt: call.stdin,
+        })
+      },
     }
   }
   return { launch, calls }
@@ -115,6 +138,7 @@ type LiveCliProcess = {
     exitCode: number | null
     signal: string | null
   }>
+  facts: readonly ReportedFact[]
   stopped(): boolean
 }
 
@@ -135,6 +159,8 @@ function liveLaunch(): LiveCliProcess {
     targetResult = value
   })
   const outcome = Promise.withResolvers<ClaudeCliOutcome>()
+  const facts: ReportedFact[] = []
+  let prompt = ""
   let stopped = false
   const stopStreams = () => {
     stdout.destroy()
@@ -142,7 +168,8 @@ function liveLaunch(): LiveCliProcess {
   }
   const launch: ClaudeCliLaunch = async () => ({
     stdin: new Writable({
-      write(_chunk, _encoding, callback) {
+      write(chunk, _encoding, callback) {
+        prompt += String(chunk)
         callback()
       },
     }),
@@ -154,20 +181,33 @@ function liveLaunch(): LiveCliProcess {
       stopStreams()
       outcome.resolve({ outcome: "cancelled" })
     },
-    reportFailure() {},
-    reportProofLost() {
+    reportFailure(error) {
+      facts.push({ error, kind: "failure" })
+    },
+    reportProofLost(error) {
+      facts.push({ error, kind: "proof-lost" })
       stopped = true
       stopStreams()
       outcome.resolve({ outcome: "unknown" })
     },
     reportResult(reported) {
+      facts.push({ kind: "result", result: reported })
       stopped = true
       stopStreams()
       outcome.resolve({ ...reported, targetResult })
     },
-    reportWorkStarted() {},
+    reportWorkStarted() {
+      facts.push({ kind: "work-started", prompt })
+    },
   })
-  return { launch, stdout, errorOutput, result, stopped: () => stopped }
+  return {
+    launch,
+    stdout,
+    errorOutput,
+    facts,
+    result,
+    stopped: () => stopped,
+  }
 }
 
 async function withoutUnhandledRejections(
@@ -288,6 +328,13 @@ describe("runClaudeCliStream", () => {
     assert.equal(done?.usage.inputTokens, 1)
     assert.equal(done?.usage.outputTokens, 2)
     assert.equal(done?.usage.authMode, "subscription")
+    assert.deepEqual(calls[0]?.facts, [
+      { kind: "work-started", prompt: "Reply ok." },
+      {
+        kind: "result",
+        result: { outcome: "completed", value: undefined },
+      },
+    ])
   })
 
   it("maps missing executable to LlmError auth", async () => {
@@ -330,7 +377,7 @@ describe("runClaudeCliStream", () => {
       await new Promise((resolve) => setImmediate(resolve))
       yield "Please log in to Claude."
     })()
-    const { launch } = fakeLaunch([], delayedStderr, { exitCode: 1 })
+    const { launch, calls } = fakeLaunch([], delayedStderr, { exitCode: 1 })
 
     await assert.rejects(
       async () => {
@@ -351,10 +398,24 @@ describe("runClaudeCliStream", () => {
         error.kind === "other" &&
         error.message.includes("Please log in"),
     )
+    assert.deepEqual(calls[0]?.facts, [
+      { kind: "work-started", prompt: "Reply ok." },
+      {
+        kind: "result",
+        result: {
+          message: "Please log in to Claude.",
+          outcome: "failed",
+          value: {
+            errorOutputAvailable: true,
+            errorOutputPresent: true,
+          },
+        },
+      },
+    ])
   })
 
   it("maps silent subscription CLI exit code 1 to login guidance", async () => {
-    const { launch } = fakeLaunch([], [], { exitCode: 1 })
+    const { launch, calls } = fakeLaunch([], [], { exitCode: 1 })
 
     await assert.rejects(
       async () => {
@@ -376,6 +437,20 @@ describe("runClaudeCliStream", () => {
         error.message.includes("Claude CLI is not logged in") &&
         error.message.includes("claude auth login"),
     )
+    assert.deepEqual(calls[0]?.facts, [
+      { kind: "work-started", prompt: "Reply ok." },
+      {
+        kind: "result",
+        result: {
+          message: "Claude stream ended without a terminal usage event.",
+          outcome: "failed",
+          value: {
+            errorOutputAvailable: true,
+            errorOutputPresent: false,
+          },
+        },
+      },
+    ])
   })
 
   it("keeps the login guidance when the error-output read also fails", async () => {
@@ -415,6 +490,9 @@ describe("runClaudeCliStream", () => {
     assert.ok(failure.message.includes("claude auth login"))
     assert.equal(failure.cause, undefined)
     assert.equal(live.stopped(), true)
+    assert.equal(live.facts[0]?.kind, "work-started")
+    assert.equal(live.facts[1]?.kind, "failure")
+    assert.equal(live.facts[2]?.kind, "result")
   })
 
   it("uses the terminal stream result instead of reclassifying process exit", async () => {

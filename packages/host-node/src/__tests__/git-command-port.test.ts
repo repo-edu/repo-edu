@@ -63,6 +63,7 @@ describe("createNodeGitCommandPort", () => {
 
   it("routes Git through one controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
+    let callerReportedFacts = 0
     const controller: ChildProcessLifetimeController = {
       async launch<TCompleted, TFailed>(request: ChildProcessLifetimeLaunch) {
         launches.push(request)
@@ -80,10 +81,18 @@ describe("createNodeGitCommandPort", () => {
             value: { exitCode: 0, signal: null },
           }),
           requestCancellation() {},
-          reportFailure() {},
-          reportProofLost() {},
-          reportResult() {},
-          reportWorkStarted() {},
+          reportFailure() {
+            callerReportedFacts += 1
+          },
+          reportProofLost() {
+            callerReportedFacts += 1
+          },
+          reportResult() {
+            callerReportedFacts += 1
+          },
+          reportWorkStarted() {
+            callerReportedFacts += 1
+          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -102,6 +111,8 @@ describe("createNodeGitCommandPort", () => {
     assert.equal(launches.length, 1)
     assert.equal(launches[0]?.command, "git")
     assert.deepEqual(launches[0]?.args, ["status", "--short"])
+    assert.equal(launches[0]?.proof, "target-exit")
+    assert.equal(callerReportedFacts, 0)
     assert.equal(result.stdout, "git output")
   })
 
