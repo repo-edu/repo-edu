@@ -241,6 +241,10 @@ the `plan-` prefix dropped for peer plans (`plan-persister.md` →
 plan was given when designed only in chat. Commits unattached to any
 plan omit this line.
 
+A commit that implements plan steps names them on the second body line:
+`Step: <n>`, or `Step: 3,5` when one commit lands several. A
+plan-attached commit with no `Step:` line is off-plan rework.
+
 An implementation-audit round's fix commit carries more in its body. Each
 finding bullet opens with the finding's area metadata and its growth tag,
 `- [area:<primary-id>] [growth:<numbers>] <prose>`, so a later round can read
