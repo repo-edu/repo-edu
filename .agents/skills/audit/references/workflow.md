@@ -56,8 +56,8 @@ for them to be applied.
 Close every round with exactly one commit after the user settles its outcome.
 A round whose accepted findings changed files lands the fix commit:
 severity-prefixed per this repo's convention, with its body opening with the
-`Plan: <name>` line followed by `Audit: complete` or `Audit: steps <a>-<b>`
-naming the round's scope.
+`Plan: <name>` line followed by `Audit: complete`, `Audit: step <n>` for one
+scoped step or `Audit: steps <a>-<b>` for a scoped range.
 
 The body then carries one bullet per accepted finding, and each bullet opens
 with that finding's metadata before its prose:
@@ -332,7 +332,7 @@ word.
 
 Open by naming the workflow that ran, an implementation audit in this Repo Edu
 repo, then the plan file, its ready commit, the episode's commit range and
-the round's scope: complete, or the audited step range. Then report the
+the round's scope: complete, the audited step or the audited step range. Then report the
 coverage table with its coverage line. Then, when a growth-tag number runs
 across rounds, the run statement and the pricing under
 [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each

@@ -2,3 +2,6 @@ interface:
   display_name: "Audit"
   short_description: "Audit a plan implementation"
   default_prompt: "Use $audit <plan-file> [step-range] to audit its implementation."
+
+policy:
+  allow_implicit_invocation: false
