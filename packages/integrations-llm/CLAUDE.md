@@ -14,8 +14,8 @@ Provider adapters for the `LlmTextClient` contract from
 - `src/codex/*`: Codex prompt/reply adapter
   (`createCodexLlmTextClient`). The host-side client owns request admission,
   streamed public events and known-versus-unknown outcome truth. The one-shot
-  helper owns one SDK turn and is the only consumer of raw SDK events. Auth,
-  trace, usage and error mapping remain separate owners.
+  Codex SDK host process owns one SDK turn and is the only consumer of raw SDK
+  events. Auth, trace, usage and error mapping remain separate owners.
 
 ## Rules
 
@@ -42,11 +42,12 @@ Provider adapters for the `LlmTextClient` contract from
   child environment. Subscription mode omits `CODEX_API_KEY`, and every mode
   omits `ELECTRON_RUN_AS_NODE`. Never mutate `process.env` around a Codex turn.
 - The public Codex client never imports or starts the SDK in its host process.
-  It launches one fixed helper through an injected capability and uses framed
-  JSON-RPC over standard streams. Connection loss after request start is an
-  unknown outside outcome, not a target result. The helper's error output is
-  kept, not drained away, and a bounded amount of it goes into the reported
-  loss, because it is the only account of why the helper died.
+  It launches one fixed Codex SDK host process through an injected capability
+  and uses framed JSON-RPC over standard streams. Connection loss after request
+  start is an unknown outside outcome, not a target result. The SDK host
+  process's error output is kept, not drained away, and a bounded amount of it
+  goes into the reported loss, because it is the only account of why the SDK
+  host process died.
 - Codex prompt/reply calls start every call in a fresh `os.tmpdir()` directory
   with `sandboxMode: "read-only"`, `approvalPolicy: "never"`,
   `networkAccessEnabled: false`, `webSearchMode: "disabled"`, and a prompt-only

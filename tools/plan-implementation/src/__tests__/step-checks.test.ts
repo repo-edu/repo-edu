@@ -100,7 +100,7 @@ describe("step checks", () => {
     )
   })
 
-  it("launches each command through the direct shared route without a shell", async () => {
+  it("launches each command through the shared controller without a shell", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     const childProcessLifetimeController: ChildProcessLifetimeController = {
       async launch(request) {

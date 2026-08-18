@@ -155,7 +155,7 @@ describe("product process launch policy", () => {
       {
         file: "packages/integrations-llm/src/codex/runner.ts",
         message:
-          'child-lifetime launch inventory entry "codex-sdk" points to missing product source',
+          'child-process lifetime launch inventory entry "codex-sdk" points to missing product source',
       },
     ])
   })

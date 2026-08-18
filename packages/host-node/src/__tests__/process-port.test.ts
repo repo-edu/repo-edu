@@ -8,14 +8,14 @@ import { createChildProcessLifetimeController } from "../child-process-lifetime.
 import { createNodeProcessPort } from "../index.js"
 import {
   createWindowsChildProcessLifetimeAdapter,
-  resolveWindowsChildLifetimeLauncherEntryUrl,
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl,
 } from "../windows-child-lifetime.js"
 
 const childTreeFixture = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
 )
 const windowsLauncherEntryPath = fileURLToPath(
-  resolveWindowsChildLifetimeLauncherEntryUrl(),
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
 )
 
 function createProcessPort() {

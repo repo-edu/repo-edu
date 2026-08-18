@@ -46,7 +46,7 @@ async function runCli(
   stdout: string
   stderr: string
 }> {
-  // This caller owns the adapter it passes and stops it below, which is the
+  // This caller owns the controller it passes and stops it below, which is the
   // whole reason `createProgram` refuses to make one of its own.
   const childProcessLifetimeController = createChildProcessLifetimeController()
   const program = createProgram({

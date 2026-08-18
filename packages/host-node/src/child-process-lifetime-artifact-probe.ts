@@ -106,7 +106,7 @@ async function waitForReady(
       cleanup()
       reject(
         new Error(
-          `The child-lifetime artifact target exited before readiness: ${output().trim() || "<no output>"}`,
+          `The child-process lifetime artifact target exited before readiness: ${output().trim() || "<no output>"}`,
         ),
       )
     }
@@ -151,7 +151,7 @@ export async function finishChildProcessLifetimeArtifactProbe(
   const result = await run.tree.result
   if (result.exitCode !== 0 || result.signal !== null) {
     throw new Error(
-      `The child-lifetime artifact target exited with ${result.exitCode ?? result.signal ?? "unknown"}: ${run.stderr().trim() || "<no stderr>"}`,
+      `The child-process lifetime artifact target exited with ${result.exitCode ?? result.signal ?? "unknown"}: ${run.stderr().trim() || "<no stderr>"}`,
     )
   }
   const marker = await readFile(run.markerPath, "utf8")

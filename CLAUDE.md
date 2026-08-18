@@ -59,7 +59,7 @@ repo-edu/
 │   ├── application-contract/      # Workflow ids/payloads/catalog + AppError
 │   ├── renderer-host-contract/    # Renderer-safe host interface
 │   ├── host-runtime-contract/     # Runtime ports (http/process/fs/user-file/llm/exam-archive)
-│   ├── host-node/                 # Node ports, program gate and host lifetime helpers
+│   ├── host-node/                 # Node ports, program gate and host lifetime control
 │   ├── integrations-git(-contract)
 │   ├── integrations-lms(-contract)
 │   ├── integrations-llm(-contract,-catalog)  # Provider-neutral LLM contract,
@@ -146,12 +146,12 @@ Core flow:
   application-data root before product work starts. Hold the claim until no
   more product work can run. The gate and app-data-root resolution belong to
   `host-node`.
-- Preserve the packaged Windows child-lifetime proof: a fixed launcher entry,
+- Preserve the packaged Windows child-process lifetime proof: a fixed launcher entry,
   explicit Electron `runAsNode`, job assignment before target admission, a
   saved same-turn process identity and a non-inherited job handle.
 - Release validation must prove the program gate in the packaged desktop and
   compiled CLI artifacts. Packaged Windows validation must also prove the
-  child-lifetime contract.
+  child-process lifetime contract.
 - Do not introduce legacy settings/profile migration logic.
 - Documents the user edits live canonically in one in-memory owner. The renderer
   session owns preferences and credentials; the course Zustand store owns the

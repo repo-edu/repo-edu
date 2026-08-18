@@ -60,7 +60,7 @@ describe("createNodeGitCommandPort", () => {
     })
   })
 
-  it("routes Git through one direct controller-owned tree", async () => {
+  it("routes Git through one controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     const controller: ChildProcessLifetimeController = {
       async launch(request) {

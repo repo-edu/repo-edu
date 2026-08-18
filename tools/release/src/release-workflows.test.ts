@@ -237,7 +237,7 @@ describe("release workflow wiring", () => {
     const desktopPackage = JSON.parse(
       await readFile(join(repoRoot, "apps/desktop/package.json"), "utf8"),
     ) as { scripts?: Record<string, string> }
-    const childLifetimeValidator = await readFile(
+    const childProcessLifetimeValidator = await readFile(
       join(
         repoRoot,
         "apps/desktop/scripts/validate-child-lifetime-artifact.mjs",
@@ -260,14 +260,20 @@ describe("release workflow wiring", () => {
       /validate:child-lifetime/,
     )
     for (const proof of [
-      "packaged Electron child lifetime",
-      "Node development desktop child lifetime",
-      "Node development CLI child lifetime",
-      "compiled Bun CLI child lifetime",
+      "packaged Electron child-process lifetime",
+      "Node development desktop child-process lifetime",
+      "Node development CLI child-process lifetime",
+      "compiled Bun CLI child-process lifetime",
     ]) {
-      assert.ok(childLifetimeValidator.includes(proof), `missing ${proof}`)
+      assert.ok(
+        childProcessLifetimeValidator.includes(proof),
+        `missing ${proof}`,
+      )
     }
-    assert.match(childLifetimeValidator, /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/)
+    assert.match(
+      childProcessLifetimeValidator,
+      /REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT/,
+    )
   })
 
   it("installer scripts download and install CLI notice sidecars", async () => {

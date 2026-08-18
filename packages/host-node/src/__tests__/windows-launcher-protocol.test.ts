@@ -6,7 +6,7 @@ import { createInterface } from "node:readline"
 import type { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { resolveWindowsChildLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
+import { resolveWindowsChildProcessLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
 import { buildWindowsLauncherEnvironment } from "../windows-child-process-lifetime-adapter.js"
 import {
   createWindowsLaunchCommand,
@@ -22,7 +22,8 @@ function delay(durationMs: number): Promise<void> {
 
 describe("Windows launcher protocol", () => {
   it("resolves the fixed launcher from the host-node package", async () => {
-    const launcherEntryUrl = resolveWindowsChildLifetimeLauncherEntryUrl()
+    const launcherEntryUrl =
+      resolveWindowsChildProcessLifetimeLauncherEntryUrl()
 
     assert.equal(
       fileURLToPath(launcherEntryUrl),
@@ -125,7 +126,7 @@ describe("Windows launcher protocol", () => {
   }, async (context) => {
     const launcher = spawn(
       process.execPath,
-      [fileURLToPath(resolveWindowsChildLifetimeLauncherEntryUrl())],
+      [fileURLToPath(resolveWindowsChildProcessLifetimeLauncherEntryUrl())],
       { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
     )
     context.after(() => {

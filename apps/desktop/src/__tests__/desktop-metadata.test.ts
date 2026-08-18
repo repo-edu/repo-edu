@@ -34,7 +34,7 @@ describe("desktop Linux metadata", () => {
   })
 })
 
-describe("desktop Windows child-lifetime packaging", () => {
+describe("desktop Windows child-process lifetime packaging", () => {
   it("ships the fixed launcher and keeps Electron Node mode enabled", async () => {
     const packageJson = (await readJson(join(desktopRoot, "package.json"))) as {
       scripts?: Record<string, string>

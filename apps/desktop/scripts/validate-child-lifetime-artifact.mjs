@@ -193,7 +193,7 @@ async function main() {
   ])
 
   await runProbe({
-    label: "packaged Electron child lifetime",
+    label: "packaged Electron child-process lifetime",
     command: packagedElectron,
     arguments: runtimeArguments(),
     host: "desktop",
@@ -201,7 +201,7 @@ async function main() {
     isPackaged: true,
   })
   await runProbe({
-    label: "Node development desktop child lifetime",
+    label: "Node development desktop child-process lifetime",
     command: electronDevelopment,
     arguments: runtimeArguments(desktopDevelopmentEntry),
     host: "desktop",
@@ -209,7 +209,7 @@ async function main() {
     isPackaged: false,
   })
   await runProbe({
-    label: "Node development CLI child lifetime",
+    label: "Node development CLI child-process lifetime",
     command: process.execPath,
     arguments: ["--import", "tsx", cliDevelopmentEntry],
     host: "cli",
@@ -220,7 +220,7 @@ async function main() {
   if (compiledCli) {
     await access(compiledCli)
     await runProbe({
-      label: "compiled Bun CLI child lifetime",
+      label: "compiled Bun CLI child-process lifetime",
       command: compiledCli,
       host: "cli",
       runtime: "bun",
@@ -229,6 +229,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`FAIL shipped child-lifetime matrix\n  ${errorText(error)}\n`)
+  process.stderr.write(
+    `FAIL shipped child-process lifetime matrix\n  ${errorText(error)}\n`,
+  )
   process.exitCode = 1
 })

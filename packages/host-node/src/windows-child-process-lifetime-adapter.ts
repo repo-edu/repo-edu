@@ -214,9 +214,9 @@ function formatLauncherExit(exit: LauncherExit): string {
 }
 
 // The target decides how long it runs, so the wait for its exit line carries no
-// bound. Decision 11 gives the adapter one five-second graceful-stop allowance
-// and no second bound, and a bound here would end a long clone or AI turn and
-// report an outcome nobody observed.
+// bound. The controller policy gives an owned tree one five-second graceful
+// stop allowance and no second bound. A bound here would end a long clone or
+// AI turn and report an outcome nobody observed.
 async function readLauncherMessage(
   launcher: Pick<AssignedLauncher, "controlLines" | "exit">,
   label: string,
@@ -300,7 +300,9 @@ async function startAssignedLauncher(
   stopSignals: LaunchStopSignals,
 ): Promise<AssignedLauncher> {
   if (process.platform !== "win32") {
-    throw new Error("The Windows child-lifetime route requires Windows.")
+    throw new Error(
+      "The Windows child-process lifetime adapter requires Windows.",
+    )
   }
 
   const job = await createWindowsKillOnCloseJob()

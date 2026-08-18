@@ -40,7 +40,7 @@ the shipped desktop and CLI artifacts.
   Unsupported or duplicate targets fail closed.
 - A compiled CLI preflight must run the program-gate artifact proof before its
   license gate. Packaged desktop workflows must run program-gate and Windows
-  child-lifetime proofs through the desktop runtime validation chain.
+  child-process lifetime proofs through the desktop runtime validation chain.
 - Runtime package records must identify the package that supplied the shipped
   binary. Do not pin or invent a transitive package outside the reached
   production closure.

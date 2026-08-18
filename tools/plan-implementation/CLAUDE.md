@@ -32,8 +32,8 @@ runner does not try to prove the meaning of the work.
 - Keep all tool source in the `tool-plan-implementation` primary area.
 - No source outside this tool may import its source. The architecture check
   enforces this private boundary.
-- Use shared host-node admission and child-lifetime parts only through their
-  narrow subpaths. Do not duplicate their policy in this tool.
+- Use shared host-node admission and child-process lifetime parts only through
+  their narrow subpaths. Do not duplicate their policy in this tool.
 - `runner-admission.ts` resolves
   `repo-edu/plan-implementation/admission.db` through Git. The runner holds its
   claim for the whole invocation and releases it only after owned work settles.
@@ -50,17 +50,19 @@ runner does not try to prove the meaning of the work.
   decide identity.
 - `reset-cursor.ts` is the sole owner of the clean-checkout, severity-free,
   empty current-branch reset commit.
-- `coding-adapter.ts` starts one runner-owned helper per step through the shared
-  managed child-lifetime route. The helper starts one fresh Codex SDK thread
-  and streams semantic coding events before its exact structured result. It
-  keeps a bounded tail of the helper's error output and reports that tail
-  whenever the helper's outcome is unknown, so a dead helper still leaves a
-  reason in the stopped result and the transcript.
+- `coding-adapter.ts` starts one runner-owned plan-step Codex SDK host process
+  per step through the shared child-process lifetime controller. The SDK host
+  process starts one fresh Codex SDK thread and streams semantic coding events
+  before its exact structured result. The adapter keeps a bounded tail of the
+  SDK host process's error output and reports that tail whenever the process's
+  outcome is unknown, so a dead SDK host process still leaves a reason in the
+  stopped result and the transcript.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
   parser-owned active-step marker. It permits Repo Edu writes and needed
   dependency installation while forbidding plan, Git and later-step writes.
-- `CodingResult` is the helper's only terminal payload. Keep its succeeded and
-  blocked forms strict and never add proof data to it.
+- `CodingResult` is the plan-step Codex SDK host process's only terminal
+  payload. Keep its succeeded and blocked forms strict and never add proof data
+  to it.
 - `repository-admission.ts` fixes the clean branch and index before Codex. It
   owns outside work admission under the rule above. It freezes `HEAD` before
   staging and owns the non-empty path set, complete staging and exact step
@@ -85,7 +87,7 @@ runner does not try to prove the meaning of the work.
   one terminal line. Redirected output writes required progress once and omits
   other detail. Presentation clears the live line on close and never changes
   runner state.
-- `main.ts` wires Commander, the shared child lifetime, the runner and the
+- `main.ts` wires Commander, the shared child-process lifetime controller, the runner and the
   terminal view. Command-input errors and cursor resets never open a
   transcript.
 - Runner admission remains held until all owned children settle. A Git commit

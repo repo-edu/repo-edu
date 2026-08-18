@@ -5,7 +5,9 @@ const markerPath = process.env.REPO_EDU_CHILD_LIFETIME_MARKER
 const treeFixturePath = process.env.REPO_EDU_CHILD_LIFETIME_TREE_FIXTURE
 
 if (!markerPath || !treeFixturePath) {
-  throw new Error("The child-lifetime owner fixture is missing its paths.")
+  throw new Error(
+    "The child-process lifetime owner fixture is missing its paths.",
+  )
 }
 
 const launcherEntryPath = process.env.REPO_EDU_WINDOWS_LAUNCHER_ENTRY

@@ -10,7 +10,7 @@ import { registerUpdateCommand } from "./commands/update.js"
 import { registerValidateCommand } from "./commands/validate.js"
 import { createCliWorkflowClient } from "./workflow-runtime.js"
 
-// Every caller supplies the child-lifetime adapter it owns and stops. The
+// Every caller supplies the child-process lifetime controller it owns and stops. The
 // program never builds a lifetime owner of its own.
 export type CreateProgramOptions = {
   childProcessLifetimeController: ChildProcessLifetimeController

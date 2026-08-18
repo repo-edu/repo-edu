@@ -23,8 +23,9 @@ function errorText(error: unknown): string {
 
 async function runCli(): Promise<void> {
   const artifactProbe = isProgramGateArtifactProbe()
-  const childLifetimeArtifactProbe = isChildProcessLifetimeArtifactProbe()
-  if (artifactProbe && childLifetimeArtifactProbe) {
+  const childProcessLifetimeArtifactProbe =
+    isChildProcessLifetimeArtifactProbe()
+  if (artifactProbe && childProcessLifetimeArtifactProbe) {
     throw new Error("Only one command-line artifact probe may run at a time.")
   }
   let storageRoot: string
@@ -52,25 +53,28 @@ async function runCli(): Promise<void> {
 
   const childProcessLifetimeController =
     await createCommandLineChildProcessLifetimeController()
-  let childLifetimeStopConfirmed = false
+  let childProcessLifetimeStopConfirmed = false
   const observedChildProcessLifetimeController: ChildProcessLifetimeController =
-    childLifetimeArtifactProbe
+    childProcessLifetimeArtifactProbe
       ? {
           launch: childProcessLifetimeController.launch,
           async stopAndConfirm() {
             await childProcessLifetimeController.stopAndConfirm()
-            childLifetimeStopConfirmed = true
+            childProcessLifetimeStopConfirmed = true
           },
         }
       : childProcessLifetimeController
-  let childLifetimeRun:
+  let childProcessLifetimeRun:
     | Awaited<ReturnType<typeof startChildProcessLifetimeArtifactProbe>>
     | undefined
   await runWithCommandLineLifetime(
     {
       childProcessLifetimeController: observedChildProcessLifetimeController,
       releaseProgramGate() {
-        if (childLifetimeArtifactProbe && !childLifetimeStopConfirmed) {
+        if (
+          childProcessLifetimeArtifactProbe &&
+          !childProcessLifetimeStopConfirmed
+        ) {
           throw new Error(
             "The program gate was released before child-process shutdown finished.",
           )
@@ -84,8 +88,8 @@ async function runCli(): Promise<void> {
         await waitForProgramGateArtifactProbeRelease()
         return
       }
-      if (childLifetimeArtifactProbe) {
-        childLifetimeRun = await startChildProcessLifetimeArtifactProbe(
+      if (childProcessLifetimeArtifactProbe) {
+        childProcessLifetimeRun = await startChildProcessLifetimeArtifactProbe(
           observedChildProcessLifetimeController,
         )
         return
@@ -98,12 +102,15 @@ async function runCli(): Promise<void> {
     },
   )
 
-  if (childLifetimeArtifactProbe) {
-    if (!childLifetimeRun) {
-      throw new Error("The command-line child-lifetime probe did not start.")
+  if (childProcessLifetimeArtifactProbe) {
+    if (!childProcessLifetimeRun) {
+      throw new Error(
+        "The command-line child-process lifetime probe did not start.",
+      )
     }
-    const claims =
-      await finishChildProcessLifetimeArtifactProbe(childLifetimeRun)
+    const claims = await finishChildProcessLifetimeArtifactProbe(
+      childProcessLifetimeRun,
+    )
     process.stdout.write(
       `${JSON.stringify({
         marker: childProcessLifetimeArtifactProbeMarker,

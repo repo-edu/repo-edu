@@ -35,7 +35,7 @@ import {
 } from "@repo-edu/host-node/examination-archive"
 import {
   createWindowsChildProcessLifetimeAdapter,
-  resolveWindowsChildLifetimeLauncherEntryUrl,
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl,
 } from "@repo-edu/host-node/windows-child-lifetime"
 import type {
   ExaminationArchiveStoragePort,
@@ -149,7 +149,9 @@ const childProcessLifetimeController = createChildProcessLifetimeController({
                 "host-child-lifetime",
                 "windows-launcher.cjs",
               )
-            : fileURLToPath(resolveWindowsChildLifetimeLauncherEntryUrl()),
+            : fileURLToPath(
+                resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
+              ),
           runAsNode: true,
         })
       : undefined,

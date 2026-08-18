@@ -21,10 +21,10 @@ violations. Six concerns feed it:
   Node built-in exclusion from browser-safe runtime closures.
 - Product process launches (`product-process-launch-inventory.ts`,
   `product-process-launch-syntax.ts` and `product-process-launches.ts`):
-  reconciles every product runtime process entry against the child-lifetime
-  direct-adapter or managed-helper route. It includes the packaged CommonJS
-  launcher and rejects unregistered Node, Bun, Deno and dependency-owned launch
-  paths.
+  reconciles every product runtime process entry against its child-process
+  lifetime launch owner: a platform adapter or a Codex SDK host process. It
+  includes the packaged CommonJS launcher and rejects unregistered Node, Bun,
+  Deno and dependency-owned launch paths.
 - Source inventory (`inventory.ts`): one raw current-worktree listing plus the
   selected source list and set that every check shares.
 
@@ -86,7 +86,7 @@ may span `/`.
 - Report malformed workspace manifests as violations. Do not let one invalid
   JSON file abort the rest of the architecture pass.
 - Keep the process-launch inventory exact. A product source that gains or loses
-  a process mechanism must update the inventory and name its target route.
+  a process mechanism must update the inventory and name its launch owner.
 - `dependency-cruiser` and `zod` are runtime dependencies; run `pnpm install`
   after pulling a change that adds them.
 - Tests live in `src/__tests__/`. `start` runs the tool's own typecheck and

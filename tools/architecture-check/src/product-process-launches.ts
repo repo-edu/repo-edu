@@ -73,14 +73,14 @@ export function checkProductProcessLaunches(
     if (mechanisms === undefined) {
       violations.push({
         file: entry.file,
-        message: `child-lifetime launch inventory entry "${entry.id}" points to missing product source`,
+        message: `child-process lifetime launch inventory entry "${entry.id}" points to missing product source`,
       })
       continue
     }
     if (!mechanisms.has(entry.mechanism)) {
       violations.push({
         file: entry.file,
-        message: `child-lifetime launch inventory entry "${entry.id}" no longer uses ${MECHANISM_LABELS[entry.mechanism]}`,
+        message: `child-process lifetime launch inventory entry "${entry.id}" no longer uses ${MECHANISM_LABELS[entry.mechanism]}`,
       })
     }
   }

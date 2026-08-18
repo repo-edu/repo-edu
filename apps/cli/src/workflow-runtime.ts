@@ -25,7 +25,7 @@ import {
   createCliCourseStore,
 } from "./state-store.js"
 
-// The adapter is required, never defaulted. A composition that made its own
+// The controller is required, never defaulted. A composition that made its own
 // would own process trees that no caller can stop and confirm.
 export type CliWorkflowRuntimeOptions = {
   childProcessLifetimeController: ChildProcessLifetimeController

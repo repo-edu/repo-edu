@@ -133,7 +133,7 @@ async function provePackagedWindowsClaims(
   }
   if (Object.values(claims).some((passed) => !passed)) {
     throw new Error(
-      `The packaged Windows child-lifetime claims failed: ${JSON.stringify(claims)}`,
+      `The packaged Windows child-process lifetime claims failed: ${JSON.stringify(claims)}`,
     )
   }
   return claims as Record<string, true>

@@ -31,7 +31,7 @@ const codexSpec = {
 }
 
 describe("createNodeLlmTextClient", () => {
-  it("routes the Claude CLI through one direct controller-owned tree", async () => {
+  it("routes the Claude CLI through one controller-owned tree", async () => {
     const launches: ChildProcessLifetimeLaunch[] = []
     let prompt = ""
     let stopConfirmations = 0

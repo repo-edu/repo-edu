@@ -7,7 +7,7 @@ import { join } from "node:path"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
-import { resolveWindowsChildLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
+import { resolveWindowsChildProcessLifetimeLauncherEntryUrl } from "../windows-child-lifetime.js"
 
 const fixturePath = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
@@ -17,7 +17,7 @@ const ownerFixturePath = fileURLToPath(
 )
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url))
 const windowsLauncherEntryPath = fileURLToPath(
-  resolveWindowsChildLifetimeLauncherEntryUrl(),
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
 )
 const supportsProcessGroups =
   process.platform === "darwin" || process.platform === "linux"

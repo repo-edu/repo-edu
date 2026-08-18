@@ -8,13 +8,13 @@ import {
 } from "@repo-edu/host-node/child-process-lifetime"
 import {
   createWindowsChildProcessLifetimeAdapter,
-  resolveWindowsChildLifetimeLauncherEntryUrl,
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "@repo-edu/host-node/windows-child-lifetime"
 import { resolvePackagedWindowsChildLifetimeRuntime } from "../child-lifetime-artifact-probe.js"
 
 const launcherEntryPath = fileURLToPath(
-  resolveWindowsChildLifetimeLauncherEntryUrl(),
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
 )
 const targetScript = [
   "process.stdin.setEncoding('utf8')",
@@ -23,7 +23,7 @@ const targetScript = [
   "process.stdin.on('end', () => { process.stdout.write(input.toUpperCase()) })",
 ].join("; ")
 
-describe("packaged Windows child-lifetime runtime", () => {
+describe("packaged Windows child-process lifetime runtime", () => {
   it("keeps the Electron executable and launcher entry host-owned", () => {
     const resourcesPath = join("root", "resources")
     const executablePath = join("root", "RepoEdu.exe")
@@ -65,7 +65,7 @@ describe("packaged Windows child-lifetime runtime", () => {
     })
   })
 
-  it("joins the packaged Windows route to the shared controller", {
+  it("joins the packaged Windows adapter to the shared controller", {
     skip: process.platform !== "win32",
   }, async () => {
     const windowsAdapter = createWindowsChildProcessLifetimeAdapter({

@@ -11,23 +11,24 @@ type WindowsChildLifetimeRuntime = {
   readonly runAsNode: boolean
 }
 
-type WindowsChildLifetimeModule = {
+type WindowsChildProcessLifetimeModule = {
   createWindowsChildProcessLifetimeAdapter(
     runtime: WindowsChildLifetimeRuntime,
   ): ChildProcessLifetimePlatformAdapter
-  resolveWindowsChildLifetimeLauncherEntryUrl(): URL
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl(): URL
 }
 
-type WindowsPlatformLoader = () => Promise<WindowsChildLifetimeModule>
+type WindowsAdapterModuleLoader =
+  () => Promise<WindowsChildProcessLifetimeModule>
 
 export type CommandLineChildProcessLifetimeOptions = {
   readonly executablePath?: string
   readonly launcherEntryUrl?: URL
-  readonly loadWindowsPlatform?: WindowsPlatformLoader
+  readonly loadWindowsAdapterModule?: WindowsAdapterModuleLoader
   readonly runtimePlatform?: NodeJS.Platform
 }
 
-async function loadWindowsPlatform(): Promise<WindowsChildLifetimeModule> {
+async function loadWindowsAdapterModule(): Promise<WindowsChildProcessLifetimeModule> {
   return await import("@repo-edu/host-node/windows-child-lifetime")
 }
 
@@ -40,14 +41,14 @@ export async function createCommandLineChildProcessLifetimeController(
   }
 
   const windowsModule = await (
-    options.loadWindowsPlatform ?? loadWindowsPlatform
+    options.loadWindowsAdapterModule ?? loadWindowsAdapterModule
   )()
   const windowsAdapter = windowsModule.createWindowsChildProcessLifetimeAdapter(
     {
       executablePath: options.executablePath ?? process.execPath,
       launcherEntryPath: fileURLToPath(
         options.launcherEntryUrl ??
-          windowsModule.resolveWindowsChildLifetimeLauncherEntryUrl(),
+          windowsModule.resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
       ),
       runAsNode: false,
     },

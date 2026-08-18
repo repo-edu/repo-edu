@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+@../../glossaries/child-process-lifetime.md
+
 Node.js implementations of the runtime ports defined in `@repo-edu/host-runtime-contract`.
 
 ## Purpose
@@ -7,28 +9,30 @@ Node.js implementations of the runtime ports defined in `@repo-edu/host-runtime-
 Concrete side-effect layer for desktop and CLI hosts. Each factory returns a plain object satisfying its port interface.
 
 - `createNodeHttpPort()` — `globalThis.fetch`-based `HttpPort`
-- `createNodeProcessPort(childProcessLifetime)` — `ProcessPort` over one shared
-  child-lifetime adapter; it captures streams while the adapter owns the full
-  process tree
+- `createNodeProcessPort(childProcessLifetimeController)` — `ProcessPort` over
+  one shared controller; it captures streams while the controller owns the
+  full process tree
 - `createNodeGitCommandPort(processPort)` — `GitCommandPort` wrapping the
-  adapter-backed production port or an injected test port; it calls system
+  controller-backed production port or an injected test port; it calls system
   `git`
 - `createNodeFileSystemPort()` — `FileSystemPort` using `node:fs/promises`
   (inspect/stat, batch operations, temp directories, directory/file listing and
   contained reads)
-- `createNodeLlmPort(childProcessLifetime, config?)` — `LlmPort` that delegates
-  to the `createLlmTextClient` dispatcher in `@repo-edu/integrations-llm` and
-  gives subscription Claude the shared direct-launch route
-- `createNodeLlmTextClient(childProcessLifetime, config?, options?)` — the
-  host-owned prompt/reply composition used by desktop draft checks and fixture
-  tools. A configured Codex helper starts through the adapter's managed route.
+- `createNodeLlmPort(childProcessLifetimeController, config?)` — `LlmPort` that
+  delegates to the `createLlmTextClient` dispatcher in
+  `@repo-edu/integrations-llm` and gives subscription Claude the shared
+  controller
+- `createNodeLlmTextClient(childProcessLifetimeController, config?, options?)`
+  — the host-owned prompt/reply composition used by desktop draft checks and
+  fixture tools. A configured Codex SDK host process starts through the same
+  controller.
 - `createNodeTokenizerPort()` — live `web-tree-sitter` parser loading over the
   committed grammar-asset manifest
-- `createChildProcessLifetimeAdapter()` from the `child-process-lifetime`
+- `createChildProcessLifetimeController()` from the `child-process-lifetime`
   subpath — one launch registry and stop-and-confirm boundary. macOS and Linux
   targets start in their own process groups. Windows composition supplies the
-  platform returned by `createWindowsChildProcessLifetimePlatform(...)`.
-- `child-process-lifetime-artifact-probe.ts` — shared direct-route proof used
+  adapter returned by `createWindowsChildProcessLifetimeAdapter(...)`.
+- `child-process-lifetime-artifact-probe.ts` — shared controller proof used
   unchanged by Electron, Node command-line development and compiled Bun.
 - `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver.
   Desktop passes Electron's platform app-data base; CLI uses the same resolver
@@ -39,7 +43,7 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `claimProgramGate(...)` — one shared desktop/CLI `BEGIN EXCLUSIVE` claim in
   `program-gate.db`. It delegates to the generic claim without changing the
   product path or meaning.
-- `windows-child-lifetime.ts` — public packaged-Windows entry. Its platform,
+- `windows-child-lifetime.ts` — public packaged-Windows entry. Its adapter,
   proof and launcher-protocol modules keep host lifetime, artifact evidence and
   wire grammar separate. `windows-job.ts` owns the Koffi job calls.
 - `resources/host-child-lifetime/windows-launcher.cjs` — fixed launcher source
@@ -54,31 +58,32 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - Side effects belong here, not in domain or application.
 - Reads inside a selected root must resolve both paths and enforce real-path containment before reading bytes.
 - Production Git and subscription Claude composition receives the same shared
-  child-lifetime adapter from its host. Tests may give the Git wrapper a
+  child-process lifetime controller from its host. Tests may give the Git wrapper a
   `ProcessPort` instead.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
-- Electron Codex composition supplies one fixed helper command with
+- Electron Codex composition supplies one fixed Codex SDK host command with
   `runAsNode: true`. The host copies the complete environment, adds
-  `ELECTRON_RUN_AS_NODE` only for that helper start and never passes the caller
-  abort signal directly to the process-tree adapter. The helper protocol owns
-  the cooperative stop request first.
+  `ELECTRON_RUN_AS_NODE` only for that SDK host start and never passes the
+  caller abort signal directly to the owned-tree launch. The SDK host protocol
+  owns the cooperative stop request first.
 - Exclusive-claim contention returns `busy`. Every other SQLite or filesystem
   failure propagates. A held claim is idempotently released by closing its
   connection. The claim uses `node:sqlite` under Node and `bun:sqlite` in a
   compiled Bun CLI.
-- The Windows child-lifetime route is not the generic `ProcessPort`. It must
+- The Windows child-process lifetime adapter is not the generic `ProcessPort`.
+  It must
   save the launcher process identity in the same synchronous turn as spawn,
-  assign it to the job before sending the target command, use the fixed helper
+  assign it to the job before sending the target command, use the fixed launcher
   entry and pass the host-supplied target environment unchanged. Its runtime
   declares whether the launcher executable is Electron in Node mode or plain
-  Node. The Codex helper removes `ELECTRON_RUN_AS_NODE` before the SDK starts
-  Codex or tools. A lost launcher after target admission reports an unknown
-  outcome only after its job is confirmed empty.
-- A launch environment is the complete target environment on every platform
-  route, never changes laid over `process.env`. A caller that removed a
+  Node. The Codex SDK host process removes `ELECTRON_RUN_AS_NODE` before the SDK
+  starts Codex or tools. A lost launcher after target admission reports an
+  unknown outcome only after its job is confirmed empty.
+- A launch environment is the complete target environment for every platform
+  adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
   falls back to the host's own.
-- The shared child-process lifetime adapter owns its five-second graceful stop
+- The shared child-process lifetime controller owns its five-second graceful stop
   allowance. Callers may request group cancellation, but cannot change that
   duration or report a direct target result before its descendants are gone.
   Shutdown requests a stop from platform startup before it waits for the

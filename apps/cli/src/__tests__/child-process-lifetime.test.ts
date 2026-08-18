@@ -4,17 +4,17 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import type { ChildProcessLifetimePlatformAdapter } from "@repo-edu/host-node/child-process-lifetime"
 import { createCommandLineChildProcessLifetimeController } from "../child-process-lifetime.js"
 
-const unusedWindowsPlatform: ChildProcessLifetimePlatformAdapter = {
+const unusedWindowsAdapter: ChildProcessLifetimePlatformAdapter = {
   async launch() {
-    throw new Error("The test Windows platform must not launch a target.")
+    throw new Error("The test Windows adapter must not launch a target.")
   },
 }
 
 const unusedWindowsModule = {
   createWindowsChildProcessLifetimeAdapter() {
-    return unusedWindowsPlatform
+    return unusedWindowsAdapter
   },
-  resolveWindowsChildLifetimeLauncherEntryUrl() {
+  resolveWindowsChildProcessLifetimeLauncherEntryUrl() {
     throw new Error("The test Windows module must not resolve its launcher.")
   },
 }
@@ -25,7 +25,7 @@ describe("command-line child-process controller", () => {
 
     const controller = await createCommandLineChildProcessLifetimeController({
       runtimePlatform: "linux",
-      async loadWindowsPlatform() {
+      async loadWindowsAdapterModule() {
         windowsModuleLoaded = true
         return unusedWindowsModule
       },
@@ -35,7 +35,7 @@ describe("command-line child-process controller", () => {
     await controller.stopAndConfirm()
   })
 
-  it("builds the Windows platform from the fixed launcher entry", async () => {
+  it("builds the Windows adapter from the fixed launcher entry", async () => {
     const runtimes: {
       executablePath: string
       launcherEntryPath: string
@@ -47,13 +47,13 @@ describe("command-line child-process controller", () => {
     const controller = await createCommandLineChildProcessLifetimeController({
       executablePath,
       runtimePlatform: "win32",
-      async loadWindowsPlatform() {
+      async loadWindowsAdapterModule() {
         return {
           createWindowsChildProcessLifetimeAdapter(runtime) {
             runtimes.push(runtime)
-            return unusedWindowsPlatform
+            return unusedWindowsAdapter
           },
-          resolveWindowsChildLifetimeLauncherEntryUrl() {
+          resolveWindowsChildProcessLifetimeLauncherEntryUrl() {
             return launcherEntryUrl
           },
         }
@@ -77,13 +77,13 @@ describe("command-line child-process controller", () => {
     await createCommandLineChildProcessLifetimeController({
       launcherEntryUrl,
       runtimePlatform: "win32",
-      async loadWindowsPlatform() {
+      async loadWindowsAdapterModule() {
         return {
           createWindowsChildProcessLifetimeAdapter(runtime) {
             launcherEntryPath = runtime.launcherEntryPath
-            return unusedWindowsPlatform
+            return unusedWindowsAdapter
           },
-          resolveWindowsChildLifetimeLauncherEntryUrl() {
+          resolveWindowsChildProcessLifetimeLauncherEntryUrl() {
             throw new Error("An explicit launcher entry must win.")
           },
         }

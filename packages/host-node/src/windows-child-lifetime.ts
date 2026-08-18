@@ -11,7 +11,7 @@ export {
 } from "./windows-child-process-lifetime-adapter.js"
 export type { WindowsChildLifetimeTarget } from "./windows-launcher-protocol.js"
 
-export function resolveWindowsChildLifetimeLauncherEntryUrl(): URL {
+export function resolveWindowsChildProcessLifetimeLauncherEntryUrl(): URL {
   return new URL(
     "../resources/host-child-lifetime/windows-launcher.cjs",
     import.meta.url,

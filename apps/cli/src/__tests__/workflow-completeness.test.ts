@@ -4,8 +4,8 @@ import { workflowCatalog } from "@repo-edu/application-contract"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createProgram } from "../cli.js"
 
-// The command tree is inspected, never run, so this adapter owns no tree. It
-// is still supplied here because every caller owns the adapter it passes.
+// The command tree is inspected, never run, so this controller owns no tree. It
+// is still supplied here because every caller owns the controller it passes.
 function createInspectionProgram() {
   return createProgram({
     childProcessLifetimeController: createChildProcessLifetimeController(),

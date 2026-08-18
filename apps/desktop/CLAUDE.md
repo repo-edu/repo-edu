@@ -9,7 +9,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/main.ts`: Electron main process bootstrap and composition root. Installs
   terminal process handlers, resolves the shared app-data root, claims the
   program gate and only then starts the Electron application and its stores.
-  It gives Git and subscription Claude one shared child-lifetime adapter. On
+  It gives Git and subscription Claude one shared child-process lifetime
+  controller. On
   Windows it supplies the packaged or development launcher entry.
 - `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set, git-username import, roster, validation, settings, and user-file workflows.
 - `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
@@ -19,11 +20,11 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   use attempt-identified renderer close and cancellation. Main-process
   validation windows bypass the renderer session.
 - `src/child-lifetime-artifact-probe.ts`: packaged and development Electron
-  proof for the shared adapter and managed Codex helper. Packaged Windows also
-  proves the fixed `runAsNode` launcher and kill-on-close job route.
-- `src/codex-helper-command.ts`: fixed managed-helper command. Electron runs
-  the bundled `codex-helper.js` entry in Node mode through the shared
-  child-lifetime adapter.
+  proof for the shared controller and Codex SDK host process. Packaged Windows
+  also proves the fixed `runAsNode` launcher and kill-on-close Windows job.
+- `src/codex-sdk-host-command.ts`: fixed Codex SDK host command. Electron runs
+  the bundled `codex-sdk-host.js` entry in Node mode through the shared
+  child-process lifetime controller.
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
 - `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus `settings/credentials.json` and `settings/preferences.json`)
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of app preferences.
@@ -47,10 +48,10 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   only after a matching failure or cancellation acknowledgement. If renderer
   cancellation itself cannot settle, the main process owns terminal close.
 - `validate:runtime` must package first. Its prebuilt phase proves tRPC, the
-  program gate, the shipped child-lifetime matrix and the shell boundary
+  program gate, the shipped child-process lifetime matrix and the shell boundary
   against that packaged output.
 - Windows packaging must keep the `runAsNode` fuse enabled, unpack Koffi native
   files and ship the fixed launcher as an extra resource.
-- The main bundle and Codex helper are separate fixed entries. The main process
-  owns request admission and outcome truth. The helper owns one SDK turn and
-  never receives saved desktop state or retry policy.
+- The main bundle and Codex SDK host process are separate fixed entries. The
+  main process owns request admission and outcome truth. The SDK host process
+  owns one SDK turn and never receives saved desktop state or retry policy.
