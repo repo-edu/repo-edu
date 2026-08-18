@@ -29,9 +29,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - `createNodeTokenizerPort()` — live `web-tree-sitter` parser loading over the
   committed grammar-asset manifest
 - `createChildProcessLifetimeController()` from the `child-process-lifetime`
-  subpath — one launch registry and stop-and-confirm boundary. macOS and Linux
-  targets start in their own process groups. Windows composition supplies the
-  adapter returned by `createWindowsChildProcessLifetimeAdapter(...)`.
+  subpath — one launch registry, completion rule and stop-and-confirm boundary.
+  macOS and Linux targets start in their own process groups. Windows
+  composition supplies the adapter returned by
+  `createWindowsChildProcessLifetimeAdapter(...)`.
 - `child-process-lifetime-artifact-probe.ts` — shared controller proof used
   unchanged by Electron, Node command-line development and compiled Bun.
 - `resolveRepoEduAppDataRoot(...)` — shared desktop/CLI app-data root resolver.
@@ -58,8 +59,10 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - Side effects belong here, not in domain or application.
 - Reads inside a selected root must resolve both paths and enforce real-path containment before reading bytes.
 - Production Git and subscription Claude composition receives the same shared
-  child-process lifetime controller from its host. Tests may give the Git wrapper a
-  `ProcessPort` instead.
+  child-process lifetime controller from its host. Tests may give the Git
+  wrapper a `ProcessPort` instead. Direct commands use target exit as their
+  result proof. Protocol callers report work start, a matching result or a lost
+  proving connection.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
 - Electron Codex composition supplies one fixed Codex SDK host command with
   `runAsNode: true`. The host copies the complete environment, adds
@@ -83,10 +86,15 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
   falls back to the host's own.
-- The shared child-process lifetime controller owns its five-second graceful stop
-  allowance. Callers may request group cancellation, but cannot change that
-  duration or report a direct target result before its descendants are gone.
-  Shutdown requests a stop from platform startup before it waits for the
-  launch to enter the active-tree registry.
-  A caller-side stream or protocol failure must await the tree's
-  `stopAndConfirm` result before it reports the failure.
+- The shared child-process lifetime controller owns the run outcome. It checks
+  unknown, cancelled, failed and completed in that order after the whole tree
+  is confirmed gone. Callers report facts and never rank failures, attach
+  secondary failures as causes or compose another outcome.
+- The controller owns one five-second graceful stop allowance and one
+  five-second confirmation deadline after a forced stop. Both platform
+  adapters apply those periods. Confirmation expiry returns no run outcome and
+  calls the required terminal host path. Shutdown requests a stop from
+  platform startup before it waits for the launch to enter the active-tree
+  registry.
+- Every host supplies an error diagnostic sink. The controller sends each
+  secondary failure there once and keeps it out of the run outcome.

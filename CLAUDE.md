@@ -149,6 +149,14 @@ Core flow:
 - Preserve the packaged Windows child-process lifetime proof: a fixed launcher entry,
   explicit Electron `runAsNode`, job assignment before target admission, a
   saved same-turn process identity and a non-inherited job handle.
+- The child-process lifetime controller owns the one terminal outcome for Git,
+  subscription Claude, app Codex and plan-step Codex runs. Callers report work,
+  result, proving-connection and cancellation facts. They never rank or
+  compose run failures.
+- No outside-program outcome leaves the controller before its whole owned tree
+  is confirmed gone. Forced-stop confirmation has a five-second deadline. An
+  expiry returns no outcome and ends the desktop, command line or private
+  runner through its fatal host path.
 - Release validation must prove the program gate in the packaged desktop and
   compiled CLI artifacts. Packaged Windows validation must also prove the
   child-process lifetime contract.

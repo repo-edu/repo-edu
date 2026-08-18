@@ -52,6 +52,9 @@ The production entry owns one child-process lifetime controller and one shutdown
 Normal completion, repeated interrupt and termination all stop and confirm the
 controller before the program gate is released or the process exits. In-process
 `createProgram` callers own their surrounding lifetime.
+The controller returns an outside-program outcome only after its full tree is
+confirmed gone. If forced-stop confirmation expires, the command line writes
+the fatal unconfirmed-tree message and exits without releasing an outcome.
 The artifact probe runs this order in Node development and the shipped Bun
 binary. The command-line program never starts the Codex SDK host process.
 

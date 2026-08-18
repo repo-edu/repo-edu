@@ -40,6 +40,10 @@ export type WindowsChildLifetimeRuntime = {
   readonly runAsNode: boolean
 }
 
+export type WindowsChildLifetimeAdapterOperations = {
+  createJob(): Promise<WindowsKillOnCloseJob>
+}
+
 export type WindowsChildLifetimeEvidence = {
   readonly assignedToJob: true
   readonly identitySavedInSpawnTurn: true
@@ -83,6 +87,10 @@ type LaunchedWindowsTarget = {
     readonly targetAdmittedAfterAssignment: true
   }
   readonly tree: PlatformOwnedChildProcessTree
+}
+
+const defaultAdapterOperations: WindowsChildLifetimeAdapterOperations = {
+  createJob: createWindowsKillOnCloseJob,
 }
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
@@ -310,6 +318,7 @@ async function startAssignedLauncher(
   runtime: WindowsChildLifetimeRuntime,
   stopSignals: LaunchStopSignals,
   forcedStopConfirmationPeriodMs: number,
+  operations: WindowsChildLifetimeAdapterOperations,
 ): Promise<AssignedLauncher> {
   if (process.platform !== "win32") {
     throw new Error(
@@ -317,7 +326,7 @@ async function startAssignedLauncher(
     )
   }
 
-  const job = await createWindowsKillOnCloseJob()
+  const job = await operations.createJob()
   const cleanupState: LauncherCleanupState = { forceStarted: false }
   let child: ChildProcess | null = null
   let controlInput: Writable | null = null
@@ -612,6 +621,7 @@ export async function launchAssignedTarget(
   target: WindowsChildLifetimeTarget & { readonly signal?: AbortSignal },
   stopPolicy: ChildProcessLifetimeStopPolicy,
   pendingStopSignal?: AbortSignal,
+  operations: WindowsChildLifetimeAdapterOperations = defaultAdapterOperations,
 ): Promise<LaunchedWindowsTarget> {
   const pendingStopSignals = [pendingStopSignal]
   const launchStopSignals = [pendingStopSignal, target.signal]
@@ -622,6 +632,7 @@ export async function launchAssignedTarget(
       runtime,
       launchStopSignals,
       stopPolicy.forcedStopConfirmationPeriodMs,
+      operations,
     )
   } catch (error) {
     if (isPendingLaunchStoppedError(error) && error.signal === target.signal) {
@@ -733,6 +744,7 @@ export async function proveWindowsLauncherReadiness(
     runtime,
     [],
     childProcessForcedStopConfirmationPeriodMs,
+    defaultAdapterOperations,
   )
   let evidence: WindowsLauncherReadinessEvidence | undefined
   let readinessFailure: unknown

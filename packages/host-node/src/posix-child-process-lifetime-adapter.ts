@@ -12,6 +12,14 @@ type ProcessGroup = {
   stopAndConfirm(): Promise<void>
 }
 
+export type PosixProcessGroupOperations = {
+  processGroupExists(processGroupId: number): boolean
+  signalProcessGroup(
+    processGroupId: number,
+    signal: "SIGKILL" | "SIGTERM",
+  ): boolean
+}
+
 const noProcessGroup: ProcessGroup = {
   requestStop() {},
   async stopAndConfirm() {},
@@ -51,6 +59,11 @@ function signalProcessGroup(
   }
 }
 
+const defaultProcessGroupOperations: PosixProcessGroupOperations = {
+  processGroupExists,
+  signalProcessGroup,
+}
+
 function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs)
@@ -59,11 +72,12 @@ function delay(durationMs: number): Promise<void> {
 
 async function waitForProcessGroupExit(
   processGroupId: number,
+  operations: PosixProcessGroupOperations,
   timeoutMs?: number,
 ): Promise<boolean> {
   const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
 
-  while (processGroupExists(processGroupId)) {
+  while (operations.processGroupExists(processGroupId)) {
     if (deadline !== undefined) {
       const remainingMs = deadline - Date.now()
       if (remainingMs <= 0) {
@@ -82,6 +96,7 @@ function createProcessGroup(
   processGroupId: number,
   gracefulStopPeriodMs: number,
   forcedStopConfirmationPeriodMs: number,
+  operations: PosixProcessGroupOperations,
 ): ProcessGroup {
   let gracefulStopStartedAt: number | undefined
   let confirmation: Promise<void> | undefined
@@ -89,13 +104,13 @@ function createProcessGroup(
   const requestStop = () => {
     if (
       gracefulStopStartedAt !== undefined ||
-      !processGroupExists(processGroupId)
+      !operations.processGroupExists(processGroupId)
     ) {
       return
     }
 
     gracefulStopStartedAt = Date.now()
-    signalProcessGroup(processGroupId, "SIGTERM")
+    operations.signalProcessGroup(processGroupId, "SIGTERM")
   }
 
   return {
@@ -103,7 +118,7 @@ function createProcessGroup(
     stopAndConfirm() {
       confirmation ??= (async () => {
         requestStop()
-        if (!processGroupExists(processGroupId)) {
+        if (!operations.processGroupExists(processGroupId)) {
           return
         }
 
@@ -112,14 +127,21 @@ function createProcessGroup(
           gracefulStopPeriodMs -
             (Date.now() - (gracefulStopStartedAt ?? Date.now())),
         )
-        if (await waitForProcessGroupExit(processGroupId, remainingGraceMs)) {
+        if (
+          await waitForProcessGroupExit(
+            processGroupId,
+            operations,
+            remainingGraceMs,
+          )
+        ) {
           return
         }
 
-        signalProcessGroup(processGroupId, "SIGKILL")
+        operations.signalProcessGroup(processGroupId, "SIGKILL")
         if (
           !(await waitForProcessGroupExit(
             processGroupId,
+            operations,
             forcedStopConfirmationPeriodMs,
           ))
         ) {
@@ -161,8 +183,10 @@ function observeTerminalResult(
   return { outcome, streamsClosed }
 }
 
-export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapter =
-  {
+export function createPosixChildProcessLifetimeAdapter(
+  operations: PosixProcessGroupOperations = defaultProcessGroupOperations,
+): ChildProcessLifetimePlatformAdapter {
+  return {
     async launch(request, pendingStopSignal, stopPolicy) {
       if (pendingStopSignal.aborted) {
         throw new Error("The pending child-process launch was stopped.")
@@ -186,6 +210,7 @@ export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapt
               child.pid,
               stopPolicy.gracefulStopPeriodMs,
               stopPolicy.forcedStopConfirmationPeriodMs,
+              operations,
             )
 
       return {
@@ -205,3 +230,7 @@ export const posixChildProcessLifetimeAdapter: ChildProcessLifetimePlatformAdapt
       }
     },
   }
+}
+
+export const posixChildProcessLifetimeAdapter =
+  createPosixChildProcessLifetimeAdapter()

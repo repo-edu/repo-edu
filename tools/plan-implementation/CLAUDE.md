@@ -53,10 +53,13 @@ runner does not try to prove the meaning of the work.
 - `coding-adapter.ts` starts one runner-owned plan-step Codex SDK host process
   per step through the shared child-process lifetime controller. The SDK host
   process starts one fresh Codex SDK thread and streams semantic coding events
-  before its exact structured result. The adapter keeps a bounded tail of the
-  SDK host process's error output and reports that tail whenever the process's
-  outcome is unknown, so a dead SDK host process still leaves a reason in the
-  stopped result and the transcript.
+  before its exact structured result. The adapter reports work start when it
+  sends the request, then reports the matching result or a lost proving
+  connection. It never ranks or composes run failures. The shared controller
+  chooses unknown, cancelled, failed or completed after tree confirmation. The
+  adapter keeps a bounded tail of the SDK host process's error output and adds
+  that tail to its unknown-outcome error, so a dead SDK host process still
+  leaves a reason in the stopped result and the transcript.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
   parser-owned active-step marker. It permits Repo Edu writes and needed
   dependency installation while forbidding plan, Git and later-step writes.
@@ -87,9 +90,10 @@ runner does not try to prove the meaning of the work.
   one terminal line. Redirected output writes required progress once and omits
   other detail. Presentation clears the live line on close and never changes
   runner state.
-- `main.ts` wires Commander, the shared child-process lifetime controller, the runner and the
-  terminal view. Command-input errors and cursor resets never open a
-  transcript.
+- `main.ts` wires Commander, the shared child-process lifetime controller, the
+  runner and the terminal view. The runner writes the fatal unconfirmed-tree
+  message and exits without a run outcome when forced-stop confirmation
+  expires. Command-input errors and cursor resets never open a transcript.
 - Runner admission remains held until all owned children settle. A Git commit
   that already started settles without rollback and starts no later step.
 - Keep Git history as the only durable step cursor. Do not add progress files

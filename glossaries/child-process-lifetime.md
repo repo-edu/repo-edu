@@ -5,7 +5,8 @@
 - **Host process**: the top-level Repo Edu process. The desktop main process
   and the command-line process are host processes.
 - **Child-process lifetime controller**: the shared object that owns launch
-  admission, active owned trees and stop policy.
+  admission, active owned trees, stop policy and each run's one terminal
+  outcome.
 - **Platform adapter**: the POSIX or Windows implementation that turns the
   controller's common contract into operating-system work.
 - **Owned child-process tree**: the handle returned by one launch. It owns the
@@ -20,7 +21,8 @@
   one plan-step coding request, runs one fresh Codex SDK thread and streams
   coding events.
 - **Stop-and-confirm**: stopping an owned child-process tree and waiting until
-  the full tree is confirmed gone.
+  the full tree is confirmed gone. A forced stop has a five-second
+  confirmation deadline.
 - **Launch owner**: the architecture-inventory fact that names which code
   places a product process inside the child-process lifetime boundary. It is
   not a runtime launch option.
@@ -30,7 +32,7 @@
 ```mermaid
 flowchart TD
     subgraph HOST["Host process"]
-        C["Child-process lifetime controller<br/>state and stop policy"]
+        C["Child-process lifetime controller<br/>state, stop policy and outcome"]
         A["Selected platform adapter<br/>operating-system work"]
         C --> A
     end
@@ -68,7 +70,15 @@ the job owns the launcher.
 The controller accepts launch requests, tracks launches still starting and
 tracks active owned trees. Once shutdown starts, it stops admitting launches,
 asks every owned tree to stop and waits until all of them are confirmed gone.
-These are control and policy duties.
+For each run it records work start, result, proof loss and cancellation facts.
+After the tree is confirmed gone, it checks unknown, cancelled, failed and
+completed in that order and returns the first matching outcome.
+
+No outcome leaves the controller while an owned descendant may still run. If
+the adapter cannot confirm the tree gone within five seconds after a forced
+stop, the controller returns no outcome and calls the terminal host path. The
+desktop shows its fatal error and exits. The command line and private plan
+runner write their fatal error and exit.
 
 A platform adapter performs the operating-system work behind that policy. The
 POSIX adapter starts and signals a process group. The Windows adapter creates a
@@ -78,11 +88,15 @@ admitted and confirms that the job is empty.
 ### Owned child-process tree
 
 One controller launch returns one owned-tree handle. The handle provides the
-requested command's input, output and result, plus operations to request a stop
-and to stop-and-confirm the whole tree.
+requested command's input and output, one controller-owned outcome and
+operations for reporting caller-known facts. A caller may request
+cancellation, but it does not choose the outcome and cannot stop-and-confirm
+the tree itself.
 
 The ownership boundary includes descendants. A command result cannot settle
-the lifetime boundary while a descendant remains alive.
+the lifetime boundary while a descendant remains alive. Secondary failures go
+once to the host's error diagnostic sink. They are not ranked, attached as
+causes or composed into the run outcome.
 
 ### Requested commands and Codex SDK host processes
 

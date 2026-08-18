@@ -12,10 +12,12 @@ Provider adapters for the `LlmTextClient` contract from
   transports. The CLI receives a narrow launch capability from its Node host;
   it never creates or owns a direct child process.
 - `src/codex/*`: Codex prompt/reply adapter
-  (`createCodexLlmTextClient`). The host-side client owns request admission,
-  streamed public events and known-versus-unknown outcome truth. The one-shot
-  Codex SDK host process owns one SDK turn and is the only consumer of raw SDK
-  events. Auth, trace, usage and error mapping remain separate owners.
+  (`createCodexLlmTextClient`). The host-side client owns request admission and
+  streamed public events. It reports request start, the matching protocol
+  result or proof loss to the injected owned tree. The child-process lifetime
+  controller owns the run outcome. The one-shot Codex SDK host process owns one
+  SDK turn and is the only consumer of raw SDK events. Auth, trace, usage and
+  error mapping remain separate owners.
 
 ## Rules
 
@@ -27,17 +29,15 @@ Provider adapters for the `LlmTextClient` contract from
 - An aborted Codex turn throws a `DOMException` named `AbortError`. The
   application layer maps this to public cancellation.
 - Subscription Claude keeps prompt, stream and terminal-result meaning here.
-  The injected host launch owns the process tree and confirms it stopped before
-  the adapter reports a local failure or returns early.
-- A Claude turn can fail in more than one way at once, so one owner ranks those
-  failures and no path may re-decide the ranking. The classified turn failure
-  comes first, because it carries the guidance such as the login message. An
-  owned tree that could not be confirmed gone comes next, because no turn is
-  successful while that is true. An error output that could not be read comes
-  last, because it is still the only account of that run. The highest-ranked
-  failure present is the one the application receives, every other failure
-  present is attached to it as a cause, and the reported failure always carries
-  the provider and auth mode.
+  It reports work start after the prompt is handed over and reports the
+  terminal stream result unchanged. A broken result path becomes proof loss.
+  Error-output read failures are secondary diagnostics. No Claude path ranks
+  or composes run failures.
+- The injected owned tree confirms its full process tree before returning the
+  controller's unknown, cancelled, failed or completed outcome. A failed
+  outcome keeps the target's message. The adapter maps that message to an
+  `LlmError` with the provider and auth mode; it does not choose the run
+  outcome.
 - Codex auth builds immutable SDK options with a complete invocation-scoped
   child environment. Subscription mode omits `CODEX_API_KEY`, and every mode
   omits `ELECTRON_RUN_AS_NODE`. Never mutate `process.env` around a Codex turn.
