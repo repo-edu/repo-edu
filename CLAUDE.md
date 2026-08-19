@@ -153,10 +153,12 @@ Core flow:
   subscription Claude, app Codex and plan-step Codex runs. Callers report work,
   result, proving-connection and cancellation facts. They never rank or
   compose run failures.
-- No outside-program outcome leaves the controller before its whole owned tree
-  is confirmed gone. Forced-stop confirmation has a five-second deadline. An
-  expiry returns no outcome and ends the desktop, command line or private
-  runner through its fatal host path.
+- Every outside-program outcome except confirmation-expiry unknown leaves the
+  controller only after its whole owned tree is confirmed gone. Forced-stop
+  confirmation has a five-second deadline. An expiry sends one diagnostic and
+  one user warning, then returns unknown for an active run. The session
+  continues. At shutdown the same warning is followed by exit. Windows keeps
+  an unconfirmed tree's job handle open until process exit.
 - Release validation must prove the program gate in the packaged desktop and
   compiled CLI artifacts. Packaged Windows validation must also prove the
   child-process lifetime contract.

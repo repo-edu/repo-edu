@@ -69,16 +69,21 @@ the job owns the launcher.
 
 The controller accepts launch requests, tracks launches still starting and
 tracks active owned trees. Once shutdown starts, it stops admitting launches,
-asks every owned tree to stop and waits until all of them are confirmed gone.
-For each run it records work start, result, proof loss and cancellation facts.
-After the tree is confirmed gone, it checks unknown, cancelled, failed and
-completed in that order and returns the first matching outcome.
+asks every owned tree to stop and waits until each tree is confirmed gone or
+its confirmation deadline expires. For each run it records work start, result,
+proof loss and cancellation facts. After the tree is confirmed gone, it checks
+unknown, cancelled, failed and completed in that order and returns the first
+matching outcome.
 
-No outcome leaves the controller while an owned descendant may still run. If
-the adapter cannot confirm the tree gone within five seconds after a forced
-stop, the controller returns no outcome and calls the terminal host path. The
-desktop shows its fatal error and exits. The command line and private plan
-runner write their fatal error and exit.
+Every outcome except confirmation-expiry unknown leaves the controller only
+after the owned tree is confirmed gone. If the adapter cannot confirm the tree
+gone within five seconds after a forced stop, the controller sends the
+confirmation failure once to the diagnostic sink and warns the user once. An
+active run returns unknown and the session continues. During shutdown the same
+warning is followed by exit. A launch whose cleanup expires before admission
+warns and rejects with the confirmation error because no run exists yet. On
+Windows the unconfirmed tree's kill-on-close job handle stays open until
+process exit.
 
 A platform adapter performs the operating-system work behind that policy. The
 POSIX adapter starts and signals a process group. The Windows adapter creates a
@@ -93,10 +98,11 @@ operations for reporting caller-known facts. A caller may request
 cancellation, but it does not choose the outcome and cannot stop-and-confirm
 the tree itself.
 
-The ownership boundary includes descendants. A command result cannot settle
-the lifetime boundary while a descendant remains alive. Secondary failures go
-once to the host's error diagnostic sink. They are not ranked, attached as
-causes or composed into the run outcome.
+The ownership boundary includes descendants. A completed, failed or cancelled
+command result cannot settle the lifetime boundary while a descendant remains
+alive. Confirmation expiry is the exception: the run settles as unknown.
+Secondary failures go once to the host's error diagnostic sink. They are not
+ranked, attached as causes or composed into the run outcome.
 
 ### Requested commands and Codex SDK host processes
 

@@ -53,10 +53,12 @@ Normal completion, repeated interrupt and termination all stop and confirm the
 controller before the program gate is released or the process exits. In-process
 `createProgram` callers own their surrounding lifetime.
 The controller returns an outside-program outcome only after its full tree is
-confirmed gone. If forced-stop confirmation expires, the command line writes
-the fatal unconfirmed-tree message and exits without releasing an outcome.
-The artifact probe runs this order in Node development and the shipped Bun
-binary. The command-line program never starts the Codex SDK host process.
+confirmed gone, except that confirmation expiry returns unknown. On expiry the
+command line writes the confirmation failure to its diagnostic sink, writes one
+warning and keeps the session running. During shutdown it writes the same
+warning and continues exiting. The artifact probe runs this order in Node
+development and the shipped Bun binary. The command-line program never starts
+the Codex SDK host process.
 
 Settings are stored under `settings/credentials.json` and
 `settings/preferences.json`. CLI commands print recovery warnings when a corrupt

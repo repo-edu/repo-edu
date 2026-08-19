@@ -56,10 +56,11 @@ runner does not try to prove the meaning of the work.
   before its exact structured result. The adapter reports work start when it
   sends the request, then reports the matching result or a lost proving
   connection. It never ranks or composes run failures. The shared controller
-  chooses unknown, cancelled, failed or completed after tree confirmation. The
-  adapter keeps a bounded tail of the SDK host process's error output and adds
-  that tail to its unknown-outcome error, so a dead SDK host process still
-  leaves a reason in the stopped result and the transcript.
+  chooses unknown, cancelled, failed or completed after tree confirmation,
+  except that confirmation expiry chooses unknown directly. The adapter keeps
+  a bounded tail of the SDK host process's error output and adds that tail to
+  its unknown-outcome error, so a dead SDK host process still leaves a reason
+  in the stopped result and the transcript.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
   parser-owned active-step marker. It permits Repo Edu writes and needed
   dependency installation while forbidding plan, Git and later-step writes.
@@ -91,9 +92,11 @@ runner does not try to prove the meaning of the work.
   other detail. Presentation clears the live line on close and never changes
   runner state.
 - `main.ts` wires Commander, the shared child-process lifetime controller, the
-  runner and the terminal view. The runner writes the fatal unconfirmed-tree
-  message and exits without a run outcome when forced-stop confirmation
-  expires. Command-input errors and cursor resets never open a transcript.
+  runner and the terminal view. When forced-stop confirmation expires, the
+  runner writes one diagnostic and one warning, then receives unknown for the
+  active run. The runner session stays available. During shutdown it writes the
+  same warning and continues exiting. Command-input errors and cursor resets
+  never open a transcript.
 - Runner admission remains held until all owned children settle. A Git commit
   that already started settles without rollback and starts no later step.
 - Keep Git history as the only durable step cursor. Do not add progress files

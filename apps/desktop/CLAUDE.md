@@ -10,9 +10,10 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   terminal process handlers, resolves the shared app-data root, claims the
   program gate and only then starts the Electron application and its stores.
   It gives Git and subscription Claude one shared child-process lifetime
-  controller. The controller owns each outside-program outcome and withholds it
-  until the full tree is confirmed gone. On Windows the main process supplies
-  the packaged or development launcher entry.
+  controller. The controller owns each outside-program outcome. It withholds
+  every outcome except confirmation-expiry unknown until the full tree is
+  confirmed gone. On Windows the main process supplies the packaged or
+  development launcher entry.
 - `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set, git-username import, roster, validation, settings, and user-file workflows.
 - `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
@@ -45,8 +46,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   Retain its release callback through process exit.
 - Uncaught exceptions, unhandled rejections and rejected startup or activation
   work are terminal. Report them to stderr and exit the application with code 1.
-- An owned tree that cannot be confirmed gone is terminal. Show the fatal
-  unconfirmed-tree error box once and exit without returning a run outcome.
+- When an owned tree cannot be confirmed gone, show one warning dialog and
+  return unknown for its active run. Keep the desktop session running. During
+  shutdown, show the same warning and continue quitting.
 - Disable `BrowserWindow` input before requesting a renderer close. Re-enable it
   only after a matching failure or cancellation acknowledgement. If renderer
   cancellation itself cannot settle, the main process owns terminal close.
