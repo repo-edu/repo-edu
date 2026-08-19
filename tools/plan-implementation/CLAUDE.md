@@ -34,6 +34,10 @@ runner does not try to prove the meaning of the work.
   enforces this private boundary.
 - Use shared host-node admission and child-process lifetime parts only through
   their narrow subpaths. Do not duplicate their policy in this tool.
+- The runner is a developer-only tool for macOS and Linux. It never runs on
+  Windows, so it never supplies the Windows child-process lifetime adapter.
+  The `developer-tool-platforms` boundary in `../plan/BOUNDARIES.md` records
+  that decision.
 - `runner-admission.ts` resolves
   `repo-edu/plan-implementation/admission.db` through Git. The runner holds its
   claim for the whole invocation and releases it only after owned work settles.

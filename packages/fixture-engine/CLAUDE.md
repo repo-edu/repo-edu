@@ -45,6 +45,10 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 - Codex fixture turns use the shared Codex SDK host entry through the same
   child-process lifetime controller. The fixture engine never runs the Codex
   SDK in its own process.
+- The fixture engine and its CLI are developer-only tools for macOS and
+  Linux. They never run on Windows, so they never supply the Windows
+  child-process lifetime adapter. The `developer-tool-platforms` boundary in
+  `../plan/BOUNDARIES.md` records that decision.
 - Pricing/model lookups go through `@repo-edu/integrations-llm-catalog`
   (`parseShortCode`, `modelCode`, `tokenCostUsd`).
 - Keep Codex patch parsing/path validation in `llm-client.ts`; prompts may

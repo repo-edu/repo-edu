@@ -141,6 +141,22 @@ describe("child-process completion outcomes", () => {
     assert.match(String(diagnostics[0]?.failure), /connection lost/)
   })
 
+  it("returns unknown when the target ends before its reported result arrives", async () => {
+    const harness = createAdapterHarness()
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const { tree } = await launchReported(harness, diagnostics)
+    tree.reportWorkStarted()
+    harness.result.resolve({ exitCode: 0, signal: null })
+    harness.confirmation.resolve()
+
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(diagnostics.length, 1)
+    assert.match(
+      String(diagnostics[0]?.failure),
+      /ended before its reported result/,
+    )
+  })
+
   it("checks unknown before cancelled", async () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
