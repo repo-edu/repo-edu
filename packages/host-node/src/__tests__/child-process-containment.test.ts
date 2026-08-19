@@ -487,12 +487,12 @@ describe("child-process containment", { skip: !supportsController }, () => {
     {
       mode: "readiness",
       marker: /readiness-pending/,
-      error: /pending child-process launch was stopped/,
+      expected: "rejected",
     },
     {
       mode: "target-start",
       marker: /target-start-pending/,
-      error: Error,
+      expected: "unknown",
     },
   ] as const) {
     it(`stops Windows startup while ${pendingPhase.mode} is pending`, {
@@ -526,13 +526,18 @@ describe("child-process containment", { skip: !supportsController }, () => {
           proof: "target-exit",
         })
         await waitForMarker(marker, pendingPhase.marker)
-        const launchRejected = assert.rejects(launch, pendingPhase.error)
+        const launchSettled =
+          pendingPhase.expected === "rejected"
+            ? assert.rejects(launch, /pending child-process launch was stopped/)
+            : launch.then(async (tree) => {
+                assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+              })
 
         await completeWithin(
           controller.stopAndConfirm(),
           childProcessStopGracePeriodMs + 2_000,
         )
-        await launchRejected
+        await launchSettled
       } finally {
         restoreEnvironmentVariable(
           windowsLauncherStallEnvironmentVariable,
