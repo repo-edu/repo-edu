@@ -126,6 +126,15 @@ is running. The round's scope decides the checks and tests.
 
 ## Fix phase
 
+When the round's report has a `VET-` twin, read it before the discussion
+resumes. Answer each verdict: agreement carries it into the round's outcome,
+disagreement names the evidence the vet misread. Present the reconciled
+outcome in three groups: verdicts both assistants agree on, verdicts the
+round contests, and the items the vet sent to the user's ruling. The user
+reads along and rules by exception: a go on the reconciled outcome is the
+acceptance, and a reservation on any item reopens it, including a
+reservation the report never raised.
+
 After the user accepts the round's findings, apply them. One acceptance covers
 the whole round: the code fixes here and the plan corrections in `../plan`. Then
 rebuild the verification set from the packages the round audited and the packages
