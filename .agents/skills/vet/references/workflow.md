@@ -35,14 +35,16 @@ Never vet a report whose auditor token is your own assistant. The vet exists
 to check findings from a fresh context in the other assistant. Continue only
 when the user explicitly says to.
 
-Refuse two mismatches, and ask instead of vetting:
+Check two mismatches before vetting:
 
-- The sha in the name differs from `git rev-parse --short HEAD`. The code
-  has moved since the audit, so the findings describe a tree that no longer
-  exists.
+- The sha in the name differs from `git rev-parse --short HEAD`. The tree
+  has moved since the audit, so check what moved: run
+  `git diff --name-only <sha>..HEAD`. When no file the report names is
+  touched, proceed and note the drift in the verdicts. When one is, the
+  findings describe code that no longer exists, so refuse and ask.
 - The plan or scope in the name differs from the one the report names
-  inside. One of the two is wrong. A report that names neither inside cannot
-  pass this check, so ask before vetting.
+  inside. One of the two is wrong, so refuse and ask. A report that names
+  neither inside cannot pass this check, so ask before vetting.
 
 ## Axes
 
