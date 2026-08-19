@@ -1,4 +1,7 @@
-export type { WindowsChildLifetimeRun } from "./windows-child-lifetime-proof.js"
+export type {
+  WindowsChildLifetimeProofTarget,
+  WindowsChildLifetimeRun,
+} from "./windows-child-lifetime-proof.js"
 export { runWindowsChildLifetimeTarget } from "./windows-child-lifetime-proof.js"
 export type {
   WindowsChildLifetimeEvidence,

@@ -18,6 +18,12 @@ export type WindowsChildLifetimeRun = {
   readonly result: ProcessResult
 }
 
+// The launcher protocol never carries stdin text. The proof runner writes it
+// to the target's input itself, so the field belongs to this request type.
+export type WindowsChildLifetimeProofTarget = WindowsChildLifetimeTarget & {
+  readonly stdinText?: string
+}
+
 function collectOutput(stream: Readable): Promise<string> {
   stream.setEncoding("utf8")
   let output = ""
@@ -34,7 +40,7 @@ function collectOutput(stream: Readable): Promise<string> {
 
 export async function runWindowsChildLifetimeTarget(
   runtime: WindowsChildLifetimeRuntime,
-  target: WindowsChildLifetimeTarget,
+  target: WindowsChildLifetimeProofTarget,
 ): Promise<WindowsChildLifetimeRun> {
   const run = await launchAssignedTarget(runtime, target, {
     forcedStopConfirmationPeriodMs: childProcessForcedStopConfirmationPeriodMs,

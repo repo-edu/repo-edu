@@ -6,7 +6,6 @@ export type WindowsChildLifetimeTarget = {
   readonly cwd?: string
   readonly env?: Readonly<NodeJS.ProcessEnv>
   readonly shell?: boolean | string
-  readonly stdinText?: string
 }
 
 export type WindowsLauncherReadyMessage = {

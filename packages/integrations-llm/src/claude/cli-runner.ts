@@ -285,7 +285,7 @@ export async function* runClaudeCliStream(
   if (outcome.outcome === "unknown") {
     throw new LlmError(
       "other",
-      "The Claude result connection was lost; the outside outcome is unknown.",
+      "The Claude turn's outside outcome is unknown.",
       { context: { provider: "claude", authMode: "subscription" } },
     )
   }
