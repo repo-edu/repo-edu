@@ -536,10 +536,21 @@ function createStopAndConfirm(
   }
 }
 
-async function failAfterTargetAdmission(
+function launchFailureForCaller(
+  error: unknown,
+  callerSignal: AbortSignal | undefined,
+): unknown {
+  return callerSignal !== undefined &&
+    isPendingLaunchStoppedError(error) &&
+    error.signal === callerSignal
+    ? createChildProcessLaunchAbortError()
+    : error
+}
+
+async function confirmStoppedAfterTargetAdmissionFailure(
   error: unknown,
   stopAndConfirm: () => Promise<void>,
-): Promise<never> {
+): Promise<void> {
   try {
     await stopAndConfirm()
   } catch (cleanupError) {
@@ -548,7 +559,6 @@ async function failAfterTargetAdmission(
       { cause: new AggregateError([error, cleanupError]) },
     )
   }
-  throw error
 }
 
 async function monitorTerminalResult(
@@ -623,7 +633,8 @@ async function monitorTerminalResult(
       signal: exited.signal,
     }
   } catch (error) {
-    return await failAfterTargetAdmission(error, stopAndConfirm)
+    await confirmStoppedAfterTargetAdmissionFailure(error, stopAndConfirm)
+    throw error
   }
 }
 
@@ -646,10 +657,7 @@ export async function launchAssignedTarget(
       operations,
     )
   } catch (error) {
-    if (isPendingLaunchStoppedError(error) && error.signal === target.signal) {
-      throw createChildProcessLaunchAbortError()
-    }
-    throw error
+    throw launchFailureForCaller(error, target.signal)
   }
   const lifecycle = createStopAndConfirm(
     launcher,
@@ -710,7 +718,11 @@ export async function launchAssignedTarget(
       throw error
     }
     if (targetMayBeAdmitted && !targetLaunchRejected) {
-      return await failAfterTargetAdmission(error, lifecycle.stopAndConfirm)
+      await confirmStoppedAfterTargetAdmissionFailure(
+        error,
+        lifecycle.stopAndConfirm,
+      )
+      throw launchFailureForCaller(error, target.signal)
     }
     try {
       await lifecycle.stopAndConfirm()
@@ -720,7 +732,7 @@ export async function launchAssignedTarget(
         { cause: new AggregateError([error, cleanupError]) },
       )
     }
-    throw error
+    throw launchFailureForCaller(error, target.signal)
   }
 }
 

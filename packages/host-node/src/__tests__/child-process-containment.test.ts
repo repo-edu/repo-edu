@@ -463,7 +463,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
         signal: abortController.signal,
       })
       await waitForMarker(marker, /target-start-pending/)
-      const launchRejected = assert.rejects(launch, Error)
+      const launchRejected = assert.rejects(
+        launch,
+        (error) => error instanceof DOMException && error.name === "AbortError",
+      )
 
       abortController.abort()
 

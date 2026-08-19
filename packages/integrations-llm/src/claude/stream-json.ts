@@ -82,7 +82,7 @@ export type StreamMessage =
 
 export type ClaudeStreamJsonState = {
   emittedText: string
-  resultSubtype: string | null
+  terminalResult: ResultMessage | null
   done: boolean
   terminalUsage: (LlmStreamEvent & { kind: "done" }) | null
   startMs: number
@@ -98,7 +98,7 @@ export function createClaudeStreamJsonState(options: {
 }): ClaudeStreamJsonState {
   return {
     emittedText: "",
-    resultSubtype: null,
+    terminalResult: null,
     done: false,
     terminalUsage: null,
     startMs: options.startMs ?? Date.now(),
@@ -156,12 +156,9 @@ export function eventsFromClaudeStreamMessage(
 
   if (message.type === "result") {
     const result = message as ResultMessage
-    state.resultSubtype = result.subtype
+    state.terminalResult = result
     addUsage(state.usage, result.usage)
-    if (
-      state.resultSubtype !== "success" ||
-      typeof result.result !== "string"
-    ) {
+    if (result.subtype !== "success" || typeof result.result !== "string") {
       return []
     }
     const events: LlmStreamEvent[] = []

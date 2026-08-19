@@ -20,6 +20,7 @@ import {
   eventsFromClaudeStreamMessage,
   finalizeClaudeStreamJsonState,
   parseClaudeStreamJsonLine,
+  type ResultMessage,
 } from "./stream-json"
 import type { TraceSink } from "./trace"
 
@@ -34,6 +35,34 @@ export type ClaudeCliRunOptions = {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function terminalResultMessage(
+  result: ResultMessage,
+  errorOutput: string,
+): string {
+  const targetMessage =
+    typeof result.result === "string" ? result.result.trim() : ""
+  if (targetMessage.length > 0) {
+    return targetMessage
+  }
+  if (errorOutput.length > 0) {
+    return errorOutput
+  }
+  return `Claude turn ended with subtype "${result.subtype}".`
+}
+
+function missingTerminalResultMessage(
+  errorOutput: string,
+  promptWriteFailure: unknown,
+): string {
+  if (errorOutput.length > 0) {
+    return errorOutput
+  }
+  if (promptWriteFailure !== undefined) {
+    return errorMessage(promptWriteFailure)
+  }
+  return "Claude stream ended without a terminal usage event."
 }
 
 export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
@@ -133,89 +162,87 @@ export async function* runClaudeCliStream(
   let resultReported = false
   let terminalEvent: LlmStreamEvent | undefined
   let outcome: ClaudeCliOutcome | undefined
-  try {
-    try {
-      await writePromptToChild(child.stdin, options.prompt)
+  const promptWriteFailure = await writePromptToChild(
+    child.stdin,
+    options.prompt,
+  ).then(
+    () => {
       child.reportWorkStarted()
-    } catch (error) {
-      child.reportResult({
-        outcome: "failed",
-        message: errorMessage(error),
-        value: { errorOutputAvailable, errorOutputPresent: stderr.length > 0 },
-      })
-      resultReported = true
-    }
-
-    if (!resultReported) {
-      yield { kind: "activity", label: "Contacting Claude." }
-      const state = createClaudeStreamJsonState({
-        authMode: "subscription",
-        trace: options.trace,
-      })
-      let buffer = ""
-      child.stdout.setEncoding("utf8")
-      for await (const chunk of child.stdout) {
-        if (options.signal?.aborted) {
-          throw claudeAbortError(options.signal.reason)
-        }
-        buffer += String(chunk)
-        const lines = buffer.split(/\r?\n/)
-        buffer = lines.pop() ?? ""
-        for (const line of lines) {
-          const message = parseClaudeStreamJsonLine(line)
-          if (message === null) continue
-          for (const event of eventsFromClaudeStreamMessage(message, state)) {
-            yield event
-            if (options.signal?.aborted) {
-              throw claudeAbortError(options.signal.reason)
-            }
-          }
-        }
-      }
+      return undefined
+    },
+    (error: unknown) => {
+      child.reportFailure(error)
+      return error
+    },
+  )
+  try {
+    yield { kind: "activity", label: "Contacting Claude." }
+    const state = createClaudeStreamJsonState({
+      authMode: "subscription",
+      trace: options.trace,
+    })
+    let buffer = ""
+    child.stdout.setEncoding("utf8")
+    for await (const chunk of child.stdout) {
       if (options.signal?.aborted) {
         throw claudeAbortError(options.signal.reason)
       }
-      const finalMessage = parseClaudeStreamJsonLine(buffer)
-      if (finalMessage !== null) {
-        for (const event of eventsFromClaudeStreamMessage(
-          finalMessage,
-          state,
-        )) {
+      buffer += String(chunk)
+      const lines = buffer.split(/\r?\n/)
+      buffer = lines.pop() ?? ""
+      for (const line of lines) {
+        const message = parseClaudeStreamJsonLine(line)
+        if (message === null) continue
+        for (const event of eventsFromClaudeStreamMessage(message, state)) {
           yield event
           if (options.signal?.aborted) {
             throw claudeAbortError(options.signal.reason)
           }
         }
       }
-      await errorOutputSettled
-      if (state.resultSubtype !== null && state.resultSubtype !== "success") {
-        child.reportResult({
-          outcome: "failed",
-          message:
-            stderr.trim() ||
-            `Claude turn ended with subtype "${state.resultSubtype}".`,
-          value: {
-            errorOutputAvailable,
-            errorOutputPresent: stderr.trim().length > 0,
-          },
-        })
-      } else if (!state.done) {
-        child.reportResult({
-          outcome: "failed",
-          message:
-            stderr.trim() ||
-            "Claude stream ended without a terminal usage event.",
-          value: {
-            errorOutputAvailable,
-            errorOutputPresent: stderr.trim().length > 0,
-          },
-        })
-      } else {
-        terminalEvent = finalizeClaudeStreamJsonState(state)
-        child.reportResult({ outcome: "completed", value: undefined })
-      }
-      resultReported = true
     }
+    if (options.signal?.aborted) {
+      throw claudeAbortError(options.signal.reason)
+    }
+    const finalMessage = parseClaudeStreamJsonLine(buffer)
+    if (finalMessage !== null) {
+      for (const event of eventsFromClaudeStreamMessage(finalMessage, state)) {
+        yield event
+        if (options.signal?.aborted) {
+          throw claudeAbortError(options.signal.reason)
+        }
+      }
+    }
+    await errorOutputSettled
+    const errorOutput = stderr.trim()
+    if (state.terminalResult?.subtype !== "success") {
+      child.reportResult({
+        outcome: "failed",
+        message:
+          state.terminalResult === null
+            ? missingTerminalResultMessage(errorOutput, promptWriteFailure)
+            : terminalResultMessage(state.terminalResult, errorOutput),
+        value: {
+          errorOutputAvailable,
+          errorOutputPresent: errorOutput.length > 0,
+          terminalResultPresent: state.terminalResult !== null,
+        },
+      })
+    } else if (!state.done) {
+      child.reportResult({
+        outcome: "failed",
+        message: terminalResultMessage(state.terminalResult, errorOutput),
+        value: {
+          errorOutputAvailable,
+          errorOutputPresent: errorOutput.length > 0,
+          terminalResultPresent: true,
+        },
+      })
+    } else {
+      terminalEvent = finalizeClaudeStreamJsonState(state)
+      child.reportResult({ outcome: "completed", value: undefined })
+    }
+    resultReported = true
   } catch (cause) {
     if (options.signal?.aborted || isAbortLikeError(cause)) {
       child.requestCancellation()
@@ -227,6 +254,19 @@ export async function* runClaudeCliStream(
           errorOutputAvailable,
           errorOutputPresent: stderr.trim().length > 0,
           kind: cause.kind,
+          terminalResultPresent: false,
+        },
+      })
+    } else if (promptWriteFailure !== undefined) {
+      await errorOutputSettled
+      const errorOutput = stderr.trim()
+      child.reportResult({
+        outcome: "failed",
+        message: errorOutput || errorMessage(cause),
+        value: {
+          errorOutputAvailable,
+          errorOutputPresent: errorOutput.length > 0,
+          terminalResultPresent: false,
         },
       })
     } else {
@@ -416,7 +456,12 @@ function cliOutcomeError(
       context: { provider: "claude", authMode: "subscription" },
     })
   }
-  if (!outcome.value.errorOutputPresent && exitCode === 1 && signal === null) {
+  if (
+    !outcome.value.terminalResultPresent &&
+    !outcome.value.errorOutputPresent &&
+    exitCode === 1 &&
+    signal === null
+  ) {
     return new LlmError(
       "auth",
       outcome.value.errorOutputAvailable

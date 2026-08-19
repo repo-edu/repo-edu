@@ -7,6 +7,7 @@ export type ClaudeCliFailure = {
   readonly errorOutputAvailable: boolean
   readonly errorOutputPresent: boolean
   readonly kind?: import("@repo-edu/integrations-llm-contract").LlmErrorKind
+  readonly terminalResultPresent: boolean
 }
 
 export type ClaudeCliTargetResult =

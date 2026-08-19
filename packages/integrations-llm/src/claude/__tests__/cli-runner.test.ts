@@ -408,6 +408,52 @@ describe("runClaudeCliStream", () => {
           value: {
             errorOutputAvailable: true,
             errorOutputPresent: true,
+            terminalResultPresent: false,
+          },
+        },
+      },
+    ])
+  })
+
+  it("keeps a failed terminal result instead of applying silent-exit guidance", async () => {
+    const { launch, calls } = fakeLaunch(
+      [
+        '{"type":"result","subtype":"error_during_execution","result":"Target says quota exhausted."}\n',
+      ],
+      [],
+      { exitCode: 1 },
+    )
+
+    await assert.rejects(
+      async () => {
+        for await (const _event of runClaudeCliStream(
+          {
+            spec: claudeSpec,
+            prompt: "Reply ok.",
+            executable: "/bin/claude",
+            launch,
+          },
+          { authMode: "subscription", childEnv: {} },
+        )) {
+          // Drain stream.
+        }
+      },
+      (error: unknown) =>
+        error instanceof LlmError &&
+        error.kind === "other" &&
+        error.message === "Target says quota exhausted.",
+    )
+    assert.deepEqual(calls[0]?.facts, [
+      { kind: "work-started", prompt: "Reply ok." },
+      {
+        kind: "result",
+        result: {
+          message: "Target says quota exhausted.",
+          outcome: "failed",
+          value: {
+            errorOutputAvailable: true,
+            errorOutputPresent: false,
+            terminalResultPresent: true,
           },
         },
       },
@@ -447,6 +493,7 @@ describe("runClaudeCliStream", () => {
           value: {
             errorOutputAvailable: true,
             errorOutputPresent: false,
+            terminalResultPresent: false,
           },
         },
       },
@@ -523,7 +570,7 @@ describe("runClaudeCliStream", () => {
     )
   })
 
-  it("keeps stdin EPIPE inside CLI failure classification", async () => {
+  it("keeps target error output when stdin closes during the prompt write", async () => {
     const writeError = new Error("write EPIPE") as Error & { code: string }
     writeError.code = "EPIPE"
     const { launch, calls } = fakeLaunch([], ["CLI rejected prompt."], {
@@ -548,9 +595,22 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("write EPIPE"),
+        error.message === "CLI rejected prompt.",
     )
     assert.equal(calls[0]?.stopped, true)
+    assert.equal(calls[0]?.facts[0]?.kind, "failure")
+    assert.deepEqual(calls[0]?.facts[1], {
+      kind: "result",
+      result: {
+        message: "CLI rejected prompt.",
+        outcome: "failed",
+        value: {
+          errorOutputAvailable: true,
+          errorOutputPresent: true,
+          terminalResultPresent: false,
+        },
+      },
+    })
   })
 
   it("rejects pre-aborted requests without spawning Claude", async () => {
