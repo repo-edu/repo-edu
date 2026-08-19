@@ -37,14 +37,15 @@ to.
 Audit a plan by complete rounds alone, or by scoped rounds over step ranges
 followed by one complete closing round. On a plan's first round, invoked
 without a range and with no audit commit, fix or record for this plan in the
-log, do not start inspecting. Size the work from cheap evidence only: the
-plan's step count, the episode's commit count and the files and packages it
-touches. Recommend one strategy: complete rounds only for a small plan, or
-scoped rounds plus the closing round for a large one. Propose the ranges. Cut
-ranges where the plan's step groups fall. Keep steps that share a package or
-an invariant in one range. Never cut ranges into equal arithmetic parts. Then
-wait for the user's choice. The advice fires only on that first round. A given
-range or an existing audit commit skips it.
+log, size the work from cheap evidence only: the plan's step count, the
+episode's commit count and the files and packages it touches. When the size
+calls for complete rounds, say so in one line and run this round as the
+complete round the invocation asked for, in the same turn. Only when the size
+calls for scoped rounds plus the closing round does the round stop first:
+propose the ranges and wait for the user's choice. Cut ranges where the
+plan's step groups fall. Keep steps that share a package or an invariant in
+one range. Never cut ranges into equal arithmetic parts. The sizing fires
+only on that first round. A given range or an existing audit commit skips it.
 
 ## Round
 
