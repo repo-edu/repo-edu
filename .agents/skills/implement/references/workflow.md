@@ -29,7 +29,12 @@ and stop. Continue only when the user explicitly says to.
 
 ## Scope
 
-Read the plan end to end. Then find the steps already landed: walk this
+Read the plan end to end. Read `../plan/BOUNDARIES.md` beside it: boundaries
+change only by user decision, so the current file can be newer than the plan.
+This is a check, not a source of work. Derive no requirements from boundary
+text. When an in-scope step would cross a current boundary, name the boundary,
+say the plan may predate it and stop for the user's ruling. Then find the
+steps already landed: walk this
 repo's log for commits whose `Plan: <name>` first body line names this plan,
 where `<name>` is the file stem with the `plan-` prefix dropped, and collect
 their `Step:` lines. The scope is the given range minus the landed steps;
@@ -61,7 +66,10 @@ the plan says they land together. The invocation that started this run
 grants each in-scope step's commit once its checks pass.
 
 Where the code proves the plan wrong, implement what is right and record the
-reason in the step commit's body. When more than one sensible fix exists,
+reason in the step commit's body. A deviation leaves the plan that carried
+the boundaries, so check it against `../plan/BOUNDARIES.md`; a departure that
+would cross a boundary stops for the user instead of landing. When more than
+one sensible fix exists,
 put the choice to the user and wait. Never write plan-tier work into
 `../plan`: the audit rounds own plan corrections.
 

@@ -100,6 +100,16 @@ below, not as a strict conformance failure.
 
 Read the plan end to end. Read the final state of the code the episode touched.
 
+Read `../plan/BOUNDARIES.md` beside the plan: boundaries change only by user
+decision, so the current file can be newer than the plan. This is a check, not
+a source of findings. A boundary is not a minimum the round may raise, and the
+round never edits the file. The check covers three things. Shipped code that
+crosses a current boundary lands as a finding. A plan step that conflicts with
+a current boundary becomes a plan-correction candidate under
+[Plan corrections](#plan-corrections). And the round's own outputs are held to
+the same line: a proposed correction or deviation ruling that would cross a
+boundary does not land.
+
 A round is read-only until the user accepts its findings, so its evidence
 commands must not change tracked files. Build the verification set from every
 package whose code or behaviour the round audits. Include a repo tool only
