@@ -127,13 +127,16 @@ describe("child-process completion outcomes", () => {
 
   it("returns unknown when the proving connection was lost", async () => {
     const harness = createAdapterHarness()
-    const { tree } = await launchReported(harness)
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const { tree } = await launchReported(harness, diagnostics)
     tree.reportWorkStarted()
     tree.reportProofLost(new Error("connection lost"))
     harness.result.resolve({ exitCode: 1, signal: null })
     harness.confirmation.resolve()
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(diagnostics.length, 1)
+    assert.match(String(diagnostics[0]?.failure), /connection lost/)
   })
 
   it("checks unknown before cancelled", async () => {
@@ -152,8 +155,9 @@ describe("child-process completion outcomes", () => {
     harness.confirmation.resolve()
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
-    assert.equal(diagnostics.length, 1)
-    assert.match(String(diagnostics[0]?.failure), /forced exit/)
+    assert.equal(diagnostics.length, 2)
+    assert.match(String(diagnostics[0]?.failure), /proof lost/)
+    assert.match(String(diagnostics[1]?.failure), /forced exit/)
   })
 
   it("checks cancelled before failed", async () => {

@@ -7,8 +7,7 @@ import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime-contr
 
 const groupExitPollMs = 20
 
-type ProcessGroup = {
-  requestStop(): void
+type OwnedTreeConfirmation = {
   stopAndConfirm(): Promise<void>
 }
 
@@ -18,11 +17,6 @@ export type PosixProcessGroupOperations = {
     processGroupId: number,
     signal: "SIGKILL" | "SIGTERM",
   ): boolean
-}
-
-const noProcessGroup: ProcessGroup = {
-  requestStop() {},
-  async stopAndConfirm() {},
 }
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
@@ -70,34 +64,53 @@ function delay(durationMs: number): Promise<void> {
   })
 }
 
+function remainingMs(deadline: number): number {
+  return Math.max(0, deadline - Date.now())
+}
+
 async function waitForProcessGroupExit(
   processGroupId: number,
   operations: PosixProcessGroupOperations,
-  timeoutMs?: number,
+  timeoutMs: number,
 ): Promise<boolean> {
-  const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs
+  const deadline = Date.now() + timeoutMs
 
   while (operations.processGroupExists(processGroupId)) {
-    if (deadline !== undefined) {
-      const remainingMs = deadline - Date.now()
-      if (remainingMs <= 0) {
-        return false
-      }
-      await delay(Math.min(groupExitPollMs, remainingMs))
-      continue
+    const waitMs = remainingMs(deadline)
+    if (waitMs <= 0) {
+      return false
     }
-    await delay(groupExitPollMs)
+    await delay(Math.min(groupExitPollMs, waitMs))
   }
 
   return true
 }
 
-function createProcessGroup(
+function settledWithin(
+  promise: Promise<void>,
+  timeoutMs: number,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs)
+    void promise.then(() => {
+      clearTimeout(timer)
+      resolve(true)
+    })
+  })
+}
+
+// An output pipe still open after the group is gone means a descendant that
+// left the group may hold it, so pipe closure is part of tree confirmation.
+// Every wait after the forced stop draws from that stop's one five-second
+// deadline; a clean exit whose pipes stay open escalates to the forced stop
+// after the graceful allowance instead of waiting without a limit.
+function createOwnedTreeConfirmation(
   processGroupId: number,
+  streamsClosed: Promise<void>,
   gracefulStopPeriodMs: number,
   forcedStopConfirmationPeriodMs: number,
   operations: PosixProcessGroupOperations,
-): ProcessGroup {
+): OwnedTreeConfirmation {
   let gracefulStopStartedAt: number | undefined
   let confirmation: Promise<void> | undefined
 
@@ -114,39 +127,40 @@ function createProcessGroup(
   }
 
   return {
-    requestStop,
     stopAndConfirm() {
       confirmation ??= (async () => {
         requestStop()
-        if (!operations.processGroupExists(processGroupId)) {
-          return
-        }
-
-        const remainingGraceMs = Math.max(
-          0,
-          gracefulStopPeriodMs -
-            (Date.now() - (gracefulStopStartedAt ?? Date.now())),
-        )
+        const graceDeadline =
+          (gracefulStopStartedAt ?? Date.now()) + gracefulStopPeriodMs
         if (
-          await waitForProcessGroupExit(
+          (await waitForProcessGroupExit(
             processGroupId,
             operations,
-            remainingGraceMs,
-          )
+            remainingMs(graceDeadline),
+          )) &&
+          (await settledWithin(streamsClosed, remainingMs(graceDeadline)))
         ) {
           return
         }
 
         operations.signalProcessGroup(processGroupId, "SIGKILL")
+        const forcedDeadline = Date.now() + forcedStopConfirmationPeriodMs
         if (
           !(await waitForProcessGroupExit(
             processGroupId,
             operations,
-            forcedStopConfirmationPeriodMs,
+            remainingMs(forcedDeadline),
           ))
         ) {
           throw new ChildProcessTreeUnconfirmedError(
             "The process group remained after its forced stop.",
+          )
+        }
+        if (
+          !(await settledWithin(streamsClosed, remainingMs(forcedDeadline)))
+        ) {
+          throw new ChildProcessTreeUnconfirmedError(
+            "The owned tree's output pipes stayed open after its forced stop.",
           )
         }
       })()
@@ -159,6 +173,24 @@ function createProcessGroup(
 type ChildProcessTerminal = {
   readonly outcome: Promise<ChildProcessLifetimeResult>
   readonly streamsClosed: Promise<void>
+}
+
+// Spawn admission is asynchronous on POSIX: success and failure both arrive
+// as events, so the launch settles only after the operating system admitted
+// or rejected the target.
+function waitForSpawn(child: ChildProcessWithoutNullStreams): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onSpawn = () => {
+      child.off("error", onError)
+      resolve()
+    }
+    const onError = (error: Error) => {
+      child.off("spawn", onSpawn)
+      reject(error)
+    }
+    child.once("spawn", onSpawn)
+    child.once("error", onError)
+  })
 }
 
 function observeTerminalResult(
@@ -203,30 +235,33 @@ export function createPosixChildProcessLifetimeAdapter(
       })
 
       const terminal = observeTerminalResult(child)
-      const group =
-        child.pid === undefined
-          ? noProcessGroup
-          : createProcessGroup(
-              child.pid,
-              stopPolicy.gracefulStopPeriodMs,
-              stopPolicy.forcedStopConfirmationPeriodMs,
-              operations,
-            )
+      try {
+        await waitForSpawn(child)
+      } catch (error) {
+        // The result observer shares the child's error event; silence its
+        // rejection so the launch failure is reported once.
+        terminal.outcome.catch(() => {})
+        throw error
+      }
+      const processGroupId = child.pid
+      if (processGroupId === undefined) {
+        child.kill()
+        throw new Error("The spawned target did not report a process identity.")
+      }
+      const confirmation = createOwnedTreeConfirmation(
+        processGroupId,
+        terminal.streamsClosed,
+        stopPolicy.gracefulStopPeriodMs,
+        stopPolicy.forcedStopConfirmationPeriodMs,
+        operations,
+      )
 
       return {
         stdin: child.stdin,
         stdout: child.stdout,
         stderr: child.stderr,
         result: terminal.outcome,
-        async stopAndConfirm() {
-          const [cleanup] = await Promise.allSettled([
-            group.stopAndConfirm(),
-            terminal.streamsClosed,
-          ])
-          if (cleanup.status === "rejected") {
-            throw cleanup.reason
-          }
-        },
+        stopAndConfirm: () => confirmation.stopAndConfirm(),
       }
     },
   }

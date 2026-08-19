@@ -131,6 +131,62 @@ describe("child-process completion routes", {
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
   })
 
+  it("rejects a POSIX launch whose target cannot be spawned", {
+    skip: !supportsProcessGroups,
+  }, async (context) => {
+    const controller = createController()
+    context.after(async () => {
+      await controller.stopAndConfirm()
+    })
+
+    await assert.rejects(
+      controller.launch({
+        command: "/repo-edu-tests/definitely-missing-command",
+        proof: "target-exit",
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "code" in error &&
+        (error as NodeJS.ErrnoException).code === "ENOENT",
+    )
+  })
+
+  it("ends the terminal host when escaped descendants hold the output pipes", {
+    skip: !supportsProcessGroups,
+  }, async () => {
+    const posixAdapter = createPosixChildProcessLifetimeAdapter()
+    const controller = createTerminalController(
+      adapterWithDeadlineProofPolicy(posixAdapter),
+    )
+    const tree = await controller.launch({
+      command: process.execPath,
+      args: [
+        "-e",
+        [
+          'const { spawn } = require("node:child_process")',
+          'spawn(process.execPath, ["-e", "setTimeout(() => undefined, 2_000)"], {',
+          "  detached: true,",
+          '  stdio: ["ignore", "inherit", "ignore"],',
+          "}).unref()",
+        ].join("\n"),
+      ],
+      proof: "target-exit",
+    })
+    tree.stdout.resume()
+    tree.stderr.resume()
+
+    const startedAt = Date.now()
+    await assert.rejects(
+      tree.outcome,
+      (error: unknown) =>
+        error instanceof TerminalHostExit &&
+        error.unconfirmedTree instanceof ChildProcessTreeUnconfirmedError &&
+        /output pipes stayed open/.test(error.unconfirmedTree.message),
+    )
+    // The pipe wait shares the forced-stop deadline instead of adding its own.
+    assert.ok(Date.now() - startedAt < 1_500)
+  })
+
   it("ends the terminal host when POSIX forced-stop confirmation expires", {
     skip: !supportsProcessGroups,
   }, async () => {

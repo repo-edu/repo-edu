@@ -132,12 +132,7 @@ function secondaryFailures<TCompleted, TFailed>(
   facts: RunFacts<TCompleted, TFailed>,
   outcome: ChildProcessOutcome<TCompleted, TFailed>,
 ): readonly unknown[] {
-  const failures = [...facts.failures]
-  if (outcome.outcome === "unknown") {
-    failures.push(...facts.proofLosses.slice(1))
-  } else {
-    failures.push(...facts.proofLosses)
-  }
+  const failures = [...facts.failures, ...facts.proofLosses]
   if (facts.result?.outcome === "failed" && outcome.outcome !== "failed") {
     failures.push(new Error(facts.result.message))
   }
