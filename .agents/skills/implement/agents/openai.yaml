@@ -1,0 +1,7 @@
+interface:
+  display_name: "Implement"
+  short_description: "Implement a ready plan step by step"
+  default_prompt: "Use $implement <plan-file> [step-range] to implement its steps in this session."
+
+policy:
+  allow_implicit_invocation: false
