@@ -20,6 +20,10 @@ apps/desktop/playwright-report/
 .claude/plan
 plan/
 
+# Audit handoff: report and verdict files between auditor and vetter, never committed
+/AUDIT-*.md
+/VET-*.md
+
 # Binding generation cache
 .bindings-hash
 

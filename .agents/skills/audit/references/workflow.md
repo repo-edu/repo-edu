@@ -408,4 +408,26 @@ coverage table with its coverage line. Then, when a growth-tag number runs
 across rounds, the run statement and the pricing under
 [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
 carrying its growth, reach and complexity tokens, and the plan corrections.
-Stop there.
+Then write the report to its file under [Report file](#report-file) and stop
+there.
+
+## Report file
+
+After presenting the report, write the same report to a file at this repo's
+root and say so, then stop for the user's ruling. The file is the copy the
+vet workflow reads, so the chat and the file must not differ.
+
+Name it `AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`:
+
+- `<plan-name>` is the plan file stem with the `plan-` prefix dropped, the
+  same name the `Plan:` body line carries.
+- `<scope>` is `complete`, `step-<n>` or `steps-<a>-<b>`, the round's scope
+  with its spaces turned into hyphens.
+- `<auditor>` is the launcher's auditor token, `claude` or `codex`.
+- `<sha>` is `git rev-parse --short HEAD` at audit time.
+
+The file is gitignored, so writing it keeps the round read-only; it is the
+one file the round writes before its fix phase. The session that lands the
+round's closing commit deletes the round's `AUDIT-*` and `VET-*` files in
+the same turn: the commit body carries the accepted findings durably, and a
+report left behind goes stale against the moved HEAD.

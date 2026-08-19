@@ -1,19 +1,48 @@
 # Implementation-finding vet workflow
 
-The text after the invocation is another AI assistant's audit report on this
-repo's code. Vet its graded findings. Do not run an audit round of your own.
-Whether a finding is a good idea is not an axis: a finding can be appealing
-and still unauthorised.
+The vet's input is another AI assistant's implementation-audit report on this
+repo's code, an `AUDIT-*.md` file at this repo's root written by the audit
+workflow. [Report discovery](#report-discovery) says how the file is found.
+Vet its graded findings. Do not run an audit round of your own. Whether a
+finding is a good idea is not an axis: a finding can be appealing and still
+unauthorised.
 
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the round that
 produced the report.
 
-Planning artifacts belong to the sibling plan repo. When the report audits a
-`plan-`, `topology-`, `draft-` or `carry-` file rather than this repo's code,
-name the file, say the vet belongs in `../plan` and stop. Continue only when
-the user explicitly says to.
+Planning artifacts belong to the sibling plan repo. Their reports live at
+that repo's root, so discovery here never finds one. When the invocation
+names a report on a `plan-`, `topology-`, `draft-` or `carry-` file rather
+than this repo's code, name the file, say the vet belongs in `../plan` and
+stop. Continue only when the user explicitly says to.
+
+## Report discovery
+
+The report file's name carries its metadata:
+`AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`. Parse it from the right: the
+last part is the short commit sha the audit inspected, before it the auditor
+token, `claude` or `codex`, before that the scope, `complete`, `step-<n>` or
+`steps-<a>-<b>`, and the rest is the plan name.
+
+When the invocation names a report file, vet that file. When it names
+nothing, list `AUDIT-*.md` at this repo's root and drop each file whose
+auditor token is your own. One file left means vet it. More than one means
+name them and ask which to vet. None means ask for the report and wait.
+
+Never vet a report whose auditor token is your own assistant. The vet exists
+to check findings from a fresh context in the other assistant. Continue only
+when the user explicitly says to.
+
+Refuse two mismatches, and ask instead of vetting:
+
+- The sha in the name differs from `git rev-parse --short HEAD`. The code
+  has moved since the audit, so the findings describe a tree that no longer
+  exists.
+- The plan or scope in the name differs from the one the report names
+  inside. One of the two is wrong. A report that names neither inside cannot
+  pass this check, so ask before vetting.
 
 ## Axes
 
@@ -94,6 +123,19 @@ settled, and machinery with no boundary behind it. Name what axis 1
 classified, state what the grounded and fix-follows checks found, and stop
 there. Never settle either one on the vet's own authority.
 
+Before returning the verdicts, look for the sibling report: the same plan
+name, scope and sha with the other auditor token. When it exists, read it and
+mark every verdict `corroborated` when the sibling reports the same defect,
+the same code path producing the same wrong behaviour whatever its tier or
+wording, and `unique` when it does not. Corroboration is a signal for the
+user's reading order, never a verdict change. Without a sibling report the
+verdicts carry no marker.
+
+Write the verdicts to the report's twin file, the same name with `VET-` in
+place of `AUDIT-`, as well as into the chat. The twin is untracked and
+gitignored, so writing it keeps the vet's read-only rule intact; it is the
+one file the vet writes.
+
 ## Plan corrections
 
 The report ends with the plan corrections the round wrote. Vet each one on the
@@ -110,9 +152,3 @@ round may not author, so the verdict is drop.
 The report opens with a coverage table. Do not re-audit it. Check a row only
 where a finding depends on it, which is when a finding should have been a row,
 or a row should have been a finding.
-
-## When the report is missing
-
-When no report follows the invocation, ask for the report to vet and wait.
-When the report does not name the plan it audits, ask which plan before
-vetting.

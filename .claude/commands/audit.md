@@ -18,6 +18,8 @@ long sentence is not concise. The failure trace has its own shape, set out
 under **Finding shape** in the workflow. Plan feedback entries stay one line
 each.
 
+Your auditor token for the report file name is `claude`.
+
 Read `.agents/skills/audit/references/workflow.md` completely and follow it.
 
 $ARGUMENTS

@@ -1,7 +1,7 @@
 interface:
   display_name: "Vet"
   short_description: "Vet implementation-audit findings"
-  default_prompt: "Use $vet <audit-report> to vet another assistant's implementation-audit findings."
+  default_prompt: "Use $vet to vet the pending implementation-audit report file, or $vet <report-file> to name one."
 
 policy:
   allow_implicit_invocation: false
