@@ -10,11 +10,12 @@ import {
   childProcessStopGracePeriodMs,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
+import type { PlatformChildProcessTerminal } from "../child-process-lifetime-contract.js"
 
 type AdapterHarness = {
   readonly adapter: ChildProcessLifetimePlatformAdapter
   readonly confirmation: PromiseWithResolvers<void>
-  readonly result: PromiseWithResolvers<ChildProcessLifetimeResult>
+  readonly result: PromiseWithResolvers<PlatformChildProcessTerminal>
   readonly stopPolicies: Array<{
     readonly forcedStopConfirmationPeriodMs: number
     readonly gracefulStopPeriodMs: number
@@ -174,6 +175,25 @@ describe("child-process completion outcomes", () => {
     })
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0]?.failure, failure)
+  })
+
+  it("keeps cancellation when the platform loses target-exit proof during the stop", async () => {
+    const harness = createAdapterHarness()
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const controller = createHarnessController(harness, diagnostics)
+    const tree = await controller.launch({
+      command: "cancelled-target",
+      proof: "target-exit",
+    })
+    const failure = new Error("target exit proof lost during cancellation")
+
+    tree.requestCancellation()
+    harness.result.resolve({ outcome: "proof-lost", failure })
+    harness.confirmation.resolve()
+
+    assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
     assert.equal(diagnostics.length, 1)
     assert.equal(diagnostics[0]?.failure, failure)
   })

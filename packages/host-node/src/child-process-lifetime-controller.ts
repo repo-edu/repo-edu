@@ -284,30 +284,26 @@ export function createChildProcessLifetimeController(
 
       let targetResult: ChildProcessLifetimeResult | undefined
       let targetEndedBeforeReportedResult = false
-      const targetResultObserved = platformTree.result.then(
-        (terminal) => {
-          if (isProofLostTerminal(terminal)) {
-            facts.proofLosses.push(terminal.failure)
-            return
-          }
-          targetResult = terminal
-          if (request.proof === "reported") {
-            targetEndedBeforeReportedResult = true
-          }
-        },
-        (error: unknown) => {
-          if (request.proof === "target-exit" && !facts.cancelRequested) {
-            facts.proofLosses.push(error)
-            return
-          }
-          if (request.proof === "reported") {
-            targetEndedBeforeReportedResult = true
-            facts.failures.push(error)
-            return
-          }
-          facts.failures.push(error)
-        },
-      )
+      const recordPlatformTerminalFailure = (failure: unknown): void => {
+        if (request.proof === "target-exit" && !facts.cancelRequested) {
+          facts.proofLosses.push(failure)
+          return
+        }
+        if (request.proof === "reported") {
+          targetEndedBeforeReportedResult = true
+        }
+        facts.failures.push(failure)
+      }
+      const targetResultObserved = platformTree.result.then((terminal) => {
+        if (isProofLostTerminal(terminal)) {
+          recordPlatformTerminalFailure(terminal.failure)
+          return
+        }
+        targetResult = terminal
+        if (request.proof === "reported") {
+          targetEndedBeforeReportedResult = true
+        }
+      }, recordPlatformTerminalFailure)
       let completionStarted = false
       const complete = (): void => {
         if (completionStarted) {

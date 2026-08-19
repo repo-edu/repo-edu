@@ -81,14 +81,16 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   declares whether the launcher executable is Electron in Node mode or plain
   Node. The Codex SDK host process removes `ELECTRON_RUN_AS_NODE` before the SDK
   starts Codex or tools. The controller owns the launch attempt before the
-  target command may be accepted. A lost launcher after possible command
-  acceptance reports proof loss, and the controller returns unknown after the
-  matching stop attempt. An explicit launcher rejection stays a known launch
-  failure. After the target's exit report, stream and launcher completion
-  proof settle inside stop-and-confirm; a completion failure is an
-  unconfirmed tree, never a second proof-loss fact. The launcher turns a
-  target-input relay failure into a broken host-side pipe and keeps
-  reporting the target's exit.
+  target command may be accepted. An unexpected lost launcher after possible
+  command acceptance reports proof loss, and the controller returns unknown
+  after the matching stop attempt. A launcher result lost because the
+  controller forced a requested stop is a secondary failure after confirmed
+  start and termination, so cancellation stays cancelled. An explicit launcher
+  rejection stays a known launch failure. After the target's exit report,
+  stream and launcher completion proof settle inside stop-and-confirm; a
+  completion failure is an unconfirmed tree, never a second proof-loss fact.
+  The launcher turns a target-input relay failure into a broken host-side pipe
+  and keeps reporting the target's exit.
 - A launch environment is the complete target environment for every platform
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment

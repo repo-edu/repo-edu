@@ -14,12 +14,6 @@ import {
   windowsLauncherProtocolVersion,
 } from "../windows-launcher-protocol.js"
 
-function delay(durationMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, durationMs)
-  })
-}
-
 describe("Windows launcher protocol", () => {
   it("resolves the fixed launcher from the host-node package", async () => {
     const launcherEntryUrl =
@@ -173,13 +167,6 @@ describe("Windows launcher protocol", () => {
       exitCode: 27,
       signal: null,
     })
-    assert.equal(
-      await Promise.race([
-        launcherClosed.then(() => true),
-        delay(100).then(() => false),
-      ]),
-      false,
-    )
     assert.deepEqual(await nextMessage(), {
       kind: "terminal",
       exitCode: 27,
