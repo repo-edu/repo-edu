@@ -280,7 +280,8 @@ describe("child-process containment", { skip: !supportsController }, () => {
         command: process.execPath,
         args: [fixturePath, "tree-waits", marker],
       }),
-      (error) => error instanceof DOMException && error.name === "AbortError",
+      (error) =>
+        error instanceof Error && error.message === "local output failure",
     )
 
     await waitForMarker(marker, /grandchild-started/)

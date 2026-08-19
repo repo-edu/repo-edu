@@ -95,10 +95,15 @@ function validateRequest(
 const sdkHostOutputLimit = 8_192
 
 // The Codex SDK host process's error output is kept, not drained away, so a
-// lost process can still say why it died. The limit bounds memory use.
-function collectSdkHostOutput(stream: Readable): () => string {
+// lost process can still say why it died. The limit bounds memory use. A
+// read failure on the stream is a secondary diagnostic, never a crash.
+function collectSdkHostOutput(
+  stream: Readable,
+  onFailure: (error: unknown) => void,
+): () => string {
   let collected = ""
   stream.setEncoding("utf8")
+  stream.on("error", onFailure)
   stream.on("data", (chunk: string) => {
     if (collected.length >= sdkHostOutputLimit) {
       return
@@ -179,7 +184,10 @@ async function* runCodexSdkHostStream(
     await sdkHostProcess.outcome
     throw abortError()
   }
-  const readSdkHostOutput = collectSdkHostOutput(sdkHostProcess.stderr)
+  const readSdkHostOutput = collectSdkHostOutput(
+    sdkHostProcess.stderr,
+    (error) => sdkHostProcess.reportFailure(error),
+  )
   const connection = createMessageConnection(
     sdkHostProcess.stdout,
     sdkHostProcess.stdin,

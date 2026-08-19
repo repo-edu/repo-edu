@@ -71,9 +71,14 @@ export class StepCodexSdkHostOutcomeUnknownError extends Error {
 
 const SDK_HOST_ERROR_OUTPUT_LIMIT = 2_000
 
-function readErrorOutputTail(stream: Readable): () => string {
+// A read failure on the stream is a secondary diagnostic, never a crash.
+function readErrorOutputTail(
+  stream: Readable,
+  onFailure: (error: unknown) => void,
+): () => string {
   let tail = ""
   stream.setEncoding("utf8")
+  stream.on("error", onFailure)
   stream.on("data", (chunk: string) => {
     tail = (tail + chunk).slice(-SDK_HOST_ERROR_OUTPUT_LIMIT)
   })
@@ -127,7 +132,9 @@ function createCodingRun(
   sdkHostProcess: StepCodexSdkHostProcess,
   signal?: AbortSignal,
 ): CodingRun {
-  const errorOutput = readErrorOutputTail(sdkHostProcess.stderr)
+  const errorOutput = readErrorOutputTail(sdkHostProcess.stderr, (error) =>
+    sdkHostProcess.reportFailure(error),
+  )
   const connection = createMessageConnection(
     sdkHostProcess.stdout,
     sdkHostProcess.stdin,
