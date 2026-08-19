@@ -187,4 +187,85 @@ describe("Windows launcher protocol", () => {
     })
     assert.deepEqual(await launcherClosed, [0, null])
   })
+
+  it("keeps the target-exit report when the target exits without reading its input", {
+    timeout: 10_000,
+  }, async (context) => {
+    const launcher = spawn(
+      process.execPath,
+      [fileURLToPath(resolveWindowsChildProcessLifetimeLauncherEntryUrl())],
+      { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
+    )
+    context.after(() => {
+      if (launcher.exitCode === null && launcher.signalCode === null) {
+        launcher.kill()
+      }
+    })
+    launcher.stdout?.resume()
+    launcher.stderr?.resume()
+
+    const commandInput = launcher.stdio[3] as Writable
+    const controlOutput = launcher.stdio[4] as Readable
+    const controlLines = createInterface({
+      input: controlOutput,
+      crlfDelay: Infinity,
+    })[Symbol.asyncIterator]()
+    const launcherClosed = once(launcher, "close")
+    const nextMessage = async () => {
+      const next = await controlLines.next()
+      assert.equal(next.done, false)
+      return parseWindowsLauncherMessage(next.value)
+    }
+    // The input-relay failure must reach this side of the pipe as the same
+    // broken-pipe error a direct Node child delivers to its writer. Write
+    // callbacks observe it; the error listener only keeps the emit handled.
+    launcher.stdin?.on("error", () => {})
+    const relayFailure = Promise.withResolvers<NodeJS.ErrnoException>()
+
+    assert.equal((await nextMessage()).kind, "ready")
+    // A descendant holds the output pipes after the target's exit, so the
+    // launcher outlives the relay break instead of masking it by exiting.
+    const descendant = "setTimeout(() => {}, 1500)"
+    const target = [
+      'const { spawn } = require("node:child_process")',
+      `spawn(process.execPath, ["-e", ${JSON.stringify(descendant)}], { stdio: ["ignore", "inherit", "inherit"] })`,
+      "process.exit(7)",
+    ].join("; ")
+    commandInput.end(
+      `${JSON.stringify(
+        createWindowsLaunchCommand({
+          command: process.execPath,
+          args: ["-e", target],
+        }),
+      )}\n`,
+    )
+    assert.equal((await nextMessage()).kind, "started")
+
+    const unreadInput = Buffer.alloc(65_536, 97)
+    const writer = setInterval(() => {
+      launcher.stdin?.write(unreadInput, (error) => {
+        if (error) {
+          relayFailure.resolve(error as NodeJS.ErrnoException)
+        }
+      })
+    }, 10)
+    context.after(() => {
+      clearInterval(writer)
+    })
+
+    assert.deepEqual(await nextMessage(), {
+      kind: "exited",
+      exitCode: 7,
+      signal: null,
+    })
+    const failure = await relayFailure.promise
+    clearInterval(writer)
+    assert.match(String(failure.code), /^(EPIPE|EOF)$/)
+    assert.deepEqual(await nextMessage(), {
+      kind: "terminal",
+      exitCode: 7,
+      signal: null,
+    })
+    assert.deepEqual(await launcherClosed, [0, null])
+  })
 })

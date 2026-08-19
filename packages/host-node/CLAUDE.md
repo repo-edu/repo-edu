@@ -84,7 +84,11 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   target command may be accepted. A lost launcher after possible command
   acceptance reports proof loss, and the controller returns unknown after the
   matching stop attempt. An explicit launcher rejection stays a known launch
-  failure.
+  failure. After the target's exit report, stream and launcher completion
+  proof settle inside stop-and-confirm; a completion failure is an
+  unconfirmed tree, never a second proof-loss fact. The launcher turns a
+  target-input relay failure into a broken host-side pipe and keeps
+  reporting the target's exit.
 - A launch environment is the complete target environment for every platform
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
@@ -103,7 +107,9 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   Shutdown warns and lets the host exit without confirmation. Shutdown requests
   a stop from platform startup before it waits for the launch to enter the
   active-tree registry. Windows keeps an unconfirmed tree's kill-on-close job
-  handle open until process exit.
+  handle open until process exit. Each platform adapter destroys every local
+  child stream and unreferences its Node child watcher before it reports an
+  unconfirmed stop.
 - Every host supplies an error diagnostic sink and an unconfirmed-tree warning
   channel. The controller sends each secondary failure once to the diagnostic
   sink and each unconfirmed-tree warning once to the warning channel.

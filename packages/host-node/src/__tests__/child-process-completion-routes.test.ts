@@ -285,4 +285,75 @@ describe("child-process completion routes", {
       realJob?.close()
     }
   })
+
+  it("reports one diagnostic when Windows confirmation expires after target exit", {
+    skip: process.platform !== "win32",
+  }, async () => {
+    let realJob: WindowsKillOnCloseJob | undefined
+    const operations: WindowsChildLifetimeAdapterOperations = {
+      async createJob() {
+        realJob = await createWindowsKillOnCloseJob()
+        return {
+          ...realJob,
+          close() {
+            realJob?.close()
+          },
+          hasActiveProcesses: () => true,
+        }
+      },
+    }
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch(request, pendingStopSignal) {
+        return (
+          await launchAssignedTarget(
+            {
+              executablePath: process.execPath,
+              launcherEntryPath: windowsLauncherEntryPath,
+              runAsNode: false,
+            },
+            {
+              command: request.command,
+              args: request.args,
+              cwd: request.cwd,
+              env: request.env,
+              shell: request.shell,
+              signal: request.signal,
+            },
+            deadlineProofStopPolicy,
+            pendingStopSignal,
+            operations,
+          )
+        ).tree
+      },
+    }
+    const diagnostics: unknown[] = []
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic.failure)
+      },
+      warnUnconfirmedTree(error) {
+        warnings.push(error)
+      },
+      runtimePlatform: "win32",
+      windowsAdapter: adapter,
+    })
+
+    try {
+      const tree = await controller.launch({
+        command: process.execPath,
+        args: ["-e", "process.exit(0)"],
+        proof: "target-exit",
+      })
+      tree.stdout.resume()
+      tree.stderr.resume()
+
+      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+      assert.equal(warnings.length, 1)
+      assert.equal(diagnostics.length, 1)
+      assert.equal(diagnostics[0], warnings[0])
+    } finally {
+      realJob?.close()
+    }
+  })
 })

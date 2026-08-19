@@ -105,6 +105,12 @@ function launchTarget(target) {
     maybeReportTerminal()
   }
 
+  child.stdin.once("error", () => {
+    // The input relay owns this failure. Ending the host-facing pipe hands
+    // the writer the same broken-pipe error a direct Node child delivers,
+    // while the control channel keeps carrying the target's exit report.
+    process.stdin.destroy()
+  })
   process.stdin.pipe(child.stdin)
   child.stdout.pipe(process.stdout, { end: false })
   child.stderr.pipe(process.stderr, { end: false })

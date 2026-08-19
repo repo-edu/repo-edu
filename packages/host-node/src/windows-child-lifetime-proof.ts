@@ -24,6 +24,18 @@ export type WindowsChildLifetimeProofTarget = WindowsChildLifetimeTarget & {
   readonly stdinText?: string
 }
 
+function releaseProofStreams(
+  tree: Awaited<ReturnType<typeof launchAssignedTarget>>["tree"],
+  failure: unknown,
+): void {
+  for (const stream of [tree.stdin, tree.stdout, tree.stderr]) {
+    if (!stream.destroyed) {
+      stream.once("error", () => {})
+      stream.destroy(failure instanceof Error ? failure : undefined)
+    }
+  }
+}
+
 function collectOutput(stream: Readable): Promise<string> {
   stream.setEncoding("utf8")
   let output = ""
@@ -66,14 +78,19 @@ export async function runWindowsChildLifetimeTarget(
         "The Windows lifetime proof was lost and its target could not be confirmed stopped.",
       )
     }
-    for (const stream of [run.tree.stdin, run.tree.stdout, run.tree.stderr]) {
-      if (!stream.destroyed) {
-        stream.once("error", () => {})
-        stream.destroy(failure instanceof Error ? failure : undefined)
-      }
-    }
+    releaseProofStreams(run.tree, failure)
     await output
     throw failure instanceof Error ? failure : new Error(String(failure))
+  }
+
+  // Confirmation settles the launcher's completion proof, so the known exit
+  // facts count only after the tree is confirmed gone.
+  try {
+    await run.tree.stopAndConfirm()
+  } catch (confirmationFailure) {
+    releaseProofStreams(run.tree, confirmationFailure)
+    await output
+    throw confirmationFailure
   }
 
   const captured = await output
