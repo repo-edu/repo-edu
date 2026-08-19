@@ -47,13 +47,14 @@ function createAdapterHarness(): AdapterHarness {
 function createHarnessController(
   harness: AdapterHarness,
   diagnostics: ChildProcessSecondaryFailureDiagnostic[] = [],
+  warnings: ChildProcessTreeUnconfirmedError[] = [],
 ) {
   return createChildProcessLifetimeController({
     diagnosticSink(diagnostic) {
       diagnostics.push(diagnostic)
     },
-    onUnconfirmedTree(error): never {
-      throw error
+    warnUnconfirmedTree(error) {
+      warnings.push(error)
     },
     runtimePlatform: "win32",
     windowsAdapter: harness.adapter,
@@ -63,8 +64,9 @@ function createHarnessController(
 async function launchReported(
   harness: AdapterHarness,
   diagnostics: ChildProcessSecondaryFailureDiagnostic[] = [],
+  warnings: ChildProcessTreeUnconfirmedError[] = [],
 ) {
-  const controller = createHarnessController(harness, diagnostics)
+  const controller = createHarnessController(harness, diagnostics, warnings)
   const tree = await controller.launch<string, string>({
     command: "outside-target",
     proof: "reported",
@@ -218,27 +220,33 @@ describe("child-process completion policy", () => {
     await tree.outcome
   })
 
-  it("routes an unconfirmed tree to the terminal host without returning an outcome", async () => {
+  it("reports an unconfirmed tree as unknown and keeps the session alive", async () => {
     const failure = new ChildProcessTreeUnconfirmedError("not gone")
+    let launchCount = 0
     const adapter: ChildProcessLifetimePlatformAdapter = {
       async launch() {
+        launchCount += 1
         return {
           stdin: new PassThrough(),
           stdout: new PassThrough(),
           stderr: new PassThrough(),
           result: Promise.resolve({ exitCode: 0, signal: null }),
           async stopAndConfirm() {
-            throw failure
+            if (launchCount === 1) {
+              throw failure
+            }
           },
         }
       },
     }
-    const terminalFailures: unknown[] = []
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
     const controller = createChildProcessLifetimeController({
-      diagnosticSink() {},
-      onUnconfirmedTree(error): never {
-        terminalFailures.push(error)
-        throw error
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic)
+      },
+      warnUnconfirmedTree(error) {
+        warnings.push(error)
       },
       runtimePlatform: "win32",
       windowsAdapter: adapter,
@@ -248,7 +256,66 @@ describe("child-process completion policy", () => {
       proof: "target-exit",
     })
 
-    await assert.rejects(tree.outcome, failure)
-    assert.deepEqual(terminalFailures, [failure])
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+
+    const laterTree = await controller.launch({
+      command: "later-target",
+      proof: "target-exit",
+    })
+    assert.equal((await laterTree.outcome).outcome, "completed")
+    await controller.stopAndConfirm()
+
+    assert.deepEqual(warnings, [failure])
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0]?.failure, failure)
+  })
+
+  it("warns once and rejects a pre-admission launch whose cleanup is unconfirmed", async () => {
+    const failure = new ChildProcessTreeUnconfirmedError("launch not gone")
+    let launchCount = 0
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch() {
+        launchCount += 1
+        if (launchCount === 1) {
+          throw failure
+        }
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          result: Promise.resolve({ exitCode: 0, signal: null }),
+          async stopAndConfirm() {},
+        }
+      },
+    }
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic)
+      },
+      warnUnconfirmedTree(error) {
+        warnings.push(error)
+      },
+      runtimePlatform: "win32",
+      windowsAdapter: adapter,
+    })
+
+    await assert.rejects(
+      controller.launch({
+        command: "failed-launch",
+        proof: "target-exit",
+      }),
+      failure,
+    )
+    const laterTree = await controller.launch({
+      command: "later-launch",
+      proof: "target-exit",
+    })
+    assert.equal((await laterTree.outcome).outcome, "completed")
+
+    assert.deepEqual(warnings, [failure])
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0]?.failure, failure)
   })
 })

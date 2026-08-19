@@ -209,7 +209,7 @@ describe("command-line lifetime", () => {
     await runPromise
   })
 
-  it("does not release the program gate when stop confirmation fails", async () => {
+  it("does not release the program gate when controller shutdown rejects", async () => {
     const events: string[] = []
     const probe = createRuntimeProcessProbe(events)
 
@@ -219,7 +219,7 @@ describe("command-line lifetime", () => {
           childProcessLifetimeController: {
             async stopAndConfirm() {
               events.push("stop")
-              throw new Error("tree was not confirmed stopped")
+              throw new Error("controller shutdown failed")
             },
           },
           releaseProgramGate() {
@@ -229,7 +229,7 @@ describe("command-line lifetime", () => {
         },
         async () => {},
       ),
-      /tree was not confirmed stopped/,
+      /controller shutdown failed/,
     )
 
     assert.deepStrictEqual(events, ["stop"])

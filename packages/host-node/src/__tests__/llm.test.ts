@@ -92,7 +92,7 @@ describe("createNodeLlmTextClient", () => {
       const client = createNodeLlmTextClient(
         createChildProcessLifetimeController({
           diagnosticSink() {},
-          onUnconfirmedTree(error): never {
+          warnUnconfirmedTree(error): never {
             throw error
           },
         }),

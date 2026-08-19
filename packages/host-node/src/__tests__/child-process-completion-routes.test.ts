@@ -7,7 +7,7 @@ import type {
   ChildProcessLifetimePlatformAdapter,
 } from "../child-process-lifetime.js"
 import {
-  ChildProcessTreeUnconfirmedError,
+  type ChildProcessTreeUnconfirmedError,
   createChildProcessLifetimeController,
 } from "../child-process-lifetime.js"
 import { createPosixChildProcessLifetimeAdapter } from "../posix-child-process-lifetime-adapter.js"
@@ -39,14 +39,6 @@ const deadlineProofStopPolicy = {
   gracefulStopPeriodMs: 40,
 }
 
-class TerminalHostExit extends Error {
-  override readonly name = "TerminalHostExit"
-
-  constructor(readonly unconfirmedTree: ChildProcessTreeUnconfirmedError) {
-    super("The terminal host exited for an unconfirmed child-process tree.")
-  }
-}
-
 function createController(): ChildProcessLifetimeController {
   const windowsAdapter =
     process.platform === "win32"
@@ -58,20 +50,19 @@ function createController(): ChildProcessLifetimeController {
       : undefined
   return createChildProcessLifetimeController({
     diagnosticSink() {},
-    onUnconfirmedTree(error): never {
-      throw error
-    },
+    warnUnconfirmedTree() {},
     windowsAdapter,
   })
 }
 
-function createTerminalController(
+function createWarningController(
   adapter: ChildProcessLifetimePlatformAdapter,
+  warnings: ChildProcessTreeUnconfirmedError[],
 ): ChildProcessLifetimeController {
   return createChildProcessLifetimeController({
     diagnosticSink() {},
-    onUnconfirmedTree(error): never {
-      throw new TerminalHostExit(error)
+    warnUnconfirmedTree(error) {
+      warnings.push(error)
     },
     runtimePlatform: "win32",
     windowsAdapter: adapter,
@@ -151,12 +142,14 @@ describe("child-process completion routes", {
     )
   })
 
-  it("ends the terminal host when escaped descendants hold the output pipes", {
+  it("returns unknown when escaped descendants hold the output pipes", {
     skip: !supportsProcessGroups,
   }, async () => {
     const posixAdapter = createPosixChildProcessLifetimeAdapter()
-    const controller = createTerminalController(
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createWarningController(
       adapterWithDeadlineProofPolicy(posixAdapter),
+      warnings,
     )
     const tree = await controller.launch({
       command: process.execPath,
@@ -176,26 +169,24 @@ describe("child-process completion routes", {
     tree.stderr.resume()
 
     const startedAt = Date.now()
-    await assert.rejects(
-      tree.outcome,
-      (error: unknown) =>
-        error instanceof TerminalHostExit &&
-        error.unconfirmedTree instanceof ChildProcessTreeUnconfirmedError &&
-        /output pipes stayed open/.test(error.unconfirmedTree.message),
-    )
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(warnings.length, 1)
+    assert.match(warnings[0]?.message ?? "", /output pipes stayed open/)
     // The pipe wait shares the forced-stop deadline instead of adding its own.
     assert.ok(Date.now() - startedAt < 1_500)
   })
 
-  it("ends the terminal host when POSIX forced-stop confirmation expires", {
+  it("returns unknown when POSIX forced-stop confirmation expires", {
     skip: !supportsProcessGroups,
   }, async () => {
     const posixAdapter = createPosixChildProcessLifetimeAdapter({
       processGroupExists: () => true,
       signalProcessGroup: signalRealProcessGroup,
     })
-    const controller = createTerminalController(
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createWarningController(
       adapterWithDeadlineProofPolicy(posixAdapter),
+      warnings,
     )
     const tree = await controller.launch({
       command: process.execPath,
@@ -205,12 +196,8 @@ describe("child-process completion routes", {
 
     tree.requestCancellation()
 
-    await assert.rejects(
-      tree.outcome,
-      (error: unknown) =>
-        error instanceof TerminalHostExit &&
-        error.unconfirmedTree instanceof ChildProcessTreeUnconfirmedError,
-    )
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(warnings.length, 1)
   })
 
   it("lets a Windows target run longer than the launcher handshake bound", {
@@ -237,15 +224,20 @@ describe("child-process completion routes", {
     assert.ok(Date.now() - startedAt >= 30_000)
   })
 
-  it("ends the terminal host when Windows forced-stop confirmation expires", {
+  it("returns unknown and retains the job when Windows confirmation expires", {
     skip: process.platform !== "win32",
   }, async () => {
     let realJob: WindowsKillOnCloseJob | undefined
+    let jobClosed = false
     const operations: WindowsChildLifetimeAdapterOperations = {
       async createJob() {
         realJob = await createWindowsKillOnCloseJob()
         return {
           ...realJob,
+          close() {
+            jobClosed = true
+            realJob?.close()
+          },
           hasActiveProcesses: () => true,
         }
       },
@@ -274,7 +266,8 @@ describe("child-process completion routes", {
         ).tree
       },
     }
-    const controller = createTerminalController(adapter)
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createWarningController(adapter, warnings)
 
     try {
       const tree = await controller.launch({
@@ -285,12 +278,9 @@ describe("child-process completion routes", {
 
       tree.requestCancellation()
 
-      await assert.rejects(
-        tree.outcome,
-        (error: unknown) =>
-          error instanceof TerminalHostExit &&
-          error.unconfirmedTree instanceof ChildProcessTreeUnconfirmedError,
-      )
+      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+      assert.equal(warnings.length, 1)
+      assert.equal(jobClosed, false)
     } finally {
       realJob?.close()
     }

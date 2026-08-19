@@ -10,7 +10,7 @@ function createInspectionProgram() {
   return createProgram({
     childProcessLifetimeController: createChildProcessLifetimeController({
       diagnosticSink() {},
-      onUnconfirmedTree(error): never {
+      warnUnconfirmedTree(error): never {
         throw error
       },
     }),

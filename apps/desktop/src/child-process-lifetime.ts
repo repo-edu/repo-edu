@@ -7,9 +7,8 @@ import {
 
 export type DesktopChildProcessLifetimeOptions = {
   readonly appName: string
-  readonly exit: (code: number) => never
   readonly runtimePlatform?: NodeJS.Platform
-  readonly showErrorBox: (title: string, message: string) => void
+  readonly showWarning: (title: string, message: string) => void
   readonly windowsAdapter?: ChildProcessLifetimePlatformAdapter
   readonly writeStderr: (message: string) => void
 }
@@ -27,12 +26,11 @@ export function createDesktopChildProcessLifetimeController(
         `[desktop] child-process-secondary-failure ${diagnostic.command} ${errorText(diagnostic.failure)}\n`,
       )
     },
-    onUnconfirmedTree(): never {
-      options.showErrorBox(
-        `${options.appName} must close`,
+    warnUnconfirmedTree() {
+      options.showWarning(
+        `${options.appName} warning`,
         childProcessUnconfirmedTreeMessage,
       )
-      return options.exit(1)
     },
     runtimePlatform: options.runtimePlatform,
     windowsAdapter: options.windowsAdapter,

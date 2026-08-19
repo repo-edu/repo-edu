@@ -293,21 +293,21 @@ export async function cleanBeforeTargetAdmission(options: {
   options.controlLines?.close()
 
   if (options.assigned) {
-    try {
-      options.job.terminate(forcedJobExitCode)
-      if (
-        !(await waitForJobExit(
-          options.job,
-          options.forcedStopConfirmationPeriodMs,
-        ))
-      ) {
-        throw new ChildProcessTreeUnconfirmedError(
-          "The assigned Windows launcher remained after its forced stop.",
-        )
-      }
-    } finally {
-      options.job.close()
+    options.job.terminate(forcedJobExitCode)
+    if (
+      !(await waitForJobExit(
+        options.job,
+        options.forcedStopConfirmationPeriodMs,
+      ))
+    ) {
+      // Keep the kill-on-close handle open. The operating system closes it
+      // when the host exits, preserving the same final stop backstop after a
+      // confirmation expiry.
+      throw new ChildProcessTreeUnconfirmedError(
+        "The assigned Windows launcher remained after its forced stop.",
+      )
     }
+    options.job.close()
     return
   }
 
@@ -524,6 +524,8 @@ function createStopAndConfirm(
               forcedStopConfirmationPeriodMs,
             ))
           ) {
+            // Do not close the job after an unconfirmed stop. Its
+            // kill-on-close handle remains a process-exit backstop.
             throw new ChildProcessTreeUnconfirmedError(
               "The Windows job remained after its forced stop.",
             )
@@ -810,7 +812,11 @@ export async function proveWindowsLauncherReadiness(
   } catch (error) {
     cleanupFailure = error
   } finally {
-    launcher.closeResources()
+    // An unconfirmed Windows job keeps its kill-on-close handle until the
+    // host process exits.
+    if (!(cleanupFailure instanceof ChildProcessTreeUnconfirmedError)) {
+      launcher.closeResources()
+    }
   }
 
   if (cleanupFailure !== undefined) {

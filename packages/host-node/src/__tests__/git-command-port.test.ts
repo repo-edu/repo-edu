@@ -156,7 +156,7 @@ describe("createNodeGitCommandPort", () => {
       const processPort = createNodeProcessPort(
         createChildProcessLifetimeController({
           diagnosticSink() {},
-          onUnconfirmedTree(error): never {
+          warnUnconfirmedTree(error): never {
             throw error
           },
           windowsAdapter,

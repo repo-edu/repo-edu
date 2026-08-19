@@ -27,9 +27,8 @@ const controller = createChildProcessLifetimeController({
   diagnosticSink(diagnostic) {
     process.stderr.write(`${String(diagnostic.failure)}\n`)
   },
-  onUnconfirmedTree(error): never {
+  warnUnconfirmedTree(error) {
     process.stderr.write(`${error.message}\n`)
-    return process.exit(1)
   },
   windowsAdapter,
 })

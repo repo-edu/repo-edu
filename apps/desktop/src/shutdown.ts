@@ -24,7 +24,7 @@ export function createDesktopShutdown(
   const drain = async (): Promise<void> => {
     options.abortWorkflows()
     await options.waitForWorkflows()
-    // Close the archive before a fatal child-process exit can stop the host.
+    // Close the archive before child-process shutdown can report a failure.
     options.closeArchive()
     await options.stopAndConfirmChildProcesses()
   }

@@ -24,7 +24,6 @@ type WindowsAdapterModuleLoader =
 
 export type CommandLineChildProcessLifetimeOptions = {
   readonly executablePath?: string
-  readonly exit?: (code: number) => never
   readonly launcherEntryUrl?: URL
   readonly loadWindowsAdapterModule?: WindowsAdapterModuleLoader
   readonly runtimePlatform?: NodeJS.Platform
@@ -38,7 +37,6 @@ async function loadWindowsAdapterModule(): Promise<WindowsChildProcessLifetimeMo
 export async function createCommandLineChildProcessLifetimeController(
   options: CommandLineChildProcessLifetimeOptions = {},
 ): Promise<ChildProcessLifetimeController> {
-  const exit = options.exit ?? ((code: number): never => process.exit(code))
   const writeStderr =
     options.writeStderr ??
     ((message: string): void => {
@@ -57,9 +55,8 @@ export async function createCommandLineChildProcessLifetimeController(
         `Child-process secondary failure for ${diagnostic.command}: ${failure}\n`,
       )
     },
-    onUnconfirmedTree(): never {
+    warnUnconfirmedTree() {
       writeStderr(`${childProcessUnconfirmedTreeMessage}\n`)
-      return exit(1)
     },
   }
   const runtimePlatform = options.runtimePlatform ?? process.platform

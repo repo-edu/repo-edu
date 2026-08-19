@@ -132,7 +132,7 @@ describe("runner-owned plan-step Codex SDK host process", () => {
     const childProcessLifetimeController = createChildProcessLifetimeController(
       {
         diagnosticSink() {},
-        onUnconfirmedTree(error): never {
+        warnUnconfirmedTree(error): never {
           throw error
         },
       },

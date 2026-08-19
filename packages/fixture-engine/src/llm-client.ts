@@ -38,9 +38,8 @@ const childProcessLifetimeController = createChildProcessLifetimeController({
       `fixture: child-process-secondary-failure ${diagnostic.command}: ${failure}\n`,
     )
   },
-  onUnconfirmedTree(): never {
+  warnUnconfirmedTree() {
     process.stderr.write(`${childProcessUnconfirmedTreeMessage}\n`)
-    return process.exit(1)
   },
 })
 

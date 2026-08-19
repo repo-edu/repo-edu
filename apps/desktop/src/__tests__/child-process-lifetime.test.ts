@@ -8,17 +8,14 @@ import {
 } from "@repo-edu/host-node/child-process-lifetime"
 import { createDesktopChildProcessLifetimeController } from "../child-process-lifetime"
 
-class HostExit extends Error {
-  constructor(readonly code: number) {
-    super(`host exited with ${code}`)
-  }
-}
-
 function platformAdapter(
-  confirmationFailure?: Error,
+  ...confirmationFailures: Array<Error | undefined>
 ): ChildProcessLifetimePlatformAdapter {
+  let launchCount = 0
   return {
     async launch() {
+      const confirmationFailure = confirmationFailures[launchCount]
+      launchCount += 1
       const stdin = new PassThrough()
       const stdout = new PassThrough()
       const stderr = new PassThrough()
@@ -48,16 +45,13 @@ function platformAdapter(
 function createHostController(
   adapter: ChildProcessLifetimePlatformAdapter,
   output: string[],
-  errorBoxes: Array<{ readonly message: string; readonly title: string }>,
+  warnings: Array<{ readonly message: string; readonly title: string }>,
 ) {
   return createDesktopChildProcessLifetimeController({
     appName: "Repo Edu",
-    exit(code): never {
-      throw new HostExit(code)
-    },
     runtimePlatform: "win32",
-    showErrorBox(title, message) {
-      errorBoxes.push({ message, title })
+    showWarning(title, message) {
+      warnings.push({ message, title })
     },
     windowsAdapter: adapter,
     writeStderr: (message) => output.push(message),
@@ -67,15 +61,11 @@ function createHostController(
 describe("desktop child-process controller", () => {
   it("writes secondary failures through the desktop error sink", async () => {
     const output: string[] = []
-    const errorBoxes: Array<{
+    const warnings: Array<{
       readonly message: string
       readonly title: string
     }> = []
-    const controller = createHostController(
-      platformAdapter(),
-      output,
-      errorBoxes,
-    )
+    const controller = createHostController(platformAdapter(), output, warnings)
     const tree = await controller.launch<string, string>({
       command: "claude",
       proof: "reported",
@@ -91,21 +81,20 @@ describe("desktop child-process controller", () => {
       output[0] ?? "",
       /^\[desktop\] child-process-secondary-failure claude Error: error output failed/m,
     )
-    assert.deepEqual(errorBoxes, [])
+    assert.deepEqual(warnings, [])
   })
 
-  it("shows the fatal user message and exits without a run outcome", async () => {
+  it("shows one warning, returns unknown and keeps the session alive", async () => {
     const output: string[] = []
-    const errorBoxes: Array<{
+    const warnings: Array<{
       readonly message: string
       readonly title: string
     }> = []
+    const failure = new ChildProcessTreeUnconfirmedError("tree still running")
     const controller = createHostController(
-      platformAdapter(
-        new ChildProcessTreeUnconfirmedError("tree still running"),
-      ),
+      platformAdapter(failure, undefined),
       output,
-      errorBoxes,
+      warnings,
     )
     const tree = await controller.launch<string, string>({
       command: "claude",
@@ -115,16 +104,23 @@ describe("desktop child-process controller", () => {
     tree.reportWorkStarted()
     tree.reportResult({ outcome: "completed", value: "done" })
 
-    await assert.rejects(
-      tree.outcome,
-      (error: unknown) => error instanceof HostExit && error.code === 1,
-    )
-    assert.deepEqual(errorBoxes, [
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    const laterTree = await controller.launch<string, string>({
+      command: "claude",
+      proof: "reported",
+    })
+    laterTree.reportWorkStarted()
+    laterTree.reportResult({ outcome: "completed", value: "later" })
+    assert.equal((await laterTree.outcome).outcome, "completed")
+    await controller.stopAndConfirm()
+
+    assert.deepEqual(warnings, [
       {
         message: childProcessUnconfirmedTreeMessage,
-        title: "Repo Edu must close",
+        title: "Repo Edu warning",
       },
     ])
-    assert.deepEqual(output, [])
+    assert.equal(output.length, 1)
+    assert.match(output[0] ?? "", /tree still running/)
   })
 })

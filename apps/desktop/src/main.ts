@@ -142,8 +142,13 @@ const desktopHost = createDesktopHostEnvironment()
 const childProcessLifetimeController =
   createDesktopChildProcessLifetimeController({
     appName: desktopAppName,
-    exit: (code): never => process.exit(code),
-    showErrorBox: (title, message) => dialog.showErrorBox(title, message),
+    showWarning: (title, message) =>
+      dialog.showMessageBoxSync({
+        buttons: ["OK"],
+        message,
+        title,
+        type: "warning",
+      }),
     writeStderr: (message) => process.stderr.write(message),
     windowsAdapter:
       process.platform === "win32"

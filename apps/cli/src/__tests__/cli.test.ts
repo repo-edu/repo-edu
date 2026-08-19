@@ -50,7 +50,7 @@ async function runCli(
   // whole reason `createProgram` refuses to make one of its own.
   const childProcessLifetimeController = createChildProcessLifetimeController({
     diagnosticSink() {},
-    onUnconfirmedTree(error): never {
+    warnUnconfirmedTree(error): never {
       throw error
     },
   })
@@ -280,7 +280,7 @@ describe("CLI command tree", () => {
     const help = createProgram({
       childProcessLifetimeController: createChildProcessLifetimeController({
         diagnosticSink() {},
-        onUnconfirmedTree(error): never {
+        warnUnconfirmedTree(error): never {
           throw error
         },
       }),

@@ -127,7 +127,7 @@ function createController(): ChildProcessLifetimeController {
       : undefined
   return createChildProcessLifetimeController({
     diagnosticSink() {},
-    onUnconfirmedTree(error): never {
+    warnUnconfirmedTree(error): never {
       throw error
     },
     windowsAdapter,
@@ -386,7 +386,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
 
     const controller = createChildProcessLifetimeController({
       diagnosticSink() {},
-      onUnconfirmedTree(error): never {
+      warnUnconfirmedTree(error): never {
         throw error
       },
       windowsAdapter: createWindowsChildProcessLifetimeAdapter({
@@ -443,7 +443,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
 
     const controller = createChildProcessLifetimeController({
       diagnosticSink() {},
-      onUnconfirmedTree(error): never {
+      warnUnconfirmedTree(error): never {
         throw error
       },
       windowsAdapter: createWindowsChildProcessLifetimeAdapter({
@@ -512,7 +512,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
 
       const controller = createChildProcessLifetimeController({
         diagnosticSink() {},
-        onUnconfirmedTree(error): never {
+        warnUnconfirmedTree(error): never {
           throw error
         },
         windowsAdapter: createWindowsChildProcessLifetimeAdapter({

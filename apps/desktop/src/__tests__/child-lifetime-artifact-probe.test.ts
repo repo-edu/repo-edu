@@ -72,7 +72,7 @@ describe("packaged Windows child-process lifetime runtime", () => {
     })
     const controller = createChildProcessLifetimeController({
       diagnosticSink() {},
-      onUnconfirmedTree(error): never {
+      warnUnconfirmedTree(error): never {
         throw error
       },
       windowsAdapter,

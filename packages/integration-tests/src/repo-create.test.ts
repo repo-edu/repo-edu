@@ -65,7 +65,7 @@ for (const harness of harnesses) {
           createNodeProcessPort(
             createChildProcessLifetimeController({
               diagnosticSink() {},
-              onUnconfirmedTree(error): never {
+              warnUnconfirmedTree(error): never {
                 throw error
               },
             }),

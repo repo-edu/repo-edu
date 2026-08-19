@@ -38,15 +38,19 @@ export type ChildProcessLifetimeControllerOptions = {
   readonly diagnosticSink: (
     diagnostic: ChildProcessSecondaryFailureDiagnostic,
   ) => void
-  readonly onUnconfirmedTree: (
+  readonly warnUnconfirmedTree: (
     error: ChildProcessTreeUnconfirmedError,
-  ) => never | Promise<never>
+  ) => void
   readonly runtimePlatform?: NodeJS.Platform
   readonly windowsAdapter?: ChildProcessLifetimePlatformAdapter
 }
 
+type TreeConfirmation =
+  | { readonly status: "confirmed" }
+  | { readonly status: "unconfirmed" }
+
 type RegisteredProcessTree = {
-  confirm(): Promise<void>
+  confirm(): Promise<TreeConfirmation>
 }
 
 type PendingProcessTree = {
@@ -115,8 +119,12 @@ function directTargetResult(
 function selectedOutcome<TCompleted, TFailed>(
   facts: RunFacts<TCompleted, TFailed>,
   targetResult: ChildProcessLifetimeResult | undefined,
+  treeConfirmation: TreeConfirmation,
 ): ChildProcessOutcome<TCompleted, TFailed> {
-  if (facts.proofLosses.length > 0) {
+  if (
+    treeConfirmation.status === "unconfirmed" ||
+    facts.proofLosses.length > 0
+  ) {
     return { outcome: "unknown" }
   }
   if (facts.cancelRequested) {
@@ -165,10 +173,18 @@ export function createChildProcessLifetimeController(
     })
   }
 
-  const endSessionForUnconfirmedTree = async (
+  const reportUnconfirmedTree = (
+    command: string,
     error: unknown,
-  ): Promise<never> => {
-    return await options.onUnconfirmedTree(unconfirmedTreeError(error))
+  ): ChildProcessTreeUnconfirmedError => {
+    const failure = unconfirmedTreeError(error)
+    reportSecondaryFailure(command, failure)
+    try {
+      options.warnUnconfirmedTree(failure)
+    } catch (warningFailure) {
+      reportSecondaryFailure(command, warningFailure)
+    }
+    return failure
   }
 
   return {
@@ -179,11 +195,14 @@ export function createChildProcessLifetimeController(
       throwIfAborted(request.signal)
 
       const pendingStop = new AbortController()
-      const completion = selectPlatformAdapter(options).launch(
-        request,
-        pendingStop.signal,
-        childProcessLifetimeStopPolicy,
-      )
+      const completion = selectPlatformAdapter(options)
+        .launch(request, pendingStop.signal, childProcessLifetimeStopPolicy)
+        .catch((error: unknown) => {
+          if (error instanceof ChildProcessTreeUnconfirmedError) {
+            throw reportUnconfirmedTree(request.command, error)
+          }
+          throw error
+        })
       const pending: PendingProcessTree = {
         command: request.command,
         completion,
@@ -195,25 +214,21 @@ export function createChildProcessLifetimeController(
       let platformTree: PlatformOwnedChildProcessTree
       try {
         platformTree = await completion
-      } catch (error) {
-        if (error instanceof ChildProcessTreeUnconfirmedError) {
-          return await endSessionForUnconfirmedTree(error)
-        }
-        throw error
       } finally {
         pendingLaunches.delete(pending)
       }
 
       const key = Symbol("owned-process-tree")
-      let confirmation: Promise<void> | undefined
-      const confirm = (): Promise<void> => {
+      let confirmation: Promise<TreeConfirmation> | undefined
+      const confirm = (): Promise<TreeConfirmation> => {
         confirmation ??= (async () => {
           try {
             await platformTree.stopAndConfirm()
-          } catch (error) {
-            return await endSessionForUnconfirmedTree(error)
-          } finally {
             activeTrees.delete(key)
+            return { status: "confirmed" }
+          } catch (error) {
+            reportUnconfirmedTree(request.command, error)
+            return { status: "unconfirmed" }
           }
         })()
         return confirmation
@@ -257,7 +272,19 @@ export function createChildProcessLifetimeController(
         }
         completionStarted = true
         void (async () => {
-          await confirm()
+          const treeConfirmation = await confirm()
+          if (treeConfirmation.status === "unconfirmed") {
+            const outcome = selectedOutcome(
+              facts,
+              targetResult,
+              treeConfirmation,
+            )
+            for (const failure of secondaryFailures(facts, outcome)) {
+              reportSecondaryFailure(request.command, failure)
+            }
+            settled.resolve(outcome)
+            return
+          }
           await targetResultObserved
           if (
             request.proof === "reported" &&
@@ -273,7 +300,7 @@ export function createChildProcessLifetimeController(
               ),
             )
           }
-          const outcome = selectedOutcome(facts, targetResult)
+          const outcome = selectedOutcome(facts, targetResult, treeConfirmation)
           for (const failure of secondaryFailures(facts, outcome)) {
             reportSecondaryFailure(request.command, failure)
           }
@@ -361,7 +388,7 @@ export function createChildProcessLifetimeController(
             !isExpectedPendingLaunchStop(result.reason)
           ) {
             if (result.reason instanceof ChildProcessTreeUnconfirmedError) {
-              return await endSessionForUnconfirmedTree(result.reason)
+              continue
             }
             reportSecondaryFailure(
               pending[index]?.command ?? "<pending>",

@@ -9,17 +9,14 @@ import {
 } from "@repo-edu/host-node/child-process-lifetime"
 import { createCommandLineChildProcessLifetimeController } from "../child-process-lifetime.js"
 
-class HostExit extends Error {
-  constructor(readonly code: number) {
-    super(`host exited with ${code}`)
-  }
-}
-
 function platformAdapter(
-  confirmationFailure?: Error,
+  ...confirmationFailures: Array<Error | undefined>
 ): ChildProcessLifetimePlatformAdapter {
+  let launchCount = 0
   return {
     async launch() {
+      const confirmationFailure = confirmationFailures[launchCount]
+      launchCount += 1
       const stdin = new PassThrough()
       const stdout = new PassThrough()
       const stderr = new PassThrough()
@@ -174,20 +171,14 @@ describe("command-line child-process controller", () => {
     ])
   })
 
-  it("prints the fatal user message and exits without a run outcome", async () => {
+  it("prints one warning, returns unknown and keeps the session alive", async () => {
     const output: string[] = []
+    const failure = new ChildProcessTreeUnconfirmedError("tree still running")
     const controller = await createCommandLineChildProcessLifetimeController({
-      exit(code): never {
-        throw new HostExit(code)
-      },
       runtimePlatform: "win32",
       writeStderr: (message) => output.push(message),
       async loadWindowsAdapterModule() {
-        return windowsModule(
-          platformAdapter(
-            new ChildProcessTreeUnconfirmedError("tree still running"),
-          ),
-        )
+        return windowsModule(platformAdapter(failure, undefined))
       },
     })
     const tree = await controller.launch<string, string>({
@@ -198,10 +189,19 @@ describe("command-line child-process controller", () => {
     tree.reportWorkStarted()
     tree.reportResult({ outcome: "completed", value: "done" })
 
-    await assert.rejects(
-      tree.outcome,
-      (error: unknown) => error instanceof HostExit && error.code === 1,
-    )
-    assert.deepEqual(output, [`${childProcessUnconfirmedTreeMessage}\n`])
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    const laterTree = await controller.launch<string, string>({
+      command: "git",
+      proof: "reported",
+    })
+    laterTree.reportWorkStarted()
+    laterTree.reportResult({ outcome: "completed", value: "later" })
+    assert.equal((await laterTree.outcome).outcome, "completed")
+    await controller.stopAndConfirm()
+
+    assert.deepEqual(output, [
+      "Child-process secondary failure for git: tree still running\n",
+      `${childProcessUnconfirmedTreeMessage}\n`,
+    ])
   })
 })

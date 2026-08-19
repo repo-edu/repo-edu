@@ -9,7 +9,7 @@ describe("cli workflow alignment", () => {
     const handlers = createCliWorkflowHandlers({
       childProcessLifetimeController: createChildProcessLifetimeController({
         diagnosticSink() {},
-        onUnconfirmedTree(error): never {
+        warnUnconfirmedTree(error): never {
           throw error
         },
       }),
@@ -28,7 +28,7 @@ describe("cli workflow alignment", () => {
     const handlers = createCliWorkflowHandlers({
       childProcessLifetimeController: createChildProcessLifetimeController({
         diagnosticSink() {},
-        onUnconfirmedTree(error): never {
+        warnUnconfirmedTree(error): never {
           throw error
         },
       }),

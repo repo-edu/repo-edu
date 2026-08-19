@@ -91,8 +91,8 @@ describe("desktop shutdown", () => {
     assert.equal(calls.at(-1), "quit")
   })
 
-  it("uses the fatal path when child-process confirmation fails", async () => {
-    const failure = new Error("child process still running")
+  it("uses the failure path when child-process shutdown rejects", async () => {
+    const failure = new Error("child-process shutdown failed")
     const failures: unknown[] = []
     let quitCalled = false
     const shutdown = createDesktopShutdown({

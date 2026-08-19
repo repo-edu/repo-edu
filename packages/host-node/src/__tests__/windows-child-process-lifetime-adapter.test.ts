@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { ChildProcessTreeUnconfirmedError } from "../child-process-lifetime-contract"
 import { cleanBeforeTargetAdmission } from "../windows-child-process-lifetime-adapter"
 import type { WindowsKillOnCloseJob } from "../windows-job"
 
@@ -17,6 +18,30 @@ function emptyJob(onClose: () => void): WindowsKillOnCloseJob {
 }
 
 describe("Windows child-process cleanup", () => {
+  it("retains an assigned job whose forced stop cannot be confirmed", async () => {
+    let jobClosed = false
+    const job: WindowsKillOnCloseJob = {
+      ...emptyJob(() => {
+        jobClosed = true
+      }),
+      hasActiveProcesses: () => true,
+    }
+
+    await assert.rejects(
+      cleanBeforeTargetAdmission({
+        assigned: true,
+        child: null,
+        controlInput: null,
+        controlLines: null,
+        exit: null,
+        forcedStopConfirmationPeriodMs: 0,
+        job,
+      }),
+      ChildProcessTreeUnconfirmedError,
+    )
+    assert.equal(jobClosed, false)
+  })
+
   it("uses the forced-stop period for an unassigned launcher", async (context) => {
     context.mock.timers.enable({ apis: ["setTimeout"] })
     let jobClosed = false
