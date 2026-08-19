@@ -17,6 +17,13 @@ export type ChildProcessLifetimeResult = {
   readonly signal: string | null
 }
 
+export type PlatformChildProcessTerminal =
+  | ChildProcessLifetimeResult
+  | {
+      readonly outcome: "proof-lost"
+      readonly failure: unknown
+    }
+
 export type ChildProcessTargetResult<TCompleted, TFailed> =
   | {
       readonly outcome: "completed"
@@ -62,7 +69,7 @@ export type PlatformOwnedChildProcessTree = {
   readonly stdin: Writable
   readonly stdout: Readable
   readonly stderr: Readable
-  readonly result: Promise<ChildProcessLifetimeResult>
+  readonly result: Promise<PlatformChildProcessTerminal>
   stopAndConfirm(): Promise<void>
 }
 

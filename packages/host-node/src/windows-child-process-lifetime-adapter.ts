@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { createInterface, type Interface } from "node:readline"
-import type { Readable, Writable } from "node:stream"
+import { Readable, Writable } from "node:stream"
 import {
   type LaunchStopSignals,
   launchStopRequested,
@@ -10,11 +10,11 @@ import {
 } from "./child-process-launch-stop.js"
 import {
   type ChildProcessLifetimePlatformAdapter,
-  type ChildProcessLifetimeResult,
   type ChildProcessLifetimeStopPolicy,
   ChildProcessTreeUnconfirmedError,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
+  type PlatformChildProcessTerminal,
   type PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
 import { childProcessForcedStopConfirmationPeriodMs } from "./child-process-lifetime-controller.js"
@@ -82,12 +82,18 @@ type AssignedLauncher = {
   closeResources(): void
 }
 
-type LaunchedWindowsTarget = {
-  readonly evidence: WindowsChildLifetimeEvidence & {
-    readonly targetAdmittedAfterAssignment: true
-  }
-  readonly tree: PlatformOwnedChildProcessTree
-}
+type LaunchedWindowsTarget =
+  | {
+      readonly admission: "confirmed"
+      readonly evidence: WindowsChildLifetimeEvidence & {
+        readonly targetAdmittedAfterAssignment: true
+      }
+      readonly tree: PlatformOwnedChildProcessTree
+    }
+  | {
+      readonly admission: "possible"
+      readonly tree: PlatformOwnedChildProcessTree
+    }
 
 const defaultAdapterOperations: WindowsChildLifetimeAdapterOperations = {
   createJob: createWindowsKillOnCloseJob,
@@ -227,9 +233,9 @@ function formatLauncherExit(exit: LauncherExit): string {
 }
 
 // The target decides how long it runs, so the wait for its exit line carries no
-// bound. The controller policy gives an owned tree one five-second graceful
-// stop allowance and no second bound. A bound here would end a long clone or
-// AI turn and report an outcome nobody observed.
+// bound. The controller's graceful and post-force bounds begin only after a
+// stop request. A bound here would end a long clone or AI turn and report an
+// outcome nobody observed.
 async function readLauncherMessage(
   launcher: Pick<AssignedLauncher, "controlLines" | "exit">,
   label: string,
@@ -538,6 +544,56 @@ function createStopAndConfirm(
   }
 }
 
+function createConfirmedWindowsTarget(
+  launcher: AssignedLauncher,
+  lifecycle: ReturnType<typeof createStopAndConfirm>,
+  result: PlatformOwnedChildProcessTree["result"],
+): LaunchedWindowsTarget {
+  return {
+    admission: "confirmed",
+    evidence: {
+      ...launcher.evidence,
+      targetAdmittedAfterAssignment: true,
+    },
+    tree: {
+      stdin: requiredInput(launcher.child),
+      stdout: requiredOutput(launcher.child),
+      stderr: requiredErrorOutput(launcher.child),
+      result,
+      stopAndConfirm: lifecycle.stopAndConfirm,
+    },
+  }
+}
+
+function createPossibleWindowsTarget(
+  lifecycle: ReturnType<typeof createStopAndConfirm>,
+  failure: unknown,
+): LaunchedWindowsTarget {
+  return {
+    admission: "possible",
+    tree: {
+      ...closedTargetStreams(),
+      result: Promise.resolve({ outcome: "proof-lost", failure }),
+      stopAndConfirm: lifecycle.stopAndConfirm,
+    },
+  }
+}
+
+function closedTargetStreams(): Pick<
+  PlatformOwnedChildProcessTree,
+  "stdin" | "stdout" | "stderr"
+> {
+  return {
+    stdin: new Writable({
+      write(_chunk, _encoding, done) {
+        done()
+      },
+    }),
+    stdout: Readable.from([]),
+    stderr: Readable.from([]),
+  }
+}
+
 function launchFailureForCaller(
   error: unknown,
   callerSignal: AbortSignal | undefined,
@@ -549,24 +605,10 @@ function launchFailureForCaller(
     : error
 }
 
-async function confirmStoppedAfterTargetAdmissionFailure(
-  error: unknown,
-  stopAndConfirm: () => Promise<void>,
-): Promise<void> {
-  try {
-    await stopAndConfirm()
-  } catch (cleanupError) {
-    throw new ChildProcessTreeUnconfirmedError(
-      "The Windows launcher was lost after target admission and the job could not be confirmed stopped.",
-      { cause: new AggregateError([error, cleanupError]) },
-    )
-  }
-}
-
 async function monitorTerminalResult(
   launcher: AssignedLauncher,
   stopAndConfirm: () => Promise<void>,
-): Promise<ChildProcessLifetimeResult> {
+): Promise<PlatformChildProcessTerminal> {
   try {
     const exited = await readLauncherMessage(launcher, "target exit")
     if (exited.kind === "failure") {
@@ -635,8 +677,7 @@ async function monitorTerminalResult(
       signal: exited.signal,
     }
   } catch (error) {
-    await confirmStoppedAfterTargetAdmissionFailure(error, stopAndConfirm)
-    throw error
+    return { outcome: "proof-lost", failure: error }
   }
 }
 
@@ -666,8 +707,7 @@ export async function launchAssignedTarget(
     stopPolicy.gracefulStopPeriodMs,
     stopPolicy.forcedStopConfirmationPeriodMs,
   )
-  let targetMayBeAdmitted = false
-  let targetLaunchRejected = false
+  let admission: "not-attempted" | "possible" | "rejected" = "not-attempted"
 
   try {
     if (target.signal?.aborted || launchStopRequested(pendingStopSignals)) {
@@ -679,7 +719,7 @@ export async function launchAssignedTarget(
       throw pendingLaunchStoppedError()
     }
 
-    targetMayBeAdmitted = true
+    admission = "possible"
     await writeLaunchCommand(launcher, target, launchStopSignals)
     const started = await readLauncherHandshakeMessage(
       launcher,
@@ -687,7 +727,7 @@ export async function launchAssignedTarget(
       launchStopSignals,
     )
     if (started.kind === "failure") {
-      targetLaunchRejected = true
+      admission = "rejected"
       await lifecycle.stopAndConfirm()
       throw new Error(`The Windows launcher failed: ${started.message}`)
     }
@@ -702,29 +742,16 @@ export async function launchAssignedTarget(
     }
     const result = monitorTerminalResult(launcher, lifecycle.stopAndConfirm)
 
-    return {
-      evidence: {
-        ...launcher.evidence,
-        targetAdmittedAfterAssignment: true,
-      },
-      tree: {
-        stdin: requiredInput(launcher.child),
-        stdout: requiredOutput(launcher.child),
-        stderr: requiredErrorOutput(launcher.child),
-        result,
-        stopAndConfirm: lifecycle.stopAndConfirm,
-      },
-    }
+    return createConfirmedWindowsTarget(launcher, lifecycle, result)
   } catch (error) {
+    if (admission === "possible") {
+      return createPossibleWindowsTarget(
+        lifecycle,
+        launchFailureForCaller(error, target.signal),
+      )
+    }
     if (error instanceof ChildProcessTreeUnconfirmedError) {
       throw error
-    }
-    if (targetMayBeAdmitted && !targetLaunchRejected) {
-      await confirmStoppedAfterTargetAdmissionFailure(
-        error,
-        lifecycle.stopAndConfirm,
-      )
-      throw launchFailureForCaller(error, target.signal)
     }
     try {
       await lifecycle.stopAndConfirm()

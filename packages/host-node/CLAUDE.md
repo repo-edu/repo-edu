@@ -80,9 +80,11 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   entry and pass the host-supplied target environment unchanged. Its runtime
   declares whether the launcher executable is Electron in Node mode or plain
   Node. The Codex SDK host process removes `ELECTRON_RUN_AS_NODE` before the SDK
-  starts Codex or tools. A lost launcher after target admission reports an
-  unknown outcome after its job is confirmed empty. If confirmation expires,
-  the controller reports unknown with its diagnostic and warning instead.
+  starts Codex or tools. The controller owns the launch attempt before the
+  target command may be accepted. A lost launcher after possible command
+  acceptance reports proof loss, and the controller returns unknown after the
+  matching stop attempt. An explicit launcher rejection stays a known launch
+  failure.
 - A launch environment is the complete target environment for every platform
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
@@ -95,12 +97,13 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - The controller owns one five-second graceful stop allowance and one
   five-second confirmation deadline after a forced stop. Both platform
   adapters apply those periods. Confirmation expiry returns unknown for an
-  active run, sends one diagnostic and one warning, and leaves the session
-  running. A pre-admission expiry warns and rejects the launch with the
-  confirmation error. Shutdown warns and returns without confirmation.
-  Shutdown requests a stop from platform startup before it waits for the
-  launch to enter the active-tree registry. Windows keeps an unconfirmed
-  tree's kill-on-close job handle open until process exit.
+  active run, sends one diagnostic and one warning, releases its caller-facing
+  streams, and leaves the session running. An expiry before command acceptance
+  is possible warns and rejects the launch with the confirmation error.
+  Shutdown warns and lets the host exit without confirmation. Shutdown requests
+  a stop from platform startup before it waits for the launch to enter the
+  active-tree registry. Windows keeps an unconfirmed tree's kill-on-close job
+  handle open until process exit.
 - Every host supplies an error diagnostic sink and an unconfirmed-tree warning
   channel. The controller sends each secondary failure once to the diagnostic
   sink and each unconfirmed-tree warning once to the warning channel.

@@ -42,20 +42,50 @@ export async function runWindowsChildLifetimeTarget(
   })
   const stdout = collectOutput(run.tree.stdout)
   const stderr = collectOutput(run.tree.stderr)
+  const output = Promise.all([stdout, stderr]).then(
+    ([capturedStdout, capturedStderr]) =>
+      ({ status: "fulfilled", capturedStdout, capturedStderr }) as const,
+    (failure: unknown) => ({ status: "rejected", failure }) as const,
+  )
   run.tree.stdin.end(target.stdinText)
 
-  const [result, capturedStdout, capturedStderr] = await Promise.all([
-    run.tree.result,
-    stdout,
-    stderr,
-  ])
+  const terminal = await run.tree.result
+  if ("outcome" in terminal) {
+    let failure = terminal.failure
+    try {
+      await run.tree.stopAndConfirm()
+    } catch (cleanupFailure) {
+      failure = new AggregateError(
+        [failure, cleanupFailure],
+        "The Windows lifetime proof was lost and its target could not be confirmed stopped.",
+      )
+    }
+    for (const stream of [run.tree.stdin, run.tree.stdout, run.tree.stderr]) {
+      if (!stream.destroyed) {
+        stream.once("error", () => {})
+        stream.destroy(failure instanceof Error ? failure : undefined)
+      }
+    }
+    await output
+    throw failure instanceof Error ? failure : new Error(String(failure))
+  }
+
+  const captured = await output
+  if (captured.status === "rejected") {
+    throw captured.failure
+  }
+  if (run.admission !== "confirmed") {
+    throw new Error(
+      "The Windows launcher returned a known result without confirmed target admission.",
+    )
+  }
 
   return {
     evidence: run.evidence,
     result: {
-      ...result,
-      stdout: capturedStdout,
-      stderr: capturedStderr,
+      ...terminal,
+      stdout: captured.capturedStdout,
+      stderr: captured.capturedStderr,
     },
   }
 }

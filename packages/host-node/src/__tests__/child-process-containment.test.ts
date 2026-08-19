@@ -464,17 +464,12 @@ describe("child-process containment", { skip: !supportsController }, () => {
         signal: abortController.signal,
       })
       await waitForMarker(marker, /target-start-pending/)
-      const launchRejected = assert.rejects(
-        launch,
-        (error) => error instanceof DOMException && error.name === "AbortError",
-      )
-
       abortController.abort()
-
-      await completeWithin(
-        launchRejected,
+      const tree = await valueWithin(
+        launch,
         childProcessStopGracePeriodMs + 2_000,
       )
+      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
       await controller.stopAndConfirm()
     } finally {
       restoreEnvironmentVariable(

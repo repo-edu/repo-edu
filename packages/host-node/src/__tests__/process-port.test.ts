@@ -2,9 +2,14 @@ import assert from "node:assert/strict"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { PassThrough } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
+import {
+  type ChildProcessLifetimePlatformAdapter,
+  ChildProcessTreeUnconfirmedError,
+  createChildProcessLifetimeController,
+} from "../child-process-lifetime.js"
 import { createNodeProcessPort } from "../index.js"
 import {
   createWindowsChildProcessLifetimeAdapter,
@@ -123,6 +128,46 @@ describe("createNodeProcessPort", () => {
     assert.equal(result.exitCode, 0)
     assert.equal(result.stdout.length, outputSize)
     assert.equal(result.stderr.length, outputSize)
+  })
+
+  it("releases open streams when confirmation expiry returns unknown", async () => {
+    const terminal = Promise.withResolvers<{
+      readonly exitCode: number
+      readonly signal: null
+    }>()
+    const stdin = new PassThrough()
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch() {
+        return {
+          stdin,
+          stdout,
+          stderr,
+          result: terminal.promise,
+          async stopAndConfirm() {
+            throw new ChildProcessTreeUnconfirmedError("not gone")
+          },
+        }
+      },
+    }
+    const processPort = createNodeProcessPort(
+      createChildProcessLifetimeController({
+        diagnosticSink() {},
+        warnUnconfirmedTree() {},
+        runtimePlatform: "win32",
+        windowsAdapter: adapter,
+      }),
+    )
+    const run = processPort.run({ command: "unconfirmed-target" })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    terminal.resolve({ exitCode: 0, signal: null })
+
+    await assert.rejects(run, /command result could not be confirmed/i)
+    assert.equal(stdin.destroyed, true)
+    assert.equal(stdout.destroyed, true)
+    assert.equal(stderr.destroyed, true)
   })
 
   it("holds the terminal result until an outliving descendant is gone", {

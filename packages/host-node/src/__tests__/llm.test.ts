@@ -8,9 +8,13 @@ import { fileURLToPath } from "node:url"
 import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeLaunch,
+  ChildProcessLifetimePlatformAdapter,
   OwnedChildProcessTree,
 } from "../child-process-lifetime.js"
-import { createChildProcessLifetimeController } from "../child-process-lifetime.js"
+import {
+  ChildProcessTreeUnconfirmedError,
+  createChildProcessLifetimeController,
+} from "../child-process-lifetime.js"
 import { createNodeLlmTextClient, launchNodeCodexSdkHost } from "../llm.js"
 
 const claudeTreeFixture = fileURLToPath(
@@ -118,6 +122,51 @@ describe("createNodeLlmTextClient", () => {
     } finally {
       await rm(root, { force: true, recursive: true })
     }
+  })
+
+  it("ends a Claude stream when confirmation expiry returns unknown", async () => {
+    const terminal = Promise.withResolvers<{
+      readonly exitCode: number
+      readonly signal: null
+    }>()
+    const stdin = new PassThrough()
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch() {
+        return {
+          stdin,
+          stdout,
+          stderr,
+          result: terminal.promise,
+          async stopAndConfirm() {
+            throw new ChildProcessTreeUnconfirmedError("not gone")
+          },
+        }
+      },
+    }
+    const client = createNodeLlmTextClient(
+      createChildProcessLifetimeController({
+        diagnosticSink() {},
+        warnUnconfirmedTree() {},
+        runtimePlatform: "win32",
+        windowsAdapter: adapter,
+      }),
+      { claude: { authMode: "subscription", env: {} } },
+      { claudeCliExecutable: "/bin/claude" },
+    )
+    const run = client.generateText({
+      spec: claudeSpec,
+      prompt: "Reply ok.",
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    terminal.resolve({ exitCode: 0, signal: null })
+
+    await assert.rejects(run, /outside outcome is unknown/i)
+    assert.equal(stdin.destroyed, true)
+    assert.equal(stdout.destroyed, true)
+    assert.equal(stderr.destroyed, true)
   })
 
   it("starts Codex through the Codex SDK host process with a complete Node-mode environment", async () => {

@@ -10,6 +10,7 @@ import {
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
   type OwnedChildProcessTree,
+  type PlatformChildProcessTerminal,
   type PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
 import { posixChildProcessLifetimeAdapter } from "./posix-child-process-lifetime-adapter.js"
@@ -47,7 +48,10 @@ export type ChildProcessLifetimeControllerOptions = {
 
 type TreeConfirmation =
   | { readonly status: "confirmed" }
-  | { readonly status: "unconfirmed" }
+  | {
+      readonly status: "unconfirmed"
+      readonly failure: ChildProcessTreeUnconfirmedError
+    }
 
 type RegisteredProcessTree = {
   confirm(): Promise<TreeConfirmation>
@@ -158,6 +162,30 @@ function unconfirmedTreeError(
       )
 }
 
+function releaseUnconfirmedTreeStreams(
+  tree: PlatformOwnedChildProcessTree,
+  failure: ChildProcessTreeUnconfirmedError,
+): void {
+  for (const stream of [tree.stdin, tree.stdout, tree.stderr]) {
+    if (stream.destroyed) {
+      continue
+    }
+    // The consumer still receives the error. This listener only prevents an
+    // unobserved stream from turning run cleanup into an uncaught exception.
+    stream.once("error", () => {})
+    stream.destroy(failure)
+  }
+}
+
+function isProofLostTerminal(
+  terminal: PlatformChildProcessTerminal,
+): terminal is Extract<
+  PlatformChildProcessTerminal,
+  { readonly outcome: "proof-lost" }
+> {
+  return "outcome" in terminal && terminal.outcome === "proof-lost"
+}
+
 export function createChildProcessLifetimeController(
   options: ChildProcessLifetimeControllerOptions,
 ): ChildProcessLifetimeController {
@@ -194,9 +222,27 @@ export function createChildProcessLifetimeController(
       }
       throwIfAborted(request.signal)
 
+      const facts: RunFacts<TCompleted, TFailed> = {
+        cancelRequested: false,
+        failures: [],
+        proofLosses: [],
+        workStarted: request.proof === "target-exit",
+      }
+      const settled =
+        Promise.withResolvers<ChildProcessOutcome<TCompleted, TFailed>>()
       const pendingStop = new AbortController()
-      const completion = selectPlatformAdapter(options)
-        .launch(request, pendingStop.signal, childProcessLifetimeStopPolicy)
+      // Register the controller-owned attempt before an adapter may admit the
+      // target. This keeps possible work inside the outcome owner even when
+      // platform start proof is lost.
+      const completion = Promise.resolve()
+        .then(
+          async () =>
+            await selectPlatformAdapter(options).launch(
+              request,
+              pendingStop.signal,
+              childProcessLifetimeStopPolicy,
+            ),
+        )
         .catch((error: unknown) => {
           if (error instanceof ChildProcessTreeUnconfirmedError) {
             throw reportUnconfirmedTree(request.command, error)
@@ -227,27 +273,24 @@ export function createChildProcessLifetimeController(
             activeTrees.delete(key)
             return { status: "confirmed" }
           } catch (error) {
-            reportUnconfirmedTree(request.command, error)
-            return { status: "unconfirmed" }
+            const failure = reportUnconfirmedTree(request.command, error)
+            releaseUnconfirmedTreeStreams(platformTree, failure)
+            return { status: "unconfirmed", failure }
           }
         })()
         return confirmation
       }
       activeTrees.set(key, { confirm })
 
-      const facts: RunFacts<TCompleted, TFailed> = {
-        cancelRequested: false,
-        failures: [],
-        proofLosses: [],
-        workStarted: request.proof === "target-exit",
-      }
-      const settled =
-        Promise.withResolvers<ChildProcessOutcome<TCompleted, TFailed>>()
       let targetResult: ChildProcessLifetimeResult | undefined
       let targetEndedBeforeReportedResult = false
       const targetResultObserved = platformTree.result.then(
-        (result) => {
-          targetResult = result
+        (terminal) => {
+          if (isProofLostTerminal(terminal)) {
+            facts.proofLosses.push(terminal.failure)
+            return
+          }
+          targetResult = terminal
           if (request.proof === "reported") {
             targetEndedBeforeReportedResult = true
           }

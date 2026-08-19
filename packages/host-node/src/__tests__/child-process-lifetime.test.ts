@@ -141,6 +141,43 @@ describe("child-process completion outcomes", () => {
     assert.match(String(diagnostics[0]?.failure), /connection lost/)
   })
 
+  it("returns unknown when the platform loses target-start proof", async () => {
+    const failure = new Error("target start proof lost")
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch() {
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          result: Promise.resolve({
+            outcome: "proof-lost",
+            failure,
+          }),
+          async stopAndConfirm() {},
+        }
+      },
+    }
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic)
+      },
+      warnUnconfirmedTree(error): never {
+        throw error
+      },
+      runtimePlatform: "win32",
+      windowsAdapter: adapter,
+    })
+    const tree = await controller.launch({
+      command: "possibly-started-target",
+      proof: "target-exit",
+    })
+
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0]?.failure, failure)
+  })
+
   it("returns unknown when the target ends before its reported result arrives", async () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
@@ -239,13 +276,26 @@ describe("child-process completion policy", () => {
   it("reports an unconfirmed tree as unknown and keeps the session alive", async () => {
     const failure = new ChildProcessTreeUnconfirmedError("not gone")
     let launchCount = 0
+    let unconfirmedStreams:
+      | {
+          readonly stdin: PassThrough
+          readonly stdout: PassThrough
+          readonly stderr: PassThrough
+        }
+      | undefined
     const adapter: ChildProcessLifetimePlatformAdapter = {
       async launch() {
         launchCount += 1
-        return {
+        const streams = {
           stdin: new PassThrough(),
           stdout: new PassThrough(),
           stderr: new PassThrough(),
+        }
+        if (launchCount === 1) {
+          unconfirmedStreams = streams
+        }
+        return {
+          ...streams,
           result: Promise.resolve({ exitCode: 0, signal: null }),
           async stopAndConfirm() {
             if (launchCount === 1) {
@@ -273,6 +323,9 @@ describe("child-process completion policy", () => {
     })
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.equal(unconfirmedStreams?.stdin.destroyed, true)
+    assert.equal(unconfirmedStreams?.stdout.destroyed, true)
+    assert.equal(unconfirmedStreams?.stderr.destroyed, true)
 
     const laterTree = await controller.launch({
       command: "later-target",
