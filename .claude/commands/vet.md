@@ -1,6 +1,7 @@
 ---
 description: Vet another assistant's implementation-audit findings on this repo's code, checking each is authorised, grounded and its fix follows, one verdict per finding.
 argument-hint: [audit-report]
+disable-model-invocation: true
 ---
 
 This command is a special case of /simple. Invoke the `simple` skill with no
