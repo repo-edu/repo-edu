@@ -63,7 +63,7 @@ The body then carries one bullet per accepted finding, and each bullet opens
 with that finding's metadata before its prose:
 
 ```text
-- [area:pkg-integrations-llm] [growth:2,6] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
+- [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
 ```
 
 `[area:<primary-id>]` is the finding's primary partition area from
@@ -211,9 +211,10 @@ drop it rather than report it.
 ## Growth tags
 
 Every finding carries a growth tag naming the patterns in
-`../plan/GROWTH-PATTERNS.md` it could violate: `[growth:2]` for one,
-`[growth:2,6]` when more than one could apply, numbers ascending, and
-`[growth:none]` when none does. The tag rides the finding in the report and
+`../plan/GROWTH-PATTERNS.md` it could violate, by their labels:
+`[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]` when
+more than one could apply, listed in pattern order, and `[growth:none]`
+when none does. The tag rides the finding in the report and
 the matching bullet in this round's commit body, in the bullet form fixed
 under [Round](#round), so it survives in the log after the chat is gone. A
 tag that reaches only the report is lost, and the next round is back to
@@ -223,23 +224,25 @@ The bar is could it be, not is it. A false positive costs one bracket. A
 false negative costs the loop this rule exists to break: a run of rounds each
 repairing machinery that no boundary asks for, every round locally defensible
 and no round able to see the run. The tag is a suspicion, never a verdict, and
-it blocks nothing. A finding tagged `[growth:2]` still lands. So there is no
+it blocks nothing. A finding tagged `[growth:hardening]` still lands. So there is no
 reason to suppress one, and the signal lives in the run rather than the
 instance.
 
 The tag is what gives a fresh round the memory it otherwise lacks. Before
 drafting findings, read the full bodies of the episode's audit commits, found
 by the walk under [Evidence](#evidence), and collect every metadata bullet
-in them. Count the growth tags by pattern number and the reach and complexity
-values by rung. Rounds that predate a token carry
-no tags; read their bullets on their prose and say the history is partial
-rather than reading absence as a clean run. When one number appears across several rounds, say so in the
-report above the tiered findings, naming the rounds and the number. That
-statement is the round's own output, not a diagnosis of the user's judgment.
+in them. Count the growth tags by pattern and the reach and complexity
+values by rung. Rounds that predate a token, or that tagged growth by
+number before the labels existed, carry no readable form of it; read their
+bullets on their prose and say the history is partial rather than reading
+absence as a clean run. When one pattern appears across several rounds, say
+so in the report above the tiered findings, naming the rounds and the
+pattern. That statement is the round's own output, not a diagnosis of the
+user's judgment.
 
 ## Pricing a run
 
-When a pattern number runs across rounds, or the reach and complexity pair
+When a pattern runs across rounds, or the reach and complexity pair
 shows the unpriced-trade run named under
 [Reach and complexity](#reach-and-complexity), the round stops adding to the
 run and prices it instead, before its tiered findings. Two answers, both
@@ -262,8 +265,8 @@ When the answer is that no boundary asks for the machinery, say that the plan
 step is the defect and stop, rather than reporting more findings against it.
 Carry the plan-side correction into [Plan corrections](#plan-corrections) when
 the user accepts it. When the trade is genuinely worth its cost, the user says
-so, the round records the ruling in the plan with its reason and the pattern
-number stops being a signal for that machinery.
+so, the round records the ruling in the plan with its reason and the
+pattern stops being a signal for that machinery.
 
 Pricing is expensive, so it runs on a run of tags and not on every round. A
 single tagged finding is tagged and left alone.

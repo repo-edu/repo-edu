@@ -255,7 +255,7 @@ plan-attached commit with no `Step:` line is off-plan rework.
 
 An implementation-audit round's fix commit carries more in its body. Each
 finding bullet opens with the finding's metadata tokens,
-`- [area:<primary-id>] [growth:<numbers>] [reach:<value>] [complexity:<value>]
+`- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
 growth patterns and their reach and complexity ratings from the log alone.
 The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
