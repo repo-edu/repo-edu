@@ -254,11 +254,12 @@ A commit that implements plan steps names them on the second body line:
 plan-attached commit with no `Step:` line is off-plan rework.
 
 An implementation-audit round's fix commit carries more in its body. Each
-finding bullet opens with the finding's area metadata and its growth tag,
-`- [area:<primary-id>] [growth:<numbers>] <prose>`, so a later round can read
-the round's findings and their suspected growth patterns from the log alone.
+finding bullet opens with the finding's metadata tokens,
+`- [area:<primary-id>] [growth:<numbers>] [reach:<value>] [complexity:<value>]
+<prose>`, so a later round can read the round's findings, their suspected
+growth patterns and their reach and complexity ratings from the log alone.
 The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
-format and the tag's meaning; the patterns and their numbering live in
+format and the tokens' meaning; the patterns and their numbering live in
 `../plan/GROWTH-PATTERNS.md`.
 
 Two severity-free exceptions exist, both empty marker commits owned by the

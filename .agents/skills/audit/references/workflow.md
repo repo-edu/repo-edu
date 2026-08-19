@@ -63,13 +63,15 @@ The body then carries one bullet per accepted finding, and each bullet opens
 with that finding's metadata before its prose:
 
 ```text
-- [area:pkg-integrations-llm] [growth:2,6] Cleanup failure no longer displaces the login guidance.
+- [area:pkg-integrations-llm] [growth:2,6] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
 ```
 
 `[area:<primary-id>]` is the finding's primary partition area from
 `tools/architecture-check/src/area-model.json`, followed by
 `[cover:<cover-id>]` for each cover area that applies. `[growth:...]` is the
-tag from [Growth tags](#growth-tags), in the same form the report used. Both
+tag from [Growth tags](#growth-tags), in the same form the report used.
+`[reach:...]` and `[complexity:...]` are the ratings from
+[Reach and complexity](#reach-and-complexity). All four
 are required on every finding bullet, because the commit body is the only
 place a later round can read them: chat is gone, and the finding list lives
 nowhere else. A bullet that records something other than a finding, such as a
@@ -181,25 +183,27 @@ parts. It carries up to two short sentences.
 
 - What goes wrong. The wrong behaviour the shipped code produces. Always
   written.
-- How rare. The condition that has to hold before that behaviour appears.
-  Written only when the situation is rare.
+- The condition. The condition that has to hold before that behaviour
+  appears. Written whenever the finding's reach rating is `rare` or
+  `very-rare`, so the token's claim is checkable against a named condition.
 
-Silence on the second sentence means the situation arises in ordinary use. So a
-fault the user meets normally carries the first sentence alone, and the reader
-may take a one-sentence trace as a common fault rather than a forgotten rating.
+The rating itself lives in the finding's `[reach:...]` token, per
+[Reach and complexity](#reach-and-complexity), so the trace's silence carries
+no rating: a trace with the first sentence alone belongs to an `ordinary`
+finding, and the token on the same finding says so.
 
 Do not restate how serious the fault is. Severity is the tier itself, graded by
 the [A]-[D] rubric in this repo's `CLAUDE.md`, so a severity clause in the trace
-says the same thing twice. Rarity is the part no other piece of the finding
-carries: it is why a rare fault may still be worth leaving, while a fault met in
-ordinary use is fixed whatever its tier.
+says the same thing twice. The condition is the part no other piece of the
+finding carries: the token rates how far the fault reaches, and the named
+condition is what makes that rating checkable rather than a guess.
 
 A finding whose whole cost is rework, re-derivation or a later reader mistaking
-intent for drift has no runtime situation to rate. Its trace states that cost
-and stops. It carries no rarity sentence and none is implied.
+intent for drift has no runtime situation to rate. It carries
+`[reach:developer]`, and its trace states that cost and stops.
 
 The trace is the tier's evidence, so a tier claim without one does not stand.
-Rarity is evidence for the user's accept-or-challenge ruling on the finding and
+Reach is evidence for the user's accept-or-challenge ruling on the finding and
 on any guard behind it. It never moves the tier: a rare A-tier fault is still
 A-tier. A trace that ends with the same behaviour shipping is not a finding, so
 drop it rather than report it.
@@ -225,8 +229,9 @@ instance.
 
 The tag is what gives a fresh round the memory it otherwise lacks. Before
 drafting findings, read the full bodies of the episode's audit commits, found
-by the walk under [Evidence](#evidence), and collect every `[growth:` bullet
-in them. Count the tags by pattern number. Rounds that predate this rule carry
+by the walk under [Evidence](#evidence), and collect every metadata bullet
+in them. Count the growth tags by pattern number and the reach and complexity
+values by rung. Rounds that predate a token carry
 no tags; read their bullets on their prose and say the history is partial
 rather than reading absence as a clean run. When one number appears across several rounds, say so in the
 report above the tiered findings, naming the rounds and the number. That
@@ -234,8 +239,11 @@ statement is the round's own output, not a diagnosis of the user's judgment.
 
 ## Pricing a run
 
-When a pattern number runs across rounds, the round stops adding to the run
-and prices it instead, before its tiered findings. Two answers, both short:
+When a pattern number runs across rounds, or the reach and complexity pair
+shows the unpriced-trade run named under
+[Reach and complexity](#reach-and-complexity), the round stops adding to the
+run and prices it instead, before its tiered findings. Two answers, both
+short:
 
 - The simplest mechanism that still satisfies `../plan/BOUNDARIES.md`. Read
   the boundary the machinery invokes and state only what it actually asks
@@ -259,6 +267,55 @@ number stops being a signal for that machinery.
 
 Pricing is expensive, so it runs on a run of tags and not on every round. A
 single tagged finding is tagged and left alone.
+
+## Reach and complexity
+
+Every finding carries a reach and a complexity token beside its growth tag,
+floor values spelled out rather than left off: `[reach:developer]` and
+`[complexity:none]` are written, never implied. No absence carries meaning,
+so a forgotten token can never pass as a rating, and the floor values on the
+page are what make a round's values countable.
+
+`[reach:developer|very-rare|rare|ordinary]` says how far the fault reaches a
+person. `developer` means nothing the end user can see: the whole cost is
+rework, re-derivation or regression risk on the development side. The other
+three values rate a situation the end user does meet, by the condition that
+has to hold rather than by a frequency guess. `ordinary` means no special
+condition has to hold. `rare` means a condition must hold that can arise
+while every component honours its contract, such as unusual timing, an
+unusual user action, resource exhaustion or an outage. `very-rare` means the
+condition requires the platform to break its own contract, such as an
+operating-system or filesystem facility failing to do what it guarantees. The
+token is the failure trace's condition sentence made durable and countable;
+the sentence names the condition that makes the rating checkable.
+
+`[complexity:none|low|medium|high]` says what standing structure the
+correction leaves in the code, graded at the heaviest obligation it plants,
+never at the effort of making it. Each rung is defined by a kind, not judged.
+`none` leaves nothing structural, and covers wording, a recorded reason, a
+deletion and a test. `low` plants a rule: a branch, a case or a check.
+`medium` plants state: something that must be kept and stay true. `high`
+plants an owner concern: a boundary, or moving who is responsible for an
+invariant. Replication grades at the obligation the copies create: the same
+rule replicated across files or packages must stay in agreement, which is
+kept state, `medium`; state replicated across packages leaves that agreement
+with no single keeper, which is an owner concern, `high`. Tests never raise
+the rung; they follow the machinery they cover, and counting them would
+charge every guarded mechanism twice.
+
+The two tokens are one pair, and the pair is the point. Growth pattern 6 in
+`../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
+complexity cost never does, and its test is to name the trade: what the work
+gives the user against what its machinery costs. The pair fires that test on
+every finding, so a cross-round run of `[reach:developer]`,
+`[reach:very-rare]` or `[reach:rare]` beside non-`none` `[complexity:...]`
+values on the same machinery is the unpriced trade shown in the log without
+anyone having to notice it, and it prices under
+[Pricing a run](#pricing-a-run) the same way a growth-number run does. Both
+tokens rate facts, not worth, and like the growth tag they block nothing: a
+finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
+is shared with the plan repo's finding metadata, one spelling across both
+logs.
 
 ## Plan corrections
 
@@ -336,4 +393,5 @@ the round's scope: complete, the audited step or the audited step range. Then re
 coverage table with its coverage line. Then, when a growth-tag number runs
 across rounds, the run statement and the pricing under
 [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
-carrying its growth tag, and the plan corrections. Stop there.
+carrying its growth, reach and complexity tokens, and the plan corrections.
+Stop there.
