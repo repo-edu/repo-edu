@@ -1,4 +1,7 @@
 import assert from "node:assert/strict"
+import { spawn } from "node:child_process"
+import { once } from "node:events"
+import type { Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
 import { ChildProcessTreeUnconfirmedError } from "../child-process-lifetime-contract"
 import { cleanBeforeTargetAdmission } from "../windows-child-process-lifetime-adapter"
@@ -18,7 +21,7 @@ function emptyJob(onClose: () => void): WindowsKillOnCloseJob {
 }
 
 describe("Windows child-process cleanup", () => {
-  it("retains an assigned job whose forced stop cannot be confirmed", async () => {
+  it("releases local resources but retains an unconfirmed assigned job", async () => {
     let jobClosed = false
     const job: WindowsKillOnCloseJob = {
       ...emptyJob(() => {
@@ -26,20 +29,38 @@ describe("Windows child-process cleanup", () => {
       }),
       hasActiveProcesses: () => true,
     }
-
-    await assert.rejects(
-      cleanBeforeTargetAdmission({
-        assigned: true,
-        child: null,
-        controlInput: null,
-        controlLines: null,
-        exit: null,
-        forcedStopConfirmationPeriodMs: 0,
-        job,
-      }),
-      ChildProcessTreeUnconfirmedError,
+    const child = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => undefined, 1_000)"],
+      { stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"] },
     )
-    assert.equal(jobClosed, false)
+    await once(child, "spawn")
+
+    try {
+      await assert.rejects(
+        cleanBeforeTargetAdmission({
+          assigned: true,
+          child,
+          controlInput: child.stdio[3] as Writable,
+          controlLines: null,
+          exit: null,
+          forcedStopConfirmationPeriodMs: 0,
+          job,
+        }),
+        ChildProcessTreeUnconfirmedError,
+      )
+      assert.equal(jobClosed, false)
+      assert.equal(
+        child.stdio.every(
+          (stream) => stream === null || (stream as Readable).destroyed,
+        ),
+        true,
+      )
+    } finally {
+      const closed = once(child, "close")
+      child.kill("SIGKILL")
+      await closed
+    }
   })
 
   it("uses the forced-stop period for an unassigned launcher", async (context) => {

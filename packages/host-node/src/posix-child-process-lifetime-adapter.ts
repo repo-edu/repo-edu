@@ -4,6 +4,7 @@ import type {
   ChildProcessLifetimeResult,
 } from "./child-process-lifetime-contract.js"
 import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime-contract.js"
+import { releaseChildProcessLocalResources } from "./child-process-local-resources.js"
 
 const groupExitPollMs = 20
 
@@ -105,6 +106,7 @@ function settledWithin(
 // deadline; a clean exit whose pipes stay open escalates to the forced stop
 // after the graceful allowance instead of waiting without a limit.
 function createOwnedTreeConfirmation(
+  child: ChildProcessWithoutNullStreams,
   processGroupId: number,
   streamsClosed: Promise<void>,
   gracefulStopPeriodMs: number,
@@ -152,6 +154,7 @@ function createOwnedTreeConfirmation(
             remainingMs(forcedDeadline),
           ))
         ) {
+          releaseChildProcessLocalResources(child)
           throw new ChildProcessTreeUnconfirmedError(
             "The process group remained after its forced stop.",
           )
@@ -159,6 +162,7 @@ function createOwnedTreeConfirmation(
         if (
           !(await settledWithin(streamsClosed, remainingMs(forcedDeadline)))
         ) {
+          releaseChildProcessLocalResources(child)
           throw new ChildProcessTreeUnconfirmedError(
             "The owned tree's output pipes stayed open after its forced stop.",
           )
@@ -249,6 +253,7 @@ export function createPosixChildProcessLifetimeAdapter(
         throw new Error("The spawned target did not report a process identity.")
       }
       const confirmation = createOwnedTreeConfirmation(
+        child,
         processGroupId,
         terminal.streamsClosed,
         stopPolicy.gracefulStopPeriodMs,

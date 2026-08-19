@@ -15,6 +15,12 @@ const fixturePath = fileURLToPath(
 const ownerFixturePath = fileURLToPath(
   new URL("./fixtures/child-lifetime-owner.ts", import.meta.url),
 )
+const confirmationExpiryOwnerFixturePath = fileURLToPath(
+  new URL(
+    "./fixtures/child-lifetime-confirmation-expiry-owner.ts",
+    import.meta.url,
+  ),
+)
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url))
 const windowsLauncherEntryPath = fileURLToPath(
   resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
@@ -27,6 +33,27 @@ function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs)
   })
+}
+
+async function valueWithin<T>(
+  promise: Promise<T>,
+  durationMs: number,
+): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error("Child-process owner exit timed out."))
+        }, durationMs)
+      }),
+    ])
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout)
+    }
+  }
 }
 
 async function createMarker(name: string): Promise<{
@@ -89,8 +116,8 @@ async function waitForProcessGroupExit(processGroupId: number): Promise<void> {
   throw new Error(`Process group ${processGroupId} did not exit.`)
 }
 
-function startOwner(marker: string) {
-  return spawn(process.execPath, ["--import", "tsx", ownerFixturePath], {
+function startOwner(marker: string, fixture = ownerFixturePath) {
+  return spawn(process.execPath, ["--import", "tsx", fixture], {
     cwd: repoRoot,
     env: {
       ...process.env,
@@ -105,6 +132,39 @@ function startOwner(marker: string) {
 }
 
 describe("unobserved child-process host death", () => {
+  it("exits after POSIX confirmation expiry while the owned tree remains", {
+    skip: !supportsProcessGroups,
+  }, async () => {
+    const { marker, root } = await createMarker("confirmation-expiry.txt")
+    const owner = startOwner(marker, confirmationExpiryOwnerFixturePath)
+    const closed = once(owner, "close")
+    let ownedProcessGroupId: number | undefined
+    try {
+      const targetId = targetProcessId(await waitForChangingTree(marker))
+      ownedProcessGroupId = targetId
+
+      await valueWithin(closed, 2_000)
+
+      const contentAfterOwnerExit = await readMarker(marker)
+      await delay(120)
+      assert.notEqual(await readMarker(marker), contentAfterOwnerExit)
+    } finally {
+      if (owner.exitCode === null && owner.signalCode === null) {
+        owner.kill("SIGKILL")
+        await closed
+      }
+      if (ownedProcessGroupId !== undefined) {
+        try {
+          process.kill(-ownedProcessGroupId, "SIGKILL")
+        } catch {
+          // The fixture group may already be gone after an earlier failure.
+        }
+        await waitForProcessGroupExit(ownedProcessGroupId)
+      }
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("closes the only Windows job handle and ends its changing tree", {
     skip: process.platform !== "win32",
   }, async () => {
