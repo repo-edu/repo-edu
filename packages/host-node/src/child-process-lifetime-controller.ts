@@ -149,10 +149,19 @@ function unconfirmedTreeError(
       )
 }
 
+class ControllerStreamReleaseError extends Error {
+  override readonly name = "ControllerStreamReleaseError"
+
+  constructor(cause: ChildProcessTreeUnconfirmedError) {
+    super(cause.message, { cause })
+  }
+}
+
 function releaseUnconfirmedTreeStreams(
   tree: PlatformOwnedChildProcessTree,
   failure: ChildProcessTreeUnconfirmedError,
 ): void {
+  const releaseFailure = new ControllerStreamReleaseError(failure)
   for (const stream of [tree.stdin, tree.stdout, tree.stderr]) {
     if (stream.destroyed) {
       continue
@@ -160,8 +169,17 @@ function releaseUnconfirmedTreeStreams(
     // The consumer still receives the error. This listener only prevents an
     // unobserved stream from turning run cleanup into an uncaught exception.
     stream.once("error", () => {})
-    stream.destroy(failure)
+    stream.destroy(releaseFailure)
   }
+}
+
+function isControllerStreamReleaseFailure(
+  failure: unknown,
+): failure is ControllerStreamReleaseError {
+  // The controller has already logged this confirmation failure and warned
+  // the user. Caller stream readers may echo it during local teardown, but it
+  // is not a new proof fact or secondary failure.
+  return failure instanceof ControllerStreamReleaseError
 }
 
 function isProofLostTerminal(
@@ -213,6 +231,9 @@ export function createChildProcessLifetimeController(
         cancelRequested: false,
       }
       const recordProofLoss = (failure: unknown): void => {
+        if (isControllerStreamReleaseFailure(failure)) {
+          return
+        }
         facts.proofLoss ??= { failure }
         reportSecondaryFailure(request.command, failure)
       }
@@ -355,6 +376,9 @@ export function createChildProcessLifetimeController(
         outcome: settled.promise,
         requestCancellation,
         reportFailure(error) {
+          if (isControllerStreamReleaseFailure(error)) {
+            return
+          }
           reportSecondaryFailure(request.command, error)
         },
         reportProofLost(error) {

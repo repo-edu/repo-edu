@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { PassThrough } from "node:stream"
+import { PassThrough, type Readable } from "node:stream"
 import { describe, it } from "node:test"
 import {
   type ChildProcessLifetimePlatformAdapter,
@@ -352,7 +352,7 @@ describe("child-process completion policy", () => {
     await tree.outcome
   })
 
-  it("reports an unconfirmed tree as unknown and keeps the session alive", async () => {
+  it("reports one unconfirmed-tree failure, returns unknown and keeps the session alive", async () => {
     const failure = new ChildProcessTreeUnconfirmedError("not gone")
     let launchCount = 0
     let unconfirmedStreams:
@@ -401,8 +401,25 @@ describe("child-process completion policy", () => {
       command: "unconfirmed-target",
       proof: "target-exit",
     })
+    const echoStreamFailure = async (
+      stream: Readable,
+      report: (error: unknown) => void,
+    ): Promise<void> => {
+      try {
+        for await (const _chunk of stream) {
+          // Drain the caller-facing stream.
+        }
+      } catch (error) {
+        report(error)
+      }
+    }
+    const echoedStreamFailures = Promise.all([
+      echoStreamFailure(tree.stdout, (error) => tree.reportProofLost(error)),
+      echoStreamFailure(tree.stderr, (error) => tree.reportFailure(error)),
+    ])
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    await echoedStreamFailures
     assert.equal(unconfirmedStreams?.stdin.destroyed, true)
     assert.equal(unconfirmedStreams?.stdout.destroyed, true)
     assert.equal(unconfirmedStreams?.stderr.destroyed, true)
