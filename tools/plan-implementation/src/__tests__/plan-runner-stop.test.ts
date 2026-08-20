@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { access, chmod, readFile, writeFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import type { CodingResult, PlanImplementationEvent } from "../contracts.js"
@@ -19,18 +19,6 @@ import {
   succeededResult,
   successfulCommands,
 } from "./plan-runner-test-harness.js"
-
-async function waitForPath(path: string): Promise<void> {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
-    try {
-      await access(path)
-      return
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-    }
-  }
-  throw new Error(`Timed out waiting for ${path}.`)
-}
 
 afterEach(cleanupTestRepositories)
 
@@ -250,26 +238,10 @@ describe("runPlanImplementation stop paths", () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const controller = new AbortController()
-    const hookStartedPath = join(repoEduRoot, ".git", "hook-started")
-    const hookReleasePath = join(repoEduRoot, ".git", "hook-release")
-    const hookPath = join(repoEduRoot, ".git", "hooks", "pre-commit")
+    const commitStarted = Promise.withResolvers<void>()
+    const commitRelease = Promise.withResolvers<void>()
     const codingSteps: number[] = []
     let admissionReleased = false
-
-    await writeFile(
-      hookPath,
-      `#!/usr/bin/env node
-const { existsSync, writeFileSync } = require("node:fs")
-writeFileSync(${JSON.stringify(hookStartedPath)}, "started")
-const timer = setInterval(() => {
-  if (existsSync(${JSON.stringify(hookReleasePath)})) {
-    clearInterval(timer)
-    process.exit(0)
-  }
-}, 10)
-`,
-    )
-    await chmod(hookPath, 0o755)
 
     const run = runPlanImplementation(
       {
@@ -299,16 +271,29 @@ const timer = setInterval(() => {
         },
         repositoryCommit: {
           stage: stageAdmittedRepositoryDiff,
-          commit: commitAdmittedRepositoryDiff,
+          async commit(admission, diff, source, step, proposal, stopSignal) {
+            assert.equal(stopSignal?.aborted, false)
+            commitStarted.resolve()
+            await commitRelease.promise
+            assert.equal(stopSignal?.aborted, true)
+            // The barrier represents a commit that passed its one stop gate.
+            // Its delayed Git work must therefore ignore the later signal.
+            return await commitAdmittedRepositoryDiff(
+              admission,
+              diff,
+              source,
+              step,
+              proposal,
+            )
+          },
         },
       },
     )
 
-    await waitForPath(hookStartedPath)
+    await commitStarted.promise
     controller.abort("Stop during Git commit.")
-    await new Promise((resolve) => setTimeout(resolve, 25))
     assert.equal(admissionReleased, false)
-    await writeFile(hookReleasePath, "release\n")
+    commitRelease.resolve()
     const result = await run
 
     assert.equal(result.outcome, "stopped")
