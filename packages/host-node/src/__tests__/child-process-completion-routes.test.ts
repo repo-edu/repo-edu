@@ -7,8 +7,9 @@ import type {
   ChildProcessLifetimePlatformAdapter,
 } from "../child-process-lifetime.js"
 import {
-  type ChildProcessTreeUnconfirmedError,
+  ChildProcessTreeUnconfirmedError,
   createChildProcessLifetimeController,
+  isPendingLaunchStoppedError,
 } from "../child-process-lifetime.js"
 import { createPosixChildProcessLifetimeAdapter } from "../posix-child-process-lifetime-adapter.js"
 import {
@@ -139,6 +140,30 @@ describe("child-process completion routes", {
         "code" in error &&
         (error as NodeJS.ErrnoException).code === "ENOENT",
     )
+  })
+
+  it("stops a pending POSIX launch without reporting a failure", {
+    skip: !supportsProcessGroups,
+  }, async () => {
+    const diagnostics: unknown[] = []
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic.failure)
+      },
+      warnUnconfirmedTree(error): never {
+        throw error
+      },
+    })
+
+    const launch = controller.launch({
+      command: process.execPath,
+      proof: "target-exit",
+    })
+    const shutdown = controller.stopAndConfirm()
+
+    await assert.rejects(launch, isPendingLaunchStoppedError)
+    await shutdown
+    assert.deepEqual(diagnostics, [])
   })
 
   it("returns unknown when escaped descendants hold the output pipes", {
@@ -280,6 +305,59 @@ describe("child-process completion routes", {
       assert.deepEqual(await tree.outcome, { outcome: "unknown" })
       assert.equal(warnings.length, 1)
       assert.equal(jobClosed, false)
+    } finally {
+      realJob?.close()
+    }
+  })
+
+  it("releases local streams and retains the job when a Windows job query fails", {
+    skip: process.platform !== "win32",
+  }, async () => {
+    const queryFailure = new Error("Windows job query failed")
+    let realJob: WindowsKillOnCloseJob | undefined
+    let jobClosed = false
+    const operations: WindowsChildLifetimeAdapterOperations = {
+      async createJob() {
+        realJob = await createWindowsKillOnCloseJob()
+        return {
+          ...realJob,
+          close() {
+            jobClosed = true
+            realJob?.close()
+          },
+          hasActiveProcesses() {
+            throw queryFailure
+          },
+        }
+      },
+    }
+
+    try {
+      const launched = await launchAssignedTarget(
+        {
+          executablePath: process.execPath,
+          launcherEntryPath: windowsLauncherEntryPath,
+          runAsNode: false,
+        },
+        {
+          command: process.execPath,
+          args: ["-e", "setInterval(() => undefined, 1_000)"],
+        },
+        deadlineProofStopPolicy,
+        undefined,
+        operations,
+      )
+
+      await assert.rejects(
+        launched.tree.stopAndConfirm(),
+        (error: unknown) =>
+          error instanceof ChildProcessTreeUnconfirmedError &&
+          error.cause === queryFailure,
+      )
+      assert.equal(jobClosed, false)
+      assert.equal(launched.tree.stdin.destroyed, true)
+      assert.equal(launched.tree.stdout.destroyed, true)
+      assert.equal(launched.tree.stderr.destroyed, true)
     } finally {
       realJob?.close()
     }

@@ -1,4 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
+import { throwIfLaunchStopRequested } from "./child-process-launch-stop.js"
 import type {
   ChildProcessLifetimePlatformAdapter,
   ChildProcessLifetimeResult,
@@ -226,9 +227,7 @@ export function createPosixChildProcessLifetimeAdapter(
 ): ChildProcessLifetimePlatformAdapter {
   return {
     async launch(request, pendingStopSignal, stopPolicy) {
-      if (pendingStopSignal.aborted) {
-        throw new Error("The pending child-process launch was stopped.")
-      }
+      throwIfLaunchStopRequested([pendingStopSignal])
       const child = spawn(request.command, [...(request.args ?? [])], {
         cwd: request.cwd,
         detached: true,

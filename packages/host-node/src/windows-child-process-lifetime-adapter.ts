@@ -522,6 +522,19 @@ function createStopAndConfirm(
     }
   }
 
+  const releaseUnconfirmedTree = (
+    failure: unknown,
+  ): ChildProcessTreeUnconfirmedError => {
+    launcher.releaseLocalResources()
+    if (failure instanceof ChildProcessTreeUnconfirmedError) {
+      return failure
+    }
+    return new ChildProcessTreeUnconfirmedError(
+      "The Windows job stop could not be confirmed.",
+      { cause: failure },
+    )
+  }
+
   // Job emptiness confirms the tree is gone. Launcher or stream completion
   // loss after that point changes the run outcome, not tree confirmation.
   const confirmTargetCompletion =
@@ -601,10 +614,7 @@ function createStopAndConfirm(
           launcher.closeResources()
           return completion
         } catch (error) {
-          if (error instanceof ChildProcessTreeUnconfirmedError) {
-            launcher.releaseLocalResources()
-          }
-          throw error
+          throw releaseUnconfirmedTree(error)
         }
       })()
       return confirmation
