@@ -5,6 +5,7 @@
     "types": ["node", "react", "react-dom"]
   },
   "include": [
+    "src/**/*.json",
     "src/**/*.ts",
     "src/**/*.tsx",
     "../../packages/renderer-app/src/**/*.ts",

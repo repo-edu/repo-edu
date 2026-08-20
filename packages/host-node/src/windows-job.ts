@@ -67,8 +67,7 @@ async function loadWindowsJobApi(): Promise<WindowsJobApi> {
   }
 
   windowsJobApiPromise = (async () => {
-    const koffiPackage = "koffi"
-    const imported = (await import(koffiPackage)) as typeof import("koffi")
+    const imported = await import("koffi")
     const koffi = imported.default
     const kernel32 = koffi.load("kernel32.dll")
 

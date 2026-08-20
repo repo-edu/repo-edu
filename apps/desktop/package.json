@@ -46,7 +46,7 @@
         "tailwindcss": "^4.2.2"
     },
     "scripts": {
-        "build": "electron-vite build",
+        "build": "node --experimental-import-meta-resolve ./node_modules/electron-vite/bin/electron-vite.js build",
         "build:types": "tsc -b tsconfig.json",
         "dev": "electron-vite dev",
         "package:app": "node ./scripts/package-app.mjs",

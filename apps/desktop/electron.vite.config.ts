@@ -4,6 +4,10 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "electron-vite"
+import {
+  desktopRuntimeDependencyBoundaryPlugin,
+  desktopRuntimeExternalPackageRoots,
+} from "./src/runtime-dependency-boundary"
 
 type TsConfigPaths = Record<string, string[]>
 
@@ -116,10 +120,17 @@ function shouldSuppressKnownWebTreeSitterWarning(warning: BuildWarning) {
 }
 
 const workspaceAliases = buildWorkspaceAliases()
+const mainOutputDirectory = resolve(configDir, "out/main")
+const mainRuntimeExternalMatchers = desktopRuntimeExternalPackageRoots.map(
+  (root) => new RegExp(`^${escapeRegex(root)}(?:/|$)`),
+)
 
 export default defineConfig({
   main: {
-    plugins: [copyMainRuntimeAssetsPlugin()],
+    plugins: [
+      desktopRuntimeDependencyBoundaryPlugin(mainOutputDirectory),
+      copyMainRuntimeAssetsPlugin(),
+    ],
     resolve: {
       alias: workspaceAliases,
     },
@@ -137,12 +148,7 @@ export default defineConfig({
         output: {
           entryFileNames: "[name].js",
         },
-        // @openai/codex-sdk resolves its native CLI binary via
-        // createRequire(import.meta.url). Bundling it points that URL at the
-        // Vite output, where optional platform-specific sibling packages
-        // cannot be found. Keeping Codex external lets Node's resolver find
-        // the binary under the pnpm-installed node_modules at runtime.
-        external: [/^@openai\//],
+        external: mainRuntimeExternalMatchers,
         onwarn(warning, warn) {
           if (shouldSuppressKnownWebTreeSitterWarning(warning)) {
             return

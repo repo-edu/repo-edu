@@ -1,0 +1,15 @@
+[
+  {
+    "fullName": "koffi",
+    "proof": "rollup"
+  },
+  {
+    "fullName": "@openai/codex-sdk",
+    "proof": "rollup"
+  },
+  {
+    "fullName": "trpc-electron/main",
+    "proof": "direct",
+    "entry": "main"
+  }
+]
