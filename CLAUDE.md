@@ -204,6 +204,11 @@ version first with `pnpm view <pkg> version` and adopt current unless a
 concrete repo constraint argues otherwise; record any deliberate pin in the
 plan or commit body.
 
+The default pnpm catalog owns the admitted version of a desktop runtime
+external when more than one workspace manifest declares it. A new consumer
+uses the catalog's existing version. Promoting a package across the desktop
+runtime boundary and upgrading that package are separate changes.
+
 ## Implementation Review Findings
 
 When asked to review implementation code, prefix every finding title with an

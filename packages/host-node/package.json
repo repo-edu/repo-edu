@@ -7,7 +7,7 @@
     "@repo-edu/integrations-llm": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
-    "koffi": "3.1.5",
+    "koffi": "catalog:",
     "web-tree-sitter": "0.26.9"
   },
   "exports": {

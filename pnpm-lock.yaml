@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@openai/codex-sdk':
+      specifier: 0.147.0
+      version: 0.147.0
+    koffi:
+      specifier: 3.1.5
+      version: 3.1.5
+
 patchedDependencies:
   outmatch@1.0.0: 00736bb8dea770a48a56b89f9bebc9b2bb5e3d5cf7106f7615c258d9f99619e0
 
@@ -76,7 +85,7 @@ importers:
   apps/desktop:
     dependencies:
       '@openai/codex-sdk':
-        specifier: 0.147.0
+        specifier: 'catalog:'
         version: 0.147.0
       '@repo-edu/application':
         specifier: workspace:*
@@ -124,7 +133,7 @@ importers:
         specifier: ^6.6.2
         version: 6.8.3
       koffi:
-        specifier: 3.1.5
+        specifier: 'catalog:'
         version: 3.1.5
       react:
         specifier: ^19.2.4
@@ -329,7 +338,7 @@ importers:
         specifier: workspace:*
         version: link:../tree-sitter-grammar-assets
       koffi:
-        specifier: 3.1.5
+        specifier: 'catalog:'
         version: 3.1.5
       web-tree-sitter:
         specifier: 0.26.9
@@ -402,7 +411,7 @@ importers:
         specifier: ^0.110.0
         version: 0.110.0(zod@4.4.3)
       '@openai/codex-sdk':
-        specifier: 0.147.0
+        specifier: 'catalog:'
         version: 0.147.0
       '@repo-edu/integrations-llm-contract':
         specifier: workspace:*
@@ -678,7 +687,7 @@ importers:
   tools/plan-implementation:
     dependencies:
       '@openai/codex-sdk':
-        specifier: 0.147.0
+        specifier: 'catalog:'
         version: 0.147.0
       '@repo-edu/host-node':
         specifier: workspace:*

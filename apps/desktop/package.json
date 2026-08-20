@@ -13,7 +13,7 @@
     "type": "module",
     "main": "./out/main/main.js",
     "dependencies": {
-        "@openai/codex-sdk": "0.147.0",
+        "@openai/codex-sdk": "catalog:",
         "@repo-edu/application": "workspace:*",
         "@repo-edu/application-contract": "workspace:*",
         "@repo-edu/domain": "workspace:*",
@@ -29,7 +29,7 @@
         "@trpc/client": "^11.15.0",
         "@trpc/server": "^11.15.0",
         "electron-updater": "^6.6.2",
-        "koffi": "3.1.5",
+        "koffi": "catalog:",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
         "trpc-electron": "^0.1.2"

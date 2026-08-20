@@ -3,6 +3,10 @@ packages:
   - packages/*
   - tools/*
 
+catalog:
+  "@openai/codex-sdk": 0.147.0
+  koffi: 3.1.5
+
 # Headless installs must not stop at the modules-dir purge prompt.
 confirmModulesPurge: false
 

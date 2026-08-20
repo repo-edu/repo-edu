@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@openai/codex-sdk": "0.147.0",
+    "@openai/codex-sdk": "catalog:",
     "@repo-edu/host-node": "workspace:*",
     "cli-truncate": "6.1.1",
     "commander": "^15.0.0",
