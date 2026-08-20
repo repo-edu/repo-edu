@@ -21,6 +21,7 @@ import {
   resolveWindowsChildProcessLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "../windows-child-lifetime.js"
+import { windowsLauncherProtocolVersion } from "../windows-launcher-protocol.js"
 
 const fixturePath = fileURLToPath(
   new URL("./fixtures/child-process-tree.cjs", import.meta.url),
@@ -35,6 +36,8 @@ const windowsLauncherStallEnvironmentVariable =
   "REPO_EDU_WINDOWS_LAUNCHER_STALL"
 const windowsLauncherStallMarkerEnvironmentVariable =
   "REPO_EDU_WINDOWS_LAUNCHER_STALL_MARKER"
+const windowsLauncherProtocolVersionEnvironmentVariable =
+  "REPO_EDU_WINDOWS_LAUNCHER_PROTOCOL_VERSION"
 const supportsController =
   process.platform === "darwin" ||
   process.platform === "linux" ||
@@ -86,6 +89,38 @@ function restoreEnvironmentVariable(
     return
   }
   process.env[name] = previous
+}
+
+function configureWindowsLauncherStall(
+  mode: "readiness" | "target-start",
+  marker: string,
+): () => void {
+  const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
+  const previousMarker =
+    process.env[windowsLauncherStallMarkerEnvironmentVariable]
+  const previousProtocolVersion =
+    process.env[windowsLauncherProtocolVersionEnvironmentVariable]
+
+  process.env[windowsLauncherStallEnvironmentVariable] = mode
+  process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+  process.env[windowsLauncherProtocolVersionEnvironmentVariable] = String(
+    windowsLauncherProtocolVersion,
+  )
+
+  return () => {
+    restoreEnvironmentVariable(
+      windowsLauncherStallEnvironmentVariable,
+      previousMode,
+    )
+    restoreEnvironmentVariable(
+      windowsLauncherStallMarkerEnvironmentVariable,
+      previousMarker,
+    )
+    restoreEnvironmentVariable(
+      windowsLauncherProtocolVersionEnvironmentVariable,
+      previousProtocolVersion,
+    )
+  }
 }
 
 async function markerPath(name: string): Promise<string> {
@@ -384,11 +419,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
     skip: process.platform !== "win32",
   }, async (context) => {
     const marker = await markerPath("caller-cancelled-readiness.txt")
-    const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
-    const previousMarker =
-      process.env[windowsLauncherStallMarkerEnvironmentVariable]
-    process.env[windowsLauncherStallEnvironmentVariable] = "readiness"
-    process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+    const restoreLauncherEnvironment = configureWindowsLauncherStall(
+      "readiness",
+      marker,
+    )
 
     const controller = createChildProcessLifetimeController({
       diagnosticSink() {},
@@ -426,14 +460,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       )
       await controller.stopAndConfirm()
     } finally {
-      restoreEnvironmentVariable(
-        windowsLauncherStallEnvironmentVariable,
-        previousMode,
-      )
-      restoreEnvironmentVariable(
-        windowsLauncherStallMarkerEnvironmentVariable,
-        previousMarker,
-      )
+      restoreLauncherEnvironment()
     }
   })
 
@@ -441,11 +468,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
     skip: process.platform !== "win32",
   }, async (context) => {
     const marker = await markerPath("caller-cancelled-target-start.txt")
-    const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
-    const previousMarker =
-      process.env[windowsLauncherStallMarkerEnvironmentVariable]
-    process.env[windowsLauncherStallEnvironmentVariable] = "target-start"
-    process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+    const restoreLauncherEnvironment = configureWindowsLauncherStall(
+      "target-start",
+      marker,
+    )
 
     const controller = createChildProcessLifetimeController({
       diagnosticSink() {},
@@ -478,14 +504,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
       assert.deepEqual(await tree.outcome, { outcome: "unknown" })
       await controller.stopAndConfirm()
     } finally {
-      restoreEnvironmentVariable(
-        windowsLauncherStallEnvironmentVariable,
-        previousMode,
-      )
-      restoreEnvironmentVariable(
-        windowsLauncherStallMarkerEnvironmentVariable,
-        previousMarker,
-      )
+      restoreLauncherEnvironment()
     }
   })
 
@@ -505,11 +524,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
       skip: process.platform !== "win32",
     }, async (context) => {
       const marker = await markerPath(`${pendingPhase.mode}.txt`)
-      const previousMode = process.env[windowsLauncherStallEnvironmentVariable]
-      const previousMarker =
-        process.env[windowsLauncherStallMarkerEnvironmentVariable]
-      process.env[windowsLauncherStallEnvironmentVariable] = pendingPhase.mode
-      process.env[windowsLauncherStallMarkerEnvironmentVariable] = marker
+      const restoreLauncherEnvironment = configureWindowsLauncherStall(
+        pendingPhase.mode,
+        marker,
+      )
 
       const controller = createChildProcessLifetimeController({
         diagnosticSink() {},
@@ -545,14 +563,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
         )
         await launchSettled
       } finally {
-        restoreEnvironmentVariable(
-          windowsLauncherStallEnvironmentVariable,
-          previousMode,
-        )
-        restoreEnvironmentVariable(
-          windowsLauncherStallMarkerEnvironmentVariable,
-          previousMarker,
-        )
+        restoreLauncherEnvironment()
       }
     })
   }

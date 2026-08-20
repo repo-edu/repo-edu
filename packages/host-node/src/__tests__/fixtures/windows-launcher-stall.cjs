@@ -3,8 +3,17 @@ const { createInterface } = require("node:readline")
 
 const mode = process.env.REPO_EDU_WINDOWS_LAUNCHER_STALL
 const markerPath = process.env.REPO_EDU_WINDOWS_LAUNCHER_STALL_MARKER
+const protocolVersionText =
+  process.env.REPO_EDU_WINDOWS_LAUNCHER_PROTOCOL_VERSION
+const protocolVersion = Number(protocolVersionText)
 
-if (mode === undefined || markerPath === undefined) {
+if (
+  mode === undefined ||
+  markerPath === undefined ||
+  protocolVersionText === undefined ||
+  !Number.isSafeInteger(protocolVersion) ||
+  protocolVersion < 1
+) {
   throw new Error("The stalled Windows launcher is missing its test settings.")
 }
 
@@ -40,7 +49,7 @@ if (mode === "readiness") {
     exitWhenTargetInputCloses()
   })
   controlOutput.write(
-    `${JSON.stringify({ kind: "ready", protocolVersion: 2, runtime: "node" })}\n`,
+    `${JSON.stringify({ kind: "ready", protocolVersion, runtime: "node" })}\n`,
   )
 } else {
   throw new Error(`Unknown stalled Windows launcher mode: ${mode}`)

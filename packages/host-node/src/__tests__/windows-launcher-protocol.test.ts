@@ -14,6 +14,10 @@ import {
   windowsLauncherProtocolVersion,
 } from "../windows-launcher-protocol.js"
 
+const stalledWindowsLauncherEntryPath = fileURLToPath(
+  new URL("./fixtures/windows-launcher-stall.cjs", import.meta.url),
+)
+
 describe("Windows launcher protocol", () => {
   it("resolves the fixed launcher from the host-node package", async () => {
     const launcherEntryUrl =
@@ -112,6 +116,49 @@ describe("Windows launcher protocol", () => {
         ),
       /invalid ready state/,
     )
+  })
+
+  it("supplies the current protocol to the stalled launcher fixture", {
+    timeout: 5_000,
+  }, async (context) => {
+    const launcher = spawn(
+      process.execPath,
+      [stalledWindowsLauncherEntryPath],
+      {
+        env: {
+          ...process.env,
+          REPO_EDU_WINDOWS_LAUNCHER_PROTOCOL_VERSION: String(
+            windowsLauncherProtocolVersion,
+          ),
+          REPO_EDU_WINDOWS_LAUNCHER_STALL: "target-start",
+          REPO_EDU_WINDOWS_LAUNCHER_STALL_MARKER: "unused",
+        },
+        stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
+      },
+    )
+    const launcherClosed = once(launcher, "close")
+    context.after(async () => {
+      if (launcher.exitCode === null && launcher.signalCode === null) {
+        launcher.kill()
+      }
+      await launcherClosed
+    })
+    launcher.stdout?.resume()
+    launcher.stderr?.resume()
+
+    const controlOutput = launcher.stdio[4] as Readable
+    const controlLines = createInterface({
+      input: controlOutput,
+      crlfDelay: Infinity,
+    })[Symbol.asyncIterator]()
+    const ready = await controlLines.next()
+
+    assert.equal(ready.done, false)
+    assert.deepEqual(parseWindowsLauncherMessage(ready.value), {
+      kind: "ready",
+      protocolVersion: windowsLauncherProtocolVersion,
+      runtime: "node",
+    })
   })
 
   it("reports target exit before inherited output pipes close", {
