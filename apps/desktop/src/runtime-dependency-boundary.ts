@@ -195,6 +195,13 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function runtimeOutputFileUrl(
+  outputDirectory: string,
+  ...pathSegments: string[]
+): string {
+  return pathToFileURL(resolve(outputDirectory, ...pathSegments)).href
+}
+
 function resolveRollupExternal(
   fullName: string,
   chunk: RuntimeBundleChunk,
@@ -203,7 +210,7 @@ function resolveRollupExternal(
   resolvers: RuntimeDependencyResolvers,
 ): void {
   const packageRoot = packageRootForLoadName(fullName)
-  const chunkUrl = pathToFileURL(resolve(outputDirectory, chunk.fileName)).href
+  const chunkUrl = runtimeOutputFileUrl(outputDirectory, chunk.fileName)
   try {
     resolvers.resolveImport(fullName, chunkUrl)
   } catch (error) {
@@ -222,7 +229,7 @@ function resolveDirectExternal(
   resolvers: RuntimeDependencyResolvers,
 ): void {
   const packageRoot = packageRootForLoadName(declaration.fullName)
-  const entryUrl = pathToFileURL(resolve(outputDirectory, entry.fileName)).href
+  const entryUrl = runtimeOutputFileUrl(outputDirectory, entry.fileName)
   try {
     resolvers.resolveRequire(declaration.fullName, entryUrl)
   } catch (error) {
@@ -234,8 +241,12 @@ function resolveDirectExternal(
   }
 }
 
-export function proveImportMetaResolveParent(): void {
-  const parentUrl = "file:///repo-edu-import-meta-parent/proof-entry.js"
+export function proveImportMetaResolveParent(outputDirectory: string): void {
+  const parentUrl = runtimeOutputFileUrl(
+    outputDirectory,
+    "import-meta-parent-proof",
+    "proof-entry.js",
+  )
   const relativeName = "./proof-target.js"
   const expected = new URL(relativeName, parentUrl).href
   const actual = import.meta.resolve(relativeName, parentUrl)
@@ -339,7 +350,7 @@ export function desktopRuntimeDependencyBoundaryPlugin(
     name: "desktop-runtime-dependency-boundary",
     apply: "build" as const,
     generateBundle(_options: unknown, bundle: DesktopRuntimeBundle): void {
-      proveImportMetaResolveParent()
+      proveImportMetaResolveParent(outputDirectory)
       validateDesktopRuntimeBundle({ bundle, outputDirectory })
     },
   }
