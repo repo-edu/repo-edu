@@ -123,6 +123,9 @@ importers:
       electron-updater:
         specifier: ^6.6.2
         version: 6.8.3
+      koffi:
+        specifier: 3.1.5
+        version: 3.1.5
       react:
         specifier: ^19.2.4
         version: 19.2.4

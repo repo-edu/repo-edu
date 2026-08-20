@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const desktopRoot = join(currentDir, "../..")
+const hostNodeRoot = join(desktopRoot, "../../packages/host-node")
 
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, "utf8")) as unknown
@@ -37,7 +38,13 @@ describe("desktop Linux metadata", () => {
 describe("desktop Windows child-process lifetime packaging", () => {
   it("ships the fixed launcher and keeps Electron Node mode enabled", async () => {
     const packageJson = (await readJson(join(desktopRoot, "package.json"))) as {
+      dependencies?: Record<string, unknown>
       scripts?: Record<string, string>
+    }
+    const hostNodePackageJson = (await readJson(
+      join(hostNodeRoot, "package.json"),
+    )) as {
+      dependencies?: Record<string, unknown>
     }
     const builderConfig = (await readJson(
       join(desktopRoot, "electron-builder.json"),
@@ -58,6 +65,12 @@ describe("desktop Windows child-process lifetime packaging", () => {
       filter: ["windows-launcher.cjs"],
     }
     assert.deepEqual(builderConfig.win?.extraResources, [launcherResource])
+    assert.equal(typeof packageJson.dependencies?.koffi, "string")
+    assert.equal(
+      packageJson.dependencies?.koffi,
+      hostNodePackageJson.dependencies?.koffi,
+      "the bundled desktop entry must resolve host-node's dynamic Koffi import",
+    )
     await access(
       join(desktopRoot, launcherResource.from, launcherResource.filter[0]),
     )
