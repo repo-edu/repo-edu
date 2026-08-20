@@ -70,6 +70,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
       {
         executablePath: process.execPath,
         launcherEntryPath,
+        runAsNode: false,
       },
       {
         command: process.execPath,
@@ -126,6 +127,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
       {
         executablePath: process.execPath,
         launcherEntryPath,
+        runAsNode: false,
       },
       {
         command: process.execPath,
@@ -151,6 +153,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
         {
           executablePath: process.execPath,
           launcherEntryPath,
+          runAsNode: false,
         },
         {
           command: "Z:\\repo-edu-missing-target.exe",
@@ -168,6 +171,7 @@ describe("desktop Windows child-process lifetime runtime", () => {
         {
           executablePath: process.execPath,
           launcherEntryPath,
+          runAsNode: false,
         },
         {
           command: process.execPath,
