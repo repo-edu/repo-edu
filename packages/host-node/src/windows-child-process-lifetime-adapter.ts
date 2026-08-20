@@ -14,6 +14,7 @@ import {
   ChildProcessTreeUnconfirmedError,
   createChildProcessLaunchAbortError,
   isPendingLaunchStoppedError,
+  type PlatformChildProcessStopResult,
   type PlatformChildProcessTerminal,
   type PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
@@ -64,17 +65,11 @@ export type WindowsLauncherReadinessEvidence = WindowsChildLifetimeEvidence & {
 type LauncherExit = {
   readonly code: number | null
   readonly error?: Error
-  readonly forcedByCleanup: boolean
   readonly signal: NodeJS.Signals | null
-}
-
-type LauncherCleanupState = {
-  forceStarted: boolean
 }
 
 type AssignedLauncher = {
   readonly child: ChildProcess
-  readonly cleanupState: LauncherCleanupState
   readonly controlInput: Writable
   readonly controlLines: AsyncIterator<string>
   readonly evidence: WindowsChildLifetimeEvidence
@@ -198,10 +193,7 @@ function requiredControlOutput(child: ChildProcess): Readable {
 
 // The exit event carries the launcher's result without waiting for its
 // output streams, which belong to the caller and may stay unread.
-function waitForExit(
-  child: ChildProcess,
-  cleanupState: LauncherCleanupState,
-): Promise<LauncherExit> {
+function waitForExit(child: ChildProcess): Promise<LauncherExit> {
   return new Promise((resolve) => {
     let settled = false
     child.once("error", (error) => {
@@ -212,7 +204,6 @@ function waitForExit(
       resolve({
         code: null,
         error,
-        forcedByCleanup: cleanupState.forceStarted,
         signal: null,
       })
     })
@@ -223,7 +214,6 @@ function waitForExit(
       settled = true
       resolve({
         code,
-        forcedByCleanup: cleanupState.forceStarted,
         signal,
       })
     })
@@ -358,7 +348,6 @@ async function startAssignedLauncher(
   }
 
   const job = await operations.createJob()
-  const cleanupState: LauncherCleanupState = { forceStarted: false }
   let child: ChildProcess | null = null
   let controlInput: Writable | null = null
   let identity: SavedWindowsProcessIdentity | null = null
@@ -374,7 +363,7 @@ async function startAssignedLauncher(
       stdio: ["pipe", "pipe", "pipe", "pipe", "pipe"],
       windowsHide: true,
     })
-    exit = waitForExit(child, cleanupState)
+    exit = waitForExit(child)
     requiredInput(child)
     requiredOutput(child)
     requiredErrorOutput(child)
@@ -425,7 +414,6 @@ async function startAssignedLauncher(
     }
     return {
       child: assignedChild,
-      cleanupState,
       controlInput: assignedControlInput,
       controlLines: iterator,
       evidence: {
@@ -503,23 +491,15 @@ async function writeLaunchCommand(
   )
 }
 
-type TerminalReportSettlement =
-  | { readonly status: "fulfilled"; readonly message: WindowsLauncherMessage }
-  | {
-      readonly status: "rejected"
-      readonly error: unknown
-      readonly forcedByCleanup: boolean
-    }
-
 type TargetCompletionProof = {
   readonly exited: WindowsLauncherExitedMessage
-  readonly terminalReport: Promise<TerminalReportSettlement>
+  readonly terminalReport: Promise<WindowsLauncherMessage>
 }
 
 type WindowsTreeLifecycle = {
   readonly observeTargetExited: (exited: WindowsLauncherExitedMessage) => void
   readonly requestStop: () => void
-  readonly stopAndConfirm: () => Promise<void>
+  readonly stopAndConfirm: () => Promise<PlatformChildProcessStopResult>
 }
 
 function createStopAndConfirm(
@@ -528,7 +508,7 @@ function createStopAndConfirm(
   forcedStopConfirmationPeriodMs: number,
 ): WindowsTreeLifecycle {
   let gracefulStopStartedAt: number | undefined
-  let confirmation: Promise<void> | undefined
+  let confirmation: Promise<PlatformChildProcessStopResult> | undefined
   let completionProof: TargetCompletionProof | undefined
 
   const requestStop = () => {
@@ -542,51 +522,45 @@ function createStopAndConfirm(
     }
   }
 
-  // Once the job is empty the launcher is gone, so its stream-completion
-  // report and its own exit are already on their way. Both settle inside the
-  // one confirmation the controller runs; a failure here is an unconfirmed
-  // tree, never a second proof-loss fact.
-  const confirmTargetCompletion = async (): Promise<void> => {
-    if (completionProof === undefined) {
-      return
-    }
-    const launcherExit = await withTimeout(
-      launcher.exit,
-      "Windows launcher terminal exit",
-    )
-    const terminal = await completionProof.terminalReport
-    if (terminal.status === "rejected") {
-      if (!terminal.forcedByCleanup) {
-        throw new ChildProcessTreeUnconfirmedError(
-          "The Windows launcher ended without completing its target streams.",
-          { cause: terminal.error },
-        )
+  // Job emptiness confirms the tree is gone. Launcher or stream completion
+  // loss after that point changes the run outcome, not tree confirmation.
+  const confirmTargetCompletion =
+    async (): Promise<PlatformChildProcessStopResult> => {
+      if (completionProof === undefined) {
+        return { outcome: "confirmed" }
       }
-    } else if (terminal.message.kind === "failure") {
-      throw new ChildProcessTreeUnconfirmedError(
-        `The Windows launcher failed: ${terminal.message.message}`,
-      )
-    } else if (terminal.message.kind !== "terminal") {
-      throw new ChildProcessTreeUnconfirmedError(
-        `The Windows launcher reported ${terminal.message.kind} instead of stream completion.`,
-      )
-    } else if (
-      terminal.message.exitCode !== completionProof.exited.exitCode ||
-      terminal.message.signal !== completionProof.exited.signal
-    ) {
-      throw new ChildProcessTreeUnconfirmedError(
-        "The Windows launcher changed the target result after its output streams closed.",
-      )
+      try {
+        const launcherExit = await withTimeout(
+          launcher.exit,
+          "Windows launcher terminal exit",
+        )
+        const terminal = await completionProof.terminalReport
+        if (terminal.kind === "failure") {
+          throw new Error(`The Windows launcher failed: ${terminal.message}`)
+        }
+        if (terminal.kind !== "terminal") {
+          throw new Error(
+            `The Windows launcher reported ${terminal.kind} instead of stream completion.`,
+          )
+        }
+        if (
+          terminal.exitCode !== completionProof.exited.exitCode ||
+          terminal.signal !== completionProof.exited.signal
+        ) {
+          throw new Error(
+            "The Windows launcher changed the target result after its output streams closed.",
+          )
+        }
+        if (launcherExit.code !== 0 || launcherExit.signal !== null) {
+          throw new Error(
+            `The Windows launcher failed after its target: ${formatLauncherExit(launcherExit)}`,
+          )
+        }
+        return { outcome: "confirmed" }
+      } catch (failure) {
+        return { outcome: "proof-lost", failure }
+      }
     }
-    if (
-      !launcherExit.forcedByCleanup &&
-      (launcherExit.code !== 0 || launcherExit.signal !== null)
-    ) {
-      throw new ChildProcessTreeUnconfirmedError(
-        `The Windows launcher failed after its target: ${formatLauncherExit(launcherExit)}`,
-      )
-    }
-  }
 
   return {
     observeTargetExited(exited) {
@@ -595,14 +569,6 @@ function createStopAndConfirm(
         terminalReport: readLauncherHandshakeMessage(
           launcher,
           "stream completion",
-        ).then(
-          (message) => ({ status: "fulfilled", message }) as const,
-          (error: unknown) =>
-            ({
-              status: "rejected",
-              error,
-              forcedByCleanup: launcher.cleanupState.forceStarted,
-            }) as const,
         ),
       }
     },
@@ -617,7 +583,6 @@ function createStopAndConfirm(
               (Date.now() - (gracefulStopStartedAt ?? Date.now())),
           )
           if (!(await waitForJobExit(launcher.job, remainingGraceMs))) {
-            launcher.cleanupState.forceStarted = true
             launcher.job.terminate(forcedJobExitCode)
             if (
               !(await waitForJobExit(
@@ -632,8 +597,9 @@ function createStopAndConfirm(
               )
             }
           }
-          await confirmTargetCompletion()
+          const completion = await confirmTargetCompletion()
           launcher.closeResources()
+          return completion
         } catch (error) {
           if (error instanceof ChildProcessTreeUnconfirmedError) {
             launcher.releaseLocalResources()

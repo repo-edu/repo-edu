@@ -8,6 +8,7 @@ export type {
   ChildProcessSecondaryFailureDiagnostic,
   ChildProcessTargetResult,
   OwnedChildProcessTree,
+  PlatformChildProcessStopResult,
   PlatformOwnedChildProcessTree,
 } from "./child-process-lifetime-contract.js"
 export {

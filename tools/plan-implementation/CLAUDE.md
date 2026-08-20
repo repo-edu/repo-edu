@@ -57,9 +57,8 @@ runner does not try to prove the meaning of the work.
 - `coding-adapter.ts` starts one runner-owned plan-step Codex SDK host process
   per step through the shared child-process lifetime controller. The SDK host
   process starts one fresh Codex SDK thread and streams semantic coding events
-  before its exact structured result. The adapter reports work start when it
-  sends the request, then reports the matching result or a lost proving
-  connection. It never ranks or composes run failures. The shared controller
+  before its exact structured result. The adapter reports the matching result
+  or a lost proving connection. It never ranks or composes run failures. The shared controller
   chooses unknown, cancelled, failed or completed after tree confirmation,
   except that confirmation expiry chooses unknown directly. The adapter keeps
   a bounded tail of the SDK host process's error output and adds that tail to

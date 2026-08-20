@@ -3,7 +3,6 @@ import { PassThrough } from "node:stream"
 import { describe, it } from "node:test"
 import {
   type ChildProcessLifetimePlatformAdapter,
-  type ChildProcessLifetimeResult,
   type ChildProcessSecondaryFailureDiagnostic,
   ChildProcessTreeUnconfirmedError,
   childProcessForcedStopConfirmationPeriodMs,
@@ -24,7 +23,7 @@ type AdapterHarness = {
 
 function createAdapterHarness(): AdapterHarness {
   const confirmation = Promise.withResolvers<void>()
-  const result = Promise.withResolvers<ChildProcessLifetimeResult>()
+  const result = Promise.withResolvers<PlatformChildProcessTerminal>()
   const stopPolicies: AdapterHarness["stopPolicies"] = []
   return {
     confirmation,
@@ -38,7 +37,10 @@ function createAdapterHarness(): AdapterHarness {
           stdout: new PassThrough(),
           stderr: new PassThrough(),
           result: result.promise,
-          stopAndConfirm: async () => await confirmation.promise,
+          async stopAndConfirm() {
+            await confirmation.promise
+            return { outcome: "confirmed" }
+          },
         }
       },
     },
@@ -79,7 +81,6 @@ describe("child-process completion outcomes", () => {
   it("returns completed only after the owned tree is confirmed gone", async () => {
     const harness = createAdapterHarness()
     const { tree } = await launchReported(harness)
-    tree.reportWorkStarted()
     tree.reportResult({ outcome: "completed", value: "reply" })
 
     const early = await Promise.race([
@@ -100,7 +101,6 @@ describe("child-process completion outcomes", () => {
   it("returns the target's failed result", async () => {
     const harness = createAdapterHarness()
     const { tree } = await launchReported(harness)
-    tree.reportWorkStarted()
     tree.reportResult({
       outcome: "failed",
       message: "target said no",
@@ -120,7 +120,6 @@ describe("child-process completion outcomes", () => {
   it("returns cancelled when cancellation was requested", async () => {
     const harness = createAdapterHarness()
     const { tree } = await launchReported(harness)
-    tree.reportWorkStarted()
     tree.requestCancellation()
     harness.result.resolve({ exitCode: null, signal: "SIGTERM" })
     harness.confirmation.resolve()
@@ -132,7 +131,6 @@ describe("child-process completion outcomes", () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
-    tree.reportWorkStarted()
     tree.reportProofLost(new Error("connection lost"))
     harness.result.resolve({ exitCode: 1, signal: null })
     harness.confirmation.resolve()
@@ -154,7 +152,9 @@ describe("child-process completion outcomes", () => {
             outcome: "proof-lost",
             failure,
           }),
-          async stopAndConfirm() {},
+          async stopAndConfirm() {
+            return { outcome: "confirmed" }
+          },
         }
       },
     }
@@ -179,7 +179,45 @@ describe("child-process completion outcomes", () => {
     assert.equal(diagnostics[0]?.failure, failure)
   })
 
-  it("keeps cancellation when the platform loses target-exit proof during the stop", async () => {
+  it("returns unknown without warning when completion proof is lost after stop", async () => {
+    const failure = new Error("stream completion proof lost")
+    const adapter: ChildProcessLifetimePlatformAdapter = {
+      async launch() {
+        return {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          result: Promise.resolve({ exitCode: 0, signal: null }),
+          async stopAndConfirm() {
+            return { outcome: "proof-lost", failure }
+          },
+        }
+      },
+    }
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createChildProcessLifetimeController({
+      diagnosticSink(diagnostic) {
+        diagnostics.push(diagnostic)
+      },
+      warnUnconfirmedTree(error) {
+        warnings.push(error)
+      },
+      runtimePlatform: "win32",
+      windowsAdapter: adapter,
+    })
+    const tree = await controller.launch({
+      command: "completion-proof-target",
+      proof: "target-exit",
+    })
+
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(warnings, [])
+    assert.equal(diagnostics.length, 1)
+    assert.equal(diagnostics[0]?.failure, failure)
+  })
+
+  it("returns unknown when cancellation loses target-exit proof", async () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const controller = createHarnessController(harness, diagnostics)
@@ -193,7 +231,7 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ outcome: "proof-lost", failure })
     harness.confirmation.resolve()
 
-    assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
+    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
     assert.equal(diagnostics.length, 1)
     assert.equal(diagnostics[0]?.failure, failure)
   })
@@ -202,7 +240,6 @@ describe("child-process completion outcomes", () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
-    tree.reportWorkStarted()
     harness.result.resolve({ exitCode: 0, signal: null })
     harness.confirmation.resolve()
 
@@ -218,7 +255,6 @@ describe("child-process completion outcomes", () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
-    tree.reportWorkStarted()
     tree.reportProofLost(new Error("proof lost"))
     tree.requestCancellation()
     tree.reportResult({
@@ -239,7 +275,6 @@ describe("child-process completion outcomes", () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
-    tree.reportWorkStarted()
     tree.requestCancellation()
     tree.reportResult({
       outcome: "failed",
@@ -321,6 +356,7 @@ describe("child-process completion policy", () => {
             if (launchCount === 1) {
               throw failure
             }
+            return { outcome: "confirmed" }
           },
         }
       },
@@ -373,7 +409,9 @@ describe("child-process completion policy", () => {
           stdout: new PassThrough(),
           stderr: new PassThrough(),
           result: Promise.resolve({ exitCode: 0, signal: null }),
-          async stopAndConfirm() {},
+          async stopAndConfirm() {
+            return { outcome: "confirmed" }
+          },
         }
       },
     }

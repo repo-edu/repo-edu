@@ -57,7 +57,6 @@ type StepCodexSdkHostProcess = {
           readonly value: StepCodexSdkHostProtocolFailure
         },
   ): void
-  reportWorkStarted(): void
 }
 
 export type StepCodexSdkHostLaunch = (
@@ -191,7 +190,6 @@ function createCodingRun(
         sdkHostProcess.stdin.end()
       }
     })
-  sdkHostProcess.reportWorkStarted()
   const processOutcome = sdkHostProcess.outcome.then((outcome) => {
     observedOutcome = outcome
     if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {

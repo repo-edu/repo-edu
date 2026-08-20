@@ -114,7 +114,6 @@ describe("child-process completion routes", {
       ],
       proof: "reported",
     })
-    tree.reportWorkStarted()
     await once(tree.stdout, "data")
 
     tree.reportProofLost(new Error("proving connection lost"))

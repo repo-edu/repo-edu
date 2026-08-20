@@ -77,11 +77,8 @@ export function createStepCommandExecutor(
         ...(request.signal === undefined ? {} : { signal: request.signal }),
       })
       child.stdin.end()
-      let streamFailure: unknown
       const failStream = (error: unknown): void => {
-        streamFailure ??= error
-        child.reportFailure(error)
-        child.requestCancellation()
+        child.reportProofLost(error)
       }
       const [outcome, stdout, stderr] = await Promise.all([
         child.outcome,
@@ -98,13 +95,6 @@ export function createStepCommandExecutor(
         throw new Error("The command result could not be confirmed.")
       }
       if (outcome.outcome === "cancelled") {
-        // A cancellation this executor requested after its own stream
-        // failure reports that failure, not a cancel nobody asked for.
-        if (request.signal?.aborted !== true && streamFailure !== undefined) {
-          throw streamFailure instanceof Error
-            ? streamFailure
-            : new Error(String(streamFailure))
-        }
         throw new DOMException("The command was cancelled.", "AbortError")
       }
       return { ...outcome.value, stdout, stderr }

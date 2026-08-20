@@ -265,7 +265,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
     await assertMarkerStable(marker)
   })
 
-  it("stops a changing tree before reporting a local stream failure", async (context) => {
+  it("stops a changing tree before returning unknown for a lost stream", async (context) => {
     const marker = await markerPath("local-failure.txt")
     const controller = createController()
     context.after(async () => {
@@ -281,7 +281,8 @@ describe("child-process containment", { skip: !supportsController }, () => {
         args: [fixturePath, "tree-waits", marker],
       }),
       (error) =>
-        error instanceof Error && error.message === "local output failure",
+        error instanceof Error &&
+        error.message === "The command result could not be confirmed.",
     )
 
     await waitForMarker(marker, /grandchild-started/)

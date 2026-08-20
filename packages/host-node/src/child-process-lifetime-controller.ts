@@ -65,10 +65,8 @@ type PendingProcessTree = {
 
 type RunFacts<TCompleted, TFailed> = {
   cancelRequested: boolean
-  failures: unknown[]
-  proofLosses: unknown[]
+  proofLoss?: { readonly failure: unknown }
   result?: ChildProcessTargetResult<TCompleted, TFailed>
-  workStarted: boolean
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -127,7 +125,7 @@ function selectedOutcome<TCompleted, TFailed>(
 ): ChildProcessOutcome<TCompleted, TFailed> {
   if (
     treeConfirmation.status === "unconfirmed" ||
-    facts.proofLosses.length > 0
+    facts.proofLoss !== undefined
   ) {
     return { outcome: "unknown" }
   }
@@ -138,17 +136,6 @@ function selectedOutcome<TCompleted, TFailed>(
     return { ...facts.result, targetResult }
   }
   throw new Error("The child-process run ended without a result fact.")
-}
-
-function secondaryFailures<TCompleted, TFailed>(
-  facts: RunFacts<TCompleted, TFailed>,
-  outcome: ChildProcessOutcome<TCompleted, TFailed>,
-): readonly unknown[] {
-  const failures = [...facts.failures, ...facts.proofLosses]
-  if (facts.result?.outcome === "failed" && outcome.outcome !== "failed") {
-    failures.push(new Error(facts.result.message))
-  }
-  return failures
 }
 
 function unconfirmedTreeError(
@@ -224,9 +211,10 @@ export function createChildProcessLifetimeController(
 
       const facts: RunFacts<TCompleted, TFailed> = {
         cancelRequested: false,
-        failures: [],
-        proofLosses: [],
-        workStarted: request.proof === "target-exit",
+      }
+      const recordProofLoss = (failure: unknown): void => {
+        facts.proofLoss ??= { failure }
+        reportSecondaryFailure(request.command, failure)
       }
       const settled =
         Promise.withResolvers<ChildProcessOutcome<TCompleted, TFailed>>()
@@ -269,7 +257,10 @@ export function createChildProcessLifetimeController(
       const confirm = (): Promise<TreeConfirmation> => {
         confirmation ??= (async () => {
           try {
-            await platformTree.stopAndConfirm()
+            const stopResult = await platformTree.stopAndConfirm()
+            if (stopResult.outcome === "proof-lost") {
+              recordProofLoss(stopResult.failure)
+            }
             activeTrees.delete(key)
             return { status: "confirmed" }
           } catch (error) {
@@ -283,27 +274,18 @@ export function createChildProcessLifetimeController(
       activeTrees.set(key, { confirm })
 
       let targetResult: ChildProcessLifetimeResult | undefined
-      let targetEndedBeforeReportedResult = false
-      const recordPlatformTerminalFailure = (failure: unknown): void => {
-        if (request.proof === "target-exit" && !facts.cancelRequested) {
-          facts.proofLosses.push(failure)
-          return
-        }
-        if (request.proof === "reported") {
-          targetEndedBeforeReportedResult = true
-        }
-        facts.failures.push(failure)
-      }
       const targetResultObserved = platformTree.result.then((terminal) => {
         if (isProofLostTerminal(terminal)) {
-          recordPlatformTerminalFailure(terminal.failure)
+          recordProofLoss(terminal.failure)
           return
         }
         targetResult = terminal
-        if (request.proof === "reported") {
-          targetEndedBeforeReportedResult = true
+        if (request.proof === "target-exit") {
+          facts.result = directTargetResult(
+            terminal,
+          ) as ChildProcessTargetResult<TCompleted, TFailed>
         }
-      }, recordPlatformTerminalFailure)
+      }, recordProofLoss)
       let completionStarted = false
       const complete = (): void => {
         if (completionStarted) {
@@ -313,35 +295,33 @@ export function createChildProcessLifetimeController(
         void (async () => {
           const treeConfirmation = await confirm()
           if (treeConfirmation.status === "unconfirmed") {
-            const outcome = selectedOutcome(
-              facts,
-              targetResult,
-              treeConfirmation,
+            settled.resolve(
+              selectedOutcome(facts, targetResult, treeConfirmation),
             )
-            for (const failure of secondaryFailures(facts, outcome)) {
-              reportSecondaryFailure(request.command, failure)
-            }
-            settled.resolve(outcome)
             return
           }
           await targetResultObserved
           if (
             request.proof === "reported" &&
-            targetEndedBeforeReportedResult &&
-            facts.workStarted &&
             facts.result === undefined &&
             !facts.cancelRequested &&
-            facts.proofLosses.length === 0
+            facts.proofLoss === undefined
           ) {
-            facts.proofLosses.push(
+            recordProofLoss(
               new Error(
                 "The target ended before its reported result was received.",
               ),
             )
           }
           const outcome = selectedOutcome(facts, targetResult, treeConfirmation)
-          for (const failure of secondaryFailures(facts, outcome)) {
-            reportSecondaryFailure(request.command, failure)
+          if (
+            facts.result?.outcome === "failed" &&
+            outcome.outcome !== "failed"
+          ) {
+            reportSecondaryFailure(
+              request.command,
+              new Error(facts.result.message),
+            )
           }
           settled.resolve(outcome)
         })().catch(settled.reject)
@@ -363,19 +343,7 @@ export function createChildProcessLifetimeController(
       void settled.promise.then(detachCancellation, detachCancellation)
 
       void targetResultObserved.then(() => {
-        if (request.proof === "target-exit") {
-          if (targetResult !== undefined) {
-            const result = targetResult
-            facts.result = directTargetResult(
-              result,
-            ) as ChildProcessTargetResult<TCompleted, TFailed>
-          }
-          complete()
-          return
-        }
-        if (request.proof === "reported") {
-          complete()
-        }
+        complete()
       })
 
       const ownedTree: OwnedChildProcessTree<TCompleted, TFailed> = {
@@ -385,29 +353,33 @@ export function createChildProcessLifetimeController(
         outcome: settled.promise,
         requestCancellation,
         reportFailure(error) {
-          facts.failures.push(error)
+          reportSecondaryFailure(request.command, error)
         },
         reportProofLost(error) {
-          if (!facts.workStarted) {
-            throw new Error(
-              "A proving connection cannot be lost before outside work starts.",
-            )
-          }
-          facts.proofLosses.push(error)
+          recordProofLoss(error)
           complete()
         },
         reportResult(result) {
           if (facts.result !== undefined) {
-            facts.failures.push(
+            reportSecondaryFailure(
+              request.command,
               new Error("The target reported more than one terminal result."),
+            )
+            return
+          }
+          if (completionStarted) {
+            reportSecondaryFailure(
+              request.command,
+              result.outcome === "failed"
+                ? new Error(result.message)
+                : new Error(
+                    "The target reported a terminal result after completion began.",
+                  ),
             )
             return
           }
           facts.result = result
           complete()
-        },
-        reportWorkStarted() {
-          facts.workStarted = true
         },
       }
       return ownedTree

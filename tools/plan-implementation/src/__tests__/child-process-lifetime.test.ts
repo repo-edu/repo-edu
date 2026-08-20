@@ -36,6 +36,7 @@ function platformAdapter(
             throw confirmationFailure
           }
           result.resolve({ exitCode: 0, signal: null })
+          return { outcome: "confirmed" }
         },
       }
     },
@@ -62,7 +63,6 @@ describe("plan implementation child-process controller", () => {
       proof: "reported",
     })
 
-    tree.reportWorkStarted()
     tree.reportFailure(new Error("error output failed"))
     tree.reportResult({ outcome: "completed", value: "done" })
 
@@ -84,7 +84,6 @@ describe("plan implementation child-process controller", () => {
       proof: "reported",
     })
 
-    tree.reportWorkStarted()
     tree.reportResult({ outcome: "completed", value: "done" })
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
@@ -92,7 +91,6 @@ describe("plan implementation child-process controller", () => {
       command: "codex-sdk-host",
       proof: "reported",
     })
-    laterTree.reportWorkStarted()
     laterTree.reportResult({ outcome: "completed", value: "later" })
     assert.equal((await laterTree.outcome).outcome, "completed")
     await controller.stopAndConfirm()

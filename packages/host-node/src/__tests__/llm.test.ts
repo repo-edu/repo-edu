@@ -63,7 +63,6 @@ describe("createNodeLlmTextClient", () => {
               value: undefined,
             })
           },
-          reportWorkStarted() {},
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -196,7 +195,6 @@ describe("createNodeLlmTextClient", () => {
               outcome.resolve({ outcome: "unknown" })
             },
             reportResult() {},
-            reportWorkStarted() {},
           }
           return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
         },

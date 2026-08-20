@@ -71,9 +71,10 @@ The controller accepts launch requests and records each attempt before the
 platform adapter may admit its target. It also tracks active owned trees. Once
 shutdown starts, it stops admitting launches, asks every owned tree to stop and
 waits until each tree is confirmed gone or its confirmation deadline expires.
-For each run it records work start, result, proof loss and cancellation facts.
-After the tree is confirmed gone, it checks unknown, cancelled, failed and
-completed in that order and returns the first matching outcome.
+For each run it records result, proof loss and cancellation facts. A
+reported-proof process needs no separate work-start fact. After the tree is
+confirmed gone, proof loss returns unknown, an intact cancellation returns
+cancelled and an intact result returns failed or completed.
 
 Every outcome except confirmation-expiry unknown leaves the controller only
 after the owned tree is confirmed gone. If the adapter cannot confirm the tree
@@ -89,7 +90,9 @@ until process exit.
 A platform adapter performs the operating-system work behind that policy. The
 POSIX adapter starts and signals a process group. The Windows adapter creates a
 job, starts the fixed launcher, assigns it to the job before target work is
-admitted and confirms that the job is empty.
+admitted and confirms that the job is empty. Job emptiness proves termination.
+If launcher or stream completion proof was lost, the controller returns unknown
+without treating the empty job as an unconfirmed tree.
 
 ### Owned child-process tree
 

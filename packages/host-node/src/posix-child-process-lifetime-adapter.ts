@@ -2,6 +2,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import type {
   ChildProcessLifetimePlatformAdapter,
   ChildProcessLifetimeResult,
+  PlatformChildProcessStopResult,
 } from "./child-process-lifetime-contract.js"
 import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime-contract.js"
 import { releaseChildProcessLocalResources } from "./child-process-local-resources.js"
@@ -9,7 +10,7 @@ import { releaseChildProcessLocalResources } from "./child-process-local-resourc
 const groupExitPollMs = 20
 
 type OwnedTreeConfirmation = {
-  stopAndConfirm(): Promise<void>
+  stopAndConfirm(): Promise<PlatformChildProcessStopResult>
 }
 
 export type PosixProcessGroupOperations = {
@@ -114,7 +115,7 @@ function createOwnedTreeConfirmation(
   operations: PosixProcessGroupOperations,
 ): OwnedTreeConfirmation {
   let gracefulStopStartedAt: number | undefined
-  let confirmation: Promise<void> | undefined
+  let confirmation: Promise<PlatformChildProcessStopResult> | undefined
 
   const requestStop = () => {
     if (
@@ -142,7 +143,7 @@ function createOwnedTreeConfirmation(
           )) &&
           (await settledWithin(streamsClosed, remainingMs(graceDeadline)))
         ) {
-          return
+          return { outcome: "confirmed" }
         }
 
         operations.signalProcessGroup(processGroupId, "SIGKILL")
@@ -167,6 +168,7 @@ function createOwnedTreeConfirmation(
             "The owned tree's output pipes stayed open after its forced stop.",
           )
         }
+        return { outcome: "confirmed" }
       })()
 
       return confirmation

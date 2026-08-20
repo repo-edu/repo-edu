@@ -62,7 +62,6 @@ export type CodexSdkHostProcess = {
   reportFailure(error: unknown): void
   reportProofLost(error: unknown): void
   reportResult(result: CodexSdkHostTargetResult): void
-  reportWorkStarted(): void
 }
 
 export type CodexSdkHostLaunch = (
@@ -258,7 +257,6 @@ async function* runCodexSdkHostStream(
         sdkHostProcess.stdin.end()
       }
     })
-  sdkHostProcess.reportWorkStarted()
   const processOutcome = sdkHostProcess.outcome.then((outcome) => {
     observedOutcome = outcome
     if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {

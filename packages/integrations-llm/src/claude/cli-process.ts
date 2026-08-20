@@ -1,13 +1,5 @@
-export type ClaudeCliProcessResult = {
-  readonly exitCode: number | null
-  readonly signal: string | null
-}
-
 export type ClaudeCliFailure = {
-  readonly errorOutputAvailable: boolean
-  readonly errorOutputPresent: boolean
   readonly kind?: import("@repo-edu/integrations-llm-contract").LlmErrorKind
-  readonly terminalResultPresent: boolean
 }
 
 export type ClaudeCliTargetResult =
@@ -21,9 +13,7 @@ export type ClaudeCliTargetResult =
 export type ClaudeCliOutcome =
   | { readonly outcome: "unknown" }
   | { readonly outcome: "cancelled" }
-  | (ClaudeCliTargetResult & {
-      readonly targetResult?: ClaudeCliProcessResult
-    })
+  | ClaudeCliTargetResult
 
 export type ClaudeCliProcess = {
   readonly stdin: NodeJS.WritableStream
@@ -34,7 +24,6 @@ export type ClaudeCliProcess = {
   reportFailure(error: unknown): void
   reportProofLost(error: unknown): void
   reportResult(result: ClaudeCliTargetResult): void
-  reportWorkStarted(): void
 }
 
 export type ClaudeCliLaunchRequest = {

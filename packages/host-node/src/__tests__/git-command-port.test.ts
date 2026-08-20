@@ -90,9 +90,6 @@ describe("createNodeGitCommandPort", () => {
           reportResult() {
             callerReportedFacts += 1
           },
-          reportWorkStarted() {
-            callerReportedFacts += 1
-          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -142,6 +139,7 @@ describe("createNodeGitCommandPort", () => {
             stdout.end()
             stderr.end()
             terminal.resolve({ exitCode: null, signal: "SIGTERM" })
+            return { outcome: "confirmed" }
           },
         }
       },

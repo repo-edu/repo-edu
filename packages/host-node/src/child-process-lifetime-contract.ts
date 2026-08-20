@@ -24,6 +24,13 @@ export type PlatformChildProcessTerminal =
       readonly failure: unknown
     }
 
+export type PlatformChildProcessStopResult =
+  | { readonly outcome: "confirmed" }
+  | {
+      readonly outcome: "proof-lost"
+      readonly failure: unknown
+    }
+
 export type ChildProcessTargetResult<TCompleted, TFailed> =
   | {
       readonly outcome: "completed"
@@ -62,7 +69,6 @@ export type OwnedChildProcessTree<
   reportFailure(error: unknown): void
   reportProofLost(error: unknown): void
   reportResult(result: ChildProcessTargetResult<TCompleted, TFailed>): void
-  reportWorkStarted(): void
 }
 
 export type PlatformOwnedChildProcessTree = {
@@ -70,7 +76,7 @@ export type PlatformOwnedChildProcessTree = {
   readonly stdout: Readable
   readonly stderr: Readable
   readonly result: Promise<PlatformChildProcessTerminal>
-  stopAndConfirm(): Promise<void>
+  stopAndConfirm(): Promise<PlatformChildProcessStopResult>
 }
 
 export type ChildProcessLifetimeStopPolicy = {

@@ -31,7 +31,6 @@ type CodingReportedResult =
 type ReportedFact =
   | { readonly kind: "proof-lost"; readonly error: unknown }
   | { readonly kind: "result"; readonly result: CodingReportedResult }
-  | { readonly kind: "work-started" }
 
 function createControllerHarness(run: StepCodexSdkHostRun): {
   readonly controller: ChildProcessLifetimeController
@@ -106,9 +105,6 @@ function createControllerHarness(run: StepCodexSdkHostRun): {
             targetResult: { exitCode: 0, signal: null },
           })
         },
-        reportWorkStarted() {
-          facts.push({ kind: "work-started" })
-        },
       }
       return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
     },
@@ -176,7 +172,6 @@ describe("runner-owned plan-step Codex SDK host process", () => {
     assert.equal(harness.launches.length, 1)
     assert.equal(harness.stopCount(), 1)
     assert.deepEqual(harness.facts, [
-      { kind: "work-started" },
       { kind: "result", result: { outcome: "completed", value: result } },
     ])
     assert.deepEqual(harness.launches[0], {
@@ -254,9 +249,6 @@ describe("runner-owned plan-step Codex SDK host process", () => {
             outcome.resolve({ outcome: "unknown" })
           },
           reportResult() {},
-          reportWorkStarted() {
-            facts.push({ kind: "work-started" })
-          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
@@ -272,7 +264,6 @@ describe("runner-owned plan-step Codex SDK host process", () => {
           "Error: the Codex SDK could not start\n  at start",
         ),
     )
-    assert.equal(facts[0]?.kind, "work-started")
-    assert.equal(facts[1]?.kind, "proof-lost")
+    assert.equal(facts[0]?.kind, "proof-lost")
   })
 })

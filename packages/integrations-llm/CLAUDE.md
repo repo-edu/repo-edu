@@ -13,11 +13,11 @@ Provider adapters for the `LlmTextClient` contract from
   it never creates or owns a direct child process.
 - `src/codex/*`: Codex prompt/reply adapter
   (`createCodexLlmTextClient`). The host-side client owns request admission and
-  streamed public events. It reports request start, the matching protocol
-  result or proof loss to the injected owned tree. The child-process lifetime
-  controller owns the run outcome. The one-shot Codex SDK host process owns one
-  SDK turn and is the only consumer of raw SDK events. Auth, trace, usage and
-  error mapping remain separate owners.
+  streamed public events. It reports the matching protocol result or proof loss
+  to the injected owned tree. The child-process lifetime controller owns the run
+  outcome. The one-shot Codex SDK host process owns one SDK turn and is the only
+  consumer of raw SDK events. Auth, trace, usage and error mapping remain
+  separate owners.
 
 ## Rules
 
@@ -29,10 +29,11 @@ Provider adapters for the `LlmTextClient` contract from
 - An aborted Codex turn throws a `DOMException` named `AbortError`. The
   application layer maps this to public cancellation.
 - Subscription Claude keeps prompt, stream and terminal-result meaning here.
-  It reports work start after the prompt is handed over and reports the
-  terminal stream result unchanged. A broken result path becomes proof loss.
-  Error-output read failures are secondary diagnostics. No Claude path ranks
-  or composes run failures.
+  It reports an explicit terminal stream result unchanged. A missing terminal
+  result, broken result path or prompt-stream failure becomes proof loss. It
+  does not infer authentication or another provider result from process exit or
+  error output. Error-output read failures are secondary diagnostics. No Claude
+  path ranks or composes run failures.
 - The injected owned tree confirms its full process tree before returning the
   controller's unknown, cancelled, failed or completed outcome. A failed
   outcome keeps the target's message. The adapter maps that message to an

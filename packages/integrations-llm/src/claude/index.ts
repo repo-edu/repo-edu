@@ -13,7 +13,6 @@ export type {
   ClaudeCliLaunch,
   ClaudeCliLaunchRequest,
   ClaudeCliProcess,
-  ClaudeCliProcessResult,
 } from "./cli-process"
 export type { ClaudeRunOptions } from "./runner"
 export { runClaudeGenerate, runClaudeStream } from "./runner"

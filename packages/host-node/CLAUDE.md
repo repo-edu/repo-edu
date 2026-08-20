@@ -61,8 +61,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
 - Production Git and subscription Claude composition receives the same shared
   child-process lifetime controller from its host. Tests may give the Git
   wrapper a `ProcessPort` instead. Direct commands use target exit as their
-  result proof. Protocol callers report work start, a matching result or a lost
-  proving connection.
+  result proof. Protocol callers report a matching result or a lost proving
+  connection. A reported-proof process needs no separate work-start fact.
 - Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
 - Electron Codex composition supplies one fixed Codex SDK host command with
   `runAsNode: true`. The host copies the complete environment, adds
@@ -83,23 +83,23 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   starts Codex or tools. The controller owns the launch attempt before the
   target command may be accepted. An unexpected lost launcher after possible
   command acceptance reports proof loss, and the controller returns unknown
-  after the matching stop attempt. A launcher result lost because the
-  controller forced a requested stop is a secondary failure after confirmed
-  start and termination, so cancellation stays cancelled. An explicit launcher
-  rejection stays a known launch failure. After the target's exit report,
-  stream and launcher completion proof settle inside stop-and-confirm; a
-  completion failure is an unconfirmed tree, never a second proof-loss fact.
-  The launcher turns a target-input relay failure into a broken host-side pipe
-  and keeps reporting the target's exit.
+  after the matching stop attempt. The same rule applies when forced stop loses
+  the launcher result. An explicit launcher rejection stays a known launch
+  failure. After the target's exit report, stream and launcher completion proof
+  settle inside stop-and-confirm. An empty job with lost completion proof
+  returns unknown without an unconfirmed-tree warning. The launcher turns a
+  target-input relay failure into a broken host-side pipe and keeps reporting
+  the target's exit.
 - A launch environment is the complete target environment for every platform
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
   falls back to the host's own.
-- The shared child-process lifetime controller owns the run outcome. It checks
-  unknown, cancelled, failed and completed in that order after the whole tree
-  is confirmed gone. Confirmation expiry takes the unknown branch without that
-  confirmation. Callers report facts and never rank failures, attach secondary
-  failures as causes or compose another outcome.
+- The shared child-process lifetime controller owns the run outcome. Proof loss
+  returns unknown, an intact cancellation returns cancelled and an intact
+  result returns failed or completed after the whole tree is confirmed gone.
+  Confirmation expiry takes the unknown branch without that confirmation.
+  Callers report facts and never rank failures, attach secondary failures as
+  causes or compose another outcome.
 - The controller owns one five-second graceful stop allowance and one
   five-second confirmation deadline after a forced stop. Both platform
   adapters apply those periods. Confirmation expiry returns unknown for an
@@ -113,5 +113,5 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   child stream and unreferences its Node child watcher before it reports an
   unconfirmed stop.
 - Every host supplies an error diagnostic sink and an unconfirmed-tree warning
-  channel. The controller sends each secondary failure once to the diagnostic
-  sink and each unconfirmed-tree warning once to the warning channel.
+  channel. The controller sends secondary failures to the diagnostic sink when
+  reported and each unconfirmed-tree warning once to the warning channel.

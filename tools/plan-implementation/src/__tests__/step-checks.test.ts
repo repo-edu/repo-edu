@@ -130,9 +130,6 @@ describe("step checks", () => {
           reportResult() {
             callerReportedFacts += 1
           },
-          reportWorkStarted() {
-            callerReportedFacts += 1
-          },
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },

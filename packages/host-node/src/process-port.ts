@@ -57,11 +57,8 @@ export function createNodeProcessPort(
         proof: "target-exit",
         signal: request.signal,
       })
-      let streamFailure: unknown
       const failStream = (error: unknown): void => {
-        streamFailure ??= error
-        child.reportFailure(error)
-        child.requestCancellation()
+        child.reportProofLost(error)
       }
       const stdout = collectOutput(child.stdout).catch((error: unknown) => {
         failStream(error)
@@ -83,13 +80,6 @@ export function createNodeProcessPort(
         throw new Error("The command result could not be confirmed.")
       }
       if (outcome.outcome === "cancelled") {
-        // A cancellation this port requested after its own stream failure
-        // reports that failure, not a cancel the caller never asked for.
-        if (request.signal?.aborted !== true && streamFailure !== undefined) {
-          throw streamFailure instanceof Error
-            ? streamFailure
-            : new Error(String(streamFailure))
-        }
         throw new DOMException("Operation cancelled.", "AbortError")
       }
       return {

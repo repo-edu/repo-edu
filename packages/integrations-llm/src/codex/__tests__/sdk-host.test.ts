@@ -26,7 +26,6 @@ const usage = {
 type ReportedFact =
   | { readonly kind: "proof-lost"; readonly error: unknown }
   | { readonly kind: "result"; readonly result: CodexSdkHostTargetResult }
-  | { readonly kind: "work-started" }
 
 function createServerHarness(run: CodexSdkHostRun): {
   readonly launch: CodexSdkHostLaunch
@@ -78,9 +77,6 @@ function createServerHarness(run: CodexSdkHostRun): {
             targetResult: { exitCode: 0, signal: null },
           })
         },
-        reportWorkStarted() {
-          facts.push({ kind: "work-started" })
-        },
       }
     },
     facts,
@@ -120,9 +116,6 @@ function createLostSdkHostLaunch(
         outcome.resolve({ outcome: "unknown" })
       },
       reportResult() {},
-      reportWorkStarted() {
-        facts.push({ kind: "work-started" })
-      },
     }
   }
 }
@@ -156,7 +149,6 @@ describe("Codex SDK host process", () => {
     assert.equal(harness.launchCount(), 1)
     assert.equal(harness.stopCount(), 1)
     assert.deepEqual(harness.facts, [
-      { kind: "work-started" },
       {
         kind: "result",
         result: { outcome: "completed", value: { status: "completed" } },
@@ -195,7 +187,6 @@ describe("Codex SDK host process", () => {
     )
     assert.equal(harness.stopCount(), 1)
     assert.deepEqual(harness.facts, [
-      { kind: "work-started" },
       {
         kind: "result",
         result: {
@@ -282,7 +273,6 @@ describe("Codex SDK host process", () => {
           reportFailure() {},
           reportProofLost() {},
           reportResult() {},
-          reportWorkStarted() {},
         }
       },
     })
@@ -350,8 +340,7 @@ describe("Codex SDK host process", () => {
         error.context.provider === "codex" &&
         /outside outcome is unknown/.test(error.message),
     )
-    assert.equal(facts[0]?.kind, "work-started")
-    assert.equal(facts[1]?.kind, "proof-lost")
+    assert.equal(facts[0]?.kind, "proof-lost")
   })
 
   it("keeps the lost Codex SDK host process output in the reported failure", async () => {

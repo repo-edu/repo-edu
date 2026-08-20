@@ -36,7 +36,6 @@ type ReportedFact =
   | { readonly error: unknown; readonly kind: "failure" }
   | { readonly error: unknown; readonly kind: "proof-lost" }
   | { readonly kind: "result"; readonly result: ClaudeCliTargetResult }
-  | { readonly kind: "work-started"; readonly prompt: string }
 
 type FakeLaunchCall = {
   readonly args: readonly string[]
@@ -78,10 +77,6 @@ function fakeLaunch(
       },
     })
     const outcome = Promise.withResolvers<ClaudeCliOutcome>()
-    const targetResult = {
-      exitCode: fakeOptions.exitCode ?? 0,
-      signal: fakeOptions.exitSignal ?? null,
-    }
     return {
       stdin,
       stdout: Readable.from(stdoutChunks),
@@ -102,13 +97,7 @@ function fakeLaunch(
       reportResult(result) {
         call.facts.push({ kind: "result", result })
         call.stopped = true
-        outcome.resolve({ ...result, targetResult })
-      },
-      reportWorkStarted() {
-        call.facts.push({
-          kind: "work-started",
-          prompt: call.stdin,
-        })
+        outcome.resolve(result)
       },
     }
   }
@@ -151,16 +140,8 @@ function liveLaunch(): LiveCliProcess {
     exitCode: number | null
     signal: string | null
   }>()
-  let targetResult = {
-    exitCode: 0 as number | null,
-    signal: null as string | null,
-  }
-  void result.promise.then((value) => {
-    targetResult = value
-  })
   const outcome = Promise.withResolvers<ClaudeCliOutcome>()
   const facts: ReportedFact[] = []
-  let prompt = ""
   let stopped = false
   const stopStreams = () => {
     stdout.destroy()
@@ -168,8 +149,7 @@ function liveLaunch(): LiveCliProcess {
   }
   const launch: ClaudeCliLaunch = async () => ({
     stdin: new Writable({
-      write(chunk, _encoding, callback) {
-        prompt += String(chunk)
+      write(_chunk, _encoding, callback) {
         callback()
       },
     }),
@@ -194,10 +174,7 @@ function liveLaunch(): LiveCliProcess {
       facts.push({ kind: "result", result: reported })
       stopped = true
       stopStreams()
-      outcome.resolve({ ...reported, targetResult })
-    },
-    reportWorkStarted() {
-      facts.push({ kind: "work-started", prompt })
+      outcome.resolve(reported)
     },
   })
   return {
@@ -329,7 +306,6 @@ describe("runClaudeCliStream", () => {
     assert.equal(done?.usage.outputTokens, 2)
     assert.equal(done?.usage.authMode, "subscription")
     assert.deepEqual(calls[0]?.facts, [
-      { kind: "work-started", prompt: "Reply ok." },
       {
         kind: "result",
         result: { outcome: "completed", value: undefined },
@@ -372,7 +348,7 @@ describe("runClaudeCliStream", () => {
     }
   })
 
-  it("waits for delayed auth stderr before classifying CLI exit failures", async () => {
+  it("returns unknown when Claude ends without a terminal stream result", async () => {
     const delayedStderr = (async function* () {
       await new Promise((resolve) => setImmediate(resolve))
       yield "Please log in to Claude."
@@ -396,23 +372,9 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message.includes("Please log in"),
+        error.message.includes("outside outcome is unknown"),
     )
-    assert.deepEqual(calls[0]?.facts, [
-      { kind: "work-started", prompt: "Reply ok." },
-      {
-        kind: "result",
-        result: {
-          message: "Please log in to Claude.",
-          outcome: "failed",
-          value: {
-            errorOutputAvailable: true,
-            errorOutputPresent: true,
-            terminalResultPresent: false,
-          },
-        },
-      },
-    ])
+    assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
   it("keeps a failed terminal result instead of applying silent-exit guidance", async () => {
@@ -444,23 +406,18 @@ describe("runClaudeCliStream", () => {
         error.message === "Target says quota exhausted.",
     )
     assert.deepEqual(calls[0]?.facts, [
-      { kind: "work-started", prompt: "Reply ok." },
       {
         kind: "result",
         result: {
           message: "Target says quota exhausted.",
           outcome: "failed",
-          value: {
-            errorOutputAvailable: true,
-            errorOutputPresent: false,
-            terminalResultPresent: true,
-          },
+          value: {},
         },
       },
     ])
   })
 
-  it("maps silent subscription CLI exit code 1 to login guidance", async () => {
+  it("does not infer authentication from a silent Claude exit", async () => {
     const { launch, calls } = fakeLaunch([], [], { exitCode: 1 })
 
     await assert.rejects(
@@ -479,28 +436,13 @@ describe("runClaudeCliStream", () => {
       },
       (error: unknown) =>
         error instanceof LlmError &&
-        error.kind === "auth" &&
-        error.message.includes("Claude CLI is not logged in") &&
-        error.message.includes("claude auth login"),
+        error.kind === "other" &&
+        error.message.includes("outside outcome is unknown"),
     )
-    assert.deepEqual(calls[0]?.facts, [
-      { kind: "work-started", prompt: "Reply ok." },
-      {
-        kind: "result",
-        result: {
-          message: "Claude stream ended without a terminal usage event.",
-          outcome: "failed",
-          value: {
-            errorOutputAvailable: true,
-            errorOutputPresent: false,
-            terminalResultPresent: false,
-          },
-        },
-      },
-    ])
+    assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
-  it("keeps the login guidance when the error-output read also fails", async () => {
+  it("keeps error-output read failure secondary to unknown outcome", async () => {
     const readFailure = new Error("error output read failed")
     const live = liveLaunch()
     let failure: unknown
@@ -533,13 +475,12 @@ describe("runClaudeCliStream", () => {
     })
 
     assert.ok(failure instanceof LlmError)
-    assert.equal(failure.kind, "auth")
-    assert.ok(failure.message.includes("claude auth login"))
+    assert.equal(failure.kind, "other")
+    assert.ok(failure.message.includes("outside outcome is unknown"))
     assert.equal(failure.cause, undefined)
     assert.equal(live.stopped(), true)
-    assert.equal(live.facts[0]?.kind, "work-started")
-    assert.equal(live.facts[1]?.kind, "failure")
-    assert.equal(live.facts[2]?.kind, "result")
+    assert.equal(live.facts[0]?.kind, "failure")
+    assert.equal(live.facts[1]?.kind, "proof-lost")
   })
 
   it("uses the terminal stream result instead of reclassifying process exit", async () => {
@@ -570,7 +511,7 @@ describe("runClaudeCliStream", () => {
     )
   })
 
-  it("keeps target error output when stdin closes during the prompt write", async () => {
+  it("returns unknown when stdin closes during the prompt write", async () => {
     const writeError = new Error("write EPIPE") as Error & { code: string }
     writeError.code = "EPIPE"
     const { launch, calls } = fakeLaunch([], ["CLI rejected prompt."], {
@@ -595,22 +536,10 @@ describe("runClaudeCliStream", () => {
       (error: unknown) =>
         error instanceof LlmError &&
         error.kind === "other" &&
-        error.message === "CLI rejected prompt.",
+        error.message.includes("outside outcome is unknown"),
     )
     assert.equal(calls[0]?.stopped, true)
-    assert.equal(calls[0]?.facts[0]?.kind, "failure")
-    assert.deepEqual(calls[0]?.facts[1], {
-      kind: "result",
-      result: {
-        message: "CLI rejected prompt.",
-        outcome: "failed",
-        value: {
-          errorOutputAvailable: true,
-          errorOutputPresent: true,
-          terminalResultPresent: false,
-        },
-      },
-    })
+    assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
   it("rejects pre-aborted requests without spawning Claude", async () => {

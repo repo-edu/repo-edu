@@ -37,6 +37,7 @@ function platformAdapter(
             throw confirmationFailure
           }
           result.resolve({ exitCode: 0, signal: null })
+          return { outcome: "confirmed" }
         },
       }
     },
@@ -157,7 +158,6 @@ describe("command-line child-process controller", () => {
       proof: "reported",
     })
 
-    tree.reportWorkStarted()
     tree.reportFailure(new Error("error output failed"))
     tree.reportResult({ outcome: "completed", value: "done" })
 
@@ -186,7 +186,6 @@ describe("command-line child-process controller", () => {
       proof: "reported",
     })
 
-    tree.reportWorkStarted()
     tree.reportResult({ outcome: "completed", value: "done" })
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
@@ -194,7 +193,6 @@ describe("command-line child-process controller", () => {
       command: "git",
       proof: "reported",
     })
-    laterTree.reportWorkStarted()
     laterTree.reportResult({ outcome: "completed", value: "later" })
     assert.equal((await laterTree.outcome).outcome, "completed")
     await controller.stopAndConfirm()

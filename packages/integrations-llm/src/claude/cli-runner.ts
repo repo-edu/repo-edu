@@ -33,10 +33,6 @@ export type ClaudeCliRunOptions = {
   executable?: string
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function terminalResultMessage(
   result: ResultMessage,
   errorOutput: string,
@@ -50,19 +46,6 @@ function terminalResultMessage(
     return errorOutput
   }
   return `Claude turn ended with subtype "${result.subtype}".`
-}
-
-function missingTerminalResultMessage(
-  errorOutput: string,
-  promptWriteFailure: unknown,
-): string {
-  if (errorOutput.length > 0) {
-    return errorOutput
-  }
-  if (promptWriteFailure !== undefined) {
-    return errorMessage(promptWriteFailure)
-  }
-  return "Claude stream ended without a terminal usage event."
 }
 
 export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
@@ -151,31 +134,17 @@ export async function* runClaudeCliStream(
   }
   let stderr = ""
   child.stderr.setEncoding("utf8")
-  let errorOutputAvailable = true
   const errorOutputSettled = collectStderr(child.stderr, (chunk) => {
     stderr += chunk
   }).catch((error: unknown) => {
-    errorOutputAvailable = false
     child.reportFailure(error)
   })
 
   let resultReported = false
   let terminalEvent: LlmStreamEvent | undefined
   let outcome: ClaudeCliOutcome | undefined
-  const promptWriteFailure = await writePromptToChild(
-    child.stdin,
-    options.prompt,
-  ).then(
-    () => {
-      child.reportWorkStarted()
-      return undefined
-    },
-    (error: unknown) => {
-      child.reportFailure(error)
-      return error
-    },
-  )
   try {
+    await writePromptToChild(child.stdin, options.prompt)
     yield { kind: "activity", label: "Contacting Claude." }
     const state = createClaudeStreamJsonState({
       authMode: "subscription",
@@ -215,28 +184,21 @@ export async function* runClaudeCliStream(
     }
     await errorOutputSettled
     const errorOutput = stderr.trim()
-    if (state.terminalResult?.subtype !== "success") {
+    if (state.terminalResult === null) {
+      child.reportProofLost(
+        new Error("Claude ended without a terminal stream result."),
+      )
+    } else if (state.terminalResult.subtype !== "success") {
       child.reportResult({
         outcome: "failed",
-        message:
-          state.terminalResult === null
-            ? missingTerminalResultMessage(errorOutput, promptWriteFailure)
-            : terminalResultMessage(state.terminalResult, errorOutput),
-        value: {
-          errorOutputAvailable,
-          errorOutputPresent: errorOutput.length > 0,
-          terminalResultPresent: state.terminalResult !== null,
-        },
+        message: terminalResultMessage(state.terminalResult, errorOutput),
+        value: {},
       })
     } else if (!state.done) {
       child.reportResult({
         outcome: "failed",
         message: terminalResultMessage(state.terminalResult, errorOutput),
-        value: {
-          errorOutputAvailable,
-          errorOutputPresent: errorOutput.length > 0,
-          terminalResultPresent: true,
-        },
+        value: {},
       })
     } else {
       terminalEvent = finalizeClaudeStreamJsonState(state)
@@ -250,24 +212,7 @@ export async function* runClaudeCliStream(
       child.reportResult({
         outcome: "failed",
         message: cause.message,
-        value: {
-          errorOutputAvailable,
-          errorOutputPresent: stderr.trim().length > 0,
-          kind: cause.kind,
-          terminalResultPresent: false,
-        },
-      })
-    } else if (promptWriteFailure !== undefined) {
-      await errorOutputSettled
-      const errorOutput = stderr.trim()
-      child.reportResult({
-        outcome: "failed",
-        message: errorOutput || errorMessage(cause),
-        value: {
-          errorOutputAvailable,
-          errorOutputPresent: errorOutput.length > 0,
-          terminalResultPresent: false,
-        },
+        value: { kind: cause.kind },
       })
     } else {
       child.reportProofLost(cause)
@@ -449,31 +394,12 @@ async function collectStderr(
 function cliOutcomeError(
   outcome: Extract<ClaudeCliOutcome, { readonly outcome: "failed" }>,
 ): LlmError {
-  const exitCode = outcome.targetResult?.exitCode ?? null
-  const signal = outcome.targetResult?.signal ?? null
   if (outcome.value.kind !== undefined) {
     return new LlmError(outcome.value.kind, outcome.message, {
       context: { provider: "claude", authMode: "subscription" },
     })
   }
-  if (
-    !outcome.value.terminalResultPresent &&
-    !outcome.value.errorOutputPresent &&
-    exitCode === 1 &&
-    signal === null
-  ) {
-    return new LlmError(
-      "auth",
-      outcome.value.errorOutputAvailable
-        ? "Claude CLI exited with code 1 before reporting an error. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again."
-        : "Claude CLI exited with code 1 and its error output could not be read. For subscription mode, this usually means the Claude CLI is not logged in. Run `claude auth login` in a terminal, then verify the connection again.",
-      { context: { provider: "claude", authMode: "subscription" } },
-    )
-  }
-  const detail = outcome.value.errorOutputAvailable
-    ? outcome.message
-    : `Claude CLI exited with code ${exitCode ?? "null"}${signal ? ` and signal ${signal}` : ""}, and its error output could not be read.`
-  return new LlmError("other", detail, {
+  return new LlmError("other", outcome.message, {
     context: { provider: "claude", authMode: "subscription" },
   })
 }
