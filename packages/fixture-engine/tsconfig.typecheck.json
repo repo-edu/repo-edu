@@ -8,6 +8,7 @@
     "src/**/*.ts",
     "../claude-coder/src/**/*.ts",
     "../domain/src/**/*.ts",
+    "../host-node/src/child-process-launch-stop.ts",
     "../host-node/src/child-process-lifetime-contract.ts",
     "../host-node/src/child-process-local-resources.ts",
     "../host-node/src/child-process-lifetime.ts",
