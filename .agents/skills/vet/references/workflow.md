@@ -70,7 +70,9 @@ Classify the finding as one of five kinds.
   `../plan/GROWTH-PATTERNS.md`. When no boundary asks for the machinery, do
   not settle the trade. State the simplest mechanism the boundaries do ask
   for, state what the finding's version gives the user over that, and send it
-  to the user's ruling.
+  to the user's ruling. When the finding already carries a `Trade:` block, do
+  not author a competing pricing: check that block under the trade-block
+  check in axis 3 instead.
 
 ### 2. Grounded
 
@@ -114,16 +116,29 @@ sentence only when the situation is rare, and no rarity sentence at all when
 the whole cost is rework or re-derivation. A trace that ends with the same
 behaviour shipping is not a finding, so the verdict is drop.
 
+Then check the trade block. At tiers A to C, a finding whose growth tag is
+not `none`, whose reach is not `ordinary` and whose complexity is not
+`none` carries a `Trade:` block after its trace, unless the report prices
+that machinery in a run pricing above the tiered findings. A finding that
+should carry one and does not gets revise. Check the block's three answers
+against their sources yourself: the offered mechanism satisfies
+`../plan/BOUNDARIES.md`, a claim that no simpler mechanism exists rests on
+a plan-recorded reason that holds against the code, and a claim that the
+choice is settled points at a boundary entry or a recorded user decision.
+An unsettled block goes to the user's ruling, never to a verdict of the
+vet's own.
+
 ## Verdicts
 
 Return one verdict per finding, in the report's order: accept, revise, drop or
 needs the user's ruling. A revise verdict states the revision. A drop verdict
 states why. Keep each verdict to a few short sentences.
 
-The user's ruling is needed for two things: a reopening of a decision the plan
-settled, and machinery with no boundary behind it. Name what axis 1
-classified, state what the grounded and fix-follows checks found, and stop
-there. Never settle either one on the vet's own authority.
+The user's ruling is needed for three things: a reopening of a decision the
+plan settled, machinery with no boundary behind it, and an unsettled trade
+block. Name what axis 1 classified, state what the grounded and fix-follows
+checks found, and stop there. Never settle one of these on the vet's own
+authority.
 
 Before returning the verdicts, look for the sibling report: the same plan
 name, scope and sha with the other auditor token. When it exists, read it and

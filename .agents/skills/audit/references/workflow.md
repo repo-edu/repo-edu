@@ -135,8 +135,9 @@ reads along and rules by exception: a go on the reconciled outcome is the
 acceptance, and a reservation on any item reopens it, including a
 reservation the report never raised.
 
-One kind of finding is not covered by a plain go: a finding that carries a
-trade block no ruling has settled needs its own answer. When the user picks
+One kind of finding is not covered by accepting the round as a whole, in a
+vetted round and an unvetted one alike: a finding that carries a trade
+block no ruling has settled needs its own answer. When the user picks
 the simpler mechanism, that mechanism becomes the finding's required
 correction, revised in the discussion like any other revision. When that
 ruling overturns a reason the plan records, the reason's correction lands
@@ -243,7 +244,7 @@ drop it rather than report it.
 At tiers A to C, a finding whose three tokens all show risk also carries a
 trade block: its growth tag is not `none`, its reach is not `ordinary` and
 its complexity is not `none`. Such a finding suspects machinery, covers a
-situation the user rarely meets and plants standing structure. The round
+situation the user rarely or never meets and plants standing structure. The round
 prices that trade in the finding itself, instead of leaving it for a later
 run of rounds. A D-tier finding carries no trade block: pricing costs more
 than the tier is worth. A finding on machinery this round already prices
@@ -336,9 +337,10 @@ the user accepts it. When the trade is genuinely worth its cost, the user says
 so, the round records the ruling in the plan with its reason and the
 pattern stops being a signal for that machinery.
 
-Pricing a run is expensive, so it runs only on a run of tags. A single
-tagged finding is not priced here; when its three tokens all show risk, its
-own trade block under [Finding shape](#finding-shape) prices it.
+Pricing a run is expensive, so it runs only on a cross-round run of a
+growth pattern or of the reach and complexity pair. A single tagged finding
+is not priced here; when its three tokens all show risk, its own trade
+block under [Finding shape](#finding-shape) prices it.
 
 ## Reach and complexity
 
