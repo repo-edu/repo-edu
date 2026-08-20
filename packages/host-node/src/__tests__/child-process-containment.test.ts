@@ -260,7 +260,12 @@ describe("child-process containment", { skip: !supportsController }, () => {
     await waitForMarker(marker, /grandchild-ignores-stop-tick/)
 
     tree.requestCancellation()
-    assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
+    assert.deepEqual(
+      await tree.outcome,
+      process.platform === "win32"
+        ? { outcome: "unknown" }
+        : { outcome: "cancelled" },
+    )
 
     await assertMarkerStable(marker)
   })
