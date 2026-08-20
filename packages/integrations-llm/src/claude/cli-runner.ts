@@ -12,10 +12,15 @@ import {
   throwIfClaudeAborted,
 } from "./abort"
 import type { ResolvedClaudeSubscriptionAuth } from "./auth"
-import type { ClaudeCliLaunch, ClaudeCliOutcome } from "./cli-process"
+import type {
+  ClaudeCliLaunch,
+  ClaudeCliOutcome,
+  ClaudeCliProcess,
+} from "./cli-process"
 import { claudeNativeEffort } from "./effort"
 import { toClaudeLlmError } from "./errors"
 import {
+  type ClaudeStreamJsonState,
   createClaudeStreamJsonState,
   eventsFromClaudeStreamMessage,
   finalizeClaudeStreamJsonState,
@@ -33,19 +38,37 @@ export type ClaudeCliRunOptions = {
   executable?: string
 }
 
-function terminalResultMessage(
-  result: ResultMessage,
-  errorOutput: string,
-): string {
+function terminalResultMessage(result: ResultMessage): string {
   const targetMessage =
     typeof result.result === "string" ? result.result.trim() : ""
   if (targetMessage.length > 0) {
     return targetMessage
   }
-  if (errorOutput.length > 0) {
-    return errorOutput
-  }
   return `Claude turn ended with subtype "${result.subtype}".`
+}
+
+function reportClaudeStreamProof(
+  child: ClaudeCliProcess,
+  state: ClaudeStreamJsonState,
+): LlmStreamEvent | undefined {
+  if (state.terminalResult === null) {
+    child.reportProofLost(
+      new Error("Claude ended without a terminal stream result."),
+    )
+    return undefined
+  }
+  if (state.terminalResult.subtype !== "success" || !state.done) {
+    child.reportResult({
+      outcome: "failed",
+      message: terminalResultMessage(state.terminalResult),
+      value: {},
+    })
+    return undefined
+  }
+
+  const terminalEvent = finalizeClaudeStreamJsonState(state)
+  child.reportResult({ outcome: "completed", value: undefined })
+  return terminalEvent
 }
 
 export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
@@ -108,13 +131,12 @@ export async function* runClaudeCliStream(
     }
     throw toClaudeLlmError(error, "subscription")
   }
-  let stderr = ""
   child.stderr.setEncoding("utf8")
-  const errorOutputSettled = collectStderr(child.stderr, (chunk) => {
-    stderr += chunk
-  }).catch((error: unknown) => {
-    child.reportFailure(error)
-  })
+  const errorOutputSettled = collectStderr(child.stderr).catch(
+    (error: unknown) => {
+      child.reportFailure(error)
+    },
+  )
 
   let resultReported = false
   let terminalEvent: LlmStreamEvent | undefined
@@ -158,28 +180,7 @@ export async function* runClaudeCliStream(
         }
       }
     }
-    await errorOutputSettled
-    const errorOutput = stderr.trim()
-    if (state.terminalResult === null) {
-      child.reportProofLost(
-        new Error("Claude ended without a terminal stream result."),
-      )
-    } else if (state.terminalResult.subtype !== "success") {
-      child.reportResult({
-        outcome: "failed",
-        message: terminalResultMessage(state.terminalResult, errorOutput),
-        value: {},
-      })
-    } else if (!state.done) {
-      child.reportResult({
-        outcome: "failed",
-        message: terminalResultMessage(state.terminalResult, errorOutput),
-        value: {},
-      })
-    } else {
-      terminalEvent = finalizeClaudeStreamJsonState(state)
-      child.reportResult({ outcome: "completed", value: undefined })
-    }
+    terminalEvent = reportClaudeStreamProof(child, state)
     resultReported = true
   } catch (cause) {
     if (options.signal?.aborted || isAbortLikeError(cause)) {
@@ -357,12 +358,9 @@ function writePromptToChild(
   })
 }
 
-async function collectStderr(
-  stream: NodeJS.ReadableStream,
-  onChunk: (chunk: string) => void,
-): Promise<void> {
-  for await (const chunk of stream) {
-    onChunk(String(chunk))
+async function collectStderr(stream: NodeJS.ReadableStream): Promise<void> {
+  for await (const _chunk of stream) {
+    // Drain the diagnostic stream without making it part of result proof.
   }
 }
 

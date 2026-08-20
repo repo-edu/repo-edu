@@ -26,8 +26,6 @@ const claudeSpec = {
 }
 
 type FakeLaunchOptions = {
-  exitCode?: number
-  exitSignal?: string | null
   stdinWriteError?: Error
 }
 
@@ -120,10 +118,6 @@ type LiveCliProcess = {
   launch: ClaudeCliLaunch
   stdout: PassThrough
   errorOutput: PassThrough
-  result: PromiseWithResolvers<{
-    exitCode: number | null
-    signal: string | null
-  }>
   facts: readonly ReportedFact[]
   stopped(): boolean
 }
@@ -133,10 +127,6 @@ type LiveCliProcess = {
 function liveLaunch(): LiveCliProcess {
   const stdout = new PassThrough()
   const errorOutput = new PassThrough()
-  const result = Promise.withResolvers<{
-    exitCode: number | null
-    signal: string | null
-  }>()
   const outcome = Promise.withResolvers<ClaudeCliOutcome>()
   const facts: ReportedFact[] = []
   let stopped = false
@@ -179,7 +169,6 @@ function liveLaunch(): LiveCliProcess {
     stdout,
     errorOutput,
     facts,
-    result,
     stopped: () => stopped,
   }
 }
@@ -335,7 +324,7 @@ describe("runClaudeCliStream", () => {
       await new Promise((resolve) => setImmediate(resolve))
       yield "Please log in to Claude."
     })()
-    const { launch, calls } = fakeLaunch([], delayedStderr, { exitCode: 1 })
+    const { launch, calls } = fakeLaunch([], delayedStderr)
 
     await assert.rejects(
       async () => {
@@ -359,14 +348,59 @@ describe("runClaudeCliStream", () => {
     assert.equal(calls[0]?.facts[0]?.kind, "proof-lost")
   })
 
+  it("reports missing result proof while error output remains open", async () => {
+    const live = liveLaunch()
+    const drained = (async () => {
+      for await (const _event of runClaudeCliStream(
+        {
+          spec: claudeSpec,
+          prompt: "Reply ok.",
+          executable: "/bin/claude",
+          launch: live.launch,
+        },
+        { authMode: "subscription", childEnv: {} },
+      )) {
+        // Drain stream.
+      }
+    })()
+    let deadline: ReturnType<typeof setTimeout> | undefined
+
+    live.stdout.end()
+
+    try {
+      await assert.rejects(
+        Promise.race([
+          drained,
+          new Promise<never>((_resolve, reject) => {
+            deadline = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "Claude result proof stayed pending behind error output.",
+                  ),
+                ),
+              100,
+            )
+          }),
+        ]),
+        (error: unknown) =>
+          error instanceof LlmError &&
+          error.kind === "other" &&
+          error.message.includes("outside outcome is unknown"),
+      )
+    } finally {
+      clearTimeout(deadline)
+      live.errorOutput.destroy()
+      await drained.catch(() => {})
+    }
+
+    assert.equal(live.facts[0]?.kind, "proof-lost")
+  })
+
   it("keeps a failed terminal result instead of applying silent-exit guidance", async () => {
-    const { launch, calls } = fakeLaunch(
-      [
-        '{"type":"result","subtype":"error_during_execution","result":"Target says quota exhausted."}\n',
-      ],
-      [],
-      { exitCode: 1 },
-    )
+    const { launch, calls } = fakeLaunch([
+      '{"type":"result","subtype":"error_during_execution","result":"Target says quota exhausted."}\n',
+    ])
 
     await assert.rejects(
       async () => {
@@ -400,7 +434,7 @@ describe("runClaudeCliStream", () => {
   })
 
   it("does not infer authentication from a silent Claude exit", async () => {
-    const { launch, calls } = fakeLaunch([], [], { exitCode: 1 })
+    const { launch, calls } = fakeLaunch([])
 
     await assert.rejects(
       async () => {
@@ -450,7 +484,6 @@ describe("runClaudeCliStream", () => {
 
       setImmediate(() => {
         live.stdout.end()
-        live.result.resolve({ exitCode: 1, signal: null })
         live.errorOutput.destroy(readFailure)
       })
       await drained
@@ -472,7 +505,6 @@ describe("runClaudeCliStream", () => {
         '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
       ],
       ["Unexpected CLI failure."],
-      { exitCode: 1 },
     )
     const events: LlmStreamEvent[] = []
 
@@ -497,7 +529,6 @@ describe("runClaudeCliStream", () => {
     const writeError = new Error("write EPIPE") as Error & { code: string }
     writeError.code = "EPIPE"
     const { launch, calls } = fakeLaunch([], ["CLI rejected prompt."], {
-      exitCode: 1,
       stdinWriteError: writeError,
     })
 
@@ -668,7 +699,6 @@ describe("runClaudeCliStream", () => {
         live.stdout.write(
           '{"type":"tool_progress","tool_name":"Read","elapsed_time_seconds":1}\n',
         )
-        live.result.resolve({ exitCode: 0, signal: null })
       })
       await drained
     })
@@ -698,7 +728,6 @@ describe("runClaudeCliStream", () => {
         live.stdout.end(
           '{"type":"result","subtype":"success","result":"Hi","usage":{"input_tokens":1,"output_tokens":2}}\n',
         )
-        live.result.resolve({ exitCode: 0, signal: null })
         live.errorOutput.destroy(new Error("error output read failed"))
       })
       await drained
@@ -736,7 +765,6 @@ describe("runClaudeCliStream", () => {
           live.stdout.write(
             '{"type":"tool_progress","tool_name":"Read","elapsed_time_seconds":1}\n',
           )
-          live.result.resolve({ exitCode: 0, signal: null })
         })
       })
       await drained
