@@ -17,8 +17,9 @@ violations. Six concerns feed it:
   Claude-coder / Claude-agent-SDK confinement that the import graph cannot
   express.
 - Repository checks (`repository-checks.ts`): package manifest and export-source
-  validation, Node test-runner imports, production-to-test import rejection and
-  Node built-in exclusion from browser-safe runtime closures.
+  validation, Node test-runner imports, production-to-test import rejection,
+  Node built-in exclusion from browser-safe runtime closures and desktop
+  runtime-external source, manifest and catalog ownership.
 - Product process launches (`product-process-launch-inventory.ts`,
   `product-process-launch-syntax.ts` and `product-process-launches.ts`):
   reconciles every product runtime process entry against its child-process

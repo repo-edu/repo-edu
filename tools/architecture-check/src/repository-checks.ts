@@ -6,15 +6,19 @@ import {
   type DependencyGraph,
   isRuntimeDependencyEdge,
 } from "./dependency-cruiser-runner.js"
+import { checkDesktopRuntimeDependencyOwnership } from "./desktop-runtime-dependency-checks.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { normalizeRepoPath, repoPathToAbsolute } from "./repo-paths.js"
+import {
+  collectRuntimeSourceClosure,
+  isProductionSource,
+} from "./runtime-source-closure.js"
 import type { Violation } from "./violations.js"
 
 const WORKSPACE_MANIFEST_PATTERN =
   /^(?:apps|packages|tools)\/[^/]+\/package\.json$/
 const WORKSPACE_TEST_PATTERN = /^(?:apps|packages|tools)\/.+\.test\.tsx?$/
-const TEST_SOURCE_PATTERN = /(^|\/)__tests__\/|\.test\.tsx?$/
 const DESKTOP_RENDERER_ENTRY = "apps/desktop/src/renderer.ts"
 const INDEPENDENT_BROWSER_SAFE_ROOTS = [
   "packages/renderer-host-contract/src/",
@@ -43,6 +47,7 @@ export function runRepositoryChecks(
     ...checkWorkspaceExportSources(root, inventory.worktreePaths),
     ...checkWorkspaceTestRunner(root, inventory.worktreePaths),
     ...checkBrowserSafeSourceBoundary(inventory, graph),
+    ...checkDesktopRuntimeDependencyOwnership(root, inventory, graph),
   ]
 }
 
@@ -141,13 +146,18 @@ export function checkBrowserSafeSourceBoundary(
       isProductionSource(file) &&
       INDEPENDENT_BROWSER_SAFE_ROOTS.some((root) => file.startsWith(root)),
   )
-  const closure = runtimeSourceClosure(
+  const closure = collectRuntimeSourceClosure(
     [DESKTOP_RENDERER_ENTRY, ...independentRoots],
     inventory,
     graph,
   )
 
-  const violations: Violation[] = [...closure.violations]
+  const violations: Violation[] = closure.testSourceImports.map(
+    ({ from, to }) => ({
+      file: from,
+      message: `browser-safe production source imports test source "${to}"`,
+    }),
+  )
   for (const file of [...closure.files].sort()) {
     for (const edge of graph.get(file) ?? []) {
       if (
@@ -163,57 +173,6 @@ export function checkBrowserSafeSourceBoundary(
     }
   }
   return violations
-}
-
-function runtimeSourceClosure(
-  entries: readonly string[],
-  inventory: SourceInventory,
-  graph: DependencyGraph,
-): { readonly files: Set<string>; readonly violations: Violation[] } {
-  const visited = new Set<string>()
-  const violations: Violation[] = []
-  const testImportKeys = new Set<string>()
-  const pending = [...entries]
-
-  while (pending.length > 0) {
-    const file = pending.pop()
-    if (
-      file === undefined ||
-      visited.has(file) ||
-      !inventory.fileSet.has(file)
-    ) {
-      continue
-    }
-    visited.add(file)
-    for (const edge of graph.get(file) ?? []) {
-      if (
-        !isRuntimeDependencyEdge(edge) ||
-        edge.resolved === undefined ||
-        !inventory.fileSet.has(edge.resolved) ||
-        visited.has(edge.resolved)
-      ) {
-        continue
-      }
-      if (!isProductionSource(edge.resolved)) {
-        const key = `${file}\0${edge.resolved}`
-        if (!testImportKeys.has(key)) {
-          testImportKeys.add(key)
-          violations.push({
-            file,
-            message: `browser-safe production source imports test source "${edge.resolved}"`,
-          })
-        }
-        continue
-      }
-      pending.push(edge.resolved)
-    }
-  }
-
-  return { files: visited, violations }
-}
-
-function isProductionSource(file: string): boolean {
-  return !TEST_SOURCE_PATTERN.test(file)
 }
 
 // Node's exports `*` is plain string substitution and may span `/`.
