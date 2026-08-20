@@ -224,6 +224,33 @@ describe("child-process completion routes", {
     assert.equal(warnings.length, 1)
   })
 
+  it("releases local resources when a POSIX stop operation fails", {
+    skip: !supportsProcessGroups,
+  }, async () => {
+    const stopFailure = new Error("POSIX stop operation failed")
+    const posixAdapter = createPosixChildProcessLifetimeAdapter({
+      processGroupExists: () => true,
+      signalProcessGroup(): never {
+        throw stopFailure
+      },
+    })
+    const tree = await posixAdapter.launch(
+      {
+        command: process.execPath,
+        args: ["-e", "setTimeout(() => undefined, 250)"],
+        proof: "target-exit",
+      },
+      new AbortController().signal,
+      deadlineProofStopPolicy,
+    )
+
+    await assert.rejects(tree.stopAndConfirm(), stopFailure)
+    assert.equal(tree.stdin.destroyed, true)
+    assert.equal(tree.stdout.destroyed, true)
+    assert.equal(tree.stderr.destroyed, true)
+    await tree.result
+  })
+
   it("lets a Windows target run longer than the launcher handshake bound", {
     skip: process.platform !== "win32",
   }, async () => {

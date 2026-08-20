@@ -133,43 +133,46 @@ function createOwnedTreeConfirmation(
   return {
     stopAndConfirm() {
       confirmation ??= (async () => {
-        requestStop()
-        const graceDeadline =
-          (gracefulStopStartedAt ?? Date.now()) + gracefulStopPeriodMs
-        if (
-          (await waitForProcessGroupExit(
-            processGroupId,
-            operations,
-            remainingMs(graceDeadline),
-          )) &&
-          (await settledWithin(streamsClosed, remainingMs(graceDeadline)))
-        ) {
-          return { outcome: "confirmed" }
-        }
+        try {
+          requestStop()
+          const graceDeadline =
+            (gracefulStopStartedAt ?? Date.now()) + gracefulStopPeriodMs
+          if (
+            (await waitForProcessGroupExit(
+              processGroupId,
+              operations,
+              remainingMs(graceDeadline),
+            )) &&
+            (await settledWithin(streamsClosed, remainingMs(graceDeadline)))
+          ) {
+            return { outcome: "confirmed" }
+          }
 
-        operations.signalProcessGroup(processGroupId, "SIGKILL")
-        const forcedDeadline = Date.now() + forcedStopConfirmationPeriodMs
-        if (
-          !(await waitForProcessGroupExit(
-            processGroupId,
-            operations,
-            remainingMs(forcedDeadline),
-          ))
-        ) {
+          operations.signalProcessGroup(processGroupId, "SIGKILL")
+          const forcedDeadline = Date.now() + forcedStopConfirmationPeriodMs
+          if (
+            !(await waitForProcessGroupExit(
+              processGroupId,
+              operations,
+              remainingMs(forcedDeadline),
+            ))
+          ) {
+            throw new ChildProcessTreeUnconfirmedError(
+              "The process group remained after its forced stop.",
+            )
+          }
+          if (
+            !(await settledWithin(streamsClosed, remainingMs(forcedDeadline)))
+          ) {
+            throw new ChildProcessTreeUnconfirmedError(
+              "The owned tree's output pipes stayed open after its forced stop.",
+            )
+          }
+          return { outcome: "confirmed" }
+        } catch (error) {
           releaseChildProcessLocalResources(child)
-          throw new ChildProcessTreeUnconfirmedError(
-            "The process group remained after its forced stop.",
-          )
+          throw error
         }
-        if (
-          !(await settledWithin(streamsClosed, remainingMs(forcedDeadline)))
-        ) {
-          releaseChildProcessLocalResources(child)
-          throw new ChildProcessTreeUnconfirmedError(
-            "The owned tree's output pipes stayed open after its forced stop.",
-          )
-        }
-        return { outcome: "confirmed" }
       })()
 
       return confirmation
