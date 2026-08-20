@@ -32,10 +32,7 @@ import {
   type ExaminationArchiveDatabaseHandle,
   openExaminationArchiveDatabase,
 } from "@repo-edu/host-node/examination-archive"
-import {
-  createWindowsChildProcessLifetimeAdapter,
-  resolveWindowsChildProcessLifetimeLauncherEntryUrl,
-} from "@repo-edu/host-node/windows-child-lifetime"
+import { createWindowsChildProcessLifetimeAdapter } from "@repo-edu/host-node/windows-child-lifetime"
 import type {
   ExaminationArchiveStoragePort,
   LlmPort,
@@ -94,6 +91,10 @@ import {
   loadDesktopWindowState,
   saveDesktopWindowState,
 } from "./window-state-store"
+import {
+  resolveDevelopmentWindowsChildLifetimeRuntime,
+  resolvePackagedWindowsChildLifetimeRuntime,
+} from "./windows-child-lifetime-runtime"
 
 const desktopAppName = "Repo Edu"
 
@@ -152,19 +153,17 @@ const childProcessLifetimeController =
     writeStderr: (message) => process.stderr.write(message),
     windowsAdapter:
       process.platform === "win32"
-        ? createWindowsChildProcessLifetimeAdapter({
-            executablePath: process.execPath,
-            launcherEntryPath: app.isPackaged
-              ? join(
+        ? createWindowsChildProcessLifetimeAdapter(
+            app.isPackaged
+              ? resolvePackagedWindowsChildLifetimeRuntime(
                   process.resourcesPath,
-                  "host-child-lifetime",
-                  "windows-launcher.cjs",
+                  process.execPath,
                 )
-              : fileURLToPath(
-                  resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
+              : resolveDevelopmentWindowsChildLifetimeRuntime(
+                  currentDir,
+                  process.execPath,
                 ),
-            runAsNode: true,
-          })
+          )
         : undefined,
   })
 const nodeHttpPort = createNodeHttpPort()

@@ -14,27 +14,13 @@ import {
   runWindowsChildLifetimeTarget,
   type WindowsChildLifetimeRuntime,
 } from "@repo-edu/host-node/windows-child-lifetime"
+import { resolvePackagedWindowsChildLifetimeRuntime } from "./windows-child-lifetime-runtime"
 
 const expectedStdout = "stdout:REPO-EDU"
 const expectedStderr = "stderr:repo-edu"
 const expectedExitCode = 7
 
 export const isChildLifetimeArtifactProbe = isChildProcessLifetimeArtifactProbe
-
-export function resolvePackagedWindowsChildLifetimeRuntime(
-  resourcesPath: string,
-  executablePath: string,
-): WindowsChildLifetimeRuntime {
-  return {
-    executablePath,
-    launcherEntryPath: join(
-      resourcesPath,
-      "host-child-lifetime",
-      "windows-launcher.cjs",
-    ),
-    runAsNode: true,
-  }
-}
 
 function powershellExecutable(): string {
   const windowsRoot = process.env.SystemRoot ?? "C:\\Windows"

@@ -17,6 +17,7 @@
     },
     "files": [
         "out/main/**/*",
+        "!out/main/host-child-lifetime/**/*",
         "out/preload/**/*",
         "out/renderer/**/*",
         "package.json"

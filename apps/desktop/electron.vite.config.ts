@@ -48,11 +48,15 @@ function buildWorkspaceAliases() {
   })
 }
 
-function copyMainTokenizerAssetsPlugin() {
+function copyMainRuntimeAssetsPlugin() {
   const mainOutputDir = resolve(configDir, "out/main")
   const grammarAssetSource = resolve(
     repoRoot,
     "packages/tree-sitter-grammar-assets/src/assets",
+  )
+  const windowsLauncherSource = resolve(
+    repoRoot,
+    "packages/host-node/resources/host-child-lifetime",
   )
   const tokenizerEngineSource = configRequire.resolve(
     "web-tree-sitter/web-tree-sitter.wasm",
@@ -60,7 +64,7 @@ function copyMainTokenizerAssetsPlugin() {
   )
 
   return {
-    name: "copy-main-tokenizer-assets",
+    name: "copy-main-runtime-assets",
     apply: "build" as const,
     closeBundle() {
       cpSync(grammarAssetSource, resolve(mainOutputDir, "assets"), {
@@ -71,6 +75,11 @@ function copyMainTokenizerAssetsPlugin() {
         tokenizerEngineSource,
         resolve(mainOutputDir, "web-tree-sitter.wasm"),
         { force: true },
+      )
+      cpSync(
+        windowsLauncherSource,
+        resolve(mainOutputDir, "host-child-lifetime"),
+        { force: true, recursive: true },
       )
     },
   }
@@ -110,7 +119,7 @@ const workspaceAliases = buildWorkspaceAliases()
 
 export default defineConfig({
   main: {
-    plugins: [copyMainTokenizerAssetsPlugin()],
+    plugins: [copyMainRuntimeAssetsPlugin()],
     resolve: {
       alias: workspaceAliases,
     },

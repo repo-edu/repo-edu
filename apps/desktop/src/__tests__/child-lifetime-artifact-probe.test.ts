@@ -8,7 +8,10 @@ import {
   resolveWindowsChildProcessLifetimeLauncherEntryUrl,
   runWindowsChildLifetimeTarget,
 } from "@repo-edu/host-node/windows-child-lifetime"
-import { resolvePackagedWindowsChildLifetimeRuntime } from "../child-lifetime-artifact-probe.js"
+import {
+  resolveDevelopmentWindowsChildLifetimeRuntime,
+  resolvePackagedWindowsChildLifetimeRuntime,
+} from "../windows-child-lifetime-runtime.js"
 
 const launcherEntryPath = fileURLToPath(
   resolveWindowsChildProcessLifetimeLauncherEntryUrl(),
@@ -20,7 +23,28 @@ const targetScript = [
   "process.stdin.on('end', () => { process.stdout.write(input.toUpperCase()) })",
 ].join("; ")
 
-describe("packaged Windows child-process lifetime runtime", () => {
+describe("desktop Windows child-process lifetime runtime", () => {
+  it("resolves the copied launcher from the development main output", () => {
+    const mainOutputDirectory = join("root", "out", "main")
+    const executablePath = join("root", "electron.exe")
+
+    assert.deepEqual(
+      resolveDevelopmentWindowsChildLifetimeRuntime(
+        mainOutputDirectory,
+        executablePath,
+      ),
+      {
+        executablePath,
+        launcherEntryPath: join(
+          mainOutputDirectory,
+          "host-child-lifetime",
+          "windows-launcher.cjs",
+        ),
+        runAsNode: true,
+      },
+    )
+  })
+
   it("keeps the Electron executable and launcher entry host-owned", () => {
     const resourcesPath = join("root", "resources")
     const executablePath = join("root", "RepoEdu.exe")

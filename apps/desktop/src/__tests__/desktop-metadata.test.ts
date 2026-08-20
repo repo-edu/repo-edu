@@ -51,6 +51,7 @@ describe("desktop Windows child-process lifetime packaging", () => {
     )) as {
       asarUnpack?: unknown
       electronFuses?: { runAsNode?: unknown }
+      files?: unknown
       win?: { extraResources?: unknown }
     }
 
@@ -65,6 +66,11 @@ describe("desktop Windows child-process lifetime packaging", () => {
       filter: ["windows-launcher.cjs"],
     }
     assert.deepEqual(builderConfig.win?.extraResources, [launcherResource])
+    assert.ok(
+      Array.isArray(builderConfig.files) &&
+        builderConfig.files.includes("!out/main/host-child-lifetime/**/*"),
+      "the development launcher copy must not become a second packaged entry",
+    )
     assert.equal(typeof packageJson.dependencies?.koffi, "string")
     assert.equal(
       packageJson.dependencies?.koffi,

@@ -24,6 +24,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/child-lifetime-artifact-probe.ts`: packaged and development Electron
   proof for the shared controller and Codex SDK host process. Packaged Windows
   also proves the fixed `runAsNode` launcher and kill-on-close Windows job.
+- `src/windows-child-lifetime-runtime.ts`: desktop-owned launcher layouts for
+  the copied development asset and the packaged Windows resource.
 - `src/codex-sdk-host-command.ts`: fixed Codex SDK host command. Electron runs
   the bundled `codex-sdk-host.js` entry in Node mode through the shared
   child-process lifetime controller.
@@ -33,7 +35,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
 - `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side dialog
 - `packages/host-node/resources/host-child-lifetime/windows-launcher.cjs`:
-  shared launcher source copied into the packaged Windows resources
+  shared launcher source copied beside the development main bundle and into
+  the packaged Windows resources
 - `scripts/validate-program-gate-artifact.mjs` and
   `scripts/validate-child-lifetime-artifact.mjs`: shipped host-contract proofs
 
@@ -56,7 +59,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   program gate, the shipped child-process lifetime matrix and the shell boundary
   against that packaged output.
 - Windows packaging must keep the `runAsNode` fuse enabled, unpack Koffi native
-  files and ship the fixed launcher as an extra resource.
+  files and ship the fixed launcher as an extra resource. Development builds
+  copy the same launcher beside the main bundle; the packaged archive excludes
+  that development copy.
 - The main bundle and Codex SDK host process are separate fixed entries. The
   main process owns request admission. The shared child-process lifetime
   controller owns outcome truth. The SDK host process owns one SDK turn and
