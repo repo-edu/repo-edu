@@ -135,6 +135,18 @@ reads along and rules by exception: a go on the reconciled outcome is the
 acceptance, and a reservation on any item reopens it, including a
 reservation the report never raised.
 
+One kind of finding is not covered by a plain go: a finding that carries a
+trade block no ruling has settled needs its own answer. When the user picks
+the simpler mechanism, that mechanism becomes the finding's required
+correction, revised in the discussion like any other revision. When that
+ruling overturns a reason the plan records, the reason's correction lands
+in the plan through this round's [Plan corrections](#plan-corrections)
+commit with the user's reason beside it, so no later round re-reads the
+stale objection. When the user keeps the machinery, the ruling and its
+reason land in the plan through the same commit, and the finding follows
+the normal paths: a correction the ruling leaves standing is applied, and
+a finding the ruling dissolves lands as declined.
+
 After the user accepts the round's findings, apply them. One acceptance covers
 the whole round: the code fixes here and the plan corrections in `../plan`. Then
 rebuild the verification set from the packages the round audited and the packages
@@ -228,6 +240,38 @@ on any guard behind it. It never moves the tier: a rare A-tier fault is still
 A-tier. A trace that ends with the same behaviour shipping is not a finding, so
 drop it rather than report it.
 
+At tiers A to C, a finding whose three tokens all show risk also carries a
+trade block: its growth tag is not `none`, its reach is not `ordinary` and
+its complexity is not `none`. Such a finding suspects machinery, covers a
+situation the user rarely meets and plants standing structure. The round
+prices that trade in the finding itself, instead of leaving it for a later
+run of rounds. A D-tier finding carries no trade block: pricing costs more
+than the tier is worth. A finding on machinery this round already prices
+under [Pricing a run](#pricing-a-run) carries none either; the run's
+pricing is the one pricing, and its ruling covers the finding.
+
+The block starts on its own line prefixed `Trade:`, after the trace, and
+gives three short answers:
+
+- The simplest mechanism that works and satisfies `../plan/BOUNDARIES.md`.
+  Deletion or doing nothing counts when either is enough.
+- What the machinery gives the user over that mechanism.
+- Whether a boundary entry or a recorded user decision already settles the
+  choice.
+
+Check the first answer against the plan before offering it. When the plan
+records a reason that mechanism fails, and the reason holds against the
+code, say that no simpler mechanism exists instead of offering one. When
+the recorded reason looks wrong, offer the mechanism and quote the plan's
+objection beside it, so the user rules with both in view. The plan can
+settle whether a mechanism works. It never settles whether machinery is
+worth its cost, because a round may have invented the plan's requirement:
+that is the anchor-rule trap `../plan/GROWTH-PATTERNS.md` records. Only a
+boundary entry or a recorded user decision settles worth.
+
+The block changes nothing about where the finding lives. The finding stays
+in the numbered list with its number, its tier and its metadata bullet.
+
 ## Growth tags
 
 Every finding carries a growth tag naming the patterns in
@@ -240,13 +284,15 @@ under [Round](#round), so it survives in the log after the chat is gone. A
 tag that reaches only the report is lost, and the next round is back to
 having no memory.
 
-The bar is could it be, not is it. A false positive costs one bracket. A
+The bar is could it be, not is it. A false positive costs one bracket, or
+one trade block and its ruling when the other two tokens also show risk. A
 false negative costs the loop this rule exists to break: a run of rounds each
 repairing machinery that no boundary asks for, every round locally defensible
 and no round able to see the run. The tag is a suspicion, never a verdict, and
-it blocks nothing. A finding tagged `[growth:hardening]` still lands. So there is no
-reason to suppress one, and the signal lives in the run rather than the
-instance.
+it blocks nothing. A finding tagged `[growth:hardening]` still lands. So
+there is no reason to suppress one. The tag's cross-round signal lives in
+the run; a single risky finding prices its own trade inside its trade
+block, per [Finding shape](#finding-shape), and still lands.
 
 The tag is what gives a fresh round the memory it otherwise lacks. Before
 drafting findings, read the full bodies of the episode's audit commits, found
@@ -268,9 +314,11 @@ shows the unpriced-trade run named under
 run and prices it instead, before its tiered findings. Two answers, both
 short:
 
-- The simplest mechanism that still satisfies `../plan/BOUNDARIES.md`. Read
-  the boundary the machinery invokes and state only what it actually asks
-  for.
+- The simplest mechanism that works and still satisfies
+  `../plan/BOUNDARIES.md`. Read the boundary the machinery invokes and state
+  only what it actually asks for. Check the mechanism against the plan's
+  recorded reasons, the same check the trade block under
+  [Finding shape](#finding-shape) runs.
 - What the current design buys over that mechanism, stated as what the user
   gets, not as what the code does.
 
@@ -288,8 +336,9 @@ the user accepts it. When the trade is genuinely worth its cost, the user says
 so, the round records the ruling in the plan with its reason and the
 pattern stops being a signal for that machinery.
 
-Pricing is expensive, so it runs on a run of tags and not on every round. A
-single tagged finding is tagged and left alone.
+Pricing a run is expensive, so it runs only on a run of tags. A single
+tagged finding is not priced here; when its three tokens all show risk, its
+own trade block under [Finding shape](#finding-shape) prices it.
 
 ## Reach and complexity
 
@@ -413,9 +462,9 @@ word.
 Open by naming the workflow that ran, an implementation audit in this Repo Edu
 repo, then the plan file, its ready commit, the episode's commit range and
 the round's scope: complete, the audited step or the audited step range. Then report the
-coverage table with its coverage line. Then, when a growth-tag number runs
-across rounds, the run statement and the pricing under
-[Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
+coverage table with its coverage line. Then, when a growth pattern or the
+reach and complexity pair runs across rounds, the run statement and the
+pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
 carrying its growth, reach and complexity tokens, and the plan corrections.
 Then write the report to its file under [Report file](#report-file) and stop
 there.
