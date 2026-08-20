@@ -286,14 +286,16 @@ export function createChildProcessLifetimeController(
           ) as ChildProcessTargetResult<TCompleted, TFailed>
         }
       }, recordProofLoss)
-      let completionStarted = false
+      // Target exit may precede delivery of a buffered reported result. Keep
+      // result admission open while stop-and-confirm closes the proving streams.
+      let outcomeSelectionStarted = false
       const complete = (): void => {
-        if (completionStarted) {
-          return
-        }
-        completionStarted = true
         void (async () => {
           const treeConfirmation = await confirm()
+          if (outcomeSelectionStarted) {
+            return
+          }
+          outcomeSelectionStarted = true
           if (treeConfirmation.status === "unconfirmed") {
             settled.resolve(
               selectedOutcome(facts, targetResult, treeConfirmation),
@@ -367,7 +369,7 @@ export function createChildProcessLifetimeController(
             )
             return
           }
-          if (completionStarted) {
+          if (outcomeSelectionStarted) {
             reportSecondaryFailure(
               request.command,
               result.outcome === "failed"

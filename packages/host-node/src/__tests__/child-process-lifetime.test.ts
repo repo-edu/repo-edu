@@ -236,7 +236,31 @@ describe("child-process completion outcomes", () => {
     assert.equal(diagnostics[0]?.failure, failure)
   })
 
-  it("returns unknown when the target ends before its reported result arrives", async () => {
+  it("accepts a reported result while target-exit completion confirms the tree", async () => {
+    const harness = createAdapterHarness()
+    const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
+    const { tree } = await launchReported(harness, diagnostics)
+    harness.result.resolve({ exitCode: 0, signal: null })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const early = await Promise.race([
+      tree.outcome.then(() => "settled" as const),
+      Promise.resolve("pending" as const),
+    ])
+    assert.equal(early, "pending")
+
+    tree.reportResult({ outcome: "completed", value: "reply" })
+    harness.confirmation.resolve()
+
+    assert.deepEqual(await tree.outcome, {
+      outcome: "completed",
+      targetResult: { exitCode: 0, signal: null },
+      value: "reply",
+    })
+    assert.deepEqual(diagnostics, [])
+  })
+
+  it("returns unknown when tree confirmation closes without a reported result", async () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
