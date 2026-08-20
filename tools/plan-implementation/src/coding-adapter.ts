@@ -120,7 +120,6 @@ function defaultLaunch(
       cwd: request.repoEduRoot,
       env: { ...process.env },
       proof: "reported",
-      shell: false,
       ...(signal === undefined ? {} : { signal }),
     })
   }

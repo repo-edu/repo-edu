@@ -14,7 +14,6 @@ import type {
 } from "../cli-process"
 import {
   buildClaudeCliArgs,
-  buildClaudeCliLaunchOptions,
   findClaudeCliExecutable,
   runClaudeCliStream,
 } from "../cli-runner"
@@ -43,7 +42,6 @@ type FakeLaunchCall = {
   readonly cwd: string | URL | undefined
   readonly env: NodeJS.ProcessEnv | undefined
   readonly facts: ReportedFact[]
-  readonly shell: boolean | string | undefined
   stdin: string
   stopped: boolean
 }
@@ -60,7 +58,6 @@ function fakeLaunch(
       args: request.args,
       cwd: request.cwd,
       env: request.env,
-      shell: request.shell,
       stdin: "",
       stopped: false,
       facts: [],
@@ -235,21 +232,6 @@ describe("buildClaudeCliArgs", () => {
       "--effort",
       "max",
     ])
-  })
-})
-
-describe("buildClaudeCliLaunchOptions", () => {
-  it("runs Windows cmd shims through a shell", () => {
-    assert.equal(
-      buildClaudeCliLaunchOptions("C:\\Users\\me\\bin\\claude.cmd", {}, "win32")
-        .shell,
-      true,
-    )
-    assert.equal(
-      buildClaudeCliLaunchOptions("C:\\Users\\me\\bin\\claude.exe", {}, "win32")
-        .shell,
-      false,
-    )
   })
 })
 

@@ -95,7 +95,7 @@ describe("packaged Windows child-process lifetime runtime", () => {
     assert.equal(output, "REPO-EDU")
   })
 
-  it("preserves Node shell behavior inside the assigned launcher", {
+  it("preserves literal target arguments inside the assigned launcher", {
     skip: process.platform !== "win32",
   }, async () => {
     const run = await runWindowsChildLifetimeTarget(
@@ -104,15 +104,18 @@ describe("packaged Windows child-process lifetime runtime", () => {
         launcherEntryPath,
       },
       {
-        command: "echo",
-        args: ["repo-edu-shell"],
-        shell: true,
+        command: process.execPath,
+        args: [
+          "-e",
+          "process.stdout.write(process.argv[1])",
+          "repo-edu&echo shell",
+        ],
       },
     )
 
     assert.equal(run.result.exitCode, 0)
     assert.equal(run.result.signal, null)
-    assert.equal(run.result.stdout.trim(), "repo-edu-shell")
+    assert.equal(run.result.stdout, "repo-edu&echo shell")
     assert.equal(run.result.stderr, "")
   })
 

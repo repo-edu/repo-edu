@@ -48,7 +48,7 @@ describe("Windows launcher protocol", () => {
     )
   })
 
-  it("serializes one complete target environment unchanged", () => {
+  it("serializes target argv and one complete environment unchanged", () => {
     const command = createWindowsLaunchCommand({
       command: "target.exe",
       args: ["--flag"],
@@ -57,7 +57,6 @@ describe("Windows launcher protocol", () => {
         ELECTRON_RUN_AS_NODE: "must-not-reach-target",
         REPO_EDU_PROTOCOL_TEST: "present",
       },
-      shell: "cmd.exe",
     })
 
     assert.equal(command.kind, "launch")
@@ -69,7 +68,7 @@ describe("Windows launcher protocol", () => {
       "must-not-reach-target",
     )
     assert.equal(command.target.env.REPO_EDU_PROTOCOL_TEST, "present")
-    assert.equal(command.target.shell, "cmd.exe")
+    assert.equal("shell" in command.target, false)
   })
 
   it("does not restore a host variable the caller removed", () => {

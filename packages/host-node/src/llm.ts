@@ -58,7 +58,6 @@ function createClaudeCliLaunch(
       cwd: request.cwd,
       env: request.env,
       proof: "reported",
-      shell: request.shell,
       signal: request.signal,
     })
   }

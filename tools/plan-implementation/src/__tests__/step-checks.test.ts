@@ -156,7 +156,6 @@ describe("step checks", () => {
         cwd: "/repo-edu",
         env: { ...process.env },
         proof: "target-exit",
-        shell: false,
         signal: controller.signal,
       },
     ])

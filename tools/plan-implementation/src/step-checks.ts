@@ -73,7 +73,6 @@ export function createStepCommandExecutor(
         cwd: request.cwd,
         env: { ...process.env },
         proof: "target-exit",
-        shell: false,
         ...(request.signal === undefined ? {} : { signal: request.signal }),
       })
       child.stdin.end()

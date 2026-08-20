@@ -1,11 +1,10 @@
-export const windowsLauncherProtocolVersion = 2
+export const windowsLauncherProtocolVersion = 3
 
 export type WindowsChildLifetimeTarget = {
   readonly command: string
   readonly args?: readonly string[]
   readonly cwd?: string
   readonly env?: Readonly<NodeJS.ProcessEnv>
-  readonly shell?: boolean | string
 }
 
 export type WindowsLauncherReadyMessage = {
@@ -66,7 +65,6 @@ export function createWindowsLaunchCommand(target: WindowsChildLifetimeTarget) {
       args: [...(target.args ?? [])],
       cwd: target.cwd,
       env: buildTargetEnvironment(target.env),
-      shell: target.shell,
     },
   } as const
 }

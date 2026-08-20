@@ -235,7 +235,6 @@ export function createPosixChildProcessLifetimeAdapter(
         // of changes laid over the host's. A caller that removed a variable
         // must not get it back from `process.env`.
         env: request.env,
-        shell: request.shell,
         stdio: "pipe",
       })
 

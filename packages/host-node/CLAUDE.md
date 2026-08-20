@@ -94,6 +94,8 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   adapter, never changes laid over `process.env`. A caller that removed a
   variable must not get it back from the host. Only an absent environment
   falls back to the host's own.
+- A launch request names one executable and its argument array. Platform
+  adapters never invoke a shell on the caller's behalf.
 - The shared child-process lifetime controller owns the run outcome. Proof loss
   returns unknown, an intact cancellation returns cancelled and an intact
   result returns failed or completed after the whole tree is confirmed gone.

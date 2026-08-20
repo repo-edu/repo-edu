@@ -180,7 +180,6 @@ describe("runner-owned plan-step Codex SDK host process", () => {
       cwd: request.repoEduRoot,
       env: { ...process.env },
       proof: "reported",
-      shell: false,
     })
   })
 

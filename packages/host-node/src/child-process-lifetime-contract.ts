@@ -7,7 +7,6 @@ export type ChildProcessLifetimeLaunch = {
   readonly args?: readonly string[]
   readonly cwd?: string
   readonly env?: Readonly<NodeJS.ProcessEnv>
-  readonly shell?: boolean | string
   readonly signal?: AbortSignal
   readonly proof: ChildProcessLifetimeProof
 }

@@ -29,6 +29,8 @@ Provider adapters for the `LlmTextClient` contract from
 - An aborted Codex turn throws a `DOMException` named `AbortError`. The
   application layer maps this to public cancellation.
 - Subscription Claude keeps prompt, stream and terminal-result meaning here.
+  On Windows it discovers the native `claude.exe`; it never launches a command
+  shim through a shell.
   It reports an explicit terminal stream result unchanged. A missing terminal
   result, broken result path or prompt-stream failure becomes proof loss. It
   does not infer authentication or another provider result from process exit or

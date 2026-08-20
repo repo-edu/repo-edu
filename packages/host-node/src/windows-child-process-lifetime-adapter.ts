@@ -810,7 +810,6 @@ export function createWindowsChildProcessLifetimeAdapter(
             args: request.args,
             cwd: request.cwd,
             env: request.env,
-            shell: request.shell,
             signal: request.signal,
           },
           stopPolicy,

@@ -69,23 +69,6 @@ export function buildClaudeCliArgs(spec: LlmModelSpec): string[] {
   return args
 }
 
-export function buildClaudeCliLaunchOptions(
-  executable: string,
-  childEnv: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform = process.platform,
-  cwd?: string,
-): {
-  readonly cwd?: string
-  readonly env: NodeJS.ProcessEnv
-  readonly shell: boolean | string
-} {
-  return {
-    ...(cwd === undefined ? {} : { cwd }),
-    env: childEnv,
-    shell: platform === "win32" && executable.toLowerCase().endsWith(".cmd"),
-  }
-}
-
 export async function* runClaudeCliStream(
   options: ClaudeCliRunOptions,
   resolved: ResolvedClaudeSubscriptionAuth,
@@ -109,20 +92,13 @@ export async function* runClaudeCliStream(
   }
 
   const workingDirectory = createClaudeCliWorkingDirectory()
-  const launchOptions = buildClaudeCliLaunchOptions(
-    executable,
-    resolved.childEnv,
-    process.platform,
-    workingDirectory,
-  )
   let child: Awaited<ReturnType<ClaudeCliLaunch>>
   try {
     child = await options.launch({
       command: executable,
       args: buildClaudeCliArgs(options.spec),
-      cwd: launchOptions.cwd ?? workingDirectory,
-      env: launchOptions.env,
-      shell: launchOptions.shell,
+      cwd: workingDirectory,
+      env: resolved.childEnv,
       signal: options.signal,
     })
   } catch (error) {
@@ -255,8 +231,7 @@ export function findClaudeCliExecutable(
 }
 
 function claudeExecutableCandidates(env: NodeJS.ProcessEnv): string[] {
-  const names =
-    process.platform === "win32" ? ["claude.exe", "claude.cmd"] : ["claude"]
+  const names = process.platform === "win32" ? ["claude.exe"] : ["claude"]
   const candidates: string[] = []
   for (const dir of (env.PATH ?? "").split(delimiter)) {
     if (dir.length === 0) continue

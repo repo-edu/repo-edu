@@ -2,7 +2,7 @@ const { spawn } = require("node:child_process")
 const { createReadStream, createWriteStream } = require("node:fs")
 const { createInterface } = require("node:readline")
 
-const protocolVersion = 2
+const protocolVersion = 3
 const controlInput = createReadStream(null, { fd: 3, autoClose: false })
 const controlOutput = createWriteStream(null, { fd: 4, autoClose: false })
 const controlLines = createInterface({
@@ -60,11 +60,7 @@ function parseLaunchCommand(line) {
       typeof command.target.cwd === "string"
     ) ||
     !isStringRecord(command.target.env) ||
-    !(
-      command.target.shell === undefined ||
-      typeof command.target.shell === "boolean" ||
-      typeof command.target.shell === "string"
-    )
+    command.target.shell !== undefined
   ) {
     throw new Error("Invalid Windows launcher command.")
   }
@@ -75,7 +71,6 @@ function launchTarget(target) {
   const child = spawn(target.command, target.args, {
     cwd: target.cwd,
     env: target.env,
-    shell: target.shell,
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   })
