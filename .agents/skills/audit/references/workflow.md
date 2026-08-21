@@ -1,5 +1,11 @@
 # Implementation audit workflow
 
+One shared workflow behind two launchers: the Claude command
+`.claude/commands/audit.md` and the Codex skill
+`.agents/skills/audit/SKILL.md`. Each launcher carries only what is
+specific to it and points here for the rest, so the two cannot drift
+apart. Where a launcher and this file disagree, this file is right.
+
 Interpret the invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
 may be given as `plan-<topic>.md` or `../plan/plan-<topic>.md`. Interpret `3-5`
@@ -252,20 +258,22 @@ under [Pricing a run](#pricing-a-run) carries none either; the run's
 pricing is the one pricing, and its ruling covers the finding.
 
 The block starts on its own line prefixed `Trade:`, after the trace, and
-gives three short answers:
+gives four short answers:
 
 - The simplest mechanism that works and satisfies `../plan/BOUNDARIES.md`.
   Deletion or doing nothing counts when either is enough.
+- What the machinery costs to build and own. Name the rule, state or owner
+  concern it leaves behind, not only its complexity token.
 - What the machinery gives the user over that mechanism.
 - Whether a boundary entry or a recorded user decision already settles the
   choice.
 
 When the correction is itself that simplest mechanism, there is no trade
-to price, and writing the three answers restates the correction as if a
+to price, and writing the four answers restates the correction as if a
 simpler rival existed. Collapse the block to one sentence naming that
 fact and what settles it:
 `Trade: the correction is the simplest mechanism; boundary 4 settles it.`
-A full three-answer block then always marks a real choice for the user's
+A full four-answer block then always marks a real choice for the user's
 ruling, and the one-sentence form says there is nothing to weigh.
 
 Check the first answer against the plan before offering it. When the plan
@@ -276,7 +284,9 @@ objection beside it, so the user rules with both in view. The plan can
 settle whether a mechanism works. It never settles whether machinery is
 worth its cost, because a round may have invented the plan's requirement:
 that is the anchor-rule trap `../plan/GROWTH-PATTERNS.md` records. Only a
-boundary entry or a recorded user decision settles worth.
+boundary entry or a recorded user decision settles worth. Ground the cost
+answer in the standing structure the correction plants. The complexity
+token names its heaviest kind; the cost answer names the actual burden.
 
 The block changes nothing about where the finding lives. The finding stays
 in the numbered list with its number, its tier and its metadata bullet.
@@ -320,14 +330,18 @@ user's judgment.
 When a pattern runs across rounds, or the reach and complexity pair
 shows the unpriced-trade run named under
 [Reach and complexity](#reach-and-complexity), the round stops adding to the
-run and prices it instead, before its tiered findings. Two answers, both
+run and prices it instead, before its tiered findings. Four answers, all
 short:
 
+- How rare the defended event is. Ground this in the reach tokens and the
+  conditions named by the rounds in the run.
 - The simplest mechanism that works and still satisfies
   `../plan/BOUNDARIES.md`. Read the boundary the machinery invokes and state
   only what it actually asks for. Check the mechanism against the plan's
   recorded reasons, the same check the trade block under
   [Finding shape](#finding-shape) runs.
+- What the current design costs to build and own. Name the standing rule,
+  state or owner concern.
 - What the current design buys over that mechanism, stated as what the user
   gets, not as what the code does.
 

@@ -1,5 +1,11 @@
 # Implementation-finding vet workflow
 
+One shared workflow behind two launchers: the Claude command
+`.claude/commands/vet.md` and the Codex skill
+`.agents/skills/vet/SKILL.md`. Each launcher carries only what is
+specific to it and points here for the rest, so the two cannot drift
+apart. Where a launcher and this file disagree, this file is right.
+
 The vet's input is another AI assistant's implementation-audit report on this
 repo's code, an `AUDIT-*.md` file at this repo's root written by the audit
 workflow. [Report discovery](#report-discovery) says how the file is found.
@@ -65,7 +71,8 @@ Classify the finding as one of five kinds.
 - A reopening of a decision the plan settled. Quote the decision from the
   plan, name the finding's evidence and judge how serious that evidence is.
   Correctness or quality evidence can reopen a settled decision. Taste never
-  does. Every reopening goes to the user's ruling.
+  does. Whether the vet may accept the reopening or must hand it to the
+  user is decided under the verdict rules.
 - New machinery no boundary asks for. Read `../plan/BOUNDARIES.md` and
   `../plan/GROWTH-PATTERNS.md`. When no boundary asks for the machinery, do
   not settle the trade. State the simplest mechanism the boundaries do ask
@@ -124,14 +131,18 @@ should carry one and does not gets revise. The block has two valid forms.
 When the correction is itself the simplest mechanism, the block is one
 sentence naming that fact and what settles it; verify both against the
 code and the named boundary or decision yourself. Otherwise the block
-gives three answers: check each against its source yourself: the offered
-mechanism satisfies `../plan/BOUNDARIES.md`, a claim that no simpler
-mechanism exists rests on a plan-recorded reason that holds against the
-code, and a claim that the choice is settled points at a boundary entry or
-a recorded user decision. A three-answer block whose offered mechanism is
-the correction itself gets revise: state the one-sentence form. An
-unsettled block goes to the user's ruling, never to a verdict of the
-vet's own.
+gives four answers: check each against its source yourself: the offered
+mechanism satisfies `../plan/BOUNDARIES.md`, the build and ownership cost
+matches the standing structure the correction plants, the claimed user
+benefit follows from the finding's trace and its sources, and a claim
+that the choice is settled points at a boundary entry or a recorded user
+decision. A claim that no simpler mechanism exists rests on a
+plan-recorded reason that holds against the code. A four-answer block
+whose offered mechanism is the correction itself gets revise: state the
+one-sentence form. When run pricing replaces the block, check its
+mechanism, cost and benefit with the same tests, and check its rarity
+against the round evidence. An unsettled block or run price goes to the
+user's ruling, never to a verdict of the vet's own.
 
 ## Verdicts
 
@@ -139,11 +150,30 @@ Return one verdict per finding, in the report's order: accept, revise, drop or
 needs the user's ruling. A revise verdict states the revision. A drop verdict
 states why. Keep each verdict to a few short sentences.
 
-The user's ruling is needed for three things: a reopening of a decision the
-plan settled, machinery with no boundary behind it, and an unsettled trade
-block. Name what axis 1 classified, state what the grounded and fix-follows
-checks found, and stop there. Never settle one of these on the vet's own
-authority.
+A reopening of a settled decision takes one of two forms:
+
+- A narrowing keeps the decision's reason and shrinks what the decision
+  covers. When the grounded check verified the new evidence first-hand and
+  the correction keeps the recorded reason intact, the verdict is accept,
+  marked "accept, noted as a narrowing". It still quotes the superseded
+  sentence and the new evidence, so the change lands as ruled, not slipped
+  in. The user's ruling on the round covers it; the vet asks for no
+  separate ruling.
+- A full reversal drops the decision or its reason. The verdict is needs
+  the user's ruling: state the superseded decision, the new evidence, how
+  serious it is and what the grounded and fix-follows checks found. Never
+  settle a full reversal on the vet's own authority.
+
+A reversal bundled onto a defect that a smaller correction resolves is cut
+back under axis 3 instead, and the verdict is revise. The user directed
+adopting this split from the plan repo's vet on 2026-08-21; this origin
+note stands in place of a case.
+
+The user's ruling is needed for three things: a full reversal of a decision
+the plan settled, machinery with no boundary behind it, and an unsettled
+trade block. Name what axis 1 classified, state what the grounded and
+fix-follows checks found, and stop there. Never settle one of these on the
+vet's own authority.
 
 Before returning the verdicts, look for the sibling report: the same plan
 name, scope and sha with the other auditor token. When it exists, read it and
