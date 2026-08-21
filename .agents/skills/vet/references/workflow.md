@@ -120,12 +120,17 @@ Then check the trade block. At tiers A to C, a finding whose growth tag is
 not `none`, whose reach is not `ordinary` and whose complexity is not
 `none` carries a `Trade:` block after its trace, unless the report prices
 that machinery in a run pricing above the tiered findings. A finding that
-should carry one and does not gets revise. Check the block's three answers
-against their sources yourself: the offered mechanism satisfies
-`../plan/BOUNDARIES.md`, a claim that no simpler mechanism exists rests on
-a plan-recorded reason that holds against the code, and a claim that the
-choice is settled points at a boundary entry or a recorded user decision.
-An unsettled block goes to the user's ruling, never to a verdict of the
+should carry one and does not gets revise. The block has two valid forms.
+When the correction is itself the simplest mechanism, the block is one
+sentence naming that fact and what settles it; verify both against the
+code and the named boundary or decision yourself. Otherwise the block
+gives three answers: check each against its source yourself: the offered
+mechanism satisfies `../plan/BOUNDARIES.md`, a claim that no simpler
+mechanism exists rests on a plan-recorded reason that holds against the
+code, and a claim that the choice is settled points at a boundary entry or
+a recorded user decision. A three-answer block whose offered mechanism is
+the correction itself gets revise: state the one-sentence form. An
+unsettled block goes to the user's ruling, never to a verdict of the
 vet's own.
 
 ## Verdicts

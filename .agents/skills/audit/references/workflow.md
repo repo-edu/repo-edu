@@ -260,6 +260,14 @@ gives three short answers:
 - Whether a boundary entry or a recorded user decision already settles the
   choice.
 
+When the correction is itself that simplest mechanism, there is no trade
+to price, and writing the three answers restates the correction as if a
+simpler rival existed. Collapse the block to one sentence naming that
+fact and what settles it:
+`Trade: the correction is the simplest mechanism; boundary 4 settles it.`
+A full three-answer block then always marks a real choice for the user's
+ruling, and the one-sentence form says there is nothing to weigh.
+
 Check the first answer against the plan before offering it. When the plan
 records a reason that mechanism fails, and the reason holds against the
 code, say that no simpler mechanism exists instead of offering one. When
