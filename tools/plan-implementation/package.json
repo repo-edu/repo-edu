@@ -1,8 +1,10 @@
 {
   "name": "@repo-edu/plan-implementation",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
+    "@openai/codex": "0.149.0",
     "@openai/codex-sdk": "catalog:",
     "@repo-edu/host-node": "workspace:*",
     "cli-truncate": "6.1.1",
@@ -16,7 +18,8 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run typecheck",
+    "check": "pnpm run typecheck && pnpm run test:app-server-contract",
+    "test:app-server-contract": "node --import tsx --test src/__tests__/codex-app-server-contract.test.ts",
     "test": "node --import tsx --test src/__tests__/*.test.ts"
   }
 }
