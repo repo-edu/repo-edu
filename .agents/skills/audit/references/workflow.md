@@ -488,6 +488,14 @@ Name it `AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`:
 
 The file is gitignored, so writing it keeps the round read-only; it is the
 one file the round writes before its fix phase. The session that lands the
-round's closing commit deletes the round's `AUDIT-*` and `VET-*` files in
-the same turn: the commit body carries the accepted findings durably, and a
-report left behind goes stale against the moved HEAD.
+round's closing commit deletes that round's own report and its `VET-` twin
+in the same turn: the commit body carries the accepted findings durably,
+and a report left behind goes stale against the moved HEAD. Which round a
+file belongs to is read from the auditor token in its name, never from who
+wrote it: the `VET-` twin is the other assistant's commentary on this
+round's report and is consumed with it. Files carrying the other auditor
+token belong to the other assistant's round and are never deleted here.
+They stay until that round lands its own closing commit, or until the user
+says its findings are settled. The user directed this split on 2026-08-21
+after a session deleted the other assistant's still-open report; this
+origin note stands in place of a case.
