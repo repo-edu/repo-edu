@@ -10,6 +10,8 @@ function createMapper(): {
   const events: CodingEvent[] = []
   const mapper = createCodexAppServerEventMapper({
     threadId: "thread-1",
+    effectiveApprovalPolicy: "on-request",
+    effectiveApprovalsReviewer: "auto_review",
     emit: (event) => events.push(event),
   })
   return { events, notify: mapper.notification }
@@ -31,6 +33,37 @@ function usageBreakdown(totalTokens: number) {
 }
 
 describe("Codex app-server semantic event mapper", () => {
+  it("preserves every effective granular approval-policy field semantically", () => {
+    const events: CodingEvent[] = []
+    createCodexAppServerEventMapper({
+      threadId: "thread-1",
+      effectiveApprovalPolicy: {
+        granular: {
+          mcp_elicitations: true,
+          request_permissions: false,
+          rules: true,
+          sandbox_approval: false,
+        },
+      },
+      effectiveApprovalsReviewer: "user",
+      emit: (event) => events.push(event),
+    })
+
+    assert.deepEqual(events[0], {
+      kind: "thread-started",
+      threadId: "thread-1",
+      effectiveApprovalPolicy: {
+        mode: "granular",
+        mcpElicitations: true,
+        requestPermissions: false,
+        rules: true,
+        sandboxApproval: false,
+        skillApproval: null,
+      },
+      effectiveApprovalsReviewer: "user",
+    })
+  })
+
   it("maps stable item lifecycles and suppresses repeated narrative, todo, and web events", () => {
     const { events, notify } = createMapper()
 
@@ -176,7 +209,12 @@ describe("Codex app-server semantic event mapper", () => {
     )
 
     assert.deepEqual(events, [
-      { kind: "thread-started", threadId: "thread-1" },
+      {
+        kind: "thread-started",
+        threadId: "thread-1",
+        effectiveApprovalPolicy: "on-request",
+        effectiveApprovalsReviewer: "auto_review",
+      },
       { kind: "narrative", text: "Inspect the event boundary." },
       { kind: "narrative", text: "Map lifecycle." },
       { kind: "todo", text: "Map events" },
@@ -266,7 +304,12 @@ describe("Codex app-server semantic event mapper", () => {
     })
 
     assert.deepEqual(events, [
-      { kind: "thread-started", threadId: "thread-1" },
+      {
+        kind: "thread-started",
+        threadId: "thread-1",
+        effectiveApprovalPolicy: "on-request",
+        effectiveApprovalsReviewer: "auto_review",
+      },
       {
         kind: "usage",
         usage: {

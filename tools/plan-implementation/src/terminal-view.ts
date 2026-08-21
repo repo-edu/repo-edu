@@ -66,6 +66,41 @@ function failedOutputSummary(output: string): string {
     : ` — ${lastLine.slice(0, 157)}...`
 }
 
+function oneLine(value: string): string {
+  return value.replaceAll(/\s+/g, " ").trim()
+}
+
+function contextOccupancy(
+  event: Extract<CodingEvent, { kind: "usage" }>,
+): string {
+  const used = event.usage.lastContext.totalTokens
+  const window = event.usage.modelContextWindowTokens
+  if (window === null || window <= 0) {
+    return `${used} tokens (window unavailable)`
+  }
+  const percent = ((used / window) * 100).toFixed(1)
+  return `${used}/${window} tokens (${percent}%)`
+}
+
+function cumulativeUsage(
+  event: Extract<CodingEvent, { kind: "usage" }>,
+): string {
+  const tokens = event.usage.cumulative
+  return `${tokens.inputTokens} input tokens (${tokens.cachedInputTokens} cached, ${tokens.cacheWriteInputTokens} cache write); ${tokens.outputTokens} output tokens (${tokens.reasoningOutputTokens} reasoning); ${tokens.totalTokens} total tokens`
+}
+
+function approvalPolicy(
+  policy: Extract<
+    CodingEvent,
+    { kind: "thread-started" }
+  >["effectiveApprovalPolicy"],
+): string {
+  if (typeof policy === "string") return policy
+  const setting = (value: boolean | null): string =>
+    value === null ? "unset" : String(value)
+  return `granular (MCP elicitations ${setting(policy.mcpElicitations)}, request permissions ${setting(policy.requestPermissions)}, rules ${setting(policy.rules)}, sandbox approval ${setting(policy.sandboxApproval)}, skill approval ${setting(policy.skillApproval)})`
+}
+
 export function createTerminalView(
   display: TerminalDisplay,
   now: () => number = Date.now,
@@ -128,7 +163,10 @@ export function createTerminalView(
   ): void => {
     switch (coding.kind) {
       case "thread-started":
-        writeDetail(event, `Codex thread ${coding.threadId}`)
+        writeOverview(
+          event,
+          `${stamp(event)} Codex thread ${coding.threadId}: effective reviewer ${coding.effectiveApprovalsReviewer}; approval policy ${approvalPolicy(coding.effectiveApprovalPolicy)}.`,
+        )
         return
       case "narrative":
         writeBlank()
@@ -186,21 +224,58 @@ export function createTerminalView(
         writeDetail(event, `Search web: ${coding.query}`)
         return
       case "error":
-        writeOverview(event, `${stamp(event)} Codex error: ${coding.message}`)
-        return
-      case "usage": {
-        const tokens = coding.usage.cumulative
         writeOverview(
           event,
-          `${stamp(event)} Context: ${tokens.inputTokens} input tokens (${tokens.cachedInputTokens} cached, ${tokens.cacheWriteInputTokens} cache write); ${tokens.outputTokens} output tokens (${tokens.reasoningOutputTokens} reasoning).`,
+          `${stamp(event)} Codex error (${coding.willRetry ? "retrying" : "no retry"}): ${oneLine(coding.message)}`,
+        )
+        return
+      case "usage":
+        writeOverview(
+          event,
+          `${stamp(event)} Context: ${contextOccupancy(coding)}; cumulative: ${cumulativeUsage(coding)}.`,
+        )
+        return
+      case "warning": {
+        const source = coding.source === "guardian" ? "Guardian" : "App-server"
+        writeOverview(
+          event,
+          `${stamp(event)} ${source} warning: ${oneLine(coding.message)}`,
         )
         return
       }
-      case "warning":
       case "context-compaction":
+        if (coding.status === "started") {
+          writeDetail(event, "Compacting context")
+        } else {
+          writeOverview(event, `${stamp(event)} Context compaction completed.`)
+        }
+        return
       case "approval-review":
+        if (coding.status === "inProgress") {
+          writeDetail(
+            event,
+            `Automatic review: ${oneLine(coding.action.summary)}`,
+          )
+        } else {
+          writeOverview(
+            event,
+            `${stamp(event)} Automatic review ${coding.status}: ${oneLine(coding.action.summary)}`,
+          )
+        }
+        return
       case "human-review":
+        writeOverview(
+          event,
+          coding.status === "requested"
+            ? `${stamp(event)} Human review requested (${coding.category}): ${oneLine(coding.summary)}`
+            : `${stamp(event)} Human review ${coding.decision} (${coding.category}): ${oneLine(coding.summary)}`,
+        )
+        return
       case "request-refused":
+        writeOverview(
+          event,
+          `${stamp(event)} Request refused (${coding.response}): ${oneLine(coding.summary)}`,
+        )
         return
     }
   }

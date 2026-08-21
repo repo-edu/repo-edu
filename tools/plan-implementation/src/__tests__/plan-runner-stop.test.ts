@@ -23,7 +23,7 @@ import {
 afterEach(cleanupTestRepositories)
 
 describe("runPlanImplementation stop paths", () => {
-  it("stops an active plan-step Codex SDK host process before releasing runner admission", async () => {
+  it("stops an active Codex app-server before releasing runner admission", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const controller = new AbortController()

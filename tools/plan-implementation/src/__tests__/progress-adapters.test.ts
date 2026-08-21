@@ -43,7 +43,7 @@ describe("progress adapters", () => {
       70_000, // codex command succeeded
       71_000, // codex command failed
       72_000, // file change
-      73_000, // SDK token usage
+      73_000, // app-server token usage
       725_000, // phase checking
       726_000, // runner command started
       745_000, // runner command finished
@@ -291,7 +291,7 @@ describe("progress adapters", () => {
     assert.match(displayed, /^\[1:10\] Finished: Search files$/m)
     assert.match(
       displayed,
-      /^\[1:13\] Context: 12345 input tokens \(10000 cached, 2000 cache write\); 678 output tokens \(456 reasoning\)\.$/m,
+      /^\[1:13\] Context: 5000\/200000 tokens \(2\.5%\); cumulative: 12345 input tokens \(10000 cached, 2000 cache write\); 678 output tokens \(456 reasoning\); 13023 total tokens\.$/m,
     )
     assert.match(displayed, /\[12:05\] Phase: checking/)
     assert.match(displayed, /^\[12:25\] Finished: Repository test$/m)

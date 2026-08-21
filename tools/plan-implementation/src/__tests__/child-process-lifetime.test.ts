@@ -59,7 +59,7 @@ describe("plan implementation child-process controller", () => {
     const output: string[] = []
     const controller = createHostController(platformAdapter(), output)
     const tree = await controller.launch<string, string>({
-      command: "codex-sdk-host",
+      command: "codex-app-server",
       proof: "reported",
     })
 
@@ -68,7 +68,7 @@ describe("plan implementation child-process controller", () => {
 
     assert.equal((await tree.outcome).outcome, "completed")
     assert.deepEqual(output, [
-      "implement-plan: child-process-secondary-failure codex-sdk-host: error output failed\n",
+      "implement-plan: child-process-secondary-failure codex-app-server: error output failed\n",
     ])
   })
 
@@ -80,7 +80,7 @@ describe("plan implementation child-process controller", () => {
       output,
     )
     const tree = await controller.launch<string, string>({
-      command: "codex-sdk-host",
+      command: "codex-app-server",
       proof: "reported",
     })
 
@@ -88,7 +88,7 @@ describe("plan implementation child-process controller", () => {
 
     assert.deepEqual(await tree.outcome, { outcome: "unknown" })
     const laterTree = await controller.launch<string, string>({
-      command: "codex-sdk-host",
+      command: "codex-app-server",
       proof: "reported",
     })
     laterTree.reportResult({ outcome: "completed", value: "later" })
@@ -96,7 +96,7 @@ describe("plan implementation child-process controller", () => {
     await controller.stopAndConfirm()
 
     assert.deepEqual(output, [
-      "implement-plan: child-process-secondary-failure codex-sdk-host: tree still running\n",
+      "implement-plan: child-process-secondary-failure codex-app-server: tree still running\n",
       `${childProcessUnconfirmedTreeMessage}\n`,
     ])
   })

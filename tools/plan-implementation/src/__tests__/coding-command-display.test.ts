@@ -6,7 +6,7 @@ import {
 } from "../coding-command-display.js"
 
 describe("Codex command display", () => {
-  it("decodes the failed SDK shell command without quote artifacts", () => {
+  it("decodes a failed wrapped shell command without quote artifacts", () => {
     const wrapped =
       "/bin/zsh -lc \"rg --files | rg 'BOUNDARIES\\\\.md\"'$|boundar|child-lifetime.*md|host.*lifetime'\"' && rg -n \\\"unobserved-host-death|unobserved host death|residue|heartbeat|watchdog|parent watch\\\" . --glob '*.md' --glob '\"'!node_modules/**'\"'\""
 

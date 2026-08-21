@@ -140,6 +140,24 @@ export type CodingHumanReviewDecision =
   | "answered"
   | "cleared"
 
+export type CodingApprovalPolicy =
+  | "untrusted"
+  | "on-request"
+  | "never"
+  | {
+      readonly mode: "granular"
+      readonly mcpElicitations: boolean
+      readonly requestPermissions: boolean | null
+      readonly rules: boolean
+      readonly sandboxApproval: boolean
+      readonly skillApproval: boolean | null
+    }
+
+export type CodingApprovalsReviewer =
+  | "user"
+  | "auto_review"
+  | "guardian_subagent"
+
 export type CodingHumanReviewEvent =
   | {
       readonly kind: "human-review"
@@ -161,6 +179,8 @@ export type CodingEvent =
   | {
       readonly kind: "thread-started"
       readonly threadId: string
+      readonly effectiveApprovalPolicy: CodingApprovalPolicy
+      readonly effectiveApprovalsReviewer: CodingApprovalsReviewer
     }
   | {
       readonly kind: "narrative"

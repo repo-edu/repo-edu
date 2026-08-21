@@ -263,8 +263,15 @@ describe("direct Codex app-server coding adapter", () => {
       },
     ])
     assert.equal(humanReview.requests.length, 1)
+    const collectedEvents = await events
+    assert.deepEqual(collectedEvents[0], {
+      kind: "thread-started",
+      threadId: "thread-1",
+      effectiveApprovalPolicy: "on-request",
+      effectiveApprovalsReviewer: "auto_review",
+    })
     assert.deepEqual(
-      (await events).map((event) => event.kind),
+      collectedEvents.map((event) => event.kind),
       ["thread-started", "narrative", "human-review", "human-review"],
     )
     assert.equal(harness.launches.length, 1)

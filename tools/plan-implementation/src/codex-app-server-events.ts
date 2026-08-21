@@ -9,8 +9,13 @@ import {
   codexAppServerTurnPlanUpdatedNotificationSchema,
   codexAppServerWarningNotificationSchema,
 } from "./codex-app-server-event-schemas.js"
+import type {
+  CodexAppServerApprovalPolicy,
+  CodexAppServerApprovalsReviewer,
+} from "./codex-app-server-schemas.js"
 import { codingCommandActivity } from "./coding-command-display.js"
 import type {
+  CodingApprovalPolicy,
   CodingApprovalReviewAction,
   CodingEvent,
   CodingFileChange,
@@ -23,10 +28,26 @@ export type CodexAppServerEventMapper = {
 
 type CodexAppServerEventMapperOptions = {
   readonly threadId: string
+  readonly effectiveApprovalPolicy: CodexAppServerApprovalPolicy
+  readonly effectiveApprovalsReviewer: CodexAppServerApprovalsReviewer
   readonly emit: (event: CodingEvent) => void
 }
 
 const FAILED_COMMAND_OUTPUT_LIMIT = 2_000
+
+function semanticApprovalPolicy(
+  policy: CodexAppServerApprovalPolicy,
+): CodingApprovalPolicy {
+  if (typeof policy === "string") return policy
+  return {
+    mode: "granular",
+    mcpElicitations: policy.granular.mcp_elicitations,
+    requestPermissions: policy.granular.request_permissions ?? null,
+    rules: policy.granular.rules,
+    sandboxApproval: policy.granular.sandbox_approval,
+    skillApproval: policy.granular.skill_approval ?? null,
+  }
+}
 
 function failedCommandOutput(value: string | null | undefined): string {
   const trimmed = value?.trimEnd() ?? ""
@@ -127,7 +148,14 @@ export function createCodexAppServerEventMapper(
   const reviewStates = new Map<string, string>()
   let lastTodo: string | null = null
 
-  options.emit({ kind: "thread-started", threadId: options.threadId })
+  options.emit({
+    kind: "thread-started",
+    threadId: options.threadId,
+    effectiveApprovalPolicy: semanticApprovalPolicy(
+      options.effectiveApprovalPolicy,
+    ),
+    effectiveApprovalsReviewer: options.effectiveApprovalsReviewer,
+  })
 
   const emitItem = (
     item: CodexAppServerConsumedItem,

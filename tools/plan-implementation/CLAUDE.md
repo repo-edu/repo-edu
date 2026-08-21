@@ -54,23 +54,34 @@ runner does not try to prove the meaning of the work.
   decide identity.
 - `reset-cursor.ts` is the sole owner of the clean-checkout, severity-free,
   empty current-branch reset commit.
-- `coding-adapter.ts` starts one runner-owned plan-step Codex SDK host process
-  per step through the shared child-process lifetime controller. The SDK host
-  process starts one fresh Codex SDK thread and streams semantic coding events
-  before its exact structured result. The adapter reports the matching result
-  or a lost proving connection. It never ranks or composes run failures. The shared controller
-  chooses unknown, cancelled, failed or completed after tree confirmation,
-  except that confirmation expiry chooses unknown directly. The adapter keeps
-  a bounded tail of the SDK host process's error output and adds that tail to
-  its unknown-outcome error, so a dead SDK host process still leaves a reason
-  in the stopped result and the transcript.
+- `coding-adapter.ts` launches the official `@openai/codex` JavaScript entry
+  with `app-server` for each step through the shared child-process lifetime
+  controller. It composes one fresh app-server connection, thread and turn.
+  It reports protocol facts and never ranks or composes run failures. The
+  shared controller chooses unknown, cancelled, failed or completed after tree
+  confirmation, except that confirmation expiry chooses unknown directly.
+- `codex-app-server-connection.ts` owns JSON-lines connection startup,
+  initialization, the installed capability policy, thread start, effective
+  review settings and bounded error output. The installed-message contract
+  test generates the current app-server description and checks every consumed
+  protocol name during the package check.
+- `codex-app-server-turn.ts` owns one turn request, structured-result
+  admission, interruption and the facts reported to the child-process lifetime
+  controller. `codex-app-server-events.ts` maps protocol notifications into
+  semantic coding events without exposing raw reasoning or app-server types.
+- `codex-app-server-review.ts` owns server-request correlation, protocol reply
+  conversion, cleared-request handling and safe refusal. `human-review.ts`
+  owns one serialized attended terminal prompt and returns semantic decisions.
+  Automatic review remains app-server-owned; human review answers only the
+  request forms this runner supports.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
   parser-owned active-step marker. It permits Repo Edu writes, needed
   dependency installation, package checks and focused tests while forbidding
-  plan, Git and later-step writes and root checks.
-- `CodingResult` is the plan-step Codex SDK host process's only terminal
-  payload. Keep its succeeded and blocked forms strict and never add proof data
-  to it.
+  plan, Git and later-step writes and root checks. Work that depends on an
+  external API, package or tool must use live search, open the selected source
+  and never use a search-result snippet as evidence.
+- `CodingResult` is the app-server turn's only admitted terminal payload. Keep
+  its succeeded and blocked forms strict and never add proof data to it.
 - `repository-admission.ts` fixes the clean branch and index before Codex. It
   owns outside work admission under the rule above. It freezes `HEAD` before
   staging and owns the non-empty path set, complete staging and exact step
@@ -90,14 +101,16 @@ runner does not try to prove the meaning of the work.
   abort and shared stop-and-confirm for every Codex and check tree.
 - `run-progress.ts` turns runner facts into the one ordered semantic event
   stream. `transcript.ts` writes every event under the Git administrative
-  directory. `coding-command-display.ts` decodes SDK shell wrappers for display
+  directory. `coding-command-display.ts` decodes shell wrappers for display
   without running them and maps common commands to short activity labels.
-  `terminal-view.ts` appends elapsed-time overview lines and maps every detail
-  event onto one elapsed-time activity line. Every runner command start is a
-  required progress line. `terminal-output.ts` replaces progress and detail on
-  one terminal line. Redirected output writes required progress once and omits
-  other detail. Presentation clears the live line on close and never changes
-  runner state.
+  `terminal-view.ts` owns semantic app-server observability, elapsed-time
+  overview lines and the one live detail line. It shows the effective reviewer,
+  live context occupancy, compaction, retry state, warnings and safe review
+  summaries. Every runner command start is a required progress line.
+  `terminal-output.ts` owns the replaceable line and suspends it while
+  `human-review.ts` owns an attended prompt. Redirected output writes required
+  progress once and omits other detail. Presentation clears the live line on
+  close and never changes runner state.
 - `main.ts` wires Commander, the shared child-process lifetime controller, the
   runner and the terminal view. When forced-stop confirmation expires, the
   runner writes one diagnostic and one warning, then receives unknown for the

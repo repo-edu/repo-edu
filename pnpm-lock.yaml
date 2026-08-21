@@ -692,9 +692,6 @@ importers:
       '@openai/codex':
         specifier: 0.149.0
         version: 0.149.0
-      '@openai/codex-sdk':
-        specifier: 'catalog:'
-        version: 0.147.0
       '@repo-edu/host-node':
         specifier: workspace:*
         version: link:../../packages/host-node

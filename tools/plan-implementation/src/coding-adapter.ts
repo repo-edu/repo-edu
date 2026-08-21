@@ -128,6 +128,8 @@ function createCodingRun(
           if (!cancellationRequested) {
             const mapper = createCodexAppServerEventMapper({
               threadId: connection.threadId,
+              effectiveApprovalPolicy: connection.effectiveApprovalPolicy,
+              effectiveApprovalsReviewer: connection.effectiveApprovalsReviewer,
               emit: (event) => events.push(event),
             })
             notifications = connection.onNotification(mapper.notification)
