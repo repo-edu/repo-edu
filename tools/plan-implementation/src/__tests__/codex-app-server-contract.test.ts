@@ -109,6 +109,7 @@ describe("installed Codex app-server contract", () => {
     const [
       clientRequest,
       clientNotification,
+      serverRequest,
       serverNotification,
       initializeParams,
       initializeResponse,
@@ -128,11 +129,27 @@ describe("installed Codex app-server contract", () => {
       guardianWarningNotification,
       approvalReviewStartedNotification,
       approvalReviewCompletedNotification,
+      commandApprovalParams,
+      commandApprovalResponse,
+      legacyCommandApprovalParams,
+      legacyCommandApprovalResponse,
+      fileApprovalParams,
+      fileApprovalResponse,
+      legacyPatchApprovalParams,
+      legacyPatchApprovalResponse,
+      permissionsApprovalParams,
+      permissionsApprovalResponse,
+      toolUserInputParams,
+      toolUserInputResponse,
+      mcpElicitationResponse,
+      tokenRefreshParams,
+      serverRequestResolvedNotification,
       protocolError,
       combined,
     ] = await Promise.all([
       readJson(join(output, "ClientRequest.json")),
       readJson(join(output, "ClientNotification.json")),
+      readJson(join(output, "ServerRequest.json")),
       readJson(join(output, "ServerNotification.json")),
       readJson(join(output, "v1", "InitializeParams.json")),
       readJson(join(output, "v1", "InitializeResponse.json")),
@@ -164,6 +181,21 @@ describe("installed Codex app-server contract", () => {
           "ItemGuardianApprovalReviewCompletedNotification.json",
         ),
       ),
+      readJson(join(output, "CommandExecutionRequestApprovalParams.json")),
+      readJson(join(output, "CommandExecutionRequestApprovalResponse.json")),
+      readJson(join(output, "ExecCommandApprovalParams.json")),
+      readJson(join(output, "ExecCommandApprovalResponse.json")),
+      readJson(join(output, "FileChangeRequestApprovalParams.json")),
+      readJson(join(output, "FileChangeRequestApprovalResponse.json")),
+      readJson(join(output, "ApplyPatchApprovalParams.json")),
+      readJson(join(output, "ApplyPatchApprovalResponse.json")),
+      readJson(join(output, "PermissionsRequestApprovalParams.json")),
+      readJson(join(output, "PermissionsRequestApprovalResponse.json")),
+      readJson(join(output, "ToolRequestUserInputParams.json")),
+      readJson(join(output, "ToolRequestUserInputResponse.json")),
+      readJson(join(output, "McpServerElicitationRequestResponse.json")),
+      readJson(join(output, "ChatgptAuthTokensRefreshParams.json")),
+      readJson(join(output, "v2", "ServerRequestResolvedNotification.json")),
       readJson(join(output, "JSONRPCErrorError.json")),
       readJson(join(output, "codex_app_server_protocol.schemas.json")),
     ])
@@ -197,6 +229,25 @@ describe("installed Codex app-server contract", () => {
         serverMethods.has(method),
         true,
         `missing notification ${method}`,
+      )
+    }
+    const serverRequestMethods = collectEnumStrings(serverRequest)
+    for (const method of [
+      "item/commandExecution/requestApproval",
+      "execCommandApproval",
+      "item/fileChange/requestApproval",
+      "applyPatchApproval",
+      "item/permissions/requestApproval",
+      "item/tool/requestUserInput",
+      "mcpServer/elicitation/request",
+      "item/tool/call",
+      "attestation/generate",
+      "account/chatgptAuthTokens/refresh",
+    ]) {
+      assert.equal(
+        serverRequestMethods.has(method),
+        true,
+        `missing server request ${method}`,
       )
     }
 
@@ -466,6 +517,111 @@ describe("installed Codex app-server contract", () => {
         `GuardianApprovalReviewStatus is missing ${status}`,
       )
     }
+
+    for (const [schema, description, fields] of [
+      [
+        commandApprovalParams,
+        "CommandExecutionRequestApprovalParams",
+        ["command", "itemId", "startedAtMs", "threadId", "turnId"],
+      ],
+      [
+        legacyCommandApprovalParams,
+        "ExecCommandApprovalParams",
+        ["command", "conversationId"],
+      ],
+      [
+        fileApprovalParams,
+        "FileChangeRequestApprovalParams",
+        ["grantRoot", "itemId", "startedAtMs", "threadId", "turnId"],
+      ],
+      [
+        legacyPatchApprovalParams,
+        "ApplyPatchApprovalParams",
+        ["conversationId", "fileChanges"],
+      ],
+      [
+        permissionsApprovalParams,
+        "PermissionsRequestApprovalParams",
+        ["permissions", "threadId", "turnId"],
+      ],
+      [
+        toolUserInputParams,
+        "ToolRequestUserInputParams",
+        ["isBlocking", "itemId", "questions", "threadId", "turnId"],
+      ],
+    ] as const) {
+      assertProperties(schema, description, fields)
+    }
+    for (const [schema, description, field] of [
+      [
+        commandApprovalResponse,
+        "CommandExecutionRequestApprovalResponse",
+        "decision",
+      ],
+      [
+        legacyCommandApprovalResponse,
+        "ExecCommandApprovalResponse",
+        "decision",
+      ],
+      [fileApprovalResponse, "FileChangeRequestApprovalResponse", "decision"],
+      [legacyPatchApprovalResponse, "ApplyPatchApprovalResponse", "decision"],
+      [
+        permissionsApprovalResponse,
+        "PermissionsRequestApprovalResponse",
+        "permissions",
+      ],
+      [toolUserInputResponse, "ToolRequestUserInputResponse", "answers"],
+    ] as const) {
+      assertProperties(schema, description, [field])
+    }
+    for (const decision of [
+      "accept",
+      "acceptForSession",
+      "decline",
+      "cancel",
+    ]) {
+      assert.equal(
+        collectEnumStrings(commandApprovalResponse).has(decision),
+        true,
+        `CommandExecutionApprovalDecision is missing ${decision}`,
+      )
+      assert.equal(
+        collectEnumStrings(fileApprovalResponse).has(decision),
+        true,
+        `FileChangeApprovalDecision is missing ${decision}`,
+      )
+    }
+    for (const decision of ["approved", "approved_for_session", "abort"]) {
+      assert.equal(
+        collectEnumStrings(legacyCommandApprovalResponse).has(decision),
+        true,
+        `ReviewDecision is missing ${decision}`,
+      )
+    }
+    assert.equal(
+      collectEnumStrings(mcpElicitationResponse).has("decline"),
+      true,
+      "McpServerElicitationAction is missing decline",
+    )
+    assertProperties(
+      definitions(toolUserInputParams).ToolRequestUserInputQuestion,
+      "ToolRequestUserInputQuestion",
+      ["header", "id", "isOther", "isSecret", "options", "question"],
+    )
+    assertProperties(tokenRefreshParams, "ChatgptAuthTokensRefreshParams", [
+      "reason",
+    ])
+    assert.equal(
+      collectEnumStrings(tokenRefreshParams).has("unauthorized"),
+      true,
+      "ChatgptAuthTokensRefreshReason is missing unauthorized",
+    )
+    assertProperties(
+      serverRequestResolvedNotification,
+      "ServerRequestResolvedNotification",
+      ["requestId", "threadId"],
+    )
+    assert.equal(serverMethods.has("serverRequest/resolved"), true)
     assertProperties(protocolError, "JSONRPCErrorError", ["code", "message"])
 
     const combinedDefinitions = definitions(combined)

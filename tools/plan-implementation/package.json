@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@inquirer/prompts": "8.6.0",
     "@openai/codex": "0.149.0",
     "@openai/codex-sdk": "catalog:",
     "@repo-edu/host-node": "workspace:*",

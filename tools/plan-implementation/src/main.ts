@@ -1,6 +1,7 @@
 import { createPlanImplementationChildProcessLifetimeController } from "./child-process-lifetime.js"
 import { createCodingAdapter } from "./coding-adapter.js"
 import { createPlanImplementationCommand } from "./command.js"
+import { createTerminalHumanReviewPort } from "./human-review.js"
 import { runPlanImplementation } from "./plan-runner.js"
 import { resetPlanCursor } from "./reset-cursor.js"
 import { createStepCommandExecutor } from "./step-checks.js"
@@ -28,24 +29,35 @@ async function main(): Promise<void> {
   try {
     await createPlanImplementationCommand({
       async run(request) {
-        const result = await runPlanImplementation(
-          {
-            repoEduRoot: process.cwd(),
-            planPath: request.planPath,
-            run: request.run,
-            signal: stop.signal,
-          },
-          {
-            coding: createCodingAdapter(childProcessLifetimeController),
-            commands: createStepCommandExecutor(childProcessLifetimeController),
-            ownedChildren: childProcessLifetimeController,
-            presentation: createTerminalView(
-              createTerminalDisplay(process.stdout),
-            ),
-          },
-        )
-        if (result.outcome === "stopped") {
-          process.exitCode = 1
+        const terminal = createTerminalDisplay(process.stdout)
+        const humanReview = createTerminalHumanReviewPort({
+          input: process.stdin,
+          output: process.stdout,
+          signal: stop.signal,
+          terminal,
+        })
+        try {
+          const result = await runPlanImplementation(
+            {
+              repoEduRoot: process.cwd(),
+              planPath: request.planPath,
+              run: request.run,
+              signal: stop.signal,
+            },
+            {
+              coding: createCodingAdapter(childProcessLifetimeController),
+              commands: createStepCommandExecutor(
+                childProcessLifetimeController,
+              ),
+              ownedChildren: childProcessLifetimeController,
+              presentation: createTerminalView(terminal),
+            },
+          )
+          if (result.outcome === "stopped") {
+            process.exitCode = 1
+          }
+        } finally {
+          humanReview.dispose()
         }
       },
       async resetCursor(request) {

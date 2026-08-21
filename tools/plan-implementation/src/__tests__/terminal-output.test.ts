@@ -88,4 +88,65 @@ describe("terminal display", () => {
       "[0:02] Phase: checking\n",
     ])
   })
+
+  it("suspends live output while one exclusive prompt owns the terminal", async () => {
+    const calls: string[] = []
+    const refreshes: Array<() => void> = []
+    const update = Object.assign(
+      (line: string) => calls.push(`detail:${line}`),
+      {
+        clear: () => calls.push("clear"),
+        done: () => calls.push("done"),
+        persist: (...lines: string[]) =>
+          calls.push(`overview:${lines.join(" ")}`),
+      },
+    )
+    const display = createTerminalDisplay(
+      {
+        columns: 80,
+        isTTY: true,
+        write() {
+          throw new Error("The injected updater owns TTY writes.")
+        },
+      } as unknown as NodeJS.WritableStream & {
+        readonly columns: number
+        readonly isTTY: boolean
+      },
+      () => update,
+      (callback) => {
+        refreshes.push(callback)
+        return () => calls.push("cancel")
+      },
+    )
+    display.detail(() => "before prompt")
+    const prompt = Promise.withResolvers<void>()
+    const active = display.prompt(async () => {
+      calls.push("prompt:start")
+      await prompt.promise
+      calls.push("prompt:end")
+    })
+    display.overview("queued overview")
+    display.detail(() => "during prompt")
+    refreshes.at(-1)?.()
+    await assert.rejects(
+      display.prompt(async () => {}),
+      /already active/,
+    )
+    prompt.resolve()
+    await active
+    display.close()
+
+    assert.deepEqual(calls, [
+      "detail:before prompt",
+      "cancel",
+      "clear",
+      "prompt:start",
+      "prompt:end",
+      "overview:queued overview",
+      "detail:during prompt",
+      "cancel",
+      "clear",
+      "done",
+    ])
+  })
 })
