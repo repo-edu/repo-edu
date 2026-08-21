@@ -257,6 +257,68 @@ describe("step checks", () => {
     assert.deepEqual(calls, ["git-diff-check", "repository-check"])
   })
 
+  it("falls back to root checks after a settled workspace discovery failure", async () => {
+    for (const failedCommand of [
+      "workspace-projects",
+      "workspace-dependants",
+    ] as const) {
+      const calls: string[] = []
+      const executor: StepCommandExecutor = {
+        async run(request) {
+          calls.push(request.id)
+          if (request.id === failedCommand) {
+            return {
+              exitCode: 1,
+              signal: null,
+              stdout: "",
+              stderr: "discovery failed",
+            }
+          }
+          return {
+            exitCode: 0,
+            signal: null,
+            stdout:
+              request.id === "workspace-projects"
+                ? JSON.stringify([
+                    {
+                      name: "@repo-edu/domain",
+                      path: "/repo-edu/packages/domain",
+                    },
+                  ])
+                : "",
+            stderr: "",
+          }
+        },
+      }
+
+      await runAdmittedStepChecks(
+        "/repo-edu",
+        stepWithProofs(),
+        {
+          paths: ["packages/domain/src/index.ts"],
+          finalStep: false,
+        },
+        executor,
+        {
+          commandStarted() {},
+          commandFinished() {},
+        },
+      )
+
+      assert.deepEqual(calls, [
+        "git-diff-check",
+        "workspace-projects",
+        ...(failedCommand === "workspace-dependants"
+          ? ["workspace-dependants"]
+          : []),
+        "repository-check",
+        "repository-test",
+        "machine-proof-1",
+        "machine-proof-2",
+      ])
+    }
+  })
+
   it("stops when workspace discovery cannot start or settle", async () => {
     const calls: string[] = []
     const executor: StepCommandExecutor = {
