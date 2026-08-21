@@ -53,6 +53,31 @@ function collectEnumStrings(value: unknown, collected = new Set<string>()) {
   return collected
 }
 
+function findTaggedSchema(value: unknown, type: string): JsonObject | null {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const found = findTaggedSchema(entry, type)
+      if (found !== null) return found
+    }
+    return null
+  }
+  if (typeof value !== "object" || value === null) return null
+  const schema = value as JsonObject
+  if (
+    typeof schema.properties === "object" &&
+    schema.properties !== null &&
+    !Array.isArray(schema.properties)
+  ) {
+    const schemaProperties = schema.properties as JsonObject
+    if (collectEnumStrings(schemaProperties.type).has(type)) return schema
+  }
+  for (const entry of Object.values(schema)) {
+    const found = findTaggedSchema(entry, type)
+    if (found !== null) return found
+  }
+  return null
+}
+
 async function readJson(path: string): Promise<JsonObject> {
   return object(JSON.parse(await readFile(path, "utf8")), path)
 }
@@ -89,6 +114,11 @@ describe("installed Codex app-server contract", () => {
       initializeResponse,
       threadStartParams,
       threadStartResponse,
+      turnStartParams,
+      turnStartResponse,
+      turnInterruptParams,
+      turnInterruptResponse,
+      turnCompletedNotification,
       protocolError,
       combined,
     ] = await Promise.all([
@@ -99,6 +129,11 @@ describe("installed Codex app-server contract", () => {
       readJson(join(output, "v1", "InitializeResponse.json")),
       readJson(join(output, "v2", "ThreadStartParams.json")),
       readJson(join(output, "v2", "ThreadStartResponse.json")),
+      readJson(join(output, "v2", "TurnStartParams.json")),
+      readJson(join(output, "v2", "TurnStartResponse.json")),
+      readJson(join(output, "v2", "TurnInterruptParams.json")),
+      readJson(join(output, "v2", "TurnInterruptResponse.json")),
+      readJson(join(output, "v2", "TurnCompletedNotification.json")),
       readJson(join(output, "JSONRPCErrorError.json")),
       readJson(join(output, "codex_app_server_protocol.schemas.json")),
     ])
@@ -106,11 +141,14 @@ describe("installed Codex app-server contract", () => {
     const clientMethods = collectEnumStrings(clientRequest)
     assert.equal(clientMethods.has("initialize"), true)
     assert.equal(clientMethods.has("thread/start"), true)
+    assert.equal(clientMethods.has("turn/start"), true)
+    assert.equal(clientMethods.has("turn/interrupt"), true)
     assert.equal(
       collectEnumStrings(clientNotification).has("initialized"),
       true,
     )
     const serverMethods = collectEnumStrings(serverNotification)
+    assert.equal(serverMethods.has("turn/completed"), true)
     for (const method of CODEX_APP_SERVER_OPT_OUT_NOTIFICATION_METHODS) {
       assert.equal(
         serverMethods.has(method),
@@ -151,6 +189,62 @@ describe("installed Codex app-server contract", () => {
       "approvalPolicy",
       "approvalsReviewer",
       "thread",
+    ])
+    assertProperties(turnStartParams, "TurnStartParams", [
+      "input",
+      "outputSchema",
+      "threadId",
+    ])
+    const textInput = findTaggedSchema(turnStartParams, "text")
+    assert.notEqual(textInput, null, "TurnStartParams is missing text input")
+    assertProperties(textInput, "Text user input", [
+      "text",
+      "text_elements",
+      "type",
+    ])
+    assertProperties(turnStartResponse, "TurnStartResponse", ["turn"])
+    assertProperties(turnInterruptParams, "TurnInterruptParams", [
+      "threadId",
+      "turnId",
+    ])
+    assert.equal(turnInterruptResponse.type, "object")
+    assertProperties(turnCompletedNotification, "TurnCompletedNotification", [
+      "threadId",
+      "turn",
+    ])
+    const turnDefinitions = definitions(turnCompletedNotification)
+    assertProperties(turnDefinitions.Turn, "Turn", [
+      "error",
+      "id",
+      "items",
+      "status",
+    ])
+    assert.equal(
+      collectEnumStrings(turnDefinitions.TurnStatus).has("completed"),
+      true,
+    )
+    assert.equal(
+      collectEnumStrings(turnDefinitions.TurnStatus).has("interrupted"),
+      true,
+    )
+    assert.equal(
+      collectEnumStrings(turnDefinitions.TurnStatus).has("failed"),
+      true,
+    )
+    assert.equal(
+      collectEnumStrings(turnDefinitions.MessagePhase).has("final_answer"),
+      true,
+    )
+    const agentMessage = findTaggedSchema(
+      turnDefinitions.ThreadItem,
+      "agentMessage",
+    )
+    assert.notEqual(agentMessage, null, "ThreadItem is missing agentMessage")
+    assertProperties(agentMessage, "AgentMessage", [
+      "id",
+      "phase",
+      "text",
+      "type",
     ])
     assertProperties(protocolError, "JSONRPCErrorError", ["code", "message"])
 

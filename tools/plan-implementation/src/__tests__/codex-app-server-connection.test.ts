@@ -4,116 +4,24 @@ import { once } from "node:events"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join } from "node:path"
-import { PassThrough } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
-import {
-  createMessageConnection,
-  ErrorCodes,
-  NullLogger,
-  ResponseError,
-} from "vscode-jsonrpc/node"
 import { resolveCodexAppServerCommand } from "../codex-app-server-command.js"
 import {
   buildCodexAppServerInitializeParams,
   buildCodexAppServerThreadStartParams,
   CODEX_APP_SERVER_CLIENT_INFO,
   CODEX_APP_SERVER_OPT_OUT_NOTIFICATION_METHODS,
-  type CodexAppServerInitializeParams,
-  type CodexAppServerStreams,
-  type CodexAppServerThreadStartParams,
   startCodexAppServerConnection,
 } from "../codex-app-server-connection.js"
 import {
-  CodexAppServerJsonLineReader,
-  CodexAppServerJsonLineWriter,
-} from "../codex-app-server-json-lines.js"
+  type CodexAppServerTestPeer,
+  createCodexAppServerTestPeer,
+} from "./codex-app-server-test-peer.js"
 
 const repoEduRoot = fileURLToPath(new URL("../../../../", import.meta.url))
 
-type StartupServer = {
-  readonly streams: CodexAppServerStreams
-  readonly stderr: PassThrough
-  readonly initializeRequests: CodexAppServerInitializeParams[]
-  readonly threadStartRequests: CodexAppServerThreadStartParams[]
-  readonly initialized: () => boolean
-  dispose(): void
-}
-
-type StartupServerOptions = {
-  readonly initializeResult?: unknown
-  readonly threadStartResult?: unknown
-  readonly failThreadStart?: boolean
-}
-
-function createStartupServer(
-  options: StartupServerOptions = {},
-): StartupServer {
-  const clientToServer = new PassThrough()
-  const serverToClient = new PassThrough()
-  const stderr = new PassThrough()
-  const initializeRequests: CodexAppServerInitializeParams[] = []
-  const threadStartRequests: CodexAppServerThreadStartParams[] = []
-  let initialized = false
-  const server = createMessageConnection(
-    new CodexAppServerJsonLineReader(clientToServer),
-    new CodexAppServerJsonLineWriter(serverToClient),
-    NullLogger,
-  )
-  server.onRequest("initialize", (params: CodexAppServerInitializeParams) => {
-    initializeRequests.push(params)
-    return (
-      options.initializeResult ?? {
-        codexHome: "/tmp/codex-home",
-        platformFamily: "unix",
-        platformOs: "macos",
-        userAgent: "codex-test",
-      }
-    )
-  })
-  server.onNotification("initialized", () => {
-    initialized = true
-  })
-  server.onRequest(
-    "thread/start",
-    (params: CodexAppServerThreadStartParams) => {
-      threadStartRequests.push(params)
-      if (options.failThreadStart === true) {
-        throw new ResponseError(
-          ErrorCodes.InvalidParams,
-          "thread/start was rejected",
-        )
-      }
-      return (
-        options.threadStartResult ?? {
-          approvalPolicy: "never",
-          approvalsReviewer: "user",
-          thread: { id: "thread-1" },
-        }
-      )
-    },
-  )
-  server.listen()
-  return {
-    streams: {
-      stdin: clientToServer,
-      stdout: serverToClient,
-      stderr,
-    },
-    stderr,
-    initializeRequests,
-    threadStartRequests,
-    initialized: () => initialized,
-    dispose() {
-      server.dispose()
-      clientToServer.end()
-      serverToClient.end()
-      stderr.end()
-    },
-  }
-}
-
-async function startWithServer(server: StartupServer) {
+async function startWithServer(server: CodexAppServerTestPeer) {
   try {
     return await startCodexAppServerConnection(server.streams, {
       repoEduRoot,
@@ -146,7 +54,7 @@ describe("Codex app-server startup connection", () => {
   })
 
   it("initializes once and starts one thread with the exact stable policy", async () => {
-    const server = createStartupServer()
+    const server = createCodexAppServerTestPeer()
     const connection = await startWithServer(server)
 
     assert.deepEqual(server.initializeRequests, [
@@ -191,8 +99,34 @@ describe("Codex app-server startup connection", () => {
     })
   })
 
+  it("correlates concurrent server requests with their JSON-RPC IDs", async () => {
+    const server = createCodexAppServerTestPeer()
+    const connection = await startWithServer(server)
+    const received: { readonly id: string | number; readonly value: number }[] =
+      []
+    const handler = connection.setServerRequestHandler((request) => {
+      const params = request.params as { readonly value: number }
+      received.push({ id: request.id, value: params.value })
+      return { requestId: request.id, value: params.value }
+    })
+
+    const responses = await Promise.all([
+      server.rpc.sendRequest("item/tool/requestUserInput", { value: 1 }),
+      server.rpc.sendRequest("item/tool/requestUserInput", { value: 2 }),
+    ])
+
+    assert.deepEqual(
+      responses,
+      received.map(({ id, value }) => ({ requestId: id, value })),
+    )
+    assert.equal(new Set(received.map(({ id }) => id)).size, 2)
+    handler.dispose()
+    connection.dispose()
+    server.dispose()
+  })
+
   it("does not retry a rejected thread start", async () => {
-    const server = createStartupServer({ failThreadStart: true })
+    const server = createCodexAppServerTestPeer({ failThreadStart: true })
 
     await assert.rejects(
       startWithServer(server),
@@ -203,7 +137,7 @@ describe("Codex app-server startup connection", () => {
 
   it("rejects malformed initialize and thread-start replies", async (context) => {
     await context.test("initialize", async () => {
-      const server = createStartupServer({ initializeResult: {} })
+      const server = createCodexAppServerTestPeer({ initializeResult: {} })
       await assert.rejects(
         startWithServer(server),
         /Codex app-server startup failed/,
@@ -211,7 +145,7 @@ describe("Codex app-server startup connection", () => {
       assert.equal(server.threadStartRequests.length, 0)
     })
     await context.test("thread start", async () => {
-      const server = createStartupServer({
+      const server = createCodexAppServerTestPeer({
         threadStartResult: {
           approvalPolicy: "on-request",
           approvalsReviewer: "auto_review",
@@ -227,7 +161,7 @@ describe("Codex app-server startup connection", () => {
   })
 
   it("keeps a bounded app-server error-output tail", async () => {
-    const server = createStartupServer()
+    const server = createCodexAppServerTestPeer()
     server.stderr.write(`discarded-${"x".repeat(2_000)}-kept`)
     const connection = await startWithServer(server)
 

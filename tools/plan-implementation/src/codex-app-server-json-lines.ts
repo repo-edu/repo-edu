@@ -107,10 +107,17 @@ export class CodexAppServerJsonLineWriter extends AbstractMessageWriter {
   private errorCount = 0
   private pending: Promise<void> = Promise.resolve()
 
-  constructor(private readonly output: Writable) {
+  constructor(
+    private readonly output: Writable,
+    private readonly onWritten: (message: Message) => void = () => {},
+  ) {
     super()
     this.output.on("error", this.handleOutputError)
     this.output.on("close", this.handleOutputClose)
+  }
+
+  isWritable(): boolean {
+    return !this.output.destroyed && !this.output.writableEnded
   }
 
   private readonly handleOutputError = (error: Error): void => {
@@ -124,6 +131,7 @@ export class CodexAppServerJsonLineWriter extends AbstractMessageWriter {
     const operation = this.pending.then(async () => {
       try {
         await writeLine(this.output, serializeOutboundMessage(message))
+        this.onWritten(message)
       } catch (error) {
         this.errorCount += 1
         this.fireError(error, message, this.errorCount)

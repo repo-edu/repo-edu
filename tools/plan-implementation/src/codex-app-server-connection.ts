@@ -1,11 +1,15 @@
 import { isAbsolute } from "node:path"
 import type { Readable, Writable } from "node:stream"
 import {
+  type CancellationToken,
   createMessageConnection,
+  type Disposable,
+  ErrorCodes,
   type MessageConnection,
   NotificationType,
   NullLogger,
   RequestType,
+  ResponseError,
 } from "vscode-jsonrpc/node"
 import { z } from "zod"
 import packageManifest from "../package.json" with { type: "json" }
@@ -13,6 +17,11 @@ import {
   CodexAppServerJsonLineReader,
   CodexAppServerJsonLineWriter,
 } from "./codex-app-server-json-lines.js"
+import {
+  CodexAppServerRequestCorrelator,
+  type CodexAppServerRequestId,
+  CodexAppServerRequestWriteTracker,
+} from "./codex-app-server-rpc.js"
 import {
   type CodexAppServerApprovalPolicy,
   type CodexAppServerApprovalsReviewer,
@@ -98,6 +107,19 @@ export type CodexAppServerStreams = {
   readonly stderr: Readable
 }
 
+export type { CodexAppServerRequestId } from "./codex-app-server-rpc.js"
+
+export type CodexAppServerRequest = {
+  readonly id: CodexAppServerRequestId
+  readonly method: string
+  readonly params: unknown
+}
+
+export type CodexAppServerRequestHandler = (
+  request: CodexAppServerRequest,
+  cancellation: CancellationToken,
+) => unknown | Promise<unknown>
+
 export type CodexAppServerConnection = {
   readonly rpc: MessageConnection
   readonly threadId: string
@@ -105,6 +127,9 @@ export type CodexAppServerConnection = {
   readonly effectiveApprovalPolicy: CodexAppServerApprovalPolicy
   readonly effectiveApprovalsReviewer: CodexAppServerApprovalsReviewer
   errorOutput(): string
+  isWritable(): boolean
+  onRequestWritten(method: string, listener: () => void): Disposable
+  setServerRequestHandler(handler: CodexAppServerRequestHandler): Disposable
   dispose(): void
 }
 
@@ -164,11 +189,40 @@ export async function startCodexAppServerConnection(
     streams.stderr,
     options.onStderrFailure ?? (() => {}),
   )
+  const requestCorrelator = new CodexAppServerRequestCorrelator()
+  const requestWrites = new CodexAppServerRequestWriteTracker()
+  const writer = new CodexAppServerJsonLineWriter(streams.stdin, (message) =>
+    requestWrites.written(message),
+  )
   const connection = createMessageConnection(
     new CodexAppServerJsonLineReader(streams.stdout),
-    new CodexAppServerJsonLineWriter(streams.stdin),
+    writer,
     NullLogger,
+    { messageStrategy: requestCorrelator.messageStrategy },
   )
+  let serverRequestHandler: CodexAppServerRequestHandler | undefined
+  connection.onRequest((method, params, cancellation) => {
+    let id: CodexAppServerRequestId
+    try {
+      id = requestCorrelator.take(method)
+    } catch (error) {
+      return new ResponseError(ErrorCodes.InternalError, String(error))
+    }
+    if (serverRequestHandler === undefined) {
+      return new ResponseError(
+        ErrorCodes.MethodNotFound,
+        `The Codex app-server request ${method} is not handled.`,
+      )
+    }
+    return serverRequestHandler({ id, method, params }, cancellation)
+  })
+  let closed = false
+  connection.onClose(() => {
+    closed = true
+  })
+  connection.onDispose(() => {
+    closed = true
+  })
   connection.listen()
 
   try {
@@ -193,6 +247,24 @@ export async function startCodexAppServerConnection(
       effectiveApprovalPolicy: threadStartResponse.approvalPolicy,
       effectiveApprovalsReviewer: threadStartResponse.approvalsReviewer,
       errorOutput: stderr.readonly,
+      isWritable: () => !closed && writer.isWritable(),
+      onRequestWritten: (method, listener) =>
+        requestWrites.onNext(method, listener),
+      setServerRequestHandler(handler) {
+        if (serverRequestHandler !== undefined) {
+          throw new Error(
+            "The Codex app-server request handler is already registered.",
+          )
+        }
+        serverRequestHandler = handler
+        return {
+          dispose() {
+            if (serverRequestHandler === handler) {
+              serverRequestHandler = undefined
+            }
+          },
+        }
+      },
       dispose() {
         if (disposed) return
         disposed = true
