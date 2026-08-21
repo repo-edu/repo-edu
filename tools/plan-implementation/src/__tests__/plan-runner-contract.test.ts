@@ -154,7 +154,7 @@ describe("complete plan runner contract", () => {
     )
     assert.deepEqual(
       commandCalls.map((command) => command.id),
-      ["git-diff-check", "repository-check"],
+      ["git-diff-check", "workspace-projects", "repository-check"],
     )
     assert.equal(
       (await git(repoEduRoot, ["rev-parse", "HEAD"])).stdout,

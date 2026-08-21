@@ -65,8 +65,9 @@ runner does not try to prove the meaning of the work.
   its unknown-outcome error, so a dead SDK host process still leaves a reason
   in the stopped result and the transcript.
 - `coding-prompt.ts` gives Codex the complete committed plan with one
-  parser-owned active-step marker. It permits Repo Edu writes and needed
-  dependency installation while forbidding plan, Git and later-step writes.
+  parser-owned active-step marker. It permits Repo Edu writes, needed
+  dependency installation, package checks and focused tests while forbidding
+  plan, Git and later-step writes and root checks.
 - `CodingResult` is the plan-step Codex SDK host process's only terminal
   payload. Keep its succeeded and blocked forms strict and never add proof data
   to it.
@@ -74,9 +75,12 @@ runner does not try to prove the meaning of the work.
   owns outside work admission under the rule above. It freezes `HEAD` before
   staging and owns the non-empty path set, complete staging and exact step
   commit.
-- `step-checks.ts` owns dependency install, the fixed checks and ordered
-  machine proofs. Every command uses its program and arguments without a
-  shell.
+- `step-check-scope.ts` maps admitted paths to pnpm workspace projects and
+  their dependants. It selects root checks when package ownership cannot be
+  proved or the active step is final.
+- `step-checks.ts` alone runs dependency install, scope discovery, the selected
+  package or root checks and ordered machine proofs. Every command uses its
+  program and arguments without a shell.
 - `plan-source-admission.ts` rechecks the working plan and source blob before
   each commit and later coding context.
 - `plan-runner.ts` joins these owners through the pure run reducer. It keeps the

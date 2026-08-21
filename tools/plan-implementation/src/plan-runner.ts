@@ -458,6 +458,10 @@ export async function runPlanImplementation(
           await runAdmittedStepChecks(
             repoEduRoot,
             step,
+            {
+              paths: admittedDiff.paths,
+              finalStep: stepNumber === plan.steps.length,
+            },
             dependencies.commands,
             progress.commands,
             request.signal,

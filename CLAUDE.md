@@ -42,6 +42,12 @@ pnpm test
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
 
+A coding turn started by the automated plan runner is the exception. It uses
+affected package `check` scripts and focused test files for feedback. It never
+runs root `pnpm fix`, `pnpm check` or `pnpm test`. The runner owns scoped format
+and lint fixes. It also owns the independent package checks and tests and the
+final root checks and tests.
+
 ## Architecture
 
 `repo-edu` is a pure TypeScript pnpm monorepo. Workspace globs: `apps/*`,

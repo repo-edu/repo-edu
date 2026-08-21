@@ -72,6 +72,7 @@ describe("runPlanImplementation", () => {
       commandCalls.map((command) => command.id),
       [
         "git-diff-check",
+        "workspace-projects",
         "repository-check",
         "repository-test",
         "machine-proof-1",
@@ -236,6 +237,7 @@ describe("runPlanImplementation", () => {
       [
         ["pnpm", ["install"]],
         ["git", ["diff", "--check"]],
+        ["pnpm", ["list", "--recursive", "--depth", "-1", "--json"]],
         ["pnpm", ["check"]],
         ["pnpm", ["test"]],
         ["node", ["proof.mjs", "--first"]],
@@ -284,6 +286,7 @@ describe("runPlanImplementation", () => {
       [
         "dependency-install",
         "git-diff-check",
+        "workspace-projects",
         "repository-check",
         "repository-test",
         "machine-proof-1",
@@ -354,7 +357,7 @@ describe("runPlanImplementation", () => {
     )
 
     assert.equal(result.outcome, "bound-reached")
-    assert.equal(commandCalls.length, 4)
+    assert.equal(commandCalls.length, 5)
   })
 
   it("stops after Codex index writes before any check starts", async () => {
@@ -410,6 +413,7 @@ describe("runPlanImplementation", () => {
       commandCalls.map((command) => command.id),
       [
         "git-diff-check",
+        "workspace-projects",
         "repository-check",
         "repository-test",
         "machine-proof-1",
@@ -525,11 +529,13 @@ describe("runPlanImplementation", () => {
       commandCalls.map((command) => command.id),
       [
         "git-diff-check",
+        "workspace-projects",
         "repository-check",
         "repository-test",
         "machine-proof-1",
         "dependency-install",
         "git-diff-check",
+        "workspace-projects",
         "repository-check",
         "repository-test",
         "machine-proof-1",

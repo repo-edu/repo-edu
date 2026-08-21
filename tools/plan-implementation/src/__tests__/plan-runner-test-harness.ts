@@ -112,7 +112,12 @@ export function successfulCommands(
     async run(request) {
       calls.push(request)
       await beforeResult?.(request)
-      return { exitCode: 0, signal: null, stdout: "", stderr: "" }
+      return {
+        exitCode: 0,
+        signal: null,
+        stdout: request.id === "workspace-projects" ? "[]" : "",
+        stderr: "",
+      }
     },
   }
 }

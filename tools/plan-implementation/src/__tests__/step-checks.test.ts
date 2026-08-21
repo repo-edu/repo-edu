@@ -34,7 +34,7 @@ function stepWithProofs(): PlanImplementationStep {
 }
 
 describe("step checks", () => {
-  it("runs dependency install, fixed checks and machine proofs in order", async () => {
+  it("runs scoped fixes, package checks and machine proofs in order", async () => {
     const requests: Array<{
       readonly cwd: string
       readonly program: string
@@ -48,10 +48,35 @@ describe("step checks", () => {
     const executor: StepCommandExecutor = {
       async run(request) {
         requests.push(request)
+        const stdout =
+          request.id === "workspace-projects"
+            ? JSON.stringify([
+                { name: "repo-edu", path: "/repo-edu" },
+                {
+                  name: "@repo-edu/application",
+                  path: "/repo-edu/packages/application",
+                },
+                {
+                  name: "@repo-edu/domain",
+                  path: "/repo-edu/packages/domain",
+                },
+              ])
+            : request.id === "workspace-dependants"
+              ? JSON.stringify([
+                  {
+                    name: "@repo-edu/domain",
+                    path: "/repo-edu/packages/domain",
+                  },
+                  {
+                    name: "@repo-edu/application",
+                    path: "/repo-edu/packages/application",
+                  },
+                ])
+              : ""
         return {
           exitCode: 0,
           signal: null,
-          stdout: "",
+          stdout,
           stderr: "",
         }
       },
@@ -72,6 +97,10 @@ describe("step checks", () => {
     await runAdmittedStepChecks(
       "/repo-edu",
       stepWithProofs(),
+      {
+        paths: ["packages/domain/src/index.ts"],
+        finalStep: false,
+      },
       executor,
       observer,
     )
@@ -84,8 +113,44 @@ describe("step checks", () => {
       [
         ["pnpm", ["install"]],
         ["git", ["diff", "--check"]],
-        ["pnpm", ["check"]],
-        ["pnpm", ["test"]],
+        ["pnpm", ["list", "--recursive", "--depth", "-1", "--json"]],
+        [
+          "pnpm",
+          [
+            "--filter",
+            "...@repo-edu/domain",
+            "list",
+            "--depth",
+            "-1",
+            "--json",
+          ],
+        ],
+        ["pnpm", ["exec", "rumdl", "check", "--fix", "packages/domain"]],
+        ["pnpm", ["exec", "biome", "check", "--write", "packages/domain"]],
+        [
+          "pnpm",
+          [
+            "--filter",
+            "@repo-edu/application",
+            "--filter",
+            "@repo-edu/domain",
+            "--if-present",
+            "run",
+            "check",
+          ],
+        ],
+        [
+          "pnpm",
+          [
+            "--filter",
+            "@repo-edu/application",
+            "--filter",
+            "@repo-edu/domain",
+            "--if-present",
+            "run",
+            "test",
+          ],
+        ],
         ["node", ["proof-one.mjs", "--exact"]],
         ["pnpm", ["proof:two"]],
       ],
@@ -177,10 +242,16 @@ describe("step checks", () => {
     }
 
     await assert.rejects(
-      runAdmittedStepChecks("/repo-edu", stepWithProofs(), executor, {
-        commandStarted() {},
-        commandFinished() {},
-      }),
+      runAdmittedStepChecks(
+        "/repo-edu",
+        stepWithProofs(),
+        { paths: ["README.md"], finalStep: true },
+        executor,
+        {
+          commandStarted() {},
+          commandFinished() {},
+        },
+      ),
       /Repository check failed.*typecheck failed/,
     )
     assert.deepEqual(calls, ["git-diff-check", "repository-check"])

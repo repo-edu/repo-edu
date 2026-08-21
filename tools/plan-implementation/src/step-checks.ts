@@ -1,6 +1,11 @@
 import type { Readable } from "node:stream"
 import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import type { PlanImplementationStep, PlanMachineProof } from "./contracts.js"
+import {
+  resolveStepCheckScope,
+  type StepCheckScope,
+  type WorkspaceProjectSelection,
+} from "./step-check-scope.js"
 
 const commandOutputLimit = 16 * 1024 * 1024
 
@@ -141,6 +146,47 @@ async function runRequiredCommand(
   observer.commandFinished(command, "succeeded")
 }
 
+async function runScopeCommand(
+  repoEduRoot: string,
+  command: StepCommand,
+  executor: StepCommandExecutor,
+  observer: StepCommandObserver,
+  stopSignal?: AbortSignal,
+): Promise<string | null> {
+  observer.commandStarted(command)
+  let result: StepCommandResult
+  try {
+    result = await executor.run({
+      ...command,
+      cwd: repoEduRoot,
+      ...(stopSignal === undefined ? {} : { signal: stopSignal }),
+    })
+  } catch (error) {
+    observer.commandFinished(
+      command,
+      stopSignal?.aborted ? "stopped" : "failed",
+    )
+    if (stopSignal?.aborted) {
+      throw new StepCheckError(command, `${command.label} was stopped.`, {
+        cause: error,
+      })
+    }
+    return null
+  }
+  if (result.exitCode !== 0 || result.signal !== null) {
+    observer.commandFinished(
+      command,
+      stopSignal?.aborted ? "stopped" : "failed",
+    )
+    if (stopSignal?.aborted) {
+      throw new StepCheckError(command, `${command.label} was stopped.`)
+    }
+    return null
+  }
+  observer.commandFinished(command, "succeeded")
+  return result.stdout
+}
+
 function isMachineProof(
   proof: PlanImplementationStep["proofs"]["items"][number],
 ): proof is PlanMachineProof {
@@ -167,20 +213,33 @@ export async function repeatDependencyInstall(
   )
 }
 
-export async function runAdmittedStepChecks(
-  repoEduRoot: string,
-  step: PlanImplementationStep,
-  executor: StepCommandExecutor,
-  observer: StepCommandObserver,
-  stopSignal?: AbortSignal,
-): Promise<void> {
-  const fixedCommands: readonly StepCommand[] = [
-    {
-      id: "git-diff-check",
-      label: "Git diff check",
-      program: "git",
-      arguments: ["diff", "--check"],
-    },
+function workspaceProjectCommand(
+  selection: WorkspaceProjectSelection,
+): StepCommand {
+  if (selection.kind === "all") {
+    return {
+      id: "workspace-projects",
+      label: "Workspace projects",
+      program: "pnpm",
+      arguments: ["list", "--recursive", "--depth", "-1", "--json"],
+    }
+  }
+  return {
+    id: "workspace-dependants",
+    label: "Workspace dependants",
+    program: "pnpm",
+    arguments: [
+      ...selection.packageNames.flatMap((name) => ["--filter", `...${name}`]),
+      "list",
+      "--depth",
+      "-1",
+      "--json",
+    ],
+  }
+}
+
+function rootCheckCommands(): readonly StepCommand[] {
+  return [
     {
       id: "repository-check",
       label: "Repository check",
@@ -194,7 +253,96 @@ export async function runAdmittedStepChecks(
       arguments: ["test"],
     },
   ]
-  for (const command of fixedCommands) {
+}
+
+function filteredScriptArguments(
+  scope: Extract<StepCheckScope, { readonly kind: "packages" }>,
+  script: "check" | "test",
+): readonly string[] {
+  return [
+    ...scope.checkedPackages.flatMap((project) => ["--filter", project.name]),
+    "--if-present",
+    "run",
+    script,
+  ]
+}
+
+function packageCheckCommands(
+  scope: Extract<StepCheckScope, { readonly kind: "packages" }>,
+): readonly StepCommand[] {
+  const changedRoots = scope.changedPackages.map(
+    (project) => project.relativeRoot,
+  )
+  return [
+    {
+      id: "package-markdown-fix",
+      label: "Package Markdown fix",
+      program: "pnpm",
+      arguments: ["exec", "rumdl", "check", "--fix", ...changedRoots],
+    },
+    {
+      id: "package-biome-fix",
+      label: "Package Biome fix",
+      program: "pnpm",
+      arguments: ["exec", "biome", "check", "--write", ...changedRoots],
+    },
+    {
+      id: "package-check",
+      label: "Package checks",
+      program: "pnpm",
+      arguments: filteredScriptArguments(scope, "check"),
+    },
+    {
+      id: "package-test",
+      label: "Package tests",
+      program: "pnpm",
+      arguments: filteredScriptArguments(scope, "test"),
+    },
+  ]
+}
+
+export type AdmittedStepCheckSelection = {
+  readonly paths: readonly string[]
+  readonly finalStep: boolean
+}
+
+export async function runAdmittedStepChecks(
+  repoEduRoot: string,
+  step: PlanImplementationStep,
+  selection: AdmittedStepCheckSelection,
+  executor: StepCommandExecutor,
+  observer: StepCommandObserver,
+  stopSignal?: AbortSignal,
+): Promise<void> {
+  await runRequiredCommand(
+    repoEduRoot,
+    {
+      id: "git-diff-check",
+      label: "Git diff check",
+      program: "git",
+      arguments: ["diff", "--check"],
+    },
+    executor,
+    observer,
+    stopSignal,
+  )
+
+  const scope = await resolveStepCheckScope({
+    repoEduRoot,
+    admittedPaths: selection.paths,
+    finalStep: selection.finalStep,
+    readWorkspaceProjects: async (projectSelection) =>
+      await runScopeCommand(
+        repoEduRoot,
+        workspaceProjectCommand(projectSelection),
+        executor,
+        observer,
+        stopSignal,
+      ),
+  })
+  const selectedCommands =
+    scope.kind === "root" ? rootCheckCommands() : packageCheckCommands(scope)
+  for (const command of selectedCommands) {
     await runRequiredCommand(
       repoEduRoot,
       command,
