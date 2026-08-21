@@ -99,13 +99,63 @@ export type CodingFileChange = {
   readonly kind: "add" | "delete" | "update"
 }
 
-export type CodingTokenUsage = {
+export type CodingTokenUsageBreakdown = {
   readonly inputTokens: number
   readonly cachedInputTokens: number
   readonly cacheWriteInputTokens: number
   readonly outputTokens: number
   readonly reasoningOutputTokens: number
+  readonly totalTokens: number
 }
+
+export type CodingUsage = {
+  readonly cumulative: CodingTokenUsageBreakdown
+  readonly lastContext: CodingTokenUsageBreakdown
+  readonly modelContextWindowTokens: number | null
+}
+
+export type CodingApprovalReviewAction = {
+  readonly kind: "command" | "mcp" | "network" | "patch" | "permissions"
+  readonly summary: string
+}
+
+export type CodingApprovalReviewStatus =
+  | "inProgress"
+  | "approved"
+  | "denied"
+  | "timedOut"
+  | "aborted"
+
+export type CodingHumanReviewCategory =
+  | "command"
+  | "file-change"
+  | "permission"
+  | "user-input"
+
+export type CodingHumanReviewDecision =
+  | "accepted"
+  | "accepted-for-session"
+  | "declined"
+  | "cancelled"
+  | "answered"
+  | "cleared"
+
+export type CodingHumanReviewEvent =
+  | {
+      readonly kind: "human-review"
+      readonly requestId: string
+      readonly category: CodingHumanReviewCategory
+      readonly status: "requested"
+      readonly summary: string
+    }
+  | {
+      readonly kind: "human-review"
+      readonly requestId: string
+      readonly category: CodingHumanReviewCategory
+      readonly status: "completed"
+      readonly summary: string
+      readonly decision: CodingHumanReviewDecision
+    }
 
 export type CodingEvent =
   | {
@@ -145,10 +195,33 @@ export type CodingEvent =
   | {
       readonly kind: "error"
       readonly message: string
+      readonly willRetry: boolean
+    }
+  | {
+      readonly kind: "warning"
+      readonly source: "app-server" | "guardian"
+      readonly message: string
     }
   | {
       readonly kind: "usage"
-      readonly tokens: CodingTokenUsage
+      readonly usage: CodingUsage
+    }
+  | {
+      readonly kind: "context-compaction"
+      readonly status: "started" | "completed"
+    }
+  | {
+      readonly kind: "approval-review"
+      readonly reviewId: string
+      readonly status: CodingApprovalReviewStatus
+      readonly action: CodingApprovalReviewAction
+    }
+  | CodingHumanReviewEvent
+  | {
+      readonly kind: "request-refused"
+      readonly requestId: string
+      readonly summary: string
+      readonly response: "unsupported"
     }
 
 export type CodingRun = {

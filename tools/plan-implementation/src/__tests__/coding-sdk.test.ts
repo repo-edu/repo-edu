@@ -238,12 +238,24 @@ describe("Codex coding SDK boundary", () => {
       [
         {
           kind: "usage",
-          tokens: {
-            inputTokens: 4,
-            cachedInputTokens: 1,
-            cacheWriteInputTokens: 0,
-            outputTokens: 3,
-            reasoningOutputTokens: 2,
+          usage: {
+            cumulative: {
+              inputTokens: 4,
+              cachedInputTokens: 1,
+              cacheWriteInputTokens: 0,
+              outputTokens: 3,
+              reasoningOutputTokens: 2,
+              totalTokens: 7,
+            },
+            lastContext: {
+              inputTokens: 4,
+              cachedInputTokens: 1,
+              cacheWriteInputTokens: 0,
+              outputTokens: 3,
+              reasoningOutputTokens: 2,
+              totalTokens: 7,
+            },
+            modelContextWindowTokens: null,
           },
         },
       ],

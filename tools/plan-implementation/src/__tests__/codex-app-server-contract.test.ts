@@ -119,6 +119,15 @@ describe("installed Codex app-server contract", () => {
       turnInterruptParams,
       turnInterruptResponse,
       turnCompletedNotification,
+      itemStartedNotification,
+      itemCompletedNotification,
+      turnPlanUpdatedNotification,
+      tokenUsageUpdatedNotification,
+      errorNotification,
+      warningNotification,
+      guardianWarningNotification,
+      approvalReviewStartedNotification,
+      approvalReviewCompletedNotification,
       protocolError,
       combined,
     ] = await Promise.all([
@@ -134,6 +143,27 @@ describe("installed Codex app-server contract", () => {
       readJson(join(output, "v2", "TurnInterruptParams.json")),
       readJson(join(output, "v2", "TurnInterruptResponse.json")),
       readJson(join(output, "v2", "TurnCompletedNotification.json")),
+      readJson(join(output, "v2", "ItemStartedNotification.json")),
+      readJson(join(output, "v2", "ItemCompletedNotification.json")),
+      readJson(join(output, "v2", "TurnPlanUpdatedNotification.json")),
+      readJson(join(output, "v2", "ThreadTokenUsageUpdatedNotification.json")),
+      readJson(join(output, "v2", "ErrorNotification.json")),
+      readJson(join(output, "v2", "WarningNotification.json")),
+      readJson(join(output, "v2", "GuardianWarningNotification.json")),
+      readJson(
+        join(
+          output,
+          "v2",
+          "ItemGuardianApprovalReviewStartedNotification.json",
+        ),
+      ),
+      readJson(
+        join(
+          output,
+          "v2",
+          "ItemGuardianApprovalReviewCompletedNotification.json",
+        ),
+      ),
       readJson(join(output, "JSONRPCErrorError.json")),
       readJson(join(output, "codex_app_server_protocol.schemas.json")),
     ])
@@ -149,6 +179,19 @@ describe("installed Codex app-server contract", () => {
     )
     const serverMethods = collectEnumStrings(serverNotification)
     assert.equal(serverMethods.has("turn/completed"), true)
+    for (const method of [
+      "item/started",
+      "item/completed",
+      "turn/plan/updated",
+      "thread/tokenUsage/updated",
+      "error",
+      "warning",
+      "guardianWarning",
+      "item/autoApprovalReview/started",
+      "item/autoApprovalReview/completed",
+    ]) {
+      assert.equal(serverMethods.has(method), true, `missing event ${method}`)
+    }
     for (const method of CODEX_APP_SERVER_OPT_OUT_NOTIFICATION_METHODS) {
       assert.equal(
         serverMethods.has(method),
@@ -246,6 +289,183 @@ describe("installed Codex app-server contract", () => {
       "text",
       "type",
     ])
+
+    for (const [schema, description] of [
+      [itemStartedNotification, "ItemStartedNotification"],
+      [itemCompletedNotification, "ItemCompletedNotification"],
+    ] as const) {
+      assertProperties(schema, description, ["item", "threadId", "turnId"])
+    }
+    const itemDefinitions = definitions(itemStartedNotification)
+    for (const [type, fields] of [
+      ["reasoning", ["id", "summary", "content", "type"]],
+      [
+        "commandExecution",
+        ["aggregatedOutput", "command", "exitCode", "id", "status", "type"],
+      ],
+      ["fileChange", ["changes", "id", "status", "type"]],
+      ["mcpToolCall", ["id", "server", "status", "tool", "type"]],
+      ["webSearch", ["id", "query", "type"]],
+      ["contextCompaction", ["id", "type"]],
+    ] as const) {
+      const item = findTaggedSchema(itemDefinitions.ThreadItem, type)
+      assert.notEqual(item, null, `ThreadItem is missing ${type}`)
+      assertProperties(item, `${type} item`, fields)
+    }
+    assertProperties(itemDefinitions.FileUpdateChange, "FileUpdateChange", [
+      "kind",
+      "path",
+    ])
+    for (const status of ["inProgress", "completed", "failed", "declined"]) {
+      assert.equal(
+        collectEnumStrings(itemDefinitions.CommandExecutionStatus).has(status),
+        true,
+        `CommandExecutionStatus is missing ${status}`,
+      )
+      assert.equal(
+        collectEnumStrings(itemDefinitions.PatchApplyStatus).has(status),
+        true,
+        `PatchApplyStatus is missing ${status}`,
+      )
+    }
+    for (const status of ["inProgress", "completed", "failed"]) {
+      assert.equal(
+        collectEnumStrings(itemDefinitions.McpToolCallStatus).has(status),
+        true,
+        `McpToolCallStatus is missing ${status}`,
+      )
+    }
+    for (const kind of ["add", "delete", "update"]) {
+      assert.equal(
+        collectEnumStrings(itemDefinitions.PatchChangeKind).has(kind),
+        true,
+        `PatchChangeKind is missing ${kind}`,
+      )
+    }
+    assertProperties(
+      turnPlanUpdatedNotification,
+      "TurnPlanUpdatedNotification",
+      ["plan", "threadId", "turnId"],
+    )
+    assertProperties(
+      definitions(turnPlanUpdatedNotification).TurnPlanStep,
+      "TurnPlanStep",
+      ["status", "step"],
+    )
+    for (const status of ["pending", "inProgress", "completed"]) {
+      assert.equal(
+        collectEnumStrings(
+          definitions(turnPlanUpdatedNotification).TurnPlanStepStatus,
+        ).has(status),
+        true,
+        `TurnPlanStepStatus is missing ${status}`,
+      )
+    }
+    assertProperties(
+      tokenUsageUpdatedNotification,
+      "ThreadTokenUsageUpdatedNotification",
+      ["threadId", "tokenUsage", "turnId"],
+    )
+    const usageDefinitions = definitions(tokenUsageUpdatedNotification)
+    assertProperties(usageDefinitions.ThreadTokenUsage, "ThreadTokenUsage", [
+      "last",
+      "modelContextWindow",
+      "total",
+    ])
+    assertProperties(
+      usageDefinitions.TokenUsageBreakdown,
+      "TokenUsageBreakdown",
+      [
+        "cacheWriteInputTokens",
+        "cachedInputTokens",
+        "inputTokens",
+        "outputTokens",
+        "reasoningOutputTokens",
+        "totalTokens",
+      ],
+    )
+    assertProperties(errorNotification, "ErrorNotification", [
+      "error",
+      "threadId",
+      "turnId",
+      "willRetry",
+    ])
+    assertProperties(warningNotification, "WarningNotification", [
+      "message",
+      "threadId",
+    ])
+    assertProperties(
+      guardianWarningNotification,
+      "GuardianWarningNotification",
+      ["message", "threadId"],
+    )
+    for (const [schema, description] of [
+      [
+        approvalReviewStartedNotification,
+        "ItemGuardianApprovalReviewStartedNotification",
+      ],
+      [
+        approvalReviewCompletedNotification,
+        "ItemGuardianApprovalReviewCompletedNotification",
+      ],
+    ] as const) {
+      assertProperties(schema, description, [
+        "action",
+        "review",
+        "reviewId",
+        "threadId",
+        "turnId",
+      ])
+    }
+    const reviewDefinitions = definitions(approvalReviewStartedNotification)
+    for (const [type, fields] of [
+      ["command", ["command", "type"]],
+      ["execve", ["argv", "program", "type"]],
+      ["applyPatch", ["files", "type"]],
+      ["networkAccess", ["protocol", "target", "type"]],
+      ["mcpToolCall", ["server", "toolName", "type"]],
+      ["requestPermissions", ["permissions", "type"]],
+    ] as const) {
+      const action = findTaggedSchema(
+        reviewDefinitions.GuardianApprovalReviewAction,
+        type,
+      )
+      assert.notEqual(
+        action,
+        null,
+        `GuardianApprovalReviewAction is missing ${type}`,
+      )
+      assertProperties(action, `${type} approval action`, fields)
+    }
+    assertProperties(
+      reviewDefinitions.RequestPermissionProfile,
+      "RequestPermissionProfile",
+      ["fileSystem", "network"],
+    )
+    for (const protocol of ["http", "https", "socks5Tcp", "socks5Udp"]) {
+      assert.equal(
+        collectEnumStrings(reviewDefinitions.NetworkApprovalProtocol).has(
+          protocol,
+        ),
+        true,
+        `NetworkApprovalProtocol is missing ${protocol}`,
+      )
+    }
+    for (const status of [
+      "inProgress",
+      "approved",
+      "denied",
+      "timedOut",
+      "aborted",
+    ]) {
+      assert.equal(
+        collectEnumStrings(reviewDefinitions.GuardianApprovalReviewStatus).has(
+          status,
+        ),
+        true,
+        `GuardianApprovalReviewStatus is missing ${status}`,
+      )
+    }
     assertProperties(protocolError, "JSONRPCErrorError", ["code", "message"])
 
     const combinedDefinitions = definitions(combined)

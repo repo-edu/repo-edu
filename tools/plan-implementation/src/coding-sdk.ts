@@ -164,7 +164,7 @@ function itemEvents(
     case "error": {
       if (state.emittedIds.has(item.id)) return []
       state.emittedIds.add(item.id)
-      return [{ kind: "error", message: item.message }]
+      return [{ kind: "error", message: item.message, willRetry: false }]
     }
   }
 }
@@ -232,19 +232,26 @@ export async function runCodexCodingStep(
           finalResponse = event.item.text
         }
         break
-      case "turn.completed":
+      case "turn.completed": {
+        const tokens = {
+          inputTokens: event.usage.input_tokens,
+          cachedInputTokens: event.usage.cached_input_tokens,
+          cacheWriteInputTokens: event.usage.cache_write_input_tokens,
+          outputTokens: event.usage.output_tokens,
+          reasoningOutputTokens: event.usage.reasoning_output_tokens,
+          totalTokens: event.usage.input_tokens + event.usage.output_tokens,
+        }
         await options.emit({
           kind: "usage",
-          tokens: {
-            inputTokens: event.usage.input_tokens,
-            cachedInputTokens: event.usage.cached_input_tokens,
-            cacheWriteInputTokens: event.usage.cache_write_input_tokens,
-            outputTokens: event.usage.output_tokens,
-            reasoningOutputTokens: event.usage.reasoning_output_tokens,
+          usage: {
+            cumulative: tokens,
+            lastContext: tokens,
+            modelContextWindowTokens: null,
           },
         })
         terminal = "completed"
         break
+      }
       case "turn.failed":
         terminal = "failed"
         failureMessage = event.error.message

@@ -169,12 +169,24 @@ describe("progress adapters", () => {
       step: 9,
       event: {
         kind: "usage",
-        tokens: {
-          inputTokens: 12_345,
-          cachedInputTokens: 10_000,
-          cacheWriteInputTokens: 2_000,
-          outputTokens: 678,
-          reasoningOutputTokens: 456,
+        usage: {
+          cumulative: {
+            inputTokens: 12_345,
+            cachedInputTokens: 10_000,
+            cacheWriteInputTokens: 2_000,
+            outputTokens: 678,
+            reasoningOutputTokens: 456,
+            totalTokens: 13_023,
+          },
+          lastContext: {
+            inputTokens: 4_500,
+            cachedInputTokens: 4_000,
+            cacheWriteInputTokens: 0,
+            outputTokens: 500,
+            reasoningOutputTokens: 300,
+            totalTokens: 5_000,
+          },
+          modelContextWindowTokens: 200_000,
         },
       },
     })
