@@ -45,7 +45,9 @@ async function main(): Promise<void> {
               signal: stop.signal,
             },
             {
-              coding: createCodingAdapter(childProcessLifetimeController),
+              coding: createCodingAdapter(childProcessLifetimeController, {
+                humanReview,
+              }),
               commands: createStepCommandExecutor(
                 childProcessLifetimeController,
               ),

@@ -62,6 +62,7 @@ export function buildCodingPrompt(request: CodingRequest): string {
     "- You may run pnpm install when a dependency manifest change requires it.",
     "- Run only package check scripts and focused test files for feedback.",
     "- Never run root pnpm check or root pnpm test. The runner owns the independent package or final root checks after your result.",
+    "- When work depends on an external API, package, or tool, use live web search and open the selected source page. Never use a search-result snippet as evidence.",
     "- Return succeeded only after the active step is implemented. Include one valid severity-prefixed commit subject and short decision-and-reason bullets.",
     "- Return blocked when the active step cannot be completed safely. State the concrete reason.",
     "- Do not return proof choices or proof results.",

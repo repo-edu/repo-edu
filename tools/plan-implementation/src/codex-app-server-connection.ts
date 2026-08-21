@@ -120,6 +120,11 @@ export type CodexAppServerRequestHandler = (
   cancellation: CancellationToken,
 ) => unknown | Promise<unknown>
 
+export type CodexAppServerNotificationHandler = (
+  method: string,
+  params: unknown,
+) => void
+
 export type CodexAppServerConnection = {
   readonly rpc: MessageConnection
   readonly threadId: string
@@ -128,6 +133,7 @@ export type CodexAppServerConnection = {
   readonly effectiveApprovalsReviewer: CodexAppServerApprovalsReviewer
   errorOutput(): string
   isWritable(): boolean
+  onNotification(handler: CodexAppServerNotificationHandler): Disposable
   onRequestWritten(method: string, listener: () => void): Disposable
   setServerRequestHandler(handler: CodexAppServerRequestHandler): Disposable
   dispose(): void
@@ -201,6 +207,7 @@ export async function startCodexAppServerConnection(
     { messageStrategy: requestCorrelator.messageStrategy },
   )
   let serverRequestHandler: CodexAppServerRequestHandler | undefined
+  const notificationHandlers = new Set<CodexAppServerNotificationHandler>()
   connection.onRequest((method, params, cancellation) => {
     let id: CodexAppServerRequestId
     try {
@@ -215,6 +222,11 @@ export async function startCodexAppServerConnection(
       )
     }
     return serverRequestHandler({ id, method, params }, cancellation)
+  })
+  connection.onNotification((method, params) => {
+    for (const handler of notificationHandlers) {
+      handler(method, params)
+    }
   })
   let closed = false
   connection.onClose(() => {
@@ -248,6 +260,14 @@ export async function startCodexAppServerConnection(
       effectiveApprovalsReviewer: threadStartResponse.approvalsReviewer,
       errorOutput: stderr.readonly,
       isWritable: () => !closed && writer.isWritable(),
+      onNotification(handler) {
+        notificationHandlers.add(handler)
+        return {
+          dispose() {
+            notificationHandlers.delete(handler)
+          },
+        }
+      },
       onRequestWritten: (method, listener) =>
         requestWrites.onNext(method, listener),
       setServerRequestHandler(handler) {
@@ -268,6 +288,7 @@ export async function startCodexAppServerConnection(
       dispose() {
         if (disposed) return
         disposed = true
+        notificationHandlers.clear()
         closeConnection(connection)
         stderr.dispose()
       },

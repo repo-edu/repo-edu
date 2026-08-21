@@ -1,12 +1,22 @@
-import type { Readable, Writable } from "node:stream"
-import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
+import type {
+  ChildProcessLifetimeController,
+  ChildProcessOutcome,
+  OwnedChildProcessTree,
+} from "@repo-edu/host-node/child-process-lifetime"
+import { resolveCodexAppServerCommand } from "./codex-app-server-command.js"
 import {
-  CancellationTokenSource,
-  createMessageConnection,
-  NullLogger,
-  type ResponseError,
-} from "vscode-jsonrpc/node"
+  type CodexAppServerConnection,
+  startCodexAppServerConnection,
+} from "./codex-app-server-connection.js"
+import { createCodexAppServerEventMapper } from "./codex-app-server-events.js"
+import { createCodexAppServerReviewOwner } from "./codex-app-server-review.js"
+import {
+  type CodexAppServerTurn,
+  type CodexAppServerTurnFailure,
+  startCodexAppServerTurn,
+} from "./codex-app-server-turn.js"
 import { CodingEventQueue } from "./coding-event-queue.js"
+import { buildCodingPrompt } from "./coding-prompt.js"
 import type {
   CodingAdapter,
   CodingEvent,
@@ -14,232 +24,152 @@ import type {
   CodingResult,
   CodingRun,
 } from "./contracts.js"
-import { createStepCodexSdkHostCommand } from "./step-codex-sdk-host-command.js"
-import {
-  type StepCodexSdkHostProtocolFailure,
-  stepCodexSdkHostEventNotification,
-  stepCodexSdkHostRunRequest,
-} from "./step-codex-sdk-host-protocol.js"
+import type { HumanReviewPort } from "./human-review.js"
 
-type StepCodexSdkHostProcessResult = {
-  readonly exitCode: number | null
-  readonly signal: string | null
-}
+export type CodexAppServerProcess = OwnedChildProcessTree<
+  CodingResult,
+  CodexAppServerTurnFailure
+>
 
-type StepCodexSdkHostProcess = {
-  readonly stdin: Writable
-  readonly stdout: Readable
-  readonly stderr: Readable
-  readonly outcome: Promise<
-    | { readonly outcome: "unknown" }
-    | { readonly outcome: "cancelled" }
-    | {
-        readonly outcome: "completed"
-        readonly targetResult?: StepCodexSdkHostProcessResult
-        readonly value: CodingResult
-      }
-    | {
-        readonly outcome: "failed"
-        readonly message: string
-        readonly targetResult?: StepCodexSdkHostProcessResult
-        readonly value: StepCodexSdkHostProtocolFailure
-      }
-  >
-  requestCancellation(): void
-  reportFailure(error: unknown): void
-  reportProofLost(error: unknown): void
-  reportResult(
-    result:
-      | { readonly outcome: "completed"; readonly value: CodingResult }
-      | {
-          readonly outcome: "failed"
-          readonly message: string
-          readonly value: StepCodexSdkHostProtocolFailure
-        },
-  ): void
-}
-
-export type StepCodexSdkHostLaunch = (
+export type CodexAppServerLaunch = (
   request: CodingRequest,
-  signal?: AbortSignal,
-) => Promise<StepCodexSdkHostProcess>
+) => Promise<CodexAppServerProcess>
 
-export class StepCodexSdkHostOutcomeUnknownError extends Error {
-  override readonly name = "StepCodexSdkHostOutcomeUnknownError"
-}
-
-const SDK_HOST_ERROR_OUTPUT_LIMIT = 2_000
-
-// A read failure on the stream is a secondary diagnostic, never a crash.
-function readErrorOutputTail(
-  stream: Readable,
-  onFailure: (error: unknown) => void,
-): () => string {
-  let tail = ""
-  stream.setEncoding("utf8")
-  stream.on("error", onFailure)
-  stream.on("data", (chunk: string) => {
-    tail = (tail + chunk).slice(-SDK_HOST_ERROR_OUTPUT_LIMIT)
-  })
-  return () => tail.trim()
-}
-
-function withErrorOutput(message: string, errorOutput: string): string {
-  return errorOutput.length === 0 ? message : `${message}\n${errorOutput}`
-}
-
-function readStepCodexSdkHostFailure(
-  error: unknown,
-): StepCodexSdkHostProtocolFailure | null {
-  const data = (error as ResponseError<StepCodexSdkHostProtocolFailure>)?.data
-  return data?.type === "cancelled" || data?.type === "sdk-host-error"
-    ? data
-    : null
-}
-
-function mapStepCodexSdkHostError(
-  failure: StepCodexSdkHostProtocolFailure,
-): Error {
-  if (failure.type === "cancelled") {
-    return new Error(failure.message)
-  }
-  return new Error(failure.message)
+export type CodingAdapterOptions = {
+  readonly humanReview: HumanReviewPort
+  readonly launch?: CodexAppServerLaunch
 }
 
 function defaultLaunch(
   childProcessLifetimeController: ChildProcessLifetimeController,
-): StepCodexSdkHostLaunch {
-  return async (request, signal) => {
-    const sdkHostCommand = createStepCodexSdkHostCommand()
+): CodexAppServerLaunch {
+  return async (request) => {
+    const appServerCommand = resolveCodexAppServerCommand()
     return await childProcessLifetimeController.launch<
       CodingResult,
-      StepCodexSdkHostProtocolFailure
+      CodexAppServerTurnFailure
     >({
-      command: sdkHostCommand.command,
-      args: sdkHostCommand.arguments,
+      command: appServerCommand.command,
+      args: appServerCommand.arguments,
       cwd: request.repoEduRoot,
       env: { ...process.env },
       proof: "reported",
-      ...(signal === undefined ? {} : { signal }),
     })
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function reportStartupFailure(
+  process: CodexAppServerProcess,
+  error: unknown,
+): void {
+  const message = errorMessage(error)
+  process.reportResult({
+    outcome: "failed",
+    message,
+    value: { kind: "server-error", message },
+  })
+}
+
+function readControllerOutcome(
+  outcome: ChildProcessOutcome<CodingResult, CodexAppServerTurnFailure>,
+): CodingResult {
+  switch (outcome.outcome) {
+    case "completed":
+      return outcome.value
+    case "failed":
+      throw new Error(outcome.message)
+    case "cancelled":
+      throw new DOMException("Coding was stopped.", "AbortError")
+    case "unknown":
+      throw new Error(
+        "The child-process lifetime controller could not prove the Codex app-server result.",
+      )
   }
 }
 
 function createCodingRun(
   request: CodingRequest,
-  sdkHostProcess: StepCodexSdkHostProcess,
+  prompt: string,
+  process: CodexAppServerProcess,
+  humanReview: HumanReviewPort,
   signal?: AbortSignal,
 ): CodingRun {
-  const errorOutput = readErrorOutputTail(sdkHostProcess.stderr, (error) =>
-    sdkHostProcess.reportFailure(error),
-  )
-  const connection = createMessageConnection(
-    sdkHostProcess.stdout,
-    sdkHostProcess.stdin,
-    NullLogger,
-  )
   const events = new CodingEventQueue<CodingEvent>()
-  const cancellation = new CancellationTokenSource()
-  const abort = () => {
-    cancellation.cancel()
-    sdkHostProcess.requestCancellation()
-    events.close()
+  let connection: CodexAppServerConnection | undefined
+  let turn: CodexAppServerTurn | undefined
+  let cancellationRequested = false
+
+  const abort = (): void => {
+    if (cancellationRequested) return
+    cancellationRequested = true
+    if (turn === undefined) {
+      process.requestCancellation()
+    } else {
+      turn.abort()
+    }
   }
   signal?.addEventListener("abort", abort, { once: true })
   if (signal?.aborted) abort()
 
-  const eventSubscription = connection.onNotification(
-    stepCodexSdkHostEventNotification,
-    (event) => events.push(event),
-  )
-  connection.listen()
-
-  let observedOutcome: Awaited<StepCodexSdkHostProcess["outcome"]> | undefined
-  const requestCompletion = connection
-    .sendRequest(stepCodexSdkHostRunRequest, request, cancellation.token)
-    .then((codingResult) => {
-      sdkHostProcess.reportResult({
-        outcome: "completed",
-        value: codingResult,
-      })
-    })
-    .catch((error: unknown) => {
-      if (signal?.aborted) {
-        sdkHostProcess.requestCancellation()
-        return
-      }
-      const failure = readStepCodexSdkHostFailure(error)
-      if (failure === null) {
-        sdkHostProcess.reportProofLost(error)
-        return
-      }
-      sdkHostProcess.reportResult({
-        outcome: "failed",
-        message: failure.message,
-        value: failure,
-      })
-    })
-    .finally(() => {
-      events.close()
-      if (
-        observedOutcome?.outcome !== "unknown" &&
-        observedOutcome?.outcome !== "cancelled" &&
-        !sdkHostProcess.stdin.writableEnded
-      ) {
-        sdkHostProcess.stdin.end()
-      }
-    })
-  const processOutcome = sdkHostProcess.outcome.then((outcome) => {
-    observedOutcome = outcome
-    if (outcome.outcome === "unknown" || outcome.outcome === "cancelled") {
-      events.close()
-      connection.dispose()
-    }
-    return outcome
-  })
-
   const result = (async (): Promise<CodingResult> => {
+    let notifications: { dispose(): void } | undefined
+    let review: { dispose(): void } | undefined
     try {
-      await requestCompletion
-      const outcome = await processOutcome
-      if (outcome.outcome === "unknown") {
-        throw new StepCodexSdkHostOutcomeUnknownError(
-          withErrorOutput(
-            "The plan-step Codex SDK host process exited before its result was known.",
-            errorOutput(),
-          ),
-        )
+      if (!cancellationRequested) {
+        try {
+          connection = await startCodexAppServerConnection(process, {
+            repoEduRoot: request.repoEduRoot,
+            onStderrFailure: (error) => process.reportFailure(error),
+          })
+          if (!cancellationRequested) {
+            const mapper = createCodexAppServerEventMapper({
+              threadId: connection.threadId,
+              emit: (event) => events.push(event),
+            })
+            notifications = connection.onNotification(mapper.notification)
+            review = createCodexAppServerReviewOwner(connection, humanReview, {
+              emit: (event) => events.push(event),
+            })
+            turn = startCodexAppServerTurn(connection, process, { prompt })
+          }
+        } catch (error) {
+          if (!cancellationRequested) reportStartupFailure(process, error)
+        }
       }
-      if (outcome.outcome === "cancelled") {
-        throw new DOMException("Coding was stopped.", "AbortError")
-      }
-      if (outcome.outcome === "failed") {
-        throw mapStepCodexSdkHostError(outcome.value)
-      }
-      return outcome.value
+
+      return readControllerOutcome(await process.outcome)
     } finally {
       signal?.removeEventListener("abort", abort)
-      eventSubscription.dispose()
-      connection.dispose()
-      cancellation.dispose()
+      review?.dispose()
+      notifications?.dispose()
+      connection?.dispose()
+      events.close()
     }
   })()
 
-  return {
-    events,
-    result,
-    abort,
-  }
+  return { abort, events, result }
 }
 
 export function createCodingAdapter(
   childProcessLifetimeController: ChildProcessLifetimeController,
-  options: { readonly launch?: StepCodexSdkHostLaunch } = {},
+  options: CodingAdapterOptions,
 ): CodingAdapter {
   const launch = options.launch ?? defaultLaunch(childProcessLifetimeController)
   return {
     async start(request, signal) {
-      return createCodingRun(request, await launch(request, signal), signal)
+      const prompt = buildCodingPrompt(request)
+      const process = await launch(request)
+      return createCodingRun(
+        request,
+        prompt,
+        process,
+        options.humanReview,
+        signal,
+      )
     },
   }
 }

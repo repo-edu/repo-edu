@@ -1,8 +1,4 @@
-import {
-  ErrorCodes,
-  NotificationType,
-  ResponseError,
-} from "vscode-jsonrpc/node"
+import { ErrorCodes, ResponseError } from "vscode-jsonrpc/node"
 import type {
   CodexAppServerConnection,
   CodexAppServerRequest,
@@ -33,13 +29,6 @@ import type {
   HumanReviewResponse,
 } from "./human-review.js"
 
-const serverRequestResolvedNotification = new NotificationType<unknown>(
-  "serverRequest/resolved",
-)
-const itemStartedNotification = new NotificationType<unknown>("item/started")
-const itemCompletedNotification = new NotificationType<unknown>(
-  "item/completed",
-)
 const noStaleResponse = new Promise<never>(() => {})
 
 export type CodexAppServerReviewOwner = {
@@ -453,30 +442,28 @@ export function createCodexAppServerReviewOwner(
       parsed.data.item.changes.map((change) => change.path),
     )
   }
-  const started = connection.rpc.onNotification(
-    itemStartedNotification,
-    (params) => rememberFileChanges(params, false),
-  )
-  const completed = connection.rpc.onNotification(
-    itemCompletedNotification,
-    (params) => rememberFileChanges(params, true),
-  )
-  const resolved = connection.rpc.onNotification(
-    serverRequestResolvedNotification,
-    (params) => {
-      const parsed = serverRequestResolvedNotificationSchema.safeParse(params)
-      if (!parsed.success || parsed.data.threadId !== connection.threadId)
+  const notifications = connection.onNotification((method, params) => {
+    switch (method) {
+      case "item/started":
+        rememberFileChanges(params, false)
         return
-      humanReview.clear(protocolRequestKey(parsed.data.requestId))
-    },
-  )
+      case "item/completed":
+        rememberFileChanges(params, true)
+        return
+      case "serverRequest/resolved": {
+        const parsed = serverRequestResolvedNotificationSchema.safeParse(params)
+        if (!parsed.success || parsed.data.threadId !== connection.threadId) {
+          return
+        }
+        humanReview.clear(protocolRequestKey(parsed.data.requestId))
+      }
+    }
+  })
 
   return {
     dispose() {
       handler.dispose()
-      started.dispose()
-      completed.dispose()
-      resolved.dispose()
+      notifications.dispose()
       for (const requestId of openRequests) humanReview.clear(requestId)
       openRequests.clear()
       fileChanges.clear()

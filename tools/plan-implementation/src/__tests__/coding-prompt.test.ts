@@ -45,6 +45,11 @@ describe("coding prompt", () => {
     assert.match(prompt, /may run pnpm install/)
     assert.match(prompt, /only package check scripts and focused test files/)
     assert.match(prompt, /Never run root pnpm check or root pnpm test/)
+    assert.match(
+      prompt,
+      /use live web search and open the selected source page/,
+    )
+    assert.match(prompt, /Never use a search-result snippet as evidence/)
     assert.match(prompt, /Do not return proof choices or proof results/)
   })
 
