@@ -166,12 +166,13 @@ async function runScopeCommand(
       command,
       stopSignal?.aborted ? "stopped" : "failed",
     )
-    if (stopSignal?.aborted) {
-      throw new StepCheckError(command, `${command.label} was stopped.`, {
-        cause: error,
-      })
-    }
-    return null
+    throw new StepCheckError(
+      command,
+      stopSignal?.aborted
+        ? `${command.label} was stopped.`
+        : `${command.label} could not start or settle.`,
+      { cause: error },
+    )
   }
   if (result.exitCode !== 0 || result.signal !== null) {
     observer.commandFinished(

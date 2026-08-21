@@ -256,4 +256,35 @@ describe("step checks", () => {
     )
     assert.deepEqual(calls, ["git-diff-check", "repository-check"])
   })
+
+  it("stops when workspace discovery cannot start or settle", async () => {
+    const calls: string[] = []
+    const executor: StepCommandExecutor = {
+      async run(request) {
+        calls.push(request.id)
+        if (request.id === "workspace-projects") {
+          throw new Error("The command result could not be confirmed.")
+        }
+        return { exitCode: 0, signal: null, stdout: "", stderr: "" }
+      },
+    }
+
+    await assert.rejects(
+      runAdmittedStepChecks(
+        "/repo-edu",
+        stepWithProofs(),
+        {
+          paths: ["packages/domain/src/index.ts"],
+          finalStep: false,
+        },
+        executor,
+        {
+          commandStarted() {},
+          commandFinished() {},
+        },
+      ),
+      /Workspace projects could not start or settle/,
+    )
+    assert.deepEqual(calls, ["git-diff-check", "workspace-projects"])
+  })
 })
