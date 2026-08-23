@@ -10,7 +10,7 @@ import { createTerminalView } from "../terminal-view.js"
 
 const source: PlanSourceIdentity = {
   planName: "app-server-runner",
-  planPath: "/plan/plan-app-server-runner.md",
+  planPath: "/plan/app-server-runner.md",
   commitOid: "a".repeat(40),
   blobOid: "b".repeat(40),
 }

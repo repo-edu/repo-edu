@@ -50,9 +50,9 @@ async function createRepository(prefix: string): Promise<string> {
 
 export async function createPlan(): Promise<string> {
   const root = await createRepository("plan-runner-plan-test-")
-  const planPath = join(root, "plan-example.md")
+  const planPath = join(root, "example.md")
   await writeFile(planPath, planMarkdown)
-  await git(root, ["add", "--", "plan-example.md"])
+  await git(root, ["add", "--", "example.md"])
   await git(root, ["commit", "--quiet", "-m", "add plan"])
   return planPath
 }

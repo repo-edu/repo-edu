@@ -57,9 +57,9 @@ async function createPlanRepository(
   await git(root, ["config", "user.email", "plan-reader@example.invalid"])
   const planDirectory = join(root, "plans")
   await mkdir(planDirectory)
-  const planPath = join(planDirectory, "plan-example.md")
+  const planPath = join(planDirectory, "example.md")
   await writeFile(planPath, markdown)
-  await git(root, ["add", "--", "plans/plan-example.md"])
+  await git(root, ["add", "--", "plans/example.md"])
   await git(root, ["commit", "--quiet", "-m", "add plan"])
   return { root, planPath }
 }
@@ -94,7 +94,7 @@ describe("readCommittedImplementationPlan", () => {
     assert.match(plan.source.blobOid, /^[0-9a-f]{40,}$/)
     const { stdout: committedBlob } = await git(root, [
       "rev-parse",
-      "HEAD:plans/plan-example.md",
+      "HEAD:plans/example.md",
     ])
     assert.equal(plan.source.blobOid, committedBlob.trim())
     assert.deepEqual(
@@ -152,7 +152,7 @@ describe("readCommittedImplementationPlan", () => {
       "-1",
       "--format=%H",
       "--",
-      "plans/plan-example.md",
+      "plans/example.md",
     ])
     const { stdout: headCommit } = await git(root, ["rev-parse", "HEAD"])
     assert.equal(plan.source.commitOid, lastTouchCommit.trim())

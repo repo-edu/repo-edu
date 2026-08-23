@@ -31,7 +31,7 @@ plan/
 .rumdl_cache/
 
 # pnpm sweep skip cache: disposable, hash-keyed, never committed.
-# The refactor backlog is the durable half and lives in the sibling plan repo.
+# The tracked refactor backlog lives beside it under tools/sweep.
 tools/sweep/skip-cache.tsv
 
 # Dependencies

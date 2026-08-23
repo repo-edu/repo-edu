@@ -44,18 +44,18 @@ describe("createPlanImplementationCommand", () => {
   it("selects completion, count and through-step run modes", async () => {
     const fixture = commandFixture()
 
-    await parse(["plan-example.md"], fixture.handlers)
-    await parse(["plan-example.md", "--count", "2"], fixture.handlers)
-    await parse(["--through-step", "5", "plan-example.md"], fixture.handlers)
+    await parse(["example.md"], fixture.handlers)
+    await parse(["example.md", "--count", "2"], fixture.handlers)
+    await parse(["--through-step", "5", "example.md"], fixture.handlers)
 
     assert.deepEqual(fixture.recorded.runs, [
-      { planPath: "plan-example.md", run: { mode: "complete" } },
+      { planPath: "example.md", run: { mode: "complete" } },
       {
-        planPath: "plan-example.md",
+        planPath: "example.md",
         run: { mode: "count", count: 2 },
       },
       {
-        planPath: "plan-example.md",
+        planPath: "example.md",
         run: { mode: "through-step", throughStep: 5 },
       },
     ])
@@ -64,26 +64,26 @@ describe("createPlanImplementationCommand", () => {
   it("routes the cursor-reset root option with its exact positive step", async () => {
     const fixture = commandFixture()
 
-    await parse(["plan-example.md", "--reset-cursor", "3"], fixture.handlers)
+    await parse(["example.md", "--reset-cursor", "3"], fixture.handlers)
 
     assert.deepEqual(fixture.recorded.resets, [
-      { planPath: "plan-example.md", nextStep: 3 },
+      { planPath: "example.md", nextStep: 3 },
     ])
     assert.deepEqual(fixture.recorded.runs, [])
   })
 
   it("rejects conflicting modes and non-canonical positive integers", async () => {
     for (const arguments_ of [
-      ["plan-example.md", "--count", "1", "--through-step", "2"],
-      ["plan-example.md", "--count", "0"],
-      ["plan-example.md", "--count", "01"],
-      ["plan-example.md", "--through-step", "1.0"],
-      ["plan-example.md", "--count", "9007199254740992"],
-      ["plan-example.md", "--reset-cursor", "0"],
-      ["plan-example.md", "--reset-cursor", "01"],
-      ["plan-example.md", "--reset-cursor", "3", "--count", "1"],
-      ["plan-example.md", "--reset-cursor", "3", "--through-step", "4"],
-      ["reset-cursor", "plan-example.md", "--next-step", "3"],
+      ["example.md", "--count", "1", "--through-step", "2"],
+      ["example.md", "--count", "0"],
+      ["example.md", "--count", "01"],
+      ["example.md", "--through-step", "1.0"],
+      ["example.md", "--count", "9007199254740992"],
+      ["example.md", "--reset-cursor", "0"],
+      ["example.md", "--reset-cursor", "01"],
+      ["example.md", "--reset-cursor", "3", "--count", "1"],
+      ["example.md", "--reset-cursor", "3", "--through-step", "4"],
+      ["reset-cursor", "example.md", "--next-step", "3"],
     ]) {
       const fixture = commandFixture()
       const command = createPlanImplementationCommand(fixture.handlers)

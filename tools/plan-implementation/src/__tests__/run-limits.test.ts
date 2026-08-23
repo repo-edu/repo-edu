@@ -24,7 +24,7 @@ function planWithProofs(
   return {
     source: {
       planName: "example",
-      planPath: "/plans/plan-example.md",
+      planPath: "/plans/example.md",
       commitOid: "1".repeat(40),
       blobOid: "2".repeat(40),
     },

@@ -38,7 +38,7 @@ export function testCodingRequest(activeStep = 2): CodingRequest {
   const plan: CommittedImplementationPlan = {
     source: {
       planName: "test-plan",
-      planPath: "/plans/plan-test-plan.md",
+      planPath: "/plans/test-plan.md",
       commitOid: "a".repeat(40),
       blobOid: "b".repeat(40),
     },

@@ -42,9 +42,9 @@ async function createPlan(): Promise<string> {
   const root = await createGitRepository("repo-edu-reset-plan-test-")
   const plans = join(root, "plans")
   await mkdir(plans)
-  const planPath = join(plans, "plan-example.md")
+  const planPath = join(plans, "example.md")
   await writeFile(planPath, planMarkdown)
-  await git(root, ["add", "--", "plans/plan-example.md"])
+  await git(root, ["add", "--", "plans/example.md"])
   await git(root, ["commit", "--quiet", "-m", "add plan"])
   return planPath
 }

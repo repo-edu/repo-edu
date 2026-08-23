@@ -299,11 +299,10 @@ function planName(planPath: string): string {
     throw new PlanReaderError("The plan path must name a Markdown file.")
   }
   const fileStem = basename(planPath, ".md")
-  const name = fileStem.startsWith("plan-") ? fileStem.slice(5) : fileStem
-  if (name.length === 0) {
+  if (fileStem.length === 0) {
     throw new PlanReaderError("The plan path must have a non-empty plan name.")
   }
-  return name
+  return fileStem
 }
 
 function repositoryPath(repositoryRoot: string, planPath: string): string {

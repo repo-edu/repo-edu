@@ -19,7 +19,7 @@ afterEach(cleanupTestRepositories)
 
 const source: PlanSourceIdentity = {
   planName: "example",
-  planPath: "/plan/plan-example.md",
+  planPath: "/plan/example.md",
   commitOid: "a".repeat(40),
   blobOid: "b".repeat(40),
 }

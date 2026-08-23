@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile)
 const temporaryRoots = new Set<string>()
 const testSource = {
   planName: "example",
-  planPath: "/plans/plan-example.md",
+  planPath: "/plans/example.md",
   commitOid: "a".repeat(40),
   blobOid: "b".repeat(40),
 }
