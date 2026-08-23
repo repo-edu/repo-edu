@@ -6,6 +6,7 @@ import type { CodingResult, PlanImplementationEvent } from "../contracts.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import {
   commitAdmittedRepositoryDiff,
+  commitPlanCompletionMarker,
   stageAdmittedRepositoryDiff,
 } from "../repository-admission.js"
 import type { StepCommandRequest, StepCommandResult } from "../step-checks.js"
@@ -208,6 +209,7 @@ describe("runPlanImplementation stop paths", () => {
         commands: successfulCommands([]),
         ownedChildren: settledChildren,
         repositoryCommit: {
+          complete: commitPlanCompletionMarker,
           async stage(admission, diff) {
             await stageAdmittedRepositoryDiff(admission, diff)
             controller.abort("Stop before Git commit.")
@@ -271,6 +273,7 @@ describe("runPlanImplementation stop paths", () => {
         },
         repositoryCommit: {
           stage: stageAdmittedRepositoryDiff,
+          complete: commitPlanCompletionMarker,
           async commit(admission, diff, source, step, proposal, stopSignal) {
             assert.equal(stopSignal?.aborted, false)
             commitStarted.resolve()
@@ -303,8 +306,8 @@ describe("runPlanImplementation stop paths", () => {
     )
     assert.deepEqual(codingSteps, [1])
     assert.match(
-      (await git(repoEduRoot, ["log", "-1", "--format=%b"])).stdout,
-      /Plan-Step: 1/,
+      (await git(repoEduRoot, ["log", "-1", "--format=%s"])).stdout,
+      /example\/step-1-A1:/,
     )
     assert.equal((await git(repoEduRoot, ["status", "--porcelain"])).stdout, "")
     assert.equal(admissionReleased, true)

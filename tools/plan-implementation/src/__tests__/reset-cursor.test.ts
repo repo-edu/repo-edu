@@ -119,16 +119,10 @@ describe("resetPlanCursor", () => {
       result.commitOid,
       (await git(repoEduRoot, ["rev-parse", "HEAD"])).stdout.trim(),
     )
-    assert.equal(
-      subject.trim(),
-      "chore(plan-implementation): reset example cursor to step 3",
-    )
+    assert.equal(subject.trim(), "example/reset-3: reset cursor to step 3")
     assert.equal(
       body,
-      `Plan: example
-
-Plan-Cursor-Reset: 3
-Plan-Source-Commit: ${result.source.commitOid}
+      `Plan-Source-Commit: ${result.source.commitOid}
 Plan-Source-Blob: ${result.source.blobOid}
 `,
     )
@@ -154,6 +148,7 @@ Plan-Source-Blob: ${result.source.blobOid}
       nextStep: 3,
       resetCommitOid: result.commitOid,
       stepCommitOids: [],
+      completionCommitOid: null,
     })
   })
 

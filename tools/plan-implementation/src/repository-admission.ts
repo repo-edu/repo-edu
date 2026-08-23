@@ -4,7 +4,10 @@ import { resolve } from "node:path"
 import type { CodingCommitProposal, PlanSourceIdentity } from "./contracts.js"
 import { readGitText, runGit } from "./git-command.js"
 import { parseZeroSeparatedGitLog } from "./git-log.js"
-import { createPlanStepCommitMessage } from "./plan-record.js"
+import {
+  createPlanCompletionCommitMessage,
+  createPlanStepCommitMessage,
+} from "./plan-record.js"
 
 const singleCommitFormat = "format:%H%x00%s%x00%b%x00"
 const fullObjectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
@@ -34,8 +37,11 @@ export type RepositoryDiffWithOutsideWork = OutsideWorkAdmission & {
 
 export type RepositoryStepCommit = {
   readonly commitOid: string
+  readonly subject: string
   readonly nextAdmission: RepositoryAdmission
 }
+
+export type RepositoryCompletionCommit = RepositoryStepCommit
 
 export class RepositoryAdmissionError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -575,6 +581,104 @@ export async function commitAdmittedRepositoryDiff(
 
   return {
     commitOid,
+    subject: message.subject,
+    nextAdmission: Object.freeze({
+      repoEduRoot: admission.repoEduRoot,
+      branchRef: admission.branchRef,
+      headOid: commitOid,
+      indexFlagsFingerprint: await readIndexFlagsFingerprint(
+        admission.repoEduRoot,
+      ),
+    }),
+  }
+}
+
+export async function commitPlanCompletionMarker(
+  admission: RepositoryAdmission,
+  source: PlanSourceIdentity,
+  stopSignal?: AbortSignal,
+): Promise<RepositoryCompletionCommit> {
+  await requireExactControlState(admission, { compareIndex: true })
+  if ((await readCheckoutStatus(admission.repoEduRoot)).length > 0) {
+    throw new RepositoryAdmissionError(
+      "The completion marker requires a clean Repo Edu checkout.",
+    )
+  }
+
+  const message = createPlanCompletionCommitMessage(source)
+  if (stopSignal?.aborted) {
+    throw new RepositoryAdmissionError(
+      "The stop request prevented the completion marker from starting.",
+    )
+  }
+  try {
+    await runGit(admission.repoEduRoot, [
+      "commit",
+      "--allow-empty",
+      "--message",
+      message.subject,
+    ])
+  } catch (error) {
+    throw new RepositoryAdmissionError(
+      "Git could not write the plan completion marker.",
+      { cause: error },
+    )
+  }
+
+  const [commitOid, parentOid, branchRef, changedPaths, history] =
+    await Promise.all([
+      readFullObjectId(admission.repoEduRoot, "HEAD"),
+      readFullObjectId(admission.repoEduRoot, "HEAD^"),
+      readBranchRef(admission.repoEduRoot),
+      runGit(admission.repoEduRoot, [
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-z",
+        "-r",
+        "HEAD",
+      ]),
+      runGit(admission.repoEduRoot, [
+        "log",
+        "-1",
+        `--format=${singleCommitFormat}`,
+      ]),
+    ])
+  const commitFields = parseZeroSeparatedGitLog(history.stdout)
+  if (parentOid !== admission.headOid) {
+    throw new RepositoryAdmissionError(
+      "The completion marker did not use the admitted HEAD as its parent.",
+    )
+  }
+  if (branchRef !== admission.branchRef) {
+    throw new RepositoryAdmissionError(
+      "The current branch changed during the completion marker.",
+    )
+  }
+  if (changedPaths.stdout.length > 0) {
+    throw new RepositoryAdmissionError(
+      "The plan completion marker changed repository files.",
+    )
+  }
+  if (
+    commitFields.length !== 1 ||
+    commitFields[0].commitOid !== commitOid ||
+    commitFields[0].subject !== message.subject ||
+    commitFields[0].body !== message.body
+  ) {
+    throw new RepositoryAdmissionError(
+      "Git did not preserve the exact plan completion marker.",
+    )
+  }
+  if ((await readCheckoutStatus(admission.repoEduRoot)).length > 0) {
+    throw new RepositoryAdmissionError(
+      "The Repo Edu checkout is not clean after the completion marker.",
+    )
+  }
+
+  return {
+    commitOid,
+    subject: message.subject,
     nextAdmission: Object.freeze({
       repoEduRoot: admission.repoEduRoot,
       branchRef: admission.branchRef,

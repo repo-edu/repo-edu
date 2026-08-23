@@ -19,9 +19,11 @@ import {
   admitOutsideWork,
   admitRepositoryDiffWithOutsideWork,
   commitAdmittedRepositoryDiff,
+  commitPlanCompletionMarker,
   type OutsideWorkAdmission,
   openRepositoryAdmission,
   type RepositoryAdmission,
+  type RepositoryCompletionCommit,
   type RepositoryDiffWithOutsideWork,
   type RepositoryStepCommit,
   requireMatchingRepositoryDiff,
@@ -88,6 +90,11 @@ export type PlanImplementationRepositoryCommit = {
     proposal: Parameters<typeof commitAdmittedRepositoryDiff>[4],
     stopSignal?: AbortSignal,
   ): Promise<RepositoryStepCommit>
+  complete(
+    admission: RepositoryAdmission,
+    source: Parameters<typeof commitPlanCompletionMarker>[1],
+    stopSignal?: AbortSignal,
+  ): Promise<RepositoryCompletionCommit>
 }
 
 export class PlanImplementationRunError extends Error {
@@ -100,6 +107,7 @@ export class PlanImplementationRunError extends Error {
 const defaultRepositoryCommit: PlanImplementationRepositoryCommit = {
   stage: stageAdmittedRepositoryDiff,
   commit: commitAdmittedRepositoryDiff,
+  complete: commitPlanCompletionMarker,
 }
 
 async function drainCodingEvents(
@@ -197,6 +205,39 @@ async function runCodingStep(
     drainCodingEvents(step, run.events, progress),
   ])
   return result
+}
+
+async function ensureCompletionMarker(
+  repositoryCommit: PlanImplementationRepositoryCommit,
+  repository: RepositoryAdmission,
+  plan: CommittedImplementationPlan,
+  stopSignal?: AbortSignal,
+): Promise<RepositoryAdmission> {
+  await requireUnchangedPlanSource(plan.source)
+  const outsideWork = await admitOutsideWork(repository)
+  const cursor = await resolvePlanCursor(repository.repoEduRoot, plan)
+  if (cursor.nextStep !== plan.steps.length + 1) {
+    throw new PlanImplementationRunError(
+      "The completion marker requires a cursor one past the final step.",
+    )
+  }
+  if (cursor.completionCommitOid !== null) {
+    return outsideWork.admission
+  }
+
+  await requireUnchangedPlanSource(plan.source)
+  const committed = await repositoryCommit.complete(
+    outsideWork.admission,
+    plan.source,
+    stopSignal,
+  )
+  const completedCursor = await resolvePlanCursor(repository.repoEduRoot, plan)
+  if (completedCursor.completionCommitOid !== committed.commitOid) {
+    throw new PlanImplementationRunError(
+      "The plan cursor did not admit the runner-owned completion marker.",
+    )
+  }
+  return committed.nextAdmission
 }
 
 export async function runPlanImplementation(
@@ -316,9 +357,6 @@ export async function runPlanImplementation(
     if (pendingStopReason !== null) {
       closeNewWork(pendingStopReason)
     }
-    state = reduceRunOwnerState(state, {
-      kind: "admission-completed",
-    })
 
     const finishStoppedRun =
       async (): Promise<PlanImplementationFinalResult> => {
@@ -356,6 +394,28 @@ export async function runPlanImplementation(
       progress.finish(result)
       return result
     }
+
+    if (
+      cursor.nextStep === plan.steps.length + 1 &&
+      cursor.completionCommitOid === null &&
+      isNewWorkAdmissionOpen(state)
+    ) {
+      try {
+        repository = await ensureCompletionMarker(
+          repositoryCommit,
+          repository,
+          plan,
+          request.signal,
+        )
+      } catch (error) {
+        closeNewWork(errorMessage(error))
+        return finishRun(await finishStoppedRun())
+      }
+    }
+
+    state = reduceRunOwnerState(state, {
+      kind: "admission-completed",
+    })
 
     if (state.status === "stopped") {
       return finishRun(await finishStoppedRun())
@@ -507,16 +567,24 @@ export async function runPlanImplementation(
           request.signal,
         )
         repository = committed.nextAdmission
+        progress.stepCommitted(
+          stepNumber,
+          committed.commitOid,
+          committed.subject,
+        )
+        if (stepNumber === plan.steps.length && isNewWorkAdmissionOpen(state)) {
+          repository = await ensureCompletionMarker(
+            repositoryCommit,
+            repository,
+            plan,
+            request.signal,
+          )
+        }
         state = reduceRunOwnerState(state, {
           kind: "commit-completed",
           step: stepNumber,
           checkout: "clean",
         })
-        progress.stepCommitted(
-          stepNumber,
-          committed.commitOid,
-          codingResult.commit.subject,
-        )
         if (state.status === "stopped") {
           return finishRun(await finishStoppedRun())
         }

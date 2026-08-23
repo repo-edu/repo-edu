@@ -5,6 +5,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { afterEach, describe, it } from "node:test"
 import type { PlanImplementationEvent } from "../contracts.js"
+import { readCommittedImplementationPlan } from "../plan-reader.js"
 import { createPlanStepCommitMessage } from "../plan-record.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import type { StepCommand, StepCommandRequest } from "../step-checks.js"
@@ -87,10 +88,14 @@ describe("runPlanImplementation", () => {
     )
     assert.equal((await git(repoEduRoot, ["status", "--porcelain"])).stdout, "")
     assert.deepEqual(
-      (
-        await git(repoEduRoot, ["log", "-2", "--format=%s%x00%b%x00"])
-      ).stdout.match(/Plan-Step: [12]/g),
-      ["Plan-Step: 2", "Plan-Step: 1"],
+      (await git(repoEduRoot, ["log", "-3", "--format=%s"])).stdout
+        .trim()
+        .split("\n"),
+      [
+        "example/completed: record completed implementation",
+        "example/step-2-A1: redesign(plan-implementation): admit step 2",
+        "example/step-1-A1: redesign(plan-implementation): admit step 1",
+      ],
     )
     const events = (await readFile(result.transcriptPath, "utf8"))
       .trimEnd()
@@ -124,6 +129,54 @@ describe("runPlanImplementation", () => {
       kind: "run-finished",
       result,
     })
+  })
+
+  it("adds a missing completion marker without running another step", async () => {
+    const planPath = await createPlan()
+    const repoEduRoot = await createRepoEdu()
+    const plan = await readCommittedImplementationPlan(planPath)
+    for (const step of [1, 2]) {
+      const result = succeededResult(step)
+      if (result.status !== "succeeded") {
+        throw new Error("The test coding result must succeed.")
+      }
+      const message = createPlanStepCommitMessage(
+        plan.source,
+        step,
+        result.commit,
+      )
+      await git(repoEduRoot, [
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "--message",
+        message.subject,
+        "--message",
+        message.body,
+      ])
+    }
+    let codingStarted = false
+    const commandCalls: StepCommandRequest[] = []
+
+    const result = await runPlanImplementation(
+      { repoEduRoot, planPath, run: { mode: "complete" } },
+      {
+        coding: codingAdapter(async () => {
+          codingStarted = true
+          return succeededResult(3)
+        }),
+        commands: successfulCommands(commandCalls),
+        ownedChildren: settledChildren,
+      },
+    )
+
+    assert.equal(result.outcome, "completed")
+    assert.equal(codingStarted, false)
+    assert.deepEqual(commandCalls, [])
+    assert.equal(
+      (await git(repoEduRoot, ["log", "-1", "--format=%s"])).stdout.trim(),
+      "example/completed: record completed implementation",
+    )
   })
 
   it("records a stopped transcript for a committed plan-structure defect", async () => {

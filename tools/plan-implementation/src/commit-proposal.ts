@@ -18,13 +18,20 @@ const conventionalKinds = new Set([
   "test",
 ])
 
+export type ParsedStepCommitSubject = {
+  readonly severitySequence: string
+  readonly conventionalSubject: string
+}
+
 function assertSingleLine(value: string, description: string): void {
   if (value.length === 0 || value.trim() !== value || /[\r\n\0]/.test(value)) {
     throw new PlanRecordError(`${description} must be one non-blank line.`)
   }
 }
 
-export function validateStepCommitSubject(subject: string): void {
+export function parseStepCommitSubject(
+  subject: string,
+): ParsedStepCommitSubject {
   assertSingleLine(subject, "The step commit subject")
   const match =
     /^(?<severity>[A-D0-9]+) (?<kind>[a-z]+)\((?<scope>[a-z0-9]+(?:-[a-z0-9]+)*)\): (?<summary>.+)$/.exec(
@@ -51,6 +58,14 @@ export function validateStepCommitSubject(subject: string): void {
   if (match.groups.summary.trim() !== match.groups.summary) {
     throw new PlanRecordError("The step commit summary has outer whitespace.")
   }
+  return Object.freeze({
+    severitySequence: match.groups.severity,
+    conventionalSubject: `${match.groups.kind}(${match.groups.scope}): ${match.groups.summary}`,
+  })
+}
+
+export function validateStepCommitSubject(subject: string): void {
+  parseStepCommitSubject(subject)
 }
 
 function validateDecisionBullet(bullet: string): void {

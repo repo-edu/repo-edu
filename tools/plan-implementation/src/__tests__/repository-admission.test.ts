@@ -9,6 +9,7 @@ import {
   admitOutsideWork,
   admitOwnedRepositoryDiff,
   commitAdmittedRepositoryDiff,
+  commitPlanCompletionMarker,
   openRepositoryAdmission,
   requireAdmittedRepositoryDiff,
   stageAdmittedRepositoryDiff,
@@ -87,10 +88,34 @@ describe("repository admission", () => {
     )
     assert.equal((await git(root, ["status", "--porcelain"])).stdout, "")
     assert.equal(committed.nextAdmission.headOid, committed.commitOid)
+    const { stdout: subjectAndBody } = await git(root, [
+      "show",
+      "-s",
+      "--format=%s%n%b",
+      "HEAD",
+    ])
     assert.match(
-      (await git(root, ["show", "-s", "--format=%b", "HEAD"])).stdout,
-      /Plan-Step: 7[\s\S]*Plan-Source-Blob: b{40}/,
+      subjectAndBody,
+      /example\/step-7-A1: redesign\(plan-implementation\): admit repository truth[\s\S]*Plan-Source-Blob: b{40}/,
     )
+  })
+
+  it("writes one exact empty completion marker", async () => {
+    const root = await createRepository()
+    const admission = await openRepositoryAdmission(root)
+
+    const committed = await commitPlanCompletionMarker(admission, testSource)
+
+    assert.equal(
+      (await git(root, ["show", "-s", "--format=%s", "HEAD"])).stdout.trim(),
+      "example/completed: record completed implementation",
+    )
+    assert.equal(
+      (await git(root, ["diff-tree", "--name-only", "-r", "HEAD"])).stdout,
+      "",
+    )
+    assert.equal(committed.nextAdmission.headOid, committed.commitOid)
+    assert.equal((await git(root, ["status", "--porcelain"])).stdout, "")
   })
 
   it("admits outside work", async () => {

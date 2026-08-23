@@ -14,6 +14,7 @@ export type ResolvedPlanCursor = {
   readonly nextStep: number
   readonly resetCommitOid: string | null
   readonly stepCommitOids: readonly string[]
+  readonly completionCommitOid: string | null
 }
 
 export class GitCursorError extends Error {
@@ -73,7 +74,8 @@ export function resolvePlanCursorFromHistory(
   } else {
     const changedSource = records.some(
       ({ record }) =>
-        record.kind === "step" && record.sourceBlobOid !== plan.source.blobOid,
+        record.kind !== "completion" &&
+        record.sourceBlobOid !== plan.source.blobOid,
     )
     if (changedSource) {
       throw new GitCursorError(
@@ -83,39 +85,67 @@ export function resolvePlanCursorFromHistory(
   }
 
   const stepCommitOids: string[] = []
-  const chronologicalSteps = newerRecords
-    .filter(
-      (
-        entry,
-      ): entry is HistoryRecord & {
-        readonly record: Extract<PlanCommitRecord, { readonly kind: "step" }>
-      } => entry.record.kind === "step",
-    )
-    .reverse()
-  for (const { commitOid, record } of chronologicalSteps) {
-    if (record.sourceBlobOid !== plan.source.blobOid) {
+  let completionCommitOid: string | null = null
+  const chronologicalRecords = [...newerRecords].reverse()
+  for (const { commitOid, record } of chronologicalRecords) {
+    if (
+      record.kind !== "completion" &&
+      record.sourceBlobOid !== plan.source.blobOid
+    ) {
       throw new GitCursorError(
-        "A step after the cursor reset names another plan source.",
+        "A record after the cursor reset names another plan source.",
       )
     }
-    if (record.step > totalSteps) {
+    if (record.kind === "cursor-reset") {
       throw new GitCursorError(
-        `The ledger records step ${record.step} beyond the final plan step.`,
+        "A newer cursor reset appeared after the selected reset.",
       )
     }
-    if (record.step !== nextStep) {
+    if (record.kind === "completion") {
+      if (completionCommitOid !== null) {
+        throw new GitCursorError(
+          "The plan ledger contains more than one completion marker.",
+        )
+      }
+      if (nextStep !== totalSteps + 1) {
+        throw new GitCursorError(
+          "The plan completion marker appears before every step has landed.",
+        )
+      }
+      completionCommitOid = commitOid
+      continue
+    }
+    if (completionCommitOid !== null) {
       throw new GitCursorError(
-        `The plan ledger expected step ${nextStep} but found step ${record.step}.`,
+        "The plan ledger records another step after its completion marker.",
+      )
+    }
+    for (const step of record.steps) {
+      if (step > totalSteps) {
+        throw new GitCursorError(
+          `The ledger records step ${step} beyond the final plan step.`,
+        )
+      }
+      if (step !== nextStep) {
+        throw new GitCursorError(
+          `The plan ledger expected step ${nextStep} but found step ${step}.`,
+        )
+      }
+      nextStep += 1
+    }
+    if (record.steps.length === 0) {
+      throw new GitCursorError(
+        "A step commit record must contain at least one step.",
       )
     }
     stepCommitOids.push(commitOid)
-    nextStep += 1
   }
 
   return {
     nextStep,
     resetCommitOid: newestReset?.commitOid ?? null,
     stepCommitOids,
+    completionCommitOid,
   }
 }
 

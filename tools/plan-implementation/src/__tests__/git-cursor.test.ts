@@ -8,6 +8,7 @@ import { GitCursorError, resolvePlanCursorFromHistory } from "../git-cursor.js"
 import type { GitCommitFields } from "../git-log.js"
 import {
   createCursorResetCommitMessage,
+  createPlanCompletionCommitMessage,
   createPlanStepCommitMessage,
 } from "../plan-record.js"
 
@@ -54,7 +55,7 @@ function step(
   return {
     commitOid: oidCharacter.repeat(40),
     subject: message.subject,
-    body: `${message.body}\n`,
+    body: message.body,
   }
 }
 
@@ -71,12 +72,25 @@ function reset(
   }
 }
 
+function completion(
+  source: PlanSourceIdentity,
+  oidCharacter: string,
+): GitCommitFields {
+  const message = createPlanCompletionCommitMessage(source)
+  return {
+    commitOid: oidCharacter.repeat(40),
+    subject: message.subject,
+    body: message.body,
+  }
+}
+
 describe("resolvePlanCursorFromHistory", () => {
   it("starts a new plan at step 1", () => {
     assert.deepEqual(resolvePlanCursorFromHistory([], plan()), {
       nextStep: 1,
       resetCommitOid: null,
       stepCommitOids: [],
+      completionCommitOid: null,
     })
   })
 
@@ -91,6 +105,7 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 4,
       resetCommitOid: null,
       stepCommitOids: ["1".repeat(40), "2".repeat(40), "3".repeat(40)],
+      completionCommitOid: null,
     })
   })
 
@@ -106,7 +121,48 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 5,
       resetCommitOid: "9".repeat(40),
       stepCommitOids: ["3".repeat(40), "4".repeat(40)],
+      completionCommitOid: null,
     })
+  })
+
+  it("advances through one grouped step commit", () => {
+    const grouped = step(currentSource, 1, "1")
+    const history = [
+      {
+        ...grouped,
+        subject: grouped.subject.replace("step-1-", "steps-1,2,3-"),
+      },
+    ]
+
+    assert.deepEqual(resolvePlanCursorFromHistory(history, plan()), {
+      nextStep: 4,
+      resetCommitOid: null,
+      stepCommitOids: ["1".repeat(40)],
+      completionCommitOid: null,
+    })
+  })
+
+  it("admits one completion marker only after the final step", () => {
+    const history = [
+      completion(currentSource, "9"),
+      step(currentSource, 2, "2"),
+      step(currentSource, 1, "1"),
+    ]
+
+    assert.deepEqual(resolvePlanCursorFromHistory(history, plan(2)), {
+      nextStep: 3,
+      resetCommitOid: null,
+      stepCommitOids: ["1".repeat(40), "2".repeat(40)],
+      completionCommitOid: "9".repeat(40),
+    })
+    assert.throws(
+      () =>
+        resolvePlanCursorFromHistory(
+          [completion(currentSource, "9"), step(currentSource, 1, "1")],
+          plan(2),
+        ),
+      /completion marker appears before every step has landed/,
+    )
   })
 
   it("rejects gaps and duplicates", () => {

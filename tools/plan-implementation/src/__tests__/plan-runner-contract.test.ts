@@ -9,6 +9,7 @@ import type {
 import { runPlanImplementation } from "../plan-runner.js"
 import {
   commitAdmittedRepositoryDiff,
+  commitPlanCompletionMarker,
   stageAdmittedRepositoryDiff,
 } from "../repository-admission.js"
 import type { StepCommandExecutor, StepCommandRequest } from "../step-checks.js"
@@ -65,16 +66,24 @@ describe("complete plan runner contract", () => {
       outcome: "bound-reached",
     })
     assert.deepEqual(codingSteps, [1])
-    const { stdout: body } = await git(repoEduRoot, [
+    const { stdout: subjectAndBody } = await git(repoEduRoot, [
       "show",
       "-s",
-      "--format=format:%b",
+      "--format=format:%s%n%b",
       "HEAD",
     ])
-    assert.match(body, /Plan-Step: 1/)
     assert.match(
-      body,
+      subjectAndBody,
+      /^example\/step-1-A1: redesign\(plan-implementation\): admit step 1/,
+    )
+    assert.doesNotMatch(subjectAndBody, /Plan-Step:/)
+    assert.match(
+      subjectAndBody,
       /- Step 1 enters one independently checked runner-owned commit\./,
+    )
+    assert.doesNotMatch(
+      (await git(repoEduRoot, ["log", "--format=%s"])).stdout,
+      /example\/completed:/,
     )
   })
 
@@ -194,6 +203,7 @@ describe("complete plan runner contract", () => {
         ownedChildren: settledChildren,
         repositoryCommit: {
           stage: stageAdmittedRepositoryDiff,
+          complete: commitPlanCompletionMarker,
           async commit(...arguments_) {
             const committed = await commitAdmittedRepositoryDiff(...arguments_)
             committedSteps += 1
@@ -220,8 +230,8 @@ describe("complete plan runner contract", () => {
     )
     assert.deepEqual(codingSteps, [1])
     assert.match(
-      (await git(repoEduRoot, ["log", "-1", "--format=%b"])).stdout,
-      /Plan-Step: 1/,
+      (await git(repoEduRoot, ["log", "-1", "--format=%s"])).stdout,
+      /example\/step-1-A1:/,
     )
   })
 })

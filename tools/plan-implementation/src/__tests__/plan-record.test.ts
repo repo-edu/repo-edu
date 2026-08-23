@@ -5,6 +5,7 @@ import type { PlanSourceIdentity } from "../contracts.js"
 import { parseZeroSeparatedGitLog } from "../git-log.js"
 import {
   createCursorResetCommitMessage,
+  createPlanCompletionCommitMessage,
   createPlanStepCommitMessage,
   PlanRecordError,
   parsePlanCommitRecord,
@@ -12,7 +13,7 @@ import {
 
 const source: PlanSourceIdentity = {
   planName: "example",
-  planPath: "/plans/plan-example.md",
+  planPath: "/plans/example.md",
   commitOid: "a".repeat(40),
   blobOid: "b".repeat(40),
 }
@@ -26,16 +27,16 @@ const proposal = {
 } as const
 
 describe("plan commit records", () => {
-  it("writes and reads the exact step body", () => {
+  it("writes and reads the shared step subject and source body", () => {
     const message = createPlanStepCommitMessage(source, 4, proposal)
 
-    assert.equal(message.subject, proposal.subject)
+    assert.equal(
+      message.subject,
+      "example/step-4-A1C2: redesign(plan-implementation): own exact plan records",
+    )
     assert.equal(
       message.body,
-      `Plan: example
-
-Plan-Step: 4
-Plan-Source-Commit: ${source.commitOid}
+      `Plan-Source-Commit: ${source.commitOid}
 Plan-Source-Blob: ${source.blobOid}
 
 - ${proposal.decisionBullets[0]}
@@ -46,28 +47,45 @@ Plan-Source-Blob: ${source.blobOid}
       {
         kind: "step",
         planName: "example",
-        step: 4,
+        steps: [4],
         sourceCommitOid: source.commitOid,
         sourceBlobOid: source.blobOid,
-        subject: proposal.subject,
+        subject: message.subject,
         decisionBullets: proposal.decisionBullets,
       },
     )
   })
 
-  it("writes and reads the severity-free cursor-reset body", () => {
+  it("reads an ascending multi-step subject", () => {
+    const message = createPlanStepCommitMessage(source, 4, proposal)
+    const subject = message.subject.replace("step-4-", "steps-4,5-")
+
+    assert.deepEqual(parsePlanCommitRecord(subject, message.body), {
+      kind: "step",
+      planName: "example",
+      steps: [4, 5],
+      sourceCommitOid: source.commitOid,
+      sourceBlobOid: source.blobOid,
+      subject,
+      decisionBullets: proposal.decisionBullets,
+    })
+    assert.throws(
+      () =>
+        parsePlanCommitRecord(
+          subject.replace("steps-4,5-", "steps-5,4-"),
+          message.body,
+        ),
+      /unique steps in ascending order/,
+    )
+  })
+
+  it("writes and reads the severity-free cursor reset", () => {
     const message = createCursorResetCommitMessage(source, 5)
 
-    assert.equal(
-      message.subject,
-      "chore(plan-implementation): reset example cursor to step 5",
-    )
+    assert.equal(message.subject, "example/reset-5: reset cursor to step 5")
     assert.equal(
       message.body,
-      `Plan: example
-
-Plan-Cursor-Reset: 5
-Plan-Source-Commit: ${source.commitOid}
+      `Plan-Source-Commit: ${source.commitOid}
 Plan-Source-Blob: ${source.blobOid}`,
     )
     assert.deepEqual(parsePlanCommitRecord(message.subject, message.body), {
@@ -79,17 +97,42 @@ Plan-Source-Blob: ${source.blobOid}`,
     })
   })
 
-  it("ignores older Plan bodies that carry no ledger record", () => {
+  it("writes and reads the empty completion marker record", () => {
+    const message = createPlanCompletionCommitMessage(source)
+
+    assert.equal(
+      message.subject,
+      "example/completed: record completed implementation",
+    )
+    assert.equal(message.body, "")
+    assert.deepEqual(parsePlanCommitRecord(message.subject, message.body), {
+      kind: "completion",
+      planName: "example",
+    })
+  })
+
+  it("ignores retired and manual records outside the runner ledger", () => {
     assert.equal(
       parsePlanCommitRecord(
-        "B1 fix(repo): retain an older plan body",
-        "Plan: older-plan\n\n- The older commit predates step records.\n",
+        "A1 redesign(repo): retain a retired runner record",
+        `Plan: example
+
+Plan-Step: 1
+Plan-Source-Commit: ${source.commitOid}
+Plan-Source-Blob: ${source.blobOid}\n`,
+      ),
+      null,
+    )
+    assert.equal(
+      parsePlanCommitRecord(
+        "example/step-1-A1: redesign(repo): land a manual step",
+        "- A manual implementation commit has no runner source identity.\n",
       ),
       null,
     )
   })
 
-  it("rejects non-canonical subjects and bullets", () => {
+  it("rejects non-canonical proposal subjects and bullets", () => {
     const invalidSubjects = [
       "B1A1 redesign(plan-implementation): wrong order",
       "A01 redesign(plan-implementation): leading zero",
@@ -122,17 +165,19 @@ Plan-Source-Blob: ${source.blobOid}`,
     }
   })
 
-  it("rejects duplicate, mixed, missing and extra record fields", () => {
+  it("rejects missing, duplicate and extra source fields", () => {
     const valid = createPlanStepCommitMessage(source, 1, proposal)
     const malformedBodies = [
-      valid.body.replace("Plan-Step: 1", "Plan-Step: 1\nPlan-Step: 1"),
-      valid.body.replace("Plan-Step: 1", "Plan-Step: 1\nPlan-Cursor-Reset: 1"),
+      valid.body.replace(
+        `Plan-Source-Commit: ${source.commitOid}`,
+        `Plan-Source-Commit: ${source.commitOid}\nPlan-Source-Commit: ${source.commitOid}`,
+      ),
       valid.body.replace(`Plan-Source-Blob: ${source.blobOid}\n`, ""),
       `${valid.body}\nPlan-Source-Blob: ${source.blobOid}`,
     ]
     for (const body of malformedBodies) {
       assert.throws(
-        () => parsePlanCommitRecord(proposal.subject, body),
+        () => parsePlanCommitRecord(valid.subject, body),
         PlanRecordError,
       )
     }

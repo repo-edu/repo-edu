@@ -1,16 +1,14 @@
-import { validateStepCommitProposal } from "./commit-proposal.js"
+import {
+  parseStepCommitSubject,
+  validateStepCommitProposal,
+} from "./commit-proposal.js"
 import type { CodingCommitProposal, PlanSourceIdentity } from "./contracts.js"
 import { PlanRecordError } from "./plan-record-error.js"
 
 const fullObjectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+const completionSummary = "record completed implementation"
 
-const recordFieldNames = [
-  "Plan",
-  "Plan-Step",
-  "Plan-Cursor-Reset",
-  "Plan-Source-Commit",
-  "Plan-Source-Blob",
-] as const
+const sourceFieldNames = ["Plan-Source-Commit", "Plan-Source-Blob"] as const
 
 type PlanRecordFields = {
   readonly planName: string
@@ -20,7 +18,7 @@ type PlanRecordFields = {
 
 export type PlanStepCommitRecord = PlanRecordFields & {
   readonly kind: "step"
-  readonly step: number
+  readonly steps: readonly number[]
   readonly subject: string
   readonly decisionBullets: readonly string[]
 }
@@ -30,20 +28,51 @@ export type PlanCursorResetCommitRecord = PlanRecordFields & {
   readonly nextStep: number
 }
 
+export type PlanCompletionCommitRecord = {
+  readonly kind: "completion"
+  readonly planName: string
+}
+
 export type PlanCommitRecord =
   | PlanStepCommitRecord
   | PlanCursorResetCommitRecord
+  | PlanCompletionCommitRecord
 
 export type FormattedCommitMessage = {
   readonly subject: string
   readonly body: string
 }
 
+type ParsedRecordSubject =
+  | {
+      readonly kind: "step"
+      readonly planName: string
+      readonly steps: readonly number[]
+      readonly severitySequence: string
+      readonly conventionalSubject: string
+    }
+  | {
+      readonly kind: "cursor-reset"
+      readonly planName: string
+      readonly nextStep: number
+    }
+  | {
+      readonly kind: "completion"
+      readonly planName: string
+    }
+
 export { PlanRecordError } from "./plan-record-error.js"
 
 function assertSingleLine(value: string, description: string): void {
   if (value.length === 0 || value.trim() !== value || /[\r\n\0]/.test(value)) {
     throw new PlanRecordError(`${description} must be one non-blank line.`)
+  }
+}
+
+function assertPlanName(planName: string): void {
+  assertSingleLine(planName, "The plan name")
+  if (planName.includes("/")) {
+    throw new PlanRecordError("The plan name cannot contain a slash.")
   }
 }
 
@@ -68,6 +97,77 @@ function parsePositiveInteger(value: string, description: string): number {
   return parsed
 }
 
+function parseStepList(value: string): readonly number[] {
+  const steps = value
+    .split(",")
+    .map((step) => parsePositiveInteger(step, "Each step subject number"))
+  for (let index = 1; index < steps.length; index += 1) {
+    if (steps[index] <= steps[index - 1]) {
+      throw new PlanRecordError(
+        "A multi-step subject must list unique steps in ascending order.",
+      )
+    }
+  }
+  return Object.freeze(steps)
+}
+
+function parseRecordSubject(subject: string): ParsedRecordSubject | null {
+  const sharedSubject =
+    /^(?<planName>[^/]+)\/(?<form>[^:]+): (?<summary>.+)$/.exec(subject)
+  if (!sharedSubject?.groups) return null
+
+  const { planName, form, summary } = sharedSubject.groups
+  assertPlanName(planName)
+
+  if (form === "completed") {
+    assertSingleLine(summary, "The completion marker summary")
+    return { kind: "completion", planName }
+  }
+
+  if (form.startsWith("reset-")) {
+    const nextStep = parsePositiveInteger(
+      form.slice("reset-".length),
+      "The cursor-reset subject step",
+    )
+    if (summary !== `reset cursor to step ${nextStep}`) {
+      throw new PlanRecordError(
+        "The cursor-reset subject does not match its next step.",
+      )
+    }
+    return { kind: "cursor-reset", planName, nextStep }
+  }
+
+  const singleStep = /^step-(?<step>[1-9][0-9]*)-(?<severity>[A-D0-9]+)$/.exec(
+    form,
+  )
+  const multipleSteps =
+    /^steps-(?<steps>[1-9][0-9]*(?:,[1-9][0-9]*)+)-(?<severity>[A-D0-9]+)$/.exec(
+      form,
+    )
+  const stepGroups = singleStep?.groups ?? multipleSteps?.groups
+  if (!stepGroups) {
+    if (form.startsWith("step-") || form.startsWith("steps-")) {
+      throw new PlanRecordError("The implementation step subject is malformed.")
+    }
+    return null
+  }
+
+  const steps = singleStep?.groups
+    ? Object.freeze([
+        parsePositiveInteger(singleStep.groups.step, "The step subject number"),
+      ])
+    : parseStepList(stepGroups.steps)
+  const proposalSubject = `${stepGroups.severity} ${summary}`
+  const proposal = parseStepCommitSubject(proposalSubject)
+  return {
+    kind: "step",
+    planName,
+    steps,
+    severitySequence: proposal.severitySequence,
+    conventionalSubject: proposal.conventionalSubject,
+  }
+}
+
 function countField(lines: readonly string[], fieldName: string): number {
   return lines.filter((line) => line.startsWith(`${fieldName}:`)).length
 }
@@ -89,74 +189,60 @@ function normalizeBody(body: string): string {
   return body.endsWith("\n") ? body.slice(0, -1) : body
 }
 
-function hasRecordFields(lines: readonly string[]): boolean {
-  return lines.some((line) =>
-    recordFieldNames
-      .slice(1)
-      .some((fieldName) => line.startsWith(`${fieldName}:`)),
-  )
+function hasSourceFields(lines: readonly string[]): boolean {
+  return sourceFieldNames.some((fieldName) => countField(lines, fieldName) > 0)
 }
 
-function assertExactFieldCounts(
-  lines: readonly string[],
-  kind: "step" | "cursor-reset",
-): void {
-  const expectedCounts = {
-    Plan: 1,
-    "Plan-Step": kind === "step" ? 1 : 0,
-    "Plan-Cursor-Reset": kind === "cursor-reset" ? 1 : 0,
-    "Plan-Source-Commit": 1,
-    "Plan-Source-Blob": 1,
-  } as const
-  for (const [fieldName, expected] of Object.entries(expectedCounts)) {
-    const actual = countField(lines, fieldName)
-    if (actual !== expected) {
+function parseSourceFields(lines: readonly string[]): {
+  readonly sourceCommitOid: string
+  readonly sourceBlobOid: string
+} {
+  for (const fieldName of sourceFieldNames) {
+    const count = countField(lines, fieldName)
+    if (count !== 1) {
       throw new PlanRecordError(
-        `The ${kind} record requires ${expected} ${fieldName} field${expected === 1 ? "" : "s"}; found ${actual}.`,
+        `A runner record requires one ${fieldName} field; found ${count}.`,
       )
     }
   }
+  const sourceCommitOid = fieldValue(lines[0], "Plan-Source-Commit")
+  const sourceBlobOid = fieldValue(lines[1], "Plan-Source-Blob")
+  assertFullObjectId(sourceCommitOid, "Plan-Source-Commit")
+  assertFullObjectId(sourceBlobOid, "Plan-Source-Blob")
+  return { sourceCommitOid, sourceBlobOid }
 }
 
 export function parsePlanCommitRecord(
   subject: string,
   body: string,
 ): PlanCommitRecord | null {
-  const lines = normalizeBody(body).split("\n")
-  if (!hasRecordFields(lines)) {
+  const parsedSubject = parseRecordSubject(subject)
+  if (!parsedSubject) return null
+
+  const normalizedBody = normalizeBody(body)
+  if (parsedSubject.kind === "completion") {
+    if (normalizedBody.length > 0) {
+      throw new PlanRecordError("A completion marker body must be empty.")
+    }
+    return {
+      kind: parsedSubject.kind,
+      planName: parsedSubject.planName,
+    }
+  }
+
+  const lines = normalizedBody.split("\n")
+  if (!hasSourceFields(lines)) {
     return null
   }
+  const source = parseSourceFields(lines)
 
-  const stepFields = countField(lines, "Plan-Step")
-  const resetFields = countField(lines, "Plan-Cursor-Reset")
-  if ((stepFields === 0) === (resetFields === 0)) {
-    throw new PlanRecordError(
-      "A plan commit must contain exactly one step or cursor-reset record kind.",
-    )
-  }
-
-  const kind = stepFields > 0 ? "step" : "cursor-reset"
-  assertExactFieldCounts(lines, kind)
-  if (lines[1] !== "") {
-    throw new PlanRecordError("A plan record must follow one blank line.")
-  }
-
-  const planName = fieldValue(lines[0], "Plan")
-  if (kind === "step") {
-    if (lines.length < 7 || lines[5] !== "") {
+  if (parsedSubject.kind === "step") {
+    if (lines.length < 4 || lines[2] !== "") {
       throw new PlanRecordError(
-        "A step record must be followed by one blank line and decision bullets.",
+        "A step record must follow its source fields with one blank line and decision bullets.",
       )
     }
-    const step = parsePositiveInteger(
-      fieldValue(lines[2], "Plan-Step"),
-      "Plan-Step",
-    )
-    const sourceCommitOid = fieldValue(lines[3], "Plan-Source-Commit")
-    const sourceBlobOid = fieldValue(lines[4], "Plan-Source-Blob")
-    assertFullObjectId(sourceCommitOid, "Plan-Source-Commit")
-    assertFullObjectId(sourceBlobOid, "Plan-Source-Blob")
-    const decisionBullets = lines.slice(6).map((line) => {
+    const decisionBullets = lines.slice(3).map((line) => {
       if (!line.startsWith("- ")) {
         throw new PlanRecordError(
           "Step decision bullets must be consecutive '- ' lines.",
@@ -164,48 +250,35 @@ export function parsePlanCommitRecord(
       }
       return line.slice(2)
     })
-    validateStepCommitProposal({ subject, decisionBullets })
+    validateStepCommitProposal({
+      subject: `${parsedSubject.severitySequence} ${parsedSubject.conventionalSubject}`,
+      decisionBullets,
+    })
     return {
-      kind,
-      planName,
-      step,
-      sourceCommitOid,
-      sourceBlobOid,
+      kind: parsedSubject.kind,
+      planName: parsedSubject.planName,
+      steps: parsedSubject.steps,
+      ...source,
       subject,
       decisionBullets,
     }
   }
 
-  if (lines.length !== 5) {
+  if (lines.length !== 2) {
     throw new PlanRecordError(
-      "A cursor-reset record must contain only its exact five lines.",
-    )
-  }
-  const nextStep = parsePositiveInteger(
-    fieldValue(lines[2], "Plan-Cursor-Reset"),
-    "Plan-Cursor-Reset",
-  )
-  const sourceCommitOid = fieldValue(lines[3], "Plan-Source-Commit")
-  const sourceBlobOid = fieldValue(lines[4], "Plan-Source-Blob")
-  assertFullObjectId(sourceCommitOid, "Plan-Source-Commit")
-  assertFullObjectId(sourceBlobOid, "Plan-Source-Blob")
-  const expectedSubject = `chore(plan-implementation): reset ${planName} cursor to step ${nextStep}`
-  if (subject !== expectedSubject) {
-    throw new PlanRecordError(
-      "The cursor-reset subject does not match its plan and next step.",
+      `A ${parsedSubject.kind} record must contain only its two source fields.`,
     )
   }
   return {
-    kind,
-    planName,
-    nextStep,
-    sourceCommitOid,
-    sourceBlobOid,
+    kind: parsedSubject.kind,
+    planName: parsedSubject.planName,
+    nextStep: parsedSubject.nextStep,
+    ...source,
   }
 }
 
 function recordSourceLines(source: PlanSourceIdentity): readonly string[] {
-  assertSingleLine(source.planName, "The plan name")
+  assertPlanName(source.planName)
   assertFullObjectId(source.commitOid, "The plan source commit")
   assertFullObjectId(source.blobOid, "The plan source blob")
   return [
@@ -219,39 +292,48 @@ export function createPlanStepCommitMessage(
   step: number,
   proposal: CodingCommitProposal,
 ): FormattedCommitMessage {
-  parsePositiveInteger(String(step), "Plan-Step")
+  parsePositiveInteger(String(step), "The step subject number")
   validateStepCommitProposal(proposal)
+  const parsedProposal = parseStepCommitSubject(proposal.subject)
+  const subject = `${source.planName}/step-${step}-${parsedProposal.severitySequence}: ${parsedProposal.conventionalSubject}`
   const body = [
-    `Plan: ${source.planName}`,
-    "",
-    `Plan-Step: ${step}`,
     ...recordSourceLines(source),
     "",
     ...proposal.decisionBullets.map((bullet) => `- ${bullet}`),
   ].join("\n")
-  const record = parsePlanCommitRecord(proposal.subject, body)
+  const record = parsePlanCommitRecord(subject, body)
   if (record?.kind !== "step") {
     throw new PlanRecordError("The step writer produced an invalid record.")
   }
-  return { subject: proposal.subject, body }
+  return { subject, body }
 }
 
 export function createCursorResetCommitMessage(
   source: PlanSourceIdentity,
   nextStep: number,
 ): FormattedCommitMessage {
-  parsePositiveInteger(String(nextStep), "Plan-Cursor-Reset")
-  const subject = `chore(plan-implementation): reset ${source.planName} cursor to step ${nextStep}`
-  const body = [
-    `Plan: ${source.planName}`,
-    "",
-    `Plan-Cursor-Reset: ${nextStep}`,
-    ...recordSourceLines(source),
-  ].join("\n")
+  parsePositiveInteger(String(nextStep), "The cursor-reset subject step")
+  const subject = `${source.planName}/reset-${nextStep}: reset cursor to step ${nextStep}`
+  const body = recordSourceLines(source).join("\n")
   const record = parsePlanCommitRecord(subject, body)
   if (record?.kind !== "cursor-reset") {
     throw new PlanRecordError(
       "The cursor-reset writer produced an invalid record.",
+    )
+  }
+  return { subject, body }
+}
+
+export function createPlanCompletionCommitMessage(
+  source: PlanSourceIdentity,
+): FormattedCommitMessage {
+  assertPlanName(source.planName)
+  const subject = `${source.planName}/completed: ${completionSummary}`
+  const body = ""
+  const record = parsePlanCommitRecord(subject, body)
+  if (record?.kind !== "completion") {
+    throw new PlanRecordError(
+      "The completion writer produced an invalid record.",
     )
   }
   return { subject, body }

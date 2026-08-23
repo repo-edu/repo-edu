@@ -43,7 +43,12 @@ function planWithProofs(
 }
 
 function cursor(nextStep: number): ResolvedPlanCursor {
-  return { nextStep, resetCommitOid: null, stepCommitOids: [] }
+  return {
+    nextStep,
+    resetCommitOid: null,
+    stepCommitOids: [],
+    completionCommitOid: null,
+  }
 }
 
 function resolve(
