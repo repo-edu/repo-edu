@@ -15,8 +15,8 @@ the correction, the evidence, the failure trace. A D finding carries the
 correction and the evidence. Write each part as one short sentence; when a
 part does not fit, split it into two short sentences rather than pack it. A
 long sentence is not concise. The failure trace has its own shape, set out
-under **Finding shape** in the workflow. Plan feedback entries stay one line
-each.
+under **Finding shape** in the workflow. Deferred plan findings stay one line
+each in the commit body.
 
 Your auditor token for the report file name is `claude`.
 

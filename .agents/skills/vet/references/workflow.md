@@ -20,8 +20,8 @@ produced the report.
 
 Planning artifacts belong to the sibling plan repo. Their reports live at
 that repo's root, so discovery here never finds one. When the invocation
-names a report on a `plan-`, `topology-`, `draft-` or `carry-` file rather
-than this repo's code, name the file, say the vet belongs in `../plan` and
+names a planning-audit report from that repo rather than an implementation
+audit on this repo's code, name the file, say the vet belongs in `../plan` and
 stop. Continue only when the user explicitly says to.
 
 ## Report discovery
@@ -63,6 +63,9 @@ Classify the finding as one of five kinds.
 - A defect in the shipped code. The code is wrong, or below the bar this
   repo's standards set. This is the ordinary kind and it needs no further
   authority.
+- A defect in the plan text that the shipped code exposes. It stays a graded
+  finding in this round and is deferred in the Repo Edu commit body for a later
+  user-directed plan round. It must not edit the plan repo.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table, never as a
   finding. Drop it.
@@ -112,9 +115,10 @@ are common here.
   several, or it patches an area that is already unstable. This check runs
   only when the correction is local. Read the finding's primary area ID from
   `tools/architecture-check/src/area-model.json`, then walk that area's last
-  ten touched commits with the severity prefix stripped. Two or more `fix:`
-  commits there mean the area may not take another patch. Return revise and
-  say the finding has to name the structural change instead.
+  ten touched commits. Read the conventional kind from a stem-marked commit's
+  postfix or after an ordinary commit's severity sequence. Two or more `fix:`
+  commits there mean the area may not take another patch. Return revise and say
+  the finding has to name the structural change instead.
 
 Then check the trace. It holds at the claimed tier under the `[A]`-`[D]`
 rubric in this repo's `CLAUDE.md`, and it carries the shape the audit
@@ -188,16 +192,14 @@ place of `AUDIT-`, as well as into the chat. The twin is untracked and
 gitignored, so writing it keeps the vet's read-only rule intact; it is the
 one file the vet writes.
 
-## Plan corrections
+## Deferred plan findings
 
-The report ends with the plan corrections the round wrote. Vet each one on the
-first two axes alone. The third does not apply, because a correction carries
-no tier and no trace.
-
-One extra test covers all of them. Every correction traces to shipped code
-this round inspected, or to an answer the user gave in this round's own
-discussion. A correction resting on any other evidence is plan-tier work the
-round may not author, so the verdict is drop.
+Deferred plan findings are graded findings, so vet all three axes. Also verify
+that each one traces to shipped code this round inspected or to an answer the
+user gave in this round's own discussion. A deferral resting on any other
+evidence is plan-tier work the round may not author, so the verdict is drop.
+The required outcome is a Repo Edu commit-body deferral, never a plan-repo
+write.
 
 ## Coverage table
 

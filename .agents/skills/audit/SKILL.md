@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Run a read-only implementation audit of a ready plan from the sibling plan repo against Repo Edu code. Use when the user invokes `$audit` from the Repo Edu working directory with a plan file, asks to audit implemented plan steps or asks for a complete closing implementation audit.
+description: Run a read-only implementation audit of a ready plan from the sibling plan repo against Repo Edu code. Use when the user invokes `$audit` from the Repo Edu working directory with a plan file, asks to audit implemented plan steps or asks for a final complete implementation audit.
 ---
 
 # Audit

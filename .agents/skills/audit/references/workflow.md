@@ -8,10 +8,10 @@ apart. Where a launcher and this file disagree, this file is right.
 
 Interpret the invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
-may be given as `plan-<topic>.md` or `../plan/plan-<topic>.md`. Interpret `3-5`
-as a range and `4` as one step, counted against the plan's **Implementation
-plan** numbering. A range makes the round scoped. No range makes it complete.
-When no plan is named, ask which plan to audit and wait.
+may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
+range and `4` as one step, counted against the plan's **Implementation plan**
+numbering. A range makes the round scoped. No range makes it complete. When no
+plan is named, ask which plan to audit and wait.
 
 Follow this repo's `CLAUDE.md` throughout the audit. This workflow audits
 implementation code. Planning artifact audits belong to the sibling plan
@@ -27,27 +27,22 @@ explicitly says to.
 ## Ready gate
 
 Before any audit work, run the stem scan in `../plan`: `git log --oneline`
-filtered to subjects starting with `<file-stem>/`. The gate passes when the
-scan holds a `<file-stem>/implemented:` marker, or a standing
-`<file-stem>/ready:` one, read by the plan repo's recognition rule: a
-file-changing stem commit voids a standing `ready:`, while the
-`implemented:` marker records what held at the sibling commit its body names
-and no later plan commit withdraws it. A plan correction this audit wrote
-therefore never blocks the next round. When the gate fails,
-name the newest stem commit, state that the plan reached neither a ready nor
-an implemented state and stop. Continue only when the user explicitly says
-to.
+filtered to the topic's joined bare, `plan-<topic>` and `topology-<topic>`
+subject stems. The gate passes when that scan contains a `ready:` marker, which
+stands until loop-close. When the gate fails, name the newest joined-stem
+commit, state that the plan is not ready and stop. Continue only when the user
+explicitly says to.
 
 ## Round strategy
 
 Audit a plan by complete rounds alone, or by scoped rounds over step ranges
-followed by one complete closing round. On a plan's first round, invoked
+followed by one final complete round. On a plan's first round, invoked
 without a range and with no audit commit, fix or record for this plan in the
 log, size the work from cheap evidence only: the plan's step count, the
 episode's commit count and the files and packages it touches. When the size
 calls for complete rounds, say so in one line and run this round as the
 complete round the invocation asked for, in the same turn. Only when the size
-calls for scoped rounds plus the closing round does the round stop first:
+calls for scoped rounds plus the final complete round does the round stop first:
 propose the ranges and wait for the user's choice. Cut ranges where the
 plan's step groups fall. Keep steps that share a package or an invariant in
 one range. Never cut ranges into equal arithmetic parts. The sizing fires
@@ -60,11 +55,12 @@ implemented the plan. Report in the order prescribed below, then stop for
 discussion. Edit only after the user accepts or revises the findings and asks
 for them to be applied.
 
-Close every round with exactly one commit after the user settles its outcome.
-A round whose accepted findings changed files lands the fix commit:
-severity-prefixed per this repo's convention, with its body opening with the
-`Plan: <name>` line followed by `Audit: complete`, `Audit: step <n>` for one
-scoped step or `Audit: steps <a>-<b>` for a scoped range.
+Record every round with exactly one commit after the user settles its outcome.
+A round whose accepted findings changed Repo Edu files uses the shared
+implementation-audit fix form from `../plan/CLAUDE.md`. A round that accepts
+only deferred plan-text findings uses the shared empty severity form. Both
+bodies open with `Audit: complete`, `Audit: step <n>` for one scoped step or
+`Audit: steps <a>-<b>` for a scoped range.
 
 The body then carries one bullet per accepted finding, and each bullet opens
 with that finding's metadata before its prose:
@@ -82,22 +78,21 @@ tag from [Growth tags](#growth-tags), in the same form the report used.
 are required on every finding bullet, because the commit body is the only
 place a later round can read them: chat is gone, and the finding list lives
 nowhere else. A bullet that records something other than a finding, such as a
-carried decision, takes no metadata. Any other outcome, a clean round or findings the user
-declined, lands an empty record commit: `chore(audit): <plan-name> <scope>
-clean` or `... declined`, carrying the same `Plan:` and `Audit:` body lines.
-One round, one commit per repo the round changes: exactly one commit here, plus
-the single `../plan` commit described under [Plan corrections](#plan-corrections)
-when the round corrected the plan. The log alone shows every round that ran, its
-scope and its outcome, including the clean rounds that would otherwise exist only
-in chat.
+carried decision, takes no metadata.
+
+A deferred plan-text finding uses the body form in this repo's `CLAUDE.md`; it
+keeps its tier, plan location and metadata in the same round commit. A clean
+round lands the shared clean record with the `Audit:` scope in its body. When
+the user declines the finding set in full, no commit lands because
+disagreement is not a state. The log shows every confirmed round that ran,
+including clean rounds that would otherwise exist only in chat.
 
 ## Evidence
 
-Scope the implementation episode the way the watch does. Anchor on the
-earliest commit whose `Plan: <name>` first body line names this plan, where
-`<name>` is the file stem with the `plan-` prefix dropped. Walk from that
-anchor to HEAD, including every commit that carries the same `Plan:` line or
-touches the same files.
+Scope the implementation episode the way the watch does. Anchor on the earliest
+commit whose subject carries the topic's bare, `plan-<topic>` or
+`topology-<topic>` stem. Walk from that anchor to HEAD, including every commit
+that carries a joined stem or touches the same files.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
@@ -111,8 +106,8 @@ decision, so the current file can be newer than the plan. This is a check, not
 a source of findings. A boundary is not a minimum the round may raise, and the
 round never edits the file. The check covers three things. Shipped code that
 crosses a current boundary lands as a finding. A plan step that conflicts with
-a current boundary becomes a plan-correction candidate under
-[Plan corrections](#plan-corrections). And the round's own outputs are held to
+a current boundary becomes a deferred plan finding under
+[Deferred plan findings](#deferred-plan-findings). And the round's own outputs are held to
 the same line: a proposed correction or deviation ruling that would cross a
 boundary does not land.
 
@@ -146,20 +141,19 @@ vetted round and an unvetted one alike: a finding that carries a trade
 block no ruling has settled needs its own answer. When the user picks
 the simpler mechanism, that mechanism becomes the finding's required
 correction, revised in the discussion like any other revision. When that
-ruling overturns a reason the plan records, the reason's correction lands
-in the plan through this round's [Plan corrections](#plan-corrections)
-commit with the user's reason beside it, so no later round re-reads the
-stale objection. When the user keeps the machinery, the ruling and its
-reason land in the plan through the same commit, and the finding follows
-the normal paths: a correction the ruling leaves standing is applied, and
-a finding the ruling dissolves lands as declined.
+ruling overturns a reason the plan records, the round carries the correction
+and the user's reason as a [deferred plan finding](#deferred-plan-findings), so
+a later plan round does not re-derive it. When the user keeps the machinery,
+the same deferral carries the ruling and its reason. The code finding then
+follows the normal path: a correction the ruling leaves standing is applied,
+and a finding the ruling dissolves is omitted from the round commit.
 
 After the user accepts the round's findings, apply them. One acceptance covers
-the whole round: the code fixes here and the plan corrections in `../plan`. Then
-rebuild the verification set from the packages the round audited and the packages
-the fixes touched. Format only the fixed files. Run each affected package's
-required `check`, `test` and validation scripts. Include a repo tool only when
-the audit or fix concerns the rule it enforces.
+the whole round: the code fixes and deferred plan findings recorded here. Then
+rebuild the verification set from the packages the round audited and the
+packages the fixes touched. Format only the fixed files. Run each affected
+package's required `check`, `test` and validation scripts. Include a repo tool
+only when the audit or fix concerns the rule it enforces.
 
 For implementation-audit fixes, this package-scoped rule replaces the root
 verification default. Do not run root `pnpm check` or the whole `pnpm test`
@@ -203,9 +197,10 @@ one only on correctness or quality evidence, never on taste.
 Grade each finding with the [A]-[D] implementation tiers in this repo's
 `CLAUDE.md`. Present the findings as one numbered list sorted A through D.
 Start at 1 and keep the numbers increasing across tier changes. Findings land
-on the implementation. When a finding's root cause is the plan itself, say so
-in the finding and carry the plan-side correction into the plan corrections
-below. Every finding also carries a growth tag, per
+as code corrections here or as deferred plan findings in the same round
+commit. When a finding's root cause is the plan itself, say so in the finding
+and carry its correction into the deferred plan findings below. Every finding
+also carries a growth tag, per
 [Growth tags](#growth-tags).
 
 ## Finding shape
@@ -354,10 +349,11 @@ question.
 
 When the answer is that no boundary asks for the machinery, say that the plan
 step is the defect and stop, rather than reporting more findings against it.
-Carry the plan-side correction into [Plan corrections](#plan-corrections) when
-the user accepts it. When the trade is genuinely worth its cost, the user says
-so, the round records the ruling in the plan with its reason and the
-pattern stops being a signal for that machinery.
+Carry the correction into [Deferred plan findings](#deferred-plan-findings)
+when the user accepts it. When the trade is genuinely worth its cost, the user
+says so and the deferral records the ruling with its reason. A later plan round
+applies it, which stops the pattern from remaining an open signal for that
+machinery.
 
 Pricing a run is expensive, so it runs only on a cross-round run of a
 growth pattern or of the reach and complexity pair. A single tagged finding
@@ -413,73 +409,61 @@ finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
 is shared with the plan repo's finding metadata, one spelling across both
 logs.
 
-## Plan corrections
+## Deferred plan findings
 
-The plan is a live document while its steps are still being implemented, so an
-error the audit finds in it is fixed by the round that found it. This audit
-writes the plan file. It never writes a topology, a detail topology, a draft or
-a carry: those belong to the plan repo's own rounds.
+The implementation audit never writes the plan repo. A defect in the plan is
+graded here and carried in this round's Repo Edu commit body. Its bullet uses
+the plan-deferral form in this repo's `CLAUDE.md` and states the required plan
+correction, its shipped-code evidence and any user ruling with its reason.
 
-Split each correction by whether the fix needs a choice.
+Split each deferral by whether the correction needs a choice.
 
 - No choice needed. The plan states something the shipped code shows is false,
-  and one fix is plainly right: a step naming a function that no longer exists,
-  a broken cross-reference, a step the code proved impossible, a **Decisions**
-  entry the shipped code contradicts where the code is right. Write the fix and
-  show it in the report. The user strikes or revises it during the discussion.
-- A choice is needed. More than one sensible fix exists, usually because an
-  earlier step changed what a later step should do. Put the options to the user
-  during the discussion, take the answer and write it into the plan together
-  with the reason the user gave. A decision written without its reason is
-  re-derived and reversed by a later plan round, which is the failure this rule
-  exists to prevent.
+  and one correction is plainly right: a broken cross-reference, a step naming
+  a function that cannot exist or a decision the correct shipped code
+  contradicts. Show the correction in the report for the user to accept or
+  revise.
+- A choice is needed. More than one sensible correction exists. Put the options
+  to the user during the discussion. When the user rules, carry the answer and
+  its reason in the deferral. When the user does not rule, keep the choice open
+  in the deferral instead of choosing for them.
 
-Before rewriting a **Decisions** entry, read the topology the plan came from,
-in `../plan` root while the transfer phase is open and under
-`../plan/archive/<name>/` after loop-close. The user should not choose against a
-reason the plan never carried forward. Absence of a topology is normal, not an
-error.
+Before proposing a change to a **Decisions** entry, read the archived source the
+plan came from when one exists. The user should not choose against a reason the
+plan never carried forward. Absence of an older source is normal, not an error.
 
-Every correction traces to the shipped code this round inspected or to a choice
-the user made in this round's discussion. Do not author plan-tier work on any
-other basis.
+Every deferral traces to the shipped code this round inspected or to a choice
+the user made in this round's discussion. The round tells the user that plan
+follow-up rests with them. When they order an ordinary plan round, that round
+collects open deferrals from this repo's stem scan, cites the commits it applies
+and leaves already-corrected text alone.
 
-The corrections land as one commit in `../plan` under that repo's commit
-convention, subject `<file-stem>/implementation-<severity sequence>:`, graded by
-that repo's tiers. Its body follows that repo's bullet rules and names the
-commit range this round inspected here. The correction commit leaves a standing
-`ready:` marker in place. A round that corrects no plan file commits nothing
-there.
+## Episode settlement
 
-## Closing round
+Scoped rounds never settle the episode, even when their ranges tile every
+step. Each scoped verdict describes the HEAD it ran on, and later steps age it.
+The proof that the implementation is settled is complete rounds on the
+finished code whose severity has stabilised at C or below with no new A, each
+round's table classifying every row. A round that finds nothing is not required.
+Prior audit commits inform those rounds, ranking their reports and naming the
+fixes to re-verify. They never excuse a row from inspection.
 
-Scoped rounds never close the plan, even when their ranges tile every step.
-Each scoped verdict describes the HEAD it ran on, and later steps age it. The
-proof that the plan is implemented is complete rounds on the finished code
-whose severity has stabilised at C or below with no new A, each round's table
-classifying every row. A round that finds nothing is not required. Prior audit
-commits inform those rounds, ranking their reports and naming the fixes to
-re-verify. They never excuse a row from inspection.
+The final complete round expects the shared completion marker in this repo's
+stem scan. When it is missing, name that once and continue on the user's word.
+The round lands its own single fix, severity-only deferral or clean commit under
+the one-round-one-commit rule above. On the user's word after the implementation
+audit settles, write the separate shared closing marker in this repo. The
+marker needs no compiled history in its body because the stem scan already
+shows every round.
 
-The closing round expects a `<file-stem>/implemented:` marker in the stem
-scan. A later plan commit does not unseat it, so a plan correction an earlier
-round wrote leaves the marker standing. When the marker is missing, name
-that once and continue on the user's word. The round
-closes with its own single commit under the one-round-one-commit rule above: a
-fix commit when its accepted findings changed files, the empty record commit
-otherwise. It lands no further status commit here. The status is recorded once,
-in `../plan`, by the `<file-stem>/implementation-audited:` marker this session
-writes there on the user's word. The marker is severity-free. Its body names
-the HEAD the closing round inspected and compiles the audit round history from
-this repo's audit commits.
-The closing round uses the same package-scoped verification rule. Its set
-includes every package the complete episode concerns, not every package in the
-workspace. Run the required checks and tests once after accepted fixes, or as
-evidence when the round comes back clean.
+The final complete round uses the same package-scoped verification rule. Its
+set includes every package the complete episode concerns, not every package in
+the workspace. Run the required checks and tests once after accepted fixes, or
+as evidence when the round comes back clean.
 
-The closing round is advice, not a gate. When asked to treat the implementation
-as done without one, name the missing round once and continue on the user's
-word.
+The final complete round is advice, not a gate. When asked to treat the
+implementation as done without one, name the missing round once and continue
+on the user's word.
 
 ## Report order
 
@@ -489,9 +473,9 @@ the round's scope: complete, the audited step or the audited step range. Then re
 coverage table with its coverage line. Then, when a growth pattern or the
 reach and complexity pair runs across rounds, the run statement and the
 pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
-carrying its growth, reach and complexity tokens, and the plan corrections.
-Then write the report to its file under [Report file](#report-file) and stop
-there.
+carrying its growth, reach and complexity tokens, and the deferred plan
+findings. Then write the report to its file under
+[Report file](#report-file) and stop there.
 
 ## Report file
 
@@ -501,8 +485,8 @@ vet workflow reads, so the chat and the file must not differ.
 
 Name it `AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`:
 
-- `<plan-name>` is the plan file stem with the `plan-` prefix dropped, the
-  same name the `Plan:` body line carries.
+- `<plan-name>` is the topic stem used by the shared subject grammar. For an
+  archived `plan.md`, use the archive folder's name.
 - `<scope>` is `complete`, `step-<n>` or `steps-<a>-<b>`, the round's scope
   with its spaces turned into hyphens.
 - `<auditor>` is the launcher's auditor token, `claude` or `codex`.
@@ -510,14 +494,14 @@ Name it `AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`:
 
 The file is gitignored, so writing it keeps the round read-only; it is the
 one file the round writes before its fix phase. The session that lands the
-round's closing commit deletes that round's own report and its `VET-` twin
+round commit deletes that round's own report and its `VET-` twin
 in the same turn: the commit body carries the accepted findings durably,
 and a report left behind goes stale against the moved HEAD. Which round a
 file belongs to is read from the auditor token in its name, never from who
 wrote it: the `VET-` twin is the other assistant's commentary on this
 round's report and is consumed with it. Files carrying the other auditor
 token belong to the other assistant's round and are never deleted here.
-They stay until that round lands its own closing commit, or until the user
+They stay until that round lands its own commit, or until the user
 says its findings are settled. The user directed this split on 2026-08-21
 after a session deleted the other assistant's still-open report; this
 origin note stands in place of a case.

@@ -10,12 +10,13 @@ this repo.
 
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Before applying another fix,
-strip the implementation severity prefix from recent commit subjects, attribute
-touched tracked source files to their primary area ID and walk history until
-that area has ten touched commits. If two or more of those commits are `fix:`
-commits, do not apply another patch. Surface the area ID to the user as a
-frame-round candidate in `../plan`. Cover area IDs are context for
-cross-cutting concerns, not primary ownership.
+read the conventional kind from the postfix of a stem-marked file-changing
+commit or after the severity sequence of an ordinary commit. Attribute touched
+tracked source files to their primary area ID and walk history until that area
+has ten touched commits. If two or more of those commits are `fix:` commits, do
+not apply another patch. Surface the area ID to the user as a frame-round
+candidate in `../plan`. Cover area IDs are context for cross-cutting concerns,
+not primary ownership.
 
 Before splitting a tracked source file, name the source file's current primary
 area ID and the child area ID each output file will join. If the split creates
@@ -234,11 +235,13 @@ refer to one finding without restating it.
 
 ## Commit Severity Prefix
 
-Prefix every commit with a sorted run-length sequence of [A]-[D] tier
-counts: `A<n>B<n>C<n>D<n>: <subject>` enumerates how many concerns at
-each tier the commit addresses, sorted A through D, with zero categories
-omitted. Example: `B3C8D4 fix: <subject>` closes three B-tier, eight
-C-tier and four D-tier concerns.
+Every file-changing commit carries a sorted run-length sequence of [A]-[D]
+tier counts. An ordinary commit prefixes its conventional subject with
+`A<n>B<n>C<n>D<n>`. A plan-related commit places the same sequence in its
+shared stem form. The sequence enumerates how many concerns at each tier the
+commit addresses, sorted A through D, with zero categories omitted. Example:
+`B3C8D4 fix: <subject>` closes three B-tier, eight C-tier and four D-tier
+concerns.
 
 The [A]-[D] rubric in Implementation Review Findings grades a concern's
 severity whether the AI surfaced it formally in a review or only
@@ -258,19 +261,15 @@ and `docs`. `fix:` is essentially never tier A: an A-tier bug fix is a
 redesign that closes a bug, and commits as `A1 redesign:` with the bug
 named in the subject.
 
-For commits that execute a plan, name the plan on the first body line
-before the bullets: `Plan: <name>` where `<name>` is the file stem with
-the `plan-` prefix dropped for peer plans (`plan-persister.md` →
-`persister`), the plan's title for the root `plan.md`, or the topic the
-plan was given when designed only in chat. Commits unattached to any
-plan omit this line.
+Plan-related commits use the shared `<stem>/` subject grammar defined in
+[the plan repo doctrine](../plan/CLAUDE.md#shared-implementation-forms). The
+subject is the only home for plan identity and step numbers. Use the shared
+forms without restating them here. A commit unattached to a plan keeps this
+repo's ordinary severity-prefixed conventional subject.
 
-A commit that implements plan steps names them on the second body line:
-`Step: <n>`, or `Step: 3,5` when one commit lands several. A
-plan-attached commit with no `Step:` line is off-plan rework.
-
-An implementation-audit round's fix commit carries more in its body. Each
-finding bullet opens with the finding's metadata tokens,
+An implementation-audit round's commit begins with its `Audit: complete`,
+`Audit: step <n>` or `Audit: steps <a>-<b>` scope. Each accepted code finding
+bullet opens with the finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
 growth patterns and their reach and complexity ratings from the log alone.
@@ -278,15 +277,17 @@ The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
 format and the tokens' meaning; the patterns and their numbering live in
 `../plan/GROWTH-PATTERNS.md`.
 
-Two severity-free exceptions exist, both empty marker commits owned by the
-mechanism that writes them. The automated plan runner's cursor-reset commit
-addresses no finding and starts no implementation work; its subject is exactly
-`chore(plan-implementation): reset <plan-name> cursor to step <n>` and the
-runner owns its exact `Plan-Cursor-Reset` body shape. The /audit command's
-round-record commit records an implementation-audit round that changed no
-file, a clean round or one whose findings the user declined; its subject is
-`chore(audit): <plan-name> <scope> <outcome>` and the command owns its
-`Plan:` and `Audit:` body lines.
+A deferred plan-text finding stays in the same Repo Edu round commit. Its
+bullet starts with its tier and plan location before the shared finding tokens:
+`- [B] [plan:../plan/<topic>.md#<heading>] [growth:<labels>] [reach:<value>]
+[complexity:<value>] <prose>`. The user may later order an ordinary plan round
+to apply it; the audit never writes the plan repo.
+
+The automated runner alone adds one local form. Its severity-free cursor reset
+subject is `<stem>/reset-<n>: reset cursor to step <n>`. Runner step and reset
+commit bodies retain only `Plan-Source-Commit: <sha>` and
+`Plan-Source-Blob: <sha>` as plan-source identity. The plan, step and reset
+cursor are read from the subject.
 
 ## Testing Strategy
 
