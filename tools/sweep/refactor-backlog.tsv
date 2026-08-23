@@ -1,0 +1,7 @@
+1200	packages/renderer-app/src/analysis/analysis-query-coordinator.tsx	planned in topology-analysis-coordinator-growth.md	9bf4e75769ae6a96c80b3ebb7c60cc75d46a38ba
+1064	apps/desktop/src/main.ts	"Composition root has absorbed LLM-port, examination-archive, workflow-drain, menu and host-IPC subsystems; extract each to a sibling module (the stateful ones as controller factories)"	cfcf8af7bcb7c3459da4d30b32fc0165bbf6f12a
+1019	packages/renderer-app/src/components/tabs/examination/use-examination-engine.ts	"God hook: identity derivation, activation+lookup effects, and a dozen command callbacks glued by a dense shared-derived backbone; split into derivation/effects/commands sub-hooks plus relocating trailing utils — needs a plan, not inline"	3c18bd0f931154ee9fb5a6598d3bd1680ffb14dc
+944	packages/application/src/analysis-workflows/analysis-handler.ts	analysis-handler mixes workflow orchestration, stats aggregation, identity collapse, exclusion filtering, and roster input validation.	23baa252aa95408dcc8ae94adf4702b8c9c762ef
+855	packages/fixture-engine/src/cli.ts	"developer-only fixture CLI; split is reasonable but not worth prioritizing now"	d56a5edea3ac82bcf3c97ed54bc9826d5298f0c0
+775	tools/release/src/macos-signing.ts	tool-release repeated-fix signal and macOS signing responsibilities need a planned split	6a0c6ad374fc6eb4b8824fc6036d6c2e676b6103
+747	packages/renderer-app/src/components/CourseSwitcher.tsx	planned in topology-renderer-shell.md	6b7fa95e9a82506cb57e1d3cd2d9f429ebb8a5e9

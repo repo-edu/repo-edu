@@ -6,25 +6,16 @@ import { fileURLToPath } from "node:url"
  * The two state files split by lifetime. The skip cache is a disposable,
  * hash-keyed record of "already judged at this content": it churns on every
  * edit and costs only machine time to rebuild, so it stays beside the tool,
- * gitignored and out of both repos' history. The refactor backlog is the
- * durable half, path-keyed reasons and routing status the queue drains, so it
- * lives committed in the sibling plan repo where planning churn belongs and its
- * routing reasons already point. The plan path assumes plan and repo-edu sit
- * side by side; trivial to make configurable when that stops holding.
+ * gitignored and out of history. The refactor backlog is the durable half,
+ * path-keyed reasons and routing status the queue drains, so it stays tracked
+ * beside its only reader and writer in Repo Edu.
  */
 const TOOL_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 )
-const REPO_EDU_ROOT = path.resolve(TOOL_DIR, "..", "..")
 const SKIP_CACHE = path.join(TOOL_DIR, "skip-cache.tsv")
-const REFACTOR_BACKLOG = path.resolve(
-  REPO_EDU_ROOT,
-  "..",
-  "plan",
-  "state",
-  "refactor-backlog.tsv",
-)
+const REFACTOR_BACKLOG = path.join(TOOL_DIR, "refactor-backlog.tsv")
 
 const FIELD_SEPARATOR = "\t"
 

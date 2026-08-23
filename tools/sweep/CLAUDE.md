@@ -29,8 +29,8 @@ Both stay out of the source inventory.
 
 - `tools/sweep/skip-cache.tsv` is gitignored and holds ok verdicts, one row per
   `hash<TAB>path`.
-- `../plan/state/refactor-backlog.tsv` is committed in the sibling plan repo and
-  holds flag verdicts, one row per
+- `tools/sweep/refactor-backlog.tsv` is committed in Repo Edu and holds flag
+  verdicts, one row per
   `lines<TAB>path<TAB>reason<TAB>hash`. The line count and hash capture the file
   at flag time; `queue` reports its current line count.
 
@@ -39,7 +39,7 @@ empty list. The skip cache is append-only, one new row per ok verdict. The
 backlog holds one row per path and is rewritten whole on every flag and done,
 in canonical order: flagged line count descending, path as tie-break. One set
 of outstanding flags therefore produces one byte-identical file, so its diffs
-in the plan repo show only real backlog changes.
+show only real backlog changes.
 
 ## Verdict keying
 

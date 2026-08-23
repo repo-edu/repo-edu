@@ -14,8 +14,8 @@ function buildProgram(): Command {
     .description(
       "File-growth sweep over repo-edu source files. Surfaces the biggest " +
         "file not yet judged at its current content; records ok verdicts in a " +
-        "gitignored local skip cache and flag verdicts in a gitignored local " +
-        "refactor backlog beside the tool.",
+        "gitignored local skip cache and flag verdicts in the tracked refactor " +
+        "backlog beside the tool.",
     )
 
   program
