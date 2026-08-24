@@ -16,8 +16,8 @@ plan is named, ask which plan to audit and wait.
 This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
 local substitutions: that repo's checks, report root and finding metadata.
-Follow the `CLAUDE.md` of every repo the user directs the round to judge.
-Planning-artifact audits still belong to the plan repo's own audit workflow.
+Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
+audits still belong to the plan repo's own audit workflow.
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
@@ -37,15 +37,22 @@ explicitly says to.
 
 ## Round strategy
 
-The user sets the step range and the repo or repos to judge. Follow that scope
-exactly. Never select, propose or replace it. The plan's **Execution and
-audits** subsection is guidance for the user, not instructions for the
-workflow. When the repo set is not named, ask the user and wait.
+The user sets the step range. Follow it exactly. Never select, propose or
+replace it. The plan's **Execution and audits** subsection is guidance for the
+user, not instructions for the workflow.
+
+The step range decides the repo set. Derive each in-range step's hosting repo
+from the files its plan text says to change. A step may be hosted by Repo Edu,
+the plan repo or both. The round's repo set is the union of those hosts; a
+complete round derives it from every step. When a host is unclear, stop for a
+plan correction. When the user names a repo or repos, that naming replaces the
+derived set.
 
 ## Round
 
-Run one read-only implementation-audit round. Judge only the repo or repos the
-user directed. Report in the order prescribed below, then stop for discussion.
+Run one read-only implementation-audit round. Judge only the repos in the
+round's repo set. Report in the order prescribed below, then stop for
+discussion.
 Edit only after the user accepts or revises the findings and asks for them to
 be applied.
 
@@ -54,7 +61,7 @@ record per repo judged. A record lands in the repo whose files its findings
 concern. A both-repo round therefore lands independent records in each repo.
 Repo Edu records use the shared implementation-audit forms from
 `../plan/CLAUDE.md`. A Repo Edu round that accepts only findings deferred to a
-repo outside the directed scope uses the shared empty severity form. Record
+repo outside the round's repo set uses the shared empty severity form. Record
 bodies open with
 `Audit: complete`, `Audit: step <n>` for one scoped step or
 `Audit: steps <a>-<b>` for a scoped range.
@@ -95,11 +102,11 @@ otherwise exist only in chat.
 
 ## Evidence
 
-Scope the implementation episode in every directed repo the way the watch does.
+Scope the implementation episode in every judged repo the way the watch does.
 In each repo, anchor on the earliest commit whose subject carries the topic's
 bare, `plan-<topic>` or `topology-<topic>` stem. Walk from that anchor to its
 HEAD, including every commit that carries a joined stem or touches the same
-files. Read the directed repos' walks together for a both-repo round.
+files. Read the judged repos' walks together for a both-repo round.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
@@ -160,8 +167,8 @@ standing is applied, and a finding the ruling dissolves is omitted from the
 round commit.
 
 After the user accepts the round's findings, apply every directed correction.
-One acceptance covers the whole round: fixes in each directed repo and findings
-deferred only to repos outside that scope. Then rebuild the verification set
+One acceptance covers the whole round: fixes in each judged repo and findings
+deferred only to repos outside the repo set. Then rebuild the verification set
 from the packages and plan-repo files the round audited and the fixes touched.
 Format only the fixed files. Run each affected package's required `check`,
 `test` and validation scripts, and the plan repo's local checks when that repo
@@ -425,7 +432,7 @@ logs.
 ## Cross-repo findings
 
 Deferral covers only work nobody directed. A defect whose fix belongs to a
-repo outside the round's directed scope is graded and carried in the current
+repo outside the round's repo set is graded and carried in the current
 repo's round commit body. A plan defect deferred from a Repo Edu-only round
 uses the plan-deferral form in this repo's `CLAUDE.md` and states the required
 plan correction, its shipped-code evidence and any user ruling with its

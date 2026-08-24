@@ -70,9 +70,10 @@ Classify the finding as one of five kinds.
   repo's standards set. This is the ordinary kind and it needs no further
   authority.
 - A defect in the plan text that the shipped code exposes. It stays a graded
-  finding. When the plan repo is outside the directed scope, defer it in the
-  Repo Edu commit body. When the user directed that repo or directs the fix
-  during discussion, the same run applies it as its own plan-repo round commit.
+  finding. When the plan repo is outside the round's repo set, defer it in the
+  Repo Edu commit body. When that repo is in the set or the user directs the
+  fix during discussion, the same run applies it as its own plan-repo round
+  commit.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table, never as a
   finding. Drop it.
@@ -207,10 +208,10 @@ Cross-repo findings are graded findings, so vet all three axes. Also verify that
 each one traces to files this round inspected or to an answer the user gave in
 this round's own discussion. A deferral resting on any other evidence is work
 the round may not author, so the verdict is drop. Deferral is the required
-outcome only when the repo hosting the fix is outside the directed scope. When
-the user directs that repo or the specific fix, the same run applies it and
-lands an independent commit there; a plan-file fix uses the ordinary plan-round
-form.
+outcome only when the repo hosting the fix is outside the round's repo set.
+When that repo is in the set or the user directs the specific fix, the same
+run applies it and lands an independent commit there; a plan-file fix uses the
+ordinary plan-round form.
 
 ## Coverage table
 

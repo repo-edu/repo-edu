@@ -1,7 +1,7 @@
 interface:
   display_name: "Audit"
   short_description: "Audit a plan implementation"
-  default_prompt: "Use $audit <plan-file> [step-range] and name the repo or repos to audit."
+  default_prompt: "Use $audit <plan-file> [step-range]; the step range decides the repo set."
 
 policy:
   allow_implicit_invocation: false
