@@ -36,17 +36,20 @@ explicitly says to.
 ## Round strategy
 
 Audit a plan by complete rounds alone, or by scoped rounds over step ranges
-followed by one final complete round. On a plan's first round, invoked
-without a range and with no audit commit, fix or record for this plan in the
-log, size the work from cheap evidence only: the plan's step count, the
-episode's commit count and the files and packages it touches. When the size
-calls for complete rounds, say so in one line and run this round as the
-complete round the invocation asked for, in the same turn. Only when the size
-calls for scoped rounds plus the final complete round does the round stop first:
-propose the ranges and wait for the user's choice. Cut ranges where the
-plan's step groups fall. Keep steps that share a package or an invariant in
-one range. Never cut ranges into equal arithmetic parts. The sizing fires
-only on that first round. A given range or an existing audit commit skips it.
+followed by one final complete round. The plan owns the ranges: its
+**Implementation plan** closes with an **Execution and audits** subsection
+that divides the steps into audit batches, each batch the scope of one
+round. Scoped rounds follow those batches. A given range still sets its
+round's scope, because the user may direct any cut. On a plan's first
+round, invoked without a range and with no audit commit, fix or record for
+this plan in the log, read that division. When it holds one batch, say so
+in one line and run this round as the complete round the invocation asked
+for, in the same turn. When it holds several, name them and wait for the
+user's choice. When the plan predates the subsection and carries none,
+propose batches and wait for the user's choice: cut them where the plan's
+step groups fall, keep steps that share a package or an invariant in one
+batch and never cut into equal arithmetic parts. The check fires only on
+that first round. A given range or an existing audit commit skips it.
 
 ## Round
 

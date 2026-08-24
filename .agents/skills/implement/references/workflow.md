@@ -4,8 +4,8 @@ Interpret the invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
 may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
 range and `4` as one step, counted against the plan's **Implementation plan**
-numbering. No range means every step not yet implemented. When no plan is
-named, ask which plan to implement and wait.
+numbering. No range means the earliest step not yet implemented. When no
+plan is named, ask which plan to implement and wait.
 
 Follow this repo's `CLAUDE.md` throughout. This workflow implements the plan
 in this session, step by step. It is not the deterministic runner at
@@ -36,23 +36,12 @@ text. When an in-scope step would cross a current boundary, name the boundary,
 say the plan may predate it and stop for the user's ruling. Then find the
 steps already landed. Walk this repo's log for subjects using the topic's
 joined stems and collect the step numbers from its `step-` and `steps-` forms.
-The scope is the given range minus the landed steps; with no range it is every
-remaining step. When no step remains, say the plan is fully implemented and
-stop.
-
-## Sizing
-
-On an unscoped invocation, size the scope from cheap evidence only: the
-remaining step count and the files and packages the steps name. The risk
-being sized is compaction, the harness summarising the conversation to free
-context: every step should land whole in the context that read the plan.
-When the whole scope can land in this session before compaction becomes a
-real risk, say so in one line and start implementing in the same turn. Only
-when it cannot does the session stop first: propose step ranges for separate
-sessions and wait for the user's choice. Cut ranges where the plan's step
-groups fall. Keep steps that share a package or an invariant in one range.
-Never cut ranges into equal arithmetic parts. A given range skips the
-sizing.
+The scope is the given range minus the landed steps. With no range it is
+the earliest remaining step alone: the plan's **Execution and audits**
+subsection requires a fresh-context session per step, and this session is
+one context. A given range is the user's explicit batching and stands as
+given, minus the landed steps. When no step remains, say the plan is fully
+implemented and stop.
 
 ## Steps
 
