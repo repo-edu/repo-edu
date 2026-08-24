@@ -50,10 +50,11 @@ Check two mismatches before vetting:
 - A sha in the name differs from its repo's `git rev-parse --short HEAD`. The
   tree has moved since the audit, so check what moved with
   `git diff --name-only <sha>..HEAD` in that repo. For a both-repo report, run
-  this check independently for Repo Edu and the plan repo. When no file the
-  report names in the moved repo is touched, proceed and note the drift in the
-  verdicts. When one is, the findings describe files that no longer exist in
-  the reported state, so refuse and ask.
+  this check independently for Repo Edu and the plan repo. Vet against HEAD
+  either way: verdicts about a tree nobody uses help nobody. Note the drift in
+  the verdicts. When a file a finding rests on has moved, ground the finding
+  against that file at HEAD. When the moved tree already resolved the defect,
+  the verdict is drop, naming the resolving commit.
 - The plan or scope in the name differs from the one the report names
   inside. One of the two is wrong, so refuse and ask. A report that names
   neither inside cannot pass this check, so ask before vetting.
