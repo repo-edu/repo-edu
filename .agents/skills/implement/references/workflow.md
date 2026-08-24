@@ -57,9 +57,11 @@ Where the code proves the plan wrong, implement what is right and record the
 reason in the step commit's body. A deviation leaves the plan that carried
 the boundaries, so check it against `../plan/BOUNDARIES.md`; a departure that
 would cross a boundary stops for the user instead of landing. When more than
-one sensible fix exists, put the choice to the user and wait. Never write
-plan-tier work into `../plan`. An implementation audit carries a plan-text
-defect in its Repo Edu commit body for a later user-directed plan round.
+one sensible fix exists, put the choice to the user and wait. Write plan-tier
+work into `../plan` only when the user directs it; a directed plan-file fix
+lands in the same run as its own plan-repo commit in the round form. An
+implementation audit defers an undirected plan-text defect in its Repo Edu
+commit body.
 
 ## Close
 
