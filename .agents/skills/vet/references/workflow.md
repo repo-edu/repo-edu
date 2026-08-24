@@ -32,7 +32,7 @@ The report file's name carries its metadata. A single-repo report is
 the other repo's sha:
 `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>-<other-sha>.md`. Parse it from
 the right: recognise one or two short hexadecimal shas, then the auditor token,
-`claude` or `codex`, then the scope, `complete`, `step-<n>` or
+`claude` or `codex`, then the scope, `steps-all`, `step-<n>` or
 `steps-<a>-<b>`, with the rest as the plan name. In a report stored here,
 `<own-sha>` names Repo Edu and `<other-sha>` names the plan repo.
 

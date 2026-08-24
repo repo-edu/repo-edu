@@ -37,8 +37,9 @@ change. A step may belong to Repo Edu, the plan repo or both. When the repo set
 is unclear, stop for a plan correction. Treat the files a step changes in one
 repo as that repo's share of the step. In each repo in the set, use `git log` to
 find subjects under the topic's joined stems. Collect the step numbers from its
-`step-` and `steps-` forms. A repo's share is landed only when that repo's log
-carries the step form. A both-repo step remains until both shares have landed.
+`impl-step-` and `impl-steps-` forms. A repo's share is landed only when that
+repo's log carries the step form. A both-repo step remains until both shares
+have landed.
 
 The scope is the given range minus the landed repo shares. With no range it is
 every remaining share of the earliest unfinished step: the plan's **Execution

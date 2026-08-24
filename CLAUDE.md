@@ -265,10 +265,10 @@ is the union of the hosting repos for its steps. A single-repo round writes its
 report and round record in that repo, even when the round started in the other
 repo. A both-repo round lands independent records in each repo and writes one
 report at the root of the repo where the round started, named with both HEAD
-shas and that repo's sha first. Each Repo Edu round commit begins with its
-`Audit: complete`,
-`Audit: step <n>` or
-`Audit: steps <a>-<b>` scope. Each accepted code finding bullet opens with the
+shas and that repo's sha first. Each round record's subject carries the round's
+scope through the shared `impl-audit-<step scope>` form, `step-<n>`,
+`steps-<a>-<b>` or `steps-all`; no `Audit:` body line repeats it. Each accepted
+code finding bullet opens with the
 finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
