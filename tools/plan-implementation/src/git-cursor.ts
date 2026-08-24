@@ -1,13 +1,24 @@
 import type { CommittedImplementationPlan } from "./contracts.js"
 import { runGit } from "./git-command.js"
 import { type GitCommitFields, parseZeroSeparatedGitLog } from "./git-log.js"
-import { type PlanCommitRecord, parsePlanCommitRecord } from "./plan-record.js"
+import {
+  type PlanCommitRecord,
+  type PlanCursorResetCommitRecord,
+  parsePlanCommitRecord,
+} from "./plan-record.js"
 
 const historyFormat = "format:%H%x00%s%x00%b%x00"
 
-type HistoryRecord = {
+type LedgerEntry<Record extends PlanCommitRecord> = {
   readonly commitOid: string
-  readonly record: PlanCommitRecord
+  readonly record: Record
+}
+
+type PlanLedger = {
+  readonly newestReset: LedgerEntry<PlanCursorResetCommitRecord> | null
+  readonly newerRecords: readonly LedgerEntry<
+    Exclude<PlanCommitRecord, PlanCursorResetCommitRecord>
+  >[]
 }
 
 export type ResolvedPlanCursor = {
@@ -24,13 +35,27 @@ export class GitCursorError extends Error {
   }
 }
 
-function readHistoryRecords(
+function readPlanLedger(
   commits: readonly GitCommitFields[],
-): readonly HistoryRecord[] {
-  return commits.flatMap((commit) => {
+  planName: string,
+): PlanLedger {
+  const stemPrefix = `${planName}/`
+  const newerRecords: LedgerEntry<
+    Exclude<PlanCommitRecord, PlanCursorResetCommitRecord>
+  >[] = []
+  for (const commit of commits) {
+    if (!commit.subject.startsWith(stemPrefix)) continue
     const record = parsePlanCommitRecord(commit.subject, commit.body)
-    return record ? [{ commitOid: commit.commitOid, record }] : []
-  })
+    if (!record) continue
+    if (record.kind === "cursor-reset") {
+      return {
+        newestReset: { commitOid: commit.commitOid, record },
+        newerRecords,
+      }
+    }
+    newerRecords.push({ commitOid: commit.commitOid, record })
+  }
+  return { newestReset: null, newerRecords }
 }
 
 function validateTotalSteps(totalSteps: number): void {
@@ -45,20 +70,13 @@ export function resolvePlanCursorFromHistory(
 ): ResolvedPlanCursor {
   const totalSteps = plan.steps.length
   validateTotalSteps(totalSteps)
-  const records = readHistoryRecords(commits).filter(
-    ({ record }) => record.planName === plan.source.planName,
+  const { newestReset, newerRecords } = readPlanLedger(
+    commits,
+    plan.source.planName,
   )
-  const newestResetIndex = records.findIndex(
-    ({ record }) => record.kind === "cursor-reset",
-  )
-  const newestReset = newestResetIndex === -1 ? null : records[newestResetIndex]
 
   let nextStep = 1
-  let newerRecords = records
   if (newestReset) {
-    if (newestReset.record.kind !== "cursor-reset") {
-      throw new GitCursorError("The newest reset has an invalid record kind.")
-    }
     if (newestReset.record.sourceBlobOid !== plan.source.blobOid) {
       throw new GitCursorError(
         "The newest cursor reset names another plan source; reset the current source before continuing.",
@@ -70,9 +88,8 @@ export function resolvePlanCursorFromHistory(
         "The newest cursor reset points beyond one past the final step.",
       )
     }
-    newerRecords = records.slice(0, newestResetIndex)
   } else {
-    const changedSource = records.some(
+    const changedSource = newerRecords.some(
       ({ record }) =>
         record.kind !== "implemented-marker" &&
         record.sourceBlobOid !== plan.source.blobOid,
@@ -94,11 +111,6 @@ export function resolvePlanCursorFromHistory(
     ) {
       throw new GitCursorError(
         "A record after the cursor reset names another plan source.",
-      )
-    }
-    if (record.kind === "cursor-reset") {
-      throw new GitCursorError(
-        "A newer cursor reset appeared after the selected reset.",
       )
     }
     if (record.kind === "implemented-marker") {
@@ -132,11 +144,6 @@ export function resolvePlanCursorFromHistory(
         )
       }
       nextStep += 1
-    }
-    if (record.steps.length === 0) {
-      throw new GitCursorError(
-        "A step commit record must contain at least one step.",
-      )
     }
     stepCommitOids.push(commitOid)
   }

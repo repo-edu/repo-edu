@@ -125,6 +125,48 @@ describe("resolvePlanCursorFromHistory", () => {
     })
   })
 
+  it("never parses subjects outside the active plan stem", () => {
+    const history = [
+      {
+        commitOid: "5".repeat(40),
+        subject: "other-plan/step-01-A1: a malformed foreign record",
+        body: "",
+      },
+      {
+        commitOid: "6".repeat(40),
+        subject: "docs: move docs/step-2: a stem-shaped ordinary subject",
+        body: "",
+      },
+      step(currentSource, 1, "1"),
+    ]
+
+    assert.deepEqual(resolvePlanCursorFromHistory(history, plan()), {
+      nextStep: 2,
+      resetCommitOid: null,
+      stepCommitOids: ["1".repeat(40)],
+      implementedCommitOid: null,
+    })
+  })
+
+  it("never parses same-stem records older than the newest reset", () => {
+    const history = [
+      step(currentSource, 3, "3"),
+      reset(currentSource, 3, "9"),
+      {
+        commitOid: "7".repeat(40),
+        subject: "example/step-01-A1: a malformed record before the reset",
+        body: "",
+      },
+    ]
+
+    assert.deepEqual(resolvePlanCursorFromHistory(history, plan()), {
+      nextStep: 4,
+      resetCommitOid: "9".repeat(40),
+      stepCommitOids: ["3".repeat(40)],
+      implementedCommitOid: null,
+    })
+  })
+
   it("advances through one grouped step commit", () => {
     const grouped = step(currentSource, 1, "1")
     const history = [
