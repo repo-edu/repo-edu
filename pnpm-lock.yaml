@@ -177,16 +177,16 @@ importers:
     dependencies:
       '@astrojs/starlight':
         specifier: ^0.41.0
-        version: 0.41.7(@astrojs/markdown-remark@7.2.4)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@7.2.0))(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)(typescript@6.0.3)
       astro:
         specifier: ^6.4.8
-        version: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0)
+        version: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0)
       sharp:
         specifier: ^0.35.0
         version: 0.35.3(@types/node@25.9.5)
       starlight-sidebar-topics:
         specifier: 0.8.0
-        version: 0.8.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))(typescript@6.0.3))
+        version: 0.8.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@7.2.0))(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)(typescript@6.0.3))
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.10
@@ -683,39 +683,6 @@ importers:
       '@repo-edu/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
-
-  tools/plan-implementation:
-    dependencies:
-      '@inquirer/prompts':
-        specifier: 8.6.0
-        version: 8.6.0(@types/node@25.9.5)
-      '@openai/codex':
-        specifier: 0.149.0
-        version: 0.149.0
-      '@repo-edu/host-node':
-        specifier: workspace:*
-        version: link:../../packages/host-node
-      cli-truncate:
-        specifier: 6.1.1
-        version: 6.1.1
-      commander:
-        specifier: ^15.0.0
-        version: 15.0.0
-      log-update:
-        specifier: 8.0.0
-        version: 8.0.0
-      mdast-util-from-markdown:
-        specifier: 2.0.3
-        version: 2.0.3(supports-color@7.2.0)
-      shell-quote:
-        specifier: 1.10.0
-        version: 1.10.0
-      vscode-jsonrpc:
-        specifier: 9.0.1
-        version: 9.0.1
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
 
   tools/release:
     dependencies:
@@ -2060,140 +2027,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inquirer/ansi@2.0.7':
-    resolution: {integrity: sha512-3eTuUO1vH2cZm2ZKHeQxnOqlTi9EfZDGgIe3BL3I4u+rJHocr9Fz86M4fjYABPvFnQG/gGK551HqDiIcETwU6Q==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-
-  '@inquirer/checkbox@5.2.2':
-    resolution: {integrity: sha512-Y5/bAScMy5Y+9isCx0SKbyJebMCaXXX5em0kxkj115eZNscgV9srOHrgyfS0e5xAVymIfOh9piYBKDILktsMMg==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/confirm@6.2.0':
-    resolution: {integrity: sha512-SKXarWrYhtpqOEctf9XGCGy29QjsvJAM0Aq9ZR9z4Ns94OmpqudOly+aSEfNqUf9SwsQaUgY9+Z8hyzG0xX8fw==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/core@12.0.0':
-    resolution: {integrity: sha512-+nnvFEXIB08CZNVXpvW3B+zHW96QXvGUjNKJ8NJIPqAZi5Kd4WhYt2S3C234ReepG1qw2HOlEUbjYVHBowXObA==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/editor@5.3.0':
-    resolution: {integrity: sha512-nnsP/IdJ8s83q7ZuObmgn12QM+uLCkab9E0Oordojbn62WUg1c+v9Ou/F/057pgh0ppX0W+Hj5bO/Dp5hsxQtA==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/expand@5.1.2':
-    resolution: {integrity: sha512-OWIH1IyyWqEKIyqC9Xy+Bnga7NkGMovFdo4atYZMUOTRqf6rO2WCv9E/1MyzvOErDBCxs+9UFliRUDc50xs/jw==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/external-editor@3.0.4':
-    resolution: {integrity: sha512-tZbbaK2ovq6vlrRBNQvjrypmrED/p5x2ncIHQ79cD55tei3dD96v5glMMA+6tiq7K104i/25DVYKWVPJuV6ptA==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/figures@2.0.8':
-    resolution: {integrity: sha512-tApbon79GM9ry56ja/Ud3SY2CL4TQsao9fIwDQbgTeNY55025GdMzQ2+UdegV/lx51VNGUB59M0v0nMpybYY4Q==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-
-  '@inquirer/input@5.1.3':
-    resolution: {integrity: sha512-F/BZHtyEzP+HO+IGVd4AjBRgvX/ywm42bx8S0+dENk2YclzE9tJ3X/15THwtT6ehApmKvdYDMsVTuyyDod0gOQ==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/number@4.2.0':
-    resolution: {integrity: sha512-ew+fSDijsQ/WhD4TV3XLb+if400cDuzTzHfGR8sTNBXkK9CYDWoGE8fhaO8GbT312pNv1AJEOsDxy/z/HVettA==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/password@5.1.2':
-    resolution: {integrity: sha512-nSdufycW8xynEVssFkNQEYIzTySilog0UlfOVRwh3pXzPSk4frXUT2jZWjHnKae6RU9PaoF9wfy1pGwewQuqGw==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/prompts@8.6.0':
-    resolution: {integrity: sha512-WgBVDRy3IQ4v9XMCpQ1YDGpso2PcMUxYJzZdH4Nt4t0eoXhEPmOCh5iZbXbR4GTbdUB9VPWBbJB12rkjbaGDCw==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/rawlist@5.3.2':
-    resolution: {integrity: sha512-oPSKrYK1X1bMkjXDzIKHUkJp195LFSfgbnVtXnjSKGFjrCbS6I+wyvfAZTwKE9BSt3HwWgfD7JfsXALBgCogzQ==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/search@4.3.0':
-    resolution: {integrity: sha512-HFxXE5w727ctSUcAwrDquftJGjMgu36OeV5SHEXMlr2j/ahzmRX9xSEeVolV8tzYnTf45cg6vGkdMMRdm3RPhQ==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/select@5.2.2':
-    resolution: {integrity: sha512-RkI8dRHWt+bh04oLixvF1kFzKC7e5rqJoHKkzcqSHATebBXFC6GmrT8ddbVkgSzLV0HnHs2cPFuBINr8otij8Q==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  '@inquirer/type@4.0.7':
-    resolution: {integrity: sha512-t28inv14nMQ1PhKpsJPY+kEs/c00qzeCOS2gTNRyTjG5d6qsVA2fItxW4hkvGZ5lvanGLdtCzVIx5dwdRpN1+g==}
-    engines: {node: '>=23.5.0 || ^22.13.0 || ^20.17.0'}
-    peerDependencies:
-      '@types/node': '>=18'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
     engines: {node: '>=18.0.0'}
@@ -2498,47 +2331,6 @@ packages:
 
   '@openai/codex@0.147.0-win32-x64':
     resolution: {integrity: sha512-oT7Ss5fAPf2fiWE9QNURqZcQGAAawSVxmIUdgPzckq4KFZAM+pRz9JbM4Rr498CjtbNgTOjWvDJ+DXvIBSfOPA==}
-    engines: {node: '>=16'}
-    cpu: [x64]
-    os: [win32]
-
-  '@openai/codex@0.149.0':
-    resolution: {integrity: sha512-i4dryj2Y1j+00Mb5n+0n71EYnTK9/KDc2cdFo/dXD0d1oTog2bhUssKDEIOnKmnEf51P0Z/HJTWvTKw/UHyOvQ==}
-    engines: {node: '>=16'}
-    hasBin: true
-
-  '@openai/codex@0.149.0-darwin-arm64':
-    resolution: {integrity: sha512-GsZJbzBWiD48RETrO8VHGAQNgfSrUVxItXZFeD87wswatPi0+lKuQo8Dx4nMYmOZhZrVtwr3al/feRrZxnDV8Q==}
-    engines: {node: '>=16'}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@openai/codex@0.149.0-darwin-x64':
-    resolution: {integrity: sha512-H+mMgW3Nhc5QzGWEklCoFqACuOc0cVpgPkPQRw0LShoK7P5664T6BRnyl1yzT6orKPKv49cXry7DIWWZ19SanQ==}
-    engines: {node: '>=16'}
-    cpu: [x64]
-    os: [darwin]
-
-  '@openai/codex@0.149.0-linux-arm64':
-    resolution: {integrity: sha512-fAXPpvIob+11RNZJS9CVVTsKb+V4Hw3woGFPj42D7fU2wBJUKI2jfAc4fLJNtrpwRecLeW601mtkMHOSIbWuuA==}
-    engines: {node: '>=16'}
-    cpu: [arm64]
-    os: [linux]
-
-  '@openai/codex@0.149.0-linux-x64':
-    resolution: {integrity: sha512-uZXaN9JPxu0/jjnqqJeTd4kRYPnjVZK3MiVndfG1mHhEaoDKL7ScWHfPqvAEOjwsSDEmQSlMfUkmvYp/CHciYw==}
-    engines: {node: '>=16'}
-    cpu: [x64]
-    os: [linux]
-
-  '@openai/codex@0.149.0-win32-arm64':
-    resolution: {integrity: sha512-pUd8MzuwtqT5DhM1NUE1gETWIZ9fkDA1XB7tt9YNIi/peUgLuziQgZd7o0bNON4cNzgbil1YUN1qDTgQm0g3pg==}
-    engines: {node: '>=16'}
-    cpu: [arm64]
-    os: [win32]
-
-  '@openai/codex@0.149.0-win32-x64':
-    resolution: {integrity: sha512-qKbwSOOO/fdhQ5MlXE2fts6taPxRPZ/zqeC+eqHD72hLRymV9rFCUbUxOCquognUPRPvS/2/kRCV0UVhoDd3yQ==}
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
@@ -3780,10 +3572,6 @@ packages:
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
-  ansi-escapes@7.3.0:
-    resolution: {integrity: sha512-BvU8nYgGQBxcmMuEeUEmNTvrMVjJNSH7RgW24vXexN4Ven6qCvy4TntnvlnwnMLTVlcRQQdbRY8NKnaIoeWDNg==}
-    engines: {node: '>=18'}
-
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -4018,9 +3806,6 @@ packages:
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
 
-  chardet@2.2.0:
-    resolution: {integrity: sha512-rddelWYNPRrXq6PtNEN2S3f6t9ILzvqaN5pVgi4kqt9jHQaXIial9PznB5iSPVlQSLNaaH22ItWz3EJtQ10+OA==}
-
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
@@ -4046,18 +3831,6 @@ packages:
 
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
-
-  cli-cursor@5.0.0:
-    resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
-    engines: {node: '>=18'}
-
-  cli-truncate@6.1.1:
-    resolution: {integrity: sha512-06p9vyLahLa4zkGcgsGxU6iEkSOiuI4fhCH6Emhe2lPAcoUv73n72DnODsnHA+5wwXGnV0n9M9/qOQJSjYhFhw==}
-    engines: {node: '>=22'}
-
-  cli-width@4.1.0:
-    resolution: {integrity: sha512-ouuZd4/dm2Sw5Gmqy6bGyNNNe1qt9RpmxveLSO7KcgsTnU7RXfsw+/bukWGo1abgBiMAic068rclZsO4IWmmxQ==}
-    engines: {node: '>= 12'}
 
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
@@ -4477,10 +4250,6 @@ packages:
     resolution: {integrity: sha512-dtJUTepzMW3Lm/NPxRf3wP4642UWhjL2sQxc+ym2YMj1m/H2zDNQOlezafzkHwn6sMstjHTwG6iQQsctDW/b1A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  environment@1.1.0:
-    resolution: {integrity: sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q==}
-    engines: {node: '>=18'}
-
   err-code@2.0.3:
     resolution: {integrity: sha512-2bmlRpNKBxT/CRmPOlyISQpNj+qSeYvcym/uT0Jx2bMOlKLtSy1ZmLuVxSEKKyor/N5yhvp/ZiG1oE3DEYMSFA==}
 
@@ -4616,20 +4385,11 @@ packages:
   fast-sha256@1.3.0:
     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
 
-  fast-string-truncated-width@3.0.3:
-    resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
-
-  fast-string-width@3.0.2:
-    resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
-
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
 
   fast-uri@3.1.5:
     resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
-
-  fast-wrap-ansi@0.2.2:
-    resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
 
   fastq@1.20.1:
     resolution: {integrity: sha512-GGToxJ/w1x32s/D2EKND7kTil4n8OVk/9mycTc4VDza13lOvpUZTGX3mFSCtV9ksdGBVzvsyAVLM6mHFThxXxw==}
@@ -5024,10 +4784,6 @@ packages:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
     engines: {node: '>=8'}
 
-  is-fullwidth-code-point@5.1.0:
-    resolution: {integrity: sha512-5XHYaSyiqADb4RnZ1Bdad6cPp8Toise4TzEjcOYDHZkTCbKgiUl7WTUCpNWHuxmDt91wnsZBc9xinNzopv3JMQ==}
-    engines: {node: '>=18'}
-
   is-glob@4.0.3:
     resolution: {integrity: sha512-xelSayHH36ZgE7ZWhli7pW34hNbNl8Ojv5KVmkJD4hBdD3th8Tfk9vYasLM+mXWOZhFkgZfxhLSnrwRr4elSSg==}
     engines: {node: '>=0.10.0'}
@@ -5286,10 +5042,6 @@ packages:
   lodash@4.18.1:
     resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
-  log-update@8.0.0:
-    resolution: {integrity: sha512-lddSgOt3bPASrylL54ZSpy8nBHns+vBVSoILlVOx+dei300pnLRN958rj/EdlVLKuWlSESU3qdnDZdAI7FXYGg==}
-    engines: {node: '>=22'}
-
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
 
@@ -5547,10 +5299,6 @@ packages:
     engines: {node: '>=4.0.0'}
     hasBin: true
 
-  mimic-function@5.0.1:
-    resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
-    engines: {node: '>=18'}
-
   mimic-response@1.0.1:
     resolution: {integrity: sha512-j5EctnkH7amfV/q5Hgmoal1g2QHFJRraOtmx0JpIqkxhBhI/lJSl1nMpQ45hVarwNETOoWEimndZ4QK0RHxuxQ==}
     engines: {node: '>=4'}
@@ -5631,10 +5379,6 @@ packages:
 
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
-
-  mute-stream@3.0.0:
-    resolution: {integrity: sha512-dkEJPVvun4FryqBmZ5KhDo0K9iDXAwn08tMLDinNdRBNPcYEDiWYysLcc6k3mjTMlbP9KyylvRpd4wFtwrT9rw==}
-    engines: {node: ^20.17.0 || >=22.9.0}
 
   nanoid@3.3.18:
     resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
@@ -5757,10 +5501,6 @@ packages:
 
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
-
-  onetime@7.0.0:
-    resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
-    engines: {node: '>=18'}
 
   oniguruma-parser@0.12.1:
     resolution: {integrity: sha512-8Unqkvk1RYc6yq2WBYRj4hdnsAxVze8i7iPfQr8e4uSP3tRv0rpZcbGUDvxfQQcdwHt/e9PrMvGCsa8OqG9X3w==}
@@ -6230,10 +5970,6 @@ packages:
   responselike@2.0.1:
     resolution: {integrity: sha512-4gl03wn3hj1HP3yzgdI7d3lCkF95F21Pz4BPGvKHinyQzALR5CapwC8yIi0Rh58DEMQ/SguC03wFj2k0M/mHhw==}
 
-  restore-cursor@5.1.0:
-    resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
-    engines: {node: '>=18'}
-
   retext-latin@4.0.0:
     resolution: {integrity: sha512-hv9woG7Fy0M9IlRQloq/N6atV82NxLGveq+3H2WOi79dtIYWN8OaxogDm77f8YnVXJL2VD3bbqowu5E3EMhBYA==}
 
@@ -6375,10 +6111,6 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.10.0:
-    resolution: {integrity: sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==}
-    engines: {node: '>= 0.4'}
-
   shiki@4.0.2:
     resolution: {integrity: sha512-eAVKTMedR5ckPo4xne/PjYQYrU3qx78gtJZ+sHlXEg5IHhhoQhMfZVzetTYuaJS0L2Ef3AcCRzCHV8T0WI6nIQ==}
     engines: {node: '>=20'}
@@ -6429,10 +6161,6 @@ packages:
   slash@5.1.0:
     resolution: {integrity: sha512-ZA6oR3T/pEyuqwMgAKT0/hAv8oAXckzbkmR0UkUosQ+Mc4RxGoJkRmwHgHufaenlyAgE1Mxgpdcrf75y6XcnDg==}
     engines: {node: '>=14.16'}
-
-  slice-ansi@9.0.0:
-    resolution: {integrity: sha512-SO/3iYL5S3W57LLEniscOGPZgOqZUPCx6d3dB+52B80yJ0XstzsC/eV8gnA4tM3MHDrKz+OCFSLNjswdSC+/bA==}
-    engines: {node: '>=22'}
 
   smart-buffer@4.2.0:
     resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==}
@@ -7130,10 +6858,6 @@ packages:
     resolution: {integrity: sha512-OELeY0Q61OXpdUfTp+oweA/vtLVg5VDOXh+3he3PNzLGG/y0oylSOC1xRVj0+l4vQ3tj/bB1HVHv1ocXkQceFA==}
     engines: {node: '>=0.8'}
 
-  wrap-ansi@10.0.0:
-    resolution: {integrity: sha512-SGcvg80f0wUy2/fXES19feHMz8E0JoXv2uNgHOu4Dgi2OrCy1lqwFYEJz1BLbDI0exjPMe/ZdzZ/YpGECBG/aQ==}
-    engines: {node: '>=20'}
-
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -7362,7 +7086,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@astrojs/markdown-remark@7.2.0':
+  '@astrojs/markdown-remark@7.2.0(supports-color@7.2.0)':
     dependencies:
       '@astrojs/internal-helpers': 0.10.0
       '@astrojs/prism': 4.0.2
@@ -7372,8 +7096,8 @@ snapshots:
       mdast-util-definitions: 6.0.0
       rehype-raw: 7.0.0
       rehype-stringify: 10.0.1
-      remark-gfm: 4.0.1
-      remark-parse: 11.0.0
+      remark-gfm: 4.0.1(supports-color@7.2.0)
+      remark-parse: 11.0.0(supports-color@7.2.0)
       remark-rehype: 11.1.2
       remark-smartypants: 3.0.3
       unified: 11.0.5
@@ -7384,7 +7108,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/markdown-remark@7.2.4':
+  '@astrojs/markdown-remark@7.2.4(supports-color@7.2.0)':
     dependencies:
       '@astrojs/internal-helpers': 0.10.4
       '@astrojs/prism': 4.0.2
@@ -7394,8 +7118,8 @@ snapshots:
       mdast-util-definitions: 6.0.0
       rehype-raw: 7.0.0
       rehype-stringify: 10.0.1
-      remark-gfm: 4.0.1
-      remark-parse: 11.0.0
+      remark-gfm: 4.0.1(supports-color@7.2.0)
+      remark-parse: 11.0.0(supports-color@7.2.0)
       remark-rehype: 11.1.2
       remark-smartypants: 3.0.3
       unified: 11.0.5
@@ -7413,19 +7137,19 @@ snapshots:
       github-slugger: 2.0.0
       satteri: 0.10.5
 
-  '@astrojs/mdx@7.0.7(@astrojs/markdown-satteri@0.3.7)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))':
+  '@astrojs/mdx@7.0.7(@astrojs/markdown-satteri@0.3.7)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)':
     dependencies:
       '@astrojs/internal-helpers': 0.10.4
-      '@astrojs/markdown-remark': 7.2.4
-      '@mdx-js/mdx': 3.1.1
+      '@astrojs/markdown-remark': 7.2.4(supports-color@7.2.0)
+      '@mdx-js/mdx': 3.1.1(supports-color@7.2.0)
       acorn: 8.16.0
-      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0)
+      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0)
       es-module-lexer: 2.0.0
       estree-util-visit: 2.0.0
       hast-util-to-html: 9.0.5
       piccolore: 0.1.3
       rehype-raw: 7.0.0
-      remark-gfm: 4.0.1
+      remark-gfm: 4.0.1(supports-color@7.2.0)
       remark-smartypants: 3.0.3
       source-map: 0.7.6
       unist-util-visit: 5.1.0
@@ -7445,17 +7169,17 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 4.4.3
 
-  '@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))(typescript@6.0.3)':
+  '@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@7.2.0))(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)(typescript@6.0.3)':
     dependencies:
       '@astrojs/markdown-satteri': 0.3.7
-      '@astrojs/mdx': 7.0.7(@astrojs/markdown-satteri@0.3.7)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))
+      '@astrojs/mdx': 7.0.7(@astrojs/markdown-satteri@0.3.7)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)
       '@astrojs/sitemap': 3.7.3
       '@pagefind/default-ui': 1.4.0
       '@types/hast': 3.0.5
       '@types/js-yaml': 4.0.9
       '@types/mdast': 4.0.4
-      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0)
-      astro-expressive-code: 0.44.1(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))
+      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0)
+      astro-expressive-code: 0.44.1(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.4
@@ -7465,20 +7189,20 @@ snapshots:
       js-yaml: 4.1.1
       klona: 2.0.6
       magic-string: 0.30.21
-      mdast-util-directive: 3.1.0
+      mdast-util-directive: 3.1.0(supports-color@7.2.0)
       mdast-util-to-markdown: 2.1.2
       mdast-util-to-string: 4.0.0
       pagefind: 1.5.2
       rehype: 13.0.2
       rehype-format: 5.0.1
-      remark-directive: 4.0.0
+      remark-directive: 4.0.0(supports-color@7.2.0)
       satteri: 0.9.5
       ultrahtml: 1.6.0
       unified: 11.0.5
       unist-util-visit: 5.1.0
       vfile: 6.0.3
     optionalDependencies:
-      '@astrojs/markdown-remark': 7.2.4
+      '@astrojs/markdown-remark': 7.2.4(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
       - typescript
@@ -8386,125 +8110,6 @@ snapshots:
   '@img/sharp-win32-x64@0.35.3':
     optional: true
 
-  '@inquirer/ansi@2.0.7': {}
-
-  '@inquirer/checkbox@5.2.2(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/ansi': 2.0.7
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/figures': 2.0.8
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/confirm@6.2.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/core@12.0.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/ansi': 2.0.7
-      '@inquirer/figures': 2.0.8
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-      cli-width: 4.1.0
-      fast-wrap-ansi: 0.2.2
-      mute-stream: 3.0.0
-      signal-exit: 4.1.0
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/editor@5.3.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/external-editor': 3.0.4(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/expand@5.1.2(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/external-editor@3.0.4(@types/node@25.9.5)':
-    dependencies:
-      chardet: 2.2.0
-      iconv-lite: 0.7.2
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/figures@2.0.8': {}
-
-  '@inquirer/input@5.1.3(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/number@4.2.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/password@5.1.2(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/ansi': 2.0.7
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/prompts@8.6.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/checkbox': 5.2.2(@types/node@25.9.5)
-      '@inquirer/confirm': 6.2.0(@types/node@25.9.5)
-      '@inquirer/editor': 5.3.0(@types/node@25.9.5)
-      '@inquirer/expand': 5.1.2(@types/node@25.9.5)
-      '@inquirer/input': 5.1.3(@types/node@25.9.5)
-      '@inquirer/number': 4.2.0(@types/node@25.9.5)
-      '@inquirer/password': 5.1.2(@types/node@25.9.5)
-      '@inquirer/rawlist': 5.3.2(@types/node@25.9.5)
-      '@inquirer/search': 4.3.0(@types/node@25.9.5)
-      '@inquirer/select': 5.2.2(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/rawlist@5.3.2(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/search@4.3.0(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/figures': 2.0.8
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/select@5.2.2(@types/node@25.9.5)':
-    dependencies:
-      '@inquirer/ansi': 2.0.7
-      '@inquirer/core': 12.0.0(@types/node@25.9.5)
-      '@inquirer/figures': 2.0.8
-      '@inquirer/type': 4.0.7(@types/node@25.9.5)
-    optionalDependencies:
-      '@types/node': 25.9.5
-
-  '@inquirer/type@4.0.7(@types/node@25.9.5)':
-    optionalDependencies:
-      '@types/node': 25.9.5
-
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
       minipass: 7.1.3
@@ -8588,7 +8193,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mdx-js/mdx@3.1.1':
+  '@mdx-js/mdx@3.1.1(supports-color@7.2.0)':
     dependencies:
       '@types/estree': 1.0.9
       '@types/estree-jsx': 1.0.5
@@ -8600,14 +8205,14 @@ snapshots:
       estree-util-is-identifier-name: 3.0.0
       estree-util-scope: 1.0.0
       estree-walker: 3.0.3
-      hast-util-to-jsx-runtime: 2.3.6
+      hast-util-to-jsx-runtime: 2.3.6(supports-color@7.2.0)
       markdown-extensions: 2.0.0
       recma-build-jsx: 1.0.0
       recma-jsx: 1.0.1(acorn@8.16.0)
       recma-stringify: 1.0.0
-      rehype-recma: 1.0.0
-      remark-mdx: 3.1.1
-      remark-parse: 11.0.0
+      rehype-recma: 1.0.0(supports-color@7.2.0)
+      remark-mdx: 3.1.1(supports-color@7.2.0)
+      remark-parse: 11.0.0(supports-color@7.2.0)
       remark-rehype: 11.1.2
       source-map: 0.7.6
       unified: 11.0.5
@@ -8876,33 +8481,6 @@ snapshots:
     optional: true
 
   '@openai/codex@0.147.0-win32-x64':
-    optional: true
-
-  '@openai/codex@0.149.0':
-    optionalDependencies:
-      '@openai/codex-darwin-arm64': '@openai/codex@0.149.0-darwin-arm64'
-      '@openai/codex-darwin-x64': '@openai/codex@0.149.0-darwin-x64'
-      '@openai/codex-linux-arm64': '@openai/codex@0.149.0-linux-arm64'
-      '@openai/codex-linux-x64': '@openai/codex@0.149.0-linux-x64'
-      '@openai/codex-win32-arm64': '@openai/codex@0.149.0-win32-arm64'
-      '@openai/codex-win32-x64': '@openai/codex@0.149.0-win32-x64'
-
-  '@openai/codex@0.149.0-darwin-arm64':
-    optional: true
-
-  '@openai/codex@0.149.0-darwin-x64':
-    optional: true
-
-  '@openai/codex@0.149.0-linux-arm64':
-    optional: true
-
-  '@openai/codex@0.149.0-linux-x64':
-    optional: true
-
-  '@openai/codex@0.149.0-win32-arm64':
-    optional: true
-
-  '@openai/codex@0.149.0-win32-x64':
     optional: true
 
   '@oslojs/encoding@1.1.0': {}
@@ -10005,10 +9583,6 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  ansi-escapes@7.3.0:
-    dependencies:
-      environment: 1.1.0
-
   ansi-regex@5.0.1: {}
 
   ansi-regex@6.2.2: {}
@@ -10094,17 +9668,17 @@ snapshots:
 
   astring@1.9.0: {}
 
-  astro-expressive-code@0.44.1(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0)):
+  astro-expressive-code@0.44.1(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0)):
     dependencies:
-      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0)
+      astro: 6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0)
       rehype-expressive-code: 0.44.1
       url-extras: 0.1.0
 
-  astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0):
+  astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0):
     dependencies:
       '@astrojs/compiler': 4.0.0
       '@astrojs/internal-helpers': 0.10.0
-      '@astrojs/markdown-remark': 7.2.0
+      '@astrojs/markdown-remark': 7.2.0(supports-color@7.2.0)
       '@astrojs/telemetry': 3.3.2
       '@capsizecss/unpack': 4.0.0
       '@clack/prompts': 1.1.0
@@ -10397,8 +9971,6 @@ snapshots:
 
   character-reference-invalid@2.0.1: {}
 
-  chardet@2.2.0: {}
-
   chokidar@4.0.3:
     dependencies:
       readdirp: 4.1.2
@@ -10418,17 +9990,6 @@ snapshots:
   class-variance-authority@0.7.1:
     dependencies:
       clsx: 2.1.1
-
-  cli-cursor@5.0.0:
-    dependencies:
-      restore-cursor: 5.1.0
-
-  cli-truncate@6.1.1:
-    dependencies:
-      slice-ansi: 9.0.0
-      string-width: 8.2.2
-
-  cli-width@4.1.0: {}
 
   cliui@8.0.1:
     dependencies:
@@ -10864,8 +10425,6 @@ snapshots:
 
   env-paths@3.0.0: {}
 
-  environment@1.1.0: {}
-
   err-code@2.0.3: {}
 
   es-define-property@1.0.1: {}
@@ -11108,19 +10667,9 @@ snapshots:
 
   fast-sha256@1.3.0: {}
 
-  fast-string-truncated-width@3.0.3: {}
-
-  fast-string-width@3.0.2:
-    dependencies:
-      fast-string-truncated-width: 3.0.3
-
   fast-uri@3.1.0: {}
 
   fast-uri@3.1.5: {}
-
-  fast-wrap-ansi@0.2.2:
-    dependencies:
-      fast-string-width: 3.0.2
 
   fastq@1.20.1:
     dependencies:
@@ -11462,7 +11011,7 @@ snapshots:
       unist-util-visit: 5.1.0
       zwitch: 2.0.4
 
-  hast-util-to-estree@3.1.3:
+  hast-util-to-estree@3.1.3(supports-color@7.2.0):
     dependencies:
       '@types/estree': 1.0.9
       '@types/estree-jsx': 1.0.5
@@ -11472,9 +11021,9 @@ snapshots:
       estree-util-attach-comments: 3.0.0
       estree-util-is-identifier-name: 3.0.0
       hast-util-whitespace: 3.0.0
-      mdast-util-mdx-expression: 2.0.1
-      mdast-util-mdx-jsx: 3.2.0
-      mdast-util-mdxjs-esm: 2.0.1
+      mdast-util-mdx-expression: 2.0.1(supports-color@7.2.0)
+      mdast-util-mdx-jsx: 3.2.0(supports-color@7.2.0)
+      mdast-util-mdxjs-esm: 2.0.1(supports-color@7.2.0)
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
       style-to-js: 1.1.21
@@ -11497,7 +11046,7 @@ snapshots:
       stringify-entities: 4.0.4
       zwitch: 2.0.4
 
-  hast-util-to-jsx-runtime@2.3.6:
+  hast-util-to-jsx-runtime@2.3.6(supports-color@7.2.0):
     dependencies:
       '@types/estree': 1.0.9
       '@types/hast': 3.0.5
@@ -11506,9 +11055,9 @@ snapshots:
       devlop: 1.1.0
       estree-util-is-identifier-name: 3.0.0
       hast-util-whitespace: 3.0.0
-      mdast-util-mdx-expression: 2.0.1
-      mdast-util-mdx-jsx: 3.2.0
-      mdast-util-mdxjs-esm: 2.0.1
+      mdast-util-mdx-expression: 2.0.1(supports-color@7.2.0)
+      mdast-util-mdx-jsx: 3.2.0(supports-color@7.2.0)
+      mdast-util-mdxjs-esm: 2.0.1(supports-color@7.2.0)
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
       style-to-js: 1.1.21
@@ -11656,10 +11205,6 @@ snapshots:
   is-extglob@2.1.1: {}
 
   is-fullwidth-code-point@3.0.0: {}
-
-  is-fullwidth-code-point@5.1.0:
-    dependencies:
-      get-east-asian-width: 1.6.0
 
   is-glob@4.0.3:
     dependencies:
@@ -11874,15 +11419,6 @@ snapshots:
 
   lodash@4.18.1: {}
 
-  log-update@8.0.0:
-    dependencies:
-      ansi-escapes: 7.3.0
-      cli-cursor: 5.0.0
-      slice-ansi: 9.0.0
-      string-width: 8.2.2
-      strip-ansi: 7.2.0
-      wrap-ansi: 10.0.0
-
   longest-streak@3.1.0: {}
 
   lowercase-keys@2.0.0: {}
@@ -11947,7 +11483,7 @@ snapshots:
       '@types/unist': 3.0.3
       unist-util-visit: 5.1.0
 
-  mdast-util-directive@3.1.0:
+  mdast-util-directive@3.1.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       '@types/unist': 3.0.3
@@ -11993,7 +11529,7 @@ snapshots:
       mdast-util-find-and-replace: 3.0.2
       micromark-util-character: 2.1.1
 
-  mdast-util-gfm-footnote@2.1.0:
+  mdast-util-gfm-footnote@2.1.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       devlop: 1.1.0
@@ -12003,7 +11539,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-gfm-strikethrough@2.0.0:
+  mdast-util-gfm-strikethrough@2.0.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       mdast-util-from-markdown: 2.0.3(supports-color@7.2.0)
@@ -12011,7 +11547,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-gfm-table@2.0.0:
+  mdast-util-gfm-table@2.0.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       devlop: 1.1.0
@@ -12021,7 +11557,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-gfm-task-list-item@2.0.0:
+  mdast-util-gfm-task-list-item@2.0.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       devlop: 1.1.0
@@ -12030,19 +11566,19 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-gfm@3.1.0:
+  mdast-util-gfm@3.1.0(supports-color@7.2.0):
     dependencies:
       mdast-util-from-markdown: 2.0.3(supports-color@7.2.0)
       mdast-util-gfm-autolink-literal: 2.0.1
-      mdast-util-gfm-footnote: 2.1.0
-      mdast-util-gfm-strikethrough: 2.0.0
-      mdast-util-gfm-table: 2.0.0
-      mdast-util-gfm-task-list-item: 2.0.0
+      mdast-util-gfm-footnote: 2.1.0(supports-color@7.2.0)
+      mdast-util-gfm-strikethrough: 2.0.0(supports-color@7.2.0)
+      mdast-util-gfm-table: 2.0.0(supports-color@7.2.0)
+      mdast-util-gfm-task-list-item: 2.0.0(supports-color@7.2.0)
       mdast-util-to-markdown: 2.1.2
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-mdx-expression@2.0.1:
+  mdast-util-mdx-expression@2.0.1(supports-color@7.2.0):
     dependencies:
       '@types/estree-jsx': 1.0.5
       '@types/hast': 3.0.5
@@ -12053,7 +11589,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-mdx-jsx@3.2.0:
+  mdast-util-mdx-jsx@3.2.0(supports-color@7.2.0):
     dependencies:
       '@types/estree-jsx': 1.0.5
       '@types/hast': 3.0.5
@@ -12070,17 +11606,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-mdx@3.0.0:
+  mdast-util-mdx@3.0.0(supports-color@7.2.0):
     dependencies:
       mdast-util-from-markdown: 2.0.3(supports-color@7.2.0)
-      mdast-util-mdx-expression: 2.0.1
-      mdast-util-mdx-jsx: 3.2.0
-      mdast-util-mdxjs-esm: 2.0.1
+      mdast-util-mdx-expression: 2.0.1(supports-color@7.2.0)
+      mdast-util-mdx-jsx: 3.2.0(supports-color@7.2.0)
+      mdast-util-mdxjs-esm: 2.0.1(supports-color@7.2.0)
       mdast-util-to-markdown: 2.1.2
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-mdxjs-esm@2.0.1:
+  mdast-util-mdxjs-esm@2.0.1(supports-color@7.2.0):
     dependencies:
       '@types/estree-jsx': 1.0.5
       '@types/hast': 3.0.5
@@ -12427,8 +11963,6 @@ snapshots:
 
   mime@2.6.0: {}
 
-  mimic-function@5.0.1: {}
-
   mimic-response@1.0.1: {}
 
   mimic-response@3.1.0: {}
@@ -12500,8 +12034,6 @@ snapshots:
   ms@2.1.3: {}
 
   muggle-string@0.4.1: {}
-
-  mute-stream@3.0.0: {}
 
   nanoid@3.3.18: {}
 
@@ -12626,10 +12158,6 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
-
-  onetime@7.0.0:
-    dependencies:
-      mimic-function: 5.0.1
 
   oniguruma-parser@0.12.1: {}
 
@@ -13067,11 +12595,11 @@ snapshots:
       hast-util-raw: 9.1.0
       vfile: 6.0.3
 
-  rehype-recma@1.0.0:
+  rehype-recma@1.0.0(supports-color@7.2.0):
     dependencies:
       '@types/estree': 1.0.9
       '@types/hast': 3.0.5
-      hast-util-to-estree: 3.1.3
+      hast-util-to-estree: 3.1.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -13088,34 +12616,34 @@ snapshots:
       rehype-stringify: 10.0.1
       unified: 11.0.5
 
-  remark-directive@4.0.0:
+  remark-directive@4.0.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
-      mdast-util-directive: 3.1.0
+      mdast-util-directive: 3.1.0(supports-color@7.2.0)
       micromark-extension-directive: 4.0.0
       unified: 11.0.5
     transitivePeerDependencies:
       - supports-color
 
-  remark-gfm@4.0.1:
+  remark-gfm@4.0.1(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
-      mdast-util-gfm: 3.1.0
+      mdast-util-gfm: 3.1.0(supports-color@7.2.0)
       micromark-extension-gfm: 3.0.0
-      remark-parse: 11.0.0
+      remark-parse: 11.0.0(supports-color@7.2.0)
       remark-stringify: 11.0.0
       unified: 11.0.5
     transitivePeerDependencies:
       - supports-color
 
-  remark-mdx@3.1.1:
+  remark-mdx@3.1.1(supports-color@7.2.0):
     dependencies:
-      mdast-util-mdx: 3.0.0
+      mdast-util-mdx: 3.0.0(supports-color@7.2.0)
       micromark-extension-mdxjs: 3.0.0
     transitivePeerDependencies:
       - supports-color
 
-  remark-parse@11.0.0:
+  remark-parse@11.0.0(supports-color@7.2.0):
     dependencies:
       '@types/mdast': 4.0.4
       mdast-util-from-markdown: 2.0.3(supports-color@7.2.0)
@@ -13173,11 +12701,6 @@ snapshots:
   responselike@2.0.1:
     dependencies:
       lowercase-keys: 2.0.0
-
-  restore-cursor@5.1.0:
-    dependencies:
-      onetime: 7.0.0
-      signal-exit: 4.1.0
 
   retext-latin@4.0.0:
     dependencies:
@@ -13448,8 +12971,6 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.10.0: {}
-
   shiki@4.0.2:
     dependencies:
       '@shikijs/core': 4.0.2
@@ -13529,11 +13050,6 @@ snapshots:
       sax: 1.6.0
 
   slash@5.1.0: {}
-
-  slice-ansi@9.0.0:
-    dependencies:
-      ansi-styles: 6.2.3
-      is-fullwidth-code-point: 5.1.0
 
   smart-buffer@4.2.0: {}
 
@@ -13616,9 +13132,9 @@ snapshots:
       '@stablelib/base64': 1.0.1
       fast-sha256: 1.3.0
 
-  starlight-sidebar-topics@0.8.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))(typescript@6.0.3)):
+  starlight-sidebar-topics@0.8.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@7.2.0))(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)(typescript@6.0.3)):
     dependencies:
-      '@astrojs/starlight': 0.41.7(@astrojs/markdown-remark@7.2.4)(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))(typescript@6.0.3)
+      '@astrojs/starlight': 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@7.2.0))(astro@6.4.8(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.4)(supports-color@7.2.0)(tsx@4.23.12)(yaml@2.9.0))(supports-color@7.2.0)(typescript@6.0.3)
       picomatch: 4.0.5
 
   stat-mode@1.0.0: {}
@@ -14161,12 +13677,6 @@ snapshots:
   wmf@1.0.2: {}
 
   word@0.3.0: {}
-
-  wrap-ansi@10.0.0:
-    dependencies:
-      ansi-styles: 6.2.3
-      string-width: 8.2.2
-      strip-ansi: 7.2.0
 
   wrap-ansi@7.0.0:
     dependencies:

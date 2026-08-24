@@ -187,48 +187,6 @@ describe("graph policy", () => {
     assert.deepEqual(violations, [])
   })
 
-  it("confines plan implementation source to its private tool", async () => {
-    const root = await createGraphFixture(
-      {
-        "packages/domain/src/index.ts":
-          'import "@repo-edu/plan-implementation/contracts"\n',
-        "tools/plan-implementation/src/contracts.ts":
-          'import "./internal.js"\nexport const contracts = true\n',
-        "tools/plan-implementation/src/internal.ts":
-          "export const internal = true\n",
-      },
-      {
-        paths: {
-          "@repo-edu/plan-implementation/*": [
-            "./tools/plan-implementation/src/*",
-          ],
-        },
-      },
-    )
-    const model = compileAreaModel(loadAreaModel(ROOT))
-
-    const violations = await runDependencyCruiserRules(
-      root,
-      inventory([
-        "packages/domain/src/index.ts",
-        "tools/plan-implementation/src/contracts.ts",
-        "tools/plan-implementation/src/internal.ts",
-      ]),
-      buildDependencyCruiserRuleSet(model),
-    )
-
-    assert.match(
-      violations.map((violation) => violation.message).join("\n"),
-      /plan-implementation-confined-to-its-tool/,
-    )
-    assert.deepEqual(
-      violations.filter((violation) =>
-        violation.file.startsWith("tools/plan-implementation/src/"),
-      ),
-      [],
-    )
-  })
-
   it("confines claude-coder without blocking its internal imports", async () => {
     const root = await createGraphFixture({
       "packages/domain/src/index.ts": 'import "@repo-edu/claude-coder"\n',

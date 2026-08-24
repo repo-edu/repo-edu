@@ -43,12 +43,6 @@ pnpm test
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
 
-A coding turn started by the automated plan runner is the exception. It uses
-affected package `check` scripts and focused test files for feedback. It never
-runs root `pnpm fix`, `pnpm check` or `pnpm test`. The runner owns scoped format
-and lint fixes. It also owns the independent package checks and tests and the
-final root checks and tests.
-
 ## Architecture
 
 `repo-edu` is a pure TypeScript pnpm monorepo. Workspace globs: `apps/*`,
@@ -84,7 +78,6 @@ repo-edu/
     ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
     ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine
     ├── fixtures-check/            # Validates @repo-edu/test-fixtures matrix
-    ├── plan-implementation/       # Private deterministic plan runner
     ├── release/                   # Versioning, signing and runtime-notice gates
     └── sweep/                     # Source-growth triage (pnpm sweep)
 ```
@@ -121,11 +114,10 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
-The architecture-check, plan-implementation, release and sweep tools and the
-analysis-workflows sub-area carry their own `CLAUDE.md` too:
+The architecture-check, release and sweep tools and the analysis-workflows
+sub-area carry their own `CLAUDE.md` too:
 
 - [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
-- [tools/plan-implementation/CLAUDE.md](tools/plan-implementation/CLAUDE.md)
 - [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
 - [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
 - [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
@@ -291,12 +283,6 @@ shared finding tokens:
 the user directs a plan-file fix during the round, the same run applies it and
 lands it as an independent plan-repo commit in the ordinary plan-round form.
 No repo-local action automatically requires or waits on the other commit.
-
-The automated runner alone adds one local form. Its severity-free cursor reset
-subject is `<stem>/reset-<n>: reset cursor to step <n>`. Runner step and reset
-commit bodies retain only `Plan-Source-Commit: <sha>` and
-`Plan-Source-Blob: <sha>` as plan-source identity. The plan, step and reset
-cursor are read from the subject.
 
 ## Testing Strategy
 

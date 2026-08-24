@@ -53,7 +53,6 @@
         "area-view": "pnpm --filter @repo-edu/architecture-check run overview",
         "sweep": "tsx tools/sweep/src/main.ts",
         "file-sizes": "tsx tools/file-sizes/src/main.ts",
-        "implement-plan": "tsx tools/plan-implementation/src/main.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",
         "pnpm:update": "pnpm self-update",
         "deps:latest": "pnpm up -r --latest && pnpm dedupe"

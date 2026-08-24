@@ -8,10 +8,7 @@ numbering. No range means the earliest step not yet implemented. When no
 plan is named, ask which plan to implement and wait.
 
 Follow the `CLAUDE.md` of every repo whose files the run changes. This workflow
-implements the plan in this session, step by step. It is not the deterministic
-runner at `tools/plan-implementation` and never invokes or imitates it: no
-fresh-context-per-step machinery, no cursor commits. When the user wants runner
-behaviour, they use the runner's own repository command.
+implements the plan in this session, step by step.
 
 Before any implementation work, check the named file is a plan. A
 `topology-<topic>.md`, a `topology-<topic>-detail.md`, a `draft-<topic>.md`
