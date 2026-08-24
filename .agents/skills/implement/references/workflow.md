@@ -33,15 +33,22 @@ Read the plan end to end. Read `../plan/BOUNDARIES.md` beside it: boundaries
 change only by user decision, so the current file can be newer than the plan.
 This is a check, not a source of work. Derive no requirements from boundary
 text. When an in-scope step would cross a current boundary, name the boundary,
-say the plan may predate it and stop for the user's ruling. Then find the
-steps already landed. Walk this repo's log for subjects using the topic's
-joined stems and collect the step numbers from its `step-` and `steps-` forms.
-The scope is the given range minus the landed steps. With no range it is
-the earliest remaining step alone: the plan's **Execution and audits**
-subsection requires a fresh-context session per step, and this session is
-one context. A given range is the user's explicit batching and stands as
-given, minus the landed steps. When no step remains, say the plan is fully
-implemented and stop.
+say the plan may predate it and stop for the user's ruling.
+
+Derive the steps this repo hosts from the files each step says to change. A
+step hosted by both repos is hosted here for its Repo Edu share. A step that
+changes only plan-repo files is not hosted here. When a step's host is unclear,
+stop for a plan correction instead of guessing.
+
+Walk this repo's log for subjects using the topic's joined stems and collect
+the step numbers from its `step-` and `steps-` forms. The scope is the given
+range limited to Repo Edu-hosted steps, minus the landed steps. With no range
+it is the earliest remaining Repo Edu-hosted step alone: the plan's
+**Execution and audits** subsection requires a fresh-context session per step,
+and this session is one context. A given range is the user's explicit
+implementation batching and stands as given after the same host and landed
+filters. When no step remains, say this repo's share is fully implemented and
+stop.
 
 ## Steps
 
@@ -60,6 +67,10 @@ would cross a boundary stops for the user instead of landing. When more than
 one sensible fix exists, put the choice to the user and wait. Never write
 plan-tier work into `../plan`. An implementation audit carries a plan-text
 defect in its Repo Edu commit body for a later user-directed plan round.
+
+When a selected step also changes plan-repo files, implement only its Repo Edu
+share. The plan-repo commit is independent and belongs to a session directed
+there.
 
 ## Close
 
