@@ -7,11 +7,11 @@ range and `4` as one step, counted against the plan's **Implementation plan**
 numbering. No range means the earliest step not yet implemented. When no
 plan is named, ask which plan to implement and wait.
 
-Follow this repo's `CLAUDE.md` throughout. This workflow implements the plan
-in this session, step by step. It is not the deterministic runner at
-`tools/plan-implementation` and never invokes or imitates it: no
-fresh-context-per-step machinery, no cursor commits. When the user wants
-runner behaviour, they use the runner's own repository command.
+Follow the `CLAUDE.md` of every repo whose files the run changes. This workflow
+implements the plan in this session, step by step. It is not the deterministic
+runner at `tools/plan-implementation` and never invokes or imitates it: no
+fresh-context-per-step machinery, no cursor commits. When the user wants runner
+behaviour, they use the runner's own repository command.
 
 Before any implementation work, check the named file is a plan. A
 `topology-<topic>.md`, a `topology-<topic>-detail.md`, a `draft-<topic>.md`
@@ -33,25 +33,34 @@ Read the plan end to end. Read `../plan/BOUNDARIES.md` beside it: boundaries
 change only by user decision, so the current file can be newer than the plan.
 This is a check, not a source of work. Derive no requirements from boundary
 text. When an in-scope step would cross a current boundary, name the boundary,
-say the plan may predate it and stop for the user's ruling. Then find the
-steps already landed. Walk this repo's log for subjects using the topic's
-joined stems and collect the step numbers from its `step-` and `steps-` forms.
-The scope is the given range minus the landed steps. With no range it is
-the earliest remaining step alone: the plan's **Execution and audits**
-subsection requires a fresh-context session per step, and this session is
-one context. A given range is the user's explicit batching and stands as
-given, minus the landed steps. When no step remains, say the plan is fully
-implemented and stop.
+say the plan may predate it and stop for the user's ruling.
+
+Derive each candidate step's repo set from the files its plan text says to
+change. A step may belong to Repo Edu, the plan repo or both. When the repo set
+is unclear, stop for a plan correction. Treat the files a step changes in one
+repo as that repo's share of the step. In each repo in the set, use `git log` to
+find subjects under the topic's joined stems. Collect the step numbers from its
+`step-` and `steps-` forms. A repo's share is landed only when that repo's log
+carries the step form. A both-repo step remains until both shares have landed.
+
+The scope is the given range minus the landed repo shares. With no range it is
+every remaining share of the earliest unfinished step: the plan's **Execution
+and audits** subsection requires a fresh-context session per step, and this
+session is one context. A given range is the user's explicit batching and
+stands as given, minus the landed shares. When no share remains, name the
+completed range, or say the whole plan is fully implemented for an unscoped
+run, and stop.
 
 ## Steps
 
-Implement the scope in plan order, one step at a time. After each step, run
-the step's named checks and the affected packages' verification per this
-repo's `CLAUDE.md`. Then commit the step with the shared step form in
-`../plan/CLAUDE.md` and the conventional postfix this repo requires. One step,
-one commit; combine steps into one commit only when the plan says they land
-together. The invocation that started this run grants each in-scope step's
-commit once its checks pass.
+Implement the scope in plan order, one step at a time, changing only its
+remaining repo shares. After each share, run the step's named checks and that
+repo's required verification. Commit the share in its repo with the shared
+step form in `../plan/CLAUDE.md` and the conventional postfix that repo
+requires. A both-repo step gets one independent commit in each repo. One step
+gets at most one commit per repo; combine steps only when the plan says they
+land together. The invocation that started this run grants each in-scope repo
+share's commit once its checks pass.
 
 Where the code proves the plan wrong, implement what is right and record the
 reason in the step commit's body. A deviation leaves the plan that carried
@@ -65,10 +74,10 @@ commit body.
 
 ## Close
 
-When the run lands the final step this repo hosts, run the plan's own final
-verification steps when it names any. After the checkout is clean and the log
-proves every step this repo hosts has landed, offer this repo's shared
+For each repo where the run lands its final hosted share, run the plan's final
+verification when it names any for that repo. After that repo's checkout is
+clean and its log proves every share it hosts has landed, offer its shared
 `implemented:` marker from `../plan/CLAUDE.md` and write it only on the user's
-word. A both-repo step counts here when its Repo Edu commit has landed. A run
-that leaves this repo's steps unimplemented ends with one line instead: the
-steps landed and the first Repo Edu step remaining.
+word. A both-repo step counts in each repo only when that repo's commit has
+landed. A run that leaves work unimplemented ends with one line per repo: the
+shares landed and the first step remaining there.
