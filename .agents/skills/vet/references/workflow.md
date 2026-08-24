@@ -7,8 +7,8 @@ specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
 The vet's input is another AI assistant's implementation-audit report, an
-`AUDIT-*.md` file at the root of the repo where the audit was invoked. A report
-at this repo's root may judge Repo Edu alone or both repos.
+`AUDIT-*.md` file at its owning repo root. A report at this repo's root belongs
+to a Repo-Edu-only round or to a both-repo round that started here.
 [Report discovery](#report-discovery) says how the file is found. Vet its
 graded findings. Do not run an audit round of your own. Whether a finding is a
 good idea is not an axis: a finding can be appealing and still unauthorised.
@@ -19,8 +19,8 @@ user's ruling on the findings; any edit or commit stays with the round that
 produced the report.
 
 Planning-artifact audit reports belong to the sibling plan repo. An
-implementation-audit report on plan-repo-hosted changes also lives there when
-that round was invoked there, and its local vet workflow routes to this owned
+implementation-audit report also lives there for a plan-repo-only round or a
+both-repo round that started there. Its local vet workflow routes to this owned
 procedure. When the invocation here names any report stored at the plan repo
 root, name the file, say the vet belongs in `../plan` and stop. Continue only
 when the user explicitly says to.

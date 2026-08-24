@@ -261,10 +261,12 @@ repo's ordinary severity-prefixed conventional subject.
 
 An implementation-audit round records each accepted finding in the repo whose
 files the finding concerns. The user's step range decides the repo set, which
-is the union of the hosting repos for its steps. A both-repo round lands
-independent records in each repo and writes one report at the root of the repo
-where the round was invoked, named with both HEAD shas and that repo's sha
-first. Each Repo Edu round commit begins with its `Audit: complete`,
+is the union of the hosting repos for its steps. A single-repo round writes its
+report and round record in that repo, even when the round started in the other
+repo. A both-repo round lands independent records in each repo and writes one
+report at the root of the repo where the round started, named with both HEAD
+shas and that repo's sha first. Each Repo Edu round commit begins with its
+`Audit: complete`,
 `Audit: step <n>` or
 `Audit: steps <a>-<b>` scope. Each accepted code finding bullet opens with the
 finding's metadata tokens,

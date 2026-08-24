@@ -55,6 +55,10 @@ discussion.
 Edit only after the user accepts or revises the findings and asks for them to
 be applied.
 
+A single-repo round writes its report at that repo's root, even when the round
+started in the other repo. A both-repo round writes one report at the root where
+the round started. Report placement never changes record keying.
+
 After the user settles the outcome, land at most one implementation-audit
 record per repo judged. A record lands in the repo whose files its findings
 concern. A both-repo round therefore lands independent records in each repo.
@@ -508,12 +512,12 @@ cross-repo findings. Then write the report to its file under
 
 ## Report file
 
-After presenting the report, write the same report to a file at the root of the
-repo where the round was invoked and say so, then stop for the user's ruling.
-The file is the copy the vet workflow reads, so the chat and the file must not
-differ.
+After presenting the report, write the same report to its repo root and say so,
+then stop for the user's ruling. A single-repo round uses the root of the repo it
+judged. A both-repo round uses the root where the round started. The file is the
+copy the vet workflow reads, so the chat and the file must not differ.
 
-Use the invoked repo's established single-repo base name. At the Repo Edu root
+Use the report repo's established single-repo base name. At the Repo Edu root
 that is `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md`; at the plan repo
 root its local workflow supplies its artifact-based base name. A both-repo
 report appends `-<other-sha>` before `.md`:
@@ -523,10 +527,9 @@ report appends `-<other-sha>` before `.md`:
 - At the Repo Edu root, `<scope>` is `complete`, `step-<n>` or
   `steps-<a>-<b>`, the round's scope with its spaces turned into hyphens.
 - `<auditor>` is the launcher's auditor token, `claude` or `codex`.
-- `<own-sha>` is the invoked repo's `git rev-parse --short HEAD` at audit time.
+- `<own-sha>` is the report repo's `git rev-parse --short HEAD` at audit time.
 - `<other-sha>` is the other repo's short HEAD for a both-repo round. The
-  invoked repo stays first, so the first sha always names the repo that holds
-  the report.
+  repo where the round started holds the report and stays first.
 
 The file is gitignored, so writing it keeps the round read-only; it is the
 one file the round writes before its fix phase. The session that lands the
