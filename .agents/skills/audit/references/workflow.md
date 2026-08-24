@@ -45,8 +45,7 @@ The step range decides the repo set. Derive each in-range step's hosting repo
 from the files its plan text says to change. A step may be hosted by Repo Edu,
 the plan repo or both. The round's repo set is the union of those hosts; a
 complete round derives it from every step. When a host is unclear, stop for a
-plan correction. When the user names a repo or repos, that naming replaces the
-derived set.
+plan correction.
 
 ## Round
 
