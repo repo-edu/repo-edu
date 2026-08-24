@@ -6,7 +6,7 @@ import type { CodingResult, PlanImplementationEvent } from "../contracts.js"
 import { runPlanImplementation } from "../plan-runner.js"
 import {
   commitAdmittedRepositoryDiff,
-  commitPlanCompletionMarker,
+  commitPlanImplementationMarker,
   stageAdmittedRepositoryDiff,
 } from "../repository-admission.js"
 import type { StepCommandRequest, StepCommandResult } from "../step-checks.js"
@@ -209,7 +209,7 @@ describe("runPlanImplementation stop paths", () => {
         commands: successfulCommands([]),
         ownedChildren: settledChildren,
         repositoryCommit: {
-          complete: commitPlanCompletionMarker,
+          markImplemented: commitPlanImplementationMarker,
           async stage(admission, diff) {
             await stageAdmittedRepositoryDiff(admission, diff)
             controller.abort("Stop before Git commit.")
@@ -273,7 +273,7 @@ describe("runPlanImplementation stop paths", () => {
         },
         repositoryCommit: {
           stage: stageAdmittedRepositoryDiff,
-          complete: commitPlanCompletionMarker,
+          markImplemented: commitPlanImplementationMarker,
           async commit(admission, diff, source, step, proposal, stopSignal) {
             assert.equal(stopSignal?.aborted, false)
             commitStarted.resolve()

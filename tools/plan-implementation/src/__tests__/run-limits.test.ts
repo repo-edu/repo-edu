@@ -47,7 +47,7 @@ function cursor(nextStep: number): ResolvedPlanCursor {
     nextStep,
     resetCommitOid: null,
     stepCommitOids: [],
-    completionCommitOid: null,
+    implementedCommitOid: null,
   }
 }
 

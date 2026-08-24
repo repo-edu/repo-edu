@@ -13,9 +13,12 @@ range and `4` as one step, counted against the plan's **Implementation plan**
 numbering. A range makes the round scoped. No range makes it complete. When no
 plan is named, ask which plan to audit and wait.
 
-Follow this repo's `CLAUDE.md` throughout the audit. This workflow audits
-implementation code. Planning artifact audits belong to the sibling plan
-repo's own audit workflow.
+This procedure also serves implementation-audit rounds on changes hosted by
+the plan repo. Its audit workflow routes those rounds here and supplies the
+local substitutions: that repo's checks, report root and finding metadata.
+Follow the `CLAUDE.md` of every repo the user directed the round to judge.
+Planning-artifact audits without an implementation scope still belong to the
+plan repo's own audit workflow.
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
@@ -53,17 +56,25 @@ that first round. A given range or an existing audit commit skips it.
 
 ## Round
 
-Run one read-only implementation-audit round. Judge whether this repo correctly
-implemented the plan. Report in the order prescribed below, then stop for
-discussion. Edit only after the user accepts or revises the findings and asks
-for them to be applied.
+Run one read-only implementation-audit round. Judge the implementation in the
+repo or repos the user directed. A user-directed round naming both repos may
+judge a both-repo step whole. Report in the order prescribed below, then stop
+for discussion. Edit only after the user accepts or revises the findings and
+asks for them to be applied.
 
-Record every round with exactly one commit after the user settles its outcome.
-A round whose accepted findings changed Repo Edu files uses the shared
-implementation-audit fix form from `../plan/CLAUDE.md`. A round that accepts
-only deferred plan-text findings uses the shared empty severity form. Both
-bodies open with `Audit: complete`, `Audit: step <n>` for one scoped step or
+After the user settles the outcome, land at most one implementation-audit
+record per repo judged. A record lands in the repo whose files its findings
+concern. A both-repo round therefore lands independent records in each repo.
+Repo Edu records use the shared implementation-audit forms from
+`../plan/CLAUDE.md`. A Repo Edu round that accepts only findings deferred to an
+undirected repo uses the shared empty severity form. Record bodies open with
+`Audit: complete`, `Audit: step <n>` for one scoped step or
 `Audit: steps <a>-<b>` for a scoped range.
+
+A directed correction to the plan file is different from an implementation
+record. Apply it in the same run and land it as its own plan-repo commit in the
+ordinary plan-round form, citing the finding it applies. Do not repeat it as a
+deferral or an implementation record.
 
 The body then carries one bullet per accepted finding, and each bullet opens
 with that finding's metadata before its prose:
@@ -72,58 +83,66 @@ with that finding's metadata before its prose:
 - [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
 ```
 
-`[area:<primary-id>]` is the finding's primary partition area from
+For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary
+partition area from
 `tools/architecture-check/src/area-model.json`, followed by
 `[cover:<cover-id>]` for each cover area that applies. `[growth:...]` is the
 tag from [Growth tags](#growth-tags), in the same form the report used.
 `[reach:...]` and `[complexity:...]` are the ratings from
-[Reach and complexity](#reach-and-complexity). All four
-are required on every finding bullet, because the commit body is the only
-place a later round can read them: chat is gone, and the finding list lives
-nowhere else. A bullet that records something other than a finding, such as a
-carried decision, takes no metadata.
+[Reach and complexity](#reach-and-complexity). Repo Edu finding bullets require
+all four token kinds. Plan-repo finding bullets omit only `[area:]` under the
+local substitution above. The commit body is the only place a later round can
+read them: chat is gone, and the finding list lives nowhere else. A bullet that
+records something other than a finding, such as a carried decision, takes no
+metadata.
 
-A deferred plan-text finding uses the body form in this repo's `CLAUDE.md`; it
-keeps its tier, plan location and metadata in the same round commit. A clean
-round lands the shared clean record with the `Audit:` scope in its body. When
-the user declines the finding set in full, no commit lands because
-disagreement is not a state. The log shows every confirmed round that ran,
-including clean rounds that would otherwise exist only in chat.
+A finding deferred from a Repo Edu-only round to the plan repo uses the body
+form in this repo's `CLAUDE.md`; it keeps its tier, plan location and metadata
+in the same round commit. A plan-repo round carries no `[area:]` token, because
+the area model belongs to Repo Edu. A clean round lands the shared clean record
+in each repo judged, with the `Audit:` scope in its body. When the user declines
+the finding set in full, no commit lands because disagreement is not a state.
+The logs show every confirmed round that ran, including clean rounds that would
+otherwise exist only in chat.
 
 ## Evidence
 
-Scope the implementation episode the way the watch does. Anchor on the earliest
-commit whose subject carries the topic's bare, `plan-<topic>` or
-`topology-<topic>` stem. Walk from that anchor to HEAD, including every commit
-that carries a joined stem or touches the same files.
+Scope the implementation episode in every directed repo the way the watch does.
+In each repo, anchor on the earliest commit whose subject carries the topic's
+bare, `plan-<topic>` or `topology-<topic>` stem. Walk from that anchor to its
+HEAD, including every commit that carries a joined stem or touches the same
+files. Read the directed repos' walks together for a both-repo round.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
 cannot carry. Treat a recorded correct departure under the deviation rules
 below, not as a strict conformance failure.
 
-Read the plan end to end. Read the final state of the code the episode touched.
+Read the plan end to end. Read the final state of the files the episode touched
+in every repo the round judges.
 
 Read `../plan/BOUNDARIES.md` beside the plan: boundaries change only by user
 decision, so the current file can be newer than the plan. This is a check, not
 a source of findings. A boundary is not a minimum the round may raise, and the
 round never edits the file. The check covers three things. Shipped code that
 crosses a current boundary lands as a finding. A plan step that conflicts with
-a current boundary becomes a deferred plan finding under
-[Deferred plan findings](#deferred-plan-findings). And the round's own outputs are held to
-the same line: a proposed correction or deviation ruling that would cross a
-boundary does not land.
+a current boundary becomes a cross-repo finding under
+[Cross-repo findings](#cross-repo-findings). And the round's own outputs are
+held to the same line: a proposed correction or deviation ruling that would
+cross a boundary does not land.
 
 A round is read-only until the user accepts its findings, so its evidence
 commands must not change tracked files. Build the verification set from every
 package whose code or behaviour the round audits. Include a repo tool only
 when the audit concerns the rule that tool enforces.
 
-Read each affected package's `CLAUDE.md` and `package.json`. Run its `check`
-and `test` scripts when they exist, plus the relevant validation named by the
-package guidance or plan. Use `pnpm --filter <package> <script>` for package
-scripts. If a required command can change tracked files, defer it to the fix
-phase and use its read-only form for evidence.
+For Repo Edu files, read each affected package's `CLAUDE.md` and `package.json`.
+Run its `check` and `test` scripts when they exist, plus the relevant validation
+named by the package guidance or plan. Use
+`pnpm --filter <package> <script>` for package scripts. For plan-repo files,
+use the local substitutions in that repo's audit workflow. If a required
+command can change tracked files, defer it to the fix phase and use its
+read-only form for evidence.
 
 Do not run a root whole-workspace script only because an implementation audit
 is running. The round's scope decides the checks and tests.
@@ -145,24 +164,27 @@ block no ruling has settled needs its own answer. When the user picks
 the simpler mechanism, that mechanism becomes the finding's required
 correction, revised in the discussion like any other revision. When that
 ruling overturns a reason the plan records, the round carries the correction
-and the user's reason as a [deferred plan finding](#deferred-plan-findings), so
-a later plan round does not re-derive it. When the user keeps the machinery,
-the same deferral carries the ruling and its reason. The code finding then
-follows the normal path: a correction the ruling leaves standing is applied,
-and a finding the ruling dissolves is omitted from the round commit.
+and the user's reason as a [cross-repo finding](#cross-repo-findings), so the
+plan correction is applied or deferred without re-derivation. When the user
+keeps the machinery, the same record carries the ruling and its reason. The
+code finding then follows the normal path: a correction the ruling leaves
+standing is applied, and a finding the ruling dissolves is omitted from the
+round commit.
 
-After the user accepts the round's findings, apply them. One acceptance covers
-the whole round: the code fixes and deferred plan findings recorded here. Then
-rebuild the verification set from the packages the round audited and the
-packages the fixes touched. Format only the fixed files. Run each affected
-package's required `check`, `test` and validation scripts. Include a repo tool
-only when the audit or fix concerns the rule it enforces.
+After the user accepts the round's findings, apply every directed correction.
+One acceptance covers the whole round: fixes in each directed repo and findings
+deferred only to repos outside that scope. Then rebuild the verification set
+from the packages and plan-repo files the round audited and the fixes touched.
+Format only the fixed files. Run each affected package's required `check`,
+`test` and validation scripts, and the plan repo's local checks when that repo
+changed. Include a repo tool only when the audit or fix concerns the rule it
+enforces.
 
-For implementation-audit fixes, this package-scoped rule replaces the root
-verification default. Do not run root `pnpm check` or the whole `pnpm test`
-suite unless affected package guidance or the plan requires that exact root
-command. Run writing commands only while no other audit fix is running in the
-working tree.
+For Repo Edu implementation-audit fixes, this package-scoped rule replaces the
+root verification default. Do not run root `pnpm check` or the whole
+`pnpm test` suite unless affected package guidance or the plan requires that
+exact root command. Run writing commands only while no other audit fix is
+running in either directed working tree.
 
 ## Coverage
 
@@ -200,9 +222,10 @@ one only on correctness or quality evidence, never on taste.
 Grade each finding with the [A]-[D] implementation tiers in this repo's
 `CLAUDE.md`. Present the findings as one numbered list sorted A through D.
 Start at 1 and keep the numbers increasing across tier changes. Findings land
-as code corrections here or as deferred plan findings in the same round
-commit. When a finding's root cause is the plan itself, say so in the finding
-and carry its correction into the deferred plan findings below. Every finding
+as corrections in their hosting repo when that repo is directed, or as
+deferrals in the current repo's round commit when it is not. When a finding's
+root cause is the plan itself, say so in the finding and either apply the
+directed plan correction or carry it into the deferrals below. Every finding
 also carries a growth tag, per
 [Growth tags](#growth-tags).
 
@@ -352,11 +375,11 @@ question.
 
 When the answer is that no boundary asks for the machinery, say that the plan
 step is the defect and stop, rather than reporting more findings against it.
-Carry the correction into [Deferred plan findings](#deferred-plan-findings)
-when the user accepts it. When the trade is genuinely worth its cost, the user
-says so and the deferral records the ruling with its reason. A later plan round
-applies it, which stops the pattern from remaining an open signal for that
-machinery.
+Carry the correction into [Cross-repo findings](#cross-repo-findings) when the
+user accepts it. When the trade is genuinely worth its cost, the user says so
+and the cross-repo record carries the ruling with its reason. A directed plan
+fix applies it in this run; otherwise a later plan round applies it. Either
+route stops the pattern from remaining an open signal for that machinery.
 
 Pricing a run is expensive, so it runs only on a cross-round run of a
 growth pattern or of the reach and complexity pair. A single tagged finding
@@ -412,12 +435,21 @@ finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
 is shared with the plan repo's finding metadata, one spelling across both
 logs.
 
-## Deferred plan findings
+## Cross-repo findings
 
-The implementation audit never writes the plan repo. A defect in the plan is
-graded here and carried in this round's Repo Edu commit body. Its bullet uses
-the plan-deferral form in this repo's `CLAUDE.md` and states the required plan
-correction, its shipped-code evidence and any user ruling with its reason.
+Deferral covers only work nobody directed. A defect whose fix belongs to a
+repo outside the round's directed scope is graded and carried in the current
+repo's round commit body. A plan defect deferred from a Repo Edu-only round
+uses the plan-deferral form in this repo's `CLAUDE.md` and states the required
+plan correction, its shipped-code evidence and any user ruling with its
+reason. A Repo Edu defect deferred from a plan-repo-only round names its Repo
+Edu location, required correction and plan-repo evidence in that round's
+plan-repo commit body.
+
+When the user directs the other repo into the round, or directs a specific
+cross-repo fix during discussion, apply the correction in the same run and
+commit it independently in its hosting repo. A plan-file correction uses the
+ordinary plan-round form. No write in one repo triggers or waits on the other.
 
 Split each deferral by whether the correction needs a choice.
 
@@ -435,10 +467,10 @@ Before proposing a change to a **Decisions** entry, read the archived source the
 plan came from when one exists. The user should not choose against a reason the
 plan never carried forward. Absence of an older source is normal, not an error.
 
-Every deferral traces to the shipped code this round inspected or to a choice
-the user made in this round's discussion. The round tells the user that plan
-follow-up rests with them. When they order an ordinary plan round, that round
-collects open deferrals from this repo's stem scan, cites the commits it applies
+Every deferral traces to the files this round inspected or to a choice the user
+made in this round's discussion. The round tells the user that follow-up in the
+undirected repo rests with them. A later round in that repo collects open
+deferrals from the other repo's joined-stem scan, cites the commits it applies
 and leaves already-corrected text alone.
 
 ## Episode settlement
@@ -451,13 +483,14 @@ round's table classifying every row. A round that finds nothing is not required.
 Prior audit commits inform those rounds, ranking their reports and naming the
 fixes to re-verify. They never excuse a row from inspection.
 
-The final complete round expects the shared completion marker in this repo's
-stem scan. When it is missing, name that once and continue on the user's word.
-The round lands its own single fix, severity-only deferral or clean commit under
-the one-round-one-commit rule above. On the user's word after the implementation
-audit settles, write the separate shared closing marker in this repo. The
-marker needs no compiled history in its body because the stem scan already
-shows every round.
+The final complete round expects the shared `implemented:` marker in every repo
+it judges. Each marker means every implementation step that repo hosts has
+landed. When one is missing, name it once and continue on the user's word. The
+round lands its fix, deferral or clean records under the repo-keying rule above.
+On the user's word after the implementation audit settles, use each repo's
+shared closing form: the Repo Edu `closed:` marker or the plan repo's loop-close
+move. The stem scans already show every round, so no compiled history belongs
+in either closing body.
 
 The final complete round uses the same package-scoped verification rule. Its
 set includes every package the complete episode concerns, not every package in
@@ -470,36 +503,43 @@ on the user's word.
 
 ## Report order
 
-Open by naming the workflow that ran, an implementation audit in this Repo Edu
-repo, then the plan file, its ready commit, the episode's commit range and
-the round's scope: complete, the audited step or the audited step range. Then report the
-coverage table with its coverage line. Then, when a growth pattern or the
-reach and complexity pair runs across rounds, the run statement and the
-pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered findings, each
-carrying its growth, reach and complexity tokens, and the deferred plan
-findings. Then write the report to its file under
+Open by naming the workflow that ran, the repo or repos the implementation
+audit judges, then the plan file, its ready commit, the episode's commit range
+and the round's scope: complete, the audited step or the audited step range.
+Then report the coverage table with its coverage line. Then, when a growth
+pattern or the reach and complexity pair runs across rounds, the run statement
+and the pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered
+findings, each carrying its growth, reach and complexity tokens, and any
+cross-repo findings. Then write the report to its file under
 [Report file](#report-file) and stop there.
 
 ## Report file
 
-After presenting the report, write the same report to a file at this repo's
-root and say so, then stop for the user's ruling. The file is the copy the
-vet workflow reads, so the chat and the file must not differ.
+After presenting the report, write the same report to a file at the root of the
+repo where the round was invoked and say so, then stop for the user's ruling.
+The file is the copy the vet workflow reads, so the chat and the file must not
+differ.
 
-Name it `AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`:
+Use the invoked repo's established single-repo base name. At the Repo Edu root
+that is `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md`; at the plan repo
+root its local workflow supplies its artifact-based base name. A both-repo
+report appends `-<other-sha>` before `.md`:
 
 - `<plan-name>` is the topic stem used by the shared subject grammar. For an
   archived `plan.md`, use the archive folder's name.
-- `<scope>` is `complete`, `step-<n>` or `steps-<a>-<b>`, the round's scope
-  with its spaces turned into hyphens.
+- At the Repo Edu root, `<scope>` is `complete`, `step-<n>` or
+  `steps-<a>-<b>`, the round's scope with its spaces turned into hyphens.
 - `<auditor>` is the launcher's auditor token, `claude` or `codex`.
-- `<sha>` is `git rev-parse --short HEAD` at audit time.
+- `<own-sha>` is the invoked repo's `git rev-parse --short HEAD` at audit time.
+- `<other-sha>` is the other repo's short HEAD for a both-repo round. The
+  invoked repo stays first, so the first sha always names the repo that holds
+  the report.
 
 The file is gitignored, so writing it keeps the round read-only; it is the
 one file the round writes before its fix phase. The session that lands the
-round commit deletes that round's own report and its `VET-` twin
-in the same turn: the commit body carries the accepted findings durably,
-and a report left behind goes stale against the moved HEAD. Which round a
+round's records deletes that round's own report and its `VET-` twin in the same
+turn: the commit bodies carry the accepted findings durably, and a report left
+behind goes stale against the moved HEAD. Which round a
 file belongs to is read from the auditor token in its name, never from who
 wrote it: the `VET-` twin is the other assistant's commentary on this
 round's report and is consumed with it. Files carrying the other auditor

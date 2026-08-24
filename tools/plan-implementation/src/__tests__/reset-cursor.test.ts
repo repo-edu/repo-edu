@@ -148,7 +148,7 @@ Plan-Source-Blob: ${result.source.blobOid}
       nextStep: 3,
       resetCommitOid: result.commitOid,
       stepCommitOids: [],
-      completionCommitOid: null,
+      implementedCommitOid: null,
     })
   })
 

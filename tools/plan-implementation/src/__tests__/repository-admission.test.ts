@@ -9,7 +9,7 @@ import {
   admitOutsideWork,
   admitOwnedRepositoryDiff,
   commitAdmittedRepositoryDiff,
-  commitPlanCompletionMarker,
+  commitPlanImplementationMarker,
   openRepositoryAdmission,
   requireAdmittedRepositoryDiff,
   stageAdmittedRepositoryDiff,
@@ -100,15 +100,18 @@ describe("repository admission", () => {
     )
   })
 
-  it("writes one exact empty completion marker", async () => {
+  it("writes one exact empty implemented marker", async () => {
     const root = await createRepository()
     const admission = await openRepositoryAdmission(root)
 
-    const committed = await commitPlanCompletionMarker(admission, testSource)
+    const committed = await commitPlanImplementationMarker(
+      admission,
+      testSource,
+    )
 
     assert.equal(
       (await git(root, ["show", "-s", "--format=%s", "HEAD"])).stdout.trim(),
-      "example/completed: record completed implementation",
+      "example/implemented: Repo Edu steps have landed",
     )
     assert.equal(
       (await git(root, ["diff-tree", "--name-only", "-r", "HEAD"])).stdout,

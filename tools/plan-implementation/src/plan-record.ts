@@ -6,7 +6,7 @@ import type { CodingCommitProposal, PlanSourceIdentity } from "./contracts.js"
 import { PlanRecordError } from "./plan-record-error.js"
 
 const fullObjectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
-const completionSummary = "record completed implementation"
+const implementedSummary = "Repo Edu steps have landed"
 
 const sourceFieldNames = ["Plan-Source-Commit", "Plan-Source-Blob"] as const
 
@@ -28,15 +28,15 @@ export type PlanCursorResetCommitRecord = PlanRecordFields & {
   readonly nextStep: number
 }
 
-export type PlanCompletionCommitRecord = {
-  readonly kind: "completion"
+export type PlanImplementedMarkerCommitRecord = {
+  readonly kind: "implemented-marker"
   readonly planName: string
 }
 
 export type PlanCommitRecord =
   | PlanStepCommitRecord
   | PlanCursorResetCommitRecord
-  | PlanCompletionCommitRecord
+  | PlanImplementedMarkerCommitRecord
 
 export type FormattedCommitMessage = {
   readonly subject: string
@@ -57,7 +57,7 @@ type ParsedRecordSubject =
       readonly nextStep: number
     }
   | {
-      readonly kind: "completion"
+      readonly kind: "implemented-marker"
       readonly planName: string
     }
 
@@ -119,9 +119,9 @@ function parseRecordSubject(subject: string): ParsedRecordSubject | null {
   const { planName, form, summary } = sharedSubject.groups
   assertPlanName(planName)
 
-  if (form === "completed") {
-    assertSingleLine(summary, "The completion marker summary")
-    return { kind: "completion", planName }
+  if (form === "implemented") {
+    assertSingleLine(summary, "The implemented marker summary")
+    return { kind: "implemented-marker", planName }
   }
 
   if (form.startsWith("reset-")) {
@@ -220,9 +220,9 @@ export function parsePlanCommitRecord(
   if (!parsedSubject) return null
 
   const normalizedBody = normalizeBody(body)
-  if (parsedSubject.kind === "completion") {
+  if (parsedSubject.kind === "implemented-marker") {
     if (normalizedBody.length > 0) {
-      throw new PlanRecordError("A completion marker body must be empty.")
+      throw new PlanRecordError("An implemented marker body must be empty.")
     }
     return {
       kind: parsedSubject.kind,
@@ -324,16 +324,16 @@ export function createCursorResetCommitMessage(
   return { subject, body }
 }
 
-export function createPlanCompletionCommitMessage(
+export function createPlanImplementationMarkerCommitMessage(
   source: PlanSourceIdentity,
 ): FormattedCommitMessage {
   assertPlanName(source.planName)
-  const subject = `${source.planName}/completed: ${completionSummary}`
+  const subject = `${source.planName}/implemented: ${implementedSummary}`
   const body = ""
   const record = parsePlanCommitRecord(subject, body)
-  if (record?.kind !== "completion") {
+  if (record?.kind !== "implemented-marker") {
     throw new PlanRecordError(
-      "The completion writer produced an invalid record.",
+      "The implemented-marker writer produced an invalid record.",
     )
   }
   return { subject, body }

@@ -5,7 +5,7 @@ import type { CodingCommitProposal, PlanSourceIdentity } from "./contracts.js"
 import { readGitText, runGit } from "./git-command.js"
 import { parseZeroSeparatedGitLog } from "./git-log.js"
 import {
-  createPlanCompletionCommitMessage,
+  createPlanImplementationMarkerCommitMessage,
   createPlanStepCommitMessage,
 } from "./plan-record.js"
 
@@ -41,7 +41,7 @@ export type RepositoryStepCommit = {
   readonly nextAdmission: RepositoryAdmission
 }
 
-export type RepositoryCompletionCommit = RepositoryStepCommit
+export type RepositoryImplementationMarkerCommit = RepositoryStepCommit
 
 export class RepositoryAdmissionError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -593,22 +593,22 @@ export async function commitAdmittedRepositoryDiff(
   }
 }
 
-export async function commitPlanCompletionMarker(
+export async function commitPlanImplementationMarker(
   admission: RepositoryAdmission,
   source: PlanSourceIdentity,
   stopSignal?: AbortSignal,
-): Promise<RepositoryCompletionCommit> {
+): Promise<RepositoryImplementationMarkerCommit> {
   await requireExactControlState(admission, { compareIndex: true })
   if ((await readCheckoutStatus(admission.repoEduRoot)).length > 0) {
     throw new RepositoryAdmissionError(
-      "The completion marker requires a clean Repo Edu checkout.",
+      "The `implemented:` marker requires a clean Repo Edu checkout.",
     )
   }
 
-  const message = createPlanCompletionCommitMessage(source)
+  const message = createPlanImplementationMarkerCommitMessage(source)
   if (stopSignal?.aborted) {
     throw new RepositoryAdmissionError(
-      "The stop request prevented the completion marker from starting.",
+      "The stop request prevented the `implemented:` marker from starting.",
     )
   }
   try {
@@ -620,7 +620,7 @@ export async function commitPlanCompletionMarker(
     ])
   } catch (error) {
     throw new RepositoryAdmissionError(
-      "Git could not write the plan completion marker.",
+      "Git could not write the `implemented:` marker.",
       { cause: error },
     )
   }
@@ -647,17 +647,17 @@ export async function commitPlanCompletionMarker(
   const commitFields = parseZeroSeparatedGitLog(history.stdout)
   if (parentOid !== admission.headOid) {
     throw new RepositoryAdmissionError(
-      "The completion marker did not use the admitted HEAD as its parent.",
+      "The `implemented:` marker did not use the admitted HEAD as its parent.",
     )
   }
   if (branchRef !== admission.branchRef) {
     throw new RepositoryAdmissionError(
-      "The current branch changed during the completion marker.",
+      "The current branch changed during the `implemented:` marker.",
     )
   }
   if (changedPaths.stdout.length > 0) {
     throw new RepositoryAdmissionError(
-      "The plan completion marker changed repository files.",
+      "The `implemented:` marker changed repository files.",
     )
   }
   if (
@@ -667,12 +667,12 @@ export async function commitPlanCompletionMarker(
     commitFields[0].body !== message.body
   ) {
     throw new RepositoryAdmissionError(
-      "Git did not preserve the exact plan completion marker.",
+      "Git did not preserve the exact `implemented:` marker.",
     )
   }
   if ((await readCheckoutStatus(admission.repoEduRoot)).length > 0) {
     throw new RepositoryAdmissionError(
-      "The Repo Edu checkout is not clean after the completion marker.",
+      "The Repo Edu checkout is not clean after the `implemented:` marker.",
     )
   }
 

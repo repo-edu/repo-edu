@@ -9,7 +9,7 @@ import type {
 import { runPlanImplementation } from "../plan-runner.js"
 import {
   commitAdmittedRepositoryDiff,
-  commitPlanCompletionMarker,
+  commitPlanImplementationMarker,
   stageAdmittedRepositoryDiff,
 } from "../repository-admission.js"
 import type { StepCommandExecutor, StepCommandRequest } from "../step-checks.js"
@@ -83,7 +83,7 @@ describe("complete plan runner contract", () => {
     )
     assert.doesNotMatch(
       (await git(repoEduRoot, ["log", "--format=%s"])).stdout,
-      /example\/completed:/,
+      /example\/implemented:/,
     )
   })
 
@@ -203,7 +203,7 @@ describe("complete plan runner contract", () => {
         ownedChildren: settledChildren,
         repositoryCommit: {
           stage: stageAdmittedRepositoryDiff,
-          complete: commitPlanCompletionMarker,
+          markImplemented: commitPlanImplementationMarker,
           async commit(...arguments_) {
             const committed = await commitAdmittedRepositoryDiff(...arguments_)
             committedSteps += 1

@@ -14,7 +14,7 @@ export type ResolvedPlanCursor = {
   readonly nextStep: number
   readonly resetCommitOid: string | null
   readonly stepCommitOids: readonly string[]
-  readonly completionCommitOid: string | null
+  readonly implementedCommitOid: string | null
 }
 
 export class GitCursorError extends Error {
@@ -74,7 +74,7 @@ export function resolvePlanCursorFromHistory(
   } else {
     const changedSource = records.some(
       ({ record }) =>
-        record.kind !== "completion" &&
+        record.kind !== "implemented-marker" &&
         record.sourceBlobOid !== plan.source.blobOid,
     )
     if (changedSource) {
@@ -85,11 +85,11 @@ export function resolvePlanCursorFromHistory(
   }
 
   const stepCommitOids: string[] = []
-  let completionCommitOid: string | null = null
+  let implementedCommitOid: string | null = null
   const chronologicalRecords = [...newerRecords].reverse()
   for (const { commitOid, record } of chronologicalRecords) {
     if (
-      record.kind !== "completion" &&
+      record.kind !== "implemented-marker" &&
       record.sourceBlobOid !== plan.source.blobOid
     ) {
       throw new GitCursorError(
@@ -101,23 +101,23 @@ export function resolvePlanCursorFromHistory(
         "A newer cursor reset appeared after the selected reset.",
       )
     }
-    if (record.kind === "completion") {
-      if (completionCommitOid !== null) {
+    if (record.kind === "implemented-marker") {
+      if (implementedCommitOid !== null) {
         throw new GitCursorError(
-          "The plan ledger contains more than one completion marker.",
+          "The plan ledger contains more than one `implemented:` marker.",
         )
       }
       if (nextStep !== totalSteps + 1) {
         throw new GitCursorError(
-          "The plan completion marker appears before every step has landed.",
+          "The `implemented:` marker appears before every Repo Edu step has landed.",
         )
       }
-      completionCommitOid = commitOid
+      implementedCommitOid = commitOid
       continue
     }
-    if (completionCommitOid !== null) {
+    if (implementedCommitOid !== null) {
       throw new GitCursorError(
-        "The plan ledger records another step after its completion marker.",
+        "The plan ledger records another step after its `implemented:` marker.",
       )
     }
     for (const step of record.steps) {
@@ -145,7 +145,7 @@ export function resolvePlanCursorFromHistory(
     nextStep,
     resetCommitOid: newestReset?.commitOid ?? null,
     stepCommitOids,
-    completionCommitOid,
+    implementedCommitOid,
   }
 }
 

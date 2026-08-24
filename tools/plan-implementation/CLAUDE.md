@@ -48,10 +48,10 @@ runner does not try to prove the meaning of the work.
   top-level ordered list, step source spans and strict `repo-edu-proofs` JSON.
 - `commit-proposal.ts` owns normal severity subjects and decision-and-reason
   bullet checks. `plan-record.ts` owns the exact step, cursor-reset and
-  completion message forms. `git-log.ts` owns zero-separated Git history
-  fields.
+  implemented-marker message forms. `git-log.ts` owns zero-separated Git
+  history fields.
 - `git-cursor.ts` resolves one contiguous current-source ledger from the
-  newest reset for the plan name, including its one terminal completion
+  newest reset for the plan name, including its one terminal `implemented:`
   marker. Source commits stay background; source blobs decide identity.
 - `reset-cursor.ts` is the sole owner of the clean-checkout, severity-free,
   empty current-branch reset commit.
@@ -86,7 +86,7 @@ runner does not try to prove the meaning of the work.
 - `repository-admission.ts` fixes the clean branch and index before Codex. It
   owns outside work admission under the rule above. It freezes `HEAD` before
   staging and owns the non-empty path set, complete staging, exact step commit
-  and empty completion marker.
+  and empty `implemented:` marker.
 - `step-check-scope.ts` maps admitted paths to pnpm workspace projects and
   their dependants. It selects root checks when package ownership cannot be
   proved or the active step is final.
@@ -98,8 +98,8 @@ runner does not try to prove the meaning of the work.
 - `plan-runner.ts` joins these owners through the pure run reducer. It keeps the
   active plan cursor fixed and repeats final checks after outside work. It
   starts a later context only after an exact commit and a clean checkout. It
-  writes a missing completion marker only after the exact cursor reaches one
-  past the final step.
+  writes a missing `implemented:` marker for the Repo Edu share only after the
+  exact cursor reaches one past the final step.
 - `run-lifetime.ts` turns one stop signal into reducer admission closure, Codex
   abort and shared stop-and-confirm for every Codex and check tree.
 - `run-progress.ts` turns runner facts into the one ordered semantic event
@@ -123,7 +123,7 @@ runner does not try to prove the meaning of the work.
 - Runner admission remains held until all owned children settle. A Git commit
   that already started settles without rollback and starts no later step.
 - Keep Git history as the only durable step cursor. Do not add progress files
-  or completion marks to plans.
+  or implementation marks to plan files.
 - Never create a branch. Runner-owned commits stay on the current branch.
 
 ## Contracts

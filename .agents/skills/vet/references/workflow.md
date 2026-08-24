@@ -6,31 +6,35 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-The vet's input is another AI assistant's implementation-audit report on this
-repo's code, an `AUDIT-*.md` file at this repo's root written by the audit
-workflow. [Report discovery](#report-discovery) says how the file is found.
-Vet its graded findings. Do not run an audit round of your own. Whether a
-finding is a good idea is not an axis: a finding can be appealing and still
-unauthorised.
+The vet's input is another AI assistant's implementation-audit report, an
+`AUDIT-*.md` file at the root of the repo where the audit was invoked. A report
+at this repo's root may judge Repo Edu alone or both repos.
+[Report discovery](#report-discovery) says how the file is found. Vet its
+graded findings. Do not run an audit round of your own. Whether a finding is a
+good idea is not an axis: a finding can be appealing and still unauthorised.
 
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the round that
 produced the report.
 
-Planning artifacts belong to the sibling plan repo. Their reports live at
-that repo's root, so discovery here never finds one. When the invocation
-names a planning-audit report from that repo rather than an implementation
-audit on this repo's code, name the file, say the vet belongs in `../plan` and
-stop. Continue only when the user explicitly says to.
+Planning-artifact audit reports belong to the sibling plan repo. An
+implementation-audit report on plan-repo-hosted changes also lives there when
+that round was invoked there, and its local vet workflow routes to this owned
+procedure. When the invocation here names any report stored at the plan repo
+root, name the file, say the vet belongs in `../plan` and stop. Continue only
+when the user explicitly says to.
 
 ## Report discovery
 
-The report file's name carries its metadata:
-`AUDIT-<plan-name>-<scope>-<auditor>-<sha>.md`. Parse it from the right: the
-last part is the short commit sha the audit inspected, before it the auditor
-token, `claude` or `codex`, before that the scope, `complete`, `step-<n>` or
-`steps-<a>-<b>`, and the rest is the plan name.
+The report file's name carries its metadata. A single-repo report is
+`AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md`. A both-repo report appends
+the other repo's sha:
+`AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>-<other-sha>.md`. Parse it from
+the right: recognise one or two short hexadecimal shas, then the auditor token,
+`claude` or `codex`, then the scope, `complete`, `step-<n>` or
+`steps-<a>-<b>`, with the rest as the plan name. In a report stored here,
+`<own-sha>` names Repo Edu and `<other-sha>` names the plan repo.
 
 When the invocation names a report file, vet that file. When it names
 nothing, list `AUDIT-*.md` at this repo's root and drop each file whose
@@ -43,11 +47,13 @@ when the user explicitly says to.
 
 Check two mismatches before vetting:
 
-- The sha in the name differs from `git rev-parse --short HEAD`. The tree
-  has moved since the audit, so check what moved: run
-  `git diff --name-only <sha>..HEAD`. When no file the report names is
-  touched, proceed and note the drift in the verdicts. When one is, the
-  findings describe code that no longer exists, so refuse and ask.
+- A sha in the name differs from its repo's `git rev-parse --short HEAD`. The
+  tree has moved since the audit, so check what moved with
+  `git diff --name-only <sha>..HEAD` in that repo. For a both-repo report, run
+  this check independently for Repo Edu and the plan repo. When no file the
+  report names in the moved repo is touched, proceed and note the drift in the
+  verdicts. When one is, the findings describe files that no longer exist in
+  the reported state, so refuse and ask.
 - The plan or scope in the name differs from the one the report names
   inside. One of the two is wrong, so refuse and ask. A report that names
   neither inside cannot pass this check, so ask before vetting.
@@ -64,8 +70,9 @@ Classify the finding as one of five kinds.
   repo's standards set. This is the ordinary kind and it needs no further
   authority.
 - A defect in the plan text that the shipped code exposes. It stays a graded
-  finding in this round and is deferred in the Repo Edu commit body for a later
-  user-directed plan round. It must not edit the plan repo.
+  finding. When the plan repo is outside the directed scope, defer it in the
+  Repo Edu commit body. When the user directed the plan repo or directs the fix
+  during discussion, the same run applies it as its own plan-repo round commit.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table, never as a
   finding. Drop it.
@@ -89,10 +96,10 @@ Classify the finding as one of five kinds.
 Verify every load-bearing claim against its source yourself. Do not trust the
 report's quotes or paraphrases.
 
-- Read the code path the finding names, end to end, and the test that covers
-  it.
+- Read the file path the finding names, end to end, and the test that covers it
+  when it is code.
 - Read the plan in `../plan` for the decision the finding rests on, and the
-  affected package's `CLAUDE.md` for the rule it invokes.
+  governing `CLAUDE.md` in every repo the finding invokes.
 - Read the episode's commit bodies before calling a departure unrecorded. The
   reason is often there.
 - Run a check or a test only in its read-only form, and only when a claim
@@ -113,12 +120,14 @@ are common here.
   smaller correction that resolves it.
 - Too narrow. The correction patches one site of a defect that lives at
   several, or it patches an area that is already unstable. This check runs
-  only when the correction is local. Read the finding's primary area ID from
-  `tools/architecture-check/src/area-model.json`, then walk that area's last
-  ten touched commits. Read the conventional kind from a stem-marked commit's
-  postfix or after an ordinary commit's severity sequence. Two or more `fix:`
-  commits there mean the area may not take another patch. Return revise and say
-  the finding has to name the structural change instead.
+  only when the correction is local to Repo Edu. Read the finding's primary
+  area ID from `tools/architecture-check/src/area-model.json`, then walk that
+  area's last ten touched commits. Read the conventional kind from a
+  stem-marked commit's postfix or after an ordinary commit's severity sequence.
+  Two or more `fix:` commits there mean the area may not take another patch.
+  Return revise and say the finding has to name the structural change instead.
+  Plan-repo findings carry no area ID and do not use this Repo Edu history
+  gate.
 
 Then check the trace. It holds at the claimed tier under the `[A]`-`[D]`
 rubric in this repo's `CLAUDE.md`, and it carries the shape the audit
@@ -179,10 +188,10 @@ trade block. Name what axis 1 classified, state what the grounded and
 fix-follows checks found, and stop there. Never settle one of these on the
 vet's own authority.
 
-Before returning the verdicts, look for the sibling report: the same plan
-name, scope and sha with the other auditor token. When it exists, read it and
-mark every verdict `corroborated` when the sibling reports the same defect,
-the same code path producing the same wrong behaviour whatever its tier or
+Before returning the verdicts, look for the sibling report: the same plan name,
+scope and ordered sha set with the other auditor token. When it exists, read it
+and mark every verdict `corroborated` when the sibling reports the same defect,
+the same file path producing the same wrong behaviour whatever its tier or
 wording, and `unique` when it does not. Corroboration is a signal for the
 user's reading order, never a verdict change. Without a sibling report the
 verdicts carry no marker.
@@ -192,14 +201,16 @@ place of `AUDIT-`, as well as into the chat. The twin is untracked and
 gitignored, so writing it keeps the vet's read-only rule intact; it is the
 one file the vet writes.
 
-## Deferred plan findings
+## Cross-repo findings
 
-Deferred plan findings are graded findings, so vet all three axes. Also verify
-that each one traces to shipped code this round inspected or to an answer the
-user gave in this round's own discussion. A deferral resting on any other
-evidence is plan-tier work the round may not author, so the verdict is drop.
-The required outcome is a Repo Edu commit-body deferral, never a plan-repo
-write.
+Cross-repo findings are graded findings, so vet all three axes. Also verify that
+each one traces to files this round inspected or to an answer the user gave in
+this round's own discussion. A deferral resting on any other evidence is work
+the round may not author, so the verdict is drop. Deferral is the required
+outcome only when the repo hosting the fix is outside the directed scope. When
+the user directs that repo or the specific fix, the same run applies it and
+lands an independent commit there; a plan-file fix uses the ordinary plan-round
+form.
 
 ## Coverage table
 

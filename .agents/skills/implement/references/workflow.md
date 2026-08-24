@@ -63,9 +63,10 @@ defect in its Repo Edu commit body for a later user-directed plan round.
 
 ## Close
 
-When the run lands the plan's final step, run the plan's own final verification
-steps when it names any. After the checkout is clean and the log proves every
-step has landed, offer the shared completion marker from `../plan/CLAUDE.md` in
-this repo and write it only on the user's word. A run that leaves steps
-unimplemented ends with one line instead: the steps landed and the first step
-remaining.
+When the run lands the final step this repo hosts, run the plan's own final
+verification steps when it names any. After the checkout is clean and the log
+proves every step this repo hosts has landed, offer this repo's shared
+`implemented:` marker from `../plan/CLAUDE.md` and write it only on the user's
+word. A both-repo step counts here when its Repo Edu commit has landed. A run
+that leaves this repo's steps unimplemented ends with one line instead: the
+steps landed and the first Repo Edu step remaining.

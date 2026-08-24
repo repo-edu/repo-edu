@@ -19,12 +19,12 @@ import {
   admitOutsideWork,
   admitRepositoryDiffWithOutsideWork,
   commitAdmittedRepositoryDiff,
-  commitPlanCompletionMarker,
+  commitPlanImplementationMarker,
   type OutsideWorkAdmission,
   openRepositoryAdmission,
   type RepositoryAdmission,
-  type RepositoryCompletionCommit,
   type RepositoryDiffWithOutsideWork,
+  type RepositoryImplementationMarkerCommit,
   type RepositoryStepCommit,
   requireMatchingRepositoryDiff,
   resolveRepoEduRoot,
@@ -90,11 +90,11 @@ export type PlanImplementationRepositoryCommit = {
     proposal: Parameters<typeof commitAdmittedRepositoryDiff>[4],
     stopSignal?: AbortSignal,
   ): Promise<RepositoryStepCommit>
-  complete(
+  markImplemented(
     admission: RepositoryAdmission,
-    source: Parameters<typeof commitPlanCompletionMarker>[1],
+    source: Parameters<typeof commitPlanImplementationMarker>[1],
     stopSignal?: AbortSignal,
-  ): Promise<RepositoryCompletionCommit>
+  ): Promise<RepositoryImplementationMarkerCommit>
 }
 
 export class PlanImplementationRunError extends Error {
@@ -107,7 +107,7 @@ export class PlanImplementationRunError extends Error {
 const defaultRepositoryCommit: PlanImplementationRepositoryCommit = {
   stage: stageAdmittedRepositoryDiff,
   commit: commitAdmittedRepositoryDiff,
-  complete: commitPlanCompletionMarker,
+  markImplemented: commitPlanImplementationMarker,
 }
 
 async function drainCodingEvents(
@@ -207,7 +207,7 @@ async function runCodingStep(
   return result
 }
 
-async function ensureCompletionMarker(
+async function ensureImplementedMarker(
   repositoryCommit: PlanImplementationRepositoryCommit,
   repository: RepositoryAdmission,
   plan: CommittedImplementationPlan,
@@ -218,23 +218,26 @@ async function ensureCompletionMarker(
   const cursor = await resolvePlanCursor(repository.repoEduRoot, plan)
   if (cursor.nextStep !== plan.steps.length + 1) {
     throw new PlanImplementationRunError(
-      "The completion marker requires a cursor one past the final step.",
+      "The `implemented:` marker requires a cursor one past the final Repo Edu step.",
     )
   }
-  if (cursor.completionCommitOid !== null) {
+  if (cursor.implementedCommitOid !== null) {
     return outsideWork.admission
   }
 
   await requireUnchangedPlanSource(plan.source)
-  const committed = await repositoryCommit.complete(
+  const committed = await repositoryCommit.markImplemented(
     outsideWork.admission,
     plan.source,
     stopSignal,
   )
-  const completedCursor = await resolvePlanCursor(repository.repoEduRoot, plan)
-  if (completedCursor.completionCommitOid !== committed.commitOid) {
+  const implementedCursor = await resolvePlanCursor(
+    repository.repoEduRoot,
+    plan,
+  )
+  if (implementedCursor.implementedCommitOid !== committed.commitOid) {
     throw new PlanImplementationRunError(
-      "The plan cursor did not admit the runner-owned completion marker.",
+      "The plan cursor did not admit the runner-owned `implemented:` marker.",
     )
   }
   return committed.nextAdmission
@@ -397,11 +400,11 @@ export async function runPlanImplementation(
 
     if (
       cursor.nextStep === plan.steps.length + 1 &&
-      cursor.completionCommitOid === null &&
+      cursor.implementedCommitOid === null &&
       isNewWorkAdmissionOpen(state)
     ) {
       try {
-        repository = await ensureCompletionMarker(
+        repository = await ensureImplementedMarker(
           repositoryCommit,
           repository,
           plan,
@@ -573,7 +576,7 @@ export async function runPlanImplementation(
           committed.subject,
         )
         if (stepNumber === plan.steps.length && isNewWorkAdmissionOpen(state)) {
-          repository = await ensureCompletionMarker(
+          repository = await ensureImplementedMarker(
             repositoryCommit,
             repository,
             plan,

@@ -8,7 +8,7 @@ import { GitCursorError, resolvePlanCursorFromHistory } from "../git-cursor.js"
 import type { GitCommitFields } from "../git-log.js"
 import {
   createCursorResetCommitMessage,
-  createPlanCompletionCommitMessage,
+  createPlanImplementationMarkerCommitMessage,
   createPlanStepCommitMessage,
 } from "../plan-record.js"
 
@@ -72,11 +72,11 @@ function reset(
   }
 }
 
-function completion(
+function implementation(
   source: PlanSourceIdentity,
   oidCharacter: string,
 ): GitCommitFields {
-  const message = createPlanCompletionCommitMessage(source)
+  const message = createPlanImplementationMarkerCommitMessage(source)
   return {
     commitOid: oidCharacter.repeat(40),
     subject: message.subject,
@@ -90,7 +90,7 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 1,
       resetCommitOid: null,
       stepCommitOids: [],
-      completionCommitOid: null,
+      implementedCommitOid: null,
     })
   })
 
@@ -105,7 +105,7 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 4,
       resetCommitOid: null,
       stepCommitOids: ["1".repeat(40), "2".repeat(40), "3".repeat(40)],
-      completionCommitOid: null,
+      implementedCommitOid: null,
     })
   })
 
@@ -121,7 +121,7 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 5,
       resetCommitOid: "9".repeat(40),
       stepCommitOids: ["3".repeat(40), "4".repeat(40)],
-      completionCommitOid: null,
+      implementedCommitOid: null,
     })
   })
 
@@ -138,13 +138,13 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 4,
       resetCommitOid: null,
       stepCommitOids: ["1".repeat(40)],
-      completionCommitOid: null,
+      implementedCommitOid: null,
     })
   })
 
-  it("admits one completion marker only after the final step", () => {
+  it("admits one implemented marker only after the final Repo Edu step", () => {
     const history = [
-      completion(currentSource, "9"),
+      implementation(currentSource, "9"),
       step(currentSource, 2, "2"),
       step(currentSource, 1, "1"),
     ]
@@ -153,15 +153,15 @@ describe("resolvePlanCursorFromHistory", () => {
       nextStep: 3,
       resetCommitOid: null,
       stepCommitOids: ["1".repeat(40), "2".repeat(40)],
-      completionCommitOid: "9".repeat(40),
+      implementedCommitOid: "9".repeat(40),
     })
     assert.throws(
       () =>
         resolvePlanCursorFromHistory(
-          [completion(currentSource, "9"), step(currentSource, 1, "1")],
+          [implementation(currentSource, "9"), step(currentSource, 1, "1")],
           plan(2),
         ),
-      /completion marker appears before every step has landed/,
+      /`implemented:` marker appears before every Repo Edu step has landed/,
     )
   })
 

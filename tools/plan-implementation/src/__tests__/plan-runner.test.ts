@@ -92,7 +92,7 @@ describe("runPlanImplementation", () => {
         .trim()
         .split("\n"),
       [
-        "example/completed: record completed implementation",
+        "example/implemented: Repo Edu steps have landed",
         "example/step-2-A1: redesign(plan-implementation): admit step 2",
         "example/step-1-A1: redesign(plan-implementation): admit step 1",
       ],
@@ -131,7 +131,7 @@ describe("runPlanImplementation", () => {
     })
   })
 
-  it("adds a missing completion marker without running another step", async () => {
+  it("adds a missing implemented marker without running another step", async () => {
     const planPath = await createPlan()
     const repoEduRoot = await createRepoEdu()
     const plan = await readCommittedImplementationPlan(planPath)
@@ -175,7 +175,7 @@ describe("runPlanImplementation", () => {
     assert.deepEqual(commandCalls, [])
     assert.equal(
       (await git(repoEduRoot, ["log", "-1", "--format=%s"])).stdout.trim(),
-      "example/completed: record completed implementation",
+      "example/implemented: Repo Edu steps have landed",
     )
   })
 

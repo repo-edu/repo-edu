@@ -267,9 +267,14 @@ subject is the only home for plan identity and step numbers. Use the shared
 forms without restating them here. A commit unattached to a plan keeps this
 repo's ordinary severity-prefixed conventional subject.
 
-An implementation-audit round's commit begins with its `Audit: complete`,
-`Audit: step <n>` or `Audit: steps <a>-<b>` scope. Each accepted code finding
-bullet opens with the finding's metadata tokens,
+An implementation-audit round records each accepted finding in the repo whose
+files the finding concerns. A user-directed round may judge this repo, the
+sibling plan repo or both. A both-repo round lands independent records in each
+repo and writes one report at the root of the repo where the round was invoked,
+named with both HEAD shas and that repo's sha first. Each Repo Edu round commit
+begins with its `Audit: complete`, `Audit: step <n>` or
+`Audit: steps <a>-<b>` scope. Each accepted code finding bullet opens with the
+finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
 growth patterns and their reach and complexity ratings from the log alone.
@@ -277,11 +282,14 @@ The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
 format and the tokens' meaning; the patterns and their numbering live in
 `../plan/GROWTH-PATTERNS.md`.
 
-A deferred plan-text finding stays in the same Repo Edu round commit. Its
-bullet starts with its tier and plan location before the shared finding tokens:
+A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu
+round commit. Its bullet starts with its tier and plan location before the
+shared finding tokens:
 `- [B] [plan:../plan/<topic>.md#<heading>] [growth:<labels>] [reach:<value>]
-[complexity:<value>] <prose>`. The user may later order an ordinary plan round
-to apply it; the audit never writes the plan repo.
+[complexity:<value>] <prose>`. Deferral is only for work nobody directed. When
+the user directs a plan-file fix during the round, the same run applies it and
+lands it as an independent plan-repo commit in the ordinary plan-round form.
+No repo-local action automatically requires or waits on the other commit.
 
 The automated runner alone adds one local form. Its severity-free cursor reset
 subject is `<stem>/reset-<n>: reset cursor to step <n>`. Runner step and reset

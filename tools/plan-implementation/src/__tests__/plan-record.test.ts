@@ -5,7 +5,7 @@ import type { PlanSourceIdentity } from "../contracts.js"
 import { parseZeroSeparatedGitLog } from "../git-log.js"
 import {
   createCursorResetCommitMessage,
-  createPlanCompletionCommitMessage,
+  createPlanImplementationMarkerCommitMessage,
   createPlanStepCommitMessage,
   PlanRecordError,
   parsePlanCommitRecord,
@@ -97,21 +97,28 @@ Plan-Source-Blob: ${source.blobOid}`,
     })
   })
 
-  it("writes and reads the empty completion marker record", () => {
-    const message = createPlanCompletionCommitMessage(source)
+  it("writes and reads the empty implemented marker record", () => {
+    const message = createPlanImplementationMarkerCommitMessage(source)
 
     assert.equal(
       message.subject,
-      "example/completed: record completed implementation",
+      "example/implemented: Repo Edu steps have landed",
     )
     assert.equal(message.body, "")
     assert.deepEqual(parsePlanCommitRecord(message.subject, message.body), {
-      kind: "completion",
+      kind: "implemented-marker",
       planName: "example",
     })
   })
 
   it("ignores retired and manual records outside the runner ledger", () => {
+    assert.equal(
+      parsePlanCommitRecord(
+        "example/completed: record completed implementation",
+        "",
+      ),
+      null,
+    )
     assert.equal(
       parsePlanCommitRecord(
         "A1 redesign(repo): retain a retired runner record",
