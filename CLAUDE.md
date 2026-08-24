@@ -268,12 +268,10 @@ forms without restating them here. A commit unattached to a plan keeps this
 repo's ordinary severity-prefixed conventional subject.
 
 An implementation-audit round records each accepted finding in the repo whose
-files the finding concerns. The plan's **Execution and audits** subsection
-selects the batch. The hosting repos of its steps decide whether the round
-judges this repo, the sibling plan repo or both. A both-repo round lands
-independent records in each repo and writes one report at the root of the repo
-where the round was invoked, named with both HEAD shas and that repo's sha
-first. Each Repo Edu round commit
+files the finding concerns. The user directs the round to this repo, the
+sibling plan repo or both. A both-repo round lands independent records in each
+repo and writes one report at the root of the repo where the round was invoked,
+named with both HEAD shas and that repo's sha first. Each Repo Edu round commit
 begins with its `Audit: complete`, `Audit: step <n>` or
 `Audit: steps <a>-<b>` scope. Each accepted code finding bullet opens with the
 finding's metadata tokens,

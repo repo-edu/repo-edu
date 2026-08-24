@@ -1,6 +1,6 @@
 ---
 description: Run a read-only implementation audit of a ready plan from ../plan against the code that implemented it, reporting tiered findings in a concise form.
-argument-hint: [plan-file]
+argument-hint: [plan-file] [step-range]
 disable-model-invocation: true
 ---
 

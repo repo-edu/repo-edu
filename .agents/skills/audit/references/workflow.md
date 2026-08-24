@@ -6,18 +6,18 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-Interpret the invocation arguments as one plan file. The plan must be in the
-sibling `../plan` repo and may be given as `<topic>.md` or
-`../plan/<topic>.md`. The invocation never sets a step or step range. When it
-does, name the plan's **Execution and audits** subsection as the scope owner
-and stop. When no plan is named, ask which plan to audit and wait.
+Interpret the invocation arguments as a plan file and an optional
+implementation-step range. The plan must be in the sibling `../plan` repo and
+may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
+range and `4` as one step, counted against the plan's **Implementation plan**
+numbering. A range makes the round scoped. No range makes it complete. When no
+plan is named, ask which plan to audit and wait.
 
 This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
 local substitutions: that repo's checks, report root and finding metadata.
-Follow the `CLAUDE.md` of every repo the plan-selected batch makes this round
-judge. Planning-artifact audits still belong to the plan repo's own audit
-workflow.
+Follow the `CLAUDE.md` of every repo the user directs the round to judge.
+Planning-artifact audits still belong to the plan repo's own audit workflow.
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
@@ -37,42 +37,24 @@ explicitly says to.
 
 ## Round strategy
 
-The plan is the only audit-scope owner. Its **Implementation plan** closes
-with an **Execution and audits** subsection. That subsection divides every
-step into ordered audit batches and requires one final complete round. The
-workflow never invents, chooses, splits or overrides those batches. When the
-subsection is missing, ambiguous, has a gap or lists one step in more than one
-batch, stop for a plan correction.
-
-Derive each step's hosting repo from the files its text says to change. A step
-may be hosted by Repo Edu, the plan repo or both. When the host is unclear,
-stop for a plan correction. A batch's repo set is the union of its steps'
-hosts. A mixed batch is therefore a both-repo round without another scope
-choice.
-
-Read accepted implementation-audit records from the joined stem scans in both
-repos. A batch is recorded for one hosting repo when a record after that
-repo's last in-batch step commit carries the batch's exact `Audit:` scope. The
-next round takes the earliest batch that lacks such a record in any hosting
-repo and judges the whole batch across its full repo set. When every batch is
-recorded, the next round is the final complete round across every repo that
-hosts a plan step. When that round is already recorded after the latest
-episode change in every hosting repo, say the implementation audit is settled
-and stop.
+The user sets the step range and the repo or repos to judge. Follow that scope
+exactly. Never select, propose or replace it. The plan's **Execution and
+audits** subsection is guidance for the user, not instructions for the
+workflow. When the repo set is not named, ask the user and wait.
 
 ## Round
 
-Run one read-only implementation-audit round. Judge the repo set selected by
-the plan batch under [Round strategy](#round-strategy). Report in the order
-prescribed below, then stop for discussion. Edit only after the user accepts
-or revises the findings and asks for them to be applied.
+Run one read-only implementation-audit round. Judge only the repo or repos the
+user directed. Report in the order prescribed below, then stop for discussion.
+Edit only after the user accepts or revises the findings and asks for them to
+be applied.
 
 After the user settles the outcome, land at most one implementation-audit
 record per repo judged. A record lands in the repo whose files its findings
 concern. A both-repo round therefore lands independent records in each repo.
 Repo Edu records use the shared implementation-audit forms from
 `../plan/CLAUDE.md`. A Repo Edu round that accepts only findings deferred to a
-repo outside the selected set uses the shared empty severity form. Record
+repo outside the directed scope uses the shared empty severity form. Record
 bodies open with
 `Audit: complete`, `Audit: step <n>` for one scoped step or
 `Audit: steps <a>-<b>` for a scoped range.
@@ -113,11 +95,11 @@ otherwise exist only in chat.
 
 ## Evidence
 
-Scope the implementation episode in every selected repo the way the watch does.
+Scope the implementation episode in every directed repo the way the watch does.
 In each repo, anchor on the earliest commit whose subject carries the topic's
 bare, `plan-<topic>` or `topology-<topic>` stem. Walk from that anchor to its
 HEAD, including every commit that carries a joined stem or touches the same
-files. Read the selected repos' walks together for a both-repo round.
+files. Read the directed repos' walks together for a both-repo round.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
@@ -178,8 +160,8 @@ standing is applied, and a finding the ruling dissolves is omitted from the
 round commit.
 
 After the user accepts the round's findings, apply every directed correction.
-One acceptance covers the whole round: fixes in each selected repo and findings
-deferred only to repos outside that set. Then rebuild the verification set
+One acceptance covers the whole round: fixes in each directed repo and findings
+deferred only to repos outside that scope. Then rebuild the verification set
 from the packages and plan-repo files the round audited and the fixes touched.
 Format only the fixed files. Run each affected package's required `check`,
 `test` and validation scripts, and the plan repo's local checks when that repo
@@ -199,10 +181,9 @@ with columns for the item, the implementing commits or code and one
 disposition: implemented, deviated, incomplete or dropped. A complete round's
 scope is every **Implementation plan** step and every **Decisions** entry.
 Steps the episode has visibly not reached yet land as incomplete rows, not as
-graded findings. A batch round's table carries only the steps in the
-plan-selected batch. The round still checks that code against every
-**Decisions** entry, since decisions bind the whole plan, and violations land
-as findings.
+graded findings. A scoped round's table carries only the user-named steps. The
+round still checks that code against every **Decisions** entry, since decisions
+bind the whole plan, and violations land as findings.
 
 Close the table with one line in the form `Implementation coverage: I/T
 implemented; V deviated; N incomplete; R dropped.` The table proves the round
@@ -444,7 +425,7 @@ logs.
 ## Cross-repo findings
 
 Deferral covers only work nobody directed. A defect whose fix belongs to a
-repo outside the round's selected repo set is graded and carried in the current
+repo outside the round's directed scope is graded and carried in the current
 repo's round commit body. A plan defect deferred from a Repo Edu-only round
 uses the plan-deferral form in this repo's `CLAUDE.md` and states the required
 plan correction, its shipped-code evidence and any user ruling with its
@@ -475,10 +456,9 @@ plan never carried forward. Absence of an older source is normal, not an error.
 
 Every deferral traces to the files this round inspected or to a choice the user
 made in this round's discussion. The round tells the user that follow-up in the
-repo outside the selected set rests with them. The next plan-selected round
-that includes that repo collects open deferrals from the other repo's
-joined-stem scan, cites the commits it applies and leaves already-corrected
-text alone.
+undirected repo rests with them. A later user-directed round in that repo
+collects open deferrals from the other repo's joined-stem scan, cites the
+commits it applies and leaves already-corrected text alone.
 
 ## Episode settlement
 
@@ -512,7 +492,7 @@ on the user's word.
 
 Open by naming the workflow that ran, the repo or repos the implementation
 audit judges, then the plan file, its ready commit, the episode's commit range
-and the round's plan-selected scope: complete, one step or one step range.
+and the round's user-set scope: complete, one step or one step range.
 Then report the coverage table with its coverage line. Then, when a growth
 pattern or the reach and complexity pair runs across rounds, the run statement
 and the pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered

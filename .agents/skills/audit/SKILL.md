@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Run the next plan-owned implementation-audit batch for a ready plan, across every repo that hosts its steps. Use when the user invokes `$audit` from the Repo Edu working directory with a plan file or asks for an implementation audit.
+description: Run a user-scoped implementation audit of a ready plan. Use when the user invokes `$audit` with a plan file and optional step range or asks for an implementation audit.
 ---
 
 # Audit
