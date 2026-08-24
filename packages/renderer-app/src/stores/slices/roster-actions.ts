@@ -337,7 +337,7 @@ export function createRosterActionsSlice(
       const source = state.course.roster.groupSets.find(
         (gs) => gs.id === groupSetId,
       )
-      if (!source || source.nameMode !== "named") return null
+      if (source?.nameMode !== "named") return null
 
       let seq = state.course.idSequences
       const groupSetAlloc = allocateGroupSetId(seq)

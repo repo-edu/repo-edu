@@ -164,9 +164,8 @@ describe("system group sets", () => {
 
     const individualSet = findSystemSet(roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS)
     const staffSet = findSystemSet(roster, SYSTEM_TYPE_STAFF)
-    if (!individualSet || individualSet.nameMode !== "named")
-      return assert.fail()
-    if (!staffSet || staffSet.nameMode !== "named") return assert.fail()
+    if (individualSet?.nameMode !== "named") return assert.fail()
+    if (staffSet?.nameMode !== "named") return assert.fail()
     assert.equal(individualSet.groupIds.length, 2)
     assert.equal(staffSet.groupIds.length, 1)
 
@@ -208,8 +207,7 @@ describe("system group sets", () => {
     ensureSystemGroupSets(roster, initialIdSequences())
 
     const individualSet = findSystemSet(roster, SYSTEM_TYPE_INDIVIDUAL_STUDENTS)
-    if (!individualSet || individualSet.nameMode !== "named")
-      return assert.fail()
+    if (individualSet?.nameMode !== "named") return assert.fail()
     assert.equal(individualSet.groupIds.length, 1)
 
     const localGroup = roster.groups.find((group) => group.id === "g-local")

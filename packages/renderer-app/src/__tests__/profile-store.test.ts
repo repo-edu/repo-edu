@@ -332,7 +332,7 @@ describe("course store", () => {
     )
     assert.ok(targetGroupSet)
     assert.equal(targetGroupSet?.nameMode, "unnamed")
-    if (!targetGroupSet || targetGroupSet.nameMode !== "unnamed") {
+    if (targetGroupSet?.nameMode !== "unnamed") {
       return
     }
 

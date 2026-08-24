@@ -167,7 +167,7 @@ export function MemberListPane({
   const handleRequestPermanentDelete = useCallback(
     (id: string) => {
       const member = members.find((entry) => entry.id === id)
-      if (!member || member.source !== "local") return
+      if (member?.source !== "local") return
       setMemberPendingDeletion(member)
     },
     [members],
