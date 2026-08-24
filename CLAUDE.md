@@ -261,8 +261,8 @@ and `docs`. `fix:` is essentially never tier A: an A-tier bug fix is a
 redesign that closes a bug, and commits as `A1 redesign:` with the bug
 named in the subject.
 
-Plan-related commits use the shared `<stem>/` subject grammar defined in
-[the plan repo doctrine](../plan/CLAUDE.md#shared-implementation-forms). The
+Plan-related commits use the shared `<stem>/` subject grammar defined in the
+plan repo doctrine at `../plan/CLAUDE.md#shared-implementation-forms`. The
 subject is the only home for plan identity and step numbers. Use the shared
 forms without restating them here. A commit unattached to a plan keeps this
 repo's ordinary severity-prefixed conventional subject.
