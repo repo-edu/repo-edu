@@ -44,48 +44,49 @@ export async function resolveCliRuntimeNoticeEntries(
   ]
 }
 
-// Bun statically links runtime libraries that no scanner and no CLI flag can
-// enumerate from the installed binary, so the set is attested by hand against
-// Bun's published licensing documentation. The table is keyed by the exact
-// installed Bun version: any bump fails the gate closed until the linked set is
-// re-verified, the same fail-closed version coupling the ripgrep and Codex
-// records use.
+// Bun statically links weak-copyleft runtime libraries that no scanner and no
+// CLI flag can enumerate from the installed binary, so the set is attested by
+// hand against Bun's published licensing documentation. Every admitted version
+// is recorded explicitly: any bump fails the gate closed until the linked set
+// is re-verified, the same fail-closed version coupling the ripgrep and Codex
+// records use. Versions share an attestation only while that set is unchanged.
 type BunLinkedRuntime = {
   readonly id: string
   readonly subject: string
   readonly license: string
 }
 
-const attestedBunLinkedRuntimes = {
-  "1.3.11": [
-    {
-      id: "javascriptcore",
-      subject: "JavaScriptCore/WebKit",
-      license: "LGPL-2.1-only",
-    },
-    { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
-  ],
-  "1.3.14": [
-    {
-      id: "javascriptcore",
-      subject: "JavaScriptCore/WebKit",
-      license: "LGPL-2.1-only",
-    },
-    { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
-  ],
-} as const satisfies Record<string, readonly BunLinkedRuntime[]>
+type BunLinkedRuntimeAttestation = {
+  readonly versions: readonly string[]
+  readonly linkedRuntimes: readonly BunLinkedRuntime[]
+}
+
+const bunLinkedRuntimeAttestations = [
+  {
+    versions: ["1.3.11", "1.3.14", "1.4.0"],
+    linkedRuntimes: [
+      {
+        id: "javascriptcore",
+        subject: "JavaScriptCore/WebKit",
+        license: "LGPL-2.1-only",
+      },
+      { id: "tinycc", subject: "tinycc", license: "LGPL-2.1-only" },
+    ],
+  },
+] as const satisfies readonly BunLinkedRuntimeAttestation[]
 
 function attestedBunLinkedRuntimesFor(
   version: string,
 ): readonly BunLinkedRuntime[] {
-  if (!Object.hasOwn(attestedBunLinkedRuntimes, version)) {
+  const attestation = bunLinkedRuntimeAttestations.find(({ versions }) =>
+    versions.some((attestedVersion) => attestedVersion === version),
+  )
+  if (!attestation) {
     throw new Error(
-      `Bun runtime version ${version} is not attested. Re-verify the linked runtime set (e.g. JavaScriptCore, tinycc) against https://bun.sh/docs/project/licensing and add a ${version} entry to attestedBunLinkedRuntimes before shipping.`,
+      `Bun runtime version ${version} is not attested. Re-verify the linked runtime set (e.g. JavaScriptCore, tinycc) against https://bun.sh/docs/project/licensing and record ${version} in bunLinkedRuntimeAttestations before shipping.`,
     )
   }
-  return attestedBunLinkedRuntimes[
-    version as keyof typeof attestedBunLinkedRuntimes
-  ]
+  return attestation.linkedRuntimes
 }
 
 function bunLinkedRuntimeEntry(options: {
