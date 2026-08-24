@@ -37,9 +37,8 @@ change. A step may belong to Repo Edu, the plan repo or both. When the repo set
 is unclear, stop for a plan correction. Treat the files a step changes in one
 repo as that repo's share of the step. In each repo in the set, use `git log` to
 find subjects under the topic's joined stems. Collect the step numbers from its
-`impl-step-` and `impl-steps-` forms. A repo's share is landed only when that
-repo's log carries the step form. A both-repo step remains until both shares
-have landed.
+`impl-step-` forms. A repo's share is landed only when that repo's log carries
+the step form. A both-repo step remains until both shares have landed.
 
 The scope is the given range minus the landed repo shares. With no range it is
 every remaining share of the earliest unfinished step: the plan's **Execution
@@ -55,10 +54,10 @@ Implement the scope in plan order, one step at a time, changing only its
 remaining repo shares. After each share, run the step's named checks and that
 repo's required verification. Commit the share in its repo with the shared
 step form in `../plan/CLAUDE.md` and the conventional postfix that repo
-requires. A both-repo step gets one independent commit in each repo. One step
-gets at most one commit per repo; combine steps only when the plan says they
-land together. The invocation that started this run grants each in-scope repo
-share's commit once its checks pass.
+requires. A both-repo step gets one independent commit in each repo. Each step
+gets exactly one commit per hosting repo; steps never combine into one commit.
+The invocation that started this run grants each in-scope repo share's commit
+once its checks pass.
 
 Where the code proves the plan wrong, implement what is right and record the
 reason in the step commit's body. A deviation leaves the plan that carried

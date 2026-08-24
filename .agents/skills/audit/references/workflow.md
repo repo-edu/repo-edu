@@ -10,9 +10,8 @@ Interpret the invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
 may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
 range and `4` as one step, counted against the plan's **Implementation plan**
-numbering. A range makes the round scoped. No range makes the scope
-`steps-all`, the whole plan. When no plan is named, ask which plan to audit and
-wait.
+numbering. A range makes the round scoped. No range makes the scope `all`, the
+whole plan. When no plan is named, ask which plan to audit and wait.
 
 This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
@@ -45,7 +44,7 @@ user, not instructions for the workflow.
 The step range decides the repo set. Derive each in-range step's hosting repo
 from the files its plan text says to change. A step may be hosted by Repo Edu,
 the plan repo or both. The round's repo set is the union of those hosts; a
-steps-all round derives it from every step. When a host is unclear, stop for a
+whole-plan round derives it from every step. When a host is unclear, stop for a
 plan correction.
 
 ## Round
@@ -67,7 +66,7 @@ Repo Edu records use the shared implementation-audit forms from
 `../plan/CLAUDE.md`. A Repo Edu round that accepts only findings deferred to a
 repo outside the round's repo set uses the shared empty severity form. The
 subject's `impl-audit-<step scope>` form carries the round's scope, `step-<n>`,
-`steps-<a>-<b>` or `steps-all`; no `Audit:` body line repeats it.
+`steps-<a>-<b>` or `all`; no `Audit:` body line repeats it.
 
 A directed correction to the plan file is different from an implementation
 record. Apply it in the same run and land it as its own plan-repo commit in the
@@ -188,7 +187,7 @@ running in either directed working tree.
 
 Before drafting findings, build a coverage table, one row per item in scope,
 with columns for the item, the implementing commits or code and one
-disposition: implemented, deviated, incomplete or dropped. A steps-all round's
+disposition: implemented, deviated, incomplete or dropped. A whole-plan round's
 scope is every **Implementation plan** step and every **Decisions** entry.
 Steps the episode has visibly not reached yet land as incomplete rows, not as
 graded findings. A scoped round's table carries only the user-named steps. The
@@ -474,13 +473,14 @@ commits it applies and leaves already-corrected text alone.
 
 Scoped rounds never settle the episode, even when their ranges tile every
 step. Each scoped verdict describes the HEAD it ran on, and later steps age it.
-The proof that the implementation is settled is steps-all rounds on the
+The proof that the implementation is settled is whole-plan rounds on the
 finished code whose severity has stabilised at C or below with no new A, each
 round's table classifying every row. A round that finds nothing is not required.
 Prior audit commits inform those rounds, ranking their reports and naming the
 fixes to re-verify. They never excuse a row from inspection.
 
-The final steps-all round expects the shared `implemented:` marker in every repo
+The final whole-plan round expects the shared `implemented:` marker in every
+repo
 it judges. Each marker means every implementation step that repo hosts has
 landed. When one is missing, name it once and continue on the user's word. The
 round lands its fix, deferral or clean records under the repo-keying rule above.
@@ -489,12 +489,12 @@ shared closing form: the Repo Edu `closed:` marker or the plan repo's loop-close
 move. The stem scans already show every round, so no compiled history belongs
 in either closing body.
 
-The final steps-all round uses the same package-scoped verification rule. Its
+The final whole-plan round uses the same package-scoped verification rule. Its
 set includes every package the whole episode concerns, not every package in
 the workspace. Run the required checks and tests once after accepted fixes, or
 as evidence when the round comes back clean.
 
-The final steps-all round is advice, not a gate. When asked to treat the
+The final whole-plan round is advice, not a gate. When asked to treat the
 implementation as done without one, name the missing round once and continue
 on the user's word.
 
@@ -502,7 +502,7 @@ on the user's word.
 
 Open by naming the workflow that ran, the repo or repos the implementation
 audit judges, then the plan file, its ready commit, the episode's commit range
-and the round's user-set scope: steps-all, one step or one step range.
+and the round's user-set scope: the whole plan, one step or one step range.
 Then report the coverage table with its coverage line. Then, when a growth
 pattern or the reach and complexity pair runs across rounds, the run statement
 and the pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered
@@ -524,7 +524,7 @@ report appends `-<other-sha>` before `.md`:
 
 - `<plan-name>` is the topic stem used by the shared subject grammar. For an
   archived `plan.md`, use the archive folder's name.
-- At the Repo Edu root, `<scope>` is `steps-all`, `step-<n>` or
+- At the Repo Edu root, `<scope>` is `all`, `step-<n>` or
   `steps-<a>-<b>`, the round's scope with its spaces turned into hyphens.
 - `<auditor>` is the launcher's auditor token, `claude` or `codex`.
 - `<own-sha>` is the report repo's `git rev-parse --short HEAD` at audit time.
