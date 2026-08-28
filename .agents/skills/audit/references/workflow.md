@@ -65,8 +65,8 @@ concern. A both-repo round therefore lands independent records in each repo.
 Repo Edu records use the shared implementation-audit forms from
 `../plan/CLAUDE.md`. A Repo Edu round that accepts only findings deferred to a
 repo outside the round's repo set uses the shared empty severity form. The
-subject's `impl-audit-<step scope>` form carries the round's scope, `step-<n>`,
-`steps-<a>-<b>` or `all`; no `Audit:` body line repeats it.
+subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`,
+`<a>-<b>` or `all`; no `Audit:` body line repeats it.
 
 A directed correction to the plan file is different from an implementation
 record. Apply it in the same run and land it as its own plan-repo commit in the
