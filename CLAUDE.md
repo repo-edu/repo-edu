@@ -91,6 +91,11 @@ The committed area model is
 Git worktree source files exactly once and define primary ownership. Cover areas
 overlap the partition for cross-cutting audit and drift context only.
 
+After adding, removing or moving a `CLAUDE.md`, run
+`node scripts/claude2assistants.mjs` to refresh the gitignored `AGENTS.md`
+symlinks other assistants read. Content edits need no run; the symlinks serve
+current content by construction.
+
 Each app and package has its own `CLAUDE.md` with purpose, constraints, and
 non-obvious conventions:
 
