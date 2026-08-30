@@ -24,6 +24,9 @@ plan/
 /AUDIT-*.md
 /VET-*.md
 
+# Oversized-step implementation ledger, deleted when the step's commit lands
+/LEDGER-*.md
+
 # Binding generation cache
 .bindings-hash
 

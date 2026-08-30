@@ -59,6 +59,11 @@ gets exactly one commit per hosting repo; steps never combine into one commit.
 The invocation that started this run grants each in-scope repo share's commit
 once its checks pass.
 
+When a step's work cannot complete inside one context window and cannot be
+split into independently complete parts, follow `references/oversized-step.md`
+beside this file: it adds a gitignored ledger and a reconstruction rule across
+context boundaries while every rule above stays in force.
+
 Where the code proves the plan wrong, implement what is right and record the
 reason in the step commit's body. A deviation leaves the plan that carried
 the boundaries, so check it against `../plan/BOUNDARIES.md`; a departure that
