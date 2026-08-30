@@ -239,7 +239,7 @@ describe("createNodeProcessPort", () => {
         args: [childTreeFixture, "tree-waits", marker],
         signal: abortController.signal,
       })
-      await waitForMarker(marker, /grandchild-started/)
+      await waitForMarker(marker, /grandchild-ready/)
 
       abortController.abort()
       await assert.rejects(

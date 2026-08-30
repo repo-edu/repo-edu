@@ -17,9 +17,6 @@ if (
   mode === "grandchild-ignores-stop" ||
   mode === "tool-descendant"
 ) {
-  mark(`${mode}-started`)
-  mark(`${mode}-pid:${process.pid}`)
-  process.send?.("ready")
   process.on("SIGTERM", () => {
     if (mode === "grandchild-ignores-stop") {
       mark(`${mode}-ignored-stop`)
@@ -32,6 +29,9 @@ if (
       stop(mode)
     }
   })
+  mark(`${mode}-pid:${process.pid}`)
+  mark(`${mode}-ready`)
+  process.send?.("ready")
   setInterval(() => {
     mark(`${mode}-tick`)
   }, 20)

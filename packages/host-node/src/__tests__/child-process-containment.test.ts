@@ -263,7 +263,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
     const stopped = await readMarker(marker)
 
     assert.deepEqual(result, { exitCode: 25, signal: null })
-    assert.match(stopped, /grandchild-started/)
+    assert.match(stopped, /grandchild-ready/)
     if (supportsProcessGroups) {
       assert.match(stopped, /grandchild-stopped/)
     }
@@ -325,7 +325,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
         error.message === "The command result could not be confirmed.",
     )
 
-    await waitForMarker(marker, /grandchild-started/)
+    await waitForMarker(marker, /grandchild-ready/)
     await assertMarkerStable(marker)
   })
 
