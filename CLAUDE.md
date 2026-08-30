@@ -18,6 +18,10 @@ not apply another patch. Surface the area ID to the user as a frame-round
 candidate in `../plan`. Cover area IDs are context for cross-cutting concerns,
 not primary ownership.
 
+The user never reads or edits machine artifacts such as the area model,
+ledgers or generated files. Do not justify a feature or proposal by their
+upkeep or readability.
+
 Before splitting a tracked source file, name the source file's current primary
 area ID and the child area ID each output file will join. If the split creates
 a new primary concern, update the area model in the same change and record

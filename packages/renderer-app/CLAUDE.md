@@ -44,6 +44,17 @@ It consumes:
 - Renderer components invoke semantic course mutations through `SessionController`, not by selecting course-store actions directly. `setAssignmentSelection` is the direct course-store action exception because it is view state.
 - Keep store/component behavior deterministic and testable in browser contexts.
 
+## UI proposals
+
+- Use only words and concepts already visible in that part of the UI. Internal
+  names (types, modes, ports, template tokens) do not belong in labels. When
+  the distinguishing concept is not labelled in the UI today, label it first or
+  pick a distinguisher that is; when two features differ in ways the UI does
+  not express, prefer separate surfaces over a toggle in one panel.
+- When comparing orderings of grouped sections, judge the orderings on
+  intrinsic merit and assume related action buttons reorder to match; current
+  button order is never a tiebreaker.
+
 ## Persistence
 
 - Preferences and credentials live canonically in the root session snapshot.
