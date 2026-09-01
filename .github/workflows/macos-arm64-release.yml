@@ -56,7 +56,7 @@ jobs:
       TAG: ${{ inputs.tag }}
       MACOS_SIGNING_SESSION_FILE: repo-edu-desktop-macos-signing-session.json
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
       - uses: ./.github/actions/setup
@@ -109,7 +109,7 @@ jobs:
     env:
       MACOS_SIGNING_SESSION_FILE: repo-edu-cli-macos-signing-session.json
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
 
@@ -199,7 +199,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           sparse-checkout: |
