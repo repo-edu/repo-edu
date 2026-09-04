@@ -11,7 +11,7 @@ fi
 status=0
 
 # Credential patterns in the staged changes.
-betterleaks git . --pre-commit --staged --no-banner || status=1
+betterleaks git . --pre-commit --staged --no-banner -v || status=1
 
 # Email addresses in the whole staged tree, minus the allow list.
 hits=$(git grep --cached -n -I -E '[A-Za-z0-9._%+-]+@[A-Za-z][A-Za-z0-9.-]*\.[a-z]{2,}' \

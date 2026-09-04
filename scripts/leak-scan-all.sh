@@ -17,4 +17,4 @@ tree=$(mktemp -d "${TMPDIR:-/tmp}/leak-scan-all.XXXXXX")
 trap 'rm -rf "$tree"' EXIT
 
 git archive HEAD | tar -x -C "$tree"
-betterleaks dir --no-banner "$tree"
+betterleaks dir --no-banner -v "$tree"

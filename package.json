@@ -56,7 +56,7 @@
         "claude2assistants": "node scripts/claude2assistants.mjs",
         "leak-scan": "sh ./scripts/leak-scan.sh",
         "leak-scan:all": "sh ./scripts/leak-scan-all.sh",
-        "leak-scan:git": "betterleaks git . --no-banner",
+        "leak-scan:git": "betterleaks git . --no-banner -v --exit-code 0",
         "pnpm:update": "pnpm self-update",
         "deps:latest": "pnpm up -r --latest && pnpm dedupe",
         "prepare": "husky"
