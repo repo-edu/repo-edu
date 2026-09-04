@@ -137,10 +137,11 @@ pnpm leak-scan:all
 pnpm leak-scan
 ```
 
-`leak-scan:all` feeds `git ls-files` to `betterleaks dir`, because Betterleaks has no tracked-tree
-mode of its own: `dir` walks the file system, `.gitignore` unread, and `git` reads commit diffs.
-The file list also bypasses config discovery, which keys on the scanned path being the repository
-root, so the script passes `.betterleaks.toml` explicitly.
+`leak-scan:all` runs `scripts/leak-scan-all.sh`, which exports the tracked tree at `HEAD` with
+`git archive` into a temporary folder and scans that folder. Betterleaks has no tracked-tree mode of
+its own: `dir` walks the file system, `.gitignore` unread, and `git` reads commit diffs. Passing the
+tracked files one by one is slow, because each command-line path is a scan source of its own; one
+exported folder scans in well under a second.
 
 ## Part 2: push protection on GitHub
 
