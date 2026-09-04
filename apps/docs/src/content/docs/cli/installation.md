@@ -19,7 +19,8 @@ REDU_VERSION=v0.1.0 REDU_INSTALL_DIR=/usr/local/bin curl -fsSL ... | sh
 
 ## Direct download
 
-If you would rather not run the install script, download a binary directly. Each link resolves to the latest release:
+If you would rather not run the install script, download a binary directly. Each link resolves to
+the latest release:
 
 | Platform | Download |
 |----------|----------|
@@ -34,7 +35,8 @@ chmod +x redu-linux-x64
 mv redu-linux-x64 ~/.local/bin/redu
 ```
 
-A matching `.sha256` checksum and a `.third-party-notices.txt` file are attached to the same release. The CLI is not distributed for Windows.
+A matching `.sha256` checksum and a `.third-party-notices.txt` file are attached to the same
+release. The CLI is not distributed for Windows.
 
 ## Build from source
 
@@ -65,4 +67,6 @@ redu update --check
 
 ## Data directory
 
-The CLI and desktop app store course and settings data under the same platform app-data root on supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`.
+The CLI and desktop app store course and settings data under the same platform app-data root on
+supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux
+`${XDG_CONFIG_HOME:-~/.config}/repo-edu`.

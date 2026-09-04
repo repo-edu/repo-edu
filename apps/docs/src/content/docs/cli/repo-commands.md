@@ -3,9 +3,15 @@ title: Repository Commands
 description: Create, clone, update, and discover assignment repositories
 ---
 
-Repository commands are the primary operational commands in the CLI. They create Git repositories for student teams, clone them locally for grading, push template updates, and discover repositories by name pattern in a namespace.
+Repository commands are the primary operational commands in the CLI. They create Git repositories
+for student teams, clone them locally for grading, push template updates, and discover repositories
+by name pattern in a namespace.
 
-The first three commands (`create`, `clone`, `update`) are assignment-scoped and require a selected course with an organization plus an active Git connection in app settings. The `discover` command is namespace-scoped and only requires an active Git connection. See [Repository Setup](/repo-edu/user-guide/repository-setup/) for the full workflow including prerequisites and validation.
+The first three commands (`create`, `clone`, `update`) are assignment-scoped and require a selected
+course with an organization plus an active Git connection in app settings. The `discover` command is
+namespace-scoped and only requires an active Git connection. See
+[Repository Setup](/repo-edu/user-guide/repository-setup/) for the full workflow including
+prerequisites and validation.
 
 ## `redu repo create`
 
@@ -41,18 +47,23 @@ Planned repository operation for assignment 'Project 1' (a1) in course 'seed-cou
 
 ### Summary output
 
-On a successful run, `repo create` prints three mutually exclusive counters and a line indicating how many recorded names were staged in the course JSON:
+On a successful run, `repo create` prints three mutually exclusive counters and a line indicating
+how many recorded names were staged in the course JSON:
 
 ```text
 Repository create complete: planned=3 created=2 adopted=1 failed=0 completedAt=2026-04-15T10:00:00Z
 Recorded repository names for 3 groups.
 ```
 
-- `created` — repositories that were freshly created in this run (template content is pushed only to these).
-- `adopted` — repositories that the provider reported as already existing. Their names are recorded on the assignment, which bypasses name re-derivation on future Clone/Update runs.
+- `created` — repositories that were freshly created in this run (template content is pushed only to
+  these).
+- `adopted` — repositories that the provider reported as already existing. Their names are recorded
+  on the assignment, which bypasses name re-derivation on future Clone/Update runs.
 - `failed` — repositories the provider rejected outright (not collisions).
 
-Re-running `repo create` after repos exist is idempotent: each recorded name is sent back to the provider, which returns `alreadyExisted`. If the server repo was deleted out-of-band, the record is automatically refreshed from the fresh-create response.
+Re-running `repo create` after repos exist is idempotent: each recorded name is sent back to the
+provider, which returns `alreadyExisted`. If the server repo was deleted out-of-band, the record is
+automatically refreshed from the fresh-create response.
 
 ## `redu repo clone`
 
@@ -105,11 +116,15 @@ Use the global `--course <id>` option to choose a course other than the active c
 
 Repositories that already have a pending update PR are skipped.
 
-`repo update` also iterates the recorded repository names on the assignment. A group with no recorded name and no active members is skipped with reason `no_record_no_members`; other missing repos are reported as failures.
+`repo update` also iterates the recorded repository names on the assignment. A group with no
+recorded name and no active members is skipped with reason `no_record_no_members`; other missing
+repos are reported as failures.
 
 ## `redu repo discover`
 
-Lists repositories in a Git namespace by name pattern and clones them to a target folder. Unlike `repo create`/`clone`/`update`, this command is namespace-scoped — it does not read or write course state and does not match repositories to assignments or groups.
+Lists repositories in a Git namespace by name pattern and clones them to a target folder. Unlike
+`repo create`/`clone`/`update`, this command is namespace-scoped — it does not read or write course
+state and does not match repositories to assignments or groups.
 
 ```bash
 redu repo discover --namespace my-org --target ./repos
@@ -127,8 +142,13 @@ Options:
 
 The command runs in two phases:
 
-1. **List** — fetches the matching repositories and prints their leaf names. When a repository lives inside a subgroup, the subgroup path is printed after a tab as `(subgroup-path)` so nested repos are distinguishable from top-level ones.
-2. **Clone** — prompts for confirmation (unless `--yes`), then clones every matched repository into the target folder. Each local folder uses only the repository's leaf name, so `parent-group/team-101/lab-1` clones into `<target>/lab-1`. If two listed repositories share the same leaf name the command aborts with a validation error before writing anything.
+1. **List** — fetches the matching repositories and prints their leaf names. When a repository lives
+   inside a subgroup, the subgroup path is printed after a tab as `(subgroup-path)` so nested repos
+   are distinguishable from top-level ones.
+2. **Clone** — prompts for confirmation (unless `--yes`), then clones every matched repository into
+   the target folder. Each local folder uses only the repository's leaf name, so
+   `parent-group/team-101/lab-1` clones into `<target>/lab-1`. If two listed repositories share the
+   same leaf name the command aborts with a validation error before writing anything.
 
 Non-TTY contexts require `--yes`; otherwise the command fails cleanly before cloning.
 
@@ -141,4 +161,5 @@ Clone 14 repositories to './repos'? [y/N] y
 Cloned 14 / failed 0 completedAt=2026-04-15T10:05:00Z
 ```
 
-Missing namespaces, filter misses, or already-cloned directories are reported explicitly; existing Git repositories at target paths are skipped, while non-Git directory clashes abort the operation.
+Missing namespaces, filter misses, or already-cloned directories are reported explicitly; existing
+Git repositories at target paths are skipped, while non-Git directory clashes abort the operation.

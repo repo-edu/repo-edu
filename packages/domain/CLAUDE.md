@@ -7,26 +7,40 @@ This package contains pure domain types and rules (`@repo-edu/domain`).
 `@repo-edu/domain` is side-effect free and host-agnostic. It defines:
 
 - canonical persisted settings section/course/roster/group/assignment types
-- `PersistedCourse` as the single persisted course document type; `backing: "lms" | "repobee"` controls LMS-backed and RepoBee-backed courses, while folder analysis lives in app preferences active-surface state
-- course capability helpers (`courseHasRoster`, `courseHasGroups`, `courseSupportsLms`, `courseSupportsRepoBeeGroups`) derived from `backing`
+- `PersistedCourse` as the single persisted course document type; `backing: "lms" | "repobee"`
+  controls LMS-backed and RepoBee-backed courses, while folder analysis lives in app preferences
+  active-surface state
+- course capability helpers (`courseHasRoster`, `courseHasGroups`, `courseSupportsLms`,
+  `courseSupportsRepoBeeGroups`) derived from `backing`
 - zod validation for boundary payloads
-- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`) from monotonic `IdSequences`
-- roster normalization, validation, reconciliation (`roster-reconciliation.ts`: `reconcileRosterFromGitUsernames` for RepoBee import) and LMS-side merge (`roster-lms-merge.ts`)
+- central ID allocator (`id-allocator.ts`): counter-based local IDs (`g_`, `gs_`, `m_`, `a_`, `ut_`)
+  from monotonic `IdSequences`
+- roster normalization, validation, reconciliation (`roster-reconciliation.ts`:
+  `reconcileRosterFromGitUsernames` for RepoBee import) and LMS-side merge (`roster-lms-merge.ts`)
 - system group-set maintenance
 - discriminated `GroupSet` union (`NamedGroupSet` / `UsernameGroupSet`) on `nameMode`
-- group-set import/export semantics (CSV → named sets, RepoBee → unnamed sets via `GroupSetImportFormat`)
+- group-set import/export semantics (CSV → named sets, RepoBee → unnamed sets via
+  `GroupSetImportFormat`)
 - named pattern-matching contracts for repository discovery, analysis filters and group selection
-- configured connection records, provider value sets, provider presentation and active selection (`connection.ts`)
-- repository-provider namespace terminology and pasted-path normalization (`repository-namespace.ts`)
+- configured connection records, provider value sets, provider presentation and active selection
+  (`connection.ts`)
+- repository-provider namespace terminology and pasted-path normalization
+  (`repository-namespace.ts`)
 - active tab, surface and submission-recent identity (`active-surface.ts`)
-- persisted app settings sections (`settings.ts`): credentials and preferences field membership, defaults, recent collection policy, appearance, layout, model preferences and section composition
+- persisted app settings sections (`settings.ts`): credentials and preferences field membership,
+  defaults, recent collection policy, appearance, layout, model preferences and section composition
 - repository planning and collision semantics
 - git analysis primitives (`src/analysis/`):
-  - `types.ts` — `AnalysisConfig`, `AnalysisBlameConfig`, `AnalysisResult`, `BlameResult`, `PersonDbSnapshot`, `AuthorStats`, `FileStats`, `SupportedLanguage`
-  - `schemas.ts` — Zod validation for `AnalysisConfig`/`AnalysisBlameConfig` with cross-field checks, normalization, and clamping
-  - `person-merge.ts` — union-find identity merging (email OR normalized name), canonical selection by commit count
-  - `person-db.ts` — stable PersonDB model with deterministic ids, `createPersonDbFromLog()` and incremental `applyBlameToPersonDb()`
-  - `identity-bridge.ts` — read-only git-author-to-roster-member matching (`exact-email` | `fuzzy-name` | `unmatched`)
+  - `types.ts` — `AnalysisConfig`, `AnalysisBlameConfig`, `AnalysisResult`, `BlameResult`,
+    `PersonDbSnapshot`, `AuthorStats`, `FileStats`, `SupportedLanguage`
+  - `schemas.ts` — Zod validation for `AnalysisConfig`/`AnalysisBlameConfig` with cross-field
+    checks, normalization, and clamping
+  - `person-merge.ts` — union-find identity merging (email OR normalized name), canonical selection
+    by commit count
+  - `person-db.ts` — stable PersonDB model with deterministic ids, `createPersonDbFromLog()` and
+    incremental `applyBlameToPersonDb()`
+  - `identity-bridge.ts` — read-only git-author-to-roster-member matching (`exact-email` |
+    `fuzzy-name` | `unmatched`)
   - `comment-detector.ts` — language-aware full-line comment classification for blame filtering
 
 ## Rules

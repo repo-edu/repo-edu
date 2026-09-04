@@ -5,17 +5,24 @@ description: Target split of workflows between CLI and GUI
 
 ## Principle
 
-The CLI covers the **repeatable execution path** — operations you would script, automate, or run in CI. The GUI covers **interactive setup and exploration** — operations that benefit from file pickers, visual conflict resolution, or multi-step wizards.
+The CLI covers the **repeatable execution path** — operations you would script, automate, or run in
+CI. The GUI covers **interactive setup and exploration** — operations that benefit from file
+pickers, visual conflict resolution, or multi-step wizards.
 
-Full CLI-GUI parity is not a goal. Every CLI command carries a maintenance cost (tests, help text, golden outputs, documentation). Commands only earn their place if they serve a scripting or automation use case.
+Full CLI-GUI parity is not a goal. Every CLI command carries a maintenance cost (tests, help text,
+golden outputs, documentation). Commands only earn their place if they serve a scripting or
+automation use case.
 
 ## Industry precedent
 
 This mirrors how established tools split their surfaces:
 
-- **GitHub**: `gh` CLI focuses on PRs, issues, CI checks — scriptable workflows. GitHub Desktop covers visual diff, merge conflict resolution, branch management.
-- **Vercel**: CLI owns deploy, env vars, rollbacks, promotion — the CI/CD pipeline. Dashboard owns domain config, analytics, team settings.
-- **Supabase**: CLI owns migrations, local dev, project provisioning — repeatability. Dashboard owns data exploration, schema editing.
+- **GitHub**: `gh` CLI focuses on PRs, issues, CI checks — scriptable workflows. GitHub Desktop
+  covers visual diff, merge conflict resolution, branch management.
+- **Vercel**: CLI owns deploy, env vars, rollbacks, promotion — the CI/CD pipeline. Dashboard owns
+  domain config, analytics, team settings.
+- **Supabase**: CLI owns migrations, local dev, project provisioning — repeatability. Dashboard owns
+  data exploration, schema editing.
 
 The shared pattern: CLI = repeatable execution, GUI = interactive setup.
 
@@ -87,21 +94,25 @@ The top-level `update` command is also kept, but it does not execute through the
 
 ## GUI-only workflows (by reason)
 
-**File picker / file save dependent:**
-`roster.importFromFile`, `roster.exportMembers`, `groupSet.previewImportFromFile`, `groupSet.importFromFile`, `groupSet.export`, `gitUsernames.import`, `userFile.inspectSelection`, `userFile.exportPreview`, `examination.archive.export`, `examination.archive.import`
+**File picker / file save dependent:** `roster.importFromFile`, `roster.exportMembers`,
+`groupSet.previewImportFromFile`, `groupSet.importFromFile`, `groupSet.export`,
+`gitUsernames.import`, `userFile.inspectSelection`, `userFile.exportPreview`,
+`examination.archive.export`, `examination.archive.import`
 
 **Interactive conflict resolution:**
 `groupSet.connectFromLms` — requires visual selection from fetched LMS data, then linking.
 
-**Multi-step setup:**
-LMS, Git and LLM connection settings are edited in GUI panes and persisted by the renderer credentials persister; the CLI keeps only the active-course preference write needed for `course load`.
+**Multi-step setup:** LMS, Git and LLM connection settings are edited in GUI panes and persisted by
+the renderer credentials persister; the CLI keeps only the active-course preference write needed for
+`course load`.
 
-**Interactive exploration / LLM review:**
-`analysis.*` and `examination.*` workflows depend on repository browsing, blame inspection, author selection, and examination question review.
+**Interactive exploration / LLM review:** `analysis.*` and `examination.*` workflows depend on
+repository browsing, blame inspection, author selection, and examination question review.
 
 ## Dropped CLI commands (with rationale)
 
-These commands are intentionally excluded because they are setup-phase operations, better served by the GUI:
+These commands are intentionally excluded because they are setup-phase operations, better served by
+the GUI:
 
 | Command | Why dropped |
 |---|---|

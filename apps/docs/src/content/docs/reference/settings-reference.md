@@ -3,7 +3,9 @@ title: Settings Reference
 description: Complete field reference for app settings and course documents
 ---
 
-Both app settings and course documents are stored as JSON files and validated on every read and write using Zod schemas. Settings are split into independent credentials and preferences sections; invalid settings sections are backed aside independently and reported to the caller.
+Both app settings and course documents are stored as JSON files and validated on every read and
+write using Zod schemas. Settings are split into independent credentials and preferences sections;
+invalid settings sections are backed aside independently and reported to the caller.
 
 ## App credentials (`repo-edu.app-credentials.v1`)
 
@@ -65,7 +67,8 @@ Stored at `settings/preferences.json`.
 | `defaultExtensions` | `string[]` | Fallback file-extension allowlist used when a course leaves `analysisInputs.extensions` `undefined`. Normalized on write (lowercase, dot stripped, deduplicated). `[]` means "no extension filter". |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
 
-Desktop BrowserWindow dimensions live in the desktop-only window-state document, not in app settings.
+Desktop BrowserWindow dimensions live in the desktop-only window-state document, not in app
+settings.
 
 ## Course (`repo-edu.course.v1`)
 

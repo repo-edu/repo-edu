@@ -6,7 +6,8 @@ Node.js implementations of the runtime ports defined in `@repo-edu/host-runtime-
 
 ## Purpose
 
-Concrete side-effect layer for desktop and CLI hosts. Each factory returns a plain object satisfying its port interface.
+Concrete side-effect layer for desktop and CLI hosts. Each factory returns a plain object satisfying
+its port interface.
 
 - `createNodeHttpPort()` — `globalThis.fetch`-based `HttpPort`
 - `createNodeProcessPort(childProcessLifetimeController)` — `ProcessPort` over
@@ -49,21 +50,27 @@ Concrete side-effect layer for desktop and CLI hosts. Each factory returns a pla
   wire grammar separate. `windows-job.ts` owns the Koffi job calls.
 - `resources/host-child-lifetime/windows-launcher.cjs` — fixed launcher source
   shared by Node command-line development and desktop packaging.
-- `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)` (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in `src/sqlite/transaction.ts` wrap statements in transactions.
-- File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
-- Settings section-store helpers validate strict JSON sections, write atomically, and back invalid, unparseable or unsupported composite settings files aside for recovery-aware loads.
+- `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)`
+  (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in
+  `src/sqlite/transaction.ts` wrap statements in transactions.
+- File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and
+  `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
+- Settings section-store helpers validate strict JSON sections, write atomically, and back invalid,
+  unparseable or unsupported composite settings files aside for recovery-aware loads.
 
 ## Rules
 
 - Node-only package — never import it into the renderer runtime or browser-safe contracts.
 - Side effects belong here, not in domain or application.
-- Reads inside a selected root must resolve both paths and enforce real-path containment before reading bytes.
+- Reads inside a selected root must resolve both paths and enforce real-path containment before
+  reading bytes.
 - Production Git and subscription Claude composition receives the same shared
   child-process lifetime controller from its host. Tests may give the Git
   wrapper a `ProcessPort` instead. Direct commands use target exit as their
   result proof. Protocol callers report a matching result or a lost proving
   connection. A reported-proof process needs no separate work-start fact.
-- Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that dispatcher onto `LlmPort`.
+- Provider-specific LLM concerns live in `@repo-edu/integrations-llm`; this package only adapts that
+  dispatcher onto `LlmPort`.
 - Electron Codex composition supplies one fixed Codex SDK host command with
   `runAsNode: true`. The host copies the complete environment, adds
   `ELECTRON_RUN_AS_NODE` only for that SDK host start and never passes the

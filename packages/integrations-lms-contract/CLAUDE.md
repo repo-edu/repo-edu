@@ -10,7 +10,8 @@ Declares the contract for Canvas and Moodle adapters:
 - Course listing
 - Roster fetching (with `onProgress` callback)
 - Group set listing and fetching
-- Remote DTO types (`RemoteLmsMember`, `RemoteLmsGroup`, `RemoteLmsGroupSet`, `LmsFetchedGroupSet`) so LMS adapters never reuse domain entity types
+- Remote DTO types (`RemoteLmsMember`, `RemoteLmsGroup`, `RemoteLmsGroupSet`, `LmsFetchedGroupSet`)
+  so LMS adapters never reuse domain entity types
 
 `supportedLmsProviders` constant: `["canvas", "moodle"]`.
 

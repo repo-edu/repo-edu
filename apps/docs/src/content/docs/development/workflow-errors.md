@@ -3,7 +3,9 @@ title: Error Taxonomy
 description: The AppError discriminated union and how errors propagate through the workflow system
 ---
 
-All workflow errors are represented as `AppError` — a discriminated union on the `type` field defined in `packages/application-contract/src/index.ts`. This gives every layer a consistent, typed error vocabulary.
+All workflow errors are represented as `AppError` — a discriminated union on the `type` field
+defined in `packages/application-contract/src/index.ts`. This gives every layer a consistent, typed
+error vocabulary.
 
 ## AppError variants
 
@@ -67,7 +69,8 @@ LMS, Git, or subprocess adapter failure.
 { type: "provider"; message: string; provider: LmsProviderKind | GitProviderKind | "git" | "llm"; operation: string; retryable: boolean }
 ```
 
-Created by handlers when an external service call fails (API error, authentication failure, rate limit).
+Created by handlers when an external service call fails (API error, authentication failure, rate
+limit).
 
 ### persistence
 
@@ -77,7 +80,9 @@ Settings, course, or user-file storage failure.
 { type: "persistence"; message: string; operation: "read" | "write" | "decode" | "encode"; retryable: boolean; pathHint?: string }
 ```
 
-Created at the storage boundary when file I/O or serialization fails. Write failures classified as busy, locked, or transient are retryable; decode, validation, encode, stale-revision, missing-course, and permanent I/O failures are not.
+Created at the storage boundary when file I/O or serialization fails. Write failures classified as
+busy, locked, or transient are retryable; decode, validation, encode, stale-revision,
+missing-course, and permanent I/O failures are not.
 
 ### unexpected
 
@@ -126,8 +131,10 @@ The renderer client receives the `failed` event and rejects the `run()` promise 
 
 ### CLI (in-process)
 
-Errors bubble directly from the handler to the Commander error handler. No serialization or wrapping occurs — the `AppError` is thrown and caught as-is.
+Errors bubble directly from the handler to the Commander error handler. No serialization or wrapping
+occurs — the `AppError` is thrown and caught as-is.
 
 ### Docs (in-browser)
 
-Same as CLI — errors propagate directly. The React UI catches them and displays appropriate feedback.
+Same as CLI — errors propagate directly. The React UI catches them and displays appropriate
+feedback.

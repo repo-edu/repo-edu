@@ -3,7 +3,8 @@ title: Adding a Workflow
 description: Step-by-step guide to adding a new workflow to the system
 ---
 
-This guide walks through adding a new workflow end-to-end. The example assumes a workflow called `"course.archive"` that archives a course.
+This guide walks through adding a new workflow end-to-end. The example assumes a workflow called
+`"course.archive"` that archives a course.
 
 ## 1. Define the workflow ID and payloads
 
@@ -44,7 +45,8 @@ Decide:
 
 ## 3. Implement the handler
 
-In `packages/application/src/`, add the handler to the appropriate factory. For a course workflow, that's `course-workflows.ts`:
+In `packages/application/src/`, add the handler to the appropriate factory. For a course workflow,
+that's `course-workflows.ts`:
 
 ```typescript
 "course.archive": async (input, options) => {
@@ -66,11 +68,15 @@ Key patterns:
 - Call `onOutput` for diagnostic messages
 - Throw typed `AppError` objects for failures
 - Pass `options?.signal` to async operations for cancellation support
-- Persistence save handlers validate incoming payloads and must not return full persisted documents. Use `void` for write-only saves, or a narrow server stamp when the renderer cannot compute the returned fields.
+- Persistence save handlers validate incoming payloads and must not return full persisted documents.
+  Use `void` for write-only saves, or a narrow server stamp when the renderer cannot compute the
+  returned fields.
 
 ## 4. Wire into desktop
 
-If the handler was added to an existing factory (e.g. `createCourseWorkflowHandlers`), it auto-registers — the factory's return value is spread into the desktop router in `apps/desktop/src/trpc.ts` via `createDesktopWorkflowRegistry()`.
+If the handler was added to an existing factory (e.g. `createCourseWorkflowHandlers`), it
+auto-registers — the factory's return value is spread into the desktop router in
+`apps/desktop/src/trpc.ts` via `createDesktopWorkflowRegistry()`.
 
 If you created a new handler factory, add its spread to `createDesktopWorkflowRegistry()`:
 
@@ -85,13 +91,16 @@ The tRPC router automatically generates subscription procedures for every entry 
 If the workflow includes `"cli"` in its delivery array:
 
 1. Add the handler to `createCliWorkflowHandlers()` in `apps/cli/src/workflow-runtime.ts`
-2. Add a Commander command in `apps/cli/src/commands/` that calls `workflowClient.run("course.archive", input)`
+2. Add a Commander command in `apps/cli/src/commands/` that calls
+   `workflowClient.run("course.archive", input)`
 
 ## 6. Add tests
 
-- Add a workflow behavior test in `packages/application/src/__tests__/` that verifies the handler's logic with mock ports
+- Add a workflow behavior test in `packages/application/src/__tests__/` that verifies the handler's
+  logic with mock ports
 - Existing runtime checks catch missing wiring:
-  - `apps/cli/src/__tests__/workflow-alignment.test.ts` — verifies every CLI-delivered workflow is wired in the CLI runtime
+  - `apps/cli/src/__tests__/workflow-alignment.test.ts` — verifies every CLI-delivered workflow is
+    wired in the CLI runtime
   - `pnpm test:runtime` — validates desktop preload and tRPC runtime wiring
 
 ## Checklist
@@ -106,14 +115,21 @@ If the workflow includes `"cli"` in its delivery array:
 
 ## Contract evolution
 
-When modifying an existing workflow (not adding a new one), changes propagate through the same layers:
+When modifying an existing workflow (not adding a new one), changes propagate through the same
+layers:
 
-1. **Update contract types and metadata** in `packages/application-contract/src/index.ts`. Changing `WorkflowPayloads` entries or `workflowCatalog` metadata will produce type errors in every handler and caller that needs updating — follow the compiler.
+1. **Update contract types and metadata** in `packages/application-contract/src/index.ts`. Changing
+   `WorkflowPayloads` entries or `workflowCatalog` metadata will produce type errors in every
+   handler and caller that needs updating — follow the compiler.
 
-2. **Update handlers** in `packages/application/src/`. Adjust the implementation to match the new types.
+2. **Update handlers** in `packages/application/src/`. Adjust the implementation to match the new
+   types.
 
-3. **Update surface wiring** for each surface in the workflow's `delivery` array: desktop router/client or CLI runtime and Commander command.
+3. **Update surface wiring** for each surface in the workflow's `delivery` array: desktop
+   router/client or CLI runtime and Commander command.
 
-4. **Update tests.** Behavior tests in `packages/application/src/__tests__/` must match the new contract. Alignment tests (`pnpm test`) will catch missing wiring automatically.
+4. **Update tests.** Behavior tests in `packages/application/src/__tests__/` must match the new
+   contract. Alignment tests (`pnpm test`) will catch missing wiring automatically.
 
-The source of truth is always `packages/application-contract/src/index.ts`. Runtime and alignment checks enforce that both surfaces stay in sync with the catalog.
+The source of truth is always `packages/application-contract/src/index.ts`. Runtime and alignment
+checks enforce that both surfaces stay in sync with the catalog.

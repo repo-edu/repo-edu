@@ -5,7 +5,8 @@ description: Check roster and assignment readiness before repository operations
 
 ## `redu validate`
 
-Runs readiness checks on the roster and a specific assignment. Always run validation before `repo create` to catch problems early.
+Runs readiness checks on the roster and a specific assignment. Always run validation before
+`repo create` to catch problems early.
 
 ```bash
 redu validate --assignment "Project 1" --course seed-course

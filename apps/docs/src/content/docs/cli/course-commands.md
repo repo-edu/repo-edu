@@ -7,7 +7,8 @@ Course commands let you see which courses are available, select one as active, a
 
 ## `redu course list`
 
-Lists all courses with their ID, display name, and last-updated timestamp. The active course is marked with `*`.
+Lists all courses with their ID, display name, and last-updated timestamp. The active course is
+marked with `*`.
 
 ```bash
 redu course list
@@ -20,7 +21,8 @@ redu course list
 
 ## `redu course active`
 
-Prints the active course ID. Useful in scripts to check which course subsequent commands will operate on.
+Prints the active course ID. Useful in scripts to check which course subsequent commands will
+operate on.
 
 ```bash
 redu course active
@@ -32,7 +34,8 @@ seed-course
 
 ## `redu course show`
 
-Outputs the full active course document as JSON. Use this to inspect roster data, group sets, assignments, and configuration without opening the desktop app.
+Outputs the full active course document as JSON. Use this to inspect roster data, group sets,
+assignments, and configuration without opening the desktop app.
 
 ```bash
 redu course show
@@ -47,7 +50,8 @@ redu course show | jq '.roster.students | length'
 
 ## `redu course load <course-id>`
 
-Sets the active course. All subsequent commands that require a course (validation, repository operations, connection checks) will use this course unless overridden with `--course`.
+Sets the active course. All subsequent commands that require a course (validation, repository
+operations, connection checks) will use this course unless overridden with `--course`.
 
 ```bash
 redu course load seed-course

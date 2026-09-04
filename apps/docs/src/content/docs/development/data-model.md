@@ -3,9 +3,19 @@ title: Data Model
 description: Persisted settings, course schema, roster entities, and boundary validation
 ---
 
-The `@repo-edu/domain` package is where every data structure in the system is defined. It contains no I/O, no side effects, and no Node or Electron imports, so desktop and CLI share the same product rules.
+The `@repo-edu/domain` package is where every data structure in the system is defined. It contains
+no I/O, no side effects, and no Node or Electron imports, so desktop and CLI share the same product
+rules.
 
-Non-persistence domain types (courses, rosters, groups, assignments) live in `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppCredentials`, `PersistedAppPreferences`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth. Companion validators in `packages/domain/src/schemas.ts` validate persisted files at boundaries: the points where the application reads or writes JSON. When a persisted course file is loaded from disk, the schema checks that its shape matches what the code expects. Settings sections recover independently, so a corrupt preferences file can be backed aside without rejecting valid credentials.
+Non-persistence domain types (courses, rosters, groups, assignments) live in
+`packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppCredentials`,
+`PersistedAppPreferences`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via
+`z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth.
+Companion validators in `packages/domain/src/schemas.ts` validate persisted files at boundaries: the
+points where the application reads or writes JSON. When a persisted course file is loaded from disk,
+the schema checks that its shape matches what the code expects. Settings sections recover
+independently, so a corrupt preferences file can be backed aside without rejecting valid
+credentials.
 
 ## Schema discriminators
 
@@ -63,7 +73,10 @@ state:
 | `defaultExtensions` | `string[]` | Global fallback for the per-course `analysisInputs.extensions` field. `undefined` on a course means "inherit this default"; `[]` on a course means "no extension filter". Resolution is one level — course → global — with no per-repo layer. |
 | `analysisConcurrency` | `{ repoParallelism: number; filesPerRepo: number }` | Analysis and blame concurrency settings |
 
-`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`, `"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), `timeFormat` (`"12h"`, `"24h"`), and `syntaxTheme` (`"plus"`, `"github"`, `"github-dimmed"`, `"everforest"`, `"nord"`, `"min"`). Desktop BrowserWindow dimensions are stored in a desktop-only window-state document, not in app settings.
+`AppAppearance` contains `theme` (`"system"`, `"light"`, `"dark"`), `windowChrome` (`"system"`,
+`"hiddenInset"`), `dateFormat` (`"MDY"`, `"DMY"`), `timeFormat` (`"12h"`, `"24h"`), and
+`syntaxTheme` (`"plus"`, `"github"`, `"github-dimmed"`, `"everforest"`, `"nord"`, `"min"`). Desktop
+BrowserWindow dimensions are stored in a desktop-only window-state document, not in app settings.
 
 ## Persisted course
 
@@ -92,7 +105,8 @@ app settings, not by synthetic course documents.
 | `analysisInputs` | `AnalysisInputs` | Course-scoped analysis input defaults |
 | `updatedAt` | `string` | ISO timestamp of last save |
 
-The `revision` field enables compare-and-swap: the save workflow rejects writes where the supplied revision doesn't match the stored one, preventing lost updates from concurrent editors.
+The `revision` field enables compare-and-swap: the save workflow rejects writes where the supplied
+revision doesn't match the stored one, preventing lost updates from concurrent editors.
 
 ## Roster
 
@@ -125,9 +139,14 @@ Tracks how the roster was populated — a discriminated union on `kind`:
 
 ### Groups and group sets
 
-A `Group` is a named collection of member IDs with an `origin` (`"system"`, `"lms"`, `"local"`). Two system group sets are always present: `individual_students` and `staff`.
+A `Group` is a named collection of member IDs with an `origin` (`"system"`, `"lms"`, `"local"`). Two
+system group sets are always present: `individual_students` and `staff`.
 
-A `GroupSet` is a discriminated union on `nameMode`. A `NamedGroupSet` (`nameMode: "named"`) references `Group` objects via `groupIds`. A `UsernameGroupSet` (`nameMode: "unnamed"`) stores `UsernameTeam[]` inline in its `teams` field — each team has an `id` and `gitUsernames` array. Both modes share a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`), `repoNameTemplate`, `columnVisibility`, and `columnSizing`.
+A `GroupSet` is a discriminated union on `nameMode`. A `NamedGroupSet` (`nameMode: "named"`)
+references `Group` objects via `groupIds`. A `UsernameGroupSet` (`nameMode: "unnamed"`) stores
+`UsernameTeam[]` inline in its `teams` field — each team has an `id` and `gitUsernames` array. Both
+modes share a `connection` (discriminated union: `"system"`, `"canvas"`, `"moodle"`, `"import"`),
+`repoNameTemplate`, `columnVisibility`, and `columnSizing`.
 
 Local ID policy:
 
@@ -135,23 +154,36 @@ Local ID policy:
 - Groups: `g_0001`, `g_0002`, ...
 - Group sets: `gs_0001`, `gs_0002`, ...
 
-LMS IDs are stored only in LMS fields (`lmsUserId`, `lmsGroupId`, group-set connection fields), never in local `id` fields.
+LMS IDs are stored only in LMS fields (`lmsUserId`, `lmsGroupId`, group-set connection fields),
+never in local `id` fields.
 
 ### Assignments
 
-An `Assignment` links a `groupSetId` to an optional `RepositoryTemplate`, and records two operation artifacts produced by repository workflows:
+An `Assignment` links a `groupSetId` to an optional `RepositoryTemplate`, and records two operation
+artifacts produced by repository workflows:
 
 - `repositoryTemplate` — per-assignment override for the course-level template. Discriminated union:
   - `"remote"` — `owner` + `name` on the Git provider, with `visibility`
   - `"local"` — local file `path`, with `visibility`
-- `templateCommitSha` — the template HEAD that was last pushed to each repo. Used by Update to compute the diff for pull-request creation.
-- `repositories` — `Record<groupId, repoName>` mapping each group in the assignment's group set to the repository name that was accepted by the Git provider (either freshly created or adopted from an existing server-side repo). Defaults to `{}`.
+- `templateCommitSha` — the template HEAD that was last pushed to each repo. Used by Update to
+  compute the diff for pull-request creation.
+- `repositories` — `Record<groupId, repoName>` mapping each group in the assignment's group set to
+  the repository name that was accepted by the Git provider (either freshly created or adopted from
+  an existing server-side repo). Defaults to `{}`.
 
-The `repositories` map is the source of truth for Clone and Update: they iterate recorded entries rather than re-deriving names from the current roster and naming template. This decouples Update/Clone from roster edits (`{members}`-parameterized templates don't drift after a member is removed) and makes adoption of externally-created repos (e.g. from RepoBee) a side effect of running Create or Clone with a matching template. Entries whose `groupId` is no longer in the assignment's group set are pruned at the next successful operation.
+The `repositories` map is the source of truth for Clone and Update: they iterate recorded entries
+rather than re-deriving names from the current roster and naming template. This decouples
+Update/Clone from roster edits (`{members}`-parameterized templates don't drift after a member is
+removed) and makes adoption of externally-created repos (e.g. from RepoBee) a side effect of running
+Create or Clone with a matching template. Entries whose `groupId` is no longer in the assignment's
+group set are pruned at the next successful operation.
 
-Derivation from the template is still used by Create for every group (records are not consulted for skip decisions — the Git provider's `alreadyExisted` response is authoritative), and by Clone/Update as a fallback for groups that don't yet have a recorded name but have active members.
+Derivation from the template is still used by Create for every group (records are not consulted for
+skip decisions — the Git provider's `alreadyExisted` response is authoritative), and by Clone/Update
+as a fallback for groups that don't yet have a recorded name but have active members.
 
-See [Repository Records](/repo-edu/development/repository-records/) for the full design rationale, the options that were considered and rejected, and a comparison with RepoBee.
+See [Repository Records](/repo-edu/development/repository-records/) for the full design rationale,
+the options that were considered and rejected, and a comparison with RepoBee.
 
 ## Boundary validation
 
@@ -161,13 +193,19 @@ Persisted documents are validated at load boundaries:
 - `validatePersistedAppPreferences(value)` → `ValidationResult<PersistedAppPreferences>`
 - `validatePersistedCourse(value)` → `ValidationResult<PersistedCourse>`
 
-All use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each `ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid settings sections are backed aside by the host and replaced with section defaults; invalid course files are rejected.
+All use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each
+`ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid settings
+sections are backed aside by the host and replaced with section defaults; invalid course files are
+rejected.
 
-Settings-persistence types use `z.infer` in `settings.ts` (no drift guard needed). A compile-time drift guard in `schemas.ts` ensures the `PersistedCourse` Zod inferred type stays in sync with its hand-authored TypeScript type.
+Settings-persistence types use `z.infer` in `settings.ts` (no drift guard needed). A compile-time
+drift guard in `schemas.ts` ensures the `PersistedCourse` Zod inferred type stays in sync with its
+hand-authored TypeScript type.
 
 ## Roster validation
 
-Beyond schema validation, `@repo-edu/domain` performs semantic roster validation via the `validation.roster` workflow. This catches 17 kinds of issues:
+Beyond schema validation, `@repo-edu/domain` performs semantic roster validation via the
+`validation.roster` workflow. This catches 17 kinds of issues:
 
 | Kind | What it catches |
 |------|-----------------|
@@ -185,4 +223,5 @@ Beyond schema validation, `@repo-edu/domain` performs semantic roster validation
 | `unassigned_student` | Student not in any group for an assignment |
 | `student_in_multiple_groups_in_assignment` | Student assigned to multiple groups |
 
-Each `RosterValidationIssue` includes `affectedIds` (member/group IDs) and optional `context` for diagnostic messages.
+Each `RosterValidationIssue` includes `affectedIds` (member/group IDs) and optional `context` for
+diagnostic messages.

@@ -3,7 +3,8 @@ title: Roster Management
 description: View, edit, import, and export course members in the desktop app
 ---
 
-The Roster tab shows a table of all course members — students and staff — with inline editing, sorting, search, and import/export tools.
+The Roster tab shows a table of all course members — students and staff — with inline editing,
+sorting, search, and import/export tools.
 
 ## Roster table
 
@@ -21,15 +22,18 @@ The table displays one row per member with columns for:
 
 ### Sorting
 
-Click a column header to sort by that column. Click again to reverse, and a third time to clear. You can sort by multiple columns — each subsequent click adds a secondary sort level.
+Click a column header to sort by that column. Click again to reverse, and a third time to clear. You
+can sort by multiple columns — each subsequent click adds a secondary sort level.
 
 ### Search
 
-The search field filters the table across all visible columns. Type a name, email, or group name to narrow the list.
+The search field filters the table across all visible columns. Type a name, email, or group name to
+narrow the list.
 
 ### Column visibility
 
-Use the column visibility dropdown to show or hide columns. Your choices are saved in app settings and persist across sessions.
+Use the column visibility dropdown to show or hide columns. Your choices are saved in app settings
+and persist across sessions.
 
 ### Column resizing
 
@@ -37,13 +41,16 @@ Drag the border between column headers to adjust widths. Sizes are saved automat
 
 ## Adding members manually
 
-Click **Add Member** to add a row to the table. Enter a name and email, then press Enter or click away to save. The new member is added with status Active and role Student.
+Click **Add Member** to add a row to the table. Enter a name and email, then press Enter or click
+away to save. The new member is added with status Active and role Student.
 
-Manually added members can be fully edited and deleted. Members imported from an LMS have their name and email locked to the LMS values — you can still edit their status and Git username.
+Manually added members can be fully edited and deleted. Members imported from an LMS have their name
+and email locked to the LMS values — you can still edit their status and Git username.
 
 ## Importing from LMS
 
-Click **Import** → **From LMS** to sync the roster with your connected LMS. This requires an LMS connection and linked course ID (configured in Settings and the course setup).
+Click **Import** → **From LMS** to sync the roster with your connected LMS. This requires an LMS
+connection and linked course ID (configured in Settings and the course setup).
 
 The import:
 
@@ -52,25 +59,31 @@ The import:
 3. Adds new members and updates changed ones
 4. Preserves any local edits you've made (Git usernames, status overrides)
 
-If the import finds ambiguous matches (one LMS user matching multiple roster members), these are shown as conflicts for you to resolve.
+If the import finds ambiguous matches (one LMS user matching multiple roster members), these are
+shown as conflicts for you to resolve.
 
 See [LMS Import](/repo-edu/user-guide/lms-import/) for the full workflow.
 
 ## Importing from CSV
 
-Click **Import** -> **From File** to upload a CSV file. The file should have columns matching the roster format (see [Output Formats](/repo-edu/reference/output-formats/) for the column spec). Existing members are matched by email or student number; new rows are added with local IDs.
+Click **Import** -> **From File** to upload a CSV file. The file should have columns matching the
+roster format (see [Output Formats](/repo-edu/reference/output-formats/) for the column spec).
+Existing members are matched by email or student number; new rows are added with local IDs.
 
 ## Git usernames
 
-Git usernames are required for repository operations — they determine which users get added as collaborators on created repositories.
+Git usernames are required for repository operations — they determine which users get added as
+collaborators on created repositories.
 
 ### Importing Git usernames from CSV
 
-Click **Import** → **Git Usernames** to upload a CSV file mapping email addresses to Git usernames. The file needs `email` and `git_username` columns.
+Click **Import** → **Git Usernames** to upload a CSV file mapping email addresses to Git usernames.
+The file needs `email` and `git_username` columns.
 
 ### Verifying Git usernames
 
-After importing usernames, click **Verify Git Usernames** to check each one against the configured Git provider. Each username gets a status:
+After importing usernames, click **Verify Git Usernames** to check each one against the configured
+Git provider. Each username gets a status:
 
 - **Valid** (green check) — the username exists on the Git provider
 - **Invalid** (red X) — the username was not found
@@ -80,12 +93,16 @@ Invalid usernames should be corrected before running repository operations.
 
 ## Exporting
 
-Click **Export** -> **Roster (CSV)** to download the roster. The export includes all members (students and staff) with the supported roster-export fields.
+Click **Export** -> **Roster (CSV)** to download the roster. The export includes all members
+(students and staff) with the supported roster-export fields.
 
 ## Deleting members
 
-You can delete manually added members. LMS-imported members cannot be deleted — set their status to Dropped instead, which excludes them from group assignments and repository operations.
+You can delete manually added members. LMS-imported members cannot be deleted — set their status to
+Dropped instead, which excludes them from group assignments and repository operations.
 
 ## Undo and redo
 
-All roster edits (adding, editing, deleting members, status changes) support undo and redo. The undo/redo buttons in the header show tooltips describing the action that will be reversed or reapplied.
+All roster edits (adding, editing, deleting members, status changes) support undo and redo. The
+undo/redo buttons in the header show tooltips describing the action that will be reversed or
+reapplied.

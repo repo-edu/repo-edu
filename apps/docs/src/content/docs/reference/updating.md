@@ -5,7 +5,8 @@ description: How to update the desktop app and CLI
 
 ## Desktop app
 
-The desktop app checks for updates automatically after startup and every 4 hours while running. When an update is available:
+The desktop app checks for updates automatically after startup and every 4 hours while running. When
+an update is available:
 
 1. A notification prompts you to download.
 2. After the download completes, you can restart to apply the update.
@@ -20,9 +21,12 @@ Updates use blockmap-based deltas where possible, so only changed bytes are down
 
 ### Per-platform details
 
-- **macOS** — the auto-updater downloads a zip artifact from the GitHub Release and replaces the app bundle. The DMG is only used for first-time installation.
+- **macOS** — the auto-updater downloads a zip artifact from the GitHub Release and replaces the app
+  bundle. The DMG is only used for first-time installation.
 - **Windows** — the auto-updater downloads and silently runs an NSIS installer to apply the update.
-- **Linux** — the auto-updater downloads the new `.deb` and installs it through a graphical privilege prompt (`pkexec`). Linux updates are full downloads, not deltas. See [Linux packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
+- **Linux** — the auto-updater downloads the new `.deb` and installs it through a graphical
+  privilege prompt (`pkexec`). Linux updates are full downloads, not deltas. See
+  [Linux packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
 
 ## CLI (`redu update`)
 

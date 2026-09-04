@@ -3,9 +3,19 @@ title: Environment Variables
 description: Every environment variable repo-edu reads, split into the test, fixture and release hooks it defines and the platform, tooling and AI-SDK variables the apps inherit
 ---
 
-repo-edu reads a fair number of environment variables, but almost none of them are product configuration. The desktop app and the CLI resolve everything they need from canonical defaults, so a normal user never sets one. The variables that matter split into two groups: the ones repo-edu defines for its own tests, fixtures, release tooling and dev scripts, and the ones the apps inherit from the operating system, the package manager, Electron and the AI SDKs. The second group is listed here on purpose, because it shows that environment variables are ubiquitous regardless: the apps already run inside a thick layer of them before we add a single test hook of our own.
+repo-edu reads a fair number of environment variables, but almost none of them are product
+configuration. The desktop app and the CLI resolve everything they need from canonical defaults, so
+a normal user never sets one. The variables that matter split into two groups: the ones repo-edu
+defines for its own tests, fixtures, release tooling and dev scripts, and the ones the apps inherit
+from the operating system, the package manager, Electron and the AI SDKs. The second group is listed
+here on purpose, because it shows that environment variables are ubiquitous regardless: the apps
+already run inside a thick layer of them before we add a single test hook of our own.
 
-Most of repo-edu's own variables exist for one structural reason. The desktop runtime-validation and end-to-end harnesses launch Electron as a separate operating-system process, and a child process can only be configured through its environment. In-process tests need none of these: they inject the same values through constructors, for example the storage root passed to `createProgram` in the CLI or to the desktop store constructors.
+Most of repo-edu's own variables exist for one structural reason. The desktop runtime-validation and
+end-to-end harnesses launch Electron as a separate operating-system process, and a child process can
+only be configured through its environment. In-process tests need none of these: they inject the
+same values through constructors, for example the storage root passed to `createProgram` in the CLI
+or to the desktop store constructors.
 
 ## Variables repo-edu defines
 
@@ -17,7 +27,8 @@ Most of repo-edu's own variables exist for one structural reason. The desktop ru
 
 ### Desktop runtime-validation harness
 
-These configure the Electron process that `pnpm --filter @repo-edu/desktop run validate:runtime` spawns.
+These configure the Electron process that `pnpm --filter @repo-edu/desktop run validate:runtime`
+spawns.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
@@ -49,7 +60,8 @@ These variables form its private test protocol. They are not product settings.
 
 ### Analysis concurrency overrides
 
-Both are applied over the loaded preferences for one launch and stripped from preference saves, so they never persist.
+Both are applied over the loaded preferences for one launch and stripped from preference saves, so
+they never persist.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
@@ -64,7 +76,8 @@ Both are applied over the loaded preferences for one launch and stripped from pr
 
 ### Integration tests
 
-The live-provider suite in `@repo-edu/integration-tests` reads its endpoints and credentials from the environment. Unconfigured providers are skipped.
+The live-provider suite in `@repo-edu/integration-tests` reads its endpoints and credentials from
+the environment. Unconfigured providers are skipped.
 
 | Variable | Read by | Effect | Default |
 | --- | --- | --- | --- |
@@ -87,10 +100,21 @@ The live-provider suite in `@repo-edu/integration-tests` reads its endpoints and
 
 ## Variables repo-edu inherits
 
-These are not ours; the code reads conventions that the platform, the toolchain and the SDKs already define. They are listed only to show the baseline our own variables sit on top of.
+These are not ours; the code reads conventions that the platform, the toolchain and the SDKs already
+define. They are listed only to show the baseline our own variables sit on top of.
 
-**Platform and paths.** `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `APPDATA` and `XDG_CONFIG_HOME` feed the app-data root resolver and the Claude CLI executable search; `PATH` is used for that same search and for spawning `git`.
+**Platform and paths.** `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `APPDATA` and `XDG_CONFIG_HOME` feed
+the app-data root resolver and the Claude CLI executable search; `PATH` is used for that same search
+and for spawning `git`.
 
-**Package manager, Electron and build tooling.** `INIT_CWD` (pnpm's invocation directory, used by `pnpm fixture` and `pnpm file-sizes`), `npm_execpath`, `npm_config_platform` and `npm_config_arch` (npm and electron-builder packaging), `ELECTRON_INSTALL_PLATFORM` and `ELECTRON_INSTALL_ARCH` (Electron's installer), `CSC_IDENTITY_AUTO_DISCOVERY` (electron-builder code-signing), `ELECTRON_RENDERER_URL` (the electron-vite dev server) and `CI`.
+**Package manager, Electron and build tooling.** `INIT_CWD` (pnpm's invocation directory, used by
+`pnpm fixture` and `pnpm file-sizes`), `npm_execpath`, `npm_config_platform` and `npm_config_arch`
+(npm and electron-builder packaging), `ELECTRON_INSTALL_PLATFORM` and `ELECTRON_INSTALL_ARCH`
+(Electron's installer), `CSC_IDENTITY_AUTO_DISCOVERY` (electron-builder code-signing),
+`ELECTRON_RENDERER_URL` (the electron-vite dev server) and `CI`.
 
-**AI SDK authentication.** `ANTHROPIC_API_KEY` and `CODEX_API_KEY` are read by the Claude and Codex SDKs respectively. Without an explicit mode, the adapters select API-key auth when the matching key is present and subscription or CLI auth otherwise. Codex snapshots the effective child environment per invocation; explicit subscription mode omits `CODEX_API_KEY` without mutating `process.env`. repo-edu defines neither variable; they are the SDKs' own.
+**AI SDK authentication.** `ANTHROPIC_API_KEY` and `CODEX_API_KEY` are read by the Claude and Codex
+SDKs respectively. Without an explicit mode, the adapters select API-key auth when the matching key
+is present and subscription or CLI auth otherwise. Codex snapshots the effective child environment
+per invocation; explicit subscription mode omits `CODEX_API_KEY` without mutating `process.env`.
+repo-edu defines neither variable; they are the SDKs' own.

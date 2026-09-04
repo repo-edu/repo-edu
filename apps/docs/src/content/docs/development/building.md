@@ -31,7 +31,8 @@ All scripts run from the workspace root. Use `pnpm <script>` to run them.
 | `check:architecture` | Verify monorepo dependency rules (no circular deps, boundary compliance) |
 | `check:fixtures` | Verify test fixture generation is consistent |
 
-For day-to-day development, run `pnpm fix` after small changes and `pnpm check` before committing. Run `pnpm validate` when the change needs the full test and desktop-runtime pass.
+For day-to-day development, run `pnpm fix` after small changes and `pnpm check` before committing.
+Run `pnpm validate` when the change needs the full test and desktop-runtime pass.
 
 ## Per-app commands
 
@@ -61,7 +62,8 @@ For day-to-day development, run `pnpm fix` after small changes and `pnpm check` 
 
 ## Integration tests
 
-Integration tests run real workflows against live Git providers using Docker containers (Gitea, GitLab) or live APIs (GitHub).
+Integration tests run real workflows against live Git providers using Docker containers (Gitea,
+GitLab) or live APIs (GitHub).
 
 | Command | Provider | Setup |
 |---------|----------|-------|
@@ -70,7 +72,8 @@ Integration tests run real workflows against live Git providers using Docker con
 | `pnpm test:integration:gitlab` | GitLab | Spins up GitLab Docker container (slow first start), runs tests, tears down |
 | `pnpm test:integration:github` | GitHub | Runs against live GitHub API. Requires `GITHUB_TOKEN` and target org configuration |
 
-GitLab also supports split commands (`test:integration:gitlab:up`, `test:integration:gitlab:run`, `test:integration:gitlab:down`) for keeping the container running across test iterations.
+GitLab also supports split commands (`test:integration:gitlab:up`, `test:integration:gitlab:run`,
+`test:integration:gitlab:down`) for keeping the container running across test iterations.
 
 ## Utility scripts
 

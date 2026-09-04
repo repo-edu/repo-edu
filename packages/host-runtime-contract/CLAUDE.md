@@ -7,7 +7,8 @@ Pure TypeScript type definitions for all runtime ports consumed by the applicati
 Defines the interfaces and request/result shapes for:
 
 - `HttpPort` — HTTP requests
-- `ProcessPort` — OS process execution with `ProcessCancellation` modes (`non-cancellable` | `best-effort` | `cooperative`)
+- `ProcessPort` — OS process execution with `ProcessCancellation` modes (`non-cancellable` |
+  `best-effort` | `cooperative`)
 - `GitCommandPort` — git CLI invocation
 - `FileSystemPort` — inspect/stat, batch operations (ensure-directory,
   copy-directory, delete-path), temp directories, directory/file listing and

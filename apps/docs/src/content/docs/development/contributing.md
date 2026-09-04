@@ -19,7 +19,8 @@ Before making a change, decide which layer owns the behavior:
 | Argument parsing, output formatting | `apps/cli/src/commands/` |
 | Electron IPC, preload bridge | `apps/desktop/` |
 
-Keep behavior in shared packages wherever possible. Shell-specific concerns (Electron IPC, Commander argument parsing, Astro page routing) stay in app shells.
+Keep behavior in shared packages wherever possible. Shell-specific concerns (Electron IPC, Commander
+argument parsing, Astro page routing) stay in app shells.
 
 ## Minimum validation
 
@@ -48,19 +49,28 @@ See [Building](/repo-edu/development/building/) for the full script reference.
 
 ### Workflow contract changes
 
-Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contract` affects all surfaces. Adding a workflow requires wiring it in every surface listed in its `delivery` array. Changing payload types requires updating all handlers and callers. The alignment tests will catch missing wiring, but type errors must be resolved manually. See [Adding a Workflow](/repo-edu/development/workflow-adding/) for the full procedure.
+Modifying `WorkflowPayloads` or `workflowCatalog` in `packages/application-contract` affects all
+surfaces. Adding a workflow requires wiring it in every surface listed in its `delivery` array.
+Changing payload types requires updating all handlers and callers. The alignment tests will catch
+missing wiring, but type errors must be resolved manually. See
+[Adding a Workflow](/repo-edu/development/workflow-adding/) for the full procedure.
 
 ### Persistence schema changes
 
-`PersistedAppCredentials`, `PersistedAppPreferences`, and `PersistedCourse` are serialized to disk. Changing field names, removing fields, or altering types will break existing saved files. Settings section types are derived from schemas via `z.infer` in `settings.ts`. `PersistedCourse` retains a compile-time drift guard in `schemas.ts` — a mismatch is a build error.
+`PersistedAppCredentials`, `PersistedAppPreferences`, and `PersistedCourse` are serialized to disk.
+Changing field names, removing fields, or altering types will break existing saved files. Settings
+section types are derived from schemas via `z.infer` in `settings.ts`. `PersistedCourse` retains a
+compile-time drift guard in `schemas.ts` — a mismatch is a build error.
 
 ### Cross-surface behavior mismatches
 
-Desktop and CLI should produce the same result for the same workflow input. If you change handler behavior, verify it on every declared delivery surface.
+Desktop and CLI should produce the same result for the same workflow input. If you change handler
+behavior, verify it on every declared delivery surface.
 
 ### Electron boundary leakage
 
-Importing Node or Electron APIs into the desktop renderer runtime closure breaks its sandbox boundary. The architecture check enforces this automatically.
+Importing Node or Electron APIs into the desktop renderer runtime closure breaks its sandbox
+boundary. The architecture check enforces this automatically.
 
 ## Repository checks
 
@@ -71,4 +81,6 @@ Importing Node or Electron APIs into the desktop renderer runtime closure breaks
 - the desktop renderer runtime closure must not contain Node built-in imports
 - independently browser-safe contract and fixture roots must not contain Node built-in imports
 
-The runtime closure is derived from dependency-cruiser metadata starting at `apps/desktop/src/renderer.ts`. Tests, type-only edges, and pre-compilation-only edges do not enter the closure.
+The runtime closure is derived from dependency-cruiser metadata starting at
+`apps/desktop/src/renderer.ts`. Tests, type-only edges, and pre-compilation-only edges do not enter
+the closure.

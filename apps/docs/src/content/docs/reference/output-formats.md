@@ -3,7 +3,8 @@ title: Output Formats
 description: File formats used by import and export workflows
 ---
 
-repo-edu supports several file formats for importing and exporting roster, group, and configuration data.
+repo-edu supports several file formats for importing and exporting roster, group, and configuration
+data.
 
 ## Supported formats
 
@@ -14,7 +15,8 @@ repo-edu supports several file formats for importing and exporting roster, group
 | XLSX | `.xlsx` | No | No | Unsupported |
 | JSON | `.json` | — | — | Persisted settings and course files (internal) |
 
-Format support is validated at the workflow level — requesting an unsupported format produces a validation error.
+Format support is validated at the workflow level — requesting an unsupported format produces a
+validation error.
 
 ## CSV formats
 
@@ -63,7 +65,8 @@ Imported by the `groupSet.previewImportFromFile` / `groupSet.importFromFile` wor
 
 Notes:
 
-- CSV import semantics are additive/update-only: existing groups not mentioned in the file are untouched.
+- CSV import semantics are additive/update-only: existing groups not mentioned in the file are
+  untouched.
 - Group matching uses normalized `group_name` (trim + collapse whitespace + lowercase).
 - Empty-group rows (`group_name` with blank `name` and `email`) create/keep empty groups.
 
@@ -80,19 +83,24 @@ glennol
 
 - Import format: `repobee-students`
 - Semantics: full replace of the target imported group set
-- Reconciliation: usernames are normalized and stored directly in unnamed `UsernameTeam.gitUsernames` (no roster member creation)
+- Reconciliation: usernames are normalized and stored directly in unnamed
+  `UsernameTeam.gitUsernames` (no roster member creation)
 
 ### Git username import
 
-Imported by the `gitUsernames.import` workflow. Maps student email addresses to Git provider usernames.
+Imported by the `gitUsernames.import` workflow. Maps student email addresses to Git provider
+usernames.
 
 | Column | Required | Description |
 |--------|----------|-------------|
 | `email` | Yes | Student email (must match a roster student) |
 | `git_username` | Yes | Git provider username |
 
-After import, if a Git connection is configured, the workflow verifies each username against the Git provider and sets the status to `valid`, `invalid`, or `unknown`.
+After import, if a Git connection is configured, the workflow verifies each username against the Git
+provider and sets the status to `valid`, `invalid`, or `unknown`.
 
 ## XLSX format
 
-The tabular adapter package contains XLSX parser/serializer helpers, but current import/export workflows still reject XLSX at the workflow boundary. Use CSV for roster and Git username files, CSV for named group sets, and TXT for RepoBee students group sets.
+The tabular adapter package contains XLSX parser/serializer helpers, but current import/export
+workflows still reject XLSX at the workflow boundary. Use CSV for roster and Git username files, CSV
+for named group sets, and TXT for RepoBee students group sets.

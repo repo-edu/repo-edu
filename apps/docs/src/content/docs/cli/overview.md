@@ -3,9 +3,12 @@ title: CLI Overview
 description: Command-line interface for repeatable course and repository operations
 ---
 
-The `redu` CLI provides command-line access to repo-edu's course management and repository operations. It is designed for repeatable, scriptable tasks — creating repositories in bulk, cloning them for grading, running validation checks, and verifying connections.
+The `redu` CLI provides command-line access to repo-edu's course management and repository
+operations. It is designed for repeatable, scriptable tasks — creating repositories in bulk, cloning
+them for grading, running validation checks, and verifying connections.
 
-Setup-phase operations like roster editing, LMS imports, and group set management are available only in the desktop app, where the interactive UI is better suited for reviewing and resolving data.
+Setup-phase operations like roster editing, LMS imports, and group set management are available only
+in the desktop app, where the interactive UI is better suited for reviewing and resolving data.
 
 ## Usage
 

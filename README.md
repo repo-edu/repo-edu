@@ -5,7 +5,8 @@
 
 > Active development — contracts and command output may change.
 
-Import rosters from your LMS, manage student repositories, and validate assignments — from a desktop app or the command line.
+Import rosters from your LMS, manage student repositories, and validate assignments — from a desktop
+app or the command line.
 
 **[Documentation](https://repo-edu.github.io/repo-edu/)** |
 **[Getting Started](https://repo-edu.github.io/repo-edu/getting-started/installation/)**
@@ -13,14 +14,17 @@ Import rosters from your LMS, manage student repositories, and validate assignme
 ## Features
 
 - **LMS integration** (Canvas, Moodle) — verify connections, import rosters, sync group sets.
-- **Git provider integration** (GitHub, GitLab, Gitea) — verify connections, plan/create/clone/delete repositories.
+- **Git provider integration** (GitHub, GitLab, Gitea) — verify connections,
+  plan/create/clone/delete repositories.
 - **Desktop app** — interactive workflows for roster importing and repository management.
 - **CLI (`redu`)** — scripted operations for validation and CI pipelines.
-- **Shared business logic** across all targets via typed workflows and a [ports-and-adapters architecture](https://repo-edu.github.io/repo-edu/development/architecture/).
+- **Shared business logic** across all targets via typed workflows and a
+  [ports-and-adapters architecture](https://repo-edu.github.io/repo-edu/development/architecture/).
 
 ## Install
 
-repo-edu ships as a desktop app and a CLI (`redu`), both pre-built. Per-platform notes are in the [installation guide](https://repo-edu.github.io/repo-edu/getting-started/installation/).
+repo-edu ships as a desktop app and a CLI (`redu`), both pre-built. Per-platform notes are in the
+[installation guide](https://repo-edu.github.io/repo-edu/getting-started/installation/).
 
 ### Desktop app
 
@@ -32,7 +36,9 @@ repo-edu ships as a desktop app and a CLI (`redu`), both pre-built. Per-platform
 | Linux, Debian/Ubuntu (x64) | [RepoEdu-linux-amd64.deb](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-linux-amd64.deb) |
 | Linux, Debian/Ubuntu (ARM64) | [RepoEdu-linux-arm64.deb](https://github.com/repo-edu/repo-edu/releases/latest/download/RepoEdu-linux-arm64.deb) |
 
-macOS builds are Apple Silicon only and notarized. Windows installers are unsigned, so the first launch shows a SmartScreen prompt (More info, then Run anyway). Install the Linux package with `sudo apt install ./RepoEdu-linux-amd64.deb`; the desktop app supports the Debian family only.
+macOS builds are Apple Silicon only and notarized. Windows installers are unsigned, so the first
+launch shows a SmartScreen prompt (More info, then Run anyway). Install the Linux package with
+`sudo apt install ./RepoEdu-linux-amd64.deb`; the desktop app supports the Debian family only.
 
 ### CLI (`redu`)
 
@@ -42,9 +48,15 @@ macOS / Linux:
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
 ```
 
-Or download a binary directly: [macOS (Apple Silicon)](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-darwin-arm64), [Linux x64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-x64), [Linux ARM64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-arm64). The CLI is not distributed for Windows.
+Or download a binary directly:
+[macOS (Apple Silicon)](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-darwin-arm64),
+[Linux x64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-x64),
+[Linux ARM64](https://github.com/repo-edu/repo-edu/releases/latest/download/redu-linux-arm64). The
+CLI is not distributed for Windows.
 
-CLI and desktop data share the platform app-data root on supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The Windows desktop app stores data under `%APPDATA%\repo-edu`.
+CLI and desktop data share the platform app-data root on supported CLI platforms: macOS
+`~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The
+Windows desktop app stores data under `%APPDATA%\repo-edu`.
 
 ## Development
 

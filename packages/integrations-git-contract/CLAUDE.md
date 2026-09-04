@@ -24,7 +24,8 @@ Declares the contract for GitHub, GitLab, and Gitea adapters:
 
 - Browser-safe: no Node/Electron imports.
 - Zero implementation — types and constants only.
-- `GitProviderClient` is stateless: every method takes `GitConnectionDraft` explicitly (no constructor-bound credentials).
+- `GitProviderClient` is stateless: every method takes `GitConnectionDraft` explicitly (no
+  constructor-bound credentials).
 - Every provider operation accepts caller cancellation through `AbortSignal`.
 - `ListedRepository.name` is a leaf display name. `identifier` is the
   namespace-relative provider identity and may contain GitLab subgroup paths.

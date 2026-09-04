@@ -3,13 +3,19 @@ title: Workflow Overview
 description: What workflows are and how they unify execution across delivery surfaces
 ---
 
-A **workflow** is a named, typed unit of work — for example `"course.load"`, `"repo.create"`, or `"connection.verifyLmsDraft"`. Workflows are the central execution abstraction of repo-edu: every user-facing operation that involves I/O, progress reporting, or error handling runs as a workflow.
+A **workflow** is a named, typed unit of work — for example `"course.load"`, `"repo.create"`, or
+`"connection.verifyLmsDraft"`. Workflows are the central execution abstraction of repo-edu: every
+user-facing operation that involves I/O, progress reporting, or error handling runs as a workflow.
 
 ## Why workflows exist
 
-repo-edu ships two delivery surfaces: a desktop Electron app and a CLI. Each surface has different transport mechanics (IPC or in-process), but the underlying business logic is identical. Workflows decouple **what** the application does from **how** each surface delivers it.
+repo-edu ships two delivery surfaces: a desktop Electron app and a CLI. Each surface has different
+transport mechanics (IPC or in-process), but the underlying business logic is identical. Workflows
+decouple **what** the application does from **how** each surface delivers it.
 
-A single workflow definition in `@repo-edu/application-contract` lets both surfaces execute the same operation with full type safety — typed input, typed progress events, typed output, and typed result.
+A single workflow definition in `@repo-edu/application-contract` lets both surfaces execute the same
+operation with full type safety — typed input, typed progress events, typed output, and typed
+result.
 
 ## Core concepts
 
@@ -25,7 +31,8 @@ The `WorkflowId` type is the union of all valid IDs, derived from the keys of `W
 
 ### WorkflowPayloads
 
-The `WorkflowPayloads` type map in `packages/application-contract/src/index.ts` is the single source of truth. It maps each workflow ID to four typed channels:
+The `WorkflowPayloads` type map in `packages/application-contract/src/index.ts` is the single source
+of truth. It maps each workflow ID to four typed channels:
 
 ```typescript
 type WorkflowPayloads = {
@@ -55,11 +62,17 @@ type WorkflowClient = {
 }
 ```
 
-Callers never know (or care) which transport delivers the execution. The React renderer uses a client backed by tRPC-electron IPC, while the CLI client invokes handlers in-process. Renderer session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences` are owned by `SessionController`; regular React code uses the narrowed renderer client for application workflows such as `course.list`, repository operations, imports, analysis, and examination.
+Callers never know (or care) which transport delivers the execution. The React renderer uses a
+client backed by tRPC-electron IPC, while the CLI client invokes handlers in-process. Renderer
+session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences`
+are owned by `SessionController`; regular React code uses the narrowed renderer client for
+application workflows such as `course.list`, repository operations, imports, analysis, and
+examination.
 
 ### WorkflowHandler
 
-On the other side, each workflow has a handler — a function that receives the typed input and optional callbacks, and returns the typed result:
+On the other side, each workflow has a handler — a function that receives the typed input and
+optional callbacks, and returns the typed result:
 
 ```typescript
 type WorkflowHandler<TId extends WorkflowId> = (
@@ -68,14 +81,16 @@ type WorkflowHandler<TId extends WorkflowId> = (
 ) => Promise<WorkflowResult<TId>>
 ```
 
-Handlers live in `packages/application/src/` and are grouped by domain (course, connection, roster, etc.). They orchestrate calls to ports (HTTP, Git, filesystem) and domain logic.
+Handlers live in `packages/application/src/` and are grouped by domain (course, connection, roster,
+etc.). They orchestrate calls to ports (HTTP, Git, filesystem) and domain logic.
 
 ## Domain groups
 
 Workflows are organized into domain groups:
 
 - **course** — list, load, save, delete courses
-- **settings** — load application settings sections and save credentials or preferences independently
+- **settings** — load application settings sections and save credentials or preferences
+  independently
 - **connection** — verify LMS, Git, and LLM connection drafts; list LMS courses
 - **roster** — import rosters from file or LMS, export members
 - **groupSet** — fetch, connect, sync, preview import, and export group sets
@@ -86,7 +101,9 @@ Workflows are organized into domain groups:
 - **analysis** — run log analysis, blame files, discover repositories, and browse folder files
 - **examination** — generate/lookup examination questions and import/export the examination archive
 
-Not all workflows are available on all surfaces. The [workflow catalog](/repo-edu/development/workflow-catalog/) declares which surfaces support each workflow.
+Not all workflows are available on all surfaces. The
+[workflow catalog](/repo-edu/development/workflow-catalog/) declares which surfaces support each
+workflow.
 
 ## Where to look
 

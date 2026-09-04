@@ -3,7 +3,8 @@ title: Installation
 description: Download and install the repo-edu desktop app or CLI
 ---
 
-repo-edu ships as a desktop app and a command-line tool (`redu`). Both are pre-built, so installing needs nothing else on your machine.
+repo-edu ships as a desktop app and a command-line tool (`redu`). Both are pre-built, so installing
+needs nothing else on your machine.
 
 ## Desktop app
 
@@ -21,11 +22,16 @@ Each link resolves to the matching installer in the latest release.
 
 ### macOS
 
-Open the downloaded `.dmg` and drag **RepoEdu** into Applications. The app is signed and notarized, so it launches without a Gatekeeper override. Builds are Apple Silicon only; Intel Macs are not supported.
+Open the downloaded `.dmg` and drag **RepoEdu** into Applications. The app is signed and notarized,
+so it launches without a Gatekeeper override. Builds are Apple Silicon only; Intel Macs are not
+supported.
 
 ### Windows
 
-Run the downloaded `.exe`. The installers are unsigned, so the first launch shows a SmartScreen prompt. Choose **More info**, then **Run anyway**. Later updates install through the app and do not show the prompt. See [Windows Distribution](/repo-edu/development/windows-distribution/) for why the installers are unsigned.
+Run the downloaded `.exe`. The installers are unsigned, so the first launch shows a SmartScreen
+prompt. Choose **More info**, then **Run anyway**. Later updates install through the app and do not
+show the prompt. See [Windows Distribution](/repo-edu/development/windows-distribution/) for why the
+installers are unsigned.
 
 ### Linux
 
@@ -35,17 +41,21 @@ Install the downloaded package:
 sudo apt install ./RepoEdu-linux-amd64.deb
 ```
 
-The desktop app supports the Debian family only (Debian, Ubuntu, Mint and derivatives). Fedora, RHEL, openSUSE and Arch are not supported desktop targets. See [Linux Packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
+The desktop app supports the Debian family only (Debian, Ubuntu, Mint and derivatives). Fedora,
+RHEL, openSUSE and Arch are not supported desktop targets. See
+[Linux Packaging](/repo-edu/development/linux-packaging/) for why the app ships as a deb.
 
 ## CLI (`redu`)
 
-The CLI is distributed for macOS and Linux. The install script detects your platform, verifies the download checksum, and installs the binary onto your PATH:
+The CLI is distributed for macOS and Linux. The install script detects your platform, verifies the
+download checksum, and installs the binary onto your PATH:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/repo-edu/repo-edu/main/scripts/install-cli.sh | sh
 ```
 
-Override the install directory with `REDU_INSTALL_DIR` or pin a version with `REDU_VERSION`. See [CLI Installation](/repo-edu/cli/installation/) for details.
+Override the install directory with `REDU_INSTALL_DIR` or pin a version with `REDU_VERSION`. See
+[CLI Installation](/repo-edu/cli/installation/) for details.
 
 If you would rather not run the script, download a binary directly:
 
@@ -66,12 +76,16 @@ The CLI is not distributed for Windows; use the desktop app there.
 
 ## Next steps
 
-Once installed, the [Quick Start](/repo-edu/getting-started/quick-start/) walks through first use of the desktop app and the CLI.
+Once installed, the [Quick Start](/repo-edu/getting-started/quick-start/) walks through first use of
+the desktop app and the CLI.
 
 ## Install from source
 
-Building or contributing to repo-edu is covered in the [Building](/repo-edu/development/building/) guide.
+Building or contributing to repo-edu is covered in the [Building](/repo-edu/development/building/)
+guide.
 
 ## Data directory
 
-The CLI and desktop app share the platform app-data root on supported CLI platforms: macOS `~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The Windows desktop app stores data under `%APPDATA%\repo-edu`.
+The CLI and desktop app share the platform app-data root on supported CLI platforms: macOS
+`~/Library/Application Support/repo-edu` and Linux `${XDG_CONFIG_HOME:-~/.config}/repo-edu`. The
+Windows desktop app stores data under `%APPDATA%\repo-edu`.

@@ -23,7 +23,8 @@ Run the CLI in Node development with
 - `src/workflow-runtime.ts`: builds the in-process `WorkflowClient` from
   `@repo-edu/application` and routes Git through the host's child-process
   lifetime controller
-- `src/state-store.ts`: filesystem-backed course store plus settings credentials/preferences section stores
+- `src/state-store.ts`: filesystem-backed course store plus settings credentials/preferences section
+  stores
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).
 
@@ -74,4 +75,5 @@ or unsupported composite settings file is backed aside.
   from their caller. Neither may build one of its own, because a composition
   that did would own process trees no caller can stop and confirm.
 - Keep help/golden outputs stable unless command UX changes intentionally.
-- See [CLI-GUI Parity](../docs/src/content/docs/development/cli-gui-parity.md) for the decision rule on which workflows belong in CLI vs GUI.
+- See [CLI-GUI Parity](../docs/src/content/docs/development/cli-gui-parity.md) for the decision rule
+  on which workflows belong in CLI vs GUI.

@@ -2,7 +2,8 @@
 
 This is the Electron desktop shell (`@repo-edu/desktop`).
 
-Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @repo-edu/desktop run validate:runtime`
+Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
+`pnpm --filter @repo-edu/desktop run validate:runtime`
 
 ## Structure
 
@@ -14,7 +15,11 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   every outcome except confirmation-expiry unknown until the full tree is
   confirmed gone. On Windows the main process supplies the packaged or
   development launcher entry.
-- `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set, git-username import, roster, validation, settings, and user-file workflows.
+- `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis
+  (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination
+  generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers
+  (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set,
+  git-username import, roster, validation, settings, and user-file workflows.
 - `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
@@ -30,10 +35,13 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`, `pnpm --filter @
   the bundled `codex-sdk-host.js` entry in Node mode through the shared
   child-process lifetime controller.
 - `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
-- `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus `settings/credentials.json` and `settings/preferences.json`)
-- `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions are shell state and are not part of app preferences.
+- `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus
+  `settings/credentials.json` and `settings/preferences.json`)
+- `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions
+  are shell state and are not part of app preferences.
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
-- `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side dialog
+- `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side
+  dialog
 - `packages/host-node/resources/host-child-lifetime/windows-launcher.cjs`:
   shared launcher source copied beside the development main bundle and into
   the packaged Windows resources
