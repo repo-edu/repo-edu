@@ -25,26 +25,28 @@ personal one.
 
 ## Part 1: `pnpm leak-scan` on every commit
 
-One command runs both scans and exits `1` on any hit:
+Three commands share two scans, a credential scan by Betterleaks and an email scan, and each runs
+both over its own scope:
 
-```bash
-pnpm leak-scan
-```
+| Command              | Scope                 | Credentials              | Emails                | Exit on a hit |
+| -------------------- | --------------------- | ------------------------ | --------------------- | ------------- |
+| `pnpm leak-scan`     | the staged commit     | the staged diff          | the whole staged tree | 1, the gate   |
+| `pnpm leak-scan:all` | the whole staged tree | the exported staged tree | the whole staged tree | 1             |
+| `pnpm leak-scan:git` | every commit          | the history              | every added line      | 0, a report   |
 
-A git pre-commit hook runs it on every commit from every client: the shell, GitKraken and any
-editor. A hit stops the commit: fix the file, stage it, commit again. Do not skip the hook, with
-`git commit -n`, `HUSKY=0` or GitKraken's skip-hooks option: a hit that is judged by eye is a hit
-nobody checked. The command prints each hit as file, line and text.
+The scripts live under `scripts/`, one per command, beside the other root shell scripts, and
+`scripts/leak-scan-patterns.sh` holds the email pattern and its allow list once for all three.
 
-The script lives at `scripts/leak-scan.sh`, beside the other root shell scripts, and the root
-`package.json` names it as `leak-scan`.
+A git pre-commit hook runs `pnpm leak-scan` on every commit from every client: the shell, GitKraken
+and any editor. A hit stops the commit: fix the file, stage it, commit again. Do not skip the hook,
+with `git commit -n`, `HUSKY=0` or GitKraken's skip-hooks option: a hit that is judged by eye is a
+hit nobody checked. Each scan prints each hit as file, line and text.
 
-The first scan is Betterleaks over the staged changes, with its default rule set. The second scan
-reads the staged copy of every tracked file, through `git grep --cached`, and prints every email
-address that is not on the allow list. It reads the whole tree rather than the touched files, so
-the tree stays clean on every commit and the one-time setup below runs the same command instead of
-a second copy of the pattern. `git grep` always prints the file path, so the two path allowances
-below match on it. The allow list is:
+The credential scan of the hook is Betterleaks over the staged changes, with its default rule set.
+The email scan reads the staged copy of every tracked file, through `git grep --cached`, and
+prints every email address that is not on the allow list. It reads the whole tree rather than the
+touched files, so the tree stays clean on every commit. `git grep` always prints the file path, so
+the two path allowances below match on it. The allow list is:
 
 - The author and the project mailbox `opensource@repo-edu.dev`.
 - The reserved fixture domains from the section above, `.local` included because the Gitea and
@@ -60,6 +62,13 @@ below match on it. The allow list is:
 
 The allow list grows only for a line that is not a person and cannot be rewritten. A placeholder
 or a fixture is rewritten instead.
+
+`leak-scan:all` exports the staged tree with `git archive` into a temporary folder and scans that
+folder, because Betterleaks has no tracked-tree mode of its own: `dir` walks the file system,
+`.gitignore` unread, and `git` reads commit diffs. Passing the tracked files one by one is slow,
+because each command-line path is a scan source of its own; one exported folder scans in well
+under a second. `leak-scan:git` prefixes every added line in `git log -p` with its file path, so
+the same allow list applies, and reports each address with the number of lines it was added on.
 
 ### The scanner
 
@@ -129,19 +138,8 @@ On each development machine, in this order. Developer tools run on macOS and Lin
    export PATH="/opt/homebrew/bin:$HOME/Library/pnpm:$PATH"
    ```
 
-Then scan the whole tree once, because the credential scan of the hook only sees the changes a
-commit stages:
-
-```bash
-pnpm leak-scan:all
-pnpm leak-scan
-```
-
-`leak-scan:all` runs `scripts/leak-scan-all.sh`, which exports the tracked tree at `HEAD` with
-`git archive` into a temporary folder and scans that folder. Betterleaks has no tracked-tree mode of
-its own: `dir` walks the file system, `.gitignore` unread, and `git` reads commit diffs. Passing the
-tracked files one by one is slow, because each command-line path is a scan source of its own; one
-exported folder scans in well under a second.
+Then run `pnpm leak-scan:all` once, because the credential scan of the hook only sees the changes
+a commit stages.
 
 ## Part 2: push protection on GitHub
 
@@ -162,9 +160,9 @@ rest on part 1 and on the person writing the commit.
 
 ## What this file does not do
 
-- It does not clean history. `pnpm leak-scan:git` scans every commit and reports without failing,
-  because a secret it finds there was pushed and is public: revoke or rotate it first, then remove
-  it from the tree.
+- It does not clean history. `pnpm leak-scan:git` reports what every commit added without failing,
+  because a secret or address it finds there was pushed and is public: revoke or rotate a secret
+  first, then remove it from the tree.
 - It does not scan the released app or the CI logs. Those are separate surfaces.
 - It does not replace the examination privacy filter in
   `packages/application/src/examination-workflows/privacy-policy`, which guards data sent to a
