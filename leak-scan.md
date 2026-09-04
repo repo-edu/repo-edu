@@ -162,8 +162,8 @@ rest on part 1 and on the person writing the commit.
 
 ## What this file does not do
 
-- It does not clean history. A secret that was pushed is public: revoke or rotate it first, then
-  remove it from the tree.
+- It does not clean history. `pnpm leak-scan:git` scans every commit, but a secret it finds there
+  was pushed and is public: revoke or rotate it first, then remove it from the tree.
 - It does not scan the released app or the CI logs. Those are separate surfaces.
 - It does not replace the examination privacy filter in
   `packages/application/src/examination-workflows/privacy-policy`, which guards data sent to a
