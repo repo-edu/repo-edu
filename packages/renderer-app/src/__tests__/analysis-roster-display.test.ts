@@ -12,7 +12,7 @@ function makeMatch(confidence: IdentityMatch["confidence"]): IdentityMatch {
   return {
     personId: "p_0001",
     canonicalName: "Ada Lovelace",
-    canonicalEmail: "ada@example.edu",
+    canonicalEmail: "ada@example.com",
     memberId: "m_0001",
     memberName: "Ada M. Lovelace",
     confidence,

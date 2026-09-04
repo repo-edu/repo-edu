@@ -32,7 +32,7 @@ describe("validatePersistedAppSettings", () => {
           provider: "canvas",
           baseUrl: "https://canvas.example.com",
           token: "tok_canvas",
-          userAgent: "Name / Organization / email@example.edu",
+          userAgent: "Name / Organization / email@example.com",
         },
       ],
       gitConnections: [
@@ -41,7 +41,7 @@ describe("validatePersistedAppSettings", () => {
           provider: "github",
           baseUrl: "https://github.com",
           token: "ghp_abc",
-          userAgent: "Name / Organization / email@example.edu",
+          userAgent: "Name / Organization / email@example.com",
         },
       ],
     }
@@ -51,7 +51,7 @@ describe("validatePersistedAppSettings", () => {
 
   it("roundtrips the userAgent field on both persisted connection schemas", () => {
     for (const userAgent of [
-      "Name / Organization / email@example.edu",
+      "Name / Organization / email@example.com",
       "",
       "   ",
     ]) {

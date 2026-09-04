@@ -10,8 +10,8 @@ describe("mergePersonIdentities", () => {
 
   it("creates one person per unique identity", () => {
     const result = mergePersonIdentities([
-      { name: "Alice", email: "alice@test.com" },
-      { name: "Bob", email: "bob@test.com" },
+      { name: "Alice", email: "alice@example.com" },
+      { name: "Bob", email: "bob@example.com" },
     ])
     assert.equal(result.persons.length, 2)
     assert.equal(result.persons[0].canonicalName, "Alice")
@@ -20,8 +20,8 @@ describe("mergePersonIdentities", () => {
 
   it("merges identities sharing normalized email", () => {
     const result = mergePersonIdentities([
-      { name: "Alice Smith", email: "alice@test.com" },
-      { name: "A. Smith", email: "ALICE@TEST.COM" },
+      { name: "Alice Smith", email: "alice@example.com" },
+      { name: "A. Smith", email: "ALICE@EXAMPLE.COM" },
     ])
     assert.equal(result.persons.length, 1)
     assert.equal(result.persons[0].aliases.length, 1)
@@ -30,8 +30,8 @@ describe("mergePersonIdentities", () => {
 
   it("merges identities sharing normalized name (different email)", () => {
     const result = mergePersonIdentities([
-      { name: "Alice Smith", email: "alice@personal.com" },
-      { name: "alice smith", email: "alice@work.com" },
+      { name: "Alice Smith", email: "alice@personal.example.com" },
+      { name: "alice smith", email: "alice@work.example.com" },
     ])
     assert.equal(result.persons.length, 1)
     assert.equal(result.persons[0].aliases.length, 1)
@@ -40,9 +40,9 @@ describe("mergePersonIdentities", () => {
 
   it("merges same normalized name + different email + empty roster", () => {
     const result = mergePersonIdentities([
-      { name: "John Doe", email: "john@personal.com" },
-      { name: "john  doe", email: "jdoe@work.com" },
-      { name: "Jane Doe", email: "jane@test.com" },
+      { name: "John Doe", email: "john@personal.example.com" },
+      { name: "john  doe", email: "jdoe@work.example.com" },
+      { name: "Jane Doe", email: "jane@example.com" },
     ])
     assert.equal(result.persons.length, 2)
     const john = result.persons.find(
@@ -54,13 +54,13 @@ describe("mergePersonIdentities", () => {
 
   it("selects canonical by commit count", () => {
     const counts = new Map<string, number>()
-    counts.set("alice@test.com\0alice", 5)
-    counts.set("alice@test.com\0alice smith", 10)
+    counts.set("alice@example.com\0alice", 5)
+    counts.set("alice@example.com\0alice smith", 10)
 
     const result = mergePersonIdentities(
       [
-        { name: "Alice", email: "alice@test.com" },
-        { name: "Alice Smith", email: "alice@test.com" },
+        { name: "Alice", email: "alice@example.com" },
+        { name: "Alice Smith", email: "alice@example.com" },
       ],
       counts,
     )
@@ -70,25 +70,25 @@ describe("mergePersonIdentities", () => {
 
   it("breaks commit count tie by lexicographic email", () => {
     const counts = new Map<string, number>()
-    counts.set("b@test.com\0alice", 5)
-    counts.set("a@test.com\0alice", 5)
+    counts.set("b@example.com\0alice", 5)
+    counts.set("a@example.com\0alice", 5)
 
     const result = mergePersonIdentities(
       [
-        { name: "Alice", email: "b@test.com" },
-        { name: "Alice", email: "a@test.com" },
+        { name: "Alice", email: "b@example.com" },
+        { name: "Alice", email: "a@example.com" },
       ],
       counts,
     )
     assert.equal(result.persons.length, 1)
-    assert.equal(result.persons[0].canonicalEmail, "a@test.com")
+    assert.equal(result.persons[0].canonicalEmail, "a@example.com")
   })
 
   it("assigns deterministic person IDs", () => {
     const result = mergePersonIdentities([
-      { name: "Alice", email: "alice@test.com" },
-      { name: "Bob", email: "bob@test.com" },
-      { name: "Charlie", email: "charlie@test.com" },
+      { name: "Alice", email: "alice@example.com" },
+      { name: "Bob", email: "bob@example.com" },
+      { name: "Charlie", email: "charlie@example.com" },
     ])
     assert.equal(result.persons[0].id, "p_0000")
     assert.equal(result.persons[1].id, "p_0001")
@@ -97,18 +97,18 @@ describe("mergePersonIdentities", () => {
 
   it("handles transitive merge through shared email and name", () => {
     const result = mergePersonIdentities([
-      { name: "Alice", email: "alice@personal.com" },
-      { name: "Alice", email: "alice@work.com" },
-      { name: "Bob", email: "alice@work.com" },
+      { name: "Alice", email: "alice@personal.example.com" },
+      { name: "Alice", email: "alice@work.example.com" },
+      { name: "Bob", email: "alice@work.example.com" },
     ])
     assert.equal(result.persons.length, 1)
   })
 
   it("preserves all aliases after merge", () => {
     const result = mergePersonIdentities([
-      { name: "Alice Smith", email: "alice@test.com" },
-      { name: "A Smith", email: "alice@test.com" },
-      { name: "Alice S", email: "alice@test.com" },
+      { name: "Alice Smith", email: "alice@example.com" },
+      { name: "A Smith", email: "alice@example.com" },
+      { name: "Alice S", email: "alice@example.com" },
     ])
     assert.equal(result.persons.length, 1)
     assert.equal(result.persons[0].aliases.length, 2)

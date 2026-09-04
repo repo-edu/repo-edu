@@ -332,7 +332,7 @@ describe("CLI workflow-backed behaviors", () => {
           provider: "github",
           baseUrl: "https://github.com",
           token: "token-1",
-          userAgent: "Name / Organization / email@example.edu",
+          userAgent: "Name / Organization / email@example.com",
         },
       ],
     }
@@ -356,7 +356,7 @@ describe("CLI workflow-backed behaviors", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
   })
 

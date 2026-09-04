@@ -40,7 +40,7 @@ function makeProfile(courseId = "course-1"): PersistedCourse {
         {
           id: "s-1",
           name: "Ada Lovelace",
-          email: "ada@example.edu",
+          email: "ada@example.com",
           studentNumber: "1001",
           gitUsername: "ada",
           gitUsernameStatus: "valid",
@@ -75,7 +75,7 @@ function makeStudent(id: string, name: string): RosterMember {
   return {
     id,
     name,
-    email: `${id}@example.edu`,
+    email: `${id}@example.com`,
     studentNumber: null,
     gitUsername: null,
     gitUsernameStatus: "unknown",

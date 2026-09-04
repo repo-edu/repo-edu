@@ -31,8 +31,7 @@ describe("github repositories", () => {
       assert.deepStrictEqual(result.created[0], {
         repositoryName: "repo-1",
         repositoryUrl: "https://github.com/test-org/repo-1",
-        cloneUrl:
-          "https://x-access-token:ghp_test_token@github.com/test-org/repo-1.git",
+        cloneUrl: "https://x-access-token:token@github.com/test-org/repo-1.git",
       })
       assert.deepStrictEqual(result.alreadyExisted, [])
       assert.deepStrictEqual(result.failed, [])
@@ -130,7 +129,7 @@ describe("github repositories", () => {
           repositoryName: "repo-1",
           repositoryUrl: "https://github.com/test-org/repo-1",
           cloneUrl:
-            "https://x-access-token:ghp_test_token@github.com/test-org/repo-1.git",
+            "https://x-access-token:token@github.com/test-org/repo-1.git",
         },
       ])
       assert.deepStrictEqual(result.failed, [])
@@ -163,9 +162,7 @@ describe("github repositories", () => {
       assert.deepStrictEqual(result.missing, ["repo-missing"])
       assert.equal(result.resolved.length, 1)
       assert.equal(result.resolved[0]?.repositoryName, "repo-1")
-      assert.ok(
-        result.resolved[0]?.cloneUrl.includes("x-access-token:ghp_test_token"),
-      )
+      assert.ok(result.resolved[0]?.cloneUrl.includes("x-access-token:token@"))
     })
   })
 })

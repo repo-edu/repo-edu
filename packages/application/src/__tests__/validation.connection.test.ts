@@ -35,7 +35,7 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
     assert.equal(lmsResult.verified, true)
     assertValidTimestamp(lmsResult.checkedAt)
@@ -43,14 +43,14 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
 
     const courseResult = await handlers["connection.listLmsCoursesDraft"]({
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
     assert.deepStrictEqual(courseResult, [
       { id: "course-1", name: "Course One", code: "C1" },
@@ -60,14 +60,14 @@ describe("application connection verification workflow helpers", () => {
       provider: "canvas",
       baseUrl: "https://canvas.example.edu",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
 
     const gitResult = await handlers["connection.verifyGitDraft"]({
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-2",
-      userAgent: "  Name / Organization / email@example.edu  ",
+      userAgent: "  Name / Organization / email@example.com  ",
     })
     assert.equal(gitResult.verified, false)
     assertValidTimestamp(gitResult.checkedAt)
@@ -75,7 +75,7 @@ describe("application connection verification workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-2",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
   })
 

@@ -560,10 +560,10 @@ describe("analysis.run handler", () => {
         exitCode: 0,
         stdout: [
           `${COMMIT_DELIMITER}`,
-          "\0sha1111\x001700000000\0Alice\0alice@school.edu\0first",
+          "\0sha1111\x001700000000\0Alice\0alice@school.example.com\0first",
           "\0" + "5\t0\0src/main.ts\0",
           `${COMMIT_DELIMITER}`,
-          "\0sha2222\x001700000100\0Alice\0alice@work.edu\0second",
+          "\0sha2222\x001700000100\0Alice\0alice@work.example.com\0second",
           "\0" + "4\t0\0src/main.ts\0",
           `${COMMIT_DELIMITER}`,
           "\0sha3333\x001700000200\0Bob\0bob@example.com\0third",

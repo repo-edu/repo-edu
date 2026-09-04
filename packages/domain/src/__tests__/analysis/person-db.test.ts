@@ -10,17 +10,17 @@ import type { BlameLine, GitAuthorIdentity } from "../../analysis/types.js"
 
 function makeIdentities(): GitAuthorIdentity[] {
   return [
-    { name: "Alice Smith", email: "alice@test.com" },
-    { name: "Bob Jones", email: "bob@test.com" },
-    { name: "A. Smith", email: "alice@test.com" },
+    { name: "Alice Smith", email: "alice@example.com" },
+    { name: "Bob Jones", email: "bob@example.com" },
+    { name: "A. Smith", email: "alice@example.com" },
   ]
 }
 
 function makeCommitCounts(): Map<string, number> {
   const counts = new Map<string, number>()
-  counts.set("alice@test.com\0alice smith", 10)
-  counts.set("bob@test.com\0bob jones", 5)
-  counts.set("alice@test.com\0a. smith", 3)
+  counts.set("alice@example.com\0alice smith", 10)
+  counts.set("bob@example.com\0bob jones", 5)
+  counts.set("alice@example.com\0a. smith", 3)
   return counts
 }
 
@@ -32,8 +32,8 @@ describe("createPersonDbFromLog", () => {
 
   it("builds identity index for canonical and aliases", () => {
     const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
-    const aliceKey = "alice@test.com\0alice smith"
-    const aliasKey = "alice@test.com\0a. smith"
+    const aliceKey = "alice@example.com\0alice smith"
+    const aliasKey = "alice@example.com\0a. smith"
     assert.ok(snapshot.identityIndex.has(aliceKey))
     assert.ok(snapshot.identityIndex.has(aliasKey))
     assert.equal(
@@ -52,21 +52,21 @@ describe("createPersonDbFromLog", () => {
 describe("lookupPerson", () => {
   it("finds person by canonical identity", () => {
     const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
-    const person = lookupPerson(snapshot, "Alice Smith", "alice@test.com")
+    const person = lookupPerson(snapshot, "Alice Smith", "alice@example.com")
     assert.ok(person)
     assert.equal(person.canonicalName, "Alice Smith")
   })
 
   it("finds person by alias identity", () => {
     const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
-    const person = lookupPerson(snapshot, "A. Smith", "alice@test.com")
+    const person = lookupPerson(snapshot, "A. Smith", "alice@example.com")
     assert.ok(person)
     assert.equal(person.canonicalName, "Alice Smith")
   })
 
   it("returns undefined for unknown identity", () => {
     const snapshot = createPersonDbFromLog(makeIdentities(), makeCommitCounts())
-    const person = lookupPerson(snapshot, "Unknown", "unknown@test.com")
+    const person = lookupPerson(snapshot, "Unknown", "unknown@example.com")
     assert.equal(person, undefined)
   })
 })
@@ -78,7 +78,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "abc123",
         authorName: "Alice S.",
-        authorEmail: "alice@test.com",
+        authorEmail: "alice@example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -98,7 +98,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "abc123",
         authorName: "Alice Smith",
-        authorEmail: "alice-new@other.com",
+        authorEmail: "alice-new@other.example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -107,7 +107,7 @@ describe("applyBlameToPersonDb", () => {
     ]
     const { delta } = applyBlameToPersonDb(snapshot, blameLines)
     assert.equal(delta.newAliases.length, 1)
-    assert.equal(delta.newAliases[0].alias.email, "alice-new@other.com")
+    assert.equal(delta.newAliases[0].alias.email, "alice-new@other.example.com")
     assert.equal(delta.newAliases[0].alias.evidence, "name-only")
   })
 
@@ -117,7 +117,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "abc123",
         authorName: "Alice   Smith",
-        authorEmail: "alice-personal@other.com",
+        authorEmail: "alice-personal@other.example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -126,7 +126,10 @@ describe("applyBlameToPersonDb", () => {
     ]
     const { delta } = applyBlameToPersonDb(snapshot, blameLines)
     assert.equal(delta.newAliases.length, 1)
-    assert.equal(delta.newAliases[0].alias.email, "alice-personal@other.com")
+    assert.equal(
+      delta.newAliases[0].alias.email,
+      "alice-personal@other.example.com",
+    )
     assert.equal(delta.newAliases[0].alias.evidence, "name-only")
   })
 
@@ -136,7 +139,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "def456",
         authorName: "Charlie",
-        authorEmail: "charlie@test.com",
+        authorEmail: "charlie@example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -158,7 +161,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "abc123",
         authorName: "Alice Smith",
-        authorEmail: "alice@test.com",
+        authorEmail: "alice@example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -183,7 +186,7 @@ describe("applyBlameToPersonDb", () => {
       {
         sha: "def456",
         authorName: "Charlie",
-        authorEmail: "charlie@test.com",
+        authorEmail: "charlie@example.com",
         timestamp: 1700000000,
         lineNumber: 1,
         content: "code",
@@ -202,7 +205,7 @@ describe("clonePersonDbSnapshot", () => {
     clone.persons.push({
       id: "p_9999",
       canonicalName: "Test",
-      canonicalEmail: "test@test.com",
+      canonicalEmail: "test@example.com",
       aliases: [],
       commitCount: 0,
     })

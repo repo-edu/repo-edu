@@ -26,7 +26,7 @@ function makeRoster(): Roster {
       {
         id: "s-2",
         name: "Grace",
-        email: "grace@example.edu",
+        email: "grace@example.com",
         studentNumber: "1002",
         gitUsername: null,
         gitUsernameStatus: "unknown",

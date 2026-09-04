@@ -247,12 +247,12 @@ describe("validateAnalysisBlameConfig", () => {
   it("shares excludeAuthors/excludeEmails normalization with AnalysisConfig", () => {
     const result = validateAnalysisBlameConfig({
       excludeAuthors: ["  Alice  ", "Bob", "Alice"],
-      excludeEmails: [" alice@test.com ", "alice@test.com"],
+      excludeEmails: [" alice@example.com ", "alice@example.com"],
     })
     assert.equal(result.ok, true)
     if (!result.ok) return
     assert.deepStrictEqual(result.value.excludeAuthors, ["Alice", "Bob"])
-    assert.deepStrictEqual(result.value.excludeEmails, ["alice@test.com"])
+    assert.deepStrictEqual(result.value.excludeEmails, ["alice@example.com"])
   })
 })
 

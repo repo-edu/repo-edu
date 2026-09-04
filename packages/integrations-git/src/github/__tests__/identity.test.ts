@@ -81,12 +81,12 @@ describe("github identity", () => {
       const client = createGitHubClient(http)
       await client.verifyConnection({
         ...baseDraft,
-        userAgent: "Name / Organization / email@example.edu",
+        userAgent: "Name / Organization / email@example.com",
       })
 
       const userAgent = findUserAgent(capturedHeaders)
       assert.ok(
-        userAgent?.startsWith("Name / Organization / email@example.edu"),
+        userAgent?.startsWith("Name / Organization / email@example.com"),
         `expected user-agent to start with the configured value, got: ${userAgent}`,
       )
     })

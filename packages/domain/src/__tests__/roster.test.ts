@@ -476,7 +476,7 @@ describe("mergeRosterFromLms", () => {
         makeMember({
           id: "42",
           lmsUserId: "42",
-          email: "a@b.com",
+          email: "a@b.example.com",
           status: "dropped",
           lmsStatus: "dropped",
           source: "canvas",

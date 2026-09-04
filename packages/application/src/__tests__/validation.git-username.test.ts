@@ -24,7 +24,7 @@ describe("application git username workflow helpers", () => {
             provider: "github",
             baseUrl: "https://github.com",
             token: "token-1",
-            userAgent: "  Name / Organization / email@example.edu  ",
+            userAgent: "  Name / Organization / email@example.com  ",
           },
         ]
         settings.activeGitConnectionId = "main-git"
@@ -77,7 +77,7 @@ describe("application git username workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
     assert.deepStrictEqual(receivedUsernames, ["ada-l"])
     assert.equal(roster.students[0]?.gitUsername, "ada-l")

@@ -90,21 +90,21 @@ describe("analysis view models", () => {
         {
           personId: "p_0000",
           canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
+          canonicalEmail: "alice@uni.example.com",
           lines: 40,
           linesPercent: 50,
         },
         {
           personId: "p_0000",
           canonicalName: "Alice Smith",
-          canonicalEmail: "alice@work.edu",
+          canonicalEmail: "alice@work.example.com",
           lines: 20,
           linesPercent: 25,
         },
         {
           personId: "p_0001",
           canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
+          canonicalEmail: "bob@uni.example.com",
           lines: 20,
           linesPercent: 25,
         },
@@ -132,21 +132,21 @@ describe("analysis view models", () => {
         {
           personId: "p_0000",
           canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
+          canonicalEmail: "alice@uni.example.com",
           lines: 60,
           linesPercent: 60,
         },
         {
           personId: "p_0001",
           canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
+          canonicalEmail: "bob@uni.example.com",
           lines: 20,
           linesPercent: 20,
         },
         {
           personId: "p_0002",
           canonicalName: "Carol",
-          canonicalEmail: "carol@uni.edu",
+          canonicalEmail: "carol@uni.example.com",
           lines: 20,
           linesPercent: 20,
         },
@@ -169,7 +169,7 @@ describe("analysis view models", () => {
             {
               sha: "sha-carol",
               authorName: "Carol",
-              authorEmail: "carol@uni.edu",
+              authorEmail: "carol@uni.example.com",
               timestamp: 1_700_000_030,
               lineNumber: 3,
               content: "export const carol = true",
@@ -183,13 +183,16 @@ describe("analysis view models", () => {
           {
             id: "p_0002",
             canonicalName: "Carol",
-            canonicalEmail: "carol@uni.edu",
+            canonicalEmail: "carol@uni.example.com",
             aliases: [],
             commitCount: 0,
           },
         ],
         identityIndex: new Map([
-          [buildPersonDbIdentityKey("Carol", "carol@uni.edu"), "p_0002"],
+          [
+            buildPersonDbIdentityKey("Carol", "carol@uni.example.com"),
+            "p_0002",
+          ],
         ]),
       },
     }
@@ -289,7 +292,7 @@ describe("analysis view models", () => {
         {
           personId: "p_0000",
           canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
+          canonicalEmail: "alice@uni.example.com",
           memberId: "m_001",
           memberName: "Alice Smith",
           confidence: "exact-email",
@@ -319,7 +322,7 @@ describe("analysis view models", () => {
       aliases: [
         {
           name: "Alice Smith",
-          email: "alice.smith@uni.edu",
+          email: "alice.smith@uni.example.com",
           evidence: "email-link",
         },
       ],
@@ -332,7 +335,7 @@ describe("analysis view models", () => {
     assert.equal(display.get("p_0000")?.name, "Alice | Alice Smith")
     assert.equal(
       display.get("p_0000")?.email,
-      "alice@uni.edu | alice.smith@uni.edu",
+      "alice@uni.example.com | alice.smith@uni.example.com",
     )
   })
 })

@@ -92,12 +92,12 @@ describe("createMoodleClient", () => {
     const client = createMoodleClient(http)
     await client.verifyConnection({
       ...baseDraft,
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
 
     assert.equal(
       capturedHeaders?.["User-Agent"],
-      "Name / Organization / email@example.edu",
+      "Name / Organization / email@example.com",
     )
   })
 

@@ -10,7 +10,7 @@ export function makeBaseResult(): AnalysisResult {
       {
         personId: "p_0000",
         canonicalName: "Alice",
-        canonicalEmail: "alice@uni.edu",
+        canonicalEmail: "alice@uni.example.com",
         commits: 10,
         insertions: 100,
         deletions: 20,
@@ -23,7 +23,7 @@ export function makeBaseResult(): AnalysisResult {
       {
         personId: "p_0001",
         canonicalName: "Bob",
-        canonicalEmail: "bob@uni.edu",
+        canonicalEmail: "bob@uni.example.com",
         commits: 5,
         insertions: 50,
         deletions: 10,
@@ -41,14 +41,14 @@ export function makeBaseResult(): AnalysisResult {
         {
           id: "p_0000",
           canonicalName: "Alice",
-          canonicalEmail: "alice@uni.edu",
+          canonicalEmail: "alice@uni.example.com",
           aliases: [],
           commitCount: 10,
         },
         {
           id: "p_0001",
           canonicalName: "Bob",
-          canonicalEmail: "bob@uni.edu",
+          canonicalEmail: "bob@uni.example.com",
           aliases: [],
           commitCount: 5,
         },
@@ -102,14 +102,14 @@ export function makeBlameResult(): BlameResult {
       {
         personId: "p_0000",
         canonicalName: "Alice",
-        canonicalEmail: "alice@uni.edu",
+        canonicalEmail: "alice@uni.example.com",
         lines: 60,
         linesPercent: 75,
       },
       {
         personId: "p_0001",
         canonicalName: "Bob",
-        canonicalEmail: "bob@uni.edu",
+        canonicalEmail: "bob@uni.example.com",
         lines: 20,
         linesPercent: 25,
       },

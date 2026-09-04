@@ -1,0 +1,21 @@
+# Betterleaks configuration for the pre-commit leak scan. The rules are in leak-scan.md.
+# Every allowance names one fixture by its exact text, never by path.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+regexTarget = "match"
+regexes = [
+  # The repository test harness clone URL, with an optional numbered token.
+  '''https://x-access-token:token(-[0-9]+)?@github\.com/''',
+  # The PEM block the examination privacy filter test must detect and redact.
+  '''-----BEGIN PRIVATE KEY-----", privateKeyBody\]\)''',
+  # The Gitea and GitLab integration harness accounts on the local Docker instances.
+  '''PASSWORD = "test-admin-pw"''',
+  '''password: "test-user-pw-00"''',
+  '''password: "S9mR4tK8qP2vX7nL5dH1cB6wF3zJ"''',
+  '''PASSWORD:-R7vK2pQ9mL4xT8nC5bH3jF6sD1wZ}''',
+  # The signing test value that must stay recognisable so its redaction can be asserted.
+  '''PASSWORD: "p12-password"''',
+]

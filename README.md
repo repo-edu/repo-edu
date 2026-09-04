@@ -65,11 +65,14 @@ Building from source needs Node.js 24+ and pnpm 10+.
 ```bash
 git clone https://github.com/repo-edu/repo-edu.git
 cd repo-edu
-pnpm install
+pnpm install         # also installs the pre-commit leak scan hook
 pnpm check           # fix + typecheck + build:types + check:fixtures + architecture checks
 # Optional full validation (includes tests):
 pnpm validate
 ```
+
+Every commit runs `pnpm leak-scan` through a git hook. Install the scanner once with
+`brew install betterleaks`; [leak-scan.md](leak-scan.md) has the rules and the rest of the setup.
 
 Run the desktop app:
 
@@ -102,6 +105,7 @@ pnpm docs:dev
 | `pnpm dev`       | Run desktop Electron app                                     |
 | `pnpm docs:dev`  | Run docs dev server                                          |
 | `pnpm file-sizes`| Tree-style line/file counts per subfolder                    |
+| `pnpm leak-scan` | Credential and email scan of the staged tree (pre-commit)    |
 
 ## Workspace Structure
 

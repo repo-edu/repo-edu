@@ -315,7 +315,7 @@ export function LmsConnectionsPane() {
                 userAgent: event.target.value,
               }))
             }
-            placeholder="Your Name / Organization / email@university.edu"
+            placeholder="Your Name / Organization / name@example.com"
             title="Identifies this application to the LMS API."
           />
         </FormField>

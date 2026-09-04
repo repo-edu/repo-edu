@@ -54,8 +54,10 @@
         "sweep": "tsx tools/sweep/src/main.ts",
         "file-sizes": "tsx tools/file-sizes/src/main.ts",
         "claude2assistants": "node scripts/claude2assistants.mjs",
+        "leak-scan": "sh ./scripts/leak-scan.sh",
         "pnpm:update": "pnpm self-update",
-        "deps:latest": "pnpm up -r --latest && pnpm dedupe"
+        "deps:latest": "pnpm up -r --latest && pnpm dedupe",
+        "prepare": "husky"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.9",
@@ -63,6 +65,7 @@
         "@types/node": "25.9.5",
         "bun": "^1.3.11",
         "globby": "^16.1.1",
+        "husky": "9.1.7",
         "rumdl": "0.2.55",
         "tsx": "^4.21.0",
         "typescript": "6.0.3"

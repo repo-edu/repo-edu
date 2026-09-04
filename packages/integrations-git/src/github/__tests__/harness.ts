@@ -8,7 +8,7 @@ import type { GitConnectionDraft } from "@repo-edu/integrations-git-contract"
 export const baseDraft: GitConnectionDraft = {
   provider: "github",
   baseUrl: "https://github.com",
-  token: "ghp_test_token",
+  token: "token",
 }
 
 type MockRoute = {

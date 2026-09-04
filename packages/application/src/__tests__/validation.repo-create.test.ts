@@ -254,7 +254,7 @@ describe("application repository create workflow helpers", () => {
           created: request.repositoryNames.map((repositoryName) => ({
             repositoryName,
             repositoryUrl: `https://github.com/repo-edu/${repositoryName}`,
-            cloneUrl: `https://created-token@github.com/repo-edu/${repositoryName}.git`,
+            cloneUrl: `https://x-access-token:token-1@github.com/repo-edu/${repositoryName}.git`,
           })),
           alreadyExisted: [],
           failed: [],
@@ -292,7 +292,7 @@ describe("application repository create workflow helpers", () => {
 
     assert.equal(resolutionCalls, 0)
     assert.equal(cloneUrls.length, result.repositoriesCreated)
-    assert.ok(cloneUrls.every((url) => url.includes("created-token")))
+    assert.ok(cloneUrls.every((url) => url.includes("x-access-token:token-1@")))
   })
 
   it("does not turn caller cancellation during team setup into a warning", async () => {
@@ -351,7 +351,7 @@ describe("application repository create workflow helpers", () => {
             provider: "github",
             baseUrl: "https://github.com",
             token: "token-1",
-            userAgent: "  Name / Organization / email@example.edu  ",
+            userAgent: "  Name / Organization / email@example.com  ",
           },
         ]
         settings.activeGitConnectionId = "main-git"
@@ -386,7 +386,7 @@ describe("application repository create workflow helpers", () => {
       provider: "github",
       baseUrl: "https://github.com",
       token: "token-1",
-      userAgent: "Name / Organization / email@example.edu",
+      userAgent: "Name / Organization / email@example.com",
     })
   })
 

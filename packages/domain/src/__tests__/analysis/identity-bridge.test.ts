@@ -31,14 +31,14 @@ function makeMember(
 function makePersonDb(): PersonDbSnapshot {
   return createPersonDbFromLog(
     [
-      { name: "Alice Smith", email: "alice@uni.edu" },
-      { name: "Bob Jones", email: "bob@uni.edu" },
-      { name: "Charlie Brown", email: "charlie@personal.com" },
+      { name: "Alice Smith", email: "alice@uni.example.com" },
+      { name: "Bob Jones", email: "bob@uni.example.com" },
+      { name: "Charlie Brown", email: "charlie@personal.example.com" },
     ],
     new Map([
-      ["alice@uni.edu\0alice smith", 10],
-      ["bob@uni.edu\0bob jones", 5],
-      ["charlie@personal.com\0charlie brown", 3],
+      ["alice@uni.example.com\0alice smith", 10],
+      ["bob@uni.example.com\0bob jones", 5],
+      ["charlie@personal.example.com\0charlie brown", 3],
     ]),
   )
 }
@@ -47,7 +47,11 @@ describe("bridgeAuthorsToRoster", () => {
   it("matches by exact email", () => {
     const personDb = makePersonDb()
     const members = [
-      makeMember({ id: "m_0001", name: "Alice S.", email: "alice@uni.edu" }),
+      makeMember({
+        id: "m_0001",
+        name: "Alice S.",
+        email: "alice@uni.example.com",
+      }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
     assert.equal(result.matches.length, 1)
@@ -61,7 +65,7 @@ describe("bridgeAuthorsToRoster", () => {
       makeMember({
         id: "m_0001",
         name: "Bob Jones",
-        email: "different@uni.edu",
+        email: "different@uni.example.com",
       }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
@@ -72,7 +76,11 @@ describe("bridgeAuthorsToRoster", () => {
   it("prefers exact email over fuzzy name", () => {
     const personDb = makePersonDb()
     const members = [
-      makeMember({ id: "m_0001", name: "Alice Smith", email: "alice@uni.edu" }),
+      makeMember({
+        id: "m_0001",
+        name: "Alice Smith",
+        email: "alice@uni.example.com",
+      }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
     assert.equal(result.matches[0].confidence, "exact-email")
@@ -81,11 +89,15 @@ describe("bridgeAuthorsToRoster", () => {
   it("reports unmatched persons and members", () => {
     const personDb = makePersonDb()
     const members = [
-      makeMember({ id: "m_0001", name: "Alice S.", email: "alice@uni.edu" }),
+      makeMember({
+        id: "m_0001",
+        name: "Alice S.",
+        email: "alice@uni.example.com",
+      }),
       makeMember({
         id: "m_0002",
         name: "Unknown Student",
-        email: "unknown@uni.edu",
+        email: "unknown@uni.example.com",
       }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
@@ -106,7 +118,11 @@ describe("bridgeAuthorsToRoster", () => {
   it("handles empty person DB", () => {
     const personDb: PersonDbSnapshot = { persons: [], identityIndex: new Map() }
     const members = [
-      makeMember({ id: "m_0001", name: "Alice", email: "alice@uni.edu" }),
+      makeMember({
+        id: "m_0001",
+        name: "Alice",
+        email: "alice@uni.example.com",
+      }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
     assert.equal(result.matches.length, 0)
@@ -119,7 +135,7 @@ describe("bridgeAuthorsToRoster", () => {
       makeMember({
         id: "m_0001",
         name: "alice  smith",
-        email: "different@uni.edu",
+        email: "different@uni.example.com",
       }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
@@ -130,13 +146,13 @@ describe("bridgeAuthorsToRoster", () => {
   it("does not match same member to multiple persons", () => {
     const personDb = createPersonDbFromLog(
       [
-        { name: "Alice", email: "alice@a.com" },
-        { name: "Alice", email: "alice@b.com" },
+        { name: "Alice", email: "alice@a.example.com" },
+        { name: "Alice", email: "alice@b.example.com" },
       ],
       new Map(),
     )
     const members = [
-      makeMember({ id: "m_0001", name: "Alice", email: "alice@a.com" }),
+      makeMember({ id: "m_0001", name: "Alice", email: "alice@a.example.com" }),
     ]
     const result = bridgeAuthorsToRoster(personDb, members)
     assert.equal(result.matches.length, 1)
