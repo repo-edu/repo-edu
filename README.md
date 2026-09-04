@@ -106,6 +106,7 @@ pnpm docs:dev
 | `pnpm docs:dev`  | Run docs dev server                                          |
 | `pnpm file-sizes`| Tree-style line/file counts per subfolder                    |
 | `pnpm leak-scan` | Credential and email scan of the staged tree (pre-commit)    |
+| `pnpm leak-scan:all` | Credential scan of every tracked file                    |
 
 ## Workspace Structure
 

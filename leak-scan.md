@@ -133,12 +133,14 @@ Then scan the whole tree once, because the credential scan of the hook only sees
 commit stages:
 
 ```bash
-betterleaks dir .
+pnpm leak-scan:all
 pnpm leak-scan
 ```
 
-`betterleaks dir .` also walks `node_modules` and the ignored build outputs, so read its report
-against `git ls-files` and act on the tracked hits.
+`leak-scan:all` feeds `git ls-files` to `betterleaks dir`, because Betterleaks has no tracked-tree
+mode of its own: `dir` walks the file system, `.gitignore` unread, and `git` reads commit diffs.
+The file list also bypasses config discovery, which keys on the scanned path being the repository
+root, so the script passes `.betterleaks.toml` explicitly.
 
 ## Part 2: push protection on GitHub
 
