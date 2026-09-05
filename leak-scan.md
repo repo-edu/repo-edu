@@ -213,7 +213,8 @@ Husky `9.1.7` installs the hook. Three pieces, all at the repository root:
 1. `husky` as a development dependency in `package.json`.
 2. A `prepare` script in `package.json` with the value `husky`. pnpm runs
    `prepare` after every `pnpm install`, and the `husky` command points git's
-   `core.hooksPath` at the tracked `.husky/` folder.
+   `core.hooksPath` at the generated `.husky/_` folder, whose runner calls the
+   tracked `.husky/pre-commit`.
 3. The tracked file `.husky/pre-commit` with the one line `pnpm leak-scan`.
 
 The hook is why the scan needs no sentence in any workflow file. A sentence
@@ -269,8 +270,8 @@ files, all rewritten in the implementation commit:
 - Four token clone addresses in test files, with `ghp_test_token`,
   `created-token`, `glpat-test-token` or `gitea-test-token` before the `@`,
   moved to the allowed `x-access-token:token@github.com` form. This file is
-  scanned too once it is copied into repo-edu, so the record names the old
-  forms without writing them as addresses.
+  scanned too, so the record names the old forms without writing them as
+  addresses.
 
 The whole-tree Betterleaks run of the same day found 20 hits in tracked files:
 2 rewritten, 18 allowed by exact text in `.betterleaks.toml` as the seven

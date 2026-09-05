@@ -105,8 +105,7 @@ pnpm docs:dev
 | `pnpm dev`       | Run desktop Electron app                                     |
 | `pnpm docs:dev`  | Run docs dev server                                          |
 | `pnpm file-sizes`| Tree-style line/file counts per subfolder                    |
-| `pnpm leak-scan` | Leak scan of the staged commit (the pre-commit hook)         |
-| `pnpm leak-scan:all` | Leak scan of the whole staged tree                       |
+| `pnpm leak-scan` | Leak scan of the whole staged tree (the pre-commit hook)     |
 | `pnpm leak-scan:git` | Leak report over every commit                            |
 
 ## Workspace Structure
