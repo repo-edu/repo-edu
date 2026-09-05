@@ -125,13 +125,14 @@ The allow list also includes `example.edu` and its subdomains for historical
 fixture addresses. Other placeholders or fixtures outside the allowed domains
 are rewritten instead.
 
-`leak-scan:git` runs
-`betterleaks git . --no-banner -v --log-opts=--all --exit-code 0`, the same
-rule set over every commit on every branch, with `-v` so each hit shows its
-file, line and matched text. It always exits `0`: a hit
-in history was pushed and is public, so it is a report to act on, not a gate
-to pass. `--log-opts=--all` matters because the default reads the current
-branch alone, and a leak on any pushed branch is as public as one on `main`.
+`leak-scan:git` runs `betterleaks git .` with `--no-banner --log-opts=--all --exit-code 0` and a
+report template, the same rule set over every commit on every branch. The template
+`scripts/leak-scan-git.tmpl` prints one line per hit: rule, short commit sha, file with line number
+and the matched text. The `-v` output the hook uses is wrong here: it repeats the whole commit
+record, message included, for every hit in that commit. It always exits `0`: a hit in history was
+pushed and is public, so it is a report to act on, not a gate to pass. `--log-opts=--all` matters
+because the default reads the current branch alone, and a leak on any pushed branch is as public as
+one on `main`.
 
 ### The scanner
 

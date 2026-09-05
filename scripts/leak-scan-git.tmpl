@@ -1,0 +1,2 @@
+{{ range . }}{{ .RuleID }}  {{ printf "%.8s" .Commit }}  {{ .File }}:{{ .StartLine }}  {{ .Match | replace "\n" " " }}
+{{ end }}
