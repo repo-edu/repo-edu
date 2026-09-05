@@ -23,8 +23,8 @@ beside `CLAUDE.md`, so the scripts can name it in one line.
 - Pasted output that carries either of the above: a log, an HTTP header, a
   shell transcript, a settings dump.
 
-Test fixtures use invented people and reserved domains. An invented email
-uses a domain under `example.com`, `example.org` or `example.net`, such as
+Test fixtures use invented people and allowed example domains. An invented email
+uses a domain under `example.com`, `example.org`, `example.net` or `example.edu`, such as
 `alice@uni.example.com` and `alice@personal.example.com`, or any domain ending
 in `.test`, `.invalid` or `.local`. Names under the example domains keep a
 distinction a test needs, such as a university address against a personal
@@ -110,7 +110,7 @@ line, and an address with a capitalised domain passed. The rule's allow list
 is:
 
 - The author and the project mailbox `opensource@repo-edu.dev`.
-- The reserved fixture domains from the section above, `.local` included
+- The allowed fixture domains from the section above, `.local` included
   because the Gitea and GitLab integration fixtures use it. Each domain
   allowance is checked against the matched address and must reach its end, so
   a file named `something.test.ts` gets no allowance from its name.
@@ -121,8 +121,9 @@ is:
   The email rule sees `token@github.com`, so its allowance names that form; the
   credential allowance for the same URL is a separate entry, listed below.
 
-The allow list grows only for a line that is not a person and cannot be
-rewritten. A placeholder or a fixture is rewritten instead.
+The allow list also includes `example.edu` and its subdomains for historical
+fixture addresses. Other placeholders or fixtures outside the allowed domains
+are rewritten instead.
 
 `leak-scan:git` runs
 `betterleaks git . --no-banner -v --log-opts=--all --exit-code 0`, the same
@@ -179,7 +180,7 @@ regexTarget = "match"
 regexes = [
   '''(?i)^d\.a\.v\.beek@tue\.nl$''',
   '''(?i)^opensource@repo-edu\.dev$''',
-  '''(?i)@([a-z0-9-]+\.)*example\.(com|org|net)$''',
+  '''(?i)@([a-z0-9-]+\.)*example\.(com|org|net|edu)$''',
   '''(?i)@[a-z0-9.-]+\.(test|invalid|local)$''',
   '''^token(-[0-9]+)?@github\.com$''',
 ]

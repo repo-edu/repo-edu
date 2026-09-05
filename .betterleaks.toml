@@ -32,7 +32,7 @@ regexTarget = "match"
 regexes = [
   '''(?i)^d\.a\.v\.beek@tue\.nl$''',
   '''(?i)^opensource@repo-edu\.dev$''',
-  '''(?i)@([a-z0-9-]+\.)*example\.(com|org|net)$''',
+  '''(?i)@([a-z0-9-]+\.)*example\.(com|org|net|edu)$''',
   '''(?i)@[a-z0-9.-]+\.(test|invalid|local)$''',
   '''^token(-[0-9]+)?@github\.com$''',
 ]
