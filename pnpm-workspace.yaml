@@ -20,7 +20,7 @@ allowBuilds:
   tree-sitter-cli: true
 
 patchedDependencies:
-  outmatch@1.0.0: patches/outmatch@1.0.0.patch
+  outmatch@1.0.0: patches/outmatch-1.0.0.patch
 
 minimumReleaseAgeExclude:
   - '@openai/codex@0.149.0-darwin-arm64 || 0.149.0-darwin-x64 || 0.149.0-linux-arm64 || 0.149.0-linux-x64 || 0.149.0-win32-arm64 || 0.149.0-win32-x64 || 0.149.0'

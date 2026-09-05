@@ -23,7 +23,7 @@ regexes = [
 [[rules]]
 id = "email-address"
 description = "Email address outside the fixture allow list"
-regex = '''(?i)[a-z0-9._%+-]+@[a-z][a-z0-9.-]*\.[a-z]{2,}'''
+regex = '''(?i)[a-z0-9._%+-]+@[a-z0-9][a-z0-9.-]*\.[a-z]{2,}'''
 keywords = ["@"]
 
 [[rules.allowlists]]
