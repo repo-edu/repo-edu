@@ -6,7 +6,7 @@
     "@anthropic-ai/sdk": "^0.110.0",
     "@openai/codex-sdk": "catalog:",
     "@repo-edu/integrations-llm-contract": "workspace:*",
-    "vscode-jsonrpc": "9.0.1"
+    "vscode-jsonrpc": "9.0.2"
   },
   "exports": {
     ".": {
