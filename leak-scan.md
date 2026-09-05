@@ -49,13 +49,13 @@ shell scripts. The root `package.json` names them:
 "leak-scan:git": "sh ./scripts/leak-scan-git.sh"
 ```
 
-A git pre-commit hook runs `pnpm leak-scan` on every commit from every client:
-the shell, GitKraken and any editor. A hit stops the commit: fix the file,
-stage it, commit again. Do not skip the hook, with `git commit -n`, `HUSKY=0`
-or GitKraken's skip-hooks option: a hit that is judged by eye is a hit nobody
-checked. The scan prints each hit as file, line and the matched text;
-Betterleaks needs its `-v` flag for that, because without it the hook only
-printed a count and blocked a commit without showing what it caught.
+A git pre-commit hook runs `pnpm leak-scan` on every commit from every client: the shell, GitKraken
+and any editor. A merge that commits without conflicts runs the same scan through the
+pre-merge-commit hook, because git skips `pre-commit` there. A hit stops the commit: fix the file,
+stage it, commit again. Do not skip the hook, with `git commit -n`, `HUSKY=0` or GitKraken's
+skip-hooks option: a hit that is judged by eye is a hit nobody checked. The scan prints each hit as
+file, line and the matched text; Betterleaks needs its `-v` flag for that, because without it the
+hook only printed a count and blocked a commit without showing what it caught.
 
 The hook script:
 
@@ -208,7 +208,7 @@ value whose redaction a test asserts.
 
 ### The hook
 
-Husky `9.1.7` installs the hook. Three pieces, all at the repository root:
+Husky `9.1.7` installs the hooks. Four pieces, all at the repository root:
 
 1. `husky` as a development dependency in `package.json`.
 2. A `prepare` script in `package.json` with the value `husky`. pnpm runs
@@ -216,6 +216,8 @@ Husky `9.1.7` installs the hook. Three pieces, all at the repository root:
    `core.hooksPath` at the generated `.husky/_` folder, whose runner calls the
    tracked `.husky/pre-commit`.
 3. The tracked file `.husky/pre-commit` with the one line `pnpm leak-scan`.
+4. The tracked file `.husky/pre-merge-commit` with the same line. Git runs it
+   instead of `pre-commit` for a merge that commits without conflicts.
 
 The hook is why the scan needs no sentence in any workflow file. A sentence
 fires only when a session follows it, and the user's own commits through

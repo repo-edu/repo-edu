@@ -1,4 +1,5 @@
-# Betterleaks configuration for the pre-commit leak scan. The rules are in leak-scan.md.
+# Betterleaks configuration for both leak-scan commands, the hook and the history report.
+# The rules are in leak-scan.md.
 # Credential allowances name fixtures by exact text; only the email rule allows licence paths.
 
 [extend]
