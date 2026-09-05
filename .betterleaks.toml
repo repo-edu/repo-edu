@@ -1,5 +1,5 @@
 # Betterleaks configuration for the pre-commit leak scan. The rules are in leak-scan.md.
-# Every allowance names one fixture by its exact text, never by path.
+# Credential allowances name fixtures by exact text; only the email rule allows licence paths.
 
 [extend]
 useDefault = true
@@ -19,3 +19,22 @@ regexes = [
   # The signing test value that must stay recognisable so its redaction can be asserted.
   '''PASSWORD: "p12-password"''',
 ]
+
+[[rules]]
+id = "email-address"
+description = "Email address outside the fixture allow list"
+regex = '''(?i)[a-z0-9._%+-]+@[a-z][a-z0-9.-]*\.[a-z]{2,}'''
+keywords = ["@"]
+
+[[rules.allowlists]]
+regexTarget = "match"
+regexes = [
+  '''(?i)^d\.a\.v\.beek@tue\.nl$''',
+  '''(?i)^opensource@repo-edu\.dev$''',
+  '''(?i)@([a-z0-9-]+\.)*example\.(com|org|net)$''',
+  '''(?i)@[a-z0-9.-]+\.(test|invalid|local)$''',
+  '''^token(-[0-9]+)?@github\.com$''',
+]
+
+[[rules.allowlists]]
+paths = ['''(^|/)licenses/''']
