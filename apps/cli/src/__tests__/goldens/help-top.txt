@@ -4,7 +4,7 @@ Repository management for education
 
 Options:
   -V, --version       output the version number
-  --course <name>     Course to use (default: active course)
+  --course <id>       Course id (required for course-scoped commands)
   -h, --help          display help for command
 
 Commands:

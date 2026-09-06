@@ -1,5 +1,12 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
@@ -7,13 +14,17 @@ import type {
   WorkflowClient,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { createWorkflowClient } from "@repo-edu/application-contract"
+import {
+  createCourseStorageFailure,
+  createWorkflowClient,
+} from "@repo-edu/application-contract"
 import {
   defaultAppSettings,
   type PersistedAppSettings,
   splitAppSettings,
 } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
+import { createCourseStore } from "@repo-edu/host-node"
 import { createChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import {
   applyFixtureSourceOverlay,
@@ -232,13 +243,10 @@ async function seedCliDataDirectory(
   },
 ): Promise<void> {
   if (options?.course) {
-    const coursesDirectory = join(rootDirectory, "courses")
-    await mkdir(coursesDirectory, { recursive: true })
-    await writeFile(
-      join(coursesDirectory, `${encodeURIComponent(options.course.id)}.json`),
-      JSON.stringify(options.course, null, 2),
-      "utf8",
-    )
+    await createCourseStore(rootDirectory).saveCourse({
+      ...options.course,
+      revision: 0,
+    })
   }
 
   if (options?.settings) {
@@ -290,6 +298,147 @@ describe("CLI command tree", () => {
 })
 
 describe("CLI workflow-backed behaviors", () => {
+  it("requires an explicit course for every course-scoped command before running workflows", async () => {
+    const calls: string[] = []
+    const workflowClient: WorkflowClient = {
+      async run(id) {
+        calls.push(id)
+        throw new Error("Unexpected workflow call")
+      },
+    }
+    const commands = [
+      ["course", "show"],
+      ["lms", "verify"],
+      ["validate", "--assignment", "Project 1"],
+      ["repo", "create", "--all"],
+      ["repo", "clone", "--all"],
+      ["repo", "update", "--assignment", "Project 1"],
+    ]
+    for (const args of commands) {
+      const result = await runCli(args, { workflowClient })
+      assert.equal(result.exitCode, 1, args.join(" "))
+      assert.match(result.stderr, /requires --course <id>/)
+      assert.equal(result.stdout, "")
+    }
+    assert.deepEqual(calls, [])
+  })
+
+  it("keeps desktop observations independent of invocation selection without changing preferences", async () => {
+    await withTempCliDataDirectory(async (storageRoot) => {
+      const course = makeProfile()
+      await seedCliDataDirectory(storageRoot, {
+        course,
+        settings: makeSettings(course.id),
+      })
+      const other = {
+        ...course,
+        id: "other-course",
+        displayName: "Other Course",
+      }
+      await seedCliDataDirectory(storageRoot, { course: other })
+      const preferencesPath = join(storageRoot, "settings", "preferences.json")
+      const before = await readFile(preferencesPath, "utf8")
+      const active = await runCli(["--course", other.id, "course", "active"], {
+        storageRoot,
+      })
+      assert.equal(active.exitCode, 0)
+      assert.equal(active.stdout, `${course.id}\n`)
+      const list = await runCli(["course", "list", "--course", other.id], {
+        storageRoot,
+      })
+      assert.equal(list.exitCode, 0)
+      assert.match(list.stdout, /^\* seed-course\t/m)
+      assert.match(list.stdout, /^ {2}other-course\t/m)
+      const show = await runCli(["course", "show", "--course", other.id], {
+        storageRoot,
+      })
+      assert.equal(show.exitCode, 0)
+      assert.match(show.stdout, /"id": "other-course"/)
+      assert.match(show.stdout, /"revision": 1/)
+      const missingSelection = await runCli(["course", "show"], { storageRoot })
+      assert.equal(missingSelection.exitCode, 1)
+      assert.match(missingSelection.stderr, /requires --course <id>/)
+      assert.equal(await readFile(preferencesPath, "utf8"), before)
+      assert.deepEqual((await readdir(storageRoot)).sort(), [
+        "courses.sqlite",
+        "settings",
+      ])
+    })
+  })
+
+  it("reports no desktop active course even when --course is supplied", async () => {
+    await withTempCliDataDirectory(async (storageRoot) => {
+      await seedCliDataDirectory(storageRoot, { settings: makeSettings(null) })
+      const active = await runCli(
+        ["--course", "seed-course", "course", "active"],
+        { storageRoot },
+      )
+      assert.equal(active.exitCode, 0)
+      assert.equal(active.stdout, "No active course.\n")
+      assert.deepEqual(await readdir(storageRoot), ["settings"])
+    })
+  })
+
+  it("fails course list and show on a corrupt shared database without success output", async () => {
+    await withTempCliDataDirectory(async (storageRoot) => {
+      await writeFile(join(storageRoot, "courses.sqlite"), "invalid database")
+      for (const args of [
+        ["course", "list"],
+        ["--course", "seed-course", "course", "show"],
+      ]) {
+        const result = await runCli(args, { storageRoot })
+        assert.equal(result.exitCode, 1)
+        assert.equal(result.stdout, "")
+        assert.match(result.stderr, /database/i)
+      }
+      assert.equal(
+        await readFile(join(storageRoot, "courses.sqlite"), "utf8"),
+        "invalid database",
+      )
+    })
+  })
+
+  it("does not report repository success or retry after a terminal course save failure", async () => {
+    const calls: string[] = []
+    const handlers: Partial<WorkflowHandlerMap> = {
+      "course.load": async () => ({ ...makeProfile(), revision: 1 }),
+      "settings.loadApp": async () => ({
+        ...splitAppSettings(makeSettings(null)),
+        recovery: [],
+      }),
+      "repo.update": async () => ({
+        prsCreated: 1,
+        prsSkipped: 0,
+        prsFailed: 0,
+        repositoriesPlanned: 1,
+        completedAt: "2026-09-06T12:00:00.000Z",
+        templateCommitSha: "abc123",
+        recordedRepositories: {},
+      }),
+      "course.save": async () => {
+        calls.push("save")
+        throw createCourseStorageFailure("Course storage failed.")
+      },
+    }
+    const result = await runCli(
+      [
+        "--course",
+        "seed-course",
+        "repo",
+        "update",
+        "--assignment",
+        "Project 1",
+      ],
+      {
+        workflowClient: createWorkflowClient(handlers as WorkflowHandlerMap),
+      },
+    )
+    assert.equal(result.exitCode, 1)
+    assert.equal(result.stdout, "")
+    assert.match(result.stderr, /Course storage failed/)
+    assert.deepEqual(calls, ["save"])
+  })
+
   it("course list shows seeded course and active marker", async () => {
     await withTempCliDataDirectory(async (rootDirectory) => {
       const course = makeProfile()
@@ -314,9 +463,12 @@ describe("CLI workflow-backed behaviors", () => {
         settings: makeSettings(course.id),
       })
 
-      const result = await runCli(["validate", "--assignment", "Project 1"], {
-        storageRoot: rootDirectory,
-      })
+      const result = await runCli(
+        ["--course", course.id, "validate", "--assignment", "Project 1"],
+        {
+          storageRoot: rootDirectory,
+        },
+      )
       assert.equal(result.exitCode, 1)
       assert.match(result.stdout, /Validation found/)
       assert.match(result.stdout, /missing_email/)
@@ -369,7 +521,7 @@ describe("CLI workflow-backed behaviors", () => {
       })
 
       const result = await runCli(
-        ["repo", "create", "--assignment", "Project 1"],
+        ["--course", course.id, "repo", "create", "--assignment", "Project 1"],
         { storageRoot: rootDirectory },
       )
       assert.equal(result.exitCode, 1)
@@ -396,14 +548,25 @@ describe("CLI fixture-backed integration", () => {
         true,
       )
 
-      const validate = await runCli(["validate", "--assignment", "lab01"], {
-        storageRoot: rootDirectory,
-      })
+      const validate = await runCli(
+        ["--course", course.id, "validate", "--assignment", "lab01"],
+        {
+          storageRoot: rootDirectory,
+        },
+      )
       assert.equal(validate.exitCode, 1)
       assert.match(validate.stdout, /Validation found \d+ issue/)
 
       const repoDryRun = await runCli(
-        ["repo", "create", "--assignment", "lab01", "--dry-run"],
+        [
+          "--course",
+          course.id,
+          "repo",
+          "create",
+          "--assignment",
+          "lab01",
+          "--dry-run",
+        ],
         { storageRoot: rootDirectory },
       )
       assert.equal(repoDryRun.exitCode, 0)
@@ -424,7 +587,7 @@ describe("CLI fixture-backed integration", () => {
       })
       await seedCliDataDirectory(rootDirectory, { course, settings })
 
-      const verify = await runCli(["lms", "verify"], {
+      const verify = await runCli(["--course", course.id, "lms", "verify"], {
         storageRoot: rootDirectory,
       })
       assert.equal(verify.exitCode, 1)

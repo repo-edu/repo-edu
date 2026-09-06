@@ -49,7 +49,6 @@ export function createCliWorkflowHandlers(options: CliWorkflowRuntimeOptions) {
     "course.load": courseHandlers["course.load"],
     "course.save": courseHandlers["course.save"],
     "settings.loadApp": settingsHandlers["settings.loadApp"],
-    "settings.savePreferences": settingsHandlers["settings.savePreferences"],
     "connection.verifyLmsDraft":
       connectionHandlers["connection.verifyLmsDraft"],
     "connection.verifyGitDraft":

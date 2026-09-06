@@ -3,7 +3,6 @@ import type {
   SettingsRecoveryEntry,
   WorkflowClient,
 } from "@repo-edu/application-contract"
-import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import { resolveActiveGitConnection } from "@repo-edu/domain/connection"
 import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
@@ -54,18 +53,6 @@ export async function loadAppSettings(
   return settings
 }
 
-export function resolveRequestedCourseId(
-  command: Command,
-  fallbackActiveCourseId: string | null,
-): string | null {
-  const options = command.optsWithGlobals() as { course?: unknown }
-  if (typeof options.course === "string" && options.course.length > 0) {
-    return options.course
-  }
-
-  return fallbackActiveCourseId
-}
-
 export async function loadSelectedCourse(
   command: Command,
   workflowClient: WorkflowClient,
@@ -74,21 +61,15 @@ export async function loadSelectedCourse(
   settings: AppSettingsLoadResult
   course: PersistedCourse
 }> {
-  const settings = await loadAppSettings(workflowClient)
-  const selectedCourseId = resolveRequestedCourseId(
-    command,
-    activeCourseIdFromSurface(settings.preferences.activeSurface),
-  )
-
-  if (selectedCourseId === null) {
-    throw new Error(
-      "No active course. Use --course <id> or `redu course load <id>`.",
-    )
+  const options = command.optsWithGlobals() as { course?: unknown }
+  if (typeof options.course !== "string" || options.course.length === 0) {
+    throw new Error("This command requires --course <id>.")
   }
-
+  const selectedCourseId = options.course
   const course = await workflowClient.run("course.load", {
     courseId: selectedCourseId,
   })
+  const settings = await loadAppSettings(workflowClient)
 
   return {
     selectedCourseId,

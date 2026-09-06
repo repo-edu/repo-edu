@@ -33,7 +33,7 @@ export function createProgram(options: CreateProgramOptions): Command {
     .name("redu")
     .description("Repository management for education")
     .version(pkg.version)
-    .option("--course <name>", "Course to use (default: active course)")
+    .option("--course <id>", "Course id (required for course-scoped commands)")
     .action(() => {
       program.outputHelp()
     })

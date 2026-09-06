@@ -40,7 +40,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     cancellation: "cooperative",
   },
   "settings.savePreferences": {
-    delivery: ["desktop", "cli"],
+    delivery: ["desktop"],
     progress: "milestone",
     cancellation: "cooperative",
   },

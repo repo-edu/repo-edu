@@ -32,16 +32,25 @@ const workflowToCommandMatrix: Record<
   { kind: "direct" | "composite"; commands: string[] }
 > = {
   "course.list": { kind: "direct", commands: ["course list"] },
-  "course.load": { kind: "composite", commands: ["course load"] },
+  "course.load": {
+    kind: "composite",
+    commands: [
+      "course show",
+      "lms verify",
+      "validate",
+      "repo create",
+      "repo clone",
+      "repo update",
+    ],
+  },
   "course.save": {
     kind: "composite",
-    commands: ["repo create", "repo update"],
+    commands: ["repo create", "repo clone", "repo update"],
   },
   "settings.loadApp": {
     kind: "composite",
-    commands: ["course list", "course active", "course load"],
+    commands: ["course list", "course active", "course show"],
   },
-  "settings.savePreferences": { kind: "composite", commands: ["course load"] },
   "connection.verifyLmsDraft": { kind: "direct", commands: ["lms verify"] },
   "connection.verifyGitDraft": { kind: "direct", commands: ["git verify"] },
   "validation.roster": {
@@ -99,6 +108,7 @@ describe("CLI workflow-to-command completeness", () => {
     const program = createInspectionProgram()
 
     const droppedPaths = [
+      ["course", "load"],
       ["course", "delete"],
       ["roster"],
       ["lms", "list-courses"],
