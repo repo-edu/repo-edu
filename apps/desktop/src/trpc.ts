@@ -52,6 +52,8 @@ import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
 
+import type { HostAdmission } from "./host-admission"
+
 const t = initTRPC.create()
 
 type DesktopWorkflowId = keyof typeof workflowCatalog
@@ -68,8 +70,7 @@ export type DesktopRouterPorts = {
   examinationArchive: ExaminationArchiveStoragePort
   initialSettingsLoadResult?: AppSettingsLoadResult
   initialSettingsLoadError?: unknown
-  parentAbortSignal?: AbortSignal
-  onWorkflowInvocationStart?: () => () => void
+  admission: HostAdmission
   /**
    * Called whenever `settings.saveCredentials` succeeds. Composition root uses
    * this to rebuild the LLM port delegate so the next workflow run sees the
@@ -289,8 +290,8 @@ function createWorkflowSubscriptionProcedure<
   TWorkflowId extends DesktopWorkflowId,
 >(
   handler: WorkflowHandler<TWorkflowId>,
-  parentAbortSignal: AbortSignal | undefined,
-  onWorkflowInvocationStart: (() => () => void) | undefined,
+  workflowId: TWorkflowId,
+  admission: HostAdmission,
 ) {
   return t.procedure
     .input({
@@ -300,37 +301,11 @@ function createWorkflowSubscriptionProcedure<
     })
     .subscription(({ input }) =>
       observable<WorkflowEventFor<TWorkflowId>>((emit) => {
-        const markInvocationSettled = onWorkflowInvocationStart?.()
-        let settled = false
-        const settleInvocation = () => {
-          if (settled) return
-          settled = true
-          markInvocationSettled?.()
-        }
-        // Any synchronous throw between the counter increment above and
-        // the `.finally(settleInvocation)` wiring below would leak the
-        // in-flight counter; the outer try/catch guarantees a decrement
-        // on setup failures.
+        const abortController = new AbortController()
+        const settleInvocation = admission.startWorkflow(workflowId, {
+          cancel: () => abortController.abort(),
+        })
         try {
-          const abortController = new AbortController()
-          const onParentAbort = () => {
-            if (!abortController.signal.aborted) {
-              abortController.abort()
-            }
-          }
-          let removeParentAbortListener = () => {}
-          if (parentAbortSignal) {
-            if (parentAbortSignal.aborted) {
-              abortController.abort()
-            } else {
-              parentAbortSignal.addEventListener("abort", onParentAbort, {
-                once: true,
-              })
-              removeParentAbortListener = () => {
-                parentAbortSignal.removeEventListener("abort", onParentAbort)
-              }
-            }
-          }
           const emitNext = (value: WorkflowEventFor<TWorkflowId>) => {
             if (abortController.signal.aborted) {
               return
@@ -364,10 +339,12 @@ function createWorkflowSubscriptionProcedure<
             },
           })
             .then((result) => {
+              settleInvocation()
               emitNext({ type: "completed", data: result })
               emitComplete()
             })
             .catch((error) => {
+              settleInvocation()
               if (abortController.signal.aborted) {
                 return
               }
@@ -378,13 +355,9 @@ function createWorkflowSubscriptionProcedure<
               })
               emitComplete()
             })
-            .finally(() => {
-              removeParentAbortListener()
-              settleInvocation()
-            })
+            .finally(settleInvocation)
 
           return () => {
-            removeParentAbortListener()
             abortController.abort()
           }
         } catch (error) {
@@ -401,15 +374,23 @@ function createWorkflowSubscriptionProcedure<
  * Workflow registration is compile-time exhaustive through WorkflowHandlerMap.
  */
 export function createDesktopRouter(ports: DesktopRouterPorts) {
-  const workflowRegistry = createDesktopWorkflowRegistry(ports)
+  return createDesktopWorkflowRouter(
+    createDesktopWorkflowRegistry(ports),
+    ports.admission,
+  )
+}
 
+export function createDesktopWorkflowRouter(
+  workflowRegistry: WorkflowHandlerMap<DesktopWorkflowId>,
+  admission: HostAdmission,
+) {
   const procedures = Object.fromEntries(
     (Object.keys(workflowRegistry) as DesktopWorkflowId[]).map((workflowId) => [
       workflowId,
       createWorkflowSubscriptionProcedure(
         workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
-        ports.parentAbortSignal,
-        ports.onWorkflowInvocationStart,
+        workflowId,
+        admission,
       ),
     ]),
   )

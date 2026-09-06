@@ -69,13 +69,14 @@ function normalizeAppError(error: unknown): AppError {
 }
 
 async function collectValidationSnapshot() {
+  const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
+  await window.repoEduDesktopHost?.bootstrapReady()
   const courseList = await workflowClient.run("course.list", undefined)
   const loadedCourse = await workflowClient.run("course.load", {
     courseId: validationCourseId,
   })
   const savedCourseStamp = await workflowClient.run("course.save", loadedCourse)
 
-  const loadedSettings = await workflowClient.run("settings.loadApp", undefined)
   await workflowClient.run(
     "settings.saveCredentials",
     loadedSettings.credentials,
@@ -146,6 +147,7 @@ if (isTRPCValidationMode) {
       React.createElement(RendererSessionRoot, {
         workflowClient,
         rendererHost,
+        onBootstrapReady: window.repoEduDesktopHost.bootstrapReady,
       }),
       React.createElement(UpdateDialog, {
         bridge: window.repoEduDesktopHost,

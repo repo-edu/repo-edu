@@ -94,11 +94,13 @@ import { StudentsTab } from "./tabs/StudentsTab.js"
 export type RendererSessionRootProps = {
   workflowClient: WorkflowClient
   rendererHost: RendererHost
+  onBootstrapReady: () => Promise<void>
 }
 
 export function RendererSessionRoot({
   workflowClient,
   rendererHost,
+  onBootstrapReady,
 }: RendererSessionRootProps) {
   const narrowedClient = workflowClient as WorkflowClient<AppWorkflowId>
   // A controller is bound to one mount lifecycle: its disposal is terminal, so
@@ -111,7 +113,7 @@ export function RendererSessionRoot({
   const [queryClient] = useState(() => createRendererQueryClient())
 
   useLayoutEffect(() => {
-    const instance = new SessionController({ workflowClient })
+    const instance = new SessionController({ workflowClient, onBootstrapReady })
     setController(instance)
     setSessionController(instance)
     const cleanup = configureApp({
@@ -124,7 +126,7 @@ export function RendererSessionRoot({
       clearSessionController(instance)
       instance.dispose()
     }
-  }, [workflowClient, narrowedClient, rendererHost])
+  }, [workflowClient, narrowedClient, rendererHost, onBootstrapReady])
 
   useEffect(() => {
     if (controller === null) return

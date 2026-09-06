@@ -73,17 +73,14 @@ import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
 import { createDesktopCourseStore } from "./course-store"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import { HostAdmission } from "./host-admission"
+import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
-import {
-  runWindowCloseAdmission,
-  type WindowCloseAdmission,
-} from "./renderer-close"
 import {
   type DesktopRendererHostBridge,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
 import { createDesktopAppSettingsStore } from "./settings-store"
-import { createDesktopShutdown } from "./shutdown"
 import type { DesktopRouter } from "./trpc"
 import { createDesktopRouter } from "./trpc"
 import {
@@ -294,13 +291,80 @@ let hostIpcRegistered = false
 let storageRootPath: string | null = null
 let validationCourseId = ""
 let updaterMenuBound = false
-let quitRequested = false
 let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
 let examinationArchiveClosed = false
-export const shutdownController = new AbortController()
 let desktopExaminationArchive: ExaminationArchiveStoragePort | null = null
-let inFlightWorkflowCount = 0
-const inFlightDrainWaiters = new Set<() => void>()
+const admission = new HostAdmission(performAdmissionEffect)
+
+function closeRequest(): HostRequest {
+  return { cancel() {} }
+}
+
+function requestUpdateRestart(): void {
+  admission.dispatch({ type: "update-restart", request: closeRequest() })
+}
+
+function performAdmissionEffect(effect: HostAdmissionEffect): void {
+  if (effect.type === "prepare-close") {
+    const mainWindow = BrowserWindow.getAllWindows()[0]
+    if (!mainWindow || isTRPCValidationMode) {
+      admission.dispatch({ type: "close-ready", request: effect.request })
+      return
+    }
+    mainWindow.setEnabled(false)
+    const requestId = randomUUID()
+    const complete = (event: IpcMainEvent, response: unknown) => {
+      if (event.sender !== mainWindow.webContents) return
+      ipcMain.removeListener(
+        desktopRendererHostChannels.closeComplete,
+        complete,
+      )
+      if (
+        typeof response !== "object" ||
+        response === null ||
+        !("requestId" in response) ||
+        response.requestId !== requestId ||
+        !("ok" in response) ||
+        response.ok !== true
+      ) {
+        admission.dispatch({
+          type: "terminal",
+          error: new Error("Renderer close failed."),
+        })
+        return
+      }
+      admission.dispatch({ type: "close-ready", request: effect.request })
+    }
+    ipcMain.on(desktopRendererHostChannels.closeComplete, complete)
+    mainWindow.once("closed", () => {
+      ipcMain.removeListener(
+        desktopRendererHostChannels.closeComplete,
+        complete,
+      )
+    })
+    mainWindow.webContents.send(desktopRendererHostChannels.requestClose, {
+      requestId,
+    })
+    return
+  }
+  if (effect.type === "end-host") {
+    for (const window of BrowserWindow.getAllWindows()) window.setEnabled(false)
+    void childProcessLifetimeController.stopAndConfirm().then(
+      () => {
+        closeExaminationArchiveDatabase()
+        if (effect.reason === "update-restart") quitAndInstall()
+        else app.exit(effect.reason === "failure" ? 1 : 0)
+      },
+      (error: unknown) => terminateDesktop("shutdown-failed", error),
+    )
+    return
+  }
+  // Request-port execution is connected by the later command steps.
+  admission.dispatch({
+    type: "terminal",
+    error: new Error(`Unconnected request effect: ${effect.type}`),
+  })
+}
 
 function openExaminationArchiveOnce(
   storageRoot: string,
@@ -346,55 +410,6 @@ function closeExaminationArchiveDatabase() {
   }
   examinationArchiveHandle = null
   desktopExaminationArchive = null
-}
-
-function markWorkflowInvocationStarted(): () => void {
-  inFlightWorkflowCount += 1
-  let settled = false
-  return () => {
-    if (settled) return
-    settled = true
-    inFlightWorkflowCount = Math.max(0, inFlightWorkflowCount - 1)
-    if (inFlightWorkflowCount === 0) {
-      for (const resolve of inFlightDrainWaiters) {
-        resolve()
-      }
-      inFlightDrainWaiters.clear()
-    }
-  }
-}
-
-function waitForInFlightWorkflows(timeoutMs: number): Promise<boolean> {
-  if (inFlightWorkflowCount === 0) {
-    return Promise.resolve(true)
-  }
-
-  return new Promise((resolve) => {
-    let settled = false
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    const onDrained = () => {
-      finish(true)
-    }
-    const finish = (drained: boolean) => {
-      if (settled) return
-      settled = true
-      inFlightDrainWaiters.delete(onDrained)
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId)
-      }
-      resolve(drained)
-    }
-
-    inFlightDrainWaiters.add(onDrained)
-    timeoutId = setTimeout(() => {
-      finish(false)
-    }, timeoutMs)
-
-    // Handle a settle race between the initial count check and waiter registration.
-    if (inFlightWorkflowCount === 0) {
-      finish(true)
-    }
-  })
 }
 
 // repo-edu persists its own secrets (LLM API keys) as plain JSON via the
@@ -521,7 +536,11 @@ function buildUpdateMenuItems(): MenuItemConstructorOptions[] {
         updaterState.initialized &&
         updaterState.updateDownloaded,
       click: () => {
-        quitAndInstall()
+        admission.dispatch({
+          type: "host-start",
+          source: "menu-update-restart",
+          request: closeRequest(),
+        })
       },
     },
   ]
@@ -623,13 +642,53 @@ function installApplicationMenu() {
         { role: "hideOthers" },
         { role: "unhide" },
         { type: "separator" },
-        { role: "quit" },
+        {
+          label: `Quit ${desktopAppName}`,
+          accelerator: "Command+Q",
+          click: () => {
+            admission.dispatch({
+              type: "host-start",
+              source: "menu-quit",
+              request: closeRequest(),
+            })
+          },
+        },
       ],
     })
   }
 
   template.push(
-    { role: "fileMenu" },
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Close",
+          accelerator: "CmdOrCtrl+W",
+          click: () => {
+            admission.dispatch({
+              type: "host-start",
+              source: "menu-close",
+              request: closeRequest(),
+            })
+          },
+        },
+        ...(!isMac
+          ? [
+              {
+                label: "Quit",
+                accelerator: "Alt+F4",
+                click: () => {
+                  admission.dispatch({
+                    type: "host-start" as const,
+                    source: "menu-quit" as const,
+                    request: closeRequest(),
+                  })
+                },
+              },
+            ]
+          : []),
+      ],
+    },
     { role: "editMenu" },
     { role: "viewMenu" },
     { role: "windowMenu" },
@@ -664,6 +723,7 @@ function registerRendererHostIpcHandlers() {
       options: Parameters<DesktopRendererHostBridge["pickUserFile"]>[0],
     ) => {
       const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      admission.admitShell("pickUserFile")
       return await desktopHost.pickUserFile(parentWindow, options)
     },
   )
@@ -675,6 +735,7 @@ function registerRendererHostIpcHandlers() {
       options: Parameters<DesktopRendererHostBridge["pickSaveTarget"]>[0],
     ) => {
       const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      admission.admitShell("pickSaveTarget")
       return await desktopHost.pickSaveTarget(parentWindow, options)
     },
   )
@@ -686,6 +747,7 @@ function registerRendererHostIpcHandlers() {
       options: Parameters<DesktopRendererHostBridge["pickDirectory"]>[0],
     ) => {
       const parentWindow = BrowserWindow.fromWebContents(event.sender)
+      admission.admitShell("pickDirectory")
       return await desktopHost.pickDirectory(parentWindow, options)
     },
   )
@@ -703,6 +765,7 @@ function registerRendererHostIpcHandlers() {
   ipcMain.handle(
     desktopRendererHostChannels.setNativeTheme,
     (_event, theme: "light" | "dark" | "system") => {
+      admission.admitShell("setNativeTheme")
       nativeTheme.themeSource = theme
     },
   )
@@ -716,11 +779,17 @@ function registerRendererHostIpcHandlers() {
   )
 
   ipcMain.handle(desktopRendererHostChannels.downloadUpdate, async () => {
+    admission.admitShell("downloadUpdate")
     await downloadUpdate()
   })
 
   ipcMain.handle(desktopRendererHostChannels.quitAndInstall, () => {
-    quitAndInstall()
+    requestUpdateRestart()
+  })
+  ipcMain.handle(desktopRendererHostChannels.bootstrapReady, () => {
+    if (admission.dispatch({ type: "bootstrap-acknowledged" }) !== "accepted") {
+      throw new Error("The desktop could not accept bootstrap readiness.")
+    }
   })
 }
 
@@ -782,117 +851,44 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   let resizeTimer: ReturnType<typeof setTimeout> | null = null
-  let saveInFlight: Promise<void> = Promise.resolve()
-  let closePhase: "idle" | "saving" | "ready" = "idle"
-
-  const windowCloseAdmission = (): WindowCloseAdmission => {
-    if (isTRPCValidationMode) {
-      return { owner: "main-process" }
-    }
-
-    return {
-      owner: "renderer-session",
-      requestId: randomUUID(),
-      target: {
-        isUnavailable: () =>
-          mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed(),
-        setEnabled: (enabled) => mainWindow.setEnabled(enabled),
-        send: (channel, payload) =>
-          mainWindow.webContents.send(channel, payload),
-      },
-      transport: {
-        subscribe: (channel, listener) => {
-          const handler = (event: IpcMainEvent, response: unknown) => {
-            if (event.sender === mainWindow.webContents) listener(response)
-          }
-          ipcMain.on(channel, handler)
-          return () => ipcMain.removeListener(channel, handler)
-        },
-      },
-      channels: {
-        request: desktopRendererHostChannels.requestClose,
-        cancel: desktopRendererHostChannels.cancelClose,
-        complete: desktopRendererHostChannels.closeComplete,
-        cancelComplete: desktopRendererHostChannels.closeCancelComplete,
-      },
-      log: (message) => process.stderr.write(`[desktop] ${message}\n`),
-    }
-  }
-
   mainWindow.on("resize", () => {
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
-      saveInFlight = saveWindowState(storageRoot).catch(() => {})
+      void saveWindowState(storageRoot).catch(() => {})
     }, 300)
   })
 
   mainWindow.on("close", (event) => {
-    if (closePhase === "ready") {
-      return
-    }
-
     event.preventDefault()
-    if (closePhase === "saving") {
-      return
-    }
-
-    closePhase = "saving"
     if (resizeTimer) {
       clearTimeout(resizeTimer)
       resizeTimer = null
     }
-
-    void (async () => {
-      const closeAdmitted = await runWindowCloseAdmission(
-        windowCloseAdmission(),
-      )
-      if (!closeAdmitted) {
-        closePhase = "idle"
-        quitRequested = false
-        return
-      }
-
-      try {
-        await saveInFlight
-        await saveWindowState(storageRoot)
-      } catch {
-        // Best-effort window-state persistence on shutdown.
-      } finally {
-        closePhase = "ready"
-        const shouldQuitAfterClose = quitRequested
-        if (shouldQuitAfterClose) {
-          mainWindow.once("closed", () => {
-            if (quitRequested) {
-              app.quit()
-            }
-          })
-        }
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.close()
-        } else if (shouldQuitAfterClose) {
-          app.quit()
-        }
-      }
-    })().catch((error) => {
-      const text = error instanceof Error ? error.message : String(error)
-      process.stderr.write(`[desktop] close-failed ${text}\n`)
-      closePhase = "idle"
-      quitRequested = false
-      if (!mainWindow.isDestroyed()) mainWindow.setEnabled(true)
+    void saveWindowState(storageRoot).catch(() => {})
+    admission.dispatch({
+      type: "host-start",
+      source: "window-close",
+      request: closeRequest(),
     })
   })
 
   if (!desktopRouter) {
     let initialSettingsLoadResult: AppSettingsLoadResult | null = null
     let initialSettingsLoadError: unknown
+    const settingsAbort = new AbortController()
+    const settleSettings = admission.startWorkflow("settings.loadApp", {
+      cancel: () => settingsAbort.abort(),
+    })
     try {
-      initialSettingsLoadResult =
-        await createSettingsWorkflowHandlers(appSettingsStore)[
-          "settings.loadApp"
-        ](undefined)
+      initialSettingsLoadResult = await createSettingsWorkflowHandlers(
+        appSettingsStore,
+      )["settings.loadApp"](undefined, { signal: settingsAbort.signal })
     } catch (error) {
       initialSettingsLoadError = error
+    } finally {
+      settleSettings()
     }
+    if (admission.getSnapshot().phase !== "starting") return mainWindow
 
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
     rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
@@ -908,8 +904,7 @@ async function createWindow(): Promise<BrowserWindow> {
       examinationArchive,
       initialSettingsLoadResult: initialSettingsLoadResult ?? undefined,
       initialSettingsLoadError,
-      parentAbortSignal: shutdownController.signal,
-      onWorkflowInvocationStart: markWorkflowInvocationStarted,
+      admission,
       onAppCredentialsSaved: rebuildLlmPortIfCredentialsChanged,
       createDraftLlmTextClient,
     })
@@ -1009,37 +1004,14 @@ async function createWindow(): Promise<BrowserWindow> {
 async function startDesktop(): Promise<void> {
   bindUpdaterMenu()
 
-  const shutdown = createDesktopShutdown({
-    abortWorkflows() {
-      if (!shutdownController.signal.aborted) {
-        shutdownController.abort()
-      }
-    },
-    beginWindowClose() {
-      quitRequested = true
-      const liveWindows = BrowserWindow.getAllWindows().filter(
-        (window) => !window.isDestroyed(),
-      )
-      for (const window of liveWindows) {
-        window.close()
-      }
-      return liveWindows.length > 0
-    },
-    closeArchive: closeExaminationArchiveDatabase,
-    fail(error) {
-      terminateDesktop("shutdown-drain-failed", error)
-    },
-    quit() {
-      app.quit()
-    },
-    stopAndConfirmChildProcesses() {
-      return childProcessLifetimeController.stopAndConfirm()
-    },
-    waitForWorkflows() {
-      return waitForInFlightWorkflows(5_000)
-    },
+  app.on("before-quit", (event) => {
+    event.preventDefault()
+    admission.dispatch({
+      type: "host-start",
+      source: "application-quit",
+      request: closeRequest(),
+    })
   })
-  app.on("before-quit", shutdown.beforeQuit)
 
   const userFileQueue = parsePathQueue(
     process.env.REPO_EDU_TEST_USER_FILE_QUEUE,

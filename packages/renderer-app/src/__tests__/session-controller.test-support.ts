@@ -85,9 +85,17 @@ export function workflowClient(
 
 // Mirrors RendererSessionRoot: construct, then start bootstrap explicitly.
 export function startController(
-  options: ConstructorParameters<typeof SessionController>[0],
+  options: Omit<
+    ConstructorParameters<typeof SessionController>[0],
+    "onBootstrapReady"
+  > & {
+    onBootstrapReady?: () => Promise<void>
+  },
 ): SessionController {
-  const controller = new SessionController(options)
+  const controller = new SessionController({
+    onBootstrapReady: async () => {},
+    ...options,
+  })
   controller.start()
   return controller
 }

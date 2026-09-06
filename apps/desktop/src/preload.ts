@@ -59,6 +59,9 @@ ipcRenderer.on(
 )
 
 const desktopHostBridge: DesktopRendererHostBridge = {
+  async bootstrapReady() {
+    await ipcRenderer.invoke(desktopRendererHostChannels.bootstrapReady)
+  },
   async pickUserFile(options) {
     return await ipcRenderer.invoke(
       desktopRendererHostChannels.pickUserFile,

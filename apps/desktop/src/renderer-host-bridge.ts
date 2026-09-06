@@ -8,6 +8,7 @@ import type {
 } from "@repo-edu/renderer-host-contract"
 
 export const desktopRendererHostChannels = {
+  bootstrapReady: "repo-edu/renderer-host/bootstrap-ready",
   pickUserFile: "repo-edu/renderer-host/pick-user-file",
   pickSaveTarget: "repo-edu/renderer-host/pick-save-target",
   pickDirectory: "repo-edu/renderer-host/pick-directory",
@@ -34,6 +35,7 @@ export type DownloadProgress = {
 }
 
 export type DesktopRendererHostBridge = {
+  bootstrapReady(): Promise<void>
   pickUserFile(
     options?: OpenUserFileDialogOptions,
   ): Promise<RendererOpenUserFileRef | null>

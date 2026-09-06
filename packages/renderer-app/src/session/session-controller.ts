@@ -79,6 +79,7 @@ type Listener = () => void
 
 type SessionControllerOptions = {
   workflowClient: WorkflowClient
+  onBootstrapReady: () => Promise<void>
 }
 
 type CreateCourseInput = {
@@ -636,6 +637,8 @@ export class SessionController extends CourseMutationController {
         )
         if (!this.commitSurface(scope, commit))
           throw new Error("The bootstrap surface could not be committed.")
+        await this.options.onBootstrapReady()
+        if (!scope.canContinue()) return
         this.settings.replaceWorkers(settings)
         this.dispatch({ type: "bootstrap-ready", attempt })
       })

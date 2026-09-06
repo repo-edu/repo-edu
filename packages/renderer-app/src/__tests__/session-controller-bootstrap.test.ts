@@ -19,6 +19,73 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController bootstrap", () => {
+  it("acknowledges settled bootstrap before publishing readiness", async () => {
+    const load = deferred<ReturnType<typeof makeSettings>>()
+    const acknowledgement = deferred<void>()
+    const requested = deferred<void>()
+    let acknowledged = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp") return await load.promise
+        if (id === "settings.savePreferences") return undefined
+        throw new Error(`Unexpected workflow ${id}`)
+      }),
+      async onBootstrapReady() {
+        acknowledged++
+        requested.resolve()
+        await acknowledgement.promise
+      },
+    })
+    assert.equal(acknowledged, 0)
+    load.resolve(makeSettings())
+    await requested.promise
+    assert.equal(controller.getSnapshot().bootstrap.status, "loading")
+    acknowledgement.resolve()
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+    assert.equal(acknowledged, 1)
+    controller.dispose()
+  })
+
+  it("does not publish readiness when the host rejects bootstrap acknowledgement", async () => {
+    const controller = startController({
+      workflowClient: workflowClient(async () => makeSettings()),
+      async onBootstrapReady() {
+        throw new Error("Host closed during bootstrap.")
+      },
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "error",
+    )
+    assert.deepEqual(controller.getSnapshot().bootstrap, {
+      status: "error",
+      attempt: 1,
+      message: "Host closed during bootstrap.",
+    })
+    controller.dispose()
+  })
+
+  it("cannot finish a disposed bootstrap after a delayed host acknowledgement", async () => {
+    const acknowledgement = deferred<void>()
+    const requested = deferred<void>()
+    const controller = startController({
+      workflowClient: workflowClient(async () => makeSettings()),
+      async onBootstrapReady() {
+        requested.resolve()
+        await acknowledgement.promise
+      },
+    })
+    await requested.promise
+    controller.dispose()
+    acknowledgement.resolve()
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
+    assert.notEqual(controller.getSnapshot().bootstrap.status, "ready")
+  })
+
   it("bootstraps settings and hydrates the restored active course", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
