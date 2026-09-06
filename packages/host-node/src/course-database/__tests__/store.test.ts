@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { DatabaseSync } from "node:sqlite"
 import { describe, it, type TestContext } from "node:test"
 import { isAppError } from "@repo-edu/application-contract"
 import { createBlankCourse } from "@repo-edu/domain/types"
@@ -31,8 +30,11 @@ async function fixture(t: TestContext) {
   return { root, path, store: createCourseStore(root) }
 }
 
-function inspect<T>(path: string, body: (database: DatabaseSync) => T): T {
-  const database = new DatabaseSync(path)
+async function inspect<T>(
+  path: string,
+  body: (database: CourseConnection) => T,
+): Promise<T> {
+  const database = await openCourseConnection(path)
   try {
     return body(database)
   } finally {
@@ -44,12 +46,12 @@ describe("course database store", () => {
   it("claims a virgin database on load once and leaves reads unchanged", async (t) => {
     const { path, store } = await fixture(t)
     assert.equal(await store.loadCourse("missing"), null)
-    inspect(path, (db) => {
+    await inspect(path, (db) => {
       assert.equal(
-        db.prepare("PRAGMA application_id").get()?.application_id,
+        db.get("PRAGMA application_id")?.application_id,
         courseDatabaseApplicationId,
       )
-      assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 1)
+      assert.equal(db.get("PRAGMA user_version")?.user_version, 1)
     })
     const before = await readFile(path)
     assert.deepEqual(await store.listCourses(), [])
@@ -74,9 +76,9 @@ describe("course database store", () => {
     const next = await store.saveCourse(successor)
     assert.equal(next.revision, 2)
     assert.deepEqual(await store.listCourses(), [{ ...successor, ...next }])
-    inspect(path, (db) => {
+    await inspect(path, (db) => {
       const payload = JSON.parse(
-        db.prepare("SELECT payload FROM courses").get()?.payload as string,
+        db.get("SELECT payload FROM courses")?.payload as string,
       )
       for (const key of ["id", "revision", "updatedAt"])
         assert.equal(key in payload, false)
@@ -112,7 +114,7 @@ describe("course database store", () => {
       terminal,
     )
     await store.saveCourse(course)
-    inspect(path, (db) =>
+    await inspect(path, (db) =>
       db.exec(`UPDATE courses SET revision = ${Number.MAX_SAFE_INTEGER}`),
     )
     const before = await readFile(path)
@@ -128,8 +130,8 @@ describe("course database store", () => {
     const { path, store } = await fixture(t)
     await store.saveCourse(course)
     for (const payload of ["{", "{}", "null"]) {
-      inspect(path, (db) =>
-        db.prepare("UPDATE courses SET payload = ?").run(payload),
+      await inspect(path, (db) =>
+        db.run("UPDATE courses SET payload = ?", payload),
       )
       const before = await readFile(path)
       await assert.rejects(async () => store.loadCourse(course.id), terminal)
@@ -138,7 +140,7 @@ describe("course database store", () => {
     }
     const stamp = await store.saveCourse({ ...course, revision: 1 })
     assert.deepEqual(await store.loadCourse(course.id), { ...course, ...stamp })
-    inspect(path, (db) =>
+    await inspect(path, (db) =>
       db.exec("UPDATE courses SET payload = '{}', updated_at = 'invalid'"),
     )
     await store.deleteCourse(course.id)
@@ -158,7 +160,7 @@ describe("course database store", () => {
   ]) {
     it(`fails closed for schema state: ${sql}`, async (t) => {
       const { path, store } = await fixture(t)
-      inspect(path, (db) => db.exec(sql))
+      await inspect(path, (db) => db.exec(sql))
       const before = await readFile(path)
       for (const operation of [
         () => store.listCourses(),
@@ -188,7 +190,7 @@ describe("course database store", () => {
   it("refuses a busy database once with no waiting or journal-mode change", async (t) => {
     const { root, path, store } = await fixture(t)
     await store.listCourses()
-    const held = new DatabaseSync(path)
+    const held = await openCourseConnection(path)
     held.exec("BEGIN EXCLUSIVE")
     const events: string[] = []
     const competing = createCourseStoreWithConnection(root, async (file) => {
@@ -226,8 +228,8 @@ describe("course database store", () => {
           "--input-type=module",
           "-e",
           `
-        import { DatabaseSync } from 'node:sqlite';
-        const db = new DatabaseSync(${JSON.stringify(path)});
+        const { ${process.versions.bun ? "Database" : "DatabaseSync"}: Database } = await import(${JSON.stringify(process.versions.bun ? "bun:sqlite" : "node:sqlite")});
+        const db = new Database(${JSON.stringify(path)});
         db.exec('PRAGMA synchronous = FULL; BEGIN EXCLUSIVE');
         db.exec(${JSON.stringify(sql)});
         process.exit(0);
@@ -240,10 +242,10 @@ describe("course database store", () => {
     interrupt(
       `${createCourseTableSql}; PRAGMA application_id = ${courseDatabaseApplicationId}; PRAGMA user_version = 1`,
     )
-    inspect(path, (db) => {
-      assert.equal(db.prepare("PRAGMA application_id").get()?.application_id, 0)
-      assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 0)
-      assert.deepEqual(db.prepare("SELECT name FROM sqlite_schema").all(), [])
+    await inspect(path, (db) => {
+      assert.equal(db.get("PRAGMA application_id")?.application_id, 0)
+      assert.equal(db.get("PRAGMA user_version")?.user_version, 0)
+      assert.deepEqual(db.all("SELECT name FROM sqlite_schema"), [])
     })
     const stamp = await store.saveCourse(course)
     interrupt("UPDATE courses SET payload = '{}', revision = 2")

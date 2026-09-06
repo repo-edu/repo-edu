@@ -2,6 +2,12 @@ import type { DatabaseSync } from "node:sqlite"
 
 type BunSqliteConnection = {
   exec(sql: string): void
+  prepare(sql: string): {
+    get(...values: (string | number | null)[]): Record<string, unknown> | null
+    all(...values: (string | number | null)[]): Record<string, unknown>[]
+    run(...values: (string | number | null)[]): unknown
+    finalize(): void
+  }
   close(throwOnError?: boolean): void
 }
 

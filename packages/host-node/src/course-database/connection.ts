@@ -16,9 +16,30 @@ export async function openCourseConnection(
   path: string,
 ): Promise<CourseConnection> {
   const connection = await openRuntimeSqlite(path)
-  if (connection.runtime !== "node") {
-    connection.database.close(true)
-    throw new Error("The course database requires the Node SQLite connection.")
+  if (connection.runtime === "bun") {
+    const { database } = connection
+    function statement<T>(
+      sql: string,
+      body: (prepared: ReturnType<typeof database.prepare>) => T,
+    ): T {
+      const prepared = database.prepare(sql)
+      try {
+        return body(prepared)
+      } finally {
+        prepared.finalize()
+      }
+    }
+    return {
+      exec: (sql) => database.exec(sql),
+      get: (sql, ...values) =>
+        statement(sql, (prepared) => prepared.get(...values) ?? undefined),
+      all: (sql, ...values) =>
+        statement(sql, (prepared) => prepared.all(...values)),
+      run: (sql, ...values) => {
+        statement(sql, (prepared) => prepared.run(...values))
+      },
+      close: () => database.close(true),
+    }
   }
   const { database } = connection
   return {
