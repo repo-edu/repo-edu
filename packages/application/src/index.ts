@@ -2,6 +2,7 @@ export { createAnalysisWorkflowHandlers } from "./analysis-workflows/analysis-wo
 export type { AnalysisWorkflowPorts } from "./analysis-workflows/ports.js"
 export { createConnectionWorkflowHandlers } from "./connection-workflows.js"
 export type {
+  AppSettingsLoader,
   AppSettingsStore,
   CourseSaveConflictReason,
   CourseStore,
@@ -40,7 +41,10 @@ export type {
 export { createLlmConnectionWorkflowHandlers } from "./llm-connection-workflows.js"
 export { createRepositoryWorkflowHandlers } from "./repository-workflows.js"
 export { createRosterWorkflowHandlers } from "./roster-workflows.js"
-export { createSettingsWorkflowHandlers } from "./settings-workflows.js"
+export {
+  createSettingsLoadWorkflowHandlers,
+  createSettingsWorkflowHandlers,
+} from "./settings-workflows.js"
 export {
   runInspectUserFileWorkflow,
   runUserFileExportPreviewWorkflow,

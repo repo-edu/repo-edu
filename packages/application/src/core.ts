@@ -246,12 +246,20 @@ export type SectionStore<T> = {
   save(section: T, signal?: AbortSignal): Promise<void> | void
 }
 
-export type AppSettingsStore = {
-  credentials: SectionStore<PersistedAppCredentials>
-  preferences: SectionStore<PersistedAppPreferences>
+export type AppSettingsLoader = {
+  credentials: Pick<SectionStore<PersistedAppCredentials>, "load">
+  preferences: Pick<SectionStore<PersistedAppPreferences>, "load">
+}
+
+export type RecoverableAppSettingsLoader = AppSettingsLoader & {
   recoverUnsupportedComposite?(
     signal?: AbortSignal,
   ): Promise<SettingsRecoveryEntry[]> | SettingsRecoveryEntry[]
+}
+
+export type AppSettingsStore = RecoverableAppSettingsLoader & {
+  credentials: SectionStore<PersistedAppCredentials>
+  preferences: SectionStore<PersistedAppPreferences>
 }
 
 export function createValidationAppError(

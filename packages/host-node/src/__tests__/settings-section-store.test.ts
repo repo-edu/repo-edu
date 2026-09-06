@@ -10,9 +10,9 @@ import {
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { describe, it } from "node:test"
+import type { NodeSettingsValidationResult } from "../settings-section-reader.js"
 import {
   createNodeSettingsSectionStore,
-  type NodeSettingsValidationResult,
   recoverUnsupportedCompositeSettingsFile,
 } from "../settings-section-store.js"
 
@@ -54,6 +54,95 @@ async function withSettingsDirectory<T>(
 }
 
 describe("createNodeSettingsSectionStore", () => {
+  it("reports a failed publication without removing the target or leaving temporary files", async () => {
+    await withSettingsDirectory(async (settingsDirectory) => {
+      const path = join(settingsDirectory, "credentials.json")
+      await mkdir(path)
+      await writeFile(join(path, "retained"), "existing content")
+      const store = createNodeSettingsSectionStore({
+        settingsDirectory,
+        fileName: "credentials.json",
+        unit: "credentials",
+        validate: validateTestSection,
+      })
+      await assert.rejects(store.save({ kind: "test-section", value: "new" }))
+      assert.deepStrictEqual(await readdir(settingsDirectory), [
+        "credentials.json",
+      ])
+      assert.equal(
+        await readFile(join(path, "retained"), "utf8"),
+        "existing content",
+      )
+    })
+  })
+
+  it("publishes ordered complete JSON documents with two spaces and a final newline", async () => {
+    await withSettingsDirectory(async (settingsDirectory) => {
+      const store = createNodeSettingsSectionStore({
+        settingsDirectory,
+        fileName: "preferences.json",
+        unit: "preferences",
+        validate: validateTestSection,
+      })
+      const first: TestSection = { kind: "test-section", value: "first" }
+      const last: TestSection = { kind: "test-section", value: "last" }
+      await Promise.all([store.save(first), store.save(last)])
+      assert.equal(
+        await readFile(join(settingsDirectory, "preferences.json"), "utf8"),
+        '{\n  "kind": "test-section",\n  "value": "last"\n}\n',
+      )
+      assert.deepStrictEqual(await readdir(settingsDirectory), [
+        "preferences.json",
+      ])
+    })
+  })
+
+  it("orders recovery before publication without renaming the newly saved value", async () => {
+    await withSettingsDirectory(async (settingsDirectory) => {
+      const store = createNodeSettingsSectionStore({
+        settingsDirectory,
+        fileName: "preferences.json",
+        unit: "preferences",
+        validate: validateTestSection,
+      })
+      await writeFile(join(settingsDirectory, "preferences.json"), "null")
+      const recovery = store.load()
+      const section: TestSection = { kind: "test-section", value: "saved" }
+      const save = store.save(section)
+      const loaded = await recovery
+      await save
+      assert.equal(loaded.recovery[0]?.reason, "invalid")
+      assert.equal(
+        await readFile(loaded.recovery[0]?.backupPath ?? "", "utf8"),
+        "null",
+      )
+      assert.deepStrictEqual(await store.load(), {
+        value: section,
+        recovery: [],
+      })
+    })
+  })
+
+  it("orders a load after an earlier save before deciding whether recovery is needed", async () => {
+    await withSettingsDirectory(async (settingsDirectory) => {
+      const store = createNodeSettingsSectionStore({
+        settingsDirectory,
+        fileName: "credentials.json",
+        unit: "credentials",
+        validate: validateTestSection,
+      })
+      await writeFile(join(settingsDirectory, "credentials.json"), "{")
+      const section: TestSection = { kind: "test-section", value: "saved" }
+      const save = store.save(section)
+      const load = store.load()
+      await save
+      assert.deepStrictEqual(await load, { value: section, recovery: [] })
+      assert.deepStrictEqual(await readdir(settingsDirectory), [
+        "credentials.json",
+      ])
+    })
+  })
+
   it("backs invalid section files aside and returns recovery", async () => {
     await withSettingsDirectory(async (settingsDirectory) => {
       const store = createNodeSettingsSectionStore({

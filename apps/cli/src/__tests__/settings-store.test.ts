@@ -1,79 +1,124 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { basename, join } from "node:path"
+import { join } from "node:path"
 import { describe, it } from "node:test"
-import { createSettingsWorkflowHandlers } from "@repo-edu/application"
+import { createSettingsLoadWorkflowHandlers } from "@repo-edu/application"
 import {
   defaultAppCredentials,
   defaultAppPreferences,
 } from "@repo-edu/domain/settings"
-import { createCliAppSettingsStore } from "../state-store.js"
+import { createCliAppSettingsLoader } from "../state-store.js"
 
-async function pathExists(path: string): Promise<boolean> {
-  return await stat(path)
-    .then(() => true)
-    .catch(() => false)
+async function withRoot(run: (root: string) => Promise<void>): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), "repo-edu-cli-settings-"))
+  try {
+    await run(root)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 }
 
-describe("createCliAppSettingsStore", () => {
-  it("loads preferences when credentials are unparseable and backs credentials aside", async () => {
-    const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"))
-    try {
-      const settingsDirectory = join(storageRoot, "settings")
-      const store = createCliAppSettingsStore(storageRoot)
-      const handlers = createSettingsWorkflowHandlers(store)
-      const preferences = {
-        ...defaultAppPreferences,
-        activeSurface: { kind: "course" as const, courseId: "course-1" },
-      }
+function loadSettings(root: string, signal?: AbortSignal) {
+  return createSettingsLoadWorkflowHandlers(createCliAppSettingsLoader(root))[
+    "settings.loadApp"
+  ](undefined, { signal })
+}
 
-      await store.preferences.save(preferences)
-      await mkdir(settingsDirectory, { recursive: true })
-      await writeFile(join(settingsDirectory, "credentials.json"), "{", "utf8")
-
-      const loaded = await handlers["settings.loadApp"](undefined)
-
-      assert.deepStrictEqual(loaded.credentials, defaultAppCredentials)
-      assert.deepStrictEqual(loaded.preferences, preferences)
-      assert.equal(loaded.recovery.length, 1)
-      assert.equal(loaded.recovery[0]?.unit, "credentials")
-      assert.equal(loaded.recovery[0]?.reason, "unparseable")
-      assert.match(
-        basename(loaded.recovery[0]?.backupPath ?? ""),
-        /^credentials\.unparseable-\d+\.json$/,
-      )
-      assert.equal(
-        await pathExists(join(settingsDirectory, "credentials.json")),
-        false,
-      )
-    } finally {
-      await rm(storageRoot, { recursive: true, force: true })
-    }
+describe("command-line settings loads", () => {
+  it("returns defaults without creating the missing settings directory", async () => {
+    await withRoot(async (root) => {
+      assert.deepStrictEqual(await loadSettings(root), {
+        credentials: defaultAppCredentials,
+        preferences: defaultAppPreferences,
+        recovery: [],
+      })
+      assert.deepStrictEqual(await readdir(root), [])
+    })
   })
 
-  it("preserves cancellation from in-flight preference saves", async () => {
-    const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-cli-"))
-    try {
-      const handlers = createSettingsWorkflowHandlers(
-        createCliAppSettingsStore(storageRoot),
-      )
-      const controller = new AbortController()
-      const save = handlers["settings.savePreferences"](defaultAppPreferences, {
-        signal: controller.signal,
+  it("loads hand-edited current documents without changing any files", async () => {
+    await withRoot(async (root) => {
+      const directory = join(root, "settings")
+      await mkdir(directory)
+      const preferences = {
+        ...defaultAppPreferences,
+        activeSurface: { kind: "course", courseId: "course-1" },
+      }
+      const files = {
+        "credentials.json": JSON.stringify(defaultAppCredentials),
+        "preferences.json": JSON.stringify(preferences),
+        "app-settings.json": "unsupported composite",
+        ".old.tmp": "unrelated temporary file",
+      }
+      for (const [name, content] of Object.entries(files)) {
+        await writeFile(join(directory, name), content)
+      }
+      assert.deepStrictEqual(await loadSettings(root), {
+        credentials: defaultAppCredentials,
+        preferences,
+        recovery: [],
       })
-      controller.abort()
+      assert.deepStrictEqual(
+        (await readdir(directory)).sort(),
+        Object.keys(files).sort(),
+      )
+      for (const [name, content] of Object.entries(files)) {
+        assert.equal(await readFile(join(directory, name), "utf8"), content)
+      }
+    })
+  })
 
+  for (const fileName of ["credentials.json", "preferences.json"]) {
+    for (const content of ["{", "null", "{}", '{"version":-1}']) {
+      it(`rejects ${fileName} containing ${content} without recovering it`, async () => {
+        await withRoot(async (root) => {
+          const directory = join(root, "settings")
+          await mkdir(directory)
+          await writeFile(join(directory, fileName), content)
+          await assert.rejects(loadSettings(root))
+          assert.deepStrictEqual(await readdir(directory), [fileName])
+          assert.equal(
+            await readFile(join(directory, fileName), "utf8"),
+            content,
+          )
+        })
+      })
+    }
+  }
+
+  it("fails on unreadable settings without replacing them", async () => {
+    await withRoot(async (root) => {
+      await mkdir(join(root, "settings", "credentials.json"), {
+        recursive: true,
+      })
+      await assert.rejects(loadSettings(root))
+      assert.deepStrictEqual(await readdir(join(root, "settings")), [
+        "credentials.json",
+      ])
+    })
+  })
+
+  it("cancels before reading without creating settings", async () => {
+    await withRoot(async (root) => {
+      const controller = new AbortController()
+      controller.abort()
       await assert.rejects(
-        save,
+        loadSettings(root, controller.signal),
         (error: unknown) =>
           typeof error === "object" &&
           error !== null &&
           "type" in error &&
           error.type === "cancelled",
       )
-    } finally {
-      await rm(storageRoot, { recursive: true, force: true })
-    }
+      assert.deepStrictEqual(await readdir(root), [])
+    })
   })
 })

@@ -11,7 +11,8 @@
     "@repo-edu/integrations-llm-contract": "workspace:*",
     "@repo-edu/tree-sitter-grammar-assets": "workspace:*",
     "koffi": "catalog:",
-    "web-tree-sitter": "0.26.12"
+    "web-tree-sitter": "0.26.12",
+    "write-file-atomic": "8.0.0"
   },
   "exports": {
     ".": {
@@ -53,6 +54,7 @@
     "test": "pnpm --filter @repo-edu/tree-sitter-grammar-assets run copy-assets && node --import tsx --test src/__tests__/*.test.ts src/**/__tests__/*.test.ts"
   },
   "devDependencies": {
-    "@repo-edu/test-fixtures": "workspace:*"
+    "@repo-edu/test-fixtures": "workspace:*",
+    "@types/write-file-atomic": "4.0.3"
   }
 }

@@ -54,7 +54,10 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import type { AppSettingsStore, SettingsRecoveryEntry } from "./core.js"
+import type {
+  RecoverableAppSettingsLoader,
+  SettingsRecoveryEntry,
+} from "./core.js"
 import {
   createValidationAppError,
   isPersistenceWriteError,
@@ -89,7 +92,7 @@ export function validateLoadedCourse(course: PersistedCourse): PersistedCourse {
 }
 
 export async function loadSettingsOrDefault(
-  appSettingsStore: AppSettingsStore,
+  appSettingsStore: RecoverableAppSettingsLoader,
   signal?: AbortSignal,
 ): Promise<AppSettingsSections & { recovery: SettingsRecoveryEntry[] }> {
   throwIfAborted(signal)
@@ -100,7 +103,7 @@ export async function loadSettingsOrDefault(
   throwIfAborted(signal)
 
   let storedCredentials: Awaited<
-    ReturnType<AppSettingsStore["credentials"]["load"]>
+    ReturnType<RecoverableAppSettingsLoader["credentials"]["load"]>
   >
   try {
     storedCredentials = await appSettingsStore.credentials.load(signal)
@@ -111,7 +114,7 @@ export async function loadSettingsOrDefault(
   throwIfAborted(signal)
 
   let storedPreferences: Awaited<
-    ReturnType<AppSettingsStore["preferences"]["load"]>
+    ReturnType<RecoverableAppSettingsLoader["preferences"]["load"]>
   >
   try {
     storedPreferences = await appSettingsStore.preferences.load(signal)

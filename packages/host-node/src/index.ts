@@ -98,6 +98,7 @@ export {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "./program-gate.js"
+export { createNodeSettingsSectionReader } from "./settings-section-reader.js"
 export type {
   NodeSettingsRecoveryEntry,
   NodeSettingsRecoveryReason,

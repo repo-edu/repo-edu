@@ -1,10 +1,13 @@
-import { mkdir, readFile, rename, stat } from "node:fs/promises"
+import { mkdir, rename, stat } from "node:fs/promises"
 import { basename, dirname, extname, join } from "node:path"
+import writeFileAtomic from "write-file-atomic"
+import { createWriteQueue } from "./atomic-write.js"
 import {
-  cleanupAtomicTempFiles,
-  createWriteQueue,
-  writeTextFileAtomic,
-} from "./atomic-write.js"
+  createNodeSettingsSectionReader,
+  type NodeSettingsSectionReaderOptions,
+  readSettingsJson,
+  throwIfSettingsReadAborted as throwIfAborted,
+} from "./settings-section-reader.js"
 
 export type NodeSettingsRecoveryUnit =
   | "credentials"
@@ -21,15 +24,6 @@ export type NodeSettingsRecoveryEntry = {
   backupPath: string
 }
 
-export type NodeSettingsValidationIssue = {
-  path: string
-  message: string
-}
-
-export type NodeSettingsValidationResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; issues: NodeSettingsValidationIssue[] }
-
 export type NodeSettingsSectionStore<T> = {
   load(signal?: AbortSignal): Promise<{
     value: T | null
@@ -37,19 +31,6 @@ export type NodeSettingsSectionStore<T> = {
   }>
   save(section: T, signal?: AbortSignal): Promise<void>
   readRaw(signal?: AbortSignal): Promise<T | null>
-}
-
-export type NodeSettingsSectionStoreOptions<T> = {
-  settingsDirectory: string
-  fileName: string
-  unit: Exclude<NodeSettingsRecoveryUnit, "unsupported-composite">
-  validate: (value: unknown) => NodeSettingsValidationResult<T>
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new DOMException("Operation cancelled.", "AbortError")
-  }
 }
 
 function backupStem(fileName: string): string {
@@ -87,75 +68,47 @@ async function renameAside(
   }
 }
 
-async function readJsonFile(path: string): Promise<unknown | null> {
-  try {
-    const raw = await readFile(path, "utf8")
-    return JSON.parse(raw) as unknown
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return null
-    }
-    throw error
-  }
-}
-
 export function createNodeSettingsSectionStore<T>({
   settingsDirectory,
   fileName,
   unit,
   validate,
-}: NodeSettingsSectionStoreOptions<T>): NodeSettingsSectionStore<T> {
+}: NodeSettingsSectionReaderOptions<T>): NodeSettingsSectionStore<T> {
   const enqueueWrite = createWriteQueue()
   const path = join(settingsDirectory, fileName)
 
-  async function readValidated(signal?: AbortSignal): Promise<T | null> {
-    throwIfAborted(signal)
-    const parsed = await readJsonFile(path)
-    throwIfAborted(signal)
-    if (parsed === null) return null
-
-    const validation = validate(parsed)
-    if (!validation.ok) {
-      throw new Error(
-        `Invalid persisted ${unit} settings at ${path}: ${validation.issues
-          .map((issue) => `${issue.path}: ${issue.message}`)
-          .join("; ")}`,
-      )
-    }
-    return validation.value
-  }
-
   return {
     async load(signal?: AbortSignal) {
-      throwIfAborted(signal)
-      await cleanupAtomicTempFiles(settingsDirectory)
-      try {
-        const parsed = await readJsonFile(path)
+      return enqueueWrite(async () => {
         throwIfAborted(signal)
-        if (parsed === null) {
-          return { value: null, recovery: [] }
-        }
+        try {
+          const parsed = await readSettingsJson(path)
+          throwIfAborted(signal)
+          if (parsed === undefined) {
+            return { value: null, recovery: [] }
+          }
 
-        const validation = validate(parsed)
-        if (validation.ok) {
-          return { value: validation.value, recovery: [] }
-        }
+          const validation = validate(parsed)
+          if (validation.ok) {
+            return { value: validation.value, recovery: [] }
+          }
 
-        const backupPath = await renameAside(path, "invalid", signal)
-        return {
-          value: null,
-          recovery: [{ unit, reason: "invalid", backupPath }],
-        }
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          const backupPath = await renameAside(path, "unparseable", signal)
+          const backupPath = await renameAside(path, "invalid", signal)
           return {
             value: null,
-            recovery: [{ unit, reason: "unparseable", backupPath }],
+            recovery: [{ unit, reason: "invalid" as const, backupPath }],
           }
+        } catch (error) {
+          if (error instanceof SyntaxError) {
+            const backupPath = await renameAside(path, "unparseable", signal)
+            return {
+              value: null,
+              recovery: [{ unit, reason: "unparseable" as const, backupPath }],
+            }
+          }
+          throw error
         }
-        throw error
-      }
+      })
     },
 
     async save(section: T, signal?: AbortSignal) {
@@ -163,15 +116,16 @@ export function createNodeSettingsSectionStore<T>({
         throwIfAborted(signal)
         await mkdir(settingsDirectory, { recursive: true })
         throwIfAborted(signal)
-        await writeTextFileAtomic(
-          path,
-          JSON.stringify(section, null, 2),
-          signal,
-        )
+        await writeFileAtomic(path, `${JSON.stringify(section, null, 2)}\n`)
       })
     },
 
-    readRaw: readValidated,
+    readRaw: createNodeSettingsSectionReader({
+      settingsDirectory,
+      fileName,
+      unit,
+      validate,
+    }),
   }
 }
 

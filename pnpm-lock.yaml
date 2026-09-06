@@ -355,10 +355,16 @@ importers:
       web-tree-sitter:
         specifier: 0.26.12
         version: 0.26.12
+      write-file-atomic:
+        specifier: 8.0.0
+        version: 8.0.0
     devDependencies:
       '@repo-edu/test-fixtures':
         specifier: workspace:*
         version: link:../test-fixtures
+      '@types/write-file-atomic':
+        specifier: 4.0.3
+        version: 4.0.3
 
   packages/host-runtime-contract:
     dependencies:
@@ -3453,6 +3459,9 @@ packages:
 
   '@types/use-sync-external-store@0.0.6':
     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
+
+  '@types/write-file-atomic@4.0.3':
+    resolution: {integrity: sha512-qdo+vZRchyJIHNeuI1nrpsLw+hnkgqP/8mlaN6Wle/NKhydHmUN9l4p3ZE8yP90AJNJW4uB8HQhedb4f1vNayQ==}
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
@@ -6878,6 +6887,10 @@ packages:
     resolution: {integrity: sha512-OTIk8iR8/aCRWBqvxrzxR0hgxWpnYBblY1S5hDWBQfk/VFmJwzmJgQFN3WsoUKHISv2eAwe+PpbUzyL1CKTLXg==}
     engines: {node: ^20.17.0 || >=22.9.0}
 
+  write-file-atomic@8.0.0:
+    resolution: {integrity: sha512-dYwyZredl67GyLLIHJnRM3h2PcOmN5SkcgC7eM5DPDEOEl6dLFqVrMg3F1Ea32usj4VSVZtd2H4MtKTNOf6nPg==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
+
   wsl-utils@1.0.0:
     resolution: {integrity: sha512-Hl0ZOAs672vg+06kfujwRhoS6/jehvULrlFkuF2dRu6pHgA8U06h3xqNIqNNU1LTXPcedxByAR4GS6pwQK0mgA==}
     engines: {node: '>=20'}
@@ -9460,6 +9473,10 @@ snapshots:
   '@types/unist@3.0.3': {}
 
   '@types/use-sync-external-store@0.0.6': {}
+
+  '@types/write-file-atomic@4.0.3':
+    dependencies:
+      '@types/node': 25.9.5
 
   '@ungap/structured-clone@1.3.0': {}
 
@@ -13684,6 +13701,10 @@ snapshots:
   wrappy@1.0.2: {}
 
   write-file-atomic@7.0.1:
+    dependencies:
+      signal-exit: 4.1.0
+
+  write-file-atomic@8.0.0:
     dependencies:
       signal-exit: 4.1.0
 

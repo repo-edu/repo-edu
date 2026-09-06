@@ -2,7 +2,7 @@ import {
   createConnectionWorkflowHandlers,
   createCourseWorkflowHandlers,
   createRepositoryWorkflowHandlers,
-  createSettingsWorkflowHandlers,
+  createSettingsLoadWorkflowHandlers,
   createValidationWorkflowHandlers,
 } from "@repo-edu/application"
 import {
@@ -21,7 +21,7 @@ import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-p
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import {
-  createCliAppSettingsStore,
+  createCliAppSettingsLoader,
   createCliCourseStore,
 } from "./state-store.js"
 
@@ -35,14 +35,14 @@ export type CliWorkflowRuntimeOptions = {
 
 export function createCliWorkflowHandlers(options: CliWorkflowRuntimeOptions) {
   const courseStore = createCliCourseStore(options.storageRoot)
-  const appSettingsStore = createCliAppSettingsStore(options.storageRoot)
+  const appSettingsLoader = createCliAppSettingsLoader(options.storageRoot)
   const http = createNodeHttpPort()
   const lms = createLmsProviderDispatch(http)
   const git = createGitProviderDispatch(http)
 
   const courseHandlers = createCourseWorkflowHandlers(courseStore)
   const connectionHandlers = createConnectionWorkflowHandlers({ lms, git })
-  const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
+  const settingsHandlers = createSettingsLoadWorkflowHandlers(appSettingsLoader)
 
   return {
     "course.list": courseHandlers["course.list"],

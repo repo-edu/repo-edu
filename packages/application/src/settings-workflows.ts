@@ -17,6 +17,7 @@ import {
   type AppSettingsStore,
   createValidationAppError,
   isPersistenceWriteError,
+  type RecoverableAppSettingsLoader,
 } from "./core.js"
 import {
   isRetryablePersistenceWriteKind,
@@ -52,6 +53,17 @@ function normalizeSettingsSaveError(error: unknown): AppError {
   }
 }
 
+export function createSettingsLoadWorkflowHandlers(
+  loader: RecoverableAppSettingsLoader,
+): WorkflowHandlerMap<"settings.loadApp"> {
+  return {
+    "settings.loadApp": async (
+      _input,
+      options?: WorkflowCallOptions<never, never>,
+    ) => loadSettingsOrDefault(loader, options?.signal),
+  }
+}
+
 export function createSettingsWorkflowHandlers(
   appSettingsStore: AppSettingsStore,
 ): Pick<
@@ -61,10 +73,7 @@ export function createSettingsWorkflowHandlers(
   "settings.loadApp" | "settings.saveCredentials" | "settings.savePreferences"
 > {
   return {
-    "settings.loadApp": async (
-      _input,
-      options?: WorkflowCallOptions<never, never>,
-    ) => loadSettingsOrDefault(appSettingsStore, options?.signal),
+    ...createSettingsLoadWorkflowHandlers(appSettingsStore),
     "settings.saveCredentials": async (
       input: PersistedAppCredentials,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
