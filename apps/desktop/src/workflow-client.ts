@@ -15,7 +15,7 @@ import {
   createWorkflowClient,
   workflowCatalog,
 } from "@repo-edu/application-contract"
-import { createTRPCProxyClient } from "@trpc/client"
+import { createTRPCClient } from "@trpc/client"
 import { ipcLink } from "trpc-electron/renderer"
 import type { DesktopRouter } from "./trpc"
 
@@ -27,17 +27,14 @@ type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
   onComplete(): void
 }
 
-let trpcClient: ReturnType<typeof createTRPCProxyClient<DesktopRouter>> | null =
-  null
+let trpcClient: ReturnType<typeof createTRPCClient<DesktopRouter>> | null = null
 
-function getTrpcClient(): ReturnType<
-  typeof createTRPCProxyClient<DesktopRouter>
-> {
+function getTrpcClient(): ReturnType<typeof createTRPCClient<DesktopRouter>> {
   if (trpcClient !== null) {
     return trpcClient
   }
 
-  trpcClient = createTRPCProxyClient<DesktopRouter>({
+  trpcClient = createTRPCClient<DesktopRouter>({
     links: [ipcLink<DesktopRouter>()],
   })
   return trpcClient

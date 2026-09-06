@@ -55,7 +55,7 @@ const rosterConnectionSchema = z
   ])
   .nullable()
 
-const rosterMemberSchema = z.object({
+export const rosterMemberSchema = z.object({
   id: localMemberIdSchema,
   name: z.string(),
   email: z.string(),
@@ -114,7 +114,7 @@ const groupSetConnectionSchema = z
   ])
   .nullable()
 
-const repositoryTemplateSchema = z.discriminatedUnion("kind", [
+export const repositoryTemplateSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("remote"),
     owner: z.string(),

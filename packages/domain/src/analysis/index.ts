@@ -29,6 +29,7 @@ export {
   lookupPerson,
 } from "./person-db.js"
 export { mergePersonIdentities } from "./person-merge.js"
+export { personDbSnapshotSchema } from "./person-schemas.js"
 export {
   analysisBlameConfigSchema,
   analysisConfigSchema,

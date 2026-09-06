@@ -7,7 +7,8 @@
     "@repo-edu/domain": "workspace:*",
     "@repo-edu/host-runtime-contract": "workspace:*",
     "@repo-edu/integrations-llm-contract": "workspace:*",
-    "@repo-edu/integrations-lms-contract": "workspace:*"
+    "@repo-edu/integrations-lms-contract": "workspace:*",
+    "zod": "^4.5.4"
   },
   "exports": {
     ".": {
