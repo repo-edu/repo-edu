@@ -1,27 +1,16 @@
-import type {
-  AppError,
-  CourseSaveStamp,
-  DiagnosticOutput,
-  MilestoneProgress,
-  WorkflowCallOptions,
-  WorkflowHandlerMap,
+import {
+  type AppError,
+  createCourseStorageFailure,
+  type DiagnosticOutput,
+  isAppError,
+  type MilestoneProgress,
+  type WorkflowCallOptions,
+  type WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { validatePersistedCourse } from "@repo-edu/domain/schemas"
 import type { CourseSummary, PersistedCourse } from "@repo-edu/domain/types"
-import {
-  type CourseStore,
-  createValidationAppError,
-  isCourseSaveConflictError,
-  isPersistenceWriteError,
-} from "./core.js"
-import {
-  isRetryablePersistenceWriteKind,
-  isSharedAppError,
-  loadRequiredCourse,
-  throwIfAborted,
-  toCancelledAppError,
-  validateLoadedCourse,
-} from "./workflow-helpers.js"
+import type { CourseStore } from "./core.js"
+import { throwIfAborted, validateLoadedCourse } from "./workflow-helpers.js"
 
 function summarizeCourse(course: PersistedCourse): CourseSummary {
   return {
@@ -40,38 +29,16 @@ function sortCoursesByUpdatedAt(
   )
 }
 
-function normalizeCourseSaveError(error: unknown): AppError {
-  if (isSharedAppError(error)) {
-    return error
-  }
-
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return toCancelledAppError()
-  }
-
-  if (isCourseSaveConflictError(error)) {
-    return {
-      type: "conflict",
-      message: error.message,
-      resource: "course",
-      reason: error.reason,
-    }
-  }
-
-  if (isPersistenceWriteError(error)) {
-    return {
-      type: "persistence",
-      message: error.message,
-      operation: "write",
-      retryable: isRetryablePersistenceWriteKind(error.kind),
-    }
-  }
-
-  return {
-    type: "persistence",
-    message: error instanceof Error ? error.message : String(error),
-    operation: "write",
-    retryable: false,
+async function runCourseStorage<T>(action: () => T | Promise<T>): Promise<T> {
+  try {
+    return await action()
+  } catch (error) {
+    if (isAppError(error) && error.type === "course-storage") throw error
+    throw createCourseStorageFailure(
+      error instanceof Error || isAppError(error)
+        ? error.message
+        : "The course storage action failed.",
+    )
   }
 }
 
@@ -86,11 +53,13 @@ export function createCourseWorkflowHandlers(
   return {
     "course.list": async (_input, options) => {
       throwIfAborted(options?.signal)
-      const courses = await courseStore.listCourses(options?.signal)
+      const courses = await runCourseStorage(async () =>
+        (await courseStore.listCourses(options?.signal)).map(
+          validateLoadedCourse,
+        ),
+      )
       throwIfAborted(options?.signal)
-      return sortCoursesByUpdatedAt(courses)
-        .map(validateLoadedCourse)
-        .map(summarizeCourse)
+      return sortCoursesByUpdatedAt(courses).map(summarizeCourse)
     },
     "course.load": async (
       input: { courseId: string },
@@ -101,11 +70,22 @@ export function createCourseWorkflowHandlers(
         totalSteps: 2,
         label: "Resolving course from course store.",
       })
-      const course = await loadRequiredCourse(
-        courseStore,
-        input.courseId,
-        options?.signal,
-      )
+      throwIfAborted(options?.signal)
+      const course = await runCourseStorage(async () => {
+        const stored = await courseStore.loadCourse(
+          input.courseId,
+          options?.signal,
+        )
+        return stored === null ? null : validateLoadedCourse(stored)
+      })
+      throwIfAborted(options?.signal)
+      if (course === null) {
+        throw {
+          type: "not-found",
+          message: `Course '${input.courseId}' was not found.`,
+          resource: "course",
+        } satisfies AppError
+      }
       options?.onOutput?.({
         channel: "info",
         message: `Loaded course ${course.displayName}.`,
@@ -121,6 +101,7 @@ export function createCourseWorkflowHandlers(
       input: PersistedCourse,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
+      throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
@@ -128,10 +109,7 @@ export function createCourseWorkflowHandlers(
       })
       const validation = validatePersistedCourse(input)
       if (!validation.ok) {
-        throw createValidationAppError(
-          "Course validation failed.",
-          validation.issues,
-        )
+        throw createCourseStorageFailure("Course validation failed.")
       }
 
       options?.onOutput?.({
@@ -143,15 +121,9 @@ export function createCourseWorkflowHandlers(
         totalSteps: 3,
         label: "Writing course to course store.",
       })
-      let saveStamp: CourseSaveStamp
-      try {
-        saveStamp = await courseStore.saveCourse(
-          validation.value,
-          options?.signal,
-        )
-      } catch (error) {
-        throw normalizeCourseSaveError(error)
-      }
+      const saveStamp = await runCourseStorage(() =>
+        courseStore.saveCourse(validation.value, options?.signal),
+      )
 
       options?.onProgress?.({
         step: 3,
@@ -162,7 +134,9 @@ export function createCourseWorkflowHandlers(
     },
     "course.delete": async (input: { courseId: string }, options) => {
       throwIfAborted(options?.signal)
-      await courseStore.deleteCourse(input.courseId, options?.signal)
+      await runCourseStorage(() =>
+        courseStore.deleteCourse(input.courseId, options?.signal),
+      )
     },
   }
 }

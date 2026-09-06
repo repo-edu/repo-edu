@@ -54,11 +54,7 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
-import type {
-  AppSettingsStore,
-  CourseStore,
-  SettingsRecoveryEntry,
-} from "./core.js"
+import type { AppSettingsStore, SettingsRecoveryEntry } from "./core.js"
 import {
   createValidationAppError,
   isPersistenceWriteError,
@@ -90,26 +86,6 @@ export function validateLoadedCourse(course: PersistedCourse): PersistedCourse {
   }
 
   return validation.value
-}
-
-export async function loadRequiredCourse(
-  courseStore: CourseStore,
-  courseId: string,
-  signal?: AbortSignal,
-): Promise<PersistedCourse> {
-  throwIfAborted(signal)
-  const course = await courseStore.loadCourse(courseId, signal)
-  throwIfAborted(signal)
-
-  if (course !== null) {
-    return validateLoadedCourse(course)
-  }
-
-  throw {
-    type: "not-found",
-    message: `Course '${courseId}' was not found.`,
-    resource: "course",
-  } satisfies AppError
 }
 
 export async function loadSettingsOrDefault(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  appErrorOwnership,
   createCancelledAppError,
   createCourseStorageFailure,
   createTransportAppError,
@@ -28,6 +29,10 @@ describe("isAppError", () => {
       type: "course-storage",
       message: "The course database could not close.",
     })
+    assert.equal("reason" in failure, false)
+    assert.equal("retryable" in failure, false)
+    assert.equal("operation" in failure, false)
+    assert.match(appErrorOwnership["course-storage"], /terminal/)
   })
 
   it("recognizes all known error types", () => {

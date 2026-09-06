@@ -90,7 +90,7 @@ export const appErrorOwnership = {
   provider:
     "Only packages/application may normalize LMS, Git, or subprocess adapter failures into provider errors.",
   persistence:
-    "Only packages/application may normalize settings, course, and user-file boundary failures into persistence errors.",
+    "Only packages/application may normalize settings and user-file boundary failures into persistence errors.",
   "course-storage":
     "Course adapters and packages/application create terminal course-storage failures; hosts must stop course work without retrying.",
   unexpected:

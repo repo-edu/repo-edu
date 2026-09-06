@@ -12,6 +12,61 @@ import { createInMemoryCourseStore } from "./helpers/in-memory-stores.js"
 import { makeInvalidCourseWrongKind } from "./helpers/test-builders.js"
 
 describe("application course workflow helpers", () => {
+  for (const asynchronous of [false, true]) {
+    it(`maps raw ${asynchronous ? "asynchronous" : "synchronous"} adapter failures for every course action`, async () => {
+      for (const failure of [new Error("SQLite failed."), "untyped failure"]) {
+        const fail = () => {
+          if (asynchronous) return Promise.reject(failure)
+          throw failure
+        }
+        const handlers = createCourseWorkflowHandlers({
+          listCourses: fail,
+          loadCourse: fail,
+          saveCourse: fail,
+          deleteCourse: fail,
+        })
+        for (const call of [
+          () => handlers["course.list"](undefined),
+          () => handlers["course.load"]({ courseId: "course" }),
+          () => handlers["course.save"](getCourseScenario()),
+          () => handlers["course.delete"]({ courseId: "course" }),
+        ]) {
+          await assert.rejects(call, {
+            type: "course-storage",
+            message:
+              failure instanceof Error
+                ? failure.message
+                : "The course storage action failed.",
+          })
+        }
+      }
+    })
+  }
+
+  it("cancels every course action before calling the adapter", async () => {
+    let calls = 0
+    const fail = () => {
+      calls += 1
+      throw new Error("Cancelled work reached the adapter.")
+    }
+    const handlers = createCourseWorkflowHandlers({
+      listCourses: fail,
+      loadCourse: fail,
+      saveCourse: fail,
+      deleteCourse: fail,
+    })
+    const options = { signal: AbortSignal.abort() }
+    for (const call of [
+      () => handlers["course.list"](undefined, options),
+      () => handlers["course.load"]({ courseId: "course" }, options),
+      () => handlers["course.save"](getCourseScenario(), options),
+      () => handlers["course.delete"]({ courseId: "course" }, options),
+    ]) {
+      await assert.rejects(call, { type: "cancelled" })
+    }
+    assert.equal(calls, 0)
+  })
+
   it("passes complete inserts and replacements through the same save boundary", async () => {
     for (const revision of [0, 7]) {
       const course = { ...getCourseScenario(), revision }
@@ -92,8 +147,15 @@ describe("application course workflow helpers", () => {
     assert.equal(reloaded.updatedAt, saved.updatedAt)
   })
 
-  it("returns a validation AppError when course.save receives invalid data", async () => {
-    const handlers = createCourseWorkflowHandlers(createInMemoryCourseStore([]))
+  it("rejects an invalid successor before calling the adapter", async () => {
+    let saves = 0
+    const handlers = createCourseWorkflowHandlers({
+      ...createInMemoryCourseStore([]),
+      saveCourse() {
+        saves += 1
+        throw new Error("Invalid successors must never reach the adapter.")
+      },
+    })
 
     await assert.rejects(
       handlers["course.save"]({
@@ -103,11 +165,12 @@ describe("application course workflow helpers", () => {
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "validation",
+        error.type === "course-storage",
     )
+    assert.equal(saves, 0)
   })
 
-  it("normalizes retryable write failures from course.save", async () => {
+  it("makes busy write failures terminal", async () => {
     const handlers = createCourseWorkflowHandlers({
       listCourses: () => [],
       loadCourse: () => null,
@@ -123,13 +186,12 @@ describe("application course workflow helpers", () => {
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "persistence" &&
-        "retryable" in error &&
-        error.retryable === true,
+        error.type === "course-storage" &&
+        !("retryable" in error),
     )
   })
 
-  it("normalizes course save conflicts by reason", async () => {
+  it("maps a row mismatch to terminal storage failure without a conflict reason", async () => {
     const course = getCourseScenario()
     const handlers = createCourseWorkflowHandlers({
       listCourses: () => [],
@@ -151,13 +213,12 @@ describe("application course workflow helpers", () => {
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "conflict" &&
-        "reason" in error &&
-        error.reason === "course-missing",
+        error.type === "course-storage" &&
+        !("reason" in error),
     )
   })
 
-  it("returns a validation AppError when course.load resolves invalid course data", async () => {
+  it("returns terminal storage failure when course.load resolves invalid data", async () => {
     const handlers = createCourseWorkflowHandlers({
       listCourses: () => [],
       loadCourse: () =>
@@ -177,7 +238,7 @@ describe("application course workflow helpers", () => {
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "validation",
+        error.type === "course-storage",
     )
   })
 
@@ -217,7 +278,7 @@ describe("application course workflow helpers", () => {
     )
   })
 
-  it("returns a validation AppError when course.list contains invalid course data", async () => {
+  it("returns terminal storage failure when course.list contains invalid data", async () => {
     const handlers = createCourseWorkflowHandlers({
       listCourses: () =>
         [
@@ -234,7 +295,7 @@ describe("application course workflow helpers", () => {
         typeof error === "object" &&
         error !== null &&
         "type" in error &&
-        error.type === "validation",
+        error.type === "course-storage",
     )
   })
 })
