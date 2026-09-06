@@ -54,7 +54,10 @@ Implement the scope in plan order, one step at a time, changing only its
 remaining repo shares. After each share, run the step's named checks and that
 repo's required verification. Commit the share in its repo with the shared
 step form in `../plan/CLAUDE.md` and the conventional postfix that repo
-requires. A both-repo step gets one independent commit in each repo. Each step
+requires. The step form carries no severity sequence: the subject is
+`<stem>/impl-<n>: <kind>(<scope>): <subject>`, with the postfix stripped of
+the leading sequence an ordinary commit would carry. A both-repo step gets one
+independent commit in each repo. Each step
 gets exactly one commit per hosting repo; steps never combine into one commit.
 The invocation that started this run grants each in-scope repo share's commit
 once its checks pass.

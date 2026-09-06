@@ -236,10 +236,11 @@ refer to one finding without restating it.
 
 ## Commit Severity Prefix
 
-Every file-changing commit carries a sorted run-length sequence of [A]-[D]
-tier counts. An ordinary commit prefixes its conventional subject with
-`A<n>B<n>C<n>D<n>`. A plan-related commit places the same sequence in its
-shared stem form. The sequence enumerates how many concerns at each tier the
+Every file-changing commit except a plan step commit carries a sorted
+run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
+conventional subject with `A<n>B<n>C<n>D<n>`. An implementation-audit record
+places the same sequence in its shared stem form; a step commit lands planned
+work and carries none. The sequence enumerates how many concerns at each tier the
 commit addresses, sorted A through D, with zero categories omitted. Example:
 `B3C8D4 fix: <subject>` closes three B-tier, eight C-tier and four D-tier
 concerns.
