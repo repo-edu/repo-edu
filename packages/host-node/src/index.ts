@@ -109,6 +109,14 @@ export {
   createNodeSettingsSectionStore,
   recoverUnsupportedCompositeSettingsFile,
 } from "./settings-section-store.js"
+export type {
+  NodeWindowState,
+  NodeWindowStateStore,
+} from "./window-state-store.js"
+export {
+  createNodeWindowStateStore,
+  defaultNodeWindowState,
+} from "./window-state-store.js"
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
