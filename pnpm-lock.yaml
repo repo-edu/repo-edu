@@ -328,6 +328,15 @@ importers:
 
   packages/host-node:
     dependencies:
+      '@repo-edu/application':
+        specifier: workspace:*
+        version: link:../application
+      '@repo-edu/application-contract':
+        specifier: workspace:*
+        version: link:../application-contract
+      '@repo-edu/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@repo-edu/host-runtime-contract':
         specifier: workspace:*
         version: link:../host-runtime-contract
@@ -346,6 +355,10 @@ importers:
       web-tree-sitter:
         specifier: 0.26.12
         version: 0.26.12
+    devDependencies:
+      '@repo-edu/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
 
   packages/host-runtime-contract:
     dependencies:

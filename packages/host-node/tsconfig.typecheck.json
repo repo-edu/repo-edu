@@ -6,6 +6,10 @@
   },
   "include": [
     "src/**/*.ts",
+    "../application/src/course-store.ts",
+    "../application-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts",
+    "../test-fixtures/src/**/*.ts",
     "../host-runtime-contract/src/**/*.ts",
     "../domain/src/**/*.ts",
     "../tree-sitter-grammar-assets/src/index.ts",

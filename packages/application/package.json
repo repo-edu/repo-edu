@@ -17,6 +17,11 @@
     "xlsx": "^0.18.5"
   },
   "exports": {
+    "./course-store": {
+      "source": "./src/course-store.ts",
+      "types": "./dist/course-store.d.ts",
+      "default": "./dist/course-store.js"
+    },
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",

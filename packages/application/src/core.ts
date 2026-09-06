@@ -1,7 +1,6 @@
 import type {
   AppError,
   AppValidationIssue,
-  CourseSaveStamp,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
 import type {
@@ -176,20 +175,7 @@ function formatCourseSaveConflictMessage(params: {
   return `Course revision invariant violated for '${params.courseId}' (expected ${params.expectedRevision}, stored ${params.storedRevision}).`
 }
 
-export type CourseStore = {
-  listCourses(
-    signal?: AbortSignal,
-  ): Promise<PersistedCourse[]> | PersistedCourse[]
-  loadCourse(
-    courseId: string,
-    signal?: AbortSignal,
-  ): Promise<PersistedCourse | null> | PersistedCourse | null
-  saveCourse(
-    course: PersistedCourse,
-    signal?: AbortSignal,
-  ): Promise<CourseSaveStamp> | CourseSaveStamp
-  deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
-}
+export type { CourseStore } from "./course-store.js"
 
 export type SettingsRecoveryUnit =
   | "credentials"

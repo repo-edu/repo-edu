@@ -5,6 +5,7 @@ export type {
 } from "@repo-edu/host-runtime-contract"
 
 export * from "./app-error.js"
+export * from "./course-storage.js"
 export * from "./examination-contract.js"
 export * from "./workflow-catalog.js"
 export * from "./workflow-client.js"

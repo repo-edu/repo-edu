@@ -1,19 +1,8 @@
 import { mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
+import { openRuntimeSqlite } from "./sqlite/runtime.js"
 
 const sqliteBusyCode = 5
-
-type SqliteConnection = {
-  exec(sql: string): void
-  close(): void
-}
-
-type BunSqliteModule = {
-  Database: new (
-    filename: string,
-    options?: { create?: boolean; strict?: boolean },
-  ) => SqliteConnection
-}
 
 export type ExclusiveClaim =
   | { readonly status: "busy" }
@@ -48,24 +37,11 @@ function isSqliteBusy(error: unknown): boolean {
   )
 }
 
-async function openRuntimeSqlite(
-  databasePath: string,
-): Promise<SqliteConnection> {
-  if (typeof process.versions.bun === "string") {
-    const bunSqliteSpecifier = "bun:sqlite"
-    const { Database } = (await import(bunSqliteSpecifier)) as BunSqliteModule
-    return new Database(databasePath, { create: true, strict: true })
-  }
-
-  const { DatabaseSync } = await import("node:sqlite")
-  return new DatabaseSync(databasePath, { timeout: 0 })
-}
-
 export async function claimExclusive(
   databasePath: string,
 ): Promise<ExclusiveClaim> {
   await mkdir(dirname(databasePath), { recursive: true })
-  const connection = await openRuntimeSqlite(databasePath)
+  const { database: connection } = await openRuntimeSqlite(databasePath)
 
   try {
     connection.exec("PRAGMA busy_timeout = 0")

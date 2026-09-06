@@ -16,6 +16,12 @@
   ],
   "references": [
     {
+      "path": "../application"
+    },
+    {
+      "path": "../application-contract"
+    },
+    {
       "path": "../host-runtime-contract"
     },
     {

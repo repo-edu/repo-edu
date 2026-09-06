@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { createCourseStorageFailure } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import {
   createCourseSaveConflictError,
@@ -11,6 +12,52 @@ import { createInMemoryCourseStore } from "./helpers/in-memory-stores.js"
 import { makeInvalidCourseWrongKind } from "./helpers/test-builders.js"
 
 describe("application course workflow helpers", () => {
+  it("passes complete inserts and replacements through the same save boundary", async () => {
+    for (const revision of [0, 7]) {
+      const course = { ...getCourseScenario(), revision }
+      const stamp = {
+        revision: revision + 1,
+        updatedAt: "2026-09-06T10:00:00Z",
+      }
+      const handlers = createCourseWorkflowHandlers({
+        listCourses: () => [],
+        loadCourse: () => null,
+        saveCourse(successor) {
+          assert.deepEqual(successor, course)
+          return stamp
+        },
+        deleteCourse: () => {},
+      })
+      assert.deepEqual(await handlers["course.save"](course), stamp)
+    }
+  })
+
+  it("preserves the shared terminal failure from the course adapter", async () => {
+    const failure = createCourseStorageFailure("The course database failed.")
+    const handlers = createCourseWorkflowHandlers({
+      listCourses: () => {
+        throw failure
+      },
+      loadCourse: () => {
+        throw failure
+      },
+      saveCourse: () => {
+        throw failure
+      },
+      deleteCourse: () => {
+        throw failure
+      },
+    })
+    for (const call of [
+      () => handlers["course.list"](undefined),
+      () => handlers["course.load"]({ courseId: "course" }),
+      () => handlers["course.save"](getCourseScenario()),
+      () => handlers["course.delete"]({ courseId: "course" }),
+    ]) {
+      await assert.rejects(call, (error: unknown) => error === failure)
+    }
+  })
+
   it("lists, loads, and saves courses through the shared course store", async () => {
     const original = getCourseScenario({
       tier: "small",

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   createCancelledAppError,
+  createCourseStorageFailure,
   createTransportAppError,
   isAppError,
 } from "../index.js"
@@ -17,6 +18,18 @@ describe("isAppError", () => {
     assert.equal(isAppError(error), true)
   })
 
+  it("preserves terminal course-storage failures across JSON transport", () => {
+    const failure = createCourseStorageFailure(
+      "The course database could not close.",
+    )
+    const transported: unknown = JSON.parse(JSON.stringify(failure))
+    assert.equal(isAppError(transported), true)
+    assert.deepEqual(transported, {
+      type: "course-storage",
+      message: "The course database could not close.",
+    })
+  })
+
   it("recognizes all known error types", () => {
     const types = [
       "transport",
@@ -26,6 +39,7 @@ describe("isAppError", () => {
       "conflict",
       "provider",
       "persistence",
+      "course-storage",
       "unexpected",
     ] as const
 

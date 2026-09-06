@@ -6,6 +6,7 @@ import type {
   RosterValidationIssue,
   ValidationIssue,
 } from "@repo-edu/domain/types"
+import type { CourseStorageFailure } from "./course-storage.js"
 
 export type AppValidationIssue = ValidationIssue | RosterValidationIssue
 
@@ -16,6 +17,7 @@ export type TransportErrorReason =
   | "timeout"
 
 export type AppError =
+  | CourseStorageFailure
   | {
       type: "transport"
       message: string
@@ -89,6 +91,8 @@ export const appErrorOwnership = {
     "Only packages/application may normalize LMS, Git, or subprocess adapter failures into provider errors.",
   persistence:
     "Only packages/application may normalize settings, course, and user-file boundary failures into persistence errors.",
+  "course-storage":
+    "Course adapters and packages/application create terminal course-storage failures; hosts must stop course work without retrying.",
   unexpected:
     "Only packages/application may expose unexpected as the final catch-all for unknown failures.",
 } as const
@@ -123,6 +127,7 @@ const appErrorTypes = new Set<string>([
   "conflict",
   "provider",
   "persistence",
+  "course-storage",
   "unexpected",
 ])
 
