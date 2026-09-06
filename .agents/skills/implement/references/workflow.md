@@ -50,6 +50,9 @@ run, and stop.
 
 ## Steps
 
+Intermediate steps may leave behaviour broken until later steps land. This is
+not a sequencing defect and requires no workaround or approval.
+
 Implement the scope in plan order, one step at a time, changing only its
 remaining repo shares. After each share, run the step's named checks and that
 repo's required verification. Commit the share in its repo with the shared
