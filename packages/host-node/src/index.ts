@@ -73,6 +73,7 @@ export {
   resolveChildProcessLifetimeArtifactProbeTarget,
   startChildProcessLifetimeArtifactProbe,
 } from "./child-process-lifetime-artifact-probe.js"
+export { createCourseStore } from "./course-database/store.js"
 export type {
   CreateNodeLlmTextClientOptions,
   NodeCodexSdkHostCommand,
