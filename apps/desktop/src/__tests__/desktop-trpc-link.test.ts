@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
+import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 import { createTRPCClient } from "@trpc/client"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { course } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
@@ -7,6 +8,7 @@ import { desktopTrpcLink } from "../desktop-trpc-link"
 import type { DesktopTrpcBridge } from "../desktop-wire"
 import { acceptedHostCallCount } from "../host-admission-model"
 import type { DesktopRouter } from "../trpc"
+import { runSubscriptionFromFactory } from "../workflow-client"
 import { flushTransport, transportHarness } from "./desktop-transport-harness"
 
 function loopback(handler: Parameters<typeof transportHarness>[0]) {
@@ -95,14 +97,16 @@ it("isolates concurrent call responses and removes each listener on completion",
   assert.equal(h.listeners.size, 0)
 })
 
-it("delivers admission refusal as a tRPC error and cleans up its listener", async () => {
+it("preserves admission refusal through the workflow client and cleans up its listener", async () => {
   const h = loopback(async () => {
     assert.fail("Refused workflow started")
   })
-  const failed = Promise.withResolvers<Error>()
-  h.client["course.list"].subscribe(undefined, { onError: failed.resolve })
-  const error = await failed.promise
-  assert.match(error.message, /not accepting/)
+  await assert.rejects(
+    runSubscriptionFromFactory<"course.list">((handlers) =>
+      h.client["course.list"].subscribe(undefined, handlers),
+    ),
+    HostAdmissionRefusedError,
+  )
   assert.equal(h.listeners.size, 0)
   assert.equal(h.admission.getSnapshot().phase, "starting")
 })

@@ -8,12 +8,12 @@ import {
   createPreloadRequestTransport,
   rendererRequestPort,
 } from "./preload-request-transport"
-import type { RendererCloseHandler } from "./renderer-close"
 import {
   type DesktopRendererHostBridge,
   type DownloadProgress,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
+import { createRequestPersistenceExchange } from "./request-persistence"
 import { closeTransferSchema, requestPortChannel } from "./request-port-wire"
 
 const desktopTrpcBridge: DesktopTrpcBridge = {
@@ -32,7 +32,6 @@ const desktopTrpcBridge: DesktopTrpcBridge = {
   },
 }
 
-let closeCallback: RendererCloseHandler | null = null
 let closeCancelCallback: ((attemptId: string) => void) | null = null
 
 const requestTransport = createPreloadRequestTransport({
@@ -106,10 +105,31 @@ const desktopHostBridge: DesktopRendererHostBridge = {
   },
 
   onCloseRequest(callback) {
-    closeCallback = callback
-    return () => {
-      if (closeCallback === callback) closeCallback = null
-    }
+    return requestTransport.bridge.onClose((request) => {
+      const exchange = createRequestPersistenceExchange(request)
+      const unexpected = () => {
+        throw new Error("Unexpected command message on close port.")
+      }
+      return {
+        admission: unexpected,
+        prepare() {
+          void callback(exchange.commit).then(
+            () => request.readyToClose(),
+            (error: unknown) =>
+              request.fail(
+                error instanceof Error ? error.message : String(error),
+              ),
+          )
+        },
+        persisted: exchange.persisted,
+        failed: exchange.failed,
+        progress: unexpected,
+        output: unexpected,
+        settlement: unexpected,
+        released: unexpected,
+        closeAcknowledged() {},
+      }
+    })
   },
 
   onCloseCancel(callback) {

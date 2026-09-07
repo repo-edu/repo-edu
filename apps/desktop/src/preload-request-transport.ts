@@ -23,6 +23,7 @@ export type RendererRequest = {
   cancel(): void
   acknowledgeSettlement(): void
   readyToClose(): void
+  fail(message: string): void
 }
 export type RendererRequestObserver = {
   admission(status: "accepted" | "busy"): void
@@ -142,6 +143,7 @@ export function createPreloadRequestTransport(options: {
       cancel: () => endpoint.send({ type: "cancel" }),
       acknowledgeSettlement: () => endpoint.send({ type: "acknowledged" }),
       readyToClose: () => endpoint.send({ type: "close-ready" }),
+      fail: (message) => endpoint.fail(new Error(message)),
     }
     try {
       if (!command) {

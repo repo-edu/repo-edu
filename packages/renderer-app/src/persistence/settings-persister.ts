@@ -9,8 +9,8 @@ import {
   createPersister,
   type PersistenceSyncStatus,
   type Persister,
+  type WorkerStartGate,
 } from "./create-persister.js"
-import { isRetryableWorkflowError } from "./retry.js"
 
 function persistedPreferencesEqual(
   left: PersistedAppPreferences,
@@ -39,6 +39,7 @@ function persistedCredentialsEqual(
 }
 
 type SettingsPersisterWorkerOptions<T> = {
+  startGate: WorkerStartGate
   workflowClient: WorkflowClient<
     "settings.saveCredentials" | "settings.savePreferences"
   >
@@ -49,13 +50,18 @@ type SettingsPersisterWorkerOptions<T> = {
 }
 
 export function createCredentialsPersisterWorker({
+  startGate,
   workflowClient,
   getSnapshot,
   subscribe,
   initialBaseline,
   setSyncStatus,
-}: SettingsPersisterWorkerOptions<PersistedAppCredentials>): Persister {
+}: SettingsPersisterWorkerOptions<PersistedAppCredentials>): Persister<
+  PersistedAppCredentials,
+  void
+> {
   return createPersister<PersistedAppCredentials, "settings.saveCredentials">({
+    startGate,
     workflowClient,
     workflowId: "settings.saveCredentials",
     getSnapshot,
@@ -65,21 +71,22 @@ export function createCredentialsPersisterWorker({
     setSyncStatus,
     formatTerminalError: (error) =>
       `Could not save app credentials: ${getErrorMessage(error)}`,
-    classifyError: (error) =>
-      isRetryableWorkflowError(error)
-        ? { kind: "retry" }
-        : { kind: "terminal" },
   })
 }
 
 export function createPreferencesPersisterWorker({
+  startGate,
   workflowClient,
   getSnapshot,
   subscribe,
   initialBaseline,
   setSyncStatus,
-}: SettingsPersisterWorkerOptions<PersistedAppPreferences>): Persister {
+}: SettingsPersisterWorkerOptions<PersistedAppPreferences>): Persister<
+  PersistedAppPreferences,
+  void
+> {
   return createPersister<PersistedAppPreferences, "settings.savePreferences">({
+    startGate,
     workflowClient,
     workflowId: "settings.savePreferences",
     getSnapshot,
@@ -89,9 +96,5 @@ export function createPreferencesPersisterWorker({
     setSyncStatus,
     formatTerminalError: (error) =>
       `Could not save app preferences: ${getErrorMessage(error)}`,
-    classifyError: (error) =>
-      isRetryableWorkflowError(error)
-        ? { kind: "retry" }
-        : { kind: "terminal" },
   })
 }

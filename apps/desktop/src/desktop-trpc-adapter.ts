@@ -1,4 +1,7 @@
-import type { WorkflowId } from "@repo-edu/application-contract"
+import {
+  HostAdmissionRefusedError,
+  type WorkflowId,
+} from "@repo-edu/application-contract"
 import {
   callTRPCProcedure,
   getTRPCErrorFromUnknown,
@@ -73,6 +76,14 @@ export function createDesktopTrpcAdapter(options: {
         cancel: () => controller.abort(),
       })
     } catch (error) {
+      if (error instanceof HostAdmissionRefusedError) {
+        send({
+          id,
+          result: { type: "data", data: { type: "admission-refused" } },
+        })
+        send({ id, result: { type: "stopped" } })
+        return
+      }
       reportError(error)
       return
     }

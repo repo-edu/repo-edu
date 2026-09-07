@@ -39,6 +39,7 @@ import {
   type PersistenceSyncStatus,
   type Persister,
   settlePersistenceOperations,
+  type WorkerStartGate,
 } from "../persistence/create-persister.js"
 import {
   createCredentialsPersisterWorker,
@@ -479,11 +480,11 @@ export function reduceCredentials(
   return next
 }
 
-type WorkerSlot = { id: number; worker: Persister }
+type WorkerSlot<T> = { id: number; worker: Persister<T, void> }
 
 export class SessionSettings {
-  private credentialsSlot: WorkerSlot | null = null
-  private preferencesSlot: WorkerSlot | null = null
+  private credentialsSlot: WorkerSlot<PersistedAppCredentials> | null = null
+  private preferencesSlot: WorkerSlot<PersistedAppPreferences> | null = null
   private nextWorkerId = 0
 
   constructor(
@@ -500,6 +501,7 @@ export class SessionSettings {
       workerId: number,
       status: PersistenceSyncStatus,
     ) => void,
+    private readonly startGate: WorkerStartGate,
   ) {}
 
   replaceWorkers(
@@ -513,6 +515,7 @@ export class SessionSettings {
       preferences: preferencesId,
     })
     const credentialsWorker = createCredentialsPersisterWorker({
+      startGate: this.startGate,
       workflowClient: this.workflowClient,
       getSnapshot: () => this.getState().credentials,
       subscribe: this.subscribe,
@@ -521,6 +524,7 @@ export class SessionSettings {
         this.reportStatus("credentials", credentialsId, status),
     })
     const preferencesWorker = createPreferencesPersisterWorker({
+      startGate: this.startGate,
       workflowClient: this.workflowClient,
       getSnapshot: () => this.getState().preferences,
       subscribe: this.subscribe,
@@ -541,6 +545,14 @@ export class SessionSettings {
         (operation): operation is Promise<void> => operation !== undefined,
       ),
     )
+  }
+
+  async claim() {
+    const [credentials, preferences] = await Promise.all([
+      this.credentialsSlot?.worker.claim(),
+      this.preferencesSlot?.worker.claim(),
+    ])
+    return { credentials, preferences }
   }
 
   async waitForIdle(): Promise<void> {

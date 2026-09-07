@@ -48,7 +48,6 @@ function makeCourse(id = "course-1"): PersistedCourse {
 
 function createCourseHarness(
   save: (course: PersistedCourse) => Promise<CourseSaveStamp>,
-  options: { retryDelaysMs?: readonly number[] } = {},
 ) {
   let snapshot: PersistedCourse | null = makeCourse()
   let status: PersistenceSyncStatus = idleSyncStatus
@@ -71,6 +70,11 @@ function createCourseHarness(
   const persister = createPersister<PersistedCourse, "course.save">({
     workflowClient,
     workflowId: "course.save",
+    startGate: {
+      canStart: () => true,
+      subscribe: () => () => {},
+      terminal() {},
+    },
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
       listeners.add(listener)
@@ -85,18 +89,6 @@ function createCourseHarness(
     getSnapshotIdentity: (course) => course.id,
     formatTerminalError: (error) =>
       error instanceof Error ? error.message : String(error),
-    classifyError: (error) => {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        "reason" in error &&
-        (error as { type?: unknown }).type === "conflict"
-      ) {
-        return { kind: "pause" }
-      }
-      return null
-    },
     applySaveResult: (result, course) => {
       if (snapshot?.id !== course.id) return
       setSnapshot({
@@ -105,8 +97,8 @@ function createCourseHarness(
         updatedAt: result.updatedAt,
       })
     },
+    savedSnapshot: (snapshot, stamp) => ({ ...snapshot, ...stamp }),
     debounceMs: 0,
-    retryDelaysMs: options.retryDelaysMs ?? [0],
   })
 
   return {
@@ -141,31 +133,6 @@ function createDeferred<T>(): {
     resolve = innerResolve
   })
   return { promise, resolve }
-}
-
-function createRejectableDeferred<T>(): {
-  promise: Promise<T>
-  resolve: (value: T) => void
-  reject: (reason: unknown) => void
-} {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((innerResolve, innerReject) => {
-    resolve = innerResolve
-    reject = innerReject
-  })
-  return { promise, resolve, reject }
-}
-
-async function waitForIdleResult(
-  persister: ReturnType<typeof createCourseHarness>["persister"],
-): Promise<"idle" | "timeout"> {
-  return await Promise.race([
-    persister.waitForIdle().then(() => "idle" as const),
-    new Promise<"timeout">((resolve) =>
-      setTimeout(() => resolve("timeout"), 20),
-    ),
-  ])
 }
 
 describe("createPersister", () => {
@@ -287,171 +254,22 @@ describe("createPersister", () => {
     assert.equal(harness.snapshot?.revision, 1)
   })
 
-  it("retries retryable workflow errors before surfacing terminal status", async () => {
-    let calls = 0
-    const harness = createCourseHarness(async (course) => {
-      calls += 1
-      if (calls === 1) {
-        throw {
-          type: "persistence",
-          message: "busy",
-          operation: "write",
-          retryable: true,
-        }
-      }
-      return nextStamp(course)
-    })
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Retry edit",
-    })
-
-    await harness.persister.flush()
-
-    assert.equal(calls, 2)
-    assert.equal(harness.status.state, "idle")
-  })
-
-  it("does not retry after disposal during the retry delay", async () => {
-    const firstSaveStarted = createDeferred<void>()
-    let calls = 0
-    const retryable = {
-      type: "persistence",
-      message: "busy",
-      operation: "write",
-      retryable: true,
-    }
-    const harness = createCourseHarness(
-      async () => {
-        calls += 1
-        if (calls === 1) {
-          firstSaveStarted.resolve()
-        }
-        throw retryable
-      },
-      { retryDelaysMs: [10] },
-    )
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Retry edit",
-    })
-
-    const flush = harness.persister.flush()
-    await firstSaveStarted.promise
-    harness.persister.dispose()
-    await assert.rejects(flush)
-
-    assert.equal(calls, 1)
-  })
-
-  it("does not enqueue orphaned saves from terminal status writes", async () => {
-    const terminal = new Error("disk full")
+  it("terminates store failures without retrying even when an error claims retryability", async () => {
+    const error = { type: "persistence", retryable: true }
     const harness = createCourseHarness(async () => {
-      throw terminal
+      throw error
     })
     harness.setSnapshot({
       ...requireSnapshot(harness.snapshot),
-      displayName: "Terminal edit",
+      displayName: "Dirty",
     })
-
-    await assert.rejects(harness.persister.flush())
-
-    assert.equal(harness.status.state, "error")
-    assert.equal(await waitForIdleResult(harness.persister), "idle")
-
-    harness.notifyUnrelatedStoreChange()
-    await new Promise((resolve) => setTimeout(resolve, 5))
-
+    await assert.rejects(harness.persister.flush(), (value) => value === error)
+    harness.setSnapshot({
+      ...requireSnapshot(harness.snapshot),
+      displayName: "Later",
+    })
+    await assert.rejects(harness.persister.flush(), (value) => value === error)
     assert.equal(harness.saved.length, 1)
     assert.equal(harness.status.state, "error")
-  })
-
-  it("clears a terminal error when the current snapshot returns to baseline", async () => {
-    const terminal = new Error("disk full")
-    const harness = createCourseHarness(async () => {
-      throw terminal
-    })
-    const cleanBaseline = requireSnapshot(harness.snapshot)
-
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Unsaved edit",
-    })
-    await assert.rejects(
-      harness.persister.flush(),
-      (error: unknown) => error === terminal,
-    )
-
-    harness.setSnapshot(cleanBaseline)
-    await harness.persister.flush()
-
-    assert.equal(harness.saved.length, 1)
-    assert.deepStrictEqual(harness.status, idleSyncStatus)
-  })
-
-  it("ignores an in-flight save failure after the snapshot identity changes", async () => {
-    const firstSaveStarted = createDeferred<void>()
-    const firstSave = createRejectableDeferred<CourseSaveStamp>()
-    const terminal = new Error("old course failed")
-    const harness = createCourseHarness(async () => {
-      firstSaveStarted.resolve()
-      return await firstSave.promise
-    })
-
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Course 1 edit",
-    })
-    const flush = harness.persister.flush()
-    await firstSaveStarted.promise
-
-    harness.setSnapshot(makeCourse("course-2"))
-    firstSave.reject(terminal)
-    await flush
-
-    assert.equal(harness.saved.length, 1)
-    assert.equal(harness.snapshot?.id, "course-2")
-    assert.deepStrictEqual(harness.status, idleSyncStatus)
-  })
-
-  it("pauses conflicted identities until a new clean baseline appears", async () => {
-    const conflict = {
-      type: "conflict",
-      message: "stale",
-      resource: "course",
-      reason: "revision-invariant",
-    }
-    const harness = createCourseHarness(async (course) => {
-      if (course.id === "course-1") {
-        throw conflict
-      }
-      return nextStamp(course)
-    })
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Stale edit",
-    })
-
-    await assert.rejects(harness.persister.flush())
-    assert.equal(harness.status.state, "error")
-    assert.equal(harness.saved.length, 1)
-
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Still stale",
-    })
-    await assert.rejects(harness.persister.flush())
-    assert.equal(harness.saved.length, 1)
-
-    harness.setSnapshot(null)
-    harness.setSnapshot(makeCourse("course-2"))
-    harness.setSnapshot({
-      ...requireSnapshot(harness.snapshot),
-      displayName: "Fresh edit",
-    })
-    await harness.persister.flush()
-
-    assert.equal(harness.saved.length, 2)
-    assert.equal(harness.saved[1]?.id, "course-2")
   })
 })

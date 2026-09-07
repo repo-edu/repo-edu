@@ -1,3 +1,4 @@
+import type { CommitPersistencePreparation } from "@repo-edu/application-contract"
 import type { ThemePreference } from "@repo-edu/domain/settings"
 import type { FileFormat } from "@repo-edu/domain/types"
 import type {
@@ -34,6 +35,8 @@ export type RendererHost = {
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   setNativeTheme(theme: ThemePreference): Promise<void>
-  onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
+  onCloseRequest(
+    callback: (commit: CommitPersistencePreparation) => Promise<void>,
+  ): () => void
   onCloseCancel(callback: (attemptId: string) => void): () => void
 }

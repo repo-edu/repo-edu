@@ -91,6 +91,7 @@ export function transportHarness(
     window,
     rendererUrl,
     router: createDesktopWorkflowRouter(registry),
+    preparationHandlers: registry,
     admission,
     direct(message) {
       direct.push(message)

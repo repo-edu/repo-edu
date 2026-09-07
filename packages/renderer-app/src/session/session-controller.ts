@@ -1,6 +1,7 @@
 import {
   type AnalysisDiscoverReposResult,
   type AppSettingsLoadResult,
+  type CommitPersistencePreparation,
   isAppError,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
@@ -55,10 +56,12 @@ import {
 } from "./course-mutation-controller.js"
 import { SessionOperations } from "./session-operations.js"
 import { SessionPersistence } from "./session-persistence.js"
+import { prepareSessionPersistence } from "./session-preparation.js"
 import {
   type CourseLoadStatus,
   canAdmitCourseMutation,
   canContinueTransaction,
+  canStartPersistenceWorker,
   createInitialSessionSnapshot,
   emptyCourseLoadStatus,
   type SessionControllerSnapshot,
@@ -159,6 +162,11 @@ export class SessionController extends CourseMutationController {
   constructor(options: SessionControllerOptions) {
     super()
     this.onBootstrapReady = options.onBootstrapReady
+    const startGate = {
+      canStart: () => canStartPersistenceWorker(this.snapshot),
+      subscribe: this.subscribe,
+      terminal: () => this.dispose(),
+    }
     this.transactions = new SessionOperations(
       options.workflowClient,
       {
@@ -178,6 +186,7 @@ export class SessionController extends CourseMutationController {
       this.getSnapshot,
       (scope, surface, folder, result) =>
         this.reconcileDiscovery(scope, surface, folder, result),
+      (scope, commit) => this.preparePersistence(scope, commit),
     )
     this.settings = new SessionSettings(
       this.transactions.controllerClient,
@@ -201,6 +210,7 @@ export class SessionController extends CourseMutationController {
           status,
         })
       },
+      startGate,
     )
     this.persistence = new SessionPersistence(
       this.transactions.controllerClient,
@@ -209,6 +219,7 @@ export class SessionController extends CourseMutationController {
           this.snapshot.settings.preferences.activeSurface,
         ),
       (status) => this.dispatch({ type: "set-course-sync-status", status }),
+      startGate,
     )
   }
 
@@ -405,33 +416,47 @@ export class SessionController extends CourseMutationController {
     ])
   }
 
-  async requestClose(attemptId: string): Promise<void> {
+  async requestClose(
+    attemptId: string,
+    commit: CommitPersistencePreparation,
+  ): Promise<void> {
     if (!this.dispatch({ type: "close-start", attemptId })) {
       if (
-        this.snapshot.lifecycle.kind === "closing" &&
+        "attemptId" in this.snapshot.lifecycle &&
         this.snapshot.lifecycle.attemptId === attemptId
       )
         return
       throw new Error("The session is not available for this close attempt.")
     }
     try {
-      await this.transactions.enqueue(
-        { kind: "close", attemptId },
-        async () => {
-          await settlePersistenceOperations([
-            this.settings.flush(),
-            this.persistence.flush(),
-          ])
-        },
+      await this.transactions.enqueue({ kind: "close", attemptId }, (scope) =>
+        this.preparePersistence(scope, commit),
       )
     } catch (error) {
-      this.dispatch({ type: "close-restore", attemptId })
+      this.dispose()
       throw error
     }
   }
 
   cancelClose(attemptId: string): boolean {
     return this.dispatch({ type: "close-restore", attemptId })
+  }
+
+  private async preparePersistence(
+    scope: SessionTransactionScope,
+    commit: CommitPersistencePreparation,
+  ): Promise<void> {
+    try {
+      await prepareSessionPersistence(
+        this.settings,
+        this.persistence,
+        commit,
+        () => scope.canContinue(),
+      )
+    } catch (error) {
+      this.dispose()
+      throw error
+    }
   }
 
   dispose(): void {

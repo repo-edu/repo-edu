@@ -8,6 +8,9 @@
   },
   "include": [
     "src/**/*.ts",
+    "../application-contract/src/**/*.ts",
+    "../integrations-llm-contract/src/**/*.ts",
+    "../integrations-lms-contract/src/**/*.ts",
     "../domain/src/**/*.ts",
     "../tree-sitter-grammar-assets/src/index.ts",
     "../host-runtime-contract/src/**/*.ts"

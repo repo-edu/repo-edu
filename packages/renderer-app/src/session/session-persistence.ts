@@ -8,6 +8,7 @@ import {
   idleSyncStatus,
   type PersistenceSyncStatus,
   type Persister,
+  type WorkerStartGate,
 } from "../persistence/create-persister.js"
 import { runWithRetry } from "../persistence/retry.js"
 import { useCourseStore } from "../stores/course-store.js"
@@ -16,7 +17,7 @@ import type { ControllerWorkflowId } from "./workflow-types.js"
 
 type ActiveCourseWorkerSlot = {
   courseId: string
-  worker: Persister
+  worker: Persister<PersistedCourse, CourseSaveStamp>
 }
 
 export class SessionPersistence {
@@ -28,6 +29,7 @@ export class SessionPersistence {
     private readonly setCourseSyncStatus: (
       status: PersistenceSyncStatus,
     ) => void,
+    private readonly startGate: WorkerStartGate,
   ) {}
 
   async loadCourse(courseId: string): Promise<PersistedCourse> {
@@ -74,6 +76,10 @@ export class SessionPersistence {
     await this.activeCourseWorkerSlot?.worker.waitForIdle()
   }
 
+  async claim() {
+    return (await this.activeCourseWorkerSlot?.worker.claim()) ?? null
+  }
+
   installCourse(courseId: string, loadedCourse: PersistedCourse | null): void {
     if (this.activeCourseWorkerSlot?.courseId !== courseId) {
       this.disposeActiveCourseWorker(false)
@@ -95,6 +101,7 @@ export class SessionPersistence {
     if (this.activeCourseWorkerSlot?.courseId === courseId) return
     this.disposeActiveCourseWorker(false)
     const worker = createCoursePersisterWorker({
+      startGate: this.startGate,
       workflowClient: this.workflowClient,
       getSnapshot: () => {
         const course = useCourseStore.getState().course

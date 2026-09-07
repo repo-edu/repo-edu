@@ -5,8 +5,8 @@ export function registerRendererCloseHandlers(
   rendererHost: Pick<RendererHost, "onCloseRequest" | "onCloseCancel">,
   controller: Pick<SessionController, "requestClose" | "cancelClose">,
 ): () => void {
-  const unsubscribeClose = rendererHost.onCloseRequest((attemptId) =>
-    controller.requestClose(attemptId),
+  const unsubscribeClose = rendererHost.onCloseRequest((commit) =>
+    controller.requestClose("close", commit),
   )
   const unsubscribeCancel = rendererHost.onCloseCancel((attemptId) => {
     controller.cancelClose(attemptId)

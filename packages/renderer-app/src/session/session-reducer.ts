@@ -34,7 +34,7 @@ export type SessionBootstrapState =
 
 export type SessionLifecyclePhase =
   | { kind: "live" }
-  | { kind: "closing"; attemptId: string }
+  | { kind: "closing" | "closing-preparing"; attemptId: string }
   | { kind: "disposed" }
 
 export type AnalysisSourceKey =
@@ -378,6 +378,13 @@ export function sessionReducer(
           ),
           runningTurnId: event.turnId,
         },
+        lifecycle:
+          event.descriptor.kind === "close"
+            ? {
+                kind: "closing-preparing",
+                attemptId: event.descriptor.attemptId,
+              }
+            : state.lifecycle,
       }
     case "transaction-retire": {
       const transactions = retireTurn(state.transactions, event.turnId)
@@ -430,6 +437,11 @@ export function sessionReducer(
     case "dispose":
       return {
         ...state,
+        settings: {
+          ...state.settings,
+          credentialsWorkerId: null,
+          preferencesWorkerId: null,
+        },
         lifecycle: { kind: "disposed" },
         transactions: { admitted: new Map(), runningTurnId: null },
       }
@@ -489,4 +501,20 @@ export function canAdmitSessionChange(
       (entry) => entry.kind === "command",
     )
   )
+}
+
+export function canStartPersistenceWorker(
+  snapshot: SessionControllerSnapshot,
+): boolean {
+  if (
+    snapshot.lifecycle.kind === "disposed" ||
+    snapshot.lifecycle.kind === "closing-preparing"
+  )
+    return false
+  const { admitted } = snapshot.transactions
+  if ([...admitted.values()].some((entry) => entry.kind === "command"))
+    return false
+  // Host close already refuses ordinary saves, but an earlier queued body
+  // retains its renderer turn until the close preparation body starts.
+  return true
 }

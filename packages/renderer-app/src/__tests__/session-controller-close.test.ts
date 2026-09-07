@@ -1,8 +1,14 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
-import type { WorkflowResult } from "@repo-edu/application-contract"
-import { useConnectionsStore } from "../stores/connections-store.js"
 import {
+  HostAdmissionRefusedError,
+  type PersistencePreparationBundle,
+  type WorkflowResult,
+} from "@repo-edu/application-contract"
+import { useConnectionsStore } from "../stores/connections-store.js"
+import { useCourseStore } from "../stores/course-store.js"
+import {
+  commitPreparation,
   deferred,
   makeCourse,
   makeSettings,
@@ -14,210 +20,124 @@ import {
 
 beforeEach(resetStores)
 
-describe("SessionController close protocol", () => {
-  it("closes settings admission before draining and stays closing on success", async () => {
-    const save = deferred<void>()
-    const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
-        if (workflowId === "settings.loadApp")
-          return makeSettings() as WorkflowResult<typeof workflowId>
-        if (workflowId === "settings.savePreferences") {
-          await save.promise
-          return undefined as WorkflowResult<typeof workflowId>
-        }
-        if (workflowId === "settings.saveCredentials")
-          return undefined as WorkflowResult<typeof workflowId>
-        throw new Error(`Unexpected workflow ${workflowId}`)
-      }),
-    })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
-    )
-    controller.setTheme("dark")
-    const closing = controller.requestClose("close-1")
-    assert.deepEqual(controller.getSnapshot().lifecycle, {
-      kind: "closing",
-      attemptId: "close-1",
-    })
-    controller.setTheme("light")
-    assert.equal(
-      controller.getSnapshot().settings.preferences.appearance.theme,
-      "dark",
-    )
-    save.resolve()
-    await closing
-    assert.equal(controller.getSnapshot().lifecycle.kind, "closing")
-    controller.dispose()
-    controller.setTheme("light")
-    assert.equal(
-      controller.getSnapshot().settings.preferences.appearance.theme,
-      "dark",
-    )
-  })
-
-  it("restores live only for the matching failed close attempt", async () => {
-    const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
-        if (workflowId === "settings.loadApp")
-          return makeSettings() as WorkflowResult<typeof workflowId>
-        if (workflowId === "settings.savePreferences")
-          throw new Error("save failed")
-        if (workflowId === "settings.saveCredentials")
-          return undefined as WorkflowResult<typeof workflowId>
-        throw new Error(`Unexpected workflow ${workflowId}`)
-      }),
-    })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
-    )
-    controller.setTheme("dark")
-    await assert.rejects(controller.requestClose("close-1"), /save failed/)
-    assert.equal(controller.getSnapshot().lifecycle.kind, "live")
-    assert.equal(controller.cancelClose("close-0"), false)
-    controller.dispose()
-  })
-
-  it("settles every persistence branch before restoring a failed close", async () => {
-    const credentialsSave = deferred<void>()
-    const courseSave = deferred<{ revision: number; updatedAt: string }>()
-    const credentialsSaveStarted = deferred<void>()
-    const courseSaveStarted = deferred<void>()
-    const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
-        if (workflowId === "settings.loadApp") {
+describe("SessionController close preparation", () => {
+  function controllerWithCourse() {
+    return startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
-          }) as WorkflowResult<typeof workflowId>
-        }
-        if (workflowId === "course.load") {
-          return makeCourse("course-a", "Original") as WorkflowResult<
-            typeof workflowId
-          >
-        }
-        if (workflowId === "settings.savePreferences") {
-          throw new Error("preferences save failed")
-        }
-        if (workflowId === "settings.saveCredentials") {
-          credentialsSaveStarted.resolve()
-          await credentialsSave.promise
-          return undefined as WorkflowResult<typeof workflowId>
-        }
-        if (workflowId === "course.save") {
-          courseSaveStarted.resolve()
-          return (await courseSave.promise) as WorkflowResult<typeof workflowId>
-        }
-        throw new Error(`Unexpected workflow ${workflowId}`)
+          })
+        if (id === "course.load") return makeCourse("course-a")
+        throw new Error("No ordinary save may start during preparation.")
       }),
     })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
-    )
+  }
+
+  it("claims all dirty documents and applies stamps before returning ready", async () => {
+    const controller = controllerWithCourse()
+    await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
     controller.setTheme("dark")
     controller.addGitConnection({
-      id: "git-a",
+      id: "git",
       provider: "github",
       baseUrl: "https://api.github.com",
       token: "token",
     })
     controller.setDisplayName("course-a", "Changed")
-
-    let closeSettled = false
-    const closing = controller.requestClose("close-1").finally(() => {
-      closeSettled = true
+    const committed = deferred<void>()
+    let bundle: PersistencePreparationBundle | undefined
+    const close = controller.requestClose("close", async (value) => {
+      bundle = value
+      await committed.promise
+      return commitPreparation(value)
     })
-    await Promise.all([
-      credentialsSaveStarted.promise,
-      courseSaveStarted.promise,
-    ])
     await new Promise<void>((resolve) => setImmediate(resolve))
-
-    assert.equal(closeSettled, false)
-    assert.equal(controller.getSnapshot().lifecycle.kind, "closing")
-
-    credentialsSave.resolve()
-    courseSave.resolve({
-      revision: 1,
-      updatedAt: "2026-05-29T00:00:01.000Z",
-    })
-    await assert.rejects(closing, /preferences save failed/)
-    assert.equal(controller.getSnapshot().lifecycle.kind, "live")
-    controller.dispose()
-  })
-
-  it("uses matching cancellation acknowledgement to reopen input", async () => {
-    const courseLoad = deferred<ReturnType<typeof makeCourse>>()
-    const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
-        if (workflowId === "settings.loadApp")
-          return makeSettings() as WorkflowResult<typeof workflowId>
-        if (workflowId === "course.load")
-          return (await courseLoad.promise) as WorkflowResult<typeof workflowId>
-        if (
-          workflowId === "settings.savePreferences" ||
-          workflowId === "settings.saveCredentials"
-        )
-          return undefined as WorkflowResult<typeof workflowId>
-        throw new Error(`Unexpected workflow ${workflowId}`)
-      }),
-    })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
-    )
-    const activation = controller.activateSurface({
-      kind: "course",
-      courseId: "course-a",
-    })
-    const closing = controller.requestClose("close-1")
-    assert.equal(controller.cancelClose("stale"), false)
-    assert.equal(controller.cancelClose("close-1"), true)
-    controller.setTheme("dark")
+    assert.equal(bundle?.course?.displayName, "Changed")
+    assert.equal(bundle?.preferences?.appearance.theme, "dark")
+    assert.equal(bundle?.credentials?.gitConnections[0]?.id, "git")
+    controller.setTheme("light")
     assert.equal(
       controller.getSnapshot().settings.preferences.appearance.theme,
       "dark",
     )
-    courseLoad.resolve(makeCourse("course-a"))
-    await activation
-    await closing
+    assert.equal(useCourseStore.getState().course?.revision, 0)
+    committed.resolve()
+    await close
+    assert.equal(useCourseStore.getState().course?.revision, 1)
+    assert.equal(controller.getSnapshot().lifecycle.kind, "closing-preparing")
     controller.dispose()
   })
 
-  it("refuses a pre-close workflow result through the course mutation gate", async () => {
-    const result = deferred<void>()
+  it("keeps a host-refused save dirty until the queued close claims it", async () => {
+    const body = deferred<void>()
+    const started = deferred<void>()
+    const saveRefused = deferred<void>()
     const controller = startController({
-      workflowClient: workflowClient(async (workflowId) => {
-        if (workflowId === "settings.loadApp")
-          return makeSettings({
-            activeSurface: { kind: "course", courseId: "course-a" },
-          }) as WorkflowResult<typeof workflowId>
-        if (workflowId === "course.load")
-          return makeCourse("course-a", "Original") as WorkflowResult<
-            typeof workflowId
-          >
-        if (
-          workflowId === "settings.savePreferences" ||
-          workflowId === "settings.saveCredentials" ||
-          workflowId === "course.save"
-        )
-          return undefined as WorkflowResult<typeof workflowId>
-        throw new Error(`Unexpected workflow ${workflowId}`)
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp") return makeSettings()
+        if (id === "settings.savePreferences") {
+          saveRefused.resolve()
+          throw new HostAdmissionRefusedError()
+        }
+        throw new Error(id)
       }),
     })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
+    await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
+    controller.setTheme("dark")
+    const earlier = controller.operations.execute(
+      "course.list",
+      async (scope) => {
+        started.resolve()
+        await scope.follow(() => body.promise)
+      },
     )
-    const lateMutation = result.promise.then(() => {
-      controller.setDisplayName("course-a", "Late")
+    await started.promise
+    let bundle: PersistencePreparationBundle | undefined
+    const close = controller.requestClose("close", async (value) => {
+      bundle = value
+      return {}
     })
-    await controller.requestClose("close-1")
-    result.resolve()
-    await lateMutation
-    assert.equal(controller.getSnapshot().lifecycle.kind, "closing")
+    await saveRefused.promise
+    assert.equal(Boolean(bundle), false)
+    body.resolve()
+    await earlier
+    await close
+    assert.equal(bundle?.preferences?.appearance.theme, "dark")
     controller.dispose()
+  })
+
+  it("disposes every worker after commit failure without restoring close", async () => {
+    const controller = controllerWithCourse()
+    await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
+    controller.setDisplayName("course-a", "Changed")
+    await assert.rejects(
+      controller.requestClose("close", async () => {
+        throw new Error("store failed")
+      }),
+      /store failed/,
+    )
+    assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
+    assert.equal(controller.getSnapshot().settings.credentialsWorkerId, null)
+    assert.equal(controller.getSnapshot().settings.preferencesWorkerId, null)
+  })
+
+  it("rejects a mismatched course stamp before any readiness", async () => {
+    const controller = controllerWithCourse()
+    await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
+    controller.setDisplayName("course-a", "Changed")
+    await assert.rejects(
+      controller.requestClose("close", async () => ({
+        course: {
+          courseId: "foreign",
+          revision: 3,
+          updatedAt: "2026-09-07T00:00:00.000Z",
+        },
+      })),
+      /different course claim/,
+    )
+    assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
+    assert.equal(useCourseStore.getState().course?.revision, 0)
   })
 
   it("installs credential cleanup before notifying subscribers", async () => {

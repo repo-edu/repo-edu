@@ -79,7 +79,10 @@ import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
 import { createDesktopAppSettingsStore } from "./settings-store"
-import { createDesktopRouter } from "./trpc"
+import {
+  createDesktopWorkflowRegistry,
+  createDesktopWorkflowRouter,
+} from "./trpc"
 import { saveDesktopWindowState } from "./window-state-store"
 import {
   resolveDevelopmentWindowsChildLifetimeRuntime,
@@ -712,7 +715,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
     rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
-    const desktopRouter = createDesktopRouter({
+    const desktopWorkflows = createDesktopWorkflowRegistry({
       http: nodeHttpPort,
       courseStore: createCourseStore(storageRoot),
       appSettingsStore,
@@ -732,7 +735,8 @@ async function createWindow(): Promise<BrowserWindow> {
       ipc: ipcMain,
       window: mainWindow,
       rendererUrl: resolveRendererUrl(),
-      router: desktopRouter,
+      router: createDesktopWorkflowRouter(desktopWorkflows),
+      preparationHandlers: desktopWorkflows,
       admission,
       direct: (message) => runRendererHostAction(mainWindow, message),
     })

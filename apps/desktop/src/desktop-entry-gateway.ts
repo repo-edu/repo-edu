@@ -21,6 +21,10 @@ import {
   createHostRequestTransport,
   mainRequestPort,
 } from "./host-request-transport"
+import {
+  commitRequestPersistence,
+  type PreparationHandlers,
+} from "./request-persistence"
 import { type RequestMessage, requestPortChannel } from "./request-port-wire"
 import type { DesktopRouter } from "./trpc"
 
@@ -31,6 +35,7 @@ export function installDesktopEntryGateway(options: {
   rendererUrl: string
   router: DesktopRouter
   admission: HostAdmission
+  preparationHandlers: PreparationHandlers
   direct(message: DesktopDirectMessage): unknown
   createRequestChannel(): { port1: MessagePortMain; port2: MessagePortMain }
   requestBody?(
@@ -48,6 +53,21 @@ export function installDesktopEntryGateway(options: {
   const requests = createHostRequestTransport({
     admission,
     receive(request, message) {
+      if (message.type === "close-ready") {
+        requests.acknowledgeClose(request)
+        admission.dispatch({ type: "close-ready", request })
+        return
+      }
+      if (message.type === "bundle") {
+        void commitRequestPersistence({
+          request,
+          bundle: message.bundle,
+          admission,
+          handlers: options.preparationHandlers,
+          transport: requests,
+        })
+        return
+      }
       if (options.requestBody) options.requestBody(request, message)
       else terminal(new Error("The request body is not connected."))
     },

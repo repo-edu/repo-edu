@@ -4,7 +4,7 @@ import type {
   WorkflowInput,
   WorkflowResult,
 } from "@repo-edu/application-contract"
-import { defaultRetryDelaysMs, isRetryableWorkflowError } from "./retry.js"
+import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 
 export type PersistenceSyncStatus =
   | { state: "idle"; message: null }
@@ -21,9 +21,21 @@ export const savingSyncStatus: PersistenceSyncStatus = {
   message: null,
 }
 
-export type Persister = {
+export type PersistenceClaim<TSnapshot, TResult> = {
+  snapshot: TSnapshot
+  apply(result: TResult): Promise<void>
+}
+
+export type WorkerStartGate = {
+  canStart(): boolean
+  subscribe(listener: () => void): () => void
+  terminal(error: unknown): void
+}
+
+export type Persister<TSnapshot = unknown, TResult = unknown> = {
   flush: () => Promise<void>
   waitForIdle: () => Promise<void>
+  claim: () => Promise<PersistenceClaim<TSnapshot, TResult> | null>
   dispose: () => void
 }
 
@@ -46,34 +58,29 @@ type SaveWorkflowId<TSnapshot> = {
     : never
 }[WorkflowId]
 
-type PersisterErrorDecision =
-  | { kind: "retry" }
-  | { kind: "terminal" }
-  | { kind: "pause"; message?: string }
-
 export type PersisterAdapter<
   TSnapshot,
   TWorkflowId extends SaveWorkflowId<TSnapshot>,
 > = {
   workflowClient: WorkflowClient<TWorkflowId>
   workflowId: TWorkflowId
+  startGate: WorkerStartGate
   getSnapshot: () => TSnapshot | null
   initialBaseline?: TSnapshot | null
   subscribe: (listener: () => void) => () => void
   setSyncStatus: (status: PersistenceSyncStatus) => void
   formatTerminalError: (error: unknown, snapshot: TSnapshot) => string
-  classifyError?: (
-    error: unknown,
-    snapshot: TSnapshot,
-  ) => PersisterErrorDecision | null
   applySaveResult?: (
     result: WorkflowResult<TWorkflowId>,
     snapshot: TSnapshot,
-  ) => void
+  ) => void | Promise<void>
+  savedSnapshot?: (
+    snapshot: TSnapshot,
+    result: WorkflowResult<TWorkflowId>,
+  ) => TSnapshot
   getSnapshotIdentity?: (snapshot: TSnapshot) => string
   snapshotsEqual?: (left: TSnapshot, right: TSnapshot) => boolean
   debounceMs?: number
-  retryDelaysMs?: readonly number[]
 }
 
 function shallowSnapshotEqual<TSnapshot>(
@@ -99,374 +106,234 @@ function shallowSnapshotEqual<TSnapshot>(
   return leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]))
 }
 
-function defaultClassifyError(error: unknown): PersisterErrorDecision {
-  return isRetryableWorkflowError(error)
-    ? { kind: "retry" }
-    : { kind: "terminal" }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export function createPersister<
   TSnapshot,
   TWorkflowId extends SaveWorkflowId<TSnapshot>,
->(adapter: PersisterAdapter<TSnapshot, TWorkflowId>): Persister {
-  const debounceMs = adapter.debounceMs ?? 300
-  const retryDelaysMs = adapter.retryDelaysMs ?? defaultRetryDelaysMs
-  const snapshotsEqual = adapter.snapshotsEqual ?? shallowSnapshotEqual
-
+>(
+  adapter: PersisterAdapter<TSnapshot, TWorkflowId>,
+): Persister<TSnapshot, WorkflowResult<TWorkflowId>> {
+  const equal = adapter.snapshotsEqual ?? shallowSnapshotEqual
+  const identity = (snapshot: TSnapshot | null) =>
+    snapshot === null ? null : (adapter.getSnapshotIdentity?.(snapshot) ?? null)
   let baseline =
     adapter.initialBaseline === undefined
       ? adapter.getSnapshot()
       : adapter.initialBaseline
-  let baselineIdentity = baseline ? getIdentity(baseline) : null
-  let observedSnapshot = baseline
-  let observedSnapshotIdentity = baselineIdentity
-  let pausedIdentity: string | null = null
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null
-  let saveRequested = false
+  let observed = baseline
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let requested = false
   let worker: Promise<void> | null = null
-  let disposed = false
-  let suppressSnapshotNotifications = false
-  let terminalError: {
-    identity: string | null
-    error: unknown
-  } | null = null
-  const idleResolvers = new Set<() => void>()
+  let lifetime: { kind: "live" } | { kind: "disposed"; error?: unknown } = {
+    kind: "live",
+  }
+  let reporting = false
+  const idleWaiters = new Set<() => void>()
 
-  function getIdentity(snapshot: TSnapshot): string | null {
-    return adapter.getSnapshotIdentity?.(snapshot) ?? null
+  const mayStart = () =>
+    lifetime.kind === "live" && adapter.startGate.canStart()
+  const dirty = (snapshot: TSnapshot | null): snapshot is TSnapshot =>
+    snapshot !== null && baseline !== null && !equal(snapshot, baseline)
+
+  function clearTimer() {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
   }
 
-  function clearDebounceTimer() {
-    if (debounceTimer === null) return
-    clearTimeout(debounceTimer)
-    debounceTimer = null
+  function resolveIdle() {
+    if (timer !== null || requested || worker !== null) return
+    for (const resolve of idleWaiters) resolve()
+    idleWaiters.clear()
   }
 
-  function resolveIdleWaiters() {
-    if (debounceTimer !== null || saveRequested || worker !== null) {
-      return
-    }
-
-    for (const resolve of idleResolvers) {
-      resolve()
-    }
-    idleResolvers.clear()
-  }
-
-  function adoptSnapshot(snapshot: TSnapshot | null) {
-    baseline = snapshot
-    baselineIdentity = snapshot ? getIdentity(snapshot) : null
-    observeSnapshot(snapshot)
-    pausedIdentity = null
-    saveRequested = false
-    terminalError = null
-    clearDebounceTimer()
-    setSyncStatus(idleSyncStatus)
-    resolveIdleWaiters()
-  }
-
-  function setSyncStatus(status: PersistenceSyncStatus) {
-    suppressSnapshotNotifications = true
+  function report(status: PersistenceSyncStatus) {
+    reporting = true
     try {
       adapter.setSyncStatus(status)
     } finally {
-      suppressSnapshotNotifications = false
+      reporting = false
     }
   }
 
-  function snapshotNeedsSave(
-    snapshot: TSnapshot | null,
-  ): snapshot is TSnapshot {
-    if (snapshot === null) return false
-    if (baseline === null) return false
-    return !snapshotsEqual(snapshot, baseline)
+  function adopt(snapshot: TSnapshot | null) {
+    baseline = snapshot
+    observed = snapshot
+    requested = false
+    clearTimer()
+    report(idleSyncStatus)
+    resolveIdle()
   }
 
-  function clearTerminalErrorForIdentity(identity: string | null) {
-    if (terminalError?.identity === identity) {
-      terminalError = null
-    }
-    if (pausedIdentity === identity) {
-      pausedIdentity = null
-    }
+  function schedule() {
+    if (!mayStart()) return
+    requested = true
+    if (timer !== null || worker !== null) return
+    timer = setTimeout(() => {
+      timer = null
+      void ensureWorker().catch(() => undefined)
+    }, adapter.debounceMs ?? 300)
   }
 
-  function terminalErrorAppliesTo(snapshot: TSnapshot | null): boolean {
-    return (
-      terminalError !== null &&
-      snapshot !== null &&
-      getIdentity(snapshot) === terminalError.identity &&
-      snapshotNeedsSave(snapshot)
-    )
-  }
-
-  function clearStaleTerminalError(snapshot: TSnapshot | null): boolean {
-    if (terminalError === null || terminalErrorAppliesTo(snapshot)) {
-      return false
-    }
-
-    clearTerminalErrorForIdentity(terminalError.identity)
-    return true
-  }
-
-  function setIdleIfNoWork() {
-    if (debounceTimer === null && !saveRequested && worker === null) {
-      setSyncStatus(idleSyncStatus)
-    }
-  }
-
-  function observeSnapshot(snapshot: TSnapshot | null) {
-    observedSnapshot = snapshot
-    observedSnapshotIdentity = snapshot ? getIdentity(snapshot) : null
-  }
-
-  function snapshotSelectionChanged(snapshot: TSnapshot | null): boolean {
-    if (snapshot === null || observedSnapshot === null) {
-      return snapshot !== observedSnapshot
-    }
-
-    const identity = getIdentity(snapshot)
-    if (identity !== observedSnapshotIdentity) {
-      return true
-    }
-
-    return !snapshotsEqual(snapshot, observedSnapshot)
-  }
-
-  function requestSave() {
-    if (disposed) return
-    saveRequested = true
-    if (debounceTimer !== null || worker !== null) {
-      return
-    }
-
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null
-      void ensureWorker().catch(() => {})
-    }, debounceMs)
-  }
-
-  function handleSnapshotChange() {
-    if (disposed || suppressSnapshotNotifications) return
-
+  function changed() {
+    if (lifetime.kind !== "live" || reporting) return
     const snapshot = adapter.getSnapshot()
-    if (!snapshotSelectionChanged(snapshot)) {
+    if (
+      snapshot === observed ||
+      (snapshot !== null && observed !== null && equal(snapshot, observed))
+    )
       return
-    }
-    observeSnapshot(snapshot)
-
-    if (snapshot === null) {
-      adoptSnapshot(null)
-      return
-    }
-
-    const identity = getIdentity(snapshot)
-    if (baseline === null || identity !== baselineIdentity) {
-      adoptSnapshot(snapshot)
-      return
-    }
-
-    if (clearStaleTerminalError(snapshot)) {
-      setIdleIfNoWork()
-    }
-
-    if (!snapshotNeedsSave(snapshot)) {
-      return
-    }
-
-    if (pausedIdentity !== null && identity === pausedIdentity) {
-      return
-    }
-
-    requestSave()
-  }
-
-  async function saveSnapshot(snapshot: TSnapshot): Promise<void> {
-    const identity = getIdentity(snapshot)
-    setSyncStatus(savingSyncStatus)
-
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        const result = await adapter.workflowClient.run(
-          adapter.workflowId,
-          snapshot as WorkflowInput<TWorkflowId>,
-        )
-
-        const snapshotAtCompletion = adapter.getSnapshot()
-        const completionIdentity =
-          getCurrentSnapshotIdentity(snapshotAtCompletion)
-        const completionMatchesSavedIdentity =
-          identity === null || completionIdentity === identity
-        const applySaveResult = adapter.applySaveResult
-        const snapshotStillMatchesSave =
-          snapshotAtCompletion !== null &&
-          snapshotsEqual(snapshotAtCompletion, snapshot)
-
-        if (!completionMatchesSavedIdentity) {
-          observeSnapshot(snapshotAtCompletion)
-          clearTerminalErrorForIdentity(identity)
-          setSyncStatus(idleSyncStatus)
-          return
-        }
-
-        if (applySaveResult !== undefined) {
-          suppressSnapshotNotifications = true
-          try {
-            applySaveResult(result, snapshot)
-          } finally {
-            suppressSnapshotNotifications = false
-          }
-          if (snapshotStillMatchesSave) {
-            baseline = adapter.getSnapshot()
-            baselineIdentity = baseline ? getIdentity(baseline) : null
-          } else {
-            baseline = snapshot
-            baselineIdentity = identity
-          }
-        } else {
-          baseline = snapshot
-          baselineIdentity = identity
-        }
-        observeSnapshot(adapter.getSnapshot())
-
-        clearTerminalErrorForIdentity(identity)
-        setSyncStatus(idleSyncStatus)
-        return
-      } catch (error) {
-        const decision =
-          adapter.classifyError?.(error, snapshot) ??
-          defaultClassifyError(error)
-        if (
-          decision.kind === "retry" &&
-          attempt < retryDelaysMs.length &&
-          !disposed
-        ) {
-          await delay(retryDelaysMs[attempt])
-          if (disposed) {
-            throw error
-          }
-          continue
-        }
-
-        const currentSnapshot = adapter.getSnapshot()
-        if (
-          currentSnapshot === null ||
-          getIdentity(currentSnapshot) !== identity ||
-          !snapshotNeedsSave(currentSnapshot)
-        ) {
-          clearTerminalErrorForIdentity(identity)
-          return
-        }
-
-        const message =
-          decision.kind === "pause" && decision.message !== undefined
-            ? decision.message
-            : adapter.formatTerminalError(error, snapshot)
-        if (decision.kind === "pause") {
-          pausedIdentity = identity
-        }
-        terminalError = { identity, error }
-        setSyncStatus({ state: "error", message })
-        throw error
-      }
+    observed = snapshot
+    if (
+      snapshot === null ||
+      baseline === null ||
+      identity(snapshot) !== identity(baseline)
+    ) {
+      adopt(snapshot)
+    } else if (dirty(snapshot)) {
+      schedule()
     }
   }
 
-  function getCurrentSnapshotIdentity(
-    snapshot: TSnapshot | null,
-  ): string | null {
-    return snapshot === null ? null : getIdentity(snapshot)
+  function dispose() {
+    if (lifetime.kind === "live") lifetime = { kind: "disposed" }
+    clearTimer()
+    requested = false
+    unsubscribe()
+    unsubscribeGate()
+    resolveIdle()
   }
 
-  async function runWorker(): Promise<void> {
+  function fail(error: unknown, snapshot: TSnapshot) {
+    if (lifetime.kind !== "live") return
+    lifetime = { kind: "disposed", error }
+    dispose()
+    report({
+      state: "error",
+      message: adapter.formatTerminalError(error, snapshot),
+    })
+    adapter.startGate.terminal(error)
+  }
+
+  async function apply(
+    result: WorkflowResult<TWorkflowId>,
+    snapshot: TSnapshot,
+  ) {
+    if (lifetime.kind !== "live") return
+    if (identity(adapter.getSnapshot()) !== identity(snapshot)) return
+    await adapter.applySaveResult?.(result, snapshot)
+    if (lifetime.kind !== "live") return
+    const current = adapter.getSnapshot()
+    if (identity(current) !== identity(snapshot)) return
+    // The saved baseline is the submitted document plus its host stamp.
+    // Reading the current document here would consume edits made while awaiting
+    // the renderer callback.
+    baseline = adapter.savedSnapshot?.(snapshot, result) ?? snapshot
+    observed = current
+    report(idleSyncStatus)
+    if (dirty(current)) schedule()
+  }
+
+  async function save(snapshot: TSnapshot) {
+    report(savingSyncStatus)
     try {
-      while (saveRequested && !disposed) {
-        saveRequested = false
+      const result = await adapter.workflowClient.run(
+        adapter.workflowId,
+        snapshot as WorkflowInput<TWorkflowId>,
+      )
+      await apply(result, snapshot)
+    } catch (error) {
+      requested = false
+      clearTimer()
+      if (error instanceof HostAdmissionRefusedError) report(idleSyncStatus)
+      else fail(error, snapshot)
+      throw error
+    }
+  }
+
+  async function runWorker() {
+    try {
+      while (requested && mayStart()) {
+        requested = false
         const snapshot = adapter.getSnapshot()
-
-        if (snapshot === null) {
-          adoptSnapshot(null)
-          continue
-        }
-
-        const identity = getIdentity(snapshot)
-        if (baseline === null || identity !== baselineIdentity) {
-          adoptSnapshot(snapshot)
-          continue
-        }
-
-        if (clearStaleTerminalError(snapshot)) {
-          setIdleIfNoWork()
-        }
-
-        if (!snapshotNeedsSave(snapshot)) {
-          setSyncStatus(idleSyncStatus)
-          continue
-        }
-
-        if (pausedIdentity !== null && identity === pausedIdentity) {
-          if (terminalError?.identity === identity) {
-            throw terminalError.error
-          }
-          continue
-        }
-
-        await saveSnapshot(snapshot)
+        if (
+          snapshot === null ||
+          baseline === null ||
+          identity(snapshot) !== identity(baseline)
+        )
+          adopt(snapshot)
+        else if (dirty(snapshot)) await save(snapshot)
       }
     } finally {
       worker = null
-      resolveIdleWaiters()
+      requested = false
+      resolveIdle()
     }
   }
 
-  function ensureWorker(): Promise<void> {
-    if (worker === null) {
-      worker = Promise.resolve().then(runWorker)
-    }
+  function ensureWorker() {
+    worker ??= Promise.resolve().then(runWorker)
     return worker
   }
 
-  const unsubscribe = adapter.subscribe(handleSnapshotChange)
-  handleSnapshotChange()
+  const unsubscribe = adapter.subscribe(changed)
+  const unsubscribeGate = adapter.startGate.subscribe(() => {
+    if (lifetime.kind !== "live" || reporting) return
+    if (!mayStart()) {
+      clearTimer()
+      requested = false
+      resolveIdle()
+    } else if (dirty(adapter.getSnapshot())) schedule()
+  })
+  changed()
 
   return {
-    async flush() {
-      if (disposed) return
-      clearDebounceTimer()
+    async claim() {
+      if (mayStart())
+        throw new Error(
+          "Persistence preparation requires a closed worker-start gate.",
+        )
+      clearTimer()
+      requested = false
+      try {
+        await worker
+      } catch (error) {
+        if (!(error instanceof HostAdmissionRefusedError)) throw error
+      }
+      if (lifetime.kind !== "live")
+        throw new Error("The persistence worker is disposed.")
       const snapshot = adapter.getSnapshot()
-      if (clearStaleTerminalError(snapshot)) {
-        setIdleIfNoWork()
+      if (!dirty(snapshot)) return null
+      return {
+        snapshot,
+        async apply(result) {
+          try {
+            await apply(result, snapshot)
+          } catch (error) {
+            fail(error, snapshot)
+            throw error
+          }
+        },
       }
-      if (snapshotNeedsSave(snapshot)) {
-        saveRequested = true
-      }
-      if (saveRequested || worker !== null) {
-        await ensureWorker()
+    },
+    async flush() {
+      if (lifetime.kind === "disposed") {
+        if (lifetime.error !== undefined) throw lifetime.error
         return
       }
-      if (terminalErrorAppliesTo(snapshot) && terminalError !== null) {
-        throw terminalError.error
+      if (!mayStart()) {
+        await worker
+        if (dirty(adapter.getSnapshot())) throw new HostAdmissionRefusedError()
+        return
       }
+      clearTimer()
+      if (dirty(adapter.getSnapshot())) requested = true
+      if (requested || worker !== null) await ensureWorker()
     },
     async waitForIdle() {
-      if (debounceTimer === null && !saveRequested && worker === null) {
-        return
-      }
-
+      if (timer === null && !requested && worker === null) return
       await new Promise<void>((resolve) => {
-        idleResolvers.add(resolve)
+        idleWaiters.add(resolve)
       })
     },
-    dispose() {
-      disposed = true
-      clearDebounceTimer()
-      unsubscribe()
-      saveRequested = false
-      resolveIdleWaiters()
-    },
+    dispose,
   }
 }

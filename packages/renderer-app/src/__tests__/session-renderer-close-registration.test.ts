@@ -1,11 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import type { CommitPersistencePreparation } from "@repo-edu/application-contract"
 import { registerRendererCloseHandlers } from "../session/renderer-close-registration.js"
 
 describe("renderer close host registration", () => {
   it("forwards close and cancellation attempts and cleans up both registrations", async () => {
     const callbacks: {
-      close?: (attemptId: string) => Promise<void>
+      close?: (commit: CommitPersistencePreparation) => Promise<void>
       cancel?: (attemptId: string) => void
     } = {}
     const cleanupCalls: string[] = []
@@ -36,11 +37,11 @@ describe("renderer close host registration", () => {
 
     assert.ok(callbacks.close)
     assert.ok(callbacks.cancel)
-    await callbacks.close("close-1")
+    await callbacks.close(async () => ({}))
     callbacks.cancel("close-1")
     cleanup()
 
-    assert.deepEqual(closeAttempts, ["close-1"])
+    assert.deepEqual(closeAttempts, ["close"])
     assert.deepEqual(cancelAttempts, ["close-1"])
     assert.deepEqual(cleanupCalls, ["close", "cancel"])
   })

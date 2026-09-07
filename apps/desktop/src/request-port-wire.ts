@@ -1,5 +1,7 @@
 import {
   exclusiveCommandDeclarations,
+  type PersistencePreparationBundle,
+  type PersistencePreparationResult,
   workflowInputSchemas,
 } from "@repo-edu/application-contract"
 import { persistedCourseSchema } from "@repo-edu/domain/schemas"
@@ -32,8 +34,8 @@ export const persistenceResultSchema = z.strictObject({
     })
     .optional(),
 })
-export type RequestPersistenceBundle = z.infer<typeof persistenceBundleSchema>
-export type RequestPersistenceResult = z.infer<typeof persistenceResultSchema>
+export type RequestPersistenceBundle = PersistencePreparationBundle
+export type RequestPersistenceResult = PersistencePreparationResult
 
 /** Payload schemas belong to the command declaration supplied to both endpoints. */
 export type RequestPayloadSchemas<Input, Progress, Output, Settlement> = {

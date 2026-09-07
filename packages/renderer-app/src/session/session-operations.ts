@@ -1,5 +1,6 @@
 import type {
   AnalysisDiscoverReposResult,
+  CommitPersistencePreparation,
   WorkflowCallOptions,
   WorkflowClient,
   WorkflowId,
@@ -38,6 +39,7 @@ type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
 >
 
 export type SessionOperationScope = {
+  preparePersistence(commit: CommitPersistencePreparation): Promise<void>
   run<K extends SessionWorkflowId>(
     id: K,
     input: WorkflowInput<K>,
@@ -107,6 +109,10 @@ export class SessionOperations extends SessionSurfaceTransactions {
     ) => Promise<void> = async () => {
       throw new Error("Discovery follow-up is not installed.")
     },
+    private readonly preparePersistence?: (
+      scope: SessionTransactionScope,
+      commit: CommitPersistencePreparation,
+    ) => Promise<void>,
   ) {
     super(callbacks)
   }
@@ -175,6 +181,15 @@ export class SessionOperations extends SessionSurfaceTransactions {
       return apply()
     }
     return {
+      preparePersistence: (commit) =>
+        scope.required(() => {
+          if (
+            sessionOperationKind(operation) !== "command" ||
+            !this.preparePersistence
+          )
+            throw new Error("Only the command owner may prepare persistence.")
+          return this.preparePersistence(scope, commit)
+        }),
       run: (id, input, options) =>
         this.runScoped(scope, operation, id, input, options),
       direct: (id, start) =>

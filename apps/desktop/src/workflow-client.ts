@@ -13,6 +13,7 @@ import {
   createCancelledAppError,
   createTransportAppError,
   createWorkflowClient,
+  HostAdmissionRefusedError,
   workflowCatalog,
 } from "@repo-edu/application-contract"
 import { createTRPCClient } from "@trpc/client"
@@ -22,7 +23,9 @@ import type { DesktopRouter } from "./trpc"
 type DesktopWorkflowId = keyof typeof workflowCatalog
 
 type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
-  onData(event: WorkflowEventFor<TWorkflowId>): void
+  onData(
+    event: WorkflowEventFor<TWorkflowId> | { type: "admission-refused" },
+  ): void
   onError(error: Error): void
   onComplete(): void
 }
@@ -78,6 +81,11 @@ export function runSubscriptionFromFactory<
     const subscription = subscribe({
       onData(event) {
         switch (event.type) {
+          case "admission-refused":
+            settled = true
+            cleanup()
+            reject(new HostAdmissionRefusedError())
+            return
           case "progress":
             options?.onProgress?.(event.data)
             return

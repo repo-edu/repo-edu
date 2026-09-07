@@ -185,7 +185,7 @@ export async function resolveDesktopPreferencesSavePayload(
   return stripEnvOverridesForPersist(next, rawPersisted)
 }
 
-function createDesktopWorkflowRegistry(
+export function createDesktopWorkflowRegistry(
   ports: DesktopRouterPorts,
 ): WorkflowHandlerMap<DesktopWorkflowId> {
   const lms = createLmsProviderDispatch(ports.http)

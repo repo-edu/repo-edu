@@ -568,6 +568,9 @@ importers:
 
   packages/renderer-host-contract:
     dependencies:
+      '@repo-edu/application-contract':
+        specifier: workspace:*
+        version: link:../application-contract
       '@repo-edu/domain':
         specifier: workspace:*
         version: link:../domain

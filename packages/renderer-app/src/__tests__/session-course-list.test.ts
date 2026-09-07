@@ -6,6 +6,7 @@ import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
 import {
   activeSurface,
+  commitPreparation,
   deferred,
   makeCourse,
   makeSettings,
@@ -74,7 +75,7 @@ describe("session course listing", () => {
               assert.equal(useCourseStore.getState().course?.id, "new")
               order.push("command")
             })
-          : controller.requestClose("close").then(() => {
+          : controller.requestClose("close", commitPreparation).then(() => {
               order.push("close")
             })
       saveRelease.resolve()

@@ -1,4 +1,7 @@
-import type { WorkflowId } from "@repo-edu/application-contract"
+import {
+  HostAdmissionRefusedError,
+  type WorkflowId,
+} from "@repo-edu/application-contract"
 import {
   type AcceptedHostCall,
   type HostAdmissionEffect,
@@ -6,7 +9,10 @@ import {
   initialHostAdmissionState,
 } from "./host-admission-model"
 import { hostAdmissionReducer } from "./host-admission-reducer"
-import type { DesktopShellAction } from "./host-entry-inventory"
+import {
+  type DesktopShellAction,
+  desktopWorkflowStarts,
+} from "./host-entry-inventory"
 
 export class HostAdmission {
   private state = initialHostAdmissionState()
@@ -39,6 +45,8 @@ export class HostAdmission {
     if (
       this.dispatch({ type: "workflow-start", workflow, call }) !== "accepted"
     ) {
+      if (desktopWorkflowStarts[workflow] === "ordinary")
+        throw new HostAdmissionRefusedError()
       throw new Error(
         `The desktop is not accepting ${workflow} in ${this.state.phase}.`,
       )

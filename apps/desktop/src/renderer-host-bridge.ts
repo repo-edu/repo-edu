@@ -42,7 +42,7 @@ export type DesktopRendererHostBridge = {
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
-  onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
+  onCloseRequest: RendererHost["onCloseRequest"]
   onCloseCancel(callback: (attemptId: string) => void): () => void
   onUpdateAvailable(callback: (info: { version: string }) => void): () => void
   onUpdateDownloaded(callback: () => void): () => void
