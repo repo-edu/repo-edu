@@ -1,19 +1,3 @@
-/**
- * UtilityBar — Bottom control bar.
- * Left: Course switcher + utility menu.
- */
-
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@repo-edu/ui"
-import { FolderOpen, Menu } from "@repo-edu/ui/components/icons"
-import { useRendererHost } from "../contexts/renderer-host.js"
-import { useToastStore } from "../stores/toast-store.js"
-import { getErrorMessage } from "../utils/error-message.js"
 import { CourseSwitcher } from "./CourseSwitcher.js"
 
 export function UtilityBar() {
@@ -22,46 +6,9 @@ export function UtilityBar() {
       <div className="flex items-center gap-2 pl-2 pr-4 py-1.5 min-w-0">
         <div className="flex items-center min-w-0">
           <CourseSwitcher />
-          <UtilityMenu />
         </div>
         <div className="flex-1" />
       </div>
     </div>
-  )
-}
-
-/**
- * UtilityMenu — Generic overflow menu for course-adjacent utility actions.
- */
-function UtilityMenu() {
-  const addToast = useToastStore((s) => s.addToast)
-  const rendererHost = useRendererHost()
-
-  const handleShowCourseLocation = async () => {
-    try {
-      await rendererHost.revealCoursesDirectory()
-    } catch (error) {
-      const message = getErrorMessage(error)
-      addToast(`Failed to open courses directory: ${message}`, {
-        tone: "error",
-      })
-    }
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-          <Menu className="size-4" />
-          <span className="sr-only">Utility menu</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top">
-        <DropdownMenuItem onClick={() => void handleShowCourseLocation()}>
-          <FolderOpen className="size-4 mr-2" />
-          Show Course Location
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }

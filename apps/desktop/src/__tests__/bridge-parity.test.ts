@@ -17,7 +17,6 @@ describe("desktop renderer host bridge parity", () => {
       pickSaveTarget: "pickSaveTarget",
       pickDirectory: "pickDirectory",
       setNativeTheme: "setNativeTheme",
-      revealCoursesDirectory: "revealCoursesDirectory",
       onCloseRequest: "requestClose",
       onCloseCancel: "cancelClose",
     }
@@ -57,9 +56,6 @@ describe("desktop renderer host bridge parity", () => {
       async setNativeTheme() {
         calls.push("setNativeTheme")
       },
-      async revealCoursesDirectory() {
-        calls.push("revealCoursesDirectory")
-      },
       onCloseRequest() {
         calls.push("onCloseRequest")
         return () => {}
@@ -76,7 +72,6 @@ describe("desktop renderer host bridge parity", () => {
     await host.pickSaveTarget()
     await host.pickDirectory()
     await host.setNativeTheme("system")
-    await host.revealCoursesDirectory()
     const unsubscribeClose = host.onCloseRequest(async () => {})
     const unsubscribeCancel = host.onCloseCancel(() => {})
     unsubscribeClose()
@@ -87,7 +82,6 @@ describe("desktop renderer host bridge parity", () => {
       "pickSaveTarget",
       "pickDirectory",
       "setNativeTheme",
-      "revealCoursesDirectory",
       "onCloseRequest",
       "onCloseCancel",
     ])

@@ -11,6 +11,7 @@ import {
 } from "@repo-edu/domain/settings"
 import {
   claimProgramGate,
+  createCourseStore,
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
@@ -18,6 +19,7 @@ import {
   createNodeLlmTextClient,
   createNodeProcessPort,
   createNodeTokenizerPort,
+  createNodeWindowStateStore,
   isProgramGateArtifactProbe,
   type ProgramGateClaim,
   programConflictMessage,
@@ -69,7 +71,6 @@ import {
 import { createDesktopChildProcessLifetimeController } from "./child-process-lifetime"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
-import { createDesktopCourseStore } from "./course-store"
 import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
@@ -79,11 +80,7 @@ import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
 import { createDesktopAppSettingsStore } from "./settings-store"
 import { createDesktopRouter } from "./trpc"
-import {
-  defaultDesktopWindowState,
-  loadDesktopWindowState,
-  saveDesktopWindowState,
-} from "./window-state-store"
+import { saveDesktopWindowState } from "./window-state-store"
 import {
   resolveDevelopmentWindowsChildLifetimeRuntime,
   resolvePackagedWindowsChildLifetimeRuntime,
@@ -610,8 +607,6 @@ function runRendererHostAction(
       admission.admitShell(message.action)
       nativeTheme.themeSource = message.input
       return
-    case "revealCoursesDirectory":
-      return shell.openPath(join(currentStorageRootPath(), "courses"))
     case "downloadUpdate":
       admission.admitShell(message.action)
       return downloadUpdate()
@@ -647,22 +642,13 @@ function handleValidationMarker(message: string) {
   }
 }
 
-async function saveWindowState(storageRoot: string) {
-  const mainWindow = BrowserWindow.getAllWindows()[0]
-  if (!mainWindow) return
-
-  const [width, height] = mainWindow.getSize()
-  await saveDesktopWindowState(storageRoot, { width, height })
-}
-
 async function createWindow(): Promise<BrowserWindow> {
   const isMac = process.platform === "darwin"
   const storageRoot = currentStorageRootPath()
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
 
-  const windowState = await loadDesktopWindowState(storageRoot).catch(
-    () => defaultDesktopWindowState,
-  )
+  const windowStateStore = createNodeWindowStateStore(storageRoot)
+  const windowState = await windowStateStore.load()
 
   const mainWindow = new BrowserWindow({
     width: windowState.width,
@@ -688,7 +674,7 @@ async function createWindow(): Promise<BrowserWindow> {
   mainWindow.on("resize", () => {
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
-      void saveWindowState(storageRoot).catch(() => {})
+      saveDesktopWindowState(windowStateStore, mainWindow.getSize())
     }, 300)
   })
 
@@ -698,7 +684,7 @@ async function createWindow(): Promise<BrowserWindow> {
       clearTimeout(resizeTimer)
       resizeTimer = null
     }
-    void saveWindowState(storageRoot).catch(() => {})
+    saveDesktopWindowState(windowStateStore, mainWindow.getSize())
     admission.dispatch({
       type: "host-start",
       source: "window-close",
@@ -728,7 +714,7 @@ async function createWindow(): Promise<BrowserWindow> {
     rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
     const desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
-      courseStore: createDesktopCourseStore(storageRoot),
+      courseStore: createCourseStore(storageRoot),
       appSettingsStore,
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,

@@ -144,6 +144,13 @@ it("removes its raw registrations on disposal", () => {
   assert.equal(h.handlers.size, 0)
 })
 
+it("refuses the removed course-location action before shell work", () => {
+  const h = transportHarness(async () => undefined)
+  h.invoke({ action: "revealCoursesDirectory" })
+  assert.deepEqual(h.direct, [])
+  assert.equal(h.admission.getSnapshot().phase, "terminal")
+})
+
 it("proves command intent and port count before admission and closes rejected transfers", () => {
   for (const [raw, portCount, foreign] of [
     [

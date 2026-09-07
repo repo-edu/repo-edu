@@ -39,7 +39,6 @@ describe("renderer-host-contract", () => {
       pickSaveTarget: async () => null,
       pickDirectory: async () => null,
       setNativeTheme: async () => {},
-      revealCoursesDirectory: async () => {},
       onCloseRequest: () => () => {},
       onCloseCancel: () => () => {},
     }

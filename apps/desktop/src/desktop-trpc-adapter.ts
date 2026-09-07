@@ -83,7 +83,11 @@ export function createDesktopTrpcAdapter(options: {
       calls.delete(id)
       retire()
     }
-    const ctx: DesktopWorkflowContext = { signal: controller.signal, settle }
+    const ctx: DesktopWorkflowContext = {
+      signal: controller.signal,
+      settle,
+      terminal,
+    }
     void callTRPCProcedure({
       router,
       path,

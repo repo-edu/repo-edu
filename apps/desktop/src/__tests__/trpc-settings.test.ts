@@ -43,7 +43,7 @@ describe("resolveDesktopPreferencesSavePayload", () => {
     assert.deepStrictEqual(resolved, next)
   })
 
-  it("falls back to defaults when raw override state is corrupt", async () => {
+  it("rejects when raw override state is corrupt", async () => {
     process.env.REPO_EDU_REPO_PARALLELISM = "8"
     delete process.env.REPO_EDU_FILES_PER_REPO
     const next = {
@@ -54,16 +54,13 @@ describe("resolveDesktopPreferencesSavePayload", () => {
       },
     }
 
-    const resolved = await resolveDesktopPreferencesSavePayload(next, {
-      readPreferencesWithoutRecovery: () => {
-        throw new Error("Invalid persisted preferences")
-      },
-    })
-
-    assert.deepStrictEqual(resolved.analysisConcurrency, {
-      repoParallelism:
-        defaultAppPreferences.analysisConcurrency.repoParallelism,
-      filesPerRepo: 7,
-    })
+    await assert.rejects(
+      resolveDesktopPreferencesSavePayload(next, {
+        readPreferencesWithoutRecovery: () => {
+          throw new Error("Invalid persisted preferences")
+        },
+      }),
+      /Invalid persisted preferences/,
+    )
   })
 })

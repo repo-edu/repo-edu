@@ -34,7 +34,6 @@ export type RendererHost = {
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   setNativeTheme(theme: ThemePreference): Promise<void>
-  revealCoursesDirectory(): Promise<void>
   onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
   onCloseCancel(callback: (attemptId: string) => void): () => void
 }

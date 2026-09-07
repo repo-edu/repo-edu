@@ -13,7 +13,6 @@ export const desktopRendererHostChannels = {
   pickSaveTarget: "repo-edu/renderer-host/pick-save-target",
   pickDirectory: "repo-edu/renderer-host/pick-directory",
   setNativeTheme: "repo-edu/renderer-host/set-native-theme",
-  revealCoursesDirectory: "repo-edu/renderer-host/reveal-courses-directory",
   requestClose: "repo-edu/renderer-host/request-close",
   cancelClose: "repo-edu/renderer-host/cancel-close",
   closeComplete: "repo-edu/renderer-host/close-complete",
@@ -43,7 +42,6 @@ export type DesktopRendererHostBridge = {
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
-  revealCoursesDirectory(): Promise<void>
   onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
   onCloseCancel(callback: (attemptId: string) => void): () => void
   onUpdateAvailable(callback: (info: { version: string }) => void): () => void
@@ -69,9 +67,6 @@ export function createRendererHostFromBridge(
     },
     setNativeTheme(theme) {
       return bridge.setNativeTheme(theme)
-    },
-    revealCoursesDirectory() {
-      return bridge.revealCoursesDirectory()
     },
     onCloseRequest(callback) {
       return bridge.onCloseRequest(callback)

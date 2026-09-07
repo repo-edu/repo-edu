@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
 import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import {
@@ -19,6 +20,68 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController bootstrap", () => {
+  it("coalesces repeated bootstrap starts and subsequent settings and course edits", async () => {
+    const load = deferred<ReturnType<typeof makeSettings>>()
+    let loads = 0
+    const savedPreferences: PersistedAppPreferences[] = []
+    const savedCourses: PersistedCourse[] = []
+    const controller = startController({
+      workflowClient: workflowClient(async (id, input) => {
+        if (id === "settings.loadApp") {
+          loads++
+          return await load.promise
+        }
+        if (id === "course.load") return makeCourse("course-a")
+        if (id === "settings.savePreferences") {
+          savedPreferences.push(input as PersistedAppPreferences)
+          return
+        }
+        if (id === "course.save") {
+          const course = input as PersistedCourse
+          savedCourses.push(course)
+          return {
+            revision: course.revision + 1,
+            updatedAt: "2026-09-07T00:00:00.000Z",
+          }
+        }
+        throw new Error(`Unexpected workflow ${id}`)
+      }),
+    })
+    try {
+      controller.start()
+      controller.start()
+      load.resolve(
+        makeSettings({
+          activeSurface: { kind: "course", courseId: "course-a" },
+        }),
+      )
+      await controller.waitForIdle()
+      controller.start()
+      assert.equal(loads, 1)
+      savedPreferences.length = 0
+      savedCourses.length = 0
+      controller.setTheme("dark")
+      controller.setTheme("light")
+      controller.setDisplayName("course-a", "First edit")
+      controller.setDisplayName("course-a", "Final edit")
+      await controller.flush()
+      assert.equal(savedPreferences.length, 1)
+      assert.equal(savedPreferences[0]?.appearance.theme, "light")
+      assert.equal(savedCourses.length, 1)
+      assert.equal(savedCourses[0]?.displayName, "Final edit")
+      assert.equal(
+        useCourseStore.getState().course?.revision,
+        (savedCourses[0]?.revision ?? 0) + 1,
+      )
+      assert.equal(
+        useCourseStore.getState().course?.updatedAt,
+        "2026-09-07T00:00:00.000Z",
+      )
+    } finally {
+      controller.dispose()
+    }
+  })
+
   it("acknowledges settled bootstrap before publishing readiness", async () => {
     const load = deferred<ReturnType<typeof makeSettings>>()
     const acknowledgement = deferred<void>()

@@ -105,12 +105,6 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     })
   },
 
-  async revealCoursesDirectory() {
-    await ipcRenderer.invoke(desktopEntryChannel, {
-      action: "revealCoursesDirectory",
-    })
-  },
-
   onCloseRequest(callback) {
     closeCallback = callback
     return () => {

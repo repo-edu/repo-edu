@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
+import { createCourseStore } from "@repo-edu/host-node"
 import {
   applyFixtureSourceOverlay,
   defaultFixtureSelection,
@@ -13,7 +14,6 @@ import {
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
-import { createDesktopCourseStore } from "./course-store"
 import { createDesktopAppSettingsStore } from "./settings-store"
 
 const docsTaskGroupsPreset = "task-groups" as const
@@ -195,7 +195,7 @@ export async function seedDesktopFixtureFromEnvironment(
 
   applyFixtureSourceOverlay(course, settings, selection.source, courseId)
 
-  const courseStore = createDesktopCourseStore(storageRoot)
+  const courseStore = createCourseStore(storageRoot)
   const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
   const existingCourse = await courseStore.loadCourse(course.id)
   const requestedConnectionKind = fixtureSourceToRosterConnectionKind(

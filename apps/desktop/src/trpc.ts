@@ -55,6 +55,7 @@ import { observable } from "@trpc/server/observable"
 export type DesktopWorkflowContext = {
   signal: AbortSignal
   settle(): void
+  terminal(error: unknown): void
 }
 
 const t = initTRPC.context<DesktopWorkflowContext>().create()
@@ -177,14 +178,9 @@ export async function resolveDesktopPreferencesSavePayload(
     return next
   }
 
-  let rawPersisted: PersistedAppPreferences = defaultAppPreferences
-  try {
-    rawPersisted =
-      (await options.readPreferencesWithoutRecovery?.(options.signal)) ??
-      defaultAppPreferences
-  } catch {
-    rawPersisted = defaultAppPreferences
-  }
+  const rawPersisted =
+    (await options.readPreferencesWithoutRecovery?.(options.signal)) ??
+    defaultAppPreferences
 
   return stripEnvOverridesForPersist(next, rawPersisted)
 }
@@ -290,7 +286,7 @@ function createDesktopWorkflowRegistry(
 
 function createWorkflowSubscriptionProcedure<
   TWorkflowId extends DesktopWorkflowId,
->(handler: WorkflowHandler<TWorkflowId>) {
+>(workflowId: TWorkflowId, handler: WorkflowHandler<TWorkflowId>) {
   return t.procedure
     .input({
       parse(value: unknown): WorkflowInput<TWorkflowId> {
@@ -332,10 +328,25 @@ function createWorkflowSubscriptionProcedure<
               emitComplete()
             })
             .catch((error) => {
+              const failure = toAppError(error)
+              if (
+                failure.type === "course-storage" ||
+                ((workflowId === "settings.saveCredentials" ||
+                  workflowId === "settings.savePreferences") &&
+                  failure.type !== "cancelled" &&
+                  failure.type !== "validation")
+              ) {
+                // Terminal admission must precede call retirement: retirement
+                // can otherwise start close preparation against a failed store.
+                ctx.terminal(error)
+                settleInvocation()
+                emitComplete()
+                return
+              }
               settleInvocation()
               emitNext({
                 type: "failed",
-                error: toAppError(error),
+                error: failure,
               })
               emitComplete()
             })
@@ -364,6 +375,7 @@ export function createDesktopWorkflowRouter(
     (Object.keys(workflowRegistry) as DesktopWorkflowId[]).map((workflowId) => [
       workflowId,
       createWorkflowSubscriptionProcedure(
+        workflowId,
         workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
       ),
     ]),

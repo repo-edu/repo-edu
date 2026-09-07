@@ -61,7 +61,6 @@ export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
     action: z.literal("setNativeTheme"),
     input: z.enum(["light", "dark", "system"]),
   }),
-  z.strictObject({ action: z.literal("revealCoursesDirectory") }),
   z.strictObject({ action: z.literal("downloadUpdate") }),
   z.strictObject({ action: z.literal("quitAndInstall") }),
 ])
