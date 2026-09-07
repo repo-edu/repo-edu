@@ -4,6 +4,10 @@ import type {
   GitConnectionDraft,
   GitProviderClient,
 } from "@repo-edu/integrations-git-contract"
+import {
+  gitEffectFailure,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { giteaRequest, resolveApiBase } from "./transport.js"
 
 function mapTeamPermission(
@@ -63,7 +67,8 @@ type TeamsCapability = Pick<
 export function createGiteaTeams(http: HttpPort): TeamsCapability {
   return {
     async createTeam(draft, request, signal) {
-      if (!resolveApiBase(draft)) throw new Error("Gitea baseUrl is required.")
+      if (!resolveApiBase(draft))
+        throw gitEffectFailure("completed", "Gitea baseUrl is required.")
       const response = await giteaRequest(
         http,
         draft,
@@ -93,17 +98,21 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
           signal,
         )
       } else {
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to create Gitea team '${request.teamName}' (${response.status}).`,
         )
       }
       if (teamId === null) {
-        throw new Error(`Failed to resolve Gitea team '${request.teamName}'.`)
+        throw gitEffectFailure(
+          "completed",
+          `Failed to resolve Gitea team '${request.teamName}'.`,
+        )
       }
       const membersAdded: string[] = []
       const membersNotFound: string[] = []
       for (const username of request.memberUsernames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         const member = await giteaRequest(
           http,
           draft,
@@ -117,7 +126,8 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
         } else if (member.status === 404) {
           membersNotFound.push(username)
         } else {
-          throw new Error(
+          throw gitEffectFailure(
+            "completed",
             `Failed to add '${username}' to Gitea team '${request.teamName}' (${member.status}).`,
           )
         }
@@ -130,13 +140,17 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
       }
     },
     async assignRepositoriesToTeam(draft, request, signal) {
-      if (!resolveApiBase(draft)) throw new Error("Gitea baseUrl is required.")
+      if (!resolveApiBase(draft))
+        throw gitEffectFailure("completed", "Gitea baseUrl is required.")
       const teamId = Number.parseInt(request.teamSlug, 10)
       if (!Number.isFinite(teamId)) {
-        throw new Error(`Invalid Gitea team identifier '${request.teamSlug}'.`)
+        throw gitEffectFailure(
+          "completed",
+          `Invalid Gitea team identifier '${request.teamSlug}'.`,
+        )
       }
       for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         const response = await giteaRequest(
           http,
           draft,
@@ -151,7 +165,8 @@ export function createGiteaTeams(http: HttpPort): TeamsCapability {
         ) {
           continue
         }
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to assign repository '${repositoryName}' to Gitea team '${request.teamSlug}' (${response.status}).`,
         )
       }

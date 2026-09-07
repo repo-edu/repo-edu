@@ -8,6 +8,7 @@ import type {
   WorkflowCallOptions,
 } from "@repo-edu/application-contract"
 import type { UserFilePort } from "@repo-edu/host-runtime-contract"
+import { commandThrowIfAborted } from "./command-outcomes.js"
 import { normalizeUserFileError, throwIfAborted } from "./workflow-helpers.js"
 
 export async function runInspectUserFileWorkflow(
@@ -65,7 +66,7 @@ export async function runUserFileExportPreviewWorkflow(
   ].join("\n")
 
   try {
-    throwIfAborted(options?.signal)
+    commandThrowIfAborted(options?.signal)
     options?.onProgress?.({
       step: 1,
       totalSteps,
@@ -82,7 +83,6 @@ export async function runUserFileExportPreviewWorkflow(
       options?.signal,
     )
 
-    throwIfAborted(options?.signal)
     options?.onProgress?.({
       step: 2,
       totalSteps,

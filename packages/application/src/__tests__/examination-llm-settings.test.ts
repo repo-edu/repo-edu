@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type {
-  AppError,
   ExaminationGenerateQuestionsInput,
   ExaminationLlmSettings,
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   FileSystemPort,
   LlmPort,
@@ -130,9 +130,9 @@ describe("examination workflow — LLM settings resolution", () => {
           }),
         ),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        error.outcome.error.type === "validation",
     )
   })
 
@@ -152,7 +152,10 @@ describe("examination workflow — LLM settings resolution", () => {
           baseInput({} as ExaminationLlmSettings),
         ),
       (error: unknown) => {
-        const appError = error as AppError
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        const appError = error.outcome.error
         assert.equal(appError.type, "validation")
         assert.ok(
           appError.type === "validation" &&
@@ -292,9 +295,9 @@ describe("examination workflow — LLM settings resolution", () => {
           }),
         ),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation" &&
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        error.outcome.error.type === "validation" &&
         /does not match the active LLM connection/.test(
           (error as { message: string }).message,
         ),

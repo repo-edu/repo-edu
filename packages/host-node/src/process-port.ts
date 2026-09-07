@@ -1,4 +1,5 @@
 import type { Readable, Writable } from "node:stream"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   GitCommandPort,
   GitCommandRequest,
@@ -6,11 +7,14 @@ import type {
   ProcessRequest,
   ProcessResult,
 } from "@repo-edu/host-runtime-contract"
-import type { ChildProcessLifetimeController } from "./child-process-lifetime.js"
+import {
+  type ChildProcessLifetimeController,
+  ChildProcessTreeUnconfirmedError,
+} from "./child-process-lifetime.js"
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
-    throw new DOMException("Operation cancelled.", "AbortError")
+    throw new CommandOutcomeError({ disposition: "stopped", result: null })
   }
 }
 
@@ -49,14 +53,29 @@ export function createNodeProcessPort(
     async run(request: ProcessRequest): Promise<ProcessResult> {
       throwIfAborted(request.signal)
 
-      const child = await childProcessLifetimeController.launch({
-        command: request.command,
-        args: request.args,
-        cwd: request.cwd,
-        env: completeEnvironment(request.env),
-        proof: "target-exit",
-        signal: request.signal,
-      })
+      const child = await childProcessLifetimeController
+        .launch({
+          command: request.command,
+          args: request.args,
+          cwd: request.cwd,
+          env: completeEnvironment(request.env),
+          proof: "target-exit",
+          signal: request.signal,
+        })
+        .catch((error: unknown) => {
+          if (error instanceof ChildProcessTreeUnconfirmedError)
+            throw new CommandOutcomeError({
+              disposition: "uncertain",
+              reason: "confirmation-expired",
+              message: error.message,
+            })
+          if (error instanceof DOMException && error.name === "AbortError")
+            throw new CommandOutcomeError({
+              disposition: "stopped",
+              result: null,
+            })
+          throw error
+        })
       const failStream = (error: unknown): void => {
         child.reportProofLost(error)
       }
@@ -77,10 +96,14 @@ export function createNodeProcessPort(
         input,
       ])
       if (outcome.outcome === "unknown") {
-        throw new Error("The command result could not be confirmed.")
+        throw new CommandOutcomeError({
+          disposition: "uncertain",
+          reason: outcome.reason,
+          message: "The command result could not be confirmed.",
+        })
       }
       if (outcome.outcome === "cancelled") {
-        throw new DOMException("Operation cancelled.", "AbortError")
+        throw new CommandOutcomeError({ disposition: "stopped", result: null })
       }
       return {
         ...outcome.value,

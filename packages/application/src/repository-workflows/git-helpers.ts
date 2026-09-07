@@ -1,3 +1,4 @@
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { GitCommandPort } from "@repo-edu/host-runtime-contract"
 import type {
   PatchFile,
@@ -224,13 +225,36 @@ export async function mapConcurrent<T, R>(
   async function worker() {
     while (next < items.length) {
       const index = next++
-      results[index] = await fn(items[index])
+      try {
+        results[index] = await fn(items[index])
+      } catch (error) {
+        next = items.length
+        throw error
+      }
     }
   }
 
   const workers = Array.from({ length: Math.min(limit, items.length) }, () =>
     worker(),
   )
-  await Promise.all(workers)
+  const endings = await Promise.allSettled(workers)
+  const failures = endings.flatMap((ending) =>
+    ending.status === "rejected" ? [ending.reason as unknown] : [],
+  )
+  // Every started effect must have proof. One stop cannot hide a sibling's loss.
+  const terminal = failures.findIndex(
+    (error) =>
+      !(error instanceof CommandOutcomeError) ||
+      (error.outcome.disposition === "uncertain" &&
+        error.outcome.reason === "proof-lost"),
+  )
+  if (terminal !== -1) throw failures[terminal]
+  const unknown = failures.find(
+    (error) =>
+      error instanceof CommandOutcomeError &&
+      error.outcome.disposition === "uncertain",
+  )
+  if (unknown !== undefined) throw unknown
+  if (failures.length > 0) throw failures[0]
   return results
 }

@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { PassThrough } from "node:stream"
 import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import {
   type ChildProcessLifetimePlatformAdapter,
   ChildProcessTreeUnconfirmedError,
@@ -63,7 +64,9 @@ describe("createNodeProcessPort", () => {
         command: process.execPath,
         signal: abortController.signal,
       }),
-      (error) => error instanceof DOMException && error.name === "AbortError",
+      (error) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped",
     )
   })
 
@@ -218,7 +221,9 @@ describe("createNodeProcessPort", () => {
     const startedAt = Date.now()
     await assert.rejects(
       runPromise,
-      (error) => error instanceof DOMException && error.name === "AbortError",
+      (error) =>
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped",
     )
     const elapsedMs = Date.now() - startedAt
 
@@ -244,7 +249,9 @@ describe("createNodeProcessPort", () => {
       abortController.abort()
       await assert.rejects(
         run,
-        (error) => error instanceof DOMException && error.name === "AbortError",
+        (error) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "stopped",
       )
 
       const contentAtResult = await readFile(marker, "utf8")

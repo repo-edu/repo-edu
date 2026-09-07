@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { GitUsernameImportInput } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import { createGitUsernameWorkflowHandlers } from "../git-username-workflows.js"
 import { getCourseAndSettingsScenario } from "./helpers/fixture-scenarios.js"
@@ -109,10 +110,12 @@ describe("application git username workflow helpers", () => {
     await assert.rejects(
       handlers["gitUsernames.import"]({} as GitUsernameImportInput),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        typeof error.outcome.error === "object" &&
+        error.outcome.error !== null &&
+        "type" in error.outcome.error &&
+        error.outcome.error.type === "validation",
     )
   })
 
@@ -168,10 +171,12 @@ describe("application git username workflow helpers", () => {
         },
       }),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        typeof error.outcome.error === "object" &&
+        error.outcome.error !== null &&
+        "type" in error.outcome.error &&
+        error.outcome.error.type === "validation",
     )
   })
 })

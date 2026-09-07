@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { PassThrough, Readable, Writable } from "node:stream"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   ProcessPort,
   ProcessRequest,
@@ -170,7 +171,9 @@ describe("createNodeGitCommandPort", () => {
 
       await assert.rejects(
         result,
-        (error) => error instanceof DOMException && error.name === "AbortError",
+        (error) =>
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "stopped",
       )
       assert.equal(stopConfirmations, 1)
     } finally {

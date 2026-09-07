@@ -9,8 +9,10 @@ import type {
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import type { UserFilePort } from "@repo-edu/host-runtime-contract"
-import { createValidationAppError } from "../core.js"
-import { throwIfAborted } from "../workflow-helpers.js"
+import {
+  commandThrowIfAborted,
+  commandValidationError,
+} from "../command-outcomes.js"
 import type { ExaminationArchivePort } from "./archive-port.js"
 
 type ArchiveWorkflowId =
@@ -30,7 +32,7 @@ export function createExaminationArchiveWorkflowHandlers(
       input: UserSaveTargetRef,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<ExaminationArchiveExportResult> => {
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 2,
@@ -38,7 +40,7 @@ export function createExaminationArchiveWorkflowHandlers(
       })
       const bundle = ports.archive.exportBundle()
 
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 2,
         totalSteps: 2,
@@ -59,7 +61,7 @@ export function createExaminationArchiveWorkflowHandlers(
       input: UserFileRef,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ): Promise<ExaminationArchiveImportSummary> => {
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 2,
@@ -67,7 +69,7 @@ export function createExaminationArchiveWorkflowHandlers(
       })
       const file = await ports.userFile.readText(input, options?.signal)
 
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 2,
         totalSteps: 2,
@@ -78,7 +80,7 @@ export function createExaminationArchiveWorkflowHandlers(
       try {
         parsed = JSON.parse(file.text)
       } catch (error) {
-        throw createValidationAppError(
+        throw commandValidationError(
           `Bundle is not valid JSON: ${
             error instanceof Error ? error.message : String(error)
           }`,

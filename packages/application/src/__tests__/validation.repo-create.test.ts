@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
@@ -411,6 +412,10 @@ describe("application repository create workflow helpers", () => {
           template: null,
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         if (typeof error !== "object" || error === null) {
           return false
         }

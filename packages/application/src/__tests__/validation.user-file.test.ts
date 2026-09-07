@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { AppError } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   UserFilePort,
   UserFileReadRef,
@@ -218,7 +219,7 @@ describe("userFile.exportPreview workflow", () => {
     assert.equal(outputs.length, 1)
   })
 
-  it("throws a cancelled AppError when signal is already aborted", async () => {
+  it("proves a stopped command before starting an export", async () => {
     const port = createMockUserFilePort()
     const controller = new AbortController()
     controller.abort()
@@ -235,8 +236,11 @@ describe("userFile.exportPreview workflow", () => {
         { signal: controller.signal },
       ),
       (error: unknown) => {
-        const appError = error as AppError
-        assert.equal(appError.type, "cancelled")
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.deepEqual(error.outcome, {
+          disposition: "stopped",
+          result: null,
+        })
         return true
       },
     )

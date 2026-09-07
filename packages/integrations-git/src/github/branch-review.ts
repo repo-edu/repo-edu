@@ -1,6 +1,8 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { throwIfGitEffectAborted } from "../invocation-guard.js"
 import {
+  hasGitHubResponse,
   isAlreadyExistsError,
   isNoChangesError,
   toErrorMessage,
@@ -35,7 +37,7 @@ export function createGitHubBranchReview(
       }
 
       for (const file of request.files) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         if (file.status === "removed") {
           const sha = await readRepositoryFileSha(
             octokit,
@@ -78,7 +80,11 @@ export function createGitHubBranchReview(
             request: { signal },
           })
         } catch (error) {
-          if (!/content is unchanged/i.test(toErrorMessage(error))) throw error
+          if (
+            !hasGitHubResponse(error) ||
+            !/content is unchanged/i.test(toErrorMessage(error))
+          )
+            throw error
         }
         if (file.previousPath && file.previousPath !== file.path) {
           const previousSha = await readRepositoryFileSha(

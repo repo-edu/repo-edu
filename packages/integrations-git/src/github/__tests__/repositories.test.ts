@@ -62,7 +62,7 @@ describe("github repositories", () => {
       assert.ok(result.created[0]?.repositoryUrl.includes("hw1-team-alpha"))
     })
 
-    it("handles partial failure gracefully", async () => {
+    it("propagates a lost response after an earlier repository was created", async () => {
       let callCount = 0
       const http: HttpPort = {
         async fetch(): Promise<HttpResponse> {
@@ -83,15 +83,16 @@ describe("github repositories", () => {
       }
 
       const client = createGitHubClient(http)
-      const result = await client.createRepositories(baseDraft, {
-        organization: "test-org",
-        repositoryNames: ["repo-1", "repo-2"],
-        visibility: "private",
-        autoInit: true,
-      })
-
-      assert.equal(result.created.length, 1)
-      assert.equal(result.failed.length, 1)
+      await assert.rejects(
+        client.createRepositories(baseDraft, {
+          organization: "test-org",
+          repositoryNames: ["repo-1", "repo-2"],
+          visibility: "private",
+          autoInit: true,
+        }),
+        /Network error/,
+      )
+      assert.equal(callCount, 2)
     })
   })
 

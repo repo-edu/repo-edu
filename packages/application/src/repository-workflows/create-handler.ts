@@ -9,15 +9,19 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
-import { createValidationAppError } from "../core.js"
+import {
+  commandRefusal,
+  commandValidationError as createValidationAppError,
+  commandThrowIfAborted as throwIfAborted,
+} from "../command-outcomes.js"
 import {
   isSharedAppError,
   normalizeProviderError,
   resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveGitDraft,
-  throwIfAborted,
 } from "../workflow-helpers.js"
 import { requireGitOrganization } from "./common.js"
 import {
@@ -60,11 +64,11 @@ export function createRepoCreateHandler(
         throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
-          throw {
+          throw commandRefusal({
             type: "not-found",
             message: "No Git connection is configured in settings.",
             resource: "connection",
-          } satisfies AppError
+          } satisfies AppError)
         }
         providerForError = gitDraft.provider
         const organization = requireGitOrganization(course, "repo.create")
@@ -194,13 +198,21 @@ export function createRepoCreateHandler(
             .map((repository) => repository.repositoryName),
         )
         if (planned.value.length > 0 && successfulRepositoryNames.size === 0) {
-          throw {
-            type: "provider",
-            message: "Repository creation failed for all planned repositories.",
-            provider: providerForError,
-            operation: "createRepositories",
-            retryable: true,
-          } satisfies AppError
+          throw new CommandOutcomeError({
+            disposition: "completed",
+            completion: {
+              status: "failed",
+              result: null,
+              error: {
+                type: "provider",
+                message:
+                  "Repository creation failed for all planned repositories.",
+                provider: providerForError,
+                operation: "createRepositories",
+                retryable: true,
+              } satisfies AppError,
+            },
+          })
         }
 
         // Step 4: Push template content to newly created repos.
@@ -334,7 +346,8 @@ export function createRepoCreateHandler(
                 }
               }
             }
-          } catch {
+          } catch (error) {
+            if (error instanceof CommandOutcomeError) throw error
             // Best-effort: template commit tracking should not fail repo creation.
           }
         }
@@ -358,35 +371,27 @@ export function createRepoCreateHandler(
         const teams = planTeamSetup(planned.value)
         const teamSlugByGroupId = new Map<string, string>()
         for (const team of teams) {
-          try {
-            const result = await ports.git.createTeam(
-              gitDraft,
-              {
-                organization,
-                teamName: team.teamName,
-                memberUsernames: team.gitUsernames,
-                permission: "push",
-              },
-              options?.signal,
-            )
-            teamSlugByGroupId.set(team.groupId, result.teamSlug)
-            if (result.membersNotFound.length > 0) {
-              options?.onOutput?.({
-                channel: "warn",
-                message: `Team '${team.teamName}' missing members: ${result.membersNotFound.join(", ")}.`,
-              })
-            }
-            options?.onOutput?.({
-              channel: "info",
-              message: `Team '${team.teamName}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
-            })
-          } catch (error) {
-            throwIfAborted(options?.signal)
+          const result = await ports.git.createTeam(
+            gitDraft,
+            {
+              organization,
+              teamName: team.teamName,
+              memberUsernames: team.gitUsernames,
+              permission: "push",
+            },
+            options?.signal,
+          )
+          teamSlugByGroupId.set(team.groupId, result.teamSlug)
+          if (result.membersNotFound.length > 0) {
             options?.onOutput?.({
               channel: "warn",
-              message: `Failed to create team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,
+              message: `Team '${team.teamName}' missing members: ${result.membersNotFound.join(", ")}.`,
             })
           }
+          options?.onOutput?.({
+            channel: "info",
+            message: `Team '${team.teamName}' ${result.created ? "created" : "reused"} with ${result.membersAdded.length} members added.`,
+          })
         }
 
         throwIfAborted(options?.signal)
@@ -406,31 +411,22 @@ export function createRepoCreateHandler(
           if (repositoryNames.length === 0) {
             continue
           }
-          try {
-            await ports.git.assignRepositoriesToTeam(
-              gitDraft,
-              {
-                organization,
-                teamSlug,
-                repositoryNames,
-                permission: "push",
-              },
-              options?.signal,
-            )
-            options?.onOutput?.({
-              channel: "info",
-              message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,
-            })
-          } catch (error) {
-            throwIfAborted(options?.signal)
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Failed to assign repositories to team '${team.teamName}': ${error instanceof Error ? error.message : String(error)}`,
-            })
-          }
+          await ports.git.assignRepositoriesToTeam(
+            gitDraft,
+            {
+              organization,
+              teamSlug,
+              repositoryNames,
+              permission: "push",
+            },
+            options?.signal,
+          )
+          options?.onOutput?.({
+            channel: "info",
+            message: `Assigned ${repositoryNames.length} repositories to team '${team.teamName}'.`,
+          })
         }
 
-        throwIfAborted(options?.signal)
         options?.onProgress?.({
           step: 7,
           totalSteps,

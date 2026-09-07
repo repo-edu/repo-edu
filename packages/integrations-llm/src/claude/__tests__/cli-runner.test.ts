@@ -87,7 +87,7 @@ function fakeLaunch(
       reportProofLost(error) {
         call.facts.push({ error, kind: "proof-lost" })
         call.stopped = true
-        outcome.resolve({ outcome: "unknown" })
+        outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
       },
       reportResult(result) {
         call.facts.push({ kind: "result", result })
@@ -155,7 +155,7 @@ function liveLaunch(): LiveCliProcess {
       facts.push({ error, kind: "proof-lost" })
       stopped = true
       stopStreams()
-      outcome.resolve({ outcome: "unknown" })
+      outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
     },
     reportResult(reported) {
       facts.push({ kind: "result", result: reported })

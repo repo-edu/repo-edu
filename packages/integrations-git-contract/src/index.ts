@@ -24,6 +24,12 @@ export type GitConnectionDraft = ConnectionBase & {
   provider: GitProviderKind
 }
 
+/** Proven at the provider operation boundary, independently of error wording. */
+export type GitEffectFailure = Error & {
+  readonly type: "git-effect"
+  readonly disposition: "stopped" | "completed"
+}
+
 export type GitUsernameStatus = {
   username: string
   exists: boolean

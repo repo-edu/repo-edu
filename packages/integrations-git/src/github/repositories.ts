@@ -1,7 +1,9 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { throwIfGitEffectAborted } from "../invocation-guard.js"
 import { withGitHubToken } from "./auth.js"
 import {
+  hasGitHubResponse,
   isAlreadyExistsError,
   isNotFoundError,
   toErrorMessage,
@@ -23,7 +25,7 @@ export function createGitHubRepositories(
       const alreadyExisted = []
       const failed = []
       for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         try {
           const response = await octokit.repos.createInOrg({
             org: request.organization,
@@ -38,6 +40,7 @@ export function createGitHubRepositories(
             cloneUrl: withGitHubToken(response.data.clone_url, draft.token),
           })
         } catch (error) {
+          if (!hasGitHubResponse(error)) throw error
           if (isAlreadyExistsError(error)) {
             try {
               const existing = await octokit.repos.get({

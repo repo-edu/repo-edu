@@ -1,5 +1,9 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import {
+  gitEffectFailure,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { isNoChangesMessage, toErrorMessage } from "./errors.js"
 import { readRepositoryFile } from "./repository-api.js"
 import { giteaRequest, resolveApiBase } from "./transport.js"
@@ -14,7 +18,8 @@ export function createGiteaBranchReview(
 ): BranchReviewCapability {
   return {
     async createBranch(draft, request, signal) {
-      if (!resolveApiBase(draft)) throw new Error("Gitea baseUrl is required.")
+      if (!resolveApiBase(draft))
+        throw gitEffectFailure("completed", "Gitea baseUrl is required.")
       const route = `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}`
       const branch = await giteaRequest(
         http,
@@ -30,13 +35,14 @@ export function createGiteaBranchReview(
       if (branch.status < 200 || branch.status >= 300) {
         const message = toErrorMessage(branch.data)
         if (!isNoChangesMessage(message)) {
-          throw new Error(
+          throw gitEffectFailure(
+            "completed",
             `Failed to create branch '${request.branchName}' (${branch.status}).`,
           )
         }
       }
       for (const file of request.files) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         if (file.status === "removed") {
           const existing = await readRepositoryFile(
             http,
@@ -64,7 +70,8 @@ export function createGiteaBranchReview(
             (removed.status < 200 || removed.status >= 300) &&
             removed.status !== 404
           ) {
-            throw new Error(
+            throw gitEffectFailure(
+              "completed",
               `Failed to delete '${file.path}' (${removed.status}).`,
             )
           }
@@ -94,7 +101,8 @@ export function createGiteaBranchReview(
           if (upsert.status < 200 || upsert.status >= 300) {
             const message = toErrorMessage(upsert.data)
             if (!isNoChangesMessage(message)) {
-              throw new Error(
+              throw gitEffectFailure(
+                "completed",
                 `Failed to update '${file.path}' (${upsert.status}).`,
               )
             }
@@ -128,7 +136,8 @@ export function createGiteaBranchReview(
       }
     },
     async createPullRequest(draft, request, signal) {
-      if (!resolveApiBase(draft)) throw new Error("Gitea baseUrl is required.")
+      if (!resolveApiBase(draft))
+        throw gitEffectFailure("completed", "Gitea baseUrl is required.")
       const route = `/repos/${encodeURIComponent(request.owner)}/${encodeURIComponent(request.repositoryName)}/pulls`
       const created = await giteaRequest(
         http,
@@ -149,7 +158,8 @@ export function createGiteaBranchReview(
       }
       const message = toErrorMessage(created.data)
       if (!isNoChangesMessage(message)) {
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to create Gitea pull request (${created.status}): ${message || "unknown error"}`,
         )
       }

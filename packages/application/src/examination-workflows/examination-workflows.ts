@@ -12,8 +12,13 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { LlmUsage } from "@repo-edu/host-runtime-contract"
-import { createValidationAppError } from "../core.js"
+import {
+  commandPreparation,
+  commandThrowIfAborted,
+  commandValidationError as createValidationAppError,
+} from "../command-outcomes.js"
 import { normalizeLlmProviderError } from "../llm-error-normalization.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
@@ -93,29 +98,33 @@ export function createExaminationWorkflowHandlers(
         ExaminationGenerateOutput
       >,
     ): Promise<ExaminationGenerateQuestionsResult> => {
-      validateGenerateInput(input)
+      await commandPreparation(() => validateGenerateInput(input))
       const emitPrivacyWarnings = createPrivacyWarningEmitter((message) =>
         options?.onOutput?.({ kind: "warn", message }),
       )
 
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps: 3,
         label: "Preparing redacted excerpts.",
       })
 
-      const prepared = await prepareExaminationProviderExcerpts({
-        excerpts: input.excerpts,
-        excerptFileSources: input.excerptFileSources,
-        localIdentityContext: input.localIdentityContext,
-        tokenizer: ports.tokenizer,
-        questionCount: input.questionCount,
-      })
-      const { archiveKey, resolution } = resolveArchiveContext(
-        input,
-        prepared.providerPayloadFingerprint,
-        prepared.privacyContext,
+      const prepared = await commandPreparation(() =>
+        prepareExaminationProviderExcerpts({
+          excerpts: input.excerpts,
+          excerptFileSources: input.excerptFileSources,
+          localIdentityContext: input.localIdentityContext,
+          tokenizer: ports.tokenizer,
+          questionCount: input.questionCount,
+        }),
+      )
+      const { archiveKey, resolution } = await commandPreparation(() =>
+        resolveArchiveContext(
+          input,
+          prepared.providerPayloadFingerprint,
+          prepared.privacyContext,
+        ),
       )
       const sourceLineRanges = buildPromptSourceLineRanges(
         prepared.promptPayload.excerpts,
@@ -158,7 +167,7 @@ export function createExaminationWorkflowHandlers(
         }
       }
 
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 2,
         totalSteps: 3,
@@ -183,7 +192,7 @@ export function createExaminationWorkflowHandlers(
         throw createValidationAppError(message, [{ path: "prompt", message }])
       }
 
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 3,
         totalSteps: 3,
@@ -231,8 +240,6 @@ export function createExaminationWorkflowHandlers(
 
           try {
             for await (const event of stream) {
-              throwIfAborted(options?.signal)
-              if (softStop.requested) break
               if (event.kind === "text-delta") {
                 buffer += event.text
                 options?.onOutput?.({
@@ -269,8 +276,22 @@ export function createExaminationWorkflowHandlers(
               }
             }
           } catch (error) {
-            throwIfAborted(options?.signal)
-            if (softStop.requested) {
+            // Preserve an effect owner's outcome before considering local stop intent.
+            const failure = normalizeLlmProviderError(
+              error,
+              "examination.generateQuestions",
+            )
+            // The adapter emits AbortError only before launch or after proven stop.
+            // A category-only cancelled AppError supplies no such proof.
+            const stopped =
+              error instanceof DOMException && error.name === "AbortError"
+            if (stopped && options?.signal?.aborted) {
+              throw new CommandOutcomeError({
+                disposition: "stopped",
+                result: null,
+              })
+            }
+            if (stopped && softStop.requested) {
               return archiveSoftStoppedQuestions({
                 acceptedQuestions: partialState.acceptedQuestions,
                 archiveKey,
@@ -283,7 +304,12 @@ export function createExaminationWorkflowHandlers(
                 onPrivacyWarnings: emitPrivacyWarnings,
               })
             }
-            throw error
+            if (stopped)
+              throw new CommandOutcomeError({
+                disposition: "stopped",
+                result: null,
+              })
+            throw failure
           }
         } catch (error) {
           throw normalizeLlmProviderError(
@@ -292,20 +318,6 @@ export function createExaminationWorkflowHandlers(
           )
         }
 
-        throwIfAborted(options?.signal)
-        if (softStop.requested) {
-          return archiveSoftStoppedQuestions({
-            acceptedQuestions: partialState.acceptedQuestions,
-            archiveKey,
-            input,
-            minimumAcceptedQuestionCount: seedQuestions.length,
-            ports,
-            resolution,
-            sourceReferences: prepared.sourceReferences,
-            privacyContext: prepared.privacyContext,
-            onPrivacyWarnings: emitPrivacyWarnings,
-          })
-        }
         if (finalUsage === null) {
           throw providerError(
             "LLM stream ended without a terminal usage event.",

@@ -5,6 +5,7 @@ import type {
   ExaminationGenerateQuestionsInput,
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type {
   FileSystemPort,
   LlmPort,
@@ -168,11 +169,114 @@ function blockingStreamLlm(delta: string): LlmPort {
           once: true,
         })
       })
+      throw new DOMException("Stopped.", "AbortError")
     },
   }
 }
 
 describe("examination.generateQuestions streaming", () => {
+  it("does not turn a category-only cancellation into a partial archive", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const abort = new AbortController()
+    const failure = { type: "cancelled", message: "No producer proof." }
+    const handlers = createExaminationWorkflowHandlers({
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+      llm: {
+        async run() {
+          throw new Error("Not used.")
+        },
+        async *stream() {
+          yield { kind: "text-delta" as const, text: replyJson(1) }
+          abort.abort()
+          throw failure
+        },
+      },
+    })
+    await assert.rejects(
+      handlers["examination.generateQuestions"](baseInput(), {
+        signal: abort.signal,
+      }),
+      (error) => error === failure,
+    )
+    assert.equal(archive.exportBundle().records.length, 0)
+  })
+
+  for (const outcome of [
+    "confirmation-expired",
+    "proof-lost",
+    "completed",
+  ] as const) {
+    it(`preserves ${outcome} through a requested stop without archiving partial output`, async () => {
+      const archive = createInMemoryExaminationArchive()
+      const abort = new AbortController()
+      const handlers = createExaminationWorkflowHandlers({
+        archive,
+        tokenizer,
+        fileSystem: stubFileSystem,
+        llm: {
+          async run() {
+            throw new Error("Not used.")
+          },
+          async *stream() {
+            yield { kind: "text-delta" as const, text: replyJson(1) }
+            abort.abort()
+            throw new LlmError("other", "Official outcome.", {
+              context: {
+                provider: "claude",
+                authMode: "subscription",
+                outcome,
+              },
+            })
+          },
+        },
+      })
+      await assert.rejects(
+        handlers["examination.generateQuestions"](baseInput(), {
+          signal: abort.signal,
+        }),
+        (error) => {
+          assert.ok(error instanceof CommandOutcomeError)
+          assert.equal(
+            error.outcome.disposition,
+            outcome === "completed" ? "completed" : "uncertain",
+          )
+          if (error.outcome.disposition === "uncertain")
+            assert.equal(error.outcome.reason, outcome)
+          return true
+        },
+      )
+      assert.equal(archive.exportBundle().records.length, 0)
+    })
+  }
+
+  it("archives a completed provider reply despite cancellation racing its delivery", async () => {
+    const archive = createInMemoryExaminationArchive()
+    const abort = new AbortController()
+    const handlers = createExaminationWorkflowHandlers({
+      archive,
+      tokenizer,
+      fileSystem: stubFileSystem,
+      llm: {
+        async run() {
+          throw new Error("Not used.")
+        },
+        async *stream() {
+          yield { kind: "text-delta" as const, text: replyJson(1) }
+          abort.abort()
+          yield { kind: "done" as const, usage }
+        },
+      },
+    })
+    const result = await handlers["examination.generateQuestions"](
+      baseInput(),
+      { signal: abort.signal },
+    )
+    assert.equal(result.questions.length, 1)
+    assert.equal(archive.exportBundle().records.length, 1)
+  })
+
   it("emits only complete questions after their anchors are valid", async () => {
     const handlers = createExaminationWorkflowHandlers({
       llm: streamLlm([
@@ -242,9 +346,8 @@ describe("examination.generateQuestions streaming", () => {
     await assert.rejects(
       generation,
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        (error as { type?: unknown }).type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "stopped",
     )
     assert.equal(
       outputs.some((output) => output.kind === "partial-questions"),

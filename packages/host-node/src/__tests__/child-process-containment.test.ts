@@ -298,7 +298,7 @@ describe("child-process containment", { skip: !supportsController }, () => {
     assert.deepEqual(
       await tree.outcome,
       process.platform === "win32"
-        ? { outcome: "unknown" }
+        ? { outcome: "unknown", reason: "proof-lost" }
         : { outcome: "cancelled" },
     )
 
@@ -501,7 +501,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
         launch,
         childProcessStopGracePeriodMs + 2_000,
       )
-      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+      assert.deepEqual(await tree.outcome, {
+        outcome: "unknown",
+        reason: "proof-lost",
+      })
       await controller.stopAndConfirm()
     } finally {
       restoreLauncherEnvironment()
@@ -554,7 +557,10 @@ describe("child-process containment", { skip: !supportsController }, () => {
           pendingPhase.expected === "rejected"
             ? assert.rejects(launch, /pending child-process launch was stopped/)
             : launch.then(async (tree) => {
-                assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+                assert.deepEqual(await tree.outcome, {
+                  outcome: "unknown",
+                  reason: "proof-lost",
+                })
               })
 
         await completeWithin(

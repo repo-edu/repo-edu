@@ -18,6 +18,7 @@ export function abortError(
 }
 
 export type CodexSdkHostLossDetail = {
+  readonly reason?: "confirmation-expired" | "proof-lost"
   readonly cause?: unknown
   readonly output?: string
 }
@@ -35,7 +36,11 @@ export function unknownOutcomeError(
       : `The Codex SDK host process was lost; the outside outcome is unknown. Codex SDK host process output: ${output}`
   return new LlmError("other", message, {
     cause: detail.cause,
-    context: { provider: "codex", authMode },
+    context: {
+      provider: "codex",
+      authMode,
+      outcome: detail.reason ?? "proof-lost",
+    },
   })
 }
 
@@ -69,16 +74,18 @@ export function mapCodexSdkHostFailure(
   authMode: LlmAuthMode,
 ): Error {
   if (failure.type === "cancelled") {
-    return new LlmError("other", failure.message, {
-      context: { provider: "codex", authMode },
-    })
+    return abortError(failure.message)
   }
   if (failure.type === "llm-error") {
     return new LlmError(failure.kind, failure.message, {
-      context: failure.context,
+      context: {
+        ...failure.context,
+        authMode,
+        outcome: failure.context.outcome ?? "completed",
+      },
     })
   }
   return new LlmError("other", failure.message, {
-    context: { provider: "codex", authMode },
+    context: { provider: "codex", authMode, outcome: "completed" },
   })
 }

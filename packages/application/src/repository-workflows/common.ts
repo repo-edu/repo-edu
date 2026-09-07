@@ -1,7 +1,11 @@
 import type { AppError } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { createValidationAppError } from "../core.js"
+import {
+  commandValidationError as createValidationAppError,
+  rethrowGitEffectFailure,
+} from "../command-outcomes.js"
 import { isSharedAppError, toCancelledAppError } from "../workflow-helpers.js"
 
 /**
@@ -35,6 +39,8 @@ export function normalizeRepositoryExecutionError(
   error: unknown,
   operation: string,
 ): AppError {
+  if (error instanceof CommandOutcomeError) throw error
+  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }

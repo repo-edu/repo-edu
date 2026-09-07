@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { splitAppSettings } from "@repo-edu/domain/settings"
 import type { GroupSetWorkflowPorts } from "../group-set-workflows.js"
 import { createGroupSetWorkflowHandlers } from "../group-set-workflows.js"
@@ -215,10 +216,12 @@ describe("application group-set workflow helpers", () => {
         remoteGroupSetId: "remote-set-1",
       }),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation",
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        typeof error.outcome.error === "object" &&
+        error.outcome.error !== null &&
+        "type" in error.outcome.error &&
+        error.outcome.error.type === "validation",
     )
   })
 
@@ -468,13 +471,15 @@ describe("application group-set workflow helpers", () => {
         targetGroupSetId: null,
       }),
       (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "validation" &&
-        "issues" in error &&
-        Array.isArray(error.issues) &&
-        error.issues.some(
+        error instanceof CommandOutcomeError &&
+        error.outcome.disposition === "refused" &&
+        typeof error.outcome.error === "object" &&
+        error.outcome.error !== null &&
+        "type" in error.outcome.error &&
+        error.outcome.error.type === "validation" &&
+        "issues" in error.outcome.error &&
+        Array.isArray(error.outcome.error.issues) &&
+        error.outcome.error.issues.some(
           (issue) =>
             typeof issue === "object" &&
             issue !== null &&

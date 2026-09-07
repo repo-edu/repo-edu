@@ -1,5 +1,9 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import {
+  gitEffectFailure,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { gitLabDataMessage, isNoChangesMessage } from "./errors.js"
 import { fileExistsInBranch, resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestGet, gitLabRestPost } from "./transport.js"
@@ -18,7 +22,10 @@ export function createGitLabBranchReview(
       const projectPath = `${request.owner}/${request.repositoryName}`
       const projectId = await resolveProjectId(api, projectPath)
       if (projectId === null) {
-        throw new Error(`GitLab project '${projectPath}' was not found.`)
+        throw gitEffectFailure(
+          "completed",
+          `GitLab project '${projectPath}' was not found.`,
+        )
       }
       const branch = await gitLabRestPost(
         http,
@@ -30,7 +37,8 @@ export function createGitLabBranchReview(
       if (branch.status < 200 || branch.status >= 300) {
         const message = gitLabDataMessage(branch.data)
         if (!isNoChangesMessage(message)) {
-          throw new Error(
+          throw gitEffectFailure(
+            "completed",
             `Failed to create branch '${request.branchName}' (${branch.status}): ${message}`,
           )
         }
@@ -38,7 +46,7 @@ export function createGitLabBranchReview(
 
       const actions: Array<Record<string, unknown>> = []
       for (const file of request.files) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         if (file.status === "removed") {
           if (
             await fileExistsInBranch(
@@ -99,7 +107,8 @@ export function createGitLabBranchReview(
       if (commit.status >= 200 && commit.status < 300) return
       const message = gitLabDataMessage(commit.data)
       if (isNoChangesMessage(message)) return
-      throw new Error(
+      throw gitEffectFailure(
+        "completed",
         `Failed to commit template update (${commit.status}): ${message}`,
       )
     },
@@ -108,7 +117,10 @@ export function createGitLabBranchReview(
       const projectPath = `${request.owner}/${request.repositoryName}`
       const projectId = await resolveProjectId(api, projectPath)
       if (projectId === null) {
-        throw new Error(`GitLab project '${projectPath}' was not found.`)
+        throw gitEffectFailure(
+          "completed",
+          `GitLab project '${projectPath}' was not found.`,
+        )
       }
       const response = await gitLabRestPost(
         http,
@@ -128,7 +140,8 @@ export function createGitLabBranchReview(
       }
       const message = gitLabDataMessage(response.data)
       if (!isNoChangesMessage(message)) {
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to create merge request (${response.status}): ${message}`,
         )
       }

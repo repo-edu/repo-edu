@@ -2,8 +2,9 @@ import type {
   AppValidationIssue,
   DiagnosticOutput,
 } from "@repo-edu/application-contract"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { FileSystemPort } from "@repo-edu/host-runtime-contract"
-import { createValidationAppError } from "../core.js"
+import { commandValidationError as createValidationAppError } from "../command-outcomes.js"
 import { normalizeRepositoryExecutionError } from "./common.js"
 import {
   initPullClone,
@@ -41,18 +42,6 @@ export async function admitRepositoryCloneTargets<
   signal?: AbortSignal
 }): Promise<RepositoryCloneAdmission<T>> {
   const { ports, targets, conflictMessage, signal } = options
-
-  try {
-    await ports.fileSystem.applyBatch({
-      operations: Array.from(options.parentDirectories).map((path) => ({
-        kind: "ensure-directory" as const,
-        path,
-      })),
-      signal,
-    })
-  } catch (error) {
-    throw normalizeRepositoryExecutionError(error, "ensureDirectories")
-  }
 
   let inspected: Awaited<ReturnType<FileSystemPort["inspect"]>> = []
   try {
@@ -104,6 +93,18 @@ export async function admitRepositoryCloneTargets<
   }
   if (clashIssues.length > 0) {
     throw createValidationAppError(conflictMessage, clashIssues)
+  }
+
+  try {
+    await ports.fileSystem.applyBatch({
+      operations: Array.from(options.parentDirectories).map((path) => ({
+        kind: "ensure-directory" as const,
+        path,
+      })),
+      signal,
+    })
+  } catch (error) {
+    throw normalizeRepositoryExecutionError(error, "ensureDirectories")
   }
 
   return {
@@ -169,12 +170,10 @@ export async function runRepositoryClones<
         })
         return "failed" as const
       } catch (error) {
+        // Unknown outside work must not be followed by deletion of its checkout.
+        if (error instanceof CommandOutcomeError) throw error
         await cleanupTempPath()
-        onOutput?.({
-          channel: "warn",
-          message: `git clone failed for '${target.repoName}': ${error instanceof Error ? error.message : String(error)}`,
-        })
-        return "failed" as const
+        throw error
       }
     },
     8,

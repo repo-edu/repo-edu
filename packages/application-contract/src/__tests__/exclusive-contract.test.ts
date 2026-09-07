@@ -203,7 +203,11 @@ describe("exclusive command contracts", () => {
         disposition: "completed",
         completion: { status: "succeeded", result: "complete" },
       },
-      { disposition: "uncertain", message: "Outcome not proven." },
+      {
+        disposition: "uncertain",
+        reason: "proof-lost",
+        message: "Outcome not proven.",
+      },
     ]
     assert.deepEqual(
       outcomes.map((value) => value.disposition),

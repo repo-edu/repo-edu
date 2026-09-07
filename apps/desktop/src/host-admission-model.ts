@@ -1,8 +1,8 @@
 import type {
   ExclusiveCommandId,
+  ExclusiveCommandOutcome,
   ExclusiveRequestOperation,
   WorkflowId,
-  WorkflowResult,
 } from "@repo-edu/application-contract"
 import type {
   DesktopHostStart,
@@ -21,7 +21,7 @@ type Command = {
 }
 export type HostCommandCompletion = {
   operation: ExclusiveRequestOperation
-  result: WorkflowResult<ExclusiveCommandId>
+  outcome: ExclusiveCommandOutcome<ExclusiveCommandId>
 }
 
 export type HostAdmissionState =

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, extname } from "node:path"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import type { FileFormat } from "@repo-edu/domain/types"
 import type {
   UserFilePort,
@@ -194,7 +195,7 @@ export function createDesktopHostEnvironment(
   const userFilePort: UserFilePort = {
     async readText(reference: UserFileReadRef, signal?: AbortSignal) {
       if (signal?.aborted) {
-        throw new Error("Operation cancelled.")
+        throw new CommandOutcomeError({ disposition: "stopped", result: null })
       }
 
       const file = readableReferences.get(reference.referenceId)
@@ -202,10 +203,18 @@ export function createDesktopHostEnvironment(
         throw new Error(`Unknown user-file reference: ${reference.referenceId}`)
       }
 
-      const text = await readFile(file.path, "utf8")
+      const text = await readFile(file.path, "utf8").catch((error: unknown) => {
+        throw new CommandOutcomeError({
+          disposition: "refused",
+          error: {
+            type: "effect",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        })
+      })
 
       if (signal?.aborted) {
-        throw new Error("Operation cancelled.")
+        throw new CommandOutcomeError({ disposition: "stopped", result: null })
       }
 
       return {
@@ -222,7 +231,7 @@ export function createDesktopHostEnvironment(
       signal?: AbortSignal,
     ) {
       if (signal?.aborted) {
-        throw new Error("Operation cancelled.")
+        throw new CommandOutcomeError({ disposition: "stopped", result: null })
       }
 
       const file = writableReferences.get(reference.referenceId)
@@ -232,11 +241,15 @@ export function createDesktopHostEnvironment(
         )
       }
 
-      await mkdir(dirname(file.path), { recursive: true })
-      await writeFile(file.path, text, "utf8")
-
-      if (signal?.aborted) {
-        throw new Error("Operation cancelled.")
+      try {
+        await mkdir(dirname(file.path), { recursive: true })
+        await writeFile(file.path, text, "utf8")
+      } catch (error) {
+        throw new CommandOutcomeError({
+          disposition: "uncertain",
+          reason: "proof-lost",
+          message: error instanceof Error ? error.message : String(error),
+        })
       }
 
       return {

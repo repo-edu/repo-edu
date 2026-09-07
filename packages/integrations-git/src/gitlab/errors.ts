@@ -1,6 +1,6 @@
 import { GitbeakerRequestError } from "@gitbeaker/rest"
 
-function gitLabErrorStatus(error: unknown): number | null {
+export function gitLabErrorStatus(error: unknown): number | null {
   if (!(error instanceof GitbeakerRequestError)) {
     return null
   }

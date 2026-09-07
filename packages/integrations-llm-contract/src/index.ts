@@ -74,6 +74,8 @@ export type LlmErrorContext = {
   provider?: LlmProvider
   authMode?: LlmAuthMode
   retryAfterMs?: number
+  /** Supplied by the effect owner, never inferred from the error category. */
+  outcome?: "confirmation-expired" | "proof-lost" | "completed"
 }
 
 export type LlmErrorOptions = {

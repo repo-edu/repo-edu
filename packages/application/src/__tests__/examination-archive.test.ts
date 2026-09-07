@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   buildExaminationGenerationContextFingerprint,
+  CommandOutcomeError,
   EXAMINATION_ARCHIVE_BUNDLE_VERSION,
   EXAMINATION_QUESTION_COUNT_MAX,
   EXAMINATION_QUESTION_COUNT_MIN,
@@ -441,9 +442,9 @@ describe("examination.generateQuestions archive behavior", () => {
             questionCount,
           }),
         (error: unknown) =>
-          typeof error === "object" &&
-          error !== null &&
-          (error as { type?: unknown }).type === "validation",
+          error instanceof CommandOutcomeError &&
+          error.outcome.disposition === "refused" &&
+          error.outcome.error.type === "validation",
       )
     }
   })

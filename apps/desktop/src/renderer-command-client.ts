@@ -1,4 +1,5 @@
 import {
+  CommandOutcomeError,
   createCancelledAppError,
   type ExclusiveBodyClient,
   type ExclusiveCommandClient,
@@ -36,6 +37,8 @@ function resultOf(
   switch (outcome.disposition) {
     case "refused":
       throw outcome.error
+    case "uncertain":
+      throw new CommandOutcomeError(outcome)
     case "stopped":
       if (outcome.result === null) throw createCancelledAppError()
       return outcome.result as WorkflowResult<ExclusiveCommandId>
@@ -110,26 +113,43 @@ export function createRendererCommandClient(
             throw new HostAdmissionRefusedError()
           try {
             await prepared.promise
-            const captured = capture()
-            const input =
-              id === "examination.generateQuestions"
-                ? generationInput(
-                    captured as WorkflowInput<"examination.generateQuestions">,
-                  )
-                : captured
-            const operation = commandPayloadSchemas(command).input.parse({
-              workflowId: command,
-              input,
-              settlementInput: options?.settlementInput,
-            }) as ExclusiveRequestOperation
-            request!.prepareInput(operation)
+            if (!options?.signal?.aborted) {
+              const captured = capture()
+              const input =
+                id === "examination.generateQuestions"
+                  ? generationInput(
+                      captured as WorkflowInput<"examination.generateQuestions">,
+                    )
+                  : captured
+              const operation = commandPayloadSchemas(command).input.parse({
+                workflowId: command,
+                input,
+                settlementInput: options?.settlementInput,
+              }) as ExclusiveRequestOperation
+              request!.prepareInput(operation)
+            }
           } catch (error) {
             request!.fail(
               error instanceof Error ? error.message : String(error),
             )
             throw error
           }
-          return resultOf(await settlement.promise) as WorkflowResult<typeof id>
+          const fixed = await settlement.promise
+          if (fixed.authoritative !== undefined) {
+            try {
+              if (!options?.applyAuthoritative)
+                throw new Error(
+                  "The command has no authoritative publication owner.",
+                )
+              await options.applyAuthoritative(fixed.authoritative as never)
+            } catch (error) {
+              request!.fail(
+                error instanceof Error ? error.message : String(error),
+              )
+              throw error
+            }
+          }
+          return resultOf(fixed) as WorkflowResult<typeof id>
         },
       }
       const outcome = await body(client).then(

@@ -188,7 +188,10 @@ describe("command-line child-process controller", () => {
 
     tree.reportResult({ outcome: "completed", value: "done" })
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "confirmation-expired",
+    })
     const laterTree = await controller.launch<string, string>({
       command: "git",
       proof: "reported",

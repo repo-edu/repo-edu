@@ -126,6 +126,7 @@ export async function* runClaudeCliStream(
     })
   } catch (error) {
     cleanupClaudeCliWorkingDirectory(workingDirectory)
+    if (error instanceof LlmError && error.context.outcome) throw error
     if (options.signal?.aborted || isAbortLikeError(error)) {
       throw claudeAbortError(error)
     }
@@ -151,9 +152,6 @@ export async function* runClaudeCliStream(
     let buffer = ""
     child.stdout.setEncoding("utf8")
     for await (const chunk of child.stdout) {
-      if (options.signal?.aborted) {
-        throw claudeAbortError(options.signal.reason)
-      }
       buffer += String(chunk)
       const lines = buffer.split(/\r?\n/)
       buffer = lines.pop() ?? ""
@@ -162,28 +160,23 @@ export async function* runClaudeCliStream(
         if (message === null) continue
         for (const event of eventsFromClaudeStreamMessage(message, state)) {
           yield event
-          if (options.signal?.aborted) {
-            throw claudeAbortError(options.signal.reason)
-          }
         }
       }
-    }
-    if (options.signal?.aborted) {
-      throw claudeAbortError(options.signal.reason)
     }
     const finalMessage = parseClaudeStreamJsonLine(buffer)
     if (finalMessage !== null) {
       for (const event of eventsFromClaudeStreamMessage(finalMessage, state)) {
         yield event
-        if (options.signal?.aborted) {
-          throw claudeAbortError(options.signal.reason)
-        }
       }
     }
-    terminalEvent = reportClaudeStreamProof(child, state)
+    if (state.terminalResult === null && options.signal?.aborted) {
+      child.requestCancellation()
+    } else {
+      terminalEvent = reportClaudeStreamProof(child, state)
+    }
     resultReported = true
   } catch (cause) {
-    if (options.signal?.aborted || isAbortLikeError(cause)) {
+    if (isAbortLikeError(cause)) {
       child.requestCancellation()
     } else if (cause instanceof LlmError && cause.kind === "guardrail") {
       child.reportResult({
@@ -208,7 +201,13 @@ export async function* runClaudeCliStream(
     throw new LlmError(
       "other",
       "The Claude turn's outside outcome is unknown.",
-      { context: { provider: "claude", authMode: "subscription" } },
+      {
+        context: {
+          provider: "claude",
+          authMode: "subscription",
+          outcome: outcome.reason,
+        },
+      },
     )
   }
   if (outcome.outcome === "cancelled") {
@@ -369,10 +368,18 @@ function cliOutcomeError(
 ): LlmError {
   if (outcome.value.kind !== undefined) {
     return new LlmError(outcome.value.kind, outcome.message, {
-      context: { provider: "claude", authMode: "subscription" },
+      context: {
+        provider: "claude",
+        authMode: "subscription",
+        outcome: "completed",
+      },
     })
   }
   return new LlmError("other", outcome.message, {
-    context: { provider: "claude", authMode: "subscription" },
+    context: {
+      provider: "claude",
+      authMode: "subscription",
+      outcome: "completed",
+    },
   })
 }

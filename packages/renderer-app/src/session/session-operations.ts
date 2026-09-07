@@ -1,6 +1,7 @@
 import type {
   AnalysisDiscoverReposResult,
   CommitPersistencePreparation,
+  ExclusiveAuthoritativeValues,
   ExclusiveBodyClient,
   ExclusiveCommandClient,
   ExclusiveCommandId,
@@ -44,6 +45,9 @@ type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
 > & {
   settlementInput?: K extends ExclusiveCommandId
     ? ExclusiveSettlementInput<K>
+    : never
+  applyAuthoritative?: K extends ExclusiveCommandId
+    ? (values: ExclusiveAuthoritativeValues<K>) => void | Promise<void>
     : never
 }
 
@@ -270,7 +274,13 @@ export class SessionOperations extends SessionSurfaceTransactions {
         (classification !== "command" || id !== operation)
       )
         throw new Error("The workflow does not belong to this reservation.")
+      const applyAuthoritative = options?.applyAuthoritative
       const callbacks = {
+        applyAuthoritative:
+          applyAuthoritative === undefined
+            ? undefined
+            : (values: never) =>
+                scope.required(async () => applyAuthoritative(values)),
         settlementInput: options?.settlementInput,
         signal: options?.signal,
         onProgress: callback(options?.onProgress),

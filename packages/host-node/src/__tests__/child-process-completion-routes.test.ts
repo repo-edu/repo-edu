@@ -119,7 +119,10 @@ describe("child-process completion routes", {
 
     tree.reportProofLost(new Error("proving connection lost"))
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
   })
 
   it("rejects a POSIX launch whose target cannot be spawned", {
@@ -193,7 +196,10 @@ describe("child-process completion routes", {
     tree.stderr.resume()
 
     const startedAt = Date.now()
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "confirmation-expired",
+    })
     assert.equal(warnings.length, 1)
     assert.match(warnings[0]?.message ?? "", /output pipes stayed open/)
     // The pipe wait shares the forced-stop deadline instead of adding its own.
@@ -220,7 +226,10 @@ describe("child-process completion routes", {
 
     tree.requestCancellation()
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "confirmation-expired",
+    })
     assert.equal(warnings.length, 1)
   })
 
@@ -328,7 +337,10 @@ describe("child-process completion routes", {
 
       tree.requestCancellation()
 
-      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+      assert.deepEqual(await tree.outcome, {
+        outcome: "unknown",
+        reason: "confirmation-expired",
+      })
       assert.equal(warnings.length, 1)
       assert.equal(jobClosed, false)
     } finally {
@@ -450,7 +462,10 @@ describe("child-process completion routes", {
       tree.stdout.resume()
       tree.stderr.resume()
 
-      assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+      assert.deepEqual(await tree.outcome, {
+        outcome: "unknown",
+        reason: "confirmation-expired",
+      })
       assert.equal(warnings.length, 1)
       assert.equal(diagnostics.length, 1)
       assert.equal(diagnostics[0], warnings[0])

@@ -7,7 +7,10 @@ import type {
   ExaminationQuestion,
   ExaminationSourceReference,
 } from "@repo-edu/application-contract"
-import { buildExaminationGenerationContextFingerprint } from "@repo-edu/application-contract"
+import {
+  buildExaminationGenerationContextFingerprint,
+  CommandOutcomeError,
+} from "@repo-edu/application-contract"
 import { createValidationAppError } from "../core.js"
 import type { ExaminationModelResolution } from "./model-resolution.js"
 import { resolveExaminationModel } from "./model-resolution.js"
@@ -39,16 +42,7 @@ export function archiveSoftStoppedQuestions(params: {
 }): ExaminationGenerateQuestionsResult {
   const acceptedQuestionCount = params.acceptedQuestions.length
   if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) {
-    const message =
-      params.minimumAcceptedQuestionCount === 0
-        ? "Stop was requested before a complete question was available."
-        : "Stop was requested before a complete additional question was available."
-    throw createValidationAppError("Stopped before any question completed.", [
-      {
-        path: "generationControlId",
-        message,
-      },
-    ])
+    throw new CommandOutcomeError({ disposition: "stopped", result: null })
   }
 
   const resultArchiveKey =

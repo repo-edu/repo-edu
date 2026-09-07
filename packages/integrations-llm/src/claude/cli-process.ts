@@ -11,7 +11,10 @@ export type ClaudeCliTargetResult =
     }
 
 export type ClaudeCliOutcome =
-  | { readonly outcome: "unknown" }
+  | {
+      readonly outcome: "unknown"
+      readonly reason: "confirmation-expired" | "proof-lost"
+    }
   | { readonly outcome: "cancelled" }
   | ClaudeCliTargetResult
 

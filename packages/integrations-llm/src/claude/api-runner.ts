@@ -10,11 +10,7 @@ import {
   type LlmModelSpec,
   type LlmStreamEvent,
 } from "@repo-edu/integrations-llm-contract"
-import {
-  claudeAbortError,
-  isAbortLikeError,
-  throwIfClaudeAborted,
-} from "./abort"
+import { claudeAbortError, throwIfClaudeAborted } from "./abort"
 import type { ResolvedClaudeApiAuth } from "./auth"
 import { claudeNativeEffort } from "./effort"
 import { toClaudeLlmError } from "./errors"
@@ -75,7 +71,7 @@ export async function* runClaudeApiStream(
     )
 
     for await (const event of stream as AsyncIterable<MessageStreamEvent>) {
-      if (options.signal?.aborted) {
+      if (options.signal?.aborted && event.type !== "message_stop") {
         stream.abort()
         throw claudeAbortError(options.signal.reason)
       }
@@ -112,10 +108,20 @@ export async function* runClaudeApiStream(
       )
     }
   } catch (cause) {
-    if (options.signal?.aborted || isAbortLikeError(cause)) {
-      throw claudeAbortError(cause)
-    }
-    throw toClaudeLlmError(cause, "api")
+    if (emittedDone) return
+    const failure = toClaudeLlmError(cause, "api")
+    throw new LlmError(failure.kind, failure.message, {
+      cause,
+      context: {
+        ...failure.context,
+        outcome:
+          cause instanceof Anthropic.APIError &&
+          cause.status !== undefined &&
+          cause.headers !== undefined
+            ? "completed"
+            : "proof-lost",
+      },
+    })
   }
 }
 

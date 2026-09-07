@@ -44,7 +44,31 @@ export type EffectOutcome<T> =
       readonly disposition: "completed"
       readonly completion: KnownCommandCompletion<T>
     }
-  | { readonly disposition: "uncertain"; readonly message: string }
+  | {
+      readonly disposition: "uncertain"
+      readonly reason: "confirmation-expired" | "proof-lost"
+      readonly message: string
+    }
+
+/** An effect owner supplies this proof before application error normalisation.
+ * Unknown errors without this proof remain terminal at the desktop boundary. */
+export class CommandOutcomeError extends Error {
+  override readonly name = "CommandOutcomeError"
+
+  constructor(readonly outcome: EffectOutcome<never>) {
+    super(
+      outcome.disposition === "uncertain"
+        ? outcome.message
+        : outcome.disposition === "refused"
+          ? outcome.error.message
+          : outcome.disposition === "stopped"
+            ? "Operation cancelled."
+            : outcome.completion.status === "failed"
+              ? outcome.completion.error.message
+              : "Operation completed.",
+    )
+  }
+}
 
 export type SettledEffectOutcome<T> = Exclude<
   EffectOutcome<T>,
@@ -57,11 +81,32 @@ export type ExclusiveCommandOutcome<K extends ExclusiveCommandId> =
 export type ExclusiveTerminalSettlement<
   K extends ExclusiveCommandId = ExclusiveCommandId,
 > = {
-  [Id in K]: {
-    readonly workflowId: Id
-    readonly outcome: SettledEffectOutcome<ExclusiveCommandResult<Id>>
-    readonly authoritative: ExclusiveAuthoritativeValues<Id>
-  }
+  [Id in K]:
+    | {
+        readonly workflowId: Id
+        readonly outcome: SettledEffectOutcome<ExclusiveCommandResult<Id>>
+        readonly authoritative: ExclusiveAuthoritativeValues<Id>
+      }
+    | {
+        readonly workflowId: Id
+        readonly outcome:
+          | { readonly disposition: "refused"; readonly error: CommandFailure }
+          | { readonly disposition: "stopped"; readonly result: null }
+          | {
+              readonly disposition: "completed"
+              readonly completion: {
+                readonly status: "failed"
+                readonly error: CommandFailure
+                readonly result: null
+              }
+            }
+          | {
+              readonly disposition: "uncertain"
+              readonly reason: "confirmation-expired"
+              readonly message: string
+            }
+        readonly authoritative: undefined
+      }
 }[K]
 
 /** One owner composes this value; durable save and renderer application share it. */

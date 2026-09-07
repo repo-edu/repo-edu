@@ -1,7 +1,9 @@
 import type {
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
+  ExaminationLookupQuestionSummariesResult,
   ExaminationLookupQuestionsInput,
+  ExaminationLookupQuestionsResult,
   ExaminationQuestionSummarySubjectInput,
   ExaminationSourceReference,
   MilestoneProgress,
@@ -90,6 +92,70 @@ export type ExaminationEngineViewModel = {
     regenerate: () => void
     copyMarkdown: () => void
   }
+}
+
+function applyLookupPublication(
+  result: ExaminationLookupQuestionsResult,
+  sourceSessionKey: string,
+  sourceIdentity: SourceIdentity,
+  analysisSourceKey: ReturnType<typeof analysisSourceKeyFromSurface>,
+  started: NonNullable<
+    ReturnType<ReturnType<typeof useExaminationStore.getState>["startLookup"]>
+  >,
+): void {
+  const entryKey = serializeExaminationArchiveStorageKey(result.requestedKey)
+  const resolvedIdentity =
+    sourceIdentity.kind === "repository-analysis"
+      ? {
+          ...sourceIdentity,
+          excerptScopeId: result.requestedKey.providerPayloadFingerprint,
+        }
+      : sourceIdentity
+  useExaminationStore.getState().applyLookupResult({
+    sourceSessionKey,
+    requestId: started.requestId,
+    archiveRevision: started.archiveRevision,
+    archiveKeyIdentityKey: buildArchiveKeyIdentityKey(
+      sourceIdentity,
+      analysisSourceKey,
+    ),
+    requestedIdentity: sourceIdentity,
+    resolvedIdentity,
+    entryKey,
+    exactEntry: result.exact === null ? null : toExaminationEntry(result.exact),
+    archiveEntries: result.availableSets.map((questionSet) =>
+      toAvailableArchiveEntry(questionSet),
+    ),
+  })
+}
+
+function applySummaryPublication(
+  result: ExaminationLookupQuestionSummariesResult,
+  sourceSummaryKey: string,
+  started: NonNullable<
+    ReturnType<
+      ReturnType<
+        typeof useExaminationStore.getState
+      >["startSourceSummaryLookup"]
+    >
+  >,
+): void {
+  const counts = new Map<string, number>()
+  for (const group of result.summaries) {
+    counts.set(
+      group.subjectId,
+      group.sets.reduce(
+        (max, set) => Math.max(max, set.provenance.questionCount),
+        0,
+      ),
+    )
+  }
+  useExaminationStore.getState().applySourceSummaryLookupResult({
+    sourceSummaryKey,
+    requestId: started.requestId,
+    archiveRevision: started.archiveRevision,
+    counts,
+  })
 }
 
 const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
@@ -362,34 +428,13 @@ export function useExaminationEngine({
         })
         .then((result) => {
           if (abort.signal.aborted) return
-          const entryKey = serializeExaminationArchiveStorageKey(
-            result.requestedKey,
-          )
-          const resolvedIdentity =
-            sourceIdentity.kind === "repository-analysis"
-              ? {
-                  ...sourceIdentity,
-                  excerptScopeId:
-                    result.requestedKey.providerPayloadFingerprint,
-                }
-              : sourceIdentity
-          useExaminationStore.getState().applyLookupResult({
+          applyLookupPublication(
+            result,
             sourceSessionKey,
-            requestId: started.requestId,
-            archiveRevision: started.archiveRevision,
-            archiveKeyIdentityKey: buildArchiveKeyIdentityKey(
-              sourceIdentity,
-              analysisSourceKey,
-            ),
-            requestedIdentity: sourceIdentity,
-            resolvedIdentity,
-            entryKey,
-            exactEntry:
-              result.exact === null ? null : toExaminationEntry(result.exact),
-            archiveEntries: result.availableSets.map((questionSet) =>
-              toAvailableArchiveEntry(questionSet),
-            ),
-          })
+            sourceIdentity,
+            analysisSourceKey,
+            started,
+          )
         })
         .catch((_error: unknown) => {
           if (!abort.signal.aborted) {
@@ -457,22 +502,7 @@ export function useExaminationEngine({
         })
         .then((result) => {
           if (abort.signal.aborted) return
-          const counts = new Map<string, number>()
-          for (const group of result.summaries) {
-            counts.set(
-              group.subjectId,
-              group.sets.reduce(
-                (max, set) => Math.max(max, set.provenance.questionCount),
-                0,
-              ),
-            )
-          }
-          useExaminationStore.getState().applySourceSummaryLookupResult({
-            sourceSummaryKey,
-            requestId: started.requestId,
-            archiveRevision: started.archiveRevision,
-            counts,
-          })
+          applySummaryPublication(result, sourceSummaryKey, started)
         })
         .catch((_error: unknown) => {
           if (!abort.signal.aborted) {
@@ -592,6 +622,46 @@ export function useExaminationEngine({
               summaries: summaryInput ?? { subjects: [] },
               questions: lookupInput === null ? [] : [lookupInput],
             },
+            applyAuthoritative(values) {
+              useExaminationStore.getState().archiveCatalogChanged()
+              if (
+                lookupInput !== null &&
+                sourceSessionKey !== null &&
+                sourceIdentity !== null
+              ) {
+                const result = values.questions[0]
+                const started = useExaminationStore
+                  .getState()
+                  .startLookup(sourceSessionKey)
+                if (!result || !started)
+                  throw new Error(
+                    "The archive lookup publication has no active owner.",
+                  )
+                applyLookupPublication(
+                  structuredClone(result) as ExaminationLookupQuestionsResult,
+                  sourceSessionKey,
+                  sourceIdentity,
+                  analysisSourceKey,
+                  started,
+                )
+              }
+              if (summaryInput !== null) {
+                const started = useExaminationStore
+                  .getState()
+                  .startSourceSummaryLookup(sourceSummaryKey)
+                if (!started)
+                  throw new Error(
+                    "The archive summary publication has no active owner.",
+                  )
+                applySummaryPublication(
+                  structuredClone(
+                    values.questionSummaries,
+                  ) as ExaminationLookupQuestionSummariesResult,
+                  sourceSummaryKey,
+                  started,
+                )
+              }
+            },
           })
           addToast(
             `Imported: ${summary.inserted} new, ${summary.updated} updated, ${summary.skipped} skipped${
@@ -599,9 +669,6 @@ export function useExaminationEngine({
             }.`,
             { tone: "success" },
           )
-          useExaminationStore.getState().archiveCatalogChanged()
-          await refreshLookup(scope, new AbortController())
-          await refreshSummary(scope, new AbortController())
         } catch (error) {
           addToast(`Import failed: ${getErrorMessage(error)}`, {
             tone: "error",
@@ -613,8 +680,10 @@ export function useExaminationEngine({
     addToast,
     rendererHost,
     workflowClient,
-    refreshLookup,
-    refreshSummary,
+    analysisSourceKey,
+    sourceSessionKey,
+    sourceIdentity,
+    sourceSummaryKey,
     summaryInput,
     lookupInput,
   ])
@@ -820,7 +889,6 @@ export function useExaminationEngine({
                 },
               },
             )
-            if (abort.signal.aborted) return
             const archiveKey = serializeExaminationArchiveStorageKey(result.key)
             const loadedEntry = toExaminationEntry(result)
             useExaminationStore.getState().applyLoadedArchiveResult({
@@ -839,7 +907,6 @@ export function useExaminationEngine({
               },
             })
           } catch (error) {
-            if (abort.signal.aborted) return
             const message = getErrorMessage(error)
             useExaminationStore
               .getState()

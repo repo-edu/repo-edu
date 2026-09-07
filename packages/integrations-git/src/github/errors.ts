@@ -1,3 +1,15 @@
+export function hasGitHubResponse(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof error.response === "object" &&
+    error.response !== null &&
+    "status" in error.response &&
+    typeof error.response.status === "number"
+  )
+}
+
 export function toErrorStatus(error: unknown): number | null {
   if (
     typeof error === "object" &&
@@ -27,6 +39,7 @@ export function toErrorMessage(error: unknown): string {
 
 export function isAlreadyExistsError(error: unknown): boolean {
   const status = toErrorStatus(error)
+  if (!hasGitHubResponse(error)) return false
   if (status !== 409 && status !== 422) {
     return false
   }
@@ -38,7 +51,10 @@ export function isNotFoundError(error: unknown): boolean {
 }
 
 export function isNoChangesError(error: unknown): boolean {
-  return /no commits between|no changes|already exists|unprocessable entity/i.test(
-    toErrorMessage(error),
+  return (
+    hasGitHubResponse(error) &&
+    /no commits between|no changes|already exists|unprocessable entity/i.test(
+      toErrorMessage(error),
+    )
   )
 }

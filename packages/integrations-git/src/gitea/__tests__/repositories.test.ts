@@ -9,6 +9,92 @@ import { createGiteaClient } from "../gitea-client.js"
 import { baseDraft, createMockHttpPort } from "./harness.js"
 
 describe("gitea repositories", () => {
+  it("does not report a lost create response as a known repository failure", async () => {
+    const lost = new Error("Response lost.")
+    const client = createGiteaClient({
+      async fetch() {
+        throw lost
+      },
+    })
+    await assert.rejects(
+      client.createRepositories(baseDraft, {
+        organization: "course-org",
+        repositoryNames: ["repo"],
+        visibility: "private",
+        autoInit: true,
+      }),
+      (error) => error === lost,
+    )
+  })
+
+  it("preserves a completed create response racing cancellation", async () => {
+    const abort = new AbortController()
+    const client = createGiteaClient({
+      async fetch() {
+        abort.abort()
+        return {
+          status: 201,
+          statusText: "Created",
+          headers: {},
+          body: JSON.stringify({
+            html_url: "https://example.test/repo",
+            clone_url: "https://example.test/repo.git",
+          }),
+        }
+      },
+    })
+    const result = await client.createRepositories(
+      baseDraft,
+      {
+        organization: "course-org",
+        repositoryNames: ["repo"],
+        visibility: "private",
+        autoInit: true,
+      },
+      abort.signal,
+    )
+    assert.equal(result.created.length, 1)
+  })
+
+  it("proves a stopped batch before the next mutation begins", async () => {
+    const abort = new AbortController()
+    let calls = 0
+    const client = createGiteaClient({
+      async fetch() {
+        calls += 1
+        abort.abort()
+        return {
+          status: 201,
+          statusText: "Created",
+          headers: {},
+          body: JSON.stringify({
+            html_url: "https://example.test/repo",
+            clone_url: "https://example.test/repo.git",
+          }),
+        }
+      },
+    })
+    await assert.rejects(
+      client.createRepositories(
+        baseDraft,
+        {
+          organization: "course-org",
+          repositoryNames: ["repo", "next"],
+          visibility: "private",
+          autoInit: true,
+        },
+        abort.signal,
+      ),
+      (error) =>
+        error instanceof Error &&
+        "type" in error &&
+        error.type === "git-effect" &&
+        "disposition" in error &&
+        error.disposition === "stopped",
+    )
+    assert.equal(calls, 1)
+  })
+
   describe("createRepositories", () => {
     it("creates repositories for an organization", async () => {
       let capturedBody = ""

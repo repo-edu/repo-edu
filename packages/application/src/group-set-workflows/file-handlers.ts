@@ -24,6 +24,11 @@ import type {
 import type { UserFileText } from "@repo-edu/host-runtime-contract"
 import { parseRepoBeeStudentsText } from "../adapters/repobee-students-parser.js"
 import { parseCsv, serializeCsv } from "../adapters/tabular/index.js"
+import {
+  commandThrowIfAborted,
+  commandValidationError,
+  readOnlyCommand,
+} from "../command-outcomes.js"
 import { createValidationAppError } from "../core.js"
 import {
   normalizeUserFileError,
@@ -215,50 +220,92 @@ export function createFileGroupSetHandlers(
       })
       return preview.value
     },
-    "groupSet.importFromFile": async (
-      input: GroupSetImportFromFileInput,
-      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-    ) => {
-      const totalSteps = 4
-      throwIfAborted(options?.signal)
-      options?.onProgress?.({
-        step: 1,
-        totalSteps,
-        label: "Reading course snapshot for group-set import.",
-      })
-      const course = resolveCourseSnapshot(input.course)
-      throwIfAborted(options?.signal)
+    "groupSet.importFromFile": readOnlyCommand(
+      async (
+        input: GroupSetImportFromFileInput,
+        options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+      ) => {
+        const totalSteps = 4
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Reading course snapshot for group-set import.",
+        })
+        const course = resolveCourseSnapshot(input.course)
+        throwIfAborted(options?.signal)
 
-      let fileText: UserFileText
-      try {
-        fileText = await ports.userFile.readText(input.file, options?.signal)
-      } catch (error) {
-        throw normalizeUserFileError(error, "read")
-      }
+        let fileText: UserFileText
+        try {
+          fileText = await ports.userFile.readText(input.file, options?.signal)
+        } catch (error) {
+          throw normalizeUserFileError(error, "read")
+        }
 
-      options?.onProgress?.({
-        step: 2,
-        totalSteps,
-        label: "Parsing import file.",
-      })
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Parsing import file.",
+        })
 
-      const source = toImportSource(fileText)
+        const source = toImportSource(fileText)
 
-      if (input.format === "group-set-csv") {
-        const parsedRows = parseGroupSetImportRows(parseCsv(fileText.text).rows)
-        const result = importGroupSet(
+        if (input.format === "group-set-csv") {
+          const parsedRows = parseGroupSetImportRows(
+            parseCsv(fileText.text).rows,
+          )
+          const result = importGroupSet(
+            course.roster,
+            source,
+            parsedRows,
+            course.idSequences,
+            {
+              targetGroupSetId: input.targetGroupSetId,
+              memberKey: "email",
+            },
+          )
+          if (!result.ok) {
+            throw createValidationAppError(
+              "Group-set import failed.",
+              result.issues,
+            )
+          }
+
+          options?.onProgress?.({
+            step: 3,
+            totalSteps,
+            label: "Applying course updates.",
+          })
+
+          const nextCourse = applyImportResultToCourse(course, result.value)
+          options?.onProgress?.({
+            step: 4,
+            totalSteps,
+            label: "Group-set import complete.",
+          })
+          return nextCourse
+        }
+
+        const parsed = parseRepoBeeStudentsText(fileText.text)
+        if (!parsed.ok) {
+          throw createValidationAppError(
+            "RepoBee students import failed.",
+            toValidationIssues(parsed),
+          )
+        }
+
+        const result = replaceGroupSetFromRepoBee(
           course.roster,
           source,
-          parsedRows,
+          parsed.teams,
           course.idSequences,
           {
             targetGroupSetId: input.targetGroupSetId,
-            memberKey: "email",
           },
         )
         if (!result.ok) {
           throw createValidationAppError(
-            "Group-set import failed.",
+            "RepoBee students import failed.",
             result.issues,
           )
         }
@@ -270,66 +317,28 @@ export function createFileGroupSetHandlers(
         })
 
         const nextCourse = applyImportResultToCourse(course, result.value)
+
         options?.onProgress?.({
           step: 4,
           totalSteps,
-          label: "Group-set import complete.",
+          label: "RepoBee students import complete.",
         })
         return nextCourse
-      }
-
-      const parsed = parseRepoBeeStudentsText(fileText.text)
-      if (!parsed.ok) {
-        throw createValidationAppError(
-          "RepoBee students import failed.",
-          toValidationIssues(parsed),
-        )
-      }
-
-      const result = replaceGroupSetFromRepoBee(
-        course.roster,
-        source,
-        parsed.teams,
-        course.idSequences,
-        {
-          targetGroupSetId: input.targetGroupSetId,
-        },
-      )
-      if (!result.ok) {
-        throw createValidationAppError(
-          "RepoBee students import failed.",
-          result.issues,
-        )
-      }
-
-      options?.onProgress?.({
-        step: 3,
-        totalSteps,
-        label: "Applying course updates.",
-      })
-
-      const nextCourse = applyImportResultToCourse(course, result.value)
-
-      options?.onProgress?.({
-        step: 4,
-        totalSteps,
-        label: "RepoBee students import complete.",
-      })
-      return nextCourse
-    },
+      },
+    ),
     "groupSet.export": async (
       input: GroupSetExportInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       const totalSteps = 3
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps,
         label: "Reading course snapshot and group set for export.",
       })
       const course = resolveCourseSnapshot(input.course)
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
 
       options?.onProgress?.({
         step: 2,
@@ -345,7 +354,7 @@ export function createFileGroupSetHandlers(
             input.groupSetId,
           )
           if (!exportedRows.ok) {
-            throw createValidationAppError(
+            throw commandValidationError(
               "Group-set export preparation failed.",
               exportedRows.issues,
             )
@@ -359,7 +368,7 @@ export function createFileGroupSetHandlers(
         case "txt": {
           const txtResult = exportStudentsTxt(course.roster, input.groupSetId)
           if (!txtResult.ok) {
-            throw createValidationAppError(
+            throw commandValidationError(
               "Group-set TXT export failed.",
               txtResult.issues,
             )
@@ -370,7 +379,6 @@ export function createFileGroupSetHandlers(
       }
 
       await ports.userFile.writeText(input.target, serialized, options?.signal)
-      throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 3,
         totalSteps,

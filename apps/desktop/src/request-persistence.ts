@@ -4,6 +4,7 @@ import type {
 } from "@repo-edu/application-contract"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
+import { settleCancelledPreparation } from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
 import type {
   RendererRequest,
@@ -27,7 +28,7 @@ export async function commitRequestPersistence(options: {
   handlers: PreparationHandlers
   transport: Pick<
     ReturnType<typeof createHostRequestTransport>,
-    "persistenceCommitted"
+    "persistenceCommitted" | "settlement"
   >
 }): Promise<void> {
   const { request, bundle, admission, handlers, transport } = options
@@ -59,6 +60,7 @@ export async function commitRequestPersistence(options: {
     if (admission.getSnapshot().phase === "preparing")
       admission.dispatch({ type: "preparation-committed", request })
     transport.persistenceCommitted(request, result)
+    settleCancelledPreparation(request, admission, transport)
   } catch (error) {
     admission.dispatch({ type: "terminal", error })
   }

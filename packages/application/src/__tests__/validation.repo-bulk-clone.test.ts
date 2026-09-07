@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
 
 describe("application repository bulk clone validation", () => {
@@ -15,6 +16,10 @@ describe("application repository bulk clone validation", () => {
           targetDirectory: "repos",
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         const appError = error as {
           type?: string
           message?: string
@@ -43,6 +48,10 @@ describe("application repository bulk clone validation", () => {
           targetDirectory: "/tmp/repo-edu-bulk-clone-collision",
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         const appError = error as {
           type?: string
           message?: string

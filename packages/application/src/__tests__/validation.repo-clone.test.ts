@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
+import { CommandOutcomeError } from "@repo-edu/application-contract"
 import { planRepositoryOperation } from "@repo-edu/domain/repository-planning"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { createRepoHarness } from "./helpers/repo-workflow-harness.js"
@@ -221,6 +222,10 @@ describe("application repository clone workflow helpers", () => {
           directoryLayout: "flat",
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         const appError = error as { type?: string; message?: string }
         const plan = planForAssignment(course, "a1")
         assert.equal(appError.type, "validation", "expected validation error")
@@ -332,6 +337,10 @@ describe("application repository clone workflow helpers", () => {
           directoryLayout: "flat",
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         const appError = error as {
           type?: string
           message?: string
@@ -384,6 +393,10 @@ describe("application repository clone workflow helpers", () => {
           directoryLayout: "flat",
         }),
       (error: unknown) => {
+        assert.ok(error instanceof CommandOutcomeError)
+        assert.equal(error.outcome.disposition, "refused")
+        if (error.outcome.disposition !== "refused") return false
+        error = error.outcome.error
         const appError = error as {
           type?: string
           message?: string

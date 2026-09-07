@@ -6,6 +6,7 @@ import type {
   VerifyLmsDraftInput,
 } from "@repo-edu/application-contract"
 import {
+  CommandOutcomeError,
   createCancelledAppError,
   isAppError,
 } from "@repo-edu/application-contract"
@@ -54,6 +55,7 @@ import type {
 } from "@repo-edu/integrations-git-contract"
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
+import { rethrowGitEffectFailure } from "./command-outcomes.js"
 import type {
   RecoverableAppSettingsLoader,
   SettingsRecoveryEntry,
@@ -227,6 +229,8 @@ export function normalizeProviderError(
     | "git",
   operation: string,
 ): AppError {
+  if (error instanceof CommandOutcomeError) throw error
+  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }
@@ -248,6 +252,8 @@ export function normalizeUserFileError(
   error: unknown,
   operation: "read" | "write",
 ): AppError {
+  if (error instanceof CommandOutcomeError) throw error
+  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }
@@ -681,6 +687,8 @@ export function normalizeRepositoryExecutionError(
   error: unknown,
   operation: string,
 ): AppError {
+  if (error instanceof CommandOutcomeError) throw error
+  rethrowGitEffectFailure(error)
   if (isSharedAppError(error)) {
     return error
   }

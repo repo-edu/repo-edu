@@ -47,7 +47,10 @@ export type CodexSdkHostTargetResult =
     }
 
 export type CodexSdkHostOutcome =
-  | { readonly outcome: "unknown" }
+  | {
+      readonly outcome: "unknown"
+      readonly reason: "confirmation-expired" | "proof-lost"
+    }
   | { readonly outcome: "cancelled" }
   | (CodexSdkHostTargetResult & {
       readonly targetResult?: CodexSdkHostProcessResult
@@ -133,6 +136,7 @@ async function collectCodexStream(
 async function launchSdkHostForRequest(
   launch: CodexSdkHostLaunch,
   requestSignal: AbortSignal | undefined,
+  authMode: LlmAuthMode,
 ): Promise<CodexSdkHostProcess> {
   const startupStop = new AbortController()
   const stopStartup = () => {
@@ -146,6 +150,12 @@ async function launchSdkHostForRequest(
   try {
     return await launch(startupStop.signal)
   } catch (error) {
+    if (error instanceof LlmError && error.context.outcome) {
+      throw new LlmError(error.kind, error.message, {
+        cause: error,
+        context: { ...error.context, authMode },
+      })
+    }
     if (requestSignal?.aborted) {
       throw abortError("Operation cancelled.", error)
     }
@@ -177,10 +187,13 @@ async function* runCodexSdkHostStream(
   const sdkHostProcess = await launchSdkHostForRequest(
     options.launch,
     request.signal,
+    authMode,
   )
   if (request.signal?.aborted) {
     sdkHostProcess.requestCancellation()
-    await sdkHostProcess.outcome
+    const outcome = await sdkHostProcess.outcome
+    if (outcome.outcome === "unknown")
+      throw unknownOutcomeError(authMode, { reason: outcome.reason })
     throw abortError()
   }
   const readSdkHostOutput = collectSdkHostOutput(
@@ -231,19 +244,17 @@ async function* runCodexSdkHostStream(
       resultReported = true
     })
     .catch((error: unknown) => {
-      if (request.signal?.aborted) {
+      const failure = readCodexSdkHostFailure(error)
+      if (failure !== null) {
+        sdkHostProcess.reportResult({
+          outcome: "failed",
+          message: failure.message,
+          value: failure,
+        })
+      } else if (request.signal?.aborted) {
         sdkHostProcess.requestCancellation()
       } else {
-        const failure = readCodexSdkHostFailure(error)
-        if (failure === null) {
-          sdkHostProcess.reportProofLost(error)
-        } else {
-          sdkHostProcess.reportResult({
-            outcome: "failed",
-            message: failure.message,
-            value: failure,
-          })
-        }
+        sdkHostProcess.reportProofLost(error)
       }
       resultReported = true
     })
@@ -273,7 +284,10 @@ async function* runCodexSdkHostStream(
     await completion
     const outcome = await processOutcome
     if (outcome.outcome === "unknown") {
-      throw unknownOutcomeError(authMode, { output: readSdkHostOutput() })
+      throw unknownOutcomeError(authMode, {
+        output: readSdkHostOutput(),
+        reason: outcome.reason,
+      })
     }
     if (outcome.outcome === "cancelled") {
       throw abortError()

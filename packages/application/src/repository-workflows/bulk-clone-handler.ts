@@ -9,13 +9,16 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { createValidationAppError } from "../core.js"
+import {
+  commandRefusal,
+  commandValidationError as createValidationAppError,
+  commandThrowIfAborted as throwIfAborted,
+} from "../command-outcomes.js"
 import {
   isSharedAppError,
   normalizeProviderError,
   resolveAppCredentialsSnapshot,
   resolveGitDraft,
-  throwIfAborted,
 } from "../workflow-helpers.js"
 import {
   admitRepositoryCloneTargets,
@@ -50,11 +53,11 @@ export function createRepoBulkCloneHandler(
         const settings = resolveAppCredentialsSnapshot(input.credentials)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
-          throw {
+          throw commandRefusal({
             type: "not-found",
             message: "No Git connection is configured in settings.",
             resource: "connection",
-          } satisfies AppError
+          } satisfies AppError)
         }
         providerForError = gitDraft.provider
 
@@ -172,7 +175,6 @@ export function createRepoBulkCloneHandler(
           message: `Bulk clone summary: planned ${input.repositories.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${admission.existing.length}, failed ${failed}.`,
         })
 
-        throwIfAborted(options?.signal)
         options?.onProgress?.({
           step: 4,
           totalSteps,

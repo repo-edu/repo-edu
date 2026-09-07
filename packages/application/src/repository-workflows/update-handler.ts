@@ -11,14 +11,17 @@ import type {
 } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import type { PatchFile } from "@repo-edu/integrations-git-contract"
-import { createValidationAppError } from "../core.js"
+import {
+  commandRefusal,
+  commandValidationError as createValidationAppError,
+  commandThrowIfAborted as throwIfAborted,
+} from "../command-outcomes.js"
 import {
   isSharedAppError,
   normalizeProviderError,
   resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveGitDraft,
-  throwIfAborted,
 } from "../workflow-helpers.js"
 import { requireGitOrganization } from "./common.js"
 import {
@@ -100,11 +103,11 @@ export function createRepoUpdateHandler(
         throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
-          throw {
+          throw commandRefusal({
             type: "not-found",
             message: "No Git connection is configured in settings.",
             resource: "connection",
-          } satisfies AppError
+          } satisfies AppError)
         }
         providerForError = gitDraft.provider
         const organization = requireGitOrganization(course, "repo.update")
@@ -274,13 +277,13 @@ export function createRepoUpdateHandler(
             options?.signal,
           )
           if (templateHead === null) {
-            throw {
+            throw commandRefusal({
               type: "provider",
               message: `Template repository '${template.owner}/${template.name}' was not found.`,
               provider: providerForError,
               operation: "getRepositoryDefaultBranchHead",
               retryable: true,
-            } satisfies AppError
+            } satisfies AppError)
           }
           currentSha = templateHead.sha
 
@@ -339,14 +342,14 @@ export function createRepoUpdateHandler(
             options?.signal,
           )
           if (templateDiff === null) {
-            throw {
+            throw commandRefusal({
               type: "provider",
               message:
                 "Template diff could not be resolved from the Git provider.",
               provider: providerForError,
               operation: "getTemplateDiff",
               retryable: true,
-            } satisfies AppError
+            } satisfies AppError)
           }
           diffFiles = templateDiff.files
         }
@@ -417,31 +420,22 @@ export function createRepoUpdateHandler(
             stageRecord(group.assignmentId, group.groupId, group.repoName)
           }
 
-          try {
-            await ports.git.createBranch(
-              gitDraft,
-              {
-                owner: organization,
-                repositoryName,
-                branchName,
-                baseSha: head.sha,
-                commitMessage,
-                files: diffFiles,
-              },
-              options?.signal,
-            )
-            prCandidates.push({
+          await ports.git.createBranch(
+            gitDraft,
+            {
+              owner: organization,
               repositoryName,
-              baseBranch: head.branchName,
-            })
-          } catch (error) {
-            throwIfAborted(options?.signal)
-            prsFailed += 1
-            options?.onOutput?.({
-              channel: "warn",
-              message: `Failed to apply template patch for '${repositoryName}': ${error instanceof Error ? error.message : String(error)}`,
-            })
-          }
+              branchName,
+              baseSha: head.sha,
+              commitMessage,
+              files: diffFiles,
+            },
+            options?.signal,
+          )
+          prCandidates.push({
+            repositoryName,
+            baseBranch: head.branchName,
+          })
         }
 
         options?.onProgress?.({
@@ -452,38 +446,29 @@ export function createRepoUpdateHandler(
         let prsCreated = 0
         let prsSkipped = 0
         for (const candidate of prCandidates) {
-          try {
-            const pr = await ports.git.createPullRequest(
-              gitDraft,
-              {
-                owner: organization,
-                repositoryName: candidate.repositoryName,
-                headBranch: branchName,
-                baseBranch: candidate.baseBranch,
-                title: prTitle,
-                body: prBody,
-              },
-              options?.signal,
-            )
-            if (pr.created) {
-              prsCreated += 1
-              options?.onOutput?.({
-                channel: "info",
-                message: `Opened PR for '${candidate.repositoryName}': ${pr.url}`,
-              })
-            } else {
-              prsSkipped += 1
-              options?.onOutput?.({
-                channel: "info",
-                message: `Skipped PR for '${candidate.repositoryName}' (already exists or no changes).`,
-              })
-            }
-          } catch (error) {
-            throwIfAborted(options?.signal)
-            prsFailed += 1
+          const pr = await ports.git.createPullRequest(
+            gitDraft,
+            {
+              owner: organization,
+              repositoryName: candidate.repositoryName,
+              headBranch: branchName,
+              baseBranch: candidate.baseBranch,
+              title: prTitle,
+              body: prBody,
+            },
+            options?.signal,
+          )
+          if (pr.created) {
+            prsCreated += 1
             options?.onOutput?.({
-              channel: "warn",
-              message: `Failed to create PR for '${candidate.repositoryName}': ${error instanceof Error ? error.message : String(error)}`,
+              channel: "info",
+              message: `Opened PR for '${candidate.repositoryName}': ${pr.url}`,
+            })
+          } else {
+            prsSkipped += 1
+            options?.onOutput?.({
+              channel: "info",
+              message: `Skipped PR for '${candidate.repositoryName}' (already exists or no changes).`,
             })
           }
         }

@@ -122,12 +122,18 @@ function selectedOutcome<TCompleted, TFailed>(
   facts: RunFacts<TCompleted, TFailed>,
   targetResult: ChildProcessLifetimeResult | undefined,
   treeConfirmation: TreeConfirmation,
+  proof: ChildProcessLifetimeLaunch["proof"],
 ): ChildProcessOutcome<TCompleted, TFailed> {
-  if (
-    treeConfirmation.status === "unconfirmed" ||
-    facts.proofLoss !== undefined
-  ) {
-    return { outcome: "unknown" }
+  if (treeConfirmation.status === "unconfirmed") {
+    return { outcome: "unknown", reason: "confirmation-expired" }
+  }
+  if (facts.proofLoss !== undefined) {
+    return { outcome: "unknown", reason: "proof-lost" }
+  }
+  // A reported terminal reply proves completion even when cancellation races it.
+  // A direct exit after a stop request can be the stop itself, including code 0.
+  if (facts.result && proof === "reported") {
+    return { ...facts.result, targetResult }
   }
   if (facts.cancelRequested) {
     return { outcome: "cancelled" }
@@ -319,7 +325,12 @@ export function createChildProcessLifetimeController(
           outcomeSelectionStarted = true
           if (treeConfirmation.status === "unconfirmed") {
             settled.resolve(
-              selectedOutcome(facts, targetResult, treeConfirmation),
+              selectedOutcome(
+                facts,
+                targetResult,
+                treeConfirmation,
+                request.proof,
+              ),
             )
             return
           }
@@ -336,7 +347,12 @@ export function createChildProcessLifetimeController(
               ),
             )
           }
-          const outcome = selectedOutcome(facts, targetResult, treeConfirmation)
+          const outcome = selectedOutcome(
+            facts,
+            targetResult,
+            treeConfirmation,
+            request.proof,
+          )
           if (
             facts.result?.outcome === "failed" &&
             outcome.outcome !== "failed"
@@ -351,6 +367,7 @@ export function createChildProcessLifetimeController(
       }
 
       const requestCancellation = () => {
+        if (facts.result !== undefined) return
         facts.cancelRequested = true
         complete()
       }

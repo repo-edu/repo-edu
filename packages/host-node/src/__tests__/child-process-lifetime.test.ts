@@ -135,7 +135,10 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ exitCode: 1, signal: null })
     harness.confirmation.resolve()
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.equal(diagnostics.length, 1)
     assert.match(String(diagnostics[0]?.failure), /connection lost/)
   })
@@ -174,7 +177,10 @@ describe("child-process completion outcomes", () => {
       proof: "target-exit",
     })
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.equal(diagnostics.length, 1)
     assert.equal(diagnostics[0]?.failure, failure)
   })
@@ -211,7 +217,10 @@ describe("child-process completion outcomes", () => {
       proof: "target-exit",
     })
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.deepEqual(warnings, [])
     assert.equal(diagnostics.length, 1)
     assert.equal(diagnostics[0]?.failure, failure)
@@ -231,7 +240,10 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ outcome: "proof-lost", failure })
     harness.confirmation.resolve()
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.equal(diagnostics.length, 1)
     assert.equal(diagnostics[0]?.failure, failure)
   })
@@ -267,7 +279,10 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ exitCode: 0, signal: null })
     harness.confirmation.resolve()
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.equal(diagnostics.length, 1)
     assert.match(
       String(diagnostics[0]?.failure),
@@ -289,13 +304,16 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ exitCode: 1, signal: null })
     harness.confirmation.resolve()
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "proof-lost",
+    })
     assert.equal(diagnostics.length, 2)
     assert.match(String(diagnostics[0]?.failure), /proof lost/)
     assert.match(String(diagnostics[1]?.failure), /forced exit/)
   })
 
-  it("checks cancelled before failed", async () => {
+  it("preserves a reported failure racing cancellation", async () => {
     const harness = createAdapterHarness()
     const diagnostics: ChildProcessSecondaryFailureDiagnostic[] = []
     const { tree } = await launchReported(harness, diagnostics)
@@ -308,9 +326,38 @@ describe("child-process completion outcomes", () => {
     harness.result.resolve({ exitCode: 1, signal: null })
     harness.confirmation.resolve()
 
+    assert.deepEqual(await tree.outcome, {
+      outcome: "failed",
+      message: "forced exit",
+      value: "failure",
+      targetResult: { exitCode: 1, signal: null },
+    })
+    assert.deepEqual(diagnostics, [])
+  })
+
+  it("preserves a successful target exit racing cancellation", async () => {
+    const harness = createAdapterHarness()
+    const tree = await createHarnessController(harness).launch({
+      command: "direct-target",
+      proof: "target-exit",
+    })
+    harness.result.resolve({ exitCode: 0, signal: null })
+    await Promise.resolve()
+    tree.requestCancellation()
+    harness.confirmation.resolve()
+    assert.equal((await tree.outcome).outcome, "completed")
+  })
+
+  it("keeps a direct forced exit cancelled without a reported reply", async () => {
+    const harness = createAdapterHarness()
+    const tree = await createHarnessController(harness).launch({
+      command: "direct-target",
+      proof: "target-exit",
+    })
+    tree.requestCancellation()
+    harness.result.resolve({ exitCode: null, signal: "SIGTERM" })
+    harness.confirmation.resolve()
     assert.deepEqual(await tree.outcome, { outcome: "cancelled" })
-    assert.equal(diagnostics.length, 1)
-    assert.match(String(diagnostics[0]?.failure), /forced exit/)
   })
 
   it("maps a direct target exit without exposing raw completion parts", async () => {
@@ -418,7 +465,10 @@ describe("child-process completion policy", () => {
       echoStreamFailure(tree.stderr, (error) => tree.reportFailure(error)),
     ])
 
-    assert.deepEqual(await tree.outcome, { outcome: "unknown" })
+    assert.deepEqual(await tree.outcome, {
+      outcome: "unknown",
+      reason: "confirmation-expired",
+    })
     await echoedStreamFailures
     assert.equal(unconfirmedStreams?.stdin.destroyed, true)
     assert.equal(unconfirmedStreams?.stdout.destroyed, true)

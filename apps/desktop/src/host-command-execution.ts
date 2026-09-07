@@ -1,13 +1,18 @@
-import type {
-  ExclusiveCommandId,
-  ExclusiveRequestOperation,
-  WorkflowHandler,
-  WorkflowHandlerMap,
-  WorkflowInput,
-  WorkflowResult,
+import {
+  CommandOutcomeError,
+  type ExclusiveCommandId,
+  type ExclusiveRequestOperation,
+  type WorkflowHandler,
+  type WorkflowHandlerMap,
+  type WorkflowInput,
+  type WorkflowResult,
 } from "@repo-edu/application-contract"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
+import {
+  settleCancelledPreparation,
+  settleHostCommand,
+} from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
 import { commandPayloadSchemas } from "./request-command-schemas"
 
@@ -21,7 +26,7 @@ export async function executeHostCommand(options: {
   handlers: WorkflowHandlerMap
   transport: Pick<
     ReturnType<typeof createHostRequestTransport>,
-    "progress" | "output"
+    "progress" | "output" | "settlement"
   >
 }): Promise<WorkflowResult<ExclusiveCommandId> | undefined> {
   const { request, admission, handlers, transport, signal } = options
@@ -40,7 +45,10 @@ export async function executeHostCommand(options: {
     const state = admission.getSnapshot()
     return state.phase === "executing.running" && state.request === request
   }
-  if (!running()) return
+  if (!running()) {
+    settleCancelledPreparation(request, admission, transport)
+    return
+  }
   const handler = handlers[
     operation.workflowId
   ] as WorkflowHandler<ExclusiveCommandId>
@@ -63,13 +71,34 @@ export async function executeHostCommand(options: {
     admission.dispatch({
       type: "outcome-fixed",
       request,
-      completion: { operation, result: structuredClone(result) },
+      completion: {
+        operation,
+        outcome: {
+          disposition: "completed",
+          completion: { status: "succeeded", result: structuredClone(result) },
+        },
+      },
     })
+    await settleHostCommand(request, admission, handlers, transport)
     return result
   } catch (error) {
-    // Truthful expected failures are connected by the settlement step. A failed
-    // durable owner must already terminate here, before any release can occur.
-    admission.dispatch({ type: "terminal", error })
+    if (
+      running() &&
+      error instanceof CommandOutcomeError &&
+      (error.outcome.disposition !== "uncertain" ||
+        error.outcome.reason === "confirmation-expired")
+    ) {
+      admission.dispatch({
+        type: "outcome-fixed",
+        request,
+        completion: { operation, outcome: error.outcome },
+      })
+      try {
+        await settleHostCommand(request, admission, handlers, transport)
+      } catch (failure) {
+        admission.dispatch({ type: "terminal", error: failure })
+      }
+    } else admission.dispatch({ type: "terminal", error })
     return undefined
   }
 }

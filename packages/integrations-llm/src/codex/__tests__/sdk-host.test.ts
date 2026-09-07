@@ -68,7 +68,7 @@ function createServerHarness(run: CodexSdkHostRun): {
         reportFailure() {},
         reportProofLost(error) {
           facts.push({ error, kind: "proof-lost" })
-          finish({ outcome: "unknown" })
+          finish({ outcome: "unknown", reason: "proof-lost" })
         },
         reportResult(result) {
           facts.push({ kind: "result", result })
@@ -94,13 +94,17 @@ function createLostSdkHostLaunch(
     const stdout = new PassThrough()
     const stderr = new PassThrough()
     const outcome = Promise.withResolvers<
-      { readonly outcome: "unknown" } | { readonly outcome: "cancelled" }
+      | {
+          readonly outcome: "unknown"
+          readonly reason: "confirmation-expired" | "proof-lost"
+        }
+      | { readonly outcome: "cancelled" }
     >()
     setImmediate(() => {
       if (errorOutput.length > 0) stderr.write(errorOutput)
       stderr.end()
       stdout.end()
-      outcome.resolve({ outcome: "unknown" })
+      outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
     })
     return {
       stdin,
@@ -113,7 +117,7 @@ function createLostSdkHostLaunch(
       reportFailure() {},
       reportProofLost(error) {
         facts.push({ error, kind: "proof-lost" })
-        outcome.resolve({ outcome: "unknown" })
+        outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
       },
       reportResult() {},
     }

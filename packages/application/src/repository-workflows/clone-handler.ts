@@ -9,14 +9,17 @@ import type {
   WorkflowCallOptions,
   WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
-import { createValidationAppError } from "../core.js"
+import {
+  commandRefusal,
+  commandValidationError as createValidationAppError,
+  commandThrowIfAborted as throwIfAborted,
+} from "../command-outcomes.js"
 import {
   isSharedAppError,
   normalizeProviderError,
   resolveAppCredentialsSnapshot,
   resolveCourseSnapshot,
   resolveGitDraft,
-  throwIfAborted,
 } from "../workflow-helpers.js"
 import {
   admitRepositoryCloneTargets,
@@ -57,11 +60,11 @@ export function createRepoCloneHandler(
         throwIfAborted(options?.signal)
         const gitDraft = resolveGitDraft(settings)
         if (gitDraft === null) {
-          throw {
+          throw commandRefusal({
             type: "not-found",
             message: "No Git connection is configured in settings.",
             resource: "connection",
-          } satisfies AppError
+          } satisfies AppError)
         }
         providerForError = gitDraft.provider
         const organization = requireGitOrganization(course, "repo.clone")
@@ -231,7 +234,6 @@ export function createRepoCloneHandler(
           message: `Repository clone summary: planned ${planned.value.length}, cloned ${cloned}, missing remote ${resolved.missing.length}, existing local ${skippedExistingNames.length}${skippedExistingNames.length > 0 ? ` (${skippedExistingNames.join(", ")})` : ""}, failed ${failed}.`,
         })
 
-        throwIfAborted(options?.signal)
         options?.onProgress?.({
           step: 5,
           totalSteps,

@@ -12,15 +12,17 @@ import {
   type CreateLlmTextClientOptions,
   createLlmTextClient,
 } from "@repo-edu/integrations-llm"
-import type {
-  LlmRuntimeConfig,
-  LlmTextClient,
+import {
+  LlmError,
+  type LlmRuntimeConfig,
+  type LlmTextClient,
 } from "@repo-edu/integrations-llm-contract"
 import type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeResult,
   OwnedChildProcessTree,
 } from "./child-process-lifetime.js"
+import { ChildProcessTreeUnconfirmedError } from "./child-process-lifetime.js"
 import { mergeLlmRuntimeConfig } from "./llm-runtime-config.js"
 
 export type CreateNodeLlmTextClientOptions = Pick<
@@ -49,17 +51,26 @@ function createClaudeCliLaunch(
   childProcessLifetimeController: ChildProcessLifetimeController,
 ): ClaudeCliLaunch {
   return async (request) => {
-    return await childProcessLifetimeController.launch<
-      undefined,
-      ClaudeCliFailure
-    >({
-      command: request.command,
-      args: request.args,
-      cwd: request.cwd,
-      env: request.env,
-      proof: "reported",
-      signal: request.signal,
-    })
+    return await childProcessLifetimeController
+      .launch<undefined, ClaudeCliFailure>({
+        command: request.command,
+        args: request.args,
+        cwd: request.cwd,
+        env: request.env,
+        proof: "reported",
+        signal: request.signal,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof ChildProcessTreeUnconfirmedError)
+          throw new LlmError("other", error.message, {
+            context: {
+              provider: "claude",
+              authMode: "subscription",
+              outcome: "confirmation-expired",
+            },
+          })
+        throw error
+      })
   }
 }
 
@@ -115,7 +126,13 @@ function createCodexSdkHostLaunch(
       childProcessLifetimeController,
       command,
       startupSignal,
-    )
+    ).catch((error: unknown) => {
+      if (error instanceof ChildProcessTreeUnconfirmedError)
+        throw new LlmError("other", error.message, {
+          context: { provider: "codex", outcome: "confirmation-expired" },
+        })
+      throw error
+    })
 }
 
 export function createNodeLlmTextClient(

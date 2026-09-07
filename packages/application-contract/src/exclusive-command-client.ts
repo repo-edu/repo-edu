@@ -1,4 +1,5 @@
 import type {
+  ExclusiveAuthoritativeValues,
   ExclusiveCommandId,
   ExclusiveSettlementInput,
 } from "./exclusive-command-contract.js"
@@ -22,6 +23,9 @@ export type ExclusiveBodyClient = {
 export type ExclusiveCallOptions<K extends ExclusiveCommandId> =
   WorkflowCallOptions<WorkflowProgress<K>, WorkflowOutput<K>> & {
     settlementInput?: ExclusiveSettlementInput<K>
+    applyAuthoritative?: (
+      values: ExclusiveAuthoritativeValues<K>,
+    ) => void | Promise<void>
   }
 
 /** The session reserves the body before this request may create host intent. */

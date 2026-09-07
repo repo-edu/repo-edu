@@ -172,13 +172,16 @@ describe("runClaudeApiStream", () => {
     assert.equal(calls.length, 0)
   })
 
-  it("aborts the SDK stream and preserves AbortError on mid-stream cancellation", async () => {
+  it("treats mid-stream cancellation without a terminal reply as uncertainty", async () => {
     const controller = new AbortController()
     const { factory, calls } = apiFactory(
       (async function* () {
         yield { type: "message_start", message: { usage: {} } }
         controller.abort()
-        yield { type: "message_stop" }
+        yield {
+          type: "content_block_delta",
+          delta: { type: "text_delta", text: "unfinished" },
+        }
       })(),
     )
 
@@ -197,7 +200,7 @@ describe("runClaudeApiStream", () => {
         }
       },
       (error: unknown) =>
-        error instanceof DOMException && error.name === "AbortError",
+        error instanceof LlmError && error.context.outcome === "proof-lost",
     )
     assert.equal(calls[0]?.aborted, true)
   })

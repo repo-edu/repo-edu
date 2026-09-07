@@ -1,8 +1,10 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { throwIfGitEffectAborted } from "../invocation-guard.js"
 import { withGitLabToken } from "./auth.js"
 import {
   gitLabErrorMessage,
+  gitLabErrorStatus,
   isAlreadyExistsError,
   isNotFoundError,
 } from "./errors.js"
@@ -45,7 +47,7 @@ export function createGitLabRepositories(
       const alreadyExisted = []
       const failed = []
       for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         try {
           const urls = await createProject(
             api,
@@ -67,6 +69,7 @@ export function createGitLabRepositories(
             })
           }
         } catch (error) {
+          if (gitLabErrorStatus(error) === null) throw error
           if (isAlreadyExistsError(error)) {
             try {
               const project = await api.Projects.show(

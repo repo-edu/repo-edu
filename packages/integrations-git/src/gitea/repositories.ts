@@ -1,5 +1,6 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import { throwIfGitEffectAborted } from "../invocation-guard.js"
 import { withGiteaToken } from "./auth.js"
 import { isAlreadyExists, toErrorMessage } from "./errors.js"
 import {
@@ -26,68 +27,61 @@ export function createGiteaRepositories(
       const alreadyExisted = []
       const failed = []
       for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) break
-        try {
-          const response = await giteaRequest(
+        throwIfGitEffectAborted(signal)
+        const response = await giteaRequest(
+          http,
+          draft,
+          "POST",
+          `/orgs/${encodeURIComponent(request.organization)}/repos`,
+          JSON.stringify({
+            name: repositoryName,
+            private: request.visibility !== "public",
+            auto_init: request.autoInit,
+          }),
+          signal,
+        )
+        if (response.status >= 200 && response.status < 300) {
+          const urls = extractRepositoryUrls(response.data)
+          if (urls === null) {
+            failed.push({
+              repositoryName,
+              reason: "Provider returned incomplete repository URLs.",
+            })
+          } else {
+            created.push({
+              repositoryName,
+              repositoryUrl: urls.repositoryUrl,
+              cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
+            })
+          }
+          continue
+        }
+        if (isAlreadyExists(response.status, response.data)) {
+          const urls = await resolveExistingRepositoryUrls(
             http,
             draft,
-            "POST",
-            `/orgs/${encodeURIComponent(request.organization)}/repos`,
-            JSON.stringify({
-              name: repositoryName,
-              private: request.visibility !== "public",
-              auto_init: request.autoInit,
-            }),
+            request.organization,
+            repositoryName,
             signal,
           )
-          if (response.status >= 200 && response.status < 300) {
-            const urls = extractRepositoryUrls(response.data)
-            if (urls === null) {
-              failed.push({
-                repositoryName,
-                reason: "Provider returned incomplete repository URLs.",
-              })
-            } else {
-              created.push({
-                repositoryName,
-                repositoryUrl: urls.repositoryUrl,
-                cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
-              })
-            }
-            continue
-          }
-          if (isAlreadyExists(response.status, response.data)) {
-            const urls = await resolveExistingRepositoryUrls(
-              http,
-              draft,
-              request.organization,
+          if (urls === null) {
+            failed.push({
               repositoryName,
-              signal,
-            )
-            if (urls === null) {
-              failed.push({
-                repositoryName,
-                reason: "Repository exists but URL lookup failed.",
-              })
-            } else {
-              alreadyExisted.push({
-                repositoryName,
-                repositoryUrl: urls.repositoryUrl,
-                cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
-              })
-            }
-            continue
+              reason: "Repository exists but URL lookup failed.",
+            })
+          } else {
+            alreadyExisted.push({
+              repositoryName,
+              repositoryUrl: urls.repositoryUrl,
+              cloneUrl: withGiteaToken(urls.cloneUrl, draft.token),
+            })
           }
-          failed.push({
-            repositoryName,
-            reason: toErrorMessage(response.data) || `HTTP ${response.status}`,
-          })
-        } catch (error) {
-          failed.push({
-            repositoryName,
-            reason: error instanceof Error ? error.message : String(error),
-          })
+          continue
         }
+        failed.push({
+          repositoryName,
+          reason: toErrorMessage(response.data) || `HTTP ${response.status}`,
+        })
       }
       return { created, alreadyExisted, failed }
     },

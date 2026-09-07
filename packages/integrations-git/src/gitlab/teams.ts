@@ -1,5 +1,9 @@
 import type { HttpPort } from "@repo-edu/host-runtime-contract"
 import type { GitProviderClient } from "@repo-edu/integrations-git-contract"
+import {
+  gitEffectFailure,
+  throwIfGitEffectAborted,
+} from "../invocation-guard.js"
 import { resolveGroupId } from "./namespace.js"
 import { resolveProjectId } from "./repository-api.js"
 import { createGitLabApi, gitLabRestPost } from "./transport.js"
@@ -25,7 +29,8 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
       const api = createGitLabApi(http, draft, signal)
       const organizationId = await resolveGroupId(api, request.organization)
       if (organizationId === null) {
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Organization '${request.organization}' was not found on GitLab.`,
         )
       }
@@ -54,14 +59,18 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
       }
       if (teamId === null) {
         if (createdGroup.status !== 400 && createdGroup.status !== 409) {
-          throw new Error(
+          throw gitEffectFailure(
+            "completed",
             `Failed to create team '${request.teamName}' (${createdGroup.status}).`,
           )
         }
         teamId = await resolveGroupId(api, teamPath)
       }
       if (teamId === null) {
-        throw new Error(`Failed to resolve GitLab team '${teamPath}'.`)
+        throw gitEffectFailure(
+          "completed",
+          `Failed to resolve GitLab team '${teamPath}'.`,
+        )
       }
 
       const membersAdded: string[] = []
@@ -73,7 +82,7 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
             ? 20
             : 30
       for (const username of request.memberUsernames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         const userId = await resolveGitLabUserId(api, username)
         if (userId === null) {
           membersNotFound.push(username)
@@ -93,7 +102,8 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
           membersAdded.push(username)
           continue
         }
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to add '${username}' to team '${request.teamName}' (${response.status}).`,
         )
       }
@@ -104,7 +114,10 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
       const teamPath = `${request.organization}/${request.teamSlug}`
       const teamId = await resolveGroupId(api, teamPath)
       if (teamId === null) {
-        throw new Error(`GitLab team '${teamPath}' not found.`)
+        throw gitEffectFailure(
+          "completed",
+          `GitLab team '${teamPath}' not found.`,
+        )
       }
       const groupAccess =
         request.permission === "admin"
@@ -113,11 +126,14 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
             ? 20
             : 30
       for (const repositoryName of request.repositoryNames) {
-        if (signal?.aborted) break
+        throwIfGitEffectAborted(signal)
         const projectPath = `${request.organization}/${repositoryName}`
         const projectId = await resolveProjectId(api, projectPath)
         if (projectId === null) {
-          throw new Error(`GitLab project '${projectPath}' not found.`)
+          throw gitEffectFailure(
+            "completed",
+            `GitLab project '${projectPath}' not found.`,
+          )
         }
         const response = await gitLabRestPost(
           http,
@@ -132,7 +148,8 @@ export function createGitLabTeams(http: HttpPort): TeamsCapability {
         ) {
           continue
         }
-        throw new Error(
+        throw gitEffectFailure(
+          "completed",
           `Failed to assign '${repositoryName}' to team '${request.teamSlug}' (${response.status}).`,
         )
       }

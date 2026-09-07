@@ -42,7 +42,10 @@ export type ChildProcessTargetResult<TCompleted, TFailed> =
     }
 
 export type ChildProcessOutcome<TCompleted, TFailed> =
-  | { readonly outcome: "unknown" }
+  | {
+      readonly outcome: "unknown"
+      readonly reason: "confirmation-expired" | "proof-lost"
+    }
   | { readonly outcome: "cancelled" }
   | {
       readonly outcome: "completed"

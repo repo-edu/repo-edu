@@ -300,6 +300,8 @@ function performAdmissionEffect(effect: HostAdmissionEffect): void {
   // The validated input receiver owns the async handler body after this
   // reducer transition has established executing.running.
   if (effect.type === "execute-command") return
+  // The preparation sender must publish committed stamps before cancellation.
+  if (effect.type === "settle-cancelled-preparation") return
   if (effect.type === "release-command") {
     desktopGateway?.requests.release(effect.request)
     return

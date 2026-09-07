@@ -180,7 +180,11 @@ describe("createNodeLlmTextClient", () => {
           const stdout = new PassThrough()
           const stderr = new PassThrough()
           const outcome = Promise.withResolvers<
-            { readonly outcome: "unknown" } | { readonly outcome: "cancelled" }
+            | {
+                readonly outcome: "unknown"
+                readonly reason: "confirmation-expired" | "proof-lost"
+              }
+            | { readonly outcome: "cancelled" }
           >()
           const owned = {
             stdin,
@@ -192,7 +196,7 @@ describe("createNodeLlmTextClient", () => {
             },
             reportFailure() {},
             reportProofLost() {
-              outcome.resolve({ outcome: "unknown" })
+              outcome.resolve({ outcome: "unknown", reason: "proof-lost" })
             },
             reportResult() {},
           }

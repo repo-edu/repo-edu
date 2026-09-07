@@ -17,6 +17,11 @@ import type {
   RemoteLmsMember,
 } from "@repo-edu/integrations-lms-contract"
 import { parseCsv, serializeCsv } from "./adapters/tabular/index.js"
+import {
+  commandThrowIfAborted,
+  commandValidationError,
+  readOnlyCommand,
+} from "./command-outcomes.js"
 import { createValidationAppError } from "./core.js"
 import {
   inferFileFormat,
@@ -98,69 +103,71 @@ export function createRosterWorkflowHandlers(
   "roster.importFromFile" | "roster.importFromLms" | "roster.exportMembers"
 > {
   return {
-    "roster.importFromFile": async (
-      input: RosterImportFromFileInput,
-      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-    ) => {
-      const totalSteps = 3
-      const course = resolveCourseSnapshot(input.course)
-      throwIfAborted(options?.signal)
-      options?.onProgress?.({
-        step: 1,
-        totalSteps,
-        label: "Reading roster import file and course snapshot.",
-      })
-      const fileText = await ports.userFile.readText(
-        input.file,
-        options?.signal,
-      )
-
-      const format = inferFileFormat(input.file)
-      if (format !== "csv") {
-        throw createValidationAppError(
-          "Roster import file format is unsupported.",
-          [
-            {
-              path: "file.format",
-              message:
-                "Only CSV roster import is supported by the current text-based file port.",
-            },
-          ],
+    "roster.importFromFile": readOnlyCommand(
+      async (
+        input: RosterImportFromFileInput,
+        options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+      ) => {
+        const totalSteps = 3
+        const course = resolveCourseSnapshot(input.course)
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Reading roster import file and course snapshot.",
+        })
+        const fileText = await ports.userFile.readText(
+          input.file,
+          options?.signal,
         )
-      }
 
-      options?.onProgress?.({
-        step: 2,
-        totalSteps,
-        label: "Parsing student rows from CSV.",
-      })
-      const parsed = parseCsv(fileText.text)
-      const rows = parseStudentRows(parsed.rows)
-      const result = upsertRosterFromStudentRows(
-        course.roster,
-        rows,
-        course.idSequences,
-      )
-      result.roster.connection = {
-        kind: "import",
-        sourceFilename: fileText.displayName,
-        lastUpdated: new Date().toISOString(),
-      }
-      const ensured = ensureSystemGroupSets(result.roster, result.idSequences)
-      result.idSequences = ensured.idSequences
+        const format = inferFileFormat(input.file)
+        if (format !== "csv") {
+          throw createValidationAppError(
+            "Roster import file format is unsupported.",
+            [
+              {
+                path: "file.format",
+                message:
+                  "Only CSV roster import is supported by the current text-based file port.",
+              },
+            ],
+          )
+        }
 
-      throwIfAborted(options?.signal)
-      options?.onProgress?.({
-        step: 3,
-        totalSteps,
-        label: "Roster import complete.",
-      })
-      options?.onOutput?.({
-        channel: "info",
-        message: `Imported ${result.roster.students.length} students from ${fileText.displayName}.`,
-      })
-      return result
-    },
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Parsing student rows from CSV.",
+        })
+        const parsed = parseCsv(fileText.text)
+        const rows = parseStudentRows(parsed.rows)
+        const result = upsertRosterFromStudentRows(
+          course.roster,
+          rows,
+          course.idSequences,
+        )
+        result.roster.connection = {
+          kind: "import",
+          sourceFilename: fileText.displayName,
+          lastUpdated: new Date().toISOString(),
+        }
+        const ensured = ensureSystemGroupSets(result.roster, result.idSequences)
+        result.idSequences = ensured.idSequences
+
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "Roster import complete.",
+        })
+        options?.onOutput?.({
+          channel: "info",
+          message: `Imported ${result.roster.students.length} students from ${fileText.displayName}.`,
+        })
+        return result
+      },
+    ),
     "roster.importFromLms": async (
       input: RosterImportFromLmsInput,
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
@@ -240,17 +247,17 @@ export function createRosterWorkflowHandlers(
       options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
     ) => {
       const totalSteps = 3
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
       options?.onProgress?.({
         step: 1,
         totalSteps,
         label: "Reading course snapshot for roster export.",
       })
       const course = resolveCourseSnapshot(input.course)
-      throwIfAborted(options?.signal)
+      commandThrowIfAborted(options?.signal)
 
       if (input.format !== "csv") {
-        throw createValidationAppError("Roster export format is unsupported.", [
+        throw commandValidationError("Roster export format is unsupported.", [
           {
             path: "format",
             message:
@@ -278,8 +285,6 @@ export function createRosterWorkflowHandlers(
         rows: exportRows,
       })
       await ports.userFile.writeText(input.target, text, options?.signal)
-
-      throwIfAborted(options?.signal)
       options?.onProgress?.({
         step: 3,
         totalSteps,

@@ -182,35 +182,65 @@ export function commandPayloadSchemas(command: ExclusiveCommandId) {
             channel: z.enum(["info", "warn", "stdout", "stderr"]),
             message: z.string(),
           }),
-    settlement: z.strictObject({
-      workflowId: z.literal(command),
-      outcome: z.discriminatedUnion("disposition", [
-        z.strictObject({ disposition: z.literal("refused"), error: failure }),
+    settlement: z
+      .strictObject({
+        workflowId: z.literal(command),
+        outcome: z.discriminatedUnion("disposition", [
+          z.strictObject({ disposition: z.literal("refused"), error: failure }),
+          z.strictObject({
+            disposition: z.literal("stopped"),
+            result,
+          }),
+          z.strictObject({
+            disposition: z.literal("completed"),
+            completion: z.discriminatedUnion("status", [
+              z.strictObject({ status: z.literal("succeeded"), result }),
+              z.strictObject({
+                status: z.literal("failed"),
+                error: failure,
+                result,
+              }),
+            ]),
+          }),
+        ]),
+        authoritative:
+          declaration.courseTransition === "required"
+            ? z.strictObject({ course: persistedCourseSchema })
+            : command === "examination.archive.import"
+              ? z.strictObject({
+                  questionSummaries: examinationSummariesSchema,
+                  questions: z.array(examinationLookupSchema),
+                })
+              : z.undefined(),
+      })
+      .or(
         z.strictObject({
-          disposition: z.literal("stopped"),
-          result: result.nullable(),
-        }),
-        z.strictObject({
-          disposition: z.literal("completed"),
-          completion: z.discriminatedUnion("status", [
-            z.strictObject({ status: z.literal("succeeded"), result }),
+          workflowId: z.literal(command),
+          outcome: z.discriminatedUnion("disposition", [
             z.strictObject({
-              status: z.literal("failed"),
+              disposition: z.literal("refused"),
               error: failure,
-              result: result.nullable(),
+            }),
+            z.strictObject({
+              disposition: z.literal("stopped"),
+              result: z.null(),
+            }),
+            z.strictObject({
+              disposition: z.literal("completed"),
+              completion: z.strictObject({
+                status: z.literal("failed"),
+                error: failure,
+                result: z.null(),
+              }),
+            }),
+            z.strictObject({
+              disposition: z.literal("uncertain"),
+              reason: z.literal("confirmation-expired"),
+              message: z.string(),
             }),
           ]),
+          authoritative: z.undefined(),
         }),
-      ]),
-      authoritative:
-        declaration.courseTransition === "required"
-          ? z.strictObject({ course: persistedCourseSchema })
-          : command === "examination.archive.import"
-            ? z.strictObject({
-                questionSummaries: examinationSummariesSchema,
-                questions: z.array(examinationLookupSchema),
-              })
-            : z.undefined(),
-    }),
+      ),
   }
 }

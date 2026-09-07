@@ -176,14 +176,9 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     assert.equal(state.phase, "executing.settling")
     if (state.phase !== "executing.settling")
       throw new Error("No official result")
-    assert.deepEqual(state.completion?.result, { file: target })
-    host.settlement(state.request, {
-      workflowId: "roster.exportMembers",
-      outcome: {
-        disposition: "completed",
-        completion: { status: "succeeded", result: { file: target } },
-      },
-      authoritative: undefined,
+    assert.deepEqual(state.completion?.outcome, {
+      disposition: "completed",
+      completion: { status: "succeeded", result: { file: target } },
     })
     publication.resolve()
     await published.promise
