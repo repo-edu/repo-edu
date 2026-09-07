@@ -8,13 +8,13 @@ import { useEffect, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
+import { sessionQueryOptions } from "../../../../session/session-query.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
+  executeCloneAllCommand,
   executeRegisteredCloneAllCommand,
-  registerCloneAllCommand,
 } from "./clone-all-command.js"
 import {
-  buildCloneAllWorkflowInput,
   type CloneAllMutationVariables,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
@@ -77,7 +77,9 @@ export function useCloneAllRepositories({
         includeArchived,
       }),
       credentials,
-      updatePublishedInput: setPublishedListingInput,
+      updatePublishedInput: (updater) => {
+        client.change(() => setPublishedListingInput(updater))
+      },
       schedule: scheduleCloneAllTransition,
       cancelListingQueries: () => {
         void queryClient.cancelQueries({
@@ -88,6 +90,7 @@ export function useCloneAllRepositories({
     return () => transition.dispose()
   }, [
     activeConnectionId,
+    client,
     credentials,
     includeArchived,
     namespace,
@@ -106,21 +109,25 @@ export function useCloneAllRepositories({
   const listingQuery = useQuery({
     ...queryPolicy,
     enabled: inputIsCurrent,
-    queryFn: async ({ signal }): Promise<RepositoryListNamespaceResult> => {
-      if (publishedListingInput === null) {
-        throw new Error("Repository listing ran without an admitted input.")
-      }
-      return client.run(
-        "repo.listNamespace",
-        {
-          credentials: publishedListingInput.credentials,
-          namespace: publishedListingInput.admissionId.namespace,
-          filter: publishedListingInput.admissionId.filter || undefined,
-          includeArchived: publishedListingInput.admissionId.includeArchived,
-        },
-        { signal },
-      )
-    },
+    ...sessionQueryOptions(
+      client,
+      "repo.listNamespace",
+      async (scope, { signal }): Promise<RepositoryListNamespaceResult> => {
+        if (publishedListingInput === null) {
+          throw new Error("Repository listing ran without an admitted input.")
+        }
+        return scope.run(
+          "repo.listNamespace",
+          {
+            credentials: publishedListingInput.credentials,
+            namespace: publishedListingInput.admissionId.namespace,
+            filter: publishedListingInput.admissionId.filter || undefined,
+            includeArchived: publishedListingInput.admissionId.includeArchived,
+          },
+          { signal },
+        )
+      },
+    ),
   })
 
   const cloneMutation = useMutation<
@@ -160,24 +167,28 @@ export function useCloneAllRepositories({
       listingAdmissionId: publishedListingInput.admissionId,
       targetDirectory: targetDirectory.trim(),
     }
-    const workflowInput = buildCloneAllWorkflowInput({
+    void executeCloneAllCommand(
+      client,
+      queryClient,
+      publishedListingInput,
       variables,
-      publishedInput: publishedListingInput,
-      listResult: listingQuery.data,
-    })
-    registerCloneAllCommand(variables, () =>
-      client.run("repo.bulkClone", workflowInput),
-    )
-    cloneMutation.mutate(variables)
+      cloneMutation.mutateAsync,
+    ).catch(() => undefined)
   }
 
   return {
     filter,
-    setFilter,
+    setFilter: (value: string) => {
+      client.change(() => setFilter(value))
+    },
     includeArchived,
-    setIncludeArchived,
+    setIncludeArchived: (value: boolean) => {
+      client.change(() => setIncludeArchived(value))
+    },
     targetDirectory,
-    setTargetDirectory,
+    setTargetDirectory: (value: string) => {
+      client.change(() => setTargetDirectory(value))
+    },
     listResult: listingQuery.data ?? null,
     listError: listingQuery.isError
       ? getErrorMessage(listingQuery.error)

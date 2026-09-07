@@ -1,8 +1,5 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import {
-  type ActiveTab,
-  activeCourseIdFromSurface,
-} from "@repo-edu/domain/active-surface"
+import type { ActiveTab } from "@repo-edu/domain/active-surface"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import {
@@ -24,7 +21,6 @@ import { AnalysisCoordinatorProvider } from "../analysis/analysis-query-coordina
 import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { resolveActiveSurfaceRedirectForCourses } from "../hooks/use-courses.js"
 import { useTheme } from "../hooks/use-theme.js"
 import { registerRendererCloseHandlers } from "../session/renderer-close-registration.js"
 import {
@@ -53,7 +49,7 @@ import {
   useCourseStore,
 } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
-import { selectCourseListLoaded, useUiStore } from "../stores/ui-store.js"
+import { useUiStore } from "../stores/ui-store.js"
 import {
   resolveTabVisibility,
   surfaceTabBacking,
@@ -235,7 +231,6 @@ function AppShell() {
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const courseList = useUiStore((s) => s.courseList)
-  const courseListLoaded = useUiStore(selectCourseListLoaded)
 
   const theme = useSessionControllerSelector(selectTheme)
 
@@ -276,31 +271,6 @@ function AppShell() {
     useToastStore.getState().addToast(commandError, { tone: "error" })
     controller.clearCommandError()
   }, [commandError, controller])
-
-  useEffect(() => {
-    if (!courseListLoaded) return
-
-    controller.pruneLoadedSubmissionFoldersForCourses(courseList)
-    const redirect = resolveActiveSurfaceRedirectForCourses(
-      activeSurface,
-      courseList,
-    )
-    if (redirect === null) return
-    const activeCourseMissing =
-      activeCourseIdFromSurface(activeSurface) !== null &&
-      !courseList.some((course) => course.id === activeCourseId)
-    if (activeCourseMissing) {
-      runSessionOperationBestEffort(
-        controller.recoverMissingActiveCourse(redirect.surface),
-        "missing-course recovery",
-      )
-      return
-    }
-    runSessionOperationBestEffort(
-      controller.activateSurface(redirect.surface),
-      "surface redirect",
-    )
-  }, [activeCourseId, activeSurface, controller, courseList, courseListLoaded])
 
   // Keyboard shortcuts.
   useEffect(() => {

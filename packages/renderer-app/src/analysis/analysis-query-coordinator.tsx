@@ -36,6 +36,7 @@ import {
   selectDefaultExtensions,
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
+import { sessionQueryOptions } from "../session/session-query.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
   type AnalysisDiscoveryCommandOutcome,
@@ -441,33 +442,45 @@ export function AnalysisCoordinatorProvider({
   const discoveryQuery = useQuery({
     queryKey: discoveryQueryKey,
     enabled: discoveryInput !== null,
-    queryFn: async ({ signal }): Promise<AnalysisDiscoverReposResult> => {
-      if (discoveryInput === null) {
-        throw new Error("Discovery query ran without input.")
-      }
-      const requestId = nanoid()
-      const transient = useAnalysisTransientStore.getState()
-      transient.startDiscovery(requestId)
-      try {
-        return await client.run(
-          "analysis.discoverRepos",
-          {
-            searchFolder: discoveryInput.folder,
-            maxDepth: discoveryInput.depth,
-          },
-          {
-            signal,
-            onProgress: (progress) => {
-              useAnalysisTransientStore
-                .getState()
-                .setDiscoveryProgress(requestId, progress)
+    ...sessionQueryOptions(
+      client,
+      "analysis.discoverRepos",
+      async (scope, { signal }): Promise<AnalysisDiscoverReposResult> => {
+        if (discoveryInput === null) {
+          throw new Error("Discovery query ran without input.")
+        }
+        const requestId = nanoid()
+        const transient = useAnalysisTransientStore.getState()
+        transient.startDiscovery(requestId)
+        try {
+          return await scope.run(
+            "analysis.discoverRepos",
+            {
+              searchFolder: discoveryInput.folder,
+              maxDepth: discoveryInput.depth,
             },
-          },
+            {
+              signal,
+              onProgress: (progress) => {
+                useAnalysisTransientStore
+                  .getState()
+                  .setDiscoveryProgress(requestId, progress)
+              },
+            },
+          )
+        } finally {
+          useAnalysisTransientStore.getState().finishDiscovery(requestId)
+        }
+      },
+      async (scope, result) => {
+        if (discoveryInput === null) return
+        await scope.reconcileDiscovery(
+          analysisContext.activeSurface,
+          discoveryInput.folder,
+          result,
         )
-      } finally {
-        useAnalysisTransientStore.getState().finishDiscovery(requestId)
-      }
-    },
+      },
+    ),
   })
 
   const discoveryCurrentFolder = useAnalysisTransientStore(
@@ -518,15 +531,19 @@ export function AnalysisCoordinatorProvider({
       registerCohortPrefetchQuery(run, snapshotKey)
       const snapshotCommitOid = await queryClient.ensureQueryData({
         queryKey: snapshotKey,
-        queryFn: ({ signal }) =>
-          client.run(
-            "analysis.resolveSnapshotHead",
-            {
-              repositoryAbsolutePath: repoPath,
-              until: config.until,
-            },
-            { signal },
-          ),
+        ...sessionQueryOptions(
+          client,
+          "analysis.resolveSnapshotHead",
+          (scope, { signal }) =>
+            scope.run(
+              "analysis.resolveSnapshotHead",
+              {
+                repositoryAbsolutePath: repoPath,
+                until: config.until,
+              },
+              { signal },
+            ),
+        ),
       })
       if (!isCurrentBatch()) return
       const identity = buildAnalysisQueryIdentity({
@@ -541,46 +558,50 @@ export function AnalysisCoordinatorProvider({
       registerCohortPrefetchQuery(run, prefetchAnalysisQueryKey)
       await queryClient.ensureQueryData({
         queryKey: prefetchAnalysisQueryKey,
-        queryFn: async ({ signal }) => {
-          const requestId = nanoid()
-          const transient = useAnalysisTransientStore.getState()
-          transient.startAnalysis(prefetchAnalysisScopeKey, requestId)
-          try {
-            return await client.run(
-              "analysis.run",
-              {
-                repositoryAbsolutePath: repoPath,
-                config,
-                snapshotCommitOid,
-                analysisSource:
-                  analysisContext.kind === "course"
-                    ? {
-                        kind: "course",
-                        ...(analysisContext.rosterContext
-                          ? { rosterContext: analysisContext.rosterContext }
-                          : {}),
-                      }
-                    : { kind: "folder" },
-              },
-              {
-                signal,
-                onProgress: (progress) => {
-                  useAnalysisTransientStore
-                    .getState()
-                    .setAnalysisProgress(
-                      prefetchAnalysisScopeKey,
-                      requestId,
-                      progress,
-                    )
+        ...sessionQueryOptions(
+          client,
+          "analysis.run",
+          async (scope, { signal }) => {
+            const requestId = nanoid()
+            const transient = useAnalysisTransientStore.getState()
+            transient.startAnalysis(prefetchAnalysisScopeKey, requestId)
+            try {
+              return await scope.run(
+                "analysis.run",
+                {
+                  repositoryAbsolutePath: repoPath,
+                  config,
+                  snapshotCommitOid,
+                  analysisSource:
+                    analysisContext.kind === "course"
+                      ? {
+                          kind: "course",
+                          ...(analysisContext.rosterContext
+                            ? { rosterContext: analysisContext.rosterContext }
+                            : {}),
+                        }
+                      : { kind: "folder" },
                 },
-              },
-            )
-          } finally {
-            useAnalysisTransientStore
-              .getState()
-              .finishAnalysis(prefetchAnalysisScopeKey, requestId)
-          }
-        },
+                {
+                  signal,
+                  onProgress: (progress) => {
+                    useAnalysisTransientStore
+                      .getState()
+                      .setAnalysisProgress(
+                        prefetchAnalysisScopeKey,
+                        requestId,
+                        progress,
+                      )
+                  },
+                },
+              )
+            } finally {
+              useAnalysisTransientStore
+                .getState()
+                .finishAnalysis(prefetchAnalysisScopeKey, requestId)
+            }
+          },
+        ),
       })
     },
     [
@@ -591,38 +612,6 @@ export function AnalysisCoordinatorProvider({
       queryClient,
     ],
   )
-
-  useEffect(() => {
-    if (
-      !discoveryInput ||
-      !discoveryQuery.isSuccess ||
-      discoveryQuery.dataUpdatedAt === 0
-    ) {
-      return
-    }
-    const firstRepoPath = discoveredRepos[0]?.path ?? null
-    if (firstRepoPath !== null) {
-      const normalizedFolder = discoveryInput.folder.replaceAll("\\", "/")
-      const normalizedRepo = firstRepoPath.replaceAll("\\", "/")
-      if (
-        discoveredRepos.length === 1 &&
-        normalizedFolder.startsWith(`${normalizedRepo}/`)
-      ) {
-        if (analysisContext.searchFolder === firstRepoPath) return
-        if (analysisContext.kind === "folder") {
-          void analysisContext.activateFolderPath(firstRepoPath)
-        } else {
-          analysisContext.updateCourseSearchFolder(firstRepoPath)
-        }
-      }
-    }
-  }, [
-    analysisContext,
-    discoveredRepos,
-    discoveryInput,
-    discoveryQuery.dataUpdatedAt,
-    discoveryQuery.isSuccess,
-  ])
 
   useEffect(() => {
     if (
@@ -679,19 +668,23 @@ export function AnalysisCoordinatorProvider({
   const selectedSnapshotQuery = useQuery({
     queryKey: selectedSnapshotQueryKey,
     enabled: selectedRepoPath !== null && analysisConfig !== null,
-    queryFn: ({ signal }) => {
-      if (selectedRepoPath === null || analysisConfig === null) {
-        throw new Error("Snapshot-head query ran without input.")
-      }
-      return client.run(
-        "analysis.resolveSnapshotHead",
-        {
-          repositoryAbsolutePath: selectedRepoPath,
-          until: analysisConfig.until,
-        },
-        { signal },
-      )
-    },
+    ...sessionQueryOptions(
+      client,
+      "analysis.resolveSnapshotHead",
+      (scope, { signal }) => {
+        if (selectedRepoPath === null || analysisConfig === null) {
+          throw new Error("Snapshot-head query ran without input.")
+        }
+        return scope.run(
+          "analysis.resolveSnapshotHead",
+          {
+            repositoryAbsolutePath: selectedRepoPath,
+            until: analysisConfig.until,
+          },
+          { signal },
+        )
+      },
+    ),
   })
   const selectedSnapshotCommitOid =
     selectedSnapshotQuery.isFetching || selectedSnapshotQuery.isError
@@ -744,51 +737,55 @@ export function AnalysisCoordinatorProvider({
         ? (["analysis", "result", "disabled"] as const)
         : analysisQueryKeys.result(selectedAnalysisIdentity),
     enabled: selectedAnalysisIdentity !== null && analysisConfig !== null,
-    queryFn: async ({ signal }): Promise<AnalysisResult> => {
-      if (
-        selectedRepoPath === null ||
-        selectedAnalysisIdentity === null ||
-        analysisScopeKey === null ||
-        analysisConfig === null
-      ) {
-        throw new Error("Analysis query ran without input.")
-      }
-      const requestKey = analysisScopeKey
-      const requestId = nanoid()
-      const transient = useAnalysisTransientStore.getState()
-      transient.startAnalysis(requestKey, requestId)
-      try {
-        return await client.run(
-          "analysis.run",
-          {
-            repositoryAbsolutePath: selectedRepoPath,
-            config: analysisConfig,
-            snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-            analysisSource:
-              analysisContext.kind === "course"
-                ? {
-                    kind: "course",
-                    ...(analysisContext.rosterContext
-                      ? { rosterContext: analysisContext.rosterContext }
-                      : {}),
-                  }
-                : { kind: "folder" },
-          },
-          {
-            signal,
-            onProgress: (progress) => {
-              useAnalysisTransientStore
-                .getState()
-                .setAnalysisProgress(requestKey, requestId, progress)
+    ...sessionQueryOptions(
+      client,
+      "analysis.run",
+      async (scope, { signal }): Promise<AnalysisResult> => {
+        if (
+          selectedRepoPath === null ||
+          selectedAnalysisIdentity === null ||
+          analysisScopeKey === null ||
+          analysisConfig === null
+        ) {
+          throw new Error("Analysis query ran without input.")
+        }
+        const requestKey = analysisScopeKey
+        const requestId = nanoid()
+        const transient = useAnalysisTransientStore.getState()
+        transient.startAnalysis(requestKey, requestId)
+        try {
+          return await scope.run(
+            "analysis.run",
+            {
+              repositoryAbsolutePath: selectedRepoPath,
+              config: analysisConfig,
+              snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
+              analysisSource:
+                analysisContext.kind === "course"
+                  ? {
+                      kind: "course",
+                      ...(analysisContext.rosterContext
+                        ? { rosterContext: analysisContext.rosterContext }
+                        : {}),
+                    }
+                  : { kind: "folder" },
             },
-          },
-        )
-      } finally {
-        useAnalysisTransientStore
-          .getState()
-          .finishAnalysis(requestKey, requestId)
-      }
-    },
+            {
+              signal,
+              onProgress: (progress) => {
+                useAnalysisTransientStore
+                  .getState()
+                  .setAnalysisProgress(requestKey, requestId, progress)
+              },
+            },
+          )
+        } finally {
+          useAnalysisTransientStore
+            .getState()
+            .finishAnalysis(requestKey, requestId)
+        }
+      },
+    ),
   })
 
   const selectedAnalysisProgress = useAnalysisTransientStore((state) =>
@@ -861,55 +858,61 @@ export function AnalysisCoordinatorProvider({
         ? (["analysis", "blame", "disabled"] as const)
         : analysisQueryKeys.blame(selectedBlameIdentity),
     enabled: selectedBlameIdentity !== null && effectiveBlameConfig !== null,
-    queryFn: async ({ signal }): Promise<BlameResult> => {
-      if (
-        selectedRepoPath === null ||
-        selectedBlameIdentity === null ||
-        selectedBlameScopeKey === null ||
-        selectedAnalysisIdentity === null ||
-        effectiveBlameConfig === null ||
-        result === null ||
-        selectedBlameFiles.length === 0
-      ) {
-        throw new Error("Blame query ran without input.")
-      }
-      const requestKey = selectedBlameScopeKey
-      const requestId = nanoid()
-      const transient = useAnalysisTransientStore.getState()
-      transient.startBlame(requestKey, requestId)
-      try {
-        return await client.run(
-          "analysis.blame",
-          {
-            repositoryAbsolutePath: selectedRepoPath,
-            config: effectiveBlameConfig,
-            personDbBaseline: result.personDbBaseline,
-            files: selectedBlameFiles,
-            snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-          },
-          {
-            signal,
-            onProgress: (progress) => {
-              const transientStore = useAnalysisTransientStore.getState()
-              transientStore.setBlameProgress(requestKey, requestId, progress)
-              if (progress.partialAuthorLines) {
-                const next = new Map<string, number>()
-                for (const entry of progress.partialAuthorLines) {
-                  next.set(entry.personId, entry.lines)
-                }
-                transientStore.setBlamePartialAuthorLines(
-                  requestKey,
-                  requestId,
-                  next,
-                )
-              }
+    ...sessionQueryOptions(
+      client,
+      "analysis.blame",
+      async (scope, { signal }): Promise<BlameResult> => {
+        if (
+          selectedRepoPath === null ||
+          selectedBlameIdentity === null ||
+          selectedBlameScopeKey === null ||
+          selectedAnalysisIdentity === null ||
+          effectiveBlameConfig === null ||
+          result === null ||
+          selectedBlameFiles.length === 0
+        ) {
+          throw new Error("Blame query ran without input.")
+        }
+        const requestKey = selectedBlameScopeKey
+        const requestId = nanoid()
+        const transient = useAnalysisTransientStore.getState()
+        transient.startBlame(requestKey, requestId)
+        try {
+          return await scope.run(
+            "analysis.blame",
+            {
+              repositoryAbsolutePath: selectedRepoPath,
+              config: effectiveBlameConfig,
+              personDbBaseline: result.personDbBaseline,
+              files: selectedBlameFiles,
+              snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
             },
-          },
-        )
-      } finally {
-        useAnalysisTransientStore.getState().finishBlame(requestKey, requestId)
-      }
-    },
+            {
+              signal,
+              onProgress: (progress) => {
+                const transientStore = useAnalysisTransientStore.getState()
+                transientStore.setBlameProgress(requestKey, requestId, progress)
+                if (progress.partialAuthorLines) {
+                  const next = new Map<string, number>()
+                  for (const entry of progress.partialAuthorLines) {
+                    next.set(entry.personId, entry.lines)
+                  }
+                  transientStore.setBlamePartialAuthorLines(
+                    requestKey,
+                    requestId,
+                    next,
+                  )
+                }
+              },
+            },
+          )
+        } finally {
+          useAnalysisTransientStore
+            .getState()
+            .finishBlame(requestKey, requestId)
+        }
+      },
+    ),
   })
 
   const selectedBlameTransient = useAnalysisTransientStore((state) =>

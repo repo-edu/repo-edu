@@ -1,14 +1,5 @@
-import {
-  activeCourseIdFromSurface,
-  type PersistedActiveSurface,
-} from "@repo-edu/domain/active-surface"
-import type {
-  CourseBacking,
-  CourseSummary,
-  PersistedCourse,
-} from "@repo-edu/domain/types"
+import type { CourseBacking, PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback } from "react"
-import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useSessionController } from "../session/session-controller-context.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
@@ -21,59 +12,12 @@ type CreateCourseInput = {
   lmsCourseId?: string | null
 }
 
-export function resolveActiveSurfaceRedirectForCourses(
-  activeSurface: PersistedActiveSurface,
-  courses: readonly Pick<CourseSummary, "id" | "backing">[],
-): { surface: PersistedActiveSurface; courseBacking?: CourseBacking } | null {
-  const activeCourseId = activeCourseIdFromSurface(activeSurface)
-  const activeCourseSummary =
-    activeCourseId === null
-      ? null
-      : (courses.find((course) => course.id === activeCourseId) ?? null)
-
-  if (
-    activeSurface.kind === "submission" &&
-    activeSurface.courseId !== undefined &&
-    activeCourseSummary !== null &&
-    activeCourseSummary.backing !== "lms"
-  ) {
-    return {
-      surface: { kind: "course", courseId: activeSurface.courseId },
-      courseBacking: activeCourseSummary.backing,
-    }
-  }
-
-  if (activeCourseId !== null && activeCourseSummary === null) {
-    const fallback = courses[0] ?? null
-    if (fallback === null) {
-      return { surface: { kind: "home" } }
-    }
-    return {
-      surface: { kind: "course", courseId: fallback.id },
-      courseBacking: fallback.backing,
-    }
-  }
-
-  return null
-}
-
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
   const loading = useUiStore((s) => s.courseListLoading)
-  const client = useWorkflowClient()
   const controller = useSessionController()
 
-  // Prune and redirect are owned by the AppShell effect that observes
-  // courseList; refresh just writes the latest list so that effect can react.
-  const refresh = useCallback(async () => {
-    useUiStore.getState().setCourseListLoading(true)
-    try {
-      const list = await client.run("course.list", undefined)
-      useUiStore.getState().setCourseList(list)
-    } finally {
-      useUiStore.getState().setCourseListLoading(false)
-    }
-  }, [client])
+  const refresh = useCallback(() => controller.refreshCourses(), [controller])
 
   const switchCourse = useCallback(
     async (courseId: string, backing?: CourseBacking) => {

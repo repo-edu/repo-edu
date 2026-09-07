@@ -265,7 +265,9 @@ describe("session operation ownership", () => {
         await host.promise
       }),
     )
-    const result = gateway.run("course.list", undefined)
+    const result = gateway.execute("course.list", (scope) =>
+      scope.run("course.list", undefined),
+    )
     await started.promise
     dispatch({ type: "dispose" })
     host.resolve()

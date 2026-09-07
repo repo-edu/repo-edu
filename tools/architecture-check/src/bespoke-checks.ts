@@ -15,14 +15,8 @@ const PACKAGE_MANIFEST_PATTERN =
 
 const RENDERER_SRC_PREFIX = "packages/renderer-app/src/"
 
-// These three Query owners move their complete publication bodies in step 7.
-const QUERY_WORKFLOW_OWNERS = new Set([
-  "analysis/analysis-query-coordinator.tsx",
-  "hooks/use-courses.ts",
-  "components/tabs/groups-assignments/GroupSetGroupsTable/use-clone-all-repositories.ts",
-])
-
 const CONTROLLER_WORKFLOW_IDS = new Set([
+  "course.list",
   "settings.loadApp",
   "settings.saveCredentials",
   "settings.savePreferences",
@@ -232,6 +226,18 @@ function checkRendererSessionOwnership(
 
     function visit(node: ts.Node): void {
       if (
+        (ts.isPropertyAssignment(node) ||
+          ts.isShorthandPropertyAssignment(node) ||
+          ts.isMethodDeclaration(node)) &&
+        propertyNameText(node.name) === "queryFn"
+      ) {
+        violations.push({
+          file: `${RENDERER_SRC_PREFIX}${file}`,
+          message:
+            "defines a Query fetch outside session publication ownership; use sessionQueryOptions",
+        })
+      }
+      if (
         ts.isImportSpecifier(node) &&
         (node.propertyName?.text ?? node.name.text) === "WorkflowClient" &&
         file !== "components/App.tsx"
@@ -247,8 +253,7 @@ function checkRendererSessionOwnership(
             ts.isStringLiteralLike(node.argumentExpression) &&
             node.argumentExpression.text === "run")) &&
         ts.isIdentifier(node.expression) &&
-        gatewayNames.has(node.expression.text) &&
-        !QUERY_WORKFLOW_OWNERS.has(file)
+        gatewayNames.has(node.expression.text)
       ) {
         violations.push({
           file: `${RENDERER_SRC_PREFIX}${file}`,
@@ -273,6 +278,16 @@ function checkRendererSessionOwnership(
       }
       if (ts.isCallExpression(node)) {
         const runName = callExpressionName(node)
+        if (
+          (runName === "mutate" || runName === "mutateAsync") &&
+          !insideSessionExecution(node, gatewayNames)
+        ) {
+          violations.push({
+            file: `${RENDERER_SRC_PREFIX}${file}`,
+            message:
+              "starts a Query mutation outside a complete session operation body",
+          })
+        }
         const workflowId = node.arguments[0]
         if (
           runName === "run" &&
@@ -332,6 +347,20 @@ function checkRendererSessionOwnership(
   }
 
   return violations
+}
+
+function insideSessionExecution(node: ts.Node, gateways: Set<string>): boolean {
+  for (let parent = node.parent; parent !== undefined; parent = parent.parent) {
+    if (
+      ts.isCallExpression(parent) &&
+      ts.isPropertyAccessExpression(parent.expression) &&
+      parent.expression.name.text === "execute" &&
+      ts.isIdentifier(parent.expression.expression) &&
+      gateways.has(parent.expression.expression.text)
+    )
+      return true
+  }
+  return false
 }
 
 function collectWorkflowGatewayNames(source: ts.SourceFile): Set<string> {

@@ -56,6 +56,7 @@ type WorkflowOfClass<C extends string> = {
 }[WorkflowId]
 
 export type PresentationWorkflowId = WorkflowOfClass<"presentation-only">
+export type SessionQueryWorkflowId = WorkflowOfClass<"session-changing">
 export type SessionWorkflowId = WorkflowOfClass<"session-changing" | "command">
 
 export function isSessionWorkflow(id: WorkflowId): id is SessionWorkflowId {

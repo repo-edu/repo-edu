@@ -7,9 +7,39 @@ import { describe, it } from "node:test"
 import { runBespokeChecks } from "../bespoke-checks.js"
 
 describe("bespoke checks", () => {
+  it("requires Query publication ownership and a complete mutation body", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-query-bodies-"))
+    const file = "packages/renderer-app/src/components/QueryFeature.tsx"
+    await mkdir(join(root, file, ".."), { recursive: true })
+    await writeFile(
+      join(root, file),
+      [
+        'import { useWorkflowClient } from "../contexts/workflow-client.js"',
+        "const client = useWorkflowClient()",
+        'useQuery({ queryKey: ["bad"], queryFn: () => fetch() })',
+        "mutation.mutateAsync(input)",
+        'client.execute("repo.bulkClone", async (scope) => { await mutation.mutateAsync(input) })',
+        'useQuery({ queryKey: ["owned"], ...sessionQueryOptions(client, "analysis.run", async (scope) => scope.run("analysis.run", input)) })',
+      ].join("\n"),
+    )
+    const violations = runBespokeChecks(
+      root,
+      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
+      () => [file],
+    )
+    assert.equal(violations.length, 2)
+    assert.ok(violations.some((entry) => entry.message.includes("Query fetch")))
+    assert.ok(
+      violations.some((entry) => entry.message.includes("Query mutation")),
+    )
+  })
+
   it("rejects unreserved starts in every former direct workflow holder", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))
     const holders = [
+      "analysis/analysis-query-coordinator.tsx",
+      "hooks/use-courses.ts",
+      "components/tabs/groups-assignments/GroupSetGroupsTable/use-clone-all-repositories.ts",
       "components/OpenRepositoriesForm.tsx",
       "components/dialogs/ConnectLmsGroupSetDialog.tsx",
       "components/dialogs/ImportGitUsernamesDialog.tsx",

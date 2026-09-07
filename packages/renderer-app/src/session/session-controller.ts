@@ -1,4 +1,5 @@
 import {
+  type AnalysisDiscoverReposResult,
   type AppSettingsLoadResult,
   isAppError,
   type WorkflowClient,
@@ -47,6 +48,7 @@ import {
 } from "../utils/course-navigation.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { generateCourseId } from "../utils/nanoid.js"
+import { resolveActiveSurfaceRedirectForCourses } from "./course-list.js"
 import {
   type CourseMutationActions,
   CourseMutationController,
@@ -174,6 +176,8 @@ export class SessionController extends CourseMutationController {
         },
       },
       this.getSnapshot,
+      (scope, surface, folder, result) =>
+        this.reconcileDiscovery(scope, surface, folder, result),
     )
     this.settings = new SessionSettings(
       this.transactions.controllerClient,
@@ -251,6 +255,78 @@ export class SessionController extends CourseMutationController {
       { kind: "enter", targetSurface, leavingCourseId },
       async (scope) => await this.enterSurface(scope, targetSurface),
     )
+  }
+
+  async refreshCourses(): Promise<void> {
+    await this.transactions.enqueue(
+      { kind: "operation", operation: "course.list" },
+      async (scope) => {
+        useUiStore.getState().setCourseListLoading(true)
+        try {
+          await this.persistence.flushActive(scope)
+          const courses = await scope.required(() =>
+            this.transactions.controllerClient.run("course.list", undefined),
+          )
+          if (!scope.canContinue()) return
+          useUiStore.getState().setCourseList(courses)
+          const current = this.snapshot.settings.preferences.activeSurface
+          const courseId = activeCourseIdFromSurface(current)
+          const missing =
+            courseId !== null &&
+            !courses.some((course) => course.id === courseId)
+          const target =
+            resolveActiveSurfaceRedirectForCourses(current, courses)?.surface ??
+            current
+          const commit = missing
+            ? await this.prepareDeletedCourseFallback(scope, target)
+            : await this.prepareSurfaceCommit(scope, target)
+          this.commitSurface(
+            scope,
+            commit,
+            [{ type: "prune-submissions-for-courses", courses }],
+            missing ? () => publishCourseRemoval(courseId) : undefined,
+          )
+        } finally {
+          if (scope.canContinue())
+            useUiStore.getState().setCourseListLoading(false)
+        }
+      },
+    )
+  }
+
+  private async reconcileDiscovery(
+    scope: SessionTransactionScope,
+    surface: PersistedActiveSurface,
+    folder: string,
+    result: AnalysisDiscoverReposResult,
+  ): Promise<void> {
+    if (!scope.canContinue()) return
+    if (
+      !activeSurfaceEquals(
+        surface,
+        this.snapshot.settings.preferences.activeSurface,
+      )
+    )
+      return
+    const path = result.repos[0]?.path
+    if (result.repos.length !== 1 || path === undefined) return
+    if (
+      !folder.replaceAll("\\", "/").startsWith(`${path.replaceAll("\\", "/")}/`)
+    )
+      return
+    if (surface.kind === "folder") {
+      if (surface.path === folder)
+        await this.enterSurface(scope, { kind: "folder", path })
+      return
+    }
+    const courseId = activeCourseIdFromSurface(surface)
+    const state = useCourseStore.getState()
+    if (
+      courseId !== null &&
+      state.course?.id === courseId &&
+      state.course.searchFolder === folder
+    )
+      state.setSearchFolder(path)
   }
 
   async recoverMissingActiveCourse(

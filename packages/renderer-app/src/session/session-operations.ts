@@ -1,4 +1,5 @@
 import type {
+  AnalysisDiscoverReposResult,
   WorkflowCallOptions,
   WorkflowClient,
   WorkflowId,
@@ -7,6 +8,7 @@ import type {
   WorkflowProgress,
   WorkflowResult,
 } from "@repo-edu/application-contract"
+import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import { useCourseStore } from "../stores/course-store.js"
 import type { CourseMutationActions } from "./course-mutation-controller.js"
 import {
@@ -51,6 +53,11 @@ export type SessionOperationScope = {
     apply: (actions: CourseMutationActions) => void,
   ): void
   canContinue(): boolean
+  reconcileDiscovery(
+    surface: PersistedActiveSurface,
+    folder: string,
+    result: AnalysisDiscoverReposResult,
+  ): Promise<void>
 }
 
 export type SessionOperationReservation<T> = {
@@ -92,6 +99,14 @@ export class SessionOperations extends SessionSurfaceTransactions {
     private readonly client: WorkflowClient,
     callbacks: ConstructorParameters<typeof SessionSurfaceTransactions>[0],
     private readonly snapshot: () => SessionControllerSnapshot,
+    private readonly reconcileDiscovery: (
+      scope: SessionTransactionScope,
+      surface: PersistedActiveSurface,
+      folder: string,
+      result: AnalysisDiscoverReposResult,
+    ) => Promise<void> = async () => {
+      throw new Error("Discovery follow-up is not installed.")
+    },
   ) {
     super(callbacks)
   }
@@ -179,6 +194,10 @@ export class SessionOperations extends SessionSurfaceTransactions {
           apply(state)
         }),
       canContinue: () => scope.canContinue(),
+      reconcileDiscovery: (surface, folder, result) =>
+        scope.required(() =>
+          this.reconcileDiscovery(scope, surface, folder, result),
+        ),
     }
   }
 
