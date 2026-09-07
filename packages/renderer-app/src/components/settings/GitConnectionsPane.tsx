@@ -126,12 +126,15 @@ export function GitConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const result = await workflowClient.run("connection.verifyGitDraft", {
-        provider: d.provider,
-        baseUrl,
-        token,
-        userAgent: normalizeUserAgent(d.userAgent),
-      })
+      const result = await workflowClient.presentation(
+        "connection.verifyGitDraft",
+        {
+          provider: d.provider,
+          baseUrl,
+          token,
+          userAgent: normalizeUserAgent(d.userAgent),
+        },
+      )
       if (result.verified) {
         setEditorStatus("connected")
         return { status: "connected" as const, error: null }
@@ -190,12 +193,15 @@ export function GitConnectionsPane() {
 
     setGitStatus(connection.id, "verifying", null)
     try {
-      const result = await workflowClient.run("connection.verifyGitDraft", {
-        provider: connection.provider,
-        baseUrl: normalizedBaseUrl,
-        token: connection.token,
-        userAgent: connection.userAgent,
-      })
+      const result = await workflowClient.presentation(
+        "connection.verifyGitDraft",
+        {
+          provider: connection.provider,
+          baseUrl: normalizedBaseUrl,
+          token: connection.token,
+          userAgent: connection.userAgent,
+        },
+      )
       setGitStatus(
         connection.id,
         result.verified ? "connected" : "error",

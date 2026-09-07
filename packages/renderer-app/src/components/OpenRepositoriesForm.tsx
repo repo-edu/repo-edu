@@ -188,7 +188,7 @@ export function OpenRepositoriesForm() {
     setCourseFetchError(null)
 
     workflowClient
-      .run("connection.listLmsCoursesDraft", {
+      .presentation("connection.listLmsCoursesDraft", {
         provider: selectedLmsDraft.provider,
         baseUrl: selectedLmsDraft.baseUrl,
         token: selectedLmsDraft.token,

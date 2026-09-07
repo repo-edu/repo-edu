@@ -24,10 +24,7 @@ import { AlertTriangle, Loader2 } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { selectCredentials } from "../../session/selectors.js"
-import {
-  useSessionController,
-  useSessionControllerSelector,
-} from "../../session/session-controller-context.js"
+import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -48,7 +45,6 @@ export function ConnectLmsGroupSetDialog() {
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
   const roster = useCourseStore((state) => state.course?.roster ?? null)
-  const controller = useSessionController()
   const credentials = useSessionControllerSelector(selectCredentials)
   const workflowClient = useWorkflowClient()
   const supportsLms = course !== null && courseSupportsLms(course)
@@ -87,29 +83,36 @@ export function ConnectLmsGroupSetDialog() {
     if (!open || !course || !supportsLms) return
 
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    void workflowClient.execute(
+      "groupSet.fetchAvailableFromLms",
+      async (scope) => {
+        setLoading(true)
+        setError(null)
 
-    workflowClient
-      .run("groupSet.fetchAvailableFromLms", {
-        course,
-        credentials,
-      })
-      .then((list) => {
-        if (cancelled) return
-        const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
-        setGroupSets(sorted)
-        setSelectedId(sorted[0]?.id ?? "")
-      })
-      .catch((cause) => {
-        if (cancelled) return
-        setGroupSets([])
-        setSelectedId("")
-        setError(getErrorMessage(cause))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+        await scope
+          .run("groupSet.fetchAvailableFromLms", {
+            course,
+            credentials,
+          })
+          .then((list) => {
+            if (cancelled) return
+            const sorted = [...list].sort((a, b) =>
+              a.name.localeCompare(b.name),
+            )
+            setGroupSets(sorted)
+            setSelectedId(sorted[0]?.id ?? "")
+          })
+          .catch((cause) => {
+            if (cancelled) return
+            setGroupSets([])
+            setSelectedId("")
+            setError(getErrorMessage(cause))
+          })
+          .finally(() => {
+            if (!cancelled) setLoading(false)
+          })
+      },
+    )
 
     return () => {
       cancelled = true
@@ -152,51 +155,53 @@ export function ConnectLmsGroupSetDialog() {
     if (!canConnect || !roster || !course || !selectedGroupSet) {
       return
     }
-    const requestId = connectRequestIdRef.current + 1
-    connectRequestIdRef.current = requestId
+    await workflowClient.execute("groupSet.connectFromLms", async (scope) => {
+      const requestId = connectRequestIdRef.current + 1
+      connectRequestIdRef.current = requestId
 
-    setConnecting(true)
-    setError(null)
-    setProgressMessage("Connecting to LMS...")
-    setGroupSetOperation({ kind: "connect" })
+      setConnecting(true)
+      setError(null)
+      setProgressMessage("Connecting to LMS...")
+      setGroupSetOperation({ kind: "connect" })
 
-    try {
-      const result = await workflowClient.run(
-        "groupSet.connectFromLms",
-        {
-          course,
-          credentials,
-          remoteGroupSetId: selectedGroupSet.id,
-        },
-        {
-          onProgress: (p) => {
-            if (connectRequestIdRef.current !== requestId) return
-            setProgressMessage(p.label)
+      try {
+        const result = await scope.run(
+          "groupSet.connectFromLms",
+          {
+            course,
+            credentials,
+            remoteGroupSetId: selectedGroupSet.id,
           },
-        },
-      )
-      if (connectRequestIdRef.current !== requestId) return
-
-      controller.mutateCourse(course.id, (actions) => {
-        actions.setRoster(
-          result.roster,
-          `Connect group set "${selectedGroupSet.name}"`,
+          {
+            onProgress: (p) => {
+              if (connectRequestIdRef.current !== requestId) return
+              setProgressMessage(p.label)
+            },
+          },
         )
-        actions.setIdSequences(result.idSequences)
-        setSidebarSelection({ kind: "group-set", id: result.id })
-      })
-      handleClose()
-    } catch (cause) {
-      if (connectRequestIdRef.current !== requestId) return
-      const message = getErrorMessage(cause)
-      setError(message)
-      setProgressMessage(null)
-    } finally {
-      if (connectRequestIdRef.current === requestId) {
-        setConnecting(false)
-        setGroupSetOperation(null)
+        if (connectRequestIdRef.current !== requestId) return
+
+        scope.mutateCourse(course.id, (actions) => {
+          actions.setRoster(
+            result.roster,
+            `Connect group set "${selectedGroupSet.name}"`,
+          )
+          actions.setIdSequences(result.idSequences)
+          setSidebarSelection({ kind: "group-set", id: result.id })
+        })
+        handleClose()
+      } catch (cause) {
+        if (connectRequestIdRef.current !== requestId) return
+        const message = getErrorMessage(cause)
+        setError(message)
+        setProgressMessage(null)
+      } finally {
+        if (connectRequestIdRef.current === requestId) {
+          setConnecting(false)
+          setGroupSetOperation(null)
+        }
       }
-    }
+    })
   }
 
   return (

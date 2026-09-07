@@ -115,40 +115,42 @@ export function StudentSyncDialog() {
       return
     }
 
-    const previewCourseId = loadedCourse.id
-    setLoadingPreview(true)
-    setError(null)
-    setPreview(null)
-    setProgressMessage("Connecting to LMS...")
+    await workflowClient.execute("roster.importFromLms", async (scope) => {
+      const previewCourseId = loadedCourse.id
+      setLoadingPreview(true)
+      setError(null)
+      setPreview(null)
+      setProgressMessage("Connecting to LMS...")
 
-    try {
-      const result = await workflowClient.run(
-        "roster.importFromLms",
-        {
-          course: loadedCourse,
-          credentials,
-          lmsCourseId,
-        },
-        {
-          onProgress: (p) => {
-            if (previewRequestIdRef.current !== requestId) return
-            setProgressMessage(p.label)
+      try {
+        const result = await scope.run(
+          "roster.importFromLms",
+          {
+            course: loadedCourse,
+            credentials,
+            lmsCourseId,
           },
-        },
-      )
-      if (previewRequestIdRef.current !== requestId) return
-      setPreview({ courseId: previewCourseId, result })
-      setProgressMessage(null)
-    } catch (previewError) {
-      if (previewRequestIdRef.current !== requestId) return
-      const message = getErrorMessage(previewError)
-      setError(message)
-      setProgressMessage(null)
-    } finally {
-      if (previewRequestIdRef.current === requestId) {
-        setLoadingPreview(false)
+          {
+            onProgress: (p) => {
+              if (previewRequestIdRef.current !== requestId) return
+              setProgressMessage(p.label)
+            },
+          },
+        )
+        if (previewRequestIdRef.current !== requestId) return
+        setPreview({ courseId: previewCourseId, result })
+        setProgressMessage(null)
+      } catch (previewError) {
+        if (previewRequestIdRef.current !== requestId) return
+        const message = getErrorMessage(previewError)
+        setError(message)
+        setProgressMessage(null)
+      } finally {
+        if (previewRequestIdRef.current === requestId) {
+          setLoadingPreview(false)
+        }
       }
-    }
+    })
   }, [
     activeCourseId,
     credentials,

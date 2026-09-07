@@ -317,28 +317,31 @@ function useSubmissionExaminationSource() {
   useEffect(() => {
     if (submissionFolderPath === null) return
     const abort = new AbortController()
-    setFileList({ status: "loading", files: [], error: null })
-    workflowClient
-      .run(
-        "analysis.listFolderFiles",
-        {
-          folderPath: submissionFolderPath,
-          extensions: configuredExtensions,
-        },
-        { signal: abort.signal },
-      )
-      .then((result) => {
-        if (abort.signal.aborted) return
-        setFileList({ status: "loaded", files: result.files, error: null })
-      })
-      .catch((error) => {
-        if (abort.signal.aborted) return
-        setFileList({
-          status: "error",
-          files: [],
-          error: getErrorMessage(error),
+    void workflowClient.execute("analysis.listFolderFiles", async (scope) => {
+      setFileList({ status: "loading", files: [], error: null })
+      await scope
+        .run(
+          "analysis.listFolderFiles",
+          {
+            folderPath: submissionFolderPath,
+            extensions: configuredExtensions,
+          },
+          { signal: abort.signal },
+        )
+        .then((result) => {
+          if (abort.signal.aborted) return
+          setFileList({ status: "loaded", files: result.files, error: null })
         })
-      })
+        .catch((error) => {
+          if (abort.signal.aborted) return
+          setFileList({
+            status: "error",
+            files: [],
+            error: getErrorMessage(error),
+          })
+        })
+    })
+
     return () => abort.abort()
   }, [configuredExtensions, submissionFolderPath, workflowClient])
 
@@ -411,64 +414,69 @@ function useSubmissionExaminationSource() {
     void prepareAttempt
     const selectedRelativePaths = JSON.parse(selectedPathsKey) as string[]
     const abort = new AbortController()
-    setPrepared({
-      status: "loading",
-      pendingSourceKey,
-      source: null,
-      error: null,
-    })
-
-    workflowClient
-      .run(
-        "examination.prepareSubmissionSource",
-        {
-          folderPath: submissionFolderPath,
-          selectedRelativePaths,
-          configuredExtensions,
-          attachedRosterIdentities: rosterIdentities(attachedRoster),
-        },
-        {
-          signal: abort.signal,
-          onProgress: () => undefined,
-        },
-      )
-      .then((result) => {
-        if (abort.signal.aborted) return
-        const lineCount = result.excerpts.reduce(
-          (count, excerpt) => count + excerpt.lines.length,
-          0,
-        )
+    void workflowClient.execute(
+      "examination.prepareSubmissionSource",
+      async (scope) => {
         setPrepared({
-          status: "loaded",
-          pendingSourceKey,
-          error: null,
-          source: {
-            kind: "submission",
-            folderPath: result.folderPath,
-            contentScopeId: result.contentScopeId,
-            subject: {
-              id: result.personId,
-              name: result.displayTitle,
-              email: result.displaySubtitle,
-              lines: lineCount,
-              linesPercent: 100,
-              excerpts: result.excerpts,
-              excerptFileSources: result.excerptFileSources,
-              excerptScopeId: result.contentScopeId,
-            },
-            localIdentityContext: result.localIdentityContext,
-          },
-        })
-      })
-      .catch((error) => {
-        if (abort.signal.aborted) return
-        setPrepared({
-          status: "error",
+          status: "loading",
           pendingSourceKey,
           source: null,
-          error: getErrorMessage(error),
+          error: null,
         })
-      })
+
+        await scope
+          .run(
+            "examination.prepareSubmissionSource",
+            {
+              folderPath: submissionFolderPath,
+              selectedRelativePaths,
+              configuredExtensions,
+              attachedRosterIdentities: rosterIdentities(attachedRoster),
+            },
+            {
+              signal: abort.signal,
+              onProgress: () => undefined,
+            },
+          )
+          .then((result) => {
+            if (abort.signal.aborted) return
+            const lineCount = result.excerpts.reduce(
+              (count, excerpt) => count + excerpt.lines.length,
+              0,
+            )
+            setPrepared({
+              status: "loaded",
+              pendingSourceKey,
+              error: null,
+              source: {
+                kind: "submission",
+                folderPath: result.folderPath,
+                contentScopeId: result.contentScopeId,
+                subject: {
+                  id: result.personId,
+                  name: result.displayTitle,
+                  email: result.displaySubtitle,
+                  lines: lineCount,
+                  linesPercent: 100,
+                  excerpts: result.excerpts,
+                  excerptFileSources: result.excerptFileSources,
+                  excerptScopeId: result.contentScopeId,
+                },
+                localIdentityContext: result.localIdentityContext,
+              },
+            })
+          })
+          .catch((error) => {
+            if (abort.signal.aborted) return
+            setPrepared({
+              status: "error",
+              pendingSourceKey,
+              source: null,
+              error: getErrorMessage(error),
+            })
+          })
+      },
+    )
 
     return () => abort.abort()
   }, [

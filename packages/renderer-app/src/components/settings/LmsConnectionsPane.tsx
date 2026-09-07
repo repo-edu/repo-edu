@@ -149,12 +149,15 @@ export function LmsConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const result = await workflowClient.run("connection.verifyLmsDraft", {
-        provider: d.provider,
-        baseUrl,
-        token,
-        userAgent,
-      })
+      const result = await workflowClient.presentation(
+        "connection.verifyLmsDraft",
+        {
+          provider: d.provider,
+          baseUrl,
+          token,
+          userAgent,
+        },
+      )
       if (result.verified) {
         setEditorStatus("connected")
         return { status: "connected" as const, error: null }
@@ -219,12 +222,15 @@ export function LmsConnectionsPane() {
 
     setLmsConnectionStatus(connection.id, "verifying", null)
     try {
-      const result = await workflowClient.run("connection.verifyLmsDraft", {
-        provider: connection.provider,
-        baseUrl: normalizedBaseUrl,
-        token: connection.token,
-        userAgent: connection.userAgent,
-      })
+      const result = await workflowClient.presentation(
+        "connection.verifyLmsDraft",
+        {
+          provider: connection.provider,
+          baseUrl: normalizedBaseUrl,
+          token: connection.token,
+          userAgent: connection.userAgent,
+        },
+      )
       setLmsConnectionStatus(
         connection.id,
         result.verified ? "connected" : "error",

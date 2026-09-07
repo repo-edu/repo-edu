@@ -14,19 +14,23 @@ export async function exportGroupSet(
   const format = groupSet.nameMode === "named" ? "csv" : "txt"
   const suggestedName = `${groupSet.name}.${format}`
 
-  const host = getRendererHost()
-  const target = await host.pickSaveTarget({
-    title: `Export ${groupSet.nameMode === "named" ? "named groups" : "unnamed teams"} (${format.toUpperCase()})`,
-    suggestedName,
-    defaultFormat: format,
-  })
-  if (!target) return
-
   const client = getWorkflowClient()
-  await client.run("groupSet.export", {
-    course,
-    groupSetId: groupSet.id,
-    target,
-    format,
+  await client.execute("groupSet.export", async (scope) => {
+    const host = getRendererHost()
+    const target = await scope.direct("pickSaveTarget", () =>
+      host.pickSaveTarget({
+        title: `Export ${groupSet.nameMode === "named" ? "named groups" : "unnamed teams"} (${format.toUpperCase()})`,
+        suggestedName,
+        defaultFormat: format,
+      }),
+    )
+    if (!target) return
+
+    await scope.run("groupSet.export", {
+      course,
+      groupSetId: groupSet.id,
+      target,
+      format,
+    })
   })
 }

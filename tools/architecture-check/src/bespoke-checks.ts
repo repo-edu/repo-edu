@@ -15,6 +15,13 @@ const PACKAGE_MANIFEST_PATTERN =
 
 const RENDERER_SRC_PREFIX = "packages/renderer-app/src/"
 
+// These three Query owners move their complete publication bodies in step 7.
+const QUERY_WORKFLOW_OWNERS = new Set([
+  "analysis/analysis-query-coordinator.tsx",
+  "hooks/use-courses.ts",
+  "components/tabs/groups-assignments/GroupSetGroupsTable/use-clone-all-repositories.ts",
+])
+
 const CONTROLLER_WORKFLOW_IDS = new Set([
   "settings.loadApp",
   "settings.saveCredentials",
@@ -215,6 +222,7 @@ function checkRendererSessionOwnership(
       file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
     )
     const useCourseStoreNames = collectUseCourseStoreImportNames(sourceFile)
+    const gatewayNames = collectWorkflowGatewayNames(sourceFile)
     const courseStoreSnapshotNames = collectCourseStoreSnapshots(
       sourceFile,
       useCourseStoreNames,
@@ -223,6 +231,46 @@ function checkRendererSessionOwnership(
     )
 
     function visit(node: ts.Node): void {
+      if (
+        ts.isImportSpecifier(node) &&
+        (node.propertyName?.text ?? node.name.text) === "WorkflowClient" &&
+        file !== "components/App.tsx"
+      ) {
+        violations.push({
+          file: `${RENDERER_SRC_PREFIX}${file}`,
+          message: "retains a raw WorkflowClient outside session composition",
+        })
+      }
+      if (
+        ((ts.isPropertyAccessExpression(node) && node.name.text === "run") ||
+          (ts.isElementAccessExpression(node) &&
+            ts.isStringLiteralLike(node.argumentExpression) &&
+            node.argumentExpression.text === "run")) &&
+        ts.isIdentifier(node.expression) &&
+        gatewayNames.has(node.expression.text) &&
+        !QUERY_WORKFLOW_OWNERS.has(file)
+      ) {
+        violations.push({
+          file: `${RENDERER_SRC_PREFIX}${file}`,
+          message:
+            "starts a direct workflow without a complete session operation body; use execute or presentation",
+        })
+      }
+      if (
+        ts.isBindingElement(node) &&
+        (node.propertyName?.getText(sourceFile) ??
+          node.name.getText(sourceFile)) === "run" &&
+        ts.isObjectBindingPattern(node.parent) &&
+        ts.isVariableDeclaration(node.parent.parent) &&
+        node.parent.parent.initializer !== undefined &&
+        gatewayNames.has(node.parent.parent.initializer.getText(sourceFile))
+      ) {
+        violations.push({
+          file: `${RENDERER_SRC_PREFIX}${file}`,
+          message:
+            "extracts a workflow start outside its session operation body",
+        })
+      }
       if (ts.isCallExpression(node)) {
         const runName = callExpressionName(node)
         const workflowId = node.arguments[0]
@@ -284,6 +332,39 @@ function checkRendererSessionOwnership(
   }
 
   return violations
+}
+
+function collectWorkflowGatewayNames(source: ts.SourceFile): Set<string> {
+  const factories = new Set<string>()
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement)) continue
+    const bindings = statement.importClause?.namedBindings
+    if (!bindings || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) {
+      const name = element.propertyName?.text ?? element.name.text
+      if (name === "useWorkflowClient" || name === "getWorkflowClient") {
+        factories.add(element.name.text)
+      }
+    }
+  }
+  const names = new Set<string>()
+  function collect(node: ts.Node): void {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      const value = node.initializer
+      if (
+        value &&
+        ((ts.isCallExpression(value) &&
+          ts.isIdentifier(value.expression) &&
+          factories.has(value.expression.text)) ||
+          (ts.isIdentifier(value) && names.has(value.text)))
+      ) {
+        names.add(node.name.text)
+      }
+    }
+    ts.forEachChild(node, collect)
+  }
+  collect(source)
+  return names
 }
 
 function collectUseCourseStoreImportNames(

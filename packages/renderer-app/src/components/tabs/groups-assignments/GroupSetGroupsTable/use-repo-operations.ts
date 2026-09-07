@@ -21,6 +21,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../../../session/session-controller-context.js"
+import type { SessionOperationScope } from "../../../../session/session-operations.js"
 import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
@@ -233,6 +234,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
   const applyRecordedRepositories = useCallback(
     (
+      scope: SessionOperationScope,
       recorded: RecordedRepositoriesByAssignment,
       originatingCourseId: string,
       templateAssignmentUpdate?: {
@@ -240,7 +242,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         templateCommitSha: string
       },
     ) => {
-      controller.mutateCourse(originatingCourseId, (actions) => {
+      scope.mutateCourse(originatingCourseId, (actions) => {
         const latestCourse = useCourseStore.getState().course
         if (!latestCourse || latestCourse.id !== originatingCourseId) return
         const assignmentsById = new Map(
@@ -300,7 +302,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
         }
       })
     },
-    [controller],
+    [],
   )
 
   const handleRunOperation = useCallback(
@@ -310,58 +312,63 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       }
       const originatingCourseId = course.id
 
-      setOperationStatus("running")
-      setRunningOperation(operation)
-      setOperationError(null)
-      setLastResult(null)
+      await workflowClient.execute(`repo.${operation}`, async (scope) => {
+        setOperationStatus("running")
+        setRunningOperation(operation)
+        setOperationError(null)
+        setLastResult(null)
 
-      const { workflowId, input } = buildRepositoryWorkflowRequest({
-        course,
-        credentials,
-        assignmentId: effectiveAssignmentId,
-        operation,
-        repositoryTemplate,
-        targetDirectory: cloneTargetDirectory,
-        directoryLayout: cloneDirectoryLayout,
-      })
+        const { workflowId, input } = buildRepositoryWorkflowRequest({
+          course,
+          credentials,
+          assignmentId: effectiveAssignmentId,
+          operation,
+          repositoryTemplate,
+          targetDirectory: cloneTargetDirectory,
+          directoryLayout: cloneDirectoryLayout,
+        })
 
-      try {
-        const result = await workflowClient.run(workflowId, input)
-        setOperationStatus("success")
-        if (operation === "create") {
-          const typed = result as RepositoryCreateResult
-          setLastResult({ operation: "create", result: typed })
-          applyRecordedRepositories(
-            typed.recordedRepositories,
-            originatingCourseId,
-          )
-        } else if (operation === "update") {
-          const typed = result as RepositoryUpdateResult
-          setLastResult({ operation: "update", result: typed })
-          applyRecordedRepositories(
-            typed.recordedRepositories,
-            originatingCourseId,
-            typed.templateCommitSha
-              ? {
-                  assignmentId: effectiveAssignmentId,
-                  templateCommitSha: typed.templateCommitSha,
-                }
-              : undefined,
-          )
-        } else {
-          const typed = result as RepositoryCloneResult
-          setLastResult({ operation: "clone", result: typed })
-          applyRecordedRepositories(
-            typed.recordedRepositories,
-            originatingCourseId,
-          )
+        try {
+          const result = await scope.run(workflowId, input)
+          setOperationStatus("success")
+          if (operation === "create") {
+            const typed = result as RepositoryCreateResult
+            setLastResult({ operation: "create", result: typed })
+            applyRecordedRepositories(
+              scope,
+              typed.recordedRepositories,
+              originatingCourseId,
+            )
+          } else if (operation === "update") {
+            const typed = result as RepositoryUpdateResult
+            setLastResult({ operation: "update", result: typed })
+            applyRecordedRepositories(
+              scope,
+              typed.recordedRepositories,
+              originatingCourseId,
+              typed.templateCommitSha
+                ? {
+                    assignmentId: effectiveAssignmentId,
+                    templateCommitSha: typed.templateCommitSha,
+                  }
+                : undefined,
+            )
+          } else {
+            const typed = result as RepositoryCloneResult
+            setLastResult({ operation: "clone", result: typed })
+            applyRecordedRepositories(
+              scope,
+              typed.recordedRepositories,
+              originatingCourseId,
+            )
+          }
+        } catch (error) {
+          setOperationStatus("error")
+          setOperationError(getErrorMessage(error))
+        } finally {
+          setRunningOperation(null)
         }
-      } catch (error) {
-        setOperationStatus("error")
-        setOperationError(getErrorMessage(error))
-      } finally {
-        setRunningOperation(null)
-      }
+      })
     },
     [
       applyRecordedRepositories,

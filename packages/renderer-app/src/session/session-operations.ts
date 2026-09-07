@@ -7,6 +7,8 @@ import type {
   WorkflowProgress,
   WorkflowResult,
 } from "@repo-edu/application-contract"
+import { useCourseStore } from "../stores/course-store.js"
+import type { CourseMutationActions } from "./course-mutation-controller.js"
 import {
   isSessionWorkflow,
   type PresentationDirectId,
@@ -44,6 +46,10 @@ export type SessionOperationScope = {
   follow<T>(body: () => Promise<T>): Promise<T>
   /** Publish only while this admitted body still owns its turn. */
   publish<T>(apply: () => T): T
+  mutateCourse(
+    courseId: string,
+    apply: (actions: CourseMutationActions) => void,
+  ): void
   canContinue(): boolean
 }
 
@@ -53,6 +59,10 @@ export type SessionOperationReservation<T> = {
 }
 
 export type SessionOperationGateway = {
+  execute<T>(
+    operation: SessionOperationId,
+    body: (scope: SessionOperationScope) => Promise<T>,
+  ): Promise<T | undefined>
   // A complete single-call body. Callers with publication or semantic follow-up
   // reserve explicitly and keep that work inside the supplied body.
   run<K extends AppWorkflowId>(
@@ -87,6 +97,14 @@ export class SessionOperations extends SessionSurfaceTransactions {
   }
 
   readonly gateway: SessionOperationGateway = {
+    execute: async <T>(
+      operation: SessionOperationId,
+      body: (scope: SessionOperationScope) => Promise<T>,
+    ) => {
+      const reservation = this.reserveOperation<T>(operation)
+      if (reservation === null) return undefined
+      return await reservation.run(body)
+    },
     run: (id, input, options) => this.runFeature(id, input, options),
     presentation: (id, input, options) => this.present(id, input, options),
     presentationDirect: async (id, start) => {
@@ -145,15 +163,21 @@ export class SessionOperations extends SessionSurfaceTransactions {
       run: (id, input, options) =>
         this.runScoped(scope, operation, id, input, options),
       direct: (id, start) =>
-        scope.required(() => {
-          if (id !== operation)
+        scope.tolerated(() => {
+          if (sessionDirectClasses[id] !== "session-changing")
             throw new Error(
               "The direct action does not belong to this reservation.",
             )
-          return start()
+          return start().then((result) => publish(() => result))
         }),
       follow: (body) => scope.required(body),
       publish,
+      mutateCourse: (courseId, apply) =>
+        publish(() => {
+          const state = useCourseStore.getState()
+          if (state.course?.id !== courseId) return
+          apply(state)
+        }),
       canContinue: () => scope.canContinue(),
     }
   }
@@ -173,7 +197,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
             // their actual promise so transport completion cannot retire them.
             void scope.required(async () => apply(event)).catch(() => undefined)
           }
-    return scope.required(() => {
+    return scope.tolerated(() => {
       const classification = sessionWorkflowClasses[id]
       if (
         classification !== "session-changing" &&

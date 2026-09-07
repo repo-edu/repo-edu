@@ -5,6 +5,7 @@ import {
   type WorkflowClient,
   workflowCatalog,
 } from "@repo-edu/application-contract"
+import { createBlankCourse } from "@repo-edu/domain/types"
 import {
   sessionDirectClasses,
   sessionWorkflowClasses,
@@ -20,6 +21,7 @@ import {
   type SessionReducerEvent,
   sessionReducer,
 } from "../session/session-reducer.js"
+import { useCourseStore } from "../stores/course-store.js"
 import { deferred, workflowClient } from "./session-controller.test-support.js"
 
 function harness(
@@ -50,6 +52,210 @@ function harness(
 }
 
 describe("session operation ownership", () => {
+  it("refuses a picker result after disposal", async () => {
+    const opened = deferred<void>()
+    const picked = deferred<string>()
+    const { gateway, dispatch } = harness()
+    let published = false
+    const running = gateway.execute("pickUserFile", async (scope) => {
+      await scope.direct("pickUserFile", () => {
+        opened.resolve()
+        return picked.promise
+      })
+      published = true
+    })
+    await opened.promise
+    dispatch({ type: "dispose" })
+    picked.resolve("file")
+    await assert.rejects(running, /retired/)
+    assert.equal(published, false)
+  })
+
+  it("retains a callback failure until its asynchronous work ends", async () => {
+    const entered = deferred<void>()
+    const release = deferred<void>()
+    const { gateway } = harness({
+      run: async (_id, _input, options) => {
+        options?.onOutput?.({} as never)
+        return undefined as never
+      },
+    })
+    const running = gateway.execute("analysis.run", async (scope) => {
+      await scope.run("analysis.run", {} as never, {
+        onOutput: async () => {
+          entered.resolve()
+          await release.promise
+          throw new Error("output publication failed")
+        },
+      })
+    })
+    await entered.promise
+    let nextStarted = false
+    const next = gateway.execute("repo.clone", async () => {
+      nextStarted = true
+    })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(nextStarted, false)
+    const rejected = assert.rejects(running, /output publication failed/)
+    release.resolve()
+    await Promise.all([rejected, next])
+    assert.equal(nextStarted, true)
+  })
+
+  for (const stage of [
+    "host",
+    "progress",
+    "output",
+    "publication",
+    "follow-up",
+  ] as const) {
+    for (const successor of ["command", "close"] as const) {
+      it(`holds ${successor} behind a paused direct ${stage} stage`, async () => {
+        const paused = deferred<void>()
+        const release = deferred<void>()
+        const order: string[] = []
+        const pause = async () => {
+          paused.resolve()
+          await release.promise
+        }
+        const client: WorkflowClient = {
+          run: async (_id, _input, options) => {
+            if (stage === "host") await pause()
+            options?.onProgress?.({} as never)
+            options?.onOutput?.({} as never)
+            return undefined as never
+          },
+        }
+        const { owner, gateway, dispatch } = harness(client)
+        const running = gateway.execute("analysis.run", async (scope) => {
+          await scope.run("analysis.run", {} as never, {
+            onProgress: async () => {
+              if (stage === "progress") {
+                await pause()
+                scope.publish(() => order.push("progress"))
+              }
+            },
+            onOutput: async () => {
+              if (stage === "output") {
+                await pause()
+                scope.publish(() => order.push("output"))
+              }
+            },
+          })
+          if (stage === "publication") await pause()
+          scope.publish(() => order.push("publication"))
+          await scope.follow(async () => {
+            if (stage === "follow-up") await pause()
+            scope.publish(() => order.push("follow-up"))
+          })
+        })
+        await paused.promise
+        let next: Promise<unknown>
+        if (successor === "command") {
+          next = gateway.execute("repo.clone", async () => {
+            order.push(successor)
+          })
+        } else {
+          dispatch({ type: "close-start", attemptId: "close" })
+          next = owner.enqueue(
+            { kind: "close", attemptId: "close" },
+            async () => {
+              order.push(successor)
+            },
+          )
+        }
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        assert.equal(order.includes(successor), false)
+        release.resolve()
+        await Promise.all([running, next])
+        assert.equal(order.at(-1), successor)
+        assert.ok(order.includes("publication"))
+        assert.ok(order.includes("follow-up"))
+      })
+    }
+  }
+
+  it("owns picker publication and the preview follow-up in one body", async () => {
+    const picked = deferred<void>()
+    const release = deferred<void>()
+    const order: string[] = []
+    const { gateway } = harness(
+      workflowClient(async () => {
+        order.push("preview")
+      }),
+    )
+    const body = gateway.execute("pickUserFile", async (scope) => {
+      await scope.direct("pickUserFile", async () => {
+        picked.resolve()
+        await release.promise
+      })
+      scope.publish(() => order.push("file"))
+      await scope.run("groupSet.previewImportFromFile", {} as never)
+      scope.publish(() => order.push("result"))
+    })
+    await picked.promise
+    const command = gateway.execute("repo.clone", async () => {
+      order.push("command")
+    })
+    release.resolve()
+    await Promise.all([body, command])
+    assert.deepEqual(order, ["file", "preview", "result", "command"])
+  })
+
+  it("applies a command result through its owner while unrelated course edits stay frozen", async () => {
+    const course = createBlankCourse("course", "2026-09-07T00:00:00Z", {
+      backing: "lms",
+      displayName: "Original",
+    })
+    useCourseStore.getState().hydrate(course)
+    const { gateway } = harness()
+    let retained: SessionOperationScope | undefined
+    await gateway.execute("roster.importFromFile", async (scope) => {
+      retained = scope
+      assert.equal(
+        gateway.change(() =>
+          useCourseStore.getState().setDisplayName("Unrelated"),
+        ),
+        false,
+      )
+      scope.mutateCourse("other", (actions) =>
+        actions.setDisplayName("Wrong course"),
+      )
+      scope.mutateCourse(course.id, (actions) =>
+        actions.setDisplayName("Imported"),
+      )
+      assert.equal(useCourseStore.getState().course?.displayName, "Imported")
+    })
+    assert.throws(
+      () =>
+        retained?.mutateCourse(course.id, (actions) =>
+          actions.setDisplayName("Late"),
+        ),
+      /retired/,
+    )
+    useCourseStore.getState().clear()
+  })
+
+  it("keeps handled host refusal publication inside the body", async () => {
+    const { gateway } = harness(
+      workflowClient(async () => {
+        throw new Error("refused")
+      }),
+    )
+    const order: string[] = []
+    await gateway.execute("roster.importFromFile", async (scope) => {
+      try {
+        await scope.run("roster.importFromFile", {} as never)
+      } catch {
+        scope.publish(() => order.push("refusal"))
+      }
+    })
+    await gateway.execute("repo.clone", async () => {
+      order.push("next")
+    })
+    assert.deepEqual(order, ["refusal", "next"])
+  })
+
   it("refuses a host result that arrives after disposal", async () => {
     const started = deferred<void>()
     const host = deferred<void>()

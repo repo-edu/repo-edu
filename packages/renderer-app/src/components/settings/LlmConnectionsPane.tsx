@@ -160,7 +160,7 @@ export function LlmConnectionsPane() {
     setEditorStatus("verifying")
     setEditorError(null)
     try {
-      const result = await workflowClient.run(
+      const result = await workflowClient.presentation(
         "connection.verifyLlmDraft",
         verifyInputFromDraft(d),
       )
@@ -226,7 +226,7 @@ export function LlmConnectionsPane() {
   const handleVerifySaved = async (connection: PersistedLlmConnection) => {
     setLlmStatus(connection.id, "verifying", null)
     try {
-      const result = await workflowClient.run(
+      const result = await workflowClient.presentation(
         "connection.verifyLlmDraft",
         verifyInputFromConnection(connection),
       )

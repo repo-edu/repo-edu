@@ -59,21 +59,25 @@ export function StudentsTab() {
   const handleExport = async (format: "csv" | "xlsx") => {
     if (!course || !roster) return
 
-    try {
-      const target = await rendererHost.pickSaveTarget({
-        suggestedName: `students.${format}`,
-      })
-      if (!target) return
+    await workflowClient.execute("roster.exportMembers", async (scope) => {
+      try {
+        const target = await scope.direct("pickSaveTarget", () =>
+          rendererHost.pickSaveTarget({
+            suggestedName: `students.${format}`,
+          }),
+        )
+        if (!target) return
 
-      await workflowClient.run("roster.exportMembers", {
-        course,
-        target,
-        format,
-      })
-    } catch (err) {
-      const message = getErrorMessage(err)
-      addToast(`Export failed: ${message}`, { tone: "error" })
-    }
+        await scope.run("roster.exportMembers", {
+          course,
+          target,
+          format,
+        })
+      } catch (err) {
+        const message = getErrorMessage(err)
+        addToast(`Export failed: ${message}`, { tone: "error" })
+      }
+    })
   }
 
   if (!course || !courseHasRoster(course)) {

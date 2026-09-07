@@ -20,7 +20,7 @@ import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
-import { useSessionController } from "../../session/session-controller-context.js"
+import type { SessionOperationScope } from "../../session/session-operations.js"
 import {
   selectGroupSetById,
   useCourseStore,
@@ -66,7 +66,6 @@ export function ImportGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
-  const controller = useSessionController()
   const rendererHost = useRendererHost()
   const workflowClient = useWorkflowClient()
 
@@ -108,6 +107,7 @@ export function ImportGroupSetDialog() {
   }, [preview])
 
   const runPreview = async (
+    scope: SessionOperationScope,
     nextFileRef: NonNullable<typeof fileRef>,
     nextFormat: GroupSetImportFormat,
   ) => {
@@ -119,15 +119,12 @@ export function ImportGroupSetDialog() {
     setLoading(true)
     setError(null)
     try {
-      const result = await workflowClient.run(
-        "groupSet.previewImportFromFile",
-        {
-          course,
-          file: nextFileRef,
-          format: nextFormat,
-          targetGroupSetId,
-        },
-      )
+      const result = await scope.run("groupSet.previewImportFromFile", {
+        course,
+        file: nextFileRef,
+        format: nextFormat,
+        targetGroupSetId,
+      })
       setPreview(result)
     } catch (cause) {
       setPreview(null)
@@ -139,66 +136,72 @@ export function ImportGroupSetDialog() {
 
   const handleBrowse = async () => {
     if (!format) return
-    try {
-      const acceptFormats =
-        format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
-      const picked = await rendererHost.pickUserFile({
-        title: "Select group-set import file",
-        acceptFormats,
-      })
-      if (!picked) return
+    await workflowClient.execute("pickUserFile", async (scope) => {
+      try {
+        const acceptFormats =
+          format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
+        const picked = await scope.direct("pickUserFile", () =>
+          rendererHost.pickUserFile({
+            title: "Select group-set import file",
+            acceptFormats,
+          }),
+        )
+        if (!picked) return
 
-      setFileRef(picked)
-      setFileName(picked.displayName)
-      await runPreview(picked, format)
-    } catch (cause) {
-      setError(getErrorMessage(cause))
-    }
+        setFileRef(picked)
+        setFileName(picked.displayName)
+        await runPreview(scope, picked, format)
+      } catch (cause) {
+        setError(getErrorMessage(cause))
+      }
+    })
   }
 
   const handleImport = async () => {
     if (!canImport || !course || !fileRef || !format) return
 
-    setImporting(true)
-    setError(null)
-    setGroupSetOperation(
-      isReimport
-        ? { kind: "reimport", groupSetId: reimportTargetId as string }
-        : { kind: "import" },
-    )
+    await workflowClient.execute("groupSet.importFromFile", async (scope) => {
+      setImporting(true)
+      setError(null)
+      setGroupSetOperation(
+        isReimport
+          ? { kind: "reimport", groupSetId: reimportTargetId as string }
+          : { kind: "import" },
+      )
 
-    try {
-      const nextCourse = await workflowClient.run("groupSet.importFromFile", {
-        course,
-        file: fileRef,
-        format,
-        targetGroupSetId,
-      })
+      try {
+        const nextCourse = await scope.run("groupSet.importFromFile", {
+          course,
+          file: fileRef,
+          format,
+          targetGroupSetId,
+        })
 
-      const actionLabel = isReimport
-        ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
-        : "Import group set from file"
-      controller.mutateCourse(course.id, (actions) => {
-        actions.setRoster(nextCourse.roster, actionLabel)
-        actions.setIdSequences(nextCourse.idSequences)
+        const actionLabel = isReimport
+          ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
+          : "Import group set from file"
+        scope.mutateCourse(course.id, (actions) => {
+          actions.setRoster(nextCourse.roster, actionLabel)
+          actions.setIdSequences(nextCourse.idSequences)
 
-        if (!isReimport) {
-          const importedSet = [...nextCourse.roster.groupSets]
-            .reverse()
-            .find((groupSet) => groupSet.connection?.kind === "import")
-          if (importedSet) {
-            setSidebarSelection({ kind: "group-set", id: importedSet.id })
+          if (!isReimport) {
+            const importedSet = [...nextCourse.roster.groupSets]
+              .reverse()
+              .find((groupSet) => groupSet.connection?.kind === "import")
+            if (importedSet) {
+              setSidebarSelection({ kind: "group-set", id: importedSet.id })
+            }
           }
-        }
-      })
+        })
 
-      handleClose()
-    } catch (cause) {
-      setError(getErrorMessage(cause))
-    } finally {
-      setImporting(false)
-      setGroupSetOperation(null)
-    }
+        handleClose()
+      } catch (cause) {
+        setError(getErrorMessage(cause))
+      } finally {
+        setImporting(false)
+        setGroupSetOperation(null)
+      }
+    })
   }
 
   const handleClose = () => {
