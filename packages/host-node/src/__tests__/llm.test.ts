@@ -66,7 +66,9 @@ describe("createNodeLlmTextClient", () => {
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
-      async stopAndConfirm() {},
+      async stopAndConfirm() {
+        return { outcome: "confirmed" }
+      },
     }
     const client = createNodeLlmTextClient(
       controller,
@@ -202,7 +204,9 @@ describe("createNodeLlmTextClient", () => {
           }
           return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
         },
-        async stopAndConfirm() {},
+        async stopAndConfirm() {
+          return { outcome: "confirmed" }
+        },
       }
       await launchNodeCodexSdkHost(
         controller,

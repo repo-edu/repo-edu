@@ -73,12 +73,16 @@ function close(
             "accepted",
             [{ type: "prepare-close", request }],
           )
-        : transition({
-            phase: "closing.draining",
-            calls: state.calls,
-            reason,
-            request,
-          })
+        : transition(
+            {
+              phase: "closing.draining",
+              calls: state.calls,
+              reason,
+              request,
+            },
+            "accepted",
+            [{ type: "disable-input" }],
+          )
     case "starting":
     case "preparing":
     case "executing.running":

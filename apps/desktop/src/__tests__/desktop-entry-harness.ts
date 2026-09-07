@@ -46,7 +46,7 @@ export const BrowserWindow = {
     setEnabled: () => trace("disable")
   }]
 }
-export const dialog = { showErrorBox: () => trace("dialog") }
+export const dialog = { showErrorBox: (_title, message) => { trace("dialog"); trace(message) } }
 export const ipcMain = {}, Menu = {}, MessageChannelMain = {}, nativeTheme = {}, shell = {}
 globalThis.afterEntry = async () => {
   const turn = () => new Promise(resolve => setImmediate(resolve))
@@ -55,6 +55,12 @@ globalThis.afterEntry = async () => {
   globalThis.holdGate()
   await turn()
   trace("after-gate")
+  if (process.env.ENTRY_CASE === "close-before-ready") {
+    app.quit()
+    ready()
+    await turn()
+    return
+  }
   if (process.env.ENTRY_CASE === "unhandled-rejection") {
     Promise.reject(new Error("unhandled rejection"))
     return
@@ -113,8 +119,16 @@ const collaborators: Record<string, string> = {
     export const runChildLifetimeArtifactProbe = () => {}
   `,
   "./child-process-lifetime": `
-    export const createDesktopChildProcessLifetimeController = () => ({
-      stopAndConfirm: async () => { trace("stop-owned-work") }
+    export const createDesktopChildProcessLifetimeController = (options) => ({
+      stopAndConfirm: async () => {
+        trace("stop-owned-work")
+        await new Promise(resolve => setImmediate(resolve))
+        if (process.env.ENTRY_CASE === "unconfirmed-close") {
+          options.showWarning("warning", "first expired tree")
+          options.showWarning("warning", "second expired tree")
+        }
+        return { outcome: process.env.ENTRY_CASE === "unconfirmed-close" ? "unconfirmed" : "confirmed" }
+      }
     })
   `,
   "./codex-binary": "export const resolveUnpackedCodexBinaryPath = () => {}",

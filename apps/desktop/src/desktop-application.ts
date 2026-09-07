@@ -65,6 +65,7 @@ import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
 import { installDesktopSessionLifetime } from "./desktop-session-lifetime"
+import { endDesktopHost, isDesktopEnding } from "./desktop-terminal"
 import { installDesktopTerminalSources } from "./desktop-terminal-sources"
 import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
@@ -104,11 +105,6 @@ export function installDesktopApplication(): void {
     return error instanceof Error ? error.message : String(error)
   }
 
-  function terminateDesktop(label: string, error: unknown): void {
-    process.stderr.write(`[desktop] ${label} ${desktopErrorText(error)}\n`)
-    app.exit(1)
-  }
-
   const startupMarker = "repo-edu-desktop-cold-start"
   const trpcMarker = "repo-edu-desktop-trpc"
   const docsWebsiteUrl = "https://repo-edu.github.io/repo-edu/"
@@ -130,13 +126,16 @@ export function installDesktopApplication(): void {
   const childProcessLifetimeController =
     createDesktopChildProcessLifetimeController({
       appName: desktopAppName,
-      showWarning: (title, message) =>
+      showWarning: (title, message) => {
+        // Shutdown presents one fatal warning from the controller's ending.
+        if (isDesktopEnding(admission.getSnapshot())) return
         dialog.showMessageBoxSync({
           buttons: ["OK"],
           message,
           title,
           type: "warning",
-        }),
+        })
+      },
       writeStderr: (message) => process.stderr.write(message),
       windowsAdapter:
         process.platform === "win32"
@@ -300,6 +299,10 @@ export function installDesktopApplication(): void {
   }
 
   function performAdmissionEffect(effect: HostAdmissionEffect): void {
+    if (effect.type === "disable-input") {
+      disableInput()
+      return
+    }
     // The request transport sends admission and preparation on the retained port.
     if (effect.type === "prepare-command") return
     // The validated input receiver owns the async handler body after this
@@ -328,20 +331,33 @@ export function installDesktopApplication(): void {
       return
     }
     if (effect.type === "end-host") {
-      for (const window of BrowserWindow.getAllWindows())
-        window.setEnabled(false)
-      void childProcessLifetimeController.stopAndConfirm().then(
-        () => {
-          closeExaminationArchiveDatabase()
-          if (effect.reason === "update-restart") quitAndInstall()
-          else app.exit(effect.reason === "failure" ? 1 : 0)
+      void endDesktopHost({
+        reason: effect.reason,
+        controller: childProcessLifetimeController,
+        snapshot: admission.getSnapshot,
+        disableInput,
+        closeStorage: closeExaminationArchiveDatabase,
+        warn: (message) =>
+          dialog.showErrorBox(
+            `${desktopAppName} could not confirm shutdown`,
+            message,
+          ),
+        report: (error) => {
+          process.stderr.write(
+            `[desktop] shutdown-failed ${desktopErrorText(error)}\n`,
+          )
         },
-        (error: unknown) => terminateDesktop("shutdown-failed", error),
-      )
+        exit: (code) => app.exit(code),
+        installUpdate: quitAndInstall,
+      })
       return
     }
     // Request-port execution is connected by the later command steps.
     admission.terminal(new Error(`Unconnected request effect: ${effect.type}`))
+  }
+
+  function disableInput(): void {
+    for (const window of BrowserWindow.getAllWindows()) window.setEnabled(false)
   }
 
   function closeExaminationArchiveDatabase() {
@@ -868,7 +884,7 @@ export function installDesktopApplication(): void {
     }
 
     await ready
-    await startDesktop()
+    if (admission.getSnapshot().phase === "starting") await startDesktop()
   }
 
   // Register readiness without keeping Electron's entry import pending.

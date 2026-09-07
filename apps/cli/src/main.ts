@@ -59,8 +59,9 @@ async function runCli(): Promise<void> {
       ? {
           launch: childProcessLifetimeController.launch,
           async stopAndConfirm() {
-            await childProcessLifetimeController.stopAndConfirm()
-            childProcessLifetimeStopConfirmed = true
+            const ending = await childProcessLifetimeController.stopAndConfirm()
+            childProcessLifetimeStopConfirmed = ending.outcome === "confirmed"
+            return ending
           },
         }
       : childProcessLifetimeController

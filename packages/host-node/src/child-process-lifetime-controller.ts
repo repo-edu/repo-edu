@@ -25,6 +25,10 @@ export const childProcessLifetimeStopPolicy: ChildProcessLifetimeStopPolicy = {
   gracefulStopPeriodMs: childProcessStopGracePeriodMs,
 }
 
+export type ChildProcessLifetimeEnding =
+  | { readonly outcome: "confirmed" }
+  | { readonly outcome: "unconfirmed" }
+
 export type ChildProcessLifetimeController = {
   launch<
     TCompleted = ChildProcessLifetimeResult,
@@ -32,7 +36,7 @@ export type ChildProcessLifetimeController = {
   >(
     request: ChildProcessLifetimeLaunch,
   ): Promise<OwnedChildProcessTree<TCompleted, TFailed>>
-  stopAndConfirm(): Promise<void>
+  stopAndConfirm(): Promise<ChildProcessLifetimeEnding>
 }
 
 export type ChildProcessLifetimeControllerOptions = {
@@ -202,7 +206,7 @@ export function createChildProcessLifetimeController(
 ): ChildProcessLifetimeController {
   const activeTrees = new Map<symbol, RegisteredProcessTree>()
   const pendingLaunches = new Set<PendingProcessTree>()
-  let shutdown: Promise<void> | undefined
+  let shutdown: Promise<ChildProcessLifetimeEnding> | undefined
 
   const reportSecondaryFailure = (command: string, failure: unknown): void => {
     options.diagnosticSink({
@@ -260,7 +264,13 @@ export function createChildProcessLifetimeController(
         )
         .catch((error: unknown) => {
           if (error instanceof ChildProcessTreeUnconfirmedError) {
-            throw reportUnconfirmedTree(request.command, error)
+            const failure = reportUnconfirmedTree(request.command, error)
+            // Retain expired launch cleanup just like an expired active tree.
+            // A later shutdown cannot claim confirmation for either one.
+            activeTrees.set(Symbol("unconfirmed-launch"), {
+              confirm: async () => ({ status: "unconfirmed", failure }),
+            })
+            throw failure
           }
           throw error
         })
@@ -450,9 +460,16 @@ export function createChildProcessLifetimeController(
             )
           }
         }
-        await Promise.all(
+        const confirmations = await Promise.all(
           [...activeTrees.values()].map((tree) => tree.confirm()),
         )
+        return {
+          outcome: confirmations.some(
+            (result) => result.status === "unconfirmed",
+          )
+            ? "unconfirmed"
+            : "confirmed",
+        }
       })()
 
       return shutdown

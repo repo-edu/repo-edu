@@ -262,10 +262,13 @@ describe("desktop host admission", () => {
     first()
     first()
     assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
-    assert.deepEqual(effects, [])
+    assert.deepEqual(effects, [{ type: "disable-input" }])
     second()
     second()
-    assert.deepEqual(effects, [{ type: "prepare-close", request: current }])
+    assert.deepEqual(effects, [
+      { type: "disable-input" },
+      { type: "prepare-close", request: current },
+    ])
     dispatch({
       type: "host-start",
       source: "application-quit",

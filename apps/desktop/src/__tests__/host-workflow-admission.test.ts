@@ -40,12 +40,12 @@ it("keeps a stopped accepted call in the drain until its handler settles", async
   h.receive(stopMessage())
   assert.equal(signal?.aborted, true)
   assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 1)
-  assert.deepEqual(h.effects, [])
+  assert.deepEqual(h.effects, [{ type: "disable-input" }])
   body.resolve(undefined)
   await flushTransport()
   assert.equal(h.admission.getSnapshot().phase, "closing.preparing")
-  assert.equal(h.effects.length, 1)
-  assert.equal(h.effects[0]?.type, "prepare-close")
+  assert.equal(h.effects.length, 2)
+  assert.equal(h.effects[1]?.type, "prepare-close")
   assert.deepEqual(
     h.responses.map((response) => "result" in response && response.result.type),
     ["started", "stopped"],

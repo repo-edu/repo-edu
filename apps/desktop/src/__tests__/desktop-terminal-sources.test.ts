@@ -12,6 +12,7 @@ import type {
 import { createHostRequestTransport } from "../host-request-transport"
 import {
   flushTransport,
+  observeTerminalEnding,
   startMessage,
   transportHarness,
 } from "./desktop-transport-harness"
@@ -53,7 +54,11 @@ function sourceHarness() {
   const process = new EventEmitter()
   const renderer = new EventEmitter()
   const effects: HostAdmissionEffect[] = []
-  const admission = new HostAdmission((effect) => effects.push(effect))
+  const terminalTrace: string[] = []
+  const admission = new HostAdmission((effect) => {
+    effects.push(effect)
+    void observeTerminalEnding(effect, admission.getSnapshot, terminalTrace)
+  })
   const events = recordTerminalEvents(admission)
   const sources = installDesktopTerminalSources({
     app,
@@ -61,12 +66,12 @@ function sourceHarness() {
     terminal: admission.terminal,
   })
   sources.observeRenderer(renderer as unknown as WebContents)
-  return { app, process, renderer, admission, events, effects }
+  return { app, process, renderer, admission, events, effects, terminalTrace }
 }
 
 for (const type of [...Object.keys(childTypes), "Future child"]) {
   for (const reason of [...Object.keys(reasons), "future-reason"]) {
-    it(`classifies child loss ${type}/${reason} before reducer dispatch`, () => {
+    it(`classifies child loss ${type}/${reason} before reducer dispatch and ending`, async () => {
       const h = sourceHarness()
       h.app.emit(
         "child-process-gone",
@@ -87,21 +92,35 @@ for (const type of [...Object.keys(childTypes), "Future child"]) {
         assert.equal(event.error.cause, undefined)
         assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
       }
+      await flushTransport()
+      assert.deepEqual(
+        h.terminalTrace,
+        reason === "clean-exit"
+          ? []
+          : ["disable", "stop", "close-storage", "exit:1"],
+      )
     })
   }
 }
 
 for (const reason of [...Object.keys(reasons), "future-reason"]) {
-  it(`always reports session renderer loss: ${reason}`, () => {
+  it(`always reports session renderer loss: ${reason}`, async () => {
     const h = sourceHarness()
     h.renderer.emit("render-process-gone", {}, { reason, exitCode: 0 })
     assert.equal(h.events.length, 1)
     assert.equal(h.events[0].type, "terminal")
     assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    await flushTransport()
+    assert.deepEqual(h.terminalTrace, [
+      "disable",
+      "stop",
+      "close-storage",
+      "exit:1",
+    ])
   })
 }
 
-it("reports arbitrary rejection reasons and coalesces cascading sources through reducer state", () => {
+it("reports arbitrary rejection reasons and coalesces cascading sources through reducer state", async () => {
   for (const reason of [new Error("rejected"), "rejected", undefined]) {
     const h = sourceHarness()
     h.process.emit("unhandledRejection", reason, Promise.resolve())
@@ -109,6 +128,13 @@ it("reports arbitrary rejection reasons and coalesces cascading sources through 
     h.app.emit("child-process-gone", {}, { type: "GPU", reason: "killed" })
     assert.deepEqual(h.events, [{ type: "terminal", error: reason }])
     assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    await flushTransport()
+    assert.deepEqual(h.terminalTrace, [
+      "disable",
+      "stop",
+      "close-storage",
+      "exit:1",
+    ])
   }
 })
 
@@ -142,7 +168,7 @@ for (const [name, trigger] of Object.entries({
   "renderer-created window": (h: ReturnType<typeof transportHarness>) =>
     h.contents.openWindow(),
 })) {
-  it(`${name} reports one terminal event before workflow or shell work`, () => {
+  it(`${name} reports one terminal event before workflow or shell work`, async () => {
     const h = transportHarness(async () => assert.fail("Workflow started"))
     const events = recordTerminalEvents(h.admission)
     trigger(h)
@@ -151,6 +177,13 @@ for (const [name, trigger] of Object.entries({
     assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
     assert.deepEqual(h.direct, [])
     assert.deepEqual(h.responses, [])
+    await flushTransport()
+    assert.deepEqual(h.terminalTrace, [
+      "disable",
+      "stop",
+      "close-storage",
+      "exit:1",
+    ])
     h.gateway.dispose()
   })
 }
@@ -179,6 +212,13 @@ for (const source of [
       await until(() => h.events.length > 0)
       assert.equal(h.events.length, 1)
       assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+      await flushTransport()
+      assert.deepEqual(h.terminalTrace, [
+        "disable",
+        "stop",
+        "close-storage",
+        "exit:1",
+      ])
     } finally {
       transport.dispose()
       channel.dispose()
@@ -209,7 +249,16 @@ for (const workflow of [
     })
     await flushTransport()
     assert.deepEqual(events, [{ type: "terminal", error }])
-    assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    assert.deepEqual(h.terminalTrace, [
+      "disable",
+      "stop",
+      "close-storage",
+      "exit:1",
+    ])
+    assert.deepEqual(h.effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "failure" },
+    ])
     assert.equal(
       h.responses.some(
         (response) => "result" in response && response.result.type === "data",

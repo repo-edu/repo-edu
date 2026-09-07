@@ -380,6 +380,64 @@ describe("child-process completion outcomes", () => {
 })
 
 describe("child-process completion policy", () => {
+  for (const outcome of ["confirmed", "unconfirmed"] as const) {
+    it(`shutdown reports ${outcome} only after every registered tree settles`, async () => {
+      const harness = createAdapterHarness()
+      const warnings: ChildProcessTreeUnconfirmedError[] = []
+      const controller = createHarnessController(harness, [], warnings)
+      await controller.launch({ command: "first", proof: "reported" })
+      await controller.launch({ command: "second", proof: "reported" })
+      const ending = controller.stopAndConfirm()
+      assert.equal(controller.stopAndConfirm(), ending)
+      assert.equal(
+        await Promise.race([ending, Promise.resolve("pending")]),
+        "pending",
+      )
+      await assert.rejects(
+        controller.launch({ command: "late", proof: "reported" }),
+        /stopped/,
+      )
+      if (outcome === "confirmed") harness.confirmation.resolve()
+      else
+        harness.confirmation.reject(
+          new ChildProcessTreeUnconfirmedError("not gone"),
+        )
+      assert.deepEqual(await ending, { outcome })
+      assert.deepEqual(await controller.stopAndConfirm(), { outcome })
+      assert.equal(warnings.length, outcome === "confirmed" ? 0 : 2)
+    })
+  }
+
+  it("includes a pending launch's expired cleanup in the ending", async () => {
+    const failure = new ChildProcessTreeUnconfirmedError(
+      "pending launch not gone",
+    )
+    const warnings: ChildProcessTreeUnconfirmedError[] = []
+    const controller = createChildProcessLifetimeController({
+      runtimePlatform: "win32",
+      diagnosticSink() {},
+      warnUnconfirmedTree: (error) => warnings.push(error),
+      windowsAdapter: {
+        launch(_request, signal) {
+          return new Promise((_resolve, reject) => {
+            if (signal.aborted) reject(failure)
+            else
+              signal.addEventListener("abort", () => reject(failure), {
+                once: true,
+              })
+          })
+        },
+      },
+    })
+    const launch = controller.launch({ command: "pending", proof: "reported" })
+    const rejected = assert.rejects(launch, failure)
+    assert.deepEqual(await controller.stopAndConfirm(), {
+      outcome: "unconfirmed",
+    })
+    await rejected
+    assert.deepEqual(warnings, [failure])
+  })
+
   it("passes both controller-owned stop periods to the platform adapter", async () => {
     const harness = createAdapterHarness()
     const controller = createHarnessController(harness)
@@ -479,7 +537,9 @@ describe("child-process completion policy", () => {
       proof: "target-exit",
     })
     assert.equal((await laterTree.outcome).outcome, "completed")
-    await controller.stopAndConfirm()
+    assert.deepEqual(await controller.stopAndConfirm(), {
+      outcome: "unconfirmed",
+    })
 
     assert.deepEqual(warnings, [failure])
     assert.equal(diagnostics.length, 1)
@@ -531,6 +591,10 @@ describe("child-process completion policy", () => {
       proof: "target-exit",
     })
     assert.equal((await laterTree.outcome).outcome, "completed")
+
+    assert.deepEqual(await controller.stopAndConfirm(), {
+      outcome: "unconfirmed",
+    })
 
     assert.deepEqual(warnings, [failure])
     assert.equal(diagnostics.length, 1)

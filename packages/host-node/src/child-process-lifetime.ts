@@ -20,6 +20,7 @@ export {
 export type {
   ChildProcessLifetimeController,
   ChildProcessLifetimeControllerOptions,
+  ChildProcessLifetimeEnding,
 } from "./child-process-lifetime-controller.js"
 export {
   childProcessForcedStopConfirmationPeriodMs,

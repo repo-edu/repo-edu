@@ -76,6 +76,7 @@ export type HostAdmissionEvent =
   | { type: "terminal"; error: unknown }
 
 export type HostAdmissionEffect =
+  | { type: "disable-input" }
   | { type: "cancel-call"; call: AcceptedHostCall }
   | { type: "cancel-effect"; request: HostRequest }
   | { type: "prepare-command"; request: HostRequest }

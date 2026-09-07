@@ -74,7 +74,7 @@ async function valueWithin<T>(
 }
 
 async function completeWithin(
-  promise: Promise<void>,
+  promise: Promise<unknown>,
   durationMs: number,
 ): Promise<void> {
   await valueWithin(promise, durationMs)

@@ -102,7 +102,16 @@ it("an archive read failure cannot become an ordinary workflow error or start cl
   })
   await flushTransport()
   assert.deepEqual(h.admission.getSnapshot(), { phase: "terminal", error })
-  assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+  assert.deepEqual(h.terminalTrace, [
+    "disable",
+    "stop",
+    "close-storage",
+    "exit:1",
+  ])
+  assert.deepEqual(h.effects, [
+    { type: "disable-input" },
+    { type: "end-host", reason: "failure" },
+  ])
   assert.equal(
     h.responses.some(
       (response) => "result" in response && response.result.type === "data",

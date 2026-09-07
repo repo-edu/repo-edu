@@ -9,9 +9,38 @@ import type {
   IpcMainInvokeEvent,
 } from "electron"
 import { installDesktopEntryGateway } from "../desktop-entry-gateway"
+import { endDesktopHost } from "../desktop-terminal"
 import { desktopEntryChannel } from "../desktop-wire"
 import { HostAdmission } from "../host-admission"
-import type { HostAdmissionEffect } from "../host-admission-model"
+import type {
+  HostAdmissionEffect,
+  HostAdmissionState,
+} from "../host-admission-model"
+
+export function observeTerminalEnding(
+  effect: HostAdmissionEffect,
+  snapshot: () => HostAdmissionState,
+  trace: string[],
+) {
+  if (effect.type !== "end-host") return
+  return endDesktopHost({
+    reason: effect.reason,
+    snapshot,
+    controller: {
+      async stopAndConfirm() {
+        trace.push("stop")
+        return { outcome: "confirmed" }
+      },
+    },
+    disableInput: () => trace.push("disable"),
+    closeStorage: () => trace.push("close-storage"),
+    warn: () => trace.push("warn"),
+    report: () => trace.push("report"),
+    exit: (code) => trace.push(`exit:${code}`),
+    installUpdate: () => trace.push("install"),
+  })
+}
+
 import { createDesktopWorkflowRouter } from "../trpc"
 
 export function transportHarness(
@@ -22,7 +51,11 @@ export function transportHarness(
   const responses: TRPCResponseMessage[] = []
   const effects: HostAdmissionEffect[] = []
   const direct: unknown[] = []
-  const admission = new HostAdmission((effect) => effects.push(effect))
+  const terminalTrace: string[] = []
+  const admission = new HostAdmission((effect) => {
+    effects.push(effect)
+    void observeTerminalEnding(effect, admission.getSnapshot, terminalTrace)
+  })
   const listeners = new Map<
     string,
     (event: IpcMainEvent, raw: unknown) => void
@@ -101,6 +134,7 @@ export function transportHarness(
   return {
     admission,
     responses,
+    terminalTrace,
     effects,
     gateway,
     event,

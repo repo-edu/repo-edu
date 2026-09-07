@@ -94,7 +94,9 @@ describe("createNodeGitCommandPort", () => {
         }
         return owned as unknown as OwnedChildProcessTree<TCompleted, TFailed>
       },
-      async stopAndConfirm() {},
+      async stopAndConfirm() {
+        return { outcome: "confirmed" }
+      },
     }
 
     const result = await createNodeGitCommandPort(
