@@ -52,9 +52,12 @@ import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
 
-import type { HostAdmission } from "./host-admission"
+export type DesktopWorkflowContext = {
+  signal: AbortSignal
+  settle(): void
+}
 
-const t = initTRPC.create()
+const t = initTRPC.context<DesktopWorkflowContext>().create()
 
 type DesktopWorkflowId = keyof typeof workflowCatalog
 
@@ -70,7 +73,6 @@ export type DesktopRouterPorts = {
   examinationArchive: ExaminationArchiveStoragePort
   initialSettingsLoadResult?: AppSettingsLoadResult
   initialSettingsLoadError?: unknown
-  admission: HostAdmission
   /**
    * Called whenever `settings.saveCredentials` succeeds. Composition root uses
    * this to rebuild the LLM port delegate so the next workflow run sees the
@@ -288,49 +290,35 @@ function createDesktopWorkflowRegistry(
 
 function createWorkflowSubscriptionProcedure<
   TWorkflowId extends DesktopWorkflowId,
->(
-  handler: WorkflowHandler<TWorkflowId>,
-  workflowId: TWorkflowId,
-  admission: HostAdmission,
-) {
+>(handler: WorkflowHandler<TWorkflowId>) {
   return t.procedure
     .input({
       parse(value: unknown): WorkflowInput<TWorkflowId> {
         return value as WorkflowInput<TWorkflowId>
       },
     })
-    .subscription(({ input }) =>
+    .subscription(({ input, ctx }) =>
       observable<WorkflowEventFor<TWorkflowId>>((emit) => {
-        const abortController = new AbortController()
-        const settleInvocation = admission.startWorkflow(workflowId, {
-          cancel: () => abortController.abort(),
-        })
+        const settleInvocation = ctx.settle
+        if (ctx.signal.aborted) {
+          settleInvocation()
+          emit.complete()
+          return
+        }
         try {
           const emitNext = (value: WorkflowEventFor<TWorkflowId>) => {
-            if (abortController.signal.aborted) {
+            if (ctx.signal.aborted) {
               return
             }
 
-            try {
-              emit.next(value)
-            } catch {
-              // Stream can already be closed during shutdown races.
-            }
+            emit.next(value)
           }
           const emitComplete = () => {
-            if (abortController.signal.aborted) {
-              return
-            }
-
-            try {
-              emit.complete()
-            } catch {
-              // Stream can already be closed during shutdown races.
-            }
+            emit.complete()
           }
 
           handler(input, {
-            signal: abortController.signal,
+            signal: ctx.signal,
             onProgress(data) {
               emitNext({ type: "progress", data })
             },
@@ -345,10 +333,6 @@ function createWorkflowSubscriptionProcedure<
             })
             .catch((error) => {
               settleInvocation()
-              if (abortController.signal.aborted) {
-                return
-              }
-
               emitNext({
                 type: "failed",
                 error: toAppError(error),
@@ -356,10 +340,6 @@ function createWorkflowSubscriptionProcedure<
               emitComplete()
             })
             .finally(settleInvocation)
-
-          return () => {
-            abortController.abort()
-          }
         } catch (error) {
           settleInvocation()
           throw error
@@ -374,23 +354,17 @@ function createWorkflowSubscriptionProcedure<
  * Workflow registration is compile-time exhaustive through WorkflowHandlerMap.
  */
 export function createDesktopRouter(ports: DesktopRouterPorts) {
-  return createDesktopWorkflowRouter(
-    createDesktopWorkflowRegistry(ports),
-    ports.admission,
-  )
+  return createDesktopWorkflowRouter(createDesktopWorkflowRegistry(ports))
 }
 
 export function createDesktopWorkflowRouter(
   workflowRegistry: WorkflowHandlerMap<DesktopWorkflowId>,
-  admission: HostAdmission,
 ) {
   const procedures = Object.fromEntries(
     (Object.keys(workflowRegistry) as DesktopWorkflowId[]).map((workflowId) => [
       workflowId,
       createWorkflowSubscriptionProcedure(
         workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
-        workflowId,
-        admission,
       ),
     ]),
   )

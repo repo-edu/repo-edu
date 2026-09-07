@@ -113,9 +113,7 @@ function baseIdentity(pkg: {
 
 function isExpectedScannerMiss(pkg: ReachedPackage): boolean {
   return (
-    isOpenAiCodexPlatformOptional(pkg) ||
-    isAbsentKoffiPlatformOptional(pkg) ||
-    isElectronBuildTimeSubtreeMiss(pkg)
+    isOpenAiCodexPlatformOptional(pkg) || isAbsentKoffiPlatformOptional(pkg)
   )
 }
 
@@ -133,16 +131,6 @@ function isAbsentKoffiPlatformOptional(pkg: ReachedPackage): boolean {
     pkg.paths.every(
       (path) => path.at(-1) === pkg.reachedName && path.at(-2) === "koffi",
     )
-  )
-}
-
-function isElectronBuildTimeSubtreeMiss(pkg: ReachedPackage): boolean {
-  return (
-    pkg.paths.length > 0 &&
-    pkg.paths.every((path) => {
-      const electronIndex = path.indexOf("electron")
-      return electronIndex > 0 && path[electronIndex - 1] === "trpc-electron"
-    })
   )
 }
 

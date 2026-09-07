@@ -37,21 +37,15 @@ const scannerCustomFormat = {
 // Third-party packages that ship no scanner-discoverable license file and so
 // rely on metadata-only evidence. Keys are pinned to the installed
 // `name@version` because license-checker matches clarifications by exact
-// version: a codex-sdk or trpc-electron bump invalidates the key, the scanner
+// version: a Codex package bump invalidates the key, the scanner
 // then reports no license file and the gate fails closed until the pin is
-// refreshed against pnpm-lock.yaml. That coupling is deliberate, not an
-// oversight, because it forces a re-check whenever the package, and therefore
-// its licensing, changes.
+// refreshed against pnpm-lock.yaml. The gate re-checks the license evidence
+// whenever the package changes.
 const checkerClarifications = {
   "@openai/codex@0.147.0": {
     license: "Apache-2.0",
     context:
       "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
-  },
-  "trpc-electron@0.1.2": {
-    license: "MIT",
-    context:
-      "License checker clarification for trpc-electron publishes the package metadata license because the installed package has no dedicated license file.",
   },
 } as const
 

@@ -16,7 +16,7 @@ import {
   workflowCatalog,
 } from "@repo-edu/application-contract"
 import { createTRPCClient } from "@trpc/client"
-import { ipcLink } from "trpc-electron/renderer"
+import { desktopTrpcLink } from "./desktop-trpc-link"
 import type { DesktopRouter } from "./trpc"
 
 type DesktopWorkflowId = keyof typeof workflowCatalog
@@ -34,8 +34,10 @@ function getTrpcClient(): ReturnType<typeof createTRPCClient<DesktopRouter>> {
     return trpcClient
   }
 
+  const bridge = window.repoEduTrpc
+  if (!bridge) throw new Error("The desktop workflow bridge is unavailable.")
   trpcClient = createTRPCClient<DesktopRouter>({
-    links: [ipcLink<DesktopRouter>()],
+    links: [desktopTrpcLink(bridge)],
   })
   return trpcClient
 }

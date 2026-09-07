@@ -1,125 +1,101 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
+import { acceptedHostCallCount } from "../host-admission-model"
 import {
-  type WorkflowHandlerMap,
-  type WorkflowId,
-  workflowCatalog,
-} from "@repo-edu/application-contract"
-import { HostAdmission } from "../host-admission"
-import {
-  acceptedHostCallCount,
-  type HostAdmissionEffect,
-} from "../host-admission-model"
-import { createDesktopWorkflowRouter } from "../trpc"
+  flushTransport,
+  startMessage,
+  stopMessage,
+  transportHarness,
+} from "./desktop-transport-harness"
 
-function harness(
-  handler: (workflow: WorkflowId, signal?: AbortSignal) => Promise<unknown>,
-) {
-  const effects: HostAdmissionEffect[] = []
-  const admission = new HostAdmission((effect) => effects.push(effect))
-  const registry = Object.fromEntries(
-    Object.keys(workflowCatalog).map((id) => [
-      id,
-      (_input: unknown, options?: { signal?: AbortSignal }) =>
-        handler(id as WorkflowId, options?.signal),
-    ]),
-  ) as WorkflowHandlerMap
-  const caller = createDesktopWorkflowRouter(registry, admission).createCaller(
-    {},
+it("admits startup synchronously and settles before publishing its result", async () => {
+  const h = transportHarness(async () => undefined)
+  h.receive(startMessage("settings.loadApp", undefined))
+  assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 1)
+  await flushTransport()
+  assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+  assert.equal(h.responses.length, 3)
+  assert.equal(
+    h.admission.dispatch({ type: "bootstrap-acknowledged" }),
+    "accepted",
   )
-  return { admission, caller, effects }
-}
-
-it("settles host startup before publishing its terminal tRPC result", async () => {
-  const { admission, caller } = harness(async () => undefined)
-  const stream = await caller["settings.loadApp"](undefined)
-  const done = Promise.withResolvers<void>()
-  stream.subscribe({
-    next() {
-      assert.equal(acceptedHostCallCount(admission.getSnapshot()), 0)
-      assert.equal(
-        admission.dispatch({ type: "bootstrap-acknowledged" }),
-        "accepted",
-      )
-    },
-    complete: done.resolve,
-    error: done.reject,
-  })
-  await done.promise
-  assert.equal(admission.getSnapshot().phase, "interactive")
 })
 
 it("keeps a stopped accepted call in the drain until its handler settles", async () => {
-  const body = Promise.withResolvers<unknown>()
+  const body = Promise.withResolvers<undefined>()
   let signal: AbortSignal | undefined
-  const { admission, caller, effects } = harness(
-    async (_id, receivedSignal) => {
-      signal = receivedSignal
-      return await body.promise
-    },
-  )
-  admission.dispatch({ type: "bootstrap-acknowledged" })
-  const stream = await caller["course.list"](undefined)
-  const subscription = stream.subscribe({
-    next: () => assert.fail("Stopped stream published a result"),
+  const h = transportHarness(async (_input, options) => {
+    signal = options?.signal
+    return await body.promise
   })
-  assert.equal(acceptedHostCallCount(admission.getSnapshot()), 1)
-  admission.dispatch({
+  h.admission.dispatch({ type: "bootstrap-acknowledged" })
+  h.receive(startMessage("course.list", undefined))
+  await flushTransport()
+  h.admission.dispatch({
     type: "host-start",
     source: "window-close",
     request: { cancel() {} },
   })
-  subscription.unsubscribe()
-  subscription.unsubscribe()
+  h.receive(stopMessage())
+  h.receive(stopMessage())
   assert.equal(signal?.aborted, true)
-  assert.equal(acceptedHostCallCount(admission.getSnapshot()), 1)
-  assert.deepEqual(effects, [])
-  body.resolve([])
-  await new Promise<void>((resolve) => setImmediate(resolve))
-  assert.equal(admission.getSnapshot().phase, "closing.preparing")
-  assert.equal(effects.length, 1)
-  assert.equal(effects[0]?.type, "prepare-close")
+  assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 1)
+  assert.deepEqual(h.effects, [])
+  body.resolve(undefined)
+  await flushTransport()
+  assert.equal(h.admission.getSnapshot().phase, "closing.preparing")
+  assert.equal(h.effects.length, 1)
+  assert.equal(h.effects[0]?.type, "prepare-close")
+  assert.deepEqual(
+    h.responses.map((response) => "result" in response && response.result.type),
+    ["started", "stopped"],
+  )
 })
 
-it("refuses exclusive and cancellation workflows on the ordinary transport before handlers", async () => {
+it("installs call identity before asynchronous dispatch so immediate stop prevents the handler", async () => {
   let starts = 0
-  const { admission, caller } = harness(async () => {
+  const h = transportHarness(async () => {
     starts++
   })
-  admission.dispatch({ type: "bootstrap-acknowledged" })
-  for (const id of ["repo.clone", "examination.stopGeneration"]) {
-    const stream = await caller[id](undefined)
-    assert.throws(() => stream.subscribe({}), /not accepting/)
-  }
+  h.admission.dispatch({ type: "bootstrap-acknowledged" })
+  h.receive(startMessage("course.list", undefined))
+  h.receive(stopMessage())
+  h.receive(stopMessage())
+  await flushTransport()
+  h.receive(stopMessage())
+  h.receive(stopMessage(999))
   assert.equal(starts, 0)
-  assert.equal(acceptedHostCallCount(admission.getSnapshot()), 0)
+  assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+  assert.deepEqual(h.responses, [{ id: 1, result: { type: "stopped" } }])
+  assert.equal(h.admission.getSnapshot().phase, "interactive")
 })
 
-it("settles synchronous setup failures before propagating them", async () => {
-  const { admission, caller } = harness(() => {
-    throw new Error("setup failed")
+for (const synchronous of [true, false]) {
+  it(`settles ${synchronous ? "synchronous" : "asynchronous"} handler failures exactly once`, async () => {
+    const h = transportHarness(() => {
+      if (synchronous) throw new Error("handler failed")
+      return Promise.reject(new Error("handler failed"))
+    })
+    h.admission.dispatch({ type: "bootstrap-acknowledged" })
+    h.receive(startMessage("course.list", undefined))
+    await flushTransport()
+    h.receive(stopMessage())
+    assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+    assert.equal(h.admission.getSnapshot().phase, "interactive")
+    assert.equal(h.responses.length, synchronous ? 2 : 3)
   })
-  admission.dispatch({ type: "bootstrap-acknowledged" })
-  const stream = await caller["course.list"](undefined)
-  assert.throws(() => stream.subscribe({}), /setup failed/)
-  assert.equal(acceptedHostCallCount(admission.getSnapshot()), 0)
-  assert.equal(admission.getSnapshot().phase, "interactive")
-})
+}
 
-it("settles rejected handlers exactly once through result and cleanup", async () => {
-  const { admission, caller } = harness(async () => {
-    throw new Error("handler failed")
-  })
-  admission.dispatch({ type: "bootstrap-acknowledged" })
-  const stream = await caller["course.list"](undefined)
-  const done = Promise.withResolvers<void>()
-  const subscription = stream.subscribe({
-    complete: done.resolve,
-    error: done.reject,
-  })
-  await done.promise
-  subscription.unsubscribe()
-  subscription.unsubscribe()
-  assert.equal(acceptedHostCallCount(admission.getSnapshot()), 0)
-  assert.equal(admission.getSnapshot().phase, "interactive")
+it("rejects duplicate active identities before a second admission or handler", async () => {
+  const h = transportHarness(async () => undefined)
+  h.admission.dispatch({ type: "bootstrap-acknowledged" })
+  h.receive(startMessage("course.list", undefined))
+  h.receive(startMessage("course.list", undefined))
+  await flushTransport()
+  assert.equal(h.admission.getSnapshot().phase, "terminal")
+  assert.equal(
+    h.effects.filter((effect) => effect.type === "end-host").length,
+    1,
+  )
+  assert.deepEqual(h.responses, [])
 })

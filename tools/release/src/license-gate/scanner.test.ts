@@ -101,16 +101,20 @@ describe("scanner package notices", () => {
 
   it("uses explicit metadata evidence for real checker clarifications", async () => {
     const notices = await scanPackageNotices("desktop", repoRoot)
-    const trpcElectron = notices.find((entry) => entry.name === "trpc-electron")
+    const codex = notices.find((entry) => entry.name === "@openai/codex")
 
-    assert.ok(trpcElectron)
-    assert.equal(trpcElectron.licenseText, undefined)
-    assert.match(trpcElectron.licenseEvidence ?? "", /Metadata-only/)
+    assert.ok(codex)
+    assert.equal(codex.licenseText, undefined)
+    assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
     assert.doesNotMatch(
-      trpcElectron.licenseEvidence ?? "",
+      codex.licenseEvidence ?? "",
       /<year>|<copyright holders>/,
     )
-    assert.equal(trpcElectron.source.includes(repoRoot), false)
+    assert.equal(codex.source.includes(repoRoot), false)
+    assert.equal(
+      notices.some((entry) => entry.name === "trpc-electron"),
+      false,
+    )
   })
 
   it("scans production closure packages omitted from package-manifest traversal", async () => {
@@ -221,14 +225,11 @@ describe("scanner parity guard", () => {
     )
   })
 
-  it("keeps the Electron subtree and Codex platform optional misses benign", () => {
+  it("keeps Codex and absent Koffi platform optional misses benign", () => {
     assert.doesNotThrow(() =>
       assertScannerParity({
         scannerPackages: [],
         thirdParty: [
-          reachedPackage("boolean", {
-            path: ["trpc-electron", "electron", "@electron/get", "boolean"],
-          }),
           reachedPackage("@openai/codex-linux-x64", {
             packageName: "@openai/codex-linux-x64",
             version: "0.128.0-linux-x64",
@@ -313,21 +314,9 @@ describe("scanner parity guard", () => {
           scannerPackages: [],
           thirdParty: [
             reachedPackage("gopd", {
-              path: [
-                "trpc-electron",
-                "electron",
-                "@electron/get",
-                "global-agent",
-                "gopd",
-              ],
+              path: ["electron", "@electron/get", "global-agent", "gopd"],
               paths: [
-                [
-                  "trpc-electron",
-                  "electron",
-                  "@electron/get",
-                  "global-agent",
-                  "gopd",
-                ],
+                ["electron", "@electron/get", "global-agent", "gopd"],
                 ["@repo-edu/integrations-git", "@gitbeaker/rest", "gopd"],
               ],
             }),

@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron"
 import {
+  type DesktopTrpcBridge,
+  desktopEntryChannel,
+  desktopTrpcResponseChannel,
+} from "./desktop-wire"
+import {
   invokeRendererCloseHandler,
   type RendererCloseHandler,
 } from "./renderer-close"
@@ -9,16 +14,19 @@ import {
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
 
-const electronTRPCChannel = "trpc-electron"
-
-const electronTRPCBridge = {
-  sendMessage(message: unknown) {
-    ipcRenderer.send(electronTRPCChannel, message)
+const desktopTrpcBridge: DesktopTrpcBridge = {
+  send(message) {
+    ipcRenderer.send(desktopEntryChannel, { kind: "trpc", message })
   },
-  onMessage(handler: (message: unknown) => void) {
-    ipcRenderer.on(electronTRPCChannel, (_event, message: unknown) => {
-      handler(message)
-    })
+  subscribe(handler) {
+    const receive = (
+      _event: Electron.IpcRendererEvent,
+      message: Parameters<typeof handler>[0],
+    ) => handler(message)
+    ipcRenderer.on(desktopTrpcResponseChannel, receive)
+    return () => {
+      ipcRenderer.removeListener(desktopTrpcResponseChannel, receive)
+    }
   },
 }
 
@@ -37,7 +45,7 @@ ipcRenderer.on(
     }
     const requestId = (request as { requestId: string }).requestId
     const response = await invokeRendererCloseHandler(closeCallback, requestId)
-    ipcRenderer.send(desktopRendererHostChannels.closeComplete, response)
+    ipcRenderer.send(desktopEntryChannel, { kind: "close-complete", response })
   },
 )
 
@@ -60,39 +68,47 @@ ipcRenderer.on(
 
 const desktopHostBridge: DesktopRendererHostBridge = {
   async bootstrapReady() {
-    await ipcRenderer.invoke(desktopRendererHostChannels.bootstrapReady)
+    await ipcRenderer.invoke(desktopEntryChannel, { action: "bootstrapReady" })
   },
   async pickUserFile(options) {
-    return await ipcRenderer.invoke(
-      desktopRendererHostChannels.pickUserFile,
-      options,
-    )
+    return await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "pickUserFile",
+      input: options,
+    })
   },
 
   async pickSaveTarget(options) {
-    return await ipcRenderer.invoke(
-      desktopRendererHostChannels.pickSaveTarget,
-      options,
-    )
+    return await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "pickSaveTarget",
+      input: options,
+    })
   },
 
   async pickDirectory(options) {
-    return await ipcRenderer.invoke(
-      desktopRendererHostChannels.pickDirectory,
-      options,
-    )
+    return await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "pickDirectory",
+      input: options,
+    })
   },
 
   async openExternalUrl(url) {
-    await ipcRenderer.invoke(desktopRendererHostChannels.openExternalUrl, url)
+    await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "openExternalUrl",
+      input: url,
+    })
   },
 
   async setNativeTheme(theme) {
-    await ipcRenderer.invoke(desktopRendererHostChannels.setNativeTheme, theme)
+    await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "setNativeTheme",
+      input: theme,
+    })
   },
 
   async revealCoursesDirectory() {
-    await ipcRenderer.invoke(desktopRendererHostChannels.revealCoursesDirectory)
+    await ipcRenderer.invoke(desktopEntryChannel, {
+      action: "revealCoursesDirectory",
+    })
   },
 
   onCloseRequest(callback) {
@@ -171,15 +187,15 @@ const desktopHostBridge: DesktopRendererHostBridge = {
   },
 
   async downloadUpdate() {
-    await ipcRenderer.invoke(desktopRendererHostChannels.downloadUpdate)
+    await ipcRenderer.invoke(desktopEntryChannel, { action: "downloadUpdate" })
   },
 
   async quitAndInstall() {
-    await ipcRenderer.invoke(desktopRendererHostChannels.quitAndInstall)
+    await ipcRenderer.invoke(desktopEntryChannel, { action: "quitAndInstall" })
   },
 }
 
 process.once("loaded", () => {
-  contextBridge.exposeInMainWorld("electronTRPC", electronTRPCBridge)
+  contextBridge.exposeInMainWorld("repoEduTrpc", desktopTrpcBridge)
   contextBridge.exposeInMainWorld("repoEduDesktopHost", desktopHostBridge)
 })

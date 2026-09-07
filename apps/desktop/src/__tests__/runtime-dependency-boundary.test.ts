@@ -73,24 +73,28 @@ describe("desktop runtime dependency boundary", () => {
 
   it("resolves Rollup-visible and direct loads from their owning outputs", () => {
     const recorded = recordingResolvers()
+    const declarations = [
+      ...desktopRuntimeExternals,
+      { fullName: "direct-runtime/entry", proof: "direct", entry: "main" },
+    ] as const
 
     validateDesktopRuntimeBundle({
       bundle: runtimeBundle(),
-      declarations: desktopRuntimeExternals,
+      declarations,
       outputDirectory: "/repo/apps/desktop/out/main",
       resolvers: recorded.resolvers,
     })
 
     assert.deepEqual(
       recorded.imports.map(({ fullName }) => fullName).sort(),
-      desktopRuntimeExternals
+      declarations
         .filter(({ proof }) => proof === "rollup")
         .map(({ fullName }) => fullName)
         .sort(),
     )
     assert.deepEqual(
       recorded.requires.map(({ fullName }) => fullName),
-      desktopRuntimeExternals
+      declarations
         .filter(({ proof }) => proof === "direct")
         .map(({ fullName }) => fullName),
     )

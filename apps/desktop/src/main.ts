@@ -1,6 +1,4 @@
-import { randomUUID } from "node:crypto"
 import { mkdirSync, rmSync } from "node:fs"
-import { createRequire } from "node:module"
 import os from "node:os"
 import { delimiter, dirname, join } from "node:path"
 import { performance } from "node:perf_hooks"
@@ -48,7 +46,6 @@ import {
   app,
   BrowserWindow,
   dialog,
-  type IpcMainEvent,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
@@ -72,16 +69,13 @@ import { createDesktopChildProcessLifetimeController } from "./child-process-lif
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
 import { createDesktopCourseStore } from "./course-store"
+import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
-import {
-  type DesktopRendererHostBridge,
-  desktopRendererHostChannels,
-} from "./renderer-host-bridge"
 import { createDesktopAppSettingsStore } from "./settings-store"
-import type { DesktopRouter } from "./trpc"
 import { createDesktopRouter } from "./trpc"
 import {
   defaultDesktopWindowState,
@@ -115,10 +109,6 @@ process.on("uncaughtException", (error) => {
 process.on("unhandledRejection", (reason) => {
   terminateDesktop("unhandled-rejection", reason)
 })
-
-const { createIPCHandler } = createRequire(import.meta.url)(
-  "trpc-electron/main",
-) as typeof import("trpc-electron/main")
 
 const startupMarker = "repo-edu-desktop-cold-start"
 const trpcMarker = "repo-edu-desktop-trpc"
@@ -285,9 +275,7 @@ function rebuildLlmPortIfCredentialsChanged(
   }
   rebuildLlmPort(credentials)
 }
-let desktopRouter: DesktopRouter | null = null
-let ipcHandler: ReturnType<typeof createIPCHandler<DesktopRouter>> | null = null
-let hostIpcRegistered = false
+let desktopGateway: ReturnType<typeof installDesktopEntryGateway> | null = null
 let storageRootPath: string | null = null
 let validationCourseId = ""
 let updaterMenuBound = false
@@ -312,39 +300,14 @@ function performAdmissionEffect(effect: HostAdmissionEffect): void {
       return
     }
     mainWindow.setEnabled(false)
-    const requestId = randomUUID()
-    const complete = (event: IpcMainEvent, response: unknown) => {
-      if (event.sender !== mainWindow.webContents) return
-      ipcMain.removeListener(
-        desktopRendererHostChannels.closeComplete,
-        complete,
-      )
-      if (
-        typeof response !== "object" ||
-        response === null ||
-        !("requestId" in response) ||
-        response.requestId !== requestId ||
-        !("ok" in response) ||
-        response.ok !== true
-      ) {
-        admission.dispatch({
-          type: "terminal",
-          error: new Error("Renderer close failed."),
-        })
-        return
-      }
-      admission.dispatch({ type: "close-ready", request: effect.request })
+    if (!desktopGateway) {
+      admission.dispatch({
+        type: "terminal",
+        error: new Error("The interactive desktop has no entry gateway."),
+      })
+      return
     }
-    ipcMain.on(desktopRendererHostChannels.closeComplete, complete)
-    mainWindow.once("closed", () => {
-      ipcMain.removeListener(
-        desktopRendererHostChannels.closeComplete,
-        complete,
-      )
-    })
-    mainWindow.webContents.send(desktopRendererHostChannels.requestClose, {
-      requestId,
-    })
+    desktopGateway.prepareClose(effect.request)
     return
   }
   if (effect.type === "end-host") {
@@ -709,88 +672,40 @@ function bindUpdaterMenu() {
     installApplicationMenu()
   })
 }
-function registerRendererHostIpcHandlers() {
-  if (hostIpcRegistered) {
-    return
+function runRendererHostAction(
+  parent: BrowserWindow,
+  message: DesktopDirectMessage,
+) {
+  switch (message.action) {
+    case "pickUserFile":
+      admission.admitShell(message.action)
+      return desktopHost.pickUserFile(parent, message.input)
+    case "pickSaveTarget":
+      admission.admitShell(message.action)
+      return desktopHost.pickSaveTarget(parent, message.input)
+    case "pickDirectory":
+      admission.admitShell(message.action)
+      return desktopHost.pickDirectory(parent, message.input)
+    case "openExternalUrl":
+      return desktopHost.openExternalUrl(message.input)
+    case "setNativeTheme":
+      admission.admitShell(message.action)
+      nativeTheme.themeSource = message.input
+      return
+    case "revealCoursesDirectory":
+      return shell.openPath(join(currentStorageRootPath(), "courses"))
+    case "downloadUpdate":
+      admission.admitShell(message.action)
+      return downloadUpdate()
+    case "quitAndInstall":
+      return requestUpdateRestart()
+    case "bootstrapReady":
+      if (
+        admission.dispatch({ type: "bootstrap-acknowledged" }) !== "accepted"
+      ) {
+        throw new Error("The desktop could not accept bootstrap readiness.")
+      }
   }
-
-  hostIpcRegistered = true
-
-  ipcMain.handle(
-    desktopRendererHostChannels.pickUserFile,
-    async (
-      event,
-      options: Parameters<DesktopRendererHostBridge["pickUserFile"]>[0],
-    ) => {
-      const parentWindow = BrowserWindow.fromWebContents(event.sender)
-      admission.admitShell("pickUserFile")
-      return await desktopHost.pickUserFile(parentWindow, options)
-    },
-  )
-
-  ipcMain.handle(
-    desktopRendererHostChannels.pickSaveTarget,
-    async (
-      event,
-      options: Parameters<DesktopRendererHostBridge["pickSaveTarget"]>[0],
-    ) => {
-      const parentWindow = BrowserWindow.fromWebContents(event.sender)
-      admission.admitShell("pickSaveTarget")
-      return await desktopHost.pickSaveTarget(parentWindow, options)
-    },
-  )
-
-  ipcMain.handle(
-    desktopRendererHostChannels.pickDirectory,
-    async (
-      event,
-      options: Parameters<DesktopRendererHostBridge["pickDirectory"]>[0],
-    ) => {
-      const parentWindow = BrowserWindow.fromWebContents(event.sender)
-      admission.admitShell("pickDirectory")
-      return await desktopHost.pickDirectory(parentWindow, options)
-    },
-  )
-
-  ipcMain.handle(
-    desktopRendererHostChannels.openExternalUrl,
-    async (
-      _event,
-      url: Parameters<DesktopRendererHostBridge["openExternalUrl"]>[0],
-    ) => {
-      await desktopHost.openExternalUrl(url)
-    },
-  )
-
-  ipcMain.handle(
-    desktopRendererHostChannels.setNativeTheme,
-    (_event, theme: "light" | "dark" | "system") => {
-      admission.admitShell("setNativeTheme")
-      nativeTheme.themeSource = theme
-    },
-  )
-
-  ipcMain.handle(
-    desktopRendererHostChannels.revealCoursesDirectory,
-    async () => {
-      const coursesDir = join(currentStorageRootPath(), "courses")
-      await shell.openPath(coursesDir)
-    },
-  )
-
-  ipcMain.handle(desktopRendererHostChannels.downloadUpdate, async () => {
-    admission.admitShell("downloadUpdate")
-    await downloadUpdate()
-  })
-
-  ipcMain.handle(desktopRendererHostChannels.quitAndInstall, () => {
-    requestUpdateRestart()
-  })
-  ipcMain.handle(desktopRendererHostChannels.bootstrapReady, () => {
-    if (admission.dispatch({ type: "bootstrap-acknowledged" }) !== "accepted") {
-      throw new Error("The desktop could not accept bootstrap readiness.")
-    }
-  })
 }
 
 function handleValidationMarker(message: string) {
@@ -872,7 +787,7 @@ async function createWindow(): Promise<BrowserWindow> {
     })
   })
 
-  if (!desktopRouter) {
+  {
     let initialSettingsLoadResult: AppSettingsLoadResult | null = null
     let initialSettingsLoadError: unknown
     const settingsAbort = new AbortController()
@@ -892,7 +807,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
     const examinationArchive = openExaminationArchiveOnce(storageRoot)
     rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
-    desktopRouter = createDesktopRouter({
+    const desktopRouter = createDesktopRouter({
       http: nodeHttpPort,
       courseStore: createDesktopCourseStore(storageRoot),
       appSettingsStore,
@@ -904,19 +819,21 @@ async function createWindow(): Promise<BrowserWindow> {
       examinationArchive,
       initialSettingsLoadResult: initialSettingsLoadResult ?? undefined,
       initialSettingsLoadError,
-      admission,
       onAppCredentialsSaved: rebuildLlmPortIfCredentialsChanged,
       createDraftLlmTextClient,
     })
-  }
-
-  if (!ipcHandler) {
-    ipcHandler = createIPCHandler({
+    desktopGateway = installDesktopEntryGateway({
+      ipc: ipcMain,
+      window: mainWindow,
+      rendererUrl: resolveRendererUrl(),
       router: desktopRouter,
-      windows: [mainWindow],
+      admission,
+      direct: (message) => runRendererHostAction(mainWindow, message),
     })
-  } else {
-    ipcHandler.attachWindow(mainWindow)
+    mainWindow.once("closed", () => {
+      desktopGateway?.dispose()
+      desktopGateway = null
+    })
   }
 
   if (isTRPCValidationMode) {
@@ -1033,7 +950,6 @@ async function startDesktop(): Promise<void> {
     validationCourseId = validationCourseOverride
   }
 
-  registerRendererHostIpcHandlers()
   const mainWindow = await createWindow()
   initAutoUpdater(mainWindow)
 

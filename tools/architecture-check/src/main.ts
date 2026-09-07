@@ -7,6 +7,7 @@ import {
 } from "./area-model.js"
 import { runBespokeChecks } from "./bespoke-checks.js"
 import { runDependencyCruiserAnalysis } from "./dependency-cruiser-runner.js"
+import { checkDesktopEntryOwnership } from "./desktop-entry-checks.js"
 import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
 import { checkProductProcessLaunches } from "./product-process-launches.js"
@@ -43,6 +44,7 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
       ...bespokeViolations,
       ...repositoryViolations,
       ...processLaunchViolations,
+      ...checkDesktopEntryOwnership(root, inventory),
     ].sort(compareViolations),
   }
 }
