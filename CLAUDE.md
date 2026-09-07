@@ -236,6 +236,8 @@ refer to one finding without restating it.
 
 ## Commit Severity Prefix
 
+Omit routine test and check results from commit messages.
+
 Every file-changing commit except a plan step commit carries a sorted
 run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
 conventional subject with `A<n>B<n>C<n>D<n>`. An implementation-audit record
