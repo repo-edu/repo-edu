@@ -7,9 +7,13 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 
 ## Structure
 
-- `src/main.ts`: Electron main process bootstrap and composition root. Installs
-  terminal process handlers, resolves the shared app-data root, claims the
-  program gate and only then starts the Electron application and its stores.
+- `src/main.ts`: fatal entry with no static product imports. Registers synchronous
+  fatal logging and immediate process exit before awaiting product loading.
+- `src/desktop-application.ts`: product composition with one synchronous installer.
+  Installs command-line switches, takes the single-instance lock and registers
+  lifecycle listeners before returning control to Electron. Asynchronous startup
+  claims the program gate before opening stores and waits for Electron readiness.
+  Only the process-exit listener receives the held gate claim’s release operation.
   It gives Git and subscription Claude one shared child-process lifetime
   controller. The controller owns each outside-program outcome. It withholds
   every outcome except confirmation-expiry unknown until the full tree is

@@ -6,7 +6,7 @@ import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
 const gateway = "apps/desktop/src/desktop-entry-gateway.ts"
-const composition = "apps/desktop/src/main.ts"
+const composition = "apps/desktop/src/desktop-application.ts"
 const adapter = "apps/desktop/src/desktop-trpc-adapter.ts"
 const publicTrpcModules = new Set([
   "@trpc/client",

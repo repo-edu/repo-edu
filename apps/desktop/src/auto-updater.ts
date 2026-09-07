@@ -42,7 +42,7 @@ function getLiveWindow(): BrowserWindow | null {
 }
 let autoUpdaterState: AutoUpdaterState = {
   initialized: false,
-  supported: isUpdaterSupported(),
+  supported: false,
   checking: false,
   downloading: false,
   updateAvailable: false,

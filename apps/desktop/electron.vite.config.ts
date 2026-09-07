@@ -147,6 +147,8 @@ export default defineConfig({
         },
         output: {
           entryFileNames: "[name].js",
+          // Product composition resolves preload and runtime assets from here.
+          chunkFileNames: "[name]-[hash].js",
         },
         external: mainRuntimeExternalMatchers,
         onwarn(warning, warn) {

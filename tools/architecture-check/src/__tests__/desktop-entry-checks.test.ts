@@ -24,7 +24,7 @@ for (const source of [
 it("allows composition to hand IPC to the gateway without registering handlers", () => {
   assert.deepEqual(
     checkDesktopEntrySource(
-      "apps/desktop/src/main.ts",
+      "apps/desktop/src/desktop-application.ts",
       `
     import { ipcMain } from "electron"
     installDesktopEntryGateway({ ipc: ipcMain })
