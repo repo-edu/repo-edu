@@ -18,6 +18,8 @@ function harness() {
   const admission = new HostAdmission((effect) => {
     if (effect.type === "disable-input") trace.push("disable")
     if (effect.type === "prepare-close") trace.push("prepare-close")
+    if (effect.type === "install-update") trace.push("install")
+    if (effect.type === "exit-failed") trace.push("exit:1")
     if (effect.type === "end-host") {
       pending.push(
         endDesktopHost({
@@ -37,7 +39,9 @@ function harness() {
           },
           report: () => trace.push("report"),
           exit: (code) => trace.push(`exit:${code}`),
-          installUpdate: () => trace.push("install"),
+          installUpdate: () => {
+            admission.dispatch({ type: "update-ending-confirmed" })
+          },
         }),
       )
     }
@@ -137,6 +141,56 @@ function enter(h: ReturnType<typeof harness>, phase: (typeof phases)[number]) {
       outcome: {} as never,
     },
   })
+}
+
+for (const phase of phases) {
+  for (const source of ["renderer", "menu"] as const) {
+    it(`${source} update restart from ${phase} installs only after an admitted clean close`, async () => {
+      const h = harness()
+      enter(h, phase)
+      const before = h.admission.getSnapshot()
+      const priorTrace = [...h.trace]
+      const decision = h.send(
+        source === "renderer"
+          ? { type: "update-restart", request: h.request }
+          : {
+              type: "host-start",
+              source: "menu-update-restart",
+              request: h.request,
+            },
+      )
+      if (phase === "interactive") {
+        assert.equal(decision, "accepted")
+        assert.equal(h.admission.getSnapshot().phase, "closing.preparing")
+        assert.equal(h.pending.length, 0)
+        h.ready()
+        assert.equal(h.trace.includes("install"), false)
+        h.ending.resolve({ outcome: "confirmed" })
+        await Promise.all(h.pending)
+        assert.equal(h.admission.getSnapshot().phase, "closing.installing")
+        assert.equal(h.trace.at(-1), "install")
+        const after = [...h.trace]
+        h.close()
+        h.send({ type: "update-restart", request: h.request })
+        h.send({
+          type: "host-start",
+          source: "menu-update-restart",
+          request: h.request,
+        })
+        assert.deepEqual(h.trace, after)
+        h.admission.terminal(new Error("installation failed"))
+        assert.equal(h.trace.at(-1), "exit:1")
+        assert.equal(h.trace.filter((event) => event === "stop").length, 1)
+      } else {
+        assert.notEqual(decision, "accepted")
+        assert.equal(h.admission.getSnapshot(), before)
+        assert.deepEqual(h.trace, priorTrace)
+        h.ending.resolve({ outcome: "confirmed" })
+        await Promise.all(h.pending)
+        assert.equal(h.trace.includes("install"), false)
+      }
+    })
+  }
 }
 
 for (const phase of phases) {

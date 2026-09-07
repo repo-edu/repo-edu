@@ -11,7 +11,8 @@ const sourceRoot = resolve(import.meta.dirname, "..")
 const driver = `
 import { writeSync } from "node:fs"
 globalThis.trace = (event) => writeSync(1, event + "\\n")
-Object.defineProperty(process, "platform", { value: "linux" })
+Object.defineProperty(process, "platform", { value: process.env.ENTRY_PLATFORM ?? "linux" })
+Object.defineProperty(process, "resourcesPath", { value: import.meta.dirname })
 process.on("exit", code => trace("process-exit:" + code))
 await import("./main.ts")
 trace("entry-settled")
@@ -161,9 +162,13 @@ export async function runDesktopEntry(options: {
   scenario?: string
   product?: string
   importOnly?: boolean
+  platform?: string
+  collaborators?: Record<string, string | null>
 }) {
   const directory = await mkdtemp(join(tmpdir(), "desktop-entry-"))
+  const replacements = { ...collaborators, ...options.collaborators }
   try {
+    await writeFile(join(directory, "app-update.yml"), "provider: github\n")
     const result = await build({
       stdin: {
         contents: options.importOnly
@@ -186,6 +191,9 @@ export async function runDesktopEntry(options: {
       entryNames: "driver",
       chunkNames: "[name]-[hash]",
       write: false,
+      banner: {
+        js: 'import { createRequire as testCreateRequire } from "node:module"; const require = testCreateRequire(import.meta.url);',
+      },
       plugins: [
         {
           name: "desktop-collaborators",
@@ -196,14 +204,15 @@ export async function runDesktopEntry(options: {
                 options.product !== undefined
               )
                 return { path: "product", namespace: "test" }
-              if (args.path in collaborators)
+              if (typeof replacements[args.path] === "string")
                 return { path: args.path, namespace: "test" }
             })
             builder.onLoad({ filter: /.*/, namespace: "test" }, (args) => ({
+              resolveDir: sourceRoot,
               contents:
                 args.path === "product"
                   ? options.product
-                  : collaborators[args.path],
+                  : (replacements[args.path] as string),
               loader: "js",
             }))
           },
@@ -213,7 +222,11 @@ export async function runDesktopEntry(options: {
     for (const file of result.outputFiles)
       await writeFile(file.path, file.contents)
     const child = spawnSync(process.execPath, [join(directory, "driver.js")], {
-      env: { ...process.env, ENTRY_CASE: options.scenario ?? "" },
+      env: {
+        ...process.env,
+        ENTRY_CASE: options.scenario ?? "",
+        ENTRY_PLATFORM: options.platform ?? "linux",
+      },
       encoding: "utf8",
       timeout: 10_000,
       stdio: ["ignore", "pipe", "pipe"],

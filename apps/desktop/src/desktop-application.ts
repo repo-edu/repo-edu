@@ -299,6 +299,14 @@ export function installDesktopApplication(): void {
   }
 
   function performAdmissionEffect(effect: HostAdmissionEffect): void {
+    if (effect.type === "install-update") {
+      quitAndInstall()
+      return
+    }
+    if (effect.type === "exit-failed") {
+      app.exit(1)
+      return
+    }
     if (effect.type === "disable-input") {
       disableInput()
       return
@@ -348,7 +356,9 @@ export function installDesktopApplication(): void {
           )
         },
         exit: (code) => app.exit(code),
-        installUpdate: quitAndInstall,
+        installUpdate: () => {
+          admission.dispatch({ type: "update-ending-confirmed" })
+        },
       })
       return
     }
@@ -380,6 +390,7 @@ export function installDesktopApplication(): void {
     close: () => app.quit(),
   })
   app.on("before-quit", (event) => {
+    if (admission.getSnapshot().phase === "closing.installing") return
     event.preventDefault()
     admission.dispatch({
       type: "host-start",
@@ -676,6 +687,7 @@ export function installDesktopApplication(): void {
     })
 
     mainWindow.on("close", (event) => {
+      if (admission.getSnapshot().phase === "closing.installing") return
       event.preventDefault()
       if (resizeTimer) {
         clearTimeout(resizeTimer)
@@ -825,7 +837,16 @@ export function installDesktopApplication(): void {
     }
 
     const mainWindow = await createWindow()
-    if (mainWindow) initAutoUpdater(mainWindow)
+    if (mainWindow) {
+      initAutoUpdater(mainWindow, (error) => {
+        if (admission.getSnapshot().phase === "closing.installing") {
+          process.stderr.write(
+            `[desktop] update-failed ${desktopErrorText(error)}\n`,
+          )
+          admission.terminal(error)
+        }
+      })
+    }
   }
 
   function reportProgramGateFailure(message: string): void {

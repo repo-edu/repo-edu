@@ -48,7 +48,15 @@ export async function endDesktopHost(options: {
     return
   }
   // A detected failure can supersede a close while its ending is pending.
-  if (options.snapshot().phase === "terminal") options.exit(1)
-  else if (options.reason === "update-restart") options.installUpdate()
-  else options.exit(0)
+  try {
+    if (options.snapshot().phase === "terminal") options.exit(1)
+    else if (options.reason === "update-restart") options.installUpdate()
+    else options.exit(0)
+  } catch (error) {
+    try {
+      options.report(error)
+    } finally {
+      options.exit(1)
+    }
+  }
 }

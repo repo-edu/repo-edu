@@ -48,6 +48,11 @@ function fail(
   state: HostAdmissionState,
   error: unknown,
 ): HostAdmissionTransition {
+  if (state.phase === "closing.installing") {
+    return transition({ phase: "terminal", error }, "terminal", [
+      { type: "exit-failed" },
+    ])
+  }
   return transition({ phase: "terminal", error }, "terminal", [
     ...cancellationEffects(state),
     // An aborting/ready close already handed ending to the terminal owner.
@@ -104,6 +109,15 @@ export function hostAdmissionReducer(
   switch (event.type) {
     case "terminal":
       return fail(state, event.error)
+    case "update-ending-confirmed":
+      if (state.phase !== "closing.ready" || state.reason !== "update-restart")
+        return fail(
+          state,
+          new Error("Update installation has no confirmed close."),
+        )
+      return transition({ phase: "closing.installing" }, "accepted", [
+        { type: "install-update" },
+      ])
     case "workflow-start": {
       const start = desktopWorkflowStarts[event.workflow]
       const permitted =

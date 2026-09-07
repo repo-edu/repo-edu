@@ -42,6 +42,7 @@ const phases: HostAdmissionState[] = [
   },
   { phase: "closing.preparing", reason: "close", request: current },
   { phase: "closing.ready", reason: "close" },
+  { phase: "closing.installing" },
   { phase: "closing.aborting" },
   { phase: "terminal", error: new Error("failed") },
 ]

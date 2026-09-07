@@ -48,6 +48,7 @@ export type HostAdmissionState =
       request: HostRequest
     }
   | { phase: "closing.ready"; reason: HostCloseReason }
+  | { phase: "closing.installing" }
   | { phase: "closing.aborting" }
   | { phase: "terminal"; error: unknown }
 
@@ -63,6 +64,7 @@ export type HostAdmissionEvent =
   | { type: "shell-action"; action: DesktopShellAction }
   | { type: "host-start"; source: DesktopHostStart; request: HostRequest }
   | { type: "update-restart"; request: HostRequest }
+  | { type: "update-ending-confirmed" }
   | { type: "cancel-request"; request: HostRequest }
   | { type: "preparation-committed"; request: HostRequest }
   | { type: "input-prepared"; request: HostRequest }
@@ -85,6 +87,8 @@ export type HostAdmissionEffect =
   | { type: "release-command"; request: HostRequest }
   | { type: "prepare-close"; request: HostRequest }
   | { type: "end-host"; reason: HostCloseReason | "abort" | "failure" }
+  | { type: "install-update" }
+  | { type: "exit-failed" }
 
 export type HostAdmissionTransition = {
   state: HostAdmissionState

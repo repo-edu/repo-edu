@@ -88,7 +88,10 @@ export function onAutoUpdaterStateChange(
   }
 }
 
-export function initAutoUpdater(mainWindow: BrowserWindow): void {
+export function initAutoUpdater(
+  mainWindow: BrowserWindow,
+  onError: (error: Error) => void,
+): void {
   const supported = isUpdaterSupported()
   patchAutoUpdaterState({ supported })
   if (!supported || initialized) {
@@ -118,7 +121,9 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     })
   }
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  // The host must confirm its owned work has ended before any installation.
+  // On macOS this also defers the native updater's staging until hand-off.
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on("update-available", (info) => {
     manualCheckInFlight = false
@@ -183,6 +188,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   })
 
   autoUpdater.on("error", (error) => {
+    onError(error)
     manualCheckInFlight = false
     patchAutoUpdaterState({
       errorMessage: error.message,
@@ -268,8 +274,8 @@ export async function downloadUpdate(): Promise<void> {
 }
 
 export function quitAndInstall(): void {
-  if (!autoUpdaterState.supported) {
-    return
+  if (!autoUpdaterState.supported || !autoUpdaterState.updateDownloaded) {
+    throw new Error("No downloaded update is ready for installation.")
   }
   autoUpdater.quitAndInstall()
 }
