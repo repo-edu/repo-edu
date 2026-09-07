@@ -22,7 +22,11 @@ import {
   sessionReducer,
 } from "../session/session-reducer.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { deferred, workflowClient } from "./session-controller.test-support.js"
+import {
+  commandClient,
+  deferred,
+  workflowClient,
+} from "./session-controller.test-support.js"
 
 function harness(
   client: WorkflowClient = workflowClient(async () => undefined),
@@ -36,6 +40,7 @@ function harness(
   }
   const owner = new SessionOperations(
     client,
+    commandClient(client),
     {
       enter: (turnId, descriptor) =>
         dispatch({ type: "transaction-enter", turnId, descriptor }),
@@ -47,6 +52,8 @@ function harness(
       },
     },
     () => snapshot,
+    undefined,
+    async () => {},
   )
   return { owner, gateway: owner.gateway, dispatch, snapshot: () => snapshot }
 }

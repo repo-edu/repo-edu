@@ -5,11 +5,15 @@ import {
   runSessionOperationBestEffort,
   SessionControllerProvider,
 } from "../session/session-controller-context.js"
-import { workflowClient } from "./session-controller.test-support.js"
+import {
+  commandClient,
+  workflowClient,
+} from "./session-controller.test-support.js"
 
 it("refuses native editing and component input immediately after command reservation", async () => {
   const controller = new SessionController({
     workflowClient: workflowClient(async () => undefined),
+    commandClient: commandClient(workflowClient(async () => undefined)),
     onBootstrapReady: async () => {},
   })
   const provider = SessionControllerProvider({ controller, children: null })

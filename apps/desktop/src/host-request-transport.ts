@@ -44,8 +44,8 @@ type Endpoint = ReturnType<
 /** Owns live endpoint retention. The admission reducer remains the host authority. */
 export function createHostRequestTransport(options: {
   admission: HostAdmission
-  receive(request: HostRequest, message: Message): void
-  cancel(request: HostRequest): void
+  receive(request: HostRequest, message: Message, signal?: AbortSignal): void
+  cancel?(request: HostRequest): void
 }) {
   const retained = new Map<HostRequest, Endpoint>()
   const terminal = (error: unknown) =>
@@ -55,6 +55,7 @@ export function createHostRequestTransport(options: {
     request: HostRequest,
     port: RequestPort,
     command?: ExclusiveCommandId,
+    signal?: AbortSignal,
   ) {
     if (retained.has(request)) {
       port.close()
@@ -130,7 +131,7 @@ export function createHostRequestTransport(options: {
       receive(message) {
         if (message.type === "cancel")
           options.admission.dispatch({ type: "cancel-request", request })
-        else options.receive(request, message)
+        else options.receive(request, message, signal)
       },
       terminal,
       retired: () => {
@@ -153,8 +154,14 @@ export function createHostRequestTransport(options: {
 
   return {
     acceptCommand(command: ExclusiveCommandId, port: RequestPort) {
-      const request: HostRequest = { cancel: () => options.cancel(request) }
-      const endpoint = attach(request, port, command)
+      const abort = new AbortController()
+      const request: HostRequest = {
+        cancel: () => {
+          abort.abort()
+          options.cancel?.(request)
+        },
+      }
+      const endpoint = attach(request, port, command, abort.signal)
       const decision = options.admission.dispatch({
         type: "exclusive-intent",
         command,

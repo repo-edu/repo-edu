@@ -1,6 +1,10 @@
 import type {
   AnalysisDiscoverReposResult,
   CommitPersistencePreparation,
+  ExclusiveBodyClient,
+  ExclusiveCommandClient,
+  ExclusiveCommandId,
+  ExclusiveSettlementInput,
   WorkflowCallOptions,
   WorkflowClient,
   WorkflowId,
@@ -12,6 +16,7 @@ import type {
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import { useCourseStore } from "../stores/course-store.js"
 import type { CourseMutationActions } from "./course-mutation-controller.js"
+import { captureSessionCommandInput } from "./session-command-input.js"
 import {
   isSessionWorkflow,
   type PresentationDirectId,
@@ -36,7 +41,11 @@ import type { AppWorkflowId, ControllerWorkflowId } from "./workflow-types.js"
 type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
   WorkflowProgress<K>,
   WorkflowOutput<K>
->
+> & {
+  settlementInput?: K extends ExclusiveCommandId
+    ? ExclusiveSettlementInput<K>
+    : never
+}
 
 export type SessionOperationScope = {
   preparePersistence(commit: CommitPersistencePreparation): Promise<void>
@@ -99,6 +108,7 @@ export type SessionOperationGateway = {
 export class SessionOperations extends SessionSurfaceTransactions {
   constructor(
     private readonly client: WorkflowClient,
+    private readonly commands: ExclusiveCommandClient,
     callbacks: ConstructorParameters<typeof SessionSurfaceTransactions>[0],
     private readonly snapshot: () => SessionControllerSnapshot,
     private readonly reconcileDiscovery: (
@@ -145,7 +155,6 @@ export class SessionOperations extends SessionSurfaceTransactions {
 
   // These calls already belong to bootstrap, surface transactions or the
   // persistence owners. They never reserve recursively inside their own turn.
-  // Request-owned worker preparation is integrated in steps 9–11.
   get controllerClient(): WorkflowClient<ControllerWorkflowId> {
     return {
       run: (id, input, options) => {
@@ -166,14 +175,36 @@ export class SessionOperations extends SessionSurfaceTransactions {
     if (reservation === null) return null
     return {
       run: (body) =>
-        reservation.run((scope) => body(this.operationScope(scope, operation))),
+        reservation.run((scope) => this.runBody(scope, operation, body)),
       cancel: reservation.cancel,
     }
+  }
+
+  private runBody<T>(
+    scope: SessionTransactionScope,
+    operation: SessionOperationId,
+    body: (scope: SessionOperationScope) => Promise<T>,
+  ): Promise<T> {
+    if (sessionOperationKind(operation) !== "command")
+      return body(this.operationScope(scope, operation))
+    const prepare = this.preparePersistence
+    if (!prepare)
+      throw new Error("The session persistence owner is not installed.")
+    return this.commands.runBody(
+      operation as ExclusiveCommandId,
+      (commit) => prepare(scope, commit),
+      (client) => body(this.operationScope(scope, operation, client)),
+      async () => {
+        await scope.settle()
+        scope.close()
+      },
+    )
   }
 
   private operationScope(
     scope: SessionTransactionScope,
     operation: SessionOperationId,
+    command?: ExclusiveBodyClient,
   ): SessionOperationScope {
     const publish = <T>(apply: () => T): T => {
       if (!scope.canContinue())
@@ -191,7 +222,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
           return this.preparePersistence(scope, commit)
         }),
       run: (id, input, options) =>
-        this.runScoped(scope, operation, id, input, options),
+        this.runScoped(scope, operation, id, input, options, command),
       direct: (id, start) =>
         scope.tolerated(() => {
           if (sessionDirectClasses[id] !== "session-changing")
@@ -222,6 +253,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
     id: K,
     input: WorkflowInput<K>,
     options?: CallOptions<K>,
+    command?: ExclusiveBodyClient,
   ): Promise<WorkflowResult<K>> {
     const callback = <T>(apply: ((event: T) => void) | undefined) =>
       apply === undefined
@@ -238,17 +270,30 @@ export class SessionOperations extends SessionSurfaceTransactions {
         (classification !== "command" || id !== operation)
       )
         throw new Error("The workflow does not belong to this reservation.")
-      return this.client
-        .run(id, input, {
-          signal: options?.signal,
-          onProgress: callback(options?.onProgress),
-          onOutput: callback(options?.onOutput),
-        })
-        .then((result) => {
-          if (!scope.canContinue())
-            throw new Error("The session operation has retired.")
-          return result
-        })
+      const callbacks = {
+        settlementInput: options?.settlementInput,
+        signal: options?.signal,
+        onProgress: callback(options?.onProgress),
+        onOutput: callback(options?.onOutput),
+      }
+      const running =
+        classification === "command"
+          ? (command!.run(
+              id as ExclusiveCommandId,
+              () =>
+                captureSessionCommandInput(
+                  id as ExclusiveCommandId,
+                  input as never,
+                  this.snapshot(),
+                ),
+              callbacks as never,
+            ) as Promise<WorkflowResult<K>>)
+          : this.client.run(id, input, callbacks)
+      return running.then((result) => {
+        if (!scope.canContinue())
+          throw new Error("The session operation has retired.")
+        return result
+      })
     })
   }
 
@@ -280,16 +325,18 @@ export class SessionOperations extends SessionSurfaceTransactions {
       )
     if (!isSessionWorkflow(id))
       return Promise.reject(new Error("The workflow is not classified."))
-    const reservation = this.reserve<WorkflowResult<K>>({
-      kind: sessionOperationKind(id),
-      operation: id,
-    })
+    const reservation = this.reserveOperation<WorkflowResult<K>>(id)
     if (reservation === null)
       return Promise.reject(
         new Error("The session is not accepting operations."),
       )
-    return reservation.run((scope) =>
-      this.runScoped(scope, id, id, input, options),
+    return reservation.run(
+      (scope) =>
+        scope.run(
+          id as SessionWorkflowId,
+          input as never,
+          options as never,
+        ) as Promise<WorkflowResult<K>>,
     )
   }
 }

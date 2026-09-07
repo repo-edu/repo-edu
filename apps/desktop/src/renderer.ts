@@ -3,6 +3,7 @@ import { RendererSessionRoot } from "@repo-edu/renderer-app"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import "../../../packages/renderer-app/src/App.css"
+import { createRendererCommandClient } from "./renderer-command-client"
 import { createRendererHostFromBridge } from "./renderer-host-bridge"
 import { UpdateDialog } from "./UpdateDialog"
 import { createDesktopWorkflowClient } from "./workflow-client"
@@ -23,8 +24,11 @@ document.body.classList.add("repo-edu-shell-body")
 if (!window.repoEduDesktopHost) {
   throw new Error("Desktop renderer host bridge was not exposed from preload.")
 }
+if (!window.repoEduRequests)
+  throw new Error("Desktop request bridge was not exposed from preload.")
 
 const workflowClient = createDesktopWorkflowClient()
+const commandClient = createRendererCommandClient(window.repoEduRequests)
 const rendererHost = createRendererHostFromBridge(window.repoEduDesktopHost)
 
 function ensureValidationOutputNode(): HTMLOutputElement {
@@ -146,6 +150,7 @@ if (isTRPCValidationMode) {
       null,
       React.createElement(RendererSessionRoot, {
         workflowClient,
+        commandClient,
         rendererHost,
         onBootstrapReady: window.repoEduDesktopHost.bootstrapReady,
       }),

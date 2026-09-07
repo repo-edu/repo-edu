@@ -1,4 +1,7 @@
-import type { WorkflowClient } from "@repo-edu/application-contract"
+import type {
+  ExclusiveCommandClient,
+  WorkflowClient,
+} from "@repo-edu/application-contract"
 import type { ActiveTab } from "@repo-edu/domain/active-surface"
 import type { CourseBacking } from "@repo-edu/domain/types"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
@@ -88,12 +91,14 @@ import { StudentsTab } from "./tabs/StudentsTab.js"
 
 export type RendererSessionRootProps = {
   workflowClient: WorkflowClient
+  commandClient: ExclusiveCommandClient
   rendererHost: RendererHost
   onBootstrapReady: () => Promise<void>
 }
 
 export function RendererSessionRoot({
   workflowClient,
+  commandClient,
   rendererHost,
   onBootstrapReady,
 }: RendererSessionRootProps) {
@@ -107,7 +112,11 @@ export function RendererSessionRoot({
   const [queryClient] = useState(() => createRendererQueryClient())
 
   useLayoutEffect(() => {
-    const instance = new SessionController({ workflowClient, onBootstrapReady })
+    const instance = new SessionController({
+      workflowClient,
+      commandClient,
+      onBootstrapReady,
+    })
     setController(instance)
     setSessionController(instance)
     const cleanup = configureApp({
@@ -120,7 +129,7 @@ export function RendererSessionRoot({
       clearSessionController(instance)
       instance.dispose()
     }
-  }, [workflowClient, rendererHost, onBootstrapReady])
+  }, [workflowClient, commandClient, rendererHost, onBootstrapReady])
 
   useEffect(() => {
     if (controller === null) return

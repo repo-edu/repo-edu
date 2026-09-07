@@ -1,6 +1,7 @@
 import type {
   AppSettingsLoadResult,
   CommitPersistencePreparation,
+  ExclusiveCommandClient,
   WorkflowClient,
   WorkflowId,
   WorkflowResult,
@@ -97,17 +98,31 @@ export function workflowClient(
   } as WorkflowClient
 }
 
+export function commandClient(client: WorkflowClient): ExclusiveCommandClient {
+  return {
+    async runBody(_command, _preparation, body, settle) {
+      const result = await body({
+        run: (id, capture, options) => client.run(id, capture(), options),
+      })
+      await settle()
+      return result
+    },
+  }
+}
+
 // Mirrors RendererSessionRoot: construct, then start bootstrap explicitly.
 export function startController(
   options: Omit<
     ConstructorParameters<typeof SessionController>[0],
-    "onBootstrapReady"
+    "onBootstrapReady" | "commandClient"
   > & {
     onBootstrapReady?: () => Promise<void>
+    commandClient?: ExclusiveCommandClient
   },
 ): SessionController {
   const controller = new SessionController({
     onBootstrapReady: async () => {},
+    commandClient: commandClient(options.workflowClient),
     ...options,
   })
   controller.start()

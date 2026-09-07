@@ -1,4 +1,8 @@
-import { workflowInputSchemas } from "@repo-edu/application-contract"
+import {
+  type ExclusiveRequestOperation,
+  type WorkflowHandlerMap,
+  workflowInputSchemas,
+} from "@repo-edu/application-contract"
 import type {
   BrowserWindow,
   IpcMain,
@@ -17,15 +21,13 @@ import {
 } from "./desktop-wire"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
+import { executeHostCommand } from "./host-command-execution"
 import {
   createHostRequestTransport,
   mainRequestPort,
 } from "./host-request-transport"
-import {
-  commitRequestPersistence,
-  type PreparationHandlers,
-} from "./request-persistence"
-import { type RequestMessage, requestPortChannel } from "./request-port-wire"
+import { commitRequestPersistence } from "./request-persistence"
+import { requestPortChannel } from "./request-port-wire"
 import type { DesktopRouter } from "./trpc"
 
 /** The sole registration owner for renderer-originated Electron messages. */
@@ -35,13 +37,9 @@ export function installDesktopEntryGateway(options: {
   rendererUrl: string
   router: DesktopRouter
   admission: HostAdmission
-  preparationHandlers: PreparationHandlers
+  handlers: WorkflowHandlerMap
   direct(message: DesktopDirectMessage): unknown
   createRequestChannel(): { port1: MessagePortMain; port2: MessagePortMain }
-  requestBody?(
-    request: HostRequest,
-    message: RequestMessage<unknown, unknown, unknown, unknown>,
-  ): void
 }) {
   const { ipc, window, admission } = options
   const document = installDesktopRendererDocument({
@@ -52,7 +50,7 @@ export function installDesktopEntryGateway(options: {
   const { terminal, proveSender } = document
   const requests = createHostRequestTransport({
     admission,
-    receive(request, message) {
+    receive(request, message, signal) {
       if (message.type === "close-ready") {
         requests.acknowledgeClose(request)
         admission.dispatch({ type: "close-ready", request })
@@ -63,16 +61,29 @@ export function installDesktopEntryGateway(options: {
           request,
           bundle: message.bundle,
           admission,
-          handlers: options.preparationHandlers,
+          handlers: options.handlers,
           transport: requests,
         })
         return
       }
-      if (options.requestBody) options.requestBody(request, message)
-      else terminal(new Error("The request body is not connected."))
-    },
-    cancel() {
-      terminal(new Error("The command effect is not connected."))
+      if (message.type === "input" && signal) {
+        void executeHostCommand({
+          request,
+          operation: message.input as ExclusiveRequestOperation,
+          signal,
+          admission,
+          handlers: options.handlers,
+          transport: requests,
+        }).catch(terminal)
+        return
+      }
+      if (message.type === "acknowledged") {
+        admission.dispatch({ type: "settlement-acknowledged", request })
+        return
+      }
+      terminal(
+        new Error(`Unexpected renderer request message ${message.type}.`),
+      )
     },
   })
   const adapter = createDesktopTrpcAdapter({

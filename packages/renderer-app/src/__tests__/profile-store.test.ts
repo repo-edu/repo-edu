@@ -17,10 +17,12 @@ import {
 } from "../contexts/workflow-client.js"
 import { SessionController } from "../session/session-controller.js"
 import { useCourseStore } from "../stores/course-store.js"
+import { commandClient } from "./session-controller.test-support.js"
 
 function setWorkflowClient(workflowClient: WorkflowClient): void {
   const controller = new SessionController({
     workflowClient,
+    commandClient: commandClient(workflowClient),
     onBootstrapReady: async () => {},
   })
   setSessionOperations(controller.operations)

@@ -587,7 +587,12 @@ export function useExaminationEngine({
         )
         if (!file) return
         try {
-          const summary = await scope.run("examination.archive.import", file)
+          const summary = await scope.run("examination.archive.import", file, {
+            settlementInput: {
+              summaries: summaryInput ?? { subjects: [] },
+              questions: lookupInput === null ? [] : [lookupInput],
+            },
+          })
           addToast(
             `Imported: ${summary.inserted} new, ${summary.updated} updated, ${summary.skipped} skipped${
               summary.rejected > 0 ? `, ${summary.rejected} rejected` : ""
@@ -604,7 +609,15 @@ export function useExaminationEngine({
         }
       },
     )
-  }, [addToast, rendererHost, workflowClient, refreshLookup, refreshSummary])
+  }, [
+    addToast,
+    rendererHost,
+    workflowClient,
+    refreshLookup,
+    refreshSummary,
+    summaryInput,
+    lookupInput,
+  ])
 
   const changeQuestionCount = useCallback(
     (count: number) => {

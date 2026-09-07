@@ -181,7 +181,14 @@ it("carries persistence, input, progress, output, settlement and release on one 
     assert.ok("request" in state)
     h.host.progress(state.request, { step: 1, totalSteps: 1, label: "Export" })
     h.host.output(state.request, { channel: "info", message: "Written" })
-    h.admission.dispatch({ type: "outcome-fixed", request: state.request })
+    h.admission.dispatch({
+      type: "outcome-fixed",
+      request: state.request,
+      completion: {
+        operation: input,
+        result: settlement.outcome.completion.result,
+      },
+    })
     h.host.settlement(state.request, settlement)
     await until(() => events.includes("settlement"))
     request.acknowledgeSettlement()

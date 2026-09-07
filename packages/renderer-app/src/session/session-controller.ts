@@ -2,6 +2,7 @@ import {
   type AnalysisDiscoverReposResult,
   type AppSettingsLoadResult,
   type CommitPersistencePreparation,
+  type ExclusiveCommandClient,
   isAppError,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
@@ -85,6 +86,7 @@ type Listener = () => void
 
 type SessionControllerOptions = {
   workflowClient: WorkflowClient
+  commandClient: ExclusiveCommandClient
   onBootstrapReady: () => Promise<void>
 }
 
@@ -169,6 +171,7 @@ export class SessionController extends CourseMutationController {
     }
     this.transactions = new SessionOperations(
       options.workflowClient,
+      options.commandClient,
       {
         enter: (turnId, descriptor) =>
           this.dispatch({ type: "transaction-enter", turnId, descriptor }),

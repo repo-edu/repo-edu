@@ -33,7 +33,7 @@ const phases: HostAdmissionState[] = [
   { phase: "preparing", stage: "bundle-pending", ...command },
   { phase: "preparing", stage: "input-pending", ...command },
   { phase: "executing.running", ...command },
-  { phase: "executing.settling", ...command },
+  { phase: "executing.settling", completion: null, ...command },
   {
     phase: "closing.draining",
     calls: new Set([request()]),
@@ -320,7 +320,11 @@ describe("desktop host admission", () => {
     dispatch({ type: "cancel-request", request: runningRequest })
     dispatch({ type: "cancel-request", request: runningRequest })
     assert.equal(cancellations, 1)
-    dispatch({ type: "outcome-fixed", request: runningRequest })
+    dispatch({
+      type: "outcome-fixed",
+      request: runningRequest,
+      completion: { operation: {} as never, result: {} as never },
+    })
     dispatch({ type: "cancel-request", request: runningRequest })
     assert.equal(cancellations, 1)
     assert.throws(() => owner.startWorkflow("course.list", request()))
@@ -346,7 +350,11 @@ describe("desktop host admission", () => {
   it("fails closed on a foreign request or an out-of-stage follow-up", () => {
     for (const event of [
       { type: "cancel-request", request: request() },
-      { type: "outcome-fixed", request: current },
+      {
+        type: "outcome-fixed",
+        request: current,
+        completion: { operation: {} as never, result: {} as never },
+      },
       { type: "input-prepared", request: current },
     ] satisfies HostAdmissionEvent[]) {
       const result = hostAdmissionReducer(

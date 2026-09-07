@@ -24,12 +24,14 @@ function executionState(
   state: Extract<HostAdmissionState, { command: unknown }>,
   phase: "executing.running" | "executing.settling",
 ): HostAdmissionState {
-  return {
-    phase,
+  const command = {
     request: state.request,
     command: state.command,
     cancellationAccepted: state.cancellationAccepted,
   }
+  return phase === "executing.running"
+    ? { ...command, phase }
+    : { ...command, phase, completion: null }
 }
 
 function cancellationEffects(state: HostAdmissionState): HostAdmissionEffect[] {
@@ -214,7 +216,11 @@ export function hostAdmissionReducer(
           ])
     case "outcome-fixed":
       if (state.phase !== "executing.running") break
-      return transition(executionState(state, "executing.settling"))
+      return transition({
+        ...state,
+        phase: "executing.settling",
+        completion: event.completion,
+      })
     case "settlement-acknowledged":
       if (state.phase !== "executing.settling") break
       return transition(

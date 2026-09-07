@@ -297,6 +297,13 @@ function requestUpdateRestart(): void {
 function performAdmissionEffect(effect: HostAdmissionEffect): void {
   // The request transport sends admission and preparation on the retained port.
   if (effect.type === "prepare-command") return
+  // The validated input receiver owns the async handler body after this
+  // reducer transition has established executing.running.
+  if (effect.type === "execute-command") return
+  if (effect.type === "release-command") {
+    desktopGateway?.requests.release(effect.request)
+    return
+  }
   if (effect.type === "prepare-close") {
     const mainWindow = BrowserWindow.getAllWindows()[0]
     if (!mainWindow || isTRPCValidationMode) {
@@ -736,7 +743,7 @@ async function createWindow(): Promise<BrowserWindow> {
       window: mainWindow,
       rendererUrl: resolveRendererUrl(),
       router: createDesktopWorkflowRouter(desktopWorkflows),
-      preparationHandlers: desktopWorkflows,
+      handlers: desktopWorkflows,
       admission,
       direct: (message) => runRendererHostAction(mainWindow, message),
     })

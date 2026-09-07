@@ -7,6 +7,7 @@ export type {
 export * from "./app-error.js"
 export * from "./course-storage.js"
 export * from "./examination-contract.js"
+export * from "./exclusive-command-client.js"
 export * from "./exclusive-command-contract.js"
 export * from "./exclusive-outcome-contract.js"
 export * from "./persistence-preparation.js"

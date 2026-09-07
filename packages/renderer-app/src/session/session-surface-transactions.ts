@@ -22,7 +22,7 @@ export class SessionTransactionScope {
   constructor(private readonly mayContinue: () => boolean) {}
 
   canContinue(): boolean {
-    return this.mayContinue()
+    return this.acceptingDurableOperations && this.mayContinue()
   }
 
   required<T>(start: () => Promise<T>): Promise<T> {
@@ -38,7 +38,14 @@ export class SessionTransactionScope {
   }
 
   async settle(): Promise<void> {
-    const outcomes = await Promise.all(this.settlements)
+    const outcomes: Settlement[] = []
+    // Include follow-up work registered by an admitted asynchronous callback
+    // while this drain is awaiting that callback.
+    while (outcomes.length < this.settlements.size) {
+      outcomes.push(
+        ...(await Promise.all([...this.settlements].slice(outcomes.length))),
+      )
+    }
     const failure = outcomes.find(
       (outcome) => outcome.required && outcome.error !== null,
     )
@@ -118,8 +125,6 @@ export class SessionSurfaceTransactions {
         value = await run(scope)
       } catch (error) {
         bodyError = error
-      } finally {
-        scope.close()
       }
 
       let settlementError: unknown | null = null
@@ -128,6 +133,7 @@ export class SessionSurfaceTransactions {
       } catch (error) {
         settlementError = error
       } finally {
+        scope.close()
         this.callbacks.retire(turnId)
       }
 

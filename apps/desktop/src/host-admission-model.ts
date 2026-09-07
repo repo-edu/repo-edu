@@ -1,6 +1,8 @@
 import type {
   ExclusiveCommandId,
+  ExclusiveRequestOperation,
   WorkflowId,
+  WorkflowResult,
 } from "@repo-edu/application-contract"
 import type {
   DesktopHostStart,
@@ -17,6 +19,10 @@ type Command = {
   command: ExclusiveCommandId
   cancellationAccepted: boolean
 }
+export type HostCommandCompletion = {
+  operation: ExclusiveRequestOperation
+  result: WorkflowResult<ExclusiveCommandId>
+}
 
 export type HostAdmissionState =
   | { phase: "starting"; calls: Calls }
@@ -26,7 +32,10 @@ export type HostAdmissionState =
       stage: "bundle-pending" | "input-pending"
     } & Command)
   | ({ phase: "executing.running" } & Command)
-  | ({ phase: "executing.settling" } & Command)
+  | ({
+      phase: "executing.settling"
+      completion: HostCommandCompletion | null
+    } & Command)
   | {
       phase: "closing.draining"
       calls: Calls
@@ -57,7 +66,11 @@ export type HostAdmissionEvent =
   | { type: "cancel-request"; request: HostRequest }
   | { type: "preparation-committed"; request: HostRequest }
   | { type: "input-prepared"; request: HostRequest }
-  | { type: "outcome-fixed"; request: HostRequest }
+  | {
+      type: "outcome-fixed"
+      request: HostRequest
+      completion: HostCommandCompletion
+    }
   | { type: "settlement-acknowledged"; request: HostRequest }
   | { type: "close-ready"; request: HostRequest }
   | { type: "terminal"; error: unknown }
