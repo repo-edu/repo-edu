@@ -33,12 +33,12 @@ text. When an in-scope step would cross a current boundary, name the boundary,
 say the plan may predate it and stop for the user's ruling.
 
 Derive each candidate step's repo set from the files its plan text says to
-change. A step may belong to Repo Edu, the plan repo or both. When the repo set
-is unclear, stop for a plan correction. Treat the files a step changes in one
-repo as that repo's share of the step. In each repo in the set, use `git log` to
-find subjects under the topic's joined stems. Collect the step numbers from its
-`impl-<n>` forms. A repo's share is landed only when that repo's log carries
-the step form. A both-repo step remains until both shares have landed.
+change. A step may belong to Repo Edu, the plan repo or both. Treat the files a
+step changes in one repo as that repo's share of the step. In each repo in the
+set, use `git log` to find subjects under the topic's joined stems. Collect the
+step numbers from its `impl-<n>` forms. A repo's share is landed only when that
+repo's log carries the step form. A both-repo step remains until both shares
+have landed.
 
 The scope is the given range minus the landed repo shares. With no range it is
 every remaining share of the earliest unfinished step: the plan's **Execution
@@ -52,6 +52,9 @@ run, and stop.
 
 Intermediate steps may leave behaviour broken until later steps land. This is
 not a sequencing defect and requires no workaround or approval.
+
+Resolve routine choices and step overlaps from the whole plan and code, then
+proceed. Ask only for a missing product decision or required authorisation.
 
 Implement the scope in plan order, one step at a time, changing only its
 remaining repo shares. After each share, run the step's named checks and that
@@ -73,8 +76,7 @@ context boundaries while every rule above stays in force.
 Where the code proves the plan wrong, implement what is right and record the
 reason in the step commit's body. A deviation leaves the plan that carried
 the boundaries, so check it against `../plan/BOUNDARIES.md`; a departure that
-would cross a boundary stops for the user instead of landing. When more than
-one sensible fix exists, put the choice to the user and wait. Write plan-tier
+would cross a boundary stops for the user instead of landing. Write plan-tier
 work into `../plan` only when the user directs it; a directed plan-file fix
 lands in the same run as its own plan-repo commit in the round form. An
 implementation audit defers an undirected plan-text defect in its Repo Edu
