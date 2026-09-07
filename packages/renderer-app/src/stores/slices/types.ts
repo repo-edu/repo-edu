@@ -41,6 +41,7 @@ export type CourseState = {
 
 export type CourseActions = {
   hydrate: (course: PersistedCourse) => void
+  applyCommittedCourse: (course: PersistedCourse) => void
   clear: () => void
   applySaveStamp: (courseId: string, stamp: CourseSaveStamp) => void
 

@@ -177,22 +177,14 @@ export function ImportGroupSetDialog() {
           targetGroupSetId,
         })
 
-        const actionLabel = isReimport
-          ? `Import into group set "${reimportGroupSet?.name ?? ""}"`
-          : "Import group set from file"
-        scope.mutateCourse(course.id, (actions) => {
-          actions.setRoster(nextCourse.roster, actionLabel)
-          actions.setIdSequences(nextCourse.idSequences)
-
-          if (!isReimport) {
-            const importedSet = [...nextCourse.roster.groupSets]
-              .reverse()
-              .find((groupSet) => groupSet.connection?.kind === "import")
-            if (importedSet) {
-              setSidebarSelection({ kind: "group-set", id: importedSet.id })
-            }
+        if (!isReimport) {
+          const importedSet = [...nextCourse.roster.groupSets]
+            .reverse()
+            .find((groupSet) => groupSet.connection?.kind === "import")
+          if (importedSet) {
+            setSidebarSelection({ kind: "group-set", id: importedSet.id })
           }
-        })
+        }
 
         handleClose()
       } catch (cause) {

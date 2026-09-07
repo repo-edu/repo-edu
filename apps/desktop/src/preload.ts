@@ -13,7 +13,7 @@ import {
   type DownloadProgress,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
-import { createRequestPersistenceExchange } from "./request-persistence"
+import { createRequestPersistenceExchange } from "./request-persistence-exchange"
 import { closeTransferSchema, requestPortChannel } from "./request-port-wire"
 
 const desktopTrpcBridge: DesktopTrpcBridge = {

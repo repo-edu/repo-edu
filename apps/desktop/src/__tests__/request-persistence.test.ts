@@ -25,7 +25,6 @@ import {
 } from "../preload-request-transport"
 import {
   commitRequestPersistence,
-  createRequestPersistenceExchange,
   type PreparationHandlers,
 } from "../request-persistence"
 import { requestChannel, until } from "./request-port-harness"
@@ -335,3 +334,5 @@ for (const close of [false, true]) {
     }
   })
 }
+
+import { createRequestPersistenceExchange } from "../request-persistence-exchange"

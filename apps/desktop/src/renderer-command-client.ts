@@ -15,7 +15,7 @@ import type {
   RendererRequest,
 } from "./preload-request-transport"
 import { commandPayloadSchemas } from "./request-command-schemas"
-import { createRequestPersistenceExchange } from "./request-persistence"
+import { createRequestPersistenceExchange } from "./request-persistence-exchange"
 
 function pending<T>() {
   const result = Promise.withResolvers<T>()

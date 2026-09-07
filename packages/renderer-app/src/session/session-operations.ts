@@ -14,7 +14,9 @@ import type {
   WorkflowProgress,
   WorkflowResult,
 } from "@repo-edu/application-contract"
+import { exclusiveCommandDeclarations } from "@repo-edu/application-contract"
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
+import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import type { CourseMutationActions } from "./course-mutation-controller.js"
 import { captureSessionCommandInput } from "./session-command-input.js"
@@ -46,7 +48,7 @@ type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
   settlementInput?: K extends ExclusiveCommandId
     ? ExclusiveSettlementInput<K>
     : never
-  applyAuthoritative?: K extends ExclusiveCommandId
+  applyAuthoritative?: K extends "examination.archive.import"
     ? (values: ExclusiveAuthoritativeValues<K>) => void | Promise<void>
     : never
 }
@@ -127,6 +129,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
       scope: SessionTransactionScope,
       commit: CommitPersistencePreparation,
     ) => Promise<void>,
+    private readonly applyCommittedCourse?: (course: PersistedCourse) => void,
   ) {
     super(callbacks)
   }
@@ -239,6 +242,10 @@ export class SessionOperations extends SessionSurfaceTransactions {
       publish,
       mutateCourse: (courseId, apply) =>
         publish(() => {
+          if (sessionOperationKind(operation) === "command")
+            throw new Error(
+              "Commands apply complete course transitions, not partial course mutations.",
+            )
           const state = useCourseStore.getState()
           if (state.course?.id !== courseId) return
           apply(state)
@@ -274,7 +281,23 @@ export class SessionOperations extends SessionSurfaceTransactions {
         (classification !== "command" || id !== operation)
       )
         throw new Error("The workflow does not belong to this reservation.")
-      const applyAuthoritative = options?.applyAuthoritative
+      const courseCommand =
+        classification === "command" &&
+        exclusiveCommandDeclarations[id as ExclusiveCommandId]
+          .courseTransition === "required"
+      if (courseCommand && options?.applyAuthoritative)
+        throw new Error("Course settlement belongs to the session owner.")
+      const applyAuthoritative = courseCommand
+        ? (values: ExclusiveAuthoritativeValues<"repo.clone">) => {
+            if (!scope.canContinue())
+              throw new Error("The session operation has retired.")
+            if (!this.applyCommittedCourse)
+              throw new Error("The course settlement owner is not installed.")
+            this.applyCommittedCourse(
+              structuredClone(values.course) as PersistedCourse,
+            )
+          }
+        : options?.applyAuthoritative
       const callbacks = {
         applyAuthoritative:
           applyAuthoritative === undefined

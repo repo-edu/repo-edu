@@ -13,10 +13,7 @@ import { useCourseStore } from "../../../../packages/renderer-app/src/stores/cou
 import { HostAdmission } from "../host-admission"
 import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
-import {
-  commitRequestPersistence,
-  createRequestPersistenceExchange,
-} from "../request-persistence"
+import { commitRequestPersistence } from "../request-persistence"
 import { requestChannel, until } from "./request-port-harness"
 
 it("drains host calls before close transfer and queues persistence behind renderer publication", {
@@ -166,3 +163,5 @@ it("drains host calls before close transfer and queues persistence behind render
     channel.dispose()
   }
 })
+
+import { createRequestPersistenceExchange } from "../request-persistence-exchange"

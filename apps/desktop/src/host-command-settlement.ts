@@ -1,4 +1,8 @@
+import { composeCourseCommandTransition } from "@repo-edu/application"
 import {
+  type CourseChangingCommandId,
+  type ExclusiveCommandInput,
+  type ExclusiveCommandResult,
   type ExclusiveTerminalSettlement,
   exclusiveCommandDeclarations,
   type WorkflowHandlerMap,
@@ -67,15 +71,20 @@ export async function settleHostCommand(
     } as ExclusiveTerminalSettlement)
     return
   }
-  // Course results remain with the course transition step. Only that owner may
-  // compose and commit the complete course before this request can settle.
+  let authoritative: ExclusiveTerminalSettlement["authoritative"]
   if (
     exclusiveCommandDeclarations[operation.workflowId].courseTransition ===
     "required"
-  )
-    return
-  let authoritative: ExclusiveTerminalSettlement["authoritative"]
-  if (operation.workflowId === "examination.archive.import") {
+  ) {
+    const course = composeCourseCommandTransition(
+      operation.workflowId as CourseChangingCommandId,
+      operation.input as ExclusiveCommandInput<CourseChangingCommandId>,
+      result as ExclusiveCommandResult<CourseChangingCommandId>,
+    )
+    const stamp = await handlers["course.save"](course)
+    if (!current()) return
+    authoritative = { course: { ...course, ...stamp } }
+  } else if (operation.workflowId === "examination.archive.import") {
     const { summaries, questions } = operation.settlementInput
     const questionSummaries = await handlers[
       "examination.lookupQuestionSummaries"

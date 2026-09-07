@@ -69,13 +69,10 @@ export function ImportGitUsernamesDialog() {
       setError(null)
 
       try {
-        const importedRoster = await scope.run("gitUsernames.import", {
+        await scope.run("gitUsernames.import", {
           course,
           credentials,
           file: fileRef,
-        })
-        scope.mutateCourse(course.id, (actions) => {
-          actions.setRoster(importedRoster, "Import git usernames")
         })
         handleClose()
       } catch (cause) {

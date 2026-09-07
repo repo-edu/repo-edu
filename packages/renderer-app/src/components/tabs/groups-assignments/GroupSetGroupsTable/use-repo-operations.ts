@@ -1,5 +1,4 @@
 import type {
-  RecordedRepositoriesByAssignment,
   RepositoryCloneResult,
   RepositoryCreateResult,
   RepositoryUpdateResult,
@@ -21,7 +20,6 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../../../session/session-controller-context.js"
-import type { SessionOperationScope } from "../../../../session/session-operations.js"
 import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
@@ -232,85 +230,11 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     ],
   )
 
-  const applyRecordedRepositories = useCallback(
-    (
-      scope: SessionOperationScope,
-      recorded: RecordedRepositoriesByAssignment,
-      originatingCourseId: string,
-      templateAssignmentUpdate?: {
-        assignmentId: string
-        templateCommitSha: string
-      },
-    ) => {
-      scope.mutateCourse(originatingCourseId, (actions) => {
-        const latestCourse = useCourseStore.getState().course
-        if (!latestCourse || latestCourse.id !== originatingCourseId) return
-        const assignmentsById = new Map(
-          latestCourse.roster.assignments.map(
-            (assignment) => [assignment.id, assignment] as const,
-          ),
-        )
-        const groupSetsById = new Map(
-          latestCourse.roster.groupSets.map(
-            (groupSet) => [groupSet.id, groupSet] as const,
-          ),
-        )
-        const updatedAssignmentIds = new Set<string>()
-
-        for (const [assignmentId, groupMap] of Object.entries(recorded)) {
-          const assignment = assignmentsById.get(assignmentId)
-          if (!assignment) continue
-          const groupSet = groupSetsById.get(assignment.groupSetId)
-          const validGroupIds = new Set<string>(
-            groupSet === undefined
-              ? []
-              : groupSet.nameMode === "named"
-                ? groupSet.groupIds
-                : groupSet.teams.map((team) => team.id),
-          )
-          const merged: Record<string, string> = {}
-          for (const [groupId, repoName] of Object.entries(
-            assignment.repositories ?? {},
-          )) {
-            if (validGroupIds.has(groupId)) {
-              merged[groupId] = repoName
-            }
-          }
-          for (const [groupId, repoName] of Object.entries(groupMap)) {
-            if (validGroupIds.has(groupId)) {
-              merged[groupId] = repoName
-            }
-          }
-          actions.updateAssignment(assignmentId, {
-            repositories: merged,
-            ...(templateAssignmentUpdate?.assignmentId === assignmentId
-              ? {
-                  templateCommitSha: templateAssignmentUpdate.templateCommitSha,
-                }
-              : {}),
-          })
-          updatedAssignmentIds.add(assignmentId)
-        }
-
-        if (
-          templateAssignmentUpdate !== undefined &&
-          !updatedAssignmentIds.has(templateAssignmentUpdate.assignmentId)
-        ) {
-          actions.updateAssignment(templateAssignmentUpdate.assignmentId, {
-            templateCommitSha: templateAssignmentUpdate.templateCommitSha,
-          })
-        }
-      })
-    },
-    [],
-  )
-
   const handleRunOperation = useCallback(
     async (operation: RepositoryOperationMode) => {
       if (!course || !effectiveAssignmentId) {
         return
       }
-      const originatingCourseId = course.id
 
       await workflowClient.execute(`repo.${operation}`, async (scope) => {
         setOperationStatus("running")
@@ -334,33 +258,12 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
           if (operation === "create") {
             const typed = result as RepositoryCreateResult
             setLastResult({ operation: "create", result: typed })
-            applyRecordedRepositories(
-              scope,
-              typed.recordedRepositories,
-              originatingCourseId,
-            )
           } else if (operation === "update") {
             const typed = result as RepositoryUpdateResult
             setLastResult({ operation: "update", result: typed })
-            applyRecordedRepositories(
-              scope,
-              typed.recordedRepositories,
-              originatingCourseId,
-              typed.templateCommitSha
-                ? {
-                    assignmentId: effectiveAssignmentId,
-                    templateCommitSha: typed.templateCommitSha,
-                  }
-                : undefined,
-            )
           } else {
             const typed = result as RepositoryCloneResult
             setLastResult({ operation: "clone", result: typed })
-            applyRecordedRepositories(
-              scope,
-              typed.recordedRepositories,
-              originatingCourseId,
-            )
           }
         } catch (error) {
           setOperationStatus("error")
@@ -371,7 +274,6 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
       })
     },
     [
-      applyRecordedRepositories,
       cloneDirectoryLayout,
       cloneTargetDirectory,
       course,

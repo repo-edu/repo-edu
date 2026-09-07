@@ -190,6 +190,10 @@ export class SessionController extends CourseMutationController {
       (scope, surface, folder, result) =>
         this.reconcileDiscovery(scope, surface, folder, result),
       (scope, commit) => this.preparePersistence(scope, commit),
+      (course) => {
+        this.persistence.applyCommittedCourse(course)
+        seedLoadedCourseSummary(course)
+      },
     )
     this.settings = new SessionSettings(
       this.transactions.controllerClient,

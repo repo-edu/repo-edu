@@ -209,7 +209,7 @@ describe("session operation ownership", () => {
     assert.deepEqual(order, ["file", "preview", "result", "command"])
   })
 
-  it("applies a command result through its owner while unrelated course edits stay frozen", async () => {
+  it("refuses partial command mutations while unrelated course edits stay frozen", async () => {
     const course = createBlankCourse("course", "2026-09-07T00:00:00Z", {
       backing: "lms",
       displayName: "Original",
@@ -225,13 +225,14 @@ describe("session operation ownership", () => {
         ),
         false,
       )
-      scope.mutateCourse("other", (actions) =>
-        actions.setDisplayName("Wrong course"),
+      assert.throws(
+        () =>
+          scope.mutateCourse(course.id, (actions) =>
+            actions.setDisplayName("Imported"),
+          ),
+        /partial course mutations/,
       )
-      scope.mutateCourse(course.id, (actions) =>
-        actions.setDisplayName("Imported"),
-      )
-      assert.equal(useCourseStore.getState().course?.displayName, "Imported")
+      assert.equal(useCourseStore.getState().course?.displayName, "Original")
     })
     assert.throws(
       () =>

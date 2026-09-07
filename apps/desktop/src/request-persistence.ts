@@ -1,15 +1,8 @@
-import type {
-  CommitPersistencePreparation,
-  WorkflowHandlerMap,
-} from "@repo-edu/application-contract"
+import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
 import type { HostAdmission } from "./host-admission"
 import type { HostRequest } from "./host-admission-model"
 import { settleCancelledPreparation } from "./host-command-settlement"
 import type { createHostRequestTransport } from "./host-request-transport"
-import type {
-  RendererRequest,
-  RendererRequestObserver,
-} from "./preload-request-transport"
 import type {
   RequestPersistenceBundle,
   RequestPersistenceResult,
@@ -63,30 +56,5 @@ export async function commitRequestPersistence(options: {
     settleCancelledPreparation(request, admission, transport)
   } catch (error) {
     admission.dispatch({ type: "terminal", error })
-  }
-}
-
-/** Promise lifetime is the request's lifetime, never an ordinary save call. */
-export function createRequestPersistenceExchange(
-  request: Pick<RendererRequest, "persist">,
-): {
-  commit: CommitPersistencePreparation
-  persisted: RendererRequestObserver["persisted"]
-  failed: RendererRequestObserver["failed"]
-} {
-  let resolve!: (result: RequestPersistenceResult) => void
-  let reject!: (error: Error) => void
-  const result = new Promise<RequestPersistenceResult>((yes, no) => {
-    resolve = yes
-    reject = no
-  })
-  void result.catch(() => undefined)
-  return {
-    async commit(bundle) {
-      request.persist(bundle)
-      return await result
-    },
-    persisted: resolve,
-    failed: (message) => reject(new Error(message)),
   }
 }

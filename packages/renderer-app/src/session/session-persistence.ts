@@ -93,6 +93,24 @@ export class SessionPersistence {
     useCourseStore.getState().clear()
   }
 
+  applyCommittedCourse(course: PersistedCourse): void {
+    if (
+      this.startGate.canStart() ||
+      this.activeCourseWorkerSlot?.courseId !== course.id ||
+      this.getActiveCourseId() !== course.id ||
+      useCourseStore.getState().course?.id !== course.id
+    )
+      throw new Error(
+        "Course settlement requires the active frozen course owner.",
+      )
+    // Preparation drained the old worker. The replacement starts with this
+    // committed document as its baseline, so release cannot save it again.
+    this.disposeActiveCourseWorker(false)
+    useCourseStore.getState().applyCommittedCourse(course)
+    this.ensureActiveCourseWorker(course.id)
+    this.setCourseSyncStatus(idleSyncStatus)
+  }
+
   dispose(): void {
     this.disposeActiveCourseWorker(false)
   }

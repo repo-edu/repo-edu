@@ -72,13 +72,9 @@ export function ImportStudentsFromFileDialog() {
       setError(null)
 
       try {
-        const imported = await scope.run("roster.importFromFile", {
+        await scope.run("roster.importFromFile", {
           course,
           file: fileRef,
-        })
-        scope.mutateCourse(course.id, (actions) => {
-          actions.setRoster(imported.roster, "Import students from file")
-          actions.setIdSequences(imported.idSequences)
         })
         setImportFileDialogOpen(false)
         setFileName("")

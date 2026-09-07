@@ -2,19 +2,52 @@ import { ensureSystemGroupSets } from "@repo-edu/domain/group-set"
 import type { RosterValidationResult } from "@repo-edu/domain/types"
 import { courseHasRoster } from "@repo-edu/domain/types"
 import { validateAssignment, validateRoster } from "@repo-edu/domain/validation"
+import { produceWithPatches } from "immer"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { buildIssueCards } from "../../utils/issues.js"
 import type { CourseActions, StoreGet, StoreSet } from "./types.js"
-import { initialState } from "./types.js"
+import { HISTORY_LIMIT, initialState } from "./types.js"
 
 export function createLifecycleSlice(
   set: StoreSet,
   get: StoreGet,
 ): Pick<
   CourseActions,
-  "hydrate" | "clear" | "applySaveStamp" | "ensureSystemGroupSets" | "runChecks"
+  | "hydrate"
+  | "applyCommittedCourse"
+  | "clear"
+  | "applySaveStamp"
+  | "ensureSystemGroupSets"
+  | "runChecks"
 > {
   return {
+    applyCommittedCourse: (course) => {
+      // History describes the already composed value. It never supplies the
+      // course being applied or reconstructs the command's partial result.
+      const [, patches, inversePatches] = produceWithPatches(
+        get().course!.roster,
+        () => course.roster,
+      )
+      set((draft) => {
+        draft.course = course
+        if (patches.length > 0) {
+          draft.history.push({
+            patches,
+            inversePatches,
+            description: "Apply command result",
+          })
+          if (draft.history.length > HISTORY_LIMIT)
+            draft.history.splice(0, draft.history.length - HISTORY_LIMIT)
+          draft.future = []
+        }
+        draft.checksDirty = true
+        draft.rosterValidation = null
+        draft.assignmentValidations = {}
+        draft.issueCards = []
+        draft.checksStatus = "idle"
+        draft.checksError = null
+      })
+    },
     hydrate: (course) => {
       set((draft) => {
         draft.course = course

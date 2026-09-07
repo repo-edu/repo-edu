@@ -181,14 +181,7 @@ export function ConnectLmsGroupSetDialog() {
         )
         if (connectRequestIdRef.current !== requestId) return
 
-        scope.mutateCourse(course.id, (actions) => {
-          actions.setRoster(
-            result.roster,
-            `Connect group set "${selectedGroupSet.name}"`,
-          )
-          actions.setIdSequences(result.idSequences)
-          setSidebarSelection({ kind: "group-set", id: result.id })
-        })
+        setSidebarSelection({ kind: "group-set", id: result.id })
         handleClose()
       } catch (cause) {
         if (connectRequestIdRef.current !== requestId) return
