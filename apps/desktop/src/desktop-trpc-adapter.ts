@@ -22,8 +22,7 @@ export function createDesktopTrpcAdapter(options: {
 }) {
   const { router, admission } = options
   const calls = new Map<number, AbortController>()
-  const terminal = (error: unknown) =>
-    admission.dispatch({ type: "terminal", error })
+  const terminal = admission.terminal
 
   function send(response: TRPCResponseMessage): void {
     if (admission.getSnapshot().phase === "terminal") return

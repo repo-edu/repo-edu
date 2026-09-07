@@ -45,7 +45,7 @@ export function installDesktopEntryGateway(options: {
   const document = installDesktopRendererDocument({
     window,
     rendererUrl: options.rendererUrl,
-    terminal: (error) => admission.dispatch({ type: "terminal", error }),
+    terminal: admission.terminal,
   })
   const { terminal, proveSender } = document
   const requests = createHostRequestTransport({

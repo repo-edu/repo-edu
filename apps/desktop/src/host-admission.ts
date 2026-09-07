@@ -23,6 +23,12 @@ export class HostAdmission {
 
   getSnapshot = () => this.state
 
+  /** Source adapters report failure here; the reducer alone owns terminal entry. */
+  terminal = (error: unknown): void => {
+    if (this.state.phase === "terminal") return
+    this.dispatch({ type: "terminal", error })
+  }
+
   dispatch(event: HostAdmissionEvent) {
     const next = hostAdmissionReducer(this.state, event)
     this.state = next.state

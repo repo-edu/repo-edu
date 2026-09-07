@@ -48,8 +48,7 @@ export function createHostRequestTransport(options: {
   cancel?(request: HostRequest): void
 }) {
   const retained = new Map<HostRequest, Endpoint>()
-  const terminal = (error: unknown) =>
-    options.admission.dispatch({ type: "terminal", error })
+  const terminal = options.admission.terminal
 
   function attach(
     request: HostRequest,

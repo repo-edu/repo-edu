@@ -96,9 +96,9 @@ export async function executeHostCommand(options: {
       try {
         await settleHostCommand(request, admission, handlers, transport)
       } catch (failure) {
-        admission.dispatch({ type: "terminal", error: failure })
+        admission.terminal(failure)
       }
-    } else admission.dispatch({ type: "terminal", error })
+    } else admission.terminal(error)
     return undefined
   }
 }

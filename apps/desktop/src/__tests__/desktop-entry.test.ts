@@ -22,6 +22,7 @@ for (const scenario of ["gate-first", "ready-first"]) {
       "listen:activate",
       "listen:window-all-closed",
       "listen:before-quit",
+      "listen:child-process-gone",
       "when-ready",
       "claim",
     ])
@@ -36,6 +37,25 @@ for (const scenario of ["gate-first", "ready-first"]) {
     assert.equal(result.events.filter((event) => event === "release").length, 1)
     assert.equal(
       result.events.filter((event) => event.startsWith("process-exit:")).length,
+      1,
+    )
+  })
+}
+
+for (const scenario of ["unhandled-rejection", "child-loss"]) {
+  it(`the installed ${scenario} adapter enters reducer-owned ending before readiness`, async () => {
+    const result = await runDesktopEntry({ scenario })
+    assert.equal(result.status, 1, result.stderr)
+    assert.deepEqual(result.events.slice(-5), [
+      "disable",
+      "stop-owned-work",
+      "app-exit:1",
+      "process-exit:1",
+      "release",
+    ])
+    assert.equal(result.events.includes("ready"), false)
+    assert.equal(
+      result.events.filter((event) => event === "stop-owned-work").length,
       1,
     )
   })

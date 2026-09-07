@@ -55,6 +55,14 @@ globalThis.afterEntry = async () => {
   globalThis.holdGate()
   await turn()
   trace("after-gate")
+  if (process.env.ENTRY_CASE === "unhandled-rejection") {
+    Promise.reject(new Error("unhandled rejection"))
+    return
+  }
+  if (process.env.ENTRY_CASE === "child-loss") {
+    app.emit("child-process-gone", {}, { type: "Future child", reason: "future-reason" })
+    return
+  }
   if (process.env.ENTRY_CASE === "fatal-after-gate") {
     setImmediate(() => { throw new Error("held-gate failure") })
     return

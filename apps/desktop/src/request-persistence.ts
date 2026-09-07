@@ -55,6 +55,6 @@ export async function commitRequestPersistence(options: {
     transport.persistenceCommitted(request, result)
     settleCancelledPreparation(request, admission, transport)
   } catch (error) {
-    admission.dispatch({ type: "terminal", error })
+    admission.terminal(error)
   }
 }

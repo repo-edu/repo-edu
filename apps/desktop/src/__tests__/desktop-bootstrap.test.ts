@@ -65,6 +65,21 @@ it("loads first-use defaults and empty durable stores before renderer readiness"
   })
 })
 
+it("the loaded archive reports live storage failure through host admission", async () => {
+  await fixture(async (root, admission, effects) => {
+    const loaded = await loadDesktopBootstrap(root, admission)
+    admission.dispatch({ type: "bootstrap-acknowledged" })
+    try {
+      loaded.archiveHandle.db.exec("DROP TABLE examinations")
+      assert.throws(() => loaded.examinationArchive.exportAll())
+      assert.equal(admission.getSnapshot().phase, "terminal")
+      assert.deepEqual(effects, [{ type: "end-host", reason: "failure" }])
+    } finally {
+      loaded.archiveHandle.close()
+    }
+  })
+})
+
 it("a later launch reads saved settings, courses and geometry with fresh owners", async () => {
   await fixture(async (root, admission) => {
     const settingsStore = createDesktopAppSettingsStore(root)

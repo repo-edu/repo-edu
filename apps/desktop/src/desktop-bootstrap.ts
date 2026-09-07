@@ -12,6 +12,7 @@ import {
   createExaminationArchiveStorage,
   openExaminationArchiveDatabase,
 } from "@repo-edu/host-node/examination-archive"
+import { observeDesktopExaminationStorage } from "./desktop-terminal-sources"
 import type { HostAdmission } from "./host-admission"
 import { createDesktopAppSettingsStore } from "./settings-store"
 
@@ -42,9 +43,10 @@ export async function loadDesktopBootstrap(
       dbPath: join(archiveDirectory, "archive.db"),
     })
     try {
-      const examinationArchive = createExaminationArchiveStorage({
-        handle: archiveHandle,
-      })
+      const examinationArchive = observeDesktopExaminationStorage(
+        createExaminationArchiveStorage({ handle: archiveHandle }),
+        admission.terminal,
+      )
       validateExaminationArchiveStorage(examinationArchive)
       return {
         appSettingsStore,
@@ -60,7 +62,7 @@ export async function loadDesktopBootstrap(
       throw error
     }
   } catch (error) {
-    admission.dispatch({ type: "terminal", error })
+    admission.terminal(error)
     throw error
   } finally {
     settle()

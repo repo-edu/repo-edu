@@ -65,6 +65,7 @@ import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
 import { installDesktopSessionLifetime } from "./desktop-session-lifetime"
+import { installDesktopTerminalSources } from "./desktop-terminal-sources"
 import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
@@ -107,10 +108,6 @@ export function installDesktopApplication(): void {
     process.stderr.write(`[desktop] ${label} ${desktopErrorText(error)}\n`)
     app.exit(1)
   }
-
-  process.on("unhandledRejection", (reason) => {
-    terminateDesktop("unhandled-rejection", reason)
-  })
 
   const startupMarker = "repo-edu-desktop-cold-start"
   const trpcMarker = "repo-edu-desktop-trpc"
@@ -288,6 +285,11 @@ export function installDesktopApplication(): void {
   let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
   let examinationArchiveClosed = false
   const admission = new HostAdmission(performAdmissionEffect)
+  const terminalSources = installDesktopTerminalSources({
+    app,
+    process,
+    terminal: admission.terminal,
+  })
 
   function closeRequest(): HostRequest {
     return { cancel() {} }
@@ -317,10 +319,9 @@ export function installDesktopApplication(): void {
       }
       mainWindow.setEnabled(false)
       if (!desktopGateway) {
-        admission.dispatch({
-          type: "terminal",
-          error: new Error("The interactive desktop has no entry gateway."),
-        })
+        admission.terminal(
+          new Error("The interactive desktop has no entry gateway."),
+        )
         return
       }
       desktopGateway.prepareClose(effect.request)
@@ -340,10 +341,7 @@ export function installDesktopApplication(): void {
       return
     }
     // Request-port execution is connected by the later command steps.
-    admission.dispatch({
-      type: "terminal",
-      error: new Error(`Unconnected request effect: ${effect.type}`),
-    })
+    admission.terminal(new Error(`Unconnected request effect: ${effect.type}`))
   }
 
   function closeExaminationArchiveDatabase() {
@@ -652,6 +650,7 @@ export function installDesktopApplication(): void {
       },
     })
 
+    terminalSources.observeRenderer(mainWindow.webContents)
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     mainWindow.on("resize", () => {
       if (resizeTimer) clearTimeout(resizeTimer)
@@ -878,6 +877,6 @@ export function installDesktopApplication(): void {
     process.stderr.write(
       `[desktop] startup-failed ${desktopErrorText(error)}\n`,
     )
-    admission.dispatch({ type: "terminal", error })
+    admission.terminal(error)
   })
 }
