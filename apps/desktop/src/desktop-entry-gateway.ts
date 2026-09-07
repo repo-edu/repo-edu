@@ -6,6 +6,7 @@ import type {
   IpcMainEvent,
   IpcMainInvokeEvent,
 } from "electron"
+import { installDesktopRendererDocument } from "./desktop-renderer-document"
 import { createDesktopTrpcAdapter } from "./desktop-trpc-adapter"
 import {
   type DesktopDirectMessage,
@@ -30,34 +31,18 @@ export function installDesktopEntryGateway(options: {
 }) {
   const { ipc, window, admission } = options
   let close: { requestId: string; request: HostRequest } | null = null
-  const terminal = (error: unknown) =>
-    admission.dispatch({ type: "terminal", error })
+  const document = installDesktopRendererDocument({
+    window,
+    rendererUrl: options.rendererUrl,
+    terminal: (error) => admission.dispatch({ type: "terminal", error }),
+  })
+  const { terminal, proveSender } = document
   const adapter = createDesktopTrpcAdapter({
     router: options.router,
     admission,
     send: (response) =>
       window.webContents.send(desktopTrpcResponseChannel, response),
   })
-
-  function proveSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
-    const contents = window.webContents
-    if (
-      window.isDestroyed() ||
-      contents.isDestroyed() ||
-      event.sender !== contents ||
-      event.senderFrame === null ||
-      event.senderFrame !== contents.mainFrame ||
-      event.senderFrame.isDestroyed() ||
-      event.senderFrame.detached ||
-      event.senderFrame.parent !== null ||
-      event.senderFrame.url !== options.rendererUrl ||
-      contents.getURL() !== options.rendererUrl
-    ) {
-      terminal(new Error("Foreign desktop gateway sender."))
-      return false
-    }
-    return true
-  }
 
   const receive = (event: IpcMainEvent, raw: unknown) => {
     if (!proveSender(event)) return
@@ -125,6 +110,7 @@ export function installDesktopEntryGateway(options: {
   ipc.handle(desktopEntryChannel, invoke)
 
   return {
+    loadRenderer: document.load,
     prepareClose(request: HostRequest) {
       close = { requestId: randomUUID(), request }
       window.webContents.send(desktopRendererHostChannels.requestClose, {
@@ -132,6 +118,7 @@ export function installDesktopEntryGateway(options: {
       })
     },
     dispose() {
+      document.dispose()
       ipc.removeListener(desktopEntryChannel, receive)
       ipc.removeHandler(desktopEntryChannel)
       close = null

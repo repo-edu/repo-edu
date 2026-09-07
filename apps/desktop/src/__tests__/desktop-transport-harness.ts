@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events"
 import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
 import { workflowCatalog } from "@repo-edu/application-contract"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
@@ -15,6 +16,8 @@ import { createDesktopWorkflowRouter } from "../trpc"
 
 export function transportHarness(
   handler: WorkflowHandlerMap[keyof WorkflowHandlerMap],
+  rendererUrl = "file:///app/index.html",
+  load = true,
 ) {
   const responses: TRPCResponseMessage[] = []
   const effects: HostAdmissionEffect[] = []
@@ -44,23 +47,34 @@ export function transportHarness(
       handlers.delete(channel)
     },
   } as Pick<IpcMain, "on" | "handle" | "removeListener" | "removeHandler">
-  const rendererUrl = "file:///app/index.html"
   const mainFrame = {
     url: rendererUrl,
     parent: null,
     detached: false,
     isDestroyed: () => false,
   }
-  const contents = {
+  const contents = Object.assign(new EventEmitter(), {
     mainFrame,
     isDestroyed: () => false,
     getURL: () => rendererUrl,
     send: (_channel: string, message: TRPCResponseMessage) =>
       responses.push(message),
-  }
+    setWindowOpenHandler(handler: () => { action: string }) {
+      this.openWindow = handler
+    },
+    openWindow: (): { action: string } => ({ action: "allow" }),
+  })
   const window = {
     webContents: contents,
     isDestroyed: () => false,
+    async loadURL(url: string) {
+      contents.emit("did-start-navigation", {
+        url,
+        isMainFrame: true,
+        isSameDocument: false,
+      })
+      contents.emit("did-frame-navigate", {}, url, 200, "OK", true)
+    },
   } as unknown as BrowserWindow
   const event = {
     sender: contents,
@@ -79,6 +93,7 @@ export function transportHarness(
       direct.push(message)
     },
   })
+  if (load) void gateway.loadRenderer()
   return {
     admission,
     responses,

@@ -63,7 +63,6 @@ export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
     action: z.literal("pickDirectory"),
     input: z.strictObject({ title: z.string().optional() }).optional(),
   }),
-  z.strictObject({ action: z.literal("openExternalUrl"), input: z.string() }),
   z.strictObject({
     action: z.literal("setNativeTheme"),
     input: z.enum(["light", "dark", "system"]),

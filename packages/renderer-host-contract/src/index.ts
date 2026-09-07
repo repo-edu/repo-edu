@@ -33,7 +33,6 @@ export type RendererHost = {
     options?: SaveUserFileDialogOptions,
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
-  openExternalUrl(url: string): Promise<void>
   setNativeTheme(theme: ThemePreference): Promise<void>
   revealCoursesDirectory(): Promise<void>
   onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void

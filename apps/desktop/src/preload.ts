@@ -91,13 +91,6 @@ const desktopHostBridge: DesktopRendererHostBridge = {
     })
   },
 
-  async openExternalUrl(url) {
-    await ipcRenderer.invoke(desktopEntryChannel, {
-      action: "openExternalUrl",
-      input: url,
-    })
-  },
-
   async setNativeTheme(theme) {
     await ipcRenderer.invoke(desktopEntryChannel, {
       action: "setNativeTheme",

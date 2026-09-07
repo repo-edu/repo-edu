@@ -12,7 +12,6 @@ export const desktopRendererHostChannels = {
   pickUserFile: "repo-edu/renderer-host/pick-user-file",
   pickSaveTarget: "repo-edu/renderer-host/pick-save-target",
   pickDirectory: "repo-edu/renderer-host/pick-directory",
-  openExternalUrl: "repo-edu/renderer-host/open-external-url",
   setNativeTheme: "repo-edu/renderer-host/set-native-theme",
   revealCoursesDirectory: "repo-edu/renderer-host/reveal-courses-directory",
   requestClose: "repo-edu/renderer-host/request-close",
@@ -43,7 +42,6 @@ export type DesktopRendererHostBridge = {
     options?: SaveUserFileDialogOptions,
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
-  openExternalUrl(url: string): Promise<void>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
   revealCoursesDirectory(): Promise<void>
   onCloseRequest(callback: (attemptId: string) => Promise<void>): () => void
@@ -68,9 +66,6 @@ export function createRendererHostFromBridge(
     },
     pickDirectory(options) {
       return bridge.pickDirectory(options)
-    },
-    openExternalUrl(url) {
-      return bridge.openExternalUrl(url)
     },
     setNativeTheme(theme) {
       return bridge.setNativeTheme(theme)

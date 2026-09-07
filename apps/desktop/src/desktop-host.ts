@@ -18,7 +18,6 @@ import {
   dialog,
   type OpenDialogOptions,
   type SaveDialogOptions,
-  shell,
 } from "electron"
 
 type ReadReferenceRecord = {
@@ -124,7 +123,6 @@ export type DesktopHostEnvironment = {
     parentWindow: BrowserWindow | null,
     options?: { title?: string },
   ): Promise<string | null>
-  openExternalUrl(url: string): Promise<void>
 }
 
 type DesktopHostOptions = {
@@ -348,10 +346,6 @@ export function createDesktopHostEnvironment(
       }
 
       return result.filePaths[0]
-    },
-
-    async openExternalUrl(url: string) {
-      await shell.openExternal(url)
     },
   }
 }

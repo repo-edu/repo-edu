@@ -71,6 +71,7 @@ import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
 import { createDesktopCourseStore } from "./course-store"
 import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
+import { createDesktopMenuTemplate } from "./desktop-menu"
 import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
@@ -549,116 +550,32 @@ async function showAboutDialog() {
   }
 }
 
-function createHelpMenu(updateItems: MenuItemConstructorOptions[]) {
-  const helpItems: MenuItemConstructorOptions[] = [
-    {
-      label: "Documentation",
-      click: () => {
-        void shell.openExternal(docsWebsiteUrl)
-      },
-    },
-  ]
-
-  if (process.platform !== "darwin") {
-    helpItems.push({ type: "separator" }, ...updateItems)
-  }
-
-  if (process.platform !== "darwin") {
-    helpItems.push(
-      { type: "separator" },
-      {
-        label: `About ${desktopAppName}`,
-        click: () => {
-          void showAboutDialog()
-        },
-      },
-    )
-  }
-
-  return {
-    label: "Help",
-    submenu: helpItems,
-  } satisfies MenuItemConstructorOptions
-}
-
 function installApplicationMenu() {
-  const isMac = process.platform === "darwin"
-  const updateItems = buildUpdateMenuItems()
-  const template: MenuItemConstructorOptions[] = []
-
-  if (isMac) {
-    template.push({
-      label: app.name,
-      submenu: [
-        {
-          label: `About ${desktopAppName}`,
-          click: () => {
-            void showAboutDialog()
-          },
-        },
-        { type: "separator" },
-        ...updateItems,
-        { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
-        { type: "separator" },
-        {
-          label: `Quit ${desktopAppName}`,
-          accelerator: "Command+Q",
-          click: () => {
-            admission.dispatch({
-              type: "host-start",
-              source: "menu-quit",
-              request: closeRequest(),
-            })
-          },
-        },
-      ],
-    })
-  }
-
-  template.push(
-    {
-      label: "File",
-      submenu: [
-        {
-          label: "Close",
-          accelerator: "CmdOrCtrl+W",
-          click: () => {
-            admission.dispatch({
-              type: "host-start",
-              source: "menu-close",
-              request: closeRequest(),
-            })
-          },
-        },
-        ...(!isMac
-          ? [
-              {
-                label: "Quit",
-                accelerator: "Alt+F4",
-                click: () => {
-                  admission.dispatch({
-                    type: "host-start" as const,
-                    source: "menu-quit" as const,
-                    request: closeRequest(),
-                  })
-                },
-              },
-            ]
-          : []),
-      ],
+  const template = createDesktopMenuTemplate({
+    isMac: process.platform === "darwin",
+    appName: desktopAppName,
+    updateItems: buildUpdateMenuItems(),
+    documentation: () => {
+      void shell.openExternal(docsWebsiteUrl)
     },
-    { role: "editMenu" },
-    { role: "viewMenu" },
-    { role: "windowMenu" },
-  )
-
-  template.push(createHelpMenu(updateItems))
-
+    about: () => {
+      void showAboutDialog()
+    },
+    close: () => {
+      admission.dispatch({
+        type: "host-start",
+        source: "menu-close",
+        request: closeRequest(),
+      })
+    },
+    quit: () => {
+      admission.dispatch({
+        type: "host-start",
+        source: "menu-quit",
+        request: closeRequest(),
+      })
+    },
+  })
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
@@ -686,8 +603,6 @@ function runRendererHostAction(
     case "pickDirectory":
       admission.admitShell(message.action)
       return desktopHost.pickDirectory(parent, message.input)
-    case "openExternalUrl":
-      return desktopHost.openExternalUrl(message.input)
     case "setNativeTheme":
       admission.admitShell(message.action)
       nativeTheme.themeSource = message.input
@@ -762,6 +677,7 @@ async function createWindow(): Promise<BrowserWindow> {
       contextIsolation: true,
       preload: resolvePreloadPath(),
       sandbox: true,
+      devTools: !app.isPackaged,
     },
   })
 
@@ -892,8 +808,6 @@ async function createWindow(): Promise<BrowserWindow> {
     })
   }
 
-  const rendererUrl = resolveRendererUrl()
-
   if (isMeasureMode) {
     mainWindow.webContents.once("did-finish-load", () => {
       const didFinishLoadMs = Number(
@@ -913,7 +827,7 @@ async function createWindow(): Promise<BrowserWindow> {
     })
   }
 
-  await mainWindow.loadURL(rendererUrl)
+  await desktopGateway.loadRenderer()
 
   return mainWindow
 }
