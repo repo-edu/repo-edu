@@ -42,6 +42,23 @@ export type ExaminationArchivePort = {
   importBundle(bundle: unknown): ExaminationArchiveImportSummary
 }
 
+/** Bootstrap rejects invalid saved records without deleting or repairing them. */
+export function validateExaminationArchiveStorage(
+  storage: Pick<ExaminationArchiveStoragePort, "exportAll">,
+): void {
+  for (const entry of storage.exportAll()) {
+    const record = tryParseRecord(entry)
+    if (
+      record === null ||
+      record.provenance.createdAtMs !== entry.createdAtMs
+    ) {
+      throw new Error(
+        `Invalid examination data for archive entry ${entry.storageKey}.`,
+      )
+    }
+  }
+}
+
 export function createExaminationArchive(
   storage: ExaminationArchiveStoragePort,
 ): ExaminationArchivePort {

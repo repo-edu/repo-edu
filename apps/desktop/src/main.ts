@@ -1,17 +1,13 @@
-import { mkdirSync, rmSync } from "node:fs"
 import os from "node:os"
 import { delimiter, dirname, join } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { createSettingsWorkflowHandlers } from "@repo-edu/application"
-import type { AppSettingsLoadResult } from "@repo-edu/application-contract"
 import {
   defaultAppCredentials,
   type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
 import {
   claimProgramGate,
-  createCourseStore,
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
@@ -19,7 +15,6 @@ import {
   createNodeLlmTextClient,
   createNodeProcessPort,
   createNodeTokenizerPort,
-  createNodeWindowStateStore,
   isProgramGateArtifactProbe,
   type ProgramGateClaim,
   programConflictMessage,
@@ -27,14 +22,9 @@ import {
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
-import {
-  createExaminationArchiveStorage,
-  type ExaminationArchiveDatabaseHandle,
-  openExaminationArchiveDatabase,
-} from "@repo-edu/host-node/examination-archive"
+import type { ExaminationArchiveDatabaseHandle } from "@repo-edu/host-node/examination-archive"
 import { createWindowsChildProcessLifetimeAdapter } from "@repo-edu/host-node/windows-child-lifetime"
 import type {
-  ExaminationArchiveStoragePort,
   LlmPort,
   LlmRunRequest,
   LlmRunResult,
@@ -56,7 +46,6 @@ import {
   shell,
 } from "electron"
 import {
-  bindAutoUpdaterWindow,
   checkForUpdatesNow,
   downloadUpdate,
   getAutoUpdaterState,
@@ -71,14 +60,15 @@ import {
 import { createDesktopChildProcessLifetimeController } from "./child-process-lifetime"
 import { resolveUnpackedCodexBinaryPath } from "./codex-binary"
 import { createDesktopCodexSdkHostCommand } from "./codex-sdk-host-command"
+import { loadDesktopBootstrap } from "./desktop-bootstrap"
 import { installDesktopEntryGateway } from "./desktop-entry-gateway"
 import { createDesktopHostEnvironment } from "./desktop-host"
 import { createDesktopMenuTemplate } from "./desktop-menu"
+import { installDesktopSessionLifetime } from "./desktop-session-lifetime"
 import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
-import { createDesktopAppSettingsStore } from "./settings-store"
 import {
   createDesktopWorkflowRegistry,
   createDesktopWorkflowRouter,
@@ -283,7 +273,6 @@ let validationCourseId = ""
 let updaterMenuBound = false
 let examinationArchiveHandle: ExaminationArchiveDatabaseHandle | null = null
 let examinationArchiveClosed = false
-let desktopExaminationArchive: ExaminationArchiveStoragePort | null = null
 const admission = new HostAdmission(performAdmissionEffect)
 
 function closeRequest(): HostRequest {
@@ -342,38 +331,6 @@ function performAdmissionEffect(effect: HostAdmissionEffect): void {
   })
 }
 
-function openExaminationArchiveOnce(
-  storageRoot: string,
-): ExaminationArchiveStoragePort {
-  if (desktopExaminationArchive) return desktopExaminationArchive
-  const archiveDir = join(storageRoot, "examinations")
-  mkdirSync(archiveDir, { recursive: true })
-  const dbPath = join(archiveDir, "archive.db")
-  const handle = openOrRecreateExaminationArchive(dbPath)
-  examinationArchiveHandle = handle
-  const archive = createExaminationArchiveStorage({ handle })
-  desktopExaminationArchive = archive
-  return archive
-}
-
-// The archive opener throws on any unexpected `user_version`. When the
-// mismatch is from an older known schema the archive is unrecoverable
-// (column shape changed), so recreate the file and continue rather than
-// crash window startup. WAL/SHM siblings come along to keep SQLite from
-// reattaching to a half-deleted database.
-function openOrRecreateExaminationArchive(dbPath: string) {
-  try {
-    return openExaminationArchiveDatabase({ dbPath })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!/unsupported user_version/.test(message)) throw error
-    for (const path of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
-      rmSync(path, { force: true })
-    }
-    return openExaminationArchiveDatabase({ dbPath })
-  }
-}
-
 function closeExaminationArchiveDatabase() {
   if (examinationArchiveClosed) return
   examinationArchiveClosed = true
@@ -385,7 +342,6 @@ function closeExaminationArchiveDatabase() {
     // Best-effort — WAL durability survives close failures.
   }
   examinationArchiveHandle = null
-  desktopExaminationArchive = null
 }
 
 // repo-edu persists its own secrets (LLM API keys) as plain JSON via the
@@ -402,16 +358,10 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock()
 
 app.setName(desktopAppName)
 
-app.on("second-instance", () => {
-  const mainWindow = BrowserWindow.getAllWindows()[0]
-  if (!mainWindow) {
-    return
-  }
-
-  if (mainWindow.isMinimized()) {
-    mainWindow.restore()
-  }
-  mainWindow.focus()
+installDesktopSessionLifetime({
+  app,
+  getWindow: () => BrowserWindow.getAllWindows()[0],
+  close: () => app.quit(),
 })
 
 function resolvePreloadPath() {
@@ -654,13 +604,23 @@ function handleValidationMarker(message: string) {
   }
 }
 
-async function createWindow(): Promise<BrowserWindow> {
+async function createWindow(): Promise<BrowserWindow | null> {
   const isMac = process.platform === "darwin"
   const storageRoot = currentStorageRootPath()
-  const appSettingsStore = createDesktopAppSettingsStore(storageRoot)
-
-  const windowStateStore = createNodeWindowStateStore(storageRoot)
-  const windowState = await windowStateStore.load()
+  const {
+    appSettingsStore,
+    settings,
+    courseStore,
+    windowStateStore,
+    windowState,
+    archiveHandle,
+    examinationArchive,
+  } = await loadDesktopBootstrap(storageRoot, admission)
+  if (admission.getSnapshot().phase !== "starting") {
+    archiveHandle.close()
+    return null
+  }
+  examinationArchiveHandle = archiveHandle
 
   const mainWindow = new BrowserWindow({
     width: windowState.width,
@@ -705,28 +665,10 @@ async function createWindow(): Promise<BrowserWindow> {
   })
 
   {
-    let initialSettingsLoadResult: AppSettingsLoadResult | null = null
-    let initialSettingsLoadError: unknown
-    const settingsAbort = new AbortController()
-    const settleSettings = admission.startWorkflow("settings.loadApp", {
-      cancel: () => settingsAbort.abort(),
-    })
-    try {
-      initialSettingsLoadResult = await createSettingsWorkflowHandlers(
-        appSettingsStore,
-      )["settings.loadApp"](undefined, { signal: settingsAbort.signal })
-    } catch (error) {
-      initialSettingsLoadError = error
-    } finally {
-      settleSettings()
-    }
-    if (admission.getSnapshot().phase !== "starting") return mainWindow
-
-    const examinationArchive = openExaminationArchiveOnce(storageRoot)
-    rebuildLlmPort(initialSettingsLoadResult?.credentials ?? null)
+    rebuildLlmPort(settings.credentials)
     const desktopWorkflows = createDesktopWorkflowRegistry({
       http: nodeHttpPort,
-      courseStore: createCourseStore(storageRoot),
+      courseStore,
       appSettingsStore,
       userFile: desktopHost.userFilePort,
       gitCommand: nodeGitCommandPort,
@@ -734,8 +676,7 @@ async function createWindow(): Promise<BrowserWindow> {
       llm: nodeLlmPort,
       tokenizer: nodeTokenizerPort,
       examinationArchive,
-      initialSettingsLoadResult: initialSettingsLoadResult ?? undefined,
-      initialSettingsLoadError,
+      initialSettingsLoadResult: settings,
       onAppCredentialsSaved: rebuildLlmPortIfCredentialsChanged,
       createDraftLlmTextClient,
     })
@@ -868,19 +809,7 @@ async function startDesktop(): Promise<void> {
   }
 
   const mainWindow = await createWindow()
-  initAutoUpdater(mainWindow)
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow()
-        .then((window) => {
-          bindAutoUpdaterWindow(window)
-        })
-        .catch((error) => {
-          terminateDesktop("activate-failed", error)
-        })
-    }
-  })
+  if (mainWindow) initAutoUpdater(mainWindow)
 }
 
 function reportProgramGateFailure(message: string): void {
@@ -944,12 +873,11 @@ async function bootstrapDesktop(): Promise<void> {
 
 if (hasSingleInstanceLock) {
   void bootstrapDesktop().catch((error) => {
-    terminateDesktop("startup-failed", error)
+    process.stderr.write(
+      `[desktop] startup-failed ${desktopErrorText(error)}\n`,
+    )
+    admission.dispatch({ type: "terminal", error })
   })
 } else {
   app.quit()
 }
-
-app.on("window-all-closed", () => {
-  app.quit()
-})

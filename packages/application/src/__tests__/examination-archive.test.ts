@@ -8,6 +8,7 @@ import {
   EXAMINATION_QUESTION_COUNT_MIN,
   type ExaminationArchiveKey,
   type ExaminationArchiveRecord,
+  serializeExaminationArchiveStorageKey,
 } from "@repo-edu/application-contract"
 import type {
   FileSystemPort,
@@ -17,6 +18,7 @@ import type {
   LlmStreamEvent,
   TokenizerPort,
 } from "@repo-edu/host-runtime-contract"
+import { validateExaminationArchiveStorage } from "../examination-workflows/archive-port.js"
 import { createExaminationWorkflowHandlers } from "../examination-workflows/examination-workflows.js"
 import { prepareExaminationPrivacy } from "../examination-workflows/privacy-policy.js"
 import { EXAMINATION_PROMPT_TEMPLATE_VERSION } from "../examination-workflows/prompt-builder.js"
@@ -92,6 +94,28 @@ const baseRecord: ExaminationArchiveRecord = {
     promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
   },
 }
+
+it("validates saved examination records without changing them", () => {
+  const entry = {
+    storageKey: serializeExaminationArchiveStorageKey(baseRecord.key),
+    createdAtMs: baseRecord.provenance.createdAtMs,
+    payloadJson: JSON.stringify(baseRecord),
+  }
+  validateExaminationArchiveStorage({ exportAll: () => [entry] })
+  for (const invalid of [
+    { ...entry, payloadJson: "{" },
+    { ...entry, payloadJson: "{}" },
+    { ...entry, storageKey: "wrong-key" },
+    { ...entry, createdAtMs: entry.createdAtMs + 1 },
+  ]) {
+    const before = structuredClone(invalid)
+    assert.throws(
+      () => validateExaminationArchiveStorage({ exportAll: () => [invalid] }),
+      /Invalid examination data/,
+    )
+    assert.deepEqual(invalid, before)
+  }
+})
 
 function baseUsage(): Exclude<
   ExaminationArchiveRecord["provenance"]["usage"],

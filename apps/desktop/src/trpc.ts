@@ -14,7 +14,6 @@ import {
   createRosterWorkflowHandlers,
   createSettingsWorkflowHandlers,
   createValidationWorkflowHandlers,
-  isSettingsRecoveryLoadError,
   type LlmConnectionWorkflowPorts,
   runInspectUserFileWorkflow,
   runUserFileExportPreviewWorkflow,
@@ -22,7 +21,6 @@ import {
 import type {
   AppError,
   AppSettingsLoadResult,
-  SettingsRecoveryEntry,
   WorkflowEventFor,
   WorkflowHandler,
   WorkflowHandlerMap,
@@ -72,8 +70,7 @@ export type DesktopRouterPorts = {
   llm: LlmPort
   tokenizer: TokenizerPort
   examinationArchive: ExaminationArchiveStoragePort
-  initialSettingsLoadResult?: AppSettingsLoadResult
-  initialSettingsLoadError?: unknown
+  initialSettingsLoadResult: AppSettingsLoadResult
   /**
    * Called whenever `settings.saveCredentials` succeeds. Composition root uses
    * this to rebuild the LLM port delegate so the next workflow run sees the
@@ -195,35 +192,10 @@ export function createDesktopWorkflowRegistry(
 
   const appSettingsStore = ports.appSettingsStore as DesktopSettingsStore
   const settingsHandlers = createSettingsWorkflowHandlers(appSettingsStore)
-  let initialSettingsLoadResult = ports.initialSettingsLoadResult
-  let initialSettingsLoadError = ports.initialSettingsLoadError
-  // Recovery already applied during a failed bootstrap load. The renamed
-  // backup files will not re-report on a retry, so carry these entries forward
-  // and surface them on the first load that succeeds.
-  let pendingRecovery: SettingsRecoveryEntry[] = isSettingsRecoveryLoadError(
-    ports.initialSettingsLoadError,
-  )
-    ? ports.initialSettingsLoadError.recovery
-    : []
   const wrappedSettingsHandlers: typeof settingsHandlers = {
     ...settingsHandlers,
-    "settings.loadApp": async (input, options) => {
-      if (initialSettingsLoadError !== undefined) {
-        const error = initialSettingsLoadError
-        initialSettingsLoadError = undefined
-        throw error
-      }
-      const loaded =
-        initialSettingsLoadResult ??
-        (await settingsHandlers["settings.loadApp"](input, options))
-      initialSettingsLoadResult = undefined
-      const withCarriedRecovery =
-        pendingRecovery.length === 0
-          ? loaded
-          : { ...loaded, recovery: [...pendingRecovery, ...loaded.recovery] }
-      pendingRecovery = []
-      return applyEnvOverrides(withCarriedRecovery)
-    },
+    "settings.loadApp": async () =>
+      applyEnvOverrides(ports.initialSettingsLoadResult),
     "settings.savePreferences": async (input, options) => {
       const persistable = await resolveDesktopPreferencesSavePayload(input, {
         readPreferencesWithoutRecovery:

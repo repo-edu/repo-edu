@@ -1,3 +1,4 @@
+import { statSync } from "node:fs"
 import { DatabaseSync, type StatementSync } from "node:sqlite"
 import type {
   ExaminationArchiveImportSummary,
@@ -27,28 +28,22 @@ function readPragma(db: DatabaseSync, name: string): unknown {
 }
 
 /**
- * Opens (or creates) the examination-archive SQLite database. A
- * `user_version` mismatch is a hard error; the desktop composition root owns
- * archive lifecycle for unsupported disposable local data.
+ * Only an absent archive is first use. Existing invalid data is never repaired.
  */
 export function openExaminationArchiveDatabase(
   options: OpenArchiveOptions,
 ): ExaminationArchiveDatabaseHandle {
-  const db = new DatabaseSync(options.dbPath)
-  const existingVersion = Number(readPragma(db, "user_version") ?? 0)
-  if (existingVersion !== 0 && existingVersion !== ARCHIVE_USER_VERSION) {
-    db.close()
-    throw new Error(
-      `Examination archive at ${options.dbPath} has unsupported user_version ${existingVersion}; expected ${ARCHIVE_USER_VERSION}.`,
-    )
+  let absent = false
+  try {
+    statSync(options.dbPath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    absent = true
   }
-
-  db.exec("PRAGMA journal_mode = WAL")
-  // Archive rows are not regenerable — cost a full fsync per commit rather
-  // than risk losing LLM-generated questions on a power loss.
-  db.exec("PRAGMA synchronous = FULL")
-  db.exec(`PRAGMA user_version = ${ARCHIVE_USER_VERSION}`)
-  db.exec(`
+  const db = new DatabaseSync(options.dbPath)
+  try {
+    if (absent) {
+      db.exec(`
     CREATE TABLE IF NOT EXISTS examinations (
       storage_key TEXT PRIMARY KEY,
       created_at  INTEGER NOT NULL,
@@ -56,6 +51,26 @@ export function openExaminationArchiveDatabase(
       payload     TEXT NOT NULL
     );
   `)
+      db.exec(`PRAGMA user_version = ${ARCHIVE_USER_VERSION}`)
+    } else {
+      const existingVersion = Number(readPragma(db, "user_version") ?? 0)
+      if (existingVersion !== ARCHIVE_USER_VERSION) {
+        throw new Error(
+          `Examination archive at ${options.dbPath} has unsupported user_version ${existingVersion}; expected ${ARCHIVE_USER_VERSION}.`,
+        )
+      }
+      // Prove the stored shape before any persistent pragma or DDL can run.
+      db.prepare(
+        "SELECT storage_key, created_at, updated_at, payload FROM examinations LIMIT 0",
+      ).all()
+    }
+    db.exec("PRAGMA journal_mode = WAL")
+    // Generated questions require a full fsync for every durable commit.
+    db.exec("PRAGMA synchronous = FULL")
+  } catch (error) {
+    db.close()
+    throw error
+  }
 
   return {
     db,
