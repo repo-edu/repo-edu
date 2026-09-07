@@ -84,6 +84,9 @@ export function transportHarness(
     Object.keys(workflowCatalog).map((id) => [id, handler]),
   ) as WorkflowHandlerMap
   const gateway = installDesktopEntryGateway({
+    createRequestChannel() {
+      throw new Error("This harness does not create close ports.")
+    },
     ipc,
     window,
     rendererUrl,

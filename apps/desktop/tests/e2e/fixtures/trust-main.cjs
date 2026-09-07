@@ -1,6 +1,6 @@
 require("tsx/cjs")
 
-const { app, BrowserWindow, ipcMain, Menu } = require("electron")
+const { app, BrowserWindow, ipcMain, Menu, MessageChannelMain } = require("electron")
 const { join } = require("node:path")
 const {
   installDesktopEntryGateway,
@@ -30,6 +30,7 @@ app.whenReady().then(() => {
         },
       })
       const gateway = installDesktopEntryGateway({
+        createRequestChannel: () => new MessageChannelMain(),
         ipc: ipcMain,
         window,
         rendererUrl,

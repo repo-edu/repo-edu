@@ -5,14 +5,16 @@ import {
   desktopTrpcResponseChannel,
 } from "./desktop-wire"
 import {
-  invokeRendererCloseHandler,
-  type RendererCloseHandler,
-} from "./renderer-close"
+  createPreloadRequestTransport,
+  rendererRequestPort,
+} from "./preload-request-transport"
+import type { RendererCloseHandler } from "./renderer-close"
 import {
   type DesktopRendererHostBridge,
   type DownloadProgress,
   desktopRendererHostChannels,
 } from "./renderer-host-bridge"
+import { closeTransferSchema, requestPortChannel } from "./request-port-wire"
 
 const desktopTrpcBridge: DesktopTrpcBridge = {
   send(message) {
@@ -33,38 +35,43 @@ const desktopTrpcBridge: DesktopTrpcBridge = {
 let closeCallback: RendererCloseHandler | null = null
 let closeCancelCallback: ((attemptId: string) => void) | null = null
 
-ipcRenderer.on(
-  desktopRendererHostChannels.requestClose,
-  async (_event, request: unknown) => {
-    if (
-      typeof request !== "object" ||
-      request === null ||
-      typeof (request as { requestId?: unknown }).requestId !== "string"
-    ) {
-      return
+const requestTransport = createPreloadRequestTransport({
+  channel(command) {
+    const { port1, port2 } = new MessageChannel()
+    return {
+      renderer: rendererRequestPort(port1),
+      transfer() {
+        try {
+          ipcRenderer.postMessage(
+            desktopEntryChannel,
+            { kind: "command-intent", workflowId: command },
+            [port2],
+          )
+        } catch (error) {
+          port2.close()
+          throw error
+        }
+      },
     }
-    const requestId = (request as { requestId: string }).requestId
-    const response = await invokeRendererCloseHandler(closeCallback, requestId)
-    ipcRenderer.send(desktopEntryChannel, { kind: "close-complete", response })
   },
-)
+  terminal() {
+    // Endpoint failure closes the live port. Its peer reports that loss to the
+    // host reducer, without creating a second renderer-to-host control route.
+    console.error("The desktop request port failed.")
+  },
+})
 
-ipcRenderer.on(
-  desktopRendererHostChannels.cancelClose,
-  (_event, request: unknown) => {
-    if (
-      typeof request !== "object" ||
-      request === null ||
-      typeof (request as { requestId?: unknown }).requestId !== "string"
-    )
-      return
-    const requestId = (request as { requestId: string }).requestId
-    closeCancelCallback?.(requestId)
-    ipcRenderer.send(desktopRendererHostChannels.closeCancelComplete, {
-      requestId,
-    })
-  },
-)
+ipcRenderer.on(requestPortChannel, (event, message: unknown) => {
+  if (
+    !closeTransferSchema.safeParse(message).success ||
+    event.ports.length !== 1
+  ) {
+    for (const port of event.ports) port.close()
+    requestTransport.dispose()
+    throw new Error("Malformed desktop close-port transfer.")
+  }
+  requestTransport.close(rendererRequestPort(event.ports[0]))
+})
 
 const desktopHostBridge: DesktopRendererHostBridge = {
   async bootstrapReady() {
@@ -191,4 +198,5 @@ const desktopHostBridge: DesktopRendererHostBridge = {
 process.once("loaded", () => {
   contextBridge.exposeInMainWorld("repoEduTrpc", desktopTrpcBridge)
   contextBridge.exposeInMainWorld("repoEduDesktopHost", desktopHostBridge)
+  contextBridge.exposeInMainWorld("repoEduRequests", requestTransport.bridge)
 })

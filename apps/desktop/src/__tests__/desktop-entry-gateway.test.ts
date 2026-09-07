@@ -144,6 +144,52 @@ it("removes its raw registrations on disposal", () => {
   assert.equal(h.handlers.size, 0)
 })
 
+it("proves command intent and port count before admission and closes rejected transfers", () => {
+  for (const [raw, portCount, foreign] of [
+    [
+      { kind: "command-intent", workflowId: "userFile.exportPreview" },
+      0,
+      false,
+    ],
+    [
+      { kind: "command-intent", workflowId: "userFile.exportPreview" },
+      2,
+      false,
+    ],
+    [{ kind: "command-intent", workflowId: "course.list" }, 1, false],
+    [
+      {
+        kind: "command-intent",
+        workflowId: "userFile.exportPreview",
+        attemptId: "forbidden",
+      },
+      1,
+      false,
+    ],
+    [stopMessage(), 1, false],
+    [{ kind: "command-intent", workflowId: "userFile.exportPreview" }, 1, true],
+  ] as const) {
+    const h = transportHarness(async () => assert.fail("Unexpected workflow"))
+    let closed = 0
+    const ports = Array.from({ length: portCount }, () => ({
+      close() {
+        closed++
+      },
+    }))
+    h.receive(raw, {
+      ...h.event,
+      ports,
+      ...(foreign ? { sender: {} } : {}),
+    } as typeof h.event)
+    assert.equal(h.admission.getSnapshot().phase, "terminal")
+    assert.equal(closed, portCount)
+    assert.equal(
+      h.effects.some((effect) => effect.type === "prepare-command"),
+      false,
+    )
+  }
+})
+
 it("rejects destroyed and detached current frames for direct and tRPC messages", () => {
   for (const destroyed of [false, true]) {
     const h = transportHarness(async () => undefined)

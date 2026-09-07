@@ -1,6 +1,7 @@
 import { workflowInputSchemas } from "@repo-edu/application-contract"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { z } from "zod"
+import { commandIntentSchema } from "./request-port-wire"
 
 export const desktopEntryChannel = "repo-edu/entry"
 export const desktopTrpcResponseChannel = "repo-edu/trpc-response"
@@ -27,14 +28,7 @@ export const desktopEntryMessageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("trpc"),
     message: desktopTrpcMessageSchema,
   }),
-  z.strictObject({
-    kind: z.literal("close-complete"),
-    response: z.strictObject({
-      requestId: z.string().min(1),
-      ok: z.boolean(),
-      message: z.string().optional(),
-    }),
-  }),
+  commandIntentSchema,
 ])
 
 const fileFormat = z.enum(["csv", "xlsx", "json", "txt"])

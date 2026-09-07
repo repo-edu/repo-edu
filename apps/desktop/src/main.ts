@@ -49,6 +49,7 @@ import {
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
+  MessageChannelMain,
   nativeTheme,
   shell,
 } from "electron"
@@ -294,6 +295,8 @@ function requestUpdateRestart(): void {
 }
 
 function performAdmissionEffect(effect: HostAdmissionEffect): void {
+  // The request transport sends admission and preparation on the retained port.
+  if (effect.type === "prepare-command") return
   if (effect.type === "prepare-close") {
     const mainWindow = BrowserWindow.getAllWindows()[0]
     if (!mainWindow || isTRPCValidationMode) {
@@ -739,6 +742,7 @@ async function createWindow(): Promise<BrowserWindow> {
       createDraftLlmTextClient,
     })
     desktopGateway = installDesktopEntryGateway({
+      createRequestChannel: () => new MessageChannelMain(),
       ipc: ipcMain,
       window: mainWindow,
       rendererUrl: resolveRendererUrl(),
