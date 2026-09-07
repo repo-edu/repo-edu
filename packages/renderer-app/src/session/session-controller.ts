@@ -51,6 +51,7 @@ import {
   type CourseMutationActions,
   CourseMutationController,
 } from "./course-mutation-controller.js"
+import { SessionOperations } from "./session-operations.js"
 import { SessionPersistence } from "./session-persistence.js"
 import {
   type CourseLoadStatus,
@@ -68,10 +69,10 @@ import {
   type PreferenceEvent,
   SessionSettings,
 } from "./session-settings.js"
-import {
+import type {
   SessionSurfaceTransactions,
-  type SessionTransactionReservation,
-  type SessionTransactionScope,
+  SessionTransactionReservation,
+  SessionTransactionScope,
 } from "./session-surface-transactions.js"
 import { publishCourseRemoval } from "./source-lifecycle-events.js"
 
@@ -143,7 +144,7 @@ export class SessionController extends CourseMutationController {
   private readonly listeners = new Set<Listener>()
   private readonly settings: SessionSettings
   private readonly persistence: SessionPersistence
-  private readonly transactions: SessionSurfaceTransactions
+  private readonly transactions: SessionOperations
   private bootstrapAttempt = 0
   private bootstrapReservation: SessionTransactionReservation<void> | null =
     null
@@ -151,10 +152,31 @@ export class SessionController extends CourseMutationController {
   private notificationRequested = false
   private started = false
 
-  constructor(private readonly options: SessionControllerOptions) {
+  private readonly onBootstrapReady: () => Promise<void>
+
+  constructor(options: SessionControllerOptions) {
     super()
-    this.settings = new SessionSettings(
+    this.onBootstrapReady = options.onBootstrapReady
+    this.transactions = new SessionOperations(
       options.workflowClient,
+      {
+        enter: (turnId, descriptor) =>
+          this.dispatch({ type: "transaction-enter", turnId, descriptor }),
+        start: (turnId, descriptor) =>
+          this.dispatch({
+            type: "transaction-start",
+            turnId,
+            descriptor: this.classifyTransaction(descriptor),
+          }),
+        canContinue: (turnId) => canContinueTransaction(this.snapshot, turnId),
+        retire: (turnId) => {
+          this.dispatch({ type: "transaction-retire", turnId })
+        },
+      },
+      this.getSnapshot,
+    )
+    this.settings = new SessionSettings(
+      this.transactions.controllerClient,
       () => this.snapshot.settings,
       this.subscribe,
       () => {
@@ -177,27 +199,17 @@ export class SessionController extends CourseMutationController {
       },
     )
     this.persistence = new SessionPersistence(
-      options.workflowClient,
+      this.transactions.controllerClient,
       () =>
         activeCourseIdFromSurface(
           this.snapshot.settings.preferences.activeSurface,
         ),
       (status) => this.dispatch({ type: "set-course-sync-status", status }),
     )
-    this.transactions = new SessionSurfaceTransactions({
-      enter: (turnId, descriptor) =>
-        this.dispatch({ type: "transaction-enter", turnId, descriptor }),
-      start: (turnId, descriptor) =>
-        this.dispatch({
-          type: "transaction-start",
-          turnId,
-          descriptor: this.classifyTransaction(descriptor),
-        }),
-      canContinue: (turnId) => canContinueTransaction(this.snapshot, turnId),
-      retire: (turnId) => {
-        this.dispatch({ type: "transaction-retire", turnId })
-      },
-    })
+  }
+
+  get operations() {
+    return this.transactions.gateway
   }
 
   start(): void {
@@ -327,11 +339,15 @@ export class SessionController extends CourseMutationController {
       throw new Error("The session is not available for this close attempt.")
     }
     try {
-      await this.transactions.flush()
-      await settlePersistenceOperations([
-        this.settings.flush(),
-        this.persistence.flush(),
-      ])
+      await this.transactions.enqueue(
+        { kind: "close", attemptId },
+        async () => {
+          await settlePersistenceOperations([
+            this.settings.flush(),
+            this.persistence.flush(),
+          ])
+        },
+      )
     } catch (error) {
       this.dispatch({ type: "close-restore", attemptId })
       throw error
@@ -597,7 +613,7 @@ export class SessionController extends CourseMutationController {
   ): Promise<void> {
     let settings: AppSettingsLoadResult
     try {
-      settings = await this.options.workflowClient.run(
+      settings = await this.transactions.controllerClient.run(
         "settings.loadApp",
         undefined,
       )
@@ -637,7 +653,7 @@ export class SessionController extends CourseMutationController {
         )
         if (!this.commitSurface(scope, commit))
           throw new Error("The bootstrap surface could not be committed.")
-        await this.options.onBootstrapReady()
+        await this.onBootstrapReady()
         if (!scope.canContinue()) return
         this.settings.replaceWorkers(settings)
         this.dispatch({ type: "bootstrap-ready", attempt })

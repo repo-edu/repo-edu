@@ -55,7 +55,7 @@ export type PersisterAdapter<
   TSnapshot,
   TWorkflowId extends SaveWorkflowId<TSnapshot>,
 > = {
-  workflowClient: WorkflowClient
+  workflowClient: WorkflowClient<TWorkflowId>
   workflowId: TWorkflowId
   getSnapshot: () => TSnapshot | null
   initialBaseline?: TSnapshot | null

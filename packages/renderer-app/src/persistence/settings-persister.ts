@@ -39,7 +39,9 @@ function persistedCredentialsEqual(
 }
 
 type SettingsPersisterWorkerOptions<T> = {
-  workflowClient: WorkflowClient
+  workflowClient: WorkflowClient<
+    "settings.saveCredentials" | "settings.savePreferences"
+  >
   getSnapshot: () => T
   subscribe: (listener: () => void) => () => void
   initialBaseline?: T | null

@@ -10,6 +10,7 @@ import {
   idleSyncStatus,
   type PersistenceSyncStatus,
 } from "../persistence/create-persister.js"
+import type { SessionOperationId } from "./session-operation-inventory.js"
 import {
   type CredentialEvent,
   createInitialSessionSettingsState,
@@ -42,6 +43,8 @@ export type AnalysisSourceKey =
   | { kind: "submission"; path: string; courseId: string | null }
 
 export type SessionTransactionDescriptor =
+  | { kind: "operation" | "command"; operation: SessionOperationId }
+  | { kind: "close"; attemptId: string }
   | { kind: "bootstrap" }
   | {
       kind: "enter"
@@ -256,7 +259,7 @@ export function sessionReducer(
         ? { ...state, lifecycle: { kind: "live" } }
         : state
     case "preference": {
-      if (state.lifecycle.kind !== "live") return state
+      if (!canAdmitSessionChange(state)) return state
       const preferences = reducePreferences(
         state.settings.preferences,
         event.event,
@@ -269,7 +272,7 @@ export function sessionReducer(
       )
     }
     case "credential": {
-      if (state.lifecycle.kind !== "live") return state
+      if (!canAdmitSessionChange(state)) return state
       const credentials = reduceCredentials(
         state.settings.credentials,
         event.event,
@@ -342,7 +345,13 @@ export function sessionReducer(
       }
     case "transaction-enter": {
       if (
-        state.lifecycle.kind !== "live" ||
+        (event.descriptor.kind === "close"
+          ? state.lifecycle.kind !== "closing" ||
+            state.lifecycle.attemptId !== event.descriptor.attemptId ||
+            [...state.transactions.admitted.values()].some(
+              (entry) => entry.kind === "close",
+            )
+          : !canAdmitSessionChange(state)) ||
         state.transactions.admitted.has(event.turnId)
       )
         return state
@@ -448,7 +457,7 @@ export function canAdmitCourseMutation(
   snapshot: SessionControllerSnapshot,
   targetCourseId: string | null,
 ): boolean {
-  if (snapshot.lifecycle.kind !== "live") return false
+  if (!canAdmitSessionChange(snapshot)) return false
   if (
     targetCourseId === null ||
     targetCourseId !==
@@ -467,4 +476,17 @@ export function canAdmitCourseMutation(
     return targetCourseId !== descriptor.leavingCourseId
   }
   return true
+}
+
+// Reservation, rather than body start, closes external semantic input. Earlier
+// admitted bodies retain their own publication authority until retirement.
+export function canAdmitSessionChange(
+  snapshot: SessionControllerSnapshot,
+): boolean {
+  return (
+    snapshot.lifecycle.kind === "live" &&
+    ![...snapshot.transactions.admitted.values()].some(
+      (entry) => entry.kind === "command",
+    )
+  )
 }

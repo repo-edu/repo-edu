@@ -12,6 +12,7 @@ import {
 import { runWithRetry } from "../persistence/retry.js"
 import { useCourseStore } from "../stores/course-store.js"
 import type { SessionTransactionScope } from "./session-surface-transactions.js"
+import type { ControllerWorkflowId } from "./workflow-types.js"
 
 type ActiveCourseWorkerSlot = {
   courseId: string
@@ -22,7 +23,7 @@ export class SessionPersistence {
   private activeCourseWorkerSlot: ActiveCourseWorkerSlot | null = null
 
   constructor(
-    private readonly workflowClient: WorkflowClient,
+    private readonly workflowClient: WorkflowClient<ControllerWorkflowId>,
     private readonly getActiveCourseId: () => string | null,
     private readonly setCourseSyncStatus: (
       status: PersistenceSyncStatus,

@@ -3,11 +3,60 @@ import { describe, it } from "node:test"
 import { savingSyncStatus } from "../persistence/create-persister.js"
 import { selectSettingsSyncState } from "../session/selectors.js"
 import {
+  canAdmitCourseMutation,
+  canAdmitSessionChange,
   createInitialSessionSnapshot,
   sessionReducer,
 } from "../session/session-reducer.js"
 
 describe("session reducer", () => {
+  it("holds one global freeze from command admission through retirement", () => {
+    let state = createInitialSessionSnapshot()
+    state = {
+      ...state,
+      settings: {
+        ...state.settings,
+        preferences: {
+          ...state.settings.preferences,
+          activeSurface: { kind: "course", courseId: "course-a" },
+        },
+      },
+    }
+    const descriptor = { kind: "command", operation: "repo.clone" } as const
+    state = sessionReducer(state, {
+      type: "transaction-enter",
+      turnId: 1,
+      descriptor,
+    })
+    for (const current of [
+      state,
+      sessionReducer(state, {
+        type: "transaction-start",
+        turnId: 1,
+        descriptor,
+      }),
+    ]) {
+      assert.equal(canAdmitSessionChange(current), false)
+      assert.equal(canAdmitCourseMutation(current, "course-a"), false)
+      for (const event of [
+        { type: "preference", event: { type: "set-theme", theme: "dark" } },
+        {
+          type: "credential",
+          event: { type: "set-active-git-connection", id: "git" },
+        },
+        {
+          type: "transaction-enter",
+          turnId: 2,
+          descriptor: { kind: "duplicate" },
+        },
+      ] as const)
+        assert.equal(sessionReducer(current, event), current)
+    }
+    state = sessionReducer(state, { type: "transaction-retire", turnId: 1 })
+    assert.equal(canAdmitSessionChange(state), true)
+    assert.equal(canAdmitCourseMutation(state, "course-a"), true)
+  })
+
   it("makes disposal terminal and rejects queued transaction starts", () => {
     let state = createInitialSessionSnapshot()
     state = sessionReducer(state, {

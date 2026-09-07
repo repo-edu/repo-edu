@@ -13,9 +13,18 @@ import {
 } from "@repo-edu/domain/types"
 import {
   clearWorkflowClient,
-  setWorkflowClient,
+  setWorkflowClient as setSessionOperations,
 } from "../contexts/workflow-client.js"
+import { SessionController } from "../session/session-controller.js"
 import { useCourseStore } from "../stores/course-store.js"
+
+function setWorkflowClient(workflowClient: WorkflowClient): void {
+  const controller = new SessionController({
+    workflowClient,
+    onBootstrapReady: async () => {},
+  })
+  setSessionOperations(controller.operations)
+}
 
 function makeProfile(courseId = "course-1"): PersistedCourse {
   return {

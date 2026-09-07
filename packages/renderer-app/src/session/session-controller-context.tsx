@@ -1,11 +1,15 @@
 import {
   createContext,
   type ReactNode,
+  type SyntheticEvent,
   useContext,
   useSyncExternalStore,
 } from "react"
 import type { SessionController } from "./session-controller.js"
-import type { SessionControllerSnapshot } from "./session-reducer.js"
+import {
+  canAdmitSessionChange,
+  type SessionControllerSnapshot,
+} from "./session-reducer.js"
 
 let currentController: SessionController | null = null
 
@@ -44,9 +48,51 @@ export function SessionControllerProvider({
   controller: SessionController
   children: ReactNode
 }) {
+  // Read the owner at event delivery, without waiting for a React render.
+  // React capture also reaches children rendered through dialog portals.
+  const admitInput = (event: SyntheticEvent) => {
+    if (canAdmitSessionChange(controller.getSnapshot())) return
+    event.preventDefault()
+    event.stopPropagation()
+  }
   return (
     <SessionControllerContext.Provider value={controller}>
-      {children}
+      <div
+        className="contents"
+        onBeforeInputCapture={admitInput}
+        onInputCapture={admitInput}
+        onChangeCapture={admitInput}
+        onClickCapture={admitInput}
+        onDoubleClickCapture={admitInput}
+        onContextMenuCapture={admitInput}
+        onKeyDownCapture={admitInput}
+        onKeyUpCapture={admitInput}
+        onPointerDownCapture={admitInput}
+        onPointerMoveCapture={admitInput}
+        onPointerUpCapture={admitInput}
+        onMouseDownCapture={admitInput}
+        onMouseMoveCapture={admitInput}
+        onMouseUpCapture={admitInput}
+        onTouchStartCapture={admitInput}
+        onTouchMoveCapture={admitInput}
+        onTouchEndCapture={admitInput}
+        onDragStartCapture={admitInput}
+        onDragOverCapture={admitInput}
+        onDropCapture={admitInput}
+        onPasteCapture={admitInput}
+        onCutCapture={admitInput}
+        onCompositionStartCapture={admitInput}
+        onCompositionUpdateCapture={admitInput}
+        onCompositionEndCapture={admitInput}
+        onFocusCapture={admitInput}
+        onBlurCapture={admitInput}
+        onSubmitCapture={admitInput}
+        onResetCapture={admitInput}
+        onWheelCapture={admitInput}
+        onScrollCapture={admitInput}
+      >
+        {children}
+      </div>
     </SessionControllerContext.Provider>
   )
 }

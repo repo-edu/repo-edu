@@ -1,10 +1,9 @@
-import type { WorkflowClient } from "@repo-edu/application-contract"
 import { createContext, useContext } from "react"
-import type { AppWorkflowId } from "../session/workflow-types.js"
+import type { SessionOperationGateway } from "../session/session-operations.js"
 
-let currentClient: WorkflowClient<AppWorkflowId> | null = null
+let currentClient: SessionOperationGateway | null = null
 
-export function setWorkflowClient(client: WorkflowClient<AppWorkflowId>): void {
+export function setWorkflowClient(client: SessionOperationGateway): void {
   currentClient = client
 }
 
@@ -12,7 +11,7 @@ export function clearWorkflowClient(): void {
   currentClient = null
 }
 
-export function getWorkflowClient(): WorkflowClient<AppWorkflowId> {
+export function getWorkflowClient(): SessionOperationGateway {
   if (!currentClient) {
     throw new Error(
       "WorkflowClient not initialized. Call setWorkflowClient() before using stores.",
@@ -21,12 +20,13 @@ export function getWorkflowClient(): WorkflowClient<AppWorkflowId> {
   return currentClient
 }
 
-const WorkflowClientContext =
-  createContext<WorkflowClient<AppWorkflowId> | null>(null)
+const WorkflowClientContext = createContext<SessionOperationGateway | null>(
+  null,
+)
 
 export const WorkflowClientProvider = WorkflowClientContext.Provider
 
-export function useWorkflowClient(): WorkflowClient<AppWorkflowId> {
+export function useWorkflowClient(): SessionOperationGateway {
   const client = useContext(WorkflowClientContext)
   if (!client) {
     throw new Error(

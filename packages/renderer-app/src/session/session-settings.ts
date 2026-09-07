@@ -44,6 +44,7 @@ import {
   createCredentialsPersisterWorker,
   createPreferencesPersisterWorker,
 } from "../persistence/settings-persister.js"
+import type { ControllerWorkflowId } from "./workflow-types.js"
 
 export type PreferenceEvent =
   | {
@@ -486,7 +487,7 @@ export class SessionSettings {
   private nextWorkerId = 0
 
   constructor(
-    private readonly workflowClient: WorkflowClient,
+    private readonly workflowClient: WorkflowClient<ControllerWorkflowId>,
     private readonly getState: () => SessionSettingsState,
     private readonly subscribe: (listener: () => void) => () => void,
     private readonly retireWorkerIds: () => void,

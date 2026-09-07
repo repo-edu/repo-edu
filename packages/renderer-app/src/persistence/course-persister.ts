@@ -44,7 +44,7 @@ function toUserFacingSyncError(
 }
 
 export type CoursePersisterWorkerOptions = {
-  workflowClient: WorkflowClient
+  workflowClient: WorkflowClient<"course.save">
   getSnapshot: () => PersistedCourse | null
   subscribe: (listener: () => void) => () => void
   setSyncStatus: (status: PersistenceSyncStatus) => void

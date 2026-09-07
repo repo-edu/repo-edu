@@ -45,7 +45,6 @@ import {
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
 import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
-import type { AppWorkflowId } from "../session/workflow-types.js"
 import {
   selectCanRedo,
   selectCanUndo,
@@ -102,7 +101,6 @@ export function RendererSessionRoot({
   rendererHost,
   onBootstrapReady,
 }: RendererSessionRootProps) {
-  const narrowedClient = workflowClient as WorkflowClient<AppWorkflowId>
   // A controller is bound to one mount lifecycle: its disposal is terminal, so
   // each mount must construct a fresh instance rather than reuse a cached one.
   // Constructing inside the layout effect and publishing through state keeps
@@ -117,7 +115,7 @@ export function RendererSessionRoot({
     setController(instance)
     setSessionController(instance)
     const cleanup = configureApp({
-      workflowClient: narrowedClient,
+      workflowClient: instance.operations,
       rendererHost,
     })
     instance.start()
@@ -126,7 +124,7 @@ export function RendererSessionRoot({
       clearSessionController(instance)
       instance.dispose()
     }
-  }, [workflowClient, narrowedClient, rendererHost, onBootstrapReady])
+  }, [workflowClient, rendererHost, onBootstrapReady])
 
   useEffect(() => {
     if (controller === null) return
@@ -136,7 +134,7 @@ export function RendererSessionRoot({
   if (controller === null) return null
 
   return (
-    <WorkflowClientProvider value={narrowedClient}>
+    <WorkflowClientProvider value={controller.operations}>
       <QueryClientProvider client={queryClient}>
         <RendererHostProvider value={rendererHost}>
           <SessionControllerProvider controller={controller}>

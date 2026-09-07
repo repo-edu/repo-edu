@@ -17,6 +17,42 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController mutation admission", () => {
+  it("refuses course, settings and surface changes for the entire command reservation", async () => {
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp")
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          })
+        if (id === "course.load") return makeCourse("course-a")
+        return undefined
+      }),
+    })
+    await controller.waitForIdle()
+    const baseline = controller.getSnapshot().settings
+    const course = useCourseStore.getState().course
+    const command = controller.operations.reserve<void>("repo.clone")
+    assert.ok(command)
+    controller.setTheme("dark")
+    controller.setActiveGitConnectionId("git")
+    controller.setDisplayName("course-a", "Blocked")
+    controller.setActiveTab("analysis")
+    controller.setAnalysisInputs("course-a", { since: "2026-01-01" })
+    await assert.rejects(
+      controller.activateSurface({ kind: "home" }),
+      /not accepting/,
+    )
+    assert.equal(controller.getSnapshot().settings, baseline)
+    assert.equal(useCourseStore.getState().course, course)
+    await command.run(async () => {})
+    controller.setTheme("dark")
+    assert.equal(
+      controller.getSnapshot().settings.preferences.appearance.theme,
+      "dark",
+    )
+    controller.dispose()
+  })
+
   it("admits target-aware course mutations only for the active course", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {

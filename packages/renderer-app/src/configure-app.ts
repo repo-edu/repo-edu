@@ -1,14 +1,13 @@
-import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { clearRendererHost, setRendererHost } from "./contexts/renderer-host.js"
 import {
   clearWorkflowClient,
   setWorkflowClient,
 } from "./contexts/workflow-client.js"
-import type { AppWorkflowId } from "./session/workflow-types.js"
+import type { SessionOperationGateway } from "./session/session-operations.js"
 
 export type AppConfiguration = {
-  workflowClient: WorkflowClient<AppWorkflowId>
+  workflowClient: SessionOperationGateway
   rendererHost: RendererHost
 }
 
