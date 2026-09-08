@@ -81,6 +81,7 @@ const resource = z.enum([
   "repository",
   "file",
 ])
+const conflictResource = resource.exclude(["course"])
 const failure = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("effect"), message: z.string() }),
   z.strictObject({
@@ -123,7 +124,7 @@ const failure = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("conflict"),
     message: z.string(),
-    resource,
+    resource: conflictResource,
     reason: z.string(),
   }),
   z.strictObject({

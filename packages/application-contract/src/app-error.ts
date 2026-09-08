@@ -48,7 +48,6 @@ export type AppError =
       type: "conflict"
       message: string
       resource:
-        | "course"
         | "connection"
         | "group-set"
         | "assignment"

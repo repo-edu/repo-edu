@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it } from "node:test"
-import type { WorkflowResult } from "@repo-edu/application-contract"
+import {
+  createCourseStorageFailure,
+  type WorkflowResult,
+} from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useUiStore } from "../stores/ui-store.js"
@@ -81,12 +84,7 @@ describe("SessionController creation", () => {
           const course = input as PersistedCourse
           savedCourses.push(course)
           if (course.id === "course-a") {
-            throw {
-              type: "conflict",
-              message: "stale",
-              resource: "course",
-              reason: "revision-invariant",
-            }
+            throw createCourseStorageFailure("stale")
           }
           return {
             revision: 1,

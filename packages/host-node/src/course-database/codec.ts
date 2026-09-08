@@ -18,9 +18,6 @@ export function encodeCoursePayload(
     throw createCourseStorageFailure("The course successor is invalid.")
   }
   const { id, revision, updatedAt, ...payload } = validation.value
-  void id
-  void revision
-  void updatedAt
   return JSON.stringify(payload)
 }
 
