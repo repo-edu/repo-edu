@@ -57,37 +57,17 @@ function formatSettingsRecoveryLoadMessage(
 }
 
 /**
- * Thrown by the settings load path when one or more units were backed aside
- * (durable, already-applied recovery) but a later section read then failed.
- * The completed recovery is carried structurally, not just in the message, so
- * a caller that retries can surface it once a load succeeds. The renamed
- * backup files will not re-report on the next load, so this is the only place
- * those entries survive a failed attempt.
+ * Thrown when one or more units were already backed aside but a later section
+ * read failed. The load is terminal for its host, so the backup paths travel
+ * in the message: the renamed files will not re-report on the next load.
  */
-export class SettingsRecoveryLoadError extends Error {
-  readonly recovery: SettingsRecoveryEntry[]
-  override readonly cause: unknown
-
-  constructor(recovery: readonly SettingsRecoveryEntry[], cause: unknown) {
-    super(formatSettingsRecoveryLoadMessage(recovery, cause))
-    this.name = "SettingsRecoveryLoadError"
-    this.recovery = [...recovery]
-    this.cause = cause
-  }
-}
-
-export function isSettingsRecoveryLoadError(
-  value: unknown,
-): value is SettingsRecoveryLoadError {
-  return (
-    value instanceof SettingsRecoveryLoadError ||
-    (typeof value === "object" &&
-      value !== null &&
-      "name" in value &&
-      value.name === "SettingsRecoveryLoadError" &&
-      "recovery" in value &&
-      Array.isArray((value as { recovery: unknown }).recovery))
-  )
+export function createSettingsRecoveryLoadError(
+  recovery: readonly SettingsRecoveryEntry[],
+  cause: unknown,
+): Error {
+  return new Error(formatSettingsRecoveryLoadMessage(recovery, cause), {
+    cause,
+  })
 }
 
 export type SettingsSectionLoadResult<T> = {

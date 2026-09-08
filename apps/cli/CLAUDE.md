@@ -39,9 +39,11 @@ All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-ed
 
 ## Data Directory
 
-Default: the shared platform app-data root resolved by `@repo-edu/host-node`.
-In-process tests pass temporary roots through `createProgram` or workflow store
-constructors.
+The production entry resolves the shared platform app-data root through
+`@repo-edu/host-node` once and hands it to the workflow runtime. The runtime
+and the store constructors require a root and never resolve one. In-process
+tests pass temporary roots to them, or give `createProgram` their own workflow
+client.
 
 The production entry claims the shared desktop/CLI program gate before it
 creates the Commander program. A busy gate exits with the shared conflict
@@ -78,9 +80,11 @@ the compiled Bun adapter and checks that settings remain untouched.
 - Do not duplicate workflow/domain logic in CLI.
 - Do not move program-gate ownership into `createProgram`. Tests and other
   in-process callers provide isolated roots and own their surrounding lifetime.
-- `createProgram` and the workflow runtime require the child-process lifetime controller
-  from their caller. Neither may build one of its own, because a composition
-  that did would own process trees no caller can stop and confirm.
+- `createProgram` owns only the command tree and takes the workflow client
+  from its caller. The workflow runtime requires the child-process lifetime
+  controller and the storage root from its caller. It may build neither,
+  because a composition that did would own process trees no caller can stop
+  and confirm, or reach the real database without the program gate.
 - Keep help/golden outputs stable unless command UX changes intentionally.
 - See [CLI-GUI Parity](../docs/src/content/docs/development/cli-gui-parity.md) for the decision rule
   on which workflows belong in CLI vs GUI.

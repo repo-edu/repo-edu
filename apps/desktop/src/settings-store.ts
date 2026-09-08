@@ -73,6 +73,6 @@ export function createDesktopAppSettingsStore(
     },
     recoverUnsupportedComposite: (signal) =>
       recoverUnsupportedCompositeSettingsFile(settingsDirectory, signal),
-    readPreferencesWithoutRecovery: preferences.readRaw,
+    readPreferencesWithoutRecovery: preferences.readWithoutRecovery,
   }
 }

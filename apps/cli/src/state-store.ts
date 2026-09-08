@@ -7,21 +7,17 @@ import {
 import {
   createCourseStore,
   createNodeSettingsSectionReader,
-  resolveRepoEduAppDataRoot,
 } from "@repo-edu/host-node"
 
-export function resolveCliStorageRoot(): string {
-  return resolveRepoEduAppDataRoot()
-}
-
-export function createCliCourseStore(
-  storageRoot: string = resolveCliStorageRoot(),
-): CourseStore {
+// The storage root is always supplied. The production entry resolves it once,
+// before it claims the program gate, and in-process callers pass isolated
+// roots. A default here would reach the real database without that gate.
+export function createCliCourseStore(storageRoot: string): CourseStore {
   return createCourseStore(storageRoot)
 }
 
 export function createCliAppSettingsLoader(
-  storageRoot: string = resolveCliStorageRoot(),
+  storageRoot: string,
 ): AppSettingsLoader {
   const settingsDirectory = join(storageRoot, "settings")
   const credentials = createNodeSettingsSectionReader({

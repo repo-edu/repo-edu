@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { splitAppSettings } from "@repo-edu/domain/settings"
-import { isSettingsRecoveryLoadError } from "../core.js"
 import { createSettingsWorkflowHandlers } from "../settings-workflows.js"
 import { getSettingsScenario } from "./helpers/fixture-scenarios.js"
 import { createInMemoryAppSettingsStore } from "./helpers/in-memory-stores.js"
@@ -100,25 +99,13 @@ describe("application settings workflow helpers", () => {
     await assert.rejects(
       handlers["settings.loadApp"](undefined),
       (error: unknown) => {
-        assert.ok(isSettingsRecoveryLoadError(error))
+        assert.ok(error instanceof Error)
         assert.match(
           error.message,
-          /Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\./,
+          /^Preferences disk is unavailable\. Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\.$/,
         )
-        // Completed recovery is carried structurally so the desktop can
-        // surface it once a retry succeeds, not only as message text.
-        assert.deepStrictEqual(error.recovery, [
-          {
-            unit: "unsupported-composite",
-            reason: "unsupported",
-            backupPath: "/tmp/app-settings.unsupported-1.json",
-          },
-          {
-            unit: "credentials",
-            reason: "invalid",
-            backupPath: "/tmp/credentials.invalid-1.json",
-          },
-        ])
+        assert.ok(error.cause instanceof Error)
+        assert.equal(error.cause.message, "Preferences disk is unavailable.")
         return true
       },
     )

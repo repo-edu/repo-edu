@@ -60,7 +60,10 @@ import type {
   RecoverableAppSettingsLoader,
   SettingsRecoveryEntry,
 } from "./core.js"
-import { createValidationAppError, SettingsRecoveryLoadError } from "./core.js"
+import {
+  createSettingsRecoveryLoadError,
+  createValidationAppError,
+} from "./core.js"
 
 export function toCancelledAppError() {
   return createCancelledAppError()
@@ -135,7 +138,7 @@ function withSettingsRecoveryContext(
   if (recovery.length === 0) {
     return error
   }
-  return new SettingsRecoveryLoadError(recovery, error)
+  return createSettingsRecoveryLoadError(recovery, error)
 }
 
 export function resolveCourseSnapshot(

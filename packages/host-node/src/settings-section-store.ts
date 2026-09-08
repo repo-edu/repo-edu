@@ -30,7 +30,7 @@ export type NodeSettingsSectionStore<T> = {
     recovery: NodeSettingsRecoveryEntry[]
   }>
   save(section: T, signal?: AbortSignal): Promise<void>
-  readRaw(signal?: AbortSignal): Promise<T | null>
+  readWithoutRecovery(signal?: AbortSignal): Promise<T | null>
 }
 
 function backupStem(fileName: string): string {
@@ -120,7 +120,7 @@ export function createNodeSettingsSectionStore<T>({
       })
     },
 
-    readRaw: createNodeSettingsSectionReader({
+    readWithoutRecovery: createNodeSettingsSectionReader({
       settingsDirectory,
       fileName,
       unit,

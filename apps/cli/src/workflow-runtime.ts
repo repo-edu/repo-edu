@@ -25,12 +25,14 @@ import {
   createCliCourseStore,
 } from "./state-store.js"
 
-// The controller is required, never defaulted. A composition that made its own
-// would own process trees that no caller can stop and confirm.
+// The controller and the storage root are required, never defaulted. A
+// composition that made its own controller would own process trees that no
+// caller can stop and confirm. One that resolved its own root would reach the
+// real database without the program gate the entry claims on that root.
 export type CliWorkflowRuntimeOptions = {
   childProcessLifetimeController: ChildProcessLifetimeController
+  storageRoot: string
   signal?: AbortSignal
-  storageRoot?: string
 }
 
 export function createCliWorkflowHandlers(options: CliWorkflowRuntimeOptions) {

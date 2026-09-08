@@ -32,6 +32,7 @@ import {
   getFixture,
 } from "@repo-edu/test-fixtures"
 import { createProgram } from "../cli.js"
+import { createCliWorkflowClient } from "../workflow-runtime.js"
 
 function toText(chunk: unknown): string {
   if (typeof chunk === "string") {
@@ -49,16 +50,25 @@ function normalize(text: string): string {
   return text.replace(/\r\n/g, "\n").trimEnd()
 }
 
+function createInspectionProgram() {
+  return createProgram({
+    createWorkflowClient: () => {
+      throw new Error("The command tree is inspected, never run.")
+    },
+  })
+}
+
 async function runCli(
   args: string[],
-  options?: { storageRoot?: string; workflowClient?: WorkflowClient },
+  options: { storageRoot: string } | { workflowClient: WorkflowClient },
 ): Promise<{
   exitCode: number
   stdout: string
   stderr: string
 }> {
-  // This caller owns the controller it passes and stops it below, which is the
-  // whole reason `createProgram` refuses to make one of its own.
+  // This caller owns the controller it passes and stops it below. The program
+  // never composes a workflow client of its own, so the root and controller
+  // reach the runtime only through this thunk.
   const childProcessLifetimeController = createChildProcessLifetimeController({
     diagnosticSink() {},
     warnUnconfirmedTree(error): never {
@@ -66,11 +76,13 @@ async function runCli(
     },
   })
   const program = createProgram({
-    childProcessLifetimeController,
-    ...(options?.storageRoot ? { storageRoot: options.storageRoot } : {}),
-    ...(options?.workflowClient
-      ? { createWorkflowClient: () => options.workflowClient as WorkflowClient }
-      : {}),
+    createWorkflowClient: () =>
+      "workflowClient" in options
+        ? options.workflowClient
+        : createCliWorkflowClient({
+            childProcessLifetimeController,
+            storageRoot: options.storageRoot,
+          }),
   })
   program.exitOverride()
 
@@ -285,14 +297,7 @@ describe("CLI command tree", () => {
       "utf8",
     )
 
-    const help = createProgram({
-      childProcessLifetimeController: createChildProcessLifetimeController({
-        diagnosticSink() {},
-        warnUnconfirmedTree(error): never {
-          throw error
-        },
-      }),
-    }).helpInformation()
+    const help = createInspectionProgram().helpInformation()
     assert.equal(normalize(help), normalize(golden))
   })
 })

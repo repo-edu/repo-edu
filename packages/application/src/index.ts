@@ -11,11 +11,7 @@ export type {
   SettingsRecoveryUnit,
   SettingsSectionLoadResult,
 } from "./core.js"
-export {
-  isSettingsRecoveryLoadError,
-  packageId,
-  SettingsRecoveryLoadError,
-} from "./core.js"
+export { packageId } from "./core.js"
 export { composeCourseCommandTransition } from "./course-command-transition.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
 export type { ExaminationArchivePort } from "./examination-workflows/archive-port.js"

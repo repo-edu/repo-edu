@@ -1,5 +1,4 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
-import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { Command } from "commander"
 import pkg from "../package.json" with { type: "json" }
 import { registerCourseCommands } from "./commands/course.js"
@@ -8,26 +7,15 @@ import { registerLmsCommands } from "./commands/lms.js"
 import { registerRepoCommands } from "./commands/repo.js"
 import { registerUpdateCommand } from "./commands/update.js"
 import { registerValidateCommand } from "./commands/validate.js"
-import { createCliWorkflowClient } from "./workflow-runtime.js"
 
-// Every caller supplies the child-process lifetime controller it owns and stops. The
-// program never builds a lifetime owner of its own.
+// The program owns only the command tree. Its caller composes the workflow
+// client, so the storage root and the child-process lifetime controller stay
+// with the one owner that claimed the gate and can stop the controller.
 export type CreateProgramOptions = {
-  childProcessLifetimeController: ChildProcessLifetimeController
-  createWorkflowClient?: () => WorkflowClient
-  signal?: AbortSignal
-  storageRoot?: string
+  createWorkflowClient: () => WorkflowClient
 }
 
 export function createProgram(options: CreateProgramOptions): Command {
-  const createWorkflowClient =
-    options.createWorkflowClient ??
-    (() =>
-      createCliWorkflowClient({
-        childProcessLifetimeController: options.childProcessLifetimeController,
-        signal: options.signal,
-        storageRoot: options.storageRoot,
-      }))
   const program = new Command()
   program
     .name("redu")
@@ -38,12 +26,12 @@ export function createProgram(options: CreateProgramOptions): Command {
       program.outputHelp()
     })
 
-  registerCourseCommands(program, createWorkflowClient)
-  registerLmsCommands(program, createWorkflowClient)
-  registerGitCommands(program, createWorkflowClient)
-  registerRepoCommands(program, createWorkflowClient)
+  registerCourseCommands(program, options.createWorkflowClient)
+  registerLmsCommands(program, options.createWorkflowClient)
+  registerGitCommands(program, options.createWorkflowClient)
+  registerRepoCommands(program, options.createWorkflowClient)
   registerUpdateCommand(program, pkg.version)
-  registerValidateCommand(program, createWorkflowClient)
+  registerValidateCommand(program, options.createWorkflowClient)
 
   return program
 }

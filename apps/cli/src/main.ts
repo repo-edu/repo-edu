@@ -19,6 +19,7 @@ import { createCommandLineChildProcessLifetimeController } from "./child-process
 import { createProgram } from "./cli.js"
 import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
 import { createCliCourseStore } from "./state-store.js"
+import { createCliWorkflowClient } from "./workflow-runtime.js"
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -109,9 +110,13 @@ async function runCli(): Promise<void> {
         return
       }
       await createProgram({
-        childProcessLifetimeController: observedChildProcessLifetimeController,
-        signal,
-        storageRoot,
+        createWorkflowClient: () =>
+          createCliWorkflowClient({
+            childProcessLifetimeController:
+              observedChildProcessLifetimeController,
+            storageRoot,
+            signal,
+          }),
       }).parseAsync(process.argv)
     },
   )
