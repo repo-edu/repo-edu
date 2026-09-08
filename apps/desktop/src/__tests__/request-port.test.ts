@@ -11,7 +11,7 @@ import { createHostRequestTransport } from "../host-request-transport"
 import {
   createPreloadRequestTransport,
   type RendererRequest,
-  type RendererRequestObserver,
+  type RendererRequestOwner,
 } from "../preload-request-transport"
 import { commandPayloadSchemas } from "../request-command-schemas"
 import { createRequestMessageParser } from "../request-port-protocol"
@@ -44,8 +44,8 @@ const settlement = {
   authoritative: undefined,
 }
 
-function observer(events: string[]): RendererRequestObserver {
-  return {
+function observer(events: string[]): RendererRequestOwner {
+  return () => ({
     admission: (status) => {
       events.push(status)
     },
@@ -73,7 +73,7 @@ function observer(events: string[]): RendererRequestObserver {
     failed: () => {
       events.push("failed")
     },
-  }
+  })
 }
 
 function harness() {
@@ -216,9 +216,10 @@ it("binds the host-created close port through persistence and acknowledgement", 
   try {
     const events: string[] = []
     let rendererRequest: RendererRequest | undefined
+    const own = observer(events)
     h.renderer.bridge.onClose((request) => {
       rendererRequest = request
-      return observer(events)
+      return own(request)
     })
     const request: HostRequest = {
       cancel() {

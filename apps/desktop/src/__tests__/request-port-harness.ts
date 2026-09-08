@@ -35,9 +35,11 @@ export function requestChannel() {
   }
 }
 
-export async function until(predicate: () => boolean): Promise<void> {
+/** Resolves with the probe's first truthy value, so callers keep the narrowed type. */
+export async function until<T>(probe: () => T): Promise<NonNullable<T>> {
   for (let turn = 0; turn < 100; turn++) {
-    if (predicate()) return
+    const value = probe()
+    if (value) return value
     await new Promise<void>((resolve) => setTimeout(resolve, 2))
   }
   throw new Error("Request-port event did not arrive.")

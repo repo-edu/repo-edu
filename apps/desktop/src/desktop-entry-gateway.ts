@@ -1,5 +1,4 @@
 import {
-  type ExclusiveRequestOperation,
   type WorkflowHandlerMap,
   workflowInputSchemas,
 } from "@repo-edu/application-contract"
@@ -50,7 +49,7 @@ export function installDesktopEntryGateway(options: {
   const { terminal, proveSender } = document
   const requests = createHostRequestTransport({
     admission,
-    receive(request, message, signal) {
+    receive(request, message) {
       if (message.type === "close-ready") {
         requests.acknowledgeClose(request)
         admission.dispatch({ type: "close-ready", request })
@@ -66,11 +65,11 @@ export function installDesktopEntryGateway(options: {
         })
         return
       }
-      if (message.type === "input" && signal) {
+      if (message.type === "input") {
         void executeHostCommand({
           request,
-          operation: message.input as ExclusiveRequestOperation,
-          signal,
+          operation: message.operation,
+          signal: message.signal,
           admission,
           handlers: options.handlers,
           transport: requests,

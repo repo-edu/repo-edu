@@ -68,47 +68,50 @@ export function createRendererCommandClient(
               "A command body may execute its declared command once.",
             )
           if (options?.signal?.aborted) throw createCancelledAppError()
-          const exchange = createRequestPersistenceExchange({
-            persist: (bundle) => request!.persist(bundle),
+          request = bridge.command(command, (handle) => {
+            const exchange = createRequestPersistenceExchange(handle)
+            return {
+              admission: admission.resolve,
+              prepare() {
+                const cancel = () => handle.cancel()
+                options?.signal?.addEventListener("abort", cancel, {
+                  once: true,
+                })
+                removeAbort = () =>
+                  options?.signal?.removeEventListener("abort", cancel)
+                if (options?.signal?.aborted) cancel()
+                void preparation(exchange.commit).then(
+                  prepared.resolve,
+                  (error: unknown) => {
+                    prepared.reject(error)
+                    handle.fail(
+                      error instanceof Error ? error.message : String(error),
+                    )
+                  },
+                )
+              },
+              persisted: exchange.persisted,
+              progress: (event) => options?.onProgress?.(event),
+              output: (event) => options?.onOutput?.(event as never),
+              settlement: (value) => {
+                removeAbort?.()
+                settlement.resolve(value)
+              },
+              released: () => released.resolve(),
+              closeAcknowledged() {
+                throw new Error("Close acknowledgement on command port.")
+              },
+              failed(message) {
+                const error = new Error(message)
+                exchange.failed(message)
+                admission.reject(error)
+                prepared.reject(error)
+                settlement.reject(error)
+                released.reject(error)
+              },
+            }
           })
-          request = bridge.command(command, {
-            admission: admission.resolve,
-            prepare() {
-              const cancel = () => request!.cancel()
-              options?.signal?.addEventListener("abort", cancel, { once: true })
-              removeAbort = () =>
-                options?.signal?.removeEventListener("abort", cancel)
-              if (options?.signal?.aborted) cancel()
-              void preparation(exchange.commit).then(
-                prepared.resolve,
-                (error: unknown) => {
-                  prepared.reject(error)
-                  request!.fail(
-                    error instanceof Error ? error.message : String(error),
-                  )
-                },
-              )
-            },
-            persisted: exchange.persisted,
-            progress: (event) => options?.onProgress?.(event),
-            output: (event) => options?.onOutput?.(event as never),
-            settlement: (value) => {
-              removeAbort?.()
-              settlement.resolve(value)
-            },
-            released: () => released.resolve(),
-            closeAcknowledged() {
-              throw new Error("Close acknowledgement on command port.")
-            },
-            failed(message) {
-              const error = new Error(message)
-              exchange.failed(message)
-              admission.reject(error)
-              prepared.reject(error)
-              settlement.reject(error)
-              released.reject(error)
-            },
-          })
+          const current = request
           if ((await admission.promise) === "busy")
             throw new HostAdmissionRefusedError()
           try {
@@ -126,12 +129,10 @@ export function createRendererCommandClient(
                 input,
                 settlementInput: options?.settlementInput,
               }) as ExclusiveRequestOperation
-              request!.prepareInput(operation)
+              current.prepareInput(operation)
             }
           } catch (error) {
-            request!.fail(
-              error instanceof Error ? error.message : String(error),
-            )
+            current.fail(error instanceof Error ? error.message : String(error))
             throw error
           }
           const fixed = await settlement.promise
@@ -143,7 +144,7 @@ export function createRendererCommandClient(
                 )
               await options.applyAuthoritative(fixed.authoritative as never)
             } catch (error) {
-              request!.fail(
+              current.fail(
                 error instanceof Error ? error.message : String(error),
               )
               throw error

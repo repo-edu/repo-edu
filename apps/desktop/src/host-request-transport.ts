@@ -1,5 +1,6 @@
 import type {
   ExclusiveCommandId,
+  ExclusiveRequestOperation,
   ExclusiveTerminalSettlement,
   WorkflowOutput,
   WorkflowProgress,
@@ -41,21 +42,29 @@ type Endpoint = ReturnType<
   typeof createRequestPortEndpoint<unknown, unknown, unknown, unknown>
 >
 
+/** What the host receives from a renderer request after schema admission.
+ * A validated command input arrives with the run's cancellation signal;
+ * cancellation itself goes to the admission reducer, never to the receiver. */
+export type HostRequestReceipt =
+  | {
+      type: "input"
+      operation: ExclusiveRequestOperation
+      signal: AbortSignal
+    }
+  | Exclude<Message, { type: "input" | "cancel" }>
+
+type CommandRun = { command: ExclusiveCommandId; signal: AbortSignal }
+
 /** Owns live endpoint retention. The admission reducer remains the host authority. */
 export function createHostRequestTransport(options: {
   admission: HostAdmission
-  receive(request: HostRequest, message: Message, signal?: AbortSignal): void
+  receive(request: HostRequest, receipt: HostRequestReceipt): void
   cancel?(request: HostRequest): void
 }) {
   const retained = new Map<HostRequest, Endpoint>()
   const terminal = options.admission.terminal
 
-  function attach(
-    request: HostRequest,
-    port: RequestPort,
-    command?: ExclusiveCommandId,
-    signal?: AbortSignal,
-  ) {
+  function attach(request: HostRequest, port: RequestPort, run?: CommandRun) {
     if (retained.has(request)) {
       port.close()
       throw new Error("The request already owns a port.")
@@ -68,8 +77,8 @@ export function createHostRequestTransport(options: {
     >({
       port,
       side: "host",
-      kind: command ? "command" : "close",
-      schemas: command ? commandPayloadSchemas(command) : closePayloadSchemas,
+      kind: run ? "command" : "close",
+      schemas: run ? commandPayloadSchemas(run.command) : closePayloadSchemas,
       permit(message) {
         const state = options.admission.getSnapshot()
         if (message.type === "admission" && message.status === "busy") return
@@ -130,7 +139,14 @@ export function createHostRequestTransport(options: {
       receive(message) {
         if (message.type === "cancel")
           options.admission.dispatch({ type: "cancel-request", request })
-        else options.receive(request, message, signal)
+        else if (message.type !== "input") options.receive(request, message)
+        else if (!run) throw new Error("A close port carries no command input.")
+        else
+          options.receive(request, {
+            type: "input",
+            operation: message.input as ExclusiveRequestOperation,
+            signal: run.signal,
+          })
       },
       terminal,
       retired: () => {
@@ -160,7 +176,7 @@ export function createHostRequestTransport(options: {
           options.cancel?.(request)
         },
       }
-      const endpoint = attach(request, port, command, abort.signal)
+      const endpoint = attach(request, port, { command, signal: abort.signal })
       const decision = options.admission.dispatch({
         type: "exclusive-intent",
         command,

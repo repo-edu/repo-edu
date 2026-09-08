@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { it } from "node:test"
 import {
   CommandOutcomeError,
-  type ExclusiveRequestOperation,
   type WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import {
@@ -69,7 +68,7 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
     } as WorkflowHandlerMap
     const host = createHostRequestTransport({
       admission,
-      receive(request, message, signal) {
+      receive(request, message) {
         if (message.type === "bundle")
           void commitRequestPersistence({
             request,
@@ -81,8 +80,8 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         if (message.type === "input")
           void executeHostCommand({
             request,
-            operation: message.input as ExclusiveRequestOperation,
-            signal: signal!,
+            operation: message.operation,
+            signal: message.signal,
             admission,
             handlers,
             transport: host,
@@ -137,7 +136,9 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         (state) => state.bootstrap.status === "ready",
       )
       controller.setDisplayName("course", "Dirty")
-      const before = structuredClone(useCourseStore.getState().course!)
+      const loaded = useCourseStore.getState().course
+      assert.ok(loaded)
+      const before = structuredClone(loaded)
       let late: (() => void) | undefined
       const running = controller.operations.execute(
         "gitUsernames.import",
@@ -180,12 +181,12 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         await assertCommandFreeze(controller)
         assert.equal(release, undefined)
         publication.resolve()
-        await until(() => release !== undefined)
+        const releasing = await until(() => release)
         await assertCommandFreeze(controller)
         assert.throws(() => late?.(), /retired/)
         assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
         order.push("host release")
-        host.release(release!)
+        host.release(releasing)
         await rejected
         order.push("retirement")
         assert.equal(controller.getSnapshot().transactions.admitted.size, 0)

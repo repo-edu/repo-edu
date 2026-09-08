@@ -22,6 +22,7 @@ import { createHostRequestTransport } from "../host-request-transport"
 import {
   createPreloadRequestTransport,
   type RendererRequestObserver,
+  type RendererRequestOwner,
 } from "../preload-request-transport"
 import {
   commitRequestPersistence,
@@ -292,8 +293,14 @@ for (const close of [false, true]) {
         admission.dispatch({ type: "terminal", error })
       },
     })
+    let exchange:
+      | ReturnType<typeof createRequestPersistenceExchange>
+      | undefined
     let prepared = false
-    let exchange: ReturnType<typeof createRequestPersistenceExchange>
+    const owner: RendererRequestOwner = (request) => {
+      exchange = createRequestPersistenceExchange(request)
+      return observer
+    }
     const observer: RendererRequestObserver = {
       admission() {},
       prepare() {
@@ -313,19 +320,14 @@ for (const close of [false, true]) {
     }
     try {
       if (close) {
-        renderer.bridge.onClose((request) => {
-          exchange = createRequestPersistenceExchange(request)
-          return observer
-        })
+        renderer.bridge.onClose(owner)
         host.prepareClose(h.request, channel.host)
         renderer.close(channel.renderer)
       } else {
-        exchange = createRequestPersistenceExchange(
-          renderer.bridge.command("repo.clone", observer),
-        )
+        renderer.bridge.command("repo.clone", owner)
       }
-      await until(() => prepared)
-      const result = await exchange!.commit(bundle)
+      const ready = await until(() => (prepared ? exchange : undefined))
+      const result = await ready.commit(bundle)
       assert.deepEqual(writes, ["credentials", "preferences", "course"])
       assert.deepEqual(result, { course: { courseId: course.id, ...stamp } })
       assert.equal(

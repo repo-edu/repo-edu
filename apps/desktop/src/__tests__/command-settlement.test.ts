@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { it } from "node:test"
 import {
   CommandOutcomeError,
-  type ExclusiveRequestOperation,
   type WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
 import { makeCourse } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -53,7 +52,7 @@ function harness(overrides: Partial<WorkflowHandlerMap> = {}) {
   } as WorkflowHandlerMap
   const host = createHostRequestTransport({
     admission,
-    receive(request, message, signal) {
+    receive(request, message) {
       if (message.type === "bundle")
         void commitRequestPersistence({
           request,
@@ -65,8 +64,8 @@ function harness(overrides: Partial<WorkflowHandlerMap> = {}) {
       if (message.type === "input")
         void executeHostCommand({
           request,
-          operation: message.input as ExclusiveRequestOperation,
-          signal: signal!,
+          operation: message.operation,
+          signal: message.signal,
           admission,
           handlers,
           transport: host,

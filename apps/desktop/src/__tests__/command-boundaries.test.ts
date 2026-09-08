@@ -1,9 +1,6 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import type {
-  ExclusiveRequestOperation,
-  WorkflowHandlerMap,
-} from "@repo-edu/application-contract"
+import type { WorkflowHandlerMap } from "@repo-edu/application-contract"
 import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import { makeCourse } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -51,7 +48,7 @@ function harness(
   } as WorkflowHandlerMap
   const host = createHostRequestTransport({
     admission,
-    receive(request, message, signal) {
+    receive(request, message) {
       if (message.type === "bundle") {
         void commitRequestPersistence({
           request,
@@ -63,8 +60,8 @@ function harness(
       } else if (message.type === "input") {
         void executeHostCommand({
           request,
-          operation: message.input as ExclusiveRequestOperation,
-          signal: signal!,
+          operation: message.operation,
+          signal: message.signal,
           admission,
           handlers,
           transport: host,

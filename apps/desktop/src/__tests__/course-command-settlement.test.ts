@@ -3,7 +3,6 @@ import { it } from "node:test"
 import { createCourseWorkflowHandlers } from "@repo-edu/application"
 import {
   type CourseChangingCommandId,
-  type ExclusiveRequestOperation,
   exclusiveCommandDeclarations,
   type WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
@@ -61,8 +60,12 @@ function officialResult(
   command: CourseChangingCommandId,
   course: PersistedCourse,
 ) {
-  const roster = structuredClone(course.roster)
-  roster.groupSets[0]!.name = "Imported groups"
+  const roster = {
+    ...course.roster,
+    groupSets: course.roster.groupSets.map((groupSet, index) =>
+      index === 0 ? { ...groupSet, name: "Imported groups" } : groupSet,
+    ),
+  }
   const idSequences = { ...course.idSequences, nextGroupSeq: 20 }
   switch (command) {
     case "roster.importFromFile":
@@ -176,7 +179,7 @@ for (const command of commands) {
     } as WorkflowHandlerMap
     const host = createHostRequestTransport({
       admission,
-      receive(request, message, signal) {
+      receive(request, message) {
         if (message.type === "bundle")
           void commitRequestPersistence({
             request,
@@ -188,8 +191,8 @@ for (const command of commands) {
         if (message.type === "input")
           void executeHostCommand({
             request,
-            operation: message.input as ExclusiveRequestOperation,
-            signal: signal!,
+            operation: message.operation,
+            signal: message.signal,
             admission,
             handlers,
             transport: host,
@@ -232,7 +235,9 @@ for (const command of commands) {
         controller,
         (state) => state.bootstrap.status === "ready",
       )
-      const before = structuredClone(useCourseStore.getState().course!)
+      const loaded = useCourseStore.getState().course
+      assert.ok(loaded)
+      const before = structuredClone(loaded)
       const credentials = controller.getSnapshot().settings.credentials
       const inputs = {
         "roster.importFromFile": { course: before, file },
@@ -289,10 +294,12 @@ for (const command of commands) {
           useCourseStore.getState().course?.revision === before.revision + 1,
       )
       assert.deepEqual(useCourseStore.getState().course, saved)
-      const applied = useCourseStore.getState().course!
+      const applied = useCourseStore.getState().course
+      assert.ok(applied)
       await assertCommandFreeze(controller)
       if (command.startsWith("repo.")) {
-        const assignment = applied.roster.assignments[0]!
+        const [assignment] = applied.roster.assignments
+        assert.ok(assignment)
         assert.equal(
           assignment.repositories?.g_0100,
           command === "repo.create"
@@ -316,13 +323,13 @@ for (const command of commands) {
       }
       assert.equal(release, undefined)
       publication.resolve()
-      await until(() => release !== undefined)
+      const releasing = await until(() => release)
       await assertCommandFreeze(controller)
       assert.equal(
         controller.operations.change(() => {}),
         false,
       )
-      host.release(release!)
+      host.release(releasing)
       await running
       await controller.flush()
       assert.equal(writes, 1)

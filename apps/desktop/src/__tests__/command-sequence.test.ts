@@ -81,7 +81,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
   } as WorkflowHandlerMap
   const host = createHostRequestTransport({
     admission,
-    receive(request, message, signal) {
+    receive(request, message) {
       if (message.type === "bundle") {
         void commitRequestPersistence({
           request,
@@ -91,11 +91,11 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
           transport: host,
         })
       } else if (message.type === "input") {
-        received = message.input as ExclusiveRequestOperation
+        received = message.operation
         void executeHostCommand({
           request,
           operation: received,
-          signal: signal!,
+          signal: message.signal,
           admission,
           handlers,
           transport: host,
@@ -139,7 +139,8 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
       controller,
       (state) => state.bootstrap.status === "ready",
     )
-    const staleCourse = useCourseStore.getState().course!
+    const staleCourse = useCourseStore.getState().course
+    assert.ok(staleCourse)
     controller.setDisplayName("course", "Dirty")
     controller.setTheme("dark")
     controller.setActiveGitConnectionId("git")
@@ -215,7 +216,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     await until(() => order.includes("progress-applied"))
     assert.equal(releaseRequest, undefined)
     callbackFollowup.resolve()
-    await until(() => releaseRequest !== undefined)
+    const releasing = await until(() => releaseRequest)
     await assertCommandFreeze(controller)
     assert.throws(() => latePublish?.(), /retired/)
     assert.equal(
@@ -224,7 +225,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     )
     assert.equal(controller.operations.reserve("course.list"), null)
     assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
-    host.release(releaseRequest!)
+    host.release(releasing)
     assert.equal(admission.getSnapshot().phase, "interactive")
     assert.equal(
       controller.operations.change(() =>

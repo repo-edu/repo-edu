@@ -36,14 +36,16 @@ export type RendererRequestObserver = {
   closeAcknowledged(): void
   failed(message: string): void
 }
+/** A request owner receives its handle before any message arrives. */
+export type RendererRequestOwner = (
+  request: RendererRequest,
+) => RendererRequestObserver
 export type DesktopRequestBridge = {
   command(
     command: ExclusiveCommandId,
-    observer: RendererRequestObserver,
+    owner: RendererRequestOwner,
   ): RendererRequest
-  onClose(
-    handler: (request: RendererRequest) => RendererRequestObserver,
-  ): () => void
+  onClose(owner: RendererRequestOwner): () => void
 }
 
 export function rendererRequestPort(port: MessagePort): RequestPort {
@@ -74,15 +76,14 @@ export function createPreloadRequestTransport(options: {
   terminal(error: unknown): void
 }) {
   const retained = new Set<ReturnType<typeof createRequestPortEndpoint>>()
-  let closeHandler:
-    | ((request: RendererRequest) => RendererRequestObserver)
-    | null = null
+  let closeOwner: RendererRequestOwner | null = null
 
   function attach(
     port: RequestPort,
+    owner: RendererRequestOwner | null,
     command?: ExclusiveCommandId,
-    observer?: RendererRequestObserver,
   ) {
+    let observer: RendererRequestObserver | undefined
     const endpoint = createRequestPortEndpoint<
       unknown,
       unknown,
@@ -146,13 +147,8 @@ export function createPreloadRequestTransport(options: {
       fail: (message) => endpoint.fail(new Error(message)),
     }
     try {
-      if (!command) {
-        const handler = closeHandler
-        closeHandler = null
-        if (!handler)
-          throw new Error("The renderer has no available close owner.")
-        observer = handler(request)
-      }
+      if (!owner) throw new Error("The renderer has no available close owner.")
+      observer = owner(request)
       endpoint.start()
     } catch (error) {
       endpoint.fail(error)
@@ -161,18 +157,14 @@ export function createPreloadRequestTransport(options: {
   }
 
   const bridge: DesktopRequestBridge = {
-    command(command, observer) {
+    command(command, owner) {
       try {
         commandIntentSchema.parse({
           kind: "command-intent",
           workflowId: command,
         })
         const channel = options.channel(command)
-        const { request, endpoint } = attach(
-          channel.renderer,
-          command,
-          observer,
-        )
+        const { request, endpoint } = attach(channel.renderer, owner, command)
         try {
           channel.transfer()
         } catch (error) {
@@ -184,23 +176,24 @@ export function createPreloadRequestTransport(options: {
         throw error
       }
     },
-    onClose(handler) {
-      if (closeHandler)
-        throw new Error("The renderer already has a close owner.")
-      closeHandler = handler
+    onClose(owner) {
+      if (closeOwner) throw new Error("The renderer already has a close owner.")
+      closeOwner = owner
       return () => {
-        if (closeHandler === handler) closeHandler = null
+        if (closeOwner === owner) closeOwner = null
       }
     },
   }
   return {
     bridge,
     close(port: RequestPort) {
-      attach(port)
+      const owner = closeOwner
+      closeOwner = null
+      attach(port, owner)
     },
     dispose() {
       for (const endpoint of [...retained]) endpoint.dispose()
-      closeHandler = null
+      closeOwner = null
     },
   }
 }
