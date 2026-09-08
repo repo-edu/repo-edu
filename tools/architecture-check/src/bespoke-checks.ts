@@ -29,6 +29,7 @@ const CONTROLLER_WORKFLOW_IDS = new Set([
 export const SEMANTIC_COURSE_ACTIONS = new Set([
   "hydrate",
   "applyCommittedCourse",
+  "applyLmsPreview",
   "clear",
   "applySaveStamp",
   "addMember",

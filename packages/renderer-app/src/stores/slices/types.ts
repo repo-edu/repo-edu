@@ -22,6 +22,7 @@ export type HistoryEntry = {
 }
 
 export type CourseState = {
+  admissionNumber: number
   course: PersistedCourse | null
   warnings: string[]
 
@@ -40,6 +41,10 @@ export type CourseState = {
 }
 
 export type CourseActions = {
+  applyLmsPreview: (
+    admissionNumber: number,
+    result: { roster: Roster; idSequences: IdSequences },
+  ) => boolean
   hydrate: (course: PersistedCourse) => void
   applyCommittedCourse: (course: PersistedCourse) => void
   clear: () => void
@@ -130,6 +135,7 @@ export type StoreInternals = {
 }
 
 export const initialState: CourseState = {
+  admissionNumber: 0,
   course: null,
   warnings: [],
   assignmentSelection: null,

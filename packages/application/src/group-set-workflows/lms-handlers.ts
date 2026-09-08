@@ -11,7 +11,6 @@ import type {
 } from "@repo-edu/application-contract"
 import { allocateGroupSetId } from "@repo-edu/domain/id-allocator"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { readOnlyCommand } from "../command-outcomes.js"
 import { createValidationAppError } from "../core.js"
 import {
   isSharedAppError,
@@ -95,204 +94,199 @@ export function createLmsGroupSetHandlers(
         throw normalizeProviderError(error, providerForError, "listGroupSets")
       }
     },
-    "groupSet.connectFromLms": readOnlyCommand(
-      async (
-        input: GroupSetConnectFromLmsInput,
-        options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-      ) => {
-        const totalSteps = 5
-        let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
+    "groupSet.connectFromLms": async (
+      input: GroupSetConnectFromLmsInput,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ) => {
+      const totalSteps = 5
+      let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
 
-        try {
-          throwIfAborted(options?.signal)
-          options?.onProgress?.({
-            step: 1,
-            totalSteps,
-            label: "Reading course and app settings snapshots.",
-          })
-          const course = resolveCourseSnapshot(input.course)
-          const settings = resolveAppCredentialsSnapshot(input.credentials)
-          throwIfAborted(options?.signal)
-          const draft = resolveLmsDraft(course, settings)
-          providerForError = draft.provider
+      try {
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Reading course and app settings snapshots.",
+        })
+        const course = resolveCourseSnapshot(input.course)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
+        throwIfAborted(options?.signal)
+        const draft = resolveLmsDraft(course, settings)
+        providerForError = draft.provider
 
-          if (course.lmsCourseId === null) {
-            throw {
-              type: "not-found",
-              message: "Course does not have a selected LMS course ID.",
-              resource: "course",
-            } satisfies AppError
-          }
-
-          const alreadyConnected = course.roster.groupSets.find(
-            (groupSet) =>
-              connectedRemoteId(groupSet.connection) === input.remoteGroupSetId,
-          )
-          if (alreadyConnected !== undefined) {
-            throw createValidationAppError(
-              "LMS group set is already connected.",
-              [
-                {
-                  path: "remoteGroupSetId",
-                  message: `LMS group set '${input.remoteGroupSetId}' is already connected as '${alreadyConnected.name}'.`,
-                },
-              ],
-            )
-          }
-
-          options?.onProgress?.({
-            step: 2,
-            totalSteps,
-            label: "Creating connected local group set.",
-          })
-          const groupSetAlloc = allocateGroupSetId(course.idSequences)
-          const localGroupSetId = groupSetAlloc.id
-          const courseWithConnectedSet: PersistedCourse = {
-            ...course,
-            idSequences: groupSetAlloc.sequences,
-            roster: {
-              ...course.roster,
-              groupSets: [
-                ...course.roster.groupSets,
-                createConnectedGroupSet(
-                  draft.provider,
-                  course.lmsCourseId,
-                  input.remoteGroupSetId,
-                  localGroupSetId,
-                ),
-              ],
-            },
-            updatedAt: new Date().toISOString(),
-          }
-
-          options?.onProgress?.({
-            step: 3,
-            totalSteps,
-            label: "Fetching LMS group set data.",
-          })
-          const fetched = await ports.lms.fetchGroupSet(
-            draft,
-            course.lmsCourseId,
-            input.remoteGroupSetId,
-            options?.signal,
-            (message) => {
-              options?.onProgress?.({
-                step: 3,
-                totalSteps,
-                label: message,
-              })
-            },
-          )
-
-          options?.onProgress?.({
-            step: 4,
-            totalSteps,
-            label: "Applying LMS group-set patch to roster.",
-          })
-          const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
-            courseWithConnectedSet,
-            localGroupSetId,
-            fetched,
-          )
-
-          throwIfAborted(options?.signal)
-          options?.onProgress?.({
-            step: 5,
-            totalSteps,
-            label: "LMS group-set connection complete.",
-          })
-          return {
-            ...nextGroupSet,
-            roster: nextCourse.roster,
-            idSequences: nextCourse.idSequences,
-          }
-        } catch (error) {
-          if (isSharedAppError(error)) {
-            throw error
-          }
-          throw normalizeProviderError(error, providerForError, "fetchGroupSet")
+        if (course.lmsCourseId === null) {
+          throw {
+            type: "not-found",
+            message: "Course does not have a selected LMS course ID.",
+            resource: "course",
+          } satisfies AppError
         }
-      },
-    ),
-    "groupSet.syncFromLms": readOnlyCommand(
-      async (
-        input: GroupSetSyncFromLmsInput,
-        options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
-      ) => {
-        const totalSteps = 4
-        let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
 
-        try {
-          throwIfAborted(options?.signal)
-          options?.onProgress?.({
-            step: 1,
-            totalSteps,
-            label: "Reading course and app settings snapshots.",
-          })
-          const course = resolveCourseSnapshot(input.course)
-          const settings = resolveAppCredentialsSnapshot(input.credentials)
-          throwIfAborted(options?.signal)
-          const draft = resolveLmsDraft(course, settings)
-          providerForError = draft.provider
-
-          if (course.lmsCourseId === null) {
-            throw {
-              type: "not-found",
-              message: "Course does not have a selected LMS course ID.",
-              resource: "course",
-            } satisfies AppError
-          }
-
-          const remoteGroupSetId = lmsGroupSetRemoteId(input.groupSetId, course)
-
-          options?.onProgress?.({
-            step: 2,
-            totalSteps,
-            label: "Fetching LMS group set data.",
-          })
-          const fetched = await ports.lms.fetchGroupSet(
-            draft,
-            course.lmsCourseId,
-            remoteGroupSetId,
-            options?.signal,
-            (message) => {
-              options?.onProgress?.({
-                step: 2,
-                totalSteps,
-                label: message,
-              })
-            },
+        const alreadyConnected = course.roster.groupSets.find(
+          (groupSet) =>
+            connectedRemoteId(groupSet.connection) === input.remoteGroupSetId,
+        )
+        if (alreadyConnected !== undefined) {
+          throw createValidationAppError(
+            "LMS group set is already connected.",
+            [
+              {
+                path: "remoteGroupSetId",
+                message: `LMS group set '${input.remoteGroupSetId}' is already connected as '${alreadyConnected.name}'.`,
+              },
+            ],
           )
-
-          options?.onProgress?.({
-            step: 3,
-            totalSteps,
-            label: "Applying LMS group-set patch to roster.",
-          })
-          const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
-            course,
-            input.groupSetId,
-            fetched,
-          )
-
-          throwIfAborted(options?.signal)
-          options?.onProgress?.({
-            step: 4,
-            totalSteps,
-            label: "LMS group-set sync complete.",
-          })
-          return {
-            ...nextGroupSet,
-            roster: nextCourse.roster,
-            idSequences: nextCourse.idSequences,
-          }
-        } catch (error) {
-          if (isSharedAppError(error)) {
-            throw error
-          }
-          throw normalizeProviderError(error, providerForError, "fetchGroupSet")
         }
-      },
-    ),
+
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Preparing connected group-set preview.",
+        })
+        const groupSetAlloc = allocateGroupSetId(course.idSequences)
+        const localGroupSetId = groupSetAlloc.id
+        const courseWithConnectedSet: PersistedCourse = {
+          ...course,
+          idSequences: groupSetAlloc.sequences,
+          roster: {
+            ...course.roster,
+            groupSets: [
+              ...course.roster.groupSets,
+              createConnectedGroupSet(
+                draft.provider,
+                course.lmsCourseId,
+                input.remoteGroupSetId,
+                localGroupSetId,
+              ),
+            ],
+          },
+        }
+
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "Fetching LMS group set data.",
+        })
+        const fetched = await ports.lms.fetchGroupSet(
+          draft,
+          course.lmsCourseId,
+          input.remoteGroupSetId,
+          options?.signal,
+          (message) => {
+            options?.onProgress?.({
+              step: 3,
+              totalSteps,
+              label: message,
+            })
+          },
+        )
+
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "Preparing LMS group-set preview.",
+        })
+        const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
+          courseWithConnectedSet,
+          localGroupSetId,
+          fetched,
+        )
+
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 5,
+          totalSteps,
+          label: "LMS group-set preview ready.",
+        })
+        return {
+          ...nextGroupSet,
+          roster: nextCourse.roster,
+          idSequences: nextCourse.idSequences,
+        }
+      } catch (error) {
+        if (isSharedAppError(error)) {
+          throw error
+        }
+        throw normalizeProviderError(error, providerForError, "fetchGroupSet")
+      }
+    },
+    "groupSet.syncFromLms": async (
+      input: GroupSetSyncFromLmsInput,
+      options?: WorkflowCallOptions<MilestoneProgress, DiagnosticOutput>,
+    ) => {
+      const totalSteps = 4
+      let providerForError: VerifyLmsDraftInput["provider"] = "canvas"
+
+      try {
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 1,
+          totalSteps,
+          label: "Reading course and app settings snapshots.",
+        })
+        const course = resolveCourseSnapshot(input.course)
+        const settings = resolveAppCredentialsSnapshot(input.credentials)
+        throwIfAborted(options?.signal)
+        const draft = resolveLmsDraft(course, settings)
+        providerForError = draft.provider
+
+        if (course.lmsCourseId === null) {
+          throw {
+            type: "not-found",
+            message: "Course does not have a selected LMS course ID.",
+            resource: "course",
+          } satisfies AppError
+        }
+
+        const remoteGroupSetId = lmsGroupSetRemoteId(input.groupSetId, course)
+
+        options?.onProgress?.({
+          step: 2,
+          totalSteps,
+          label: "Fetching LMS group set data.",
+        })
+        const fetched = await ports.lms.fetchGroupSet(
+          draft,
+          course.lmsCourseId,
+          remoteGroupSetId,
+          options?.signal,
+          (message) => {
+            options?.onProgress?.({
+              step: 2,
+              totalSteps,
+              label: message,
+            })
+          },
+        )
+
+        options?.onProgress?.({
+          step: 3,
+          totalSteps,
+          label: "Preparing LMS group-set preview.",
+        })
+        const { nextCourse, nextGroupSet } = applyFetchedGroupSetToCourse(
+          course,
+          input.groupSetId,
+          fetched,
+        )
+
+        throwIfAborted(options?.signal)
+        options?.onProgress?.({
+          step: 4,
+          totalSteps,
+          label: "LMS group-set preview ready.",
+        })
+        return {
+          ...nextGroupSet,
+          roster: nextCourse.roster,
+          idSequences: nextCourse.idSequences,
+        }
+      } catch (error) {
+        if (isSharedAppError(error)) {
+          throw error
+        }
+        throw normalizeProviderError(error, providerForError, "fetchGroupSet")
+      }
+    },
   }
 }

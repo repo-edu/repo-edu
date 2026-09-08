@@ -38,6 +38,13 @@ export async function assertCommandFreeze(controller: SessionController) {
   controller.setActiveGitConnectionId("blocked")
   controller.pushRecentFolder("/blocked")
   if (course.course) {
+    assert.equal(
+      controller.applyLmsPreview(course.course.id, course.admissionNumber, {
+        roster: course.course.roster,
+        idSequences: course.course.idSequences,
+      }),
+      false,
+    )
     controller.setDisplayName(course.course.id, "Blocked")
     controller.setSearchFolder(course.course.id, "/blocked")
     controller.mutateCourse(course.course.id, () =>

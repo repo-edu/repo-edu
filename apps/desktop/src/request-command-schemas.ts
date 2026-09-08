@@ -21,10 +21,6 @@ const rosterResult = z.strictObject({
   roster: persistedCourseSchema.shape.roster,
   idSequences: persistedCourseSchema.shape.idSequences,
 })
-const groupResult = z.intersection(
-  persistedCourseSchema.shape.roster.shape.groupSets.element,
-  z.object(rosterResult.shape),
-)
 const repositories = z.record(z.string(), z.record(z.string(), z.string()))
 const cloneResult = z.strictObject({
   repositoriesPlanned: count,
@@ -36,8 +32,6 @@ const cloneResult = z.strictObject({
 const results = {
   "roster.importFromFile": rosterResult,
   "roster.exportMembers": fileResult,
-  "groupSet.connectFromLms": groupResult,
-  "groupSet.syncFromLms": groupResult,
   "groupSet.importFromFile": persistedCourseSchema,
   "groupSet.export": fileResult,
   "gitUsernames.import": persistedCourseSchema.shape.roster,

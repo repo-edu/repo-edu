@@ -84,8 +84,6 @@ type _Action = Assert<
 
 const courseCommands = [
   "roster.importFromFile",
-  "groupSet.connectFromLms",
-  "groupSet.syncFromLms",
   "groupSet.importFromFile",
   "gitUsernames.import",
   "repo.create",

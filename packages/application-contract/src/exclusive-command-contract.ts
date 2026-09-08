@@ -17,8 +17,6 @@ import type { WorkflowId } from "./workflow-payloads.js"
 export type ExclusiveCommandId =
   | "roster.importFromFile"
   | "roster.exportMembers"
-  | "groupSet.connectFromLms"
-  | "groupSet.syncFromLms"
   | "groupSet.importFromFile"
   | "groupSet.export"
   | "gitUsernames.import"
@@ -33,8 +31,6 @@ export type ExclusiveCommandId =
 
 export type CourseChangingCommandId =
   | "roster.importFromFile"
-  | "groupSet.connectFromLms"
-  | "groupSet.syncFromLms"
   | "groupSet.importFromFile"
   | "gitUsernames.import"
   | "repo.create"
@@ -57,11 +53,6 @@ export const exclusiveCommandDeclarations = {
     settlementReads: [],
   },
   "roster.exportMembers": { courseTransition: "none", settlementReads: [] },
-  "groupSet.connectFromLms": {
-    courseTransition: "required",
-    settlementReads: [],
-  },
-  "groupSet.syncFromLms": { courseTransition: "required", settlementReads: [] },
   "groupSet.importFromFile": {
     courseTransition: "required",
     settlementReads: [],

@@ -15,8 +15,6 @@ export function captureSessionCommandInput<K extends ExclusiveCommandId>(
   switch (command) {
     case "roster.importFromFile":
     case "roster.exportMembers":
-    case "groupSet.connectFromLms":
-    case "groupSet.syncFromLms":
     case "groupSet.importFromFile":
     case "groupSet.export":
     case "gitUsernames.import":

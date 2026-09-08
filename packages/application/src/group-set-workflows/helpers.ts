@@ -158,7 +158,14 @@ export function applyFetchedGroupSetToCourse(
     ...currentGroupSet,
     name: fetched.groupSet.name,
     groupIds: syncedGroups.map((group) => group.id),
-    connection: currentGroupSet.connection,
+    connection:
+      currentGroupSet.connection?.kind === "canvas" ||
+      currentGroupSet.connection?.kind === "moodle"
+        ? {
+            ...currentGroupSet.connection,
+            lastUpdated: new Date().toISOString(),
+          }
+        : currentGroupSet.connection,
   }
 
   const removedIdSet = new Set(removedGroupIds)
@@ -187,7 +194,6 @@ export function applyFetchedGroupSetToCourse(
         groups: [...groupsById.values()],
         groupSets: nextGroupSets,
       },
-      updatedAt: new Date().toISOString(),
     },
   }
 }

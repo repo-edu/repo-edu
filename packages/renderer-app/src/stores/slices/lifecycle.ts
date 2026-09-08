@@ -14,6 +14,7 @@ export function createLifecycleSlice(
 ): Pick<
   CourseActions,
   | "hydrate"
+  | "applyLmsPreview"
   | "applyCommittedCourse"
   | "clear"
   | "applySaveStamp"
@@ -21,6 +22,30 @@ export function createLifecycleSlice(
   | "runChecks"
 > {
   return {
+    applyLmsPreview: (admissionNumber, result) => {
+      const state = get()
+      if (!state.course || state.admissionNumber !== admissionNumber)
+        return false
+      const [, patches, inversePatches] = produceWithPatches(
+        state.course.roster,
+        () => result.roster,
+      )
+      set((draft) => {
+        draft.course!.roster = result.roster
+        draft.course!.idSequences = result.idSequences
+        draft.admissionNumber += 1
+        draft.history.push({
+          patches,
+          inversePatches,
+          description: "Apply LMS preview",
+        })
+        if (draft.history.length > HISTORY_LIMIT)
+          draft.history.splice(0, draft.history.length - HISTORY_LIMIT)
+        draft.future = []
+        draft.checksDirty = true
+      })
+      return true
+    },
     applyCommittedCourse: (course) => {
       // History describes the already composed value. It never supplies the
       // course being applied or reconstructs the command's partial result.
@@ -50,6 +75,7 @@ export function createLifecycleSlice(
     },
     hydrate: (course) => {
       set((draft) => {
+        draft.admissionNumber += 1
         draft.course = course
         draft.warnings = []
         draft.history = []
@@ -67,7 +93,9 @@ export function createLifecycleSlice(
 
     clear: () => {
       set((draft) => {
+        const admissionNumber = draft.admissionNumber + 1
         Object.assign(draft, initialState)
+        draft.admissionNumber = admissionNumber
       })
     },
 

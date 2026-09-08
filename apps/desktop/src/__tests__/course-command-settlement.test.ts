@@ -40,8 +40,6 @@ const file = {
 
 const commands = [
   "roster.importFromFile",
-  "groupSet.connectFromLms",
-  "groupSet.syncFromLms",
   "groupSet.importFromFile",
   "gitUsernames.import",
   "repo.create",
@@ -69,9 +67,6 @@ function officialResult(
   switch (command) {
     case "roster.importFromFile":
       return { roster, idSequences }
-    case "groupSet.connectFromLms":
-    case "groupSet.syncFromLms":
-      return { ...roster.groupSets[0], roster, idSequences }
     case "groupSet.importFromFile":
       return { ...course, roster, idSequences }
     case "gitUsernames.import":
@@ -241,16 +236,6 @@ for (const command of commands) {
       const credentials = controller.getSnapshot().settings.credentials
       const inputs = {
         "roster.importFromFile": { course: before, file },
-        "groupSet.connectFromLms": {
-          course: before,
-          credentials,
-          remoteGroupSetId: "remote",
-        },
-        "groupSet.syncFromLms": {
-          course: before,
-          credentials,
-          groupSetId: "gs_0100",
-        },
         "groupSet.importFromFile": {
           course: before,
           file,

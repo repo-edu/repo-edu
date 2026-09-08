@@ -65,6 +65,58 @@ function createLmsScenario() {
 }
 
 describe("application group-set workflow helpers", () => {
+  for (const provider of ["canvas", "moodle"] as const) {
+    it(`stamps ${provider} connect and re-sync previews at fetch completion without changing the input`, async (context) => {
+      const { course, settings } = createLmsScenario()
+      settings.lmsConnections[0]!.provider = provider
+      const before = structuredClone(course)
+      const firstFetch = Date.parse("2026-09-08T12:00:00.000Z")
+      context.mock.timers.enable({ apis: ["Date"], now: firstFetch - 1000 })
+      let fetchTime = firstFetch
+      const handlers = createGroupSetHarness({
+        lms: {
+          fetchGroupSet: async () => {
+            context.mock.timers.setTime(fetchTime)
+            return { groupSet: { id: "remote", name: "Fetched" }, groups: [] }
+          },
+        },
+      })
+      const credentials = splitAppSettings(settings).credentials
+      const connected = await handlers["groupSet.connectFromLms"]({
+        course,
+        credentials,
+        remoteGroupSetId: "remote",
+      })
+      assert.ok(connected.connection?.kind === provider)
+      assert.equal(
+        connected.connection.lastUpdated,
+        new Date(firstFetch).toISOString(),
+      )
+      assert.deepEqual(course, before)
+      const connectedCourse = {
+        ...course,
+        roster: connected.roster,
+        idSequences: connected.idSequences,
+      }
+      fetchTime += 1000
+      const synced = await handlers["groupSet.syncFromLms"]({
+        course: connectedCourse,
+        credentials,
+        groupSetId: connected.id,
+      })
+      assert.ok(synced.connection?.kind === provider)
+      assert.equal(
+        synced.connection.lastUpdated,
+        new Date(fetchTime).toISOString(),
+      )
+      assert.equal(
+        connected.connection.lastUpdated,
+        new Date(firstFetch).toISOString(),
+      )
+      assert.equal(connectedCourse.updatedAt, course.updatedAt)
+    })
+  }
+
   it("discovers available LMS group sets for the course course", async () => {
     const { course, settings } = createLmsScenario()
     let receivedCourseId = ""
@@ -216,12 +268,10 @@ describe("application group-set workflow helpers", () => {
         remoteGroupSetId: "remote-set-1",
       }),
       (error: unknown) =>
-        error instanceof CommandOutcomeError &&
-        error.outcome.disposition === "refused" &&
-        typeof error.outcome.error === "object" &&
-        error.outcome.error !== null &&
-        "type" in error.outcome.error &&
-        error.outcome.error.type === "validation",
+        typeof error === "object" &&
+        error !== null &&
+        "type" in error &&
+        error.type === "validation",
     )
   })
 
@@ -303,6 +353,15 @@ describe("application group-set workflow helpers", () => {
     assert.equal(synced.groupIds.includes("g_0001"), true)
     assert.equal(synced.groupIds.length, 2)
     assert.equal(synced.name, "Synced LMS Set")
+    assert.ok(synced.connection?.kind === "canvas")
+    assert.notEqual(synced.connection.lastUpdated, "2026-03-01T00:00:00.000Z")
+    const originalConnection = course.roster.groupSets[0]?.connection
+    assert.ok(originalConnection?.kind === "canvas")
+    assert.equal(originalConnection.lastUpdated, "2026-03-01T00:00:00.000Z")
+    assert.deepEqual(
+      synced.roster.groupSets.find((set) => set.id === synced.id)?.connection,
+      synced.connection,
+    )
 
     const syncedGroups = synced.roster.groups.filter(
       (group) => group.lmsGroupId === "10" || group.lmsGroupId === "30",

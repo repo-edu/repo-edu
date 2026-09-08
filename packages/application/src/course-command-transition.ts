@@ -61,16 +61,6 @@ const composers: { [K in CourseChangingCommandId]: Composer<K> } = {
     roster: result.roster,
     idSequences: result.idSequences,
   }),
-  "groupSet.connectFromLms": ({ course }, result) => ({
-    ...course,
-    roster: result.roster,
-    idSequences: result.idSequences,
-  }),
-  "groupSet.syncFromLms": ({ course }, result) => ({
-    ...course,
-    roster: result.roster,
-    idSequences: result.idSequences,
-  }),
   "groupSet.importFromFile": (_input, result) => result,
   "gitUsernames.import": ({ course }, roster) => ({ ...course, roster }),
   "repo.create": ({ course }, result) =>

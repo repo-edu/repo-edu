@@ -13,6 +13,7 @@ import type { CourseActions, HistoryEntry } from "../stores/slices/types.js"
 export type CourseMutationActions = Pick<
   CourseActions,
   | "addMember"
+  | "applyLmsPreview"
   | "updateMember"
   | "removeMember"
   | "deleteMemberPermanently"
@@ -54,6 +55,20 @@ export type CourseMutationActions = Pick<
 // (owned by SessionController) decides whether the originating course is still
 // the active, mutable target before any write lands.
 export abstract class CourseMutationController {
+  applyLmsPreview(
+    courseId: string,
+    admissionNumber: number,
+    result: { roster: Roster; idSequences: IdSequences },
+  ): boolean {
+    return (
+      this.runCourseAction(
+        courseId,
+        "applyLmsPreview",
+        admissionNumber,
+        result,
+      ) === true
+    )
+  }
   protected abstract withCourseTarget(
     expectedCourseId: string,
     apply: (actions: CourseMutationActions) => void,

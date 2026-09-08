@@ -1,6 +1,5 @@
-import { enablePatches } from "immer"
+import { enablePatches, produceWithPatches } from "immer"
 import { create } from "zustand"
-import { immer } from "zustand/middleware/immer"
 import { createHistorySlice } from "./slices/history.js"
 import { createLifecycleSlice } from "./slices/lifecycle.js"
 import { createMetadataActionsSlice } from "./slices/metadata-actions.js"
@@ -9,6 +8,7 @@ import type {
   CourseActions,
   CourseState,
   StoreInternals,
+  StoreSet,
 } from "./slices/types.js"
 import { initialState } from "./slices/types.js"
 
@@ -17,7 +17,27 @@ enablePatches()
 export type { CourseActions, CourseState } from "./slices/types.js"
 
 export const useCourseStore = create<CourseState & CourseActions>()(
-  immer((set, get) => {
+  (publish, get) => {
+    const set: StoreSet = (recipe) => {
+      const current = get()
+      const [next, patches] = produceWithPatches(current, recipe)
+      if (patches.length === 0) return
+      const semanticChange = patches.some(
+        ({ path }) =>
+          path[0] === "course" &&
+          !(
+            path.length === 2 &&
+            (path[1] === "revision" || path[1] === "updatedAt")
+          ),
+      )
+      publish({
+        ...next,
+        admissionNumber:
+          next.admissionNumber !== current.admissionNumber
+            ? next.admissionNumber
+            : current.admissionNumber + Number(semanticChange),
+      })
+    }
     const markCourseMutated = () => {
       set((draft) => {
         if (!draft.course) return
@@ -40,7 +60,7 @@ export const useCourseStore = create<CourseState & CourseActions>()(
       ...createMetadataActionsSlice(set, get, internals),
       ...createLifecycleSlice(set, get),
     }
-  }),
+  },
 )
 
 export * from "./course-store-selectors.js"
