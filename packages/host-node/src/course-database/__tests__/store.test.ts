@@ -293,7 +293,13 @@ describe("course database store", () => {
           },
         } satisfies CourseConnection
       })
-      await assert.rejects(async () => failing.saveCourse(course), terminal)
+      await assert.rejects(
+        async () => failing.saveCourse(course),
+        (error: unknown) =>
+          terminal(error) &&
+          (failure !== "rollback" ||
+            (error as { message: string }).message === "statement failed"),
+      )
       assert.equal(events.at(-1), "close")
       const saved = await store.loadCourse(course.id)
       assert.equal(saved?.revision ?? null, failure === "close" ? 1 : null)

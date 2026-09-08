@@ -38,7 +38,11 @@ export function createCourseStoreWithConnection(
           connection.exec("COMMIT")
           return result
         } catch (error) {
-          connection.exec("ROLLBACK")
+          try {
+            connection.exec("ROLLBACK")
+          } catch {
+            // SQLite may already have rolled back on its own; the first error stands.
+          }
           throw error
         }
       } finally {
