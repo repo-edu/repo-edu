@@ -22,7 +22,7 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
   "course.save": {
     delivery: ["desktop", "cli"],
     progress: "milestone",
-    cancellation: "cooperative",
+    cancellation: "non-cancellable",
   },
   "course.delete": {
     delivery: ["desktop"],

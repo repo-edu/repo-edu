@@ -54,9 +54,7 @@ export function createCourseWorkflowHandlers(
     "course.list": async (_input, options) => {
       throwIfAborted(options?.signal)
       const courses = await runCourseStorage(async () =>
-        (await courseStore.listCourses(options?.signal)).map(
-          validateLoadedCourse,
-        ),
+        (await courseStore.listCourses()).map(validateLoadedCourse),
       )
       throwIfAborted(options?.signal)
       return sortCoursesByUpdatedAt(courses).map(summarizeCourse)
@@ -72,10 +70,7 @@ export function createCourseWorkflowHandlers(
       })
       throwIfAborted(options?.signal)
       const course = await runCourseStorage(async () => {
-        const stored = await courseStore.loadCourse(
-          input.courseId,
-          options?.signal,
-        )
+        const stored = await courseStore.loadCourse(input.courseId)
         return stored === null ? null : validateLoadedCourse(stored)
       })
       throwIfAborted(options?.signal)
@@ -122,7 +117,7 @@ export function createCourseWorkflowHandlers(
         label: "Writing course to course store.",
       })
       const saveStamp = await runCourseStorage(() =>
-        courseStore.saveCourse(validation.value, options?.signal),
+        courseStore.saveCourse(validation.value),
       )
 
       options?.onProgress?.({
@@ -134,9 +129,7 @@ export function createCourseWorkflowHandlers(
     },
     "course.delete": async (input: { courseId: string }, options) => {
       throwIfAborted(options?.signal)
-      await runCourseStorage(() =>
-        courseStore.deleteCourse(input.courseId, options?.signal),
-      )
+      await runCourseStorage(() => courseStore.deleteCourse(input.courseId))
     },
   }
 }

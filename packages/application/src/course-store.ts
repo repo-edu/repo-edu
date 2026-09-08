@@ -8,19 +8,18 @@ import type { PersistedCourse } from "@repo-edu/domain/types"
  * replaces the row matching a later revision. It returns only the committed
  * stamp, after the connection is released. Delete ends the row's lifetime.
  * The shared database adapter throws CourseStorageFailure for every storage
- * failure, including invalid content and row-state mismatches.
+ * failure, including invalid content and row-state mismatches. Actions take
+ * no cancellation signal: each one runs as a single transaction that nothing
+ * can interrupt, so the calling workflow owns cancellation before and after
+ * the call.
  */
 export type CourseStore = {
-  listCourses(
-    signal?: AbortSignal,
-  ): Promise<PersistedCourse[]> | PersistedCourse[]
+  listCourses(): Promise<PersistedCourse[]> | PersistedCourse[]
   loadCourse(
     courseId: string,
-    signal?: AbortSignal,
   ): Promise<PersistedCourse | null> | PersistedCourse | null
   saveCourse(
     course: PersistedCourse,
-    signal?: AbortSignal,
   ): Promise<CourseSaveStamp> | CourseSaveStamp
-  deleteCourse(courseId: string, signal?: AbortSignal): Promise<void> | void
+  deleteCourse(courseId: string): Promise<void> | void
 }

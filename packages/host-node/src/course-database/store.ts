@@ -20,15 +20,11 @@ export function createCourseStoreWithConnection(
 ): CourseStore {
   async function action<T>(
     body: (connection: CourseConnection) => T,
-    signal?: AbortSignal,
   ): Promise<T> {
     try {
-      signal?.throwIfAborted()
       await mkdir(appDataRoot, { recursive: true })
-      signal?.throwIfAborted()
       const connection = await open(courseDatabasePath(appDataRoot))
       try {
-        signal?.throwIfAborted()
         connection.exec("PRAGMA synchronous = FULL")
         connection.exec("PRAGMA busy_timeout = 0")
         connection.exec("BEGIN EXCLUSIVE")
@@ -59,20 +55,18 @@ export function createCourseStoreWithConnection(
   }
 
   return {
-    listCourses: (signal) =>
-      action(
-        (connection) =>
-          connection
-            .all("SELECT * FROM courses ORDER BY id")
-            .map((row) => decodeCourseRow(row as CourseRow)),
-        signal,
+    listCourses: () =>
+      action((connection) =>
+        connection
+          .all("SELECT * FROM courses ORDER BY id")
+          .map((row) => decodeCourseRow(row as CourseRow)),
       ),
-    loadCourse: (id, signal) =>
+    loadCourse: (id) =>
       action((connection) => {
         const row = connection.get("SELECT * FROM courses WHERE id = ?", id)
         return row === undefined ? null : decodeCourseRow(row as CourseRow)
-      }, signal),
-    saveCourse: (course, signal) =>
+      }),
+    saveCourse: (course) =>
       action((connection) => {
         const payload = encodeCoursePayload(course)
         const current = connection.get(
@@ -87,10 +81,9 @@ export function createCourseStoreWithConnection(
             "The course row does not match the successor revision.",
           )
         }
+        // The table CHECK owns the revision range, so an exhausted revision
+        // fails as a constraint error inside the same terminal mapping.
         const revision = course.revision + 1
-        if (!Number.isSafeInteger(revision)) {
-          throw createCourseStorageFailure("The course revision is exhausted.")
-        }
         const updatedAt = new Date().toISOString()
         if (course.revision === 0) {
           connection.run(
@@ -110,11 +103,11 @@ export function createCourseStoreWithConnection(
           )
         }
         return { revision, updatedAt }
-      }, signal),
-    deleteCourse: (id, signal) =>
+      }),
+    deleteCourse: (id) =>
       action((connection) => {
         connection.run("DELETE FROM courses WHERE id = ?", id)
-      }, signal),
+      }),
   }
 }
 

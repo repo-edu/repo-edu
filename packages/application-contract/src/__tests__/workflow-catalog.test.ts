@@ -135,7 +135,8 @@ describe("application-contract workflow catalog", () => {
       if (meta.cancellation === "non-cancellable" && meta.progress !== "none") {
         // Not strictly required, but this is the current convention:
         // workflows that are non-cancellable also report no progress.
-        // If this changes intentionally, update this test.
+        // course.save is the one exception: its milestones describe a
+        // single store transaction that nothing can interrupt.
         const entry = workflowCatalog[id as WorkflowId]
         assert.ok(
           entry,

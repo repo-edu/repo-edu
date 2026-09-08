@@ -42,9 +42,8 @@ export function decodeCourseRow(row: CourseRow): PersistedCourse {
       "The stored course payload has an invalid shape.",
     )
   }
-  if (!Number.isSafeInteger(row.revision) || row.revision < 1) {
-    throw createCourseStorageFailure("The stored course revision is invalid.")
-  }
+  // The table CHECK owns the revision range; admission proves that schema
+  // before any row is read, so the row's revision needs no second check here.
   const validation = validatePersistedCourse({
     ...payload,
     id: row.id,

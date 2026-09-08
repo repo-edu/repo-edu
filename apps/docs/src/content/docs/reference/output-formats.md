@@ -13,7 +13,7 @@ data.
 | CSV | `.csv` | Yes | Yes | Roster import/export, group set import/export, Git username import |
 | TXT | `.txt` | Yes | Yes | RepoBee students group-set import/export |
 | XLSX | `.xlsx` | No | No | Unsupported |
-| JSON | `.json` | — | — | Persisted settings and course files (internal) |
+| JSON | `.json` | — | — | Persisted settings (internal) |
 
 Format support is validated at the workflow level — requesting an unsupported format produces a
 validation error.

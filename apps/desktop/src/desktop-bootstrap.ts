@@ -32,7 +32,7 @@ export async function loadDesktopBootstrap(
     ](undefined, { signal: abort.signal })
     const courseStore = createCourseStore(storageRoot)
     // Admission validates every saved row, including courses not selected at startup.
-    await courseStore.listCourses(abort.signal)
+    await courseStore.listCourses()
     const windowStateStore = createNodeWindowStateStore(storageRoot)
     const windowState = await windowStateStore.load()
     abort.signal.throwIfAborted()

@@ -110,12 +110,6 @@ describe("course row codec", () => {
     }
   })
 
-  it("rejects revisions that cannot describe a stored row", () => {
-    for (const revision of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-      assert.throws(() => decodeCourseRow(row({ revision })), isTerminalFailure)
-    }
-  })
-
   it("validates complete successors before encoding", () => {
     assert.throws(
       () => encodeCoursePayload({ ...course, revision: -1 }),
