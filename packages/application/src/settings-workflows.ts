@@ -16,17 +16,17 @@ import type {
 import {
   type AppSettingsStore,
   createValidationAppError,
-  isPersistenceWriteError,
   type RecoverableAppSettingsLoader,
 } from "./core.js"
 import {
-  isRetryablePersistenceWriteKind,
   isSharedAppError,
   loadSettingsOrDefault,
   throwIfAborted,
   toCancelledAppError,
 } from "./workflow-helpers.js"
 
+// Every settings publication failure is terminal for its host, so no write
+// failure is ever marked retryable.
 function normalizeSettingsSaveError(error: unknown): AppError {
   if (isSharedAppError(error)) {
     return error
@@ -34,15 +34,6 @@ function normalizeSettingsSaveError(error: unknown): AppError {
 
   if (error instanceof DOMException && error.name === "AbortError") {
     return toCancelledAppError()
-  }
-
-  if (isPersistenceWriteError(error)) {
-    return {
-      type: "persistence",
-      message: error.message,
-      operation: "write",
-      retryable: isRetryablePersistenceWriteKind(error.kind),
-    }
   }
 
   return {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { createWriteQueue } from "../index.js"
+import { createWriteQueue } from "../write-queue.js"
 
 describe("createWriteQueue", () => {
   it("runs queued tasks sequentially", async () => {

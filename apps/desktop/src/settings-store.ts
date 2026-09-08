@@ -1,10 +1,5 @@
 import { join } from "node:path"
-import {
-  type AppSettingsStore,
-  classifyPersistenceWriteErrorCode,
-  createPersistenceWriteError,
-  isPersistenceWriteError,
-} from "@repo-edu/application"
+import type { AppSettingsStore } from "@repo-edu/application"
 import {
   validatePersistedAppCredentials,
   validatePersistedAppPreferences,
@@ -29,19 +24,13 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError"
 }
 
-function toPersistenceWriteError(error: unknown, message: string): unknown {
+// A failed publication is terminal for the desktop, so the failure needs only
+// its user-facing message and the original error as its cause.
+function toPublicationFailure(error: unknown, message: string): unknown {
   if (isAbortError(error)) {
     return error
   }
-  if (isPersistenceWriteError(error)) {
-    return error
-  }
-
-  return createPersistenceWriteError(
-    classifyPersistenceWriteErrorCode((error as NodeJS.ErrnoException).code),
-    message,
-    error,
-  )
+  return new Error(message, { cause: error })
 }
 
 export function createDesktopAppSettingsStore(
@@ -68,10 +57,7 @@ export function createDesktopAppSettingsStore(
         try {
           await credentials.save(section, signal)
         } catch (error) {
-          throw toPersistenceWriteError(
-            error,
-            "Could not write app credentials.",
-          )
+          throw toPublicationFailure(error, "Could not write app credentials.")
         }
       },
     },
@@ -81,10 +67,7 @@ export function createDesktopAppSettingsStore(
         try {
           await preferences.save(section, signal)
         } catch (error) {
-          throw toPersistenceWriteError(
-            error,
-            "Could not write app preferences.",
-          )
+          throw toPublicationFailure(error, "Could not write app preferences.")
         }
       },
     },

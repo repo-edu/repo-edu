@@ -62,7 +62,8 @@ its port interface.
   pure reads without repair or writes.
 - `createNodeWindowStateStore(root)` loads default geometry for missing,
   unreadable or invalid data. Its best-effort atomic replacement disables sync.
-- `createWriteQueue()` orders desktop settings mutations and window-state writes.
+- `createWriteQueue()` orders each settings section's loads and saves inside
+  its store. Window state writes through `write-file-atomic` directly.
 - `storage-artifact-probe.ts` runs one course transaction in the shipped host.
   Electron also supplies its settings publisher; Bun supplies no settings writer.
 

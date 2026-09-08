@@ -1,13 +1,13 @@
 import { mkdir, rename, stat } from "node:fs/promises"
 import { basename, dirname, extname, join } from "node:path"
 import writeFileAtomic from "write-file-atomic"
-import { createWriteQueue } from "./atomic-write.js"
 import {
   createNodeSettingsSectionReader,
   type NodeSettingsSectionReaderOptions,
   readSettingsJson,
   throwIfSettingsReadAborted as throwIfAborted,
 } from "./settings-section-reader.js"
+import { createWriteQueue } from "./write-queue.js"
 
 export type NodeSettingsRecoveryUnit =
   | "credentials"

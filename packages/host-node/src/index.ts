@@ -52,7 +52,6 @@ export const workspaceDependencies = [
 
 export type { ResolveRepoEduAppDataRootOptions } from "./app-data-root.js"
 export { resolveRepoEduAppDataRoot } from "./app-data-root.js"
-export { createWriteQueue } from "./atomic-write.js"
 export type {
   ChildProcessLifetimeArtifactProbeClaims,
   ChildProcessLifetimeArtifactProbeRun,

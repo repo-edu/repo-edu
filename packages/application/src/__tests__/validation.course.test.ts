@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createCourseStorageFailure } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import { createPersistenceWriteError } from "../core.js"
 import { createCourseWorkflowHandlers } from "../course-workflows.js"
 import { getCourseScenario } from "./helpers/fixture-scenarios.js"
 import { createInMemoryCourseStore } from "./helpers/in-memory-stores.js"
@@ -172,7 +171,7 @@ describe("application course workflow helpers", () => {
       listCourses: () => [],
       loadCourse: () => null,
       saveCourse: () => {
-        throw createPersistenceWriteError("busy", "Course store is busy.")
+        throw new Error("Course store is busy.")
       },
       deleteCourse: () => {},
     })

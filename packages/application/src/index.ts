@@ -5,7 +5,6 @@ export type {
   AppSettingsLoader,
   AppSettingsStore,
   CourseStore,
-  PersistenceWriteErrorKind,
   SectionStore,
   SettingsRecoveryEntry,
   SettingsRecoveryReason,
@@ -13,11 +12,7 @@ export type {
   SettingsSectionLoadResult,
 } from "./core.js"
 export {
-  classifyPersistenceWriteErrorCode,
-  createPersistenceWriteError,
-  isPersistenceWriteError,
   isSettingsRecoveryLoadError,
-  PersistenceWriteError,
   packageId,
   SettingsRecoveryLoadError,
 } from "./core.js"

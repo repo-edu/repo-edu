@@ -1,6 +1,5 @@
 import type {
   AppSettingsLoadResult,
-  SettingsRecoveryEntry,
   WorkflowClient,
 } from "@repo-edu/application-contract"
 import { resolveActiveGitConnection } from "@repo-edu/domain/connection"
@@ -30,27 +29,12 @@ export function toErrorMessage(error: unknown): string {
   return String(error)
 }
 
-function formatSettingsRecoveryWarning(entry: SettingsRecoveryEntry): string {
-  if (entry.unit === "unsupported-composite") {
-    return `Settings recovery: unsupported app settings were moved to ${entry.backupPath}.`
-  }
-  return `Settings recovery: ${entry.unit} settings were ${entry.reason}; moved to ${entry.backupPath}.`
-}
-
-export function emitSettingsRecoveryWarnings(
-  recovery: readonly SettingsRecoveryEntry[],
-): void {
-  for (const entry of recovery) {
-    process.stderr.write(`${formatSettingsRecoveryWarning(entry)}\n`)
-  }
-}
-
-export async function loadAppSettings(
+// The command line reads settings without repair, so its load result never
+// carries recovery entries and nothing here reports them.
+export function loadAppSettings(
   workflowClient: WorkflowClient,
 ): Promise<AppSettingsLoadResult> {
-  const settings = await workflowClient.run("settings.loadApp", undefined)
-  emitSettingsRecoveryWarnings(settings.recovery)
-  return settings
+  return workflowClient.run("settings.loadApp", undefined)
 }
 
 export async function loadSelectedCourse(

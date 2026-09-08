@@ -60,12 +60,7 @@ import type {
   RecoverableAppSettingsLoader,
   SettingsRecoveryEntry,
 } from "./core.js"
-import {
-  createValidationAppError,
-  isPersistenceWriteError,
-  type PersistenceWriteErrorKind,
-  SettingsRecoveryLoadError,
-} from "./core.js"
+import { createValidationAppError, SettingsRecoveryLoadError } from "./core.js"
 
 export function toCancelledAppError() {
   return createCancelledAppError()
@@ -258,15 +253,6 @@ export function normalizeUserFileError(
     return error
   }
 
-  if (operation === "write" && isPersistenceWriteError(error)) {
-    return {
-      type: "persistence",
-      message: error.message,
-      operation: "write",
-      retryable: isRetryablePersistenceWriteKind(error.kind),
-    }
-  }
-
   if (error instanceof Error && /not found/i.test(error.message)) {
     return {
       type: "not-found",
@@ -281,12 +267,6 @@ export function normalizeUserFileError(
     operation,
     retryable: false,
   }
-}
-
-export function isRetryablePersistenceWriteKind(
-  kind: PersistenceWriteErrorKind,
-): boolean {
-  return kind === "busy" || kind === "locked" || kind === "transient"
 }
 
 export function inferFileFormat(file: UserFileRef): "csv" | "xlsx" | null {
