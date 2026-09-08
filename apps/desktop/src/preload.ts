@@ -8,13 +8,10 @@ import {
   createPreloadRequestTransport,
   rendererRequestPort,
 } from "./preload-request-transport"
-import {
-  type DesktopRendererHostBridge,
-  type DownloadProgress,
-  desktopRendererHostChannels,
-} from "./renderer-host-bridge"
+import type { DesktopRendererHostBridge } from "./renderer-host-bridge"
 import { createRequestPersistenceExchange } from "./request-persistence-exchange"
 import { closeTransferSchema, requestPortChannel } from "./request-port-wire"
+import { parseUpdaterMessage, updaterMessageChannels } from "./updater-wire"
 
 const desktopTrpcBridge: DesktopTrpcBridge = {
   send(message) {
@@ -140,61 +137,50 @@ const desktopHostBridge: DesktopRendererHostBridge = {
   },
 
   onUpdateAvailable(callback) {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      info: { version: string },
-    ) => {
-      callback(info)
+    const handler = (_event: Electron.IpcRendererEvent, info: unknown) => {
+      callback(parseUpdaterMessage("onUpdateAvailable", info))
     }
-    ipcRenderer.on(desktopRendererHostChannels.onUpdateAvailable, handler)
+    ipcRenderer.on(updaterMessageChannels.onUpdateAvailable, handler)
     return () => {
       ipcRenderer.removeListener(
-        desktopRendererHostChannels.onUpdateAvailable,
+        updaterMessageChannels.onUpdateAvailable,
         handler,
       )
     }
   },
 
   onUpdateDownloaded(callback) {
-    const handler = () => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+      parseUpdaterMessage("onUpdateDownloaded", payload)
       callback()
     }
-    ipcRenderer.on(desktopRendererHostChannels.onUpdateDownloaded, handler)
+    ipcRenderer.on(updaterMessageChannels.onUpdateDownloaded, handler)
     return () => {
       ipcRenderer.removeListener(
-        desktopRendererHostChannels.onUpdateDownloaded,
+        updaterMessageChannels.onUpdateDownloaded,
         handler,
       )
     }
   },
 
   onUpdateError(callback) {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      error: { message: string },
-    ) => {
-      callback(error)
+    const handler = (_event: Electron.IpcRendererEvent, error: unknown) => {
+      callback(parseUpdaterMessage("onUpdateError", error))
     }
-    ipcRenderer.on(desktopRendererHostChannels.onUpdateError, handler)
+    ipcRenderer.on(updaterMessageChannels.onUpdateError, handler)
     return () => {
-      ipcRenderer.removeListener(
-        desktopRendererHostChannels.onUpdateError,
-        handler,
-      )
+      ipcRenderer.removeListener(updaterMessageChannels.onUpdateError, handler)
     }
   },
 
   onDownloadProgress(callback) {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      progress: DownloadProgress,
-    ) => {
-      callback(progress)
+    const handler = (_event: Electron.IpcRendererEvent, progress: unknown) => {
+      callback(parseUpdaterMessage("onDownloadProgress", progress))
     }
-    ipcRenderer.on(desktopRendererHostChannels.onDownloadProgress, handler)
+    ipcRenderer.on(updaterMessageChannels.onDownloadProgress, handler)
     return () => {
       ipcRenderer.removeListener(
-        desktopRendererHostChannels.onDownloadProgress,
+        updaterMessageChannels.onDownloadProgress,
         handler,
       )
     }

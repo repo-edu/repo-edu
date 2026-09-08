@@ -2,7 +2,11 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import { app, type BrowserWindow, dialog } from "electron"
 import { autoUpdater } from "electron-updater"
-import { desktopRendererHostChannels } from "./renderer-host-bridge"
+import {
+  parseUpdaterMessage,
+  type UpdaterMessage,
+  updaterMessageChannels,
+} from "./updater-wire"
 
 const updateCheckIntervalMs = 4 * 60 * 60 * 1000
 const initialCheckDelayMs = 10_000
@@ -39,6 +43,14 @@ function getLiveWindow(): BrowserWindow | null {
     return currentWindow
   }
   return null
+}
+
+function sendUpdaterMessage<K extends keyof typeof updaterMessageChannels>(
+  kind: K,
+  message: UpdaterMessage<K>,
+): void {
+  const payload = parseUpdaterMessage(kind, message)
+  getLiveWindow()?.webContents.send(updaterMessageChannels[kind], payload)
 }
 let autoUpdaterState: AutoUpdaterState = {
   initialized: false,
@@ -133,12 +145,9 @@ export function initAutoUpdater(
       availableVersion: info.version,
       errorMessage: null,
     })
-    getLiveWindow()?.webContents.send(
-      desktopRendererHostChannels.onUpdateAvailable,
-      {
-        version: info.version,
-      },
-    )
+    sendUpdaterMessage("onUpdateAvailable", {
+      version: info.version,
+    })
   })
 
   autoUpdater.on("update-not-available", () => {
@@ -164,15 +173,12 @@ export function initAutoUpdater(
   })
 
   autoUpdater.on("download-progress", (progress) => {
-    getLiveWindow()?.webContents.send(
-      desktopRendererHostChannels.onDownloadProgress,
-      {
-        percent: progress.percent,
-        bytesPerSecond: progress.bytesPerSecond,
-        transferred: progress.transferred,
-        total: progress.total,
-      },
-    )
+    sendUpdaterMessage("onDownloadProgress", {
+      percent: progress.percent,
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    })
   })
 
   autoUpdater.on("update-downloaded", () => {
@@ -182,9 +188,7 @@ export function initAutoUpdater(
       updateDownloaded: true,
       errorMessage: null,
     })
-    getLiveWindow()?.webContents.send(
-      desktopRendererHostChannels.onUpdateDownloaded,
-    )
+    sendUpdaterMessage("onUpdateDownloaded", undefined)
   })
 
   autoUpdater.on("error", (error) => {
@@ -193,12 +197,9 @@ export function initAutoUpdater(
     patchAutoUpdaterState({
       errorMessage: error.message,
     })
-    getLiveWindow()?.webContents.send(
-      desktopRendererHostChannels.onUpdateError,
-      {
-        message: error.message,
-      },
-    )
+    sendUpdaterMessage("onUpdateError", {
+      message: error.message,
+    })
   })
 
   setTimeout(() => {

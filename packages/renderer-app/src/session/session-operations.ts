@@ -70,6 +70,7 @@ export type SessionOperationScope = {
     apply: (actions: CourseMutationActions) => void,
   ): void
   canContinue(): boolean
+  activateSurface(surface: PersistedActiveSurface): Promise<boolean>
   reconcileDiscovery(
     surface: PersistedActiveSurface,
     folder: string,
@@ -130,6 +131,10 @@ export class SessionOperations extends SessionSurfaceTransactions {
       commit: CommitPersistencePreparation,
     ) => Promise<void>,
     private readonly applyCommittedCourse?: (course: PersistedCourse) => void,
+    private readonly enterSurface?: (
+      scope: SessionTransactionScope,
+      surface: PersistedActiveSurface,
+    ) => Promise<boolean>,
   ) {
     super(callbacks)
   }
@@ -251,6 +256,15 @@ export class SessionOperations extends SessionSurfaceTransactions {
           apply(state)
         }),
       canContinue: () => scope.canContinue(),
+      activateSurface: (surface) =>
+        scope.required(() => {
+          if (
+            sessionOperationKind(operation) === "command" ||
+            !this.enterSurface
+          )
+            throw new Error("This operation cannot enter a surface.")
+          return this.enterSurface(scope, surface)
+        }),
       reconcileDiscovery: (surface, folder, result) =>
         scope.required(() =>
           this.reconcileDiscovery(scope, surface, folder, result),

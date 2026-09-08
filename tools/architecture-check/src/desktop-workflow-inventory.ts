@@ -1,0 +1,82 @@
+/** Decision 21's fixed gateway list. course.load has startup and ordinary
+ * admission; stopGeneration is port control and never a workflow start. */
+export const desktopWorkflowInventory = [
+  ["course.list", "ordinary", "session-changing"],
+  ["course.load", "startup-or-ordinary", "session-changing"],
+  ["course.save", "ordinary", "session-changing"],
+  ["course.delete", "ordinary", "session-changing"],
+  ["settings.loadApp", "startup", "session-changing"],
+  ["settings.saveCredentials", "ordinary", "session-changing"],
+  ["settings.savePreferences", "ordinary", "session-changing"],
+  ["connection.verifyLmsDraft", "ordinary", "presentation-only"],
+  ["connection.listLmsCoursesDraft", "ordinary", "presentation-only"],
+  ["connection.verifyGitDraft", "ordinary", "presentation-only"],
+  ["connection.verifyLlmDraft", "ordinary", "presentation-only"],
+  ["roster.importFromFile", "exclusive", "command"],
+  ["roster.importFromLms", "ordinary", "session-changing"],
+  ["roster.exportMembers", "exclusive", "command"],
+  ["groupSet.fetchAvailableFromLms", "ordinary", "session-changing"],
+  ["groupSet.connectFromLms", "exclusive", "command"],
+  ["groupSet.syncFromLms", "exclusive", "command"],
+  ["groupSet.previewImportFromFile", "ordinary", "session-changing"],
+  ["groupSet.importFromFile", "exclusive", "command"],
+  ["groupSet.export", "exclusive", "command"],
+  ["gitUsernames.import", "exclusive", "command"],
+  ["validation.roster", "ordinary", "presentation-only"],
+  ["validation.assignment", "ordinary", "presentation-only"],
+  ["repo.create", "exclusive", "command"],
+  ["repo.clone", "exclusive", "command"],
+  ["repo.update", "exclusive", "command"],
+  ["repo.listNamespace", "ordinary", "session-changing"],
+  ["repo.bulkClone", "exclusive", "command"],
+  ["userFile.inspectSelection", "ordinary", "session-changing"],
+  ["userFile.exportPreview", "exclusive", "command"],
+  ["analysis.run", "ordinary", "session-changing"],
+  ["analysis.resolveSnapshotHead", "ordinary", "session-changing"],
+  ["analysis.blame", "ordinary", "session-changing"],
+  ["analysis.discoverRepos", "ordinary", "session-changing"],
+  ["analysis.listFolderFiles", "ordinary", "session-changing"],
+  ["analysis.readFolderFile", "ordinary", "session-changing"],
+  ["examination.generateQuestions", "exclusive", "command"],
+  ["examination.stopGeneration", "cancellation", "request-control"],
+  ["examination.lookupQuestions", "ordinary", "session-changing"],
+  ["examination.prepareSubmissionSource", "ordinary", "session-changing"],
+  ["examination.lookupQuestionSummaries", "ordinary", "session-changing"],
+  ["examination.archive.export", "exclusive", "command"],
+  ["examination.archive.import", "exclusive", "command"],
+] as const
+
+export const desktopDirectInventory = {
+  bootstrapReady: "session-changing",
+  pickUserFile: "session-changing",
+  pickSaveTarget: "session-changing",
+  pickDirectory: "session-changing",
+  setNativeTheme: "presentation-only",
+  downloadUpdate: "presentation-only",
+  quitAndInstall: "session-changing",
+} as const
+
+// The shared prepare, bundle and persisted wire forms each occur in both
+// command and close protocols. These 13 forms implement the 16 plan rows.
+export const requestMessageInventory = [
+  "admission",
+  "prepare",
+  "bundle",
+  "persisted",
+  "input",
+  "progress",
+  "output",
+  "cancel",
+  "settlement",
+  "acknowledged",
+  "released",
+  "close-ready",
+  "close-acknowledged",
+] as const
+
+export const updaterMessageInventory = [
+  "onUpdateAvailable",
+  "onUpdateDownloaded",
+  "onUpdateError",
+  "onDownloadProgress",
+] as const

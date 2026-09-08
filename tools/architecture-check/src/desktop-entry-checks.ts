@@ -1,5 +1,6 @@
 import * as fs from "node:fs"
 import * as ts from "typescript"
+import { checkDesktopLifecycleSource } from "./desktop-lifecycle-checks.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
@@ -40,7 +41,7 @@ export function checkDesktopEntrySource(
   file: string,
   content: string,
 ): Violation[] {
-  const violations: Violation[] = []
+  const violations: Violation[] = checkDesktopLifecycleSource(file, content)
   const report = (message: string) => {
     violations.push({ file, message })
   }
@@ -140,11 +141,20 @@ export function checkDesktopEntrySource(
       }
       if (
         ts.isBindingElement(node) &&
-        (node.propertyName?.getText(source) === "ipcMain" ||
-          node.name.getText(source) === "ipcMain")
+        ["ipcMain", "ipc"].includes(
+          (node.propertyName ?? node.name).getText(source),
+        )
+        // Only the gateway may extract an IPC dependency supplied by composition.
       ) {
         report("extracts raw renderer IPC outside the desktop entry gateway")
       }
+    }
+    if (
+      file !== "apps/desktop/src/preload.ts" &&
+      ts.isImportSpecifier(node) &&
+      (node.propertyName?.text ?? node.name.text) === "ipcRenderer"
+    ) {
+      report("imports raw renderer transport outside preload")
     }
     if (
       (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) &&

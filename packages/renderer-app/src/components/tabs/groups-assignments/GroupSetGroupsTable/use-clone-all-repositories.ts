@@ -5,6 +5,7 @@ import type {
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
+import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
@@ -47,6 +48,7 @@ export function useCloneAllRepositories({
   initialTargetDirectory,
 }: UseCloneAllRepositoriesParams) {
   const client = useWorkflowClient()
+  const rendererHost = useRendererHost()
   const queryClient = useQueryClient()
   const credentials = useSessionControllerSelector(selectCredentials)
   const [filter, setFilter] = useState("")
@@ -188,6 +190,16 @@ export function useCloneAllRepositories({
     targetDirectory,
     setTargetDirectory: (value: string) => {
       client.change(() => setTargetDirectory(value))
+    },
+    browseTargetDirectory: async () => {
+      await client.execute("pickDirectory", async (scope) => {
+        const directory = await scope.direct("pickDirectory", () =>
+          rendererHost.pickDirectory({
+            title: "Select clone target folder",
+          }),
+        )
+        if (directory) scope.publish(() => setTargetDirectory(directory))
+      })
     },
     listResult: listingQuery.data ?? null,
     listError: listingQuery.isError

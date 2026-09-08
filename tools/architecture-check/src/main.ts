@@ -8,9 +8,11 @@ import {
 import { runBespokeChecks } from "./bespoke-checks.js"
 import { runDependencyCruiserAnalysis } from "./dependency-cruiser-runner.js"
 import { checkDesktopEntryOwnership } from "./desktop-entry-checks.js"
+import { checkDesktopInventories } from "./desktop-inventory-checks.js"
 import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
 import { checkProductProcessLaunches } from "./product-process-launches.js"
+import { checkRendererMutationOwnership } from "./renderer-mutation-checks.js"
 import { ROOT } from "./repo-paths.js"
 import { runRepositoryChecks } from "./repository-checks.js"
 import { compareViolations, type Violation } from "./violations.js"
@@ -45,6 +47,8 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
       ...repositoryViolations,
       ...processLaunchViolations,
       ...checkDesktopEntryOwnership(root, inventory),
+      ...checkDesktopInventories(root, inventory),
+      ...checkRendererMutationOwnership(root, inventory),
     ].sort(compareViolations),
   }
 }

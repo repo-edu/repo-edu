@@ -20,6 +20,56 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController activation", () => {
+  it("owns the leaving-course save inside a picker-led surface transition", async () => {
+    const saving = deferred<void>()
+    const saved = deferred<void>()
+    let pauseSave = false
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp")
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: "course-a" },
+          })
+        if (id === "course.load") return makeCourse("course-a")
+        if (id === "course.save") {
+          if (pauseSave) {
+            saving.resolve()
+            await saved.promise
+          }
+          return { revision: 1, updatedAt: "2026-09-08T00:00:00.000Z" }
+        }
+        if (id === "settings.savePreferences") return undefined
+        throw new Error(`Unexpected workflow ${id}`)
+      }),
+    })
+    await waitForSnapshot(
+      controller,
+      (snapshot) => snapshot.bootstrap.status === "ready",
+    )
+    await controller.waitForIdle()
+    pauseSave = true
+    controller.setDisplayName("course-a", "Before leaving")
+    const transition = controller.operations.execute(
+      "pickDirectory",
+      async (scope) => {
+        const path = await scope.direct("pickDirectory", async () => "/chosen")
+        return scope.activateSurface({ kind: "folder", path })
+      },
+    )
+    await saving.promise
+    controller.setDisplayName("course-a", "Rejected during save")
+    assert.equal(
+      useCourseStore.getState().course?.displayName,
+      "Before leaving",
+    )
+    saved.resolve()
+    assert.equal(await transition, true)
+    assert.deepEqual(
+      controller.getSnapshot().settings.preferences.activeSurface,
+      { kind: "folder", path: "/chosen" },
+    )
+    controller.dispose()
+  })
   it("waits for pending activation before close flush persists settings", async () => {
     const courseALoad = deferred<PersistedCourse>()
     const savedSettings: PersistedAppPreferences[] = []

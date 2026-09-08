@@ -1,5 +1,6 @@
 import * as fs from "node:fs"
 import * as ts from "typescript"
+import { memberName } from "./desktop-inventory-syntax.js"
 
 import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
@@ -25,8 +26,9 @@ const CONTROLLER_WORKFLOW_IDS = new Set([
   "course.delete",
 ])
 
-const SEMANTIC_COURSE_ACTIONS = new Set([
+export const SEMANTIC_COURSE_ACTIONS = new Set([
   "hydrate",
+  "applyCommittedCourse",
   "clear",
   "applySaveStamp",
   "addMember",
@@ -317,15 +319,16 @@ function checkRendererSessionOwnership(
       }
 
       if (
-        ts.isPropertyAccessExpression(node) &&
-        SEMANTIC_COURSE_ACTIONS.has(node.name.text)
+        (ts.isPropertyAccessExpression(node) ||
+          ts.isElementAccessExpression(node)) &&
+        SEMANTIC_COURSE_ACTIONS.has(memberName(node) ?? "")
       ) {
         if (
           isUseCourseStoreGetStateCall(node.expression, useCourseStoreNames)
         ) {
           violations.push({
             file: `packages/renderer-app/src/${file}`,
-            message: `reads course-store action "${node.name.text}" outside session ownership`,
+            message: `reads course-store action "${memberName(node)}" outside session ownership`,
           })
         }
 
@@ -335,7 +338,7 @@ function checkRendererSessionOwnership(
         ) {
           violations.push({
             file: `packages/renderer-app/src/${file}`,
-            message: `reads course-store action "${node.name.text}" from a store snapshot outside session ownership`,
+            message: `reads course-store action "${memberName(node)}" from a store snapshot outside session ownership`,
           })
         }
       }
@@ -432,7 +435,9 @@ function collectCourseStoreSnapshots(
     if (
       ts.isVariableDeclaration(node) &&
       node.initializer !== undefined &&
-      isUseCourseStoreGetStateCall(node.initializer, useCourseStoreNames)
+      (isUseCourseStoreGetStateCall(node.initializer, useCourseStoreNames) ||
+        (ts.isIdentifier(node.initializer) &&
+          courseStoreSnapshotNames.has(node.initializer.text)))
     ) {
       if (ts.isIdentifier(node.name)) {
         courseStoreSnapshotNames.add(node.name.text)
@@ -461,7 +466,16 @@ function collectCourseStoreSnapshots(
 }
 
 function isRendererSessionInternal(file: string): boolean {
-  return file.startsWith("session/") || file.startsWith("persistence/")
+  return [
+    "session/session-controller.ts",
+    "session/session-operations.ts",
+    "session/session-persistence.ts",
+    "session/session-settings.ts",
+    "session/session-query.ts",
+    "persistence/create-persister.ts",
+    "persistence/course-persister.ts",
+    "persistence/settings-persister.ts",
+  ].includes(file)
 }
 
 function isIdentifierNamed(node: ts.Node, names: Set<string>): boolean {
@@ -492,8 +506,9 @@ function isUseCourseStoreGetStateCall(
   if (!ts.isCallExpression(node)) return false
   const expression = node.expression
   return (
-    ts.isPropertyAccessExpression(expression) &&
-    expression.name.text === "getState" &&
+    (ts.isPropertyAccessExpression(expression) ||
+      ts.isElementAccessExpression(expression)) &&
+    memberName(expression) === "getState" &&
     isIdentifierNamed(expression.expression, useCourseStoreNames)
   )
 }
@@ -517,12 +532,13 @@ function selectedCourseActionFromUseCourseStoreCall(
   function visitSelection(child: ts.Node): void {
     if (selectedAction !== null) return
     if (
-      ts.isPropertyAccessExpression(child) &&
+      (ts.isPropertyAccessExpression(child) ||
+        ts.isElementAccessExpression(child)) &&
       ts.isIdentifier(child.expression) &&
       child.expression.text === storeParameterName &&
-      SEMANTIC_COURSE_ACTIONS.has(child.name.text)
+      SEMANTIC_COURSE_ACTIONS.has(memberName(child) ?? "")
     ) {
-      selectedAction = child.name.text
+      selectedAction = memberName(child) ?? null
       return
     }
 

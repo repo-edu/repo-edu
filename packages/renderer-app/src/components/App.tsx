@@ -284,30 +284,32 @@ function AppShell() {
   // Keyboard shortcuts.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
+      controller.operations.change(() => {
+        const mod = e.metaKey || e.ctrlKey
+        if (!mod) return
 
-      if (e.key === ",") {
-        e.preventDefault()
-        useUiStore.getState().openSettings()
-        return
-      }
+        if (e.key === ",") {
+          e.preventDefault()
+          useUiStore.getState().openSettings()
+          return
+        }
 
-      // Skip undo/redo when focus is in an input or textarea.
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA") return
-      if (!showHistoryControls) return
+        // Skip undo/redo when focus is in an input or textarea.
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === "INPUT" || tag === "TEXTAREA") return
+        if (!showHistoryControls) return
 
-      if (e.key === "z" && !e.shiftKey) {
-        e.preventDefault()
-        if (activeCourseId !== null) controller.undo(activeCourseId)
-        return
-      }
+        if (e.key === "z" && !e.shiftKey) {
+          e.preventDefault()
+          if (activeCourseId !== null) controller.undo(activeCourseId)
+          return
+        }
 
-      if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
-        e.preventDefault()
-        if (activeCourseId !== null) controller.redo(activeCourseId)
-      }
+        if ((e.key === "z" && e.shiftKey) || e.key === "Z") {
+          e.preventDefault()
+          if (activeCourseId !== null) controller.redo(activeCourseId)
+        }
+      })
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)

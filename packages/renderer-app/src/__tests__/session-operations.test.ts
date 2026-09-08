@@ -30,6 +30,7 @@ import {
 
 function harness(
   client: WorkflowClient = workflowClient(async () => undefined),
+  enterSurface?: ConstructorParameters<typeof SessionOperations>[7],
 ) {
   let snapshot = createInitialSessionSnapshot()
   const dispatch = (event: SessionReducerEvent) => {
@@ -54,11 +55,65 @@ function harness(
     () => snapshot,
     undefined,
     async () => {},
+    undefined,
+    enterSurface,
   )
   return { owner, gateway: owner.gateway, dispatch, snapshot: () => snapshot }
 }
 
 describe("session operation ownership", () => {
+  it("retains a directory choice through surface application before a waiting command", async () => {
+    const opened = deferred<void>()
+    const picked = deferred<string>()
+    const entering = deferred<void>()
+    const applied = deferred<void>()
+    const order: string[] = []
+    const { gateway } = harness(undefined, async (scope, surface) => {
+      assert.equal(scope.canContinue(), true)
+      assert.deepEqual(surface, { kind: "folder", path: "/chosen" })
+      entering.resolve()
+      await applied.promise
+      order.push("surface")
+      return true
+    })
+    const running = gateway.execute("pickDirectory", async (scope) => {
+      const path = await scope.direct("pickDirectory", () => {
+        opened.resolve()
+        return picked.promise
+      })
+      await scope.activateSurface({ kind: "folder", path })
+      scope.publish(() => order.push("published"))
+    })
+    await opened.promise
+    const command = gateway.execute("repo.clone", async () => {
+      order.push("command")
+    })
+    assert.equal(
+      gateway.change(() => order.push("unowned edit")),
+      false,
+    )
+    picked.resolve("/chosen")
+    await entering.promise
+    assert.deepEqual(order, [])
+    applied.resolve()
+    await Promise.all([running, command])
+    assert.deepEqual(order, ["surface", "published", "command"])
+  })
+
+  it("does not grant command bodies an independent surface transition", async () => {
+    let entered = false
+    const { gateway } = harness(undefined, async () => {
+      entered = true
+      return true
+    })
+    await assert.rejects(
+      gateway.execute("repo.clone", (scope) =>
+        scope.activateSurface({ kind: "home" }),
+      ),
+      /cannot enter a surface/,
+    )
+    assert.equal(entered, false)
+  })
   it("refuses a picker result after disposal", async () => {
     const opened = deferred<void>()
     const picked = deferred<string>()

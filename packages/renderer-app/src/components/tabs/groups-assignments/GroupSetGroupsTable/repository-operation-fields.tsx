@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
-import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import type {
   CloneDirectoryLayout,
   RepositoryOperationMode,
@@ -178,8 +177,6 @@ export function RepositoryOperationFields({
 }
 
 function CreateFields({ operations }: { operations: RepoOperations }) {
-  const rendererHost = useRendererHost()
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -243,12 +240,7 @@ function CreateFields({ operations }: { operations: RepoOperations }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  const directory = await rendererHost.pickDirectory({
-                    title: "Select template repository",
-                  })
-                  if (directory) operations.setTemplateLocalPath(directory)
-                }}
+                onClick={() => void operations.browseTemplateLocalPath()}
               >
                 Browse
               </Button>

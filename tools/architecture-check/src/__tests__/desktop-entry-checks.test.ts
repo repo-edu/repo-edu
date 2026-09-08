@@ -15,6 +15,14 @@ for (const source of [
   'import { parseTRPCMessage } from "@trpc/server/unstable-core-do-not-import"',
   'const transport = require("trpc-electron/main")',
   "function parseTRPCMessage(raw) { return raw }",
+  'const { ipc } = window.webContents; ipc.on("intent", handler)',
+  'import { ipcRenderer } from "electron"; ipcRenderer.send("entry", payload)',
+  'electron.ipcRenderer.send("entry", payload)',
+  'app.on("child-process-gone", ignore)',
+  'app.on("new-lifetime-event", work)',
+  'const menu = { role: "reload" }',
+  "Menu.setApplicationMenu(customMenu)",
+  'admission.terminal(new Error("new source"))',
 ]) {
   it(`rejects a transport ownership bypass: ${source}`, () => {
     assert.ok(checkDesktopEntrySource(feature, source).length > 0)

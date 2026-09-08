@@ -1,7 +1,6 @@
 import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { Button, Checkbox, Input, Label } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
-import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import { extractSubgroupPath } from "./clone-all-repositories.js"
 import type { RepoOperations } from "./repository-operation-fields.js"
 import { useCloneAllRepositories } from "./use-clone-all-repositories.js"
@@ -11,7 +10,6 @@ export function CloneAllRepositoriesPanel({
 }: {
   readonly operations: RepoOperations
 }) {
-  const rendererHost = useRendererHost()
   const cloneAll = useCloneAllRepositories({
     activeConnectionId: operations.activeGitConnection?.id ?? null,
     organization: operations.organization,
@@ -55,12 +53,7 @@ export function CloneAllRepositoriesPanel({
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              const directory = await rendererHost.pickDirectory({
-                title: "Select clone target folder",
-              })
-              if (directory) cloneAll.setTargetDirectory(directory)
-            }}
+            onClick={() => void cloneAll.browseTargetDirectory()}
           >
             Browse
           </Button>

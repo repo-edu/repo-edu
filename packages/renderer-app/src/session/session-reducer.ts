@@ -146,6 +146,7 @@ export type SessionReducerEvent =
       descriptor: SessionTransactionDescriptor
     }
   | { type: "transaction-retire"; turnId: number }
+  | { type: "surface-start"; turnId: number; surface: PersistedActiveSurface }
   | {
       type: "surface-commit"
       turnId: number
@@ -391,6 +392,29 @@ export function sessionReducer(
       return transactions === state.transactions
         ? state
         : { ...state, transactions }
+    }
+    case "surface-start": {
+      if (state.transactions.runningTurnId !== event.turnId) return state
+      const descriptor = state.transactions.admitted.get(event.turnId)
+      if (descriptor?.kind !== "operation" && descriptor?.kind !== "enter")
+        return state
+      const currentCourseId = activeCourseIdFromSurface(
+        state.settings.preferences.activeSurface,
+      )
+      return {
+        ...state,
+        transactions: {
+          ...state.transactions,
+          admitted: new Map(state.transactions.admitted).set(event.turnId, {
+            kind: "enter",
+            targetSurface: event.surface,
+            leavingCourseId:
+              currentCourseId === activeCourseIdFromSurface(event.surface)
+                ? null
+                : currentCourseId,
+          }),
+        },
+      }
     }
     case "surface-commit": {
       if (state.transactions.runningTurnId !== event.turnId) return state

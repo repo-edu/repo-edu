@@ -7,6 +7,31 @@ import { describe, it } from "node:test"
 import { runBespokeChecks } from "../bespoke-checks.js"
 
 describe("bespoke checks", () => {
+  it("refuses new session helpers that extract or alias course mutations", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-course-actions-"))
+    const file = "packages/renderer-app/src/session/unowned-helper.ts"
+    await mkdir(join(root, file, ".."), { recursive: true })
+    await writeFile(
+      join(root, file),
+      [
+        'import { useCourseStore as store } from "../stores/course-store.js"',
+        'const snapshot = store["getState"]()',
+        "const alias = snapshot",
+        'alias["applyCommittedCourse"](course)',
+        'store(s => s["setDisplayName"])',
+      ].join("\n"),
+    )
+    const violations = runBespokeChecks(
+      root,
+      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
+      () => [file],
+    )
+    assert.equal(violations.length, 2)
+    assert.ok(
+      violations.some((v) => v.message.includes("applyCommittedCourse")),
+    )
+    assert.ok(violations.some((v) => v.message.includes("setDisplayName")))
+  })
   it("requires Query publication ownership and a complete mutation body", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-query-bodies-"))
     const file = "packages/renderer-app/src/components/QueryFeature.tsx"

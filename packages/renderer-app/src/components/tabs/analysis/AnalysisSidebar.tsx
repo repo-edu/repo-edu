@@ -324,19 +324,34 @@ export function AnalysisSidebar() {
 
   const handleBrowseSearchFolder = useCallback(async () => {
     setBrowseTooltipKey((k) => k + 1)
-    const dir = await rendererHost.pickDirectory({
-      title: "Open repository search folder",
+    await controller.operations.execute("pickDirectory", async (scope) => {
+      const dir = await scope.direct("pickDirectory", () =>
+        rendererHost.pickDirectory({
+          title: "Open repository search folder",
+        }),
+      )
+      if (!dir) return
+      scope.publish(() => {
+        selectRepository(null)
+        setSections((prev) => ({ ...prev, repositories: true }))
+      })
+      if (analysisContext.kind === "folder") {
+        await scope.activateSurface({ kind: "folder", path: dir })
+        return
+      }
+      if (analysisContext.course)
+        scope.mutateCourse(analysisContext.course.id, (actions) =>
+          actions.setSearchFolder(dir),
+        )
+      scope.publish(() => runRepoDiscovery(dir))
     })
-    if (!dir) return
-    selectRepository(null)
-    setSections((prev) => ({ ...prev, repositories: true }))
-    if (analysisContext.kind === "folder") {
-      await analysisContext.activateFolderPath(dir)
-      return
-    }
-    analysisContext.updateCourseSearchFolder(dir)
-    void runRepoDiscovery(dir)
-  }, [analysisContext, rendererHost, runRepoDiscovery, selectRepository])
+  }, [
+    analysisContext,
+    controller,
+    rendererHost,
+    runRepoDiscovery,
+    selectRepository,
+  ])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)

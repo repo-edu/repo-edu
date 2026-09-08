@@ -7,13 +7,13 @@ export function useOpenRepositoriesFolder() {
   const controller = useSessionController()
 
   return useCallback(async () => {
-    const dir = await rendererHost.pickDirectory({
-      title: "Open folder of repositories",
-    })
-    if (!dir) return
-    await controller.activateSurface({
-      kind: "folder",
-      path: dir,
+    await controller.operations.execute("pickDirectory", async (scope) => {
+      const dir = await scope.direct("pickDirectory", () =>
+        rendererHost.pickDirectory({
+          title: "Open folder of repositories",
+        }),
+      )
+      if (dir) await scope.activateSurface({ kind: "folder", path: dir })
     })
   }, [controller, rendererHost])
 }

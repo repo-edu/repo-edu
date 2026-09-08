@@ -170,15 +170,19 @@ export function CourseSwitcher() {
   }
 
   const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
-    const dir = await rendererHost.pickDirectory({
-      title: "Open student submission folder",
-    })
-    if (!dir) return
-    setOpen(false)
-    await controller.activateSurface({
-      kind: "submission",
-      path: dir,
-      courseId: course.id,
+    await controller.operations.execute("pickDirectory", async (scope) => {
+      const dir = await scope.direct("pickDirectory", () =>
+        rendererHost.pickDirectory({
+          title: "Open student submission folder",
+        }),
+      )
+      if (!dir) return
+      scope.publish(() => setOpen(false))
+      await scope.activateSurface({
+        kind: "submission",
+        path: dir,
+        courseId: course.id,
+      })
     })
   }
 

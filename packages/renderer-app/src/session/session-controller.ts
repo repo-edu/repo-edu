@@ -194,6 +194,8 @@ export class SessionController extends CourseMutationController {
         this.persistence.applyCommittedCourse(course)
         seedLoadedCourseSummary(course)
       },
+      (scope, surface) =>
+        this.enterSurface(scope, normalizeActiveSurface(surface)),
     )
     this.settings = new SessionSettings(
       this.transactions.controllerClient,
@@ -846,6 +848,16 @@ export class SessionController extends CourseMutationController {
   ): Promise<boolean> {
     const previous = this.snapshot.courseLoadStatus
     try {
+      if (
+        !this.dispatch({
+          type: "surface-start",
+          turnId: this.runningTurnId(scope),
+          surface,
+        })
+      )
+        throw new Error(
+          "The current operation cannot start a surface transition.",
+        )
       const currentCourseId = activeCourseIdFromSurface(
         this.snapshot.settings.preferences.activeSurface,
       )

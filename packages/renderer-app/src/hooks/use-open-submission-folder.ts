@@ -8,14 +8,18 @@ export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
   const courseId = options.courseId
 
   return useCallback(async () => {
-    const dir = await rendererHost.pickDirectory({
-      title: "Open student submission folder",
+    await controller.operations.execute("pickDirectory", async (scope) => {
+      const dir = await scope.direct("pickDirectory", () =>
+        rendererHost.pickDirectory({
+          title: "Open student submission folder",
+        }),
+      )
+      if (!dir) return
+      await scope.activateSurface(
+        courseId === undefined
+          ? { kind: "submission", path: dir }
+          : { kind: "submission", path: dir, courseId },
+      )
     })
-    if (!dir) return
-    await controller.activateSurface(
-      courseId === undefined
-        ? { kind: "submission", path: dir }
-        : { kind: "submission", path: dir, courseId },
-    )
   }, [controller, courseId, rendererHost])
 }

@@ -7,24 +7,6 @@ import type {
   SaveUserFileDialogOptions,
 } from "@repo-edu/renderer-host-contract"
 
-export const desktopRendererHostChannels = {
-  bootstrapReady: "repo-edu/renderer-host/bootstrap-ready",
-  pickUserFile: "repo-edu/renderer-host/pick-user-file",
-  pickSaveTarget: "repo-edu/renderer-host/pick-save-target",
-  pickDirectory: "repo-edu/renderer-host/pick-directory",
-  setNativeTheme: "repo-edu/renderer-host/set-native-theme",
-  requestClose: "repo-edu/renderer-host/request-close",
-  cancelClose: "repo-edu/renderer-host/cancel-close",
-  closeComplete: "repo-edu/renderer-host/close-complete",
-  closeCancelComplete: "repo-edu/renderer-host/close-cancel-complete",
-  onUpdateAvailable: "repo-edu/updater/on-update-available",
-  onUpdateDownloaded: "repo-edu/updater/on-update-downloaded",
-  onUpdateError: "repo-edu/updater/on-update-error",
-  onDownloadProgress: "repo-edu/updater/on-download-progress",
-  downloadUpdate: "repo-edu/updater/download-update",
-  quitAndInstall: "repo-edu/updater/quit-and-install",
-} as const
-
 export type DownloadProgress = {
   percent: number
   bytesPerSecond: number
