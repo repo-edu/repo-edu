@@ -389,7 +389,7 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === new URL(process.argv[1], "file:").href) {
   main().catch((error) => {
-    process.stderr.write(`FAIL program gate\n  ${errorText(error)}\n`)
+    process.stderr.write(`FAIL artifact validation\n  ${errorText(error)}\n`)
     process.exitCode = 1
   })
 }

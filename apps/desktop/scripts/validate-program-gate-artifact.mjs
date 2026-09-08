@@ -36,6 +36,6 @@ async function main() {
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error)
-  process.stderr.write(`FAIL packaged program gate\n  ${message}\n`)
+  process.stderr.write(`FAIL packaged artifact validation\n  ${message}\n`)
   process.exitCode = 1
 })
