@@ -30,9 +30,13 @@ export function createLifecycleSlice(
         state.course.roster,
         () => result.roster,
       )
+      const course = {
+        ...state.course,
+        roster: result.roster,
+        idSequences: result.idSequences,
+      }
       set((draft) => {
-        draft.course!.roster = result.roster
-        draft.course!.idSequences = result.idSequences
+        draft.course = course
         draft.admissionNumber += 1
         draft.history.push({
           patches,
@@ -49,8 +53,11 @@ export function createLifecycleSlice(
     applyCommittedCourse: (course) => {
       // History describes the already composed value. It never supplies the
       // course being applied or reconstructs the command's partial result.
+      const current = get().course
+      if (!current)
+        throw new Error("A committed course needs a loaded course to replace.")
       const [, patches, inversePatches] = produceWithPatches(
-        get().course!.roster,
+        current.roster,
         () => course.roster,
       )
       set((draft) => {

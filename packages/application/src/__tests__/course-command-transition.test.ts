@@ -55,12 +55,14 @@ it("merges recorded repositories against the captured group membership and retai
     },
     result,
   )
-  assert.deepEqual(next.roster.assignments[0]?.repositories, { team: "new" })
-  assert.equal(next.roster.assignments[0]?.templateCommitSha, "sha")
+  const [changed] = next.roster.assignments
+  assert.ok(changed)
+  assert.deepEqual(changed.repositories, { team: "new" })
+  assert.equal(changed.templateCommitSha, "sha")
   assert.deepEqual(next.roster.assignments[1], before.roster.assignments[1])
   assert.deepEqual(next.analysisInputs, before.analysisInputs)
   assert.deepEqual(course, before)
-  next.roster.assignments[0]!.repositories.team = "later edit"
+  changed.repositories.team = "later edit"
   assert.equal(result.recordedRepositories.assignment.team, "new")
 })
 

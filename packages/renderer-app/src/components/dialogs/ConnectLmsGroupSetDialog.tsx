@@ -222,10 +222,12 @@ function GroupSetPreviewDialog({
             onClick={() =>
               void preview(
                 syncId === null
-                  ? "groupSet.connectFromLms"
-                  : "groupSet.syncFromLms",
+                  ? {
+                      workflow: "groupSet.connectFromLms",
+                      remoteGroupSetId: targetId,
+                    }
+                  : { workflow: "groupSet.syncFromLms", groupSetId: syncId },
                 courseId,
-                targetId,
               )
             }
           >

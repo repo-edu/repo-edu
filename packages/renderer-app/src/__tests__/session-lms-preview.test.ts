@@ -6,6 +6,7 @@ import {
   type LmsPreviewEvent,
   type LmsPreviewResult,
   type LmsPreviewState,
+  type LmsPreviewTarget,
   type LmsPreviewWorkflow,
   lmsPreviewReducer,
   requestLmsPreview,
@@ -72,6 +73,17 @@ function previewResult(
   return { ...groupSet, roster, idSequences }
 }
 
+function previewTarget(workflow: LmsPreviewWorkflow): LmsPreviewTarget {
+  switch (workflow) {
+    case "roster.importFromLms":
+      return { workflow }
+    case "groupSet.connectFromLms":
+      return { workflow, remoteGroupSetId: "remote-set" }
+    case "groupSet.syncFromLms":
+      return { workflow, groupSetId: "remote-set" }
+  }
+}
+
 async function harness(workflow: LmsPreviewWorkflow) {
   resetStores()
   const course = makeCourse("course")
@@ -117,9 +129,8 @@ async function harness(workflow: LmsPreviewWorkflow) {
   const running = requestLmsPreview(
     controller,
     dispatch,
-    workflow,
+    previewTarget(workflow),
     course.id,
-    "remote-set",
   )
   const captured = await started.promise
   return {
@@ -250,6 +261,11 @@ for (const workflow of workflows) {
 it("save stamps and view state preserve admission while hydrate, clear, edits and history advance it", () => {
   resetStores()
   const store = () => useCourseStore.getState()
+  const loadedCourse = () => {
+    const { course } = store()
+    assert.ok(course)
+    return course
+  }
   const course = makeCourse("course")
   store().hydrate(course)
   const initial = captureLmsPreview(course.id)
@@ -268,17 +284,17 @@ it("save stamps and view state preserve admission while hydrate, clear, edits an
     () => store().setDisplayName("Renamed"),
     () =>
       store().setIdSequences({
-        ...store().course!.idSequences,
+        ...loadedCourse().idSequences,
         nextMemberSeq: 20,
       }),
     () => store().undo(),
     () => store().redo(),
     () =>
       store().applyCommittedCourse({
-        ...store().course!,
+        ...loadedCourse(),
         displayName: "Committed",
       }),
-    () => store().hydrate(store().course!),
+    () => store().hydrate(loadedCourse()),
     () => store().clear(),
     () => store().clear(),
     () => store().hydrate(course),

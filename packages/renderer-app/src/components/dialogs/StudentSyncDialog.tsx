@@ -121,7 +121,9 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
               !course?.lmsConnectionId ||
               !course.lmsCourseId
             }
-            onClick={() => void preview("roster.importFromLms", courseId)}
+            onClick={() =>
+              void preview({ workflow: "roster.importFromLms" }, courseId)
+            }
           >
             {state.status === "idle" ? "Preview" : "Refresh Preview"}
           </Button>

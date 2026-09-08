@@ -44,7 +44,7 @@ function createGroupSetHarness(options: {
   })
 }
 
-function createLmsScenario() {
+function createLmsScenario(provider: "canvas" | "moodle" = "canvas") {
   return getCourseAndSettingsScenario(
     { tier: "small", preset: "shared-teams" },
     ({ course, settings }) => {
@@ -55,7 +55,7 @@ function createLmsScenario() {
         {
           id: "main-lms",
           name: "Main LMS",
-          provider: "canvas",
+          provider,
           baseUrl: "https://canvas.example.edu",
           token: "token-1",
         },
@@ -67,8 +67,7 @@ function createLmsScenario() {
 describe("application group-set workflow helpers", () => {
   for (const provider of ["canvas", "moodle"] as const) {
     it(`stamps ${provider} connect and re-sync previews at fetch completion without changing the input`, async (context) => {
-      const { course, settings } = createLmsScenario()
-      settings.lmsConnections[0]!.provider = provider
+      const { course, settings } = createLmsScenario(provider)
       const before = structuredClone(course)
       const firstFetch = Date.parse("2026-09-08T12:00:00.000Z")
       context.mock.timers.enable({ apis: ["Date"], now: firstFetch - 1000 })

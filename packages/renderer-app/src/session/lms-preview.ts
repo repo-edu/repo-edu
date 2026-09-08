@@ -11,6 +11,11 @@ export type LmsPreviewWorkflow =
   | "groupSet.connectFromLms"
   | "groupSet.syncFromLms"
 export type LmsPreviewResult = WorkflowResult<LmsPreviewWorkflow>
+/** Each preview workflow names the identifier it needs beyond the course. */
+export type LmsPreviewTarget =
+  | { workflow: "roster.importFromLms" }
+  | { workflow: "groupSet.connectFromLms"; remoteGroupSetId: string }
+  | { workflow: "groupSet.syncFromLms"; groupSetId: string }
 export type LmsPreviewRequest = {
   course: PersistedCourse
   admissionNumber: number
@@ -30,6 +35,12 @@ export type LmsPreviewEvent =
 
 export const staleLmsPreviewMessage =
   "The course changed. Refresh the preview before applying it."
+
+function linkedLmsCourseId(course: PersistedCourse): string {
+  if (course.lmsCourseId === null)
+    throw new Error("The course is not linked to an LMS course.")
+  return course.lmsCourseId
+}
 
 export function captureLmsPreview(courseId: string): LmsPreviewRequest {
   const { course, admissionNumber } = useCourseStore.getState()
@@ -63,11 +74,8 @@ export function useLmsPreview() {
   const controller = useSessionController()
   const [state, dispatch] = useReducer(lmsPreviewReducer, { status: "idle" })
   const reset = useCallback(() => dispatch({ type: "reset" }), [])
-  const preview = (
-    workflow: LmsPreviewWorkflow,
-    courseId: string,
-    groupSetId?: string,
-  ) => requestLmsPreview(controller, dispatch, workflow, courseId, groupSetId)
+  const preview = (target: LmsPreviewTarget, courseId: string) =>
+    requestLmsPreview(controller, dispatch, target, courseId)
   const apply = (): LmsPreviewResult | null => {
     if (state.status !== "ready") return null
     if (
@@ -89,9 +97,8 @@ export function useLmsPreview() {
 export async function requestLmsPreview(
   controller: SessionController,
   dispatch: (event: LmsPreviewEvent) => void,
-  workflow: LmsPreviewWorkflow,
+  target: LmsPreviewTarget,
   courseId: string,
-  groupSetId?: string,
 ) {
   let request: LmsPreviewRequest
   try {
@@ -100,7 +107,7 @@ export async function requestLmsPreview(
     dispatch({ type: "refused" })
     return
   }
-  const reservation = controller.operations.reserve(workflow)
+  const reservation = controller.operations.reserve(target.workflow)
   if (reservation === null) return
   dispatch({ type: "start", request })
   await reservation
@@ -114,24 +121,23 @@ export async function requestLmsPreview(
           onProgress: (progress: { label: string }) =>
             dispatch({ type: "progress", request, message: progress.label }),
         }
-        const result =
-          workflow === "roster.importFromLms"
-            ? await scope.run(
-                workflow,
-                { ...input, lmsCourseId: request.course.lmsCourseId! },
+        const result = await (target.workflow === "roster.importFromLms"
+          ? scope.run(
+              target.workflow,
+              { ...input, lmsCourseId: linkedLmsCourseId(request.course) },
+              options,
+            )
+          : target.workflow === "groupSet.connectFromLms"
+            ? scope.run(
+                target.workflow,
+                { ...input, remoteGroupSetId: target.remoteGroupSetId },
                 options,
               )
-            : workflow === "groupSet.connectFromLms"
-              ? await scope.run(
-                  workflow,
-                  { ...input, remoteGroupSetId: groupSetId! },
-                  options,
-                )
-              : await scope.run(
-                  workflow,
-                  { ...input, groupSetId: groupSetId! },
-                  options,
-                )
+            : scope.run(
+                target.workflow,
+                { ...input, groupSetId: target.groupSetId },
+                options,
+              ))
         scope.publish(() => dispatch({ type: "ready", request, result }))
       } catch (error) {
         if (scope.canContinue())

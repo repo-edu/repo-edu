@@ -323,9 +323,11 @@ export class SessionOperations extends SessionSurfaceTransactions {
         onProgress: callback(options?.onProgress),
         onOutput: callback(options?.onOutput),
       }
+      if (classification === "command" && !command)
+        throw new Error("The command reservation carries no command client.")
       const running =
-        classification === "command"
-          ? (command!.run(
+        classification === "command" && command
+          ? (command.run(
               id as ExclusiveCommandId,
               () =>
                 captureSessionCommandInput(
