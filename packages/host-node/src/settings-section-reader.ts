@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+import type { SettingsRecoveryUnit } from "@repo-edu/application-contract"
 
 export type NodeSettingsValidationResult<T> =
   | { ok: true; value: T }
@@ -8,7 +9,7 @@ export type NodeSettingsValidationResult<T> =
 export type NodeSettingsSectionReaderOptions<T> = {
   settingsDirectory: string
   fileName: string
-  unit: "credentials" | "preferences"
+  unit: SettingsRecoveryUnit
   validate: (value: unknown) => NodeSettingsValidationResult<T>
 }
 

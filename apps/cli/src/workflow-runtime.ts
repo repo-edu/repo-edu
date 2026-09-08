@@ -12,6 +12,7 @@ import {
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
+  createCourseStore,
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
@@ -20,10 +21,7 @@ import {
 import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-process-lifetime"
 import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
-import {
-  createCliAppSettingsLoader,
-  createCliCourseStore,
-} from "./state-store.js"
+import { createCliAppSettingsLoader } from "./state-store.js"
 
 // The controller and the storage root are required, never defaulted. A
 // composition that made its own controller would own process trees that no
@@ -36,7 +34,7 @@ export type CliWorkflowRuntimeOptions = {
 }
 
 export function createCliWorkflowHandlers(options: CliWorkflowRuntimeOptions) {
-  const courseStore = createCliCourseStore(options.storageRoot)
+  const courseStore = createCourseStore(options.storageRoot)
   const appSettingsLoader = createCliAppSettingsLoader(options.storageRoot)
   const http = createNodeHttpPort()
   const lms = createLmsProviderDispatch(http)

@@ -74,6 +74,7 @@
       ],
       "@repo-edu/application": ["./packages/application/src/index.ts"],
       "@repo-edu/application/course-store": ["./packages/application/src/course-store.ts"],
+      "@repo-edu/application/settings-store": ["./packages/application/src/settings-store.ts"],
       "@repo-edu/renderer-host-contract": [
         "./packages/renderer-host-contract/src/index.ts"
       ],

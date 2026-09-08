@@ -4,7 +4,8 @@ import type {
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import type { AppSettingsStore, CourseStore } from "../../core.js"
+import type { CourseStore } from "../../core.js"
+import type { AppSettingsStore } from "../../settings-store.js"
 
 export function createInMemoryCourseStore(
   courses: readonly PersistedCourse[],

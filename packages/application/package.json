@@ -22,6 +22,11 @@
       "types": "./dist/course-store.d.ts",
       "default": "./dist/course-store.js"
     },
+    "./settings-store": {
+      "source": "./src/settings-store.ts",
+      "types": "./dist/settings-store.d.ts",
+      "default": "./dist/settings-store.js"
+    },
     ".": {
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",

@@ -13,11 +13,8 @@ import type {
   PersistedAppCredentials,
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
-import {
-  type AppSettingsLoader,
-  type AppSettingsStore,
-  createValidationAppError,
-} from "./core.js"
+import { createValidationAppError } from "./core.js"
+import type { AppSettingsLoader, AppSettingsStore } from "./settings-store.js"
 import {
   isSharedAppError,
   loadSettingsOrDefault,

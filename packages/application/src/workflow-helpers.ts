@@ -57,11 +57,11 @@ import type {
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
 import { rethrowGitEffectFailure } from "./command-outcomes.js"
-import type { AppSettingsLoader } from "./core.js"
 import {
   createSettingsRecoveryLoadError,
   createValidationAppError,
 } from "./core.js"
+import type { AppSettingsLoader } from "./settings-store.js"
 
 export function toCancelledAppError() {
   return createCancelledAppError()

@@ -4,10 +4,6 @@ import type {
   SettingsRecoveryEntry,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
-import type {
-  PersistedAppCredentials,
-  PersistedAppPreferences,
-} from "@repo-edu/domain/settings"
 import {
   packageId as domainPackageId,
   type GitIdentityMode,
@@ -57,28 +53,6 @@ export function createSettingsRecoveryLoadError(
   return new Error(formatSettingsRecoveryLoadMessage(recovery, cause), {
     cause,
   })
-}
-
-export type SettingsSectionLoadResult<T> = {
-  value: T | null
-  recovery: SettingsRecoveryEntry[]
-}
-
-export type SectionStore<T> = {
-  load(
-    signal?: AbortSignal,
-  ): Promise<SettingsSectionLoadResult<T>> | SettingsSectionLoadResult<T>
-  save(section: T, signal?: AbortSignal): Promise<void> | void
-}
-
-export type AppSettingsLoader = {
-  credentials: Pick<SectionStore<PersistedAppCredentials>, "load">
-  preferences: Pick<SectionStore<PersistedAppPreferences>, "load">
-}
-
-export type AppSettingsStore = AppSettingsLoader & {
-  credentials: SectionStore<PersistedAppCredentials>
-  preferences: SectionStore<PersistedAppPreferences>
 }
 
 export function createValidationAppError(

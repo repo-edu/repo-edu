@@ -1,9 +1,7 @@
 import { mkdir, rename, stat } from "node:fs/promises"
 import { basename, dirname, extname, join } from "node:path"
-import type {
-  SettingsRecoveryEntry,
-  SettingsRecoveryReason,
-} from "@repo-edu/application-contract"
+import type { SettingsSectionLoadResult } from "@repo-edu/application/settings-store"
+import type { SettingsRecoveryReason } from "@repo-edu/application-contract"
 import writeFileAtomic from "write-file-atomic"
 import {
   createNodeSettingsSectionReader,
@@ -13,11 +11,10 @@ import {
 } from "./settings-section-reader.js"
 import { createWriteQueue } from "./write-queue.js"
 
+// The application-owned section store allows immediate results. This store
+// always returns promises, so its methods keep the narrower promise types.
 export type NodeSettingsSectionStore<T> = {
-  load(signal?: AbortSignal): Promise<{
-    value: T | null
-    recovery: SettingsRecoveryEntry[]
-  }>
+  load(signal?: AbortSignal): Promise<SettingsSectionLoadResult<T>>
   save(section: T, signal?: AbortSignal): Promise<void>
   readWithoutRecovery(signal?: AbortSignal): Promise<T | null>
 }

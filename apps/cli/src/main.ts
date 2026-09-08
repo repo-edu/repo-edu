@@ -2,6 +2,7 @@ import { performance } from "node:perf_hooks"
 import {
   childProcessLifetimeArtifactProbeMarker,
   claimProgramGate,
+  createCourseStore,
   finishChildProcessLifetimeArtifactProbe,
   isChildProcessLifetimeArtifactProbe,
   isProgramGateArtifactProbe,
@@ -18,7 +19,6 @@ import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-p
 import { createCommandLineChildProcessLifetimeController } from "./child-process-lifetime.js"
 import { createProgram } from "./cli.js"
 import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
-import { createCliCourseStore } from "./state-store.js"
 import { createCliWorkflowClient } from "./workflow-runtime.js"
 
 function errorText(error: unknown): string {
@@ -95,7 +95,7 @@ async function runCli(): Promise<void> {
     },
     async (signal) => {
       if (isStorageArtifactProbe()) {
-        await runStorageArtifactProbe(createCliCourseStore(storageRoot))
+        await runStorageArtifactProbe(createCourseStore(storageRoot))
         return
       }
       if (artifactProbe) {

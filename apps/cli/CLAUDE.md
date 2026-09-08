@@ -23,8 +23,9 @@ Run the CLI in Node development with
 - `src/workflow-runtime.ts`: builds the in-process `WorkflowClient` from
   `@repo-edu/application` and routes Git through the host's child-process
   lifetime controller
-- `src/state-store.ts`: shared `courses.sqlite` adapter and read-only credentials
-  and preferences loaders.
+- `src/state-store.ts`: read-only credentials and preferences loaders. Course
+  storage comes straight from the shared `courses.sqlite` adapter in
+  `@repo-edu/host-node`.
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).
 

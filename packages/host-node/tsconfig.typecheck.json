@@ -7,6 +7,7 @@
   "include": [
     "src/**/*.ts",
     "../application/src/course-store.ts",
+    "../application/src/settings-store.ts",
     "../application-contract/src/**/*.ts",
     "../integrations-lms-contract/src/**/*.ts",
     "../test-fixtures/src/**/*.ts",

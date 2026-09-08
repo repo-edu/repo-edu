@@ -1,13 +1,7 @@
 export { createAnalysisWorkflowHandlers } from "./analysis-workflows/analysis-workflows.js"
 export type { AnalysisWorkflowPorts } from "./analysis-workflows/ports.js"
 export { createConnectionWorkflowHandlers } from "./connection-workflows.js"
-export type {
-  AppSettingsLoader,
-  AppSettingsStore,
-  CourseStore,
-  SectionStore,
-  SettingsSectionLoadResult,
-} from "./core.js"
+export type { CourseStore } from "./core.js"
 export { packageId } from "./core.js"
 export { composeCourseCommandTransition } from "./course-command-transition.js"
 export { createCourseWorkflowHandlers } from "./course-workflows.js"
@@ -29,6 +23,12 @@ export type {
 export { createLlmConnectionWorkflowHandlers } from "./llm-connection-workflows.js"
 export { createRepositoryWorkflowHandlers } from "./repository-workflows.js"
 export { createRosterWorkflowHandlers } from "./roster-workflows.js"
+export type {
+  AppSettingsLoader,
+  AppSettingsStore,
+  SectionStore,
+  SettingsSectionLoadResult,
+} from "./settings-store.js"
 export {
   createSettingsLoadWorkflowHandlers,
   createSettingsWorkflowHandlers,
