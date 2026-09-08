@@ -8,50 +8,71 @@ app.commandLine.appendSwitch("js-flags", "--expose-gc")
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   const events = []
+  const dispatches = []
+  const ports = []
+  const listeners = new Map()
+  function track(port) {
+    const record = { reference: new WeakRef(port), closed: false }
+    ports.push(record)
+    port.once("close", () => { record.closed = true })
+    return port
+  }
+  const handlers = {
+    "userFile.exportPreview": async (_input, context) => {
+      events.push("handler")
+      context.onProgress({ step: 1, totalSteps: 1, label: "Export" })
+      context.onOutput({ channel: "info", message: "Written" })
+      return { workflowId: "userFile.exportPreview", displayName: "preview.txt", preview: "text", savedAt: "now" }
+    },
+  }
   let gateway
   const admission = new HostAdmission((effect) => {
     events.push(effect.type)
     if (effect.type === "release-command") gateway.requests.release(effect.request)
     if (effect.type === "prepare-close") gateway.prepareClose(effect.request)
   })
+  const dispatch = admission.dispatch.bind(admission)
+  admission.dispatch = (event) => {
+    dispatches.push(event.type)
+    return dispatch(event)
+  }
   const window = new BrowserWindow({
     show: false,
     webPreferences: { sandbox: true, contextIsolation: true, preload: process.argv.find((arg) => arg.startsWith("--test-preload=")).slice("--test-preload=".length) },
   })
   const rendererUrl = process.argv.find((arg) => arg.startsWith("--test-url=")).slice("--test-url=".length)
   gateway = installDesktopEntryGateway({
-    ipc: ipcMain, window, rendererUrl, admission,
-    createRequestChannel: () => new MessageChannelMain(),
-    router: createDesktopWorkflowRouter({}),
-    direct() {},
-    requestBody(request, message) {
-      events.push(message.type)
-      if (message.type === "bundle") {
-        if (admission.getSnapshot().phase === "preparing") admission.dispatch({ type: "preparation-committed", request })
-        gateway.requests.persistenceCommitted(request, {})
-      } else if (message.type === "input") {
-        admission.dispatch({ type: "input-prepared", request })
-        gateway.requests.progress(request, { step: 1, totalSteps: 1, label: "Export" })
-        gateway.requests.output(request, { channel: "info", message: "Written" })
-        admission.dispatch({ type: "outcome-fixed", request })
-        gateway.requests.settlement(request, {
-          workflowId: "userFile.exportPreview",
-          outcome: { disposition: "completed", completion: { status: "succeeded", result: { workflowId: "userFile.exportPreview", displayName: "preview.txt", preview: "text", savedAt: "now" } } },
-          authoritative: undefined,
-        })
-      } else if (message.type === "acknowledged") admission.dispatch({ type: "settlement-acknowledged", request })
-      else if (message.type === "close-ready") {
-        gateway.requests.acknowledgeClose(request)
-        admission.dispatch({ type: "close-ready", request })
-      }
+    ipc: {
+      on(channel, receive) {
+        const listener = (event, raw) => {
+          for (const port of event.ports) track(port)
+          receive(event, raw)
+        }
+        listeners.set(receive, listener)
+        ipcMain.on(channel, listener)
+      },
+      handle: ipcMain.handle.bind(ipcMain),
+      removeListener(channel, receive) {
+        ipcMain.removeListener(channel, listeners.get(receive))
+        listeners.delete(receive)
+      },
+      removeHandler: ipcMain.removeHandler.bind(ipcMain),
+    }, window, rendererUrl, admission,
+    createRequestChannel: () => {
+      const channel = new MessageChannelMain()
+      track(channel.port1)
+      return channel
     },
+    router: createDesktopWorkflowRouter(handlers),
+    handlers,
+    direct() {},
   })
   window.once("closed", () => gateway.dispose())
   globalThis.requestPortTest = {
     window,
     dropHostPort() { gateway.requests.dispose() },
     close() { admission.dispatch({ type: "host-start", source: "window-close", request: { cancel() {} } }) },
-    snapshot() { return { phase: admission.getSnapshot().phase, events } },
+    snapshot() { return { phase: admission.getSnapshot().phase, events, dispatches, ports: ports.map(({ reference, closed }) => ({ closed, messages: reference.deref()?.listenerCount("message") ?? 0, closes: reference.deref()?.listenerCount("close") ?? 0 })) } },
   }
   admission.dispatch({ type: "bootstrap-acknowledged" })
   gateway.loadRenderer()

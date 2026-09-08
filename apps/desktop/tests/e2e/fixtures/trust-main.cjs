@@ -35,6 +35,7 @@ app.whenReady().then(() => {
         window,
         rendererUrl,
         admission,
+        handlers: {},
         router: createDesktopWorkflowRouter({
           "course.list": async () => {
             workflows.push("course.list")

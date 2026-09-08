@@ -9,6 +9,15 @@ import {
   expect,
   test,
 } from "@playwright/test"
+import { createPackagedTrustRuntime } from "./packaged-trust-runtime"
+
+let packaged: Awaited<ReturnType<typeof createPackagedTrustRuntime>>
+test.beforeAll(async () => {
+  packaged = await createPackagedTrustRuntime()
+})
+test.afterAll(async () => {
+  await packaged?.dispose()
+})
 
 declare global {
   var desktopTrustTest: {
@@ -37,6 +46,13 @@ for (const entry of ["development", "packaged-file"] as const) {
     "child",
     "malformed",
     "unknown",
+    "malformed-envelope",
+    "unknown-workflow",
+    "malformed-workflow",
+    "malformed-stop",
+    "missing-port",
+    "unknown-command",
+    "late-stop",
     "navigation",
     "reload",
     "hash",
@@ -61,7 +77,10 @@ for (const entry of ["development", "packaged-file"] as const) {
       const address = server.address()
       if (!address || typeof address === "string")
         throw new Error("Missing server address")
-      const pagePath = join(directory, "Renderer entry.html")
+      const pagePath =
+        entry === "development"
+          ? join(directory, "Renderer entry.html")
+          : packaged.documentPath("Renderer entry.html")
       await writeFile(pagePath, html)
       const url =
         entry === "development"
@@ -69,10 +88,15 @@ for (const entry of ["development", "packaged-file"] as const) {
           : pathToFileURL(pagePath).href
       let launchedApp: ElectronApplication | undefined
       try {
-        const app = await electron.launch({
-          args: [fixture, `--user-data-dir=${join(directory, "user-data")}`],
-        })
+        const args = [`--user-data-dir=${join(directory, "user-data")}`]
+        const app =
+          entry === "development"
+            ? await electron.launch({ args: [fixture, ...args] })
+            : await packaged.launch(fixture, args)
         launchedApp = app
+        expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(
+          entry !== "development",
+        )
         if (scenario === "initial-redirect") {
           // A terminal initial load need not settle before the host exits.
           await app.evaluate((_electron, url) => {
@@ -93,6 +117,41 @@ for (const entry of ["development", "packaged-file"] as const) {
           await globalThis.desktopTrustTest.open(url)
         }, url)
         const page = await app.firstWindow()
+        expect(await page.evaluate(() => "require" in window)).toBe(false)
+        expect(
+          await app.evaluate(
+            () =>
+              globalThis.desktopTrustTest.window.webContents.getLastWebPreferences()
+                .sandbox,
+          ),
+        ).toBe(true)
+        expect(
+          await app.evaluate(
+            () =>
+              globalThis.desktopTrustTest.window.webContents.getLastWebPreferences()
+                .contextIsolation,
+          ),
+        ).toBe(true)
+        if (scenario === "late-stop") {
+          await page.evaluate(() => {
+            for (let count = 0; count < 2; count++)
+              window.trustTest.send({
+                kind: "trpc",
+                message: { id: 1, method: "subscription.stop" },
+              })
+          })
+          // Invoke is a round trip behind the sends on the same gateway.
+          await page.evaluate(() =>
+            window.trustTest.invoke({
+              action: "setNativeTheme",
+              input: "dark",
+            }),
+          )
+          expect(
+            await app.evaluate(() => globalThis.desktopTrustTest.snapshot()),
+          ).toEqual({ events: [], direct: ["setNativeTheme"], workflows: [] })
+          return
+        }
         if (scenario === "current") {
           await page.evaluate(async () => {
             await window.trustTest.invoke({
@@ -169,6 +228,51 @@ for (const entry of ["development", "packaged-file"] as const) {
               { kind: "trpc", message: { id: 1, method: "subscription.stop" } },
             )
           })
+        } else if (
+          [
+            "malformed-envelope",
+            "unknown-workflow",
+            "malformed-workflow",
+            "malformed-stop",
+            "missing-port",
+            "unknown-command",
+          ].includes(scenario)
+        ) {
+          await page.evaluate((scenario) => {
+            const messages: Record<string, unknown> = {
+              "malformed-envelope": { kind: "trpc", message: {}, extra: true },
+              "unknown-workflow": {
+                kind: "trpc",
+                message: {
+                  id: 1,
+                  method: "subscription",
+                  params: { path: "unknown" },
+                },
+              },
+              "malformed-workflow": {
+                kind: "trpc",
+                message: {
+                  id: 1,
+                  method: "subscription",
+                  params: { path: "course.list", input: null },
+                },
+              },
+              "malformed-stop": {
+                kind: "trpc",
+                message: { id: "1", method: "subscription.stop" },
+              },
+              "missing-port": {
+                kind: "command-intent",
+                workflowId: "userFile.exportPreview",
+              },
+              "unknown-command": {
+                kind: "command-intent",
+                workflowId: "unknown",
+              },
+            }
+            window.trustTest.send(messages[scenario])
+            window.trustTest.send(messages[scenario])
+          }, scenario)
         } else if (scenario === "malformed" || scenario === "unknown") {
           await page.evaluate(
             (scenario) =>
