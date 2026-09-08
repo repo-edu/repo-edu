@@ -13,10 +13,14 @@ Areas are stable IDs in
 read the conventional kind from the postfix of a stem-marked file-changing
 commit or after the severity sequence of an ordinary commit. Attribute touched
 tracked source files to their primary area ID and walk history until that area
-has ten touched commits. If two or more of those commits are `fix:` commits, do
-not apply another patch. Surface the area ID to the user as a frame-round
-candidate in `../plan`. Cover area IDs are context for cross-cutting concerns,
-not primary ownership.
+has ten touched commits. Commits with the `impl-audit-` role token do not
+count, because audit rounds exist to produce fix commits. If two or more of the
+counted commits are `fix:` commits, read that history before patching. When
+the fixes are clean-up after a redesign, say so in one line and proceed. When
+one design piece took two or more of them, name it, propose a structural
+change and surface the area ID to the user as a frame-round candidate in
+`../plan`. Cover area IDs are context for cross-cutting concerns, not primary
+ownership.
 
 The user never reads or edits machine artifacts such as the area model,
 ledgers or generated files. Do not justify a feature or proposal by their
