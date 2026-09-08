@@ -89,8 +89,8 @@ type WorkflowCallOptions<TProgress, TOutput> = {
 
 ## WorkflowEvent
 
-When workflows cross a transport boundary (like tRPC-electron), events are serialized as a
-discriminated union:
+Ordinary desktop workflows use the desktop-owned tRPC adapter. Their events
+are serialised as a discriminated union:
 
 ```typescript
 type WorkflowEvent<TProgress, TOutput, TResult> =
@@ -103,7 +103,13 @@ type WorkflowEvent<TProgress, TOutput, TResult> =
 The desktop tRPC router emits `WorkflowEvent` values over subscriptions. The renderer-side client
 unpacks them back into `onProgress`/`onOutput` callbacks and a resolved/rejected promise.
 
-In-process transports (CLI, docs) skip serialization entirely — callbacks are called directly.
+Exclusive desktop commands carry stage-validated progress, output and bounded
+settlement over a request port. Their effect outcome is separate from an
+`AppError` category. The session owner retains callbacks and publication until
+its complete body retires. See
+[Transport Adapters](/repo-edu/development/workflow-transport/) for the sequence.
+
+The CLI calls handlers in-process without serialisation. The docs site is static.
 
 ## Type extraction helpers
 

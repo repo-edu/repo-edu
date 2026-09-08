@@ -9,10 +9,13 @@ Declares the contract for UI-facing host operations:
 
 - `pickUserFile` / `pickSaveTarget` — file open/save dialogs
 - `pickDirectory` — directory picker
-- `openExternalUrl` — launch URLs in system browser
 - `setNativeTheme` — synchronise Electron's native window theme
-- `revealCoursesDirectory` — reveal the persisted course documents
-- `onCloseRequest` / `onCloseCancel` — register the host-owned close sequence
+- `onCloseRequest` — register persistence preparation for a host-owned clean close
+
+Close preparation receives a typed commit operation. Electron retains and
+validates the close port; no transport identity enters the session contract.
+Accepted close never returns to interactive admission. Fixed documentation
+destinations belong to the main-process menu.
 
 ## Rules
 

@@ -4,11 +4,16 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 
 ## Responsibility
 
-`@repo-edu/application-contract` is the compile-time source of truth for:
+`@repo-edu/application-contract` owns browser-safe workflow types and runtime
+validation for:
 
 - workflow ids and payload/result/progress/output types (`WorkflowPayloads`)
 - workflow metadata (`workflowCatalog`)
 - `WorkflowClient` interface
+- `workflowInputSchemas`: an exhaustive Zod input map keyed by every
+  `WorkflowId`, composed from schemas at their concept owners
+- exclusive command declarations, immutable input, effect-owned outcomes,
+  persistence preparation and bounded authoritative settlement values
 - shared `AppError` taxonomy and transport helpers
 - cross-surface file reference DTOs (`UserFileRef`, `UserSaveTargetRef`)
 - domain types used in workflows, imported from their concept owners (`IdSequences`,
@@ -50,3 +55,10 @@ This package defines the shared workflow contract (`@repo-edu/application-contra
 - Do not add runtime dependencies on desktop/cli implementations.
 - Do not re-introduce generated command binding systems.
 - Any workflow id change must be reflected in all invoking surfaces.
+- Every workflow input needs a runtime schema and contract tests. Desktop
+  validates it before classification or dispatch; the catalogue does not grant admission.
+- Each exclusive command declares a required course transition or no course
+  transition. The application owns composition; Electron wire details stay in desktop.
+- An effect outcome proves refusal, stop, completion or uncertainty. Error
+  categories alone cannot prove an outcome. Confirmation expiry carries its
+  own unknown reason; other uncertainty and durable-owner failures are terminal.

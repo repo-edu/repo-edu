@@ -1,135 +1,101 @@
 ---
 title: Adding a Workflow
-description: Step-by-step guide to adding a new workflow to the system
+description: Contract, admission, session ownership and verification for a new workflow
 ---
 
-This guide walks through adding a new workflow end-to-end. The example assumes a workflow called
-`"course.archive"` that archives a course.
+A workflow needs a typed contract, runtime input validation, a handler and an
+explicit owner on each delivery surface. Desktop classification is separate
+from delivery metadata. A new catalogue entry does not grant host admission.
 
-## 1. Define the workflow ID and payloads
+## 1. Define the shared contract
 
-In `packages/application-contract/src/index.ts`, add an entry to `WorkflowPayloads`:
+Add input, progress, output and result types to `WorkflowPayloads` in
+`packages/application-contract/src/workflow-payloads.ts`, exported through the
+package root. Add delivery, progress and cancellation metadata to
+`workflowCatalog`.
 
-```typescript
-"course.archive": {
-  input: { courseId: string }
-  progress: MilestoneProgress
-  output: DiagnosticOutput
-  result: undefined
-}
-```
+Add the matching Zod schema to `workflowInputSchemas`. Reuse schemas from their
+browser-safe concept owners. The map must have exactly the `WorkflowId` keys.
+Add representative valid and invalid input fixtures to the contract tests.
 
-Choose the appropriate channel types:
+For an exclusive command, extend `exclusiveCommandDeclarations` and its closed
+input/outcome/settlement contracts. Declare whether it requires a course
+transition. Define any bounded authoritative values needed at settlement.
+Keep Electron wire details out of shared contracts.
 
-- Use `MilestoneProgress` / `DiagnosticOutput` if the workflow has observable steps
-- Use `never` for channels that won't emit events
-- Use `undefined` for result if the workflow has no meaningful return value
+## 2. Implement the application handler
 
-## 2. Add a catalog entry
+Use the appropriate `create*WorkflowHandlers` factory in
+`packages/application`. Keep business rules in domain and effects behind ports.
+Pass cancellation and report progress/output through `WorkflowCallOptions`.
 
-In the same file, add an entry to `workflowCatalog`:
+Ordinary expected failures use `AppError`. Exclusive effect outcomes must prove
+refusal before mutation, stop, completion or uncertainty. Preserve the
+producer's `confirmation-expired` reason for unknown outcomes. Do not infer
+disposition from error categories or cancellation state.
 
-```typescript
-"course.archive": {
-  delivery: ["desktop", "cli"],
-  progress: "milestone",
-  cancellation: "best-effort",
-}
-```
+Course and settings storage failures are terminal on desktop, including course
+row mismatches. Save handlers return no full document: settings saves return
+no value and course saves return only `{ revision, updatedAt }`.
 
-Decide:
+For a course-changing command, add its composition to
+`course-command-transition.ts`. Compose immutable input and the official result
+into one complete next course before durable save. The desktop settlement owner
+saves and publishes that same course with its host stamp. Features must not
+repeat the composition. Effect-only commands bypass this owner.
 
-- **delivery** — which surfaces should support this workflow
-- **progress** — `"none"` for instant, `"milestone"` for step-based, `"granular"` for fine-grained
-- **cancellation** — `"non-cancellable"`, `"best-effort"`, or `"cooperative"`
+## 3. Assign desktop admission and transport
 
-## 3. Implement the handler
+Assign the workflow's host start class in `host-entry-inventory.ts` and its
+renderer class in `session-operation-inventory.ts`. Extend the matching
+architecture inventory so it checks the actual declarations. New entry classes
+or product decisions require a plan decision; do not create an unclassified route.
 
-In `packages/application/src/`, add the handler to the appropriate factory. For a course workflow,
-that's `course-workflows.ts`:
+Wire the handler into `createDesktopWorkflowRegistry` in `trpc.ts`.
+Ordinary workflows use the desktop-owned tRPC adapter through the gateway.
+Exclusive commands use the request owner after host acceptance and persistence
+preparation. Add command wire schemas for prepared input, progress, output and
+settlement in the existing desktop schema owners.
 
-```typescript
-"course.archive": async (input, options) => {
-  options?.onProgress?.({ step: 1, totalSteps: 2, label: "Loading course" })
-  const course = await ports.courseStore.loadCourse(input.courseId, options?.signal)
-  if (!course) {
-    throw { type: "not-found", message: `Course ${input.courseId} not found`, resource: "course" }
-  }
+Only `desktop-entry-gateway.ts` may register renderer IPC. A feature cannot
+install a raw listener, retain the raw client or bypass sender/input validation.
+A new direct action, request message, lifecycle source, native menu action or
+updater message must update its own separate list and check.
 
-  options?.onProgress?.({ step: 2, totalSteps: 2, label: "Archiving" })
-  options?.onOutput?.({ channel: "info", message: `Archiving course ${course.name}` })
-  await ports.courseStore.saveCourse({ ...course, archived: true }, options?.signal)
-}
-```
+## 4. Keep renderer publication inside the body
 
-Key patterns:
+Features use `SessionOperationGateway`. Reserve the entire session-changing
+body, including callbacks, Query publication and explicit semantic follow-up.
+Use `scope.publish` for state publication and `scope.follow` for asynchronous
+follow-up. React effects may present a result but cannot commit semantic state.
+Read-only results that supply command input remain session-changing.
 
-- Call `onProgress` at each logical step
-- Call `onOutput` for diagnostic messages
-- Throw typed `AppError` objects for failures
-- Pass `options?.signal` to async operations for cancellation support
-- Persistence save handlers validate incoming payloads and must not return full persisted documents.
-  Use `void` for write-only saves, or a narrow server stamp when the renderer cannot compute the
-  returned fields.
+An exclusive reservation freezes semantic edits and worker starts until
+retirement. Input capture follows committed preparation stamps. Settlement
+application precedes acknowledgement, host release and retirement. Cancellation
+uses the current command port, never a separate workflow start.
 
-## 4. Wire into desktop
+## 5. Wire CLI delivery
 
-If the handler was added to an existing factory (e.g. `createCourseWorkflowHandlers`), it
-auto-registers — the factory's return value is spread into the desktop router in
-`apps/desktop/src/trpc.ts` via `createDesktopWorkflowRegistry()`.
+For a CLI-delivered workflow, add its handler to the CLI runtime and invoke it
+from the appropriate Commander command. The CLI runs in-process and shares
+application handlers, durable adapters and program exclusion with desktop.
+It does not implement renderer admission or request ports.
 
-If you created a new handler factory, add its spread to `createDesktopWorkflowRegistry()`:
+## 6. Verify the behaviour and boundaries
 
-```typescript
-...createMyNewWorkflowHandlers(ports),
-```
+Add package-boundary tests for the handler's observable behaviour. Contract
+tests cover schema completeness and closed outcomes. Desktop tests cover
+admission, request stages and settlement where applicable. Course-changing
+commands must prove saved and applied course equality, including host stamps.
 
-The tRPC router automatically generates subscription procedures for every entry in the registry.
+Run workspace `pnpm check` and `pnpm test`. These include architecture and
+alignment checks. Runtime artifact builders are run by the user.
 
-## 5. Wire into CLI
+## Changing an existing workflow
 
-If the workflow includes `"cli"` in its delivery array:
-
-1. Add the handler to `createCliWorkflowHandlers()` in `apps/cli/src/workflow-runtime.ts`
-2. Add a Commander command in `apps/cli/src/commands/` that calls
-   `workflowClient.run("course.archive", input)`
-
-## 6. Add tests
-
-- Add a workflow behavior test in `packages/application/src/__tests__/` that verifies the handler's
-  logic with mock ports
-- Existing runtime checks catch missing wiring:
-  - `apps/cli/src/__tests__/workflow-alignment.test.ts` — verifies every CLI-delivered workflow is
-    wired in the CLI runtime
-  - `pnpm test:runtime` — validates desktop preload and tRPC runtime wiring
-
-## Checklist
-
-- [ ] `WorkflowPayloads` entry with all four channels
-- [ ] `workflowCatalog` entry with delivery and execution profile
-- [ ] Handler implementation in `packages/application/src/`
-- [ ] Desktop wiring (if desktop-delivered)
-- [ ] CLI wiring + Commander command (if CLI-delivered)
-- [ ] Behavior test in `packages/application/src/__tests__/`
-- [ ] Alignment tests pass (`pnpm test`)
-
-## Contract evolution
-
-When modifying an existing workflow (not adding a new one), changes propagate through the same
-layers:
-
-1. **Update contract types and metadata** in `packages/application-contract/src/index.ts`. Changing
-   `WorkflowPayloads` entries or `workflowCatalog` metadata will produce type errors in every
-   handler and caller that needs updating — follow the compiler.
-
-2. **Update handlers** in `packages/application/src/`. Adjust the implementation to match the new
-   types.
-
-3. **Update surface wiring** for each surface in the workflow's `delivery` array: desktop
-   router/client or CLI runtime and Commander command.
-
-4. **Update tests.** Behavior tests in `packages/application/src/__tests__/` must match the new
-   contract. Alignment tests (`pnpm test`) will catch missing wiring automatically.
-
-The source of truth is always `packages/application-contract/src/index.ts`. Runtime and alignment
-checks enforce that both surfaces stay in sync with the catalog.
+Update payloads, metadata, runtime schemas and all consuming surfaces together.
+A classification change also updates the separate desktop and renderer
+inventories. A settlement change updates its transition, wire validation and
+application tests. Type errors identify consumers; runtime and architecture
+checks prove the input and ownership boundaries.

@@ -31,8 +31,8 @@ The `WorkflowId` type is the union of all valid IDs, derived from the keys of `W
 
 ### WorkflowPayloads
 
-The `WorkflowPayloads` type map in `packages/application-contract/src/index.ts` is the single source
-of truth. It maps each workflow ID to four typed channels:
+The `WorkflowPayloads` type map in `packages/application-contract/src/workflow-payloads.ts` is the
+source of truth. It maps each workflow ID to four typed channels:
 
 ```typescript
 type WorkflowPayloads = {
@@ -48,6 +48,10 @@ type WorkflowPayloads = {
 
 See [Payload Channels](/repo-edu/development/workflow-channels/) for what each channel means.
 
+`workflowInputSchemas` adds exhaustive runtime validation with the same keys as
+`WorkflowId`. The desktop gateway validates the sender, envelope and schema
+before admission or dispatch. Types alone do not validate incoming messages.
+
 ### WorkflowClient
 
 `WorkflowClient` is the interface that callers use to run workflows. It has a single generic method:
@@ -62,12 +66,18 @@ type WorkflowClient = {
 }
 ```
 
-Callers never know (or care) which transport delivers the execution. The React renderer uses a
-client backed by tRPC-electron IPC, while the CLI client invokes handlers in-process. Renderer
-session workflows such as `course.load`, `settings.saveCredentials` and `settings.savePreferences`
-are owned by `SessionController`; regular React code uses the narrowed renderer client for
-application workflows such as `course.list`, repository operations, imports, analysis, and
-examination.
+The CLI invokes handlers in-process. Desktop ordinary calls use a desktop-owned
+tRPC adapter behind its sole gateway. Accepted exclusive commands use request
+ports. Renderer features receive the session operation gateway; its owner alone
+holds the raw client and reserves complete bodies through publication and
+semantic follow-up. Command reservation freezes semantic changes until retirement.
+
+Exclusive declarations state whether a command changes the course. One
+application transition owner composes its complete next course from immutable
+input and the official result. Durable save and renderer application consume
+that same value with its host stamp. Bounded settlement applies before
+acknowledgement, host release and renderer retirement. See
+[Transport Adapters](/repo-edu/development/workflow-transport/).
 
 ### WorkflowHandler
 
@@ -111,8 +121,13 @@ workflow.
 |---------|----------|
 | Type definitions and catalog | `packages/application-contract/src/index.ts` |
 | Workflow handlers | `packages/application/src/*-workflows.ts` |
-| Desktop transport (tRPC) | `apps/desktop/src/trpc.ts` |
+| Runtime input schemas | `packages/application-contract/src/workflow-input-schemas.ts` |
+| Desktop gateway | `apps/desktop/src/desktop-entry-gateway.ts` |
+| Ordinary transport | `apps/desktop/src/desktop-trpc-adapter.ts` |
+| Exclusive settlement | `apps/desktop/src/host-command-settlement.ts` |
+| Course transition owner | `packages/application/src/course-command-transition.ts` |
 | Desktop client (renderer) | `apps/desktop/src/workflow-client.ts` |
 | Renderer session owner | `packages/renderer-app/src/session/session-controller.ts` |
+| Renderer operation owner | `packages/renderer-app/src/session/session-operations.ts` |
 | CLI transport (in-process) | `apps/cli/src/workflow-runtime.ts` |
 | React context | `packages/renderer-app/src/contexts/workflow-client.tsx` |

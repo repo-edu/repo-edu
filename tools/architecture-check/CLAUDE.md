@@ -7,7 +7,7 @@ via `pnpm check:architecture` from the workspace root.
 ## What it checks
 
 `src/main.ts` composes one pass (`runArchitectureCheck`) that returns sorted
-violations. Six concerns feed it:
+violations. The checks cover:
 
 - Area reconciliation (`area-model.ts`): loads and zod-validates the committed
   model, then reconciles it against the source inventory.
@@ -28,6 +28,16 @@ violations. Six concerns feed it:
   Deno and dependency-owned launch paths.
 - Source inventory (`inventory.ts`): one raw current-worktree listing plus the
   selected source list and set that every check shares.
+- Desktop entry ownership (`desktop-entry-checks.ts`,
+  `desktop-lifecycle-checks.ts`): sole gateway IPC registration, supported tRPC
+  APIs, lifecycle-source ownership and synchronous fatal entry before product imports.
+- Exact desktop inventories (`desktop-inventory-checks.ts`): workflow schemas
+  and classes, direct actions, request-port messages, reducer starts, terminal
+  and fatal sources, same-program starts, menu definitions, native roles and
+  updater messages. Missing, extra and differently classified members fail.
+- Renderer mutation ownership (`renderer-mutation-checks.ts` and the renderer
+  input inventory): raw-client confinement, complete session operation bodies
+  and semantic store/input routes through the session owner and its global freeze.
 
 ## Area model
 

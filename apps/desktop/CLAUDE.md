@@ -24,12 +24,23 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers
   (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set,
   git-username import, roster, validation, settings, and user-file workflows.
-- `src/workflow-client.ts`: renderer-side `WorkflowClient` backed by `trpc-electron`
+- `src/desktop-entry-gateway.ts`: sole renderer IPC registration and document
+  authority owner. Validates the sender, envelope and workflow input before dispatch.
+- `src/host-admission*.ts`: one reducer for startup, accepted calls, command
+  preparation and execution, settlement, close and terminal failure.
+- `src/workflow-client.ts`, `src/desktop-trpc-link.ts` and
+  `src/desktop-trpc-adapter.ts`: ordinary workflow subscriptions over public
+  tRPC APIs. The adapter receives only gateway-validated messages.
 - `src/preload.ts`: context-isolated bridge to renderer host capabilities
 - `src/renderer-host-bridge.ts`: typed IPC channel definitions for host UI affordances
-- `src/renderer-close.ts`: owner-tagged window-close admission. Normal windows
-  use attempt-identified renderer close and cancellation. Main-process
-  validation windows bypass the renderer session.
+- `src/host-request-transport.ts`, `src/preload-request-transport.ts` and
+  `src/request-port-*.ts`: retained, stage-validated ports for exclusive
+  commands and clean close. Each command transfers a port with intent; main
+  transfers a close port after accepted ordinary calls drain.
+- `src/host-command-execution.ts` and `src/host-command-settlement.ts`: official
+  outcomes, durable course transitions and bounded authoritative settlement.
+- `src/desktop-terminal.ts`: the reducer's asynchronous ending body.
+  `src/desktop-terminal-sources.ts` maps detected failures to its terminal event.
 - `src/child-lifetime-artifact-probe.ts`: packaged and development Electron
   proof for the shared controller and Codex SDK host process. Packaged Windows
   also proves the fixed `runAsNode` launcher and kill-on-close Windows job.
@@ -38,9 +49,10 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 - `src/codex-sdk-host-command.ts`: fixed Codex SDK host command. Electron runs
   the bundled `codex-sdk-host.js` entry in Node mode through the shared
   child-process lifetime controller.
-- `src/desktop-host.ts`: shell-level host interactions (dialogs, external URLs)
-- `src/course-store.ts`, `src/settings-store.ts`: desktop persistence stores (course JSON plus
-  `settings/credentials.json` and `settings/preferences.json`)
+- `src/desktop-host.ts`: file and directory dialogs with opaque file handles.
+- `src/desktop-bootstrap.ts`: loads the shared `host-node` course database,
+  settings and examination archive before creating the renderer session.
+  `src/settings-store.ts` wraps the shared settings owner for desktop recovery.
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions
   are shell state and are not part of app preferences.
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
@@ -54,19 +66,41 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 
 ## Notes
 
-- Desktop transport uses `trpc-electron` (not `electron-trpc`).
+- `workflowInputSchemas` in `application-contract` validates every workflow
+  input. Desktop wire schemas compose those browser-safe schemas. Keep workflow
+  starts, direct actions, request messages, lifecycle sources, native menus and
+  updater messages in their separately checked entry inventories.
 - Preload output is CommonJS (`preload.cjs`) due Electron sandbox/runtime constraints.
 - Keep Electron-specific code inside `apps/desktop`; shared packages stay platform-agnostic.
 - Claim the shared program gate before opening stores or starting product work.
   Retain its release callback through process exit.
-- Uncaught exceptions, unhandled rejections and rejected startup or activation
-  work are terminal. Report them to stderr and exit the application with code 1.
+- Install fatal handling before dynamically importing product composition.
+  Uncaught exceptions, rejected product loading and a thrown installer use only
+  synchronous logging and immediate exit. Unhandled rejections, document or
+  port loss and durable-owner failures dispatch the reducer's terminal event.
+  Renderer loss is terminal; other Electron child loss is terminal for every
+  reason except `clean-exit`, regardless of child type.
 - When an owned tree cannot be confirmed gone, show one warning dialog and
   return unknown for its active run. Keep the desktop session running. During
   shutdown, show the same warning and continue quitting.
-- Disable `BrowserWindow` input before requesting a renderer close. Re-enable it
-  only after a matching failure or cancellation acknowledgement. If renderer
-  cancellation itself cannot settle, the main process owns terminal close.
+- Close is terminal. Interactive close drains accepted calls and prepares
+  persistence through its port. Close during startup or a command skips that
+  renderer drain. Both ask the shared controller to end owned work exactly once.
+  Confirmation expiry shows one fatal warning and exits without updater handoff.
+- The session operation owner freezes semantic edits and worker starts when a
+  command is reserved. Preparation commits eligible saves before immutable
+  input capture. Settlement applies before acknowledgement, host release and
+  renderer retirement. Course-changing commands use the application's one
+  complete course transition, never independent partial merges.
+- Last-window close exits on every platform. Activation may focus the existing
+  window but cannot create another renderer. A later launch starts a new process.
+- Keep native Edit, Window, zoom, full-screen and safe macOS Services/Hide roles.
+  Close, quit and update restart dispatch to the reducer. The main process binds
+  the fixed Help destination. Production menus expose no reload or developer tools.
+- The durable-storage peer owns database and settings publication. The
+  child-process lifetime peer owns application-effect trees and platform
+  containment. The command-completion peer owns both five-second ending limits.
+  Electron children and updater installation are outside those owned trees.
 - `validate:runtime` must package first. Its prebuilt phase proves tRPC, the
   program gate, the shipped child-process lifetime matrix and the shell boundary
   against that packaged output.

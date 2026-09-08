@@ -3,9 +3,10 @@ title: Error Taxonomy
 description: The AppError discriminated union and how errors propagate through the workflow system
 ---
 
-All workflow errors are represented as `AppError` — a discriminated union on the `type` field
-defined in `packages/application-contract/src/index.ts`. This gives every layer a consistent, typed
-error vocabulary.
+`AppError` describes workflow failures. Exclusive commands separately carry
+effect-owned dispositions: refusal, stop, completion or uncertainty. A category
+alone cannot prove whether an effect happened. Durable-owner failures enter
+desktop terminal handling instead of a recoverable settlement.
 
 ## AppError variants
 
@@ -74,15 +75,27 @@ limit).
 
 ### persistence
 
-Settings, course, or user-file storage failure.
+Settings or user-file storage failure. Course storage has its own terminal variant.
 
 ```typescript
 { type: "persistence"; message: string; operation: "read" | "write" | "decode" | "encode"; retryable: boolean; pathHint?: string }
 ```
 
-Created at the storage boundary when file I/O or serialization fails. Write failures classified as
-busy, locked, or transient are retryable; decode, validation, encode, stale-revision,
-missing-course, and permanent I/O failures are not.
+Created when file I/O or serialisation fails. A retryability field does not
+authorise desktop to retry a failed durable owner. Settings write failures are
+terminal; user-file effects need their own proven disposition.
+
+### course-storage
+
+Every course-store failure, including a row mismatch, is terminal:
+
+```typescript
+{ type: "course-storage"; message: string }
+```
+
+A missing course on load remains an expected absent result at the store and
+becomes `not-found` at the workflow boundary. A failed course write cannot
+become a settleable conflict or a paused writer.
 
 ### unexpected
 
@@ -107,6 +120,7 @@ Each layer is responsible for creating specific error types:
 | `conflict` | Application-layer handlers |
 | `provider` | Application-layer handlers (normalizing adapter errors) |
 | `persistence` | Application-layer handlers normalizing storage-port failures |
+| `course-storage` | Course adapters and application handlers; terminal on desktop |
 | `unexpected` | Any layer (last resort) |
 
 ## Helper functions
@@ -119,22 +133,24 @@ isAppError(value)                                      // → boolean type guard
 
 ## Error propagation through transports
 
-### Desktop (tRPC)
+### Desktop ordinary calls
 
-Handlers throw `AppError` instances. The tRPC router catches them in `emitFailure()`, which:
+The desktop-owned tRPC adapter receives only gateway-validated input. The router
+preserves expected `AppError` values and wraps unclassified errors as
+`unexpected`. Expected failures emit a `failed` event. Course-storage and
+settings-store failures enter terminal admission before the call retires.
+Invalid senders, envelopes and request stages also enter terminal shutdown.
 
-1. Checks if the error is already an `AppError` (passes through)
-2. Otherwise wraps it as `unexpected`
-3. Emits a `{ type: "failed", error }` event on the subscription
+### Desktop exclusive commands
 
-The renderer client receives the `failed` event and rejects the `run()` promise with the `AppError`.
+`CommandOutcomeError` preserves the effect owner's official outcome. Proven
+refusal, stop and completion can settle through the request port while owners
+remain healthy. Confirmation expiry settles as unknown without a result,
+course transition or settlement reads. The producer warns once and the session
+continues after acknowledgement, host release and renderer retirement. The
+unknown action is never retried. Other uncertainty and durable failures are terminal.
 
 ### CLI (in-process)
 
 Errors bubble directly from the handler to the Commander error handler. No serialization or wrapping
 occurs — the `AppError` is thrown and caught as-is.
-
-### Docs (in-browser)
-
-Same as CLI — errors propagate directly. The React UI catches them and displays appropriate
-feedback.

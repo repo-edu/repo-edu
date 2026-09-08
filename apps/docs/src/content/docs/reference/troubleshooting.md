@@ -37,19 +37,21 @@ pnpm typecheck
 - Verify that `apps/desktop/src/preload.ts` is exposing `repoEduDesktopHost`. If this bridge is
   missing, the renderer cannot communicate with the main process.
 
-### Save indicator shows error
+### Desktop exits after a storage failure
 
-Persistence encountered a problem. Common causes:
+Course and settings storage failures end the session. This includes a course
+revision mismatch, invalid saved data or an unwritable application-data
+directory. The app does not retry the write or restore the failed session.
+Read the reported error and correct its cause while the app is closed before
+launching again. Production menus do not expose renderer reload or developer tools.
 
-- **Revision conflict** — another session saved the same course. Reload the course to get the latest
-  version.
-- **Disk permission error** — the Electron `userData` directory is not writable.
-- **Schema validation failure** — the course data doesn't match the expected schema. This usually
-  indicates a bug — check the developer console for the validation error path.
+### Shutdown could not be confirmed
 
-Retryable save failures are retried automatically with increasing delays. Conflicts stay visible
-until you reload or dismiss the message. If the error persists, check the developer console (View >
-Toggle Developer Tools) for details.
+The app warns when its child-process controller cannot confirm that outside
+work ended. During shutdown it then exits; update installation does not start.
+During a command the outcome is unknown and the session continues. The app
+never retries that unknown action. Some outside work may still run when the
+session continues or the app is launched again.
 
 ### Undo doesn't revert a change
 

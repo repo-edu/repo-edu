@@ -83,9 +83,12 @@ redu course load <course-id>      # Set the active course
 The platform app-data root is `~/Library/Application Support/repo-edu` on macOS,
 `${XDG_CONFIG_HOME:-~/.config}/repo-edu` on Linux, and `%APPDATA%\repo-edu` on Windows.
 
-Both surfaces store settings and courses as JSON files that are validated on every read and write.
-Settings are split into `settings/credentials.json` and `settings/preferences.json`; a corrupt
-section is backed aside independently so the other section can still load.
+Both surfaces use one shared course database. Each row holds one complete
+course. Settings remain in `settings/credentials.json` and
+`settings/preferences.json`. Before desktop startup, an invalid settings
+section is renamed aside and its backup path is shown before defaults load.
+Unreadable settings or a failed backup stop startup. Invalid course data stops
+startup without changing it. The CLI never repairs settings.
 
 The desktop app also keeps the examination archive in the same data directory at
 `examinations/archive.db`. The archive stores generated examination records; analysis and blame
@@ -103,6 +106,7 @@ immediately.
 
 ## Saving
 
-The desktop app persists course and settings changes after a short debounce delay. The save
-indicator shows whether a course write is saving, saved, or blocked by an error. Retryable save
-failures retry automatically; course revision conflicts stay visible until you reload.
+The desktop app coalesces course and settings changes after a short debounce
+delay. Commands and clean close commit eligible pending changes before
+continuing. A course or settings storage failure ends the session. The app does
+not retry the failed write or offer a reload to resolve a revision mismatch.

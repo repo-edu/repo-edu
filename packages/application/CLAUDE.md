@@ -22,10 +22,16 @@ It composes:
 - Save workflow handlers validate payloads at the workflow boundary, write through their host store,
   and never return a full persisted document. `settings.saveCredentials` and
   `settings.savePreferences` return no result; `course.save` returns only `{ revision, updatedAt }`.
-- Host save stores throw typed `PersistenceWriteError` values for write-path storage failures and
-  `CourseSaveConflictError` values for optimistic course-save conflicts. Workflow handlers normalize
-  these to shared `AppError` values, including `retryable` on persistence errors and conflict
-  reasons `"revision-invariant"` / `"course-missing"` for course writes.
+- Course storage failures, including a row mismatch, and settings write failures
+  preserve terminal storage errors for the desktop owner. They cannot become
+  settleable command refusals or paused writers.
+- `src/course-command-transition.ts` owns the complete next course for every
+  course-changing command. It composes immutable input with the official result
+  before durable save. Desktop applies the returned stamp and publishes that
+  same complete course. Effect-only commands bypass this owner.
+- Exclusive effect handlers report proven outcomes through `CommandOutcomeError`.
+  Confirmation expiry remains an explicit unknown outcome without a result;
+  other uncertainty is terminal. No caller infers disposition from an error category.
 - Import/export adapters in `src/adapters/tabular/` use `papaparse` and `xlsx`;
   `src/adapters/repobee-students-parser.ts` handles RepoBee `.txt` format.
 - Course persistence: `src/course-workflows.ts` (`course.list|load|save|delete`) for LMS- and
@@ -84,7 +90,10 @@ It composes:
 
 ## Adding a Workflow
 
-1. Add id/payload types and metadata in `@repo-edu/application-contract`.
+1. Add id/payload types, runtime input schema and metadata in
+   `@repo-edu/application-contract`.
 2. Implement handler in this package.
-3. Wire handler in the relevant desktop router/client and CLI runtime.
+3. Assign the desktop entry and renderer operation classes, then wire the
+   handler through the gateway's ordinary adapter or exclusive request owner.
+   Add CLI wiring when its delivery metadata requires it.
 4. Add tests at workflow and boundary levels.

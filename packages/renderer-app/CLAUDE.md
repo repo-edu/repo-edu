@@ -15,12 +15,18 @@ It consumes:
 ## Architecture
 
 - `src/configure-app.ts`: app wiring and dependency injection
-- `src/contexts/*`: workflow and renderer-host providers. React components use
-  the context hooks. Module getters are reserved for non-component helpers.
+- `src/contexts/*`: session operation gateway and renderer-host providers.
+  The workflow-named hook exposes the gateway, never the raw client. Module
+  getters are reserved for non-component helpers.
 - `src/session/*`: the `SessionController` facade and its private lifecycle,
   settings, surface-transaction, renderer-close registration and
   course-persistence owners. The root session snapshot is canonical for
   preferences, credentials and navigation.
+- `src/session/session-operations.ts`: the only raw workflow-client holder.
+  Reserves complete direct and Query-backed bodies in the existing transaction
+  queue, including callbacks, publication and semantic follow-up.
+- `src/session/session-operation-inventory.ts`: exhaustive workflow and direct
+  action classes. Read-only results that supply command input remain session-changing.
 - `src/stores/*`: Zustand stores for course content and transient or view state:
   `course-store.ts` (with `course-store-selectors.ts`), `connections-store.ts`,
   `analysis-store.ts`, `examination-store.ts`, `operation-store.ts`,
@@ -52,15 +58,20 @@ It consumes:
 
 ## Rules
 
-- Do not import Electron, Node, or tRPC directly into this package.
-- All workflow calls must go through injected `WorkflowClient`; settings/course persistence workflow
-  calls stay inside `src/session/*` or `src/persistence/*`.
-- Components obtain `WorkflowClient` and `RendererHost` through
-  `useWorkflowClient()` and `useRendererHost()`. Do not call their module
-  getters during component render or effects.
+- Do not import Electron, Node or tRPC directly into this package.
+- All feature workflow calls go through `SessionOperationGateway`. Settings
+  and course persistence calls stay inside session and persistence owners.
+- `useWorkflowClient()` returns the operation gateway. Keep result publication
+  inside its reserved body with `scope.publish` and asynchronous follow-up with
+  `scope.follow`. A promise callback after retirement cannot mutate session state.
+- Query fetches and mutations retain their reservation through cache publication
+  and semantic follow-up. React effects are presentation-only.
+- Command reservation freezes every semantic edit and persistence-worker start
+  until retirement. Store actions and native edits obey the same gate; do not
+  add field-specific exceptions, semantic refs or competing state owners.
 - Renderer components invoke semantic course mutations through `SessionController`, not by selecting
-  course-store actions directly. `setAssignmentSelection` is the direct course-store action
-  exception because it is view state.
+  course-store actions directly. View actions also pass the global semantic
+  freeze through the operation owner.
 - Keep store/component behavior deterministic and testable in browser contexts.
 
 ## UI proposals
@@ -80,15 +91,22 @@ It consumes:
   Components select them through `useSessionControllerSelector` and dispatch
   semantic writes through `SessionController`. Transient verification status
   remains in `useConnectionsStore`.
-- `RendererSessionRoot` constructs `SessionController` with the full workflow client, wires the rest
-  of the renderer with a narrowed client, and renders `AppShell` only after controller bootstrap is
-  ready.
+- `RendererSessionRoot` supplies ordinary and exclusive clients to
+  `SessionController`, which gives them to `SessionOperations`. It exposes only
+  the operation gateway to features and renders `AppShell` after bootstrap is ready.
 - `SessionSettings` owns the credentials and preferences worker slots. It
   subscribes them only to committed root snapshots and admits status by active
   slot identity. `SessionPersistence` owns the active course worker.
-- Desktop close disables renderer input before entering attempt-identified
-  `closing`. The injected renderer host owns required close and cancellation
-  registration; browser lifecycle signals do not participate.
+- Desktop close disables input and queues one host-requested preparation body.
+  Its queue turn stops worker starts, settles accepted saves, claims eligible
+  dirty snapshots and applies committed stamps. Ready acknowledgement never
+  restores the session. Browser lifecycle signals do not participate.
+- Commands stop worker starts before intent, prepare persistence after host
+  acceptance and capture immutable input after applying stamps. Authoritative
+  settlement applies before acknowledgement, host release and retirement.
+  Course-changing commands apply the application's complete committed course;
+  features cannot merge their partial results. Confirmation-expiry unknown
+  settles without a result or course transition and never retries the action.
 - `course.save` may return only the host-stamped `{ revision, updatedAt }`; the controller applies
   that stamp to the loaded course when the active worker and course id still match. No save response
   may replace the full renderer document.

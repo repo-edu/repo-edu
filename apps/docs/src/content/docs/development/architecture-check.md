@@ -13,7 +13,7 @@ enforces them and the file you edit to change ownership.
 ## What it checks
 
 `src/main.ts` composes one pass, `runArchitectureCheck`, that returns sorted
-violations. Five concerns feed it.
+violations. The checks cover these concerns.
 
 1. **Area reconciliation** (`area-model.ts`). Loads and validates the committed
    `area-model.json`, then reconciles it against the source inventory. It fails
@@ -37,6 +37,25 @@ violations. Five concerns feed it.
    check shares: tracked `.ts` and `.tsx` files under `apps/*/src`,
    `packages/*/src` and `tools/*/src`, minus build output, `node_modules` and
    vendored notices.
+6. **Desktop entry ownership** (`desktop-entry-checks.ts` and
+   `desktop-lifecycle-checks.ts`). Only the gateway registers renderer IPC.
+   Transport modules use supported tRPC APIs. Fatal entry installs before
+   product loading and cannot start asynchronous shutdown.
+7. **Exact desktop inventories** (`desktop-inventory-checks.ts`). Separate
+   lists cover workflow schemas and classes, direct actions, request-port
+   messages, reducer starts, terminal and fatal sources, same-program starts,
+   menu definitions, native roles and updater messages. The checks inspect
+   declarations and registrations; a missing, extra or differently classified
+   member fails at its list owner.
+8. **Renderer semantic admission** (`renderer-mutation-checks.ts` and
+   `renderer-input-inventory.ts`, alongside bespoke client checks). Features
+   cannot retain the raw workflow client. Semantic store actions, preferences,
+   selection and input routes pass through the session owner. Direct and
+   Query-backed publication remains inside its complete body so it cannot
+   bypass the global command freeze.
+9. **Product process launches** (`product-process-launches.ts`). Every product
+   process entry belongs to a registered lifetime owner, including the Windows
+   launcher and Codex SDK host process.
 
 Because reconciliation and the graph rules read the *same* inventory, the
 boundaries CI enforces match exactly the files that ship.

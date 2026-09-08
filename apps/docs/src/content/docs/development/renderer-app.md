@@ -4,40 +4,61 @@ description: State management, table patterns, undo/redo, and UI conventions in 
 ---
 
 The `@repo-edu/renderer-app` package is the React frontend used by the Electron desktop app. It
-never imports Node, Electron, or transport-specific code. Instead, it receives a `WorkflowClient`
-and a required `RendererHost` at initialization and uses them for all I/O.
+never imports Node, Electron or transport-specific code. Its session owner
+receives ordinary and exclusive clients and a required `RendererHost` at initialisation.
 
 ## Dependency injection
 
-The app requires two dependencies provided by the host environment:
+The host supplies:
 
 - **WorkflowClient** — executes workflows (course load, roster import, repo create, etc.)
-- **RendererHost** — provides UI capabilities like file pickers, directory selection, and opening
-  external URLs
+- **ExclusiveCommandClient** — owns accepted command preparation and settlement
+- **RendererHost** — provides file and directory pickers, native theme and close preparation
 
-These are injected at startup through `RendererSessionRoot()`. The root constructs a
-`SessionController` with the full workflow client, then calls `configureApp()` with a narrowed
-`WorkflowClient<AppWorkflowId>` for the rest of the renderer. React code receives the narrowed
-client through context (`useWorkflowClient()`, `useRendererHost()`), and non-React helpers can use
-the same narrowed module-level getters (`getWorkflowClient()`, `getRendererHost()`).
+`RendererSessionRoot` constructs `SessionController`, which gives the raw
+clients to `SessionOperations`. `configureApp` exposes only its
+`SessionOperationGateway` to features. The workflow-named context hook and
+non-React getter return that gateway. They do not expose the raw client.
 
 ```typescript
-// At desktop renderer mount time
-<RendererSessionRoot workflowClient={workflowClient} rendererHost={rendererHost} />
-
 // In React components
-const client = useWorkflowClient()
-await client.run("course.list", undefined)
-
-// In non-React helpers
-const client = getWorkflowClient()
-await client.run("course.list", undefined)
+const operations = useWorkflowClient()
+await operations.execute("course.list", async (scope) => {
+  const courses = await scope.run("course.list", undefined)
+  scope.publish(() => publishCourses(courses))
+})
 ```
 
 `SessionController` performs the session bootstrap before `AppShell` renders: it loads app
 credentials and preferences, hydrates editable stores, restores the active surface and course,
-creates the controller-owned persister workers, and only then lets the application shell observe
+creates the controller-owned persister workers and only then lets the application shell observe
 ready session state.
+
+## Session operation ownership
+
+`SessionOperations` owns complete direct and Query-backed bodies in the
+existing transaction queue. Host calls, progress/output callbacks, Query cache
+publication and explicit semantic follow-up finish before retirement. Use
+`scope.publish` for publication and `scope.follow` for asynchronous follow-up.
+The example's `publishCourses` is the feature's publication callback and runs
+inside that body. React effects may display results but cannot commit semantic state.
+
+`session-operation-inventory.ts` assigns every workflow and direct action a
+class. Read-only results that supply command input are session-changing too.
+Presentation-only calls cannot commit application state. Architecture checks
+reject raw-client holders and semantic mutation routes outside the owner.
+
+Command reservation freezes all semantic changes and worker starts before
+intent. The freeze lasts through settlement application, acknowledgement, host
+release and renderer retirement. Course edits, settings, navigation, selection
+and semantic changes from native Edit or Services actions obey the same gate.
+Progress and results belonging to the accepted body publish through its scope.
+
+Each course-changing command uses the application's
+`composeCourseCommandTransition`. Main saves the complete next course and sends
+that same value with its host stamp. The session applies it; features cannot
+merge a partial command result into the course. Effect-only commands have no
+course transition.
 
 ## State management with Zustand
 
@@ -52,10 +73,8 @@ snapshot heads, statistics, and blame) lives in React Query rather than a store 
 
 | Store | Responsibility |
 |-------|---------------|
-| `SessionController` | Live session state: bootstrap, active surface/tab/course, course load status, close flush, sync status, and admission for course mutations. |
+| `SessionController` | Canonical preferences and credentials, bootstrap, active surface/tab/course, sync status and semantic admission. |
 | `useCourseStore` | The loaded course document: roster, groups, assignments, metadata, validation state, and undo/redo history. |
-| `useCredentialsStore` | Persisted LMS, Git and LLM connections plus active credential ids. |
-| `useAppSettingsStore` | Persisted preferences: active surface/tab snapshots, appearance, recents, model preferences, and column visibility/sizing. |
 | `useUiStore` | Ephemeral UI state: which dialogs are open, course-list cache, sidebar state. |
 | `useOperationStore` | Repository operation staging and progress tracking. |
 | `useToastStore` | Toast notification queue with auto-dismiss. |
@@ -172,8 +191,9 @@ sort toggle.
 
 ### Column persistence
 
-Column visibility and sizing are persisted to `useAppSettingsStore` so they survive across sessions.
-The preferences persister observes these changes and debounces writes.
+Column visibility and sizing live in the session's canonical preferences.
+Semantic changes pass through the controller. Its preferences worker observes
+committed snapshots and debounces writes.
 
 ### Editable cells
 
@@ -183,15 +203,25 @@ Escape. The committed value flows through `mutateRoster`, which records it in un
 
 ## Persistence
 
-Renderer-owned persistence is centralized in `src/persistence/` and owned by `SessionController`.
-Persister workers subscribe to controller/store snapshots, debounce writes, run save workflows,
-retry retryable errors, expose `flush()` for navigation guards, and report sync status back to the
-controller snapshot.
+Renderer persistence lives in `src/persistence/` under session ownership.
+Workers subscribe to committed snapshots, coalesce saves and report status.
+Command reservation stops worker starts before intent. Accepted preparation
+settles already-started saves through stamp application and claims eligible
+dirty snapshots. Host refusal keeps a snapshot dirty. Course and settings
+storage failures end the host; they do not create paused writers or retry loops.
 
 Save workflows are write-only. `settings.saveCredentials` and `settings.savePreferences` return no
-result; `course.save` returns only the host-stamped `{ revision, updatedAt }`, which the controller
-applies to the current course if the active worker and course id still match. Full persisted
-documents enter renderer memory only through controller-owned load workflows.
+result; `course.save` returns only the host-stamped `{ revision, updatedAt }`.
+The controller applies it only to the current worker and course. Loads hydrate
+documents; exclusive settlement separately applies the complete committed
+course produced by the transition owner.
+
+Clean close arrives on a host-owned port after ordinary calls drain. Its queued
+body stops worker starts at its turn, prepares eligible persistence and
+acknowledges ready. Accepted close never restores interactive admission.
+Confirmation expiry during a command settles as unknown without inventing a
+result or course transition, preserves preparation stamps and retires after
+host release. The action is never retried.
 
 ## Toast notifications
 

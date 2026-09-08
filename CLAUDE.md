@@ -133,17 +133,29 @@ sub-area carry their own `CLAUDE.md` too:
 
 Core flow:
 
-1. `packages/renderer-app` invokes workflows through `WorkflowClient` from
-   `@repo-edu/application-contract`.
-2. `apps/desktop` provides that client over `trpc-electron`; `apps/cli` runs
-   workflows in-process.
+1. `packages/renderer-app` exposes a session operation gateway. Its owner alone
+   holds the raw `WorkflowClient` and orders complete session-changing bodies.
+2. `apps/desktop` validates every renderer entry through one gateway. Ordinary
+   workflows use its desktop-owned tRPC adapter; exclusive commands and clean
+   close use request ports. `apps/cli` runs workflows in-process.
 3. `packages/application` orchestrates use-cases using ports/contracts.
 4. `packages/domain` owns pure semantics and invariants.
 
 ## Critical Rules
 
-- Do not add ad hoc IPC for workflow execution. Desktop workflow calls must go
-  through the typed tRPC router.
+- Do not add ad hoc IPC for workflow execution. Only the desktop entry gateway
+  registers renderer IPC. It validates the current document and complete input
+  before host admission, ordinary tRPC dispatch or request-port execution.
+- The host admission reducer owns command preparation, execution, settlement,
+  close and terminal failure. The renderer session operation owner freezes all
+  semantic changes from command reservation through retirement.
+- `composeCourseCommandTransition` owns the complete next course for each
+  course-changing command. Durable save and renderer application consume that
+  value with its host stamp; features never merge partial command results.
+- One desktop process owns one renderer document. Normal shutdown asks the
+  child-process controller to end owned work; confirmation expiry warns and
+  exits without starting an updater. An uncaught main-process exception logs
+  synchronously and exits immediately. Only process exit releases the program gate.
 - Keep the desktop renderer runtime closure and independently browser-safe roots
   (`renderer-host-contract`, `integrations-llm-contract`,
   `host-runtime-contract`, `test-fixtures`) free of Node built-ins. The
