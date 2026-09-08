@@ -34,13 +34,6 @@ describe("application settings workflow helpers", () => {
         }),
         save: () => undefined,
       },
-      recoverUnsupportedComposite: () => [
-        {
-          unit: "unsupported-composite",
-          reason: "unsupported",
-          backupPath: "/tmp/app-settings.unsupported-1.json",
-        },
-      ],
     })
 
     const loaded = await handlers["settings.loadApp"](undefined)
@@ -48,11 +41,6 @@ describe("application settings workflow helpers", () => {
     assert.equal(loaded.credentials.kind, "repo-edu.app-credentials.v1")
     assert.equal(loaded.preferences.kind, "repo-edu.app-preferences.v1")
     assert.deepStrictEqual(loaded.recovery, [
-      {
-        unit: "unsupported-composite",
-        reason: "unsupported",
-        backupPath: "/tmp/app-settings.unsupported-1.json",
-      },
       {
         unit: "credentials",
         reason: "invalid",
@@ -87,13 +75,6 @@ describe("application settings workflow helpers", () => {
         },
         save: () => undefined,
       },
-      recoverUnsupportedComposite: () => [
-        {
-          unit: "unsupported-composite",
-          reason: "unsupported",
-          backupPath: "/tmp/app-settings.unsupported-1.json",
-        },
-      ],
     })
 
     await assert.rejects(
@@ -102,7 +83,7 @@ describe("application settings workflow helpers", () => {
         assert.ok(error instanceof Error)
         assert.match(
           error.message,
-          /^Preferences disk is unavailable\. Settings recovery already completed: unsupported-composite unsupported: \/tmp\/app-settings\.unsupported-1\.json; credentials invalid: \/tmp\/credentials\.invalid-1\.json\.$/,
+          /^Preferences disk is unavailable\. Settings recovery already completed: credentials invalid: \/tmp\/credentials\.invalid-1\.json\.$/,
         )
         assert.ok(error.cause instanceof Error)
         assert.equal(error.cause.message, "Preferences disk is unavailable.")

@@ -1,5 +1,9 @@
 import { mkdir, rename, stat } from "node:fs/promises"
 import { basename, dirname, extname, join } from "node:path"
+import type {
+  SettingsRecoveryEntry,
+  SettingsRecoveryReason,
+} from "@repo-edu/application-contract"
 import writeFileAtomic from "write-file-atomic"
 import {
   createNodeSettingsSectionReader,
@@ -9,25 +13,10 @@ import {
 } from "./settings-section-reader.js"
 import { createWriteQueue } from "./write-queue.js"
 
-export type NodeSettingsRecoveryUnit =
-  | "credentials"
-  | "preferences"
-  | "unsupported-composite"
-export type NodeSettingsRecoveryReason =
-  | "invalid"
-  | "unparseable"
-  | "unsupported"
-
-export type NodeSettingsRecoveryEntry = {
-  unit: NodeSettingsRecoveryUnit
-  reason: NodeSettingsRecoveryReason
-  backupPath: string
-}
-
 export type NodeSettingsSectionStore<T> = {
   load(signal?: AbortSignal): Promise<{
     value: T | null
-    recovery: NodeSettingsRecoveryEntry[]
+    recovery: SettingsRecoveryEntry[]
   }>
   save(section: T, signal?: AbortSignal): Promise<void>
   readWithoutRecovery(signal?: AbortSignal): Promise<T | null>
@@ -40,7 +29,7 @@ function backupStem(fileName: string): string {
 
 async function renameAside(
   path: string,
-  marker: NodeSettingsRecoveryReason,
+  marker: SettingsRecoveryReason,
   signal?: AbortSignal,
 ): Promise<string> {
   const directory = dirname(path)
@@ -126,24 +115,5 @@ export function createNodeSettingsSectionStore<T>({
       unit,
       validate,
     }),
-  }
-}
-
-export async function recoverUnsupportedCompositeSettingsFile(
-  settingsDirectory: string,
-  signal?: AbortSignal,
-): Promise<NodeSettingsRecoveryEntry[]> {
-  throwIfAborted(signal)
-  const path = join(settingsDirectory, "app-settings.json")
-  try {
-    const backupPath = await renameAside(path, "unsupported", signal)
-    return [
-      { unit: "unsupported-composite", reason: "unsupported", backupPath },
-    ]
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return []
-    }
-    throw error
   }
 }

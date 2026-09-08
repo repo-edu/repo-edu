@@ -1,6 +1,7 @@
 import type {
   AppError,
   AppValidationIssue,
+  SettingsRecoveryEntry,
 } from "@repo-edu/application-contract"
 import { packageId as contractPackageId } from "@repo-edu/application-contract"
 import type {
@@ -32,18 +33,6 @@ export const workspaceDependencies = [
 ] as const
 
 export type { CourseStore } from "./course-store.js"
-
-export type SettingsRecoveryUnit =
-  | "credentials"
-  | "preferences"
-  | "unsupported-composite"
-export type SettingsRecoveryReason = "invalid" | "unparseable" | "unsupported"
-
-export type SettingsRecoveryEntry = {
-  unit: SettingsRecoveryUnit
-  reason: SettingsRecoveryReason
-  backupPath: string
-}
 
 function formatSettingsRecoveryLoadMessage(
   recovery: readonly SettingsRecoveryEntry[],
@@ -87,13 +76,7 @@ export type AppSettingsLoader = {
   preferences: Pick<SectionStore<PersistedAppPreferences>, "load">
 }
 
-export type RecoverableAppSettingsLoader = AppSettingsLoader & {
-  recoverUnsupportedComposite?(
-    signal?: AbortSignal,
-  ): Promise<SettingsRecoveryEntry[]> | SettingsRecoveryEntry[]
-}
-
-export type AppSettingsStore = RecoverableAppSettingsLoader & {
+export type AppSettingsStore = AppSettingsLoader & {
   credentials: SectionStore<PersistedAppCredentials>
   preferences: SectionStore<PersistedAppPreferences>
 }

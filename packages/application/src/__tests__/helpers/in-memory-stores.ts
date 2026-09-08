@@ -81,8 +81,5 @@ export function createInMemoryAppSettingsStore(
         preferences = nextPreferences
       },
     },
-    recoverUnsupportedComposite() {
-      return []
-    },
   }
 }

@@ -78,11 +78,8 @@ import type {
 
 export type CourseSaveStamp = Pick<PersistedCourse, "revision" | "updatedAt">
 
-export type SettingsRecoveryUnit =
-  | "credentials"
-  | "preferences"
-  | "unsupported-composite"
-export type SettingsRecoveryReason = "invalid" | "unparseable" | "unsupported"
+export type SettingsRecoveryUnit = "credentials" | "preferences"
+export type SettingsRecoveryReason = "invalid" | "unparseable"
 
 export type SettingsRecoveryEntry = {
   unit: SettingsRecoveryUnit

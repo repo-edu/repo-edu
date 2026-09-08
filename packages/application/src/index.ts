@@ -6,9 +6,6 @@ export type {
   AppSettingsStore,
   CourseStore,
   SectionStore,
-  SettingsRecoveryEntry,
-  SettingsRecoveryReason,
-  SettingsRecoveryUnit,
   SettingsSectionLoadResult,
 } from "./core.js"
 export { packageId } from "./core.js"

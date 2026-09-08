@@ -1,6 +1,7 @@
 import type {
   AppError,
   AppValidationIssue,
+  SettingsRecoveryEntry,
   UserFileRef,
   VerifyGitDraftInput,
   VerifyLmsDraftInput,
@@ -56,10 +57,7 @@ import type {
 import type { LmsConnectionDraft } from "@repo-edu/integrations-lms-contract"
 import type { TabularRow } from "./adapters/tabular/types.js"
 import { rethrowGitEffectFailure } from "./command-outcomes.js"
-import type {
-  RecoverableAppSettingsLoader,
-  SettingsRecoveryEntry,
-} from "./core.js"
+import type { AppSettingsLoader } from "./core.js"
 import {
   createSettingsRecoveryLoadError,
   createValidationAppError,
@@ -92,18 +90,14 @@ export function validateLoadedCourse(course: PersistedCourse): PersistedCourse {
 }
 
 export async function loadSettingsOrDefault(
-  appSettingsStore: RecoverableAppSettingsLoader,
+  appSettingsStore: AppSettingsLoader,
   signal?: AbortSignal,
 ): Promise<AppSettingsSections & { recovery: SettingsRecoveryEntry[] }> {
   throwIfAborted(signal)
   const recovery: SettingsRecoveryEntry[] = []
-  const unsupportedCompositeRecovery =
-    (await appSettingsStore.recoverUnsupportedComposite?.(signal)) ?? []
-  recovery.push(...unsupportedCompositeRecovery)
-  throwIfAborted(signal)
 
   let storedCredentials: Awaited<
-    ReturnType<RecoverableAppSettingsLoader["credentials"]["load"]>
+    ReturnType<AppSettingsLoader["credentials"]["load"]>
   >
   try {
     storedCredentials = await appSettingsStore.credentials.load(signal)
@@ -114,7 +108,7 @@ export async function loadSettingsOrDefault(
   throwIfAborted(signal)
 
   let storedPreferences: Awaited<
-    ReturnType<RecoverableAppSettingsLoader["preferences"]["load"]>
+    ReturnType<AppSettingsLoader["preferences"]["load"]>
   >
   try {
     storedPreferences = await appSettingsStore.preferences.load(signal)

@@ -158,39 +158,6 @@ describe("createDesktopAppSettingsStore", () => {
     }
   })
 
-  it("backs aside unsupported app settings during recovery-aware load", async () => {
-    const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-desktop-"))
-    try {
-      const settingsDirectory = join(storageRoot, "settings")
-      const store = createDesktopAppSettingsStore(storageRoot)
-      const handlers = createSettingsWorkflowHandlers(store)
-      await mkdir(settingsDirectory, { recursive: true })
-      await writeFile(
-        join(settingsDirectory, "app-settings.json"),
-        '{"kind":"repo-edu.app-settings.v1"}',
-        "utf8",
-      )
-
-      const loaded = await handlers["settings.loadApp"](undefined)
-
-      assert.deepStrictEqual(loaded.credentials, defaultAppCredentials)
-      assert.deepStrictEqual(loaded.preferences, defaultAppPreferences)
-      assert.equal(loaded.recovery.length, 1)
-      assert.equal(loaded.recovery[0]?.unit, "unsupported-composite")
-      assert.equal(loaded.recovery[0]?.reason, "unsupported")
-      assert.match(
-        basename(loaded.recovery[0]?.backupPath ?? ""),
-        /^app-settings\.unsupported-\d+\.json$/,
-      )
-      assert.equal(
-        await pathExists(join(settingsDirectory, "app-settings.json")),
-        false,
-      )
-    } finally {
-      await rm(storageRoot, { recursive: true, force: true })
-    }
-  })
-
   it("preserves cancellation from in-flight credential saves", async () => {
     const storageRoot = await mkdtemp(join(tmpdir(), "repo-edu-desktop-"))
     try {

@@ -11,10 +11,7 @@ import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
 import { describe, it } from "node:test"
 import type { NodeSettingsValidationResult } from "../settings-section-reader.js"
-import {
-  createNodeSettingsSectionStore,
-  recoverUnsupportedCompositeSettingsFile,
-} from "../settings-section-store.js"
+import { createNodeSettingsSectionStore } from "../settings-section-store.js"
 
 type TestSection = {
   kind: "test-section"
@@ -212,33 +209,6 @@ describe("createNodeSettingsSectionStore", () => {
       } finally {
         Date.now = originalNow
       }
-    })
-  })
-})
-
-describe("recoverUnsupportedCompositeSettingsFile", () => {
-  it("backs unsupported app settings aside without parsing them", async () => {
-    await withSettingsDirectory(async (settingsDirectory) => {
-      await writeFile(
-        join(settingsDirectory, "app-settings.json"),
-        '{"unsupported":true}',
-        "utf8",
-      )
-
-      const recovery =
-        await recoverUnsupportedCompositeSettingsFile(settingsDirectory)
-
-      assert.equal(recovery.length, 1)
-      assert.equal(recovery[0]?.unit, "unsupported-composite")
-      assert.equal(recovery[0]?.reason, "unsupported")
-      assert.match(
-        basename(recovery[0]?.backupPath ?? ""),
-        /^app-settings\.unsupported-\d+\.json$/,
-      )
-      assert.equal(
-        await readFile(recovery[0]?.backupPath ?? "", "utf8"),
-        '{"unsupported":true}',
-      )
     })
   })
 })

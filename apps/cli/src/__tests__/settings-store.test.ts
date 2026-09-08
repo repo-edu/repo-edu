@@ -55,7 +55,7 @@ describe("command-line settings loads", () => {
       const files = {
         "credentials.json": JSON.stringify(defaultAppCredentials),
         "preferences.json": JSON.stringify(preferences),
-        "app-settings.json": "unsupported composite",
+        "app-settings.json": "unrelated file",
         ".old.tmp": "unrelated temporary file",
       }
       for (const [name, content] of Object.entries(files)) {

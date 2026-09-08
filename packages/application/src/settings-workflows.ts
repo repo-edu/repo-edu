@@ -14,9 +14,9 @@ import type {
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import {
+  type AppSettingsLoader,
   type AppSettingsStore,
   createValidationAppError,
-  type RecoverableAppSettingsLoader,
 } from "./core.js"
 import {
   isSharedAppError,
@@ -45,7 +45,7 @@ function normalizeSettingsSaveError(error: unknown): AppError {
 }
 
 export function createSettingsLoadWorkflowHandlers(
-  loader: RecoverableAppSettingsLoader,
+  loader: AppSettingsLoader,
 ): WorkflowHandlerMap<"settings.loadApp"> {
   return {
     "settings.loadApp": async (

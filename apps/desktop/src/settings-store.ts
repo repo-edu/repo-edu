@@ -5,10 +5,7 @@ import {
   validatePersistedAppPreferences,
 } from "@repo-edu/domain/schemas"
 import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
-import {
-  createNodeSettingsSectionStore,
-  recoverUnsupportedCompositeSettingsFile,
-} from "@repo-edu/host-node"
+import { createNodeSettingsSectionStore } from "@repo-edu/host-node"
 
 export type DesktopAppSettingsStore = AppSettingsStore & {
   readPreferencesWithoutRecovery(
@@ -71,8 +68,6 @@ export function createDesktopAppSettingsStore(
         }
       },
     },
-    recoverUnsupportedComposite: (signal) =>
-      recoverUnsupportedCompositeSettingsFile(settingsDirectory, signal),
     readPreferencesWithoutRecovery: preferences.readWithoutRecovery,
   }
 }

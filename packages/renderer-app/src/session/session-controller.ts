@@ -1141,14 +1141,12 @@ function normalizeLoadedCourse(course: PersistedCourse): PersistedCourse {
 
 function emitSettingsRecoveryToasts(settings: AppSettingsLoadResult): void {
   for (const entry of settings.recovery) {
-    const label =
-      entry.unit === "unsupported-composite"
-        ? "Unsupported app settings were backed aside"
-        : `${entry.unit} settings were ${entry.reason}`
-    useToastStore.getState().addToast(`${label}: ${entry.backupPath}`, {
-      tone: "warning",
-      durationMs: 10_000,
-    })
+    useToastStore
+      .getState()
+      .addToast(
+        `${entry.unit} settings were ${entry.reason}: ${entry.backupPath}`,
+        { tone: "warning", durationMs: 10_000 },
+      )
   }
 }
 

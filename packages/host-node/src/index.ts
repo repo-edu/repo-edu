@@ -94,16 +94,8 @@ export {
   writeProgramGateArtifactProbeMarker,
 } from "./program-gate.js"
 export { createNodeSettingsSectionReader } from "./settings-section-reader.js"
-export type {
-  NodeSettingsRecoveryEntry,
-  NodeSettingsRecoveryReason,
-  NodeSettingsRecoveryUnit,
-  NodeSettingsSectionStore,
-} from "./settings-section-store.js"
-export {
-  createNodeSettingsSectionStore,
-  recoverUnsupportedCompositeSettingsFile,
-} from "./settings-section-store.js"
+export type { NodeSettingsSectionStore } from "./settings-section-store.js"
+export { createNodeSettingsSectionStore } from "./settings-section-store.js"
 export {
   isStorageArtifactProbe,
   runStorageArtifactProbe,

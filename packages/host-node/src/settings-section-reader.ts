@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+
 export type NodeSettingsValidationResult<T> =
   | { ok: true; value: T }
   | { ok: false; issues: { path: string; message: string }[] }
