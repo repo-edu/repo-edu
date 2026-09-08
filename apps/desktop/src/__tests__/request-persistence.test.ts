@@ -170,44 +170,49 @@ function admitted(close = false) {
   return { admission, request, effects }
 }
 
-for (const unit of ["credentials", "preferences", "course"] as const) {
-  for (const boundary of ["before", "after"] as const) {
-    it(`terminates ${boundary} the ${unit} commit without publishing partial success`, async () => {
-      const h = admitted()
-      const writes: string[] = []
-      const error = new Error(`${unit} ${boundary}`)
-      const write = async (name: string) => {
-        if (name === unit && boundary === "before") throw error
-        writes.push(name)
-        if (name === unit && boundary === "after") throw error
-      }
-      let published = false
-      await commitRequestPersistence({
-        ...h,
-        bundle,
-        handlers: {
-          "settings.saveCredentials": () => write("credentials"),
-          "settings.savePreferences": () => write("preferences"),
-          "course.save": async () => {
-            await write("course")
-            return stamp
+for (const close of [false, true]) {
+  for (const unit of ["credentials", "preferences", "course"] as const) {
+    for (const boundary of ["before", "after"] as const) {
+      it(`terminates ${close ? "close" : "command"} ${boundary} the ${unit} commit without publishing partial success`, async () => {
+        const h = admitted(close)
+        const writes: string[] = []
+        const error = new Error(`${unit} ${boundary}`)
+        const write = async (name: string) => {
+          if (name === unit && boundary === "before") throw error
+          writes.push(name)
+          if (name === unit && boundary === "after") throw error
+        }
+        let published = false
+        await commitRequestPersistence({
+          ...h,
+          bundle,
+          handlers: {
+            "settings.saveCredentials": () => write("credentials"),
+            "settings.savePreferences": () => write("preferences"),
+            "course.save": async () => {
+              await write("course")
+              return stamp
+            },
           },
-        },
-        transport: {
-          persistenceCommitted() {
-            published = true
+          transport: {
+            persistenceCommitted() {
+              published = true
+            },
           },
-        },
+        })
+        assert.equal(h.admission.getSnapshot().phase, "terminal")
+        assert.equal(published, false)
+        assert.equal(
+          h.effects.filter((value) => value === "end-host").length,
+          1,
+        )
+        const order = ["credentials", "preferences", "course"]
+        assert.deepEqual(
+          writes,
+          order.slice(0, order.indexOf(unit) + (boundary === "after" ? 1 : 0)),
+        )
       })
-      assert.equal(h.admission.getSnapshot().phase, "terminal")
-      assert.equal(published, false)
-      assert.equal(h.effects.filter((value) => value === "end-host").length, 1)
-      const order = ["credentials", "preferences", "course"]
-      assert.deepEqual(
-        writes,
-        order.slice(0, order.indexOf(unit) + (boundary === "after" ? 1 : 0)),
-      )
-    })
+    }
   }
 }
 

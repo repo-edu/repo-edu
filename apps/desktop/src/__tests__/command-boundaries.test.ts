@@ -17,7 +17,9 @@ import { requestChannel, until } from "./request-port-harness"
 
 const input = workflowInputs["userFile.exportPreview"]
 
-function harness(options: { storageFailure?: boolean } = {}) {
+function harness(
+  options: { storageFailure?: boolean; lateEvent?: "progress" | "output" } = {},
+) {
   const channel = requestChannel()
   let starts = 0
   let endings = 0
@@ -35,7 +37,10 @@ function harness(options: { storageFailure?: boolean } = {}) {
     },
     "userFile.exportPreview": async (_input, callbacks) => {
       starts++
-      late = () => callbacks?.onOutput?.({ channel: "info", message: "late" })
+      late = () =>
+        options.lateEvent === "progress"
+          ? callbacks?.onProgress?.({ step: 1, totalSteps: 1, label: "Late" })
+          : callbacks?.onOutput?.({ channel: "info", message: "late" })
       return {
         workflowId: "userFile.exportPreview",
         displayName: "preview.txt",
@@ -127,29 +132,33 @@ it("retires busy admission before persistence or input capture", {
   }
 })
 
-it("rejects output from a handler after the official result is fixed", {
-  timeout: 3000,
-}, async () => {
-  const h = harness()
-  try {
-    const running = h.client.runBody(
-      "userFile.exportPreview",
-      async (commit) => {
-        await commit({})
-      },
-      (client) => client.run("userFile.exportPreview", () => input),
-      async () => {},
-    )
-    const failed = assert.rejects(running)
-    await until(() => h.admission.getSnapshot().phase === "executing.settling")
-    h.late()
-    await failed
-    assert.equal(h.admission.getSnapshot().phase, "terminal")
-    assert.equal(h.endings(), 1)
-  } finally {
-    h.dispose()
-  }
-})
+for (const lateEvent of ["progress", "output"] as const) {
+  it(`rejects ${lateEvent} from a handler after the official result is fixed`, {
+    timeout: 3000,
+  }, async () => {
+    const h = harness({ lateEvent })
+    try {
+      const running = h.client.runBody(
+        "userFile.exportPreview",
+        async (commit) => {
+          await commit({})
+        },
+        (client) => client.run("userFile.exportPreview", () => input),
+        async () => {},
+      )
+      const failed = assert.rejects(running)
+      await until(
+        () => h.admission.getSnapshot().phase === "executing.settling",
+      )
+      h.late()
+      await failed
+      assert.equal(h.admission.getSnapshot().phase, "terminal")
+      assert.equal(h.endings(), 1)
+    } finally {
+      h.dispose()
+    }
+  })
+}
 
 it("terminates malformed immutable input before the handler starts", {
   timeout: 3000,

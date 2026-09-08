@@ -5,12 +5,14 @@ import {
   type ExclusiveRequestOperation,
   type WorkflowHandlerMap,
 } from "@repo-edu/application-contract"
+import { makeCourse } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
 import { HostAdmission } from "../host-admission"
 import { executeHostCommand } from "../host-command-execution"
 import { createHostRequestTransport } from "../host-request-transport"
 import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
 import { commitRequestPersistence } from "../request-persistence"
+import type { RequestPersistenceBundle } from "../request-port-wire"
 import { requestChannel, until } from "./request-port-harness"
 
 const file = {
@@ -96,6 +98,7 @@ function harness(overrides: Partial<WorkflowHandlerMap> = {}) {
         signal?: AbortSignal
         publish?: () => Promise<void>
         prepare?: () => Promise<void>
+        bundle?: RequestPersistenceBundle
         output?: () => void
       } = {},
     ) {
@@ -104,7 +107,7 @@ function harness(overrides: Partial<WorkflowHandlerMap> = {}) {
           "examination.archive.import",
           async (commit) => {
             await options.prepare?.()
-            await commit({})
+            await commit(options.bundle ?? {})
             order.push("stamps")
           },
           async (body) =>
@@ -303,6 +306,51 @@ it("finishes preparation stamps and prevents input capture when cancelled during
   }
 })
 
+it("finishes an accepted durable write before settling preparation cancellation", {
+  timeout: 5000,
+}, async () => {
+  const commit = Promise.withResolvers<void>()
+  const writing = Promise.withResolvers<void>()
+  let writes = 0
+  const h = harness({
+    "course.save": async () => {
+      writing.resolve()
+      await commit.promise
+      writes += 1
+      return { revision: 1, updatedAt: "2026-09-08T12:00:00.000Z" }
+    },
+  })
+  const abort = new AbortController()
+  try {
+    const running = h.run({
+      signal: abort.signal,
+      bundle: { course: makeCourse("course") },
+    })
+    const rejected = assert.rejects(running)
+    await writing.promise
+    abort.abort()
+    await until(() => {
+      const state = h.admission.getSnapshot()
+      return state.phase === "preparing" && state.cancellationAccepted
+    })
+    assert.deepEqual(h.order, [])
+    assert.equal(writes, 0)
+    commit.resolve()
+    await rejected
+    assert.equal(writes, 1)
+    assert.deepEqual(h.order, [
+      "stamps",
+      "settle",
+      "acknowledge",
+      "release",
+      "retire",
+    ])
+    assert.equal(h.admission.getSnapshot().phase, "interactive")
+  } finally {
+    h.dispose()
+  }
+})
+
 for (const failure of [
   new CommandOutcomeError({
     disposition: "uncertain",
@@ -358,3 +406,34 @@ it("enters terminal when a declared settlement read fails after durable completi
     h.dispose()
   }
 })
+
+for (const boundary of ["before", "after"] as const) {
+  it(`terminates ${boundary} the archive commit without reading or publishing settlement`, {
+    timeout: 5000,
+  }, async () => {
+    const committed: (typeof result)[] = []
+    let starts = 0
+    const h = harness({
+      "examination.archive.import": async () => {
+        starts += 1
+        if (boundary === "after") committed.push(result)
+        throw {
+          type: "examination-archive-storage",
+          message: `Archive write failed ${boundary} commit.`,
+        }
+      },
+    })
+    try {
+      void h.run()
+      await until(() => h.admission.getSnapshot().phase === "terminal")
+      assert.deepEqual(committed, boundary === "after" ? [result] : [])
+      assert.equal(starts, 1)
+      assert.deepEqual(h.order, ["stamps"])
+      assert.throws(() =>
+        h.admission.startWorkflow("course.list", { cancel() {} }),
+      )
+    } finally {
+      h.dispose()
+    }
+  })
+}

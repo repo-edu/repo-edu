@@ -27,6 +27,7 @@ import { createPreloadRequestTransport } from "../preload-request-transport"
 import { createRendererCommandClient } from "../renderer-command-client"
 import { commandPayloadSchemas } from "../request-command-schemas"
 import { commitRequestPersistence } from "../request-persistence"
+import { assertCommandFreeze } from "./command-freeze-assertions"
 import { requestChannel, until } from "./request-port-harness"
 
 const file = {
@@ -293,6 +294,7 @@ for (const command of commands) {
         return saved !== undefined
       })
       assert.equal(admission.getSnapshot().phase, "executing.settling")
+      await assertCommandFreeze(controller)
       assert.deepEqual(useCourseStore.getState().course, before)
       assert.deepEqual(captured, before)
       assert.equal(release, undefined)
@@ -303,6 +305,7 @@ for (const command of commands) {
       )
       assert.deepEqual(useCourseStore.getState().course, saved)
       const applied = useCourseStore.getState().course!
+      await assertCommandFreeze(controller)
       if (command.startsWith("repo.")) {
         const assignment = applied.roster.assignments[0]!
         assert.equal(
@@ -329,6 +332,7 @@ for (const command of commands) {
       assert.equal(release, undefined)
       publication.resolve()
       await until(() => release !== undefined)
+      await assertCommandFreeze(controller)
       assert.equal(
         controller.operations.change(() => {}),
         false,
@@ -368,54 +372,62 @@ it("refuses a partial course settlement on the wire", () => {
   )
 })
 
-it("makes a failed course commit terminal without publishing a command result", async () => {
-  const admission = new HostAdmission(() => {})
-  const request = { cancel() {} }
-  admission.dispatch({ type: "bootstrap-acknowledged" })
-  admission.dispatch({
-    type: "exclusive-intent",
-    command: "gitUsernames.import",
-    request,
+for (const boundary of ["before", "after"] as const) {
+  it(`makes failure ${boundary} the course result commit terminal without publishing a command result`, async () => {
+    const admission = new HostAdmission(() => {})
+    const request = { cancel() {} }
+    admission.dispatch({ type: "bootstrap-acknowledged" })
+    admission.dispatch({
+      type: "exclusive-intent",
+      command: "gitUsernames.import",
+      request,
+    })
+    admission.dispatch({ type: "preparation-committed", request })
+    let writes = 0
+    let committed: PersistedCourse | undefined
+    let settlements = 0
+    await executeHostCommand({
+      admission,
+      request,
+      signal: new AbortController().signal,
+      operation: {
+        workflowId: "gitUsernames.import",
+        input: {
+          course: makeCourse("course"),
+          credentials: makeSettings().credentials,
+          file,
+        },
+        settlementInput: undefined,
+      },
+      handlers: {
+        "gitUsernames.import": async ({ course }) => course.roster,
+        "course.save": async (value) => {
+          writes += 1
+          if (boundary === "after") committed = structuredClone(value)
+          throw {
+            type: "course-storage",
+            reason: "storage-failure",
+            message: "Row mismatch",
+          }
+        },
+      } as WorkflowHandlerMap,
+      transport: {
+        progress() {},
+        output() {},
+        settlement() {
+          settlements += 1
+        },
+      },
+    })
+    assert.equal(writes, 1)
+    assert.deepEqual(
+      committed,
+      boundary === "after" ? makeCourse("course") : undefined,
+    )
+    assert.equal(settlements, 0)
+    assert.equal(admission.getSnapshot().phase, "terminal")
   })
-  admission.dispatch({ type: "preparation-committed", request })
-  let writes = 0
-  let settlements = 0
-  await executeHostCommand({
-    admission,
-    request,
-    signal: new AbortController().signal,
-    operation: {
-      workflowId: "gitUsernames.import",
-      input: {
-        course: makeCourse("course"),
-        credentials: makeSettings().credentials,
-        file,
-      },
-      settlementInput: undefined,
-    },
-    handlers: {
-      "gitUsernames.import": async ({ course }) => course.roster,
-      "course.save": async () => {
-        writes += 1
-        throw {
-          type: "course-storage",
-          reason: "storage-failure",
-          message: "Row mismatch",
-        }
-      },
-    } as WorkflowHandlerMap,
-    transport: {
-      progress() {},
-      output() {},
-      settlement() {
-        settlements += 1
-      },
-    },
-  })
-  assert.equal(writes, 1)
-  assert.equal(settlements, 0)
-  assert.equal(admission.getSnapshot().phase, "terminal")
-})
+}
 
 for (const disposition of ["stopped", "failed"] as const) {
   it(`persists the official course result of a known ${disposition} outcome`, async () => {
