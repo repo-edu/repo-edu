@@ -38,41 +38,46 @@ succeeded with a timestamp, or an error if the credentials are invalid or the LM
 
 ## Importing the student roster
 
-In the desktop app, open your course and navigate to the LMS import panel. The import workflow:
+In the desktop app, open **Sync Roster from LMS** for your course:
 
-1. Fetches all enrolled users from the LMS course (students, TAs, instructors).
-2. Matches them against existing roster members by LMS user ID, then email/student number.
-3. Merges new and updated members into the roster, preserving any local edits you've made.
-4. Reports a summary: members added, updated, unchanged, and any that were skipped because they lack
-   an email address.
+1. Choose the LMS connection and click **Preview** to fetch students and staff.
+2. Review the counts of added, updated and unchanged members. Use **View Conflict Details**
+   when identity matches are unclear; those entries stay unchanged.
+3. Click **Apply Sync** to accept the preview. The roster and its fetch date become part of
+   the course together and are saved automatically.
 
-If the LMS returns users that match multiple existing members (e.g., a shared email), these are
-reported as **import conflicts** that you can resolve in the GUI.
+The preview leaves the live roster unchanged. Applying it also updates the system group sets
+(Individual Students and Staff) to reflect the accepted roster membership.
 
-After import, the system group sets (Individual Students and Staff) are automatically updated to
-reflect the new roster membership.
+For every LMS preview, editing or reloading the course before apply makes the preview stale.
+Apply then refuses the old preview. Click **Refresh Preview**, review it again and apply it.
+The saved date is the time the data was fetched, not the later time you clicked Apply.
 
 ## Importing group sets
 
-LMS platforms organize students into group sets (Canvas) or groupings (Moodle) for team-based work.
+LMS platforms organise students into group sets (Canvas) or groupings (Moodle) for team-based work.
 repo-edu can import these as local group sets:
 
 ### Discovering available group sets
 
-Use **Fetch from LMS** in the desktop GUI to see which group sets exist in the LMS course. This
-returns each group set's name, group count, and member count so you can decide which ones to import.
+Open **Add Connected Group Set** in the desktop app. The **LMS Group Set** list shows available
+group sets that are not already connected to this course. Selecting one does not change the course.
 
 ### Connecting a group set
 
-Select a group set to connect it. This creates a local group set linked to the LMS source, imports
-all groups and member assignments, and matches members to your roster by LMS user identity. Members
-in the LMS group who aren't in your roster are reported as missing.
+Select an LMS group set, then click **Preview**. Review the group names and matched member counts.
+Only members found in the course roster are included.
+
+Click **Apply** to create the connected group set with the reviewed groups and memberships.
+Its fetch date is accepted in the same course change. Cancelling discards the preview.
 
 ### Syncing an existing group set
 
-After the initial connection, use **Sync from LMS** to refresh membership. This fetches the latest
-data from the LMS and updates your local groups — adding new members, removing dropped ones, and
-reflecting any group reassignments made in the LMS.
+Open **Sync Group Set from LMS** for the connected group set and click **Preview** to fetch its
+latest data. Review the groups and matched member counts before clicking **Apply**.
+
+Apply replaces the group set's membership with the preview and records the new fetch date.
+Fetching or cancelling a preview leaves the saved groups and their previous fetch date unchanged.
 
 ## Importing from CSV files
 
