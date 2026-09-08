@@ -165,6 +165,44 @@ it("a thrown real installer uses the fatal handler", async () => {
   ])
 })
 
+it("keeps the entry pending through asynchronous product loading and synchronous installation", async () => {
+  const result = await runDesktopEntry({
+    product: `
+      if (process.listenerCount("uncaughtException") !== 1) throw new Error("handler missing")
+      trace("product-load-started")
+      await new Promise(resolve => setImmediate(resolve))
+      trace("product-load-finished")
+      export function installDesktopApplication() { trace("pre-ready-installed") }
+    `,
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.deepEqual(result.events, [
+    "product-load-started",
+    "product-load-finished",
+    "pre-ready-installed",
+    "entry-settled",
+    "process-exit:0",
+  ])
+})
+
+it("a rejected asynchronous product load exits before queued recovery work can run", async () => {
+  const result = await runDesktopEntry({
+    product: `
+      if (process.listenerCount("uncaughtException") !== 1) throw new Error("handler missing")
+      await new Promise(resolve => setImmediate(resolve))
+      setImmediate(() => trace("unexpected-async-cleanup"))
+      throw new Error("delayed product failure")
+      export function installDesktopApplication() { trace("unexpected-installer") }
+    `,
+  })
+  assert.equal(result.status, 1)
+  assert.match(
+    result.stderr,
+    /\[desktop\] fatal Error: delayed product failure/,
+  )
+  assert.deepEqual(result.events, ["process-exit:1"])
+})
+
 it("development and packaged metadata both enter through the fatal bootstrap", async () => {
   const root = new URL("../", import.meta.url)
   const manifest = JSON.parse(
