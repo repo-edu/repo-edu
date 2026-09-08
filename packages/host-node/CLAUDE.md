@@ -53,10 +53,18 @@ its port interface.
 - `createExaminationArchiveStorage(...)` and `openExaminationArchiveDatabase(...)`
   (`src/examination-archive/`): SQLite-backed `ExaminationArchiveStoragePort`. Helpers in
   `src/sqlite/transaction.ts` wrap statements in transactions.
-- File-write helpers `createWriteQueue()`, `writeTextFileAtomic(...)`, and
-  `cleanupAtomicTempFiles(...)` for atomic JSON/text persistence used by desktop and CLI stores.
-- Settings section-store helpers validate strict JSON sections, write atomically, and back invalid,
-  unparseable or unsupported composite settings files aside for recovery-aware loads.
+- `createCourseStore(root)` owns complete course rows in `courses.sqlite`.
+  Each action opens a runtime SQLite connection, takes one zero-wait exclusive
+  transaction, checks the schema, commits and closes. Every failure is terminal.
+- `createNodeSettingsSectionStore(...)` publishes two-space JSON with a final
+  newline through `write-file-atomic`. The desktop alone uses publication and
+  rename-aside recovery. `createNodeSettingsSectionReader(...)` gives the CLI
+  pure reads without repair or writes.
+- `createNodeWindowStateStore(root)` loads default geometry for missing,
+  unreadable or invalid data. Its best-effort atomic replacement disables sync.
+- `createWriteQueue()` orders desktop settings mutations and window-state writes.
+- `storage-artifact-probe.ts` runs one course transaction in the shipped host.
+  Electron also supplies its settings publisher; Bun supplies no settings writer.
 
 ## Rules
 

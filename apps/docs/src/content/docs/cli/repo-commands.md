@@ -30,7 +30,7 @@ Options:
 | `--dry-run` | Show what would be created without making changes |
 | `--template-path <dir>` | Override the configured template with a local directory |
 
-Use the global `--course <id>` option to choose a course other than the active course.
+The global `--course <id>` option is required for this command.
 
 ### Dry-run example
 
@@ -48,7 +48,7 @@ Planned repository operation for assignment 'Project 1' (a1) in course 'seed-cou
 ### Summary output
 
 On a successful run, `repo create` prints three mutually exclusive counters and a line indicating
-how many recorded names were staged in the course JSON:
+how many repository names were recorded in the course database:
 
 ```text
 Repository create complete: planned=3 created=2 adopted=1 failed=0 completedAt=2026-04-15T10:00:00Z
@@ -82,19 +82,19 @@ Options:
 | `--target <dir>` | Local directory for cloned repos (defaults to current directory). Relative paths are resolved against the current working directory. |
 | `--layout <layout>` | Directory organization: `flat`, `by-team`, or `by-task` |
 
-Use the global `--course <id>` option to choose a course other than the active course.
+The global `--course <id>` option is required for this command.
 
 ### Layout examples
 
 ```bash
 # Flat: all repos in one directory
-redu repo clone --assignment "Project 1" --target ./repos --layout flat
+redu repo clone --assignment "Project 1" --target ./repos --layout flat --course seed-course
 
 # By team: repos/Team Alpha/project-1/
-redu repo clone --assignment "Project 1" --target ./repos --layout by-team
+redu repo clone --assignment "Project 1" --target ./repos --layout by-team --course seed-course
 
 # By task: repos/Project 1/team-alpha/
-redu repo clone --all --target ./repos --layout by-task
+redu repo clone --all --target ./repos --layout by-task --course seed-course
 ```
 
 ## `redu repo update`
@@ -112,7 +112,7 @@ Options:
 | `--assignment <name>` | Assignment name (required) |
 | `--template-path <dir>` | Override the configured template with a local directory |
 
-Use the global `--course <id>` option to choose a course other than the active course.
+The global `--course <id>` option is required for this command.
 
 Repositories that already have a pending update PR are skipped.
 

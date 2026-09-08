@@ -23,14 +23,14 @@ Run the CLI in Node development with
 - `src/workflow-runtime.ts`: builds the in-process `WorkflowClient` from
   `@repo-edu/application` and routes Git through the host's child-process
   lifetime controller
-- `src/state-store.ts`: filesystem-backed course store plus settings credentials/preferences section
-  stores
+- `src/state-store.ts`: shared `courses.sqlite` adapter and read-only credentials
+  and preferences loaders.
 
 All business rules must remain in shared packages (`@repo-edu/domain`, `@repo-edu/application`).
 
 ## Command Surface
 
-- `course list|active|show|load`
+- `course list|active|show`
 - `lms verify`
 - `git verify`
 - `repo create|clone|update|discover`
@@ -61,9 +61,16 @@ warning and continues exiting. The artifact probe runs this order in Node
 development and the shipped Bun binary. The command-line program never starts
 the Codex SDK host process.
 
-Settings are stored under `settings/credentials.json` and
-`settings/preferences.json`. CLI commands print recovery warnings when a corrupt
-or unsupported composite settings file is backed aside.
+Courses live as complete rows in `courses.sqlite`. Course-scoped commands
+require `--course <id>` for each invocation. `course active` and the marker in
+`course list` only report the desktop's persisted selection.
+
+Settings are read from `settings/credentials.json` and
+`settings/preferences.json`. The CLI never writes or recovers settings.
+Invalid settings fail without changing files.
+
+The program-gate artifact validator also runs one course transaction through
+the compiled Bun adapter and checks that settings remain untouched.
 
 ## Rules
 

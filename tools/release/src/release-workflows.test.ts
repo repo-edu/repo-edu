@@ -276,6 +276,27 @@ describe("release workflow wiring", () => {
     )
   })
 
+  it("the shared artifact gate runs storage smoke checks for both shipped hosts", async () => {
+    const validator = await readFile(
+      join(repoRoot, "scripts/validate-program-gate-artifact.mjs"),
+      "utf8",
+    )
+    assert.match(
+      validator,
+      /validateStorageArtifact\(options.desktop, "desktop"\)/,
+    )
+    assert.match(validator, /validateStorageArtifact\(options.cli, "cli"\)/)
+    for (const file of [
+      ".github/workflows/macos-arm64-release.yml",
+      ".github/workflows/linux-arm64-release.yml",
+      ".github/workflows/linux-x64-release.yml",
+    ]) {
+      const workflow = await readFile(join(repoRoot, file), "utf8")
+      assert.match(workflow, /bun-version: 1\.4\.2/)
+      assert.match(workflow, /validate-program-gate-artifact\.mjs --cli/)
+    }
+  })
+
   it("installer scripts download and install CLI notice sidecars", async () => {
     const shellInstaller = await readFile(
       join(repoRoot, "scripts/install-cli.sh"),

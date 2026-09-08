@@ -16,8 +16,8 @@ App settings are shared across all courses and include:
   access token). Each connection has a unique ID.
 - **LLM connections** — Claude or Codex connections used by the Examination view. Claude API-key
   connections also store a required maximum output-token cap.
-- **Active surface** — whether the UI is on home, a course, a folder-analysis surface, or a
-  submission-analysis surface. The CLI uses the active course when one is selected.
+- **Active surface** — whether the UI is on home, a course, a folder-analysis surface or a
+  submission-analysis surface. CLI course commands require an explicit course ID.
 - **Appearance** — theme (system/light/dark), window chrome style, date format (MDY/DMY), time
   format (12h/24h), and source-code highlighting theme.
 - **Table layout** — column visibility and sizing for roster and group tables, persisted across
@@ -59,18 +59,16 @@ Courses are created in the desktop app. The course document is validated on ever
 data (missing required fields, schema mismatches) is rejected with specific error messages pointing
 to the problem fields.
 
-Each course tracks a revision number that increments on every save. If two sessions (e.g., the
-desktop app and CLI) try to save the same course simultaneously, the second save is rejected to
-prevent silent data loss. Reload the course to pick up the latest version before making further
-changes.
+Each course tracks a revision number that increments on every save. The desktop and CLI never
+run at the same time: a second program refuses to start. A save with an unexpected revision is
+a terminal storage failure and is not retried.
 
 ### Course commands (CLI)
 
 ```bash
-redu course list                  # List all courses with active marker
-redu course active                # Show the active course ID
-redu course show                  # Output the active course as JSON
-redu course load <course-id>      # Set the active course
+redu course list                       # List courses with the desktop selection marked
+redu course active                     # Show the desktop's persisted course selection
+redu course show --course <course-id>   # Output the selected course as JSON
 ```
 
 ## Storage locations
@@ -83,12 +81,16 @@ redu course load <course-id>      # Set the active course
 The platform app-data root is `~/Library/Application Support/repo-edu` on macOS,
 `${XDG_CONFIG_HOME:-~/.config}/repo-edu` on Linux, and `%APPDATA%\repo-edu` on Windows.
 
-Both surfaces use one shared course database. Each row holds one complete
+Both surfaces use one shared course database, `courses.sqlite`. Each row holds one complete
 course. Settings remain in `settings/credentials.json` and
 `settings/preferences.json`. Before desktop startup, an invalid settings
 section is renamed aside and its backup path is shown before defaults load.
 Unreadable settings or a failed backup stop startup. Invalid course data stops
 startup without changing it. The CLI never repairs settings.
+
+Settings may be edited by hand while the app is closed. Desktop saves replace
+each JSON file atomically. Window geometry lives separately in `settings/window-state.json`;
+it is best-effort and may return to defaults after a failed write.
 
 The desktop app also keeps the examination archive in the same data directory at
 `examinations/archive.db`. The archive stores generated examination records; analysis and blame

@@ -3,10 +3,9 @@ title: Repository Records
 description: Design of Assignment.repositories, the split between plan inputs and operation artifacts, and how RepoBee validates the direction
 ---
 
-Repository records are the operation artifacts that Create, Clone, and Update produce and consume.
-They live on the `Assignment` type as `repositories: Record<groupId, repoName>` and are persisted
-inside `courses/<id>.json`. This page captures the reasoning behind the design and the options that
-were rejected.
+Repository records are the operation artifacts that Create, Clone and Update produce and consume.
+They live on the `Assignment` type as `repositories: Record<groupId, repoName>` in the complete
+course row in `courses.sqlite`. This page records the design decisions.
 
 ## The split: plan inputs vs operation artifacts
 
@@ -129,10 +128,9 @@ current workflow needs them.
   whose `groupId` is no longer in the assignment's group set are dropped. This is per-run, not
   continuous: a deleted group's orphan record lingers until the next successful Create/Clone/Update,
   but has no behavioral effect in the meantime.
-- **No rename propagation.** If a server repository is renamed out-of-band, the record goes stale
-  and Clone/Update will fail. Restoring correctness requires editing `repositories[groupId]` in the
-  course JSON or re-running Clone after fixing the naming template. Acceptable because no in-app
-  workflow renames server repos.
+- **No rename propagation.** If a server repository is renamed outside the app, its recorded name
+  becomes stale and Clone/Update will fail. Restore the server name to match the record. Course
+  storage is not hand-editable.
 
 ## Result-shape semantics
 

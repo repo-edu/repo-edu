@@ -116,6 +116,6 @@ For updates to an existing group set, use import with a target group set:
 Imported rosters and group sets are saved to the course document automatically. You can then:
 
 - Review and edit members in the roster table
-- Validate the roster with `redu validate --assignment <name>`
+- Validate the roster with `redu validate --assignment <name> --course <course-id>`
 - Proceed to [Repository Setup](/repo-edu/user-guide/repository-setup/) for creating assignment
   repositories

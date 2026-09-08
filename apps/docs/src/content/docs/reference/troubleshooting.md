@@ -61,13 +61,13 @@ immediately and cannot be undone.
 
 ## CLI
 
-### `redu` reports no active course
+### `redu` requires a course ID
 
-Set an active course before running commands that require one:
+Pass the course ID on each command that operates on a course:
 
 ```bash
 redu course list
-redu course load <course-id>
+redu course show --course <course-id>
 ```
 
 ### CLI data directory location

@@ -1,14 +1,14 @@
 ---
 title: Course Commands
-description: Browse, select, and inspect courses
+description: Browse and inspect courses
 ---
 
-Course commands let you see which courses are available, select one as active, and inspect its data.
+Course commands list available courses and inspect the course selected for one invocation.
 
 ## `redu course list`
 
-Lists all courses with their ID, display name, and last-updated timestamp. The active course is
-marked with `*`.
+Lists courses with their ID, display name and last-updated timestamp. The desktop's persisted
+course selection is marked with `*`. This command does not change that selection.
 
 ```bash
 redu course list
@@ -21,8 +21,8 @@ redu course list
 
 ## `redu course active`
 
-Prints the active course ID. Useful in scripts to check which course subsequent commands will
-operate on.
+Prints the desktop's persisted course selection. This does not select a course for subsequent
+commands. Both `course active` and `course list` ignore `--course`.
 
 ```bash
 redu course active
@@ -34,25 +34,15 @@ seed-course
 
 ## `redu course show`
 
-Outputs the full active course document as JSON. Use this to inspect roster data, group sets,
-assignments, and configuration without opening the desktop app.
+Outputs the course selected by the required `--course <id>` option as JSON. Use this to inspect
+roster data, group sets, assignments and configuration while the desktop app is closed.
 
 ```bash
-redu course show
 redu course show --course demo-course
 ```
 
 Pipe the output to `jq` for filtering:
 
 ```bash
-redu course show | jq '.roster.students | length'
-```
-
-## `redu course load <course-id>`
-
-Sets the active course. All subsequent commands that require a course (validation, repository
-operations, connection checks) will use this course unless overridden with `--course`.
-
-```bash
-redu course load seed-course
+redu course show --course demo-course | jq '.roster.students | length'
 ```

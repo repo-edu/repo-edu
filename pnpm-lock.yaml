@@ -693,6 +693,9 @@ importers:
 
   tools/dev-fixture:
     dependencies:
+      '@repo-edu/host-node':
+        specifier: workspace:*
+        version: link:../../packages/host-node
       '@repo-edu/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures

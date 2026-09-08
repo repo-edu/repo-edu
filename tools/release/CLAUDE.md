@@ -41,6 +41,8 @@ the shipped desktop and CLI artifacts.
 - A compiled CLI preflight must run the program-gate artifact proof before its
   license gate. Packaged desktop workflows must run program-gate and Windows
   child-process lifetime proofs through the desktop runtime validation chain.
+  The program-gate validator also smoke-runs storage on each artifact: one
+  course transaction in both runtimes and atomic settings replacement in Electron.
 - Runtime package records must identify the package that supplied the shipped
   binary. Do not pin or invent a transitive package outside the reached
   production closure.

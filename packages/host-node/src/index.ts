@@ -52,11 +52,7 @@ export const workspaceDependencies = [
 
 export type { ResolveRepoEduAppDataRootOptions } from "./app-data-root.js"
 export { resolveRepoEduAppDataRoot } from "./app-data-root.js"
-export {
-  cleanupAtomicTempFiles,
-  createWriteQueue,
-  writeTextFileAtomic,
-} from "./atomic-write.js"
+export { createWriteQueue } from "./atomic-write.js"
 export type {
   ChildProcessLifetimeArtifactProbeClaims,
   ChildProcessLifetimeArtifactProbeRun,
@@ -109,6 +105,10 @@ export {
   createNodeSettingsSectionStore,
   recoverUnsupportedCompositeSettingsFile,
 } from "./settings-section-store.js"
+export {
+  isStorageArtifactProbe,
+  runStorageArtifactProbe,
+} from "./storage-artifact-probe.js"
 export type {
   NodeWindowState,
   NodeWindowStateStore,

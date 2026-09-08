@@ -54,7 +54,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   settings and examination archive before creating the renderer session.
   `src/settings-store.ts` wraps the shared settings owner for desktop recovery.
 - `src/window-state-store.ts`: desktop-only BrowserWindow geometry persistence. Window dimensions
-  are shell state and are not part of app preferences.
+  are shell state and are not part of app preferences. The shared adapter is
+  best-effort; exit never waits for its final write.
 - `src/fixture-seed.ts`: optional first-run/dev fixture seeding into the desktop data directory
 - `src/auto-updater.ts` + `src/UpdateDialog.tsx`: Electron auto-update flow with renderer-side
   dialog
@@ -62,7 +63,9 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   shared launcher source copied beside the development main bundle and into
   the packaged Windows resources
 - `scripts/validate-program-gate-artifact.mjs` and
-  `scripts/validate-child-lifetime-artifact.mjs`: shipped host-contract proofs
+  `scripts/validate-child-lifetime-artifact.mjs`: shipped host-contract proofs.
+  The gate validator also runs one shared course-database transaction and one
+  atomic settings replacement through the packaged desktop entry.
 
 ## Notes
 
@@ -74,6 +77,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
 - Keep Electron-specific code inside `apps/desktop`; shared packages stay platform-agnostic.
 - Claim the shared program gate before opening stores or starting product work.
   Retain its release callback through process exit.
+- Courses use the shared `courses.sqlite` database. Only the desktop publishes
+  credentials and preferences JSON, through `write-file-atomic` with sync enabled.
 - Install fatal handling before dynamically importing product composition.
   Uncaught exceptions, rejected product loading and a thrown installer use only
   synchronous logging and immediate exit. Unhandled rejections, document or

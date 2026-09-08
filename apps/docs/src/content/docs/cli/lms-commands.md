@@ -5,8 +5,8 @@ description: Verify LMS connections from the command line
 
 ## `redu lms verify`
 
-Tests whether the active course's LMS connection is working. The command makes a test API call to
-the configured LMS (Canvas or Moodle) and reports the result.
+Tests whether the course selected by `--course <id>` has a working LMS connection. The command makes
+a test API call to the configured LMS (Canvas or Moodle) and reports the result.
 
 ```bash
 redu lms verify --course seed-course

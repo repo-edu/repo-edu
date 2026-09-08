@@ -54,7 +54,7 @@ Exit code: `1`
 The exit code makes `validate` useful in CI or shell scripts:
 
 ```bash
-redu validate --assignment "Project 1" && redu repo create --assignment "Project 1"
+redu validate --assignment "Project 1" --course seed-course && redu repo create --assignment "Project 1" --course seed-course
 ```
 
 This creates repositories only if validation passes.

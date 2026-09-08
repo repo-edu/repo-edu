@@ -13,16 +13,17 @@ in the desktop app, where the interactive UI is better suited for reviewing and 
 ## Usage
 
 ```bash
-redu [--course <name>] <command>
+redu [--course <id>] <command>
 ```
 
-The `--course` flag selects which course to operate on. If omitted, the active course is used.
+Course-scoped commands require `--course <id>` on each invocation. The CLI never changes the desktop
+selection.
 
 ## Command groups
 
 | Group | Commands | Purpose |
 |-------|----------|---------|
-| `course` | `list`, `active`, `show`, `load` | Browse and select courses |
+| `course` | `list`, `active`, `show` | Browse and inspect courses |
 | `lms` | `verify` | Test LMS connection credentials |
 | `git` | `verify` | Test Git provider credentials |
 | `repo` | `create`, `clone`, `update`, `discover` | Create, clone, and update assignment repositories; discover and bulk-clone repositories by namespace |

@@ -62,11 +62,11 @@ names.
 
 ### 4. Adopt the existing repositories
 
-Run **Clone Repos** (or `redu repo clone --assignment lab1 --target …`). For every team, repo-edu
-derives the expected name from the template, clones the existing server repo, and records the
-accepted name on the assignment. From that point on, the recorded name is the source of truth —
-subsequent Update and Clone runs use it directly and no longer depend on roster state or template
-interpolation.
+Run **Clone Repos** (or `redu repo clone --assignment lab1 --target … --course <course-id>`). For
+every team, repo-edu derives the expected name from the template, clones the existing server repo
+and records the accepted name on the assignment. From that point on, the recorded name is the source
+of truth — subsequent Update and Clone runs use it directly and no longer depend on roster state or
+template interpolation.
 
 Mismatches (for example, a repository named slightly differently on the server) show up as failures
 in `repositoriesFailed` with a `not_found` reason. Adjust the template, re-run, and the gap closes.

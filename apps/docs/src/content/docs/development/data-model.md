@@ -11,11 +11,10 @@ Non-persistence domain types (courses, rosters, groups, assignments) live in
 `packages/domain/src/types.ts`. Settings-persistence types (`PersistedAppCredentials`,
 `PersistedAppPreferences`, `AppAppearance`, connection types, etc.) are derived from Zod schemas via
 `z.infer` in `packages/domain/src/settings.ts`, making the schema the single source of truth.
-Companion validators in `packages/domain/src/schemas.ts` validate persisted files at boundaries: the
-points where the application reads or writes JSON. When a persisted course file is loaded from disk,
-the schema checks that its shape matches what the code expects. Settings sections recover
-independently, so a corrupt preferences file can be backed aside without rejecting valid
-credentials.
+Companion validators in `packages/domain/src/schemas.ts` validate persisted values at storage
+boundaries. Course loads compose database columns and the JSON payload before validation.
+The desktop recovers settings sections independently, so corrupt preferences can be backed aside
+without rejecting valid credentials. The CLI reads settings without recovery.
 
 ## Schema discriminators
 
@@ -35,11 +34,15 @@ course documents are rejected at the boundary.
 
 ## Persisted settings
 
-Desktop and CLI persist app settings as two strict JSON units under `settings/`:
+The desktop persists app settings as two strict JSON units under `settings/`:
 `credentials.json` and `preferences.json`. The composite
 `PersistedAppSettings` type remains available for fixtures and bootstrap
 composition, but it is not the disk document and non-settings workflows receive
 only the credentials slice they need.
+
+The CLI only reads these files. Desktop publication uses `write-file-atomic`
+with two-space JSON and a final newline. Files may be edited by hand while the
+app is closed.
 
 `PersistedAppCredentials` stores credential-bearing connection records:
 
@@ -79,6 +82,13 @@ state:
 BrowserWindow dimensions are stored in a desktop-only window-state document, not in app settings.
 
 ## Persisted course
+
+Both hosts use `courses.sqlite` under the shared app-data root. Each row owns
+one complete course. Columns own the ID, revision and update time; a JSON
+payload owns the remaining fields. Every adapter action takes one exclusive
+transaction with zero busy wait and returns only after commit and close.
+The first action claims an empty database. An incompatible schema or failed
+action is terminal; no migration or retry exists.
 
 `PersistedCourse` stores all data for a single course. The `backing` axis
 describes which external surface the course is bound to: `"lms"` enables roster
@@ -193,10 +203,10 @@ Persisted documents are validated at load boundaries:
 - `validatePersistedAppPreferences(value)` → `ValidationResult<PersistedAppPreferences>`
 - `validatePersistedCourse(value)` → `ValidationResult<PersistedCourse>`
 
-All use Zod schemas under the hood. On failure, they return `{ ok: false, issues }` where each
-`ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message. Invalid settings
-sections are backed aside by the host and replaced with section defaults; invalid course files are
-rejected.
+All use Zod schemas. On failure, they return `{ ok: false, issues }` where each
+`ValidationIssue` has a dot-path (`"roster.students.0.email"`) and a message.
+The desktop backs invalid settings sections aside and loads defaults. The CLI
+fails without changing settings. Invalid stored courses are rejected.
 
 Settings-persistence types use `z.infer` in `settings.ts` (no drift guard needed). A compile-time
 drift guard in `schemas.ts` ensures the `PersistedCourse` Zod inferred type stays in sync with its

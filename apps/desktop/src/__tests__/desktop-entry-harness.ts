@@ -93,6 +93,9 @@ const collaborators: Record<string, string> = {
     export const resolveRepoEduAppDataRoot = () => "/unused"
     export const programConflictMessage = "busy"
     export const isProgramGateArtifactProbe = () => false
+    export const isStorageArtifactProbe = () => false
+    export const runStorageArtifactProbe = () => { throw new Error("unexpected storage probe") }
+    export const createCourseStore = () => { throw new Error("unexpected probe store") }
     export const waitForProgramGateArtifactProbeRelease = () => {}
     export const writeProgramGateArtifactProbeMarker = () => {}
     export const claimProgramGate = () => {
@@ -152,6 +155,8 @@ const collaborators: Record<string, string> = {
     export const createDesktopWorkflowRouter = () => ({})
   `,
   "./window-state-store": "export const saveDesktopWindowState = () => {}",
+  "./settings-store":
+    "export const createDesktopAppSettingsStore = () => { throw new Error('unexpected probe settings') }",
   "./windows-child-lifetime-runtime": `
     export const resolveDevelopmentWindowsChildLifetimeRuntime = () => ({})
     export const resolvePackagedWindowsChildLifetimeRuntime = () => ({})

@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
+import { validateStorageArtifact } from "./validate-storage-artifact.mjs"
 
 const conflictMessage = "Another Repo Edu program is running"
 const marker = "repo-edu-program-gate-artifact"
@@ -355,6 +356,8 @@ export async function validateProgramGateArtifacts(options) {
   } finally {
     await rm(root, { force: true, recursive: true })
   }
+  if (options.desktop) await validateStorageArtifact(options.desktop, "desktop")
+  if (options.cli) await validateStorageArtifact(options.cli, "cli")
 }
 
 function parseArguments(argv) {

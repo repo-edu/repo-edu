@@ -1,18 +1,22 @@
 import { execFileSync } from "node:child_process"
-import { readdirSync, rmSync, unlinkSync } from "node:fs"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { parseArgs } from "node:util"
 import {
+  claimProgramGate,
+  createCourseStore,
+  programConflictMessage,
+  resolveRepoEduAppDataRoot,
+} from "@repo-edu/host-node"
+import {
+  fixturePresets,
   fixtureSources,
   fixtureTiers,
   isFixtureSource,
   isFixtureTier,
 } from "@repo-edu/test-fixtures"
 
-const storageRoot = join(
-  process.env.HOME ?? "~",
-  "Library/Application Support/repo-edu",
-)
+const storageRoot = resolveRepoEduAppDataRoot()
 
 const usage = [
   "Usage: pnpm dev:fixture [options]",
@@ -53,26 +57,27 @@ function parseCliArgs(args: string[]) {
   }
 }
 
-function cleanFixtureData() {
-  const coursesDir = join(storageRoot, "courses")
+async function cleanFixtureData() {
+  const claim = await claimProgramGate(storageRoot)
+  if (claim.status === "busy") throw new Error(programConflictMessage)
   try {
-    const files = readdirSync(coursesDir)
-    for (const file of files) {
-      if (file.startsWith("Fixture") && file.endsWith(".json")) {
-        unlinkSync(join(coursesDir, file))
-        console.log(`  deleted courses/${file}`)
+    const courses = createCourseStore(storageRoot)
+    for (const course of await courses.listCourses()) {
+      if (
+        fixtureTiers.some((tier) =>
+          [...fixtureSources, ...fixturePresets].some(
+            (source) => course.id === `fixture-${tier}-${source}`,
+          ),
+        )
+      ) {
+        await courses.deleteCourse(course.id)
+        console.log(`  deleted course ${course.id}`)
       }
     }
-  } catch {
-    // courses directory may not exist yet
-  }
-
-  const fixturesDir = join(storageRoot, "fixtures")
-  try {
-    rmSync(fixturesDir, { recursive: true })
+    rmSync(join(storageRoot, "fixtures"), { recursive: true, force: true })
     console.log("  deleted fixtures/")
-  } catch {
-    // fixtures directory may not exist yet
+  } finally {
+    claim.release()
   }
 }
 
@@ -99,7 +104,7 @@ if (!isFixtureTier(tier)) {
 if (source === undefined) {
   if (values.clean) {
     console.log("Cleaning stale fixture data...")
-    cleanFixtureData()
+    await cleanFixtureData()
     process.exit(0)
   }
   console.log(usage)
@@ -114,7 +119,7 @@ if (!isFixtureSource(source)) {
 
 if (values.clean) {
   console.log("Cleaning stale fixture data...")
-  cleanFixtureData()
+  await cleanFixtureData()
   console.log()
 }
 

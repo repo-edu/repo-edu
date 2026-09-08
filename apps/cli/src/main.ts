@@ -5,9 +5,11 @@ import {
   finishChildProcessLifetimeArtifactProbe,
   isChildProcessLifetimeArtifactProbe,
   isProgramGateArtifactProbe,
+  isStorageArtifactProbe,
   type ProgramGateClaim,
   programConflictMessage,
   resolveRepoEduAppDataRoot,
+  runStorageArtifactProbe,
   startChildProcessLifetimeArtifactProbe,
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
@@ -16,6 +18,7 @@ import type { ChildProcessLifetimeController } from "@repo-edu/host-node/child-p
 import { createCommandLineChildProcessLifetimeController } from "./child-process-lifetime.js"
 import { createProgram } from "./cli.js"
 import { runWithCommandLineLifetime } from "./command-line-lifetime.js"
+import { createCliCourseStore } from "./state-store.js"
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -25,7 +28,13 @@ async function runCli(): Promise<void> {
   const artifactProbe = isProgramGateArtifactProbe()
   const childProcessLifetimeArtifactProbe =
     isChildProcessLifetimeArtifactProbe()
-  if (artifactProbe && childProcessLifetimeArtifactProbe) {
+  if (
+    [
+      artifactProbe,
+      childProcessLifetimeArtifactProbe,
+      isStorageArtifactProbe(),
+    ].filter(Boolean).length > 1
+  ) {
     throw new Error("Only one command-line artifact probe may run at a time.")
   }
   let storageRoot: string
@@ -84,6 +93,10 @@ async function runCli(): Promise<void> {
       },
     },
     async (signal) => {
+      if (isStorageArtifactProbe()) {
+        await runStorageArtifactProbe(createCliCourseStore(storageRoot))
+        return
+      }
       if (artifactProbe) {
         await writeProgramGateArtifactProbeMarker("held", claimDurationMs)
         await waitForProgramGateArtifactProbeRelease()

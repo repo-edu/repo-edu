@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@repo-edu/host-node": "workspace:*",
     "@repo-edu/test-fixtures": "workspace:*"
   },
   "scripts": {
+    "test": "node --import tsx --test src/*.test.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run typecheck"

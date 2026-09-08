@@ -38,7 +38,7 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 | `course.delete` | yes | — | yes | Managed in GUI course settings flow |
 | `settings.loadApp` | yes | yes | yes | Internal to CLI runtime |
 | `settings.saveCredentials` | yes | — | yes | GUI connection settings persist credential records |
-| `settings.savePreferences` | yes | yes | yes | Internal to `course load` context switch |
+| `settings.savePreferences` | yes | — | yes | Desktop preferences only |
 | `connection.verifyLmsDraft` | yes | yes | yes | |
 | `connection.listLmsCoursesDraft` | yes | — | yes | One-time discovery during setup |
 | `connection.verifyGitDraft` | yes | yes | yes | |
@@ -74,14 +74,13 @@ The matrix below defines the CLI-vs-GUI split for workflow delivery:
 
 ## CLI commands (kept)
 
-These 11 workflow-backed commands serve scripting and automation:
+These 10 workflow-backed commands serve scripting and automation:
 
 | Command | Workflow(s) | Rationale |
 |---|---|---|
 | `course list` | `course.list` | Quick context check, pipeable |
-| `course active` | `settings.loadApp` | Shell scripts need active course ID |
+| `course active` | `settings.loadApp` | Observe the desktop selection |
 | `course show` | `course.load` | JSON dump for `jq` pipelines and debugging |
-| `course load` | `course.load`, `settings.savePreferences` | Context switching for multi-course scripting |
 | `lms verify` | `connection.verifyLmsDraft` | Connection gate before batch ops |
 | `git verify` | `connection.verifyGitDraft` | Connection gate before batch ops |
 | `repo create` | `repo.create` | Primary automation: `--dry-run`, `--all`, `--template-path` |
@@ -103,8 +102,8 @@ The top-level `update` command is also kept, but it does not execute through the
 `groupSet.connectFromLms` — requires visual selection from fetched LMS data, then linking.
 
 **Multi-step setup:** LMS, Git and LLM connection settings are edited in GUI panes and persisted by
-the renderer credentials persister; the CLI keeps only the active-course preference write needed for
-`course load`.
+the renderer credentials persister. The CLI reads settings without writing or recovering them.
+Course-scoped invocations require `--course <id>`.
 
 **Interactive exploration / LLM review:** `analysis.*` and `examination.*` workflows depend on
 repository browsing, blame inspection, author selection, and examination question review.
@@ -117,7 +116,7 @@ the GUI:
 | Command | Why dropped |
 |---|---|
 | `course delete` | Rarely needed, never in automation |
-| `roster show` | `course show \| jq .roster` provides the same data with more flexibility |
+| `roster show` | `course show --course <id> \| jq .roster` provides the same data with more flexibility |
 | `lms list-courses` | One-time discovery during course setup |
 | `lms import-students` | Done once per course; GUI shows conflict resolution |
 | `lms import-groups` | Done once per group set; GUI shows group mapping |

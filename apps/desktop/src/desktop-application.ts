@@ -4,10 +4,12 @@ import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   defaultAppCredentials,
+  defaultAppPreferences,
   type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
 import {
   claimProgramGate,
+  createCourseStore,
   createNodeFileSystemPort,
   createNodeGitCommandPort,
   createNodeHttpPort,
@@ -16,9 +18,11 @@ import {
   createNodeProcessPort,
   createNodeTokenizerPort,
   isProgramGateArtifactProbe,
+  isStorageArtifactProbe,
   type ProgramGateClaim,
   programConflictMessage,
   resolveRepoEduAppDataRoot,
+  runStorageArtifactProbe,
   waitForProgramGateArtifactProbeRelease,
   writeProgramGateArtifactProbeMarker,
 } from "@repo-edu/host-node"
@@ -71,6 +75,7 @@ import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
 import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
+import { createDesktopAppSettingsStore } from "./settings-store"
 import {
   createDesktopWorkflowRegistry,
   createDesktopWorkflowRouter,
@@ -855,6 +860,15 @@ export function installDesktopApplication(): void {
   }
 
   async function bootstrapDesktop(): Promise<void> {
+    if (
+      [
+        isProgramGateArtifactProbe(),
+        isChildLifetimeArtifactProbe(),
+        isStorageArtifactProbe(),
+      ].filter(Boolean).length > 1
+    ) {
+      throw new Error("Only one desktop artifact probe may run at a time.")
+    }
     if (isChildLifetimeArtifactProbe()) {
       await runChildLifetimeArtifactProbe({
         childProcessLifetimeController,
@@ -896,6 +910,16 @@ export function installDesktopApplication(): void {
     // The listener retains the connection for the full process lifetime and
     // closes it only when no further product work can run.
     process.once("exit", claim.release)
+
+    if (isStorageArtifactProbe()) {
+      const settingsStore = createDesktopAppSettingsStore(storageRootPath)
+      await runStorageArtifactProbe(
+        createCourseStore(storageRootPath),
+        async () => settingsStore.preferences.save(defaultAppPreferences),
+      )
+      app.exit(0)
+      return
+    }
 
     if (artifactProbe) {
       await writeProgramGateArtifactProbeMarker("held", claimDurationMs)

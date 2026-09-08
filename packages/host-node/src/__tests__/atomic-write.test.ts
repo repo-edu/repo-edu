@@ -1,45 +1,6 @@
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
 import { describe, it } from "node:test"
-import { createWriteQueue, writeTextFileAtomic } from "../index.js"
-
-describe("writeTextFileAtomic", () => {
-  it("replaces existing file content", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
-    const targetPath = join(root, "app-settings.json")
-
-    await writeFile(targetPath, '{"theme":"light"}', "utf8")
-    await writeTextFileAtomic(targetPath, '{"theme":"dark"}')
-
-    const saved = await readFile(targetPath, "utf8")
-    assert.equal(saved, '{"theme":"dark"}')
-  })
-
-  it("creates missing parent directories before writing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
-    const targetPath = join(root, "settings", "nested", "app-settings.json")
-
-    await writeTextFileAtomic(targetPath, '{"theme":"dark"}')
-
-    const saved = await readFile(targetPath, "utf8")
-    assert.equal(saved, '{"theme":"dark"}')
-  })
-
-  it("cleans up temporary files when rename fails", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-host-node-"))
-    const targetPath = join(root, "app-settings.json")
-
-    await mkdir(targetPath)
-    const beforeEntries = await readdir(root)
-
-    await assert.rejects(writeTextFileAtomic(targetPath, '{"theme":"dark"}'))
-
-    const afterEntries = await readdir(root)
-    assert.deepStrictEqual(afterEntries.sort(), beforeEntries.sort())
-  })
-})
+import { createWriteQueue } from "../index.js"
 
 describe("createWriteQueue", () => {
   it("runs queued tasks sequentially", async () => {
