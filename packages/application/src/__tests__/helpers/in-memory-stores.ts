@@ -1,14 +1,21 @@
+import { createCourseStorageFailure } from "@repo-edu/application-contract"
 import type {
   PersistedAppCredentials,
   PersistedAppPreferences,
 } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import type { AppSettingsStore, CourseStore } from "../../core.js"
-import { createCourseSaveConflictError } from "../../core.js"
 
 export function createInMemoryCourseStore(
   courses: readonly PersistedCourse[],
 ): CourseStore {
+  for (const course of courses) {
+    if (!Number.isSafeInteger(course.revision) || course.revision < 1) {
+      throw createCourseStorageFailure(
+        "Seeded courses must have a saved revision.",
+      )
+    }
+  }
   const coursesById = new Map(
     courses.map((course) => [course.id, course] as const),
   )
@@ -22,21 +29,13 @@ export function createInMemoryCourseStore(
     },
     saveCourse(course) {
       const current = coursesById.get(course.id) ?? null
-      if (current !== null && current.revision !== course.revision) {
-        throw createCourseSaveConflictError({
-          reason: "revision-invariant",
-          courseId: course.id,
-          expectedRevision: course.revision,
-          storedRevision: current.revision,
-        })
-      }
-      if (current === null && course.revision !== 0) {
-        throw createCourseSaveConflictError({
-          reason: "course-missing",
-          courseId: course.id,
-          expectedRevision: course.revision,
-          storedRevision: null,
-        })
+      if (
+        (course.revision === 0 && current !== null) ||
+        (course.revision !== 0 && current?.revision !== course.revision)
+      ) {
+        throw createCourseStorageFailure(
+          "The course row does not match the successor revision.",
+        )
       }
 
       const savedCourse: PersistedCourse = {

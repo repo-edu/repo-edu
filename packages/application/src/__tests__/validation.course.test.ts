@@ -2,10 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createCourseStorageFailure } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
-import {
-  createCourseSaveConflictError,
-  createPersistenceWriteError,
-} from "../core.js"
+import { createPersistenceWriteError } from "../core.js"
 import { createCourseWorkflowHandlers } from "../course-workflows.js"
 import { getCourseScenario } from "./helpers/fixture-scenarios.js"
 import { createInMemoryCourseStore } from "./helpers/in-memory-stores.js"
@@ -113,11 +110,11 @@ describe("application course workflow helpers", () => {
     }
   })
 
-  it("lists, loads, and saves courses through the shared course store", async () => {
-    const original = getCourseScenario({
-      tier: "small",
-      preset: "shared-teams",
-    })
+  it("lists, loads and saves courses through the shared course store", async () => {
+    const original = {
+      ...getCourseScenario({ tier: "small", preset: "shared-teams" }),
+      revision: 1,
+    }
     const store = createInMemoryCourseStore([original])
     const handlers = createCourseWorkflowHandlers(store)
 
@@ -191,30 +188,37 @@ describe("application course workflow helpers", () => {
     )
   })
 
-  it("maps a row mismatch to terminal storage failure without a conflict reason", async () => {
-    const course = getCourseScenario()
-    const handlers = createCourseWorkflowHandlers({
-      listCourses: () => [],
-      loadCourse: () => null,
-      saveCourse: () => {
-        throw createCourseSaveConflictError({
-          reason: "course-missing",
-          courseId: course.id,
-          expectedRevision: course.revision,
-          storedRevision: null,
-        })
-      },
-      deleteCourse: () => {},
+  it("maps a row mismatch to terminal storage failure", async () => {
+    const course = { ...getCourseScenario(), revision: 1 }
+    const handlers = createCourseWorkflowHandlers(createInMemoryCourseStore([]))
+
+    await assert.rejects(handlers["course.save"](course), {
+      type: "course-storage",
     })
+  })
+
+  it("refuses revision-zero replacement without changing the saved course", async () => {
+    const course = { ...getCourseScenario(), revision: 0 }
+    const store = createInMemoryCourseStore([])
+    const handlers = createCourseWorkflowHandlers(store)
+    const stamp = await handlers["course.save"](course)
 
     await assert.rejects(
-      handlers["course.save"](course),
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "course-storage" &&
-        !("reason" in error),
+      handlers["course.save"]({ ...course, displayName: "Replacement" }),
+      { type: "course-storage" },
+    )
+    assert.equal(stamp.revision, 1)
+    assert.deepEqual(await handlers["course.load"]({ courseId: course.id }), {
+      ...course,
+      ...stamp,
+    })
+  })
+
+  it("refuses unsaved courses as stored test data", () => {
+    assert.throws(
+      () =>
+        createInMemoryCourseStore([{ ...getCourseScenario(), revision: 0 }]),
+      { type: "course-storage" },
     )
   })
 
@@ -243,7 +247,7 @@ describe("application course workflow helpers", () => {
   })
 
   it("course.delete removes a course from the store", async () => {
-    const original = getCourseScenario()
+    const original = { ...getCourseScenario(), revision: 1 }
     const store = createInMemoryCourseStore([original])
     const handlers = createCourseWorkflowHandlers(store)
 
@@ -260,7 +264,9 @@ describe("application course workflow helpers", () => {
   })
 
   it("course.delete throws cancelled AppError when signal is aborted", async () => {
-    const store = createInMemoryCourseStore([getCourseScenario()])
+    const store = createInMemoryCourseStore([
+      { ...getCourseScenario(), revision: 1 },
+    ])
     const handlers = createCourseWorkflowHandlers(store)
     const controller = new AbortController()
     controller.abort()

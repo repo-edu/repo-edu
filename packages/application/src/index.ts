@@ -4,7 +4,6 @@ export { createConnectionWorkflowHandlers } from "./connection-workflows.js"
 export type {
   AppSettingsLoader,
   AppSettingsStore,
-  CourseSaveConflictReason,
   CourseStore,
   PersistenceWriteErrorKind,
   SectionStore,
@@ -14,11 +13,8 @@ export type {
   SettingsSectionLoadResult,
 } from "./core.js"
 export {
-  CourseSaveConflictError,
   classifyPersistenceWriteErrorCode,
-  createCourseSaveConflictError,
   createPersistenceWriteError,
-  isCourseSaveConflictError,
   isPersistenceWriteError,
   isSettingsRecoveryLoadError,
   PersistenceWriteError,
