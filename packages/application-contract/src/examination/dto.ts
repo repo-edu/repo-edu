@@ -40,8 +40,6 @@ export type ExaminationGenerateQuestionsInput =
      * only enough additional questions to reach `questionCount`.
      */
     seedQuestions?: ExaminationQuestion[]
-    /** Process-local handle used to stop this generation request. */
-    generationControlId: string
     /** Skip the matching archive read and request a fresh generated set. */
     regenerate?: boolean
   }
@@ -178,14 +176,6 @@ export type ExaminationGenerateOutput =
       questions: ExaminationQuestion[]
       sourceReferences: ExaminationSourceReference[]
     }
-
-export type ExaminationStopGenerationInput = {
-  generationControlId: string
-}
-
-export type ExaminationStopGenerationResult =
-  | { stopped: true }
-  | { stopped: false; reason: "not-running" }
 
 export const EXAMINATION_ARCHIVE_BUNDLE_FORMAT =
   "repo-edu-examination-archive" as const

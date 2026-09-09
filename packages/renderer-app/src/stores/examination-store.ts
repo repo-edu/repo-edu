@@ -458,7 +458,6 @@ export const useExaminationStore = create<
         entriesByKey.set(
           payload.entryKey,
           createLoadingEntry({
-            generationControlId: payload.generationControlId,
             seedQuestions: payload.seedQuestions,
             sourceReferences: payload.sourceReferences,
             requestedQuestionCount: payload.requestedQuestionCount,
@@ -572,7 +571,7 @@ export const useExaminationStore = create<
       const requestId = session?.pendingGenerationRequestId ?? null
       const entryKey = session?.pendingGenerationEntryKey ?? null
       if (session === undefined || requestId === null || entryKey === null) {
-        return null
+        return false
       }
       get().applyGenerationProgress(
         entryKey,
@@ -593,7 +592,7 @@ export const useExaminationStore = create<
         })
         return { entriesByKey }
       })
-      return state.entriesByKey.get(entryKey)?.generationControlId ?? null
+      return true
     },
 
     cancelGenerationSession: (sourceSessionKey) =>

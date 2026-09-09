@@ -3,36 +3,22 @@ import { describe, it } from "node:test"
 import type {
   CommandFailure,
   CourseChangingCommandId,
-  CourseCommandTransition,
   EffectOutcome,
-  ExclusiveAdmission,
   ExclusiveAuthoritativeValues,
-  ExclusiveCancellation,
-  ExclusiveCancellationAction,
-  ExclusiveCancellationStage,
   ExclusiveCommandId,
   ExclusiveCommandInput,
-  ExclusiveCommandOutput,
-  ExclusiveCommandProgress,
   ExclusiveRequestOperation,
   ExclusiveTerminalSettlement,
   KnownCommandCompletion,
   SettledEffectOutcome,
-  TerminalStoreFailure,
 } from "../index.js"
-import {
-  exclusiveCancellationActions,
-  exclusiveCommandDeclarations,
-} from "../index.js"
-import { course, file, questionInput } from "./workflow-input-fixtures.js"
+import { exclusiveCommandDeclarations } from "../index.js"
+import { course, file } from "./workflow-input-fixtures.js"
 
 type Equal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 type Assert<T extends true> = T
 
 // These fail compilation when a closed outcome gains an unreviewed variant.
-type _Admission = Assert<
-  Equal<ExclusiveAdmission["status"], "accepted" | "busy">
->
 type _Disposition = Assert<
   Equal<
     EffectOutcome<string>["disposition"],
@@ -47,12 +33,6 @@ type _Settlement = Assert<
 >
 type _Completion = Assert<
   Equal<KnownCommandCompletion<string>["status"], "succeeded" | "failed">
->
-type _Store = Assert<
-  Equal<
-    TerminalStoreFailure["type"],
-    "course-storage" | "settings-storage" | "examination-archive-storage"
-  >
 >
 type _Failure = Assert<
   Equal<
@@ -69,16 +49,6 @@ type _EffectValues = Assert<
       >
     >,
     undefined
-  >
->
-type _Cancel = Assert<Equal<ExclusiveCancellation["type"], "cancel">>
-type _Stage = Assert<
-  Equal<ExclusiveCancellationStage, "preparing" | "running" | "settling">
->
-type _Action = Assert<
-  Equal<
-    ExclusiveCancellationAction,
-    "prevent-effect" | "forward-once" | "ignore"
   >
 >
 
@@ -163,25 +133,6 @@ describe("exclusive command contracts", () => {
     void extra
   })
 
-  it("defines request-local cancellation without a generation identity", () => {
-    assert.deepEqual(exclusiveCancellationActions, {
-      preparing: "prevent-effect",
-      running: "forward-once",
-      settling: "ignore",
-    })
-    const input: ExclusiveCommandInput<"examination.generateQuestions"> =
-      questionInput
-    const cancellation: ExclusiveCancellation = { type: "cancel" }
-    assert.equal(input.questionCount, 3)
-    assert.deepEqual(cancellation, { type: "cancel" })
-    const legacy: ExclusiveCancellation = {
-      type: "cancel",
-      // @ts-expect-error The current request authorises cancellation.
-      generationControlId: "old",
-    }
-    void legacy
-  })
-
   it("preserves known failure and stopped partial results without declaring success", () => {
     const outcomes: EffectOutcome<string>[] = [
       {
@@ -236,50 +187,11 @@ describe("exclusive command contracts", () => {
     void storage
     void category
   })
-
-  it("keeps progress and streamed output correlated with their command", () => {
-    const progress: ExclusiveCommandProgress = {
-      workflowId: "repo.create",
-      progress: { step: 1, totalSteps: 2, label: "Creating" },
-    }
-    const output: ExclusiveCommandOutput = {
-      workflowId: "examination.generateQuestions",
-      output: {
-        kind: "stream-progress",
-        streamedCharacterCount: 10,
-        activityLabel: null,
-      },
-    }
-    assert.equal(progress.progress.step, 1)
-    assert.equal(output.output.kind, "stream-progress")
-    assert.ok(output.output.kind === "stream-progress")
-    assert.equal(output.output.streamedCharacterCount, 10)
-    const wrong: ExclusiveCommandOutput = {
-      workflowId: "repo.create",
-      output: {
-        // @ts-expect-error Repository commands cannot publish examination output.
-        kind: "stream-progress",
-        streamedCharacterCount: 10,
-        activityLabel: null,
-      },
-    }
-    void wrong
-  })
 })
 
-// Compile-only proofs. Never mutate a fixture to test a readonly type.
-function immutableTransition(
-  input: ExclusiveCommandInput<"roster.importFromFile">,
-) {
+// Compile-only proof. Never mutate a fixture to test a readonly type.
+function immutableInput(input: ExclusiveCommandInput<"roster.importFromFile">) {
   // @ts-expect-error Prepared input is immutable at every depth.
   input.course.roster.students.push({})
-  // @ts-expect-error A transition must compose a complete course, not a patch.
-  const partial: CourseCommandTransition<"roster.importFromFile"> = () => ({
-    roster: course.roster,
-  })
-  // @ts-expect-error Effect-only commands cannot own course transitions.
-  const effect: CourseCommandTransition<"repo.bulkClone"> = () => course
-  void partial
-  void effect
 }
-void immutableTransition
+void immutableInput

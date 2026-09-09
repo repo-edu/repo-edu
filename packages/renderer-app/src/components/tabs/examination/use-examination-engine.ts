@@ -163,7 +163,7 @@ const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
 type ExaminationGenerationRunInput = {
   sourceSummaryKey: string
   sourceSessionKey: string
-  workflowInput: Omit<ExaminationGenerateQuestionsInput, "generationControlId">
+  workflowInput: ExaminationGenerateQuestionsInput
   sourceReferences: ExaminationSourceReference[]
   requestedQuestionCount: number
 }
@@ -817,7 +817,6 @@ export function useExaminationEngine({
       await workflowClient.execute(
         "examination.generateQuestions",
         async (scope) => {
-          const generationControlId = `generation-${createUuid()}`
           const runSourceSessionKey = params.input.sourceSessionKey
           const seedQuestions = params.input.workflowInput.seedQuestions ?? []
           const started = useExaminationStore
@@ -825,7 +824,6 @@ export function useExaminationEngine({
             .startGenerationSession({
               sourceSessionKey: runSourceSessionKey,
               entryKey: params.loadingKey,
-              generationControlId,
               seedQuestions,
               sourceReferences: params.input.sourceReferences,
               requestedQuestionCount: params.input.requestedQuestionCount,
@@ -836,16 +834,12 @@ export function useExaminationEngine({
             runSourceSessionKey,
             started.requestId,
             abort,
-            generationControlId,
           )
 
           try {
             const result = await scope.run(
               "examination.generateQuestions",
-              {
-                ...params.input.workflowInput,
-                generationControlId,
-              },
+              params.input.workflowInput,
               {
                 signal: abort.signal,
                 onProgress: (progress: MilestoneProgress) => {
@@ -982,10 +976,7 @@ export function useExaminationEngine({
         generationPlan.targetQuestionCount === questionCount
           ? metadata.entryKey
           : `session-${createUuid()}`
-      const workflowInput: Omit<
-        ExaminationGenerateQuestionsInput,
-        "generationControlId"
-      > = {
+      const workflowInput: ExaminationGenerateQuestionsInput = {
         personId: selectedSubject.id,
         contentScopeId:
           source.kind === "repository-analysis"
@@ -1034,10 +1025,10 @@ export function useExaminationEngine({
 
   const stopGeneration = useCallback(() => {
     if (sourceSessionKey === null) return
-    const generationControlId = useExaminationStore
+    const requested = useExaminationStore
       .getState()
       .requestGenerationStop(sourceSessionKey)
-    if (generationControlId === null) return
+    if (!requested) return
     const requestId = useExaminationStore
       .getState()
       .sourceSessions.get(sourceSessionKey)?.pendingGenerationRequestId

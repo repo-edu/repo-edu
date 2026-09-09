@@ -42,7 +42,6 @@ export const desktopWorkflowStarts = {
   "analysis.listFolderFiles": "ordinary",
   "analysis.readFolderFile": "ordinary",
   "examination.generateQuestions": "exclusive",
-  "examination.stopGeneration": "cancellation",
   "examination.lookupQuestions": "ordinary",
   "examination.prepareSubmissionSource": "ordinary",
   "examination.lookupQuestionSummaries": "ordinary",
@@ -51,9 +50,7 @@ export const desktopWorkflowStarts = {
 } as const satisfies Record<WorkflowId, string>
 
 type DesktopTrpcWorkflowId = {
-  [K in WorkflowId]: (typeof desktopWorkflowStarts)[K] extends
-    | "exclusive"
-    | "cancellation"
+  [K in WorkflowId]: (typeof desktopWorkflowStarts)[K] extends "exclusive"
     ? never
     : K
 }[WorkflowId]
@@ -63,13 +60,12 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
 const _trpcIdsAgree: Same<DesktopTrpcWorkflowId, OrdinaryWorkflowId> = true
 void _trpcIdsAgree
 
-/** Only these ids start over the ordinary tRPC wire. Exclusive commands and
- * request control never have a tRPC procedure, wire path or client entry. */
+/** Only these ids start over the ordinary tRPC wire. Exclusive commands never
+ * have a tRPC procedure, wire path or client entry. */
 export function isDesktopTrpcWorkflowId(
   id: WorkflowId,
 ): id is OrdinaryWorkflowId {
-  const start = desktopWorkflowStarts[id]
-  return start !== "exclusive" && start !== "cancellation"
+  return desktopWorkflowStarts[id] !== "exclusive"
 }
 
 export const desktopTrpcWorkflowIds: readonly OrdinaryWorkflowId[] = (

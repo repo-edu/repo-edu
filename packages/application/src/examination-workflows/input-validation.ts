@@ -98,23 +98,6 @@ export function validateLookupSummariesInput(
   }
 }
 
-export function validateStopInput(input: {
-  generationControlId: string
-}): void {
-  if (
-    !isRecord(input) ||
-    typeof input.generationControlId !== "string" ||
-    input.generationControlId.trim().length === 0
-  ) {
-    throw createValidationAppError("Examination stop input is invalid.", [
-      {
-        path: "generationControlId",
-        message: "generationControlId is required.",
-      },
-    ])
-  }
-}
-
 function validateInput(
   input: ExaminationGenerateQuestionsInput | ExaminationLookupQuestionsInput,
   mode: "generate" | "lookup",
@@ -133,9 +116,7 @@ function validateInput(
     "excerptFileSources",
     "questionCount",
     "llmSettings",
-    ...(mode === "generate"
-      ? ["generationControlId", "regenerate", "seedQuestions"]
-      : []),
+    ...(mode === "generate" ? ["regenerate", "seedQuestions"] : []),
   ])
   for (const field of Object.keys(input)) {
     if (!allowed.has(field)) {
@@ -184,17 +165,6 @@ function validateInput(
   }
   if (mode === "generate" && "seedQuestions" in input) {
     validateSeedQuestions(input.seedQuestions, input.questionCount, issues)
-  }
-  if (
-    mode === "generate" &&
-    (!("generationControlId" in input) ||
-      typeof input.generationControlId !== "string" ||
-      input.generationControlId.trim().length === 0)
-  ) {
-    issues.push({
-      path: "generationControlId",
-      message: "generationControlId is required.",
-    })
   }
   if (issues.length > 0) {
     throw createValidationAppError("Examination input is invalid.", issues)

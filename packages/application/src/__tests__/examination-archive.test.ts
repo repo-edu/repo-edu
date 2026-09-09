@@ -202,7 +202,6 @@ function baseInput() {
     ],
     excerptFileSources: { "src/a.unknown": "alpha\nbeta" },
     questionCount: 2,
-    generationControlId: "test-generation",
     llmSettings: {
       llmConnections: [
         {
@@ -220,9 +219,7 @@ function baseInput() {
 }
 
 function baseLookupInput() {
-  const input = { ...baseInput() }
-  delete (input as { generationControlId?: string }).generationControlId
-  return input
+  return { ...baseInput() }
 }
 
 function inputWithPathMappedContent(mapping: Record<string, string>) {

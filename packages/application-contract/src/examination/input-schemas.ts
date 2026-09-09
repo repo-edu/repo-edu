@@ -67,7 +67,6 @@ export const examinationGenerateQuestionsInputSchema =
       .array(examinationQuestionSchema)
       .max(EXAMINATION_QUESTION_COUNT_MAX)
       .optional(),
-    generationControlId: z.string(),
     regenerate: z.boolean().optional(),
   })
 

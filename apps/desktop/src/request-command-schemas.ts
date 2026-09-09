@@ -150,10 +150,7 @@ export function commandPayloadSchemas(command: ExclusiveCommandId) {
   return {
     input: z.strictObject({
       workflowId: z.literal(command),
-      input:
-        command === "examination.generateQuestions"
-          ? workflowInputSchemas[command].omit({ generationControlId: true })
-          : workflowInputSchemas[command],
+      input: workflowInputSchemas[command],
       settlementInput:
         command === "examination.archive.import"
           ? z.strictObject({

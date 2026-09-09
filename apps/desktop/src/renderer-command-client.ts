@@ -7,7 +7,6 @@ import {
   type ExclusiveRequestOperation,
   type ExclusiveTerminalSettlement,
   HostAdmissionRefusedError,
-  type WorkflowInput,
   type WorkflowResult,
 } from "@repo-edu/application-contract"
 import type {
@@ -21,13 +20,6 @@ function pending<T>() {
   const result = Promise.withResolvers<T>()
   void result.promise.catch(() => undefined)
   return result
-}
-
-function generationInput(
-  input: WorkflowInput<"examination.generateQuestions">,
-) {
-  const { generationControlId: _control, ...value } = input
-  return value
 }
 
 function resultOf(
@@ -117,16 +109,9 @@ export function createRendererCommandClient(
           try {
             await prepared.promise
             if (!options?.signal?.aborted) {
-              const captured = capture()
-              const input =
-                id === "examination.generateQuestions"
-                  ? generationInput(
-                      captured as WorkflowInput<"examination.generateQuestions">,
-                    )
-                  : captured
               const operation = commandPayloadSchemas(command).input.parse({
                 workflowId: command,
-                input,
+                input: capture(),
                 settlementInput: options?.settlementInput,
               }) as ExclusiveRequestOperation
               current.prepareInput(operation)

@@ -356,7 +356,6 @@ describe("session operation ownership", () => {
       "validation.assignment",
       "validation.roster",
     ])
-    assert.deepEqual(members("request-control"), ["examination.stopGeneration"])
     assert.deepEqual(sessionDirectClasses, {
       pickUserFile: "session-changing",
       pickSaveTarget: "session-changing",
@@ -534,10 +533,6 @@ describe("session operation ownership", () => {
     await assert.rejects(
       gateway.presentation("repo.clone" as never, {} as never),
       /not presentation/,
-    )
-    await assert.rejects(
-      gateway.run("examination.stopGeneration", {} as never),
-      /request port/,
     )
     assert.throws(
       () => gateway.reserve("validation.roster" as never),

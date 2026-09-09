@@ -22,9 +22,7 @@ type Assert<T extends true> = T
 // A payload union member passes when one input union member holds all its
 // keys; an `unknown` input position accepts any payload shape.
 type MissingIn<P, I> = {
-  [K in keyof P]-?: K extends keyof I
-    ? MissingKeys<NonNullable<P[K]>, I[K]>
-    : K
+  [K in keyof P]-?: K extends keyof I ? MissingKeys<NonNullable<P[K]>, I[K]> : K
 }[keyof P]
 type MatchesOneMember<P, I> = I extends unknown
   ? [MissingIn<P, I>] extends [never]
@@ -92,8 +90,8 @@ type _CatchesAnOmissionInsideAUnionMember = Assert<
 >
 
 describe("runtime workflow inputs", () => {
-  it("has exactly the catalogue's 43 workflow keys", () => {
-    assert.equal(Object.keys(workflowInputSchemas).length, 43)
+  it("has exactly the catalogue's 42 workflow keys", () => {
+    assert.equal(Object.keys(workflowInputSchemas).length, 42)
     assert.deepEqual(
       Object.keys(workflowInputSchemas).sort(),
       Object.keys(workflowCatalog).sort(),

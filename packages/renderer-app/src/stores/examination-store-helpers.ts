@@ -72,7 +72,6 @@ export function nextLookupDisplay(
 export function completedEntry(entry: ExaminationEntry): ExaminationEntry {
   return {
     ...entry,
-    generationControlId: null,
     stopRequested: false,
   }
 }

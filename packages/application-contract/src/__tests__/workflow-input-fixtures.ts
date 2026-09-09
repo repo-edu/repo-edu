@@ -209,7 +209,6 @@ export const workflowInputs = {
   },
   "examination.generateQuestions": {
     ...questionInput,
-    generationControlId: "generation-1",
     regenerate: true,
     seedQuestions: [
       {
@@ -219,7 +218,6 @@ export const workflowInputs = {
       },
     ],
   },
-  "examination.stopGeneration": { generationControlId: "generation-1" },
   "examination.lookupQuestions": questionInput,
   "examination.prepareSubmissionSource": {
     folderPath: "/courses",

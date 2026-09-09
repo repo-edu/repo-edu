@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import type {
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
+  ExaminationGenerateQuestionsResult,
   ExaminationLookupQuestionsInput,
 } from "@repo-edu/application-contract"
 import { CommandOutcomeError } from "@repo-edu/application-contract"
@@ -82,7 +83,6 @@ function baseInput(
     ],
     excerptFileSources: { "src/a.unknown": "alpha\nbeta" },
     questionCount: 2,
-    generationControlId: "stream-test",
     llmSettings: {
       llmConnections: [
         {
@@ -104,7 +104,6 @@ function lookupInput(
   input: ExaminationGenerateQuestionsInput,
 ): ExaminationLookupQuestionsInput {
   const copy = { ...input }
-  delete (copy as { generationControlId?: string }).generationControlId
   delete (copy as { regenerate?: boolean }).regenerate
   delete (copy as { seedQuestions?: unknown }).seedQuestions
   return copy
@@ -155,6 +154,24 @@ function sequentialStreamLlm(
       yield* events
     },
   }
+}
+
+/** The stopped outcome carries the partial set the handler saved. */
+async function stoppedResult(
+  generation: Promise<ExaminationGenerateQuestionsResult>,
+): Promise<ExaminationGenerateQuestionsResult> {
+  try {
+    await generation
+  } catch (error) {
+    if (
+      error instanceof CommandOutcomeError &&
+      error.outcome.disposition === "stopped" &&
+      error.outcome.result !== null
+    )
+      return error.outcome.result as ExaminationGenerateQuestionsResult
+    throw error
+  }
+  throw new Error("Generation completed instead of stopping.")
 }
 
 function blockingStreamLlm(delta: string): LlmPort {
@@ -326,6 +343,7 @@ describe("examination.generateQuestions streaming", () => {
       fileSystem: stubFileSystem,
     })
     const input = baseInput({ questionCount: 1 })
+    const abort = new AbortController()
     const outputs: ExaminationGenerateOutput[] = []
     let resolveProgress!: () => void
     const receivedProgress = new Promise<void>((resolve) => {
@@ -333,21 +351,21 @@ describe("examination.generateQuestions streaming", () => {
     })
 
     const generation = handlers["examination.generateQuestions"](input, {
+      signal: abort.signal,
       onOutput(output) {
         outputs.push(output)
         if (output.kind === "stream-progress") resolveProgress()
       },
     })
     await receivedProgress
-    await handlers["examination.stopGeneration"]({
-      generationControlId: input.generationControlId,
-    })
+    abort.abort()
 
     await assert.rejects(
       generation,
       (error: unknown) =>
         error instanceof CommandOutcomeError &&
-        error.outcome.disposition === "stopped",
+        error.outcome.disposition === "stopped" &&
+        error.outcome.result === null,
     )
     assert.equal(
       outputs.some((output) => output.kind === "partial-questions"),
@@ -629,9 +647,10 @@ describe("examination.generateQuestions streaming", () => {
     )
   })
 
-  it("soft-stops and persists the accepted partial set with nullable usage", async () => {
+  it("stops on the caller's abort and persists the accepted partial set with nullable usage", async () => {
     const archive = createInMemoryExaminationArchive()
     const input = baseInput()
+    const abort = new AbortController()
     const handlers = createExaminationWorkflowHandlers({
       llm: blockingStreamLlm(`{"questions":[${questionJson(1)},`),
       archive,
@@ -644,18 +663,14 @@ describe("examination.generateQuestions streaming", () => {
     })
 
     const generation = handlers["examination.generateQuestions"](input, {
+      signal: abort.signal,
       onOutput(output) {
         if (output.kind === "partial-questions") resolveFirstPartial()
       },
     })
     await firstPartial
-    assert.deepEqual(
-      await handlers["examination.stopGeneration"]({
-        generationControlId: input.generationControlId,
-      }),
-      { stopped: true },
-    )
-    const result = await generation
+    abort.abort()
+    const result = await stoppedResult(generation)
 
     assert.equal(result.questions.length, 1)
     assert.equal(result.archivedProvenance.usage, null)
@@ -805,8 +820,9 @@ describe("examination.generateQuestions streaming", () => {
     assert.equal(lookup.availableSets[0]?.key.questionCount, 3)
   })
 
-  it("warns once and clamps streamed over-quota questions before soft-stop archive", async () => {
+  it("warns once and clamps streamed over-quota questions before the stopped archive", async () => {
     const input = baseInput({ questionCount: 1 })
+    const abort = new AbortController()
     const handlers = createExaminationWorkflowHandlers({
       llm: blockingStreamLlm(replyJson(2)),
       archive: createInMemoryExaminationArchive(),
@@ -821,6 +837,7 @@ describe("examination.generateQuestions streaming", () => {
     })
 
     const generation = handlers["examination.generateQuestions"](input, {
+      signal: abort.signal,
       onOutput(output) {
         if (output.kind === "warn") warnings.push(output.message)
         if (output.kind === "partial-questions") {
@@ -830,10 +847,8 @@ describe("examination.generateQuestions streaming", () => {
       },
     })
     await firstPartial
-    await handlers["examination.stopGeneration"]({
-      generationControlId: input.generationControlId,
-    })
-    const result = await generation
+    abort.abort()
+    const result = await stoppedResult(generation)
 
     assert.equal(warnings.length, 1)
     assert.deepEqual(partialCounts, [1])

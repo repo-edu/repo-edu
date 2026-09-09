@@ -334,8 +334,6 @@ it("validates the prepared input of every declared exclusive command", () => {
     exclusiveCommandDeclarations,
   ) as ExclusiveCommandId[]) {
     const prepared = structuredClone(workflowInputs[command])
-    if ("generationControlId" in prepared)
-      delete (prepared as { generationControlId?: string }).generationControlId
     const operation = {
       workflowId: command,
       input: prepared,

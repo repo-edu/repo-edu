@@ -60,8 +60,9 @@ validation for:
 - Each exclusive command declares a required course transition or no course
   transition. The application owns composition; Electron wire details stay in desktop.
 - `OrdinaryWorkflowId` names the ids a hosted surface runs through its ordinary
-  `WorkflowClient`. Exclusive commands and `examination.stopGeneration` run over
-  their request port instead.
+  `WorkflowClient`. Exclusive commands run over their request port instead,
+  which also carries their one cancellation message; no workflow id stops
+  another workflow.
 - An effect outcome proves refusal, stop, completion or uncertainty. Error
   categories alone cannot prove an outcome. Confirmation expiry carries its
   own unknown reason; other uncertainty and durable-owner failures are terminal.

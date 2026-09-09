@@ -61,7 +61,6 @@ describe("application-contract workflow catalog", () => {
       "analysis.listFolderFiles",
       "analysis.readFolderFile",
       "examination.generateQuestions",
-      "examination.stopGeneration",
       "examination.lookupQuestions",
       "examination.prepareSubmissionSource",
       "examination.lookupQuestionSummaries",

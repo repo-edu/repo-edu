@@ -72,10 +72,6 @@ describe("desktop host admission", () => {
         .sort(),
       Object.keys(exclusiveCommandDeclarations).sort(),
     )
-    assert.equal(
-      desktopWorkflowStarts["examination.stopGeneration"],
-      "cancellation",
-    )
     assert.equal(desktopWorkflowStarts["course.load"], "startup-or-ordinary")
   })
 
@@ -134,7 +130,7 @@ describe("desktop host admission", () => {
     assert.deepEqual(
       [...desktopTrpcWorkflowIds].sort(),
       Object.entries(desktopWorkflowStarts)
-        .filter(([, kind]) => kind !== "exclusive" && kind !== "cancellation")
+        .filter(([, kind]) => kind !== "exclusive")
         .map(([id]) => id)
         .sort(),
     )

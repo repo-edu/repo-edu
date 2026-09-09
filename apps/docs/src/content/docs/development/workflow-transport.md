@@ -58,8 +58,10 @@ The accepted request follows this order:
 
 Cancellation before execution prevents the effect but lets accepted persistence
 settle. During execution it is forwarded once. After the official outcome is
-fixed it cannot change that outcome. `examination.stopGeneration` is current-port
-control and has no independent workflow start.
+fixed it cannot change that outcome. The current request port alone carries
+cancellation; no workflow id stops another workflow. A proven stop of
+`examination.generateQuestions` settles `stopped` with the questions accepted
+so far as its partial result.
 
 The effect owner proves refusal, stop, completion or uncertainty. Confirmation
 expiry during a session settles as unknown with no command result, course

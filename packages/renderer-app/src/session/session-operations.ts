@@ -378,10 +378,6 @@ export class SessionOperations extends SessionSurfaceTransactions {
         input as never,
         options as never,
       ) as Promise<WorkflowResult<K>>
-    if (classification === "request-control")
-      return Promise.reject(
-        new Error("Cancellation belongs to the current request port."),
-      )
     if (!isSessionWorkflow(id))
       return Promise.reject(new Error("The workflow is not classified."))
     const reservation = this.reserveOperation<WorkflowResult<K>>(id)

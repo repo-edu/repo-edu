@@ -68,7 +68,6 @@ function entry(status: ExaminationEntry["status"]): ExaminationEntry {
       status === "loading" ? { requested: 2, accepted: 0 } : null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    generationControlId: status === "loading" ? "control-1" : null,
     stopRequested: false,
   }
 }
@@ -207,7 +206,6 @@ describe("examination store", () => {
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -217,7 +215,6 @@ describe("examination store", () => {
       sourceSessionKey,
       started.requestId,
       controller,
-      "control-1",
     )
 
     assert.equal(controller.signal.aborted, false)
@@ -230,7 +227,6 @@ describe("examination store", () => {
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -280,7 +276,6 @@ describe("examination store", () => {
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: loadedEntry(4, "2026-01-01T00:00:00.000Z").questions,
       sourceReferences: [],
       requestedQuestionCount: 8,
@@ -316,7 +311,6 @@ describe("examination store", () => {
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -409,7 +403,6 @@ describe("examination store", () => {
     const stale = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -417,7 +410,6 @@ describe("examination store", () => {
     const current = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-2",
-      generationControlId: "control-2",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -491,7 +483,6 @@ describe("examination store", () => {
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "control-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -501,7 +492,6 @@ describe("examination store", () => {
       sourceSessionKey,
       started.requestId,
       controller,
-      "control-1",
     )
 
     store.requestGenerationStop(sourceSessionKey)

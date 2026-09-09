@@ -28,7 +28,6 @@ export type ExaminationEntry = {
   } | null
   generationProgressLabel: string | null
   streamedResponseCharacterCount: number
-  generationControlId: string | null
   stopRequested: boolean
 }
 
@@ -200,7 +199,6 @@ export type ExaminationActions = {
   startGenerationSession: (payload: {
     sourceSessionKey: string
     entryKey: string
-    generationControlId: string
     seedQuestions: ExaminationQuestion[]
     sourceReferences: ExaminationSourceReference[]
     requestedQuestionCount: number
@@ -234,7 +232,7 @@ export type ExaminationActions = {
     sourceSessionKey?: string,
     requestId?: string,
   ) => void
-  requestGenerationStop: (sourceSessionKey: string) => string | null
+  requestGenerationStop: (sourceSessionKey: string) => boolean
   cancelGenerationSession: (sourceSessionKey: string) => void
   clearEntry: (key: string) => void
   archiveCatalogChanged: () => number

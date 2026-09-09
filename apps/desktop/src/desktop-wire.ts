@@ -8,7 +8,7 @@ export const desktopEntryChannel = "repo-edu/entry"
 export const desktopTrpcResponseChannel = "repo-edu/trpc-response"
 
 const callId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
-// An exclusive or request-control id on this wire is a malformed envelope.
+// An exclusive command id on this wire is a malformed envelope.
 const workflowId = z.enum(
   desktopTrpcWorkflowIds as [OrdinaryWorkflowId, ...OrdinaryWorkflowId[]],
 )

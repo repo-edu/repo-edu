@@ -27,8 +27,6 @@ import type {
   ExaminationLookupQuestionsResult,
   ExaminationPreparedSubmissionSource,
   ExaminationPrepareSubmissionSourceInput,
-  ExaminationStopGenerationInput,
-  ExaminationStopGenerationResult,
 } from "./examination/dto.js"
 import type { DiagnosticOutput, MilestoneProgress } from "./workflow-core.js"
 import type {
@@ -315,12 +313,6 @@ export type WorkflowPayloads = {
     progress: MilestoneProgress
     output: ExaminationGenerateOutput
     result: ExaminationGenerateQuestionsResult
-  }
-  "examination.stopGeneration": {
-    input: ExaminationStopGenerationInput
-    progress: never
-    output: never
-    result: ExaminationStopGenerationResult
   }
   "examination.lookupQuestions": {
     input: ExaminationLookupQuestionsInput

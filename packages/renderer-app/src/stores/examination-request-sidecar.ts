@@ -1,6 +1,5 @@
 type RequestSidecarEntry = {
   controller: AbortController
-  generationControlId?: string
 }
 
 function sidecarKey(ownerKey: string, requestId: string): string {
@@ -46,23 +45,16 @@ export const examinationRequestSidecar = {
     sourceSessionKey: string,
     requestId: string,
     controller: AbortController,
-    generationControlId: string,
   ): void {
     replaceSidecarEntry(generationRequestSidecar, sourceSessionKey, requestId, {
       controller,
-      generationControlId,
     })
   },
   clearGeneration(sourceSessionKey: string, requestId: string): void {
     generationRequestSidecar.delete(sidecarKey(sourceSessionKey, requestId))
   },
-  abortGeneration(sourceSessionKey: string, requestId: string): string | null {
-    const key = sidecarKey(sourceSessionKey, requestId)
-    const entry = generationRequestSidecar.get(key)
-    if (entry === undefined) return null
-    entry.controller.abort()
-    generationRequestSidecar.delete(key)
-    return entry.generationControlId ?? null
+  abortGeneration(sourceSessionKey: string, requestId: string): void {
+    abortSidecarEntry(generationRequestSidecar, sourceSessionKey, requestId)
   },
   clearAll(): void {
     abortAndClearSidecar(lookupRequestSidecar)

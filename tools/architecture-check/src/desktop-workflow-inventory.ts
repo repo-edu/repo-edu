@@ -1,5 +1,5 @@
 /** Decision 21's fixed gateway list. course.load has startup and ordinary
- * admission; stopGeneration is port control and never a workflow start. */
+ * admission; the current request port alone carries cancellation. */
 export const desktopWorkflowInventory = [
   ["course.list", "ordinary", "session-changing"],
   ["course.load", "startup-or-ordinary", "session-changing"],
@@ -38,7 +38,6 @@ export const desktopWorkflowInventory = [
   ["analysis.listFolderFiles", "ordinary", "session-changing"],
   ["analysis.readFolderFile", "ordinary", "session-changing"],
   ["examination.generateQuestions", "exclusive", "command"],
-  ["examination.stopGeneration", "cancellation", "request-control"],
   ["examination.lookupQuestions", "ordinary", "session-changing"],
   ["examination.prepareSubmissionSource", "ordinary", "session-changing"],
   ["examination.lookupQuestionSummaries", "ordinary", "session-changing"],

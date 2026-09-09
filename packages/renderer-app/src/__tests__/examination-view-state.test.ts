@@ -69,7 +69,6 @@ function archiveEntry(params: {
       partialQuestionCount: null,
       generationProgressLabel: null,
       streamedResponseCharacterCount: 0,
-      generationControlId: null,
       stopRequested: false,
     },
   }
@@ -118,7 +117,6 @@ describe("examination session display state", () => {
     store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "generation-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,
@@ -263,7 +261,6 @@ describe("examination session display state", () => {
     const generation = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
-      generationControlId: "generation-1",
       seedQuestions: [],
       sourceReferences: [],
       requestedQuestionCount: 4,

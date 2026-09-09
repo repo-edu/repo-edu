@@ -1,20 +1,10 @@
-import type { PersistedCourse } from "@repo-edu/domain/types"
 import type { AppError } from "./app-error.js"
-import type { CourseStorageFailure } from "./course-storage.js"
 import type {
-  CourseChangingCommandId,
   ExclusiveAuthoritativeValues,
   ExclusiveCommandId,
-  ExclusiveCommandInput,
   ExclusiveCommandResult,
   Immutable,
 } from "./exclusive-command-contract.js"
-
-/** Store failures never become a healthy command settlement, even before a write. */
-export type TerminalStoreFailure =
-  | CourseStorageFailure
-  | { type: "settings-storage"; message: string }
-  | { type: "examination-archive-storage"; message: string }
 
 /** A description cannot prove a disposition. Only the effect owner may do that. */
 export type CommandFailure =
@@ -51,11 +41,12 @@ export type EffectOutcome<T> =
     }
 
 /** An effect owner supplies this proof before application error normalisation.
- * Unknown errors without this proof remain terminal at the desktop boundary. */
-export class CommandOutcomeError extends Error {
+ * Unknown errors without this proof remain terminal at the desktop boundary.
+ * A proven stop may carry the partial result the owner saved before stopping. */
+export class CommandOutcomeError<T = never> extends Error {
   override readonly name = "CommandOutcomeError"
 
-  constructor(readonly outcome: EffectOutcome<never>) {
+  constructor(readonly outcome: EffectOutcome<T>) {
     super(
       outcome.disposition === "uncertain"
         ? outcome.message
@@ -108,27 +99,3 @@ export type ExclusiveTerminalSettlement<
         readonly authoritative: undefined
       }
 }[K]
-
-/** One owner composes this value; durable save and renderer application share it. */
-export type CourseCommandTransition<K extends CourseChangingCommandId> = (
-  input: ExclusiveCommandInput<K>,
-  outcome: SettledEffectOutcome<ExclusiveCommandResult<K>>,
-) => Immutable<PersistedCourse>
-
-export type ExclusiveCancellationStage = "preparing" | "running" | "settling"
-export type ExclusiveCancellationAction =
-  | "prevent-effect"
-  | "forward-once"
-  | "ignore"
-
-export const exclusiveCancellationActions = {
-  preparing: "prevent-effect",
-  running: "forward-once",
-  settling: "ignore",
-} as const satisfies Record<
-  ExclusiveCancellationStage,
-  ExclusiveCancellationAction
->
-
-/** Accepted persistence completes even when cancellation prevents the effect. */
-export type ExclusiveCancellation = { readonly type: "cancel" }

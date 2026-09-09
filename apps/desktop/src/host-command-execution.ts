@@ -52,15 +52,7 @@ export async function executeHostCommand(options: {
   const handler = handlers[
     operation.workflowId
   ] as WorkflowHandler<ExclusiveCommandId>
-  // The existing examination handler's control key is host-local. The port is
-  // the sole cancellation authority; no generation identity crosses this wire.
-  const input =
-    operation.workflowId === "examination.generateQuestions"
-      ? {
-          ...structuredClone(operation.input),
-          generationControlId: crypto.randomUUID(),
-        }
-      : structuredClone(operation.input)
+  const input = structuredClone(operation.input)
   try {
     const result = await handler(input as WorkflowInput<ExclusiveCommandId>, {
       signal,

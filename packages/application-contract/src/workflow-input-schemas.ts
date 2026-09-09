@@ -161,9 +161,6 @@ export const workflowInputSchemas = {
     relativePath: z.string(),
   }),
   "examination.generateQuestions": examinationGenerateQuestionsInputSchema,
-  "examination.stopGeneration": z.strictObject({
-    generationControlId: z.string(),
-  }),
   "examination.lookupQuestions": examinationLookupQuestionsInputSchema,
   "examination.prepareSubmissionSource":
     examinationPrepareSubmissionSourceInputSchema,

@@ -194,11 +194,6 @@ export const workflowCatalog: Record<WorkflowId, WorkflowMetadata> = {
     progress: "milestone",
     cancellation: "cooperative",
   },
-  "examination.stopGeneration": {
-    delivery: ["desktop"],
-    progress: "none",
-    cancellation: "cooperative",
-  },
   "examination.lookupQuestions": {
     delivery: ["desktop"],
     progress: "milestone",

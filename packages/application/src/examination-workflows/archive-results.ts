@@ -29,7 +29,10 @@ import {
   normalizeQuestionAnchors,
 } from "./question-parser.js"
 
-export function archiveSoftStoppedQuestions(params: {
+/** A proven stop with accepted questions saves them and throws the stopped
+ * outcome carrying that partial result. Without new questions it returns and
+ * the caller throws the empty stopped outcome. */
+export function archiveStoppedQuestions(params: {
   acceptedQuestions: readonly ExaminationQuestion[]
   archiveKey: ExaminationArchiveKey
   input: ExaminationGenerateQuestionsInput
@@ -39,11 +42,9 @@ export function archiveSoftStoppedQuestions(params: {
   sourceReferences: ExaminationSourceReference[]
   privacyContext: ExaminationPrivacyContext
   onPrivacyWarnings?: (warnings: readonly ExaminationPrivacyWarning[]) => void
-}): ExaminationGenerateQuestionsResult {
+}): void {
   const acceptedQuestionCount = params.acceptedQuestions.length
-  if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) {
-    throw new CommandOutcomeError({ disposition: "stopped", result: null })
-  }
+  if (acceptedQuestionCount <= params.minimumAcceptedQuestionCount) return
 
   const resultArchiveKey =
     acceptedQuestionCount === params.archiveKey.questionCount
@@ -67,10 +68,13 @@ export function archiveSoftStoppedQuestions(params: {
     assertRecordAllowedForPrivacy(record, params.privacyContext),
   )
   putSupersedingArchiveRecord(params.ports.archive, record)
-  return toResult(record, {
-    fromArchive: false,
-    sourceReferences: params.sourceReferences,
-    requestedQuestionCount: params.input.questionCount,
+  throw new CommandOutcomeError<ExaminationGenerateQuestionsResult>({
+    disposition: "stopped",
+    result: toResult(record, {
+      fromArchive: false,
+      sourceReferences: params.sourceReferences,
+      requestedQuestionCount: params.input.questionCount,
+    }),
   })
 }
 

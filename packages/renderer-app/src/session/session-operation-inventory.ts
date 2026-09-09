@@ -43,7 +43,6 @@ export const sessionWorkflowClasses = {
   "analysis.listFolderFiles": "session-changing",
   "analysis.readFolderFile": "session-changing",
   "examination.generateQuestions": "command",
-  "examination.stopGeneration": "request-control",
   "examination.lookupQuestions": "session-changing",
   "examination.prepareSubmissionSource": "session-changing",
   "examination.lookupQuestionSummaries": "session-changing",
@@ -51,7 +50,7 @@ export const sessionWorkflowClasses = {
   "examination.archive.import": "command",
 } as const satisfies Record<
   WorkflowId,
-  "presentation-only" | "session-changing" | "command" | "request-control"
+  "presentation-only" | "session-changing" | "command"
 >
 
 type WorkflowOfClass<C extends string> = {

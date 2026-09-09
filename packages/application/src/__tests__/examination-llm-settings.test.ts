@@ -89,7 +89,6 @@ function baseInput(
     excerpts: [{ filePath: "src/a.unknown", startLine: 1, lines: ["line"] }],
     excerptFileSources: { "src/a.unknown": "line" },
     questionCount: 1,
-    generationControlId: "test-generation",
     llmSettings,
   }
 }

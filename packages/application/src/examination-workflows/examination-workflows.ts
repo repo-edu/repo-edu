@@ -23,7 +23,7 @@ import { normalizeLlmProviderError } from "../llm-error-normalization.js"
 import { throwIfAborted } from "../workflow-helpers.js"
 import {
   admitRecordForCurrentContext,
-  archiveSoftStoppedQuestions,
+  archiveStoppedQuestions,
   assertOutputAllowedForCurrentContext,
   assertRecordAllowedForPrivacy,
   isRecordCurrentPromptTemplate,
@@ -36,7 +36,6 @@ import {
   validateGenerateInput,
   validateLookupInput,
   validateLookupSummariesInput,
-  validateStopInput,
 } from "./input-validation.js"
 import { llmRuntimeConfigFromConnection } from "./model-resolution.js"
 import type { ExaminationWorkflowPorts } from "./ports.js"
@@ -58,15 +57,10 @@ import {
   parseQuestions,
   providerError,
 } from "./question-parser.js"
-import {
-  createSoftStopSession,
-  type SoftStopSession,
-} from "./soft-stop-session.js"
 import { createPrepareSubmissionSourceHandler } from "./submission-source.js"
 
 type ExaminationWorkflowId =
   | "examination.generateQuestions"
-  | "examination.stopGeneration"
   | "examination.lookupQuestions"
   | "examination.prepareSubmissionSource"
   | "examination.lookupQuestionSummaries"
@@ -87,8 +81,6 @@ function createPrivacyWarningEmitter(
 export function createExaminationWorkflowHandlers(
   ports: ExaminationWorkflowPorts,
 ): Pick<WorkflowHandlerMap<ExaminationWorkflowId>, ExaminationWorkflowId> {
-  const softStopSessions = new Map<string, SoftStopSession>()
-
   return {
     ...createPrepareSubmissionSourceHandler(ports),
     "examination.generateQuestions": async (
@@ -199,10 +191,6 @@ export function createExaminationWorkflowHandlers(
         label: "Waiting for LLM response.",
       })
 
-      const softStop = createSoftStopSession(
-        softStopSessions,
-        input.generationControlId,
-      )
       const partialState: PartialQuestionEmissionState = {
         acceptedQuestions: seedQuestions,
         emittedQuestionCount: seedQuestions.length,
@@ -223,174 +211,148 @@ export function createExaminationWorkflowHandlers(
       let finalUsage: LlmUsage | null = null
 
       try {
-        try {
-          const stream = ports.llm.stream({
-            spec: {
-              provider: resolution.spec.provider,
-              family: resolution.spec.family,
-              modelId: resolution.spec.modelId,
-              effort: resolution.spec.effort,
-            },
-            prompt,
-            runtimeConfig: llmRuntimeConfigFromConnection(
-              resolution.connection,
-            ),
-            signal: softStop.providerSignal(options?.signal),
-          })
+        const stream = ports.llm.stream({
+          spec: {
+            provider: resolution.spec.provider,
+            family: resolution.spec.family,
+            modelId: resolution.spec.modelId,
+            effort: resolution.spec.effort,
+          },
+          prompt,
+          runtimeConfig: llmRuntimeConfigFromConnection(resolution.connection),
+          signal: options?.signal,
+        })
 
-          try {
-            for await (const event of stream) {
-              if (event.kind === "text-delta") {
-                buffer += event.text
-                options?.onOutput?.({
-                  kind: "stream-progress",
-                  streamedCharacterCount: buffer.length,
-                  activityLabel: "Receiving model response.",
-                })
-                maybeEmitPartial({
-                  buffer,
-                  emittedQuestionCount: partialState,
-                  onOutput: options?.onOutput,
-                  seedQuestions,
-                  sourceLineRanges,
-                  sourceReferences: prepared.sourceReferences,
-                  requestedQuestionCount: requestedGeneratedQuestionCount,
-                  onOverQuota: warnOverQuota,
-                  assertOutputAllowed: (questions) => {
-                    emitPrivacyWarnings(
-                      assertOutputAllowedForCurrentContext(
-                        questions,
-                        prepared.privacyContext,
-                      ),
-                    )
-                  },
-                })
-              } else if (event.kind === "activity") {
-                options?.onOutput?.({
-                  kind: "stream-progress",
-                  streamedCharacterCount: buffer.length,
-                  activityLabel: "LLM is working.",
-                })
-              } else {
-                finalUsage = event.usage
-              }
-            }
-          } catch (error) {
-            // Preserve an effect owner's outcome before considering local stop intent.
-            const failure = normalizeLlmProviderError(
-              error,
-              "examination.generateQuestions",
-            )
-            // The adapter emits AbortError only before launch or after proven stop.
-            // A category-only cancelled AppError supplies no such proof.
-            const stopped =
-              error instanceof DOMException && error.name === "AbortError"
-            if (stopped && options?.signal?.aborted) {
-              throw new CommandOutcomeError({
-                disposition: "stopped",
-                result: null,
+        try {
+          for await (const event of stream) {
+            if (event.kind === "text-delta") {
+              buffer += event.text
+              options?.onOutput?.({
+                kind: "stream-progress",
+                streamedCharacterCount: buffer.length,
+                activityLabel: "Receiving model response.",
               })
-            }
-            if (stopped && softStop.requested) {
-              return archiveSoftStoppedQuestions({
-                acceptedQuestions: partialState.acceptedQuestions,
-                archiveKey,
-                input,
-                minimumAcceptedQuestionCount: seedQuestions.length,
-                ports,
-                resolution,
+              maybeEmitPartial({
+                buffer,
+                emittedQuestionCount: partialState,
+                onOutput: options?.onOutput,
+                seedQuestions,
+                sourceLineRanges,
                 sourceReferences: prepared.sourceReferences,
-                privacyContext: prepared.privacyContext,
-                onPrivacyWarnings: emitPrivacyWarnings,
+                requestedQuestionCount: requestedGeneratedQuestionCount,
+                onOverQuota: warnOverQuota,
+                assertOutputAllowed: (questions) => {
+                  emitPrivacyWarnings(
+                    assertOutputAllowedForCurrentContext(
+                      questions,
+                      prepared.privacyContext,
+                    ),
+                  )
+                },
               })
+            } else if (event.kind === "activity") {
+              options?.onOutput?.({
+                kind: "stream-progress",
+                streamedCharacterCount: buffer.length,
+                activityLabel: "LLM is working.",
+              })
+            } else {
+              finalUsage = event.usage
             }
-            if (stopped)
-              throw new CommandOutcomeError({
-                disposition: "stopped",
-                result: null,
-              })
-            throw failure
           }
         } catch (error) {
-          throw normalizeLlmProviderError(
+          // Preserve an effect owner's outcome before considering local stop intent.
+          const failure = normalizeLlmProviderError(
             error,
             "examination.generateQuestions",
           )
-        }
-
-        if (finalUsage === null) {
-          throw providerError(
-            "LLM stream ended without a terminal usage event.",
-          )
-        }
-
-        const generatedQuestions = parseQuestions(
-          buffer,
-          requestedGeneratedQuestionCount,
-          sourceLineRanges,
-          { onOverQuota: warnOverQuota },
-        )
-        const questions = [...seedQuestions, ...generatedQuestions]
-        emitPrivacyWarnings(
-          assertOutputAllowedForCurrentContext(
-            questions,
-            prepared.privacyContext,
-          ),
-        )
-        const acceptedQuestionCount = questions.length
-        if (generatedQuestions.length < requestedGeneratedQuestionCount) {
-          options?.onOutput?.({
-            kind: "warn",
-            message:
-              seedQuestions.length === 0
-                ? `Provider returned ${acceptedQuestionCount} of ${input.questionCount} requested examination questions. The partial set was stored under its actual question count.`
-                : `Provider returned ${generatedQuestions.length} of ${requestedGeneratedQuestionCount} requested additional examination questions. The partial set was stored under its actual question count.`,
+          // The adapter emits AbortError only before launch or after proven stop.
+          // A category-only cancelled AppError supplies no such proof.
+          const stopped =
+            error instanceof DOMException && error.name === "AbortError"
+          if (!stopped) throw failure
+          // The caller's abort is the one stop. A proven stop keeps the
+          // questions accepted so far as the command's partial result.
+          if (options?.signal?.aborted) {
+            archiveStoppedQuestions({
+              acceptedQuestions: partialState.acceptedQuestions,
+              archiveKey,
+              input,
+              minimumAcceptedQuestionCount: seedQuestions.length,
+              ports,
+              resolution,
+              sourceReferences: prepared.sourceReferences,
+              privacyContext: prepared.privacyContext,
+              onPrivacyWarnings: emitPrivacyWarnings,
+            })
+          }
+          throw new CommandOutcomeError({
+            disposition: "stopped",
+            result: null,
           })
         }
-        const resultArchiveKey =
-          acceptedQuestionCount === archiveKey.questionCount
-            ? archiveKey
-            : { ...archiveKey, questionCount: acceptedQuestionCount }
+      } catch (error) {
+        throw normalizeLlmProviderError(error, "examination.generateQuestions")
+      }
 
-        const provenance: ExaminationArchivedProvenance = {
-          model: resolution.code,
-          effort: resolution.spec.effort,
-          questionCount: acceptedQuestionCount,
-          usage: finalUsage,
-          createdAtMs: Date.now(),
-          redactionPolicyVersion:
-            prepared.privacyContext.redactionPolicyVersion,
-          promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
-        }
+      if (finalUsage === null) {
+        throw providerError("LLM stream ended without a terminal usage event.")
+      }
 
-        const record: ExaminationArchiveRecord = {
-          key: resultArchiveKey,
+      const generatedQuestions = parseQuestions(
+        buffer,
+        requestedGeneratedQuestionCount,
+        sourceLineRanges,
+        { onOverQuota: warnOverQuota },
+      )
+      const questions = [...seedQuestions, ...generatedQuestions]
+      emitPrivacyWarnings(
+        assertOutputAllowedForCurrentContext(
           questions,
-          provenance,
-        }
-
-        emitPrivacyWarnings(
-          assertRecordAllowedForPrivacy(record, prepared.privacyContext),
-        )
-        putSupersedingArchiveRecord(ports.archive, record)
-
-        return toResult(record, {
-          fromArchive: false,
-          sourceReferences: prepared.sourceReferences,
-          requestedQuestionCount: input.questionCount,
+          prepared.privacyContext,
+        ),
+      )
+      const acceptedQuestionCount = questions.length
+      if (generatedQuestions.length < requestedGeneratedQuestionCount) {
+        options?.onOutput?.({
+          kind: "warn",
+          message:
+            seedQuestions.length === 0
+              ? `Provider returned ${acceptedQuestionCount} of ${input.questionCount} requested examination questions. The partial set was stored under its actual question count.`
+              : `Provider returned ${generatedQuestions.length} of ${requestedGeneratedQuestionCount} requested additional examination questions. The partial set was stored under its actual question count.`,
         })
-      } finally {
-        softStop.dispose()
       }
-    },
-    "examination.stopGeneration": async (input) => {
-      validateStopInput(input)
-      const session = softStopSessions.get(input.generationControlId)
-      if (session === undefined) {
-        return { stopped: false, reason: "not-running" }
+      const resultArchiveKey =
+        acceptedQuestionCount === archiveKey.questionCount
+          ? archiveKey
+          : { ...archiveKey, questionCount: acceptedQuestionCount }
+
+      const provenance: ExaminationArchivedProvenance = {
+        model: resolution.code,
+        effort: resolution.spec.effort,
+        questionCount: acceptedQuestionCount,
+        usage: finalUsage,
+        createdAtMs: Date.now(),
+        redactionPolicyVersion: prepared.privacyContext.redactionPolicyVersion,
+        promptTemplateVersion: EXAMINATION_PROMPT_TEMPLATE_VERSION,
       }
-      session.requestStop()
-      return { stopped: true }
+
+      const record: ExaminationArchiveRecord = {
+        key: resultArchiveKey,
+        questions,
+        provenance,
+      }
+
+      emitPrivacyWarnings(
+        assertRecordAllowedForPrivacy(record, prepared.privacyContext),
+      )
+      putSupersedingArchiveRecord(ports.archive, record)
+
+      return toResult(record, {
+        fromArchive: false,
+        sourceReferences: prepared.sourceReferences,
+        requestedQuestionCount: input.questionCount,
+      })
     },
     "examination.lookupQuestions": async (
       input: ExaminationLookupQuestionsInput,

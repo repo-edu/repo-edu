@@ -66,7 +66,6 @@ export function createSummary(
 }
 
 export function createLoadingEntry(params: {
-  generationControlId: string
   seedQuestions: ExaminationQuestion[]
   sourceReferences: ExaminationSourceReference[]
   requestedQuestionCount: number
@@ -88,7 +87,6 @@ export function createLoadingEntry(params: {
     },
     generationProgressLabel: "Preparing question generation.",
     streamedResponseCharacterCount: 0,
-    generationControlId: params.generationControlId,
     stopRequested: false,
   }
 }
@@ -108,7 +106,6 @@ export function createErrorEntry(message: string): ExaminationEntry {
     partialQuestionCount: null,
     generationProgressLabel: null,
     streamedResponseCharacterCount: 0,
-    generationControlId: null,
     stopRequested: false,
   }
 }
