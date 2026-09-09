@@ -1,3 +1,4 @@
+import { fileFormats } from "@repo-edu/domain/types"
 import type {
   UserFileRef,
   UserSaveTargetRef,
@@ -18,5 +19,5 @@ export const userSaveTargetRefSchema = z.strictObject({
   kind: z.literal("user-save-target-ref"),
   referenceId: z.string(),
   displayName: z.string(),
-  suggestedFormat: z.enum(["csv", "xlsx", "json", "txt"]).nullable(),
+  suggestedFormat: z.enum(fileFormats).nullable(),
 }) satisfies z.ZodType<UserSaveTargetRef>

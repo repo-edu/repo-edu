@@ -38,7 +38,8 @@ export type EnrollmentType = (typeof enrollmentTypeKinds)[number]
 export type GroupOrigin = (typeof groupOriginKinds)[number]
 export type GitIdentityMode = "email" | "username"
 
-export type FileFormat = "csv" | "xlsx" | "json" | "txt"
+export const fileFormats = ["csv", "xlsx", "json", "txt"] as const
+export type FileFormat = (typeof fileFormats)[number]
 export type ExportFormat = Extract<FileFormat, "csv" | "xlsx">
 
 export type RosterConnection =

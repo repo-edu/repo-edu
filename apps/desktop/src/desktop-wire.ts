@@ -1,4 +1,5 @@
 import type { OrdinaryWorkflowId } from "@repo-edu/application-contract"
+import { fileFormats } from "@repo-edu/domain/types"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { z } from "zod"
 import { desktopTrpcWorkflowIds } from "./host-entry-inventory"
@@ -30,7 +31,7 @@ export const desktopEntryMessageSchema = z.discriminatedUnion("kind", [
   commandIntentSchema,
 ])
 
-const fileFormat = z.enum(["csv", "xlsx", "json", "txt"])
+const fileFormat = z.enum(fileFormats)
 export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("bootstrapReady") }),
   z.strictObject({

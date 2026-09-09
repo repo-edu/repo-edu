@@ -71,31 +71,48 @@ export type ExclusiveCommandOutcome<K extends ExclusiveCommandId> =
 
 export type ExclusiveTerminalSettlement<
   K extends ExclusiveCommandId = ExclusiveCommandId,
-> = {
-  [Id in K]:
-    | {
-        readonly workflowId: Id
-        readonly outcome: SettledEffectOutcome<ExclusiveCommandResult<Id>>
-        readonly authoritative: ExclusiveAuthoritativeValues<Id>
-      }
-    | {
+> =
+  | {
+      [Id in K]: {
         readonly workflowId: Id
         readonly outcome:
-          | { readonly disposition: "refused"; readonly error: CommandFailure }
-          | { readonly disposition: "stopped"; readonly result: null }
+          | {
+              readonly disposition: "stopped"
+              readonly result: ExclusiveCommandResult<Id>
+            }
           | {
               readonly disposition: "completed"
-              readonly completion: {
-                readonly status: "failed"
-                readonly error: CommandFailure
-                readonly result: null
-              }
+              readonly completion:
+                | {
+                    readonly status: "succeeded"
+                    readonly result: ExclusiveCommandResult<Id>
+                  }
+                | {
+                    readonly status: "failed"
+                    readonly error: CommandFailure
+                    readonly result: ExclusiveCommandResult<Id>
+                  }
             }
-          | {
-              readonly disposition: "uncertain"
-              readonly reason: "confirmation-expired"
-              readonly message: string
-            }
-        readonly authoritative: undefined
+        readonly authoritative: ExclusiveAuthoritativeValues<Id>
       }
-}[K]
+    }[K]
+  | {
+      readonly workflowId: K
+      readonly outcome:
+        | { readonly disposition: "refused"; readonly error: CommandFailure }
+        | { readonly disposition: "stopped"; readonly result: null }
+        | {
+            readonly disposition: "completed"
+            readonly completion: {
+              readonly status: "failed"
+              readonly error: CommandFailure
+              readonly result: null
+            }
+          }
+        | {
+            readonly disposition: "uncertain"
+            readonly reason: "confirmation-expired"
+            readonly message: string
+          }
+      readonly authoritative: undefined
+    }

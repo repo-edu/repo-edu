@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  fileFormats,
   groupSetImportFormats,
   repositoryCloneDirectoryLayouts,
 } from "@repo-edu/domain/types"
@@ -94,6 +95,33 @@ type _CatchesAnOmissionInsideAUnionMember = Assert<
 >
 
 describe("runtime workflow inputs", () => {
+  it("accepts every owned save-target format while keeping export choices narrow", () => {
+    for (const suggestedFormat of fileFormats) {
+      const target = {
+        ...workflowInputs["userFile.exportPreview"],
+        suggestedFormat,
+      }
+      assert.deepEqual(
+        workflowInputSchemas["userFile.exportPreview"].parse(target),
+        target,
+      )
+    }
+    for (const [workflow, formats] of [
+      ["roster.exportMembers", ["csv", "xlsx"]],
+      ["groupSet.export", ["csv", "txt"]],
+    ] as const) {
+      for (const format of fileFormats) {
+        assert.equal(
+          workflowInputSchemas[workflow].safeParse({
+            ...workflowInputs[workflow],
+            format,
+          }).success,
+          (formats as readonly string[]).includes(format),
+        )
+      }
+    }
+  })
+
   it("accepts every owned layout in both saved courses and repository requests", () => {
     for (const directoryLayout of repositoryCloneDirectoryLayouts) {
       const saved = {

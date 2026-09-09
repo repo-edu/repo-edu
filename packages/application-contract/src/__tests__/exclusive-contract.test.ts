@@ -164,7 +164,10 @@ describe("exclusive command contracts", () => {
     )
     const settlement: ExclusiveTerminalSettlement<"roster.importFromFile"> = {
       workflowId: "roster.importFromFile",
-      outcome: { disposition: "stopped", result: null },
+      outcome: {
+        disposition: "stopped",
+        result: { roster: course.roster, idSequences: course.idSequences },
+      },
       authoritative: { course },
     }
     assert.equal(settlement.authoritative.course, course)
@@ -186,6 +189,72 @@ describe("exclusive command contracts", () => {
     void uncertain
     void storage
     void category
+  })
+
+  it("allows authoritative values only beside an official result", () => {
+    const error = { type: "effect", message: "Known failure." } as const
+    const withoutResult = [
+      { disposition: "refused", error },
+      { disposition: "stopped", result: null },
+      {
+        disposition: "completed",
+        completion: { status: "failed", error, result: null },
+      },
+      {
+        disposition: "uncertain",
+        reason: "confirmation-expired",
+        message: "Unknown.",
+      },
+    ] as const
+    for (const outcome of withoutResult) {
+      const valid: ExclusiveTerminalSettlement<"roster.importFromFile"> = {
+        workflowId: "roster.importFromFile",
+        outcome,
+        authoritative: undefined,
+      }
+      // @ts-expect-error An outcome without a result cannot publish a course.
+      const invalid: ExclusiveTerminalSettlement<"roster.importFromFile"> = {
+        ...valid,
+        authoritative: { course },
+      }
+      assert.equal(valid.authoritative, undefined)
+      void invalid
+    }
+    type _NoResultCanPublishCourse = Assert<
+      Equal<
+        Extract<
+          (typeof withoutResult)[number],
+          Extract<
+            ExclusiveTerminalSettlement<"roster.importFromFile">,
+            { authoritative: { course: unknown } }
+          >["outcome"]
+        >,
+        never
+      >
+    >
+    const result = { roster: course.roster, idSequences: course.idSequences }
+    const withResult = [
+      { disposition: "stopped", result },
+      { disposition: "completed", completion: { status: "succeeded", result } },
+      {
+        disposition: "completed",
+        completion: { status: "failed", error, result },
+      },
+    ] as const
+    for (const outcome of withResult) {
+      const valid: ExclusiveTerminalSettlement<"roster.importFromFile"> = {
+        workflowId: "roster.importFromFile",
+        outcome,
+        authoritative: { course },
+      }
+      // @ts-expect-error A course result requires its complete saved course.
+      const invalid: ExclusiveTerminalSettlement<"roster.importFromFile"> = {
+        ...valid,
+        authoritative: undefined,
+      }
+      assert.equal(valid.authoritative.course, course)
+      void invalid
+    }
   })
 })
 

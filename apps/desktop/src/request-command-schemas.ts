@@ -178,7 +178,6 @@ export function commandPayloadSchemas(command: ExclusiveCommandId) {
       .strictObject({
         workflowId: z.literal(command),
         outcome: z.discriminatedUnion("disposition", [
-          z.strictObject({ disposition: z.literal("refused"), error: failure }),
           z.strictObject({
             disposition: z.literal("stopped"),
             result,

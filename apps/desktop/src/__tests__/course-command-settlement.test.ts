@@ -364,6 +364,51 @@ it("refuses a partial course settlement on the wire", () => {
   )
 })
 
+it("allows authoritative course values only beside an official result on the wire", () => {
+  const course = makeCourse("course")
+  const result = course.roster
+  const error = { type: "effect", message: "Known failure." }
+  const schema = commandPayloadSchemas("gitUsernames.import").settlement
+  const withoutResult = [
+    { disposition: "refused", error },
+    { disposition: "stopped", result: null },
+    {
+      disposition: "completed",
+      completion: { status: "failed", error, result: null },
+    },
+    {
+      disposition: "uncertain",
+      reason: "confirmation-expired",
+      message: "Unknown.",
+    },
+  ]
+  const withResult = [
+    { disposition: "stopped", result },
+    { disposition: "completed", completion: { status: "succeeded", result } },
+    {
+      disposition: "completed",
+      completion: { status: "failed", error, result },
+    },
+  ]
+  for (const [outcomes, needsCourse] of [
+    [withoutResult, false],
+    [withResult, true],
+  ] as const) {
+    for (const outcome of outcomes) {
+      for (const authoritative of [undefined, { course }]) {
+        assert.equal(
+          schema.safeParse({
+            workflowId: "gitUsernames.import",
+            outcome,
+            authoritative,
+          }).success,
+          (authoritative !== undefined) === needsCourse,
+        )
+      }
+    }
+  }
+})
+
 for (const boundary of ["before", "after"] as const) {
   it(`makes failure ${boundary} the course result commit terminal without publishing a command result`, async () => {
     const admission = new HostAdmission(() => {})
