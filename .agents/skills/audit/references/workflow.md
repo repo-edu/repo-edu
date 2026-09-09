@@ -15,7 +15,8 @@ whole plan. When no plan is named, ask which plan to audit and wait.
 
 This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
-local substitutions: that repo's checks, report root and finding metadata.
+local substitutions: that repo's fix-time Markdown format, report root and
+finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
 audits still belong to the plan repo's own audit workflow.
 
@@ -128,21 +129,11 @@ a current boundary becomes a cross-repo finding under
 held to the same line: a proposed correction or deviation ruling that would
 cross a boundary does not land.
 
-A round is read-only until the user accepts its findings, so its evidence
-commands must not change tracked files. Build the verification set from every
-package whose code or behaviour the round audits. Include a repo tool only
-when the audit concerns the rule that tool enforces.
-
-For Repo Edu files, read each affected package's `CLAUDE.md` and `package.json`.
-Run its `check` and `test` scripts when they exist, plus the relevant validation
-named by the package guidance or plan. Use
-`pnpm --filter <package> <script>` for package scripts. For plan-repo files,
-use the local substitutions in that repo's audit workflow. If a required
-command can change tracked files, defer it to the fix phase and use its
-read-only form for evidence.
-
-Do not run a root whole-workspace script only because an implementation audit
-is running. The round's scope decides the checks and tests.
+A round is read-only until the user accepts its findings, and it runs no
+checks and no tests. Its evidence is what it reads. For Repo Edu files, read
+each affected package's `CLAUDE.md` and `package.json` for its rules; do not
+run its scripts. For plan-repo files, use the local substitutions in that
+repo's audit workflow the same way.
 
 ## Fix phase
 
@@ -170,18 +161,13 @@ round commit.
 
 After the user accepts the round's findings, apply every directed correction.
 One acceptance covers the whole round: fixes in each judged repo and findings
-deferred only to repos outside the repo set. Then rebuild the verification set
-from the packages and plan-repo files the round audited and the fixes touched.
-Format only the fixed files. Run each affected package's required `check`,
-`test` and validation scripts, and the plan repo's local checks when that repo
-changed. Include a repo tool only when the audit or fix concerns the rule it
-enforces.
-
-For Repo Edu implementation-audit fixes, this package-scoped rule replaces the
-root verification default. Do not run root `pnpm check` or the whole
-`pnpm test` suite unless affected package guidance or the plan requires that
-exact root command. Run writing commands only while no other audit fix is
-running in either directed working tree.
+deferred only to repos outside the repo set. Then format only the fixed files,
+typecheck only the packages a fix touched and run only the test files that
+exercise the fixed behaviour. Run a validation tool only when the fix concerns
+the rule it enforces, and the plan repo's Markdown format only on the files a
+fix changed. This replaces the root verification default of `pnpm fix`,
+`pnpm check` and `pnpm test`. Run writing commands only while no other audit
+fix is running in either directed working tree.
 
 ## Coverage
 
@@ -489,10 +475,8 @@ shared closing form: the Repo Edu `closed:` marker or the plan repo's loop-close
 move. The stem scans already show every round, so no compiled history belongs
 in either closing body.
 
-The final whole-plan round uses the same package-scoped verification rule. Its
-set includes every package the whole episode concerns, not every package in
-the workspace. Run the required checks and tests once after accepted fixes, or
-as evidence when the round comes back clean.
+The final whole-plan round follows the same rule: no checks or tests as
+evidence, and after accepted fixes only those that cover the fixed code.
 
 The final whole-plan round is advice, not a gate. When asked to treat the
 implementation as done without one, name the missing round once and continue
