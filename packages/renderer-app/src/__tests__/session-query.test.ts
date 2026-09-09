@@ -125,11 +125,9 @@ describe("session Query publication", () => {
       { name: "new", identifier: "new" },
     ])
     let closed = false
-    const closing = controller
-      .requestClose("close", commitPreparation)
-      .then(() => {
-        closed = true
-      })
+    const closing = controller.requestClose(commitPreparation).then(() => {
+      closed = true
+    })
     await tick()
     assert.equal(closed, false)
     settleRelease.resolve()
@@ -173,7 +171,7 @@ describe("session Query publication", () => {
             ? controller.operations.execute("repo.clone", async () => {
                 order.push("command")
               })
-            : controller.requestClose("close", commitPreparation).then(() => {
+            : controller.requestClose(commitPreparation).then(() => {
                 order.push("close")
               })
         await tick()
@@ -264,11 +262,9 @@ describe("session Query publication", () => {
     await entered.promise
     await client.cancelQueries({ queryKey: ["cancel"] })
     let closed = false
-    const close = controller
-      .requestClose("close", commitPreparation)
-      .then(() => {
-        closed = true
-      })
+    const close = controller.requestClose(commitPreparation).then(() => {
+      closed = true
+    })
     await tick()
     assert.equal(closed, false)
     host.resolve("late")
@@ -335,11 +331,9 @@ describe("session Query publication", () => {
         }),
         undefined,
       )
-      const close = controller
-        .requestClose("close", commitPreparation)
-        .then(() => {
-          order.push("close")
-        })
+      const close = controller.requestClose(commitPreparation).then(() => {
+        order.push("close")
+      })
       await tick()
       assert.equal(order.includes("close"), false)
       release.resolve()

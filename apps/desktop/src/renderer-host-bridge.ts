@@ -25,7 +25,6 @@ export type DesktopRendererHostBridge = {
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
   setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
   onCloseRequest: RendererHost["onCloseRequest"]
-  onCloseCancel(callback: (attemptId: string) => void): () => void
   onUpdateAvailable(callback: (info: { version: string }) => void): () => void
   onUpdateDownloaded(callback: () => void): () => void
   onUpdateError(callback: (error: { message: string }) => void): () => void
@@ -52,9 +51,6 @@ export function createRendererHostFromBridge(
     },
     onCloseRequest(callback) {
       return bridge.onCloseRequest(callback)
-    },
-    onCloseCancel(callback) {
-      return bridge.onCloseCancel(callback)
     },
   }
 }

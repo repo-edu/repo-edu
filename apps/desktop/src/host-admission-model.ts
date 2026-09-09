@@ -77,10 +77,14 @@ export type HostAdmissionEvent =
   | { type: "close-ready"; request: HostRequest }
   | { type: "terminal"; error: unknown }
 
-export type HostAdmissionEffect =
-  | { type: "disable-input" }
+/** The reducer emits cancellation against live resources; the owner performs it itself. */
+export type HostAdmissionCancellation =
   | { type: "cancel-call"; call: AcceptedHostCall }
   | { type: "cancel-effect"; request: HostRequest }
+
+/** Every other effect reaches the desktop composition. */
+export type HostAdmissionHostEffect =
+  | { type: "disable-input" }
   | { type: "prepare-command"; request: HostRequest }
   | { type: "execute-command"; request: HostRequest }
   | { type: "settle-cancelled-preparation"; request: HostRequest }
@@ -89,6 +93,10 @@ export type HostAdmissionEffect =
   | { type: "end-host"; reason: HostCloseReason | "abort" | "failure" }
   | { type: "install-update" }
   | { type: "exit-failed" }
+
+export type HostAdmissionEffect =
+  | HostAdmissionCancellation
+  | HostAdmissionHostEffect
 
 export type HostAdmissionTransition = {
   state: HostAdmissionState

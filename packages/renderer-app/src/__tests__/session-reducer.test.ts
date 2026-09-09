@@ -88,23 +88,15 @@ describe("session reducer", () => {
     })
     assert.equal(state.settings.preferences.appearance.theme, "dark")
 
-    state = sessionReducer(state, { type: "close-start", attemptId: "close-1" })
+    state = sessionReducer(state, { type: "close-start" })
     const refused = sessionReducer(state, {
       type: "preference",
       event: { type: "set-theme", theme: "light" },
     })
     assert.equal(refused, state)
-
-    const staleRestore = sessionReducer(state, {
-      type: "close-restore",
-      attemptId: "close-0",
-    })
-    assert.equal(staleRestore, state)
-    const restored = sessionReducer(state, {
-      type: "close-restore",
-      attemptId: "close-1",
-    })
-    assert.equal(restored.lifecycle.kind, "live")
+    const repeated = sessionReducer(state, { type: "close-start" })
+    assert.equal(repeated, state)
+    assert.equal(repeated.lifecycle.kind, "closing")
   })
 
   it("admits settings status only for the active worker slot while closing", () => {
@@ -114,7 +106,7 @@ describe("session reducer", () => {
       credentialsWorkerId: 3,
       preferencesWorkerId: 4,
     })
-    state = sessionReducer(state, { type: "close-start", attemptId: "close-1" })
+    state = sessionReducer(state, { type: "close-start" })
     const stale = sessionReducer(state, {
       type: "settings-worker-status",
       scope: "preferences",

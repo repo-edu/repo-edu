@@ -73,7 +73,10 @@ import { endDesktopHost, isDesktopEnding } from "./desktop-terminal"
 import { installDesktopTerminalSources } from "./desktop-terminal-sources"
 import type { DesktopDirectMessage } from "./desktop-wire"
 import { HostAdmission } from "./host-admission"
-import type { HostAdmissionEffect, HostRequest } from "./host-admission-model"
+import type {
+  HostAdmissionHostEffect,
+  HostRequest,
+} from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
 import { createDesktopAppSettingsStore } from "./settings-store"
 import {
@@ -303,72 +306,72 @@ export function installDesktopApplication(): void {
     admission.dispatch({ type: "update-restart", request: closeRequest() })
   }
 
-  function performAdmissionEffect(effect: HostAdmissionEffect): void {
-    if (effect.type === "install-update") {
-      quitAndInstall()
-      return
-    }
-    if (effect.type === "exit-failed") {
-      app.exit(1)
-      return
-    }
-    if (effect.type === "disable-input") {
-      disableInput()
-      return
-    }
-    // The request transport sends admission and preparation on the retained port.
-    if (effect.type === "prepare-command") return
-    // The validated input receiver owns the async handler body after this
-    // reducer transition has established executing.running.
-    if (effect.type === "execute-command") return
-    // The preparation sender must publish committed stamps before cancellation.
-    if (effect.type === "settle-cancelled-preparation") return
-    if (effect.type === "release-command") {
-      desktopGateway?.requests.release(effect.request)
-      return
-    }
-    if (effect.type === "prepare-close") {
-      const mainWindow = BrowserWindow.getAllWindows()[0]
-      if (!mainWindow || isTRPCValidationMode) {
-        admission.dispatch({ type: "close-ready", request: effect.request })
+  function performAdmissionEffect(effect: HostAdmissionHostEffect): void {
+    switch (effect.type) {
+      case "install-update":
+        quitAndInstall()
         return
-      }
-      mainWindow.setEnabled(false)
-      if (!desktopGateway) {
-        admission.terminal(
-          new Error("The interactive desktop has no entry gateway."),
-        )
+      case "exit-failed":
+        app.exit(1)
         return
-      }
-      desktopGateway.prepareClose(effect.request)
-      return
-    }
-    if (effect.type === "end-host") {
-      void endDesktopHost({
-        reason: effect.reason,
-        controller: childProcessLifetimeController,
-        snapshot: admission.getSnapshot,
-        disableInput,
-        closeStorage: closeExaminationArchiveDatabase,
-        warn: (message) =>
-          dialog.showErrorBox(
-            `${desktopAppName} could not confirm shutdown`,
-            message,
-          ),
-        report: (error) => {
-          process.stderr.write(
-            `[desktop] shutdown-failed ${desktopErrorText(error)}\n`,
+      case "disable-input":
+        disableInput()
+        return
+      case "prepare-command":
+        // The request transport sends admission and preparation on the retained port.
+        return
+      case "execute-command":
+        // The validated input receiver owns the async handler body after this
+        // reducer transition has established executing.running.
+        return
+      case "settle-cancelled-preparation":
+        // The preparation sender must publish committed stamps before cancellation.
+        return
+      case "release-command":
+        desktopGateway?.requests.release(effect.request)
+        return
+      case "prepare-close": {
+        const mainWindow = BrowserWindow.getAllWindows()[0]
+        if (!mainWindow || isTRPCValidationMode) {
+          admission.dispatch({ type: "close-ready", request: effect.request })
+          return
+        }
+        mainWindow.setEnabled(false)
+        if (!desktopGateway) {
+          admission.terminal(
+            new Error("The interactive desktop has no entry gateway."),
           )
-        },
-        exit: (code) => app.exit(code),
-        installUpdate: () => {
-          admission.dispatch({ type: "update-ending-confirmed" })
-        },
-      })
-      return
+          return
+        }
+        desktopGateway.prepareClose(effect.request)
+        return
+      }
+      case "end-host":
+        void endDesktopHost({
+          reason: effect.reason,
+          controller: childProcessLifetimeController,
+          snapshot: admission.getSnapshot,
+          disableInput,
+          closeStorage: closeExaminationArchiveDatabase,
+          warn: (message) =>
+            dialog.showErrorBox(
+              `${desktopAppName} could not confirm shutdown`,
+              message,
+            ),
+          report: (error) => {
+            process.stderr.write(
+              `[desktop] shutdown-failed ${desktopErrorText(error)}\n`,
+            )
+          },
+          exit: (code) => app.exit(code),
+          installUpdate: () => {
+            admission.dispatch({ type: "update-ending-confirmed" })
+          },
+        })
+        return
+      default:
+        effect satisfies never
     }
-    // Request-port execution is connected by the later command steps.
-    admission.terminal(new Error(`Unconnected request effect: ${effect.type}`))
   }
 
   function disableInput(): void {

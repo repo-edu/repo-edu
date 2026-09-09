@@ -47,7 +47,7 @@ describe("SessionController close preparation", () => {
     controller.setDisplayName("course-a", "Changed")
     const committed = deferred<void>()
     let bundle: PersistencePreparationBundle | undefined
-    const close = controller.requestClose("close", async (value) => {
+    const close = controller.requestClose(async (value) => {
       bundle = value
       await committed.promise
       return commitPreparation(value)
@@ -94,7 +94,7 @@ describe("SessionController close preparation", () => {
     )
     await started.promise
     let bundle: PersistencePreparationBundle | undefined
-    const close = controller.requestClose("close", async (value) => {
+    const close = controller.requestClose(async (value) => {
       bundle = value
       return {}
     })
@@ -112,7 +112,7 @@ describe("SessionController close preparation", () => {
     await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
     controller.setDisplayName("course-a", "Changed")
     await assert.rejects(
-      controller.requestClose("close", async () => {
+      controller.requestClose(async () => {
         throw new Error("store failed")
       }),
       /store failed/,
@@ -127,7 +127,7 @@ describe("SessionController close preparation", () => {
     await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
     controller.setDisplayName("course-a", "Changed")
     await assert.rejects(
-      controller.requestClose("close", async () => ({
+      controller.requestClose(async () => ({
         course: {
           courseId: "foreign",
           revision: 3,

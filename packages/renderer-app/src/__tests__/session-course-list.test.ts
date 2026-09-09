@@ -75,7 +75,7 @@ describe("session course listing", () => {
               assert.equal(useCourseStore.getState().course?.id, "new")
               order.push("command")
             })
-          : controller.requestClose("close", commitPreparation).then(() => {
+          : controller.requestClose(commitPreparation).then(() => {
               order.push("close")
             })
       saveRelease.resolve()

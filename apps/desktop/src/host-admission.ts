@@ -4,8 +4,8 @@ import {
 } from "@repo-edu/application-contract"
 import {
   type AcceptedHostCall,
-  type HostAdmissionEffect,
   type HostAdmissionEvent,
+  type HostAdmissionHostEffect,
   initialHostAdmissionState,
 } from "./host-admission-model"
 import { hostAdmissionReducer } from "./host-admission-reducer"
@@ -17,8 +17,9 @@ import {
 export class HostAdmission {
   private state = initialHostAdmissionState()
 
+  /** Cancellation reaches its live resource here; every other effect goes to the host. */
   constructor(
-    private readonly perform: (effect: HostAdmissionEffect) => void,
+    private readonly perform: (effect: HostAdmissionHostEffect) => void,
   ) {}
 
   getSnapshot = () => this.state
@@ -51,7 +52,10 @@ export class HostAdmission {
     if (
       this.dispatch({ type: "workflow-start", workflow, call }) !== "accepted"
     ) {
-      if (desktopWorkflowStarts[workflow] === "ordinary")
+      // A start the renderer may make in ordinary use is refused as ordinary
+      // work, whichever phase refused it.
+      const start = desktopWorkflowStarts[workflow]
+      if (start === "ordinary" || start === "startup-or-ordinary")
         throw new HostAdmissionRefusedError()
       throw new Error(
         `The desktop is not accepting ${workflow} in ${this.state.phase}.`,

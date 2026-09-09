@@ -425,30 +425,19 @@ export class SessionController extends CourseMutationController {
     ])
   }
 
-  async requestClose(
-    attemptId: string,
-    commit: CommitPersistencePreparation,
-  ): Promise<void> {
-    if (!this.dispatch({ type: "close-start", attemptId })) {
-      if (
-        "attemptId" in this.snapshot.lifecycle &&
-        this.snapshot.lifecycle.attemptId === attemptId
-      )
-        return
-      throw new Error("The session is not available for this close attempt.")
-    }
+  /** The host sends one close request per session; an accepted close never
+   * returns the session to live use. */
+  async requestClose(commit: CommitPersistencePreparation): Promise<void> {
+    if (!this.dispatch({ type: "close-start" }))
+      throw new Error("The session is not available for close.")
     try {
-      await this.transactions.enqueue({ kind: "close", attemptId }, (scope) =>
+      await this.transactions.enqueue({ kind: "close" }, (scope) =>
         this.preparePersistence(scope, commit),
       )
     } catch (error) {
       this.dispose()
       throw error
     }
-  }
-
-  cancelClose(attemptId: string): boolean {
-    return this.dispatch({ type: "close-restore", attemptId })
   }
 
   private async preparePersistence(

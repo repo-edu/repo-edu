@@ -25,7 +25,6 @@ import { configureApp } from "../configure-app.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { useTheme } from "../hooks/use-theme.js"
-import { registerRendererCloseHandlers } from "../session/renderer-close-registration.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -133,7 +132,9 @@ export function RendererSessionRoot({
 
   useEffect(() => {
     if (controller === null) return
-    return registerRendererCloseHandlers(rendererHost, controller)
+    return rendererHost.onCloseRequest((commit) =>
+      controller.requestClose(commit),
+    )
   }, [controller, rendererHost])
 
   if (controller === null) return null

@@ -121,7 +121,7 @@ it("claims a save refused after close-port transfer while its renderer queue tur
     return {
       admission() {},
       prepare() {
-        void controller.requestClose("close", exchange.commit).then(
+        void controller.requestClose(exchange.commit).then(
           () => request.readyToClose(),
           (error) => request.fail(String(error)),
         )

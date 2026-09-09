@@ -18,10 +18,10 @@ It consumes:
 - `src/contexts/*`: session operation gateway and renderer-host providers.
   The workflow-named hook exposes the gateway, never the raw client. Module
   getters are reserved for non-component helpers.
-- `src/session/*`: the `SessionController` facade and its private lifecycle,
-  settings, surface-transaction, renderer-close registration and
-  course-persistence owners. The root session snapshot is canonical for
-  preferences, credentials and navigation.
+- `src/session/*`: the `SessionController` facade and its private lifecycle, settings,
+  surface-transaction and course-persistence owners. The root component binds the host's one close
+  request to the controller. The root session snapshot is canonical for preferences, credentials and
+  navigation.
 - `src/session/session-operations.ts`: the only raw workflow-client holder.
   Reserves complete direct and Query-backed bodies in the existing transaction
   queue, including callbacks, publication and semantic follow-up.

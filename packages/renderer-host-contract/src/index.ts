@@ -38,5 +38,4 @@ export type RendererHost = {
   onCloseRequest(
     callback: (commit: CommitPersistencePreparation) => Promise<void>,
   ): () => void
-  onCloseCancel(callback: (attemptId: string) => void): () => void
 }

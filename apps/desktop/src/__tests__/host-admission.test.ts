@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   exclusiveCommandDeclarations,
+  HostAdmissionRefusedError,
   workflowCatalog,
 } from "@repo-edu/application-contract"
 import { HostAdmission } from "../host-admission"
@@ -108,6 +109,24 @@ describe("desktop host admission", () => {
     const nextCourse = owner.startWorkflow("course.load", request())
     assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
     nextCourse()
+  })
+
+  it("refuses a later course load as ordinary work, never as a plain error", () => {
+    const { owner, dispatch } = harness()
+    dispatch({ type: "bootstrap-acknowledged" })
+    dispatch({ type: "host-start", source: "window-close", request: current })
+    assert.throws(
+      () => owner.startWorkflow("course.load", request()),
+      HostAdmissionRefusedError,
+    )
+    assert.throws(
+      () => owner.startWorkflow("course.list", request()),
+      HostAdmissionRefusedError,
+    )
+    assert.throws(
+      () => owner.startWorkflow("repo.clone", request()),
+      (error: unknown) => !(error instanceof HostAdmissionRefusedError),
+    )
   })
 
   it("admits only one of two concurrent command attempts and preserves its resource", () => {

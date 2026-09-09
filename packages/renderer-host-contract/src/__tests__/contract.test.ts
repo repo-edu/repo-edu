@@ -40,7 +40,6 @@ describe("renderer-host-contract", () => {
       pickDirectory: async () => null,
       setNativeTheme: async () => {},
       onCloseRequest: () => () => {},
-      onCloseCancel: () => () => {},
     }
     assert.ok(host)
   })

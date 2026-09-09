@@ -218,13 +218,10 @@ describe("session operation ownership", () => {
             order.push(successor)
           })
         } else {
-          dispatch({ type: "close-start", attemptId: "close" })
-          next = owner.enqueue(
-            { kind: "close", attemptId: "close" },
-            async () => {
-              order.push(successor)
-            },
-          )
+          dispatch({ type: "close-start" })
+          next = owner.enqueue({ kind: "close" }, async () => {
+            order.push(successor)
+          })
         }
         await new Promise<void>((resolve) => setImmediate(resolve))
         assert.equal(order.includes(successor), false)
@@ -464,13 +461,10 @@ describe("session operation ownership", () => {
     const order: string[] = []
     const operation = gateway.reserve<void>("pickDirectory")
     assert.ok(operation)
-    dispatch({ type: "close-start", attemptId: "close" })
-    const closing = owner.enqueue(
-      { kind: "close", attemptId: "close" },
-      async () => {
-        order.push("close")
-      },
-    )
+    dispatch({ type: "close-start" })
+    const closing = owner.enqueue({ kind: "close" }, async () => {
+      order.push("close")
+    })
     assert.equal(gateway.reserve("course.list"), null)
     assert.equal(
       gateway.change(() => order.push("edit")),

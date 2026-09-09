@@ -95,7 +95,7 @@ it("drains host calls before close transfer and queues persistence behind render
       admission: unexpected,
       prepare() {
         order.push("queued")
-        void controller.requestClose("close", exchange.commit).then(
+        void controller.requestClose(exchange.commit).then(
           () => request.readyToClose(),
           (error) => request.fail(String(error)),
         )

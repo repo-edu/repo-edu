@@ -29,8 +29,6 @@ const desktopTrpcBridge: DesktopTrpcBridge = {
   },
 }
 
-let closeCancelCallback: ((attemptId: string) => void) | null = null
-
 const requestTransport = createPreloadRequestTransport({
   channel(command) {
     const { port1, port2 } = new MessageChannel()
@@ -127,13 +125,6 @@ const desktopHostBridge: DesktopRendererHostBridge = {
         closeAcknowledged() {},
       }
     })
-  },
-
-  onCloseCancel(callback) {
-    closeCancelCallback = callback
-    return () => {
-      if (closeCancelCallback === callback) closeCancelCallback = null
-    }
   },
 
   onUpdateAvailable(callback) {

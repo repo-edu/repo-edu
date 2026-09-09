@@ -34,7 +34,7 @@ export type SessionBootstrapState =
 
 export type SessionLifecyclePhase =
   | { kind: "live" }
-  | { kind: "closing" | "closing-preparing"; attemptId: string }
+  | { kind: "closing" | "closing-preparing" }
   | { kind: "disposed" }
 
 export type AnalysisSourceKey =
@@ -44,7 +44,7 @@ export type AnalysisSourceKey =
 
 export type SessionTransactionDescriptor =
   | { kind: "operation" | "command"; operation: SessionOperationId }
-  | { kind: "close"; attemptId: string }
+  | { kind: "close" }
   | { kind: "bootstrap" }
   | {
       kind: "enter"
@@ -118,8 +118,7 @@ export type SessionReducerEvent =
     }
   | { type: "bootstrap-ready"; attempt: number }
   | { type: "bootstrap-failed"; attempt: number; message: string }
-  | { type: "close-start"; attemptId: string }
-  | { type: "close-restore"; attemptId: string }
+  | { type: "close-start" }
   | { type: "preference"; event: PreferenceEvent }
   | { type: "credential"; event: CredentialEvent }
   | {
@@ -249,15 +248,7 @@ export function sessionReducer(
       }
     case "close-start":
       return state.lifecycle.kind === "live"
-        ? {
-            ...state,
-            lifecycle: { kind: "closing", attemptId: event.attemptId },
-          }
-        : state
-    case "close-restore":
-      return state.lifecycle.kind === "closing" &&
-        state.lifecycle.attemptId === event.attemptId
-        ? { ...state, lifecycle: { kind: "live" } }
+        ? { ...state, lifecycle: { kind: "closing" } }
         : state
     case "preference": {
       if (!canAdmitSessionChange(state)) return state
@@ -348,7 +339,6 @@ export function sessionReducer(
       if (
         (event.descriptor.kind === "close"
           ? state.lifecycle.kind !== "closing" ||
-            state.lifecycle.attemptId !== event.descriptor.attemptId ||
             [...state.transactions.admitted.values()].some(
               (entry) => entry.kind === "close",
             )
@@ -381,10 +371,7 @@ export function sessionReducer(
         },
         lifecycle:
           event.descriptor.kind === "close"
-            ? {
-                kind: "closing-preparing",
-                attemptId: event.descriptor.attemptId,
-              }
+            ? { kind: "closing-preparing" }
             : state.lifecycle,
       }
     case "transaction-retire": {
