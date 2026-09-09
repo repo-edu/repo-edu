@@ -8,12 +8,12 @@ apart. Where a launcher and this file disagree, this file is right.
 
 The rebuttal is the auditor's answer to the vet. An implementation-audit
 round writes its `AUDIT-*.md` report, the other assistant vets it into the
-`VET-` twin, and this workflow answers those verdicts in a fresh context of
-the auditor's assistant, writing the `REBUT-` twin. The fix workflow at
-`.agents/skills/fix/references/workflow.md` then reads all three files. The
-user directed this chain on 2026-09-09 so that the vetter can run the fix
-phase with the auditor's answer in view instead of the auditor judging its
-own findings twice.
+`VET-` twin, and this workflow answers those verdicts in the audit session,
+which already holds the evidence the findings rest on, writing the `REBUT-`
+twin. The fix workflow at `.agents/skills/fix/references/workflow.md` then
+reads all three files. The user directed this chain on 2026-09-09 so that the
+vetter can run the fix phase with the auditor's answer in view instead of the
+auditor judging its own findings twice.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. The `REBUT-` twin is the one file it writes.

@@ -85,14 +85,17 @@ commit as written.
 
 ## Fix guard
 
-The round is read-only and ends at its report file. When this session is
-asked to answer a `VET-` twin, discuss the findings for a ruling, apply a
-correction, land a record or delete the report, do not do it. Say that the
-auditor's answer to a vet runs in a fresh context through the rebuttal
-launcher, `/rebut` for Claude and `$rebut` for Codex, and that the fix phase
-runs through the fix launcher, `/fix` or `$fix`, in the vetter's session or a
-fresh one. Name the report file they start from and stop. Continue only when
-the user explicitly says to.
+The round is read-only and ends at its report file. The one later phase this
+session takes part in is the rebuttal: the auditor's answer to the `VET-`
+twin runs here through the rebuttal launcher, `/rebut` for Claude and
+`$rebut` for Codex, because this session already holds the evidence the
+findings rest on and the rebuttal fixes nothing. When this session is asked
+to answer the twin without that launcher, discuss the findings for a ruling,
+apply a correction, land a record or delete the report, do not do it. Say
+that the rebuttal runs through `/rebut` or `$rebut` here and that the fix
+phase runs through the fix launcher, `/fix` or `$fix`, in the vetter's
+session or a fresh one. Name the report file they start from and stop.
+Continue only when the user explicitly says to.
 
 The reason is context: a session that has read a whole step range and then
 fixes in the same context grows past the point where the fixes are made well.
