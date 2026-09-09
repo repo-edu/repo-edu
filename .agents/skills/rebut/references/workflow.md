@@ -80,8 +80,8 @@ few short sentences. Every answer is one of three kinds.
   read. A disagreement of taste is not a contest; it is an agree with a
   note.
 - For user's ruling. The vet sent the item to the user: a full
-  reversal of a settled decision, machinery no boundary asks for, or an
-  unsettled trade block or run price. State the auditor's position and its
+  reversal of a settled decision or a real unresolved choice about machinery's
+  cost, including a run price. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
 A verdict marked `corroborated` by a sibling report still gets its own

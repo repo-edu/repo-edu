@@ -99,9 +99,9 @@ reservation the report never raised. Ground a reopened item the same way
 before answering it.
 
 One kind of finding is not covered by accepting the round as a whole, in a
-vetted round and an unvetted one alike: a finding that carries a trade
-block no ruling has settled needs its own answer, and so does a run pricing
-the report placed above its findings. List these apart in the presentation.
+vetted round and an unvetted one alike: a real unresolved choice about cost
+needs its own answer, whether the report explains it in the finding's prose,
+a separate trade block or a run pricing above the findings. List these apart in the presentation.
 When the user picks the simpler mechanism, that mechanism becomes the
 finding's required correction, revised in the discussion like any other
 revision. When that ruling overturns a reason the plan records, the round

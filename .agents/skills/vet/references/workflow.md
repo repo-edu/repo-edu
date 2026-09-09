@@ -88,12 +88,9 @@ Classify the finding as one of five kinds.
   does. Whether the vet may accept the reopening or must hand it to the
   user is decided under the verdict rules.
 - New machinery no boundary asks for. Read `../plan/BOUNDARIES.md` and
-  `../plan/GROWTH-PATTERNS.md`. When no boundary asks for the machinery, do
-  not settle the trade. State the simplest mechanism the boundaries do ask
-  for, state what the finding's version gives the user over that, and send it
-  to the user's ruling. When the finding already carries a `Trade:` block, do
-  not author a competing pricing: check that block under the trade-block
-  check in axis 3 instead.
+  `../plan/GROWTH-PATTERNS.md`. Check its trade under axis 3 instead of
+  authoring a competing pricing. A real unresolved choice about cost goes to
+  the user's ruling.
 
 ### 2. Grounded
 
@@ -137,33 +134,23 @@ are common here.
   instead. Plan-repo findings carry no area ID and do not use this Repo Edu
   history gate.
 
-Then check the trace. It holds at the claimed tier under the `[A]`-`[D]`
-rubric in this repo's `CLAUDE.md`, and it carries the shape the audit
-workflow fixes: the wrong behaviour the shipped code produces, a rarity
-sentence only when the situation is rare, and no rarity sentence at all when
-the whole cost is rework or re-derivation. A trace that ends with the same
+Then check that the finding's consequence holds at the claimed tier under the
+`[A]`-`[D]` rubric in this repo's `CLAUDE.md`. Verify the wrong behaviour and,
+when reach is `rare` or `very-rare`, the condition that produces it. When the
+cost is only rework or re-derivation, verify that cost. These facts may share the
+finding's prose; no separate trace is required. A trace that ends with the same
 behaviour shipping is not a finding, so the verdict is drop.
 
-Then check the trade block. At tiers A to C, a finding whose growth tag is
-not `none`, whose reach is not `ordinary` and whose complexity is not
-`none` carries a `Trade:` block after its trace, unless the report prices
-that machinery in a run pricing above the tiered findings. A finding that
-should carry one and does not gets revise. The block has two valid forms.
-When the correction is itself the simplest mechanism, the block is one
-sentence naming that fact and what settles it; verify both against the
-code and the named boundary or decision yourself. Otherwise the block
-gives four answers: check each against its source yourself: the offered
-mechanism satisfies `../plan/BOUNDARIES.md`, the build and ownership cost
-matches the standing structure the correction plants, the claimed user
-benefit follows from the finding's trace and its sources, and a claim
-that the choice is settled points at a boundary entry or a recorded user
-decision. A claim that no simpler mechanism exists rests on a
-plan-recorded reason that holds against the code. A four-answer block
-whose offered mechanism is the correction itself gets revise: state the
-one-sentence form. When run pricing replaces the block, check its
-mechanism, cost and benefit with the same tests, and check its rarity
-against the round evidence. An unsettled block or run price goes to the
-user's ruling, never to a verdict of the vet's own.
+Check the trade under the audit workflow's finding-shape and run-pricing rules. The explanation may
+be part of the finding's prose. Verify the simpler mechanism, cost, benefit and any claim that the
+choice is settled against their sources; return revise for missing substance, not for missing labels
+or separate parts. When the correction is the simplest mechanism, verify that claim and the cited
+boundary or decision against the code. When that claim cites a plan decision, reopen it only with
+evidence that the decision is wrong; otherwise accept it. The user directed this on 2026-09-09.
+
+When run pricing replaces the finding's explanation, check the same facts and
+its rarity against the episode evidence. A real unresolved choice about cost
+goes to the user's ruling; the vet never settles it.
 
 ## Verdicts
 
@@ -200,11 +187,10 @@ back under axis 3 instead, and the verdict is revise. The user directed
 adopting this split from the plan repo's vet on 2026-08-21; this origin
 note stands in place of a case.
 
-The user's ruling is needed for three things: a full reversal of a decision
-the plan settled, machinery with no boundary behind it, and an unsettled
-trade block. Name what axis 1 classified, state what the grounded and
-fix-follows checks found, and stop there. Never settle one of these on the
-vet's own authority.
+The user's ruling is needed for a full reversal of a decision the plan settled
+or a real unresolved choice about machinery's cost. Name what axis 1 classified
+and what the grounded and fix-follows checks found, then stop. Never settle either
+on the vet's own authority.
 
 Before returning the verdicts, look for the sibling report: the same plan name,
 scope and ordered sha set with the other auditor token. When it exists, read it

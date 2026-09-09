@@ -177,86 +177,43 @@ finding also carries a growth tag, per [Growth tags](#growth-tags).
 
 ## Finding shape
 
-State the required correction first, even when the evidence behind it is
-subtle. The reader should see what to do before they have to decode anything.
-Each finding then gives its evidence and, at tiers A to C, its failure trace. A
-D-tier finding derives the trace to grade itself and leaves it out of the
-report, because D is the floor and there is nothing below to check against.
+Briefly explain the problem, its consequence and the correction, supported by
+decisive evidence from sources you have read. Combine these in a short paragraph
+when they fit; include useful quotes and file paths so the reader can verify the
+defect. Use another paragraph when needed, without packing several ideas into
+one sentence. Separate correction, evidence, failure-trace and trade parts are
+not required. Expand when a real unresolved choice needs explanation.
 
-The trace starts on its own line prefixed `Failure trace:`, never run into the
-end of the finding's prose, so the correction and the trace read as separate
-parts. It carries up to two short sentences.
+At tiers A to C, the explanation states what wrong behaviour the code produces
+without the correction. For `rare` or `very-rare` reach, name the condition that
+makes the rating checkable. When the cost is only rework or re-derivation, state
+that cost and use `[reach:developer]`. A D-tier finding derives its consequence
+for grading but need not report it. A tier claim without a consequence does not
+stand; drop a finding whose trace ends with the same behaviour shipping. Reach
+supports the user's ruling on the outcome and never changes the tier.
 
-- What goes wrong. The wrong behaviour the shipped code produces. Always
-  written.
-- The condition. The condition that has to hold before that behaviour
-  appears. Written whenever the finding's reach rating is `rare` or
-  `very-rare`, so the token's claim is checkable against a named condition.
+At tiers A to C, explain the trade when a finding's growth tag is not `none`,
+its reach is not `ordinary` and its complexity is not `none`. State the simplest
+mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
+costs to build and own, what it gives the user over that mechanism and whether a
+boundary entry or recorded user decision settles the choice. Deletion or doing
+nothing counts when either is enough. Name the standing rule, state or owner
+concern rather than repeating the complexity token.
 
-The rating itself lives in the finding's `[reach:...]` token, per
-[Reach and complexity](#reach-and-complexity), so the trace's silence carries
-no rating: a trace with the first sentence alone belongs to an `ordinary`
-finding, and the token on the same finding says so.
+Keep this in the finding's explanation; a separate `Trade:` block is optional.
+When the correction is itself the simplest mechanism, one sentence saying so
+and naming the boundary or decision that settles it is enough. Expand only for
+a real unresolved choice. Do not repeat pricing already given under
+[Pricing a run](#pricing-a-run). D-tier findings need no trade explanation.
+The user directed this shorter form on 2026-09-09.
 
-Do not restate how serious the fault is. Severity is the tier itself, graded by
-the [A]-[D] rubric in this repo's `CLAUDE.md`, so a severity clause in the trace
-says the same thing twice. The condition is the part no other piece of the
-finding carries: the token rates how far the fault reaches, and the named
-condition is what makes that rating checkable rather than a guess.
-
-A finding whose whole cost is rework, re-derivation or a later reader mistaking
-intent for drift has no runtime situation to rate. It carries
-`[reach:developer]`, and its trace states that cost and stops.
-
-The trace is the tier's evidence, so a tier claim without one does not stand.
-Reach is evidence for the user's accept-or-challenge ruling on the finding and
-on any guard behind it. It never moves the tier: a rare A-tier fault is still
-A-tier. A trace that ends with the same behaviour shipping is not a finding, so
-drop it rather than report it.
-
-At tiers A to C, a finding whose three tokens all show risk also carries a
-trade block: its growth tag is not `none`, its reach is not `ordinary` and
-its complexity is not `none`. Such a finding suspects machinery, covers a
-situation the user rarely or never meets and plants standing structure. The round
-prices that trade in the finding itself, instead of leaving it for a later
-run of rounds. A D-tier finding carries no trade block: pricing costs more
-than the tier is worth. A finding on machinery this round already prices
-under [Pricing a run](#pricing-a-run) carries none either; the run's
-pricing is the one pricing, and its ruling covers the finding.
-
-The block starts on its own line prefixed `Trade:`, after the trace, and
-gives four short answers:
-
-- The simplest mechanism that works and satisfies `../plan/BOUNDARIES.md`.
-  Deletion or doing nothing counts when either is enough.
-- What the machinery costs to build and own. Name the rule, state or owner
-  concern it leaves behind, not only its complexity token.
-- What the machinery gives the user over that mechanism.
-- Whether a boundary entry or a recorded user decision already settles the
-  choice.
-
-When the correction is itself that simplest mechanism, there is no trade
-to price, and writing the four answers restates the correction as if a
-simpler rival existed. Collapse the block to one sentence naming that
-fact and what settles it:
-`Trade: the correction is the simplest mechanism; boundary 4 settles it.`
-A full four-answer block then always marks a real choice for the user's
-ruling, and the one-sentence form says there is nothing to weigh.
-
-Check the first answer against the plan before offering it. When the plan
-records a reason that mechanism fails, and the reason holds against the
-code, say that no simpler mechanism exists instead of offering one. When
-the recorded reason looks wrong, offer the mechanism and quote the plan's
-objection beside it, so the user rules with both in view. The plan can
-settle whether a mechanism works. It never settles whether machinery is
-worth its cost, because a round may have invented the plan's requirement:
-that is the anchor-rule trap `../plan/GROWTH-PATTERNS.md` records. Only a
-boundary entry or a recorded user decision settles worth. Ground the cost
-answer in the standing structure the correction plants. The complexity
-token names its heaviest kind; the cost answer names the actual burden.
-
-The block changes nothing about where the finding lives. The finding stays
-in the numbered list with its number, its tier and its metadata bullet.
+Check the simpler mechanism against the plan's recorded reasons and the code.
+When a reason still rules it out, say no simpler mechanism works. When the reason
+looks wrong, quote it and give the evidence against it. The plan can settle
+whether a mechanism works; only a boundary entry or recorded user decision
+settles a real choice about whether machinery is worth its cost. This preserves
+the anchor-rule protection in `../plan/GROWTH-PATTERNS.md`. An unresolved choice
+goes to the user under the fix workflow's reconciliation rules.
 
 ## Growth tags
 
@@ -350,8 +307,8 @@ while every component honours its contract, such as unusual timing, an
 unusual user action, resource exhaustion or an outage. `very-rare` means the
 condition requires the platform to break its own contract, such as an
 operating-system or filesystem facility failing to do what it guarantees. The
-token is the failure trace's condition sentence made durable and countable;
-the sentence names the condition that makes the rating checkable.
+token makes the rating durable and countable; the finding's explanation names
+the condition that makes it checkable.
 
 `[complexity:none|low|medium|high]` says what standing structure the
 correction leaves in the code, graded at the heaviest obligation it plants,
