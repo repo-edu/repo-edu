@@ -117,11 +117,11 @@ here. When the user rules, carry the answer and its reason in the deferral.
 When the user does not rule, keep the choice open in the deferral instead of
 choosing for them.
 
-Then stop for the ruling. Edit only after the user accepts or revises the
-outcome and asks for it to be applied. When the invocation already carries
-the ruling, present the outcome with that ruling applied and still stop for
-one confirmation, so a stale report never lands on a ruling given against a
-different tree.
+The invocation is the acceptance of everything the files already settle.
+Stop for a ruling only on open items: an item sent to the user's ruling, a
+contested verdict this session maintains, a drift correction that changes a
+finding, or this session's own answers to a vet with no rebuttal. When
+nothing is open, state the outcome in one line per finding and apply.
 
 ## Applying corrections
 
@@ -186,8 +186,9 @@ scope. When the user declines the outcome in full, no commit lands because
 disagreement is not a state. The logs show every confirmed round that ran,
 including clean rounds that would otherwise exist only in chat.
 
-Ask before each commit unless the instruction that started the session
-already granted it.
+The invocation grants the round's record commits and any directed plan-repo
+correction commit once the checks above pass. Anything outside the landed
+round's file set still asks.
 
 ## Closing the report
 
