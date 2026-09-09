@@ -86,7 +86,6 @@ function close(
               request,
             },
             "accepted",
-            [{ type: "disable-input" }],
           )
     case "starting":
     case "preparing":
@@ -102,6 +101,21 @@ function close(
 }
 
 export function hostAdmissionReducer(
+  state: HostAdmissionState,
+  event: HostAdmissionEvent,
+): HostAdmissionTransition {
+  const next = reduceHostAdmission(state, event)
+  if (
+    state.phase !== "terminal" &&
+    !state.phase.startsWith("closing.") &&
+    (next.state.phase === "terminal" || next.state.phase.startsWith("closing."))
+  ) {
+    return { ...next, effects: [{ type: "disable-input" }, ...next.effects] }
+  }
+  return next
+}
+
+function reduceHostAdmission(
   state: HostAdmissionState,
   event: HostAdmissionEvent,
 ): HostAdmissionTransition {
@@ -126,8 +140,6 @@ export function hostAdmissionReducer(
         (state.phase === "interactive" &&
           (start === "ordinary" || start === "startup-or-ordinary"))
       if (!permitted || !("calls" in state)) return transition(state, "busy")
-      if (state.calls.has(event.call))
-        return fail(state, new Error("An accepted call was started twice."))
       return transition({
         ...state,
         calls: new Set([...state.calls, event.call]),
@@ -152,6 +164,8 @@ export function hostAdmissionReducer(
       return transition({ ...state, calls })
     }
     case "bootstrap-acknowledged":
+      if (state.phase === "closing.aborting")
+        return transition(state, "ignored")
       if (state.phase !== "starting" || state.calls.size !== 0)
         return fail(
           state,
@@ -163,8 +177,6 @@ export function hostAdmissionReducer(
     case "exclusive-intent":
       if (state.phase !== "interactive" || state.calls.size !== 0)
         return transition(state, "busy")
-      if (desktopWorkflowStarts[event.command] !== "exclusive")
-        return fail(state, new Error("Unknown exclusive command."))
       return transition(
         {
           phase: "preparing",

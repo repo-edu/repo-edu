@@ -22,6 +22,7 @@ export function observeTerminalEnding(
   snapshot: () => HostAdmissionState,
   trace: string[],
 ) {
+  if (effect.type === "disable-input") trace.push("disable")
   if (effect.type !== "end-host") return
   return endDesktopHost({
     reason: effect.reason,
@@ -32,7 +33,6 @@ export function observeTerminalEnding(
         return { outcome: "confirmed" }
       },
     },
-    disableInput: () => trace.push("disable"),
     closeStorage: () => trace.push("close-storage"),
     warn: () => trace.push("warn"),
     report: () => trace.push("report"),

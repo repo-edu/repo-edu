@@ -47,7 +47,10 @@ describe("gateway workflow inputs", () => {
       assert.equal(starts, 0)
       assert.deepEqual(h.responses, [])
       assert.equal(h.admission.getSnapshot().phase, "terminal")
-      assert.equal(h.effects.length, 1)
+      assert.deepEqual(
+        h.effects.map((effect) => effect.type),
+        ["disable-input", "end-host"],
+      )
     })
   }
 })
@@ -122,7 +125,10 @@ it("rejects complete-envelope violations before identity cleanup", () => {
     h.receive(raw)
     h.receive(raw)
     assert.equal(h.admission.getSnapshot().phase, "terminal")
-    assert.equal(h.effects.length, 1)
+    assert.deepEqual(
+      h.effects.map((effect) => effect.type),
+      ["disable-input", "end-host"],
+    )
     assert.deepEqual(h.responses, [])
   }
 })
@@ -209,7 +215,10 @@ it("rejects destroyed and detached current frames for direct and tRPC messages",
     h.invoke({ action: "bootstrapReady" })
     h.receive(stopMessage())
     assert.equal(h.admission.getSnapshot().phase, "terminal")
-    assert.equal(h.effects.length, 1)
+    assert.deepEqual(
+      h.effects.map((effect) => effect.type),
+      ["disable-input", "end-host"],
+    )
     assert.deepEqual(h.direct, [])
     assert.deepEqual(h.responses, [])
   }

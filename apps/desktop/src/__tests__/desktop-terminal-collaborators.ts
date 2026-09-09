@@ -4,6 +4,7 @@ export function terminalCollaborators(
   trigger: string,
   unconfirmed = false,
   cascade = true,
+  acknowledgeBootstrap = true,
 ) {
   return {
     "./desktop-entry-gateway": null,
@@ -112,8 +113,10 @@ export function terminalCollaborators(
         const event = { sender: contents, senderFrame: contents.mainFrame, ports: [] }
         const invoke = (raw, sender = event) => invokes.get(desktopEntryChannel)(sender, raw)
         const send = (raw, ports = [], sender = event) => ipcMain.emit(desktopEntryChannel, { ...sender, ports }, raw)
-        invoke({ action: "bootstrapReady" })
-        trace("interactive")
+        if (${acknowledgeBootstrap}) {
+          invoke({ action: "bootstrapReady" })
+          trace("interactive")
+        }
         const command = () => {
           const port = new Port()
           send({ kind: "command-intent", workflowId: "userFile.exportPreview" }, [port])

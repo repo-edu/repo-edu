@@ -31,7 +31,6 @@ function harness() {
             },
           },
           snapshot: admission.getSnapshot,
-          disableInput: () => trace.push("disable"),
           closeStorage: () => trace.push("close-storage"),
           warn: (message) => {
             assert.equal(message, childProcessUnconfirmedTreeMessage)
@@ -77,11 +76,11 @@ for (const outcome of ["confirmed", "unconfirmed"] as const) {
     assert.deepEqual(h.trace, ["disable", "prepare-close"])
     h.ready()
     h.close()
-    assert.deepEqual(h.trace, ["disable", "prepare-close", "disable", "stop"])
+    assert.deepEqual(h.trace, ["disable", "prepare-close", "stop"])
     h.ending.resolve({ outcome })
     await Promise.all(h.pending)
     assert.deepEqual(
-      h.trace.slice(4),
+      h.trace.slice(3),
       outcome === "confirmed"
         ? ["close-storage", "exit:0"]
         : ["close-storage", "warn", "exit:1"],
@@ -284,7 +283,6 @@ it("warning failure still exits once without claiming confirmation", async () =>
       phase: "closing.ready",
       reason: "close",
     }),
-    disableInput() {},
     closeStorage() {},
     warn() {
       throw new Error("dialog unavailable")

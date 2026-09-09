@@ -7,6 +7,9 @@ import type {
   SaveUserFileDialogOptions,
 } from "@repo-edu/renderer-host-contract"
 
+export const updateRestartRefusedMessage =
+  "The update cannot install while work is running. Try again when it finishes."
+
 export type DownloadProgress = {
   percent: number
   bytesPerSecond: number

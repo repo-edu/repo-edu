@@ -9,9 +9,10 @@ import {
 } from "@repo-edu/ui"
 import { Download } from "@repo-edu/ui/components/icons"
 import { useCallback, useEffect, useState } from "react"
-import type {
-  DesktopRendererHostBridge,
-  DownloadProgress,
+import {
+  type DesktopRendererHostBridge,
+  type DownloadProgress,
+  updateRestartRefusedMessage,
 } from "./renderer-host-bridge"
 
 type DialogPhase =
@@ -66,7 +67,9 @@ export function UpdateDialog({
     const unsubError = bridge.onUpdateError(({ message }) => {
       setPhase((prev) => {
         const version =
-          prev.kind !== "closed" && prev.kind !== "error" ? prev.version : null
+          prev.kind === "downloaded" || prev.kind === "error"
+            ? prev.version
+            : null
         return { kind: "error", version, message: message || "Unknown error" }
       })
     })
@@ -89,7 +92,7 @@ export function UpdateDialog({
           prev.kind === "downloading"
             ? {
                 kind: "error",
-                version: prev.version,
+                version: null,
                 message: "Download failed",
               }
             : prev,
@@ -99,9 +102,20 @@ export function UpdateDialog({
     [bridge],
   )
 
-  const installAndRestart = useCallback(() => {
-    void bridge.quitAndInstall()
-  }, [bridge])
+  const installAndRestart = useCallback(
+    async (version: string) => {
+      try {
+        await bridge.quitAndInstall()
+      } catch {
+        setPhase({
+          kind: "error",
+          version,
+          message: updateRestartRefusedMessage,
+        })
+      }
+    },
+    [bridge],
+  )
 
   const isOpen = phase.kind !== "closed"
 
@@ -173,7 +187,10 @@ export function UpdateDialog({
               <Button variant="outline" size="sm" onClick={dismiss}>
                 Later
               </Button>
-              <Button size="sm" onClick={installAndRestart}>
+              <Button
+                size="sm"
+                onClick={installAndRestart.bind(null, phase.version)}
+              >
                 Install and Restart
               </Button>
             </DialogFooter>
@@ -190,6 +207,14 @@ export function UpdateDialog({
               <Button variant="outline" size="sm" onClick={dismiss}>
                 Dismiss
               </Button>
+              {phase.version !== null && (
+                <Button
+                  size="sm"
+                  onClick={installAndRestart.bind(null, phase.version)}
+                >
+                  Install and Restart
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}

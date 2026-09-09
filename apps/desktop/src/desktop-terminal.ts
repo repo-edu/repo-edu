@@ -17,14 +17,12 @@ export async function endDesktopHost(options: {
   reason: HostCloseReason | "abort" | "failure"
   controller: Pick<ChildProcessLifetimeController, "stopAndConfirm">
   snapshot(): HostAdmissionState
-  disableInput(): void
   closeStorage(): void
   warn(message: string): void
   report(error: unknown): void
   exit(code: number): void
   installUpdate(): void
 }): Promise<void> {
-  options.disableInput()
   let ending: ChildProcessLifetimeEnding
   try {
     ending = await options.controller.stopAndConfirm()

@@ -108,6 +108,16 @@ describe("desktop host admission", () => {
     nextCourse()
   })
 
+  it("ignores bootstrap acknowledgement after an aborting close without restarting shutdown", () => {
+    const { owner, dispatch, effects } = harness()
+    dispatch({ type: "host-start", source: "window-close", request: current })
+    const closing = owner.getSnapshot()
+    const closingEffects = [...effects]
+    assert.equal(dispatch({ type: "bootstrap-acknowledged" }), "ignored")
+    assert.equal(owner.getSnapshot(), closing)
+    assert.deepEqual(effects, closingEffects)
+  })
+
   it("refuses a later course load as ordinary work, never as a plain error", () => {
     const { owner, dispatch } = harness()
     dispatch({ type: "bootstrap-acknowledged" })
@@ -236,6 +246,12 @@ describe("desktop host admission", () => {
           assert.equal(result.decision, "busy")
           assert.equal(result.state, state)
         } else {
+          assert.equal(result.effects[0]?.type, "disable-input")
+          assert.equal(
+            result.effects.filter((effect) => effect.type === "disable-input")
+              .length,
+            1,
+          )
           assert.equal(
             result.state.phase,
             state.phase === "interactive"
@@ -265,6 +281,31 @@ describe("desktop host admission", () => {
           : state.phase === "terminal"
             ? "ignored"
             : "busy",
+      )
+      assert.deepEqual(
+        result.effects.filter((effect) => effect.type === "disable-input"),
+        state.phase === "interactive" ? [{ type: "disable-input" }] : [],
+      )
+    })
+    it(`disables input only on first terminal entry from ${state.phase}`, () => {
+      const result = hostAdmissionReducer(state, {
+        type: "terminal",
+        error: new Error("failed"),
+      })
+      const alreadyClosing =
+        state.phase === "terminal" || state.phase.startsWith("closing.")
+      assert.deepEqual(
+        result.effects.filter((effect) => effect.type === "disable-input"),
+        alreadyClosing ? [] : [{ type: "disable-input" }],
+      )
+      if (!alreadyClosing)
+        assert.equal(result.effects[0]?.type, "disable-input")
+      assert.deepEqual(
+        hostAdmissionReducer(result.state, {
+          type: "terminal",
+          error: new Error("later"),
+        }).effects,
+        [],
       )
     })
   }
@@ -352,7 +393,7 @@ describe("desktop host admission", () => {
     dispatch({
       type: "outcome-fixed",
       request: runningRequest,
-      completion: { operation: {} as never, result: {} as never },
+      completion: { operation: {} as never, outcome: {} as never },
     })
     dispatch({ type: "cancel-request", request: runningRequest })
     assert.equal(cancellations, 1)
@@ -373,7 +414,10 @@ describe("desktop host admission", () => {
       source: "window-close",
       request: request(),
     })
-    assert.deepEqual(result.effects, [{ type: "end-host", reason: "abort" }])
+    assert.deepEqual(result.effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "abort" },
+    ])
   })
 
   it("fails closed on a foreign request or an out-of-stage follow-up", () => {
@@ -382,7 +426,7 @@ describe("desktop host admission", () => {
       {
         type: "outcome-fixed",
         request: current,
-        completion: { operation: {} as never, result: {} as never },
+        completion: { operation: {} as never, outcome: {} as never },
       },
       { type: "input-prepared", request: current },
     ] satisfies HostAdmissionEvent[]) {
@@ -392,6 +436,7 @@ describe("desktop host admission", () => {
       )
       assert.equal(result.state.phase, "terminal")
       assert.deepEqual(result.effects, [
+        { type: "disable-input" },
         { type: "end-host", reason: "failure" },
       ])
     }

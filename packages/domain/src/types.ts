@@ -18,6 +18,18 @@ export const enrollmentTypeKinds = [
   "other",
 ] as const
 export const groupOriginKinds = ["system", "lms", "local"] as const
+export const repositoryCloneDirectoryLayouts = [
+  "flat",
+  "by-team",
+  "by-task",
+] as const
+export const groupSetImportFormats = [
+  "group-set-csv",
+  "repobee-students",
+] as const
+
+export type RepositoryCloneDirectoryLayout =
+  (typeof repositoryCloneDirectoryLayouts)[number]
 
 export type CourseBacking = "lms" | "repobee"
 export type GitUsernameStatus = (typeof gitUsernameStatusKinds)[number]
@@ -209,7 +221,7 @@ export type PersistedCourse = AnalysisCore & {
   roster: Roster
   repositoryTemplate: RepositoryTemplate | null
   repositoryCloneTargetDirectory?: string | null
-  repositoryCloneDirectoryLayout?: "flat" | "by-team" | "by-task" | null
+  repositoryCloneDirectoryLayout?: RepositoryCloneDirectoryLayout | null
   updatedAt: string
 }
 
@@ -247,7 +259,7 @@ export type BlankCourseFields = {
   lmsCourseId?: string | null
   repositoryTemplate?: RepositoryTemplate | null
   repositoryCloneTargetDirectory?: string | null
-  repositoryCloneDirectoryLayout?: "flat" | "by-team" | "by-task" | null
+  repositoryCloneDirectoryLayout?: RepositoryCloneDirectoryLayout | null
   searchFolder?: string | null
   analysisInputs?: AnalysisInputs
 }
@@ -338,7 +350,7 @@ export type GroupSetRenamedGroup = {
   to: string
 }
 
-export type GroupSetImportFormat = "group-set-csv" | "repobee-students"
+export type GroupSetImportFormat = (typeof groupSetImportFormats)[number]
 
 export type GroupSetImportMemberKey = "email" | "gitUsername"
 

@@ -90,7 +90,10 @@ for (const type of [...Object.keys(childTypes), "Future child"]) {
         assert.ok(event.error instanceof Error)
         assert.deepEqual(Object.keys(event.error), [])
         assert.equal(event.error.cause, undefined)
-        assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+        assert.deepEqual(h.effects, [
+          { type: "disable-input" },
+          { type: "end-host", reason: "failure" },
+        ])
       }
       await flushTransport()
       assert.deepEqual(
@@ -109,7 +112,10 @@ for (const reason of [...Object.keys(reasons), "future-reason"]) {
     h.renderer.emit("render-process-gone", {}, { reason, exitCode: 0 })
     assert.equal(h.events.length, 1)
     assert.equal(h.events[0].type, "terminal")
-    assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    assert.deepEqual(h.effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "failure" },
+    ])
     await flushTransport()
     assert.deepEqual(h.terminalTrace, [
       "disable",
@@ -126,8 +132,15 @@ it("reports arbitrary rejection reasons and coalesces cascading sources through 
     h.process.emit("unhandledRejection", reason, Promise.resolve())
     h.renderer.emit("render-process-gone", {}, { reason: "crashed" })
     h.app.emit("child-process-gone", {}, { type: "GPU", reason: "killed" })
-    assert.deepEqual(h.events, [{ type: "terminal", error: reason }])
-    assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    assert.equal(h.events.length, 3)
+    assert.deepEqual(h.admission.getSnapshot(), {
+      phase: "terminal",
+      error: reason,
+    })
+    assert.deepEqual(h.effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "failure" },
+    ])
     await flushTransport()
     assert.deepEqual(h.terminalTrace, [
       "disable",
@@ -174,7 +187,10 @@ for (const [name, trigger] of Object.entries({
     trigger(h)
     trigger(h)
     assert.equal(events.length, 1)
-    assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+    assert.deepEqual(h.effects, [
+      { type: "disable-input" },
+      { type: "end-host", reason: "failure" },
+    ])
     assert.deepEqual(h.direct, [])
     assert.deepEqual(h.responses, [])
     await flushTransport()
@@ -211,7 +227,10 @@ for (const source of [
         )
       await until(() => h.events.length > 0)
       assert.equal(h.events.length, 1)
-      assert.deepEqual(h.effects, [{ type: "end-host", reason: "failure" }])
+      assert.deepEqual(h.effects, [
+        { type: "disable-input" },
+        { type: "end-host", reason: "failure" },
+      ])
       await flushTransport()
       assert.deepEqual(h.terminalTrace, [
         "disable",

@@ -81,7 +81,8 @@ export function updateCollaborators(platform: "win32" | "linux" | "darwin") {
         getSize() { return [1000, 800] }
       }
       export const dialog = {
-        showErrorBox: (_title, message) => { trace("warning"); trace(message) }
+        showErrorBox: (_title, message) => { trace("warning"); trace(message) },
+        showMessageBoxSync: ({ message }) => { trace("restart-refused"); trace(message) }
       }
       export const Menu = { buildFromTemplate: items => items, setApplicationMenu() {} }
       export const ipcMain = {}, MessageChannelMain = {}, nativeTheme = {}, shell = {}
@@ -93,6 +94,17 @@ export function updateCollaborators(platform: "win32" | "linux" | "darwin") {
         updater.addQuitHandler?.()
         trace("auto-install:" + updater.autoInstallOnAppQuit)
         if (process.env.ENTRY_CASE.includes("mac-staged")) autoUpdater.emit("update-downloaded")
+        if (process.env.ENTRY_CASE.includes("menu-refused")) {
+          if (process.env.ENTRY_CASE.includes("command")) {
+            gateway.admission.dispatch({ type: "exclusive-intent", command: "repo.clone", request: { cancel() {} } })
+          }
+          const before = gateway.admission.getSnapshot()
+          menuRestart()
+          if (gateway.admission.getSnapshot() !== before) throw new Error("Refusal changed admission")
+          app.quit()
+          confirmEnding()
+          return
+        }
         const retire = gateway.admission.startWorkflow("course.list", { cancel() { trace("cancel-call") } })
         trace("ordinary-started")
         if (process.env.ENTRY_CASE.includes("ordinary-close")) app.quit()
@@ -120,7 +132,9 @@ export function updateCollaborators(platform: "win32" | "linux" | "darwin") {
       export const installDesktopEntryGateway = options => {
         globalThis.gateway = options
         return {
-          loadRenderer: async () => options.direct({ action: "bootstrapReady" }),
+          loadRenderer: async () => {
+            if (!process.env.ENTRY_CASE.includes("menu-refused-starting")) options.direct({ action: "bootstrapReady" })
+          },
           prepareClose: request => {
             trace("prepare-close")
             globalThis.finishPreparation = () => {

@@ -16,6 +16,7 @@ import type {
   GroupSetImportFormat,
   IdSequences,
   PersistedCourse,
+  RepositoryCloneDirectoryLayout,
   RepositoryTemplate,
   Roster,
 } from "@repo-edu/domain/types"
@@ -157,7 +158,7 @@ export type RepositoryBatchInput = {
   assignmentId: string | null
   template: RepositoryTemplate | null
   targetDirectory?: string
-  directoryLayout?: "flat" | "by-team" | "by-task"
+  directoryLayout?: RepositoryCloneDirectoryLayout
 }
 
 export type RepositoryUpdateInput = {

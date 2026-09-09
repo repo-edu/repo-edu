@@ -20,6 +20,7 @@ import {
   groupOriginKinds,
   memberStatusKinds,
   persistedCourseKind,
+  repositoryCloneDirectoryLayouts,
 } from "./types.js"
 
 // ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ export const persistedCourseSchema = z
     repositoryTemplate: repositoryTemplateSchema.nullable(),
     repositoryCloneTargetDirectory: z.string().nullable().optional(),
     repositoryCloneDirectoryLayout: z
-      .enum(["flat", "by-team", "by-task"])
+      .enum(repositoryCloneDirectoryLayouts)
       .nullable()
       .optional(),
     searchFolder: z.string().nullable(),

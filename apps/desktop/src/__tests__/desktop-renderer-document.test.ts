@@ -28,7 +28,10 @@ for (const rendererUrl of [
     it("does not authorise a URL before its host-owned load", () => {
       const h = transportHarness(async () => assert.fail(), rendererUrl, false)
       h.invoke({ action: "bootstrapReady" })
-      assert.equal(h.effects.length, 1)
+      assert.deepEqual(
+        h.effects.map((effect) => effect.type),
+        ["disable-input", "end-host"],
+      )
       assert.deepEqual(h.direct, [])
     })
 
@@ -39,7 +42,10 @@ for (const rendererUrl of [
         ...h.event,
         senderFrame: h.contents.mainFrame,
       } as typeof h.event)
-      assert.equal(h.effects.length, 1)
+      assert.deepEqual(
+        h.effects.map((effect) => effect.type),
+        ["disable-input", "end-host"],
+      )
       assert.deepEqual(h.direct, [])
     })
 
@@ -105,7 +111,10 @@ for (const rendererUrl of [
         h.receive(startMessage("course.list", undefined))
         await flushTransport()
         assert.equal(events.length, 1)
-        assert.equal(h.effects.length, 1)
+        assert.deepEqual(
+          h.effects.map((effect) => effect.type),
+          ["disable-input", "end-host"],
+        )
         assert.deepEqual(h.direct, [])
         assert.deepEqual(h.responses, [])
       })
@@ -122,7 +131,10 @@ for (const rendererUrl of [
         ...h.event,
         senderFrame: { ...h.contents.mainFrame, parent: h.contents.mainFrame },
       } as typeof h.event)
-      assert.equal(h.effects.length, 1)
+      assert.deepEqual(
+        h.effects.map((effect) => effect.type),
+        ["disable-input", "end-host"],
+      )
       assert.deepEqual(h.direct, [])
     })
 
@@ -137,7 +149,10 @@ for (const rendererUrl of [
       it(`rejects ${JSON.stringify(message)} before shell work`, () => {
         const h = transportHarness(async () => assert.fail(), rendererUrl)
         h.invoke(message)
-        assert.equal(h.effects.length, 1)
+        assert.deepEqual(
+          h.effects.map((effect) => effect.type),
+          ["disable-input", "end-host"],
+        )
         assert.deepEqual(h.direct, [])
       })
     }

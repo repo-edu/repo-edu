@@ -26,7 +26,6 @@ export class HostAdmission {
 
   /** Source adapters report failure here; the reducer alone owns terminal entry. */
   terminal = (error: unknown): void => {
-    if (this.state.phase === "terminal") return
     this.dispatch({ type: "terminal", error })
   }
 

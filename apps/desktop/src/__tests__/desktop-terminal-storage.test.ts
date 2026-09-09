@@ -121,14 +121,9 @@ it("an archive read failure cannot become an ordinary workflow error or start cl
   h.gateway.dispose()
 })
 
-it("rethrowing an archive failure through outer owners emits one terminal event", () => {
-  let events = 0
-  const admission = new HostAdmission(() => {})
-  const dispatch = admission.dispatch.bind(admission)
-  admission.dispatch = (event) => {
-    if (event.type === "terminal") events++
-    return dispatch(event)
-  }
+it("rethrowing an archive failure through outer owners starts shutdown once", () => {
+  const effects: string[] = []
+  const admission = new HostAdmission((effect) => effects.push(effect.type))
   const error = new Error("archive unavailable")
   const archive = observeDesktopExaminationStorage(
     {
@@ -143,6 +138,6 @@ it("rethrowing an archive failure through outer owners emits one terminal event"
   } catch (caught) {
     admission.terminal(caught)
   }
-  assert.equal(events, 1)
+  assert.deepEqual(effects, ["disable-input", "end-host"])
   assert.deepEqual(admission.getSnapshot(), { phase: "terminal", error })
 })

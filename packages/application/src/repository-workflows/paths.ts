@@ -1,10 +1,13 @@
 import { homedir } from "node:os"
 import * as path from "node:path"
 import type { RepositoryBatchInput } from "@repo-edu/application-contract"
-import type { PlannedRepositoryGroup } from "@repo-edu/domain/types"
+import type {
+  PlannedRepositoryGroup,
+  RepositoryCloneDirectoryLayout,
+} from "@repo-edu/domain/types"
 import filenamify from "filenamify"
 
-export type RepositoryDirectoryLayout = "flat" | "by-team" | "by-task"
+export type RepositoryDirectoryLayout = RepositoryCloneDirectoryLayout
 type PathOperations = Pick<typeof path, "isAbsolute" | "join">
 
 export type RepositoryClonePathCandidate = {

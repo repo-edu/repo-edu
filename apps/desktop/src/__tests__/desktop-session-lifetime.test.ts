@@ -25,7 +25,7 @@ it("activation during startup does not create a renderer and quit needs no rende
   assert.deepEqual(events, [])
   app.emit("window-all-closed")
   app.emit("activate")
-  assert.deepEqual(events, ["end-host"])
+  assert.deepEqual(events, ["disable-input", "end-host"])
 })
 
 it("last-window close ends the host and activation cannot replace the session", () => {
@@ -65,5 +65,5 @@ it("last-window close ends the host and activation cannot replace the session", 
   app.emit("activate")
   app.emit("second-instance")
   app.emit("window-all-closed")
-  assert.deepEqual(events, ["prepare-close", "end-host"])
+  assert.deepEqual(events, ["disable-input", "prepare-close", "end-host"])
 })

@@ -85,6 +85,32 @@ it("update restart through the real gateway and close port skips installation on
   )
 })
 
+it("a late bootstrap acknowledgement through the gateway preserves a successful aborting close", async () => {
+  const result = await runDesktopEntry({
+    collaborators: terminalCollaborators(
+      'app.quit(); await invoke({ action: "bootstrapReady" }); trace("late-bootstrap-resolved")',
+      false,
+      false,
+      false,
+    ),
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.ok(result.events.includes("late-bootstrap-resolved"))
+  assert.equal(result.events.filter((event) => event === "disable").length, 1)
+  assert.equal(
+    result.events.filter((event) => event === "stop-owned-work").length,
+    1,
+  )
+})
+
+it("the real gateway rejects update restart while a command owns admission", async () => {
+  await proveTerminal(
+    'command(); await assert.rejects(async () => invoke({ action: "quitAndInstall" }), { name: "HostAdmissionRefusedError" }); app.quit()',
+    false,
+    false,
+  )
+})
+
 const invalidEntries = {
   "foreign sender": "send(null, [], { ...event, sender: {} })",
   "foreign direct sender":

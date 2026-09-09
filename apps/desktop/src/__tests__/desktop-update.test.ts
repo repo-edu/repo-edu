@@ -1,8 +1,26 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import { childProcessUnconfirmedTreeMessage } from "@repo-edu/host-node/child-process-lifetime"
+import { updateRestartRefusedMessage } from "../renderer-host-bridge"
 import { runDesktopEntry } from "./desktop-entry-harness"
 import { updateCollaborators } from "./desktop-update-collaborators"
+
+for (const phase of ["starting", "command"]) {
+  it(`the menu reports a refused restart during ${phase}`, async () => {
+    const result = await runDesktopEntry({
+      platform: "linux",
+      scenario: `menu-refused-${phase}`,
+      collaborators: updateCollaborators("linux"),
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(
+      result.events.filter((event) => event === "restart-refused").length,
+      1,
+    )
+    assert.ok(result.events.includes(updateRestartRefusedMessage))
+    assert.equal(result.events.includes("updater-package-install"), false)
+  })
+}
 
 for (const platform of ["win32", "linux", "darwin"] as const) {
   for (const source of ["renderer", "menu"] as const) {

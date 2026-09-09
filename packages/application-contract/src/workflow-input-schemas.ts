@@ -11,6 +11,10 @@ import {
   persistedAppCredentialsSchema,
   persistedAppPreferencesSchema,
 } from "@repo-edu/domain/settings"
+import {
+  groupSetImportFormats,
+  repositoryCloneDirectoryLayouts,
+} from "@repo-edu/domain/types"
 import { z } from "zod"
 import {
   analysisBlameInputSchema,
@@ -40,7 +44,7 @@ const lmsDraft = connectionBaseSchema.extend({
 const groupSetFileInput = z.strictObject({
   course,
   file,
-  format: z.enum(["group-set-csv", "repobee-students"]),
+  format: z.enum(groupSetImportFormats),
   targetGroupSetId: z.string().nullable(),
 })
 const repositoryBatchInput = z.strictObject({
@@ -49,7 +53,7 @@ const repositoryBatchInput = z.strictObject({
   assignmentId: z.string().nullable(),
   template: repositoryTemplateSchema.nullable(),
   targetDirectory: z.string().optional(),
-  directoryLayout: z.enum(["flat", "by-team", "by-task"]).optional(),
+  directoryLayout: z.enum(repositoryCloneDirectoryLayouts).optional(),
 })
 
 export type WorkflowInputSchemaMap = {

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import {
+  groupSetImportFormats,
+  repositoryCloneDirectoryLayouts,
+} from "@repo-edu/domain/types"
 import type { z } from "zod"
 import type {
   WorkflowId,
@@ -90,6 +94,49 @@ type _CatchesAnOmissionInsideAUnionMember = Assert<
 >
 
 describe("runtime workflow inputs", () => {
+  it("accepts every owned layout in both saved courses and repository requests", () => {
+    for (const directoryLayout of repositoryCloneDirectoryLayouts) {
+      const saved = {
+        ...course,
+        repositoryCloneDirectoryLayout: directoryLayout,
+      }
+      assert.deepEqual(workflowInputSchemas["course.save"].parse(saved), saved)
+      const input = {
+        ...workflowInputs["repo.clone"],
+        course: saved,
+        directoryLayout,
+      }
+      assert.deepEqual(workflowInputSchemas["repo.clone"].parse(input), input)
+      assert.deepEqual(workflowInputSchemas["repo.create"].parse(input), input)
+    }
+    assert.equal(
+      workflowInputSchemas["repo.clone"].safeParse({
+        ...workflowInputs["repo.clone"],
+        directoryLayout: "unknown",
+      }).success,
+      false,
+    )
+  })
+
+  it("accepts every owned group-set format for preview and import", () => {
+    for (const workflow of [
+      "groupSet.previewImportFromFile",
+      "groupSet.importFromFile",
+    ] as const) {
+      for (const format of groupSetImportFormats) {
+        const input = { ...workflowInputs[workflow], format }
+        assert.deepEqual(workflowInputSchemas[workflow].parse(input), input)
+      }
+      assert.equal(
+        workflowInputSchemas[workflow].safeParse({
+          ...workflowInputs[workflow],
+          format: "unknown",
+        }).success,
+        false,
+      )
+    }
+  })
+
   it("has exactly the catalogue's 42 workflow keys", () => {
     assert.equal(Object.keys(workflowInputSchemas).length, 42)
     assert.deepEqual(

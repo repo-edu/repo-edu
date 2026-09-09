@@ -2,6 +2,7 @@ import os from "node:os"
 import { delimiter, dirname, join } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 import {
   defaultAppCredentials,
   defaultAppPreferences,
@@ -78,6 +79,7 @@ import type {
   HostRequest,
 } from "./host-admission-model"
 import { desktopLlmRuntimeConfigFromSettings } from "./llm-runtime-config"
+import { updateRestartRefusedMessage } from "./renderer-host-bridge"
 import { createDesktopAppSettingsStore } from "./settings-store"
 import {
   createDesktopWorkflowRegistry,
@@ -302,8 +304,11 @@ export function installDesktopApplication(): void {
     return { cancel() {} }
   }
 
-  function requestUpdateRestart(): void {
-    admission.dispatch({ type: "update-restart", request: closeRequest() })
+  function requestUpdateRestart() {
+    return admission.dispatch({
+      type: "update-restart",
+      request: closeRequest(),
+    })
   }
 
   function performAdmissionEffect(effect: HostAdmissionHostEffect): void {
@@ -336,7 +341,6 @@ export function installDesktopApplication(): void {
           admission.dispatch({ type: "close-ready", request: effect.request })
           return
         }
-        mainWindow.setEnabled(false)
         if (!desktopGateway) {
           admission.terminal(
             new Error("The interactive desktop has no entry gateway."),
@@ -351,7 +355,6 @@ export function installDesktopApplication(): void {
           reason: effect.reason,
           controller: childProcessLifetimeController,
           snapshot: admission.getSnapshot,
-          disableInput,
           closeStorage: closeExaminationArchiveDatabase,
           warn: (message) =>
             dialog.showErrorBox(
@@ -505,11 +508,19 @@ export function installDesktopApplication(): void {
           updaterState.initialized &&
           updaterState.updateDownloaded,
         click: () => {
-          admission.dispatch({
+          const decision = admission.dispatch({
             type: "host-start",
             source: "menu-update-restart",
             request: closeRequest(),
           })
+          if (decision !== "accepted") {
+            dialog.showMessageBoxSync({
+              type: "info",
+              title: "Update restart unavailable",
+              message: updateRestartRefusedMessage,
+              buttons: ["OK"],
+            })
+          }
         },
       },
     ]
@@ -616,13 +627,16 @@ export function installDesktopApplication(): void {
         admission.admitShell(message.action)
         return downloadUpdate()
       case "quitAndInstall":
-        return requestUpdateRestart()
-      case "bootstrapReady":
-        if (
-          admission.dispatch({ type: "bootstrap-acknowledged" }) !== "accepted"
-        ) {
+        if (requestUpdateRestart() !== "accepted") {
+          throw new HostAdmissionRefusedError()
+        }
+        return
+      case "bootstrapReady": {
+        const decision = admission.dispatch({ type: "bootstrap-acknowledged" })
+        if (decision !== "accepted" && decision !== "ignored") {
           throw new Error("The desktop could not accept bootstrap readiness.")
         }
+      }
     }
   }
 
