@@ -1,0 +1,7 @@
+interface:
+  display_name: "Fix"
+  short_description: "Land an implementation audit's findings"
+  default_prompt: "Use $fix to land the pending implementation-audit report file, or $fix <report-file> to name one."
+
+policy:
+  allow_implicit_invocation: false

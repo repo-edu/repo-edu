@@ -301,8 +301,9 @@ finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
 growth patterns and their reach and complexity ratings from the log alone.
-The audit workflow at `.agents/skills/audit/references/workflow.md` owns that
-format and the tokens' meaning; the patterns and their numbering live in
+The fix workflow at `.agents/skills/fix/references/workflow.md` owns that
+format, the audit workflow at `.agents/skills/audit/references/workflow.md`
+owns the tokens' meaning, and the patterns and their numbering live in
 `../plan/GROWTH-PATTERNS.md`.
 
 A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu

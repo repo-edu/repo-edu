@@ -15,8 +15,8 @@ good idea is not an axis: a finding can be appealing and still unauthorised.
 
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
-user's ruling on the findings; any edit or commit stays with the round that
-produced the report.
+user's ruling on the findings; any edit or commit stays with the fix workflow
+that lands the round from its report.
 
 Planning-artifact audit reports belong to the sibling plan repo. An
 implementation-audit report also lives there for a plan-repo-only round or a
