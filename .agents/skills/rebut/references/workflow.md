@@ -59,18 +59,27 @@ answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
 
 ## Answers
 
-Answer each verdict in the report's order, one answer per finding, each a
+Answer each verdict in the report's order, one answer per finding.
+Every answer starts with exactly `<finding number>. [<tier>] <answer>`.
+Use the report's finding number and A/B/C/D tier. The answer is exactly one
+of `Agree`, `Contest` or `For user's ruling`.
+The first line contains nothing else, for example `1. [B] Agree`.
+Conditions, notes and required explanations follow on separate lines.
+An unconditional Agree with no additional notes ends after the first line;
+do not repeat the finding title, evidence or reasoning. Other answers use a
 few short sentences. Every answer is one of three kinds.
 
-- Agree. The verdict stands. For an accept, say so. For a revise, restate
-  the revised correction in full so the fix phase has one text to apply.
-  For a drop, say the finding is withdrawn and why the vet is right.
+- Agree. The verdict stands. Add further information only when agreement is
+  conditional or there are additional notes. Agreement with a revise carries
+  the revised correction in full as a note so the fix phase has one text to
+  apply. Agreement with a drop needs no explanation unless there is a condition
+  or an additional note.
 - Contest. The verdict rests on something the vet misread. Quote the
   evidence, name its file and line or its plan section, and state what the
   verdict should have been. Contest only on evidence the vet can go and
   read. A disagreement of taste is not a contest; it is an agree with a
   note.
-- For the user's ruling. The vet sent the item to the user: a full
+- For user's ruling. The vet sent the item to the user: a full
   reversal of a settled decision, machinery no boundary asks for, or an
   unsettled trade block or run price. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
@@ -81,8 +90,8 @@ answer; corroboration is a reading-order signal, not evidence.
 Close with the reconciled outcome in the three groups the fix phase
 presents: verdicts both assistants agree on, verdicts this rebuttal
 contests, and the items for the user's ruling. This closing section is the
-part the fix phase copies forward, so it lists each finding by its report
-number and its answer kind and nothing else.
+part the fix phase copies forward, so it lists only each finding's first line
+under its outcome group.
 
 ## Rebuttal file
 

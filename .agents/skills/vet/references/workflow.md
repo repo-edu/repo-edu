@@ -171,12 +171,22 @@ Return one verdict per finding, in the report's order: accept, revise, drop or
 needs the user's ruling. A revise verdict states the revision. A drop verdict
 states why. Keep each verdict to a few short sentences.
 
+Every verdict starts with exactly `<finding number>. [<tier>] <verdict>`.
+Use the report's finding number and A/B/C/D tier. The verdict is exactly one
+of `Accept`, `Revise`, `Drop` or `Needs user's ruling`.
+The first line contains nothing else, for example `1. [B] Accept`.
+Conditions, notes and required explanations follow on separate lines.
+An unconditional Accept with no additional notes ends after the first line;
+do not repeat the finding title, evidence or reasoning. Required narrowing
+notes and corroboration markers below count as additional notes. This format
+applies in both chat and the `VET-` twin.
+
 A reopening of a settled decision takes one of two forms:
 
 - A narrowing keeps the decision's reason and shrinks what the decision
   covers. When the grounded check verified the new evidence first-hand and
-  the correction keeps the recorded reason intact, the verdict is accept,
-  marked "accept, noted as a narrowing". It still quotes the superseded
+  the correction keeps the recorded reason intact, the verdict is Accept,
+  with "Noted as a narrowing" on a separate line. It still quotes the superseded
   sentence and the new evidence, so the change lands as ruled, not slipped
   in. The user's ruling on the round covers it; the vet asks for no
   separate ruling.
