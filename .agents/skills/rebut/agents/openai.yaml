@@ -1,0 +1,7 @@
+interface:
+  display_name: "Rebut"
+  short_description: "Answer a vet of your audit findings"
+  default_prompt: "Use $rebut to answer the vet on your pending implementation-audit report, or $rebut <report-file> to name one."
+
+policy:
+  allow_implicit_invocation: false

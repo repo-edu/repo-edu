@@ -1,0 +1,99 @@
+# Implementation-vet rebuttal workflow
+
+One shared workflow behind two launchers: the Claude command
+`.claude/commands/rebut.md` and the Codex skill
+`.agents/skills/rebut/SKILL.md`. Each launcher carries only what is
+specific to it and points here for the rest, so the two cannot drift
+apart. Where a launcher and this file disagree, this file is right.
+
+The rebuttal is the auditor's answer to the vet. An implementation-audit
+round writes its `AUDIT-*.md` report, the other assistant vets it into the
+`VET-` twin, and this workflow answers those verdicts in a fresh context of
+the auditor's assistant, writing the `REBUT-` twin. The fix workflow at
+`.agents/skills/fix/references/workflow.md` then reads all three files. The
+user directed this chain on 2026-09-09 so that the vetter can run the fix
+phase with the auditor's answer in view instead of the auditor judging its
+own findings twice.
+
+The rebuttal is read-only and lands nothing. It runs no command that changes
+a tracked file. The `REBUT-` twin is the one file it writes.
+
+This procedure also serves reports stored at the plan repo root. The plan
+repo's rebuttal workflow routes those here and supplies the local
+substitutions: that repo's report name and finding metadata.
+
+## Report discovery
+
+The report file's name carries its metadata, parsed from the right as the
+vet workflow describes: one or two short shas, the auditor token, `claude`
+or `codex`, then the scope and the plan name. When the invocation names a
+report file, answer that report's vet. When it names nothing, list
+`AUDIT-*.md` at this repo's root and keep each file whose auditor token is
+your own and which has a `VET-` twin and no `REBUT-` twin yet. One file left
+means answer it. More than one means name them and ask which. None means
+ask for the report and wait.
+
+Never answer the vet on a report whose auditor token is the other
+assistant's. The rebuttal is the auditor's reply, and the other assistant's
+verdicts are not yours to defend. Continue only when the user explicitly
+says to.
+
+When the invocation names a report stored at the plan repo root, say the
+rebuttal belongs in `../plan` and stop. Continue only when the user
+explicitly says to.
+
+## Grounding
+
+Read the report end to end, then the `VET-` twin. Check each sha in the
+report name against its repo's `git rev-parse --short HEAD`, and when one
+differs list what moved with `git diff --name-only <sha>..HEAD` in that
+repo. Answer against HEAD either way, and say where a moved file changes an
+answer.
+
+For every verdict, read the source the verdict rests on yourself: the file
+path the finding names, the test that covers it, the plan decision or
+boundary the vet cites, and the episode's commit bodies where the vet calls
+a departure unrecorded. Do not trust the report's quotes or the vet's; the
+answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
+`../plan/GROWTH-PATTERNS.md` where a verdict invokes them.
+
+## Answers
+
+Answer each verdict in the report's order, one answer per finding, each a
+few short sentences. Every answer is one of three kinds.
+
+- Agree. The verdict stands. For an accept, say so. For a revise, restate
+  the revised correction in full so the fix phase has one text to apply.
+  For a drop, say the finding is withdrawn and why the vet is right.
+- Contest. The verdict rests on something the vet misread. Quote the
+  evidence, name its file and line or its plan section, and state what the
+  verdict should have been. Contest only on evidence the vet can go and
+  read. A disagreement of taste is not a contest; it is an agree with a
+  note.
+- For the user's ruling. The vet sent the item to the user: a full
+  reversal of a settled decision, machinery no boundary asks for, or an
+  unsettled trade block or run price. State the auditor's position and its
+  evidence in the same short form, and stop there. Never settle it here.
+
+A verdict marked `corroborated` by a sibling report still gets its own
+answer; corroboration is a reading-order signal, not evidence.
+
+Close with the reconciled outcome in the three groups the fix phase
+presents: verdicts both assistants agree on, verdicts this rebuttal
+contests, and the items for the user's ruling. This closing section is the
+part the fix phase copies forward, so it lists each finding by its report
+number and its answer kind and nothing else.
+
+## Rebuttal file
+
+Write the answers and the closing outcome to the report's twin file, the
+same name with `REBUT-` in place of `AUDIT-`, as well as into the chat. The
+chat and the file must not differ. The twin is untracked and gitignored, so
+writing it keeps the rebuttal read-only.
+
+Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
+and `$fix` for Codex, normally in the vetter's assistant: in the vet's own
+session when that session is still moderate, because it already holds the
+evidence the findings name, and in a fresh context otherwise. The fix
+workflow deletes the report and both twins when the records land; this
+workflow deletes nothing.

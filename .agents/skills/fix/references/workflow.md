@@ -9,11 +9,18 @@ apart. Where a launcher and this file disagree, this file is right.
 This workflow is the fix phase of an implementation-audit round. The round
 itself runs under `.agents/skills/audit/references/workflow.md`, reads only,
 writes its report to the repo root and stops. This workflow starts from that
-report in a fresh context: it reads the report and its `VET-` twin, presents
+report: it reads the report, its `VET-` twin and its `REBUT-` twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands
-the round's records and deletes the report. The split exists because a round
-that reads a whole step range and then fixes in the same context grows past
-the point where the fixes are made well. The user directed it on 2026-09-09.
+the round's records and deletes the report with its twins. The split exists
+because a round that reads a whole step range and then fixes in the same
+context grows past the point where the fixes are made well. The user directed
+it on 2026-09-09.
+
+The fix phase never runs in the audit's session. It may run in the vet's
+session, which read only the files the findings name and already holds that
+evidence, when that session is still moderate; otherwise it runs in a fresh
+context. After a rebuttal the vetter's assistant normally runs it, so the
+auditor's answer is read by the assistant it answers.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
@@ -32,16 +39,17 @@ with the rest as the plan name. In a report stored here `<own-sha>` names
 Repo Edu and `<other-sha>` names the plan repo.
 
 When the invocation names a report file, land that file. When it names
-nothing, list `AUDIT-*.md` at this repo's root and keep each file whose
-auditor token is your own. One file left means land it. More than one means
-name them and ask which to land. None means ask for the report and wait.
+nothing, list `AUDIT-*.md` at this repo's root. One file means land it. More
+than one means name them, each with the twins it has, and ask which to land.
+None means ask for the report and wait. Either assistant may land a report:
+the auditor's token in the name says who wrote it, not who fixes it.
 
-A report carrying the other assistant's auditor token belongs to that
-assistant's round. Land it only when the user names it in the invocation.
-Never delete or rewrite such a file otherwise; it stays until its own round
-lands or the user says its findings are settled. The user directed this on
-2026-08-21 after a session deleted the other assistant's still-open report;
-this origin note stands in place of a case.
+The round's file set is the report and its `VET-` and `REBUT-` twins, when
+they exist. This workflow reads that set, lands it and deletes it under
+[Closing the report](#closing-the-report). It never deletes or rewrites a
+file outside the set it lands. The user directed this after a session on
+2026-08-21 deleted the other assistant's still-open report; this origin note
+stands in place of a case.
 
 When the invocation names a report stored at the plan repo root, say the fix
 phase belongs in `../plan` and stop. Continue only when the user explicitly
@@ -49,9 +57,9 @@ says to.
 
 ## Grounding
 
-Read the report end to end, then its `VET-` twin when one exists. Read the
-plan in `../plan` for the steps the report's scope names and for every
-**Decisions** entry a finding cites. When the plan is archived, read the
+Read the report end to end, then its `VET-` twin and its `REBUT-` twin when
+they exist. Read the plan in `../plan` for the steps the report's scope names
+and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
 
 Check each sha in the report name against its repo's
@@ -70,12 +78,20 @@ is about to change.
 
 ## Reconciliation
 
-When the report has a `VET-` twin, answer each verdict: agreement carries it
-into the outcome, disagreement names the evidence the vet misread. Present
-the reconciled outcome in three groups: verdicts both assistants agree on,
-verdicts this session contests, and the items the vet sent to the user's
-ruling. Without a twin, present the report's findings in their numbered
-order with any drift corrections from [Grounding](#grounding).
+When the report has a `REBUT-` twin, the auditor has already answered the
+vet and the twin closes with the reconciled outcome in three groups: verdicts
+both assistants agree on, verdicts the rebuttal contests, and the items for
+the user's ruling. Present those groups. For each contested verdict, read the
+quoted evidence yourself and say whether you concede, so the rebuttal's
+correction stands, or maintain, so the item moves to the user's ruling with
+both positions in one or two sentences each. Never re-argue an agreed
+verdict.
+
+When the report has a `VET-` twin and no rebuttal, answer each verdict here:
+agreement carries it into the outcome, disagreement names the evidence the
+vet misread. Present the same three groups. Without a twin, present the
+report's findings in their numbered order with any drift corrections from
+[Grounding](#grounding).
 
 The user reads along and rules by exception: a go on the presented outcome
 is the acceptance, and a reservation on any item reopens it, including a
@@ -175,13 +191,12 @@ already granted it.
 
 ## Closing the report
 
-The turn that lands the round's records deletes the round's own report and
-its `VET-` twin: the commit bodies carry the accepted findings durably, and
-a report left behind goes stale against the moved HEAD. Which round a file
-belongs to is read from the auditor token in its name, never from who wrote
-it: the `VET-` twin is the other assistant's commentary on this round's
-report and is consumed with it. Files carrying the other auditor token are
-never deleted here, under [Report discovery](#report-discovery).
+The turn that lands the round's records deletes the landed report and its
+`VET-` and `REBUT-` twins: the commit bodies carry the accepted findings
+durably, and a report left behind goes stale against the moved HEAD. The
+twins are the two assistants' exchange on this report and are consumed with
+it. No other report or twin at the root is touched, under
+[Report discovery](#report-discovery).
 
 ## Closing the episode
 

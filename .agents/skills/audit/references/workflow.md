@@ -19,11 +19,12 @@ local substitutions: that repo's report root and finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
 audits still belong to the plan repo's own audit workflow.
 
-The round ends at its report file. Everything after the user's ruling, from
-vet reconciliation through applying corrections, landing records and deleting
-the report, belongs to the fix workflow at
-`.agents/skills/fix/references/workflow.md`, which runs in a fresh context
-from that file. See [Fix guard](#fix-guard).
+The round ends at its report file. The auditor answers a vet through the
+rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
+from the user's ruling through applying corrections, landing records and
+deleting the report belongs to the fix workflow at
+`.agents/skills/fix/references/workflow.md`. Both run outside this session,
+from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
@@ -85,11 +86,13 @@ commit as written.
 ## Fix guard
 
 The round is read-only and ends at its report file. When this session is
-asked to reconcile a `VET-` twin, discuss the findings for a ruling, apply a
+asked to answer a `VET-` twin, discuss the findings for a ruling, apply a
 correction, land a record or delete the report, do not do it. Say that the
-fix phase runs in a fresh context through the fix launcher, `/fix` for Claude
-and `$fix` for Codex, name the report file it starts from and stop. Continue
-only when the user explicitly says to.
+auditor's answer to a vet runs in a fresh context through the rebuttal
+launcher, `/rebut` for Claude and `$rebut` for Codex, and that the fix phase
+runs through the fix launcher, `/fix` or `$fix`, in the vetter's session or a
+fresh one. Name the report file they start from and stop. Continue only when
+the user explicitly says to.
 
 The reason is context: a session that has read a whole step range and then
 fixes in the same context grows past the point where the fixes are made well.

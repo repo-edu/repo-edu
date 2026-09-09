@@ -23,6 +23,7 @@ plan/
 # Audit handoff: report and verdict files between auditor and vetter, never committed
 /AUDIT-*.md
 /VET-*.md
+/REBUT-*.md
 
 # Oversized-step implementation ledger, deleted when the step's commit lands
 /LEDGER-*.md

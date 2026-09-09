@@ -16,7 +16,9 @@ good idea is not an axis: a finding can be appealing and still unauthorised.
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the fix workflow
-that lands the round from its report.
+that lands the round from its report. The auditor answers the verdicts through
+the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
+writing a `REBUT-` twin the fix workflow reads beside this one.
 
 Planning-artifact audit reports belong to the sibling plan repo. An
 implementation-audit report also lives there for a plan-repo-only round or a
