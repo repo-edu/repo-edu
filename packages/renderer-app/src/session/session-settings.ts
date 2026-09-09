@@ -55,7 +55,7 @@ export type PreferenceEvent =
     }
   | { type: "set-active-tab"; tab: PersistedAppPreferences["activeTab"] }
   | { type: "set-last-used-course-backing"; backing: CourseBacking }
-  | { type: "set-folder-analysis-inputs"; patch: Partial<AnalysisInputs> }
+  | { type: "set-folder-analysis-inputs"; inputs: AnalysisInputs }
   | { type: "push-recent-folder"; path: string }
   | { type: "remove-recent-folder"; path: string }
   | { type: "clear-recent-folders" }
@@ -213,20 +213,9 @@ export function reducePreferences(
         : { ...preferences, activeTab: event.tab }
     case "set-last-used-course-backing":
       return { ...preferences, lastUsedCourseBacking: event.backing }
-    case "set-folder-analysis-inputs": {
-      const next = { ...preferences.folderViewAnalysisInputs }
-      for (const [key, value] of Object.entries(event.patch) as [
-        keyof AnalysisInputs,
-        unknown,
-      ][]) {
-        if (value === undefined) delete next[key]
-        else {
-          // biome-ignore lint/suspicious/noExplicitAny: keyed AnalysisInputs merge
-          ;(next as any)[key] = value
-        }
-      }
-      return { ...preferences, folderViewAnalysisInputs: next }
-    }
+    case "set-folder-analysis-inputs":
+      // The controller admits the whole value before it dispatches.
+      return { ...preferences, folderViewAnalysisInputs: event.inputs }
     case "push-recent-folder":
       return {
         ...preferences,

@@ -2,7 +2,7 @@ import type {
   ExclusiveCommandId,
   ExclusiveCommandOutcome,
   ExclusiveRequestOperation,
-  WorkflowId,
+  OrdinaryWorkflowId,
 } from "@repo-edu/application-contract"
 import type {
   DesktopHostStart,
@@ -53,7 +53,11 @@ export type HostAdmissionState =
   | { phase: "terminal"; error: unknown }
 
 export type HostAdmissionEvent =
-  | { type: "workflow-start"; workflow: WorkflowId; call: AcceptedHostCall }
+  | {
+      type: "workflow-start"
+      workflow: OrdinaryWorkflowId
+      call: AcceptedHostCall
+    }
   | { type: "call-settled"; call: AcceptedHostCall }
   | { type: "bootstrap-acknowledged" }
   | {

@@ -1,3 +1,4 @@
+import { admitAnalysisInputs } from "@repo-edu/domain/analysis-inputs"
 import type {
   CourseActions,
   StoreGet,
@@ -83,23 +84,15 @@ export function createMetadataActionsSlice(
     },
 
     setAnalysisInputs: (patch) => {
+      const course = _get().course
+      if (!course) return []
+      const admission = admitAnalysisInputs(course.analysisInputs, patch)
+      if (!admission.ok) return admission.issues
       _set((draft) => {
-        if (!draft.course) return
-        const next = { ...draft.course.analysisInputs }
-        for (const [key, value] of Object.entries(patch) as [
-          keyof typeof next,
-          unknown,
-        ][]) {
-          if (value === undefined) {
-            delete next[key]
-          } else {
-            // biome-ignore lint/suspicious/noExplicitAny: narrow union on key
-            ;(next as any)[key] = value
-          }
-        }
-        draft.course.analysisInputs = next
+        if (draft.course) draft.course.analysisInputs = admission.value
       })
       internals.markCourseMutated()
+      return []
     },
   }
 }

@@ -1,4 +1,7 @@
-import type { WorkflowId } from "@repo-edu/application-contract"
+import type {
+  OrdinaryWorkflowId,
+  WorkflowId,
+} from "@repo-edu/application-contract"
 
 /** Decision 21 owns these classes; the shared catalogue does not infer them. */
 export const desktopWorkflowStarts = {
@@ -46,6 +49,32 @@ export const desktopWorkflowStarts = {
   "examination.archive.export": "exclusive",
   "examination.archive.import": "exclusive",
 } as const satisfies Record<WorkflowId, string>
+
+type DesktopTrpcWorkflowId = {
+  [K in WorkflowId]: (typeof desktopWorkflowStarts)[K] extends
+    | "exclusive"
+    | "cancellation"
+    ? never
+    : K
+}[WorkflowId]
+
+// The desktop classes and the shared contract must name the same tRPC set.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
+const _trpcIdsAgree: Same<DesktopTrpcWorkflowId, OrdinaryWorkflowId> = true
+void _trpcIdsAgree
+
+/** Only these ids start over the ordinary tRPC wire. Exclusive commands and
+ * request control never have a tRPC procedure, wire path or client entry. */
+export function isDesktopTrpcWorkflowId(
+  id: WorkflowId,
+): id is OrdinaryWorkflowId {
+  const start = desktopWorkflowStarts[id]
+  return start !== "exclusive" && start !== "cancellation"
+}
+
+export const desktopTrpcWorkflowIds: readonly OrdinaryWorkflowId[] = (
+  Object.keys(desktopWorkflowStarts) as WorkflowId[]
+).filter(isDesktopTrpcWorkflowId)
 
 export const desktopShellActions = {
   pickUserFile: "session-changing",

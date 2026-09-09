@@ -15,10 +15,14 @@ const COPY_MOVE_LABELS: Record<number, string> = {
   4: "All commits (-C -C -C)",
 }
 
+/** The message of the last refused edit, kept beside the field it refused. */
+export type AnalysisInputIssues = Partial<Record<keyof AnalysisInputs, string>>
+
 type SidebarInputControls = {
   config: AnalysisInputs
   configInputResetKey: string
   setConfigAndRerun: (patch: Partial<AnalysisInputs>) => void
+  inputIssues: AnalysisInputIssues
   blurOnEnter: (event: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
@@ -27,12 +31,18 @@ type SidebarInputSectionProps = SidebarInputControls & {
   onOpenChange: (key: AnalysisSidebarSectionKey, open: boolean) => void
 }
 
+function FieldIssue({ message }: { message: string | undefined }) {
+  if (message === undefined) return null
+  return <Text className="text-xs text-destructive">{message}</Text>
+}
+
 export function AnalysisSidebarInputSections({
   sections,
   onOpenChange,
   config,
   configInputResetKey,
   setConfigAndRerun,
+  inputIssues,
   blurOnEnter,
   blameConfig,
   copyMoveDraft,
@@ -54,6 +64,7 @@ export function AnalysisSidebarInputSections({
         config={config}
         configInputResetKey={configInputResetKey}
         setConfigAndRerun={setConfigAndRerun}
+        inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
       <DateRangeSection
@@ -62,6 +73,7 @@ export function AnalysisSidebarInputSections({
         config={config}
         configInputResetKey={configInputResetKey}
         setConfigAndRerun={setConfigAndRerun}
+        inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
       <CollapsibleSection
@@ -135,6 +147,7 @@ export function AnalysisSidebarInputSections({
         config={config}
         configInputResetKey={configInputResetKey}
         setConfigAndRerun={setConfigAndRerun}
+        inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
     </>
@@ -147,6 +160,7 @@ function FileSelectionSection({
   config,
   configInputResetKey,
   setConfigAndRerun,
+  inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
   open: boolean
@@ -168,11 +182,13 @@ function FileSelectionSection({
           size="xs"
           placeholder="src/"
           defaultValue={config.subfolder ?? ""}
+          aria-invalid={inputIssues.subfolder !== undefined || undefined}
           onBlur={(event) =>
             setConfigAndRerun({ subfolder: event.target.value || undefined })
           }
           onKeyDown={blurOnEnter}
         />
+        <FieldIssue message={inputIssues.subfolder} />
       </div>
       <div className="space-y-1">
         <Label className="text-xs">File patterns</Label>
@@ -182,6 +198,7 @@ function FileSelectionSection({
           size="xs"
           placeholder="*.ts"
           defaultValue={config.includeFiles?.join(", ") ?? ""}
+          aria-invalid={inputIssues.includeFiles !== undefined || undefined}
           onBlur={(event) => {
             const raw = event.target.value
             setConfigAndRerun({
@@ -195,6 +212,7 @@ function FileSelectionSection({
           }}
           onKeyDown={blurOnEnter}
         />
+        <FieldIssue message={inputIssues.includeFiles} />
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Extensions</Label>
@@ -209,6 +227,7 @@ function FileSelectionSection({
           placeholder="ts, tsx, js"
           ariaLabel="Extensions"
         />
+        <FieldIssue message={inputIssues.extensions} />
       </div>
     </CollapsibleSection>
   )
@@ -220,6 +239,7 @@ function DateRangeSection({
   config,
   configInputResetKey,
   setConfigAndRerun,
+  inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
   open: boolean
@@ -242,11 +262,13 @@ function DateRangeSection({
             size="xs"
             placeholder="YYYY-MM-DD"
             defaultValue={config.since ?? ""}
+            aria-invalid={inputIssues.since !== undefined || undefined}
             onBlur={(event) =>
               setConfigAndRerun({ since: event.target.value || undefined })
             }
             onKeyDown={blurOnEnter}
           />
+          <FieldIssue message={inputIssues.since} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Until</Label>
@@ -256,11 +278,13 @@ function DateRangeSection({
             size="xs"
             placeholder="YYYY-MM-DD"
             defaultValue={config.until ?? ""}
+            aria-invalid={inputIssues.until !== undefined || undefined}
             onBlur={(event) =>
               setConfigAndRerun({ until: event.target.value || undefined })
             }
             onKeyDown={blurOnEnter}
           />
+          <FieldIssue message={inputIssues.until} />
         </div>
       </div>
     </CollapsibleSection>
@@ -273,6 +297,7 @@ function ExclusionsSection({
   config,
   configInputResetKey,
   setConfigAndRerun,
+  inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
   open: boolean
@@ -291,6 +316,7 @@ function ExclusionsSection({
         inputKey={`exclude-files-${configInputResetKey}`}
         placeholder="*.test.ts"
         value={config.excludeFiles}
+        issue={inputIssues.excludeFiles}
         onChange={(excludeFiles) => setConfigAndRerun({ excludeFiles })}
         onKeyDown={blurOnEnter}
       />
@@ -299,6 +325,7 @@ function ExclusionsSection({
         inputKey={`exclude-authors-${configInputResetKey}`}
         placeholder="bot*"
         value={config.excludeAuthors}
+        issue={inputIssues.excludeAuthors}
         onChange={(excludeAuthors) => setConfigAndRerun({ excludeAuthors })}
         onKeyDown={blurOnEnter}
       />
@@ -307,6 +334,7 @@ function ExclusionsSection({
         inputKey={`exclude-emails-${configInputResetKey}`}
         placeholder="noreply@*"
         value={config.excludeEmails}
+        issue={inputIssues.excludeEmails}
         onChange={(excludeEmails) => setConfigAndRerun({ excludeEmails })}
         onKeyDown={blurOnEnter}
       />
@@ -315,6 +343,7 @@ function ExclusionsSection({
         inputKey={`exclude-revisions-${configInputResetKey}`}
         placeholder="abc1234"
         value={config.excludeRevisions}
+        issue={inputIssues.excludeRevisions}
         onChange={(excludeRevisions) => setConfigAndRerun({ excludeRevisions })}
         onKeyDown={blurOnEnter}
       />
@@ -323,6 +352,7 @@ function ExclusionsSection({
         inputKey={`exclude-messages-${configInputResetKey}`}
         placeholder="merge*"
         value={config.excludeMessages}
+        issue={inputIssues.excludeMessages}
         onChange={(excludeMessages) => setConfigAndRerun({ excludeMessages })}
         onKeyDown={blurOnEnter}
       />
@@ -335,6 +365,7 @@ function CommaListInput({
   inputKey,
   placeholder,
   value,
+  issue,
   onChange,
   onKeyDown,
 }: {
@@ -342,6 +373,7 @@ function CommaListInput({
   inputKey: string
   placeholder: string
   value: string[] | undefined
+  issue: string | undefined
   onChange: (value: string[] | undefined) => void
   onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void
 }) {
@@ -354,6 +386,7 @@ function CommaListInput({
         size="xs"
         placeholder={placeholder}
         defaultValue={value?.join(", ") ?? ""}
+        aria-invalid={issue !== undefined || undefined}
         onBlur={(event) => {
           const raw = event.target.value
           onChange(
@@ -367,6 +400,7 @@ function CommaListInput({
         }}
         onKeyDown={onKeyDown}
       />
+      <FieldIssue message={issue} />
     </div>
   )
 }

@@ -1,17 +1,16 @@
-import { workflowInputSchemas } from "@repo-edu/application-contract"
+import type { OrdinaryWorkflowId } from "@repo-edu/application-contract"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { z } from "zod"
+import { desktopTrpcWorkflowIds } from "./host-entry-inventory"
 import { commandIntentSchema } from "./request-port-wire"
 
 export const desktopEntryChannel = "repo-edu/entry"
 export const desktopTrpcResponseChannel = "repo-edu/trpc-response"
 
 const callId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
+// An exclusive or request-control id on this wire is a malformed envelope.
 const workflowId = z.enum(
-  Object.keys(workflowInputSchemas) as [
-    keyof typeof workflowInputSchemas,
-    ...Array<keyof typeof workflowInputSchemas>,
-  ],
+  desktopTrpcWorkflowIds as [OrdinaryWorkflowId, ...OrdinaryWorkflowId[]],
 )
 
 export const desktopTrpcMessageSchema = z.discriminatedUnion("method", [

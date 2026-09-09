@@ -1,4 +1,7 @@
-import type { WorkflowId } from "@repo-edu/application-contract"
+import type {
+  OrdinaryWorkflowId,
+  WorkflowId,
+} from "@repo-edu/application-contract"
 
 // Decision 21 assigns these classes. Read-only host work can still supply
 // command input, so its renderer publication belongs to the session.
@@ -58,6 +61,15 @@ type WorkflowOfClass<C extends string> = {
 export type PresentationWorkflowId = WorkflowOfClass<"presentation-only">
 export type SessionQueryWorkflowId = WorkflowOfClass<"session-changing">
 export type SessionWorkflowId = WorkflowOfClass<"session-changing" | "command">
+
+// The renderer classes and the shared contract must name the same set of ids
+// that run through the ordinary workflow client.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never
+const _ordinaryIdsAgree: Same<
+  PresentationWorkflowId | SessionQueryWorkflowId,
+  OrdinaryWorkflowId
+> = true
+void _ordinaryIdsAgree
 
 export function isSessionWorkflow(id: WorkflowId): id is SessionWorkflowId {
   const classification = sessionWorkflowClasses[id]

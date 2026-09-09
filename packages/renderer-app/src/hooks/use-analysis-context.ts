@@ -1,5 +1,5 @@
 import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
-import type { AnalysisInputs } from "@repo-edu/domain/types"
+import type { AnalysisInputs, ValidationIssue } from "@repo-edu/domain/types"
 import { useCallback, useMemo } from "react"
 import {
   selectActiveSurface,
@@ -49,15 +49,14 @@ export function useAnalysisContext() {
     [courseContext],
   )
 
+  /** Returns the issues that refused the patch; an empty list means it landed. */
   const setAnalysisInputs = useCallback(
-    (patch: Partial<AnalysisInputs>) => {
-      if (activeSurface.kind === "folder") {
-        controller.setFolderViewAnalysisInputs(patch)
-        return
-      }
-      if (courseContext !== null) {
-        controller.setAnalysisInputs(courseContext.id, patch)
-      }
+    (patch: Partial<AnalysisInputs>): ValidationIssue[] => {
+      if (activeSurface.kind === "folder")
+        return controller.setFolderViewAnalysisInputs(patch)
+      if (courseContext !== null)
+        return controller.setAnalysisInputs(courseContext.id, patch)
+      return []
     },
     [activeSurface.kind, controller, courseContext],
   )

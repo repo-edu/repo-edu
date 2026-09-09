@@ -29,6 +29,16 @@ export type ExclusiveCommandId =
   | "examination.archive.export"
   | "examination.archive.import"
 
+/** Addresses only the current request port's cancellation; it never starts. */
+export type RequestControlWorkflowId = "examination.stopGeneration"
+
+/** The ids a hosted surface runs through its ordinary `WorkflowClient`. Exclusive
+ * commands and request control travel over their request port instead. */
+export type OrdinaryWorkflowId = Exclude<
+  WorkflowId,
+  ExclusiveCommandId | RequestControlWorkflowId
+>
+
 export type CourseChangingCommandId =
   | "roster.importFromFile"
   | "groupSet.importFromFile"

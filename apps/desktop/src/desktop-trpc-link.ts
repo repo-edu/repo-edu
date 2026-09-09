@@ -1,4 +1,4 @@
-import type { WorkflowId } from "@repo-edu/application-contract"
+import type { OrdinaryWorkflowId } from "@repo-edu/application-contract"
 import { TRPCClientError, type TRPCLink } from "@trpc/client"
 import { observable } from "@trpc/server/observable"
 import type { DesktopTrpcBridge } from "./desktop-wire"
@@ -32,7 +32,7 @@ export function desktopTrpcLink(
           bridge.send({
             id: op.id,
             method: "subscription",
-            params: { path: op.path as WorkflowId, input: op.input },
+            params: { path: op.path as OrdinaryWorkflowId, input: op.input },
           })
         } catch (error) {
           observer.error(TRPCClientError.from(error as Error))

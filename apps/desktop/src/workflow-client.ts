@@ -14,13 +14,15 @@ import {
   createTransportAppError,
   createWorkflowClient,
   HostAdmissionRefusedError,
-  workflowCatalog,
+  type OrdinaryWorkflowId,
 } from "@repo-edu/application-contract"
 import { createTRPCClient } from "@trpc/client"
 import { desktopTrpcLink } from "./desktop-trpc-link"
+import { desktopTrpcWorkflowIds } from "./host-entry-inventory"
 import type { DesktopRouter } from "./trpc"
 
-type DesktopWorkflowId = keyof typeof workflowCatalog
+/** Commands and cancellation never enter this client; they use request ports. */
+type DesktopWorkflowId = OrdinaryWorkflowId
 
 type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
   onData(
@@ -165,12 +167,8 @@ function normalizeTransportError(error: Error): AppError {
 }
 
 function createDesktopWorkflowHandlers(): WorkflowHandlerMap<DesktopWorkflowId> {
-  const workflowIds = Object.keys(
-    workflowCatalog,
-  ) as readonly DesktopWorkflowId[]
-
   return Object.fromEntries(
-    workflowIds.map((workflowId) => [
+    desktopTrpcWorkflowIds.map((workflowId) => [
       workflowId,
       (
         input: WorkflowInput<typeof workflowId>,

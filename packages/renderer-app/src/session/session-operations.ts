@@ -6,6 +6,7 @@ import type {
   ExclusiveCommandClient,
   ExclusiveCommandId,
   ExclusiveSettlementInput,
+  OrdinaryWorkflowId,
   WorkflowCallOptions,
   WorkflowClient,
   WorkflowId,
@@ -114,7 +115,7 @@ export type SessionOperationGateway = {
  * transaction queue; classification and publication introduce no second queue. */
 export class SessionOperations extends SessionSurfaceTransactions {
   constructor(
-    private readonly client: WorkflowClient,
+    private readonly client: WorkflowClient<OrdinaryWorkflowId>,
     private readonly commands: ExclusiveCommandClient,
     callbacks: ConstructorParameters<typeof SessionSurfaceTransactions>[0],
     private readonly snapshot: () => SessionControllerSnapshot,
@@ -337,7 +338,12 @@ export class SessionOperations extends SessionSurfaceTransactions {
                 ),
               callbacks as never,
             ) as Promise<WorkflowResult<K>>)
-          : this.client.run(id, input, callbacks)
+          : // The classification above proves this is not a command id.
+            (this.client.run(
+              id as OrdinaryWorkflowId,
+              input as never,
+              callbacks as never,
+            ) as Promise<WorkflowResult<K>>)
       return running.then((result) => {
         if (!scope.canContinue())
           throw new Error("The session operation has retired.")
@@ -346,7 +352,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
     })
   }
 
-  private present<K extends WorkflowId>(
+  private present<K extends PresentationWorkflowId>(
     id: K,
     input: WorkflowInput<K>,
     options?: CallOptions<K>,
@@ -367,7 +373,11 @@ export class SessionOperations extends SessionSurfaceTransactions {
   ): Promise<WorkflowResult<K>> {
     const classification = sessionWorkflowClasses[id]
     if (classification === "presentation-only")
-      return this.present(id, input, options)
+      return this.present(
+        id as PresentationWorkflowId,
+        input as never,
+        options as never,
+      ) as Promise<WorkflowResult<K>>
     if (classification === "request-control")
       return Promise.reject(
         new Error("Cancellation belongs to the current request port."),

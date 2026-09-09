@@ -9,6 +9,7 @@ import type {
   Roster,
   RosterMember,
   RosterValidationResult,
+  ValidationIssue,
 } from "@repo-edu/domain/types"
 import type { Patch } from "immer"
 import type { ChecksStatus, IssueCard } from "../../types/index.js"
@@ -110,7 +111,9 @@ export type CourseActions = {
   ) => void
   setDisplayName: (name: string) => void
   setSearchFolder: (folder: string | null) => void
-  setAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
+  /** Admits the patch only when the persisted schema accepts the next inputs.
+   * Returns the refusing issues; an empty list means the inputs changed. */
+  setAnalysisInputs: (patch: Partial<AnalysisInputs>) => ValidationIssue[]
 
   // System sets
   ensureSystemGroupSets: () => void

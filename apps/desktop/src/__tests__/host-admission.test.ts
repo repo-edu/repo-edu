@@ -18,6 +18,7 @@ import { hostAdmissionReducer } from "../host-admission-reducer"
 import {
   desktopHostStarts,
   desktopShellActions,
+  desktopTrpcWorkflowIds,
   desktopWorkflowStarts,
 } from "../host-entry-inventory"
 
@@ -124,9 +125,20 @@ describe("desktop host admission", () => {
       HostAdmissionRefusedError,
     )
     assert.throws(
-      () => owner.startWorkflow("repo.clone", request()),
+      () => owner.startWorkflow("settings.loadApp", request()),
       (error: unknown) => !(error instanceof HostAdmissionRefusedError),
     )
+  })
+
+  it("limits the tRPC wire to startup and ordinary starts", () => {
+    assert.deepEqual(
+      [...desktopTrpcWorkflowIds].sort(),
+      Object.entries(desktopWorkflowStarts)
+        .filter(([, kind]) => kind !== "exclusive" && kind !== "cancellation")
+        .map(([id]) => id)
+        .sort(),
+    )
+    assert.equal(desktopTrpcWorkflowIds.length, 29)
   })
 
   it("admits only one of two concurrent command attempts and preserves its resource", () => {
@@ -159,9 +171,7 @@ describe("desktop host admission", () => {
 
   for (const state of phases.filter((s) => s.phase === "preparing")) {
     it(`refuses intervening semantic work during ${state.phase} ${"stage" in state ? state.stage : ""}`, () => {
-      for (const workflow of Object.keys(
-        desktopWorkflowStarts,
-      ) as (keyof typeof desktopWorkflowStarts)[]) {
+      for (const workflow of desktopTrpcWorkflowIds) {
         assert.equal(
           hostAdmissionReducer(state, {
             type: "workflow-start",

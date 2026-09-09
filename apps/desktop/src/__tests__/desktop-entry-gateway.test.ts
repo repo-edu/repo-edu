@@ -3,7 +3,10 @@ import { describe, it } from "node:test"
 import type { WorkflowId } from "@repo-edu/application-contract"
 import { workflowInputSchemas } from "@repo-edu/application-contract"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
-import { desktopWorkflowStarts } from "../host-entry-inventory"
+import {
+  desktopWorkflowStarts,
+  isDesktopTrpcWorkflowId,
+} from "../host-entry-inventory"
 import {
   flushTransport,
   startMessage,
@@ -22,16 +25,17 @@ describe("gateway workflow inputs", () => {
         h.admission.dispatch({ type: "bootstrap-acknowledged" })
       h.receive(structuredClone(startMessage(path, workflowInputs[path])))
       await flushTransport()
-      const classification = desktopWorkflowStarts[path]
-      if (classification === "exclusive" || classification === "cancellation") {
-        assert.deepEqual(inputs, [])
-        assert.ok(h.responses.some((response) => "error" in response))
-      } else {
+      if (isDesktopTrpcWorkflowId(path)) {
         assert.deepEqual(inputs, [
           workflowInputSchemas[path].parse(workflowInputs[path]),
         ])
+        assert.notEqual(h.admission.getSnapshot().phase, "terminal")
+        return
       }
-      assert.notEqual(h.admission.getSnapshot().phase, "terminal")
+      // A request-owned id has no tRPC start: the envelope itself is malformed.
+      assert.deepEqual(inputs, [])
+      assert.deepEqual(h.responses, [])
+      assert.equal(h.admission.getSnapshot().phase, "terminal")
     })
     it(`${path} rejects malformed input before any transport result`, async () => {
       let starts = 0

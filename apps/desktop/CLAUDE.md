@@ -73,6 +73,12 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   input. Desktop wire schemas compose those browser-safe schemas. Keep workflow
   starts, direct actions, request messages, lifecycle sources, native menus and
   updater messages in their separately checked entry inventories.
+- Only startup and ordinary ids (`OrdinaryWorkflowId`) have a tRPC wire path,
+  router procedure and renderer client entry. An exclusive command or
+  `examination.stopGeneration` on the tRPC wire is a malformed envelope.
+- The gateway ends the process on any wire schema failure. Renderer document
+  owners therefore admit only values the reused domain schemas accept; the
+  analysis inputs are the model, refusing a bad date or subfolder at the edit.
 - Preload output is CommonJS (`preload.cjs`) due Electron sandbox/runtime constraints.
 - Keep Electron-specific code inside `apps/desktop`; shared packages stay platform-agnostic.
 - Claim the shared program gate before opening stores or starting product work.

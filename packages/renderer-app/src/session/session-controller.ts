@@ -4,6 +4,7 @@ import {
   type CommitPersistencePreparation,
   type ExclusiveCommandClient,
   isAppError,
+  type OrdinaryWorkflowId,
   type WorkflowClient,
 } from "@repo-edu/application-contract"
 import {
@@ -15,6 +16,7 @@ import {
   type PersistedActiveSurface,
   type SubmissionFolderRecent,
 } from "@repo-edu/domain/active-surface"
+import { admitAnalysisInputs } from "@repo-edu/domain/analysis-inputs"
 import type {
   LlmProviderKind,
   PersistedGitConnection,
@@ -38,6 +40,7 @@ import {
   courseHasRoster,
   createBlankCourse,
   type PersistedCourse,
+  type ValidationIssue,
 } from "@repo-edu/domain/types"
 import { settlePersistenceOperations } from "../persistence/create-persister.js"
 import { useConnectionsStore } from "../stores/connections-store.js"
@@ -85,7 +88,7 @@ import { publishCourseRemoval } from "./source-lifecycle-events.js"
 type Listener = () => void
 
 type SessionControllerOptions = {
-  workflowClient: WorkflowClient
+  workflowClient: WorkflowClient<OrdinaryWorkflowId>
   commandClient: ExclusiveCommandClient
   onBootstrapReady: () => Promise<void>
 }
@@ -583,8 +586,21 @@ export class SessionController extends CourseMutationController {
   setLastUsedCourseBacking(backing: CourseBacking): void {
     this.preference({ type: "set-last-used-course-backing", backing })
   }
-  setFolderViewAnalysisInputs(patch: Partial<AnalysisInputs>): void {
-    this.preference({ type: "set-folder-analysis-inputs", patch })
+  /** Returns the refusing issues. An empty list means the inputs changed or
+   * the session refused the preference change. */
+  setFolderViewAnalysisInputs(
+    patch: Partial<AnalysisInputs>,
+  ): ValidationIssue[] {
+    const admission = admitAnalysisInputs(
+      this.snapshot.settings.preferences.folderViewAnalysisInputs,
+      patch,
+    )
+    if (!admission.ok) return admission.issues
+    this.preference({
+      type: "set-folder-analysis-inputs",
+      inputs: admission.value,
+    })
+    return []
   }
   pushRecentFolder(path: string): void {
     this.preference({ type: "push-recent-folder", path })

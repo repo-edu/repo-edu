@@ -1,12 +1,95 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type { WorkflowId, WorkflowInputSchemaMap } from "../index.js"
+import type { z } from "zod"
+import type {
+  WorkflowId,
+  WorkflowInputSchemaMap,
+  WorkflowPayloads,
+} from "../index.js"
 import { workflowCatalog, workflowInputSchemas } from "../index.js"
 import {
   course,
   questionInput,
   workflowInputs,
 } from "./workflow-input-fixtures.js"
+
+type Equal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+type Assert<T extends true> = T
+
+// Every key the payload declares, at any depth, must exist in the schema's
+// input. Assignability cannot prove this: an object with an extra optional
+// field still assigns to the narrower type, while a strict schema refuses it.
+// A payload union member passes when one input union member holds all its
+// keys; an `unknown` input position accepts any payload shape.
+type MissingIn<P, I> = {
+  [K in keyof P]-?: K extends keyof I
+    ? MissingKeys<NonNullable<P[K]>, I[K]>
+    : K
+}[keyof P]
+type MatchesOneMember<P, I> = I extends unknown
+  ? [MissingIn<P, I>] extends [never]
+    ? true
+    : never
+  : never
+type MissingInEachMember<P, I> = I extends unknown ? MissingIn<P, I> : never
+type Present<T> = T extends null | undefined ? never : T
+type MissingKeys<Payload, Input> = unknown extends Input
+  ? never
+  : MissingKeysIn<Payload, Present<Input>>
+type MissingKeysIn<Payload, Input> = Payload extends readonly (infer P)[]
+  ? [Input] extends [readonly (infer I)[]]
+    ? MissingKeys<P, I>
+    : "array"
+  : Payload extends object
+    ? [Input] extends [object]
+      ? true extends MatchesOneMember<Payload, Input>
+        ? never
+        : MissingInEachMember<Payload, Input>
+      : keyof Payload
+    : never
+
+type MissingWorkflowInputKeys = {
+  [K in WorkflowId]: MissingKeys<
+    WorkflowPayloads[K]["input"],
+    z.input<(typeof workflowInputSchemas)[K]>
+  >
+}[WorkflowId]
+
+type _EveryPayloadFieldHasASchema = Assert<
+  Equal<MissingWorkflowInputKeys, never>
+>
+// The check must catch the gap assignability misses.
+type _CatchesAnOmittedOptionalField = Assert<
+  Equal<MissingKeys<{ a: string; b?: number }, { a: string }>, "b">
+>
+type _CatchesANestedOmission = Assert<
+  Equal<
+    MissingKeys<{ a: { b: string; c?: string }[] }, { a: { b: string }[] }>,
+    "c"
+  >
+>
+type _AcceptsAMatchingUnionMember = Assert<
+  Equal<
+    MissingKeys<
+      { k: "x"; x: string } | { k: "y"; y: string },
+      { k: "x"; x: string } | { k: "y"; y: string }
+    >,
+    never
+  >
+>
+type _CatchesAnOmissionInsideAUnionMember = Assert<
+  Equal<
+    [
+      MissingKeys<
+        { k: "x"; x: string; z?: string } | { k: "y"; y: string },
+        { k: "x"; x: string } | { k: "y"; y: string }
+      >,
+    ] extends [never]
+      ? false
+      : true,
+    true
+  >
+>
 
 describe("runtime workflow inputs", () => {
   it("has exactly the catalogue's 43 workflow keys", () => {

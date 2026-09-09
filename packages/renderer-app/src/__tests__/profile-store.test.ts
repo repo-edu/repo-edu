@@ -149,6 +149,31 @@ describe("course store", () => {
     assert.equal(state.future.length, 0)
   })
 
+  it("refuses analysis inputs the persisted schema rejects and keeps the course unchanged", () => {
+    const course = makeProfile()
+    useCourseStore.getState().hydrate(course)
+    const store = useCourseStore.getState()
+    assert.deepEqual(store.setAnalysisInputs({ since: "2026-01-01" }), [])
+    const before = useCourseStore.getState()
+
+    const issues = useCourseStore
+      .getState()
+      .setAnalysisInputs({ until: "2025-12-31" })
+    assert.ok(issues.length > 0)
+    assert.equal(useCourseStore.getState().course, before.course)
+    assert.equal(
+      useCourseStore.getState().admissionNumber,
+      before.admissionNumber,
+    )
+    assert.ok(
+      useCourseStore.getState().setAnalysisInputs({ until: "2026-13-45" })
+        .length > 0,
+    )
+    assert.deepEqual(useCourseStore.getState().course?.analysisInputs, {
+      since: "2026-01-01",
+    })
+  })
+
   it("supports undo and redo for roster mutations", async () => {
     const course = makeProfile()
     const client = createWorkflowClient({

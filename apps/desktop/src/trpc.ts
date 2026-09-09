@@ -29,6 +29,7 @@ import type {
 } from "@repo-edu/application-contract"
 import {
   isAppError,
+  type OrdinaryWorkflowId,
   type workflowCatalog,
 } from "@repo-edu/application-contract"
 import {
@@ -49,6 +50,7 @@ import { createGitProviderDispatch } from "@repo-edu/integrations-git"
 import { createLmsProviderDispatch } from "@repo-edu/integrations-lms"
 import { initTRPC } from "@trpc/server"
 import { observable } from "@trpc/server/observable"
+import { isDesktopTrpcWorkflowId } from "./host-entry-inventory"
 
 export type DesktopWorkflowContext = {
   signal: AbortSignal
@@ -340,18 +342,28 @@ export function createDesktopRouter(ports: DesktopRouterPorts) {
   return createDesktopWorkflowRouter(createDesktopWorkflowRegistry(ports))
 }
 
+type DesktopTrpcProcedures = {
+  [K in OrdinaryWorkflowId]: ReturnType<
+    typeof createWorkflowSubscriptionProcedure<K>
+  >
+}
+
+/** Only startup and ordinary ids get a procedure. Exclusive commands and
+ * request control run over their request port, never over this router. */
 export function createDesktopWorkflowRouter(
   workflowRegistry: WorkflowHandlerMap<DesktopWorkflowId>,
 ) {
   const procedures = Object.fromEntries(
-    (Object.keys(workflowRegistry) as DesktopWorkflowId[]).map((workflowId) => [
-      workflowId,
-      createWorkflowSubscriptionProcedure(
+    (Object.keys(workflowRegistry) as DesktopWorkflowId[])
+      .filter(isDesktopTrpcWorkflowId)
+      .map((workflowId) => [
         workflowId,
-        workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
-      ),
-    ]),
-  )
+        createWorkflowSubscriptionProcedure(
+          workflowId,
+          workflowRegistry[workflowId] as WorkflowHandler<typeof workflowId>,
+        ),
+      ]),
+  ) as DesktopTrpcProcedures
 
   return t.router(procedures)
 }

@@ -1,6 +1,6 @@
 import {
   HostAdmissionRefusedError,
-  type WorkflowId,
+  type OrdinaryWorkflowId,
 } from "@repo-edu/application-contract"
 import {
   callTRPCProcedure,
@@ -71,7 +71,7 @@ export function createDesktopTrpcAdapter(options: {
       })
     let retire: () => void
     try {
-      retire = admission.startWorkflow(path as WorkflowId, {
+      retire = admission.startWorkflow(path as OrdinaryWorkflowId, {
         cancel: () => controller.abort(),
       })
     } catch (error) {

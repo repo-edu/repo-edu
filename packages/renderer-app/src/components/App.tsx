@@ -1,5 +1,6 @@
 import type {
   ExclusiveCommandClient,
+  OrdinaryWorkflowId,
   WorkflowClient,
 } from "@repo-edu/application-contract"
 import type { ActiveTab } from "@repo-edu/domain/active-surface"
@@ -89,7 +90,8 @@ import { GroupsAssignmentsTab } from "./tabs/GroupsAssignmentsTab.js"
 import { StudentsTab } from "./tabs/StudentsTab.js"
 
 export type RendererSessionRootProps = {
-  workflowClient: WorkflowClient
+  /** Ordinary calls only; commands and cancellation use the command client. */
+  workflowClient: WorkflowClient<OrdinaryWorkflowId>
   commandClient: ExclusiveCommandClient
   rendererHost: RendererHost
   onBootstrapReady: () => Promise<void>

@@ -37,7 +37,10 @@ import {
   AnalysisSidebarFilesSection,
   type AnalysisSidebarFileViewMode,
 } from "./AnalysisSidebarFilesSection.js"
-import { AnalysisSidebarInputSections } from "./AnalysisSidebarInputSections.js"
+import {
+  type AnalysisInputIssues,
+  AnalysisSidebarInputSections,
+} from "./AnalysisSidebarInputSections.js"
 import {
   ANALYSIS_SIDEBAR_SECTION_KEYS,
   type AnalysisSidebarSectionKey,
@@ -357,9 +360,20 @@ export function AnalysisSidebar() {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
   }, [selectedRepoPath, runAnalysis])
 
+  // Presentation only: the message for a refused edit stays beside the field
+  // that carries the rejected text, until an admitted edit replaces it.
+  const [inputIssues, setInputIssues] = useState<AnalysisInputIssues>({})
   const setConfigAndRerun = useCallback(
     (patch: Partial<AnalysisInputs>) => {
-      setAnalysisInputs(patch)
+      const issues = setAnalysisInputs(patch)
+      setInputIssues((current) => {
+        const next = { ...current }
+        for (const key of Object.keys(patch) as (keyof AnalysisInputs)[]) {
+          if (issues.length === 0) delete next[key]
+          else next[key] = issues.map((issue) => issue.message).join(" ")
+        }
+        return next
+      })
     },
     [setAnalysisInputs],
   )
@@ -548,6 +562,7 @@ export function AnalysisSidebar() {
         config={config}
         configInputResetKey={configInputResetKey}
         setConfigAndRerun={setConfigAndRerun}
+        inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
         blameConfig={blameConfig}
         copyMoveDraft={copyMoveDraft}

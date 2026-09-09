@@ -7,6 +7,7 @@ import type {
   PersistedCourse,
   Roster,
   RosterMember,
+  ValidationIssue,
 } from "@repo-edu/domain/types"
 import type { CourseActions, HistoryEntry } from "../stores/slices/types.js"
 
@@ -280,8 +281,13 @@ export abstract class CourseMutationController {
     this.runCourseAction(courseId, "setSearchFolder", folder)
   }
 
-  setAnalysisInputs(courseId: string, patch: Partial<AnalysisInputs>): void {
-    this.runCourseAction(courseId, "setAnalysisInputs", patch)
+  /** Returns the refusing issues. An empty list means the inputs changed or
+   * the course is not the mutable target. */
+  setAnalysisInputs(
+    courseId: string,
+    patch: Partial<AnalysisInputs>,
+  ): ValidationIssue[] {
+    return this.runCourseAction(courseId, "setAnalysisInputs", patch) ?? []
   }
 
   runChecks(courseId: string, identityMode: GitIdentityMode): void {

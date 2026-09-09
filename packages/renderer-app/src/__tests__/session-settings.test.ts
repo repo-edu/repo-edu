@@ -14,7 +14,7 @@ describe("session settings reducers", () => {
   it("normalizes analysis inputs, extensions, and recent folders", () => {
     let preferences = reducePreferences(defaultAppPreferences, {
       type: "set-folder-analysis-inputs",
-      patch: { includeFiles: ["src/**"], since: undefined },
+      inputs: { includeFiles: ["src/**"] },
     })
     preferences = reducePreferences(preferences, {
       type: "set-default-extensions",

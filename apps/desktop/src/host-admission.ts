@@ -1,6 +1,6 @@
 import {
   HostAdmissionRefusedError,
-  type WorkflowId,
+  type OrdinaryWorkflowId,
 } from "@repo-edu/application-contract"
 import {
   type AcceptedHostCall,
@@ -48,14 +48,17 @@ export class HostAdmission {
     return next.decision
   }
 
-  startWorkflow(workflow: WorkflowId, call: AcceptedHostCall): () => void {
+  startWorkflow(
+    workflow: OrdinaryWorkflowId,
+    call: AcceptedHostCall,
+  ): () => void {
     if (
       this.dispatch({ type: "workflow-start", workflow, call }) !== "accepted"
     ) {
       // A start the renderer may make in ordinary use is refused as ordinary
-      // work, whichever phase refused it.
-      const start = desktopWorkflowStarts[workflow]
-      if (start === "ordinary" || start === "startup-or-ordinary")
+      // work, whichever phase refused it. Startup work outside startup is a
+      // plain error: the renderer never makes that start in ordinary use.
+      if (desktopWorkflowStarts[workflow] !== "startup")
         throw new HostAdmissionRefusedError()
       throw new Error(
         `The desktop is not accepting ${workflow} in ${this.state.phase}.`,
