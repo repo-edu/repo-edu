@@ -20,6 +20,13 @@ that lands the round from its report. The auditor answers the verdicts through
 the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
 writing a `REBUT-` twin the fix workflow reads beside this one.
 
+When unattended, follow the audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result) for every
+ending. Report `finished` only after completing the required checks and
+writing every verdict to the `VET-` twin; return its absolute path. A verdict
+that needs the user's ruling still completes the vet: the fix phase presents
+that open item.
+
 Planning-artifact audit reports belong to the sibling plan repo. An
 implementation-audit report also lives there for a plan-repo-only round or a
 both-repo round that started there. Its local vet workflow routes to this owned

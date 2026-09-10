@@ -33,6 +33,56 @@ naming one means the round was meant for the plan repo's own audit. Name the
 file, say the round belongs there and stop. Continue only when the user
 explicitly says to.
 
+## Runner result
+
+When the prompt identifies an unattended implementation-audit phase, follow
+this rule for every ending, including an early stop. It is shared by audit,
+vet, rebuttal and fix, including when a plan-repo launcher routes the phase
+here with local substitutions. Ordinary interactive invocations do not add
+a result line.
+
+Make the last line of the final response `PHASE RESULT: <JSON object>`.
+Keep it outside any code fence and out of the report or twin file. The report
+and its chat copy remain identical; append the result after the chat copy
+only. The object has exactly these fields:
+
+- `status`: one of the four outcomes below.
+- `file`: the absolute path written by a finished audit, vet or rebuttal.
+  Use `null` for every other outcome, including a finished fix.
+- `reason`: a short explanation for a failed phase. Use `null` otherwise.
+
+| Status | Meaning | Runner action |
+| --- | --- | --- |
+| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. | Continue, or finish the run after the fix. |
+| `fresh-context` | The resumed vet session lacks room to run the fix. It changed no files. | Start the fix fresh in the vetter's assistant. |
+| `needs-ruling` | The fix phase presented an open item for the user. | Open that fix session interactively. |
+| `failed` | The phase could not complete its required work. | Show the reason and stop. |
+
+Each phase judges its own outcome. Audit, vet and rebuttal use only
+`finished` or `failed`; their reports may carry open items for the fix phase
+to present. An audit finishes when its required evidence and report are
+complete and the report is written. A clean report also finishes. Return the
+absolute path actually written, including when it replaced an existing report.
+Reports from other rounds do not block the run.
+
+The audit's path remains the input to every later phase. A finished vet or
+rebuttal returns its own twin's path for feedback; that path does not replace
+the audit path. The report's directory selects the later phase's owning
+launcher and local workflow rules, even when the resumed session started in
+the other repo.
+
+Required work still blocked by a permission refusal or another error means
+`failed`, even when the assistant can end its turn normally or a partial
+report exists. A successful permitted retry counts as success when all
+required work is complete. Judge what remains blocked, not whether any tool
+call failed earlier. A missing input or unmet workflow gate also means
+`failed`; reserve `needs-ruling` for the fix workflow's open items. This rule
+grants no permission to bypass a gate or make the user's decision.
+
+The user directed explicit results and successful permitted retries on
+2026-09-10. Workflows own the phase outcome; the runner follows it without
+reading reports or judging tool failures.
+
 ## Ready gate
 
 Before any audit work, run the stem scan in `../plan`: `git log --oneline`
@@ -418,15 +468,14 @@ then stop. A single-repo round uses the root of the repo it judged. A both-repo
 round uses the root where the round started. The file is the copy the vet and
 fix workflows read, so the chat and the file must not differ.
 
-Use the report repo's established single-repo base name. At the Repo Edu root
-that is `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md`; at the plan repo
-root its local workflow supplies its artifact-based base name. A both-repo
-report appends `-<other-sha>` before `.md`:
+Both repos use `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md` for a
+single-repo implementation report. A both-repo report appends `-<other-sha>`
+before `.md`:
 
 - `<plan-name>` is the topic stem used by the shared subject grammar. For an
   archived `plan.md`, use the archive folder's name.
-- At the Repo Edu root, `<scope>` is `all`, `step-<n>` or
-  `steps-<a>-<b>`, the round's scope with its spaces turned into hyphens.
+- `<scope>` is `all`, `step-<n>` or `steps-<a>-<b>`, the round's scope
+  with its spaces turned into hyphens.
 - `<auditor>` is the launcher's auditor token, `claude` or `codex`.
 - `<own-sha>` is the report repo's `git rev-parse --short HEAD` at audit time.
 - `<other-sha>` is the other repo's short HEAD for a both-repo round. The

@@ -22,6 +22,15 @@ evidence, when that session is still moderate; otherwise it runs in a fresh
 context. After a rebuttal the vetter's assistant normally runs it, so the
 auditor's answer is read by the assistant it answers.
 
+When unattended, follow the audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result) for every
+ending. Before starting fix work in a resumed vet session, judge whether this
+session has room for the fix. The session makes that judgement from what it
+has read and what the fix needs; the runner sets no numeric threshold. When
+room is insufficient, change no files and return `fresh-context`. The runner
+then starts the fix fresh in the vetter's assistant. A fresh fix session does
+not request another fresh context through this outcome.
+
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
 supplies the local substitutions: that repo's report name, Markdown format
@@ -123,6 +132,12 @@ contested verdict this session maintains, a drift correction that changes a
 finding, or this session's own answers to a vet with no rebuttal. When
 nothing is open, state the outcome in one line per finding and apply.
 
+In an unattended phase, present any open items and return `needs-ruling`
+instead of waiting for input. This also applies when the correction rules
+below require a structural-change ruling. A permission refusal or another
+error that leaves required work blocked returns `failed`, not `needs-ruling`,
+under the shared result rule.
+
 ## Applying corrections
 
 After the user accepts the outcome, apply every directed correction. One
@@ -198,6 +213,11 @@ durably, and a report left behind goes stale against the moved HEAD. The
 twins are the two assistants' exchange on this report and are consumed with
 it. No other report or twin at the root is touched, under
 [Report discovery](#report-discovery).
+
+An unattended fix reports `finished` only after all required corrections,
+checks, records and report cleanup are complete. Its result has `file: null`.
+Remaining required work means the phase has not finished, even when some
+records have already landed.
 
 ## Closing the episode
 

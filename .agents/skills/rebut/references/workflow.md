@@ -18,6 +18,13 @@ auditor judging its own findings twice.
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. The `REBUT-` twin is the one file it writes.
 
+When unattended, follow the audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result) for every
+ending. Report `finished` only after grounding and answering every verdict
+and writing the answers and grouped outcome to the `REBUT-` twin; return its
+absolute path. Contested verdicts and items for the user's ruling still
+complete the rebuttal: the fix phase presents them.
+
 This procedure also serves reports stored at the plan repo root. The plan
 repo's rebuttal workflow routes those here and supplies the local
 substitutions: that repo's report name and finding metadata.
