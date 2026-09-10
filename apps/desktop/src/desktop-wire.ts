@@ -1,4 +1,5 @@
 import type { OrdinaryWorkflowId } from "@repo-edu/application-contract"
+import { appAppearanceSchema } from "@repo-edu/domain/settings"
 import { fileFormats } from "@repo-edu/domain/types"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { z } from "zod"
@@ -59,7 +60,7 @@ export const desktopDirectMessageSchema = z.discriminatedUnion("action", [
   }),
   z.strictObject({
     action: z.literal("setNativeTheme"),
-    input: z.enum(["light", "dark", "system"]),
+    input: appAppearanceSchema.shape.theme,
   }),
   z.strictObject({ action: z.literal("downloadUpdate") }),
   z.strictObject({ action: z.literal("quitAndInstall") }),

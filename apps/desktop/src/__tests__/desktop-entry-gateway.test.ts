@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { WorkflowId } from "@repo-edu/application-contract"
 import { workflowInputSchemas } from "@repo-edu/application-contract"
+import { appAppearanceSchema } from "@repo-edu/domain/settings"
 import { workflowInputs } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
 import {
   desktopWorkflowStarts,
@@ -130,6 +131,16 @@ it("rejects complete-envelope violations before identity cleanup", () => {
       ["disable-input", "end-host"],
     )
     assert.deepEqual(h.responses, [])
+  }
+})
+
+it("accepts every domain theme through the gateway", () => {
+  for (const theme of appAppearanceSchema.shape.theme.options) {
+    const h = transportHarness(async () => undefined)
+    const message = { action: "setNativeTheme", input: theme }
+    h.invoke(message)
+    assert.deepEqual(h.direct, [message])
+    assert.deepEqual(h.effects, [])
   }
 })
 

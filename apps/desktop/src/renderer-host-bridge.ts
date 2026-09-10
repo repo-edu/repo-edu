@@ -1,3 +1,4 @@
+import type { ThemePreference } from "@repo-edu/domain/settings"
 import type {
   OpenUserFileDialogOptions,
   PickDirectoryOptions,
@@ -26,7 +27,7 @@ export type DesktopRendererHostBridge = {
     options?: SaveUserFileDialogOptions,
   ): Promise<RendererSaveTargetRef | null>
   pickDirectory(options?: PickDirectoryOptions): Promise<string | null>
-  setNativeTheme(theme: "light" | "dark" | "system"): Promise<void>
+  setNativeTheme(theme: ThemePreference): Promise<void>
   onCloseRequest: RendererHost["onCloseRequest"]
   onUpdateAvailable(callback: (info: { version: string }) => void): () => void
   onUpdateDownloaded(callback: () => void): () => void

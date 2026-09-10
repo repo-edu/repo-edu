@@ -25,8 +25,14 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers
   (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set,
   git-username import, roster, validation, settings, and user-file workflows.
-- `src/desktop-entry-gateway.ts`: sole renderer IPC registration and document
-  authority owner. Validates the sender, envelope and workflow input before dispatch.
+- `src/desktop-entry-gateway.ts`: only place that registers renderer-to-host
+  message listeners. Checks the sender and full message before dispatch.
+- `src/desktop-renderer-document.ts`: owns the one renderer load and the current
+  document's authority. Ends the session on navigation or document replacement.
+- `src/desktop-wire.ts`: uses Zod to check messages for ordinary workflows,
+  direct actions and command requests.
+- `src/desktop-menu.ts`: main-process menu definitions. Keeps safe native
+  actions and sends close and quit through the host reducer.
 - `src/host-admission*.ts`: one reducer for startup, accepted calls, command
   preparation and execution, settlement, close and terminal failure.
 - `src/workflow-client.ts`, `src/desktop-trpc-link.ts` and
