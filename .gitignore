@@ -24,6 +24,8 @@ plan/
 /AUDIT-*.md
 /VET-*.md
 /REBUT-*.md
+# Audit round runner: the texts twin of the run log, never committed
+/ROUND-*.md
 
 # Oversized-step implementation ledger, deleted when the step's commit lands
 /LEDGER-*.md
