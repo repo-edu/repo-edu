@@ -334,7 +334,9 @@ function createWorkflowSubscriptionProcedure<
 }
 
 /**
- * Creates the Electron main-side tRPC router for all shared workflow ids.
+ * Creates the Electron main-side tRPC router for the startup and ordinary
+ * workflow ids. The registry it composes covers every shared workflow id;
+ * `createDesktopWorkflowRouter` keeps only the ids that start over tRPC.
  *
  * Workflow registration is compile-time exhaustive through WorkflowHandlerMap.
  */

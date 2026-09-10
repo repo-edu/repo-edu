@@ -19,7 +19,8 @@ Non-obvious targets: `pnpm --filter @repo-edu/desktop run dev`,
   every outcome except confirmation-expiry unknown until the full tree is
   confirmed gone. On Windows the main process supplies the packaged or
   development launcher entry.
-- `src/trpc.ts`: exhaustive main-side tRPC workflow router. Wires every workflow family — analysis
+- `src/trpc.ts`: main-side tRPC router for the startup and ordinary workflow ids only. Its
+  `createDesktopWorkflowRegistry` wires every workflow family — analysis
   (`createAnalysisWorkflowHandlers` with `GitCommandPort`, no in-process cache), examination
   generate + archive (over `ExaminationArchiveStoragePort` from `host-node`), connection verifiers
   (incl. `connection.verifyLlmDraft` over `LlmPort`), course persistence, repository, group-set,
