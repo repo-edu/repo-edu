@@ -420,7 +420,6 @@ export function useExaminationEngine({
       await scope
         .run("examination.lookupQuestions", lookupInput, {
           signal: abort.signal,
-          onProgress: (_progress: MilestoneProgress) => undefined,
           onOutput: (output) => {
             if (output.channel !== "warn") return
             addToast(output.message, { tone: "warning", durationMs: 6000 })
@@ -498,7 +497,6 @@ export function useExaminationEngine({
       await scope
         .run("examination.lookupQuestionSummaries", summaryInput, {
           signal: abort.signal,
-          onProgress: (_progress: MilestoneProgress) => undefined,
         })
         .then((result) => {
           if (abort.signal.aborted) return

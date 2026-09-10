@@ -59,56 +59,7 @@ describe("bespoke checks", () => {
     )
   })
 
-  it("rejects unreserved starts in every former direct workflow holder", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))
-    const holders = [
-      "analysis/analysis-query-coordinator.tsx",
-      "hooks/use-courses.ts",
-      "components/tabs/groups-assignments/GroupSetGroupsTable/use-clone-all-repositories.ts",
-      "components/OpenRepositoriesForm.tsx",
-      "components/dialogs/ConnectLmsGroupSetDialog.tsx",
-      "components/dialogs/ImportGitUsernamesDialog.tsx",
-      "components/dialogs/ImportGroupSetDialog.tsx",
-      "components/dialogs/ImportStudentsFromFileDialog.tsx",
-      "components/dialogs/StudentSyncDialog.tsx",
-      "components/settings/GitConnectionsPane.tsx",
-      "components/settings/LlmConnectionsPane.tsx",
-      "components/settings/LmsConnectionsPane.tsx",
-      "components/tabs/StudentsTab.tsx",
-      "components/tabs/SubmissionExaminationTab.tsx",
-      "components/tabs/examination/use-examination-engine.ts",
-      "components/tabs/groups-assignments/GroupSetGroupsTable/use-repo-operations.ts",
-      "utils/export-group-set.ts",
-    ].map((file) => `packages/renderer-app/src/${file}`)
-    for (const file of holders) {
-      await mkdir(join(root, file, ".."), { recursive: true })
-      await writeFile(
-        join(root, file),
-        [
-          'import { useWorkflowClient as useGateway } from "../contexts/workflow-client.js"',
-          "const gateway = useGateway()",
-          "const alias = gateway",
-          'alias.run("roster.importFromLms", input).then(publish)',
-        ].join("\n"),
-      )
-    }
-    const violations = runBespokeChecks(
-      root,
-      { files: holders, fileSet: new Set(holders), worktreePaths: holders },
-      () => holders,
-    )
-    assert.deepEqual(
-      violations.map((violation) => violation.file).sort(),
-      holders.sort(),
-    )
-    assert.ok(
-      violations.every((violation) =>
-        violation.message.includes("complete session operation body"),
-      ),
-    )
-  })
-
-  it("admits scoped bodies and presentation while rejecting raw clients and extracted starts", async () => {
+  it("admits scoped bodies and presentation while rejecting raw clients", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))
     const file = "packages/renderer-app/src/components/Feature.tsx"
     await mkdir(join(root, file, ".."), { recursive: true })
@@ -118,7 +69,6 @@ describe("bespoke checks", () => {
         'import type { WorkflowClient as RawClient } from "@repo-edu/application-contract"',
         'import { getWorkflowClient } from "../contexts/workflow-client.js"',
         "const gateway = getWorkflowClient()",
-        "const { run: detached } = gateway",
         'gateway.execute("roster.importFromFile", async (scope) => {',
         '  const result = await scope.run("roster.importFromFile", input)',
         "  scope.publish(() => publish(result))",
@@ -131,15 +81,10 @@ describe("bespoke checks", () => {
       { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
       () => [file],
     )
-    assert.equal(violations.length, 2)
+    assert.equal(violations.length, 1)
     assert.ok(
       violations.some((violation) =>
         violation.message.includes("raw WorkflowClient"),
-      ),
-    )
-    assert.ok(
-      violations.some((violation) =>
-        violation.message.includes("extracts a workflow start"),
       ),
     )
   })

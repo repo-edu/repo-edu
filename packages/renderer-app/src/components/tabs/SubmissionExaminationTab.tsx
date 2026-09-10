@@ -435,7 +435,6 @@ function useSubmissionExaminationSource() {
             },
             {
               signal: abort.signal,
-              onProgress: () => undefined,
             },
           )
           .then((result) => {

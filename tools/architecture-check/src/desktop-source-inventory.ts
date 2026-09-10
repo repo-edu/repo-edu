@@ -193,6 +193,7 @@ export const desktopEntryLists: readonly DesktopEntryList[] = [
       "downloadUpdate",
       "admission.dispatch",
       "closeRequest",
+      "dialog.showMessageBoxSync",
     ],
   },
   {

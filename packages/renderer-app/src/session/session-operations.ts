@@ -22,7 +22,6 @@ import { useCourseStore } from "../stores/course-store.js"
 import type { CourseMutationActions } from "./course-mutation-controller.js"
 import { captureSessionCommandInput } from "./session-command-input.js"
 import {
-  isSessionWorkflow,
   type PresentationDirectId,
   type PresentationWorkflowId,
   type SessionDirectId,
@@ -40,7 +39,7 @@ import {
   SessionSurfaceTransactions,
   type SessionTransactionScope,
 } from "./session-surface-transactions.js"
-import type { AppWorkflowId, ControllerWorkflowId } from "./workflow-types.js"
+import type { ControllerWorkflowId } from "./workflow-types.js"
 
 type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
   WorkflowProgress<K>,
@@ -89,13 +88,6 @@ export type SessionOperationGateway = {
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
   ): Promise<T | undefined>
-  // A complete single-call body. Callers with publication or semantic follow-up
-  // reserve explicitly and keep that work inside the supplied body.
-  run<K extends AppWorkflowId>(
-    id: K,
-    input: WorkflowInput<K>,
-    options?: CallOptions<K>,
-  ): Promise<WorkflowResult<K>>
   presentation<K extends PresentationWorkflowId>(
     id: K,
     input: WorkflowInput<K>,
@@ -149,7 +141,6 @@ export class SessionOperations extends SessionSurfaceTransactions {
       if (reservation === null) return undefined
       return await reservation.run(body)
     },
-    run: (id, input, options) => this.runFeature(id, input, options),
     presentation: (id, input, options) => this.present(id, input, options),
     presentationDirect: async (id, start) => {
       if (sessionDirectClasses[id] !== "presentation-only")
@@ -364,34 +355,5 @@ export class SessionOperations extends SessionSurfaceTransactions {
         new Error("The session is not accepting presentation calls."),
       )
     return this.client.run(id, input, options)
-  }
-
-  private runFeature<K extends AppWorkflowId>(
-    id: K,
-    input: WorkflowInput<K>,
-    options?: CallOptions<K>,
-  ): Promise<WorkflowResult<K>> {
-    const classification = sessionWorkflowClasses[id]
-    if (classification === "presentation-only")
-      return this.present(
-        id as PresentationWorkflowId,
-        input as never,
-        options as never,
-      ) as Promise<WorkflowResult<K>>
-    if (!isSessionWorkflow(id))
-      return Promise.reject(new Error("The workflow is not classified."))
-    const reservation = this.reserveOperation<WorkflowResult<K>>(id)
-    if (reservation === null)
-      return Promise.reject(
-        new Error("The session is not accepting operations."),
-      )
-    return reservation.run(
-      (scope) =>
-        scope.run(
-          id as SessionWorkflowId,
-          input as never,
-          options as never,
-        ) as Promise<WorkflowResult<K>>,
-    )
   }
 }

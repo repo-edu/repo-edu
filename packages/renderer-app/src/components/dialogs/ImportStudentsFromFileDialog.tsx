@@ -51,7 +51,7 @@ export function ImportStudentsFromFileDialog() {
           setFileName(ref.displayName)
         }
       } catch (err) {
-        console.error("Failed to open file dialog:", err)
+        setError(getErrorMessage(err))
       }
     })
   }

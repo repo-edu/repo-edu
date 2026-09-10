@@ -41,6 +41,9 @@ export function runSessionOperationBestEffort(
 
 const SessionControllerContext = createContext<SessionController | null>(null)
 
+// Only the current command's cancellation control carries this marker.
+export const sessionCancellationControl = "data-session-cancellation-control"
+
 export function SessionControllerProvider({
   controller,
   children,
@@ -51,7 +54,14 @@ export function SessionControllerProvider({
   // Read the owner at event delivery, without waiting for a React render.
   // React capture also reaches children rendered through dialog portals.
   const admitInput = (event: SyntheticEvent) => {
-    if (canAdmitSessionChange(controller.getSnapshot())) return
+    const snapshot = controller.getSnapshot()
+    if (canAdmitSessionChange(snapshot)) return
+    if (
+      snapshot.lifecycle.kind === "live" &&
+      event.target instanceof Element &&
+      event.target.closest(`[${sessionCancellationControl}]`) !== null
+    )
+      return
     event.preventDefault()
     event.stopPropagation()
   }

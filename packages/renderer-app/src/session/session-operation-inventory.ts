@@ -70,11 +70,6 @@ const _ordinaryIdsAgree: Same<
 > = true
 void _ordinaryIdsAgree
 
-export function isSessionWorkflow(id: WorkflowId): id is SessionWorkflowId {
-  const classification = sessionWorkflowClasses[id]
-  return classification === "session-changing" || classification === "command"
-}
-
 export const sessionDirectClasses = {
   pickUserFile: "session-changing",
   pickSaveTarget: "session-changing",

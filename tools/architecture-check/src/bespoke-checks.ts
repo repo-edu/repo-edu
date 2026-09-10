@@ -250,35 +250,6 @@ function checkRendererSessionOwnership(
           message: "retains a raw WorkflowClient outside session composition",
         })
       }
-      if (
-        ((ts.isPropertyAccessExpression(node) && node.name.text === "run") ||
-          (ts.isElementAccessExpression(node) &&
-            ts.isStringLiteralLike(node.argumentExpression) &&
-            node.argumentExpression.text === "run")) &&
-        ts.isIdentifier(node.expression) &&
-        gatewayNames.has(node.expression.text)
-      ) {
-        violations.push({
-          file: `${RENDERER_SRC_PREFIX}${file}`,
-          message:
-            "starts a direct workflow without a complete session operation body; use execute or presentation",
-        })
-      }
-      if (
-        ts.isBindingElement(node) &&
-        (node.propertyName?.getText(sourceFile) ??
-          node.name.getText(sourceFile)) === "run" &&
-        ts.isObjectBindingPattern(node.parent) &&
-        ts.isVariableDeclaration(node.parent.parent) &&
-        node.parent.parent.initializer !== undefined &&
-        gatewayNames.has(node.parent.parent.initializer.getText(sourceFile))
-      ) {
-        violations.push({
-          file: `${RENDERER_SRC_PREFIX}${file}`,
-          message:
-            "extracts a workflow start outside its session operation body",
-        })
-      }
       if (ts.isCallExpression(node)) {
         const runName = callExpressionName(node)
         if (

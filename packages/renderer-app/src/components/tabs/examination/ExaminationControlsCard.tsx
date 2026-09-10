@@ -3,6 +3,7 @@ import {
   EXAMINATION_QUESTION_COUNT_MIN,
 } from "@repo-edu/application-contract"
 import { Button, Card, CardContent, Input, Label } from "@repo-edu/ui"
+import { sessionCancellationControl } from "../../../session/session-controller-context.js"
 
 type ExaminationControlsCardProps = {
   questionCount: number
@@ -55,6 +56,7 @@ export function ExaminationControlsCard({
             />
           </div>
           <Button
+            {...(isGenerating ? { [sessionCancellationControl]: "" } : {})}
             onClick={isGenerating ? onStopGeneration : onGenerate}
             disabled={isGenerating ? false : blocker !== null}
             title={blocker ?? undefined}
