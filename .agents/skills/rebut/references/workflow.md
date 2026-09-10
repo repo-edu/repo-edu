@@ -108,8 +108,6 @@ chat and the file must not differ. The twin is untracked and gitignored, so
 writing it keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
-and `$fix` for Codex, normally in the vetter's assistant: in the vet's own
-session when that session is still moderate, because it already holds the
-evidence the findings name, and in a fresh context otherwise. The fix
-workflow deletes the report and both twins when the records land; this
-workflow deletes nothing.
+and `$fix` for Codex, in a fresh session normally using the vetter's assistant.
+The audit report and both twins are its brief. The fix workflow deletes those
+files when the records land; this workflow deletes nothing.

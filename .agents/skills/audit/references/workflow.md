@@ -23,7 +23,7 @@ The round ends at its report file. The auditor answers a vet through the
 rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
 from the user's ruling through applying corrections, landing records and
 deleting the report belongs to the fix workflow at
-`.agents/skills/fix/references/workflow.md`. Both run outside this session,
+`.agents/skills/fix/references/workflow.md`. The fix starts in a fresh session
 from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
@@ -46,7 +46,7 @@ Keep it outside any code fence and out of the report or twin file. The report
 and its chat copy remain identical; append the result after the chat copy
 only. The object has exactly these fields:
 
-- `status`: one of the four outcomes below.
+- `status`: one of the three outcomes below.
 - `file`: the absolute path written by a finished audit, vet or rebuttal.
   Use `null` for every other outcome, including a finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
@@ -54,7 +54,6 @@ only. The object has exactly these fields:
 | Status | Meaning | Runner action |
 | --- | --- | --- |
 | `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. | Continue, or finish the run after the fix. |
-| `fresh-context` | The resumed vet session lacks room to run the fix. It changed no files. | Start the fix fresh in the vetter's assistant. |
 | `needs-ruling` | The fix phase presented an open item for the user. | Open that fix session interactively. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
@@ -143,8 +142,8 @@ findings rest on and the rebuttal fixes nothing. When this session is asked
 to answer the twin without that launcher, discuss the findings for a ruling,
 apply a correction, land a record or delete the report, do not do it. Say
 that the rebuttal runs through `/rebut` or `$rebut` here and that the fix
-phase runs through the fix launcher, `/fix` or `$fix`, in the vetter's
-session or a fresh one. Name the report file they start from and stop.
+phase runs through the fix launcher, `/fix` or `$fix`, in a fresh session
+using the vetter's assistant. Name the report file they start from and stop.
 Continue only when the user explicitly says to.
 
 The reason is context: a session that has read a whole step range and then

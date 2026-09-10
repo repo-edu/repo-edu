@@ -16,20 +16,16 @@ because a round that reads a whole step range and then fixes in the same
 context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
 
-The fix phase never runs in the audit's session. It may run in the vet's
-session, which read only the files the findings name and already holds that
-evidence, when that session is still moderate; otherwise it runs in a fresh
-context. After a rebuttal the vetter's assistant normally runs it, so the
-auditor's answer is read by the assistant it answers.
+The fix phase always starts in a fresh session. After a rebuttal the vetter's
+assistant normally runs it, using the audit report and both twins as its brief.
+The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
+context usage and compacted during implementation. Starting fresh gives the
+fix its own context and removes the capacity judgement and restart path.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. Before starting fix work in a resumed vet session, judge whether this
-session has room for the fix. The session makes that judgement from what it
-has read and what the fix needs; the runner sets no numeric threshold. When
-room is insufficient, change no files and return `fresh-context`. The runner
-then starts the fix fresh in the vetter's assistant. A fresh fix session does
-not request another fresh context through this outcome.
+ending. The runner starts one fresh fix session in the vetter's assistant.
+When the fix needs a ruling, the runner opens that fix session interactively.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
