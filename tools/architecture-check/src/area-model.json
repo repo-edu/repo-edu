@@ -350,6 +350,12 @@
       "members": [{ "type": "pattern", "path": "^tools/architecture-check/src/" }]
     },
     {
+      "id": "tool-audit-round",
+      "name": "Implementation audit round tool",
+      "kind": "partition",
+      "members": [{ "type": "pattern", "path": "^tools/audit-round/src/" }]
+    },
+    {
       "id": "tool-dev-fixture",
       "name": "Dev fixture tool",
       "kind": "partition",

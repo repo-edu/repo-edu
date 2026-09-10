@@ -1,0 +1,10 @@
+{
+  "name": "@repo-edu/audit-round",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck"
+  }
+}

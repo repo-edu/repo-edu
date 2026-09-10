@@ -691,6 +691,8 @@ importers:
         specifier: ^4.5.4
         version: 4.5.4
 
+  tools/audit-round: {}
+
   tools/dev-fixture:
     dependencies:
       '@repo-edu/host-node':
