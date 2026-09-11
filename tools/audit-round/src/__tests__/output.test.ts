@@ -75,13 +75,14 @@ test("output records complete invocations incrementally and refreshes only while
   t.mock.timers.tick(3000)
   assert.match(
     status.at(-1) as string,
-    /\[audit\] 00:03\s+total 00:08\s+context\s+0\.2k\s+26k\s+26%/,
+    /\[audit\] 00:03\s+total 00:08\s+context\s+26\.2k\s+26k\s+26%/,
   )
   await output.phase.observe({
     type: "text",
     text: "Full assistant text\n\n| A | B |\n| --- | --- |\n| 1 | 2 |",
   })
-  assert.match(status.at(-1) as string, /0\.2k/)
+  // The written stamp consumed the growth, so the live line restarts from it.
+  assert.match(status.at(-1) as string, /context\s+26k\s+26%/)
   const markdown = await readFile(output.paths.markdown, "utf8")
   assert.match(markdown, /Full assistant text/)
   assert.match(markdown, /\| 1 \| 2 \|/)
@@ -114,6 +115,63 @@ test("output records complete invocations incrementally and refreshes only while
   await start()
   await tool("new phase")
   assert.match(visible.at(-1) as string, /--\s+--\s+--/)
+})
+
+test("written status stamps chain into the running total", async (t) => {
+  const f = await fixture(t)
+  const visible: string[] = []
+  const output = new RoundOutput(
+    { repoRoot: f.root, plan: "example.md" },
+    {
+      terminal: {
+        write: (text) => {
+          visible.push(text)
+        },
+        status: () => {},
+        clear: () => {},
+      },
+    },
+  )
+  t.after(() => output.close())
+  const context = (tokens: number) =>
+    output.phase.observe({ type: "context", tokens, window: 260000 })
+  const text = () => output.phase.observe({ type: "text", text: "Progress" })
+  const stamp = () => visible.at(-2) as string
+  await output.phase.start(
+    {
+      phase: "audit",
+      assistant: "codex",
+      cwd: f.root,
+      ownerRoot: f.root,
+      arguments: ["example.md"],
+      sessionId: null,
+    },
+    "Prompt",
+  )
+  await context(52000)
+  await text()
+  assert.match(stamp(), /context\s+52\.0k\s+52k\s+20%/)
+  await context(89000)
+  await text()
+  assert.match(stamp(), /context\s+37\.0k\s+89k\s+34%/)
+  await output.phase.start(
+    {
+      phase: "rebut",
+      assistant: "codex",
+      cwd: f.root,
+      ownerRoot: f.root,
+      arguments: ["/AUDIT.md"],
+      sessionId: "prior",
+    },
+    "Prompt",
+  )
+  // A resumed session carries context the round never observed.
+  await context(131000)
+  await text()
+  assert.match(stamp(), /context\s+--\s+131k\s+50%/)
+  await context(179000)
+  await text()
+  assert.match(stamp(), /context\s+48\.0k\s+179k\s+69%/)
 })
 
 for (const assistant of ["claude", "codex"] as const) {
@@ -303,7 +361,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   )
   await output.phase.observe({ type: "context", tokens: 12000, window: null })
   await output.phase.observe({ type: "text", text: "Assistant reply" })
-  assert.match(visible.join("\n"), /context\s+--\s+12k/)
+  assert.match(visible.join("\n"), /context\s+12\.0k\s+12k/)
   assert.doesNotMatch(visible.join("\n"), /%/)
 })
 

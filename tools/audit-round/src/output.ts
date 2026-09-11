@@ -53,7 +53,7 @@ export class RoundOutput {
         started: number
         context: Context | null
         previousToolTokens: number | null
-        change: string
+        statusTokens: number | null
       }
     | undefined
   private timer: ReturnType<typeof setInterval> | undefined
@@ -135,10 +135,18 @@ export class RoundOutput {
 
   private stamp(): string {
     if (this.active === undefined) return ""
-    const { input, started, context, change } = this.active
-    const measurement = contextText(context, change)
+    const { input, started, context, statusTokens } = this.active
+    const measurement = contextText(context, changeSince(context, statusTokens))
     const now = this.now()
     return `\n[${input.phase}] ${elapsedText(now - started)}  total ${elapsedText(now - this.started)}${measurement ? `  ${measurement}` : ""}`
+  }
+
+  /** Written stamps chain: each reports the context added since the previous one. */
+  private report(): string {
+    const stamp = this.stamp()
+    if (this.active?.context != null)
+      this.active.statusTokens = this.active.context.tokens
+    return stamp
   }
 
   private start(input: PhaseInput, prompt: string): void {
@@ -148,7 +156,8 @@ export class RoundOutput {
       started: this.now(),
       context: null,
       previousToolTokens: null,
-      change: "--",
+      // A fresh session starts empty, so its first stamp reports the startup context.
+      statusTokens: input.sessionId === null ? 0 : null,
     }
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
@@ -181,17 +190,11 @@ export class RoundOutput {
         )
         break
       case "context":
-        if (
-          feedback.tokens !== active.context?.tokens ||
-          feedback.window !== active.context?.window
-        ) {
-          active.context = feedback
-          active.change = contextChange(feedback, active.previousToolTokens)
-        }
+        active.context = feedback
         break
       case "text":
         if (feedback.text.length > 0) {
-          this.say(this.stamp())
+          this.say(this.report())
           this.files.markdown(`${feedback.text}\n`)
           this.options.terminal.write(feedback.text.trimEnd())
         }
@@ -204,7 +207,7 @@ export class RoundOutput {
           const line = toolText(
             feedback.invocation,
             active.context,
-            contextChangeForTool(active),
+            changeSince(active.context, active.previousToolTokens),
           )
           this.files.log(line)
           if (this.options.verbose)
@@ -218,7 +221,7 @@ export class RoundOutput {
   }
 
   private finishPhase(result: PhaseResult): void {
-    this.say(this.stamp())
+    this.say(this.report())
     const detail =
       result.status === "failed"
         ? `: ${result.reason}`
@@ -243,7 +246,7 @@ export class RoundOutput {
           ? ""
           : `\nResume: ${recoveryCommand({ ...result, sessionId: result.sessionId })}`
       this.say(
-        `${this.stamp()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
+        `${this.report()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
       this.say(
@@ -269,11 +272,6 @@ export class RoundOutput {
   }
 }
 
-function contextChangeForTool(active: {
-  context: Context | null
-  previousToolTokens: number | null
-}): string {
-  return active.context === null
-    ? "--"
-    : contextChange(active.context, active.previousToolTokens)
+function changeSince(context: Context | null, baseline: number | null): string {
+  return context === null ? "--" : contextChange(context, baseline)
 }

@@ -37,17 +37,18 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command. Claude uses
   `--permission-mode auto` in settings discovery and every session entry.
-- `output.ts` owns terminal presentation and incremental run recording.
-  It holds only the round start, current phase timing and context
-  observations. Every status stamp shows the phase's elapsed time and the
-  round's total. `run-files.ts` completes each required write before returning
-  to the invocation; no complete transcript accumulates in memory. `terminal.ts` uses log-update for terminals
-  and plain text for redirected output. The log records each tool invocation
-  once, with shell wrappers removed and no event envelopes or result payloads.
-  Invocation lines stay complete in the log; assistant texts stay complete in
-  Markdown. Only terminal tool lines shorten.
-  `prepareHandover` records the handover and releases the terminal before
-  `openSession` inherits it. Both functions must reject on failure.
+- `output.ts` owns terminal presentation and incremental run recording. It holds only the round
+  start, current phase timing and context observations. Every status stamp shows the phase's elapsed
+  time and the round's total. Two baselines measure context growth: a written status stamp reports
+  the tokens added since the previous written stamp, and a logged tool line reports the tokens added
+  since the previous tool line. Both chain into the totals beside them; a fresh phase starts its
+  stamp baseline at zero and a resumed phase reports no first change. `run-files.ts` completes each
+  required write before returning to the invocation; no complete transcript accumulates in memory.
+  `terminal.ts` uses log-update for terminals and plain text for redirected output. The log records
+  each tool invocation once, with shell wrappers removed and no event envelopes or result payloads.
+  Invocation lines stay complete in the log; assistant texts stay complete in Markdown. Only
+  terminal tool lines shorten. `prepareHandover` records the handover and releases the terminal
+  before `openSession` inherits it. Both functions must reject on failure.
 - `command.ts` owns arguments, repository paths, startup and final reporting.
   Required write failures stop phase progression. If recording itself fails,
   the emergency channel still reports the known session and recovery command.
