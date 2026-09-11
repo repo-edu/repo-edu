@@ -1,9 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import {
-  admitAnalysisInputs,
-  type AnalysisInputs,
-} from "../analysis-inputs.js"
+import { type AnalysisInputs, admitAnalysisInputs } from "../analysis-inputs.js"
 
 describe("analysis input admission", () => {
   it("admits a valid patch as the normalised next inputs", () => {

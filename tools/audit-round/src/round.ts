@@ -1,10 +1,11 @@
 import { dirname } from "node:path"
-import type {
-  Assistant,
-  InteractiveSession,
-  Phase,
-  PhaseFailure,
-  RoundDependencies,
+import {
+  type Assistant,
+  type InteractiveSession,
+  type Phase,
+  type PhaseFailure,
+  phaseAssistants,
+  type RoundDependencies,
 } from "./phase.js"
 
 export type RoundInput = {
@@ -33,12 +34,11 @@ export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
 ): Promise<RoundResult> {
-  const auditor = input.auditor ?? "codex"
-  const vetter = auditor === "claude" ? "codex" : "claude"
+  const assistants = phaseAssistants(input.auditor ?? "codex")
   const cwd = input.repoRoot
   const audit = await dependencies.runPhase.audit({
     phase: "audit",
-    assistant: auditor,
+    assistant: assistants.audit,
     cwd,
     ownerRoot: cwd,
     arguments:
@@ -46,52 +46,52 @@ export async function runRound(
     sessionId: null,
   })
   if (audit.status === "failed") {
-    return { ...audit, phase: "audit", assistant: auditor, cwd }
+    return { ...audit, phase: "audit", assistant: assistants.audit, cwd }
   }
 
   const report = audit.file
   const ownerRoot = dirname(report)
   const vet = await dependencies.runPhase.vet({
     phase: "vet",
-    assistant: vetter,
+    assistant: assistants.vet,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (vet.status === "failed") {
-    return { ...vet, phase: "vet", assistant: vetter, cwd }
+    return { ...vet, phase: "vet", assistant: assistants.vet, cwd }
   }
 
   const rebut = await dependencies.runPhase.rebut({
     phase: "rebut",
-    assistant: auditor,
+    assistant: assistants.rebut,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: audit.sessionId,
   })
   if (rebut.status === "failed") {
-    return { ...rebut, phase: "rebut", assistant: auditor, cwd }
+    return { ...rebut, phase: "rebut", assistant: assistants.rebut, cwd }
   }
 
   const fix = await dependencies.runPhase.fix({
     phase: "fix",
-    assistant: "codex",
+    assistant: assistants.fix,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (fix.status === "failed") {
-    return { ...fix, phase: "fix", assistant: "codex", cwd }
+    return { ...fix, phase: "fix", assistant: assistants.fix, cwd }
   }
   if (fix.status === "finished") {
     return { status: "finished", report }
   }
 
   const session: InteractiveSession = {
-    assistant: "codex",
+    assistant: assistants.fix,
     sessionId: fix.sessionId,
     cwd,
   }

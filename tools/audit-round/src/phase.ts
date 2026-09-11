@@ -1,6 +1,18 @@
 export type Assistant = "claude" | "codex"
 export type Phase = "audit" | "vet" | "rebut" | "fix"
 
+/** The single owner of which assistant runs each phase of a round. */
+export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
+  return {
+    audit: auditor,
+    // The vetter is the other assistant, so no assistant vets its own report.
+    vet: auditor === "codex" ? "claude" : "codex",
+    // The rebuttal resumes the audit session, so it answers in the auditor.
+    rebut: auditor,
+    fix: "codex",
+  }
+}
+
 type PhaseArguments = {
   audit: {
     readonly arguments: readonly [plan: string, scope?: string]

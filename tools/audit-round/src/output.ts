@@ -10,11 +10,12 @@ import {
   modelText,
   toolText,
 } from "./output-format.js"
-import type {
-  Assistant,
-  InteractiveSession,
-  PhaseInput,
-  PhaseResult,
+import {
+  type Assistant,
+  type InteractiveSession,
+  type PhaseInput,
+  type PhaseResult,
+  phaseAssistants,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import type { RoundInput, RoundResult } from "./round.js"
@@ -92,11 +93,38 @@ export class RoundOutput {
   }
 
   models(selections: Record<Assistant, ModelSelection>): void {
-    const auditor = this.input.auditor ?? "codex"
-    const vetter = auditor === "codex" ? "claude" : "codex"
-    const text = `auditor ${auditor} ${modelText(selections[auditor])}\nvetter ${vetter} ${modelText(selections[vetter])}\nfixer codex ${modelText(selections.codex)}`
+    const assistants = phaseAssistants(this.input.auditor ?? "codex")
+    const roles = [
+      ["auditor", assistants.audit],
+      ["vetter", assistants.vet],
+      ["rebutter", assistants.rebut],
+      ["fixer", assistants.fix],
+    ] as const
+    // Roles are grouped by assistant so one assistant's model reads as one block.
+    const rows = roles
+      .toSorted(
+        ([, first], [, second]) =>
+          Number(first !== assistants.audit) -
+          Number(second !== assistants.audit),
+      )
+      .map(([role, assistant]) => ({
+        role,
+        assistant,
+        model: modelText(selections[assistant]),
+      }))
+    const roleWidth = Math.max(...rows.map(({ role }) => role.length))
+    const assistantWidth = Math.max(
+      ...rows.map(({ assistant }) => assistant.length),
+    )
+    const text = rows
+      .map(
+        ({ role, assistant, model }) =>
+          `${role.padEnd(roleWidth)}  ${assistant.padEnd(assistantWidth)}  ${model}`,
+      )
+      .join("\n")
     this.say(text)
-    this.files.markdown(`${text}\n`)
+    // Fenced, so the column alignment survives markdown rendering.
+    this.files.markdown(`\`\`\`text\n${text}\n\`\`\`\n`)
   }
 
   private say(text: string): void {

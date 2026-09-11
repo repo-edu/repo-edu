@@ -154,7 +154,7 @@ for (const auditor of ["claude", "codex"] as const) {
         const { log, markdown } = await f.records()
         const visible = f.visible.join("\n")
         assert.match(log, /TypeScript runner/)
-        assert.match(log, /fixer codex chosen-model high/)
+        assert.match(log, /fixer +codex +chosen-model high/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           assert.ok(markdown.includes(`Complete ${phase} text.`))

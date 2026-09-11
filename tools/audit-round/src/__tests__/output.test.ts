@@ -6,6 +6,7 @@ import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import { RoundOutput } from "../output.js"
 import { commandText } from "../output-format.js"
+import type { Assistant } from "../phase.js"
 import { createTerminal } from "../terminal.js"
 import { fixture } from "./helpers.js"
 
@@ -303,6 +304,59 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   await output.phase.observe({ type: "text", text: "Assistant reply" })
   assert.match(visible.join("\n"), /context\s+--\s+12k/)
   assert.doesNotMatch(visible.join("\n"), /%/)
+})
+
+test("the settings header groups roles by assistant in aligned columns", async (t) => {
+  const markdown: string[] = []
+  const header = async (auditor: Assistant) => {
+    const f = await fixture(t)
+    const visible: string[] = []
+    const output = new RoundOutput(
+      { repoRoot: f.root, plan: "example.md", auditor },
+      {
+        terminal: {
+          write: (text) => {
+            visible.push(text)
+          },
+          status: () => {},
+          clear: () => {},
+        },
+        openFiles: () => ({
+          log: () => {},
+          markdown: (text) => markdown.push(text),
+          close: () => {},
+        }),
+      },
+    )
+    t.after(() => output.close())
+    output.models({
+      claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
+      codex: { model: "gpt-6-astra", effort: "high" },
+    })
+    return visible.at(-1)
+  }
+  assert.equal(
+    await header("claude"),
+    [
+      "auditor   claude  claude-opus-5[1m] extra high",
+      "rebutter  claude  claude-opus-5[1m] extra high",
+      "vetter    codex   gpt-6-astra high",
+      "fixer     codex   gpt-6-astra high",
+    ].join("\n"),
+  )
+  assert.equal(
+    await header("codex"),
+    [
+      "auditor   codex   gpt-6-astra high",
+      "rebutter  codex   gpt-6-astra high",
+      "fixer     codex   gpt-6-astra high",
+      "vetter    claude  claude-opus-5[1m] extra high",
+    ].join("\n"),
+  )
+  assert.equal(
+    markdown.at(-1),
+    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\n```\n",
+  )
 })
 
 test("shell display decoding retains unrecognised commands without evaluating them", () => {
