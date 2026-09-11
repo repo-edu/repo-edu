@@ -129,8 +129,8 @@ finding, or this session's own answers to a vet with no rebuttal. When
 nothing is open, state the outcome in one line per finding and apply.
 
 In an unattended phase, present any open items and return `needs-ruling`
-instead of waiting for input. This also applies when the correction rules
-below require a structural-change ruling. A permission refusal or another
+instead of waiting for input. This also applies when a rule in the repo's
+`CLAUDE.md` stops a correction for a ruling. A permission refusal or another
 error that leaves required work blocked returns `failed`, not `needs-ruling`,
 under the shared result rule.
 
@@ -140,9 +140,9 @@ After the user accepts the outcome, apply every directed correction. One
 acceptance covers the whole round: fixes in each judged repo and findings
 deferred only to repos outside the round's repo set. Every fix is a
 root-cause fix under the repo's `CLAUDE.md`, including its complexity
-escalation and repeated-fix rules; a finding whose correction those rules
-turn into a structural change is raised with the user before it is applied,
-not narrowed to fit.
+escalation and repeated-fix rules. A correction those rules turn into a
+structural change is applied as that structural change, never narrowed to
+fit.
 
 When the user directs a specific cross-repo fix during the discussion, apply
 the correction in the same run and commit it independently in its hosting
