@@ -202,8 +202,9 @@ round's yield. A clean record carries both lines with zeroes. A plan-repo
 record carries neither.
 
 A Repo Edu record's severity sequence carries the case, `!` and trailing
-`growth` or `pruning` marks this repo's `CLAUDE.md` defines, so a commit graph
-shows the round's reach without its tokens. A plan-repo record keeps bare tiers.
+`growth-<level>` or `pruning-<level>` marks this repo's `CLAUDE.md` defines, so a
+commit graph shows the round's reach without its tokens. A plan-repo record
+keeps bare tiers.
 
 A finding deferred from a Repo Edu-only round to the plan repo uses the body
 form in this repo's `CLAUDE.md`; it keeps its tier, plan location and

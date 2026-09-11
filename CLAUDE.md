@@ -280,19 +280,27 @@ commit graph shows the subject and none of the finding tokens.
   one letter at its own case, so the counts stay exact and nothing is averaged.
 - A leading `!` says at least one concern has `ordinary` reach, the value that
   needs no special condition to hold: `!B1C1c2d1`.
-- A trailing `growth` or `pruning` says what the commit did to the standing
-  structure. Measure the commit, never add up the finding tokens: compare the
-  code before the commit with the code after it, then take the highest kind of
-  obligation whose count changed. Write `growth` when that kind grew and
-  `pruning` when it shrank, and omit the word when no kind changed. The mark
-  follows the sequence after a space: `!B1C1c2d1 pruning:`. It is a word and
-  not a sign, because a sign carries direction and not judgement: `+` reads as
-  a gain where growth is the cost. A commit can read `pruning` while one
-  concern inside it added a rule, because the mark states the commit's own net
-  result.
+- A trailing `growth-<level>` or `pruning-<level>` says what the commit did to the
+  standing structure. Measure the commit, never add up the finding tokens:
+  compare the code before the commit with the code after it, then take the
+  highest kind of obligation whose count changed. The word gives the direction,
+  `growth` when that kind grew and `pruning` when it shrank. The level names the
+  kind, `low` for a rule, `medium` for state and `high` for an owner concern.
+  Omit the whole mark when no kind changed. The mark follows the sequence after
+  a space: `!B1C1c2d1 pruning-high:`. The direction is a word and not a sign,
+  because a sign carries direction and not judgement: `+` reads as a gain where
+  growth is the cost. The level is always written. A commit that moved only rules
+  reads `growth-low` and never a bare `growth`, because an omitted level would
+  pass as the floor and a level is countable in the log only when it is on the
+  page. A commit can read `pruning-high` while one concern inside it added a
+  rule, because the mark states the commit's own net result at its highest
+  changed kind.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
-which also defines the obligation kinds the trailing mark measures.
+which also defines the obligation kinds the trailing mark measures. The mark and
+the finding token `[complexity:...]` run that one measurement, so they translate
+exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
+`[complexity:minus-high]` and an absent mark is `[complexity:none]`.
 
 Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
 that carries it, which a plan document has not reached yet.

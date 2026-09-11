@@ -212,7 +212,7 @@ Structure: <n> removing, <n> adding, <n> flat.
 
 The first line counts the accepted findings by their `[reach:...]` value,
 treating `very-rare` as rare. The second counts them by the sign of their
-`[complexity:...]` value: `minus-` rungs remove, `low`, `medium` and `high` add
+`[complexity:...]` value: `minus-` levels remove, `low`, `medium` and `high` add
 and `none` is flat. A clean round writes both lines with zeroes.
 
 The tally exists because the decision to run another round needs the round's
@@ -220,7 +220,8 @@ yield, and reading it out of per-finding tokens means re-reading the whole log
 by hand. It answers what a round bought: findings an end user can meet, and
 whether the corrections left the code with more standing structure or less.
 Both lines are counts over the findings, unlike the commit subject's trailing
-`growth` or `pruning`, which measures one commit's own code before and after.
+`growth-<level>` or `pruning-<level>`, which measures one commit's own code
+before and after.
 The two answer different questions and neither replaces the other.
 
 ## Judging deviations
@@ -313,7 +314,7 @@ The tag is what gives a fresh round the memory it otherwise lacks. Before
 drafting findings, read the full bodies of the episode's audit commits, found
 by the walk under [Evidence](#evidence), and collect every metadata bullet
 in them. Count the growth tags by pattern and the reach and complexity
-values by rung. Rounds that predate a token, or that tagged growth by
+values by level. Rounds that predate a token, or that tagged growth by
 number before the labels existed, carry no readable form of it; read their
 bullets on their prose and say the history is partial rather than reading
 absence as a clean run. When one pattern appears across several rounds, say
@@ -400,7 +401,11 @@ obligation the copies create: the same rule replicated across files or
 packages must stay in agreement, which is state; state replicated across
 packages leaves that agreement with no single keeper, which is an owner
 concern. Tests never move the token; they follow the machinery they cover,
-and counting them would charge every guarded mechanism twice.
+and counting them would charge every guarded mechanism twice. The commit
+subject's trailing mark runs this same measurement over a whole commit
+instead of one correction, and its level is this token's level: `growth-low`
+is `low` and `pruning-high` is `minus-high`. **Commit Severity Prefix** in
+this repo's `CLAUDE.md` owns that mark's form.
 
 The two tokens are one pair, and the pair is the point. Growth pattern 6 in
 `../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
@@ -417,7 +422,7 @@ tokens rate facts, not worth, and like the growth tag they block nothing: a
 finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
 is shared with the plan repo's finding metadata, one spelling across both
 logs. Bullets from before 2026-09-11 graded only what a correction added, so
-a bare rung there says nothing about what the fix removed.
+a bare level there says nothing about what the fix removed.
 
 ## Cross-repo findings
 
@@ -465,6 +470,13 @@ finished code whose severity has stabilised at C or below with no new A, each
 round's table classifying every row. A round that finds nothing is not required.
 Prior audit commits inform those rounds, ranking their reports and naming the
 fixes to re-verify. They never excuse a row from inspection.
+
+Structure joins that proof. A `growth-medium` or `growth-high` run across those
+rounds that no later round repaid says the code is still ratcheting where
+severity has already settled, the failure `../plan/GROWTH-PATTERNS.md` records.
+The round names the run and the machinery under it, and the user prices that
+machinery under growth pattern 6. A single high mark is not a bar, because
+closing an A-tier finding can require adding an owner.
 
 The final whole-plan round expects the shared `implemented:` marker in every
 repo
