@@ -64,7 +64,6 @@ type CloneAllListingTransitionOptions = {
   readonly credentials: PersistedAppCredentials
   readonly updatePublishedInput: (updater: PublishedListingUpdater) => void
   readonly schedule: CloneAllScheduler
-  readonly cancelListingQueries: () => void
 }
 
 export type CloneAllListingTransition = {
@@ -77,12 +76,9 @@ export function createCloneAllListingTransition({
   credentials,
   updatePublishedInput,
   schedule,
-  cancelListingQueries,
 }: CloneAllListingTransitionOptions): CloneAllListingTransition {
   let disposed = false
   let cancelScheduledPublication: (() => void) | null = null
-
-  void cancelListingQueries()
 
   if (canStartQueries && input !== null) {
     cancelScheduledPublication = schedule(() => {
@@ -114,13 +110,11 @@ export function createCloneAllListingTransition({
       if (disposed) return
       disposed = true
       cancelScheduledPublication?.()
-      void cancelListingQueries()
     },
   }
 }
 
 export const cloneAllListingQueryKeys = {
-  all: ["repository-operations", "clone-all", "listing"] as const,
   disabled: [
     "repository-operations",
     "clone-all",

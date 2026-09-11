@@ -121,9 +121,6 @@ describe("session Query publication", () => {
           pending.add(callback)
           return () => pending.delete(callback)
         },
-        cancelListingQueries: () => {
-          void client.cancelQueries({ queryKey: cloneAllListingQueryKeys.all })
-        },
       })
     let transition = startTransition()
     t.after(() => transition.dispose())
@@ -167,7 +164,7 @@ describe("session Query publication", () => {
   })
 
   for (const online of [true, false]) {
-    it(`captures published clone input and retains mutation settlement while online is ${online}`, async (t) => {
+    it(`keeps the listing through command freeze and mutation settlement while online is ${online}`, async (t) => {
       const previousOnline = onlineManager.isOnline()
       t.after(() => onlineManager.setOnline(previousOnline))
       const captured: RepositoryBulkCloneInput[] = []
@@ -183,7 +180,7 @@ describe("session Query publication", () => {
         captured.push(input as RepositoryBulkCloneInput)
         return result
       })
-      const publishedInput = {
+      let publishedInput: CloneAllPublishedListingInput = {
         admissionId: {
           connectionId: "git",
           namespace: "org",
@@ -203,9 +200,10 @@ describe("session Query publication", () => {
       })
       const entered = deferred<void>()
       const release = deferred<void>()
-      const listing = client.fetchQuery({
-        queryKey: key,
-        staleTime: 0,
+      let canStartQueries = canAdmitSessionChange(controller.getSnapshot())
+      const queryOptions = () => ({
+        ...createCloneAllListingQueryPolicy(publishedInput.admissionId),
+        enabled: canStartQueries,
         ...sessionQueryOptions(
           controller.operations,
           "repo.listNamespace",
@@ -220,7 +218,54 @@ describe("session Query publication", () => {
           },
         ),
       })
+      const listingObserver = new QueryObserver(client, queryOptions())
+      const pending = new Set<() => void>()
+      const startTransition = () =>
+        createCloneAllListingTransition({
+          canStartQueries,
+          input: publishedInput.admissionId,
+          credentials: publishedInput.credentials,
+          updatePublishedInput: (update) => {
+            controller.operations.change(() => {
+              const next = update(publishedInput)
+              assert.ok(next)
+              publishedInput = next
+              listingObserver.setOptions(queryOptions())
+            })
+          },
+          schedule: (callback) => {
+            pending.add(callback)
+            return () => pending.delete(callback)
+          },
+        })
+      let transition = startTransition()
+      t.after(() => transition.dispose())
+      t.after(listingObserver.subscribe(() => {}))
+      t.after(
+        controller.subscribe(() => {
+          const next = canAdmitSessionChange(controller.getSnapshot())
+          if (next === canStartQueries) return
+          canStartQueries = next
+          transition.dispose()
+          transition = startTransition()
+          listingObserver.setOptions(queryOptions())
+        }),
+      )
       await entered.promise
+      const listing = listingObserver.refetch({ cancelRefetch: false })
+      const listed = listingObserver.getCurrentResult()
+      assert.equal(listed.isFetching, true)
+      assert.equal(
+        selectCloneAllCanClone({
+          inputIsCurrent: true,
+          queryIsSuccess: listed.isSuccess,
+          queryIsPlaceholderData: listed.isPlaceholderData,
+          listResult: listed.data,
+          targetDirectory: variables.targetDirectory,
+          mutationIsPending: false,
+        }),
+        true,
+      )
       const settling = deferred<void>()
       const settleRelease = deferred<void>()
       const observer = new MutationObserver(client, {
@@ -240,6 +285,8 @@ describe("session Query publication", () => {
         (value) => observer.mutate(value),
       )
       assert.equal(captured.length, 0)
+      assert.equal(canStartQueries, false)
+      assert.equal(pending.size, 0)
       release.resolve()
       await tick()
       assert.equal(observer.getCurrentResult().isPaused, false)

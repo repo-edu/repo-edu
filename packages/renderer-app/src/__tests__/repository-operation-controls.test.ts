@@ -23,7 +23,6 @@ import {
   type CloneAllSafeListingInput,
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
-  cloneAllListingQueryKeys,
   cloneAllMutationBelongsToCurrentCommand,
   cloneAllMutationGcTimeMs,
   createCloneAllListingQueryPolicy,
@@ -118,7 +117,6 @@ describe("clone-all listing transition", () => {
   it("publishes settled inputs with a new safe generation", () => {
     const scheduler = createManualScheduler()
     let publishedInput: CloneAllPublishedListingInput | null = null
-    let cancellationCount = 0
     const transition = createCloneAllListingTransition({
       canStartQueries: true,
       input: initialInput,
@@ -127,12 +125,8 @@ describe("clone-all listing transition", () => {
         publishedInput = update(publishedInput)
       },
       schedule: scheduler.schedule,
-      cancelListingQueries: () => {
-        cancellationCount++
-      },
     })
 
-    assert.equal(cancellationCount, 1)
     assert.equal(publishedInput, null)
     assert.equal(scheduler.pendingCount, 1)
 
@@ -149,7 +143,6 @@ describe("clone-all listing transition", () => {
     )
 
     transition.dispose()
-    assert.equal(cancellationCount, 2)
   })
 
   it("advances generation when only the credentials snapshot changes", () => {
@@ -164,7 +157,6 @@ describe("clone-all listing transition", () => {
         publishedInput = update(publishedInput)
       },
       schedule: scheduler.schedule,
-      cancelListingQueries: () => {},
     })
 
     scheduler.flush()
@@ -186,7 +178,6 @@ describe("clone-all listing transition", () => {
         publishedInput = update(publishedInput)
       },
       schedule: scheduler.schedule,
-      cancelListingQueries: () => {},
     })
 
     assert.equal(publishedInput, initialPublishedInput)
@@ -200,7 +191,6 @@ describe("clone-all listing transition", () => {
         publishedInput = update(publishedInput)
       },
       schedule: scheduler.schedule,
-      cancelListingQueries: () => {},
     })
     scheduler.flush()
 
@@ -208,106 +198,75 @@ describe("clone-all listing transition", () => {
     enabledTransition.dispose()
   })
 
-  it("cancels the active React Query request and scheduled publication on disposal", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
+  it("discards scheduled input publication on disposal", () => {
     const scheduler = createManualScheduler()
-    let markStarted: () => void = () => {}
-    let markAborted: () => void = () => {}
-    const started = new Promise<void>((resolve) => {
-      markStarted = resolve
-    })
-    const aborted = new Promise<void>((resolve) => {
-      markAborted = resolve
-    })
-
-    void queryClient
-      .fetchQuery({
-        ...createCloneAllListingQueryPolicy(initialPublishedInput.admissionId),
-        queryFn: ({ signal }) =>
-          new Promise<RepositoryListNamespaceResult>((_resolve, reject) => {
-            signal.addEventListener("abort", () => {
-              markAborted()
-              reject(new Error("aborted"))
-            })
-            markStarted()
-          }),
-      })
-      .catch(() => {})
-    await started
-
+    let publishedInput: CloneAllPublishedListingInput | null =
+      initialPublishedInput
     const transition = createCloneAllListingTransition({
       canStartQueries: true,
       input: { ...initialInput, filter: "lab-2*" },
       credentials: firstCredentials,
-      updatePublishedInput: () => {},
-      schedule: scheduler.schedule,
-      cancelListingQueries: () => {
-        void queryClient.cancelQueries({
-          queryKey: cloneAllListingQueryKeys.all,
-        })
+      updatePublishedInput: (update) => {
+        publishedInput = update(publishedInput)
       },
+      schedule: scheduler.schedule,
     })
 
-    await aborted
     assert.equal(scheduler.pendingCount, 1)
-
     transition.dispose()
     assert.equal(scheduler.pendingCount, 0)
-  })
-
-  it("cancels a replacement listing when a second edit arrives", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    })
-    const replacementAdmission = {
-      ...initialPublishedInput.admissionId,
-      filter: "lab-2*",
-      listingGeneration: 2,
-    }
-    let markStarted: () => void = () => {}
-    let markAborted: () => void = () => {}
-    const started = new Promise<void>((resolve) => {
-      markStarted = resolve
-    })
-    const aborted = new Promise<void>((resolve) => {
-      markAborted = resolve
-    })
-    void queryClient
-      .fetchQuery({
-        ...createCloneAllListingQueryPolicy(replacementAdmission),
-        queryFn: ({ signal }) =>
-          new Promise<RepositoryListNamespaceResult>((_resolve, reject) => {
-            signal.addEventListener("abort", () => {
-              markAborted()
-              reject(new Error("aborted"))
-            })
-            markStarted()
-          }),
-      })
-      .catch(() => {})
-    await started
-
-    const transition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: { ...initialInput, filter: "lab-3*" },
-      credentials: firstCredentials,
-      updatePublishedInput: () => {},
-      schedule: createManualScheduler().schedule,
-      cancelListingQueries: () => {
-        void queryClient.cancelQueries({
-          queryKey: cloneAllListingQueryKeys.all,
-        })
-      },
-    })
-
-    await aborted
-    transition.dispose()
+    scheduler.flush()
+    assert.equal(publishedInput, initialPublishedInput)
   })
 })
 
 describe("clone-all query ownership", () => {
+  for (const ending of ["input change", "panel closure"] as const) {
+    it(`cancels the observed listing on ${ending}`, (t) => {
+      const queryClient = new QueryClient()
+      t.after(() => queryClient.clear())
+      const scheduler = createManualScheduler()
+      let publishedInput: CloneAllPublishedListingInput | null =
+        initialPublishedInput
+      const signals: AbortSignal[] = []
+      const queryOptions = () => ({
+        ...createCloneAllListingQueryPolicy(
+          publishedInput?.admissionId ?? null,
+        ),
+        queryFn: ({ signal }: { signal: AbortSignal }) => {
+          signals.push(signal)
+          return new Promise<RepositoryListNamespaceResult>(() => {})
+        },
+      })
+      const observer = new QueryObserver(queryClient, queryOptions())
+      const unsubscribe = observer.subscribe(() => {})
+      t.after(unsubscribe)
+      const transition = createCloneAllListingTransition({
+        canStartQueries: true,
+        input: { ...initialInput, filter: "lab-2*" },
+        credentials: firstCredentials,
+        updatePublishedInput: (update) => {
+          publishedInput = update(publishedInput)
+          observer.setOptions(queryOptions())
+        },
+        schedule: scheduler.schedule,
+      })
+      t.after(() => transition.dispose())
+
+      assert.equal(signals.length, 1)
+      assert.equal(signals[0]?.aborted, false)
+      if (ending === "input change") {
+        scheduler.flush()
+        assert.equal(signals.length, 2)
+        assert.equal(signals[1]?.aborted, false)
+      } else {
+        transition.dispose()
+        unsubscribe()
+      }
+      assert.equal(signals[0]?.aborted, true)
+    })
+  }
+
   it("keeps the disabled listing query idle", () => {
     const queryClient = new QueryClient()
     let fetchCount = 0

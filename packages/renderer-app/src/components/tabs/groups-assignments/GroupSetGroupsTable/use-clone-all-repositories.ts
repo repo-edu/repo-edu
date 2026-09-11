@@ -22,7 +22,6 @@ import {
   type CloneAllSafeListingInput,
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
-  cloneAllListingQueryKeys,
   cloneAllMutationBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
@@ -86,11 +85,6 @@ export function useCloneAllRepositories({
         client.change(() => setPublishedListingInput(updater))
       },
       schedule: scheduleCloneAllTransition,
-      cancelListingQueries: () => {
-        void queryClient.cancelQueries({
-          queryKey: cloneAllListingQueryKeys.all,
-        })
-      },
     })
     return () => transition.dispose()
   }, [
@@ -101,7 +95,6 @@ export function useCloneAllRepositories({
     includeArchived,
     namespace,
     normalizedFilter,
-    queryClient,
   ])
 
   const inputIsCurrent = cloneAllInputIsCurrent({
