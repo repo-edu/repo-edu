@@ -188,6 +188,23 @@ finding list lives nowhere else. A bullet that records something other than
 a finding, such as a carried decision or a trade ruling with its reason,
 takes no metadata.
 
+Close a Repo Edu record's body with the round's two yield lines, in the form
+the audit workflow defines under **Round yield** and carrying the same counts
+the report gave:
+
+```text
+Round yield: 0 ordinary; 5 rare; 3 developer.
+Structure: 3 removing, 2 adding, 3 flat.
+```
+
+The report is deleted below, so the record is the only durable home for the
+round's yield. A clean record carries both lines with zeroes. A plan-repo
+record carries neither.
+
+A Repo Edu record's severity sequence carries the case, `!` and trailing
+`-` or `+` marks this repo's `CLAUDE.md` defines, so a commit graph shows the
+round's reach without its tokens. A plan-repo record keeps bare tiers.
+
 A finding deferred from a Repo Edu-only round to the plan repo uses the body
 form in this repo's `CLAUDE.md`; it keeps its tier, plan location and
 metadata in the same round commit. A plan-repo round carries no `[area:]`

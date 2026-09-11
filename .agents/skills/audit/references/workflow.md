@@ -200,6 +200,29 @@ inspected its whole scope rather than only the areas where findings cluster. A
 clean report still includes the table and the coverage line before it says
 there are no findings.
 
+## Round yield
+
+After the coverage line, close the round with two more lines that tally the
+findings it accepted:
+
+```text
+Round yield: <n> ordinary; <n> rare; <n> developer.
+Structure: <n> removing, <n> adding, <n> flat.
+```
+
+The first line counts the accepted findings by their `[reach:...]` value,
+treating `very-rare` as rare. The second counts them by the sign of their
+`[complexity:...]` value: `minus-` rungs remove, `low`, `medium` and `high` add
+and `none` is flat. A clean round writes both lines with zeroes.
+
+The tally exists because the decision to run another round needs the round's
+yield, and reading it out of per-finding tokens means re-reading the whole log
+by hand. It answers what a round bought: findings an end user can meet, and
+whether the corrections left the code with more standing structure or less.
+Both lines are counts over the findings, unlike the commit subject's trailing
+`-` or `+`, which measures one commit's own code before and after. The two
+answer different questions and neither replaces the other.
+
 ## Judging deviations
 
 This is not a strict conformance audit. Where the implementation departed from

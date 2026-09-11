@@ -263,25 +263,48 @@ Omit routine test and check results from commit messages.
 
 Every file-changing commit except a plan step commit carries a sorted
 run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
-conventional subject with `A<n>B<n>C<n>D<n>`. An implementation-audit record
-places the same sequence in its shared stem form; a step commit lands planned
-work and carries none. The sequence enumerates how many concerns at each tier the
-commit addresses, sorted A through D, with zero categories omitted. Example:
-`B3C8D4 fix: <subject>` closes three B-tier, eight C-tier and four D-tier
-concerns.
+conventional subject with that sequence. An implementation-audit record places
+the same sequence in its shared stem form; a step commit lands planned work and
+carries none. The sequence enumerates how many concerns at each tier the commit
+addresses, with zero categories omitted.
+
+Three marks carry reach and structure change into the sequence itself, because a
+commit graph shows the subject and none of the finding tokens.
+
+- Case says who meets the concern. A tier letter is uppercase when the concern's
+  reach is `ordinary` or `rare`, the two values an end user can meet, and
+  lowercase when its reach is `developer`. The sequence lists the uppercase run
+  first, sorted A through D, then the lowercase run, sorted a through d. So
+  `B1C1c2d1` closes one B-tier and one C-tier concern a user can meet, beside
+  two C-tier and one D-tier concern no user can see. Every concern contributes
+  one letter at its own case, so the counts stay exact and nothing is averaged.
+- A leading `!` says at least one concern has `ordinary` reach, the value that
+  needs no special condition to hold: `!B1C1c2d1`.
+- A trailing `-` or `+` says what the commit did to the standing structure.
+  Measure the commit, never add up the finding tokens: compare the code before
+  the commit with the code after it, then take the highest kind of obligation
+  whose count changed. Write `-` when that kind shrank and `+` when it grew, and
+  omit the mark when no kind changed. A commit can read `-` while one concern
+  inside it added a rule, because the mark states the commit's own net result.
+
+Reach values are defined in the audit workflow under **Reach and complexity**,
+which also defines the obligation kinds the trailing mark measures.
+
+Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
+that carries it, which a plan document has not reached yet.
 
 The [A]-[D] rubric in Implementation Review Findings grades a concern's
 severity whether the AI surfaced it formally in a review or only
 addressed it in the commit body. Grade each concern the commit addresses
 against the rubric and count by tier; a planned redesign that reshapes
-ownership across packages is `A1 redesign:`, a within-package bug fix is
-`B1 fix:`, a localised maintainability fix is `C1 fix:`, a typo is
-`D1 docs:` or `D1 fix:`. Larger audit closures compound into sequences
-like `A1B4C2:` for one architectural concern, four B-tier bugs and two
-C-tier issues closed together.
+ownership across packages is `a1 redesign:`, a within-package bug fix a user
+meets is `B1 fix:`, a localised maintainability fix is `c1 fix:`, a typo is
+`d1 docs:` or `d1 fix:`. Larger audit closures compound into sequences
+like `A1B4c2:` for one architectural concern and four B-tier bugs a user meets,
+beside two developer-only C-tier issues closed together.
 
 The conventional commit kind follows the prefix:
-`B3C8D4 fix(renderer-app): surface session command errors`.
+`B3C8d4 fix(renderer-app): surface session command errors`.
 
 `redesign:` is the typical kind at tier A, alongside `refactor`, `feat`
 and `docs`. `fix:` is essentially never tier A: an A-tier bug fix is a
