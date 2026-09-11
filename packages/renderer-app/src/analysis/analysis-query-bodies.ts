@@ -1,6 +1,4 @@
-import type { WorkflowInput } from "@repo-edu/application-contract"
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
-import type { BlameResult } from "@repo-edu/domain/analysis"
 import type { QueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
 import type { SessionOperationGateway } from "../session/session-operations.js"
@@ -8,8 +6,6 @@ import { scopedSessionQueryOptions } from "../session/session-query.js"
 import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
-  type BlameQueryIdentity,
-  blameResultScopeKey,
 } from "./analysis-query-keys.js"
 import { useAnalysisTransientStore } from "./analysis-transient-store.js"
 
@@ -71,48 +67,4 @@ export class AnalysisDiscoveryRunner {
         query.queryKey[0] === "analysis" && query.queryKey[3] === "discovery",
     })
   }
-}
-
-export function fetchAnalysisBlame(
-  operations: SessionOperationGateway,
-  queryClient: QueryClient,
-  identity: BlameQueryIdentity,
-  input: WorkflowInput<"analysis.blame">,
-): Promise<BlameResult | undefined> {
-  return operations.execute("analysis.blame", async (scope) => {
-    const { signal } = new AbortController()
-    return await queryClient.fetchQuery({
-      queryKey: analysisQueryKeys.blame(identity),
-      ...scopedSessionQueryOptions(scope, signal, async (signal) => {
-        const requestKey = blameResultScopeKey(identity)
-        const requestId = nanoid()
-        useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
-        try {
-          return await scope.run("analysis.blame", input, {
-            signal,
-            onProgress: (progress) => {
-              const transient = useAnalysisTransientStore.getState()
-              transient.setBlameProgress(requestKey, requestId, progress)
-              if (progress.partialAuthorLines) {
-                transient.setBlamePartialAuthorLines(
-                  requestKey,
-                  requestId,
-                  new Map(
-                    progress.partialAuthorLines.map((entry) => [
-                      entry.personId,
-                      entry.lines,
-                    ]),
-                  ),
-                )
-              }
-            },
-          })
-        } finally {
-          useAnalysisTransientStore
-            .getState()
-            .finishBlame(requestKey, requestId)
-        }
-      }),
-    })
-  })
 }

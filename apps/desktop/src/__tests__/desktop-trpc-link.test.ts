@@ -1,9 +1,20 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
+import {
+  HostAdmissionRefusedError,
+  type WorkflowClient,
+  type WorkflowId,
+} from "@repo-edu/application-contract"
 import { createTRPCClient } from "@trpc/client"
 import type { TRPCResponseMessage } from "@trpc/server/rpc"
 import { course } from "../../../../packages/application-contract/src/__tests__/workflow-input-fixtures"
+import {
+  makeSettings,
+  resetStores,
+  startController,
+} from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
+import { createRendererQueryClient } from "../../../../packages/renderer-app/src/analysis/analysis-query-client"
+import { scopedSessionQueryOptions } from "../../../../packages/renderer-app/src/session/session-query"
 import { desktopTrpcLink } from "../desktop-trpc-link"
 import type { DesktopTrpcBridge } from "../desktop-wire"
 import { acceptedHostCallCount } from "../host-admission-model"
@@ -125,6 +136,112 @@ it("sends an immediate unsubscribe to the accepted call before its handler start
   assert.equal(h.listeners.size, 0)
   assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
 })
+
+it("completes an aborted call after retiring admission even before its handler starts", async () => {
+  const h = loopback(async () => assert.fail("Cancelled workflow started"))
+  h.admission.dispatch({ type: "bootstrap-acknowledged" })
+  const controller = new AbortController()
+  const running = runSubscriptionFromFactory<"course.list">(
+    (handlers) => h.client["course.list"].subscribe(undefined, handlers),
+    { signal: controller.signal },
+  )
+  controller.abort()
+  await assert.rejects(running, { type: "cancelled" })
+  assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+  assert.equal(h.listeners.size, 0)
+})
+
+for (const outcome of ["resolve", "reject"] as const) {
+  it(`holds a queued command until the cancelled host handler settles by ${outcome}`, {
+    timeout: 3000,
+  }, async (t) => {
+    resetStores()
+    const entered = Promise.withResolvers<AbortSignal>()
+    const release = Promise.withResolvers<void>()
+    t.after(() => release.resolve())
+    const h = loopback(async (_input, options) => {
+      assert.ok(options?.signal)
+      entered.resolve(options.signal)
+      await release.promise
+      if (outcome === "reject") throw new Error("Cancelled host work ended")
+      return "head"
+    })
+    h.admission.dispatch({ type: "bootstrap-acknowledged" })
+    const controller = startController({
+      workflowClient: {
+        async run(
+          id: WorkflowId,
+          _input: unknown,
+          options?: { signal?: AbortSignal },
+        ) {
+          if (id === "settings.loadApp") return makeSettings()
+          assert.equal(id, "analysis.resolveSnapshotHead")
+          return await runSubscriptionFromFactory<"analysis.resolveSnapshotHead">(
+            (handlers) =>
+              h.client["analysis.resolveSnapshotHead"].subscribe(
+                { repositoryAbsolutePath: "/repos/one" },
+                handlers,
+              ),
+            options,
+          )
+        },
+      } as WorkflowClient,
+    })
+    const queryClient = createRendererQueryClient()
+    t.after(() => {
+      controller.dispose()
+      queryClient.clear()
+    })
+    await controller.waitForIdle()
+    const abort = new AbortController()
+    const running = controller.operations
+      .execute("analysis.resolveSnapshotHead", async (scope) => {
+        return await queryClient.fetchQuery({
+          queryKey: ["snapshot"],
+          ...scopedSessionQueryOptions(scope, abort.signal, (signal) =>
+            scope.run(
+              "analysis.resolveSnapshotHead",
+              { repositoryAbsolutePath: "/repos/one" },
+              { signal },
+            ),
+          ),
+        })
+      })
+      .catch(() => {})
+    const hostSignal = await entered.promise
+    let commandStarted = false
+    const command = controller.operations.execute("repo.clone", async () => {
+      commandStarted = true
+      assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+      assert.equal(
+        h.admission.dispatch({
+          type: "exclusive-intent",
+          command: "repo.clone",
+          request: { cancel() {} },
+        }),
+        "accepted",
+      )
+    })
+    abort.abort()
+    await queryClient.cancelQueries({ queryKey: ["snapshot"] })
+    await flushTransport()
+    assert.equal(hostSignal.aborted, true)
+    assert.equal(commandStarted, false)
+    assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 1)
+    assert.equal(h.listeners.size, 1)
+    assert.equal(
+      h.responses.some(
+        (message) => "result" in message && message.result.type === "stopped",
+      ),
+      false,
+    )
+    release.resolve()
+    await Promise.all([running, command])
+    assert.equal(commandStarted, true)
+    assert.equal(queryClient.getQueryData(["snapshot"]), undefined)
+    assert.equal(h.listeners.size, 0)
+  })
+}
 
 it("enters terminal when response delivery fails before starting a workflow", async () => {
   let starts = 0

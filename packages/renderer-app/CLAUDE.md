@@ -43,9 +43,9 @@ It consumes:
 - `src/analysis/analysis-query-client.ts`: Query cache for analysis results.
 - `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
   results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
-- `src/analysis/analysis-source-runner.ts`: owns snapshot-head and repository analysis
+- `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame
   fetches. It gives waiting session bodies a turn between repositories.
-- `src/analysis/analysis-query-bodies.ts`: owns discovery and blame fetches.
+- `src/analysis/analysis-query-bodies.ts`: owns discovery fetches.
 - `src/analysis/analysis-query-keys.ts`: keys cached results by input identity.
 - `src/analysis/analysis-transient-store.ts`: holds live progress.
 - `src/analysis/analysis-view-models.ts`: derives the displayed analysis results.

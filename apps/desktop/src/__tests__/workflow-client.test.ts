@@ -3,30 +3,36 @@ import { describe, it } from "node:test"
 import { runSubscriptionFromFactory } from "../workflow-client.js"
 
 describe("desktop workflow subscription cancellation", () => {
-  it("rejects with cancelled and unsubscribes when an in-flight workflow is aborted", async () => {
+  it("retains the subscription after abort until the host completes it", async () => {
     const abortController = new AbortController()
     let unsubscribeCalls = 0
+    let complete = () => {}
+    let settled = false
 
     const resultPromise = runSubscriptionFromFactory<"course.load">(
-      () => ({
-        unsubscribe() {
-          unsubscribeCalls += 1
-        },
-      }),
+      (handlers) => {
+        assert.equal(handlers.signal, abortController.signal)
+        complete = handlers.onComplete
+        return {
+          unsubscribe() {
+            unsubscribeCalls += 1
+          },
+        }
+      },
       { signal: abortController.signal },
     )
+    const cancelled = assert
+      .rejects(resultPromise, { type: "cancelled" })
+      .then(() => {
+        settled = true
+      })
 
     abortController.abort()
-
-    await assert.rejects(
-      resultPromise,
-      (error: unknown) =>
-        typeof error === "object" &&
-        error !== null &&
-        "type" in error &&
-        error.type === "cancelled",
-    )
-    assert.equal(unsubscribeCalls, 1)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(settled, false)
+    assert.equal(unsubscribeCalls, 0)
+    complete()
+    await cancelled
   })
 
   it("rejects immediately when the signal is already aborted", async () => {

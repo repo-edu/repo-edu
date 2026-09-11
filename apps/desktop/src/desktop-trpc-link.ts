@@ -18,6 +18,14 @@ export function desktopTrpcLink(
           )
           return
         }
+        if (op.signal?.aborted) {
+          observer.complete()
+          return
+        }
+        // A stop requests cancellation without abandoning host settlement.
+        const stop = () => {
+          bridge.send({ id: op.id, method: "subscription.stop" })
+        }
         const unsubscribe = bridge.subscribe((message) => {
           if (message.id !== op.id) return
           if ("error" in message) {
@@ -29,6 +37,7 @@ export function desktopTrpcLink(
           }
         })
         try {
+          op.signal?.addEventListener("abort", stop, { once: true })
           bridge.send({
             id: op.id,
             method: "subscription",
@@ -38,8 +47,9 @@ export function desktopTrpcLink(
           observer.error(TRPCClientError.from(error as Error))
         }
         return () => {
+          op.signal?.removeEventListener("abort", stop)
           unsubscribe()
-          bridge.send({ id: op.id, method: "subscription.stop" })
+          stop()
         }
       })
 }

@@ -47,7 +47,6 @@ export function createDesktopTrpcAdapter(options: {
       const call = calls.get(id)
       if (call && !call.signal.aborted) {
         call.abort()
-        send({ id, result: { type: "stopped" } })
       }
       return
     }
@@ -110,6 +109,7 @@ export function createDesktopTrpcAdapter(options: {
       .then((stream) => {
         if (controller.signal.aborted) {
           settle()
+          send({ id, result: { type: "stopped" } })
           return
         }
         if (!isObservable(stream))
@@ -122,18 +122,20 @@ export function createDesktopTrpcAdapter(options: {
           },
           error(error) {
             settle()
-            if (!controller.signal.aborted) reportError(error)
+            if (controller.signal.aborted)
+              send({ id, result: { type: "stopped" } })
+            else reportError(error)
           },
           complete() {
             settle()
-            if (!controller.signal.aborted)
-              send({ id, result: { type: "stopped" } })
+            send({ id, result: { type: "stopped" } })
           },
         })
       })
       .catch((error) => {
         settle()
-        if (!controller.signal.aborted) reportError(error)
+        if (controller.signal.aborted) send({ id, result: { type: "stopped" } })
+        else reportError(error)
       })
   }
 

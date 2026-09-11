@@ -2,16 +2,14 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it, type TestContext } from "node:test"
 import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
 import { QueryObserver, skipToken } from "@tanstack/react-query"
-import {
-  AnalysisDiscoveryRunner,
-  fetchAnalysisBlame,
-} from "../analysis/analysis-query-bodies.js"
+import { AnalysisDiscoveryRunner } from "../analysis/analysis-query-bodies.js"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
 } from "../analysis/analysis-query-keys.js"
+import { AnalysisSourceRunner } from "../analysis/analysis-source-runner.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
 import {
@@ -108,7 +106,13 @@ describe("discovery and blame bodies", () => {
                 surface,
                 { folder, depth: 5 },
               )
-            : fetchAnalysisBlame(controller.operations, client, identity, {
+            : new AnalysisSourceRunner(controller.operations, client, {
+                source,
+                config: {},
+                rosterContext: undefined,
+                kind: "course",
+                repoParallelism: 1,
+              }).fetchBlame(identity, {
                 repositoryAbsolutePath: "/repos/one",
                 config: {},
                 personDbBaseline: makeBaseResult().personDbBaseline,
@@ -118,7 +122,13 @@ describe("discovery and blame bodies", () => {
         const signal = await entered.promise
         if (ending === "key change")
           observer.setOptions({
-            queryKey: ["another"],
+            queryKey:
+              kind === "discovery"
+                ? analysisQueryKeys.discovery(source, "/another", 5)
+                : analysisQueryKeys.blame({
+                    ...identity,
+                    repoPath: "/another",
+                  }),
             enabled: false,
             queryFn: skipToken,
           })

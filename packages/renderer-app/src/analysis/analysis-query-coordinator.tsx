@@ -47,10 +47,7 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import {
-  AnalysisDiscoveryRunner,
-  fetchAnalysisBlame,
-} from "./analysis-query-bodies.js"
+import { AnalysisDiscoveryRunner } from "./analysis-query-bodies.js"
 import {
   clearAnalysisQueries,
   refreshSourceSnapshotHeadQueries,
@@ -637,17 +634,18 @@ export function AnalysisCoordinatorProvider({
       selectedBlameFiles.length === 0
     )
       return
-    void fetchAnalysisBlame(client, queryClient, selectedBlameIdentity, {
-      repositoryAbsolutePath: selectedRepoPath,
-      config: effectiveBlameConfig,
-      personDbBaseline: result.personDbBaseline,
-      files: selectedBlameFiles,
-      snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-    }).catch(() => {})
+    void sourceRunner
+      ?.fetchBlame(selectedBlameIdentity, {
+        repositoryAbsolutePath: selectedRepoPath,
+        config: effectiveBlameConfig,
+        personDbBaseline: result.personDbBaseline,
+        files: selectedBlameFiles,
+        snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
+      })
+      .catch(() => {})
   }, [
     canStartQueries,
-    client,
-    queryClient,
+    sourceRunner,
     selectedRepoPath,
     selectedBlameIdentity,
     selectedAnalysisIdentity,

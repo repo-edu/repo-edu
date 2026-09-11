@@ -1,6 +1,8 @@
+import type { WorkflowInput } from "@repo-edu/application-contract"
 import type {
   AnalysisConfig,
   AnalysisRosterContext,
+  BlameResult,
 } from "@repo-edu/domain/analysis"
 import type { QueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
@@ -13,6 +15,8 @@ import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
   analysisResultScopeKey,
+  type BlameQueryIdentity,
+  blameResultScopeKey,
   buildAnalysisQueryIdentity,
 } from "./analysis-query-keys.js"
 import { useAnalysisTransientStore } from "./analysis-transient-store.js"
@@ -25,7 +29,7 @@ type AnalysisSourceInput = {
   repoParallelism: number
 }
 
-/** Owns every snapshot and analysis fetch for one source and input set.
+/** Owns every snapshot, analysis and blame fetch for one source and input set.
  * Selected-repository queries only observe the cache this body fills. */
 export class AnalysisSourceRunner {
   private current: AbortController | null = null
@@ -86,6 +90,50 @@ export class AnalysisSourceRunner {
       }
     }
     if (failures.length > 0) throw failures[0]
+  }
+
+  fetchBlame(
+    identity: BlameQueryIdentity,
+    input: WorkflowInput<"analysis.blame">,
+  ): Promise<BlameResult | undefined> {
+    this.current ??= new AbortController()
+    const { signal } = this.current
+    return this.operations.execute("analysis.blame", async (scope) => {
+      signal.throwIfAborted()
+      return await this.queryClient.fetchQuery({
+        queryKey: analysisQueryKeys.blame(identity),
+        ...scopedSessionQueryOptions(scope, signal, async (signal) => {
+          const requestKey = blameResultScopeKey(identity)
+          const requestId = nanoid()
+          useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
+          try {
+            return await scope.run("analysis.blame", input, {
+              signal,
+              onProgress: (progress) => {
+                const transient = useAnalysisTransientStore.getState()
+                transient.setBlameProgress(requestKey, requestId, progress)
+                if (progress.partialAuthorLines) {
+                  transient.setBlamePartialAuthorLines(
+                    requestKey,
+                    requestId,
+                    new Map(
+                      progress.partialAuthorLines.map((entry) => [
+                        entry.personId,
+                        entry.lines,
+                      ]),
+                    ),
+                  )
+                }
+              },
+            })
+          } finally {
+            useAnalysisTransientStore
+              .getState()
+              .finishBlame(requestKey, requestId)
+          }
+        }),
+      })
+    })
   }
 
   cancel(): void {

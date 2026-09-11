@@ -21,10 +21,11 @@ import { desktopTrpcLink } from "./desktop-trpc-link"
 import { desktopTrpcWorkflowIds } from "./host-entry-inventory"
 import type { DesktopRouter } from "./trpc"
 
-/** Commands and cancellation never enter this client; they use request ports. */
+/** Exclusive commands and their cancellation use request ports. */
 type DesktopWorkflowId = OrdinaryWorkflowId
 
 type SubscriptionHandlers<TWorkflowId extends DesktopWorkflowId> = {
+  signal?: AbortSignal
   onData(
     event: WorkflowEventFor<TWorkflowId> | { type: "admission-refused" },
   ): void
@@ -65,27 +66,12 @@ export function runSubscriptionFromFactory<
   return new Promise((resolve, reject) => {
     let settled = false
 
-    const abort = () => {
-      if (settled) {
-        return
-      }
-
-      settled = true
-      subscription.unsubscribe()
-      cleanup()
-      reject(createCancelledAppError())
-    }
-
-    const cleanup = () => {
-      options?.signal?.removeEventListener("abort", abort)
-    }
-
-    const subscription = subscribe({
+    subscribe({
+      signal: options?.signal,
       onData(event) {
         switch (event.type) {
           case "admission-refused":
             settled = true
-            cleanup()
             reject(new HostAdmissionRefusedError())
             return
           case "progress":
@@ -96,18 +82,15 @@ export function runSubscriptionFromFactory<
             return
           case "completed":
             settled = true
-            cleanup()
             resolve(event.data)
             return
           case "failed":
             settled = true
-            cleanup()
             reject(event.error)
         }
       },
       onError(error) {
         settled = true
-        cleanup()
         reject(normalizeTransportError(error))
       },
       onComplete() {
@@ -116,18 +99,17 @@ export function runSubscriptionFromFactory<
         }
 
         settled = true
-        cleanup()
         reject(
-          createTransportAppError(
-            "host-crash",
-            "Subscription completed without a terminal workflow event.",
-            false,
-          ),
+          options?.signal?.aborted
+            ? createCancelledAppError()
+            : createTransportAppError(
+                "host-crash",
+                "Subscription completed without a terminal workflow event.",
+                false,
+              ),
         )
       },
     })
-
-    options?.signal?.addEventListener("abort", abort, { once: true })
   })
 }
 

@@ -166,7 +166,7 @@ describe("session Query bodies", () => {
         states.push(state)
       },
     )
-    assert.deepEqual(captured, [])
+    assert.equal(captured.length, 0)
     releaseListing.resolve()
     await cloned.promise
     assert.deepEqual(captured[0].repositories, [

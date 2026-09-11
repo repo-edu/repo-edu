@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it, type TestContext } from "node:test"
 import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
+import type { RendererHost } from "@repo-edu/renderer-host-contract"
+import { TooltipProvider } from "@repo-edu/ui"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
 import React from "react"
@@ -15,10 +17,16 @@ import {
   useAnalysisCoordinator,
 } from "../analysis/analysis-query-coordinator.js"
 import { analysisQueryKeys } from "../analysis/analysis-query-keys.js"
+import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
+import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import { SessionControllerProvider } from "../session/session-controller-context.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
-import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
+import {
+  makeBaseResult,
+  makeBlameResult,
+  makeFileStatsWithBreakdown,
+} from "./analysis.test-support.js"
 import {
   deferred,
   makeCourse,
@@ -35,6 +43,7 @@ const flushQueries = () =>
 async function mountCoordinator(
   t: TestContext,
   analyse: (signal: AbortSignal) => Promise<unknown>,
+  blame?: (signal: AbortSignal) => Promise<unknown>,
 ) {
   resetStores()
   useAnalysisStore.getState().reset()
@@ -42,6 +51,9 @@ async function mountCoordinator(
   const globals = {
     window,
     document: window.document,
+    getComputedStyle: window.getComputedStyle.bind(window),
+    requestAnimationFrame: window.requestAnimationFrame.bind(window),
+    cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
     IS_REACT_ACT_ENVIRONMENT: true,
   }
   const descriptors = Object.getOwnPropertyDescriptors(globalThis)
@@ -54,7 +66,7 @@ async function mountCoordinator(
   }
   const course = makeCourse("course")
   course.searchFolder = "/repos"
-  course.analysisInputs = { blameSkip: true }
+  course.analysisInputs = { blameSkip: blame === undefined }
   course.roster.students = [
     {
       id: "student",
@@ -99,6 +111,11 @@ async function mountCoordinator(
           assert.ok(options?.signal)
           return await analyse(options.signal)
         }
+        if (id === "analysis.blame") {
+          assert.ok(options?.signal)
+          assert.ok(blame)
+          return await blame(options.signal)
+        }
         if (id === "course.save")
           return { revision: 1, updatedAt: course.updatedAt }
         assert.fail(`Unexpected workflow: ${id}`)
@@ -121,9 +138,8 @@ async function mountCoordinator(
     value = useAnalysisCoordinator()
     return null
   }
-  const root = createRoot(
-    window.document.createElement("div") as unknown as HTMLElement,
-  )
+  const container = window.document.createElement("div")
+  const root = createRoot(container as unknown as HTMLElement)
   t.after(async () => {
     await React.act(async () => root.unmount())
     controller.dispose()
@@ -142,6 +158,13 @@ async function mountCoordinator(
           <QueryClientProvider client={queryClient}>
             <AnalysisCoordinatorProvider>
               <ReadAnalysis />
+              {blame && (
+                <RendererHostProvider value={{} as RendererHost}>
+                  <TooltipProvider>
+                    <AnalysisSidebar />
+                  </TooltipProvider>
+                </RendererHostProvider>
+              )}
             </AnalysisCoordinatorProvider>
           </QueryClientProvider>
         </WorkflowClientProvider>
@@ -152,6 +175,7 @@ async function mountCoordinator(
   return {
     controller,
     queryClient,
+    container,
     read: () => {
       assert.ok(value)
       return value
@@ -160,6 +184,67 @@ async function mountCoordinator(
 }
 
 describe("analysis runner lifetime in React", () => {
+  it("cancels host blame from the Cancel Blame button and holds the next command until settlement", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    let blameCalls = 0
+    const { controller, queryClient, container, read } = await mountCoordinator(
+      t,
+      async () => ({
+        ...makeBaseResult(),
+        fileStats: makeFileStatsWithBreakdown(),
+      }),
+      async (signal) => {
+        blameCalls++
+        entered.resolve(signal)
+        await release.promise
+        return makeBlameResult()
+      },
+    )
+    await React.act(flushQueries)
+    const signal = await entered.promise
+    await React.act(flushQueries)
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Cancel Blame",
+    )
+    assert.ok(button)
+    await React.act(async () => {
+      button.click()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    assert.equal(read().blameStatus, "idle")
+    assert.equal(read().blameResult, null)
+    assert.equal(blameCalls, 1)
+    let commandStarted = false
+    let command: Promise<unknown> | undefined
+    await React.act(async () => {
+      command = controller.operations.execute("repo.clone", async () => {
+        commandStarted = true
+        assert.equal(
+          queryClient
+            .getQueryCache()
+            .findAll({
+              queryKey: analysisQueryKeys.repoBlames(source, repos[0]),
+            })
+            .some((query) => query.state.data !== undefined),
+          false,
+        )
+      })
+      await flushQueries()
+    })
+    assert.equal(commandStarted, false)
+    assert.equal(blameCalls, 1)
+    await React.act(async () => {
+      release.resolve()
+      await command
+    })
+    assert.equal(commandStarted, true)
+  })
+
   it("keeps a pending analysis through course and group edits", {
     timeout: 3000,
   }, async (t) => {
