@@ -98,7 +98,7 @@ export class AnalysisSourceRunner {
         repoPath,
         until: config.until ?? null,
       }),
-      ...scopedSessionQueryOptions(scope, ({ signal }) =>
+      ...scopedSessionQueryOptions(scope, signal, (signal) =>
         scope.run(
           "analysis.resolveSnapshotHead",
           { repositoryAbsolutePath: repoPath, until: config.until },
@@ -117,7 +117,7 @@ export class AnalysisSourceRunner {
     const requestKey = analysisResultScopeKey(identity)
     await this.queryClient.fetchQuery({
       queryKey: analysisQueryKeys.result(identity),
-      ...scopedSessionQueryOptions(scope, async ({ signal }) => {
+      ...scopedSessionQueryOptions(scope, signal, async (signal) => {
         const requestId = nanoid()
         useAnalysisTransientStore
           .getState()

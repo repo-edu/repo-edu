@@ -60,8 +60,10 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
   blameResultScopeKey,
+  buildAnalysisOutputConfigKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
+  buildRosterOutputContextKey,
 } from "./analysis-query-keys.js"
 import { AnalysisSourceRunner } from "./analysis-source-runner.js"
 import {
@@ -370,6 +372,18 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
+  const sourceRunnerInput = JSON.stringify({
+    source: activeSourceParts,
+    config:
+      analysisConfig === null
+        ? null
+        : buildAnalysisOutputConfigKey(analysisConfig),
+    roster: buildRosterOutputContextKey(analysisContext.rosterContext),
+    kind: analysisContext.kind === "course" ? "course" : "folder",
+    concurrency: analysisConcurrency,
+  })
+  // The result key fields define input equality; the host still takes full inputs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The content key replaces the identities of the course-derived objects.
   const sourceRunner = useMemo(
     () =>
       analysisConfig === null
@@ -381,15 +395,7 @@ export function AnalysisCoordinatorProvider({
             kind: analysisContext.kind === "course" ? "course" : "folder",
             repoParallelism: analysisConcurrency.repoParallelism,
           }),
-    [
-      client,
-      queryClient,
-      activeSourceParts,
-      analysisConfig,
-      analysisContext.rosterContext,
-      analysisContext.kind,
-      analysisConcurrency.repoParallelism,
-    ],
+    [client, queryClient, sourceRunnerInput],
   )
 
   useEffect(
@@ -484,11 +490,7 @@ export function AnalysisCoordinatorProvider({
   })
 
   useEffect(() => {
-    if (
-      !canStartQueries ||
-      discoveryQuery.isFetching ||
-      commandDiscoveryOutcome === "cancelled"
-    ) {
+    if (!canStartQueries || discoveryQuery.isFetching) {
       sourceRunner?.cancel()
       return
     }
@@ -501,7 +503,6 @@ export function AnalysisCoordinatorProvider({
     canStartQueries,
     discoveredRepoPaths,
     selectedRepoPath,
-    commandDiscoveryOutcome,
     discoveryQuery.isFetching,
     discoveryQuery.dataUpdatedAt,
   ])

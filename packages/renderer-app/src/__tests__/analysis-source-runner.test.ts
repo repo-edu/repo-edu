@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { beforeEach, describe, it, type TestContext } from "node:test"
-import type { WorkflowId } from "@repo-edu/application-contract"
+import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
 import { QueryObserver } from "@tanstack/react-query"
 import {
   clearAnalysisQueries,
@@ -18,7 +18,6 @@ import {
   makeSettings,
   resetStores,
   startController,
-  workflowClient,
 } from "./session-controller.test-support.js"
 
 const source = ["folder", "/repos"] as const
@@ -39,17 +38,28 @@ beforeEach(resetStores)
 
 async function setup(
   t: TestContext,
-  host: (id: WorkflowId, repoPath: string) => Promise<unknown>,
+  host: (
+    id: WorkflowId,
+    repoPath: string,
+    signal: AbortSignal | undefined,
+  ) => Promise<unknown>,
   repoParallelism = 2,
 ) {
   const controller = startController({
-    workflowClient: workflowClient(async (id, input) => {
-      if (id === "settings.loadApp") return makeSettings()
-      return await host(
-        id,
-        (input as { repositoryAbsolutePath: string }).repositoryAbsolutePath,
-      )
-    }),
+    workflowClient: {
+      async run(
+        id: WorkflowId,
+        input: unknown,
+        options?: { signal?: AbortSignal },
+      ) {
+        if (id === "settings.loadApp") return makeSettings()
+        return await host(
+          id,
+          (input as { repositoryAbsolutePath: string }).repositoryAbsolutePath,
+          options?.signal,
+        )
+      },
+    } as WorkflowClient,
   })
   const client = createRendererQueryClient()
   t.after(() => {
@@ -121,10 +131,11 @@ describe("source analysis ownership", () => {
     const running = runner.run(repos, repos[0])
     await entered.promise
     const selected = new QueryObserver(client, {
-      queryKey: resultKey(repos[1]),
+      queryKey: resultKey(repos[0]),
       enabled: false,
     })
     t.after(selected.subscribe(() => {}))
+    selected.setOptions({ queryKey: resultKey(repos[1]), enabled: false })
     const selection = runner.run(repos, repos[1])
     let commandStarted = false
     const command = controller.operations.execute("repo.clone", async () => {
@@ -137,21 +148,81 @@ describe("source analysis ownership", () => {
     await Promise.all([running, selection, command])
     assert.equal(commandStarted, true)
     assert.deepEqual(calls, repos)
+    assert.deepEqual(client.getQueryData(resultKey(repos[0])), result)
   })
+
+  for (const stage of ["snapshot", "analysis"] as const) {
+    it(`keeps the pending ${stage} when its last observer leaves`, {
+      timeout: 2000,
+    }, async (t) => {
+      const entered = deferred<AbortSignal>()
+      const release = deferred<void>()
+      const result = makeBaseResult()
+      const calls: WorkflowId[] = []
+      const { runner, client, controller } = await setup(
+        t,
+        async (id, _path, signal) => {
+          calls.push(id)
+          if (
+            id ===
+            (stage === "snapshot"
+              ? "analysis.resolveSnapshotHead"
+              : "analysis.run")
+          ) {
+            assert.ok(signal)
+            entered.resolve(signal)
+            await release.promise
+            signal.throwIfAborted()
+          }
+          return id === "analysis.resolveSnapshotHead" ? "head" : result
+        },
+      )
+      const key =
+        stage === "snapshot"
+          ? analysisQueryKeys.snapshotHead({
+              source,
+              repoPath: repos[0],
+              until: null,
+            })
+          : resultKey(repos[0])
+      const selected = new QueryObserver(client, {
+        queryKey: key,
+        enabled: false,
+      })
+      const unsubscribe = selected.subscribe(() => {})
+      t.after(unsubscribe)
+      const running = runner.run([repos[0]], repos[0])
+      const signal = await entered.promise
+      unsubscribe()
+      assert.equal(signal.aborted, false)
+      assert.equal(client.getQueryState(key)?.fetchStatus, "fetching")
+      let closed = false
+      const closing = controller.requestClose(commitPreparation).then(() => {
+        closed = true
+        assert.deepEqual(client.getQueryData(resultKey(repos[0])), result)
+      })
+      await tick()
+      assert.equal(closed, false)
+      release.resolve()
+      await Promise.all([running, closing])
+      assert.deepEqual(calls, ["analysis.resolveSnapshotHead", "analysis.run"])
+    })
+  }
 
   it("cancels observed work and retains its host before a queued command", {
     timeout: 2000,
   }, async (t) => {
-    const entered = deferred<void>()
+    const entered = deferred<AbortSignal>()
     const release = deferred<void>()
     const calls: string[] = []
     const { runner, client, controller } = await setup(
       t,
-      async (id, path) => {
+      async (id, path, signal) => {
         if (id === "analysis.resolveSnapshotHead") return "head"
         calls.push(path)
         if (calls.length === 1) {
-          entered.resolve()
+          assert.ok(signal)
+          entered.resolve(signal)
           await release.promise
         }
         return makeBaseResult()
@@ -164,8 +235,9 @@ describe("source analysis ownership", () => {
     })
     t.after(selected.subscribe(() => {}))
     const running = runner.run(repos, repos[0])
-    await entered.promise
+    const signal = await entered.promise
     runner.cancel()
+    assert.equal(signal.aborted, true)
     assert.equal(selected.getCurrentResult().fetchStatus, "idle")
     assert.equal(selected.getCurrentResult().data, undefined)
     let commandStarted = false

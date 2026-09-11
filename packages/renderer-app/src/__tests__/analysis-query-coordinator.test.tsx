@@ -1,0 +1,324 @@
+import assert from "node:assert/strict"
+import { describe, it, type TestContext } from "node:test"
+import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
+import { QueryClientProvider } from "@tanstack/react-query"
+import { Window } from "happy-dom"
+import React from "react"
+import { createRoot } from "react-dom/client"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import {
+  AnalysisCoordinatorProvider,
+  type AnalysisCoordinatorValue,
+  selectCurrentAnalysisResult,
+  selectCurrentBlameResult,
+  selectEffectiveDiscoveryOutcome,
+  useAnalysisCoordinator,
+} from "../analysis/analysis-query-coordinator.js"
+import { analysisQueryKeys } from "../analysis/analysis-query-keys.js"
+import { WorkflowClientProvider } from "../contexts/workflow-client.js"
+import { SessionControllerProvider } from "../session/session-controller-context.js"
+import { useAnalysisStore } from "../stores/analysis-store.js"
+import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
+import {
+  deferred,
+  makeCourse,
+  makeSettings,
+  resetStores,
+  startController,
+} from "./session-controller.test-support.js"
+
+const repos = ["/repos/first", "/repos/second"]
+const source = ["course", "course"] as const
+const flushQueries = () =>
+  new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+async function mountCoordinator(
+  t: TestContext,
+  analyse: (signal: AbortSignal) => Promise<unknown>,
+) {
+  resetStores()
+  useAnalysisStore.getState().reset()
+  const window = new Window()
+  const globals = {
+    window,
+    document: window.document,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(globalThis)
+  for (const [key, value] of Object.entries(globals)) {
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      writable: true,
+      value,
+    })
+  }
+  const course = makeCourse("course")
+  course.searchFolder = "/repos"
+  course.analysisInputs = { blameSkip: true }
+  course.roster.students = [
+    {
+      id: "student",
+      name: "Ada",
+      email: "ada@example.edu",
+      studentNumber: null,
+      gitUsername: null,
+      gitUsernameStatus: "unknown",
+      status: "active",
+      lmsStatus: null,
+      lmsUserId: null,
+      enrollmentType: "student",
+      enrollmentDisplay: null,
+      department: null,
+      institution: null,
+      source: "local",
+    },
+  ]
+  course.roster.groups = [
+    {
+      id: "group",
+      name: "Old",
+      memberIds: [],
+      origin: "local",
+      lmsGroupId: null,
+    },
+  ]
+  const controller = startController({
+    workflowClient: {
+      async run(
+        id: WorkflowId,
+        _input: unknown,
+        options?: { signal?: AbortSignal },
+      ) {
+        if (id === "settings.loadApp")
+          return makeSettings({
+            activeSurface: { kind: "course", courseId: course.id },
+          })
+        if (id === "course.load") return course
+        if (id === "analysis.resolveSnapshotHead") return "head"
+        if (id === "analysis.run") {
+          assert.ok(options?.signal)
+          return await analyse(options.signal)
+        }
+        if (id === "course.save")
+          return { revision: 1, updatedAt: course.updatedAt }
+        assert.fail(`Unexpected workflow: ${id}`)
+      },
+    } as WorkflowClient,
+  })
+  await controller.waitForIdle()
+  const queryClient = createRendererQueryClient()
+  queryClient.setQueryData(analysisQueryKeys.discovery(source, "/repos", 5), {
+    repos: repos.map((path) => ({ path, name: path })),
+  })
+  useAnalysisStore
+    .getState()
+    .setPendingRepoDiscoveryRequest(JSON.stringify(source), {
+      folder: "/repos",
+      depth: 5,
+    })
+  let value: AnalysisCoordinatorValue | undefined
+  function ReadAnalysis() {
+    value = useAnalysisCoordinator()
+    return null
+  }
+  const root = createRoot(
+    window.document.createElement("div") as unknown as HTMLElement,
+  )
+  t.after(async () => {
+    await React.act(async () => root.unmount())
+    controller.dispose()
+    queryClient.clear()
+    await window.happyDOM.close()
+    for (const key of Object.keys(globals)) {
+      const descriptor = descriptors[key]
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+    }
+  })
+  await React.act(async () => {
+    root.render(
+      <SessionControllerProvider controller={controller}>
+        <WorkflowClientProvider value={controller.operations}>
+          <QueryClientProvider client={queryClient}>
+            <AnalysisCoordinatorProvider>
+              <ReadAnalysis />
+            </AnalysisCoordinatorProvider>
+          </QueryClientProvider>
+        </WorkflowClientProvider>
+      </SessionControllerProvider>,
+    )
+    await flushQueries()
+  })
+  return {
+    controller,
+    queryClient,
+    read: () => {
+      assert.ok(value)
+      return value
+    },
+  }
+}
+
+describe("analysis runner lifetime in React", () => {
+  it("keeps a pending analysis through course and group edits", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    let calls = 0
+    const result = makeBaseResult()
+    const { controller, read } = await mountCoordinator(t, async (signal) => {
+      calls++
+      entered.resolve(signal)
+      await release.promise
+      return result
+    })
+    const signal = await entered.promise
+    await React.act(async () => {
+      controller.setDisplayName("course", "Renamed")
+      controller.updateGroup("course", "group", { name: "Renamed group" })
+      controller.updateMember("course", "student", { studentNumber: "123" })
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, false)
+    assert.equal(read().analysisStatus, "running")
+    await React.act(async () => {
+      release.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(calls, repos.length)
+    assert.deepEqual(read().result, result)
+  })
+
+  it("replaces the pending runner when analysis inputs change", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    const { controller, read } = await mountCoordinator(t, async (signal) => {
+      entered.resolve(signal)
+      await release.promise
+      return makeBaseResult()
+    })
+    const signal = await entered.promise
+    await React.act(async () => {
+      controller.updateMember("course", "student", { email: "new@example.edu" })
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    await React.act(async () => {
+      release.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(read().analysisIdentity?.roster[0]?.email, "new@example.edu")
+    assert.ok(read().result)
+  })
+
+  it("keeps a later analysis after discovery was cancelled and selection moves", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    const result = makeBaseResult()
+    let pause = false
+    const { controller, queryClient, read } = await mountCoordinator(
+      t,
+      async (signal) => {
+        if (pause) {
+          entered.resolve(signal)
+          await release.promise
+        }
+        return result
+      },
+    )
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    await React.act(async () => {
+      read().cancelDiscovery()
+      await flushQueries()
+    })
+    assert.equal(read().lastDiscoveryOutcome, "cancelled")
+    pause = true
+    await React.act(async () => {
+      read().runAnalysis(repos[0])
+      await flushQueries()
+    })
+    const signal = await entered.promise
+    await React.act(async () => {
+      read().selectRepository(repos[1])
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, false)
+    await React.act(async () => {
+      release.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(read().lastDiscoveryOutcome, "cancelled")
+    const queries = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: analysisQueryKeys.repoResults(source, repos[0]) })
+    assert.equal(queries.length, 1)
+    assert.deepEqual(queries[0]?.state.data, result)
+  })
+})
+
+describe("analysis query value projection", () => {
+  it("derives discovery completion unless cancellation masks query success", () => {
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "none",
+        discoveryIsSuccess: false,
+      }),
+      "none",
+    )
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "none",
+        discoveryIsSuccess: true,
+      }),
+      "completed",
+    )
+    assert.equal(
+      selectEffectiveDiscoveryOutcome({
+        commandOutcome: "cancelled",
+        discoveryIsSuccess: true,
+      }),
+      "cancelled",
+    )
+  })
+
+  it("hides previous analysis data while the current query is errored", () => {
+    const result = makeBaseResult()
+
+    assert.equal(
+      selectCurrentAnalysisResult({
+        snapshotCommitOid: "a".repeat(40),
+        analysisIsFetching: false,
+        analysisIsError: true,
+        data: result,
+      }),
+      null,
+    )
+  })
+
+  it("hides previous blame data while the current query is errored", () => {
+    const blameResult = makeBlameResult()
+
+    assert.equal(
+      selectCurrentBlameResult({
+        blameIsFetching: false,
+        blameIsError: true,
+        data: blameResult,
+      }),
+      null,
+    )
+  })
+})
