@@ -21,7 +21,7 @@ import {
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 const debounce = () => new Promise<void>((resolve) => setTimeout(resolve, 400))
 
-it("lists on panel open and input admission while retaining the old rows", {
+it("retains listing rows and mirrors command admission in Clone availability", {
   timeout: 5000,
 }, async (t) => {
   resetStores()
@@ -39,6 +39,7 @@ it("lists on panel open and input admission while retaining the old rows", {
       value,
     })
   const release = deferred<void>()
+  const exportRelease = deferred<void>()
   const pending = deferred<AbortSignal>()
   const filters: unknown[] = []
   const first = {
@@ -96,6 +97,7 @@ it("lists on panel open and input admission while retaining the old rows", {
     )
   t.after(async () => {
     release.resolve()
+    exportRelease.resolve()
     await React.act(async () => root.unmount())
     controller.dispose()
     client.clear()
@@ -157,5 +159,22 @@ it("lists on panel open and input admission while retaining the old rows", {
   })
   assert.deepEqual(filters, [undefined, "new", undefined])
   assert.deepEqual(value.listResult, second)
+  assert.equal(value.canClone, true)
+  let exporting: Promise<void> | undefined
+  await React.act(async () => {
+    exporting = controller.operations.execute(
+      "groupSet.export",
+      () => exportRelease.promise,
+    )
+    await flush()
+  })
+  assert.equal(value.canClone, false)
+  assert.deepEqual(value.listResult, second)
+  await React.act(async () => {
+    exportRelease.resolve()
+    await exporting
+    await controller.waitForIdle()
+    await flush()
+  })
   assert.equal(value.canClone, true)
 })

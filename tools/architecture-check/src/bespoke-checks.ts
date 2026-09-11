@@ -5,7 +5,7 @@ import { memberName } from "./desktop-inventory-syntax.js"
 import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
-import { checkRendererQuerySource } from "./renderer-query-checks.js"
+import { checkRendererQuerySources } from "./renderer-query-checks.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
@@ -80,17 +80,18 @@ export function runBespokeChecks(
     ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
     ...checkClaudeCoderPackageDeclarations(root, pathProvider),
     ...checkRendererSessionOwnership(root, pathProvider),
-    ...inventory.files
-      .filter(
-        (file) =>
-          file.startsWith(RENDERER_SRC_PREFIX) && !file.includes("/__tests__/"),
-      )
-      .flatMap((file) =>
-        checkRendererQuerySource(
+    ...checkRendererQuerySources(
+      inventory.files
+        .filter(
+          (file) =>
+            file.startsWith(RENDERER_SRC_PREFIX) &&
+            !file.includes("/__tests__/"),
+        )
+        .map((file) => ({
           file,
-          fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
-        ),
-      ),
+          content: fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
+        })),
+    ),
   ]
 }
 

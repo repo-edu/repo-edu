@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { checkRendererQuerySource } from "../renderer-query-checks.js"
+import { checkRendererQuerySources } from "../renderer-query-checks.js"
 
 const file = "packages/renderer-app/src/analysis/example.ts"
 const imports = `
@@ -11,7 +11,8 @@ import { useWorkflowClient } from "../contexts/workflow-client.js"
 const cache = useQueryClient()
 const operations = useWorkflowClient()
 `
-const check = (body: string) => checkRendererQuerySource(file, imports + body)
+const check = (body: string) =>
+  checkRendererQuerySources([{ file, content: imports + body }])
 
 describe("Query body ownership", () => {
   for (const body of [
@@ -63,14 +64,42 @@ describe("Query body ownership", () => {
 
   it("resolves namespace imports", () => {
     assert.equal(
-      checkRendererQuerySource(
-        file,
-        `
+      checkRendererQuerySources([
+        {
+          file,
+          content: `
       import * as Query from "@tanstack/react-query"
       Query.useQuery({ enabled: true })
     `,
-      ).length,
+        },
+      ]).length,
       1,
+    )
+  })
+
+  it("keeps each file's aliases and violations separate in a shared program", () => {
+    const secondFile = "packages/renderer-app/src/components/Example.tsx"
+    const unrelatedFile = "packages/renderer-app/src/components/Unrelated.tsx"
+    assert.deepEqual(
+      checkRendererQuerySources([
+        { file, content: `${imports}watch({ enabled: true })` },
+        {
+          file: secondFile,
+          content: `${imports}watch({ enabled: false, queryFn: skipToken }); cache.fetchQuery(options)`,
+        },
+        {
+          file: unrelatedFile,
+          content: `export {}; const watch = () => {}; watch(); const cache = { fetchQuery() {} }; cache.fetchQuery()`,
+        },
+      ]),
+      [
+        { file, message: "starts a Query watcher without enabled: false" },
+        {
+          file: secondFile,
+          message:
+            "starts a Query fetch outside a scoped body; use scopedSessionQueryOptions",
+        },
+      ],
     )
   })
 })

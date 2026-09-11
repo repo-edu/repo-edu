@@ -233,6 +233,7 @@ export function cloneAllInputIsCurrent(params: {
 }
 
 export function selectCloneAllCanClone(params: {
+  readonly canAdmitSessionChange: boolean
   readonly inputIsCurrent: boolean
   readonly queryIsSuccess: boolean
   readonly queryIsPlaceholderData: boolean
@@ -241,6 +242,7 @@ export function selectCloneAllCanClone(params: {
   readonly commandIsPending: boolean
 }): boolean {
   return (
+    params.canAdmitSessionChange &&
     params.inputIsCurrent &&
     params.queryIsSuccess &&
     !params.queryIsPlaceholderData &&

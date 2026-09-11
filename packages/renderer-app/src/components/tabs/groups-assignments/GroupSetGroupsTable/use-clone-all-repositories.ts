@@ -124,6 +124,7 @@ export function useCloneAllRepositories({
   })
 
   const canClone = selectCloneAllCanClone({
+    canAdmitSessionChange: canStartQueries,
     inputIsCurrent,
     queryIsSuccess: listingQuery.isSuccess,
     queryIsPlaceholderData: listingQuery.isPlaceholderData,

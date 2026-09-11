@@ -28,20 +28,31 @@ const sessionTypes = new Set([
   "SessionOperationReservation",
 ])
 
-/** Bind local symbols so aliases retain their origin and unrelated names stay free. */
-export function checkRendererQuerySource(
-  file: string,
-  content: string,
+export function checkRendererQuerySources(
+  sources: readonly { file: string; content: string }[],
 ): Violation[] {
-  const source = syntaxTree(file, content)
+  const sourceFiles = new Map(
+    sources.map(({ file, content }) => [file, syntaxTree(file, content)]),
+  )
   const host = ts.createCompilerHost({})
-  host.getSourceFile = (name) => (name === file ? source : undefined)
+  host.getSourceFile = (name) => sourceFiles.get(name)
   const program = ts.createProgram(
-    [file],
+    [...sourceFiles.keys()],
     { noLib: true, noResolve: true },
     host,
   )
   const checker = program.getTypeChecker()
+  return [...sourceFiles.values()].flatMap((source) =>
+    checkRendererQuerySource(source, checker),
+  )
+}
+
+/** Bind local symbols so aliases retain their origin and unrelated names stay free. */
+function checkRendererQuerySource(
+  source: ts.SourceFile,
+  checker: ts.TypeChecker,
+): Violation[] {
+  const file = source.fileName
   const origins = new Map<ts.Symbol, string>()
   const namespaces = new Set<ts.Symbol>()
   const violations: Violation[] = []
