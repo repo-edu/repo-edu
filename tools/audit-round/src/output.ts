@@ -135,7 +135,7 @@ export class RoundOutput {
     if (this.active === undefined) return ""
     const { input, started, context, change } = this.active
     const measurement = contextText(context, change)
-    return `[${input.phase}] ${elapsedText(this.now() - started)}${measurement ? `  ${measurement}` : ""}`
+    return `\n[${input.phase}] ${elapsedText(this.now() - started)}${measurement ? `  ${measurement}` : ""}`
   }
 
   private start(input: PhaseInput, prompt: string): void {
@@ -190,7 +190,7 @@ export class RoundOutput {
         if (feedback.text.length > 0) {
           this.say(this.stamp())
           this.files.markdown(`${feedback.text}\n`)
-          this.options.terminal.write(`${feedback.text}\n`)
+          this.options.terminal.write(feedback.text.trimEnd())
         }
         break
       case "diagnostic":
