@@ -86,8 +86,8 @@ repo-edu/
 │   ├── test-fixtures/             # Shared domain fixture generation (faker-based)
 │   └── integration-tests/         # E2E workflow tests against live Git providers
 └── tools/                         # Workspace tooling (each runs via tsx)
-    ├── audit-round/               # Implementation-audit rounds and CLI contract recorder
     ├── architecture-check/        # Boundary/architecture lint (pnpm check:architecture)
+    ├── audit-round/               # Implementation-audit rounds and CLI contract recorder
     ├── dev-fixture/               # Local seed runner (pnpm dev:fixture)
     ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
     ├── fixture-cli/               # `pnpm fixture` entry into @repo-edu/fixture-engine

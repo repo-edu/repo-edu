@@ -36,9 +36,13 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
   switch (event.type) {
     case "control_response": {
       const response = z
-        .object({ request_id: z.string() })
+        .looseObject({ request_id: z.string() })
         .parse(event.response)
-      if (response.request_id !== claudeSettingsRequest.request_id) return []
+      if (
+        response.request_id !== claudeSettingsRequest.request_id ||
+        response.subtype !== "success"
+      )
+        return []
       return [
         {
           type: "model",

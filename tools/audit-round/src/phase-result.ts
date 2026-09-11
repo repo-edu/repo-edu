@@ -13,7 +13,7 @@ export function phaseResult<P extends Phase>(
   sessionId: string,
   text: string,
 ): PhaseResult<P> {
-  const line = text.split("\n").at(-1) ?? ""
+  const line = text.trimEnd().split("\n").at(-1) ?? ""
   const prefix = "PHASE RESULT: "
   if (!line.startsWith(prefix))
     throw new Error("Missing final PHASE RESULT line")

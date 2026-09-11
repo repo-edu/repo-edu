@@ -11,9 +11,9 @@ round writes its `AUDIT-*.md` report, the other assistant vets it into the
 `VET-` twin, and this workflow answers those verdicts in the audit session,
 which already holds the evidence the findings rest on, writing the `REBUT-`
 twin. The fix workflow at `.agents/skills/fix/references/workflow.md` then
-reads all three files. The user directed this chain on 2026-09-09 so that the
-vetter can run the fix phase with the auditor's answer in view instead of the
-auditor judging its own findings twice.
+reads all three files. The user directed this chain on 2026-09-09 to give the
+fix phase both assistants' views. On 2026-09-11 the user directed Codex to run
+the fix in a fresh session, with the audit report and both twins as its brief.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. The `REBUT-` twin is the one file it writes.
@@ -108,6 +108,6 @@ chat and the file must not differ. The twin is untracked and gitignored, so
 writing it keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
-and `$fix` for Codex, in a fresh session normally using the vetter's assistant.
+and `$fix` for Codex, in a fresh Codex session.
 The audit report and both twins are its brief. The fix workflow deletes those
 files when the records land; this workflow deletes nothing.

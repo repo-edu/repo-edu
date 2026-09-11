@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { type AssistantEvent, eventSchema, tokenSchema } from "./feedback.js"
+import { type AssistantEvent, eventSchema } from "./feedback.js"
 import { commandText } from "./output-format.js"
 
 export function decodeCodex(record: unknown): AssistantEvent[] {
@@ -14,7 +14,6 @@ export function decodeCodex(record: unknown): AssistantEvent[] {
         },
       ]
     case "turn.completed":
-      z.object({ usage: z.object({ input_tokens: tokenSchema }) }).parse(event)
       return [{ type: "complete" }]
     case "turn.failed":
       throw new Error(

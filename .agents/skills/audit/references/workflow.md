@@ -142,8 +142,8 @@ findings rest on and the rebuttal fixes nothing. When this session is asked
 to answer the twin without that launcher, discuss the findings for a ruling,
 apply a correction, land a record or delete the report, do not do it. Say
 that the rebuttal runs through `/rebut` or `$rebut` here and that the fix
-phase runs through the fix launcher, `/fix` or `$fix`, in a fresh session
-using the vetter's assistant. Name the report file they start from and stop.
+phase runs through the fix launcher, `/fix` or `$fix`, in a fresh Codex
+session. Name the report file they start from and stop.
 Continue only when the user explicitly says to.
 
 The reason is context: a session that has read a whole step range and then

@@ -16,15 +16,15 @@ because a round that reads a whole step range and then fixes in the same
 context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
 
-The fix phase always starts in a fresh session. After a rebuttal the vetter's
-assistant normally runs it, using the audit report and both twins as its brief.
+The fix phase always starts in a fresh session. After a rebuttal Codex runs
+it, using the audit report and both twins as its brief.
 The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
 context usage and compacted during implementation. Starting fresh gives the
 fix its own context and removes the capacity judgement and restart path.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. The runner starts one fresh fix session in the vetter's assistant.
+ending. The runner starts one fresh fix session in Codex.
 When the fix needs a ruling, the runner opens that fix session interactively.
 
 This procedure also serves the fix phase of rounds whose report is stored at

@@ -11,14 +11,16 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
     const file = phase === "fix" ? null : "/written report.md"
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
-    assert.equal(
-      phaseResult(
-        phase,
-        "session",
-        text({ status: "finished", file, reason: null }),
-      ).status,
-      "finished",
-    )
+    for (const ending of ["", "\n", "\r\n", " \t\n\n"]) {
+      assert.equal(
+        phaseResult(
+          phase,
+          "session",
+          text({ status: "finished", file, reason: null }) + ending,
+        ).status,
+        "finished",
+      )
+    }
     assert.deepEqual(
       phaseResult(
         phase,
@@ -82,9 +84,6 @@ test("unrelated events are ignored while malformed consumed fields fail", () => 
       item: { type: "command_execution", command: 42 },
     }),
   )
-  assert.throws(() =>
-    decodeCodex({ type: "turn.completed", usage: { input_tokens: "100" } }),
-  )
   assert.deepEqual(
     decodeClaude({
       type: "result",
@@ -93,6 +92,14 @@ test("unrelated events are ignored while malformed consumed fields fail", () => 
     }),
     [],
   )
+})
+
+test("Codex completion does not depend on unused usage fields", () => {
+  for (const record of [
+    { type: "turn.completed" },
+    { type: "turn.completed", usage: { input_tokens: "100" } },
+  ])
+    assert.deepEqual(decodeCodex(record), [{ type: "complete" }])
 })
 
 test("phase arguments and recovery identifiers stay data across spaces and shell syntax", () => {

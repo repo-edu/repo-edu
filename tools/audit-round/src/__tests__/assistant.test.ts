@@ -199,6 +199,35 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
+test("Claude completes a phase when its settings reply fails", async (t) => {
+  const stream = (await phaseStream("claude"))
+    .trimEnd()
+    .split("\n")
+    .map((line) => {
+      const record = JSON.parse(line)
+      if (record.type === "control_response") {
+        record.response = {
+          request_id: "audit-round-settings",
+          subtype: "error",
+          error: "Settings unavailable",
+        }
+      }
+      return JSON.stringify(record)
+    })
+    .join("\n")
+  const f = await fixture(t, { stream })
+  const result = await runAssistantPhase(
+    input("claude", f.root),
+    f.output,
+    f.runtime,
+  )
+  assert.deepEqual(result, { status: "finished", sessionId: "test-session" })
+  assert.equal(
+    f.feedback.some((event) => event.type === "model"),
+    false,
+  )
+})
+
 test("Codex rebuttal excludes all pre-invocation usage and retains the new selection", async (t) => {
   const f = await fixture(t)
   const path = join(f.root, "rollout-test-session.jsonl")
