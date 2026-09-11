@@ -6,6 +6,7 @@ import {
   type PhaseFailure,
   phaseAssistants,
   type RoundDependencies,
+  type SessionContext,
 } from "./phase.js"
 
 export type RoundInput = {
@@ -29,6 +30,32 @@ export type RoundResult =
       readonly session: InteractiveSession
     }
   | RoundFailure
+
+/** The share of its window at which Codex summarises a session in place. */
+const compactionShare = 0.9
+
+/**
+ * What a rebuttal spends: the report, its vet twin and the source behind every
+ * verdict. A four-finding round measured 30k, doubled here for the findings a
+ * round can carry.
+ */
+const rebuttalTokens = 60_000
+
+/**
+ * The single owner of whether the rebuttal answers in the audit session.
+ * A summarised session holds a summary where the evidence was, so a measured
+ * shortfall starts the rebuttal fresh instead. It loses nothing it may rely on:
+ * its workflow grounds every answer in what it reads now. An assistant that
+ * reports no window reports no shortfall, and keeps the resume.
+ */
+export function rebuttalSessionId(
+  sessionId: string,
+  context: SessionContext | null,
+): string | null {
+  if (context?.window == null) return sessionId
+  const room = context.window * compactionShare - context.tokens
+  return room < rebuttalTokens ? null : sessionId
+}
 
 export async function runRound(
   input: RoundInput,
@@ -69,7 +96,7 @@ export async function runRound(
     cwd,
     ownerRoot,
     arguments: [report],
-    sessionId: audit.sessionId,
+    sessionId: rebuttalSessionId(audit.sessionId, audit.context),
   })
   if (rebut.status === "failed") {
     return { ...rebut, phase: "rebut", assistant: assistants.rebut, cwd }

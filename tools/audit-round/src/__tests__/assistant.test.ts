@@ -251,6 +251,8 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
     status: "finished",
     sessionId: "test-session",
     file: "/REBUT.md",
+    // The recorded rollout's last measurement, which the round resumes on.
+    context: { tokens: 26_115, window: 258_400 },
   })
   assert.equal(f.feedback.filter((event) => event.type === "model").length, 1)
   assert.ok(

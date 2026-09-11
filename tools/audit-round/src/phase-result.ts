@@ -1,6 +1,6 @@
 import { isAbsolute } from "node:path"
 import { z } from "zod"
-import type { Phase, PhaseResult } from "./phase.js"
+import type { Phase, PhaseResult, SessionContext } from "./phase.js"
 
 const resultSchema = z.strictObject({
   status: z.enum(["finished", "needs-ruling", "failed"]),
@@ -12,6 +12,7 @@ export function phaseResult<P extends Phase>(
   phase: P,
   sessionId: string,
   text: string,
+  context: SessionContext | null,
 ): PhaseResult<P> {
   const line = text.trimEnd().split("\n").at(-1) ?? ""
   const prefix = "PHASE RESULT: "
@@ -38,5 +39,10 @@ export function phaseResult<P extends Phase>(
       "Report PHASE RESULT must finish with an absolute file path",
     )
   }
-  return { status: "finished", sessionId, file: result.file } as PhaseResult<P>
+  return {
+    status: "finished",
+    sessionId,
+    file: result.file,
+    context,
+  } as PhaseResult<P>
 }

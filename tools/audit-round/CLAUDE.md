@@ -7,8 +7,14 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 ## Ownership
 
 - `round.ts` owns the fixed audit, vet, rebuttal and fix sequence. It retains the
-  audit session and report as local values. Audit, vet and fix start fresh;
-  rebuttal resumes the audit session. Codex audits by default and always fixes.
+  audit session and report as local values. Audit, vet and fix start fresh.
+  Rebuttal resumes the audit session only when that session's last measurement
+  leaves room for a rebuttal before the assistant summarises itself in place. A
+  measured shortfall starts the rebuttal fresh, because a summarised session
+  holds a summary where the evidence was. An assistant that reports no window
+  reports no shortfall and keeps the resume. `round.ts` owns that rule, the
+  compaction share it compares against and the rebuttal's reserve.
+  Codex audits by default and always fixes.
   Only a fix needing a ruling opens an
   interactive session, using that fix's session identity.
 - `phase.ts` defines the private inputs and results for assistant invocations.
@@ -16,13 +22,14 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   and phase output. They return only after accounting for the process, streams
   and required record writes. A failure retains the known session identity,
   including a resumed session whose new invocation reported no identity.
-- `assistant.ts` owns one invocation's session identity, final text and completion
-  evidence. Claude and Codex decoders validate the fields they consume.
-  `cli-process.ts` stops the child before unwinding a failed line consumer,
-  because Execa's iterator return awaits the child. It then awaits all readers
-  and the process. Process output is never accumulated by Execa.
-- `codex-usage.ts` reads the current session's appended records. Rebuttal starts
-  at the file's pre-invocation end. An incomplete record stays with the reader
+- `assistant.ts` owns one invocation's session identity, final text, completion evidence and last
+  context measurement. One observer keeps that measurement as the feedback passes, so the round
+  decides on it rather than the display. Claude and Codex decoders validate the fields they consume.
+  `cli-process.ts` stops the child before unwinding a failed line consumer, because Execa's iterator
+  return awaits the child. It then awaits all readers and the process. Process output is never
+  accumulated by Execa.
+- `codex-usage.ts` reads the current session's appended records. A resumed
+  rebuttal starts at the file's pre-invocation end. An incomplete record stays with the reader
   until more bytes arrive; a final incomplete record fails the invocation.
 - `startup.ts` shares the existing `audit-round` cache dates with the Bash
   runner. Both update attempts precede settings discovery. Claude control

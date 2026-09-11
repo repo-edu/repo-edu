@@ -17,6 +17,7 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           phase,
           "session",
           text({ status: "finished", file, reason: null }) + ending,
+          null,
         ).status,
         "finished",
       )
@@ -30,6 +31,7 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           file: null,
           reason: "Required work remains blocked",
         }),
+        { tokens: 10, window: 100 },
       ),
       {
         status: "failed",
@@ -42,6 +44,7 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
         phase,
         "session",
         text({ status: "needs-ruling", file: null, reason: null }),
+        null,
       )
     if (phase === "fix") assert.equal(ruling().status, "needs-ruling")
     else assert.throws(ruling)
@@ -54,14 +57,14 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
       { status: "failed", file: null, reason: " " },
       { status: "failed", file: "/file.md", reason: "blocked" },
     ])
-      assert.throws(() => phaseResult(phase, "session", text(value)))
+      assert.throws(() => phaseResult(phase, "session", text(value), null))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
       `${text({ status: "finished", file, reason: null })}\nExtra text`,
       `${text({ status: "finished", file, reason: null })}\n\`\`\``,
     ]) {
-      assert.throws(() => phaseResult(phase, "session", invalid))
+      assert.throws(() => phaseResult(phase, "session", invalid, null))
     }
   })
 }

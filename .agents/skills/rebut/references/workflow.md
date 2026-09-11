@@ -6,14 +6,16 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-The rebuttal is the auditor's answer to the vet. An implementation-audit
-round writes its `AUDIT-*.md` report, the other assistant vets it into the
-`VET-` twin, and this workflow answers those verdicts in the audit session,
-which already holds the evidence the findings rest on, writing the `REBUT-`
-twin. The fix workflow at `.agents/skills/fix/references/workflow.md` then
-reads all three files. The user directed this chain on 2026-09-09 to give the
-fix phase both assistants' views. On 2026-09-11 the user directed Codex to run
-the fix in a fresh session, with the audit report and both twins as its brief.
+The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
+`AUDIT-*.md` report, the other assistant vets it into the `VET-` twin, and this workflow answers
+those verdicts, writing the `REBUT-` twin. The answers come from the auditor. They come from the
+audit session itself when it still has room for them, and from a fresh session when it does not,
+because a session summarised to make room holds a summary where the evidence was. Either way the
+answers stand on what this workflow reads now, which the grounding below requires of both. The fix
+workflow at `.agents/skills/fix/references/workflow.md` then reads all three files. The user
+directed this chain on 2026-09-09 to give the fix phase both assistants' views. On 2026-09-11 the
+user directed Codex to run the fix in a fresh session, with the audit report and both twins as its
+brief.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. The `REBUT-` twin is the one file it writes.

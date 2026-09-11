@@ -8,10 +8,13 @@ import type {
   PhaseResult,
   RoundDependencies,
 } from "../phase.js"
-import { runRound } from "../round.js"
+import { rebuttalSessionId, runRound } from "../round.js"
 
 const repoRoot = "/workspace/repo-edu"
 const phases = ["audit", "vet", "rebut", "fix"] as const
+
+/** Room enough that the rebuttal resumes unless a test says otherwise. */
+const spaciousContext = { tokens: 100_000, window: 258_000 }
 
 function controlledRound(
   report = `${repoRoot}/AUDIT-example.md`,
@@ -20,16 +23,23 @@ function controlledRound(
   const calls: PhaseInput[] = []
   const handover: { operation: string; session: InteractiveSession }[] = []
   const results: { [P in Phase]: PhaseResult<P> } = {
-    audit: { status: "finished", sessionId: "audit-session", file: report },
+    audit: {
+      status: "finished",
+      sessionId: "audit-session",
+      file: report,
+      context: spaciousContext,
+    },
     vet: {
       status: "finished",
       sessionId: "vet-session",
       file: "/distinct-twins/VET-example.md",
+      context: null,
     },
     rebut: {
       status: "finished",
       sessionId: "audit-session",
       file: "/distinct-twins/REBUT-example.md",
+      context: null,
     },
     fix: { status: "finished", sessionId: "fix-session" },
   }
@@ -279,3 +289,40 @@ for (const operation of ["prepareHandover", "openSession"] as const) {
     })
   })
 }
+
+test("the rebuttal answers fresh when the audit leaves no room before compaction", async () => {
+  const round = controlledRound()
+  round.results.audit = {
+    status: "finished",
+    sessionId: "audit-session",
+    file: `${repoRoot}/AUDIT-example.md`,
+    context: { tokens: 228_000, window: 258_000 },
+  }
+
+  const result = await runRound(
+    { repoRoot, plan: "example.md" },
+    round.dependencies,
+  )
+
+  assert.equal(result.status, "finished")
+  assert.equal(round.calls[2].phase, "rebut")
+  assert.equal(round.calls[2].sessionId, null)
+  assert.equal(round.calls[2].assistant, "codex")
+})
+
+test("an unreported window keeps the resume, and a measured shortfall does not", () => {
+  assert.equal(
+    rebuttalSessionId("audit", { tokens: 900_000, window: null }),
+    "audit",
+  )
+  assert.equal(rebuttalSessionId("audit", null), "audit")
+  // 60k is the rebuttal's reserve and 90% of the window is where Codex summarises.
+  assert.equal(
+    rebuttalSessionId("audit", { tokens: 120_000, window: 200_000 }),
+    "audit",
+  )
+  assert.equal(
+    rebuttalSessionId("audit", { tokens: 120_001, window: 200_000 }),
+    null,
+  )
+})

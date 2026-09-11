@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { PhaseInput, PhaseResult } from "./phase.js"
+import type { PhaseInput, PhaseResult, SessionContext } from "./phase.js"
 
 export const selectionSchema = z.object({
   model: z.string().min(1),
@@ -10,11 +10,7 @@ export type ModelSelection = z.infer<typeof selectionSchema>
 export type Feedback =
   | { readonly type: "session"; readonly sessionId: string }
   | { readonly type: "model"; readonly selection: ModelSelection }
-  | {
-      readonly type: "context"
-      readonly tokens: number
-      readonly window: number | null
-    }
+  | ({ readonly type: "context" } & SessionContext)
   | { readonly type: "text"; readonly text: string }
   | { readonly type: "diagnostic"; readonly text: string }
   | {

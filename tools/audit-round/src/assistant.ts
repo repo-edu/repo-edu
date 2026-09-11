@@ -9,12 +9,13 @@ import {
 } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexUsageReader } from "./codex-usage.js"
-import { errorMessage, type PhaseOutput } from "./feedback.js"
+import { errorMessage, type Feedback, type PhaseOutput } from "./feedback.js"
 import type {
   Phase,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
+  SessionContext,
 } from "./phase.js"
 import { phaseResult } from "./phase-result.js"
 import { phasePrompt, phaseRequest } from "./requests.js"
@@ -52,6 +53,13 @@ export async function runAssistantInvocation(
   let sessionId = input.sessionId
   let finalText: string | undefined
   let completed = false
+  let context: SessionContext | null = null
+  /** The last measurement leaves the display, because the round resumes on it. */
+  const observe = async (feedback: Feedback): Promise<void> => {
+    if (feedback.type === "context")
+      context = { tokens: feedback.tokens, window: feedback.window }
+    await output.observe(feedback)
+  }
   const usage =
     input.assistant === "codex"
       ? new CodexUsageReader(
@@ -83,7 +91,7 @@ export async function runAssistantInvocation(
         request.input,
         async (child) => {
           await readCliLines(child, "stdout", async (line) => {
-            if (sessionId !== null) await usage?.read(sessionId, output.observe)
+            if (sessionId !== null) await usage?.read(sessionId, observe)
             const value: unknown = JSON.parse(line)
             const events = decode(value)
             for (const event of events) {
@@ -101,20 +109,20 @@ export async function runAssistantInvocation(
                   throw new Error("CLI reported final text after completion")
                 finalText = event.text
               } else {
-                await output.observe(event)
+                await observe(event)
               }
             }
             await record?.(value)
           })
         },
-        (text) => output.observe({ type: "diagnostic", text }),
+        (text) => observe({ type: "diagnostic", text }),
       )
       if (!completed || sessionId === null || finalText === undefined)
         throw new Error(
           "CLI ended without a completed turn, session identity or final text",
         )
-      await usage?.read(sessionId, output.observe, true)
-      const result = phaseResult(input.phase, sessionId, finalText)
+      await usage?.read(sessionId, observe, true)
+      const result = phaseResult(input.phase, sessionId, finalText, context)
       await output.finish(result)
       return result
     } finally {

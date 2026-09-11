@@ -7,7 +7,7 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     audit: auditor,
     // The vetter is the other assistant, so no assistant vets its own report.
     vet: auditor === "codex" ? "claude" : "codex",
-    // The rebuttal resumes the audit session, so it answers in the auditor.
+    // The rebuttal answers in the auditor, resuming the audit when it has room.
     rebut: auditor,
     fix: "codex",
   }
@@ -24,7 +24,7 @@ type PhaseArguments = {
   }
   rebut: {
     readonly arguments: readonly [report: string]
-    readonly sessionId: string
+    readonly sessionId: string | null
   }
   fix: {
     readonly arguments: readonly [report: string]
@@ -49,11 +49,20 @@ export type PhaseFailure = {
   readonly sessionId: string | null
 }
 
+/** One measurement of how full an assistant's session is. */
+export type SessionContext = {
+  readonly tokens: number
+  /** Null when the assistant does not report the size of its window. */
+  readonly window: number | null
+}
+
 type ReportResult = {
   readonly status: "finished"
   readonly sessionId: string
   /** Absolute path validated by the assistant boundary. */
   readonly file: string
+  /** The session's last measurement, which decides whether a later phase may resume it. */
+  readonly context: SessionContext | null
 }
 
 type FixResult = {
