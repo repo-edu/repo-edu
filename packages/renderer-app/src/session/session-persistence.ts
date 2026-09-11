@@ -58,13 +58,13 @@ export class SessionPersistence {
 
   flushActive(scope: SessionTransactionScope): Promise<void> {
     return scope.required(async () => {
-      await this.activeCourseWorkerSlot?.worker.flush()
+      await this.activeCourseWorkerSlot?.worker.flush(() => scope.canContinue())
     })
   }
 
   flushActiveTolerated(scope: SessionTransactionScope): Promise<void> {
     return scope.tolerated(async () => {
-      await this.activeCourseWorkerSlot?.worker.flush()
+      await this.activeCourseWorkerSlot?.worker.flush(() => scope.canContinue())
     })
   }
 

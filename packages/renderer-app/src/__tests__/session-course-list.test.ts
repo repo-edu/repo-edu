@@ -32,7 +32,7 @@ describe("session course listing", () => {
     "delete-active",
     "delete-inactive",
   ] as const) {
-    for (const successor of ["command", "close"] as const) {
+    for (const successor of ["command", "queued-command", "close"] as const) {
       it(`publishes the list and prunes recents within ${change} before ${successor}`, async () => {
         const courses = new Map([
           ["active", makeCourse("active")],
@@ -88,6 +88,14 @@ describe("session course listing", () => {
         })
         controllers.push(controller)
         await controller.waitForIdle()
+        const analysisRelease = deferred<void>()
+        const analysis = controller.operations.execute(
+          "analysis.run",
+          async () => {
+            await analysisRelease.promise
+          },
+        )
+        await tick()
         const targetId = change.endsWith("-inactive") ? "inactive" : "active"
         const changingCourse =
           change === "create"
@@ -97,7 +105,10 @@ describe("session course listing", () => {
               : change.startsWith("rename-")
                 ? controller.renameCourse(targetId, "Renamed")
                 : controller.deleteCourse(targetId)
-        await changing.promise
+        if (successor !== "queued-command") {
+          analysisRelease.resolve()
+          await changing.promise
+        }
         const assertPublished = () => {
           assert.deepEqual(useUiStore.getState().courseList, summaries())
           assert.equal(useUiStore.getState().courseListLoading, false)
@@ -112,21 +123,37 @@ describe("session course listing", () => {
           order.push(successor)
         }
         const next =
-          successor === "command"
-            ? controller.operations.execute("repo.clone", async () => {
-                assertPublished()
-              })
+          successor !== "close"
+            ? controller.operations.execute(
+                "roster.exportMembers",
+                async (scope) => {
+                  await scope.preparePersistence(async (preparation) => {
+                    assert.equal(preparation.course, undefined)
+                    return commitPreparation(preparation)
+                  })
+                  assertPublished()
+                },
+              )
             : controller.requestClose(async (preparation) => {
                 assertPublished()
                 return commitPreparation(preparation)
               })
         assert.equal(canAdmitSessionChange(controller.getSnapshot()), false)
+        analysisRelease.resolve()
         changeRelease.resolve()
         await listing.promise
         assert.deepEqual(order, ["changed"])
         assert.equal(useUiStore.getState().courseListLoading, true)
+        if (change === "rename-active") {
+          assert.equal(useCourseStore.getState().course?.revision, 1)
+          assert.equal(useCourseStore.getState().course?.displayName, "Renamed")
+          assert.equal(
+            useUiStore.getState().courseList[0]?.displayName,
+            "active",
+          )
+        }
         listRelease.resolve()
-        await Promise.all([changingCourse, next])
+        await Promise.all([analysis, changingCourse, next])
         assert.deepEqual(order, ["changed", successor])
       })
     }

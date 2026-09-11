@@ -96,6 +96,72 @@ function harness(
 }
 
 describe("request-owned worker preparation", () => {
+  it("finishes an admitted body's save after an earlier worker save without reopening background starts", async () => {
+    const callbackStarted = deferred<void>()
+    const callback = deferred<void>()
+    const h = harness({
+      apply: async () => {
+        callbackStarted.resolve()
+        await callback.promise
+      },
+    })
+    h.edit("Earlier save")
+    const earlier = h.worker.flush()
+    await callbackStarted.promise
+    h.edit("Body follow-up")
+    h.gate(false)
+    const body = h.worker.flush(() => true)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.equal(h.saves, 1)
+    callback.resolve()
+    await Promise.all([earlier, body])
+    assert.equal(h.saves, 2)
+    assert.equal(h.course.displayName, "Body follow-up")
+    assert.equal(h.course.revision, 2)
+    assert.equal(await h.worker.claim(), null)
+
+    h.edit("Background edit")
+    await h.worker.waitForIdle()
+    assert.equal(h.saves, 2)
+    await assert.rejects(h.worker.flush(), HostAdmissionRefusedError)
+    assert.equal(
+      (await h.worker.claim())?.snapshot.displayName,
+      "Background edit",
+    )
+    h.worker.dispose()
+  })
+
+  it("refuses a retired body's save even when background starts are allowed", async () => {
+    const h = harness()
+    h.edit("Dirty")
+    await assert.rejects(
+      h.worker.flush(() => false),
+      HostAdmissionRefusedError,
+    )
+    assert.equal(h.saves, 0)
+    h.worker.dispose()
+  })
+
+  it("does not apply an admitted save after disposal", async () => {
+    const saveStarted = deferred<void>()
+    const save = deferred<CourseSaveStamp>()
+    const h = harness({
+      save: async () => {
+        saveStarted.resolve()
+        return await save.promise
+      },
+    })
+    h.gate(false)
+    h.edit("Dirty")
+    const body = h.worker.flush(() => true)
+    await saveStarted.promise
+    h.worker.dispose()
+    save.resolve({ revision: 1, updatedAt: "2026-09-11T00:00:00.000Z" })
+    await body
+    assert.equal(h.course.revision, 0)
+    assert.equal(h.saves, 1)
+  })
+
   it("blocks a scheduled save before intent and resumes dirty work after busy retirement", async () => {
     const h = harness()
     h.edit("Dirty")

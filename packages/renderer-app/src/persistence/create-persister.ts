@@ -33,7 +33,8 @@ export type WorkerStartGate = {
 }
 
 export type Persister<TSnapshot = unknown, TResult = unknown> = {
-  flush: () => Promise<void>
+  /** A queued body supplies its own authority; other starts use the worker gate. */
+  flush: (canStart?: () => boolean) => Promise<void>
   waitForIdle: () => Promise<void>
   claim: () => Promise<PersistenceClaim<TSnapshot, TResult> | null>
   dispose: () => void
@@ -121,7 +122,6 @@ export function createPersister<
       : adapter.initialBaseline
   let observed = baseline
   let timer: ReturnType<typeof setTimeout> | null = null
-  let requested = false
   let worker: Promise<void> | null = null
   let lifetime: { kind: "live" } | { kind: "disposed"; error?: unknown } = {
     kind: "live",
@@ -140,7 +140,7 @@ export function createPersister<
   }
 
   function resolveIdle() {
-    if (timer !== null || requested || worker !== null) return
+    if (timer !== null || worker !== null) return
     for (const resolve of idleWaiters) resolve()
     idleWaiters.clear()
   }
@@ -157,7 +157,6 @@ export function createPersister<
   function adopt(snapshot: TSnapshot | null) {
     baseline = snapshot
     observed = snapshot
-    requested = false
     clearTimer()
     report(idleSyncStatus)
     resolveIdle()
@@ -165,11 +164,10 @@ export function createPersister<
 
   function schedule() {
     if (!mayStart()) return
-    requested = true
     if (timer !== null || worker !== null) return
     timer = setTimeout(() => {
       timer = null
-      void ensureWorker().catch(() => undefined)
+      void ensureWorker(mayStart).catch(() => undefined)
     }, adapter.debounceMs ?? 300)
   }
 
@@ -196,7 +194,6 @@ export function createPersister<
   function dispose() {
     if (lifetime.kind === "live") lifetime = { kind: "disposed" }
     clearTimer()
-    requested = false
     unsubscribe()
     unsubscribeGate()
     resolveIdle()
@@ -241,7 +238,6 @@ export function createPersister<
       )
       await apply(result, snapshot)
     } catch (error) {
-      requested = false
       clearTimer()
       if (error instanceof HostAdmissionRefusedError) report(idleSyncStatus)
       else fail(error, snapshot)
@@ -249,28 +245,29 @@ export function createPersister<
     }
   }
 
-  async function runWorker() {
+  async function runWorker(canStart: () => boolean) {
     try {
-      while (requested && mayStart()) {
-        requested = false
+      while (lifetime.kind === "live" && canStart()) {
         const snapshot = adapter.getSnapshot()
         if (
           snapshot === null ||
           baseline === null ||
           identity(snapshot) !== identity(baseline)
-        )
+        ) {
           adopt(snapshot)
-        else if (dirty(snapshot)) await save(snapshot)
+          return
+        }
+        if (!dirty(snapshot)) return
+        await save(snapshot)
       }
     } finally {
       worker = null
-      requested = false
       resolveIdle()
     }
   }
 
-  function ensureWorker() {
-    worker ??= Promise.resolve().then(runWorker)
+  function ensureWorker(canStart: () => boolean) {
+    worker ??= Promise.resolve().then(() => runWorker(canStart))
     return worker
   }
 
@@ -279,7 +276,6 @@ export function createPersister<
     if (lifetime.kind !== "live" || reporting) return
     if (!mayStart()) {
       clearTimer()
-      requested = false
       resolveIdle()
     } else if (dirty(adapter.getSnapshot())) schedule()
   })
@@ -292,7 +288,6 @@ export function createPersister<
           "Persistence preparation requires a closed worker-start gate.",
         )
       clearTimer()
-      requested = false
       try {
         await worker
       } catch (error) {
@@ -314,22 +309,23 @@ export function createPersister<
         },
       }
     },
-    async flush() {
+    async flush(canStart = mayStart) {
+      // Join earlier saves through stamp application, then use this caller's
+      // authority for any remaining dirty work.
+      while (worker !== null) await worker
       if (lifetime.kind === "disposed") {
         if (lifetime.error !== undefined) throw lifetime.error
         return
       }
-      if (!mayStart()) {
-        await worker
+      if (!canStart()) {
         if (dirty(adapter.getSnapshot())) throw new HostAdmissionRefusedError()
         return
       }
       clearTimer()
-      if (dirty(adapter.getSnapshot())) requested = true
-      if (requested || worker !== null) await ensureWorker()
+      if (dirty(adapter.getSnapshot())) await ensureWorker(canStart)
     },
     async waitForIdle() {
-      if (timer === null && !requested && worker === null) return
+      if (timer === null && worker === null) return
       await new Promise<void>((resolve) => {
         idleWaiters.add(resolve)
       })
