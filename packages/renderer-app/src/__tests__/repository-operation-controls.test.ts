@@ -1,33 +1,20 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import type {
-  RepositoryCloneResult,
-  RepositoryListNamespaceResult,
-} from "@repo-edu/application-contract"
+import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import {
   defaultAppCredentials,
   type PersistedAppCredentials,
 } from "@repo-edu/domain/settings"
-import {
-  MutationObserver,
-  QueryClient,
-  QueryObserver,
-} from "@tanstack/react-query"
-import {
-  executeRegisteredCloneAllCommand,
-  registerCloneAllCommand,
-} from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-command.js"
+import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import {
   buildCloneAllWorkflowInput,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
-  cloneAllMutationBelongsToCurrentCommand,
-  cloneAllMutationGcTimeMs,
+  cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
-  createCloneAllMutationPolicy,
   createCloneAllSafeListingInput,
   extractSubgroupPath,
   selectCloneAllCanClone,
@@ -78,14 +65,6 @@ const listingResult: RepositoryListNamespaceResult = {
       archived: false,
     },
   ],
-}
-
-const cloneResult: RepositoryCloneResult = {
-  repositoriesPlanned: 1,
-  repositoriesCloned: 1,
-  repositoriesFailed: 0,
-  recordedRepositories: {},
-  completedAt: "2026-07-26T20:00:00.000Z",
 }
 
 type ManualScheduler = {
@@ -328,7 +307,7 @@ describe("clone-all query ownership", () => {
           queryIsPlaceholderData: transitional.isPlaceholderData,
           listResult: transitional.data,
           targetDirectory: "/tmp/repos",
-          mutationIsPending: false,
+          commandIsPending: false,
         }),
         false,
       )
@@ -342,7 +321,7 @@ describe("clone-all query ownership", () => {
     }
   })
 
-  it("uses panel-local query retention and bounded mutation retention", () => {
+  it("uses panel-local listing retention", () => {
     const policy = createCloneAllListingQueryPolicy(
       initialPublishedInput.admissionId,
     )
@@ -352,63 +331,6 @@ describe("clone-all query ownership", () => {
     assert.equal(policy.retry, false)
     assert.equal(policy.refetchOnWindowFocus, false)
     assert.equal(policy.refetchOnReconnect, false)
-    assert.deepEqual(createCloneAllMutationPolicy(), {
-      gcTime: cloneAllMutationGcTimeMs,
-      networkMode: "always",
-      retry: false,
-    })
-    assert.ok(cloneAllMutationGcTimeMs > 0)
-  })
-
-  it("keeps an admitted command stable while React Query pauses it", async () => {
-    const queryClient = new QueryClient()
-    const scope = { id: "clone-all-command-test" }
-    let markFirstStarted: () => void = () => {}
-    let releaseFirst: () => void = () => {}
-    const firstStarted = new Promise<void>((resolve) => {
-      markFirstStarted = resolve
-    })
-    const firstExecution = new Promise<void>((resolve) => {
-      releaseFirst = resolve
-    })
-    const firstObserver = new MutationObserver(queryClient, {
-      scope,
-      mutationFn: () => {
-        markFirstStarted()
-        return firstExecution
-      },
-    })
-    const firstMutation = firstObserver.mutate(undefined)
-    await firstStarted
-
-    const variables = {
-      listingAdmissionId: initialPublishedInput.admissionId,
-      targetDirectory: "/tmp/repos",
-    }
-    let executionCount = 0
-    registerCloneAllCommand(variables, async () => {
-      executionCount++
-      return cloneResult
-    })
-    const secondOptions = {
-      ...createCloneAllMutationPolicy(),
-      scope,
-      mutationFn: executeRegisteredCloneAllCommand,
-    }
-    const secondObserver = new MutationObserver(queryClient, secondOptions)
-    const secondMutation = secondObserver.mutate(variables)
-
-    assert.equal(secondObserver.getCurrentResult().isPaused, true)
-    secondObserver.setOptions(secondOptions)
-    releaseFirst()
-
-    await firstMutation
-    assert.equal(await secondMutation, cloneResult)
-    assert.equal(executionCount, 1)
-    assert.throws(
-      () => executeRegisteredCloneAllCommand(variables),
-      /not registered/,
-    )
   })
 })
 
@@ -439,11 +361,11 @@ describe("clone-all admission and clone inputs", () => {
       false,
     )
     assert.equal(
-      cloneAllMutationBelongsToCurrentCommand({
+      cloneAllResultBelongsToCurrentCommand({
         inputIsCurrent: true,
         publishedInput: initialPublishedInput,
         currentTargetDirectory: " /tmp/repos ",
-        mutationVariables: {
+        commandVariables: {
           listingAdmissionId: initialPublishedInput.admissionId,
           targetDirectory: "/tmp/repos",
         },
@@ -451,11 +373,11 @@ describe("clone-all admission and clone inputs", () => {
       true,
     )
     assert.equal(
-      cloneAllMutationBelongsToCurrentCommand({
+      cloneAllResultBelongsToCurrentCommand({
         inputIsCurrent: false,
         publishedInput: initialPublishedInput,
         currentTargetDirectory: "/tmp/repos",
-        mutationVariables: {
+        commandVariables: {
           listingAdmissionId: initialPublishedInput.admissionId,
           targetDirectory: "/tmp/repos",
         },
@@ -463,11 +385,11 @@ describe("clone-all admission and clone inputs", () => {
       false,
     )
     assert.equal(
-      cloneAllMutationBelongsToCurrentCommand({
+      cloneAllResultBelongsToCurrentCommand({
         inputIsCurrent: true,
         publishedInput: initialPublishedInput,
         currentTargetDirectory: "/tmp/other-repos",
-        mutationVariables: {
+        commandVariables: {
           listingAdmissionId: initialPublishedInput.admissionId,
           targetDirectory: "/tmp/repos",
         },
@@ -513,7 +435,7 @@ describe("clone-all admission and clone inputs", () => {
       queryIsPlaceholderData: false,
       listResult: listingResult,
       targetDirectory: "/tmp/repos",
-      mutationIsPending: false,
+      commandIsPending: false,
     }
     assert.equal(selectCloneAllCanClone(base), true)
     assert.equal(
@@ -529,7 +451,7 @@ describe("clone-all admission and clone inputs", () => {
       false,
     )
     assert.equal(
-      selectCloneAllCanClone({ ...base, mutationIsPending: true }),
+      selectCloneAllCanClone({ ...base, commandIsPending: true }),
       false,
     )
   })

@@ -67,16 +67,14 @@ export function CloneAllRepositoriesPanel({
         listResult={cloneAll.listResult}
         listError={cloneAll.listError}
         isListing={cloneAll.isListing}
-        isCloning={
-          cloneAll.isCloning && cloneAll.mutationBelongsToCurrentCommand
-        }
+        isCloning={cloneAll.isCloning && cloneAll.resultBelongsToCurrentCommand}
         hasConnection={cloneAll.hasConnection}
         hasNamespace={cloneAll.hasNamespace}
         onClone={cloneAll.handleBulkClone}
         canClone={cloneAll.canClone}
       />
 
-      {cloneAll.isCloning && !cloneAll.mutationBelongsToCurrentCommand && (
+      {cloneAll.isCloning && !cloneAll.resultBelongsToCurrentCommand && (
         <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
           <Loader2 className="size-4 animate-spin" />
           Cloning repositories from the previous listing…
@@ -84,13 +82,13 @@ export function CloneAllRepositoriesPanel({
       )}
       {cloneAll.cloneError && (
         <p className="text-sm text-destructive">
-          {!cloneAll.mutationBelongsToCurrentCommand && "Previous clone: "}
+          {!cloneAll.resultBelongsToCurrentCommand && "Previous clone: "}
           {cloneAll.cloneError}
         </p>
       )}
       {cloneAll.resultSummary && (
         <p className="text-sm text-muted-foreground">
-          {!cloneAll.mutationBelongsToCurrentCommand && "Previous clone: "}
+          {!cloneAll.resultBelongsToCurrentCommand && "Previous clone: "}
           {cloneAll.resultSummary}
         </p>
       )}

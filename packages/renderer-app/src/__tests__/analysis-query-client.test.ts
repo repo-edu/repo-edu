@@ -6,10 +6,6 @@ import {
   refreshSourceSnapshotHeadQueries,
 } from "../analysis/analysis-query-client.js"
 import {
-  abortCohortPrefetchRun,
-  createCohortPrefetchRun,
-} from "../analysis/analysis-query-coordinator.js"
-import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
@@ -31,7 +27,7 @@ function buildResultKey(snapshotCommitOid: string) {
 }
 
 describe("renderer analysis query cache", () => {
-  it("refreshes active snapshot heads and removes inactive ones without dropping settled repo data", async () => {
+  it("clears observed snapshot heads without fetching and removes inactive ones", async () => {
     const queryClient = createRendererQueryClient()
     const analysis = buildAnalysisQueryIdentity({
       source,
@@ -68,6 +64,7 @@ describe("renderer analysis query cache", () => {
     queryClient.setQueryData(blameKey, { blame: true })
     const observer = new QueryObserver(queryClient, {
       queryKey: snapshotKey,
+      enabled: false,
       queryFn: async () => {
         snapshotFetchCount++
         return "new-head"
@@ -78,9 +75,10 @@ describe("renderer analysis query cache", () => {
     try {
       await refreshSourceSnapshotHeadQueries(queryClient, source)
 
-      assert.equal(queryClient.getQueryData(snapshotKey), "new-head")
+      assert.equal(queryClient.getQueryData(snapshotKey), undefined)
+      assert.equal(observer.getCurrentResult().data, undefined)
       assert.equal(queryClient.getQueryData(inactiveSnapshotKey), undefined)
-      assert.equal(snapshotFetchCount, 1)
+      assert.equal(snapshotFetchCount, 0)
       assert.deepEqual(queryClient.getQueryData(discoveryKey), { repos: [] })
       assert.deepEqual(queryClient.getQueryData(resultKey), { result: true })
       assert.deepEqual(queryClient.getQueryData(blameKey), { blame: true })
@@ -128,70 +126,6 @@ describe("renderer analysis query cache", () => {
       assert.equal(queryClient.getQueryData(inactiveKey), undefined)
     } finally {
       unsubscribe()
-    }
-  })
-
-  it("cancels only unobserved queries registered by cohort prefetch", async () => {
-    const queryClient = createRendererQueryClient()
-    const unobservedKey = analysisQueryKeys.snapshotHead({
-      source,
-      repoPath,
-      until: null,
-    })
-    const observedKey = buildResultKey("observed")
-    const run = createCohortPrefetchRun()
-    run.queryKeys.add(unobservedKey)
-    run.queryKeys.add(observedKey)
-
-    let unobservedAborted = false
-    let observedAborted = false
-    let markUnobservedReady: () => void = () => {}
-    let markObservedReady: () => void = () => {}
-    const unobservedReady = new Promise<void>((resolve) => {
-      markUnobservedReady = resolve
-    })
-    const observedReady = new Promise<void>((resolve) => {
-      markObservedReady = resolve
-    })
-
-    void queryClient
-      .fetchQuery({
-        queryKey: unobservedKey,
-        queryFn: ({ signal }) =>
-          new Promise<string>((_resolve, reject) => {
-            signal.addEventListener("abort", () => {
-              unobservedAborted = true
-              reject(new Error("aborted"))
-            })
-            markUnobservedReady()
-          }),
-      })
-      .catch(() => {})
-
-    const observer = new QueryObserver(queryClient, {
-      queryKey: observedKey,
-      queryFn: ({ signal }) =>
-        new Promise<unknown>((_resolve, reject) => {
-          signal.addEventListener("abort", () => {
-            observedAborted = true
-            reject(new Error("aborted"))
-          })
-          markObservedReady()
-        }),
-    })
-    const unsubscribe = observer.subscribe(() => {})
-    void observer.refetch()
-
-    try {
-      await Promise.all([unobservedReady, observedReady])
-
-      abortCohortPrefetchRun(queryClient, run)
-
-      assert.equal(unobservedAborted, true)
-      assert.equal(observedAborted, false)
-    } finally {
-      unsubscribe()
-      await queryClient.cancelQueries({ queryKey: observedKey, exact: true })
     }
   })
 })

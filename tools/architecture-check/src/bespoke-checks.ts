@@ -219,7 +219,6 @@ function checkRendererSessionOwnership(
       file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
     )
     const useCourseStoreNames = collectUseCourseStoreImportNames(sourceFile)
-    const gatewayNames = collectWorkflowGatewayNames(sourceFile)
     const courseStoreSnapshotNames = collectCourseStoreSnapshots(
       sourceFile,
       useCourseStoreNames,
@@ -250,18 +249,19 @@ function checkRendererSessionOwnership(
           message: "retains a raw WorkflowClient outside session composition",
         })
       }
+      if (
+        (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) &&
+        ["useMutation", "mutationFn", "mutate", "mutateAsync"].includes(
+          node.text,
+        )
+      ) {
+        violations.push({
+          file: `${RENDERER_SRC_PREFIX}${file}`,
+          message: "names a Query mutation entry outside session ownership",
+        })
+      }
       if (ts.isCallExpression(node)) {
         const runName = callExpressionName(node)
-        if (
-          (runName === "mutate" || runName === "mutateAsync") &&
-          !insideSessionExecution(node, gatewayNames)
-        ) {
-          violations.push({
-            file: `${RENDERER_SRC_PREFIX}${file}`,
-            message:
-              "starts a Query mutation outside a complete session operation body",
-          })
-        }
         const workflowId = node.arguments[0]
         if (
           runName === "run" &&
@@ -322,53 +322,6 @@ function checkRendererSessionOwnership(
   }
 
   return violations
-}
-
-function insideSessionExecution(node: ts.Node, gateways: Set<string>): boolean {
-  for (let parent = node.parent; parent !== undefined; parent = parent.parent) {
-    if (
-      ts.isCallExpression(parent) &&
-      ts.isPropertyAccessExpression(parent.expression) &&
-      parent.expression.name.text === "execute" &&
-      ts.isIdentifier(parent.expression.expression) &&
-      gateways.has(parent.expression.expression.text)
-    )
-      return true
-  }
-  return false
-}
-
-function collectWorkflowGatewayNames(source: ts.SourceFile): Set<string> {
-  const factories = new Set<string>()
-  for (const statement of source.statements) {
-    if (!ts.isImportDeclaration(statement)) continue
-    const bindings = statement.importClause?.namedBindings
-    if (!bindings || !ts.isNamedImports(bindings)) continue
-    for (const element of bindings.elements) {
-      const name = element.propertyName?.text ?? element.name.text
-      if (name === "useWorkflowClient" || name === "getWorkflowClient") {
-        factories.add(element.name.text)
-      }
-    }
-  }
-  const names = new Set<string>()
-  function collect(node: ts.Node): void {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-      const value = node.initializer
-      if (
-        value &&
-        ((ts.isCallExpression(value) &&
-          ts.isIdentifier(value.expression) &&
-          factories.has(value.expression.text)) ||
-          (ts.isIdentifier(value) && names.has(value.text)))
-      ) {
-        names.add(node.name.text)
-      }
-    }
-    ts.forEachChild(node, collect)
-  }
-  collect(source)
-  return names
 }
 
 function collectUseCourseStoreImportNames(

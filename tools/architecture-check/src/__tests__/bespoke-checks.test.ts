@@ -32,7 +32,7 @@ describe("bespoke checks", () => {
     )
     assert.ok(violations.some((v) => v.message.includes("setDisplayName")))
   })
-  it("requires Query publication ownership and a complete mutation body", async () => {
+  it("requires Query publication ownership and confines all mutation entries", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-query-bodies-"))
     const file = "packages/renderer-app/src/components/QueryFeature.tsx"
     await mkdir(join(root, file, ".."), { recursive: true })
@@ -52,12 +52,36 @@ describe("bespoke checks", () => {
       { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
       () => [file],
     )
-    assert.equal(violations.length, 2)
+    assert.equal(violations.length, 3)
     assert.ok(violations.some((entry) => entry.message.includes("Query fetch")))
     assert.ok(
       violations.some((entry) => entry.message.includes("Query mutation")),
     )
   })
+
+  for (const entry of [
+    'import { useMutation as useCommand } from "@tanstack/react-query"',
+    "useCommand({ mutationFn: execute })",
+    "executeCloneAllCommand(client, cache, input, variables, cloneMutation.mutateAsync)",
+    "mutate(variables)",
+    "const { mutateAsync: run } = command",
+    'command["mutateAsync"](variables)',
+  ]) {
+    it(`rejects a mutation entry passed or called outside the owner: ${entry}`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "repo-edu-mutation-entry-"))
+      const file = "packages/renderer-app/src/components/CloneCommand.ts"
+      await mkdir(join(root, file, ".."), { recursive: true })
+      await writeFile(join(root, file), entry)
+      const violations = runBespokeChecks(
+        root,
+        { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
+        () => [file],
+      )
+      assert.ok(
+        violations.some((item) => item.message.includes("Query mutation")),
+      )
+    })
+  }
 
   it("admits scoped bodies and presentation while rejecting raw clients", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-direct-bodies-"))

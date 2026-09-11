@@ -5,18 +5,13 @@ import type {
 } from "@repo-edu/application-contract"
 import type {
   AnalysisBlameConfig,
-  AnalysisConfig,
   AnalysisResult,
   AuthorStats,
   BlameResult,
   FileStats,
 } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
-import {
-  type QueryClient,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
 import {
   type Context,
@@ -26,7 +21,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useAnalysisContext } from "../hooks/use-analysis-context.js"
@@ -55,7 +49,10 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import { refreshSourceSnapshotHeadQueries } from "./analysis-query-client.js"
+import {
+  clearAnalysisQueries,
+  refreshSourceSnapshotHeadQueries,
+} from "./analysis-query-client.js"
 import {
   type AnalysisQueryIdentity,
   analysisQueryKeys,
@@ -66,6 +63,7 @@ import {
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
 } from "./analysis-query-keys.js"
+import { AnalysisSourceRunner } from "./analysis-source-runner.js"
 import {
   EMPTY_PARTIAL_AUTHOR_LINES,
   useAnalysisTransientStore,
@@ -253,51 +251,6 @@ export function useAnalysisCoordinator(): AnalysisCoordinatorValue {
   }
 }
 
-async function mapBounded<T>(
-  items: readonly T[],
-  maxConcurrency: number,
-  fn: (item: T) => Promise<void>,
-): Promise<void> {
-  let nextIndex = 0
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex++
-      await fn(items[index])
-    }
-  }
-  const workers = Array.from(
-    { length: Math.max(1, Math.min(maxConcurrency, items.length)) },
-    () => worker(),
-  )
-  await Promise.all(workers)
-}
-
-export type CohortPrefetchRun = {
-  readonly queryKeys: Set<readonly unknown[]>
-}
-
-export function createCohortPrefetchRun(): CohortPrefetchRun {
-  return { queryKeys: new Set() }
-}
-
-export function abortCohortPrefetchRun(
-  queryClient: QueryClient,
-  run: CohortPrefetchRun,
-): void {
-  for (const queryKey of run.queryKeys) {
-    const query = queryClient.getQueryCache().find({ queryKey, exact: true })
-    if (query === undefined || query.getObserversCount() > 0) continue
-    void queryClient.cancelQueries({ queryKey, exact: true })
-  }
-}
-
-function registerCohortPrefetchQuery(
-  run: CohortPrefetchRun,
-  queryKey: readonly unknown[],
-): void {
-  run.queryKeys.add(queryKey)
-}
-
 function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
 }
@@ -417,23 +370,34 @@ export function AnalysisCoordinatorProvider({
     defaultExtensions,
   ])
 
-  const cohortPrefetchRunRef = useRef<CohortPrefetchRun | null>(null)
-  const abortCohortPrefetch = useCallback(() => {
-    const run = cohortPrefetchRunRef.current
-    if (run === null) return
-    cohortPrefetchRunRef.current = null
-    abortCohortPrefetchRun(queryClient, run)
-  }, [queryClient])
+  const sourceRunner = useMemo(
+    () =>
+      analysisConfig === null
+        ? null
+        : new AnalysisSourceRunner(client, queryClient, {
+            source: activeSourceParts,
+            config: analysisConfig,
+            rosterContext: analysisContext.rosterContext,
+            kind: analysisContext.kind === "course" ? "course" : "folder",
+            repoParallelism: analysisConcurrency.repoParallelism,
+          }),
+    [
+      client,
+      queryClient,
+      activeSourceParts,
+      analysisConfig,
+      analysisContext.rosterContext,
+      analysisContext.kind,
+      analysisConcurrency.repoParallelism,
+    ],
+  )
 
-  useEffect(() => {
-    const sourceParts = activeSourceParts
-    return () => {
-      abortCohortPrefetch()
-      void queryClient.cancelQueries({
-        queryKey: analysisQueryKeys.source(sourceParts),
-      })
-    }
-  }, [abortCohortPrefetch, activeSourceParts, queryClient])
+  useEffect(
+    () => () => {
+      sourceRunner?.cancel()
+    },
+    [sourceRunner],
+  )
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -519,148 +483,27 @@ export function AnalysisCoordinatorProvider({
     discoveryIsSuccess: discoveryQuery.isSuccess,
   })
 
-  const prefetchRepoAnalysis = useCallback(
-    async (
-      repoPath: string,
-      run: CohortPrefetchRun,
-      isCurrentBatch: () => boolean,
-      config: AnalysisConfig,
-    ): Promise<void> => {
-      if (analysisContext.kind === "none" || !isCurrentBatch()) return
-      const snapshotKey = analysisQueryKeys.snapshotHead({
-        source: activeSourceParts,
-        repoPath,
-        until: config.until ?? null,
-      })
-      registerCohortPrefetchQuery(run, snapshotKey)
-      const snapshotCommitOid = await queryClient.ensureQueryData({
-        queryKey: snapshotKey,
-        ...sessionQueryOptions(
-          client,
-          "analysis.resolveSnapshotHead",
-          (scope, { signal }) =>
-            scope.run(
-              "analysis.resolveSnapshotHead",
-              {
-                repositoryAbsolutePath: repoPath,
-                until: config.until,
-              },
-              { signal },
-            ),
-        ),
-      })
-      if (!isCurrentBatch()) return
-      const identity = buildAnalysisQueryIdentity({
-        source: activeSourceParts,
-        repoPath,
-        snapshotCommitOid,
-        config,
-        rosterContext: analysisContext.rosterContext,
-      })
-      const prefetchAnalysisScopeKey = analysisResultScopeKey(identity)
-      const prefetchAnalysisQueryKey = analysisQueryKeys.result(identity)
-      registerCohortPrefetchQuery(run, prefetchAnalysisQueryKey)
-      await queryClient.ensureQueryData({
-        queryKey: prefetchAnalysisQueryKey,
-        ...sessionQueryOptions(
-          client,
-          "analysis.run",
-          async (scope, { signal }) => {
-            const requestId = nanoid()
-            const transient = useAnalysisTransientStore.getState()
-            transient.startAnalysis(prefetchAnalysisScopeKey, requestId)
-            try {
-              return await scope.run(
-                "analysis.run",
-                {
-                  repositoryAbsolutePath: repoPath,
-                  config,
-                  snapshotCommitOid,
-                  analysisSource:
-                    analysisContext.kind === "course"
-                      ? {
-                          kind: "course",
-                          ...(analysisContext.rosterContext
-                            ? { rosterContext: analysisContext.rosterContext }
-                            : {}),
-                        }
-                      : { kind: "folder" },
-                },
-                {
-                  signal,
-                  onProgress: (progress) => {
-                    useAnalysisTransientStore
-                      .getState()
-                      .setAnalysisProgress(
-                        prefetchAnalysisScopeKey,
-                        requestId,
-                        progress,
-                      )
-                  },
-                },
-              )
-            } finally {
-              useAnalysisTransientStore
-                .getState()
-                .finishAnalysis(prefetchAnalysisScopeKey, requestId)
-            }
-          },
-        ),
-      })
-    },
-    [
-      activeSourceParts,
-      analysisContext.kind,
-      analysisContext.rosterContext,
-      client,
-      queryClient,
-    ],
-  )
-
   useEffect(() => {
     if (
       !canStartQueries ||
-      discoveryQuery.dataUpdatedAt === 0 ||
-      analysisConfig === null ||
-      discoveredRepoPaths.length === 0
+      discoveryQuery.isFetching ||
+      commandDiscoveryOutcome === "cancelled"
     ) {
+      sourceRunner?.cancel()
       return
     }
-    const run = createCohortPrefetchRun()
-    cohortPrefetchRunRef.current = run
-    const isCurrentRun = () => cohortPrefetchRunRef.current === run
-    void mapBounded(
-      discoveredRepoPaths,
-      analysisConcurrency.repoParallelism,
-      async (repoPath) => {
-        if (!isCurrentRun()) return
-        await prefetchRepoAnalysis(
-          repoPath,
-          run,
-          isCurrentRun,
-          analysisConfig,
-        ).catch(() => {})
-      },
-    )
+    if (discoveryQuery.dataUpdatedAt === 0) return
+    void sourceRunner
+      ?.run(discoveredRepoPaths, selectedRepoPath)
       .catch(() => {})
-      .finally(() => {
-        if (cohortPrefetchRunRef.current === run) {
-          cohortPrefetchRunRef.current = null
-        }
-      })
-    return () => {
-      if (cohortPrefetchRunRef.current === run) {
-        abortCohortPrefetch()
-      }
-    }
   }, [
-    abortCohortPrefetch,
-    analysisConcurrency.repoParallelism,
-    analysisConfig,
+    sourceRunner,
     canStartQueries,
     discoveredRepoPaths,
+    selectedRepoPath,
+    commandDiscoveryOutcome,
+    discoveryQuery.isFetching,
     discoveryQuery.dataUpdatedAt,
-    prefetchRepoAnalysis,
   ])
 
   const selectedSnapshotQueryKey =
@@ -671,27 +514,9 @@ export function AnalysisCoordinatorProvider({
           repoPath: selectedRepoPath,
           until: analysisConfig.until ?? null,
         })
-  const selectedSnapshotQuery = useQuery({
+  const selectedSnapshotQuery = useQuery<string>({
     queryKey: selectedSnapshotQueryKey,
-    enabled:
-      canStartQueries && selectedRepoPath !== null && analysisConfig !== null,
-    ...sessionQueryOptions(
-      client,
-      "analysis.resolveSnapshotHead",
-      (scope, { signal }) => {
-        if (selectedRepoPath === null || analysisConfig === null) {
-          throw new Error("Snapshot-head query ran without input.")
-        }
-        return scope.run(
-          "analysis.resolveSnapshotHead",
-          {
-            repositoryAbsolutePath: selectedRepoPath,
-            until: analysisConfig.until,
-          },
-          { signal },
-        )
-      },
-    ),
+    enabled: false,
   })
   const selectedSnapshotCommitOid =
     selectedSnapshotQuery.isFetching || selectedSnapshotQuery.isError
@@ -738,64 +563,12 @@ export function AnalysisCoordinatorProvider({
     selectSelectedFilesForScope(state, analysisScopeKey),
   )
 
-  const selectedAnalysisQuery = useQuery({
+  const selectedAnalysisQuery = useQuery<AnalysisResult>({
     queryKey:
       selectedAnalysisIdentity === null
         ? (["analysis", "result", "disabled"] as const)
         : analysisQueryKeys.result(selectedAnalysisIdentity),
-    enabled:
-      canStartQueries &&
-      selectedAnalysisIdentity !== null &&
-      analysisConfig !== null,
-    ...sessionQueryOptions(
-      client,
-      "analysis.run",
-      async (scope, { signal }): Promise<AnalysisResult> => {
-        if (
-          selectedRepoPath === null ||
-          selectedAnalysisIdentity === null ||
-          analysisScopeKey === null ||
-          analysisConfig === null
-        ) {
-          throw new Error("Analysis query ran without input.")
-        }
-        const requestKey = analysisScopeKey
-        const requestId = nanoid()
-        const transient = useAnalysisTransientStore.getState()
-        transient.startAnalysis(requestKey, requestId)
-        try {
-          return await scope.run(
-            "analysis.run",
-            {
-              repositoryAbsolutePath: selectedRepoPath,
-              config: analysisConfig,
-              snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-              analysisSource:
-                analysisContext.kind === "course"
-                  ? {
-                      kind: "course",
-                      ...(analysisContext.rosterContext
-                        ? { rosterContext: analysisContext.rosterContext }
-                        : {}),
-                    }
-                  : { kind: "folder" },
-            },
-            {
-              signal,
-              onProgress: (progress) => {
-                useAnalysisTransientStore
-                  .getState()
-                  .setAnalysisProgress(requestKey, requestId, progress)
-              },
-            },
-          )
-        } finally {
-          useAnalysisTransientStore
-            .getState()
-            .finishAnalysis(requestKey, requestId)
-        }
-      },
-    ),
+    enabled: false,
   })
 
   const selectedAnalysisProgress = useAnalysisTransientStore((state) =>
@@ -989,30 +762,20 @@ export function AnalysisCoordinatorProvider({
   )
 
   const cancelAnalysis = useCallback(() => {
-    abortCohortPrefetch()
-    void queryClient.cancelQueries({
-      queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
-    })
-  }, [abortCohortPrefetch, activeSourceParts, queryClient])
+    sourceRunner?.cancel()
+  }, [sourceRunner])
 
   const runAnalysis = useCallback(
     (repoPath: string) => {
-      void (async () => {
-        await queryClient.invalidateQueries({
-          queryKey: analysisQueryKeys.repoSnapshotHeads(
-            activeSourceParts,
-            repoPath,
-          ),
+      client.change(() => {
+        sourceRunner?.cancel()
+        clearAnalysisQueries(queryClient, {
+          queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
         })
-        await queryClient.invalidateQueries({
-          queryKey: analysisQueryKeys.repoResults(activeSourceParts, repoPath),
-        })
-        await queryClient.invalidateQueries({
-          queryKey: analysisQueryKeys.repoBlames(activeSourceParts, repoPath),
-        })
-      })()
+        void sourceRunner?.run(discoveredRepoPaths, repoPath).catch(() => {})
+      })
     },
-    [activeSourceParts, queryClient],
+    [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
   )
 
   const runRepoDiscovery = useCallback(
@@ -1027,7 +790,7 @@ export function AnalysisCoordinatorProvider({
         input.folder,
         input.depth,
       )
-      abortCohortPrefetch()
+      sourceRunner?.cancel()
       setLastDiscoveryOutcome(activeSourceText, "none")
       markAutoDiscoveryRequest(activeSourceText, input)
       if (!sameInput) {
@@ -1053,7 +816,7 @@ export function AnalysisCoordinatorProvider({
       })()
     },
     [
-      abortCohortPrefetch,
+      sourceRunner,
       activeSourceParts,
       activeSourceText,
       discoveryInput,
@@ -1068,12 +831,12 @@ export function AnalysisCoordinatorProvider({
 
   const cancelDiscovery = useCallback(() => {
     setLastDiscoveryOutcome(activeSourceText, "cancelled")
-    abortCohortPrefetch()
+    sourceRunner?.cancel()
     void queryClient.cancelQueries({
       queryKey: discoveryQueryKey,
     })
   }, [
-    abortCohortPrefetch,
+    sourceRunner,
     activeSourceText,
     discoveryQueryKey,
     queryClient,

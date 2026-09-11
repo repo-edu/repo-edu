@@ -20,8 +20,7 @@ export function useCourses() {
   const refresh = useCallback(() => controller.refreshCourses(), [controller])
 
   const switchCourse = useCallback(
-    async (courseId: string, backing?: CourseBacking) => {
-      void backing
+    async (courseId: string) => {
       await controller.activateSurface({ kind: "course", courseId })
     },
     [controller],

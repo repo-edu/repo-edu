@@ -4,12 +4,10 @@ import type {
   RepositoryListNamespaceResult,
 } from "@repo-edu/application-contract"
 import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
-import { keepPreviousData } from "@tanstack/react-query"
+import { keepPreviousData, type QueryClient } from "@tanstack/react-query"
+import type { SessionOperationGateway } from "../../../../session/session-operations.js"
 
 export const cloneAllListingDebounceMs = 350
-// TanStack re-arms garbage collection while an unobserved mutation is pending.
-// A bounded non-zero interval avoids a hot timer loop during background clones.
-export const cloneAllMutationGcTimeMs = 5 * 60 * 1000
 
 export type CloneAllSafeListingInput = {
   readonly connectionId: string
@@ -44,9 +42,45 @@ export type CloneAllPublishedListingInput = {
   readonly credentials: PersistedAppCredentials
 }
 
-export type CloneAllMutationVariables = {
+export type CloneAllCommandVariables = {
   readonly listingAdmissionId: CloneAllListingAdmissionId
   readonly targetDirectory: string
+}
+
+export type CloneAllCommandState =
+  | { status: "idle"; variables?: never }
+  | { status: "pending"; variables: CloneAllCommandVariables }
+  | {
+      status: "success"
+      variables: CloneAllCommandVariables
+      data: RepositoryCloneResult
+    }
+  | { status: "error"; variables: CloneAllCommandVariables; error: unknown }
+
+export function executeCloneAllCommand(
+  operations: SessionOperationGateway,
+  queryClient: QueryClient,
+  publishedInput: CloneAllPublishedListingInput,
+  variables: CloneAllCommandVariables,
+  publish: (state: CloneAllCommandState) => void,
+): Promise<void> {
+  return operations.execute("repo.bulkClone", async (scope) => {
+    scope.publish(() => publish({ status: "pending", variables }))
+    try {
+      const listing = queryClient.getQueryState<RepositoryListNamespaceResult>(
+        cloneAllListingQueryKeys.admission(variables.listingAdmissionId),
+      )
+      const input = buildCloneAllWorkflowInput({
+        variables,
+        publishedInput,
+        listResult: listing?.status === "success" ? listing.data : undefined,
+      })
+      const data = await scope.run("repo.bulkClone", input)
+      scope.publish(() => publish({ status: "success", variables, data }))
+    } catch (error) {
+      scope.publish(() => publish({ status: "error", variables, error }))
+    }
+  })
 }
 
 export type CloneAllScheduler = (
@@ -143,14 +177,6 @@ export function createCloneAllListingQueryPolicy(
   }
 }
 
-export function createCloneAllMutationPolicy() {
-  return {
-    gcTime: cloneAllMutationGcTimeMs,
-    networkMode: "always",
-    retry: false,
-  } as const
-}
-
 export function cloneAllSafeInputMatchesAdmission(
   input: CloneAllSafeListingInput | null,
   admissionId: CloneAllListingAdmissionId | null,
@@ -186,7 +212,7 @@ export function selectCloneAllCanClone(params: {
   readonly queryIsPlaceholderData: boolean
   readonly listResult: RepositoryListNamespaceResult | undefined
   readonly targetDirectory: string
-  readonly mutationIsPending: boolean
+  readonly commandIsPending: boolean
 }): boolean {
   return (
     params.inputIsCurrent &&
@@ -195,7 +221,7 @@ export function selectCloneAllCanClone(params: {
     params.listResult !== undefined &&
     params.listResult.repositories.length > 0 &&
     params.targetDirectory.trim().length > 0 &&
-    !params.mutationIsPending
+    !params.commandIsPending
   )
 }
 
@@ -212,27 +238,27 @@ export function cloneAllAdmissionIdsEqual(
   )
 }
 
-export function cloneAllMutationBelongsToCurrentCommand(params: {
+export function cloneAllResultBelongsToCurrentCommand(params: {
   readonly inputIsCurrent: boolean
   readonly publishedInput: CloneAllPublishedListingInput | null
   readonly currentTargetDirectory: string
-  readonly mutationVariables: CloneAllMutationVariables | undefined
+  readonly commandVariables: CloneAllCommandVariables | undefined
 }): boolean {
   return (
     params.inputIsCurrent &&
     params.publishedInput !== null &&
-    params.mutationVariables !== undefined &&
+    params.commandVariables !== undefined &&
     params.currentTargetDirectory.trim() ===
-      params.mutationVariables.targetDirectory &&
+      params.commandVariables.targetDirectory &&
     cloneAllAdmissionIdsEqual(
-      params.mutationVariables.listingAdmissionId,
+      params.commandVariables.listingAdmissionId,
       params.publishedInput.admissionId,
     )
   )
 }
 
 export function buildCloneAllWorkflowInput(params: {
-  readonly variables: CloneAllMutationVariables
+  readonly variables: CloneAllCommandVariables
   readonly publishedInput: CloneAllPublishedListingInput | null
   readonly listResult: RepositoryListNamespaceResult | undefined
 }): RepositoryBulkCloneInput {

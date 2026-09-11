@@ -319,5 +319,3 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
 
   reset: () => set(initialState),
 }))
-
-export const selectCourseListLoaded = (state: UiState) => state.courseListLoaded

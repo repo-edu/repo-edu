@@ -1,9 +1,6 @@
-import type {
-  RepositoryCloneResult,
-  RepositoryListNamespaceResult,
-} from "@repo-edu/application-contract"
+import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
@@ -13,20 +10,17 @@ import { sessionQueryOptions } from "../../../../session/session-query.js"
 import { canAdmitSessionChange } from "../../../../session/session-reducer.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
-  executeCloneAllCommand,
-  executeRegisteredCloneAllCommand,
-} from "./clone-all-command.js"
-import {
-  type CloneAllMutationVariables,
+  type CloneAllCommandState,
+  type CloneAllCommandVariables,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   type CloneAllScheduler,
   cloneAllInputIsCurrent,
-  cloneAllMutationBelongsToCurrentCommand,
+  cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
-  createCloneAllMutationPolicy,
   createCloneAllSafeListingInput,
+  executeCloneAllCommand,
   formatCloneAllResult,
   selectCloneAllCanClone,
 } from "./clone-all-repositories.js"
@@ -129,13 +123,8 @@ export function useCloneAllRepositories({
     ),
   })
 
-  const cloneMutation = useMutation<
-    RepositoryCloneResult,
-    Error,
-    CloneAllMutationVariables
-  >({
-    ...createCloneAllMutationPolicy(),
-    mutationFn: executeRegisteredCloneAllCommand,
+  const [cloneCommand, setCloneCommand] = useState<CloneAllCommandState>({
+    status: "idle",
   })
 
   const canClone = selectCloneAllCanClone({
@@ -144,25 +133,24 @@ export function useCloneAllRepositories({
     queryIsPlaceholderData: listingQuery.isPlaceholderData,
     listResult: listingQuery.data,
     targetDirectory,
-    mutationIsPending: cloneMutation.isPending,
+    commandIsPending: cloneCommand.status === "pending",
   })
-  const mutationBelongsToCurrentCommand =
-    cloneAllMutationBelongsToCurrentCommand({
-      inputIsCurrent,
-      publishedInput: publishedListingInput,
-      currentTargetDirectory: targetDirectory,
-      mutationVariables: cloneMutation.variables,
-    })
-  const cloneError = cloneMutation.isError
-    ? getErrorMessage(cloneMutation.error)
-    : null
-  const resultSummary = cloneMutation.isSuccess
-    ? formatCloneAllResult(cloneMutation.data)
-    : null
+  const resultBelongsToCurrentCommand = cloneAllResultBelongsToCurrentCommand({
+    inputIsCurrent,
+    publishedInput: publishedListingInput,
+    currentTargetDirectory: targetDirectory,
+    commandVariables: cloneCommand.variables,
+  })
+  const cloneError =
+    cloneCommand.status === "error" ? getErrorMessage(cloneCommand.error) : null
+  const resultSummary =
+    cloneCommand.status === "success"
+      ? formatCloneAllResult(cloneCommand.data)
+      : null
 
   const handleBulkClone = () => {
     if (!canClone || publishedListingInput === null) return
-    const variables: CloneAllMutationVariables = {
+    const variables: CloneAllCommandVariables = {
       listingAdmissionId: publishedListingInput.admissionId,
       targetDirectory: targetDirectory.trim(),
     }
@@ -171,7 +159,7 @@ export function useCloneAllRepositories({
       queryClient,
       publishedListingInput,
       variables,
-      cloneMutation.mutateAsync,
+      setCloneCommand,
     ).catch(() => undefined)
   }
 
@@ -201,8 +189,8 @@ export function useCloneAllRepositories({
       ? getErrorMessage(listingQuery.error)
       : null,
     isListing: listingQuery.isFetching,
-    isCloning: cloneMutation.isPending,
-    mutationBelongsToCurrentCommand,
+    isCloning: cloneCommand.status === "pending",
+    resultBelongsToCurrentCommand,
     hasConnection,
     hasNamespace,
     canClone,

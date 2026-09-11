@@ -105,7 +105,7 @@ export function CourseSwitcher() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    void refreshCourses()
+    runSessionOperationBestEffort(refreshCourses(), "course listing")
   }, [refreshCourses])
 
   const activeCourseName =
@@ -154,10 +154,7 @@ export function CourseSwitcher() {
       return
     }
     setOpen(false)
-    runSessionOperationBestEffort(
-      switchCourse(id, course.backing),
-      "course activation",
-    )
+    runSessionOperationBestEffort(switchCourse(id), "course activation")
   }
 
   const handleRecentFolderSelect = (path: string) => {

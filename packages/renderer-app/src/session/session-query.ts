@@ -8,6 +8,23 @@ import type {
   SessionOperationScope,
 } from "./session-operations.js"
 
+/** A caller that already owns a body awaits fetchQuery through publication.
+ * Keep cancelled query functions in that body until their host work settles. */
+export function scopedSessionQueryOptions<T>(
+  scope: SessionOperationScope,
+  fetch: (context: QueryFunctionContext) => Promise<T>,
+) {
+  return {
+    retry: false as const,
+    networkMode: "always" as const,
+    queryFn: (context: QueryFunctionContext) =>
+      scope.follow(async () => {
+        context.signal.throwIfAborted()
+        return await fetch(context)
+      }),
+  }
+}
+
 /** Query owns its cache; the session owns the complete fetch and publication
  * interval. Resolving the query function is only the hand-off to publication,
  * never the end of the session body. */

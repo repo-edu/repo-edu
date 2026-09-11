@@ -8,27 +8,19 @@ import type {
 import { defaultAppCredentials } from "@repo-edu/domain/settings"
 import {
   CancelledError,
-  MutationObserver,
   onlineManager,
   type QueryClient,
   QueryObserver,
 } from "@tanstack/react-query"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
-  abortCohortPrefetchRun,
-  createCohortPrefetchRun,
-} from "../analysis/analysis-query-coordinator.js"
-import {
-  executeCloneAllCommand,
-  executeRegisteredCloneAllCommand,
-} from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-command.js"
-import {
+  type CloneAllCommandState,
   type CloneAllPublishedListingInput,
   cloneAllInputIsCurrent,
   cloneAllListingQueryKeys,
   createCloneAllListingQueryPolicy,
   createCloneAllListingTransition,
-  createCloneAllMutationPolicy,
+  executeCloneAllCommand,
   selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
 import type { SessionController } from "../session/session-controller.js"
@@ -157,14 +149,14 @@ describe("session Query publication", () => {
         queryIsPlaceholderData: result.isPlaceholderData,
         listResult: result.data,
         targetDirectory: "/repos",
-        mutationIsPending: false,
+        commandIsPending: false,
       }),
       true,
     )
   })
 
   for (const online of [true, false]) {
-    it(`keeps the listing through command freeze and mutation settlement while online is ${online}`, async (t) => {
+    it(`keeps the listing through command freeze and result publication while online is ${online}`, async (t) => {
       const previousOnline = onlineManager.isOnline()
       t.after(() => onlineManager.setOnline(previousOnline))
       const captured: RepositoryBulkCloneInput[] = []
@@ -175,9 +167,13 @@ describe("session Query publication", () => {
         recordedRepositories: {},
         completedAt: "2026-09-07T00:00:00Z",
       }
+      const hostEntered = deferred<void>()
+      const hostRelease = deferred<void>()
       const { controller, client } = await session(async (id, input) => {
         assert.equal(id, "repo.bulkClone")
         captured.push(input as RepositoryBulkCloneInput)
+        hostEntered.resolve()
+        await hostRelease.promise
         return result
       })
       let publishedInput: CloneAllPublishedListingInput = {
@@ -262,35 +258,38 @@ describe("session Query publication", () => {
           queryIsPlaceholderData: listed.isPlaceholderData,
           listResult: listed.data,
           targetDirectory: variables.targetDirectory,
-          mutationIsPending: false,
+          commandIsPending: false,
         }),
         true,
       )
-      const settling = deferred<void>()
-      const settleRelease = deferred<void>()
-      const observer = new MutationObserver(client, {
-        ...createCloneAllMutationPolicy(),
-        mutationFn: executeRegisteredCloneAllCommand,
-        onSettled: async () => {
-          settling.resolve()
-          await settleRelease.promise
-        },
-      })
+      const states: CloneAllCommandState[] = []
       onlineManager.setOnline(online)
       const cloning = executeCloneAllCommand(
         controller.operations,
         client,
         publishedInput,
         variables,
-        (value) => observer.mutate(value),
+        (state) => {
+          assert.notEqual(
+            controller.getSnapshot().transactions.runningTurnId,
+            null,
+          )
+          states.push(state)
+        },
       )
       assert.equal(captured.length, 0)
       assert.equal(canStartQueries, false)
       assert.equal(pending.size, 0)
       release.resolve()
       await tick()
-      assert.equal(observer.getCurrentResult().isPaused, false)
-      await settling.promise
+      await hostEntered.promise
+      assert.equal(states.at(-1)?.status, "pending")
+      assert.equal(
+        await controller.operations.execute("repo.clone", async () => {
+          assert.fail("A competing command must be refused")
+        }),
+        undefined,
+      )
       assert.deepEqual(captured[0]?.repositories, [
         { name: "new", identifier: "new" },
       ])
@@ -300,11 +299,61 @@ describe("session Query publication", () => {
       })
       await tick()
       assert.equal(closed, false)
-      settleRelease.resolve()
+      hostRelease.resolve()
       await Promise.all([listing, cloning, closing])
-      assert.equal(observer.getCurrentResult().data, result)
+      assert.deepEqual(states.at(-1), {
+        status: "success",
+        variables,
+        data: result,
+      })
     })
   }
+
+  it("publishes clone failure inside the command body", async () => {
+    const failure = new Error("Clone failed")
+    const { controller, client } = await session(async () => {
+      throw failure
+    })
+    const publishedInput: CloneAllPublishedListingInput = {
+      admissionId: {
+        connectionId: "git",
+        namespace: "org",
+        filter: "",
+        includeArchived: false,
+        listingGeneration: 1,
+      },
+      credentials: defaultAppCredentials,
+    }
+    client.setQueryData(
+      cloneAllListingQueryKeys.admission(publishedInput.admissionId),
+      {
+        repositories: [{ name: "repo", identifier: "repo", archived: false }],
+      },
+    )
+    const variables = {
+      listingAdmissionId: publishedInput.admissionId,
+      targetDirectory: "/repos",
+    }
+    const states: CloneAllCommandState[] = []
+    await executeCloneAllCommand(
+      controller.operations,
+      client,
+      publishedInput,
+      variables,
+      (state) => {
+        assert.notEqual(
+          controller.getSnapshot().transactions.runningTurnId,
+          null,
+        )
+        states.push(state)
+      },
+    )
+    assert.deepEqual(states, [
+      { status: "pending", variables },
+      { status: "error", variables, error: failure },
+    ])
+    assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
+  })
 
   it("starts a dependent query after a predecessor publishes during a command freeze", async (t) => {
     const { controller, client } = await session()
@@ -429,53 +478,6 @@ describe("session Query publication", () => {
     assert.equal(client.getQueryState(key)?.fetchStatus, "idle")
     commandRelease.resolve()
     await command
-  })
-
-  it("restarts cancelled background work after release while keeping completed repos cached", async () => {
-    const { controller, client } = await session()
-    const entered = deferred<void>()
-    const hostRelease = deferred<void>()
-    const calls: string[] = []
-    const prefetch = async (
-      run: ReturnType<typeof createCohortPrefetchRun>,
-    ) => {
-      for (const repo of ["first", "second"]) {
-        const key = ["background", repo]
-        run.queryKeys.add(key)
-        await client.ensureQueryData({
-          queryKey: key,
-          ...sessionQueryOptions(
-            controller.operations,
-            "analysis.run",
-            async () => {
-              calls.push(repo)
-              if (repo === "second" && calls.length === 2) {
-                entered.resolve()
-                await hostRelease.promise
-              }
-              return repo
-            },
-          ),
-        })
-      }
-    }
-    const run = createCohortPrefetchRun()
-    const running = prefetch(run)
-    await entered.promise
-    let commandStarted = false
-    const command = controller.operations.execute("repo.clone", async () => {
-      commandStarted = true
-    })
-    abortCohortPrefetchRun(client, run)
-    await assert.rejects(running, CancelledError)
-    assert.equal(client.getQueryData(["background", "first"]), "first")
-    assert.equal(commandStarted, false)
-    hostRelease.resolve()
-    await command
-    await prefetch(createCohortPrefetchRun())
-    await controller.waitForIdle()
-    assert.deepEqual(calls, ["first", "second", "second"])
-    assert.equal(client.getQueryData(["background", "second"]), "second")
   })
 
   for (const stage of ["fetch", "follow-up"] as const) {
@@ -635,53 +637,4 @@ describe("session Query publication", () => {
     assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
     assert.equal(client.getQueryState(["error"])?.status, "error")
   })
-
-  for (const stage of ["mutation", "publication", "follow-up"] as const) {
-    it(`holds close and refuses a competing command during mutation ${stage}`, async () => {
-      const { controller, client } = await session()
-      const paused = deferred<void>()
-      const release = deferred<void>()
-      const order: string[] = []
-      const pause = async () => {
-        paused.resolve()
-        await release.promise
-      }
-      const mutation = new MutationObserver(client, {
-        mutationFn: async (run: () => Promise<string>) => await run(),
-        onSettled: async () => {
-          if (stage === "publication") await pause()
-        },
-      })
-      const running = controller.operations.execute(
-        "repo.bulkClone",
-        async (scope) => {
-          await mutation.mutate(async () => {
-            if (stage === "mutation") await pause()
-            return await scope.run("analysis.resolveSnapshotHead", {
-              repositoryAbsolutePath: "/repo",
-            })
-          })
-          assert.equal(mutation.getCurrentResult().status, "success")
-          order.push("published")
-          if (stage === "follow-up") await pause()
-          scope.publish(() => order.push("follow-up"))
-        },
-      )
-      await paused.promise
-      assert.equal(
-        await controller.operations.execute("repo.clone", async () => {
-          order.push("wrong")
-        }),
-        undefined,
-      )
-      const close = controller.requestClose(commitPreparation).then(() => {
-        order.push("close")
-      })
-      await tick()
-      assert.equal(order.includes("close"), false)
-      release.resolve()
-      await Promise.all([running, close])
-      assert.deepEqual(order, ["published", "follow-up", "close"])
-    })
-  }
 })
