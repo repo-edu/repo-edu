@@ -44,7 +44,6 @@ describe("course refresh submission pruning", () => {
       ),
       {
         surface: { kind: "course", courseId: "course-1" },
-        courseBacking: "repobee",
       },
     )
 
@@ -59,7 +58,6 @@ describe("course refresh submission pruning", () => {
       ),
       {
         surface: { kind: "course", courseId: "course-2" },
-        courseBacking: "lms",
       },
     )
   })

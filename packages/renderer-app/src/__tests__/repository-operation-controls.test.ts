@@ -389,6 +389,7 @@ describe("clone-all query ownership", () => {
     assert.equal(policy.refetchOnReconnect, false)
     assert.deepEqual(createCloneAllMutationPolicy(), {
       gcTime: cloneAllMutationGcTimeMs,
+      networkMode: "always",
       retry: false,
     })
     assert.ok(cloneAllMutationGcTimeMs > 0)

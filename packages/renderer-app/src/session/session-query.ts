@@ -1,4 +1,7 @@
-import type { QueryFunctionContext } from "@tanstack/react-query"
+import {
+  CancelledError,
+  type QueryFunctionContext,
+} from "@tanstack/react-query"
 import type { SessionQueryWorkflowId } from "./session-operation-inventory.js"
 import type {
   SessionOperationGateway,
@@ -22,10 +25,15 @@ export function sessionQueryOptions<T>(
     networkMode: "always" as const,
     queryFn: (context: QueryFunctionContext): Promise<T> => {
       const reservation = operations.reserve<void>(operation)
-      if (reservation === null)
-        return Promise.reject(
-          new Error("The session is not accepting queries."),
+      if (reservation === null) {
+        // Admission can close after the render that enabled this query.
+        // Revert the fetch so release can start it without a lasting error.
+        void context.client.cancelQueries(
+          { queryKey: context.queryKey, exact: true },
+          { revert: true },
         )
+        return Promise.reject(new CancelledError({ revert: true }))
+      }
 
       const { client, queryKey, signal } = context
       const cache = client.getQueryCache()

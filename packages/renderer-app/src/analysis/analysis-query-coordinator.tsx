@@ -37,7 +37,10 @@ import {
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import { sessionQueryOptions } from "../session/session-query.js"
-import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
+import {
+  analysisSourceKeyFromSurface,
+  canAdmitSessionChange,
+} from "../session/session-reducer.js"
 import {
   type AnalysisDiscoveryCommandOutcome,
   type AnalysisDiscoveryOutcome,
@@ -340,6 +343,7 @@ export function AnalysisCoordinatorProvider({
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
   const analysisContext = useAnalysisContext()
+  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeSourceParts = useMemo(
     () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
@@ -441,7 +445,7 @@ export function AnalysisCoordinatorProvider({
         )
   const discoveryQuery = useQuery({
     queryKey: discoveryQueryKey,
-    enabled: discoveryInput !== null,
+    enabled: canStartQueries && discoveryInput !== null,
     ...sessionQueryOptions(
       client,
       "analysis.discoverRepos",
@@ -615,6 +619,7 @@ export function AnalysisCoordinatorProvider({
 
   useEffect(() => {
     if (
+      !canStartQueries ||
       discoveryQuery.dataUpdatedAt === 0 ||
       analysisConfig === null ||
       discoveredRepoPaths.length === 0
@@ -652,6 +657,7 @@ export function AnalysisCoordinatorProvider({
     abortCohortPrefetch,
     analysisConcurrency.repoParallelism,
     analysisConfig,
+    canStartQueries,
     discoveredRepoPaths,
     discoveryQuery.dataUpdatedAt,
     prefetchRepoAnalysis,
@@ -667,7 +673,8 @@ export function AnalysisCoordinatorProvider({
         })
   const selectedSnapshotQuery = useQuery({
     queryKey: selectedSnapshotQueryKey,
-    enabled: selectedRepoPath !== null && analysisConfig !== null,
+    enabled:
+      canStartQueries && selectedRepoPath !== null && analysisConfig !== null,
     ...sessionQueryOptions(
       client,
       "analysis.resolveSnapshotHead",
@@ -736,7 +743,10 @@ export function AnalysisCoordinatorProvider({
       selectedAnalysisIdentity === null
         ? (["analysis", "result", "disabled"] as const)
         : analysisQueryKeys.result(selectedAnalysisIdentity),
-    enabled: selectedAnalysisIdentity !== null && analysisConfig !== null,
+    enabled:
+      canStartQueries &&
+      selectedAnalysisIdentity !== null &&
+      analysisConfig !== null,
     ...sessionQueryOptions(
       client,
       "analysis.run",
@@ -857,7 +867,10 @@ export function AnalysisCoordinatorProvider({
       selectedBlameIdentity === null
         ? (["analysis", "blame", "disabled"] as const)
         : analysisQueryKeys.blame(selectedBlameIdentity),
-    enabled: selectedBlameIdentity !== null && effectiveBlameConfig !== null,
+    enabled:
+      canStartQueries &&
+      selectedBlameIdentity !== null &&
+      effectiveBlameConfig !== null,
     ...sessionQueryOptions(
       client,
       "analysis.blame",

@@ -4,7 +4,6 @@ import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
   activeCourseId,
   deferred,
@@ -235,58 +234,6 @@ describe("SessionController activation", () => {
     assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(controller.getSnapshot().courseLoadStatus.state, "loaded")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
-
-    controller.dispose()
-  })
-
-  it("recovers a missing active course without flushing it", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-b",
-        backing: "lms",
-        displayName: "Course B",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
-    const savedCourses: PersistedCourse[] = []
-    const controller = startController({
-      workflowClient: workflowClient(async (workflowId, input) => {
-        if (workflowId === "settings.loadApp") {
-          return makeSettings({
-            activeSurface: { kind: "course", courseId: "course-a" },
-          }) as WorkflowResult<typeof workflowId>
-        }
-        if (workflowId === "course.load") {
-          const { courseId } = input as { courseId: string }
-          return makeCourse(courseId) as WorkflowResult<typeof workflowId>
-        }
-        if (workflowId === "course.save") {
-          savedCourses.push(input as PersistedCourse)
-          throw new Error("missing course should not be flushed")
-        }
-        if (workflowId === "settings.savePreferences") {
-          return undefined as WorkflowResult<typeof workflowId>
-        }
-        throw new Error(`Unexpected workflow ${workflowId}`)
-      }),
-    })
-    await waitForSnapshot(
-      controller,
-      (snapshot) => snapshot.bootstrap.status === "ready",
-    )
-
-    controller.setDisplayName("course-a", "Dirty missing course")
-    assert.equal(
-      await controller.recoverMissingActiveCourse({
-        kind: "course",
-        courseId: "course-b",
-      }),
-      true,
-    )
-
-    assert.equal(savedCourses.length, 0)
-    assert.equal(activeCourseId(controller.getSnapshot()), "course-b")
-    assert.equal(useCourseStore.getState().course?.id, "course-b")
 
     controller.dispose()
   })

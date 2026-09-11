@@ -10,6 +10,7 @@ import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import { sessionQueryOptions } from "../../../../session/session-query.js"
+import { canAdmitSessionChange } from "../../../../session/session-reducer.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   executeCloneAllCommand,
@@ -51,6 +52,7 @@ export function useCloneAllRepositories({
   const pickDirectory = useDirectoryPicker()
   const queryClient = useQueryClient()
   const credentials = useSessionControllerSelector(selectCredentials)
+  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
   const [filter, setFilter] = useState("")
   const [includeArchived, setIncludeArchived] = useState(false)
   const [targetDirectory, setTargetDirectory] = useState(initialTargetDirectory)
@@ -110,7 +112,7 @@ export function useCloneAllRepositories({
   )
   const listingQuery = useQuery({
     ...queryPolicy,
-    enabled: inputIsCurrent,
+    enabled: canStartQueries && inputIsCurrent,
     ...sessionQueryOptions(
       client,
       "repo.listNamespace",

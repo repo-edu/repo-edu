@@ -6,15 +6,29 @@ import type {
   WorkflowId,
 } from "@repo-edu/application-contract"
 import { defaultAppCredentials } from "@repo-edu/domain/settings"
-import { MutationObserver, type QueryClient } from "@tanstack/react-query"
+import {
+  CancelledError,
+  MutationObserver,
+  onlineManager,
+  type QueryClient,
+  QueryObserver,
+} from "@tanstack/react-query"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import {
+  abortCohortPrefetchRun,
+  createCohortPrefetchRun,
+} from "../analysis/analysis-query-coordinator.js"
 import {
   executeCloneAllCommand,
   executeRegisteredCloneAllCommand,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-command.js"
-import { cloneAllListingQueryKeys } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
+import {
+  cloneAllListingQueryKeys,
+  createCloneAllMutationPolicy,
+} from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
 import type { SessionController } from "../session/session-controller.js"
 import { sessionQueryOptions } from "../session/session-query.js"
+import { canAdmitSessionChange } from "../session/session-reducer.js"
 import {
   commitPreparation,
   deferred,
@@ -52,87 +66,269 @@ async function session(
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 describe("session Query publication", () => {
-  it("captures clone input from the preceding Query publication and retains mutation settlement", async () => {
-    const captured: RepositoryBulkCloneInput[] = []
-    const result: RepositoryCloneResult = {
-      repositoriesPlanned: 1,
-      repositoriesCloned: 1,
-      repositoriesFailed: 0,
-      recordedRepositories: {},
-      completedAt: "2026-09-07T00:00:00Z",
-    }
-    const { controller, client } = await session(async (id, input) => {
-      assert.equal(id, "repo.bulkClone")
-      captured.push(input as RepositoryBulkCloneInput)
-      return result
+  for (const online of [true, false]) {
+    it(`captures published clone input and retains mutation settlement while online is ${online}`, async (t) => {
+      const previousOnline = onlineManager.isOnline()
+      t.after(() => onlineManager.setOnline(previousOnline))
+      const captured: RepositoryBulkCloneInput[] = []
+      const result: RepositoryCloneResult = {
+        repositoriesPlanned: 1,
+        repositoriesCloned: 1,
+        repositoriesFailed: 0,
+        recordedRepositories: {},
+        completedAt: "2026-09-07T00:00:00Z",
+      }
+      const { controller, client } = await session(async (id, input) => {
+        assert.equal(id, "repo.bulkClone")
+        captured.push(input as RepositoryBulkCloneInput)
+        return result
+      })
+      const publishedInput = {
+        admissionId: {
+          connectionId: "git",
+          namespace: "org",
+          filter: "",
+          includeArchived: false,
+          listingGeneration: 1,
+        },
+        credentials: defaultAppCredentials,
+      }
+      const variables = {
+        listingAdmissionId: publishedInput.admissionId,
+        targetDirectory: "/repos",
+      }
+      const key = cloneAllListingQueryKeys.admission(publishedInput.admissionId)
+      client.setQueryData(key, {
+        repositories: [{ name: "old", identifier: "old", archived: false }],
+      })
+      const entered = deferred<void>()
+      const release = deferred<void>()
+      const listing = client.fetchQuery({
+        queryKey: key,
+        staleTime: 0,
+        ...sessionQueryOptions(
+          controller.operations,
+          "repo.listNamespace",
+          async () => {
+            entered.resolve()
+            await release.promise
+            return {
+              repositories: [
+                { name: "new", identifier: "new", archived: false },
+              ],
+            }
+          },
+        ),
+      })
+      await entered.promise
+      const settling = deferred<void>()
+      const settleRelease = deferred<void>()
+      const observer = new MutationObserver(client, {
+        ...createCloneAllMutationPolicy(),
+        mutationFn: executeRegisteredCloneAllCommand,
+        onSettled: async () => {
+          settling.resolve()
+          await settleRelease.promise
+        },
+      })
+      onlineManager.setOnline(online)
+      const cloning = executeCloneAllCommand(
+        controller.operations,
+        client,
+        publishedInput,
+        variables,
+        (value) => observer.mutate(value),
+      )
+      assert.equal(captured.length, 0)
+      release.resolve()
+      await tick()
+      assert.equal(observer.getCurrentResult().isPaused, false)
+      await settling.promise
+      assert.deepEqual(captured[0]?.repositories, [
+        { name: "new", identifier: "new" },
+      ])
+      let closed = false
+      const closing = controller.requestClose(commitPreparation).then(() => {
+        closed = true
+      })
+      await tick()
+      assert.equal(closed, false)
+      settleRelease.resolve()
+      await Promise.all([listing, cloning, closing])
+      assert.equal(observer.getCurrentResult().data, result)
     })
-    const publishedInput = {
-      admissionId: {
-        connectionId: "git",
-        namespace: "org",
-        filter: "",
-        includeArchived: false,
-        listingGeneration: 1,
-      },
-      credentials: defaultAppCredentials,
-    }
-    const variables = {
-      listingAdmissionId: publishedInput.admissionId,
-      targetDirectory: "/repos",
-    }
-    const key = cloneAllListingQueryKeys.admission(publishedInput.admissionId)
-    client.setQueryData(key, {
-      repositories: [{ name: "old", identifier: "old", archived: false }],
-    })
+  }
+
+  it("starts a dependent query after a predecessor publishes during a command freeze", async (t) => {
+    const { controller, client } = await session()
     const entered = deferred<void>()
-    const release = deferred<void>()
-    const listing = client.fetchQuery({
-      queryKey: key,
-      staleTime: 0,
+    const release = deferred<string>()
+    const commandRelease = deferred<void>()
+    const order: string[] = []
+    const predecessor = client.fetchQuery({
+      queryKey: ["predecessor"],
       ...sessionQueryOptions(
         controller.operations,
-        "repo.listNamespace",
+        "analysis.run",
         async () => {
           entered.resolve()
-          await release.promise
-          return {
-            repositories: [{ name: "new", identifier: "new", archived: false }],
-          }
+          return await release.promise
         },
       ),
     })
     await entered.promise
-    const settling = deferred<void>()
-    const settleRelease = deferred<void>()
-    const observer = new MutationObserver(client, {
-      mutationFn: executeRegisteredCloneAllCommand,
-      onSettled: async () => {
-        settling.resolve()
-        await settleRelease.promise
-      },
+    const dependentOptions = () => ({
+      queryKey: ["dependent"],
+      enabled:
+        canAdmitSessionChange(controller.getSnapshot()) &&
+        client.getQueryData(["predecessor"]) !== undefined,
+      ...sessionQueryOptions(
+        controller.operations,
+        "analysis.blame",
+        async () => {
+          order.push("dependent")
+          return "blame"
+        },
+      ),
     })
-    const cloning = executeCloneAllCommand(
-      controller.operations,
-      client,
-      publishedInput,
-      variables,
-      (value) => observer.mutate(value),
+    const dependent = new QueryObserver(client, dependentOptions())
+    t.after(dependent.subscribe(() => {}))
+    const update = () => dependent.setOptions(dependentOptions())
+    t.after(controller.subscribe(update))
+    t.after(
+      client.getQueryCache().subscribe((event) => {
+        if (event.type === "updated" && event.action.type === "success")
+          update()
+      }),
     )
-    assert.equal(captured.length, 0)
-    release.resolve()
-    await settling.promise
-    assert.deepEqual(captured[0]?.repositories, [
-      { name: "new", identifier: "new" },
-    ])
-    let closed = false
-    const closing = controller.requestClose(commitPreparation).then(() => {
-      closed = true
+    const command = controller.operations.execute("repo.clone", async () => {
+      order.push("command")
+      await commandRelease.promise
     })
+    release.resolve("analysis")
+    await predecessor
     await tick()
-    assert.equal(closed, false)
-    settleRelease.resolve()
-    await Promise.all([listing, cloning, closing])
-    assert.equal(observer.getCurrentResult().data, result)
+    assert.deepEqual(order, ["command"])
+    assert.equal(dependent.getCurrentResult().isError, false)
+    assert.equal(dependent.getCurrentResult().fetchStatus, "idle")
+    commandRelease.resolve()
+    await command
+    await controller.waitForIdle()
+    assert.deepEqual(order, ["command", "dependent"])
+    assert.equal(dependent.getCurrentResult().data, "blame")
+  })
+
+  it("cancels a query refused after eligibility was read and starts it on release", async (t) => {
+    const { controller, client } = await session()
+    const commandRelease = deferred<void>()
+    let calls = 0
+    const options = () => ({
+      queryKey: ["admission-race"],
+      enabled: canAdmitSessionChange(controller.getSnapshot()),
+      ...sessionQueryOptions(
+        controller.operations,
+        "analysis.run",
+        async () => {
+          calls++
+          return "result"
+        },
+      ),
+    })
+    const observer = new QueryObserver(client, options())
+    const command = controller.operations.execute("repo.clone", async () => {
+      await commandRelease.promise
+    })
+    // The observer still has the enabled value from before reservation.
+    t.after(observer.subscribe(() => {}))
+    const refused = client
+      .getQueryCache()
+      .find({ queryKey: ["admission-race"] })
+    assert.ok(refused?.promise)
+    await assert.rejects(refused.promise, CancelledError)
+    assert.equal(calls, 0)
+    assert.equal(observer.getCurrentResult().isError, false)
+    assert.equal(observer.getCurrentResult().fetchStatus, "idle")
+    assert.equal(observer.getCurrentResult().failureCount, 0)
+    observer.setOptions(options())
+    t.after(controller.subscribe(() => observer.setOptions(options())))
+    commandRelease.resolve()
+    await command
+    await controller.waitForIdle()
+    assert.equal(calls, 1)
+    assert.equal(observer.getCurrentResult().data, "result")
+  })
+
+  it("preserves cached data when a refetch is refused during a command", async () => {
+    const { controller, client } = await session()
+    const key = ["cached-admission-race"]
+    client.setQueryData(key, "cached")
+    const commandRelease = deferred<void>()
+    const command = controller.operations.execute("repo.clone", async () => {
+      await commandRelease.promise
+    })
+    const data = await client.fetchQuery({
+      queryKey: key,
+      staleTime: 0,
+      ...sessionQueryOptions(
+        controller.operations,
+        "analysis.run",
+        async () => {
+          assert.fail("Refused work must not start")
+        },
+      ),
+    })
+    assert.equal(data, "cached")
+    assert.equal(client.getQueryState(key)?.status, "success")
+    assert.equal(client.getQueryState(key)?.fetchStatus, "idle")
+    commandRelease.resolve()
+    await command
+  })
+
+  it("restarts cancelled background work after release while keeping completed repos cached", async () => {
+    const { controller, client } = await session()
+    const entered = deferred<void>()
+    const hostRelease = deferred<void>()
+    const calls: string[] = []
+    const prefetch = async (
+      run: ReturnType<typeof createCohortPrefetchRun>,
+    ) => {
+      for (const repo of ["first", "second"]) {
+        const key = ["background", repo]
+        run.queryKeys.add(key)
+        await client.ensureQueryData({
+          queryKey: key,
+          ...sessionQueryOptions(
+            controller.operations,
+            "analysis.run",
+            async () => {
+              calls.push(repo)
+              if (repo === "second" && calls.length === 2) {
+                entered.resolve()
+                await hostRelease.promise
+              }
+              return repo
+            },
+          ),
+        })
+      }
+    }
+    const run = createCohortPrefetchRun()
+    const running = prefetch(run)
+    await entered.promise
+    let commandStarted = false
+    const command = controller.operations.execute("repo.clone", async () => {
+      commandStarted = true
+    })
+    abortCohortPrefetchRun(client, run)
+    await assert.rejects(running, CancelledError)
+    assert.equal(client.getQueryData(["background", "first"]), "first")
+    assert.equal(commandStarted, false)
+    hostRelease.resolve()
+    await command
+    await prefetch(createCohortPrefetchRun())
+    await controller.waitForIdle()
+    assert.deepEqual(calls, ["first", "second", "second"])
+    assert.equal(client.getQueryData(["background", "second"]), "second")
   })
 
   for (const stage of ["fetch", "follow-up"] as const) {

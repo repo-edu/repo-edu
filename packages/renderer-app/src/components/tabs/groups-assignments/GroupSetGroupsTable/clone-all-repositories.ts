@@ -150,6 +150,7 @@ export function createCloneAllListingQueryPolicy(
 export function createCloneAllMutationPolicy() {
   return {
     gcTime: cloneAllMutationGcTimeMs,
+    networkMode: "always",
     retry: false,
   } as const
 }

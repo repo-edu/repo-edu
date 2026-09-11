@@ -36,7 +36,6 @@ import type {
 import {
   type AnalysisInputs,
   type CourseBacking,
-  type CourseSummary,
   courseHasRoster,
   createBlankCourse,
   type PersistedCourse,
@@ -352,50 +351,6 @@ export class SessionController extends CourseMutationController {
       state.setSearchFolder(path)
   }
 
-  async recoverMissingActiveCourse(
-    fallbackSurface: PersistedActiveSurface,
-  ): Promise<boolean> {
-    const missingCourseId = activeCourseIdFromSurface(
-      this.snapshot.settings.preferences.activeSurface,
-    )
-    if (
-      missingCourseId === null ||
-      useUiStore
-        .getState()
-        .courseList.some((course) => course.id === missingCourseId)
-    ) {
-      return await this.activateSurface(fallbackSurface)
-    }
-    const targetSurface = normalizeActiveSurface(fallbackSurface)
-    return await this.transactions.enqueue(
-      { kind: "enter", targetSurface, leavingCourseId: missingCourseId },
-      async (scope) => {
-        const previous = this.snapshot.courseLoadStatus
-        try {
-          const commit = await this.prepareDeletedCourseFallback(
-            scope,
-            targetSurface,
-          )
-          if (
-            !this.commitSurface(scope, commit, [], () =>
-              publishCourseRemoval(missingCourseId),
-            )
-          )
-            return false
-          return true
-        } catch (error) {
-          this.failCommand(
-            scope,
-            error,
-            "Could not recover missing course.",
-            previous,
-          )
-          return false
-        }
-      },
-    )
-  }
-
   setActiveTab(tab: ActiveTab): void {
     const backing = this.currentTabBacking()
     this.preference({
@@ -575,12 +530,6 @@ export class SessionController extends CourseMutationController {
         }
       },
     )
-  }
-
-  pruneLoadedSubmissionFoldersForCourses(
-    courses: readonly Pick<CourseSummary, "id" | "backing">[],
-  ): void {
-    this.preference({ type: "prune-submissions-for-courses", courses })
   }
 
   setLastUsedCourseBacking(backing: CourseBacking): void {
