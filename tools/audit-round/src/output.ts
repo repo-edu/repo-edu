@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { basename, join } from "node:path"
+import { format } from "date-fns"
 import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
 import {
   type Context,
@@ -32,7 +33,7 @@ export function roundFilePaths(input: RoundInput, date: Date) {
     input.scope === undefined
       ? "all"
       : `${input.scope.includes("-") ? "steps" : "step"}-${input.scope}`
-  const timestamp = date.toISOString().replace(/[:.]/g, "-")
+  const timestamp = format(date, "yyyy-MM-dd'T'HH-mm-ss-SSSxx")
   const base = join(
     input.repoRoot,
     `ROUND-TS-${basename(input.plan, ".md")}-${scope}-${input.auditor ?? "codex"}-${timestamp}-${randomUUID()}`,
@@ -72,7 +73,7 @@ export class RoundOutput {
     }
     try {
       const title = `Audit round of ${input.plan} ${input.scope ?? "all"}`
-      const implementation = `TypeScript runner; started ${date.toISOString()}`
+      const implementation = `TypeScript runner; started ${format(date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
       this.say(
         `${title}\n${implementation}\nLog: ${this.paths.log}\nTexts: ${this.paths.markdown}`,
       )
