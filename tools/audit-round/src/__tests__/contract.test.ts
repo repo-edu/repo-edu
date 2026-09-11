@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { decodeCodexUsage } from "../codex-usage.js"
 import { recordContracts } from "../contract.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
 
@@ -9,6 +10,19 @@ const terminal = { write: () => {}, status: () => {}, clear: () => {} }
 
 test("contract recorder validates both real boundaries before replacing only its fixtures", async (t) => {
   const f = await fixture(t)
+  const usage = (await recorded("codex-rollout.jsonl"))
+    .trimEnd()
+    .split("\n")
+    .map((line) => {
+      const event = JSON.parse(line)
+      if (event.type === "event_msg") {
+        event.payload.rate_limits = { plan_type: "unused-account-plan" }
+        event.payload.info.total_token_usage = { input_tokens: 999999 }
+        event.payload.info.last_token_usage.output_tokens = 123
+      }
+      return JSON.stringify(event)
+    })
+    .join("\n")
   await f.configure({
     assistants: {
       claude: { stream: await phaseStream("claude") },
@@ -16,7 +30,7 @@ test("contract recorder validates both real boundaries before replacing only its
         stream: await phaseStream("codex"),
         usage: {
           path: join(f.root, "rollout-test-session.jsonl"),
-          text: await recorded("codex-rollout.jsonl"),
+          text: `${usage}\n`,
         },
       },
     },
@@ -47,7 +61,14 @@ test("contract recorder validates both real boundaries before replacing only its
   )
   assert.doesNotMatch(
     await readFile(join(destination, "codex-rollout.jsonl"), "utf8"),
-    /instructions|cwd|sandbox_policy/,
+    /instructions|cwd|sandbox_policy|rate_limits|total_token_usage|output_tokens/,
+  )
+  assert.deepEqual(
+    (await readFile(join(destination, "codex-rollout.jsonl"), "utf8"))
+      .trimEnd()
+      .split("\n")
+      .flatMap((line) => decodeCodexUsage(JSON.parse(line))),
+    usage.split("\n").flatMap((line) => decodeCodexUsage(JSON.parse(line))),
   )
   const calls = await f.calls()
   assert.equal(calls.filter((call) => call.args[0] === "exec").length, 1)

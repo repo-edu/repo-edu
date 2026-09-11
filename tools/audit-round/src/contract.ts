@@ -104,7 +104,16 @@ async function recordUsage(
         const selected =
           item.type === "model"
             ? { type: "turn_context", payload: item.selection }
-            : { type: event.type, payload: event.payload }
+            : {
+                type: "event_msg",
+                payload: {
+                  type: "token_count",
+                  info: {
+                    last_token_usage: { input_tokens: item.tokens },
+                    model_context_window: item.window,
+                  },
+                },
+              }
         await appendFile(destination, `${JSON.stringify(selected)}\n`)
       }
     }

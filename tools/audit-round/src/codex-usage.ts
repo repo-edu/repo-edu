@@ -33,7 +33,9 @@ export async function findSessionFile(
   return undefined
 }
 
-export function decodeCodexUsage(record: unknown): Feedback[] {
+export function decodeCodexUsage(
+  record: unknown,
+): Extract<Feedback, { type: "model" | "context" }>[] {
   const event = eventSchema.parse(record)
   if (event.type === "turn_context") {
     return [{ type: "model", selection: selectionSchema.parse(event.payload) }]
@@ -92,25 +94,27 @@ export class CodexUsageReader {
     const size = (await this.file.stat()).size
     if (size < this.offset)
       throw new Error("Codex session file shrank during invocation")
-    const buffer = Buffer.alloc(64 * 1024)
-    while (this.offset < size) {
-      const { bytesRead } = await this.file.read(
-        buffer,
-        0,
-        Math.min(buffer.length, size - this.offset),
-        this.offset,
-      )
-      if (bytesRead === 0)
-        throw new Error("Codex session file ended before its measured size")
-      this.offset += bytesRead
-      this.tail += this.decoder.write(buffer.subarray(0, bytesRead))
-      let newline = this.tail.indexOf("\n")
-      while (newline !== -1) {
-        const line = this.tail.slice(0, newline)
-        this.tail = this.tail.slice(newline + 1)
-        for (const feedback of decodeCodexUsage(JSON.parse(line)))
-          await observe(feedback)
-        newline = this.tail.indexOf("\n")
+    if (this.offset < size) {
+      const buffer = Buffer.alloc(64 * 1024)
+      while (this.offset < size) {
+        const { bytesRead } = await this.file.read(
+          buffer,
+          0,
+          Math.min(buffer.length, size - this.offset),
+          this.offset,
+        )
+        if (bytesRead === 0)
+          throw new Error("Codex session file ended before its measured size")
+        this.offset += bytesRead
+        this.tail += this.decoder.write(buffer.subarray(0, bytesRead))
+        let newline = this.tail.indexOf("\n")
+        while (newline !== -1) {
+          const line = this.tail.slice(0, newline)
+          this.tail = this.tail.slice(newline + 1)
+          for (const feedback of decodeCodexUsage(JSON.parse(line)))
+            await observe(feedback)
+          newline = this.tail.indexOf("\n")
+        }
       }
     }
     if (final && (this.tail + this.decoder.end()).length > 0)
