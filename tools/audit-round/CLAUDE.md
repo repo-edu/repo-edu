@@ -15,6 +15,19 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   and phase output. They return only after accounting for the process, streams
   and required record writes. A failure retains the known session identity,
   including a resumed session whose new invocation reported no identity.
+- `assistant.ts` owns one invocation's session identity, final text and completion
+  evidence. Claude and Codex decoders validate the fields they consume.
+  `cli-process.ts` stops the child before unwinding a failed line consumer,
+  because Execa's iterator return awaits the child. It then awaits all readers
+  and the process. Process output is never accumulated by Execa.
+- `codex-usage.ts` reads the current session's appended records. Rebuttal starts
+  at the file's pre-invocation end. An incomplete record stays with the reader
+  until more bytes arrive; a final incomplete record fails the invocation.
+- `startup.ts` shares the existing `audit-round` cache dates with the Bash
+  runner. Both update attempts precede settings discovery. Claude control
+  requests and the short-lived Codex settings connection start no LLM turn.
+  `requests.ts` owns headless, interactive and recovery arguments, including
+  `--approve-for-me` on every Codex phase and resume command.
 - The output boundary owns terminal presentation and incremental run recording.
   `prepareHandover` records the handover and releases the terminal before
   `openSession` inherits it. Both functions must reject on failure.
@@ -38,5 +51,6 @@ operations. Keep assistant adapters independent of the product LLM adapters.
 ## Verification
 
 Run `pnpm check` and `pnpm test` from the workspace root. The package uses Node's
-test runner through `tsx`. Round tests use controlled assistant functions and
-make no live model calls.
+test runner through `tsx`. Round tests use controlled assistant functions;
+boundary tests use TypeScript child processes and independently owned recordings
+under `src/__tests__/fixtures`. Ordinary tests make no live model calls.
