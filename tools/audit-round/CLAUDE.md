@@ -33,8 +33,10 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   It holds only current phase timing and context observations. `run-files.ts`
   completes each required write before returning to the invocation; no complete
   transcript accumulates in memory. `terminal.ts` uses log-update for terminals
-  and plain text for redirected output. Tool details stay complete in the log;
-  assistant texts stay complete in Markdown. Only terminal tool lines shorten.
+  and plain text for redirected output. The log records each tool invocation
+  once, with shell wrappers removed and no event envelopes or result payloads.
+  Invocation lines stay complete in the log; assistant texts stay complete in
+  Markdown. Only terminal tool lines shorten.
   `prepareHandover` records the handover and releases the terminal before
   `openSession` inherits it. Both functions must reject on failure.
 - `command.ts` owns arguments, repository paths, startup and final reporting.

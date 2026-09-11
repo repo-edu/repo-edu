@@ -2,12 +2,14 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { Writable } from "node:stream"
 import { test } from "node:test"
+import { decodeClaude } from "../claude.js"
+import { decodeCodex } from "../codex.js"
 import { RoundOutput } from "../output.js"
 import { commandText } from "../output-format.js"
 import { createTerminal } from "../terminal.js"
 import { fixture } from "./helpers.js"
 
-test("output records incrementally, keeps complete detail and refreshes only while a phase runs", async (t) => {
+test("output records complete invocations incrementally and refreshes only while a phase runs", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10000 })
   const visible: string[] = []
@@ -44,21 +46,26 @@ test("output records incrementally, keeps complete detail and refreshes only whi
       "Full prompt\nMore prompt",
     )
   await start()
-  const tool = async (command: string) =>
-    output.phase.observe({
-      type: "tool",
-      name: "shell",
-      detail: { command },
-      command,
-      stage: "started",
-    })
+  const tool = async (command: string) => {
+    for (const event of decodeCodex({
+      type: "item.started",
+      item: {
+        type: "command_execution",
+        command,
+        aggregated_output: "",
+        exit_code: null,
+        status: "in_progress",
+      },
+    }))
+      if (event.type === "tool") await output.phase.observe(event)
+  }
   await tool("first command")
-  assert.match(visible.at(-1) as string, /--\s+--\s+--\s+shell first command/)
+  assert.match(visible.at(-1) as string, /--\s+--\s+--\s+first command/)
   await output.phase.observe({ type: "context", tokens: 26000, window: 100000 })
   await tool("/bin/zsh -lc 'printf audit-round-probe'")
   assert.match(
     visible.at(-1) as string,
-    /--\s+26k\s+26%\s+shell printf audit-round-probe/,
+    /--\s+26k\s+26%\s+printf audit-round-probe/,
   )
   await output.phase.observe({ type: "context", tokens: 26200, window: 100000 })
   await tool("second command")
@@ -87,7 +94,8 @@ test("output records incrementally, keeps complete detail and refreshes only whi
   await tool(long)
   assert.equal(visible.at(-1)?.length, 160)
   const log = await readFile(output.paths.log, "utf8")
-  assert.ok(log.includes(long))
+  assert.equal(log.includes(long), false)
+  assert.doesNotMatch(log, /tool started|aggregated_output|exit_code/)
   assert.ok(log.includes("x".repeat(400)))
   assert.match(log, /-18\.2k\s+8k\s+8%/)
   assert.match(log, /Full prompt\nMore prompt/)
@@ -105,6 +113,164 @@ test("output records incrementally, keeps complete detail and refreshes only whi
   await tool("new phase")
   assert.match(visible.at(-1) as string, /--\s+--\s+--/)
 })
+
+for (const assistant of ["claude", "codex"] as const) {
+  for (const verbose of [false, true]) {
+    test(`${assistant} records only invocation lines with verbose=${verbose}`, async (t) => {
+      const f = await fixture(t)
+      const visible: string[] = []
+      const output = new RoundOutput(
+        { repoRoot: f.root, plan: "example.md" },
+        {
+          verbose,
+          terminal: {
+            write: (text) => {
+              visible.push(text)
+            },
+            status: () => {},
+            clear: () => {},
+          },
+        },
+      )
+      t.after(() => output.close())
+      await output.phase.start(
+        {
+          phase: "audit",
+          assistant,
+          cwd: f.root,
+          ownerRoot: f.root,
+          arguments: ["example.md"],
+          sessionId: null,
+        },
+        "prompt",
+      )
+      const logBefore = await readFile(output.paths.log, "utf8")
+      const visibleBefore = visible.length
+      const records: unknown[] = []
+      const expected: string[] = []
+      if (assistant === "codex") {
+        for (const [item, invocation] of [
+          [
+            {
+              type: "command_execution",
+              command: "/bin/zsh -lc 'cat .agents/skills/audit/SKILL.md'",
+              aggregated_output: "result-payload",
+              exit_code: 0,
+              status: "completed",
+            },
+            "cat .agents/skills/audit/SKILL.md",
+          ],
+          [
+            {
+              type: "mcp_tool_call",
+              server: "docs",
+              tool: "lookup",
+              arguments: { topic: "audit" },
+              result: "result-payload",
+            },
+            'docs.lookup {"topic":"audit"}',
+          ],
+          [{ type: "web_search", query: "audit\nround" }, "web audit round"],
+          [
+            {
+              type: "web_search",
+              action: { type: "open", url: "https://example.com" },
+            },
+            'web {"type":"open","url":"https://example.com"}',
+          ],
+          [
+            {
+              type: "file_change",
+              changes: [
+                { kind: "update", path: "a.ts" },
+                { kind: "add", path: "b.ts" },
+              ],
+            },
+            "files update a.ts, add b.ts",
+          ],
+        ] as const) {
+          for (const type of ["item.started", "item.updated", "item.completed"])
+            records.push({ type, item: { id: "envelope-id", ...item } })
+          expected.push(invocation)
+        }
+      } else {
+        const tools = [
+          [
+            "Bash",
+            {
+              command: "cat .agents/skills/audit/SKILL.md",
+              description: "hidden description",
+            },
+            "Bash cat .agents/skills/audit/SKILL.md",
+          ],
+          ["Read", { file_path: "/tmp/a.ts", offset: 5 }, "Read /tmp/a.ts"],
+          ["Glob", { path: "/tmp", pattern: "*.ts" }, "Glob /tmp"],
+          [
+            "Grep",
+            { pattern: "audit", description: "hidden description" },
+            "Grep audit",
+          ],
+          ["Skill", { skill: "audit" }, "Skill audit"],
+          [
+            "Task",
+            { description: "inspect\tthe\nrunner" },
+            "Task inspect the runner",
+          ],
+          ["Other", { topic: "audit" }, 'Other {"topic":"audit"}'],
+        ] as const
+        records.push(
+          {
+            type: "assistant",
+            message: {
+              usage: {
+                input_tokens: 0,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+              },
+              content: tools.map(([name, input]) => ({
+                type: "tool_use",
+                name,
+                input,
+              })),
+            },
+          },
+          {
+            type: "user",
+            message: {
+              content: [
+                {
+                  type: "tool_result",
+                  tool_use_id: "envelope-id",
+                  content: "result-payload",
+                },
+              ],
+            },
+          },
+        )
+        expected.push(...tools.map(([, , invocation]) => invocation))
+      }
+      const decode = assistant === "codex" ? decodeCodex : decodeClaude
+      for (const record of records)
+        for (const event of decode(record))
+          if (event.type === "tool") await output.phase.observe(event)
+      const invocations = (text: string) =>
+        text
+          .trim()
+          .split("\n")
+          .map((line) => line.trimStart().replace(/^--\s+--\s+--\s+/, ""))
+      const log = (await readFile(output.paths.log, "utf8")).slice(
+        logBefore.length,
+      )
+      assert.deepEqual(invocations(log), expected)
+      if (verbose)
+        assert.deepEqual(
+          invocations(visible.slice(visibleBefore).join("\n")),
+          expected,
+        )
+      else assert.equal(visible.length, visibleBefore)
+    })
+  }
+}
 
 test("Claude measurements omit percentages when the window is unknown", async (t) => {
   const f = await fixture(t)

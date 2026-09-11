@@ -169,13 +169,9 @@ export class RoundOutput {
         this.say(`${prefix} ${feedback.text}`)
         break
       case "tool": {
-        // The durable detail is complete, including tool results and original commands.
-        this.files.log(
-          `${prefix} tool ${feedback.stage}: ${JSON.stringify(feedback)}`,
-        )
-        if (feedback.stage === "started" || feedback.name === "files") {
+        if (feedback.invocation !== null) {
           const line = toolText(
-            feedback,
+            feedback.invocation,
             active.context,
             contextChangeForTool(active),
           )

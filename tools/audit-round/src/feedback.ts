@@ -19,9 +19,9 @@ export type Feedback =
   | { readonly type: "diagnostic"; readonly text: string }
   | {
       readonly type: "tool"
-      readonly name: string
+      /** Present once per invocation, including completed file changes. */
+      readonly invocation: string | null
       readonly detail: unknown
-      readonly command?: string
       readonly stage: "started" | "completed"
     }
 

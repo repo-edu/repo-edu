@@ -7,6 +7,7 @@ import {
   selectionSchema,
   tokenSchema,
 } from "./feedback.js"
+import { toolInputText } from "./output-format.js"
 import { claudeArguments, claudeSettingsRequest } from "./requests.js"
 
 const settingsResponse = z.object({
@@ -78,14 +79,12 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
               input: z.record(z.string(), z.unknown()),
             })
             .parse(block)
+          if (tool.name === "Bash")
+            z.object({ command: z.string() }).parse(tool.input)
           feedback.push({
             type: "tool",
-            name: tool.name,
+            invocation: `${tool.name} ${toolInputText(tool.input)}`,
             detail: tool.input,
-            command:
-              tool.name === "Bash"
-                ? z.object({ command: z.string() }).parse(tool.input).command
-                : undefined,
             stage: "started",
           })
         }
@@ -111,7 +110,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
             .parse(block)
           return {
             type: "tool",
-            name: result.tool_use_id,
+            invocation: null,
             detail: result,
             stage: "completed",
           }

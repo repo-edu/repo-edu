@@ -232,7 +232,9 @@ for (const target of ["log", "markdown"] as const) {
           [target]: (text: string) => {
             if (
               text.includes(
-                target === "log" ? "tool started:" : "Complete audit text.",
+                target === "log"
+                  ? "printf audit-round-probe"
+                  : "Complete audit text.",
               )
             )
               throw new Error(`Required ${target} write failed`)
@@ -261,7 +263,7 @@ test("an unavailable writer still prints the known session to the emergency chan
         return {
           ...files,
           log(text) {
-            if (text.includes("tool started:")) failed = true
+            if (text.includes("printf audit-round-probe")) failed = true
             if (failed) throw new Error("Disk full")
             files.log(text)
           },

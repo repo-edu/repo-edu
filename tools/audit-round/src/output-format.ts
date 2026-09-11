@@ -52,7 +52,7 @@ export function commandText(command: string): string {
 }
 
 export function toolText(
-  tool: Extract<Feedback, { type: "tool" }>,
+  invocation: string,
   context: Context | null,
   change: string,
 ): string {
@@ -61,9 +61,21 @@ export function toolText(
     context?.window == null
       ? "--"
       : `${Math.round((context.tokens / context.window) * 100)}%`
-  const detail =
-    tool.command === undefined
-      ? JSON.stringify(tool.detail)
-      : commandText(tool.command)
-  return `${change.padStart(9)}  ${total.padStart(7)}  ${percent.padStart(4)}  ${tool.name} ${detail}`
+  return `${change.padStart(9)}  ${total.padStart(7)}  ${percent.padStart(4)}  ${invocation.replace(/[\r\n\t]/g, " ")}`
+}
+
+export function toolInputText(input: Record<string, unknown>): string {
+  for (const key of [
+    "command",
+    "file_path",
+    "path",
+    "pattern",
+    "skill",
+    "description",
+  ]) {
+    const value = input[key]
+    if (typeof value === "string")
+      return key === "command" ? commandText(value) : value
+  }
+  return JSON.stringify(input)
 }

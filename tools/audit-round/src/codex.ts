@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { type AssistantEvent, eventSchema, tokenSchema } from "./feedback.js"
+import { commandText } from "./output-format.js"
 
 export function decodeCodex(record: unknown): AssistantEvent[] {
   const event = eventSchema.parse(record)
@@ -60,9 +61,8 @@ function decodeItem(eventType: string, value: unknown): AssistantEvent[] {
       return [
         {
           type: "tool",
-          name: "shell",
+          invocation: stage === "started" ? commandText(command.command) : null,
           detail: command,
-          command: command.command,
           stage,
         },
       ]
@@ -80,27 +80,51 @@ function decodeItem(eventType: string, value: unknown): AssistantEvent[] {
       return [
         {
           type: "tool",
-          name: `${tool.server}.${tool.tool}`,
+          invocation:
+            stage === "started"
+              ? `${tool.server}.${tool.tool} ${JSON.stringify(tool.arguments)}`
+              : null,
           detail: item,
           stage,
         },
       ]
     }
     case "web_search": {
-      z.object({
-        query: z.string().optional(),
-        action: z.unknown().optional(),
-      }).parse(item)
-      if (item.query === undefined && item.action === undefined)
+      const search = z
+        .object({
+          query: z.string().optional(),
+          action: z.unknown().optional(),
+        })
+        .parse(item)
+      if (search.query === undefined && search.action === undefined)
         throw new Error("Codex search has no query or action")
-      return [{ type: "tool", name: "web", detail: item, stage }]
+      return [
+        {
+          type: "tool",
+          invocation:
+            stage === "started"
+              ? `web ${search.query ?? JSON.stringify(search.action)}`
+              : null,
+          detail: item,
+          stage,
+        },
+      ]
     }
     case "file_change": {
       if (stage !== "completed") return []
-      z.object({
-        changes: z.array(z.object({ kind: z.string(), path: z.string() })),
-      }).parse(item)
-      return [{ type: "tool", name: "files", detail: item, stage }]
+      const { changes } = z
+        .object({
+          changes: z.array(z.object({ kind: z.string(), path: z.string() })),
+        })
+        .parse(item)
+      return [
+        {
+          type: "tool",
+          invocation: `files ${changes.map(({ kind, path }) => `${kind} ${path}`).join(", ")}`,
+          detail: item,
+          stage,
+        },
+      ]
     }
     default:
       return []
