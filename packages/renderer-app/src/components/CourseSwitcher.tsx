@@ -56,6 +56,8 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
+import { useToastStore } from "../stores/toast-store.js"
+import { getErrorMessage } from "../utils/error-message.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -80,6 +82,7 @@ function folderParent(path: string): string {
 
 export function CourseSwitcher() {
   const controller = useSessionController()
+  const addToast = useToastStore((state) => state.addToast)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const activeFolderPath =
@@ -171,18 +174,22 @@ export function CourseSwitcher() {
 
   const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
     await controller.operations.execute("pickDirectory", async (scope) => {
-      const dir = await scope.direct("pickDirectory", () =>
-        rendererHost.pickDirectory({
-          title: "Open student submission folder",
-        }),
-      )
-      if (!dir) return
-      scope.publish(() => setOpen(false))
-      await scope.activateSurface({
-        kind: "submission",
-        path: dir,
-        courseId: course.id,
-      })
+      try {
+        const dir = await scope.direct("pickDirectory", () =>
+          rendererHost.pickDirectory({
+            title: "Open student submission folder",
+          }),
+        )
+        if (!dir) return
+        scope.publish(() => setOpen(false))
+        await scope.activateSurface({
+          kind: "submission",
+          path: dir,
+          courseId: course.id,
+        })
+      } catch (error) {
+        addToast(getErrorMessage(error), { tone: "error" })
+      }
     })
   }
 

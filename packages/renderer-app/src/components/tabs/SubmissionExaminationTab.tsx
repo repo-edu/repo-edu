@@ -139,15 +139,6 @@ export function SubmissionExaminationTab() {
   }
 
   const source = sourceViewModel.visiblePrepared.source
-  if (source === null) {
-    return (
-      <SubmissionExaminationShell
-        source={null}
-        sidebarContent={sourceViewModel.sidebarContent}
-        emptyMessage={sourceViewModel.placeholderMessage}
-      />
-    )
-  }
   return (
     <SubmissionExaminationShell
       source={source}

@@ -33,6 +33,7 @@ import {
 import type { ExaminationPreferencePersistenceEffect } from "../../../stores/examination-store-types.js"
 import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
+import { getErrorMessage } from "../../../utils/error-message.js"
 import {
   toAvailableArchiveEntry,
   toExaminationEntry,
@@ -1107,12 +1108,4 @@ function createUuid(): string {
   return (
     globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)
   )
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message: unknown }).message)
-  }
-  return String(error)
 }

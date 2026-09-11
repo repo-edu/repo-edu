@@ -258,10 +258,11 @@ describe("examination engine", () => {
   }
 
   for (const action of ["importArchive", "exportArchive"] as const) {
-    for (const outcome of ["failure", "cancel"] as const) {
+    for (const outcome of ["failure", "empty-error", "cancel"] as const) {
       it(`handles ${action} picker ${outcome} inside the command`, async (t) => {
         const pick = async () => {
           if (outcome === "failure") throw new Error("Picker unavailable")
+          if (outcome === "empty-error") throw new Error("")
           return null
         }
         let calls = 0
@@ -282,7 +283,7 @@ describe("examination engine", () => {
             ? []
             : [
                 {
-                  message: `${action === "importArchive" ? "Import" : "Export"} failed: Picker unavailable`,
+                  message: `${action === "importArchive" ? "Import" : "Export"} failed: ${outcome === "empty-error" ? "An unexpected error occurred." : "Picker unavailable"}`,
                   tone: "error",
                 },
               ],
@@ -291,4 +292,24 @@ describe("examination engine", () => {
       })
     }
   }
+
+  it("gives generation failures with an empty message a readable reason", async (t) => {
+    const { controller, commands } = await harness(async (id) => {
+      assert.equal(id, "examination.generateQuestions")
+      throw new Error("")
+    })
+    t.after(() => controller.dispose())
+
+    commands.generate()
+    await controller.waitForIdle()
+
+    const state = useExaminationStore.getState()
+    const session = state.sourceSessions.get(sourceSessionKey)
+    assert.ok(session)
+    assert.equal(session.pendingGenerationRequestId, null)
+    assert.deepEqual(
+      [...state.entriesByKey.values()].map((entry) => entry.errorMessage),
+      ["An unexpected error occurred."],
+    )
+  })
 })

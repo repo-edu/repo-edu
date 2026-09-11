@@ -32,6 +32,8 @@ import {
   selectSelectedFilesForScope,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
+import { useToastStore } from "../../../stores/toast-store.js"
+import { getErrorMessage } from "../../../utils/error-message.js"
 import {
   type AnalysisSidebarFileSortMode,
   AnalysisSidebarFilesSection,
@@ -67,6 +69,7 @@ function serializeSidebarSettings(
 
 export function AnalysisSidebar() {
   const controller = useSessionController()
+  const addToast = useToastStore((state) => state.addToast)
   const {
     runRepoDiscovery,
     cancelDiscovery,
@@ -328,27 +331,32 @@ export function AnalysisSidebar() {
   const handleBrowseSearchFolder = useCallback(async () => {
     setBrowseTooltipKey((k) => k + 1)
     await controller.operations.execute("pickDirectory", async (scope) => {
-      const dir = await scope.direct("pickDirectory", () =>
-        rendererHost.pickDirectory({
-          title: "Open repository search folder",
-        }),
-      )
-      if (!dir) return
-      scope.publish(() => {
-        selectRepository(null)
-        setSections((prev) => ({ ...prev, repositories: true }))
-      })
-      if (analysisContext.kind === "folder") {
-        await scope.activateSurface({ kind: "folder", path: dir })
-        return
-      }
-      if (analysisContext.course)
-        scope.mutateCourse(analysisContext.course.id, (actions) =>
-          actions.setSearchFolder(dir),
+      try {
+        const dir = await scope.direct("pickDirectory", () =>
+          rendererHost.pickDirectory({
+            title: "Open repository search folder",
+          }),
         )
-      scope.publish(() => runRepoDiscovery(dir))
+        if (!dir) return
+        scope.publish(() => {
+          selectRepository(null)
+          setSections((prev) => ({ ...prev, repositories: true }))
+        })
+        if (analysisContext.kind === "folder") {
+          await scope.activateSurface({ kind: "folder", path: dir })
+          return
+        }
+        if (analysisContext.course)
+          scope.mutateCourse(analysisContext.course.id, (actions) =>
+            actions.setSearchFolder(dir),
+          )
+        scope.publish(() => runRepoDiscovery(dir))
+      } catch (error) {
+        addToast(getErrorMessage(error), { tone: "error" })
+      }
     })
   }, [
+    addToast,
     analysisContext,
     controller,
     rendererHost,

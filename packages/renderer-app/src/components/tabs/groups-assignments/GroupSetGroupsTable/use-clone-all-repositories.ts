@@ -10,6 +10,7 @@ import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import { sessionQueryOptions } from "../../../../session/session-query.js"
+import { useToastStore } from "../../../../stores/toast-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   executeCloneAllCommand,
@@ -49,6 +50,7 @@ export function useCloneAllRepositories({
 }: UseCloneAllRepositoriesParams) {
   const client = useWorkflowClient()
   const rendererHost = useRendererHost()
+  const addToast = useToastStore((state) => state.addToast)
   const queryClient = useQueryClient()
   const credentials = useSessionControllerSelector(selectCredentials)
   const [filter, setFilter] = useState("")
@@ -193,12 +195,16 @@ export function useCloneAllRepositories({
     },
     browseTargetDirectory: async () => {
       await client.execute("pickDirectory", async (scope) => {
-        const directory = await scope.direct("pickDirectory", () =>
-          rendererHost.pickDirectory({
-            title: "Select clone target folder",
-          }),
-        )
-        if (directory) scope.publish(() => setTargetDirectory(directory))
+        try {
+          const directory = await scope.direct("pickDirectory", () =>
+            rendererHost.pickDirectory({
+              title: "Select clone target folder",
+            }),
+          )
+          if (directory) scope.publish(() => setTargetDirectory(directory))
+        } catch (error) {
+          addToast(getErrorMessage(error), { tone: "error" })
+        }
       })
     },
     listResult: listingQuery.data ?? null,

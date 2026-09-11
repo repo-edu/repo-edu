@@ -120,7 +120,7 @@ export function GitConnectionsPane() {
     if (urlError) {
       setEditorStatus("error")
       setEditorError(urlError)
-      return { status: "error" as const, error: urlError }
+      return
     }
 
     setEditorStatus("verifying")
@@ -137,17 +137,15 @@ export function GitConnectionsPane() {
       )
       if (result.verified) {
         setEditorStatus("connected")
-        return { status: "connected" as const, error: null }
+        return
       }
 
       setEditorStatus("error")
       setEditorError(VERIFY_FAILED_MESSAGE)
-      return { status: "error" as const, error: VERIFY_FAILED_MESSAGE }
     } catch (cause) {
       const message = getErrorMessage(cause)
       setEditorStatus("error")
       setEditorError(message)
-      return { status: "error" as const, error: message }
     }
   }
 

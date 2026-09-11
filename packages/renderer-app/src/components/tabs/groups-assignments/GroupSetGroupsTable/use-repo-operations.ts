@@ -349,19 +349,25 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     browseTemplateLocalPath: async () => {
       if (courseId === null) return
       await workflowClient.execute("pickDirectory", async (scope) => {
-        const directory = await scope.direct("pickDirectory", () =>
-          rendererHost.pickDirectory({
-            title: "Select template repository",
-          }),
-        )
-        if (directory)
-          scope.mutateCourse(courseId, (actions) =>
-            actions.setRepositoryTemplate({
-              kind: "local",
-              path: directory,
-              visibility: templateVisibility,
+        try {
+          const directory = await scope.direct("pickDirectory", () =>
+            rendererHost.pickDirectory({
+              title: "Select template repository",
             }),
           )
+          if (directory) {
+            scope.mutateCourse(courseId, (actions) =>
+              actions.setRepositoryTemplate({
+                kind: "local",
+                path: directory,
+                visibility: templateVisibility,
+              }),
+            )
+            setOperationError(null)
+          }
+        } catch (error) {
+          setOperationError(getErrorMessage(error))
+        }
       })
     },
 
