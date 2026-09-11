@@ -10,8 +10,8 @@ import {
 } from "@repo-edu/ui"
 import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
-import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
+import { useUserFilePicker } from "../../hooks/use-picker.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -23,7 +23,7 @@ export function ImportStudentsFromFileDialog() {
   )
 
   const course = useCourseStore((state) => state.course)
-  const rendererHost = useRendererHost()
+  const pickUserFile = useUserFilePicker()
   const workflowClient = useWorkflowClient()
 
   const [fileName, setFileName] = useState("")
@@ -38,22 +38,17 @@ export function ImportStudentsFromFileDialog() {
   const [error, setError] = useState<string | null>(null)
 
   const handleBrowse = async () => {
-    await workflowClient.execute("pickUserFile", async (scope) => {
-      try {
-        const ref = await scope.direct("pickUserFile", () =>
-          rendererHost.pickUserFile({
-            title: "Select file to import",
-            acceptFormats: ["csv", "xlsx"],
-          }),
-        )
-        if (ref) {
-          setFileRef(ref)
-          setFileName(ref.displayName)
-        }
-      } catch (err) {
-        setError(getErrorMessage(err))
-      }
-    })
+    await pickUserFile(
+      {
+        title: "Select file to import",
+        acceptFormats: ["csv", "xlsx"],
+        report: setError,
+      },
+      (ref) => {
+        setFileRef(ref)
+        setFileName(ref.displayName)
+      },
+    )
   }
 
   const handleImport = async () => {

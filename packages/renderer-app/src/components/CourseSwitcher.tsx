@@ -43,8 +43,8 @@ import {
   useMemo,
   useState,
 } from "react"
-import { useRendererHost } from "../contexts/renderer-host.js"
 import { useCourses } from "../hooks/use-courses.js"
+import { useDirectoryPicker } from "../hooks/use-picker.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -56,8 +56,6 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
-import { useToastStore } from "../stores/toast-store.js"
-import { getErrorMessage } from "../utils/error-message.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -82,7 +80,6 @@ function folderParent(path: string): string {
 
 export function CourseSwitcher() {
   const controller = useSessionController()
-  const addToast = useToastStore((state) => state.addToast)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const activeFolderPath =
@@ -96,7 +93,7 @@ export function CourseSwitcher() {
   const recentSubmissionFolders = useSessionControllerSelector(
     selectRecentSubmissionFolders,
   )
-  const rendererHost = useRendererHost()
+  const pickDirectory = useDirectoryPicker()
   const {
     courses,
     refresh: refreshCourses,
@@ -173,24 +170,17 @@ export function CourseSwitcher() {
   }
 
   const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
-    await controller.operations.execute("pickDirectory", async (scope) => {
-      try {
-        const dir = await scope.direct("pickDirectory", () =>
-          rendererHost.pickDirectory({
-            title: "Open student submission folder",
-          }),
-        )
-        if (!dir) return
+    await pickDirectory(
+      { title: "Open student submission folder" },
+      async (directory, scope) => {
         scope.publish(() => setOpen(false))
         await scope.activateSurface({
           kind: "submission",
-          path: dir,
+          path: directory,
           courseId: course.id,
         })
-      } catch (error) {
-        addToast(getErrorMessage(error), { tone: "error" })
-      }
-    })
+      },
+    )
   }
 
   const handleRecentSubmissionSelect = (recent: SubmissionFolderRecent) => {

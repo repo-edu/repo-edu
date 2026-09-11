@@ -5,12 +5,11 @@ import type {
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
-import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
+import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import { sessionQueryOptions } from "../../../../session/session-query.js"
-import { useToastStore } from "../../../../stores/toast-store.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   executeCloneAllCommand,
@@ -49,8 +48,7 @@ export function useCloneAllRepositories({
   initialTargetDirectory,
 }: UseCloneAllRepositoriesParams) {
   const client = useWorkflowClient()
-  const rendererHost = useRendererHost()
-  const addToast = useToastStore((state) => state.addToast)
+  const pickDirectory = useDirectoryPicker()
   const queryClient = useQueryClient()
   const credentials = useSessionControllerSelector(selectCredentials)
   const [filter, setFilter] = useState("")
@@ -194,18 +192,12 @@ export function useCloneAllRepositories({
       client.change(() => setTargetDirectory(value))
     },
     browseTargetDirectory: async () => {
-      await client.execute("pickDirectory", async (scope) => {
-        try {
-          const directory = await scope.direct("pickDirectory", () =>
-            rendererHost.pickDirectory({
-              title: "Select clone target folder",
-            }),
-          )
-          if (directory) scope.publish(() => setTargetDirectory(directory))
-        } catch (error) {
-          addToast(getErrorMessage(error), { tone: "error" })
-        }
-      })
+      await pickDirectory(
+        { title: "Select clone target folder" },
+        (directory, scope) => {
+          scope.publish(() => setTargetDirectory(directory))
+        },
+      )
     },
     listResult: listingQuery.data ?? null,
     listError: listingQuery.isError

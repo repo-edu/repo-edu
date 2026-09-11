@@ -11,8 +11,8 @@ import {
 } from "@repo-edu/ui"
 import { Folder, Loader2 } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
-import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
+import { useUserFilePicker } from "../../hooks/use-picker.js"
 import { selectCredentials } from "../../session/selectors.js"
 import { useSessionControllerSelector } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
@@ -24,7 +24,7 @@ export function ImportGitUsernamesDialog() {
   const setOpen = useUiStore((state) => state.setImportGitUsernamesDialogOpen)
   const course = useCourseStore((state) => state.course)
   const credentials = useSessionControllerSelector(selectCredentials)
-  const rendererHost = useRendererHost()
+  const pickUserFile = useUserFilePicker()
   const workflowClient = useWorkflowClient()
 
   const [fileName, setFileName] = useState("")
@@ -42,23 +42,18 @@ export function ImportGitUsernamesDialog() {
   const hasStudents = hasRoster && (course?.roster.students.length ?? 0) > 0
 
   const handleBrowse = async () => {
-    await workflowClient.execute("pickUserFile", async (scope) => {
-      try {
-        const file = await scope.direct("pickUserFile", () =>
-          rendererHost.pickUserFile({
-            title: "Select Git username CSV",
-            acceptFormats: ["csv"],
-          }),
-        )
-        if (!file) return
+    await pickUserFile(
+      {
+        title: "Select Git username CSV",
+        acceptFormats: ["csv"],
+        report: setError,
+      },
+      (file) => {
         setFileRef(file)
         setFileName(file.displayName)
         setError(null)
-      } catch (cause) {
-        const message = getErrorMessage(cause)
-        setError(message)
-      }
-    })
+      },
+    )
   }
 
   const handleImport = async () => {

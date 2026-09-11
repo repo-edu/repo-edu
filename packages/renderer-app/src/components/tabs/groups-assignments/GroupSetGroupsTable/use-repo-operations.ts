@@ -9,8 +9,8 @@ import {
 } from "@repo-edu/domain/repository-namespace"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCallback, useState } from "react"
-import { useRendererHost } from "../../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
+import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
 import {
   selectActiveGitConnection,
   selectActiveGitConnectionId,
@@ -67,7 +67,7 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
 
   const course = useCourseStore((s) => s.course)
   const workflowClient = useWorkflowClient()
-  const rendererHost = useRendererHost()
+  const pickDirectory = useDirectoryPicker()
   const gitConnections = useSessionControllerSelector(selectGitConnections)
   const activeGitConnection = useSessionControllerSelector(
     selectActiveGitConnection,
@@ -348,27 +348,19 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     setTemplateLocalPath,
     browseTemplateLocalPath: async () => {
       if (courseId === null) return
-      await workflowClient.execute("pickDirectory", async (scope) => {
-        try {
-          const directory = await scope.direct("pickDirectory", () =>
-            rendererHost.pickDirectory({
-              title: "Select template repository",
+      await pickDirectory(
+        { title: "Select template repository", report: setOperationError },
+        (directory, scope) => {
+          scope.mutateCourse(courseId, (actions) =>
+            actions.setRepositoryTemplate({
+              kind: "local",
+              path: directory,
+              visibility: templateVisibility,
             }),
           )
-          if (directory) {
-            scope.mutateCourse(courseId, (actions) =>
-              actions.setRepositoryTemplate({
-                kind: "local",
-                path: directory,
-                visibility: templateVisibility,
-              }),
-            )
-            setOperationError(null)
-          }
-        } catch (error) {
-          setOperationError(getErrorMessage(error))
-        }
-      })
+          setOperationError(null)
+        },
+      )
     },
 
     // Clone settings

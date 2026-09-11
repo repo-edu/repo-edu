@@ -19,8 +19,8 @@ import {
   useAnalysisSelection,
 } from "../../../analysis/analysis-query-coordinator.js"
 import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
-import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
+import { useDirectoryPicker } from "../../../hooks/use-picker.js"
 import { selectAnalysisSidebar } from "../../../session/selectors.js"
 import {
   useSessionController,
@@ -32,8 +32,6 @@ import {
   selectSelectedFilesForScope,
   useAnalysisStore,
 } from "../../../stores/analysis-store.js"
-import { useToastStore } from "../../../stores/toast-store.js"
-import { getErrorMessage } from "../../../utils/error-message.js"
 import {
   type AnalysisSidebarFileSortMode,
   AnalysisSidebarFilesSection,
@@ -69,7 +67,6 @@ function serializeSidebarSettings(
 
 export function AnalysisSidebar() {
   const controller = useSessionController()
-  const addToast = useToastStore((state) => state.addToast)
   const {
     runRepoDiscovery,
     cancelDiscovery,
@@ -88,7 +85,7 @@ export function AnalysisSidebar() {
   const { blameResult } = useAnalysisBlameResult()
   const { blameStatus } = useAnalysisBlameStatus()
   const { mergedFileStats } = useAnalysisFileView()
-  const rendererHost = useRendererHost()
+  const pickDirectory = useDirectoryPicker()
 
   const analysisContext = useAnalysisContext()
   const setAnalysisInputs = analysisContext.setAnalysisInputs
@@ -330,39 +327,25 @@ export function AnalysisSidebar() {
 
   const handleBrowseSearchFolder = useCallback(async () => {
     setBrowseTooltipKey((k) => k + 1)
-    await controller.operations.execute("pickDirectory", async (scope) => {
-      try {
-        const dir = await scope.direct("pickDirectory", () =>
-          rendererHost.pickDirectory({
-            title: "Open repository search folder",
-          }),
-        )
-        if (!dir) return
+    await pickDirectory(
+      { title: "Open repository search folder" },
+      async (directory, scope) => {
         scope.publish(() => {
           selectRepository(null)
           setSections((prev) => ({ ...prev, repositories: true }))
         })
         if (analysisContext.kind === "folder") {
-          await scope.activateSurface({ kind: "folder", path: dir })
+          await scope.activateSurface({ kind: "folder", path: directory })
           return
         }
         if (analysisContext.course)
           scope.mutateCourse(analysisContext.course.id, (actions) =>
-            actions.setSearchFolder(dir),
+            actions.setSearchFolder(directory),
           )
-        scope.publish(() => runRepoDiscovery(dir))
-      } catch (error) {
-        addToast(getErrorMessage(error), { tone: "error" })
-      }
-    })
-  }, [
-    addToast,
-    analysisContext,
-    controller,
-    rendererHost,
-    runRepoDiscovery,
-    selectRepository,
-  ])
+        scope.publish(() => runRepoDiscovery(directory))
+      },
+    )
+  }, [analysisContext, pickDirectory, runRepoDiscovery, selectRepository])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)

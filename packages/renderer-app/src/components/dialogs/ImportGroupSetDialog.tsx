@@ -18,8 +18,8 @@ import {
 
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
-import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
+import { useUserFilePicker } from "../../hooks/use-picker.js"
 import type { SessionOperationScope } from "../../session/session-operations.js"
 import {
   selectGroupSetById,
@@ -66,7 +66,7 @@ export function ImportGroupSetDialog() {
   const setSidebarSelection = useUiStore((state) => state.setSidebarSelection)
   const setGroupSetOperation = useUiStore((state) => state.setGroupSetOperation)
   const course = useCourseStore((state) => state.course)
-  const rendererHost = useRendererHost()
+  const pickUserFile = useUserFilePicker()
   const workflowClient = useWorkflowClient()
 
   const reimportGroupSet = useCourseStore(
@@ -136,25 +136,20 @@ export function ImportGroupSetDialog() {
 
   const handleBrowse = async () => {
     if (!format) return
-    await workflowClient.execute("pickUserFile", async (scope) => {
-      try {
-        const acceptFormats =
-          format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
-        const picked = await scope.direct("pickUserFile", () =>
-          rendererHost.pickUserFile({
-            title: "Select group-set import file",
-            acceptFormats,
-          }),
-        )
-        if (!picked) return
-
+    const acceptFormats =
+      format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
+    await pickUserFile(
+      {
+        title: "Select group-set import file",
+        acceptFormats,
+        report: setError,
+      },
+      async (picked, scope) => {
         setFileRef(picked)
         setFileName(picked.displayName)
         await runPreview(scope, picked, format)
-      } catch (cause) {
-        setError(getErrorMessage(cause))
-      }
-    })
+      },
+    )
   }
 
   const handleImport = async () => {
