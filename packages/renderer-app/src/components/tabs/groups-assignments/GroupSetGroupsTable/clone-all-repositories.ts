@@ -59,6 +59,7 @@ type PublishedListingUpdater = (
 ) => CloneAllPublishedListingInput | null
 
 type CloneAllListingTransitionOptions = {
+  readonly canStartQueries: boolean
   readonly input: CloneAllSafeListingInput | null
   readonly credentials: PersistedAppCredentials
   readonly updatePublishedInput: (updater: PublishedListingUpdater) => void
@@ -71,6 +72,7 @@ export type CloneAllListingTransition = {
 }
 
 export function createCloneAllListingTransition({
+  canStartQueries,
   input,
   credentials,
   updatePublishedInput,
@@ -82,7 +84,7 @@ export function createCloneAllListingTransition({
 
   void cancelListingQueries()
 
-  if (input !== null) {
+  if (canStartQueries && input !== null) {
     cancelScheduledPublication = schedule(() => {
       if (disposed) return
       updatePublishedInput((previous) => {

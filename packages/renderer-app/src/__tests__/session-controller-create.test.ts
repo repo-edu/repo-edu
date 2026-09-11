@@ -23,6 +23,7 @@ beforeEach(resetStores)
 describe("SessionController creation", () => {
   it("activates a newly created course without re-loading it", async () => {
     const courseLoadCalls: string[] = []
+    const savedCourses: PersistedCourse[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -34,6 +35,7 @@ describe("SessionController creation", () => {
           return makeCourse(courseId) as WorkflowResult<typeof workflowId>
         }
         if (workflowId === "course.save") {
+          savedCourses.push(input as PersistedCourse)
           return {
             revision: 1,
             updatedAt: "2026-05-29T00:00:01.000Z",
@@ -42,6 +44,7 @@ describe("SessionController creation", () => {
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return savedCourses
         throw new Error(`Unexpected workflow ${workflowId}`)
       }),
     })
@@ -123,6 +126,7 @@ describe("SessionController creation", () => {
   })
 
   it("seeds a loaded catalogue before activating a newly created course", async () => {
+    const savedCourses: PersistedCourse[] = []
     useUiStore.getState().setCourseList([
       {
         id: "course-a",
@@ -143,6 +147,7 @@ describe("SessionController creation", () => {
           return makeCourse(courseId) as WorkflowResult<typeof workflowId>
         }
         if (workflowId === "course.save") {
+          savedCourses.push(input as PersistedCourse)
           return {
             revision: 1,
             updatedAt: "2026-05-29T00:00:01.000Z",
@@ -151,6 +156,15 @@ describe("SessionController creation", () => {
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), ...savedCourses].map(
+            ({ id, backing, displayName }) => ({
+              id,
+              backing,
+              displayName,
+              updatedAt: "2026-05-29T00:00:01.000Z",
+            }),
+          )
         throw new Error(`Unexpected workflow ${workflowId}`)
       }),
     })

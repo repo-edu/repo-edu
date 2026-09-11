@@ -31,16 +31,14 @@ export function useCourses() {
     async (input: CreateCourseInput): Promise<PersistedCourse | null> => {
       const addToast = useToastStore.getState().addToast
       try {
-        const draft = await controller.createCourse(input)
-        await refresh()
-        return draft
+        return await controller.createCourse(input)
       } catch (error) {
         const message = getErrorMessage(error)
         addToast(`Failed to create course: ${message}`, { tone: "error" })
         return null
       }
     },
-    [controller, refresh],
+    [controller],
   )
 
   const duplicateCourse = useCallback(
@@ -48,7 +46,6 @@ export function useCourses() {
       const addToast = useToastStore.getState().addToast
       try {
         await controller.duplicateCourse(sourceId, displayName)
-        await refresh()
         return true
       } catch (error) {
         const message = getErrorMessage(error)
@@ -58,7 +55,7 @@ export function useCourses() {
         return false
       }
     },
-    [controller, refresh],
+    [controller],
   )
 
   const renameCourse = useCallback(
@@ -68,7 +65,6 @@ export function useCourses() {
 
       try {
         await controller.renameCourse(courseId, newDisplayName)
-        await refresh()
         return true
       } catch (error) {
         const message = getErrorMessage(error)
@@ -76,7 +72,7 @@ export function useCourses() {
         return false
       }
     },
-    [controller, refresh],
+    [controller],
   )
 
   const deleteCourse = useCallback(
@@ -85,7 +81,6 @@ export function useCourses() {
 
       try {
         await controller.deleteCourse(courseId)
-        await refresh()
         return true
       } catch (error) {
         const message = getErrorMessage(error)
@@ -93,7 +88,7 @@ export function useCourses() {
         return false
       }
     },
-    [controller, refresh],
+    [controller],
   )
 
   return {

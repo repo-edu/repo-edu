@@ -23,8 +23,13 @@ import {
   executeRegisteredCloneAllCommand,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-command.js"
 import {
+  type CloneAllPublishedListingInput,
+  cloneAllInputIsCurrent,
   cloneAllListingQueryKeys,
+  createCloneAllListingQueryPolicy,
+  createCloneAllListingTransition,
   createCloneAllMutationPolicy,
+  selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
 import type { SessionController } from "../session/session-controller.js"
 import { sessionQueryOptions } from "../session/session-query.js"
@@ -66,6 +71,101 @@ async function session(
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 describe("session Query publication", () => {
+  it("publishes delayed clone input after command release without another edit", async (t) => {
+    const { controller, client } = await session()
+    const input = {
+      connectionId: "git",
+      namespace: "org",
+      filter: "lab-*",
+      includeArchived: false,
+    }
+    const credentials = defaultAppCredentials
+    let publishedInput: CloneAllPublishedListingInput | null = null
+    const inputIsCurrent = () =>
+      cloneAllInputIsCurrent({ input, credentials, publishedInput })
+    const pending = new Set<() => void>()
+    const flushTimers = () => {
+      for (const callback of [...pending]) {
+        pending.delete(callback)
+        callback()
+      }
+    }
+    let canStartQueries = canAdmitSessionChange(controller.getSnapshot())
+    const queryOptions = () => ({
+      ...createCloneAllListingQueryPolicy(publishedInput?.admissionId ?? null),
+      enabled: canStartQueries && inputIsCurrent(),
+      ...sessionQueryOptions(
+        controller.operations,
+        "repo.listNamespace",
+        async () => ({
+          repositories: [
+            { name: "lab-1", identifier: "lab-1", archived: false },
+          ],
+        }),
+      ),
+    })
+    const observer = new QueryObserver(client, queryOptions())
+    t.after(observer.subscribe(() => {}))
+    const startTransition = () =>
+      createCloneAllListingTransition({
+        canStartQueries,
+        input,
+        credentials,
+        updatePublishedInput: (update) => {
+          controller.operations.change(() => {
+            publishedInput = update(publishedInput)
+            observer.setOptions(queryOptions())
+          })
+        },
+        schedule: (callback) => {
+          pending.add(callback)
+          return () => pending.delete(callback)
+        },
+        cancelListingQueries: () => {
+          void client.cancelQueries({ queryKey: cloneAllListingQueryKeys.all })
+        },
+      })
+    let transition = startTransition()
+    t.after(() => transition.dispose())
+    t.after(
+      controller.subscribe(() => {
+        const next = canAdmitSessionChange(controller.getSnapshot())
+        if (next === canStartQueries) return
+        canStartQueries = next
+        transition.dispose()
+        transition = startTransition()
+        observer.setOptions(queryOptions())
+      }),
+    )
+    assert.equal(pending.size, 1)
+    const commandRelease = deferred<void>()
+    const command = controller.operations.execute("repo.clone", async () => {
+      await commandRelease.promise
+    })
+    assert.equal(pending.size, 0)
+    flushTimers()
+    assert.equal(publishedInput, null)
+    assert.equal(observer.getCurrentResult().fetchStatus, "idle")
+    commandRelease.resolve()
+    await command
+    assert.equal(pending.size, 1)
+    flushTimers()
+    await controller.waitForIdle()
+    const result = observer.getCurrentResult()
+    assert.equal(inputIsCurrent(), true)
+    assert.equal(
+      selectCloneAllCanClone({
+        inputIsCurrent: inputIsCurrent(),
+        queryIsSuccess: result.isSuccess,
+        queryIsPlaceholderData: result.isPlaceholderData,
+        listResult: result.data,
+        targetDirectory: "/repos",
+        mutationIsPending: false,
+      }),
+      true,
+    )
+  })
+
   for (const online of [true, false]) {
     it(`captures published clone input and retains mutation settlement while online is ${online}`, async (t) => {
       const previousOnline = onlineManager.isOnline()

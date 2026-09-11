@@ -120,6 +120,7 @@ describe("clone-all listing transition", () => {
     let publishedInput: CloneAllPublishedListingInput | null = null
     let cancellationCount = 0
     const transition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: initialInput,
       credentials: firstCredentials,
       updatePublishedInput: (update) => {
@@ -156,6 +157,7 @@ describe("clone-all listing transition", () => {
     let publishedInput: CloneAllPublishedListingInput | null =
       initialPublishedInput
     const transition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: initialInput,
       credentials: secondCredentials,
       updatePublishedInput: (update) => {
@@ -177,6 +179,7 @@ describe("clone-all listing transition", () => {
     let publishedInput: CloneAllPublishedListingInput | null =
       initialPublishedInput
     const disabledTransition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: null,
       credentials: firstCredentials,
       updatePublishedInput: (update) => {
@@ -190,6 +193,7 @@ describe("clone-all listing transition", () => {
     disabledTransition.dispose()
 
     const enabledTransition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: initialInput,
       credentials: firstCredentials,
       updatePublishedInput: (update) => {
@@ -234,6 +238,7 @@ describe("clone-all listing transition", () => {
     await started
 
     const transition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: { ...initialInput, filter: "lab-2*" },
       credentials: firstCredentials,
       updatePublishedInput: () => {},
@@ -285,6 +290,7 @@ describe("clone-all listing transition", () => {
     await started
 
     const transition = createCloneAllListingTransition({
+      canStartQueries: true,
       input: { ...initialInput, filter: "lab-3*" },
       credentials: firstCredentials,
       updatePublishedInput: () => {},

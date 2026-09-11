@@ -53,6 +53,7 @@ describe("SessionController deletion", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return [makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -111,6 +112,7 @@ describe("SessionController deletion", () => {
           await deleteGate.promise
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return [makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -185,6 +187,7 @@ describe("SessionController deletion", () => {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return [makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -296,6 +299,7 @@ describe("SessionController deletion", () => {
           await deleteGate.promise
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return []
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -344,6 +348,7 @@ describe("SessionController deletion", () => {
           deleted.push((input as { courseId: string }).courseId)
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list") return []
         if (
           workflowId === "course.save" ||
           workflowId === "settings.savePreferences" ||

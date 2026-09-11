@@ -282,38 +282,40 @@ export class SessionController extends CourseMutationController {
   async refreshCourses(): Promise<void> {
     await this.transactions.enqueue(
       { kind: "operation", operation: "course.list" },
-      async (scope) => {
-        useUiStore.getState().setCourseListLoading(true)
-        try {
-          await this.persistence.flushActive(scope)
-          const courses = await scope.required(() =>
-            this.transactions.controllerClient.run("course.list", undefined),
-          )
-          if (!scope.canContinue()) return
-          useUiStore.getState().setCourseList(courses)
-          const current = this.snapshot.settings.preferences.activeSurface
-          const courseId = activeCourseIdFromSurface(current)
-          const missing =
-            courseId !== null &&
-            !courses.some((course) => course.id === courseId)
-          const target =
-            resolveActiveSurfaceRedirectForCourses(current, courses)?.surface ??
-            current
-          const commit = missing
-            ? await this.prepareDeletedCourseFallback(scope, target)
-            : await this.prepareSurfaceCommit(scope, target)
-          this.commitSurface(
-            scope,
-            commit,
-            [{ type: "prune-submissions-for-courses", courses }],
-            missing ? () => publishCourseRemoval(courseId) : undefined,
-          )
-        } finally {
-          if (scope.canContinue())
-            useUiStore.getState().setCourseListLoading(false)
-        }
-      },
+      (scope) => this.refreshCoursesBody(scope),
     )
+  }
+
+  private async refreshCoursesBody(
+    scope: SessionTransactionScope,
+  ): Promise<void> {
+    useUiStore.getState().setCourseListLoading(true)
+    try {
+      await this.persistence.flushActive(scope)
+      const courses = await scope.required(() =>
+        this.transactions.controllerClient.run("course.list", undefined),
+      )
+      if (!scope.canContinue()) return
+      useUiStore.getState().setCourseList(courses)
+      const current = this.snapshot.settings.preferences.activeSurface
+      const courseId = activeCourseIdFromSurface(current)
+      const missing =
+        courseId !== null && !courses.some((course) => course.id === courseId)
+      const target =
+        resolveActiveSurfaceRedirectForCourses(current, courses)?.surface ??
+        current
+      const commit = missing
+        ? await this.prepareDeletedCourseFallback(scope, target)
+        : await this.prepareSurfaceCommit(scope, target)
+      this.commitSurface(
+        scope,
+        commit,
+        [{ type: "prune-submissions-for-courses", courses }],
+        missing ? () => publishCourseRemoval(courseId) : undefined,
+      )
+    } finally {
+      if (scope.canContinue()) useUiStore.getState().setCourseListLoading(false)
+    }
   }
 
   private async reconcileDiscovery(
@@ -436,7 +438,11 @@ export class SessionController extends CourseMutationController {
     )
     return await this.transactions.enqueue(
       { kind: "create", targetSurface, leavingCourseId },
-      async (scope) => await this.createCourseBody(scope, input, targetSurface),
+      async (scope) => {
+        const course = await this.createCourseBody(scope, input, targetSurface)
+        await this.refreshCoursesBody(scope)
+        return course
+      },
     )
   }
 
@@ -463,6 +469,7 @@ export class SessionController extends CourseMutationController {
           },
         )
         await this.persistence.saveDetached(scope, duplicate)
+        await this.refreshCoursesBody(scope)
         return duplicate
       },
     )
@@ -481,14 +488,14 @@ export class SessionController extends CourseMutationController {
       ) {
         if (activeCourse.displayName === trimmedDisplayName) return
         useCourseStore.getState().setDisplayName(trimmedDisplayName)
-        await this.persistence.flushActive(scope)
-        return
+      } else {
+        const course = await this.persistence.loadCourse(courseId)
+        await this.persistence.saveDetached(scope, {
+          ...course,
+          displayName: trimmedDisplayName,
+        })
       }
-      const course = await this.persistence.loadCourse(courseId)
-      await this.persistence.saveDetached(scope, {
-        ...course,
-        displayName: trimmedDisplayName,
-      })
+      await this.refreshCoursesBody(scope)
     })
   }
 
@@ -507,6 +514,7 @@ export class SessionController extends CourseMutationController {
         if (!deletesActiveCourse) {
           await this.persistence.deleteDetached(scope, courseId)
           publishCourseRemoval(courseId)
+          await this.refreshCoursesBody(scope)
           return
         }
         try {
@@ -524,6 +532,7 @@ export class SessionController extends CourseMutationController {
           this.commitSurface(scope, commit, [], () =>
             publishCourseRemoval(courseId),
           )
+          await this.refreshCoursesBody(scope)
         } catch (error) {
           this.failCommand(scope, error, "Could not delete course.")
           throw error

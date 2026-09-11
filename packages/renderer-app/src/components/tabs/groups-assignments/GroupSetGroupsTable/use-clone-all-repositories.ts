@@ -74,6 +74,7 @@ export function useCloneAllRepositories({
 
   useEffect(() => {
     const transition = createCloneAllListingTransition({
+      canStartQueries,
       input: createCloneAllSafeListingInput({
         connectionId: activeConnectionId,
         namespace,
@@ -94,6 +95,7 @@ export function useCloneAllRepositories({
     return () => transition.dispose()
   }, [
     activeConnectionId,
+    canStartQueries,
     client,
     credentials,
     includeArchived,

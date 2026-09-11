@@ -321,6 +321,8 @@ describe("SessionController activation", () => {
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
+        if (workflowId === "course.list")
+          return [...savedDrafts, makeCourse("course-b")]
         throw new Error(`Unexpected workflow ${workflowId}`)
       }),
     })
