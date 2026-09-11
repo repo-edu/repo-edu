@@ -220,7 +220,7 @@ yield, and reading it out of per-finding tokens means re-reading the whole log
 by hand. It answers what a round bought: findings an end user can meet, and
 whether the corrections left the code with more standing structure or less.
 Both lines are counts over the findings, unlike the commit subject's trailing
-`-` or `+`, which measures one commit's own code before and after. The two
+`—` or `+`, which measures one commit's own code before and after. The two
 answer different questions and neither replaces the other.
 
 ## Judging deviations

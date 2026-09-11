@@ -280,12 +280,14 @@ commit graph shows the subject and none of the finding tokens.
   one letter at its own case, so the counts stay exact and nothing is averaged.
 - A leading `!` says at least one concern has `ordinary` reach, the value that
   needs no special condition to hold: `!B1C1c2d1`.
-- A trailing `-` or `+` says what the commit did to the standing structure.
+- A trailing `—` or `+` says what the commit did to the standing structure.
   Measure the commit, never add up the finding tokens: compare the code before
   the commit with the code after it, then take the highest kind of obligation
-  whose count changed. Write `-` when that kind shrank and `+` when it grew, and
-  omit the mark when no kind changed. A commit can read `-` while one concern
-  inside it added a rule, because the mark states the commit's own net result.
+  whose count changed. Write `—` when that kind shrank and `+` when it grew,
+  and omit the mark when no kind changed. The shrink mark is an em dash, never
+  a hyphen, which is too small to read against the colon that follows it. A
+  commit can read `—` while one concern inside it added a rule, because the
+  mark states the commit's own net result.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
 which also defines the obligation kinds the trailing mark measures.
