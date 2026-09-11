@@ -242,7 +242,8 @@ stand; drop a finding whose trace ends with the same behaviour shipping. Reach
 supports the user's ruling on the outcome and never changes the tier.
 
 At tiers A to C, explain the trade when a finding's growth tag is not `none`,
-its reach is not `ordinary` and its complexity is not `none`. State the simplest
+its reach is not `ordinary` and its complexity is `low`, `medium` or `high`.
+State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
 costs to build and own, what it gives the user over that mechanism and whether a
 boundary entry or recorded user decision settles the choice. Deletion or doing
@@ -359,33 +360,41 @@ operating-system or filesystem facility failing to do what it guarantees. The
 token makes the rating durable and countable; the finding's explanation names
 the condition that makes it checkable.
 
-`[complexity:none|low|medium|high]` says what standing structure the
-correction leaves in the code, graded at the heaviest obligation it plants,
-never at the effort of making it. Each rung is defined by a kind, not judged.
-`none` leaves nothing structural, and covers wording, a recorded reason, a
-deletion and a test. `low` plants a rule: a branch, a case or a check.
-`medium` plants state: something that must be kept and stay true. `high`
-plants an owner concern: a boundary, or moving who is responsible for an
-invariant. Replication grades at the obligation the copies create: the same
-rule replicated across files or packages must stay in agreement, which is
-kept state, `medium`; state replicated across packages leaves that agreement
-with no single keeper, which is an owner concern, `high`. Tests never raise
-the rung; they follow the machinery they cover, and counting them would
-charge every guarded mechanism twice.
+`[complexity:minus-high|minus-medium|minus-low|none|low|medium|high]` says
+how the correction changes the standing structure of the code as a whole:
+the code after the fix compared with the code before it, never the effort
+of making it. Three kinds of obligation count, each defined by a kind, not
+judged. A rule is a branch, a case or a check. State is something that must
+be kept and stay true. An owner concern is a boundary, or who is
+responsible for an invariant. Compare the count of each kind before and
+after. The token names the highest kind whose count changed. It reads
+`low`, `medium` or `high` when rules, state or owner concerns grew, and
+`minus-low`, `minus-medium` or `minus-high` when that kind shrank. `none`
+means no kind changed, and covers wording, a recorded reason and a test. A
+fix that removes a split owner and adds a branch reads `minus-high`: the
+owner kind is the highest that changed. Replication grades at the
+obligation the copies create: the same rule replicated across files or
+packages must stay in agreement, which is state; state replicated across
+packages leaves that agreement with no single keeper, which is an owner
+concern. Tests never move the token; they follow the machinery they cover,
+and counting them would charge every guarded mechanism twice.
 
 The two tokens are one pair, and the pair is the point. Growth pattern 6 in
 `../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
 complexity cost never does, and its test is to name the trade: what the work
 gives the user against what its machinery costs. The pair fires that test on
 every finding, so a cross-round run of `[reach:developer]`,
-`[reach:very-rare]` or `[reach:rare]` beside non-`none` `[complexity:...]`
-values on the same machinery is the unpriced trade shown in the log without
-anyone having to notice it, and it prices under
-[Pricing a run](#pricing-a-run) the same way a growth-number run does. Both
+`[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high`
+`[complexity:...]` values on the same machinery is the unpriced trade shown
+in the log without anyone having to notice it, and it prices under
+[Pricing a run](#pricing-a-run) the same way a growth-number run does. A
+`minus-` value is the opposite signal: the correction removed more structure
+than it added, which counts in its favour and never joins a priced run. Both
 tokens rate facts, not worth, and like the growth tag they block nothing: a
 finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
 is shared with the plan repo's finding metadata, one spelling across both
-logs.
+logs. Bullets from before 2026-09-11 graded only what a correction added, so
+a bare rung there says nothing about what the fix removed.
 
 ## Cross-repo findings
 
