@@ -26,10 +26,28 @@ export function runAssistantPhase<P extends Phase>(
   output: PhaseOutput,
   runtime: AssistantRuntime,
 ): Promise<PhaseResult<P>>
-export async function runAssistantPhase(
+export function runAssistantPhase(
   input: PhaseInput,
   output: PhaseOutput,
   runtime: AssistantRuntime,
+): Promise<PhaseResult> {
+  return runAssistantInvocation(input, phasePrompt(input), output, runtime)
+}
+
+/** Also used by the contract recorder with a probe prompt and a raw-record sink. */
+export function runAssistantInvocation<P extends Phase>(
+  input: PhaseInput<P>,
+  prompt: string,
+  output: PhaseOutput,
+  runtime: AssistantRuntime,
+  record?: (value: unknown) => Promise<void>,
+): Promise<PhaseResult<P>>
+export async function runAssistantInvocation(
+  input: PhaseInput,
+  prompt: string,
+  output: PhaseOutput,
+  runtime: AssistantRuntime,
+  record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult> {
   let sessionId = input.sessionId
   let finalText: string | undefined
@@ -48,7 +66,7 @@ export async function runAssistantPhase(
       : undefined
   try {
     try {
-      const prompt = phasePrompt(input)
+      runtime.signal?.throwIfAborted()
       await output.start(input, prompt)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
       const request = phaseRequest(
@@ -66,7 +84,9 @@ export async function runAssistantPhase(
         async (child) => {
           await readCliLines(child, "stdout", async (line) => {
             if (sessionId !== null) await usage?.read(sessionId, output.observe)
-            for (const event of decode(JSON.parse(line))) {
+            const value: unknown = JSON.parse(line)
+            const events = decode(value)
+            for (const event of events) {
               if (event.type === "session") {
                 if (sessionId !== null && event.sessionId !== sessionId)
                   throw new Error("CLI reported a different session")
@@ -84,6 +104,7 @@ export async function runAssistantPhase(
                 await output.observe(event)
               }
             }
+            await record?.(value)
           })
         },
         (text) => output.observe({ type: "diagnostic", text }),

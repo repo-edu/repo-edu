@@ -56,6 +56,7 @@ export async function updateClis(
       )
     } catch (error) {
       if (
+        !(error instanceof ExecaError) ||
         runtime.signal?.aborted ||
         (error instanceof ExecaError && error.isCanceled)
       )

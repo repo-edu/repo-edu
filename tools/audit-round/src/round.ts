@@ -33,7 +33,7 @@ export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
 ): Promise<RoundResult> {
-  const auditor = input.auditor ?? "claude"
+  const auditor = input.auditor ?? "codex"
   const vetter = auditor === "claude" ? "codex" : "claude"
   const cwd = input.repoRoot
   const audit = await dependencies.runPhase.audit({
@@ -77,21 +77,21 @@ export async function runRound(
 
   const fix = await dependencies.runPhase.fix({
     phase: "fix",
-    assistant: vetter,
+    assistant: "codex",
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (fix.status === "failed") {
-    return { ...fix, phase: "fix", assistant: vetter, cwd }
+    return { ...fix, phase: "fix", assistant: "codex", cwd }
   }
   if (fix.status === "finished") {
     return { status: "finished", report }
   }
 
   const session: InteractiveSession = {
-    assistant: vetter,
+    assistant: "codex",
     sessionId: fix.sessionId,
     cwd,
   }

@@ -107,7 +107,7 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "fix",
-          assistant: vetter,
+          assistant: "codex",
           cwd: repoRoot,
           ownerRoot,
           arguments: [report],
@@ -118,7 +118,7 @@ for (const auditor of ["claude", "codex"] as const) {
     })
   }
 
-  test(`${vetter} opens the fresh fix session after a ruling request`, async () => {
+  test(`Codex opens the fresh fix session after a ruling request with ${auditor} auditing`, async () => {
     const round = controlledRound()
     round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
 
@@ -128,7 +128,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
 
     const session = {
-      assistant: vetter,
+      assistant: "codex",
       sessionId: "fix-session",
       cwd: repoRoot,
     }
@@ -171,19 +171,20 @@ for (const auditor of ["claude", "codex"] as const) {
       assert.deepEqual(result, {
         ...failure,
         phase,
-        assistant: phase === "audit" || phase === "rebut" ? auditor : vetter,
+        assistant:
+          phase === "fix" ? "codex" : phase === "vet" ? vetter : auditor,
         cwd: repoRoot,
       })
     })
   }
 }
 
-test("defaults to Claude and preserves plan arguments as data without inventing a scope", async () => {
+test("defaults to Codex and preserves plan arguments as data without inventing a scope", async () => {
   const round = controlledRound()
   const plan = '../plan/a "quoted" plan; $(touch should-not-exist).md'
   await runRound({ repoRoot, plan }, round.dependencies)
 
-  assert.equal(round.calls[0].assistant, "claude")
+  assert.equal(round.calls[0].assistant, "codex")
   assert.deepEqual(round.calls[0].arguments, [plan])
 })
 
@@ -201,7 +202,7 @@ test("retains a failure before the assistant establishes a session", async () =>
   assert.deepEqual(result, {
     ...round.results.audit,
     phase: "audit",
-    assistant: "claude",
+    assistant: "codex",
     cwd: repoRoot,
   })
   assert.equal(round.calls.length, 1)

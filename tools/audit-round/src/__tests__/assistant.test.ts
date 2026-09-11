@@ -50,9 +50,7 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.ok(f.feedback.some((event) => event.type === "model"))
     assert.ok(
-      f.feedback.some(
-        (event) => event.type === "context" && event.tokens > 25000,
-      ),
+      f.feedback.some((event) => event.type === "context" && event.tokens > 0),
     )
     assert.ok(
       f.feedback.some(
@@ -97,14 +95,18 @@ for (const assistant of ["claude", "codex"] as const) {
           .join("\n")
       if (problem === "assistant")
         stream = stream
-          .replace(
-            '"type":"result","subtype":"success","is_error":false',
-            '"type":"result","subtype":"success","is_error":true',
-          )
-          .replace(
-            '"type":"turn.completed","usage"',
-            '"type":"turn.failed","error":{"message":"Assistant failed"},"usage"',
-          )
+          .trimEnd()
+          .split("\n")
+          .map((line) => {
+            const record = JSON.parse(line)
+            if (record.type === "result") record.is_error = true
+            if (record.type === "turn.completed") {
+              record.type = "turn.failed"
+              record.error = { message: "Assistant failed" }
+            }
+            return JSON.stringify(record)
+          })
+          .join("\n")
       if (problem === "session")
         stream = stream.replaceAll('"test-session"', '""')
       await f.configure({

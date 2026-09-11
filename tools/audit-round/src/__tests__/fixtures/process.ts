@@ -4,7 +4,8 @@ import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
 
 const [root, assistant, ...args] = process.argv.slice(2)
-const scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
+let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
+let prompt = assistant === "codex" ? args.at(-1) : undefined
 await appendFile(
   join(root, "calls.jsonl"),
   `${JSON.stringify({ assistant, args, pid: process.pid })}\n`,
@@ -12,6 +13,11 @@ await appendFile(
 
 function send(value: unknown) {
   process.stdout.write(`${JSON.stringify(value)}\n`)
+}
+
+if (args[0] === "--version") {
+  console.log(`${assistant} fixture CLI 1.0.0`)
+  process.exit(0)
 }
 
 if (args[0] === "update") {
@@ -91,6 +97,7 @@ if (assistant === "claude") {
     join(root, "requests.jsonl"),
     `${JSON.stringify(requests)}\n`,
   )
+  prompt = requests.find((request) => request.type === "user")?.message.content
   if (args.includes("--no-session-persistence")) {
     if (scenario.settingsMode === "exit") process.exit(3)
     if (scenario.settingsMode === "missing") process.exit(0)
@@ -104,6 +111,13 @@ if (assistant === "claude") {
     })
     process.exit(0)
   }
+}
+
+scenario = { ...scenario, ...scenario.assistants?.[assistant] }
+if (scenario.phases !== undefined) {
+  const phase = /^Run the (audit|vet|rebut|fix) phase /.exec(prompt ?? "")?.[1]
+  if (phase === undefined) throw new Error("Fixture received no phase prompt")
+  scenario = { ...scenario, ...scenario.phases[phase] }
 }
 
 process.on("SIGTERM", () => {

@@ -50,6 +50,8 @@
         "// ---- fixtures ----": "",
         "fixture": "pnpm --filter @repo-edu/fixture-cli start",
         "// ---- utilities ----": "",
+        "audit-round": "tsx tools/audit-round/src/main.ts",
+        "audit-round:contract": "tsx tools/audit-round/src/contract-main.ts",
         "area-view": "pnpm --filter @repo-edu/architecture-check run overview",
         "sweep": "tsx tools/sweep/src/main.ts",
         "file-sizes": "tsx tools/file-sizes/src/main.ts",

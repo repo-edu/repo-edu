@@ -43,6 +43,11 @@ pnpm check
 pnpm test
 ```
 
+`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor claude|codex] [-v]`
+runs the TypeScript implementation-audit tool from this checkout root.
+`pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
+The separately installed Bash `audit-round` command belongs to the plan repo.
+
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
 - `check` — fix + typecheck + build:types + check:fixtures +
@@ -81,6 +86,7 @@ repo-edu/
 │   ├── test-fixtures/             # Shared domain fixture generation (faker-based)
 │   └── integration-tests/         # E2E workflow tests against live Git providers
 └── tools/                         # Workspace tooling (each runs via tsx)
+    ├── audit-round/               # Implementation-audit rounds and CLI contract recorder
     ├── architecture-check/        # Boundary/architecture lint (pnpm check:architecture)
     ├── dev-fixture/               # Local seed runner (pnpm dev:fixture)
     ├── file-sizes/                # Tree-style line/file counter (pnpm file-sizes)
@@ -127,10 +133,11 @@ non-obvious conventions:
 - [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
 - [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
 
-The architecture-check, release and sweep tools and the analysis-workflows
+The audit-round, architecture-check, release and sweep tools and the analysis-workflows
 sub-area carry their own `CLAUDE.md` too:
 
 - [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
+- [tools/audit-round/CLAUDE.md](tools/audit-round/CLAUDE.md)
 - [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
 - [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
 - [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)

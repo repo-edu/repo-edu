@@ -8,7 +8,8 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 
 - `round.ts` owns the fixed audit, vet, rebuttal and fix sequence. It retains the
   audit session and report as local values. Audit, vet and fix start fresh;
-  rebuttal resumes the audit session. Only a fix needing a ruling opens an
+  rebuttal resumes the audit session. Codex audits by default and always fixes.
+  Only a fix needing a ruling opens an
   interactive session, using that fix's session identity.
 - `phase.ts` defines the private inputs and results for assistant invocations.
   Assistant boundaries own processes, stream validation, session observations
@@ -28,9 +29,21 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command.
-- The output boundary owns terminal presentation and incremental run recording.
+- `output.ts` owns terminal presentation and incremental run recording.
+  It holds only current phase timing and context observations. `run-files.ts`
+  completes each required write before returning to the invocation; no complete
+  transcript accumulates in memory. `terminal.ts` uses log-update for terminals
+  and plain text for redirected output. Tool details stay complete in the log;
+  assistant texts stay complete in Markdown. Only terminal tool lines shorten.
   `prepareHandover` records the handover and releases the terminal before
   `openSession` inherits it. Both functions must reject on failure.
+- `command.ts` owns arguments, repository paths, startup and final reporting.
+  Required write failures stop phase progression. If recording itself fails,
+  the emergency channel still reports the known session and recovery command.
+- `contract.ts` invokes the same assistant and output boundaries with a probe
+  prompt. It requires successful and deliberately failed shell calls before
+  replacing any selected fixtures. It invokes no workflow and refreshes only
+  this package's recordings.
 
 The coordinator has no process, filesystem or terminal side effects of its own.
 Its dependencies supply those operations explicitly. A returned phase failure
@@ -47,6 +60,24 @@ Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
 meaning. The runner does not read plan or report contents and performs no Git
 operations. Keep assistant adapters independent of the product LLM adapters.
+
+## Commands
+
+Run from the Repo Edu checkout root with authenticated `claude` and `codex`
+commands available:
+
+```bash
+pnpm audit-round ../plan/example.md 1-3
+pnpm audit-round ../plan/example.md 3 --auditor claude -v
+pnpm audit-round:contract
+pnpm audit-round:contract codex
+```
+
+The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root.
+Each header identifies the TypeScript implementation. The command remains
+independent of the installed Bash `audit-round` command, its source and its
+tests in the plan repo. Both share the CLI update dates and workflow documents.
+Neither selects or invokes the other.
 
 ## Verification
 
