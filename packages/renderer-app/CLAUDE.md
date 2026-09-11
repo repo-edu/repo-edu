@@ -24,7 +24,7 @@ It consumes:
   navigation.
 - `src/session/session-operations.ts`: the only raw workflow-client holder.
   Reserves complete direct and Query-backed bodies in the existing transaction
-  queue, including callbacks, publication and semantic follow-up.
+  queue, including callbacks and semantic follow-up.
 - `src/session/session-operation-inventory.ts`: exhaustive workflow and direct
   action classes. Read-only results that supply command input remain session-changing.
 - `src/stores/*`: Zustand stores for course content and transient or view state:
@@ -40,18 +40,23 @@ It consumes:
 - `src/components/tabs/analysis/*`: analysis UI — sidebar, author/file/blame panels, charts
   (Recharts), display controls; folder analysis uses the controller active surface instead of a
   course document
-- `src/analysis/*`: analysis-tab runtime owned by React Query — `analysis-query-client.ts` (renderer
-  query client), `analysis-query-coordinator.tsx` (`AnalysisCoordinatorProvider`, runs discovery,
-  snapshot-head, `analysis.run` and per-file blame through the query lifecycle),
-  `analysis-query-keys.ts` (keys results by input identity), `analysis-transient-store.ts`
-  (in-flight progress and cancellation), `analysis-view-models.ts`, `analysis-workflow-inputs.ts`.
-  `App.tsx` wraps the shell in `QueryClientProvider` and `AnalysisCoordinatorProvider`.
-  `stores/analysis-store.ts` now holds only scope-keyed view intent (repo selection, author/file
-  filters, display and blame options); it neither runs nor caches workflows.
-  `hooks/use-analysis-context.ts` derives the active surface, course, search folder and analysis
-  inputs the coordinator runs against.
-- `src/hooks/*`: app behavior hooks (`use-analysis-context`, course-list refresh, folder open
-  helpers, etc.); session switching, save-before-leave behavior, recents updates and tab fallback
+- `src/analysis/analysis-query-client.ts`: Query cache for analysis results.
+- `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
+  results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
+- `src/analysis/analysis-source-runner.ts`: owns snapshot-head and repository analysis
+  fetches. It gives waiting session bodies a turn between repositories.
+- `src/analysis/analysis-query-bodies.ts`: owns discovery and blame fetches.
+- `src/analysis/analysis-query-keys.ts`: keys cached results by input identity.
+- `src/analysis/analysis-transient-store.ts`: holds live progress.
+- `src/analysis/analysis-view-models.ts`: derives the displayed analysis results.
+- `src/analysis/analysis-workflow-inputs.ts`: prepares workflow inputs.
+- `src/stores/analysis-store.ts`: holds view choices per source or result, including repository
+  selection, author and file filters, display options and blame options. It neither runs
+  workflows nor caches their results.
+- `src/hooks/use-analysis-context.ts`: derives the active surface, course, search folder and
+  analysis inputs for the coordinator.
+- `src/hooks/*`: app behaviour hooks (`use-analysis-context`, course-list refresh, folder open
+  helpers, etc.); session switching, save-before-leave behaviour, recents updates and tab fallback
   belong to `SessionController`
 - `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained for course ID
   generation
@@ -64,15 +69,17 @@ It consumes:
 - `useWorkflowClient()` returns the operation gateway. Keep result publication
   inside its reserved body with `scope.publish` and asynchronous follow-up with
   `scope.follow`. A promise callback after retirement cannot mutate session state.
-- Query fetches and mutations retain their reservation through cache publication
-  and semantic follow-up. React effects are presentation-only.
+- Query fetches and mutations start inside reserved bodies. Each body owns its host
+  work and cancellation and awaits semantic follow-up. React Query owns the cache
+  and publishes results to its watchers. Components use disabled watchers and start
+  a body when their input becomes ready. Observer removal never cancels host work.
 - Command reservation freezes every semantic edit and persistence-worker start
   until retirement. Store actions and native edits obey the same gate; do not
   add field-specific exceptions, semantic refs or competing state owners.
 - Renderer components invoke semantic course mutations through `SessionController`, not by selecting
   course-store actions directly. View actions also pass the global semantic
   freeze through the operation owner.
-- Keep store/component behavior deterministic and testable in browser contexts.
+- Keep store/component behaviour deterministic and testable in browser contexts.
 
 ## UI proposals
 

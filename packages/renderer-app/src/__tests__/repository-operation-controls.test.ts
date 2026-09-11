@@ -17,8 +17,18 @@ import {
   createCloneAllListingTransition,
   createCloneAllSafeListingInput,
   extractSubgroupPath,
+  fetchCloneAllListing,
   selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
+
+import {
+  commitPreparation,
+  deferred,
+  makeSettings,
+  resetStores,
+  startController,
+  workflowClient,
+} from "./session-controller.test-support.js"
 
 const firstCredentials: PersistedAppCredentials = {
   ...defaultAppCredentials,
@@ -201,48 +211,72 @@ describe("clone-all listing transition", () => {
 
 describe("clone-all query ownership", () => {
   for (const ending of ["input change", "panel closure"] as const) {
-    it(`cancels the observed listing on ${ending}`, (t) => {
-      const queryClient = new QueryClient()
-      t.after(() => queryClient.clear())
-      const scheduler = createManualScheduler()
-      let publishedInput: CloneAllPublishedListingInput | null =
-        initialPublishedInput
-      const signals: AbortSignal[] = []
-      const queryOptions = () => ({
-        ...createCloneAllListingQueryPolicy(
-          publishedInput?.admissionId ?? null,
-        ),
-        queryFn: ({ signal }: { signal: AbortSignal }) => {
-          signals.push(signal)
-          return new Promise<RepositoryListNamespaceResult>(() => {})
-        },
+    it(`keeps the listing body on ${ending}`, async (t) => {
+      resetStores()
+      const entered = deferred<void>()
+      const release = deferred<void>()
+      const controller = startController({
+        workflowClient: workflowClient(async (id) => {
+          if (id === "settings.loadApp") return makeSettings()
+          if (id === "repo.listNamespace") {
+            entered.resolve()
+            await release.promise
+            return listingResult
+          }
+          assert.fail(id)
+        }),
       })
-      const observer = new QueryObserver(queryClient, queryOptions())
+      const queryClient = new QueryClient()
+      t.after(() => {
+        controller.dispose()
+        queryClient.clear()
+      })
+      await controller.waitForIdle()
+      const policy = createCloneAllListingQueryPolicy(
+        initialPublishedInput.admissionId,
+      )
+      const observer = new QueryObserver<RepositoryListNamespaceResult>(
+        queryClient,
+        {
+          ...policy,
+          enabled: false,
+        },
+      )
       const unsubscribe = observer.subscribe(() => {})
       t.after(unsubscribe)
-      const transition = createCloneAllListingTransition({
-        canStartQueries: true,
-        input: { ...initialInput, filter: "lab-2*" },
-        credentials: firstCredentials,
-        updatePublishedInput: (update) => {
-          publishedInput = update(publishedInput)
-          observer.setOptions(queryOptions())
-        },
-        schedule: scheduler.schedule,
-      })
-      t.after(() => transition.dispose())
-
-      assert.equal(signals.length, 1)
-      assert.equal(signals[0]?.aborted, false)
+      const listing = fetchCloneAllListing(
+        controller.operations,
+        queryClient,
+        initialPublishedInput,
+      )
+      await entered.promise
       if (ending === "input change") {
-        scheduler.flush()
-        assert.equal(signals.length, 2)
-        assert.equal(signals[1]?.aborted, false)
-      } else {
-        transition.dispose()
-        unsubscribe()
-      }
-      assert.equal(signals[0]?.aborted, true)
+        observer.setOptions({
+          ...createCloneAllListingQueryPolicy({
+            ...initialPublishedInput.admissionId,
+            filter: "lab-2*",
+            listingGeneration: 2,
+          }),
+          enabled: false,
+        })
+      } else unsubscribe()
+      assert.equal(
+        queryClient.getQueryState(policy.queryKey)?.fetchStatus,
+        "fetching",
+      )
+      let closed = false
+      const closing = controller.requestClose(commitPreparation).then(() => {
+        closed = true
+        assert.deepEqual(
+          queryClient.getQueryData(policy.queryKey),
+          listingResult,
+        )
+      })
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      assert.equal(closed, false)
+      release.resolve()
+      await Promise.all([listing, closing])
+      assert.equal(closed, true)
     })
   }
 
@@ -327,7 +361,7 @@ describe("clone-all query ownership", () => {
     )
     assert.equal(policy.staleTime, 0)
     assert.equal(policy.gcTime, 0)
-    assert.equal(policy.refetchOnMount, "always")
+    assert.equal(policy.refetchOnMount, false)
     assert.equal(policy.retry, false)
     assert.equal(policy.refetchOnWindowFocus, false)
     assert.equal(policy.refetchOnReconnect, false)

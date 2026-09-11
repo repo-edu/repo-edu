@@ -1,12 +1,11 @@
 import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
-import { sessionQueryOptions } from "../../../../session/session-query.js"
 import { canAdmitSessionChange } from "../../../../session/session-reducer.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
@@ -21,6 +20,7 @@ import {
   createCloneAllListingTransition,
   createCloneAllSafeListingInput,
   executeCloneAllCommand,
+  fetchCloneAllListing,
   formatCloneAllResult,
   selectCloneAllCanClone,
 } from "./clone-all-repositories.js"
@@ -99,29 +99,25 @@ export function useCloneAllRepositories({
   const queryPolicy = createCloneAllListingQueryPolicy(
     publishedListingInput?.admissionId ?? null,
   )
-  const listingQuery = useQuery({
+  const listingQuery = useQuery<RepositoryListNamespaceResult>({
     ...queryPolicy,
-    enabled: canStartQueries && inputIsCurrent,
-    ...sessionQueryOptions(
-      client,
-      "repo.listNamespace",
-      async (scope, { signal }): Promise<RepositoryListNamespaceResult> => {
-        if (publishedListingInput === null) {
-          throw new Error("Repository listing ran without an admitted input.")
-        }
-        return scope.run(
-          "repo.listNamespace",
-          {
-            credentials: publishedListingInput.credentials,
-            namespace: publishedListingInput.admissionId.namespace,
-            filter: publishedListingInput.admissionId.filter || undefined,
-            includeArchived: publishedListingInput.admissionId.includeArchived,
-          },
-          { signal },
-        )
-      },
-    ),
+    enabled: false,
+    queryFn: skipToken,
   })
+
+  useEffect(() => {
+    if (!canStartQueries || !inputIsCurrent || publishedListingInput === null)
+      return
+    void fetchCloneAllListing(client, queryClient, publishedListingInput).catch(
+      () => {},
+    )
+  }, [
+    canStartQueries,
+    inputIsCurrent,
+    publishedListingInput,
+    client,
+    queryClient,
+  ])
 
   const [cloneCommand, setCloneCommand] = useState<CloneAllCommandState>({
     status: "idle",

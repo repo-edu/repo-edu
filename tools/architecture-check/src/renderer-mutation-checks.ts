@@ -25,7 +25,6 @@ const nativeListeners = new Map([
     "scroll",
   ],
   ["components/tabs/students/use-scroll-back-to-top.ts", "scroll"],
-  ["session/session-query.ts", "abort"],
 ])
 const directActions = new Set([
   "pickDirectory",

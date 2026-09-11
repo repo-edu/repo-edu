@@ -100,6 +100,7 @@ export type SessionOperationGateway = {
   reserve<T>(
     operation: SessionOperationId,
   ): SessionOperationReservation<T> | null
+  hasWaitingBody(): boolean
   change(apply: () => void): boolean
 }
 
@@ -150,6 +151,10 @@ export class SessionOperations extends SessionSurfaceTransactions {
       return await start()
     },
     reserve: (operation) => this.reserveOperation(operation),
+    hasWaitingBody: () => {
+      const { admitted, runningTurnId } = this.snapshot().transactions
+      return [...admitted.keys()].some((turnId) => turnId !== runningTurnId)
+    },
     change: (apply) => {
       if (!canAdmitSessionChange(this.snapshot())) return false
       apply()

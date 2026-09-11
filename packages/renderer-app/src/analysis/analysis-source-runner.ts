@@ -43,38 +43,49 @@ export class AnalysisSourceRunner {
     if (repoPaths.length === 0) return
     this.current ??= new AbortController()
     const run = this.current
-    await this.operations.execute("analysis.run", async (scope) => {
-      // Start the selected repository first within the same parallel limit.
-      const ordered =
-        selectedRepoPath === null
-          ? repoPaths
-          : [
-              selectedRepoPath,
-              ...repoPaths.filter((path) => path !== selectedRepoPath),
-            ]
-      let nextIndex = 0
-      const worker = async () => {
-        while (!run.signal.aborted && nextIndex < ordered.length) {
-          const repoPath = ordered[nextIndex++]
-          try {
-            await this.fetchRepo(scope, repoPath, run.signal)
-          } catch {
-            // Query publishes each repository's failure to its observers.
+    // Start the selected repository first within the same parallel limit.
+    const ordered =
+      selectedRepoPath === null
+        ? repoPaths
+        : [
+            selectedRepoPath,
+            ...repoPaths.filter((path) => path !== selectedRepoPath),
+          ]
+    let nextIndex = 0
+    const failures: unknown[] = []
+    while (!run.signal.aborted && nextIndex < ordered.length) {
+      const reservation = this.operations.reserve<void>("analysis.run")
+      if (reservation === null) break
+      try {
+        await reservation.run(async (scope) => {
+          const worker = async () => {
+            while (!run.signal.aborted && nextIndex < ordered.length) {
+              const repoPath = ordered[nextIndex++]
+              try {
+                await this.fetchRepo(scope, repoPath, run.signal)
+              } catch {
+                // Query publishes each repository's failure to its observers.
+              }
+              if (this.operations.hasWaitingBody()) break
+            }
           }
-        }
-      }
-      await Promise.all(
-        Array.from(
-          {
-            length: Math.max(
-              1,
-              Math.min(this.input.repoParallelism, ordered.length),
+          await Promise.all(
+            Array.from(
+              {
+                length: Math.max(
+                  1,
+                  Math.min(this.input.repoParallelism, ordered.length),
+                ),
+              },
+              worker,
             ),
-          },
-          worker,
-        ),
-      )
-    })
+          )
+        })
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length > 0) throw failures[0]
   }
 
   cancel(): void {

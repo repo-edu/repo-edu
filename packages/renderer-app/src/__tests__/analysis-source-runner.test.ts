@@ -96,9 +96,13 @@ describe("source analysis ownership", () => {
     await entered.promise
     assert.deepEqual(calls, [repos[1], repos[0]])
     let closed = false
-    const closing = controller.requestClose(commitPreparation).then(() => {
-      closed = true
-    })
+    const closing = controller.operations.execute(
+      "analysis.listFolderFiles",
+      async () => {
+        closed = true
+        assert.deepEqual(calls, [repos[1], repos[0]])
+      },
+    )
     await tick()
     assert.equal(closed, false)
     release.resolve()
@@ -147,6 +151,8 @@ describe("source analysis ownership", () => {
     release.resolve()
     await Promise.all([running, selection, command])
     assert.equal(commandStarted, true)
+    assert.deepEqual(calls, [repos[0], repos[1]])
+    await runner.run(repos, repos[1])
     assert.deepEqual(calls, repos)
     assert.deepEqual(client.getQueryData(resultKey(repos[0])), result)
   })

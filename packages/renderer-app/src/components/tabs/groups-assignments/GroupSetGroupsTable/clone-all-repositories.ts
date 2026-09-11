@@ -6,6 +6,7 @@ import type {
 import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import { keepPreviousData, type QueryClient } from "@tanstack/react-query"
 import type { SessionOperationGateway } from "../../../../session/session-operations.js"
+import { scopedSessionQueryOptions } from "../../../../session/session-query.js"
 
 export const cloneAllListingDebounceMs = 350
 
@@ -56,6 +57,31 @@ export type CloneAllCommandState =
       data: RepositoryCloneResult
     }
   | { status: "error"; variables: CloneAllCommandVariables; error: unknown }
+
+export function fetchCloneAllListing(
+  operations: SessionOperationGateway,
+  queryClient: QueryClient,
+  input: CloneAllPublishedListingInput,
+): Promise<RepositoryListNamespaceResult | undefined> {
+  return operations.execute("repo.listNamespace", async (scope) => {
+    const { signal } = new AbortController()
+    return await queryClient.fetchQuery({
+      ...createCloneAllListingQueryPolicy(input.admissionId),
+      ...scopedSessionQueryOptions(scope, signal, (signal) =>
+        scope.run(
+          "repo.listNamespace",
+          {
+            credentials: input.credentials,
+            namespace: input.admissionId.namespace,
+            filter: input.admissionId.filter || undefined,
+            includeArchived: input.admissionId.includeArchived,
+          },
+          { signal },
+        ),
+      ),
+    })
+  })
+}
 
 export function executeCloneAllCommand(
   operations: SessionOperationGateway,
@@ -169,7 +195,7 @@ export function createCloneAllListingQueryPolicy(
         : cloneAllListingQueryKeys.admission(admissionId),
     staleTime: 0,
     gcTime: 0,
-    refetchOnMount: "always" as const,
+    refetchOnMount: false,
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

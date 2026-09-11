@@ -5,6 +5,7 @@ import { memberName } from "./desktop-inventory-syntax.js"
 import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
+import { checkRendererQuerySource } from "./renderer-query-checks.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
@@ -79,6 +80,17 @@ export function runBespokeChecks(
     ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
     ...checkClaudeCoderPackageDeclarations(root, pathProvider),
     ...checkRendererSessionOwnership(root, pathProvider),
+    ...inventory.files
+      .filter(
+        (file) =>
+          file.startsWith(RENDERER_SRC_PREFIX) && !file.includes("/__tests__/"),
+      )
+      .flatMap((file) =>
+        checkRendererQuerySource(
+          file,
+          fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
+        ),
+      ),
   ]
 }
 
@@ -228,18 +240,6 @@ function checkRendererSessionOwnership(
 
     function visit(node: ts.Node): void {
       if (
-        (ts.isPropertyAssignment(node) ||
-          ts.isShorthandPropertyAssignment(node) ||
-          ts.isMethodDeclaration(node)) &&
-        propertyNameText(node.name) === "queryFn"
-      ) {
-        violations.push({
-          file: `${RENDERER_SRC_PREFIX}${file}`,
-          message:
-            "defines a Query fetch outside session publication ownership; use sessionQueryOptions",
-        })
-      }
-      if (
         ts.isImportSpecifier(node) &&
         (node.propertyName?.text ?? node.name.text) === "WorkflowClient" &&
         file !== "components/App.tsx"
@@ -247,17 +247,6 @@ function checkRendererSessionOwnership(
         violations.push({
           file: `${RENDERER_SRC_PREFIX}${file}`,
           message: "retains a raw WorkflowClient outside session composition",
-        })
-      }
-      if (
-        (ts.isIdentifier(node) || ts.isStringLiteralLike(node)) &&
-        ["useMutation", "mutationFn", "mutate", "mutateAsync"].includes(
-          node.text,
-        )
-      ) {
-        violations.push({
-          file: `${RENDERER_SRC_PREFIX}${file}`,
-          message: "names a Query mutation entry outside session ownership",
         })
       }
       if (ts.isCallExpression(node)) {

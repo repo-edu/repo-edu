@@ -11,8 +11,7 @@ import type {
   FileStats,
 } from "@repo-edu/domain/analysis"
 import { resolveAnalysisConfig } from "@repo-edu/domain/types"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { nanoid } from "nanoid"
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   type Context,
   createContext,
@@ -30,7 +29,6 @@ import {
   selectDefaultExtensions,
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
-import { sessionQueryOptions } from "../session/session-query.js"
 import {
   analysisSourceKeyFromSurface,
   canAdmitSessionChange,
@@ -49,6 +47,10 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
+import {
+  AnalysisDiscoveryRunner,
+  fetchAnalysisBlame,
+} from "./analysis-query-bodies.js"
 import {
   clearAnalysisQueries,
   refreshSourceSnapshotHeadQueries,
@@ -413,49 +415,27 @@ export function AnalysisCoordinatorProvider({
           discoveryInput.folder,
           discoveryInput.depth,
         )
-  const discoveryQuery = useQuery({
+  const discoveryQuery = useQuery<AnalysisDiscoverReposResult>({
     queryKey: discoveryQueryKey,
-    enabled: canStartQueries && discoveryInput !== null,
-    ...sessionQueryOptions(
-      client,
-      "analysis.discoverRepos",
-      async (scope, { signal }): Promise<AnalysisDiscoverReposResult> => {
-        if (discoveryInput === null) {
-          throw new Error("Discovery query ran without input.")
-        }
-        const requestId = nanoid()
-        const transient = useAnalysisTransientStore.getState()
-        transient.startDiscovery(requestId)
-        try {
-          return await scope.run(
-            "analysis.discoverRepos",
-            {
-              searchFolder: discoveryInput.folder,
-              maxDepth: discoveryInput.depth,
-            },
-            {
-              signal,
-              onProgress: (progress) => {
-                useAnalysisTransientStore
-                  .getState()
-                  .setDiscoveryProgress(requestId, progress)
-              },
-            },
-          )
-        } finally {
-          useAnalysisTransientStore.getState().finishDiscovery(requestId)
-        }
-      },
-      async (scope, result) => {
-        if (discoveryInput === null) return
-        await scope.reconcileDiscovery(
-          analysisContext.activeSurface,
-          discoveryInput.folder,
-          result,
-        )
-      },
-    ),
+    enabled: false,
+    queryFn: skipToken,
   })
+  const discoveryRunner = useMemo(
+    () => new AnalysisDiscoveryRunner(client, queryClient),
+    [client, queryClient],
+  )
+  useEffect(() => {
+    if (!canStartQueries || discoveryInput === null) return
+    void discoveryRunner
+      .run(activeSourceParts, activeSurface, discoveryInput)
+      .catch(() => {})
+  }, [
+    canStartQueries,
+    discoveryInput,
+    discoveryRunner,
+    activeSourceParts,
+    activeSurface,
+  ])
 
   const discoveryCurrentFolder = useAnalysisTransientStore(
     (state) => state.discoveryProgress?.currentFolder ?? null,
@@ -518,6 +498,7 @@ export function AnalysisCoordinatorProvider({
   const selectedSnapshotQuery = useQuery<string>({
     queryKey: selectedSnapshotQueryKey,
     enabled: false,
+    queryFn: skipToken,
   })
   const selectedSnapshotCommitOid =
     selectedSnapshotQuery.isFetching || selectedSnapshotQuery.isError
@@ -570,6 +551,7 @@ export function AnalysisCoordinatorProvider({
         ? (["analysis", "result", "disabled"] as const)
         : analysisQueryKeys.result(selectedAnalysisIdentity),
     enabled: false,
+    queryFn: skipToken,
   })
 
   const selectedAnalysisProgress = useAnalysisTransientStore((state) =>
@@ -636,71 +618,43 @@ export function AnalysisCoordinatorProvider({
     [result],
   )
 
-  const selectedBlameQuery = useQuery({
+  const selectedBlameQuery = useQuery<BlameResult>({
     queryKey:
       selectedBlameIdentity === null
         ? (["analysis", "blame", "disabled"] as const)
         : analysisQueryKeys.blame(selectedBlameIdentity),
-    enabled:
-      canStartQueries &&
-      selectedBlameIdentity !== null &&
-      effectiveBlameConfig !== null,
-    ...sessionQueryOptions(
-      client,
-      "analysis.blame",
-      async (scope, { signal }): Promise<BlameResult> => {
-        if (
-          selectedRepoPath === null ||
-          selectedBlameIdentity === null ||
-          selectedBlameScopeKey === null ||
-          selectedAnalysisIdentity === null ||
-          effectiveBlameConfig === null ||
-          result === null ||
-          selectedBlameFiles.length === 0
-        ) {
-          throw new Error("Blame query ran without input.")
-        }
-        const requestKey = selectedBlameScopeKey
-        const requestId = nanoid()
-        const transient = useAnalysisTransientStore.getState()
-        transient.startBlame(requestKey, requestId)
-        try {
-          return await scope.run(
-            "analysis.blame",
-            {
-              repositoryAbsolutePath: selectedRepoPath,
-              config: effectiveBlameConfig,
-              personDbBaseline: result.personDbBaseline,
-              files: selectedBlameFiles,
-              snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-            },
-            {
-              signal,
-              onProgress: (progress) => {
-                const transientStore = useAnalysisTransientStore.getState()
-                transientStore.setBlameProgress(requestKey, requestId, progress)
-                if (progress.partialAuthorLines) {
-                  const next = new Map<string, number>()
-                  for (const entry of progress.partialAuthorLines) {
-                    next.set(entry.personId, entry.lines)
-                  }
-                  transientStore.setBlamePartialAuthorLines(
-                    requestKey,
-                    requestId,
-                    next,
-                  )
-                }
-              },
-            },
-          )
-        } finally {
-          useAnalysisTransientStore
-            .getState()
-            .finishBlame(requestKey, requestId)
-        }
-      },
-    ),
+    enabled: false,
+    queryFn: skipToken,
   })
+  useEffect(() => {
+    if (
+      !canStartQueries ||
+      selectedRepoPath === null ||
+      selectedBlameIdentity === null ||
+      selectedAnalysisIdentity === null ||
+      effectiveBlameConfig === null ||
+      result === null ||
+      selectedBlameFiles.length === 0
+    )
+      return
+    void fetchAnalysisBlame(client, queryClient, selectedBlameIdentity, {
+      repositoryAbsolutePath: selectedRepoPath,
+      config: effectiveBlameConfig,
+      personDbBaseline: result.personDbBaseline,
+      files: selectedBlameFiles,
+      snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
+    }).catch(() => {})
+  }, [
+    canStartQueries,
+    client,
+    queryClient,
+    selectedRepoPath,
+    selectedBlameIdentity,
+    selectedAnalysisIdentity,
+    effectiveBlameConfig,
+    result,
+    selectedBlameFiles,
+  ])
 
   const selectedBlameTransient = useAnalysisTransientStore((state) =>
     selectedBlameScopeKey === null
@@ -782,46 +736,29 @@ export function AnalysisCoordinatorProvider({
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
-      const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
-      const sameInput =
-        discoveryInput?.folder === input.folder &&
-        discoveryInput.depth === input.depth
-      const nextDiscoveryQueryKey = analysisQueryKeys.discovery(
-        activeSourceParts,
-        input.folder,
-        input.depth,
-      )
-      sourceRunner?.cancel()
-      setLastDiscoveryOutcome(activeSourceText, "none")
-      markAutoDiscoveryRequest(activeSourceText, input)
-      if (!sameInput) {
-        queryClient.removeQueries({
-          queryKey: nextDiscoveryQueryKey,
+      client.change(() => {
+        const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
+        sourceRunner?.cancel()
+        setLastDiscoveryOutcome(activeSourceText, "none")
+        markAutoDiscoveryRequest(activeSourceText, input)
+        refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
+        void queryClient.invalidateQueries({
+          queryKey: analysisQueryKeys.discovery(
+            activeSourceParts,
+            folder,
+            searchDepth,
+          ),
           exact: true,
+          refetchType: "none",
         })
-      }
-      setPendingRepoDiscoveryRequest(activeSourceText, input)
-      void (async () => {
-        await queryClient.cancelQueries({
-          queryKey: analysisQueryKeys.sourceRepos(activeSourceParts),
-        })
-        await refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
-        if (sameInput) {
-          await queryClient.invalidateQueries({
-            queryKey: nextDiscoveryQueryKey,
-            exact: true,
-            refetchType: "none",
-          })
-          await discoveryQuery.refetch()
-        }
-      })()
+        setPendingRepoDiscoveryRequest(activeSourceText, input)
+      })
     },
     [
+      client,
       sourceRunner,
       activeSourceParts,
       activeSourceText,
-      discoveryInput,
-      discoveryQuery,
       markAutoDiscoveryRequest,
       queryClient,
       searchDepth,
@@ -833,16 +770,8 @@ export function AnalysisCoordinatorProvider({
   const cancelDiscovery = useCallback(() => {
     setLastDiscoveryOutcome(activeSourceText, "cancelled")
     sourceRunner?.cancel()
-    void queryClient.cancelQueries({
-      queryKey: discoveryQueryKey,
-    })
-  }, [
-    sourceRunner,
-    activeSourceText,
-    discoveryQueryKey,
-    queryClient,
-    setLastDiscoveryOutcome,
-  ])
+    discoveryRunner.cancel()
+  }, [sourceRunner, discoveryRunner, activeSourceText, setLastDiscoveryOutcome])
 
   const selectRepository = useCallback(
     (repoPath: string | null) => {
