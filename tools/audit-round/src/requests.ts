@@ -21,7 +21,7 @@ export function claudeArguments(
     "stream-json",
     "--verbose",
     "--permission-mode",
-    "acceptEdits",
+    "auto",
     "--add-dir",
     resolve(cwd, "../plan"),
   ]
@@ -42,6 +42,8 @@ export function interactiveArguments(session: InteractiveSession): string[] {
     : [
         "--resume",
         session.sessionId,
+        "--permission-mode",
+        "auto",
         "--add-dir",
         resolve(session.cwd, "../plan"),
       ]

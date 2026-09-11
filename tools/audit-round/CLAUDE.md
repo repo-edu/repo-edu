@@ -28,7 +28,8 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   runner. Both update attempts precede settings discovery. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
-  `--approve-for-me` on every Codex phase and resume command.
+  `--approve-for-me` on every Codex phase and resume command. Claude uses
+  `--permission-mode auto` in settings discovery and every session entry.
 - `output.ts` owns terminal presentation and incremental run recording.
   It holds only current phase timing and context observations. `run-files.ts`
   completes each required write before returning to the invocation; no complete

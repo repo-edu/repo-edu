@@ -70,6 +70,14 @@ test("startup finishes daily updates before read-only settings discovery", async
       .filter((call) => call.assistant === "claude" && call.args[0] === "-p")
       .every((call) => call.args.includes("--no-session-persistence")),
   )
+  assert.ok(
+    (await f.calls())
+      .filter((call) => call.assistant === "claude" && call.args[0] === "-p")
+      .every(
+        (call) =>
+          call.args[call.args.indexOf("--permission-mode") + 1] === "auto",
+      ),
+  )
 })
 
 test("only failed updates repeat and an unavailable cache warns", async (t) => {

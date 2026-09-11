@@ -67,7 +67,10 @@ for (const assistant of ["claude", "codex"] as const) {
         "--json",
       ])
     else {
-      assert.ok(call.args.includes("acceptEdits"))
+      assert.equal(
+        call.args[call.args.indexOf("--permission-mode") + 1],
+        "auto",
+      )
       assert.equal(call.args.includes("--resume"), false)
     }
   })
@@ -159,12 +162,17 @@ for (const assistant of ["claude", "codex"] as const) {
         "--json",
         "prior-session",
       ])
-    else
+    else {
       assert.deepEqual(call.args.slice(0, 3), [
         "-p",
         "--resume",
         "prior-session",
       ])
+      assert.equal(
+        call.args[call.args.indexOf("--permission-mode") + 1],
+        "auto",
+      )
+    }
   })
 
   test(`${assistant} accounts for an interactive exit and quotes the same recovery invocation`, async (t) => {
@@ -178,7 +186,14 @@ for (const assistant of ["claude", "codex"] as const) {
         recoveryCommand(session),
         "codex resume --approve-for-me fix-session",
       )
-    } else assert.deepEqual(call.args.slice(0, 2), ["--resume", "fix-session"])
+    } else {
+      assert.deepEqual(call.args.slice(0, 2), ["--resume", "fix-session"])
+      assert.equal(
+        call.args[call.args.indexOf("--permission-mode") + 1],
+        "auto",
+      )
+      assert.ok(recoveryCommand(session).includes("--permission-mode auto"))
+    }
     await f.configure({ exitCode: 7 })
     await assert.rejects(openAssistantSession(session, f.runtime))
   })
