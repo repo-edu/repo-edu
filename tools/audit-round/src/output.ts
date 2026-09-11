@@ -46,6 +46,7 @@ export class RoundOutput {
   readonly phase: PhaseOutput
   private readonly files: RunFiles
   private readonly now: () => number
+  private readonly started: number
   private active:
     | {
         input: PhaseInput
@@ -62,7 +63,8 @@ export class RoundOutput {
     private readonly options: OutputOptions,
   ) {
     this.now = options.now ?? Date.now
-    const date = new Date(this.now())
+    this.started = this.now()
+    const date = new Date(this.started)
     this.paths = roundFilePaths(input, date)
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
@@ -135,7 +137,8 @@ export class RoundOutput {
     if (this.active === undefined) return ""
     const { input, started, context, change } = this.active
     const measurement = contextText(context, change)
-    return `\n[${input.phase}] ${elapsedText(this.now() - started)}${measurement ? `  ${measurement}` : ""}`
+    const now = this.now()
+    return `\n[${input.phase}] ${elapsedText(now - started)}  total ${elapsedText(now - this.started)}${measurement ? `  ${measurement}` : ""}`
   }
 
   private start(input: PhaseInput, prompt: string): void {

@@ -46,6 +46,7 @@ test("output records complete invocations incrementally and refreshes only while
       },
       "Full prompt\nMore prompt",
     )
+  t.mock.timers.tick(5000)
   await start()
   const tool = async (command: string) => {
     for (const event of decodeCodex({
@@ -74,7 +75,7 @@ test("output records complete invocations incrementally and refreshes only while
   t.mock.timers.tick(3000)
   assert.match(
     status.at(-1) as string,
-    /\[audit\] 00:03\s+context\s+0\.2k\s+26k\s+26%/,
+    /\[audit\] 00:03\s+total 00:08\s+context\s+0\.2k\s+26k\s+26%/,
   )
   await output.phase.observe({
     type: "text",

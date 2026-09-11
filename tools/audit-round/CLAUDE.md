@@ -31,9 +31,10 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   `--approve-for-me` on every Codex phase and resume command. Claude uses
   `--permission-mode auto` in settings discovery and every session entry.
 - `output.ts` owns terminal presentation and incremental run recording.
-  It holds only current phase timing and context observations. `run-files.ts`
-  completes each required write before returning to the invocation; no complete
-  transcript accumulates in memory. `terminal.ts` uses log-update for terminals
+  It holds only the round start, current phase timing and context
+  observations. Every status stamp shows the phase's elapsed time and the
+  round's total. `run-files.ts` completes each required write before returning
+  to the invocation; no complete transcript accumulates in memory. `terminal.ts` uses log-update for terminals
   and plain text for redirected output. The log records each tool invocation
   once, with shell wrappers removed and no event envelopes or result payloads.
   Invocation lines stay complete in the log; assistant texts stay complete in
