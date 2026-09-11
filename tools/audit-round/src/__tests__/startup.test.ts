@@ -122,6 +122,30 @@ for (const config of [
   })
 }
 
+test("Codex rejects an unresolved effort after searching every model page", async (t) => {
+  const f = await fixture(t, {
+    config: { model: "unlisted-model", model_reasoning_effort: null },
+  })
+  await assert.rejects(
+    readCodexSettings(f.runtime, async () => {}),
+    {
+      message: "Codex did not report defaults for the selected model",
+    },
+  )
+  const requests = (await readFile(join(f.root, "requests.jsonl"), "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+  assert.deepEqual(
+    requests
+      .filter((request) => request.method === "model/list")
+      .map((request) => request.params),
+    [{ includeHidden: true }, { includeHidden: true, cursor: "second-page" }],
+  )
+  const [call] = await f.calls()
+  assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
+})
+
 for (const mode of ["error", "exit", "malformed"] as const) {
   test(`Codex settings ${mode} rejects pending requests and awaits the child`, async (t) => {
     const f = await fixture(t, { settingsMode: mode })
