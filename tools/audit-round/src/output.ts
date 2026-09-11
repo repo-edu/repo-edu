@@ -33,7 +33,7 @@ export function roundFilePaths(input: RoundInput, date: Date) {
     input.scope === undefined
       ? "all"
       : `${input.scope.includes("-") ? "steps" : "step"}-${input.scope}`
-  const timestamp = format(date, "yyyy-MM-dd'T'HH-mm-ss-SSS")
+  const timestamp = format(date, "yyyy-MM-dd'T'HH-mm-ss")
   const base = join(
     input.repoRoot,
     `ROUND-TS-${basename(input.plan, ".md")}-${scope}-${input.auditor ?? "codex"}-${timestamp}`,
