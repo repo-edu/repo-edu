@@ -336,7 +336,8 @@ report and round record in that repo, even when the round started in the other
 repo. A both-repo round lands independent records in each repo and writes one
 report at the root of the repo where the round started, named with both HEAD
 shas and that repo's sha first. Each round record's subject carries the round's
-scope through the shared `impl-audit-<step scope>` form, `<n>`, `<a>-<b>` or
+auditor and scope through the shared `impl-audit-<auditor>-<step scope>` form,
+with `<auditor>` either `cld` or `cdx` and the scope `<n>`, `<a>-<b>` or
 `all`; no `Audit:` body line repeats it. Each accepted
 code finding bullet opens with the
 finding's metadata tokens,

@@ -165,9 +165,15 @@ lands in the repo whose files its findings concern. A both-repo round
 therefore lands independent records in each repo. Repo Edu records use the
 shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round
 that accepts only findings deferred to a repo outside the round's repo set
-uses the shared empty severity form. The subject's `impl-audit-<step scope>`
-form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no `Audit:` body
-line repeats it.
+uses the shared empty severity form. The subject's
+`impl-audit-<auditor>-<step scope>` form carries the round's auditor and
+scope. The scope is `<n>`, `<a>-<b>` or `all`; no `Audit:` body line repeats
+it.
+The auditor is `cld` or `cdx`, mapped from the report filename's `<auditor>`
+token, `claude` or `codex`, read under
+[Report discovery](#report-discovery). It names the assistant that ran the
+audit step only, never the one that vets, rebuts or fixes, and it reads on
+the clean record too.
 
 The body carries one bullet per accepted finding, and each bullet opens with
 that finding's metadata before its prose:
@@ -210,8 +216,8 @@ A finding deferred from a Repo Edu-only round to the plan repo uses the body
 form in this repo's `CLAUDE.md`; it keeps its tier, plan location and
 metadata in the same round commit. A plan-repo round carries no `[area:]`
 token, because the area model belongs to Repo Edu. A clean round lands the
-shared clean record in each repo judged, its subject carrying the step
-scope. When the user declines the outcome in full, no commit lands because
+shared clean record in each repo judged, its subject carrying the auditor
+and the step scope. When the user declines the outcome in full, no commit lands because
 disagreement is not a state. The logs show every confirmed round that ran,
 including clean rounds that would otherwise exist only in chat.
 
