@@ -48,7 +48,7 @@ a paragraph or bullet, never a whole sentence.
 The `simple` requirement governs the brief. Beyond it:
 
 - Translate, do not summarise. Every point the transcript makes appears in
-  the brief: every coverage row, every deviation, every pattern, every
+  the brief: every deviation, every pattern, every
   finding with its cause, its effect and its correction, every verdict, every
   answer and every open item. Cutting a point is the one way to fail this
   workflow. Length is whatever that takes.
@@ -71,15 +71,16 @@ what it holds.
 
 1. **Title**: `# <plan> step <n> in plain words`, naming the plan and the
    step range the way the transcript's first heading does.
-2. **Opening**: who did what, from the fenced role table, one short sentence
-   per role naming its assistant; what the audited step is about, one
-   paragraph; how the round ended, one sentence: the fix landed, the fix
-   stopped for a ruling, or a phase failed and which.
-3. **What the audit checked**: the coverage table row by row, each as one
-   sentence saying what the plan asked and whether the code does it; every
+2. **Opening**: who did what, as the transcript's fenced role table copied
+   unchanged, because retelling it in sentences reads worse than the table;
+   what the audited step is about, one paragraph; how the round ended, one
+   sentence: the fix landed, the fix stopped for a ruling, or a phase failed
+   and which.
+3. **What the audit checked**: the coverage counts in one sentence; every
    deviation with the reason the round gave; the round yield and structure
    lines in words; the patterns across rounds and, when the round priced a
-   run, each pricing question with its answer.
+   run, each pricing question with its answer. The coverage table itself
+   stays out.
 4. **The findings**: one numbered entry per finding, in the report's order,
    opening with a short title and the tier in words. Each entry says what
    goes wrong and when, why the code does that, what the correction is, and
@@ -88,15 +89,13 @@ what it holds.
    was agreed. A dropped finding says why it was dropped and, when the
    rebuttal left a note for a later round, what the note says.
 5. **The ratings**: one table over the findings, in the report's order, with
-   the columns Finding, Growth, Reach and Complexity. The finding cell is the
-   number and short title. The growth cell is `none`, or the pattern's label
-   followed by what the pattern means in a few words. The reach cell is the
-   rating followed by the condition in words. The complexity cell is the
-   rating followed by what the correction adds or removes in a few words. A
-   rating the vet changed shows both values, such as "developer, raised to
-   rare by the vet". A dropped finding keeps its row and says so. The area
-   tokens stay out of the table, because the finding's title already says
-   where the problem sits.
+   the columns Finding, Reach and Complexity. The finding cell is the number
+   and short title. The reach cell is the rating followed by the condition in
+   words. The complexity cell is the rating followed by what the correction
+   adds or removes in a few words. A rating the vet changed shows both
+   values, such as "developer, raised to rare by the vet". A dropped finding
+   keeps its row and says so. The area tokens stay out of the table, because
+   the finding's title already says where the problem sits.
 6. **The fix**: what the fix phase did. When it landed, what it changed and
    what it committed, from the fix phase's text. When it stopped for a
    ruling, the open items as a numbered list, each with what it costs, what

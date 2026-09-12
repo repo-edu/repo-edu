@@ -296,7 +296,10 @@ Every finding carries a growth tag naming the patterns in
 `../plan/GROWTH-PATTERNS.md` it could violate, by their labels:
 `[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]` when
 more than one could apply, listed in pattern order, and `[growth:none]`
-when none does. The tag rides the finding in the report and the matching
+when none does. What is tagged is the code the finding flags, never the
+correction it asks for; the complexity token rates the correction. A finding
+that flags a guard added control by control tags `growing-lists` even when
+its correction removes the copies. The tag rides the finding in the report and the matching
 bullet in the round's commit body, in the record bullet form the fix workflow
 fixes, so it survives in the log after the chat is gone. A tag that reaches
 only the report is lost, and the next round is back to having no memory.
