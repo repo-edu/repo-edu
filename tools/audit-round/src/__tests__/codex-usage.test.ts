@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { appendFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { CodexUsageReader } from "../codex-usage.js"
+import { CodexSessionReader } from "../codex-session.js"
 import type { Feedback } from "../feedback.js"
 import { fixture } from "./helpers.js"
 
@@ -10,7 +10,7 @@ test("usage reads keep an incomplete UTF-8 tail and never replay old measurement
   const f = await fixture(t)
   const path = join(f.root, "rollout-session.jsonl")
   await writeFile(path, "old records are outside this invocation\n")
-  const usage = new CodexUsageReader(f.root)
+  const usage = new CodexSessionReader(f.root)
   t.after(() => usage.close())
   await usage.prepareResume("session")
   const feedback: Feedback[] = []
@@ -54,7 +54,7 @@ for (const text of [
   test(`usage fails on malformed or unfinished evidence: ${text.slice(0, 40)}`, async (t) => {
     const f = await fixture(t)
     await writeFile(join(f.root, "rollout-session.jsonl"), text)
-    const usage = new CodexUsageReader(f.root)
+    const usage = new CodexSessionReader(f.root)
     t.after(() => usage.close())
     await assert.rejects(usage.read("session", async () => {}, true))
   })
@@ -62,7 +62,7 @@ for (const text of [
 
 test("a missing live usage file may arrive later, but final or resumed absence fails", async (t) => {
   const f = await fixture(t)
-  const usage = new CodexUsageReader(f.root)
+  const usage = new CodexSessionReader(f.root)
   t.after(() => usage.close())
   await usage.read("session", async () => {})
   await assert.rejects(

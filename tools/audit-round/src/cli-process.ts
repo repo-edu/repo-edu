@@ -98,17 +98,35 @@ export async function withCliProcess<T>(
 export async function openAssistantSession(
   session: InteractiveSession,
   runtime: CliRuntime,
+  record: (stopped: AbortSignal) => Promise<void> = async () => {},
 ): Promise<void> {
   const invocation = command(
     runtime,
     session.assistant,
     interactiveArguments(session),
   )
-  await execa(invocation.file, invocation.args, {
+  const stopped = new AbortController()
+  const interruption = new AbortController()
+  const signal =
+    runtime.signal === undefined
+      ? interruption.signal
+      : AbortSignal.any([interruption.signal, runtime.signal])
+  const child = execa(invocation.file, invocation.args, {
     cwd: session.cwd,
     env: runtime.env,
     stdio: "inherit",
-    cancelSignal: runtime.signal,
+    cancelSignal: signal,
     forceKillAfterDelay: 5000,
   })
+  const interrupt = () => interruption.abort()
+  process.on("SIGINT", interrupt)
+  const processResult = child.finally(() => stopped.abort())
+  const recording = Promise.resolve().then(() => record(stopped.signal))
+  try {
+    await Promise.all([processResult, recording])
+  } finally {
+    child.kill()
+    await Promise.allSettled([processResult, recording])
+    process.off("SIGINT", interrupt)
+  }
 }

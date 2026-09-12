@@ -1,9 +1,7 @@
-import { homedir } from "node:os"
-import { join } from "node:path"
 import { decodeClaude } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
-import { CodexUsageReader } from "./codex-usage.js"
+import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import { errorMessage, type Feedback, type PhaseOutput } from "./feedback.js"
 import { recordInteractiveSession } from "./interactive.js"
 import type {
@@ -58,15 +56,7 @@ export async function runAssistantInvocation(
   }
   const usage =
     input.assistant === "codex"
-      ? new CodexUsageReader(
-          runtime.sessionsRoot ??
-            join(
-              runtime.env?.CODEX_HOME ??
-                process.env.CODEX_HOME ??
-                join(homedir(), ".codex"),
-              "sessions",
-            ),
-        )
+      ? new CodexSessionReader(codexSessionsRoot(runtime))
       : undefined
   try {
     try {

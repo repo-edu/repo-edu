@@ -96,7 +96,10 @@ if (args[0] === "resume" || args[0] === "--resume") {
     const bytes = Buffer.from(continuation.usage.text)
     const size = continuation.chunkSize ?? bytes.length
     for (let offset = 0; offset < bytes.length; offset += size) {
-      await appendFile(continuation.usage.path, bytes.subarray(offset, offset + size))
+      await appendFile(
+        continuation.usage.path,
+        bytes.subarray(offset, offset + size),
+      )
       if (continuation.chunkSize !== undefined) await setTimeout(1)
     }
     if (continuation.waitForFile !== undefined) {

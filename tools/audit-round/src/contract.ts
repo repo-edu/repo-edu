@@ -8,15 +8,19 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { homedir, tmpdir } from "node:os"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
 import { z } from "zod"
 import { type AssistantRuntime, runAssistantInvocation } from "./assistant.js"
 import { readClaudeSettings } from "./claude.js"
 import { readCliLines, withCliProcess } from "./cli-process.js"
+import {
+  codexSessionsRoot,
+  decodeCodexUsage,
+  findSessionFile,
+} from "./codex-session.js"
 import { readCodexSettings } from "./codex-settings.js"
-import { decodeCodexUsage, findSessionFile } from "./codex-usage.js"
 import { eventSchema, type Feedback } from "./feedback.js"
 import { RoundOutput, roundRun } from "./output.js"
 import type { Assistant } from "./phase.js"
@@ -84,15 +88,7 @@ async function recordUsage(
   sessionId: string,
   destination: string,
 ): Promise<void> {
-  const sessionsRoot =
-    runtime.sessionsRoot ??
-    join(
-      runtime.env?.CODEX_HOME ??
-        process.env.CODEX_HOME ??
-        join(homedir(), ".codex"),
-      "sessions",
-    )
-  const path = await findSessionFile(sessionsRoot, sessionId)
+  const path = await findSessionFile(codexSessionsRoot(runtime), sessionId)
   if (path === undefined) throw new Error("Contract session file is missing")
   const stream = createReadStream(path)
   const lines = createInterface({ input: stream, crlfDelay: Infinity })

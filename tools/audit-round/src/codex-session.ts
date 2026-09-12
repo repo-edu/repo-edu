@@ -1,5 +1,6 @@
 import type { Dirent } from "node:fs"
 import { type FileHandle, open, readdir } from "node:fs/promises"
+import { homedir } from "node:os"
 import { join } from "node:path"
 import { StringDecoder } from "node:string_decoder"
 import { z } from "zod"
@@ -9,6 +10,21 @@ import {
   selectionSchema,
   tokenSchema,
 } from "./feedback.js"
+
+export function codexSessionsRoot(runtime: {
+  readonly sessionsRoot?: string
+  readonly env?: Readonly<Record<string, string>>
+}): string {
+  return (
+    runtime.sessionsRoot ??
+    join(
+      runtime.env?.CODEX_HOME ??
+        process.env.CODEX_HOME ??
+        join(homedir(), ".codex"),
+      "sessions",
+    )
+  )
+}
 
 export async function findSessionFile(
   root: string,
@@ -62,13 +78,16 @@ export function decodeCodexUsage(
 }
 
 /** Reads only this invocation's appended records, including UTF-8 split across writes. */
-export class CodexUsageReader {
+export class CodexSessionReader {
   private file: FileHandle | undefined
   private offset = 0
   private tail = ""
   private readonly decoder = new StringDecoder("utf8")
 
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly decode: (record: unknown) => Feedback[] = decodeCodexUsage,
+  ) {}
 
   async prepareResume(sessionId: string): Promise<void> {
     const path = await findSessionFile(this.root, sessionId)
@@ -111,7 +130,7 @@ export class CodexUsageReader {
         while (newline !== -1) {
           const line = this.tail.slice(0, newline)
           this.tail = this.tail.slice(newline + 1)
-          for (const feedback of decodeCodexUsage(JSON.parse(line)))
+          for (const feedback of this.decode(JSON.parse(line)))
             await observe(feedback)
           newline = this.tail.indexOf("\n")
         }

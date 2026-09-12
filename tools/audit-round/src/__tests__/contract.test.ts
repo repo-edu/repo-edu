@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { decodeCodexUsage } from "../codex-usage.js"
+import { decodeCodexUsage } from "../codex-session.js"
 import { recordContracts } from "../contract.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
 

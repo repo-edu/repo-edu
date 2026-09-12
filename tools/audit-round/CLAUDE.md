@@ -34,9 +34,15 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   `cli-process.ts` stops the child before unwinding a failed line consumer, because Execa's iterator
   return awaits the child. It then awaits all readers and the process. Process output is never
   accumulated by Execa.
-- `codex-usage.ts` reads the current session's appended records. A resumed
-  rebuttal starts at the file's pre-invocation end. An incomplete record stays with the reader
-  until more bytes arrive; a final incomplete record fails the invocation.
+- `codex-session.ts` reads the current session's appended records. A resumed
+  rebuttal or interactive fix starts at the file's pre-invocation end. An
+  incomplete record stays with the reader until more bytes arrive; a final
+  incomplete record fails the invocation.
+- `interactive.ts` records the resumed fix while Codex owns the terminal. Its
+  reader and the interactive child settle together, including a final read
+  after the child exits. A recording failure stops the child. The session
+  decoder reads messages from display events and tools from response items,
+  so duplicate records and tool results do not enter the round files.
 - `startup.ts` shares the existing `audit-round` cache dates with the Bash
   runner. Both update attempts precede settings discovery. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
@@ -57,7 +63,12 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   each tool invocation once, with shell wrappers removed and no event envelopes or result payloads.
   Invocation lines stay complete in the log; assistant texts stay complete in Markdown. Only
   terminal tool lines shorten. `prepareHandover` records the handover and releases the terminal
-  before `openSession` inherits it. Both functions must reject on failure.
+  before `openSession` inherits it. The interactive output continues writing
+  the same log and transcript without touching the terminal. Its fix timer
+  starts at the handover; the total still counts from the round's start. User
+  messages and assistant replies have separate transcript labels. Both
+  handover functions must reject on failure. Exiting the interactive child
+  ends recording but does not prove workflow completion.
 - `command.ts` owns the `round` and `brief` subcommands, repository paths,
   startup and final reporting. `round` is the default, so a bare plan argument
   still runs a round. Required write failures stop phase progression. If recording itself fails,
