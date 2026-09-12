@@ -218,13 +218,19 @@ export function cloneAllInputIsCurrent(params: {
   readonly credentials: PersistedAppCredentials
   readonly publishedInput: CloneAllPublishedListingInput | null
 }): boolean {
+  const connectionId = params.input?.connectionId
   return (
     params.publishedInput !== null &&
-    params.credentials === params.publishedInput.credentials &&
     cloneAllSafeInputMatchesAdmission(
       params.input,
       params.publishedInput.admissionId,
-    )
+    ) &&
+    params.credentials.gitConnections.find(
+      (connection) => connection.id === connectionId,
+    ) ===
+      params.publishedInput.credentials.gitConnections.find(
+        (connection) => connection.id === connectionId,
+      )
   )
 }
 

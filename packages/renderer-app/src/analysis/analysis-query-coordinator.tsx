@@ -352,25 +352,6 @@ export function AnalysisCoordinatorProvider({
     )
   }, [analysisConcurrency.filesPerRepo, analysisContext, defaultExtensions])
 
-  const effectiveBlameConfig = useMemo<AnalysisBlameConfig | null>(() => {
-    if (analysisContext.kind === "none") return null
-    return buildEffectiveBlameWorkflowConfig(
-      {
-        searchFolder: analysisContext.searchFolder,
-        analysisInputs: analysisContext.analysisInputs,
-      },
-      blameConfig,
-      defaultExtensions,
-      analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo,
-    )
-  }, [
-    analysisConcurrency.filesPerRepo,
-    analysisConcurrency.repoParallelism,
-    analysisContext,
-    blameConfig,
-    defaultExtensions,
-  ])
-
   const sourceRunnerInput = JSON.stringify({
     source: activeSourceParts,
     config:
@@ -397,9 +378,23 @@ export function AnalysisCoordinatorProvider({
     [client, queryClient, sourceRunnerInput],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys source inputs, extensions and concurrency by content.
+  const effectiveBlameConfig = useMemo<AnalysisBlameConfig | null>(() => {
+    if (analysisContext.kind === "none") return null
+    return buildEffectiveBlameWorkflowConfig(
+      {
+        searchFolder: analysisContext.searchFolder,
+        analysisInputs: analysisContext.analysisInputs,
+      },
+      blameConfig,
+      defaultExtensions,
+      analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo,
+    )
+  }, [sourceRunner, blameConfig])
+
   useEffect(
     () => () => {
-      sourceRunner?.cancel()
+      sourceRunner?.pause()
     },
     [sourceRunner],
   )
@@ -422,12 +417,18 @@ export function AnalysisCoordinatorProvider({
     [client, queryClient],
   )
   useEffect(() => {
-    if (!canStartQueries || discoveryInput === null) return
+    if (
+      !canStartQueries ||
+      discoveryInput === null ||
+      commandDiscoveryOutcome === "cancelled"
+    )
+      return
     void discoveryRunner
       .run(activeSourceParts, activeSurface, discoveryInput)
       .catch(() => {})
   }, [
     canStartQueries,
+    commandDiscoveryOutcome,
     discoveryInput,
     discoveryRunner,
     activeSourceParts,
@@ -468,7 +469,7 @@ export function AnalysisCoordinatorProvider({
 
   useEffect(() => {
     if (!canStartQueries || discoveryQuery.isFetching) {
-      sourceRunner?.cancel()
+      sourceRunner?.pause()
       return
     }
     if (discoveryQuery.dataUpdatedAt === 0) return
@@ -502,6 +503,7 @@ export function AnalysisCoordinatorProvider({
       ? null
       : (selectedSnapshotQuery.data ?? null)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys the source, analysis config and roster by content.
   const selectedAnalysisIdentity = useMemo<AnalysisQueryIdentity | null>(() => {
     if (
       selectedRepoPath === null ||
@@ -517,13 +519,7 @@ export function AnalysisCoordinatorProvider({
       config: analysisConfig,
       rosterContext: analysisContext.rosterContext,
     })
-  }, [
-    activeSourceParts,
-    analysisConfig,
-    analysisContext.rosterContext,
-    selectedRepoPath,
-    selectedSnapshotCommitOid,
-  ])
+  }, [sourceRunner, selectedRepoPath, selectedSnapshotCommitOid])
 
   const analysisScopeKey = useMemo(
     () =>
@@ -721,7 +717,7 @@ export function AnalysisCoordinatorProvider({
   const runAnalysis = useCallback(
     (repoPath: string) => {
       client.change(() => {
-        sourceRunner?.cancel()
+        sourceRunner?.restart()
         clearAnalysisQueries(queryClient, {
           queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
         })
@@ -736,7 +732,7 @@ export function AnalysisCoordinatorProvider({
       if (!folder) return
       client.change(() => {
         const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
-        sourceRunner?.cancel()
+        sourceRunner?.restart()
         setLastDiscoveryOutcome(activeSourceText, "none")
         markAutoDiscoveryRequest(activeSourceText, input)
         refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)

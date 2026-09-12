@@ -32,6 +32,7 @@ type AnalysisSourceInput = {
 /** Owns every snapshot, analysis and blame fetch for one source and input set.
  * Selected-repository queries only observe the cache this body fills. */
 export class AnalysisSourceRunner {
+  // Null allows a start; an aborted controller retains an explicit stop.
   private current: AbortController | null = null
 
   constructor(
@@ -92,13 +93,14 @@ export class AnalysisSourceRunner {
     if (failures.length > 0) throw failures[0]
   }
 
-  fetchBlame(
+  async fetchBlame(
     identity: BlameQueryIdentity,
     input: WorkflowInput<"analysis.blame">,
   ): Promise<BlameResult | undefined> {
     this.current ??= new AbortController()
     const { signal } = this.current
-    return this.operations.execute("analysis.blame", async (scope) => {
+    if (signal.aborted) return undefined
+    return await this.operations.execute("analysis.blame", async (scope) => {
       signal.throwIfAborted()
       return await this.queryClient.fetchQuery({
         queryKey: analysisQueryKeys.blame(identity),
@@ -143,11 +145,21 @@ export class AnalysisSourceRunner {
   }
 
   cancel(): void {
-    this.current?.abort()
-    this.current = null
+    this.current ??= new AbortController()
+    this.current.abort()
     void this.queryClient.cancelQueries({
       queryKey: analysisQueryKeys.sourceRepos(this.input.source),
     })
+  }
+
+  restart(): void {
+    this.cancel()
+    this.current = null
+  }
+
+  pause(): void {
+    if (this.current?.signal.aborted) return
+    this.restart()
   }
 
   private async fetchRepo(

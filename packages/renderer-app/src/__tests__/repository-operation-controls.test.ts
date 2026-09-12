@@ -155,6 +155,68 @@ describe("clone-all listing transition", () => {
     transition.dispose()
   })
 
+  const unrelatedCredentials: Record<string, PersistedAppCredentials> = {
+    LMS: {
+      ...firstCredentials,
+      lmsConnections: [
+        {
+          id: "lms",
+          name: "Course LMS",
+          provider: "canvas",
+          baseUrl: "https://canvas.example.edu",
+          token: "example-token",
+        },
+      ],
+    },
+    LLM: {
+      ...firstCredentials,
+      llmConnections: [
+        {
+          id: "llm",
+          name: "Question model",
+          provider: "codex",
+          authMode: "api",
+          apiKey: "example-key",
+        },
+      ],
+    },
+    "another Git connection": {
+      ...firstCredentials,
+      gitConnections: [
+        ...firstCredentials.gitConnections,
+        { ...firstCredentials.gitConnections[0], id: "connection-2" },
+      ],
+    },
+  }
+
+  for (const [name, credentials] of Object.entries(unrelatedCredentials)) {
+    it(`keeps the admitted listing when ${name} changes`, () => {
+      const scheduler = createManualScheduler()
+      let publishedInput: CloneAllPublishedListingInput | null =
+        initialPublishedInput
+      assert.equal(
+        cloneAllInputIsCurrent({
+          input: initialInput,
+          credentials,
+          publishedInput,
+        }),
+        true,
+      )
+      const transition = createCloneAllListingTransition({
+        canStartQueries: true,
+        input: initialInput,
+        credentials,
+        updatePublishedInput: (update) => {
+          publishedInput = update(publishedInput)
+        },
+        schedule: scheduler.schedule,
+      })
+      scheduler.flush()
+      assert.equal(publishedInput, initialPublishedInput)
+      transition.dispose()
+    })
+  }
+
   it("reuses the admitted generation after a transient disable", () => {
     const scheduler = createManualScheduler()
     let publishedInput: CloneAllPublishedListingInput | null =

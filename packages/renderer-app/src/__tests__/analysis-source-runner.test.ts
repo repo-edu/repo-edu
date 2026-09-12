@@ -256,6 +256,7 @@ describe("source analysis ownership", () => {
     release.resolve()
     await Promise.all([running, command])
     assert.deepEqual(calls, [repos[0]])
+    runner.restart()
     await runner.run(repos, repos[0])
     assert.deepEqual(calls, [repos[0], ...repos])
     assert.ok(selected.getCurrentResult().data)
@@ -344,7 +345,7 @@ describe("source analysis ownership", () => {
     t.after(selected.subscribe(() => {}))
     await runner.run([repos[0]], repos[0])
     assert.ok(selected.getCurrentResult().data)
-    runner.cancel()
+    runner.restart()
     clearAnalysisQueries(client, {
       queryKey: analysisQueryKeys.repo(source, repos[0]),
     })

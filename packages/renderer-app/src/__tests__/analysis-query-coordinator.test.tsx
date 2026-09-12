@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it, type TestContext } from "node:test"
-import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
+import type {
+  AnalysisDiscoverReposResult,
+  WorkflowClient,
+  WorkflowId,
+} from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { TooltipProvider } from "@repo-edu/ui"
 import { QueryClientProvider } from "@tanstack/react-query"
@@ -44,7 +48,15 @@ async function mountCoordinator(
   t: TestContext,
   analyse: (signal: AbortSignal) => Promise<unknown>,
   blame?: (signal: AbortSignal) => Promise<unknown>,
+  options: {
+    discover?: (signal: AbortSignal) => Promise<AnalysisDiscoverReposResult>
+    initialDiscovery?: AnalysisDiscoverReposResult
+    sidebar?: boolean
+    searchFolder?: string | null
+    strictEffects?: boolean
+  } = {},
 ) {
+  const { discover } = options
   resetStores()
   useAnalysisStore.getState().reset()
   const window = new Window()
@@ -65,7 +77,8 @@ async function mountCoordinator(
     })
   }
   const course = makeCourse("course")
-  course.searchFolder = "/repos"
+  course.searchFolder =
+    options.searchFolder === undefined ? "/repos" : options.searchFolder
   course.analysisInputs = { blameSkip: blame === undefined }
   course.roster.students = [
     {
@@ -104,9 +117,15 @@ async function mountCoordinator(
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "course", courseId: course.id },
+            analysisConcurrency: { repoParallelism: 1, filesPerRepo: 1 },
           })
         if (id === "course.load") return course
         if (id === "analysis.resolveSnapshotHead") return "head"
+        if (id === "analysis.discoverRepos") {
+          assert.ok(options?.signal)
+          assert.ok(discover)
+          return await discover(options.signal)
+        }
         if (id === "analysis.run") {
           assert.ok(options?.signal)
           return await analyse(options.signal)
@@ -124,15 +143,22 @@ async function mountCoordinator(
   })
   await controller.waitForIdle()
   const queryClient = createRendererQueryClient()
-  queryClient.setQueryData(analysisQueryKeys.discovery(source, "/repos", 5), {
-    repos: repos.map((path) => ({ path, name: path })),
-  })
-  useAnalysisStore
-    .getState()
-    .setPendingRepoDiscoveryRequest(JSON.stringify(source), {
-      folder: "/repos",
-      depth: 5,
-    })
+  if (!discover) {
+    queryClient.setQueryData(
+      analysisQueryKeys.discovery(source, "/repos", 5),
+      options.initialDiscovery ?? {
+        repos: repos.map((path) => ({ path, name: path })),
+      },
+    )
+  }
+  if (course.searchFolder !== null) {
+    useAnalysisStore
+      .getState()
+      .setPendingRepoDiscoveryRequest(JSON.stringify(source), {
+        folder: course.searchFolder,
+        depth: 5,
+      })
+  }
   let value: AnalysisCoordinatorValue | undefined
   function ReadAnalysis() {
     value = useAnalysisCoordinator()
@@ -152,23 +178,26 @@ async function mountCoordinator(
     }
   })
   await React.act(async () => {
+    const Mode = options.strictEffects ? React.StrictMode : React.Fragment
     root.render(
-      <SessionControllerProvider controller={controller}>
-        <WorkflowClientProvider value={controller.operations}>
-          <QueryClientProvider client={queryClient}>
-            <AnalysisCoordinatorProvider>
-              <ReadAnalysis />
-              {blame && (
-                <RendererHostProvider value={{} as RendererHost}>
-                  <TooltipProvider>
-                    <AnalysisSidebar />
-                  </TooltipProvider>
-                </RendererHostProvider>
-              )}
-            </AnalysisCoordinatorProvider>
-          </QueryClientProvider>
-        </WorkflowClientProvider>
-      </SessionControllerProvider>,
+      <Mode>
+        <SessionControllerProvider controller={controller}>
+          <WorkflowClientProvider value={controller.operations}>
+            <QueryClientProvider client={queryClient}>
+              <AnalysisCoordinatorProvider>
+                <ReadAnalysis />
+                {(options.sidebar ?? blame !== undefined) && (
+                  <RendererHostProvider value={{} as RendererHost}>
+                    <TooltipProvider>
+                      <AnalysisSidebar />
+                    </TooltipProvider>
+                  </RendererHostProvider>
+                )}
+              </AnalysisCoordinatorProvider>
+            </QueryClientProvider>
+          </WorkflowClientProvider>
+        </SessionControllerProvider>
+      </Mode>,
     )
     await flushQueries()
   })
@@ -184,6 +213,23 @@ async function mountCoordinator(
 }
 
 describe("analysis runner lifetime in React", () => {
+  it("resumes after React repeats effect setup and cleanup", {
+    timeout: 3000,
+  }, async (t) => {
+    const { controller, read } = await mountCoordinator(
+      t,
+      async () => makeBaseResult(),
+      undefined,
+      { strictEffects: true },
+    )
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(read().analysisStatus, "idle")
+    assert.deepEqual(read().result, makeBaseResult())
+  })
+
   it("cancels host blame from the Cancel button and holds the next command until settlement", {
     timeout: 3000,
   }, async (t) => {
@@ -241,9 +287,169 @@ describe("analysis runner lifetime in React", () => {
     await React.act(async () => {
       release.resolve()
       await command
+      await flushQueries()
     })
     assert.equal(commandStarted, true)
+    await React.act(async () => {
+      controller.setDisplayName("course", "Renamed after Cancel")
+      await flushQueries()
+    })
+    assert.equal(blameCalls, 1)
+    assert.equal(read().blameResult, null)
+
+    await React.act(async () => {
+      read().runAnalysis(repos[0])
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    await React.act(flushQueries)
+    assert.equal(blameCalls, 2)
+    assert.deepEqual(read().blameResult, makeBlameResult())
   })
+
+  for (const ending of ["pause", "cancel"] as const) {
+    it(`${ending === "pause" ? "resumes a paused" : "keeps a cancelled"} repository pass after command retirement`, {
+      timeout: 3000,
+    }, async (t) => {
+      const entered = deferred<AbortSignal>()
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      let calls = 0
+      const { controller, read } = await mountCoordinator(t, async (signal) => {
+        calls++
+        entered.resolve(signal)
+        await release.promise
+        return makeBaseResult()
+      })
+      const signal = await entered.promise
+      if (ending === "cancel") {
+        await React.act(async () => {
+          read().cancelAnalysis()
+          await flushQueries()
+        })
+      }
+      let command: Promise<unknown> | undefined
+      await React.act(async () => {
+        command = controller.operations.execute(
+          "groupSet.export",
+          async () => {},
+        )
+        await flushQueries()
+      })
+      assert.equal(signal.aborted, true)
+      await React.act(async () => {
+        release.resolve()
+        await command
+        await flushQueries()
+      })
+      await React.act(async () => {
+        await controller.waitForIdle()
+        controller.setDisplayName("course", "Renamed")
+        await flushQueries()
+      })
+      assert.equal(calls, ending === "cancel" ? 1 : repos.length + 1)
+      if (ending === "cancel") {
+        await React.act(async () => {
+          read().runAnalysis(repos[0])
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.equal(calls, repos.length + 1)
+      }
+      assert.deepEqual(read().result, makeBaseResult())
+    })
+  }
+
+  it("keeps a cancelled search stopped after commands and completes an explicit new search", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    let calls = 0
+    const { controller, read } = await mountCoordinator(
+      t,
+      async () => assert.fail("A cancelled search must not start analysis"),
+      undefined,
+      {
+        discover: async (signal) => {
+          calls++
+          entered.resolve(signal)
+          await release.promise
+          return { repos: [] }
+        },
+      },
+    )
+    const signal = await entered.promise
+    await React.act(async () => {
+      read().cancelDiscovery()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    let command: Promise<unknown> | undefined
+    await React.act(async () => {
+      command = controller.operations.execute("groupSet.export", async () => {})
+      await flushQueries()
+    })
+    await React.act(async () => {
+      release.resolve()
+      await command
+      await flushQueries()
+    })
+    assert.equal(calls, 1)
+    assert.equal(read().lastDiscoveryOutcome, "cancelled")
+    await React.act(async () => {
+      read().runRepoDiscovery("/repos")
+      await flushQueries()
+    })
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(calls, 2)
+    assert.equal(read().lastDiscoveryOutcome, "completed")
+    assert.deepEqual(read().discoveredRepos, [])
+  })
+
+  for (const outcome of ["success", "error"] as const) {
+    it(`does not reserve blame again after unrelated course edits with a ${outcome} result`, {
+      timeout: 3000,
+    }, async (t) => {
+      let blameCalls = 0
+      const { controller, read } = await mountCoordinator(
+        t,
+        async () => ({
+          ...makeBaseResult(),
+          fileStats: makeFileStatsWithBreakdown(),
+        }),
+        async () => {
+          blameCalls++
+          if (outcome === "error") throw new Error("Blame failed")
+          return makeBlameResult()
+        },
+        { sidebar: false },
+      )
+      await React.act(flushQueries)
+      assert.equal(blameCalls, 1)
+      assert.equal(read().blameStatus, outcome === "error" ? "error" : "idle")
+      const execute = t.mock.method(controller.operations, "execute")
+      const identity = read().analysisIdentity
+      await React.act(async () => {
+        controller.setDisplayName("course", "Renamed")
+        controller.updateGroup("course", "group", { name: "Renamed group" })
+        controller.updateMember("course", "student", { studentNumber: "123" })
+        await flushQueries()
+      })
+      assert.equal(read().analysisIdentity, identity)
+      assert.equal(blameCalls, 1)
+      assert.equal(
+        execute.mock.calls.filter(
+          ({ arguments: args }) => args[0] === "analysis.blame",
+        ).length,
+        0,
+      )
+    })
+  }
 
   it("keeps a pending analysis through course and group edits", {
     timeout: 3000,
@@ -353,6 +559,78 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(queries.length, 1)
     assert.deepEqual(queries[0]?.state.data, result)
   })
+})
+
+describe("analysis sidebar admission", () => {
+  // Happy DOM's :disabled selector checks only the element's own attribute.
+  const isDisabled = (button: Element) =>
+    button.matches(":disabled") || button.closest("fieldset[disabled]") !== null
+  const cases = [
+    { name: "repository list", searchFolder: "/repos", repos },
+    { name: "empty search", searchFolder: "/repos", repos: [] },
+    {
+      name: "single repository folder",
+      searchFolder: "/repos",
+      repos: ["/repos"],
+    },
+    { name: "no search folder", searchFolder: null, repos: [] },
+  ] as const
+
+  for (const entry of cases) {
+    it(`disables work controls during question generation with ${entry.name}`, {
+      timeout: 3000,
+    }, async (t) => {
+      const { controller, container } = await mountCoordinator(
+        t,
+        async () => makeBaseResult(),
+        undefined,
+        {
+          sidebar: true,
+          searchFolder: entry.searchFolder,
+          initialDiscovery: {
+            repos: entry.repos.map((path) => ({ path, name: path })),
+          },
+        },
+      )
+      await React.act(async () => {
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      const workButtons = Array.from(
+        container.querySelectorAll("button"),
+      ).filter(
+        (button) =>
+          /^(Re-run Analysis|Run Analysis|Search Repos|Select search folder…)$/.test(
+            button.textContent?.trim() ?? "",
+          ) ||
+          button.querySelector(
+            "svg.lucide-refresh-cw, svg.lucide-folder-open",
+          ) !== null ||
+          button.closest("fieldset") !== null,
+      )
+      assert.ok(workButtons.length > 0)
+      const wasDisabled = workButtons.map(isDisabled)
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      let generation: Promise<unknown> | undefined
+      await React.act(async () => {
+        generation = controller.operations.execute(
+          "examination.generateQuestions",
+          () => release.promise,
+        )
+        await flushQueries()
+      })
+      for (const button of workButtons) {
+        assert.equal(isDisabled(button), true, button.outerHTML)
+      }
+      await React.act(async () => {
+        release.resolve()
+        await generation
+        await flushQueries()
+      })
+      assert.deepEqual(workButtons.map(isDisabled), wasDisabled)
+    })
+  }
 })
 
 describe("analysis query value projection", () => {

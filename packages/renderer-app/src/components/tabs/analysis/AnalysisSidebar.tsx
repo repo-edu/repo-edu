@@ -26,6 +26,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../../session/session-controller-context.js"
+import { canAdmitSessionChange } from "../../../session/session-reducer.js"
 import {
   selectFileSelectionModeForScope,
   selectFocusedFilePathForScope,
@@ -67,6 +68,7 @@ function serializeSidebarSettings(
 
 export function AnalysisSidebar() {
   const controller = useSessionController()
+  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
   const {
     runRepoDiscovery,
     cancelDiscovery,
@@ -412,20 +414,26 @@ export function AnalysisSidebar() {
             result ? (
               <Button
                 variant="outline"
-                disabled={!selectedRepoPath}
+                disabled={!canStartQueries || !selectedRepoPath}
                 onClick={handleRun}
               >
                 <RefreshCw className="mr-1 size-4" />
                 Re-run Analysis
               </Button>
             ) : (
-              <Button disabled={!selectedRepoPath} onClick={handleRun}>
+              <Button
+                disabled={!canStartQueries || !selectedRepoPath}
+                onClick={handleRun}
+              >
                 <Play className="mr-1 size-4" />
                 Run Analysis
               </Button>
             )
           ) : (
-            <Button disabled={!searchFolder} onClick={handleSearchRepos}>
+            <Button
+              disabled={!canStartQueries || !searchFolder}
+              onClick={handleSearchRepos}
+            >
               <Play className="mr-1 size-4" />
               Search Repos
             </Button>
@@ -476,7 +484,9 @@ export function AnalysisSidebar() {
             expandAllRepoFolders={expandAllRepoFolders}
             collapseAllRepoFolders={collapseAllRepoFolders}
             onSearchRepos={handleSearchRepos}
-            searchReposDisabled={!searchFolder || isRunning || isDiscovering}
+            searchReposDisabled={
+              !canStartQueries || !searchFolder || isRunning || isDiscovering
+            }
             repoViewMode={repoViewMode}
             setRepoViewMode={setRepoViewMode}
           />
@@ -489,6 +499,7 @@ export function AnalysisSidebar() {
                   variant="ghost"
                   size="icon"
                   className="mr-1 size-6 shrink-0"
+                  disabled={!canStartQueries}
                   onClick={handleBrowseSearchFolder}
                 >
                   <FolderOpen className="size-3.5" />
@@ -515,12 +526,14 @@ export function AnalysisSidebar() {
           ) : undefined
         }
       >
-        <RepositoriesSection
-          tree={repoTree}
-          onBrowse={handleBrowseSearchFolder}
-          browseTooltipKey={browseTooltipKey}
-          repoViewMode={repoViewMode}
-        />
+        <fieldset disabled={!canStartQueries} className="contents">
+          <RepositoriesSection
+            tree={repoTree}
+            onBrowse={handleBrowseSearchFolder}
+            browseTooltipKey={browseTooltipKey}
+            repoViewMode={repoViewMode}
+          />
+        </fieldset>
       </CollapsibleSection>
 
       <AnalysisSidebarFilesSection

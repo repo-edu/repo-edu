@@ -40,7 +40,8 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     })
   const release = deferred<void>()
   const exportRelease = deferred<void>()
-  const pending = deferred<AbortSignal>()
+  const queueRelease = deferred<void>()
+  const pending = deferred<void>()
   const filters: unknown[] = []
   const first = {
     repositories: [{ name: "old", identifier: "old", archived: false }],
@@ -50,17 +51,24 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   }
   const controller = startController({
     workflowClient: {
-      async run(
-        id: WorkflowId,
-        input: unknown,
-        options?: { signal?: AbortSignal },
-      ) {
-        if (id === "settings.loadApp") return makeSettings()
+      async run(id: WorkflowId, input: unknown) {
+        if (id === "settings.loadApp")
+          return makeSettings({
+            activeGitConnectionId: "git",
+            gitConnections: [
+              {
+                id: "git",
+                provider: "github",
+                baseUrl: "https://github.com",
+                token: "example-token",
+              },
+            ],
+          })
+        if (id === "settings.saveCredentials") return undefined
         if (id === "repo.listNamespace") {
           filters.push((input as { filter?: string }).filter)
           if (filters.length === 2) {
-            assert.ok(options?.signal)
-            pending.resolve(options.signal)
+            pending.resolve()
             await release.promise
           }
           return filters.length === 1 ? first : second
@@ -98,6 +106,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   t.after(async () => {
     release.resolve()
     exportRelease.resolve()
+    queueRelease.resolve()
     await React.act(async () => root.unmount())
     controller.dispose()
     client.clear()
@@ -124,6 +133,38 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   assert.ok(value)
   assert.deepEqual(value.listResult, first)
   assert.equal(value.canClone, true)
+
+  const listingCalls = filters.length
+  await React.act(async () => {
+    controller.addLmsConnection({
+      id: "lms",
+      name: "Course LMS",
+      provider: "canvas",
+      baseUrl: "https://canvas.example.edu",
+      token: "example-token",
+    })
+    controller.addLlmConnection({
+      id: "llm",
+      name: "Question model",
+      provider: "codex",
+      authMode: "api",
+      apiKey: "example-key",
+    })
+    controller.addGitConnection({
+      id: "other-git",
+      provider: "gitlab",
+      baseUrl: "https://gitlab.example.edu",
+      token: "example-token",
+    })
+    await flush()
+  })
+  assert.equal(value.canClone, true)
+  await React.act(debounce)
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.equal(filters.length, listingCalls)
   await React.act(async () => {
     value?.setFilter("new")
     await flush()
@@ -133,14 +174,14 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   await React.act(async () => {
     await debounce()
   })
-  const signal = await pending.promise
+  await pending.promise
   assert.equal(value.canClone, false)
   assert.deepEqual(value.listResult, first)
   await React.act(async () => {
     render(false)
     await flush()
   })
-  assert.equal(signal.aborted, false)
+  assert.equal(client.isFetching(), 1)
   await React.act(async () => {
     release.resolve()
     await controller.waitForIdle()
@@ -176,5 +217,33 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     await controller.waitForIdle()
     await flush()
   })
+  assert.equal(value.canClone, true)
+
+  const callsBeforeCredentialChange = filters.length
+  const preceding = controller.operations.execute(
+    "course.list",
+    () => queueRelease.promise,
+  )
+  await React.act(async () => {
+    controller.updateGitConnection("git", {
+      id: "git",
+      provider: "github",
+      baseUrl: "https://github.com",
+      token: "updated-example-token",
+    })
+    await flush()
+  })
+  assert.equal(value.canClone, false)
+  await React.act(debounce)
+  assert.equal(filters.length, callsBeforeCredentialChange)
+  assert.equal(value.canClone, false)
+  assert.deepEqual(value.listResult, second)
+  await React.act(async () => {
+    queueRelease.resolve()
+    await preceding
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.equal(filters.length, callsBeforeCredentialChange + 1)
   assert.equal(value.canClone, true)
 })
