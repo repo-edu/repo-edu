@@ -211,14 +211,18 @@ describe("session Query bodies", () => {
           async (scope) => {
             const result = await client.fetchQuery({
               queryKey: ["owned"],
-              ...scopedSessionQueryOptions(scope, signal, async () => {
-                if (stage === "fetch") await pause()
-                return await scope.run(
-                  "analysis.resolveSnapshotHead",
-                  { repositoryAbsolutePath: "/repo" },
-                  { signal },
-                )
-              }),
+              ...scopedSessionQueryOptions(
+                scope,
+                async () => {
+                  if (stage === "fetch") await pause()
+                  return await scope.run(
+                    "analysis.resolveSnapshotHead",
+                    { repositoryAbsolutePath: "/repo" },
+                    { signal },
+                  )
+                },
+                signal,
+              ),
             })
             assert.equal(client.getQueryData(["owned"]), result)
             order.push("published")
@@ -257,10 +261,14 @@ describe("session Query bodies", () => {
       .execute("analysis.resolveSnapshotHead", async (scope) => {
         await client.fetchQuery({
           queryKey: ["cancel"],
-          ...scopedSessionQueryOptions(scope, abort.signal, async () => {
-            entered.resolve()
-            return await host.promise
-          }),
+          ...scopedSessionQueryOptions(
+            scope,
+            async () => {
+              entered.resolve()
+              return await host.promise
+            },
+            abort.signal,
+          ),
         })
       })
       .catch(() => {})
@@ -284,13 +292,9 @@ describe("session Query bodies", () => {
       controller.operations.execute("analysis.run", async (scope) => {
         await client.fetchQuery({
           queryKey: ["error"],
-          ...scopedSessionQueryOptions(
-            scope,
-            new AbortController().signal,
-            async () => {
-              throw new Error("failed")
-            },
-          ),
+          ...scopedSessionQueryOptions(scope, async () => {
+            throw new Error("failed")
+          }),
         })
       }),
       /failed/,

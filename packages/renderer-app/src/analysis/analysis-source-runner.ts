@@ -102,36 +102,42 @@ export class AnalysisSourceRunner {
       signal.throwIfAborted()
       return await this.queryClient.fetchQuery({
         queryKey: analysisQueryKeys.blame(identity),
-        ...scopedSessionQueryOptions(scope, signal, async (signal) => {
-          const requestKey = blameResultScopeKey(identity)
-          const requestId = nanoid()
-          useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
-          try {
-            return await scope.run("analysis.blame", input, {
-              signal,
-              onProgress: (progress) => {
-                const transient = useAnalysisTransientStore.getState()
-                transient.setBlameProgress(requestKey, requestId, progress)
-                if (progress.partialAuthorLines) {
-                  transient.setBlamePartialAuthorLines(
-                    requestKey,
-                    requestId,
-                    new Map(
-                      progress.partialAuthorLines.map((entry) => [
-                        entry.personId,
-                        entry.lines,
-                      ]),
-                    ),
-                  )
-                }
-              },
-            })
-          } finally {
+        ...scopedSessionQueryOptions(
+          scope,
+          async (signal) => {
+            const requestKey = blameResultScopeKey(identity)
+            const requestId = nanoid()
             useAnalysisTransientStore
               .getState()
-              .finishBlame(requestKey, requestId)
-          }
-        }),
+              .startBlame(requestKey, requestId)
+            try {
+              return await scope.run("analysis.blame", input, {
+                signal,
+                onProgress: (progress) => {
+                  const transient = useAnalysisTransientStore.getState()
+                  transient.setBlameProgress(requestKey, requestId, progress)
+                  if (progress.partialAuthorLines) {
+                    transient.setBlamePartialAuthorLines(
+                      requestKey,
+                      requestId,
+                      new Map(
+                        progress.partialAuthorLines.map((entry) => [
+                          entry.personId,
+                          entry.lines,
+                        ]),
+                      ),
+                    )
+                  }
+                },
+              })
+            } finally {
+              useAnalysisTransientStore
+                .getState()
+                .finishBlame(requestKey, requestId)
+            }
+          },
+          signal,
+        ),
       })
     })
   }
@@ -157,12 +163,15 @@ export class AnalysisSourceRunner {
         repoPath,
         until: config.until ?? null,
       }),
-      ...scopedSessionQueryOptions(scope, signal, (signal) =>
-        scope.run(
-          "analysis.resolveSnapshotHead",
-          { repositoryAbsolutePath: repoPath, until: config.until },
-          { signal },
-        ),
+      ...scopedSessionQueryOptions(
+        scope,
+        (signal) =>
+          scope.run(
+            "analysis.resolveSnapshotHead",
+            { repositoryAbsolutePath: repoPath, until: config.until },
+            { signal },
+          ),
+        signal,
       ),
     })
     signal.throwIfAborted()
@@ -176,41 +185,45 @@ export class AnalysisSourceRunner {
     const requestKey = analysisResultScopeKey(identity)
     await this.queryClient.fetchQuery({
       queryKey: analysisQueryKeys.result(identity),
-      ...scopedSessionQueryOptions(scope, signal, async (signal) => {
-        const requestId = nanoid()
-        useAnalysisTransientStore
-          .getState()
-          .startAnalysis(requestKey, requestId)
-        try {
-          return await scope.run(
-            "analysis.run",
-            {
-              repositoryAbsolutePath: repoPath,
-              config,
-              snapshotCommitOid,
-              analysisSource:
-                kind === "course"
-                  ? {
-                      kind: "course",
-                      ...(rosterContext ? { rosterContext } : {}),
-                    }
-                  : { kind: "folder" },
-            },
-            {
-              signal,
-              onProgress: (progress) => {
-                useAnalysisTransientStore
-                  .getState()
-                  .setAnalysisProgress(requestKey, requestId, progress)
-              },
-            },
-          )
-        } finally {
+      ...scopedSessionQueryOptions(
+        scope,
+        async (signal) => {
+          const requestId = nanoid()
           useAnalysisTransientStore
             .getState()
-            .finishAnalysis(requestKey, requestId)
-        }
-      }),
+            .startAnalysis(requestKey, requestId)
+          try {
+            return await scope.run(
+              "analysis.run",
+              {
+                repositoryAbsolutePath: repoPath,
+                config,
+                snapshotCommitOid,
+                analysisSource:
+                  kind === "course"
+                    ? {
+                        kind: "course",
+                        ...(rosterContext ? { rosterContext } : {}),
+                      }
+                    : { kind: "folder" },
+              },
+              {
+                signal,
+                onProgress: (progress) => {
+                  useAnalysisTransientStore
+                    .getState()
+                    .setAnalysisProgress(requestKey, requestId, progress)
+                },
+              },
+            )
+          } finally {
+            useAnalysisTransientStore
+              .getState()
+              .finishAnalysis(requestKey, requestId)
+          }
+        },
+        signal,
+      ),
     })
   }
 }

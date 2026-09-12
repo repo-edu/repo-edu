@@ -9,9 +9,10 @@ import {
 import {
   analysisQueryKeys,
   buildAnalysisQueryIdentity,
+  buildBlameQueryIdentity,
 } from "../analysis/analysis-query-keys.js"
 import { AnalysisSourceRunner } from "../analysis/analysis-source-runner.js"
-import { makeBaseResult } from "./analysis.test-support.js"
+import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
 import {
   commitPreparation,
   deferred,
@@ -258,6 +259,73 @@ describe("source analysis ownership", () => {
     await runner.run(repos, repos[0])
     assert.deepEqual(calls, [repos[0], ...repos])
     assert.ok(selected.getCurrentResult().data)
+  })
+
+  it("cancels blame and the repository pass waiting behind it together", {
+    timeout: 2000,
+  }, async (t) => {
+    const analysisEntered = deferred<void>()
+    const releaseAnalysis = deferred<void>()
+    const blameEntered = deferred<AbortSignal>()
+    const releaseBlame = deferred<void>()
+    t.after(() => {
+      releaseAnalysis.resolve()
+      releaseBlame.resolve()
+    })
+    const analysed: string[] = []
+    const result = makeBaseResult()
+    const { runner } = await setup(
+      t,
+      async (id, path, signal) => {
+        if (id === "analysis.resolveSnapshotHead") return "head"
+        if (id === "analysis.blame") {
+          assert.ok(signal)
+          blameEntered.resolve(signal)
+          await releaseBlame.promise
+          return makeBlameResult()
+        }
+        assert.equal(id, "analysis.run")
+        analysed.push(path)
+        analysisEntered.resolve()
+        await releaseAnalysis.promise
+        return result
+      },
+      1,
+    )
+    const running = runner.run(repos, repos[0])
+    await analysisEntered.promise
+    const analysis = buildAnalysisQueryIdentity({
+      source,
+      repoPath: repos[0],
+      snapshotCommitOid: "head",
+      config: {},
+      rosterContext: undefined,
+    })
+    const blame = runner
+      .fetchBlame(
+        buildBlameQueryIdentity({
+          source,
+          repoPath: repos[0],
+          analysis,
+          config: {},
+        }),
+        {
+          repositoryAbsolutePath: repos[0],
+          config: {},
+          personDbBaseline: result.personDbBaseline,
+          files: ["a.ts"],
+          snapshotCommitOid: "head",
+        },
+      )
+      .catch(() => {})
+    releaseAnalysis.resolve()
+    const signal = await blameEntered.promise
+    assert.deepEqual(analysed, [repos[0]])
+    runner.cancel()
+    assert.equal(signal.aborted, true)
+    releaseBlame.resolve()
+    await Promise.all([running, blame])
+    assert.deepEqual(analysed, [repos[0]])
   })
 
   it("clears mounted entries and publishes a rerun without observer refetch", {

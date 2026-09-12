@@ -184,7 +184,7 @@ async function mountCoordinator(
 }
 
 describe("analysis runner lifetime in React", () => {
-  it("cancels host blame from the Cancel Blame button and holds the next command until settlement", {
+  it("cancels host blame from the Cancel button and holds the next command until settlement", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -208,7 +208,7 @@ describe("analysis runner lifetime in React", () => {
     const signal = await entered.promise
     await React.act(flushQueries)
     const button = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Cancel Blame",
+      (button) => button.textContent?.trim() === "Cancel",
     )
     assert.ok(button)
     await React.act(async () => {

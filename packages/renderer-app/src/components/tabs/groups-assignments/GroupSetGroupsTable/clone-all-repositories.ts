@@ -64,20 +64,16 @@ export function fetchCloneAllListing(
   input: CloneAllPublishedListingInput,
 ): Promise<RepositoryListNamespaceResult | undefined> {
   return operations.execute("repo.listNamespace", async (scope) => {
-    const { signal } = new AbortController()
+    // Listings are not cancellable, including when newer input is published.
     return await queryClient.fetchQuery({
       ...createCloneAllListingQueryPolicy(input.admissionId),
-      ...scopedSessionQueryOptions(scope, signal, (signal) =>
-        scope.run(
-          "repo.listNamespace",
-          {
-            credentials: input.credentials,
-            namespace: input.admissionId.namespace,
-            filter: input.admissionId.filter || undefined,
-            includeArchived: input.admissionId.includeArchived,
-          },
-          { signal },
-        ),
+      ...scopedSessionQueryOptions(scope, () =>
+        scope.run("repo.listNamespace", {
+          credentials: input.credentials,
+          namespace: input.admissionId.namespace,
+          filter: input.admissionId.filter || undefined,
+          includeArchived: input.admissionId.includeArchived,
+        }),
       ),
     })
   })

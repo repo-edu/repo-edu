@@ -401,7 +401,7 @@ export function AnalysisSidebar() {
           {isRunning ? (
             <Button variant="destructive" onClick={cancelAnalysis}>
               <Square className="mr-1 size-4" />
-              {isBlameRunning ? "Cancel Blame" : "Cancel"}
+              Cancel
             </Button>
           ) : isDiscovering ? (
             <Button variant="destructive" onClick={cancelDiscovery}>

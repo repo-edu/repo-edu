@@ -33,26 +33,30 @@ export class AnalysisDiscoveryRunner {
           input.folder,
           input.depth,
         ),
-        ...scopedSessionQueryOptions(scope, signal, async (signal) => {
-          const requestId = nanoid()
-          useAnalysisTransientStore.getState().startDiscovery(requestId)
-          try {
-            return await scope.run(
-              "analysis.discoverRepos",
-              { searchFolder: input.folder, maxDepth: input.depth },
-              {
-                signal,
-                onProgress: (progress) => {
-                  useAnalysisTransientStore
-                    .getState()
-                    .setDiscoveryProgress(requestId, progress)
+        ...scopedSessionQueryOptions(
+          scope,
+          async (signal) => {
+            const requestId = nanoid()
+            useAnalysisTransientStore.getState().startDiscovery(requestId)
+            try {
+              return await scope.run(
+                "analysis.discoverRepos",
+                { searchFolder: input.folder, maxDepth: input.depth },
+                {
+                  signal,
+                  onProgress: (progress) => {
+                    useAnalysisTransientStore
+                      .getState()
+                      .setDiscoveryProgress(requestId, progress)
+                  },
                 },
-              },
-            )
-          } finally {
-            useAnalysisTransientStore.getState().finishDiscovery(requestId)
-          }
-        }),
+              )
+            } finally {
+              useAnalysisTransientStore.getState().finishDiscovery(requestId)
+            }
+          },
+          signal,
+        ),
       })
       signal.throwIfAborted()
       await scope.reconcileDiscovery(surface, input.folder, result)
