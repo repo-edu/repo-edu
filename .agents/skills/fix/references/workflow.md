@@ -122,11 +122,13 @@ here. When the user rules, carry the answer and its reason in the deferral.
 When the user does not rule, keep the choice open in the deferral instead of
 choosing for them.
 
-The invocation is the acceptance of everything the files already settle.
-Stop for a ruling only on open items: an item sent to the user's ruling, a
-contested verdict this session maintains, a drift correction that changes a
-finding, or this session's own answers to a vet with no rebuttal. When
-nothing is open, state the outcome in one line per finding and apply.
+The invocation is the acceptance of everything the files already settle. Stop for a ruling only on
+open items: an item sent to the user's ruling, a contested verdict this session maintains, a drift
+correction that changes a finding, or this session's own answers to a vet with no rebuttal. When
+nothing is open, state the outcome in one line per finding and apply. A priced run or a cross-repo
+open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
+deferral above or a later plan round, never through this session, so it holds no settled correction
+back. Keep it open in the deferral and apply the settled findings.
 
 In an unattended phase, present any open items and return `needs-ruling`
 instead of waiting for input. This also applies when a rule in the repo's

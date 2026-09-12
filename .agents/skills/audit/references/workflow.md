@@ -363,6 +363,13 @@ growth pattern or of the reach and complexity pair. A single tagged finding
 is not priced here; when its three tokens all show risk, its own trade
 block under [Finding shape](#finding-shape) prices it.
 
+A run is on one piece of machinery only when its bullets name the same standing rule, state or owner
+concern. A shared area, file or panel is not the same machinery. The pricing quotes those bullets
+and prices only what they name. Bullets that each carry one existing rule to one more surface are
+consistency, not a run, and are not priced. The `desktop-application-architecture` step 7 audit at
+`5c321b66` priced a listing counter that none of its three run bullets named; each bullet had
+carried the session admission rule to one more clone-all surface.
+
 ## Reach and complexity
 
 Every finding carries a reach and a complexity token beside its growth tag,
