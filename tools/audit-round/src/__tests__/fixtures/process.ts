@@ -86,8 +86,36 @@ if (args[0] === "app-server") {
   process.exit(scenario.settingsExit ?? 0)
 }
 
-if (args[0] === "resume" || args[0] === "--resume")
-  process.exit(scenario.exitCode ?? 0)
+process.on("SIGTERM", () => {
+  void writeFile(join(root, "stopped"), "SIGTERM").then(() => process.exit(0))
+})
+
+if (args[0] === "resume" || args[0] === "--resume") {
+  const continuation = scenario.interactive
+  if (continuation?.usage !== undefined) {
+    const bytes = Buffer.from(continuation.usage.text)
+    const size = continuation.chunkSize ?? bytes.length
+    for (let offset = 0; offset < bytes.length; offset += size) {
+      await appendFile(continuation.usage.path, bytes.subarray(offset, offset + size))
+      if (continuation.chunkSize !== undefined) await setTimeout(1)
+    }
+    if (continuation.waitForFile !== undefined) {
+      while (true) {
+        try {
+          await readFile(continuation.waitForFile)
+          break
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+          await setTimeout(10)
+        }
+      }
+    }
+    if (continuation.finalText !== undefined)
+      await appendFile(continuation.usage.path, continuation.finalText)
+  }
+  if (continuation?.wait) await new Promise(() => setInterval(() => {}, 1000))
+  process.exit(continuation?.exitCode ?? scenario.exitCode ?? 0)
+}
 
 if (assistant === "claude") {
   const requests = []
@@ -115,14 +143,13 @@ if (assistant === "claude") {
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase = /^Run the (audit|vet|rebut|fix) phase /.exec(prompt ?? "")?.[1]
+  const phase = /^Run the (audit|vet|rebut|fix|brief) phase /.exec(
+    prompt ?? "",
+  )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   scenario = { ...scenario, ...scenario.phases[phase] }
 }
 
-process.on("SIGTERM", () => {
-  void writeFile(join(root, "stopped"), "SIGTERM").then(() => process.exit(0))
-})
 if (scenario.usage !== undefined)
   await appendFile(scenario.usage.path, scenario.usage.text)
 if (scenario.stderr !== undefined) process.stderr.write(scenario.stderr)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { basename } from "node:path"
 import { test } from "node:test"
-import { RoundOutput } from "../output.js"
+import { RoundOutput, roundRun } from "../output.js"
 
 for (const { zone, instant, timestamp, filename } of [
   {
@@ -52,7 +52,7 @@ for (const { zone, instant, timestamp, filename } of [
     const markdown: string[] = []
     const visible: string[] = []
     const output = new RoundOutput(
-      { repoRoot: "/repo", plan: "example.md" },
+      roundRun({ repoRoot: "/repo", plan: "example.md" }, Date.parse(instant)),
       {
         now: () => Date.parse(instant),
         terminal: {

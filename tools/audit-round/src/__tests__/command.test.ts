@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { runCommand } from "../command.js"
@@ -14,11 +14,12 @@ async function roundFixture(
   ruling = false,
 ) {
   const f = await fixture(t)
-  const repoRoot = join(f.root, "repo-edu")
-  const planRoot = join(f.root, "plan")
-  await mkdir(join(repoRoot, ".agents/skills/audit/references"), {
+  await mkdir(join(f.root, "repo-edu/.agents/skills/audit/references"), {
     recursive: true,
   })
+  // The command resolves its root through realpath, so paths it derives compare against this.
+  const repoRoot = await realpath(join(f.root, "repo-edu"))
+  const planRoot = join(f.root, "plan")
   await mkdir(planRoot)
   await writeFile(
     join(repoRoot, ".agents/skills/audit/references/workflow.md"),
@@ -26,23 +27,28 @@ async function roundFixture(
   )
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
   const report = join(f.root, owner, "AUDIT-example.md")
+  const brief = join(repoRoot, "ROUND-TS-example-brief.md")
   const phases: Record<string, unknown> = {}
-  for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
+  for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     const assistant =
       phase === "fix"
         ? "codex"
-        : phase === "vet"
-          ? auditor === "codex"
-            ? "claude"
-            : "codex"
-          : auditor
+        : phase === "brief"
+          ? "claude"
+          : phase === "vet"
+            ? auditor === "codex"
+              ? "claude"
+              : "codex"
+            : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
     const file =
       phase === "fix"
         ? null
         : phase === "audit"
           ? report
-          : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
+          : phase === "brief"
+            ? brief
+            : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status: phase === "fix" && ruling ? "needs-ruling" : "finished", file, reason: null })}`
     phases[phase] = {
       stream: await phaseStream(assistant, final, sessionId),
@@ -83,16 +89,18 @@ async function roundFixture(
       join(repoRoot, names.find((name) => name.endsWith(".log")) as string),
       "utf8",
     )
-    const markdown = await readFile(
-      join(repoRoot, names.find((name) => name.endsWith(".md")) as string),
-      "utf8",
+    const transcript = join(
+      repoRoot,
+      names.find((name) => name.endsWith(".md")) as string,
     )
-    return { log, markdown }
+    const markdown = await readFile(transcript, "utf8")
+    return { log, markdown, transcript }
   }
   return {
     ...f,
     repoRoot,
     report,
+    brief,
     phases,
     visible,
     errors,
@@ -109,6 +117,7 @@ for (const auditor of ["claude", "codex"] as const) {
     for (const ruling of [false, true]) {
       test(`command runs ${auditor} audit, ${owner} routing and ${ruling ? "ruling" : "completion"}`, async (t) => {
         const f = await roundFixture(t, auditor, owner, ruling)
+        const { repoRoot, brief } = f
         const argv = [
           "example.md",
           "2-3",
@@ -128,7 +137,13 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         assert.deepEqual(
           invocations.map((call) => call.assistant),
-          [auditor, auditor === "codex" ? "claude" : "codex", auditor, "codex"],
+          [
+            auditor,
+            auditor === "codex" ? "claude" : "codex",
+            auditor,
+            "codex",
+            "claude",
+          ],
         )
         assert.equal(
           invocations[0].args.includes("resume") ||
@@ -151,19 +166,31 @@ for (const auditor of ["claude", "codex"] as const) {
             )
             .every((call) => call.args.includes("--approve-for-me")),
         )
-        const { log, markdown } = await f.records()
+        const { log, markdown, transcript } = await f.records()
         const visible = f.visible.join("\n")
         assert.match(log, /TypeScript runner/)
         assert.match(log, /fixer +codex +chosen-model high/)
+        assert.match(log, /briefer +claude +claude-model high/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           assert.ok(markdown.includes(`Complete ${phase} text.`))
           assert.ok(visible.includes(`Complete ${phase} text.`))
           assert.equal(log.includes(`Complete ${phase} text.`), false)
         }
+        // The brief retells the transcript, so the transcript never carries it.
+        assert.equal(markdown.includes("## brief ("), false)
+        assert.equal(markdown.includes("Complete brief text."), false)
+        assert.ok(visible.includes("Complete brief text."))
         assert.ok(
           log.includes(`Phase arguments (JSON array): ["example.md","2-3"]`),
         )
+        assert.ok(
+          log.includes(
+            `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
+          ),
+        )
+        assert.ok(log.includes(`${repoRoot}/.claude/commands/brief.md`))
+        assert.ok(log.includes(`[brief] finished: ${brief}`))
         assert.equal(
           log.split(
             `Phase arguments (JSON array): ${JSON.stringify([f.report])}`,
@@ -177,6 +204,8 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
         if (ruling) {
+          // The brief lands before the ruling session opens, because the ruling is read from it.
+          assert.equal(calls.at(-2).assistant, "claude")
           assert.deepEqual(calls.at(-1).args, [
             "resume",
             "--approve-for-me",
@@ -191,7 +220,7 @@ for (const auditor of ["claude", "codex"] as const) {
   }
 }
 
-for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
+for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
   test(`command stops at ${phase} failure and retains recovery evidence`, async (t) => {
     const f = await roundFixture(t)
     f.phases[phase] = { stream: "", exitCode: 7 }
@@ -210,7 +239,7 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
     )
     assert.equal(
       calls.length,
-      ["audit", "vet", "rebut", "fix"].indexOf(phase) + 1,
+      ["audit", "vet", "rebut", "fix", "brief"].indexOf(phase) + 1,
     )
   })
 }
@@ -227,6 +256,7 @@ for (const target of ["log", "markdown"] as const) {
       ...f.options,
       openFiles(paths) {
         const files = openRunFiles(paths)
+        const write = files[target] as (text: string) => void
         return {
           ...files,
           [target]: (text: string) => {
@@ -238,7 +268,7 @@ for (const target of ["log", "markdown"] as const) {
               )
             )
               throw new Error(`Required ${target} write failed`)
-            files[target](text)
+            write(text)
           },
         }
       },
@@ -309,11 +339,93 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
     ["example.md", "--unknown"],
+    ["brief"],
+    ["brief", "ROUND-TS-example.md", "extra"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
-  assert.equal(await runCommand(["--help"], f.runtime, f.options), 0)
+  for (const argv of [["--help"], ["round", "--help"], ["brief", "--help"]])
+    assert.equal(await runCommand(argv, f.runtime, f.options), 0)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
-  assert.match(f.visible.join("\n"), /Codex always fixes/)
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Codex always fixes/)
+  assert.match(visible, /always briefs/)
+  assert.match(visible, /plain-words brief/)
+})
+
+test("a brief on its own retells the named transcript without a new round pair", async (t) => {
+  const f = await roundFixture(t)
+  const transcript = join(
+    f.repoRoot,
+    "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md",
+  )
+  await writeFile(transcript, "# Audit round of example.md 7\n")
+  assert.equal(
+    await runCommand(
+      ["brief", "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const invocations = (await f.calls()).filter(
+    (call) =>
+      call.args[0] === "exec" ||
+      (call.args[0] === "-p" &&
+        !call.args.includes("--no-session-persistence")),
+  )
+  assert.deepEqual(
+    invocations.map((call) => call.assistant),
+    ["claude"],
+  )
+  const names = (await readdir(f.repoRoot)).filter((name) =>
+    name.startsWith("ROUND-TS-"),
+  )
+  const logName = names.find((name) => name.endsWith(".log")) as string
+  assert.match(
+    logName,
+    /^ROUND-TS-example-step-7-claude-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
+  )
+  assert.deepEqual(
+    names.toSorted(),
+    [
+      logName,
+      "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md",
+    ].toSorted(),
+  )
+  const log = await readFile(join(f.repoRoot, logName), "utf8")
+  assert.match(
+    log,
+    /^Brief of ROUND-TS-example-step-7-claude-2026-09-12T22-17-38\.md\n/,
+  )
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
+    ),
+  )
+  assert.match(log, /briefer +claude +claude-model high/)
+  assert.doesNotMatch(log, /auditor|fixer/)
+  const visible = f.visible.join("\n")
+  assert.ok(visible.includes("Complete brief text."))
+  assert.match(visible, /Brief finished\./)
+  assert.equal(
+    await readFile(transcript, "utf8"),
+    "# Audit round of example.md 7\n",
+  )
+})
+
+test("a brief on its own refuses a transcript that is not a Markdown file at the root", async (t) => {
+  const f = await roundFixture(t)
+  for (const name of ["missing.md", "pnpm-workspace.yaml"]) {
+    assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
+    assert.match(
+      f.errors.at(-1) as string,
+      /Name a round's ROUND-TS-\*\.md transcript/,
+    )
+  }
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
 })

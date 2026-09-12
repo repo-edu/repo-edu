@@ -8,10 +8,12 @@ import type {
   PhaseResult,
   RoundDependencies,
 } from "../phase.js"
-import { rebuttalSessionId, runRound } from "../round.js"
+import { rebuttalSessionId, runBrief, runRound } from "../round.js"
 
 const repoRoot = "/workspace/repo-edu"
-const phases = ["audit", "vet", "rebut", "fix"] as const
+const transcript = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38.md`
+const brief = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-brief.md`
+const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 
 /** Room enough that the rebuttal resumes unless a test says otherwise. */
 const spaciousContext = { tokens: 100_000, window: 258_000 }
@@ -42,6 +44,12 @@ function controlledRound(
       context: null,
     },
     fix: { status: "finished", sessionId: "fix-session" },
+    brief: {
+      status: "finished",
+      sessionId: "brief-session",
+      file: brief,
+      context: null,
+    },
   }
   async function record(input: PhaseInput) {
     calls.push(input)
@@ -65,6 +73,10 @@ function controlledRound(
         await record(input)
         return results.fix
       },
+      async brief(input) {
+        await record(input)
+        return results.brief
+      },
     },
     async prepareHandover(session) {
       handover.push({ operation: "prepare", session })
@@ -85,7 +97,13 @@ for (const auditor of ["claude", "codex"] as const) {
       const round = controlledRound(report)
 
       const result = await runRound(
-        { repoRoot, plan: "../plan/example.md", scope: "2-3", auditor },
+        {
+          repoRoot,
+          plan: "../plan/example.md",
+          scope: "2-3",
+          auditor,
+          transcript,
+        },
         round.dependencies,
       )
 
@@ -123,17 +141,25 @@ for (const auditor of ["claude", "codex"] as const) {
           arguments: [report],
           sessionId: null,
         },
+        {
+          phase: "brief",
+          assistant: "claude",
+          cwd: repoRoot,
+          ownerRoot: repoRoot,
+          arguments: [transcript],
+          sessionId: null,
+        },
       ])
       assert.deepEqual(round.handover, [])
     })
   }
 
-  test(`Codex opens the fresh fix session after a ruling request with ${auditor} auditing`, async () => {
+  test(`Codex opens the fresh fix session after the brief when a ruling is requested with ${auditor} auditing`, async () => {
     const round = controlledRound()
     round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
 
     const result = await runRound(
-      { repoRoot, plan: "example.md", auditor },
+      { repoRoot, plan: "example.md", auditor, transcript },
       round.dependencies,
     )
 
@@ -169,7 +195,7 @@ for (const auditor of ["claude", "codex"] as const) {
       round.results[phase] = failure
 
       const result = await runRound(
-        { repoRoot, plan: "example.md", auditor },
+        { repoRoot, plan: "example.md", auditor, transcript },
         round.dependencies,
       )
 
@@ -182,7 +208,13 @@ for (const auditor of ["claude", "codex"] as const) {
         ...failure,
         phase,
         assistant:
-          phase === "fix" ? "codex" : phase === "vet" ? vetter : auditor,
+          phase === "fix"
+            ? "codex"
+            : phase === "brief"
+              ? "claude"
+              : phase === "vet"
+                ? vetter
+                : auditor,
         cwd: repoRoot,
       })
     })
@@ -192,7 +224,7 @@ for (const auditor of ["claude", "codex"] as const) {
 test("defaults to Codex and preserves plan arguments as data without inventing a scope", async () => {
   const round = controlledRound()
   const plan = '../plan/a "quoted" plan; $(touch should-not-exist).md'
-  await runRound({ repoRoot, plan }, round.dependencies)
+  await runRound({ repoRoot, plan, transcript }, round.dependencies)
 
   assert.equal(round.calls[0].assistant, "codex")
   assert.deepEqual(round.calls[0].arguments, [plan])
@@ -206,7 +238,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     reason: "Unable to start the CLI",
   }
   const result = await runRound(
-    { repoRoot, plan: "example.md" },
+    { repoRoot, plan: "example.md", transcript },
     round.dependencies,
   )
   assert.deepEqual(result, {
@@ -226,7 +258,10 @@ for (const phase of phases) {
     })
 
     await assert.rejects(
-      runRound({ repoRoot, plan: "example.md" }, round.dependencies),
+      runRound(
+        { repoRoot, plan: "example.md", transcript },
+        round.dependencies,
+      ),
       (error) => error === failure,
     )
     assert.deepEqual(
@@ -247,7 +282,10 @@ test("each phase settles before the next starts", {
     entered[index].resolve()
     await release[index].promise
   })
-  const running = runRound({ repoRoot, plan: "example.md" }, round.dependencies)
+  const running = runRound(
+    { repoRoot, plan: "example.md", transcript },
+    round.dependencies,
+  )
 
   for (let index = 0; index < phases.length; index += 1) {
     await entered[index].promise
@@ -264,7 +302,7 @@ for (const operation of ["prepareHandover", "openSession"] as const) {
     round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
     let attempts = 0
     const result = await runRound(
-      { repoRoot, plan: "example.md" },
+      { repoRoot, plan: "example.md", transcript },
       {
         ...round.dependencies,
         async [operation]() {
@@ -300,7 +338,7 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
   }
 
   const result = await runRound(
-    { repoRoot, plan: "example.md" },
+    { repoRoot, plan: "example.md", transcript },
     round.dependencies,
   )
 
@@ -325,4 +363,52 @@ test("an unreported window keeps the resume, and a measured shortfall does not",
     rebuttalSessionId("audit", { tokens: 120_001, window: 200_000 }),
     null,
   )
+})
+
+test("a failed brief stops the round before the ruling is opened", async () => {
+  const round = controlledRound()
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  round.results.brief = {
+    status: "failed",
+    sessionId: "brief-session",
+    reason: "The transcript could not be read",
+  }
+
+  const result = await runRound(
+    { repoRoot, plan: "example.md", transcript },
+    round.dependencies,
+  )
+
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    phases,
+  )
+  assert.deepEqual(round.handover, [])
+  assert.deepEqual(result, {
+    status: "failed",
+    phase: "brief",
+    assistant: "claude",
+    sessionId: "brief-session",
+    cwd: repoRoot,
+    reason: "The transcript could not be read",
+  })
+})
+
+test("a brief on its own runs only the brief phase over the named transcript", async () => {
+  const round = controlledRound()
+
+  const result = await runBrief({ repoRoot, transcript }, round.dependencies)
+
+  assert.deepEqual(result, { status: "finished", brief })
+  assert.deepEqual(round.calls, [
+    {
+      phase: "brief",
+      assistant: "claude",
+      cwd: repoRoot,
+      ownerRoot: repoRoot,
+      arguments: [transcript],
+      sessionId: null,
+    },
+  ])
+  assert.deepEqual(round.handover, [])
 })

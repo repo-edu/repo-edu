@@ -18,7 +18,7 @@ import { readCliLines, withCliProcess } from "./cli-process.js"
 import { readCodexSettings } from "./codex-settings.js"
 import { decodeCodexUsage, findSessionFile } from "./codex-usage.js"
 import { eventSchema, type Feedback } from "./feedback.js"
-import { RoundOutput } from "./output.js"
+import { RoundOutput, roundRun } from "./output.js"
 import type { Assistant } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
 import type { Terminal } from "./terminal.js"
@@ -137,7 +137,10 @@ export async function recordContracts(
     for (const assistant of assistants) {
       terminal.write(`Recording ${assistant} contract...`)
       const output = new RoundOutput(
-        { repoRoot: scratch, plan: "CLI-contract", auditor: assistant },
+        roundRun(
+          { repoRoot: scratch, plan: "CLI-contract", auditor: assistant },
+          Date.now(),
+        ),
         { terminal, verbose: true },
       )
       try {

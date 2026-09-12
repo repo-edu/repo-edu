@@ -1,5 +1,5 @@
 export type Assistant = "claude" | "codex"
-export type Phase = "audit" | "vet" | "rebut" | "fix"
+export type Phase = "audit" | "vet" | "rebut" | "fix" | "brief"
 
 /** The single owner of which assistant runs each phase of a round. */
 export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
@@ -10,7 +10,18 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     // The rebuttal answers in the auditor, resuming the audit when it has room.
     rebut: auditor,
     fix: "codex",
+    // The brief retells the finished transcript for the user; Claude always writes it.
+    brief: "claude",
   }
+}
+
+/**
+ * Whether a phase's texts belong in the round transcript. The brief is the
+ * transcript's plain-words twin, so its text lands in its own file and never
+ * in the transcript it explains.
+ */
+export function transcribed(phase: Phase): boolean {
+  return phase !== "brief"
 }
 
 type PhaseArguments = {
@@ -28,6 +39,10 @@ type PhaseArguments = {
   }
   fix: {
     readonly arguments: readonly [report: string]
+    readonly sessionId: null
+  }
+  brief: {
+    readonly arguments: readonly [transcript: string]
     readonly sessionId: null
   }
 }
@@ -75,6 +90,7 @@ type PhaseResults = {
   vet: ReportResult
   rebut: ReportResult
   fix: FixResult
+  brief: ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

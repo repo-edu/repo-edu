@@ -6,18 +6,24 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 
 ## Ownership
 
-- `round.ts` owns the fixed audit, vet, rebuttal and fix sequence. It retains the
-  audit session and report as local values. Audit, vet and fix start fresh.
+- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence. It
+  retains the audit session and report as local values. Audit, vet, fix and
+  brief start fresh.
   Rebuttal resumes the audit session only when that session's last measurement
   leaves room for a rebuttal before the assistant summarises itself in place. A
   measured shortfall starts the rebuttal fresh, because a summarised session
   holds a summary where the evidence was. An assistant that reports no window
   reports no shortfall and keeps the resume. `round.ts` owns that rule, the
   compaction share it compares against and the rebuttal's reserve.
-  Codex audits by default and always fixes.
-  Only a fix needing a ruling opens an
-  interactive session, using that fix's session identity.
-- `phase.ts` defines the private inputs and results for assistant invocations.
+  Codex audits by default and always fixes. Claude always briefs. The brief
+  follows the fix on either outcome and precedes a ruling handover, because the
+  ruling is read from it; its input is the round transcript, never the report,
+  and its launcher always belongs to the Repo Edu root. `runBrief` runs that
+  one phase on its own over an earlier transcript. Only a fix needing a ruling
+  opens an interactive session, using that fix's session identity.
+- `phase.ts` defines the private inputs and results for assistant invocations
+  and owns which phases' texts enter the round transcript: every phase but the
+  brief, which retells the transcript in its own file.
   Assistant boundaries own processes, stream validation, session observations
   and phase output. They return only after accounting for the process, streams
   and required record writes. A failure retains the known session identity,
@@ -37,8 +43,11 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command. Claude uses
   `--permission-mode auto` in settings discovery and every session entry.
-- `output.ts` owns terminal presentation and incremental run recording. It holds only the round
-  start, current phase timing and context observations. Every status stamp shows the phase's elapsed
+- `output.ts` owns terminal presentation and incremental run recording. A run description
+  names the run, seats its roles and locates its files: a round records a log and transcript
+  pair, and a brief on its own records a log beside the transcript it retells and keeps no
+  transcript of its own. The output holds only the run start, current phase timing and
+  context observations. Every status stamp shows the phase's elapsed
   time and the round's total. Two baselines measure context growth: a written status stamp reports
   the tokens added since the previous written stamp, and a logged tool line reports the tokens added
   since the previous tool line. Both chain into the totals beside them; a fresh phase starts its
@@ -49,8 +58,9 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   Invocation lines stay complete in the log; assistant texts stay complete in Markdown. Only
   terminal tool lines shorten. `prepareHandover` records the handover and releases the terminal
   before `openSession` inherits it. Both functions must reject on failure.
-- `command.ts` owns arguments, repository paths, startup and final reporting.
-  Required write failures stop phase progression. If recording itself fails,
+- `command.ts` owns the `round` and `brief` subcommands, repository paths,
+  startup and final reporting. `round` is the default, so a bare plan argument
+  still runs a round. Required write failures stop phase progression. If recording itself fails,
   the emergency channel still reports the known session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
@@ -81,12 +91,15 @@ commands available:
 ```bash
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor claude -v
+pnpm audit-round brief ROUND-TS-example-step-3-claude-2026-09-12T22-17-38.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root.
-Each header identifies the TypeScript implementation. The command remains
+The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root, and
+its brief phase writes the pair's plain-words twin with `-brief` before the
+extension. `brief` writes that twin for an earlier transcript, logging beside
+it. Each header identifies the TypeScript implementation. The command remains
 independent of the installed Bash `audit-round` command, its source and its
 tests in the plan repo. Both share the CLI update dates and workflow documents.
 Neither selects or invokes the other.

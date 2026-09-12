@@ -6,7 +6,7 @@ import { decodeCodex } from "../codex.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 
-for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
+for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     const file = phase === "fix" ? null : "/written report.md"
     const text = (value: unknown) =>

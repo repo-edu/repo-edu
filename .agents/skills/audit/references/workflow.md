@@ -37,8 +37,8 @@ explicitly says to.
 
 When the prompt identifies an unattended implementation-audit phase, follow
 this rule for every ending, including an early stop. It is shared by audit,
-vet, rebuttal and fix, including when a plan-repo launcher routes the phase
-here with local substitutions. Ordinary interactive invocations do not add
+vet, rebuttal, fix and brief, including when a plan-repo launcher routes the
+phase here with local substitutions. Ordinary interactive invocations do not add
 a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
@@ -47,28 +47,29 @@ and its chat copy remain identical; append the result after the chat copy
 only. The object has exactly these fields:
 
 - `status`: one of the three outcomes below.
-- `file`: the absolute path written by a finished audit, vet or rebuttal.
-  Use `null` for every other outcome, including a finished fix.
+- `file`: the absolute path written by a finished audit, vet, rebuttal or
+  brief. Use `null` for every other outcome, including a finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. | Continue, or finish the run after the fix. |
-| `needs-ruling` | The fix phase presented an open item for the user. | Open that fix session interactively. |
+| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the brief. |
+| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then open that fix session interactively. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
-Each phase judges its own outcome. Audit, vet and rebuttal use only
-`finished` or `failed`; their reports may carry open items for the fix phase
-to present. An audit finishes when its required evidence and report are
-complete and the report is written. A clean report also finishes. Return the
-absolute path actually written, including when it replaced an existing report.
-Reports from other rounds do not block the run.
+Each phase judges its own outcome. Audit, vet, rebuttal and brief use only `finished` or `failed`;
+the reports may carry open items for the fix phase to present, and the brief retells them for the
+user. An audit finishes when its required evidence and report are complete and the report is
+written. A clean report also finishes. Return the absolute path actually written, including when it
+replaced an existing report. Reports from other rounds do not block the run.
 
-The audit's path remains the input to every later phase. A finished vet or
-rebuttal returns its own twin's path for feedback; that path does not replace
-the audit path. The report's directory selects the later phase's owning
-launcher and local workflow rules, even when the resumed session started in
-the other repo.
+The audit's path remains the input to every phase up to the fix. A finished
+vet or rebuttal returns its own twin's path for feedback; that path does not
+replace the audit path. The report's directory selects the later phase's
+owning launcher and local workflow rules, even when the resumed session
+started in the other repo. The brief's input is the round transcript instead,
+so its launcher always belongs to the Repo Edu root, where the runner writes
+every transcript.
 
 Required work still blocked by a permission refusal or another error means
 `failed`, even when the assistant can end its turn normally or a partial

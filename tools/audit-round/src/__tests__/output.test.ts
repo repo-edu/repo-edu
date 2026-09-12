@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
-import { RoundOutput } from "../output.js"
+import { briefRun, RoundOutput, roundRun } from "../output.js"
 import { commandText } from "../output-format.js"
 import type { Assistant } from "../phase.js"
 import { createTerminal } from "../terminal.js"
@@ -17,7 +18,7 @@ test("output records complete invocations incrementally and refreshes only while
   const status: string[] = []
   let clears = 0
   const output = new RoundOutput(
-    { repoRoot: f.root, plan: "example.md" },
+    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
     {
       verbose: true,
       terminal: {
@@ -121,7 +122,7 @@ test("written status stamps chain into the running total", async (t) => {
   const f = await fixture(t)
   const visible: string[] = []
   const output = new RoundOutput(
-    { repoRoot: f.root, plan: "example.md" },
+    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
     {
       terminal: {
         write: (text) => {
@@ -180,7 +181,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const f = await fixture(t)
       const visible: string[] = []
       const output = new RoundOutput(
-        { repoRoot: f.root, plan: "example.md" },
+        roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
         {
           verbose,
           terminal: {
@@ -336,7 +337,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const f = await fixture(t)
   const visible: string[] = []
   const output = new RoundOutput(
-    { repoRoot: f.root, plan: "example.md" },
+    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
     {
       terminal: {
         write: (text) => {
@@ -371,7 +372,7 @@ test("the settings header groups roles by assistant in aligned columns", async (
     const f = await fixture(t)
     const visible: string[] = []
     const output = new RoundOutput(
-      { repoRoot: f.root, plan: "example.md", auditor },
+      roundRun({ repoRoot: f.root, plan: "example.md", auditor }, Date.now()),
       {
         terminal: {
           write: (text) => {
@@ -399,6 +400,7 @@ test("the settings header groups roles by assistant in aligned columns", async (
     [
       "auditor   claude  claude-opus-5[1m] extra high",
       "rebutter  claude  claude-opus-5[1m] extra high",
+      "briefer   claude  claude-opus-5[1m] extra high",
       "vetter    codex   gpt-6-astra high",
       "fixer     codex   gpt-6-astra high",
     ].join("\n"),
@@ -410,12 +412,99 @@ test("the settings header groups roles by assistant in aligned columns", async (
       "rebutter  codex   gpt-6-astra high",
       "fixer     codex   gpt-6-astra high",
       "vetter    claude  claude-opus-5[1m] extra high",
+      "briefer   claude  claude-opus-5[1m] extra high",
     ].join("\n"),
   )
   assert.equal(
     markdown.at(-1),
-    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\n```\n",
+    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\nbriefer   claude  claude-opus-5[1m] extra high\n```\n",
   )
+})
+
+test("the brief's text stays out of the transcript it retells", async (t) => {
+  const f = await fixture(t)
+  const visible: string[] = []
+  const output = new RoundOutput(
+    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+    {
+      terminal: {
+        write: (text) => {
+          visible.push(text)
+        },
+        status: () => {},
+        clear: () => {},
+      },
+    },
+  )
+  t.after(() => output.close())
+  await output.phase.start(
+    {
+      phase: "brief",
+      assistant: "claude",
+      cwd: f.root,
+      ownerRoot: f.root,
+      arguments: [output.paths.markdown],
+      sessionId: null,
+    },
+    "Brief prompt",
+  )
+  await output.phase.observe({ type: "text", text: "Plain words" })
+  const markdown = await readFile(output.paths.markdown, "utf8")
+  assert.doesNotMatch(markdown, /## brief|Plain words/)
+  assert.ok(visible.join("\n").includes("Plain words"))
+  assert.match(await readFile(output.paths.log, "utf8"), /Brief prompt/)
+})
+
+test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
+  const f = await fixture(t)
+  const transcript = join(
+    f.root,
+    "ROUND-TS-example-all-codex-2026-09-12T22-17-38.md",
+  )
+  const visible: string[] = []
+  const markdown: string[] = []
+  const output = new RoundOutput(
+    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z")),
+    {
+      terminal: {
+        write: (text) => {
+          visible.push(text)
+        },
+        status: () => {},
+        clear: () => {},
+      },
+      openFiles: (paths) => {
+        assert.equal(paths.markdown, null)
+        return {
+          log: () => {},
+          markdown: null,
+          close: () => {},
+        }
+      },
+    },
+  )
+  t.after(() => output.close())
+  assert.match(
+    output.paths.log,
+    /ROUND-TS-example-all-codex-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
+  )
+  assert.equal(output.paths.markdown, null)
+  assert.match(
+    visible[0] as string,
+    /^Brief of ROUND-TS-example-all-codex-2026-09-12T22-17-38\.md\n/,
+  )
+  assert.doesNotMatch(visible[0] as string, /Texts:/)
+  output.models({
+    claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
+    codex: { model: "gpt-6-astra", effort: "high" },
+  })
+  assert.equal(visible.at(-1), "briefer  claude  claude-opus-5[1m] extra high")
+  assert.deepEqual(markdown, [])
+  output.finish({
+    status: "finished",
+    brief: `${transcript.slice(0, -3)}-brief.md`,
+  })
+  assert.equal(visible.at(-1), "Brief finished.")
 })
 
 test("shell display decoding retains unrecognised commands without evaluating them", () => {

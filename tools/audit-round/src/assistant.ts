@@ -1,15 +1,11 @@
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { decodeClaude } from "./claude.js"
-import {
-  type CliRuntime,
-  openAssistantSession,
-  readCliLines,
-  withCliProcess,
-} from "./cli-process.js"
+import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexUsageReader } from "./codex-usage.js"
 import { errorMessage, type Feedback, type PhaseOutput } from "./feedback.js"
+import { recordInteractiveSession } from "./interactive.js"
 import type {
   Phase,
   PhaseInput,
@@ -139,6 +135,7 @@ export function assistantDependencies(
   runtime: AssistantRuntime,
   output: PhaseOutput,
   prepareHandover: RoundDependencies["prepareHandover"],
+  recordInteractive: (feedback: Feedback) => Promise<void>,
 ): RoundDependencies {
   return {
     runPhase: {
@@ -146,8 +143,10 @@ export function assistantDependencies(
       vet: (input) => runAssistantPhase(input, output, runtime),
       rebut: (input) => runAssistantPhase(input, output, runtime),
       fix: (input) => runAssistantPhase(input, output, runtime),
+      brief: (input) => runAssistantPhase(input, output, runtime),
     },
     prepareHandover,
-    openSession: (session) => openAssistantSession(session, runtime),
+    openSession: (session) =>
+      recordInteractiveSession(session, runtime, recordInteractive),
   }
 }

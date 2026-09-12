@@ -15,10 +15,11 @@ import {
   type PhaseInput,
   type PhaseResult,
   phaseAssistants,
+  transcribed,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
-import type { RoundInput, RoundResult } from "./round.js"
-import { openRunFiles, type RunFiles } from "./run-files.js"
+import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
+import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Terminal } from "./terminal.js"
 
 export type OutputOptions = {
@@ -28,28 +29,72 @@ export type OutputOptions = {
   readonly openFiles?: typeof openRunFiles
 }
 
-export function roundFilePaths(input: RoundInput, date: Date) {
-  const scope =
-    input.scope === undefined
-      ? "all"
-      : `${input.scope.includes("-") ? "steps" : "step"}-${input.scope}`
-  const timestamp = format(date, "yyyy-MM-dd'T'HH-mm-ss")
-  const base = join(
-    input.repoRoot,
-    `ROUND-TS-${basename(input.plan, ".md")}-${scope}-${input.auditor ?? "codex"}-${timestamp}`,
-  )
-  return { log: `${base}.log`, markdown: `${base}.md` }
+/** What one command run is called, which roles it seats and where it records. */
+export type Run = {
+  /** The run's kind, as the terminal names it when it ends. */
+  readonly name: string
+  readonly title: string
+  readonly roles: readonly (readonly [role: string, assistant: Assistant])[]
+  readonly paths: RunPaths
+  /** The reading that dates the run files; the timers count from it too. */
+  readonly started: number
 }
 
-export class RoundOutput {
-  readonly paths: ReturnType<typeof roundFilePaths>
+function fileTimestamp(started: number): string {
+  return format(new Date(started), "yyyy-MM-dd'T'HH-mm-ss")
+}
+
+export function roundRun(
+  setup: RoundSetup,
+  started: number,
+): Run & { readonly paths: { readonly markdown: string } } {
+  const scope =
+    setup.scope === undefined
+      ? "all"
+      : `${setup.scope.includes("-") ? "steps" : "step"}-${setup.scope}`
+  const base = join(
+    setup.repoRoot,
+    `ROUND-TS-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}`,
+  )
+  const assistants = phaseAssistants(setup.auditor ?? "codex")
+  return {
+    name: "Audit round",
+    title: `Audit round of ${setup.plan} ${setup.scope ?? "all"}`,
+    roles: [
+      ["auditor", assistants.audit],
+      ["vetter", assistants.vet],
+      ["rebutter", assistants.rebut],
+      ["fixer", assistants.fix],
+      ["briefer", assistants.brief],
+    ],
+    paths: { log: `${base}.log`, markdown: `${base}.md` },
+    started,
+  }
+}
+
+/** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
+export function briefRun(transcript: string, started: number): Run {
+  return {
+    name: "Brief",
+    title: `Brief of ${basename(transcript)}`,
+    roles: [["briefer", phaseAssistants("codex").brief]],
+    paths: {
+      log: `${transcript.replace(/\.md$/, "")}-brief-${fileTimestamp(started)}.log`,
+      markdown: null,
+    },
+    started,
+  }
+}
+
+export class RoundOutput<R extends Run = Run> {
+  readonly paths: R["paths"]
   readonly phase: PhaseOutput
   private readonly files: RunFiles
   private readonly now: () => number
   private readonly started: number
   private active:
     | {
-        input: PhaseInput
+        input: Pick<PhaseInput, "phase" | "assistant">
         started: number
         context: Context | null
         previousToolTokens: number | null
@@ -59,13 +104,12 @@ export class RoundOutput {
   private timer: ReturnType<typeof setInterval> | undefined
 
   constructor(
-    private readonly input: RoundInput,
+    private readonly run: R,
     private readonly options: OutputOptions,
   ) {
     this.now = options.now ?? Date.now
-    this.started = this.now()
-    const date = new Date(this.started)
-    this.paths = roundFilePaths(input, date)
+    this.started = run.started
+    this.paths = run.paths
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
       start: async (input, prompt) => this.start(input, prompt),
@@ -74,12 +118,13 @@ export class RoundOutput {
       release: () => this.release(),
     }
     try {
-      const title = `Audit round of ${input.plan} ${input.scope ?? "all"}`
-      const implementation = `TypeScript runner; started ${format(date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
+      const implementation = `TypeScript runner; started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
+      const texts =
+        this.paths.markdown === null ? "" : `\nTexts: ${this.paths.markdown}`
       this.say(
-        `${title}\n${implementation}\nLog: ${this.paths.log}\nTexts: ${this.paths.markdown}`,
+        `${run.title}\n${implementation}\nLog: ${this.paths.log}${texts}`,
       )
-      this.files.markdown(`# ${title}\n\n${implementation}\n`)
+      this.transcribe(`# ${run.title}\n\n${implementation}\n`)
     } catch (error) {
       this.files.close()
       throw error
@@ -94,19 +139,13 @@ export class RoundOutput {
   }
 
   models(selections: Record<Assistant, ModelSelection>): void {
-    const assistants = phaseAssistants(this.input.auditor ?? "codex")
-    const roles = [
-      ["auditor", assistants.audit],
-      ["vetter", assistants.vet],
-      ["rebutter", assistants.rebut],
-      ["fixer", assistants.fix],
-    ] as const
+    const { roles } = this.run
+    const lead = roles[0]?.[1]
     // Roles are grouped by assistant so one assistant's model reads as one block.
     const rows = roles
       .toSorted(
         ([, first], [, second]) =>
-          Number(first !== assistants.audit) -
-          Number(second !== assistants.audit),
+          Number(first !== lead) - Number(second !== lead),
       )
       .map(([role, assistant]) => ({
         role,
@@ -125,12 +164,19 @@ export class RoundOutput {
       .join("\n")
     this.say(text)
     // Fenced, so the column alignment survives markdown rendering.
-    this.files.markdown(`\`\`\`text\n${text}\n\`\`\`\n`)
+    this.transcribe(`\`\`\`text\n${text}\n\`\`\`\n`)
   }
 
-  private say(text: string): void {
+  private say(
+    text: string,
+    terminal: Terminal | null = this.options.terminal,
+  ): void {
     this.files.log(text)
-    this.options.terminal.write(text)
+    terminal?.write(text)
+  }
+
+  private transcribe(text: string): void {
+    this.files.markdown?.(text)
   }
 
   private stamp(): string {
@@ -164,7 +210,8 @@ export class RoundOutput {
       `\n${"─".repeat(72)}\n[${input.phase}] starting ${input.assistant} (${mode})`,
     )
     this.files.log(`[${input.phase}] prompt:\n${prompt}\n`)
-    this.files.markdown(`## ${input.phase} (${input.assistant}, ${mode})\n`)
+    if (transcribed(input.phase))
+      this.transcribe(`## ${input.phase} (${input.assistant}, ${mode})\n`)
     this.options.terminal.status(this.stamp())
     this.timer = setInterval(
       () => this.options.terminal.status(this.stamp()),
@@ -173,7 +220,15 @@ export class RoundOutput {
     this.timer.unref()
   }
 
-  private observe(feedback: Feedback): void {
+  /** Recording keeps the same formatting and measurements while Codex owns the terminal. */
+  interactive = async (feedback: Feedback): Promise<void> => {
+    this.observe(feedback, null)
+  }
+
+  private observe(
+    feedback: Feedback,
+    terminal: Terminal | null = this.options.terminal,
+  ): void {
     const active = this.active
     if (active === undefined)
       throw new Error("Phase feedback arrived without an active output")
@@ -182,25 +237,34 @@ export class RoundOutput {
       case "session":
         this.say(
           `${prefix} ${active.input.assistant} session ${feedback.sessionId}`,
+          terminal,
         )
         break
       case "model":
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
+          terminal,
         )
         break
       case "context":
         active.context = feedback
         break
       case "text":
+      case "user-text":
         if (feedback.text.length > 0) {
-          this.say(this.report())
-          this.files.markdown(`${feedback.text}\n`)
-          this.options.terminal.write(feedback.text.trimEnd())
+          this.say(this.report(), terminal)
+          if (transcribed(active.input.phase)) {
+            if (terminal === null)
+              this.transcribe(
+                `### ${feedback.type === "user-text" ? "User" : "Assistant"}\n`,
+              )
+            this.transcribe(`${feedback.text}\n`)
+          }
+          terminal?.write(feedback.text.trimEnd())
         }
         break
       case "diagnostic":
-        this.say(`${prefix} ${feedback.text}`)
+        this.say(`${prefix} ${feedback.text}`, terminal)
         break
       case "tool": {
         if (feedback.invocation !== null) {
@@ -210,14 +274,13 @@ export class RoundOutput {
             changeSince(active.context, active.previousToolTokens),
           )
           this.files.log(line)
-          if (this.options.verbose)
-            this.options.terminal.write(line.slice(0, 160))
+          if (this.options.verbose) terminal?.write(line.slice(0, 160))
           active.previousToolTokens = active.context?.tokens ?? null
         }
         break
       }
     }
-    this.options.terminal.status(this.stamp())
+    terminal?.status(this.stamp())
   }
 
   private finishPhase(result: PhaseResult): void {
@@ -233,12 +296,20 @@ export class RoundOutput {
 
   prepareHandover = async (session: InteractiveSession): Promise<void> => {
     this.release()
+    this.active = {
+      input: { phase: "fix", assistant: session.assistant },
+      started: this.now(),
+      context: null,
+      previousToolTokens: null,
+      statusTokens: null,
+    }
     this.say(
-      `Opening ${session.assistant} session ${session.sessionId} for the ruling.\nResume: ${recoveryCommand(session)}`,
+      `Opening ${session.assistant} session ${session.sessionId} for the ruling.\nRecording continues in the round files until this interactive session exits.\nResume: ${recoveryCommand(session)}`,
     )
+    this.transcribe(`## fix (${session.assistant}, interactive)\n`)
   }
 
-  finish(result: RoundResult): void {
+  finish(result: RoundResult | BriefResult): void {
     this.release()
     if (result.status === "failed") {
       const resume =
@@ -249,9 +320,10 @@ export class RoundOutput {
         `${this.report()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
+      if (result.status === "handed-over") this.files.log(this.report())
       this.say(
         result.status === "finished"
-          ? "Audit round finished."
+          ? `${this.run.name} finished.`
           : "Interactive session ended; workflow completion is not inferred.",
       )
     }

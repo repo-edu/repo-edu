@@ -1,0 +1,7 @@
+interface:
+  display_name: "Brief"
+  short_description: "Retell an implementation-audit round in plain words"
+  default_prompt: "Use $brief to retell the newest ROUND-TS-*.md transcript in plain words, or $brief <transcript-file> to name one."
+
+policy:
+  allow_implicit_invocation: false

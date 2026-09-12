@@ -44,7 +44,10 @@ pnpm test
 ```
 
 `pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor claude|codex] [-v]`
-runs the TypeScript implementation-audit tool from this checkout root.
+runs the TypeScript implementation-audit tool from this checkout root, ending
+with a plain-words brief of the round for the user.
+`pnpm audit-round brief <ROUND-TS-transcript.md>` writes that brief for an
+earlier round.
 `pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
 The separately installed Bash `audit-round` command belongs to the plan repo.
 
