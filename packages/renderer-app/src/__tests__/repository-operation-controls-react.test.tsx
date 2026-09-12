@@ -7,9 +7,12 @@ import { Window } from "happy-dom"
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import { CloneAllRepositoriesPanel } from "../components/tabs/groups-assignments/GroupSetGroupsTable/CloneAllRepositoriesPanel.js"
+import type { RepoOperations } from "../components/tabs/groups-assignments/GroupSetGroupsTable/repository-operation-fields.js"
 import { useCloneAllRepositories } from "../components/tabs/groups-assignments/GroupSetGroupsTable/use-clone-all-repositories.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
+import { selectCredentials } from "../session/selectors.js"
 import { SessionControllerProvider } from "../session/session-controller-context.js"
 import {
   deferred,
@@ -21,7 +24,7 @@ import {
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 const debounce = () => new Promise<void>((resolve) => setTimeout(resolve, 400))
 
-it("retains listing rows and mirrors command admission in Clone availability", {
+it("retains listing rows and disables all clone-all controls during commands", {
   timeout: 5000,
 }, async (t) => {
   resetStores()
@@ -29,6 +32,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   const globals = {
     window,
     document: window.document,
+    getComputedStyle: window.getComputedStyle.bind(window),
     IS_REACT_ACT_ENVIRONMENT: true,
   }
   const descriptors = Object.getOwnPropertyDescriptors(globalThis)
@@ -41,6 +45,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   const release = deferred<void>()
   const exportRelease = deferred<void>()
   const queueRelease = deferred<void>()
+  const cloneRelease = deferred<void>()
   const pending = deferred<void>()
   const filters: unknown[] = []
   const first = {
@@ -73,6 +78,16 @@ it("retains listing rows and mirrors command admission in Clone availability", {
           }
           return filters.length === 1 ? first : second
         }
+        if (id === "repo.bulkClone") {
+          await cloneRelease.promise
+          return {
+            repositoriesPlanned: 1,
+            repositoriesCloned: 1,
+            repositoriesFailed: 0,
+            recordedRepositories: {},
+            completedAt: "2026-09-12T00:00:00Z",
+          }
+        }
         assert.fail(id)
       },
     } as WorkflowClient,
@@ -88,16 +103,31 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     })
     return null
   }
-  const root = createRoot(
-    window.document.createElement("div") as unknown as HTMLElement,
-  )
-  const render = (open: boolean) =>
+  const container = window.document.createElement("div")
+  const root = createRoot(container as unknown as HTMLElement)
+  const render = (open: boolean, showControls = false) =>
     root.render(
       <SessionControllerProvider controller={controller}>
         <WorkflowClientProvider value={controller.operations}>
           <RendererHostProvider value={{} as RendererHost}>
             <QueryClientProvider client={client}>
-              {open ? <Panel /> : null}
+              {open ? (
+                showControls ? (
+                  <CloneAllRepositoriesPanel
+                    operations={
+                      {
+                        activeGitConnection: selectCredentials(
+                          controller.getSnapshot(),
+                        ).gitConnections[0],
+                        organization: "org",
+                        cloneTargetDirectory: "/repos",
+                      } as RepoOperations
+                    }
+                  />
+                ) : (
+                  <Panel />
+                )
+              ) : null}
             </QueryClientProvider>
           </RendererHostProvider>
         </WorkflowClientProvider>
@@ -107,6 +137,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     release.resolve()
     exportRelease.resolve()
     queueRelease.resolve()
+    cloneRelease.resolve()
     await React.act(async () => root.unmount())
     controller.dispose()
     client.clear()
@@ -209,7 +240,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     )
     await flush()
   })
-  assert.equal(value.canClone, false)
+  assert.equal(value.canStartQueries, false)
   assert.deepEqual(value.listResult, second)
   await React.act(async () => {
     exportRelease.resolve()
@@ -218,6 +249,7 @@ it("retains listing rows and mirrors command admission in Clone availability", {
     await flush()
   })
   assert.equal(value.canClone, true)
+  assert.equal(value.canStartQueries, true)
 
   const callsBeforeCredentialChange = filters.length
   const preceding = controller.operations.execute(
@@ -246,4 +278,43 @@ it("retains listing rows and mirrors command admission in Clone availability", {
   })
   assert.equal(filters.length, callsBeforeCredentialChange + 1)
   assert.equal(value.canClone, true)
+
+  await React.act(async () => {
+    render(true, true)
+    await flush()
+  })
+  await React.act(debounce)
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  const controls = Array.from(container.querySelectorAll("input, button"))
+  const cloneButton = controls.find((control) =>
+    control.textContent?.startsWith("Clone 1 Repository"),
+  )
+  assert.ok(cloneButton)
+  assert.ok(container.querySelector("#clone-all-filter"))
+  assert.ok(container.querySelector("#clone-all-include-archived"))
+  assert.ok(container.querySelector("#clone-all-target"))
+  // Happy DOM does not include a parent fieldset in its :disabled check.
+  const isDisabled = (control: Element) =>
+    control.matches(":disabled") ||
+    control.closest("fieldset[disabled]") !== null
+  assert.ok(controls.every((control) => !isDisabled(control)))
+  await React.act(async () => {
+    cloneButton.click()
+    await flush()
+  })
+  assert.match(container.textContent, /Cloning/)
+  assert.match(container.textContent, /new/)
+  for (const control of controls) {
+    assert.equal(isDisabled(control), true, control.outerHTML)
+  }
+  await React.act(async () => {
+    cloneRelease.resolve()
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.match(container.textContent, /1 cloned \/ 0 failed/)
+  assert.ok(controls.every((control) => !isDisabled(control)))
 })

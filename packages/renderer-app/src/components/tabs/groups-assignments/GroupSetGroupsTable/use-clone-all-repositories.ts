@@ -124,7 +124,6 @@ export function useCloneAllRepositories({
   })
 
   const canClone = selectCloneAllCanClone({
-    canAdmitSessionChange: canStartQueries,
     inputIsCurrent,
     queryIsSuccess: listingQuery.isSuccess,
     queryIsPlaceholderData: listingQuery.isPlaceholderData,
@@ -161,6 +160,7 @@ export function useCloneAllRepositories({
   }
 
   return {
+    canStartQueries,
     filter,
     setFilter: (value: string) => {
       client.change(() => setFilter(value))

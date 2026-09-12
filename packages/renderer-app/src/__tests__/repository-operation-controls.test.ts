@@ -398,7 +398,6 @@ describe("clone-all query ownership", () => {
       assert.deepEqual(transitional.data, listingResult)
       assert.equal(
         selectCloneAllCanClone({
-          canAdmitSessionChange: true,
           inputIsCurrent: true,
           queryIsSuccess: transitional.isSuccess,
           queryIsPlaceholderData: transitional.isPlaceholderData,
@@ -527,7 +526,6 @@ describe("clone-all admission and clone inputs", () => {
 
   it("requires current non-placeholder success data and a target folder", () => {
     const base = {
-      canAdmitSessionChange: true,
       inputIsCurrent: true,
       queryIsSuccess: true,
       queryIsPlaceholderData: false,

@@ -563,8 +563,9 @@ describe("analysis runner lifetime in React", () => {
 
 describe("analysis sidebar admission", () => {
   // Happy DOM's :disabled selector checks only the element's own attribute.
-  const isDisabled = (button: Element) =>
-    button.matches(":disabled") || button.closest("fieldset[disabled]") !== null
+  const isDisabled = (control: Element) =>
+    control.matches(":disabled") ||
+    control.closest("fieldset[disabled]") !== null
   const cases = [
     { name: "repository list", searchFolder: "/repos", repos },
     { name: "empty search", searchFolder: "/repos", repos: [] },
@@ -577,12 +578,15 @@ describe("analysis sidebar admission", () => {
   ] as const
 
   for (const entry of cases) {
-    it(`disables work controls during question generation with ${entry.name}`, {
+    it(`disables all sidebar controls during question generation with ${entry.name}`, {
       timeout: 3000,
     }, async (t) => {
       const { controller, container } = await mountCoordinator(
         t,
-        async () => makeBaseResult(),
+        async () => ({
+          ...makeBaseResult(),
+          fileStats: makeFileStatsWithBreakdown(),
+        }),
         undefined,
         {
           sidebar: true,
@@ -596,20 +600,12 @@ describe("analysis sidebar admission", () => {
         await controller.waitForIdle()
         await flushQueries()
       })
-      const workButtons = Array.from(
-        container.querySelectorAll("button"),
-      ).filter(
-        (button) =>
-          /^(Re-run Analysis|Run Analysis|Search Repos|Select search folder…)$/.test(
-            button.textContent?.trim() ?? "",
-          ) ||
-          button.querySelector(
-            "svg.lucide-refresh-cw, svg.lucide-folder-open",
-          ) !== null ||
-          button.closest("fieldset") !== null,
+      const controls = Array.from(
+        container.querySelectorAll("button, input, select, textarea"),
       )
-      assert.ok(workButtons.length > 0)
-      const wasDisabled = workButtons.map(isDisabled)
+      assert.ok(controls.length > 0)
+      assert.ok(container.querySelector("input"))
+      const wasDisabled = controls.map(isDisabled)
       const release = deferred<void>()
       t.after(() => release.resolve())
       let generation: Promise<unknown> | undefined
@@ -620,15 +616,15 @@ describe("analysis sidebar admission", () => {
         )
         await flushQueries()
       })
-      for (const button of workButtons) {
-        assert.equal(isDisabled(button), true, button.outerHTML)
+      for (const control of controls) {
+        assert.equal(isDisabled(control), true, control.outerHTML)
       }
       await React.act(async () => {
         release.resolve()
         await generation
         await flushQueries()
       })
-      assert.deepEqual(workButtons.map(isDisabled), wasDisabled)
+      assert.deepEqual(controls.map(isDisabled), wasDisabled)
     })
   }
 })

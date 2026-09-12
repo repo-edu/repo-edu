@@ -396,7 +396,10 @@ export function AnalysisSidebar() {
   }, [copyMoveDraft, setBlameConfig])
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-2 gap-3">
+    <fieldset
+      disabled={!canStartQueries}
+      className="flex h-full min-w-0 flex-col overflow-y-auto p-2 gap-3 disabled:opacity-50 disabled:pointer-events-none"
+    >
       {/* Run / Cancel + Expand / Collapse all */}
       <div className="space-y-2">
         <div className="flex items-center gap-1">
@@ -414,26 +417,20 @@ export function AnalysisSidebar() {
             result ? (
               <Button
                 variant="outline"
-                disabled={!canStartQueries || !selectedRepoPath}
+                disabled={!selectedRepoPath}
                 onClick={handleRun}
               >
                 <RefreshCw className="mr-1 size-4" />
                 Re-run Analysis
               </Button>
             ) : (
-              <Button
-                disabled={!canStartQueries || !selectedRepoPath}
-                onClick={handleRun}
-              >
+              <Button disabled={!selectedRepoPath} onClick={handleRun}>
                 <Play className="mr-1 size-4" />
                 Run Analysis
               </Button>
             )
           ) : (
-            <Button
-              disabled={!canStartQueries || !searchFolder}
-              onClick={handleSearchRepos}
-            >
+            <Button disabled={!searchFolder} onClick={handleSearchRepos}>
               <Play className="mr-1 size-4" />
               Search Repos
             </Button>
@@ -484,9 +481,7 @@ export function AnalysisSidebar() {
             expandAllRepoFolders={expandAllRepoFolders}
             collapseAllRepoFolders={collapseAllRepoFolders}
             onSearchRepos={handleSearchRepos}
-            searchReposDisabled={
-              !canStartQueries || !searchFolder || isRunning || isDiscovering
-            }
+            searchReposDisabled={!searchFolder || isRunning || isDiscovering}
             repoViewMode={repoViewMode}
             setRepoViewMode={setRepoViewMode}
           />
@@ -499,7 +494,6 @@ export function AnalysisSidebar() {
                   variant="ghost"
                   size="icon"
                   className="mr-1 size-6 shrink-0"
-                  disabled={!canStartQueries}
                   onClick={handleBrowseSearchFolder}
                 >
                   <FolderOpen className="size-3.5" />
@@ -526,14 +520,12 @@ export function AnalysisSidebar() {
           ) : undefined
         }
       >
-        <fieldset disabled={!canStartQueries} className="contents">
-          <RepositoriesSection
-            tree={repoTree}
-            onBrowse={handleBrowseSearchFolder}
-            browseTooltipKey={browseTooltipKey}
-            repoViewMode={repoViewMode}
-          />
-        </fieldset>
+        <RepositoriesSection
+          tree={repoTree}
+          onBrowse={handleBrowseSearchFolder}
+          browseTooltipKey={browseTooltipKey}
+          repoViewMode={repoViewMode}
+        />
       </CollapsibleSection>
 
       <AnalysisSidebarFilesSection
@@ -573,6 +565,6 @@ export function AnalysisSidebar() {
         setCopyMoveDraft={setCopyMoveDraft}
         commitCopyMoveDraft={commitCopyMoveDraft}
       />
-    </div>
+    </fieldset>
   )
 }

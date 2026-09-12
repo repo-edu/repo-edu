@@ -17,7 +17,10 @@ export function CloneAllRepositoriesPanel({
   })
 
   return (
-    <div className="space-y-3">
+    <fieldset
+      disabled={!cloneAll.canStartQueries}
+      className="min-w-0 space-y-3"
+    >
       <div className="space-y-1">
         <Label htmlFor="clone-all-filter">Name filter</Label>
         <Input
@@ -92,7 +95,7 @@ export function CloneAllRepositoriesPanel({
           {cloneAll.resultSummary}
         </p>
       )}
-    </div>
+    </fieldset>
   )
 }
 
