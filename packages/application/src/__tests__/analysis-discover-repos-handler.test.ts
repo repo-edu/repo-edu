@@ -20,51 +20,45 @@ const blockedPath = join(discoveryRoot, "blocked")
 
 function createMockGitCommandPort(
   repositoryPaths: readonly string[],
-): GitCommandPort {
+): GitCommandPort & { readonly queriedPaths: string[] } {
   const repos = new Set(repositoryPaths)
+  const queriedPaths: string[] = []
   return {
     cancellation: "cooperative",
+    queriedPaths,
     async run(request) {
       if (request.signal?.aborted) {
         throw Object.assign(new DOMException("Aborted", "AbortError"))
       }
       const queryPath = request.args[1] ?? ""
-      const isRevParse =
-        request.args[0] === "-C" && request.args[2] === "rev-parse"
-      if (isRevParse && request.args[3] === "--show-toplevel") {
-        const match = repos.has(queryPath)
-          ? queryPath
-          : [...repos].find(
-              (r) => queryPath === r || queryPath.startsWith(`${r}${sep}`),
-            )
-        if (match) {
-          return {
-            exitCode: 0,
-            signal: null,
-            stdout: `${match}\n`,
-            stderr: "",
-          }
-        }
+      assert.deepEqual(request.args.slice(2), ["rev-parse", "--show-toplevel"])
+      queriedPaths.push(queryPath)
+      const match = repos.has(queryPath)
+        ? queryPath
+        : [...repos].find(
+            (r) => queryPath === r || queryPath.startsWith(`${r}${sep}`),
+          )
+      if (match) {
         return {
-          exitCode: 128,
+          exitCode: 0,
           signal: null,
-          stdout: "",
-          stderr: "fatal: not a git repository",
+          stdout: `${match}\n`,
+          stderr: "",
         }
       }
-      const isRepo =
-        isRevParse &&
-        request.args[3] === "--is-inside-work-tree" &&
-        repos.has(queryPath)
       return {
-        exitCode: isRepo ? 0 : 128,
+        exitCode: 128,
         signal: null,
-        stdout: isRepo ? "true\n" : "",
-        stderr: isRepo ? "" : "fatal: not a git repository",
+        stdout: "",
+        stderr: "fatal: not a git repository",
       }
     },
   }
 }
+
+const gitDirectory = { name: ".git", kind: "directory" as const }
+const gitFile = { name: ".git", kind: "file" as const }
+const directory = (name: string) => ({ name, kind: "directory" as const })
 
 function createStubFileSystemPort(
   listDirectory: FileSystemPort["listDirectory"],
@@ -94,24 +88,31 @@ function createStubFileSystemPort(
 }
 
 describe("analysis.discoverRepos handler", () => {
-  it("continues discovery when one nested directory is unreadable", async () => {
+  it("finds roots by their .git entry and asks git only about the search folder", async () => {
+    const gitCommand = createMockGitCommandPort([])
     const handlers = createAnalysisWorkflowHandlers({
-      gitCommand: createMockGitCommandPort([repoAPath, repoBPath]),
+      gitCommand,
       fileSystem: createStubFileSystemPort(async (request) => {
         if (request.path === discoveryRoot) {
           return [
-            { name: "repo-a", kind: "directory" as const },
-            { name: "nested", kind: "directory" as const },
-            { name: "blocked", kind: "directory" as const },
+            directory("repo-a"),
+            directory("nested"),
+            directory("blocked"),
+            directory(".hidden"),
           ]
         }
-        if (request.path === nestedPath) {
-          return [{ name: "repo-b", kind: "directory" as const }]
+        if (request.path === repoAPath) {
+          return [gitDirectory, directory("src")]
         }
+        if (request.path === nestedPath) {
+          return [directory("repo-b"), directory("worktree")]
+        }
+        if (request.path === repoBPath) return [gitDirectory]
+        if (request.path === join(nestedPath, "worktree")) return [gitFile]
         if (request.path === blockedPath) {
           throw new Error("EACCES: permission denied")
         }
-        return []
+        assert.fail(`Unexpected listing: ${request.path}`)
       }),
     })
 
@@ -123,7 +124,27 @@ describe("analysis.discoverRepos handler", () => {
     assert.deepEqual(result.repos, [
       { name: "repo-a", path: repoAPath },
       { name: "repo-b", path: repoBPath },
+      { name: "worktree", path: join(nestedPath, "worktree") },
     ])
+    assert.deepEqual(gitCommand.queriedPaths, [discoveryRoot])
+  })
+
+  it("stops at the depth limit without listing deeper folders", async () => {
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: createMockGitCommandPort([]),
+      fileSystem: createStubFileSystemPort(async (request) => {
+        if (request.path === discoveryRoot) return [directory("nested")]
+        if (request.path === nestedPath) return [directory("repo-b")]
+        assert.fail(`Unexpected listing: ${request.path}`)
+      }),
+    })
+
+    const result = await handlers["analysis.discoverRepos"]({
+      searchFolder: discoveryRoot,
+      maxDepth: 1,
+    })
+
+    assert.deepEqual(result.repos, [])
   })
 
   it("returns the enclosing repo root when the search folder is inside a repo", async () => {
@@ -144,9 +165,7 @@ describe("analysis.discoverRepos handler", () => {
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort([]),
       fileSystem: createStubFileSystemPort(async (request) => {
-        if (request.path === discoveryRoot) {
-          return [{ name: "blocked", kind: "directory" as const }]
-        }
+        if (request.path === discoveryRoot) return [directory("blocked")]
         if (request.path === blockedPath) {
           throw createCancelledAppError("Workflow was cancelled.")
         }
