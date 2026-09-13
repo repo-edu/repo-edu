@@ -1,7 +1,7 @@
 {
     "name": "repo-edu",
     "private": true,
-    "packageManager": "pnpm@11.22.0",
+    "packageManager": "pnpm@11.26.0",
     "scripts": {
         "// ---- dev & build ----": "",
         "dev": "pnpm --filter @repo-edu/desktop run dev",
@@ -63,13 +63,13 @@
         "prepare": "husky"
     },
     "devDependencies": {
-        "@biomejs/biome": "2.5.9",
+        "@biomejs/biome": "2.5.12",
         "@faker-js/faker": "^10.3.0",
-        "@types/node": "25.9.5",
+        "@types/node": "25.9.6",
         "bun": "^1.4.2",
         "globby": "^16.1.1",
         "husky": "9.1.7",
-        "rumdl": "0.2.55",
+        "rumdl": "0.2.70",
         "tsx": "^4.21.0",
         "typescript": "6.0.3"
     }
