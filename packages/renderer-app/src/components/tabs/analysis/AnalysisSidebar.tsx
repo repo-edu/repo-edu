@@ -12,7 +12,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useAnalysisBlameResult,
-  useAnalysisBlameStatus,
   useAnalysisDiscovery,
   useAnalysisFileView,
   useAnalysisResult,
@@ -21,8 +20,12 @@ import {
 import { selectEffectiveFileSelection } from "../../../analysis/analysis-view-models.js"
 import { useAnalysisContext } from "../../../hooks/use-analysis-context.js"
 import { useDirectoryPicker } from "../../../hooks/use-picker.js"
-import { selectAnalysisSidebar } from "../../../session/selectors.js"
 import {
+  selectAnalysisSidebar,
+  selectOperationIsAdmitted,
+} from "../../../session/selectors.js"
+import {
+  sessionCancellationControl,
   useSessionController,
   useSessionControllerSelector,
 } from "../../../session/session-controller-context.js"
@@ -69,12 +72,8 @@ function serializeSidebarSettings(
 export function AnalysisSidebar() {
   const controller = useSessionController()
   const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
-  const {
-    runRepoDiscovery,
-    cancelDiscovery,
-    discoveredRepos,
-    discoveryStatus,
-  } = useAnalysisDiscovery()
+  const { runRepoDiscovery, cancelDiscovery, discoveredRepos } =
+    useAnalysisDiscovery()
   const {
     runAnalysis,
     cancelAnalysis,
@@ -82,10 +81,8 @@ export function AnalysisSidebar() {
     selectRepository,
     analysisScopeKey,
   } = useAnalysisSelection()
-  const { result, analysisStatus, analysisProgress, analysisErrorMessage } =
-    useAnalysisResult()
+  const { result, analysisProgress, analysisErrorMessage } = useAnalysisResult()
   const { blameResult } = useAnalysisBlameResult()
-  const { blameStatus } = useAnalysisBlameStatus()
   const { mergedFileStats } = useAnalysisFileView()
   const pickDirectory = useDirectoryPicker()
 
@@ -371,10 +368,16 @@ export function AnalysisSidebar() {
     [setAnalysisInputs],
   )
 
-  const isAnalysisRunning = analysisStatus === "running"
-  const isBlameRunning = blameStatus === "running"
-  const isRunning = isAnalysisRunning || isBlameRunning
-  const isDiscovering = discoveryStatus === "loading"
+  const canCancelAnalysis = useSessionControllerSelector((snapshot) =>
+    selectOperationIsAdmitted(snapshot, "analysis.run"),
+  )
+  const canCancelBlame = useSessionControllerSelector((snapshot) =>
+    selectOperationIsAdmitted(snapshot, "analysis.blame"),
+  )
+  const canCancelSource = canCancelAnalysis || canCancelBlame
+  const canCancelDiscovery = useSessionControllerSelector((snapshot) =>
+    selectOperationIsAdmitted(snapshot, "analysis.discoverRepos"),
+  )
   const hasDiscoveredRepos = discoveredRepos.length > 0
 
   const blurOnEnter = useCallback(
@@ -396,71 +399,88 @@ export function AnalysisSidebar() {
   }, [copyMoveDraft, setBlameConfig])
 
   return (
-    <fieldset
-      disabled={!canStartQueries}
-      className="flex h-full min-w-0 flex-col overflow-y-auto p-2 gap-3 disabled:opacity-50 disabled:pointer-events-none"
-    >
+    <div className="flex h-full min-w-0 flex-col overflow-y-auto p-2 gap-3">
       {/* Run / Cancel + Expand / Collapse all */}
       <div className="space-y-2">
         <div className="flex items-center gap-1">
-          {isRunning ? (
-            <Button variant="destructive" onClick={cancelAnalysis}>
+          {canCancelSource ? (
+            <Button
+              variant="destructive"
+              {...{
+                [sessionCancellationControl]: canCancelAnalysis
+                  ? "analysis.run"
+                  : "analysis.blame",
+              }}
+              onClick={cancelAnalysis}
+            >
               <Square className="mr-1 size-4" />
               Cancel
             </Button>
-          ) : isDiscovering ? (
-            <Button variant="destructive" onClick={cancelDiscovery}>
+          ) : canCancelDiscovery ? (
+            <Button
+              variant="destructive"
+              {...{ [sessionCancellationControl]: "analysis.discoverRepos" }}
+              onClick={cancelDiscovery}
+            >
               <Square className="mr-1 size-4" />
               Cancel Search
             </Button>
-          ) : hasDiscoveredRepos ? (
-            result ? (
-              <Button
-                variant="outline"
-                disabled={!selectedRepoPath}
-                onClick={handleRun}
-              >
-                <RefreshCw className="mr-1 size-4" />
-                Re-run Analysis
-              </Button>
-            ) : (
-              <Button disabled={!selectedRepoPath} onClick={handleRun}>
-                <Play className="mr-1 size-4" />
-                Run Analysis
-              </Button>
-            )
-          ) : (
-            <Button disabled={!searchFolder} onClick={handleSearchRepos}>
-              <Play className="mr-1 size-4" />
-              Search Repos
-            </Button>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-auto size-6 shrink-0"
-                onClick={expandAll}
-              >
-                <ChevronsUpDown className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Expand all</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6 shrink-0"
-                onClick={collapseAll}
-              >
-                <ChevronsDownUp className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Collapse all</TooltipContent>
-          </Tooltip>
+          ) : null}
+          <fieldset
+            disabled={!canStartQueries}
+            className="flex flex-1 items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {!canCancelSource &&
+              !canCancelDiscovery &&
+              (hasDiscoveredRepos ? (
+                result ? (
+                  <Button
+                    variant="outline"
+                    disabled={!selectedRepoPath}
+                    onClick={handleRun}
+                  >
+                    <RefreshCw className="mr-1 size-4" />
+                    Re-run Analysis
+                  </Button>
+                ) : (
+                  <Button disabled={!selectedRepoPath} onClick={handleRun}>
+                    <Play className="mr-1 size-4" />
+                    Run Analysis
+                  </Button>
+                )
+              ) : (
+                <Button disabled={!searchFolder} onClick={handleSearchRepos}>
+                  <Play className="mr-1 size-4" />
+                  Search Repos
+                </Button>
+              ))}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto size-6 shrink-0"
+                  onClick={expandAll}
+                >
+                  <ChevronsUpDown className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Expand all</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 shrink-0"
+                  onClick={collapseAll}
+                >
+                  <ChevronsDownUp className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Collapse all</TooltipContent>
+            </Tooltip>
+          </fieldset>
         </div>
         {analysisProgress && <ProgressDisplay progress={analysisProgress} />}
         {analysisErrorMessage && (
@@ -470,101 +490,108 @@ export function AnalysisSidebar() {
         )}
       </div>
 
-      {/* A. Repositories */}
-      <CollapsibleSection
-        title="Repos"
-        sectionKey="repositories"
-        open={sections.repositories}
-        onOpenChange={handleSectionChange}
-        toolbar={
-          <RepositoriesToolbar
-            expandAllRepoFolders={expandAllRepoFolders}
-            collapseAllRepoFolders={collapseAllRepoFolders}
-            onSearchRepos={handleSearchRepos}
-            searchReposDisabled={!searchFolder || isRunning || isDiscovering}
-            repoViewMode={repoViewMode}
-            setRepoViewMode={setRepoViewMode}
-          />
-        }
-        leading={
-          searchFolder !== null && (
-            <Tooltip key={`browse-badge-${browseTooltipKey}`}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="mr-1 size-6 shrink-0"
-                  onClick={handleBrowseSearchFolder}
-                >
-                  <FolderOpen className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Change search folder
-              </TooltipContent>
-            </Tooltip>
-          )
-        }
-        badge={
-          discoveredRepos.length > 0 ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="ml-1.5 text-xs text-muted-foreground">
-                  {discoveredRepos.length}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {discoveredRepos.length} repositories found
-              </TooltipContent>
-            </Tooltip>
-          ) : undefined
-        }
+      <fieldset
+        disabled={!canStartQueries}
+        className="flex min-w-0 flex-col gap-3 disabled:opacity-50 disabled:pointer-events-none"
       >
-        <RepositoriesSection
-          tree={repoTree}
-          onBrowse={handleBrowseSearchFolder}
-          browseTooltipKey={browseTooltipKey}
-          repoViewMode={repoViewMode}
+        {/* A. Repositories */}
+        <CollapsibleSection
+          title="Repos"
+          sectionKey="repositories"
+          open={sections.repositories}
+          onOpenChange={handleSectionChange}
+          toolbar={
+            <RepositoriesToolbar
+              expandAllRepoFolders={expandAllRepoFolders}
+              collapseAllRepoFolders={collapseAllRepoFolders}
+              onSearchRepos={handleSearchRepos}
+              searchReposDisabled={
+                !searchFolder || canCancelSource || canCancelDiscovery
+              }
+              repoViewMode={repoViewMode}
+              setRepoViewMode={setRepoViewMode}
+            />
+          }
+          leading={
+            searchFolder !== null && (
+              <Tooltip key={`browse-badge-${browseTooltipKey}`}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mr-1 size-6 shrink-0"
+                    onClick={handleBrowseSearchFolder}
+                  >
+                    <FolderOpen className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Change search folder
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
+          badge={
+            discoveredRepos.length > 0 ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    {discoveredRepos.length}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {discoveredRepos.length} repositories found
+                </TooltipContent>
+              </Tooltip>
+            ) : undefined
+          }
+        >
+          <RepositoriesSection
+            tree={repoTree}
+            onBrowse={handleBrowseSearchFolder}
+            browseTooltipKey={browseTooltipKey}
+            repoViewMode={repoViewMode}
+          />
+        </CollapsibleSection>
+
+        <AnalysisSidebarFilesSection
+          open={sections.files}
+          onOpenChange={handleSectionChange}
+          sortedFilePaths={sortedFilePaths}
+          effectiveFileSelection={effectiveFileSelection}
+          nFiles={config.nFiles}
+          setConfigAndRerun={setConfigAndRerun}
+          blurOnEnter={blurOnEnter}
+          fileViewMode={fileViewMode}
+          setFileViewMode={setFileViewMode}
+          fileSortMode={fileSortMode}
+          setFileSortMode={setFileSortMode}
+          expandAllFolders={expandAllFolders}
+          collapseAllFolders={collapseAllFolders}
+          hasResult={result !== null}
+          listFilePaths={listFilePaths}
+          activeView={activeView}
+          focusedFilePath={focusedFilePath}
+          handleFileClick={handleFileClick}
+          fileTree={fileTree}
+          openFolders={openFolders}
+          toggleFolderOpen={toggleFolderOpen}
         />
-      </CollapsibleSection>
 
-      <AnalysisSidebarFilesSection
-        open={sections.files}
-        onOpenChange={handleSectionChange}
-        sortedFilePaths={sortedFilePaths}
-        effectiveFileSelection={effectiveFileSelection}
-        nFiles={config.nFiles}
-        setConfigAndRerun={setConfigAndRerun}
-        blurOnEnter={blurOnEnter}
-        fileViewMode={fileViewMode}
-        setFileViewMode={setFileViewMode}
-        fileSortMode={fileSortMode}
-        setFileSortMode={setFileSortMode}
-        expandAllFolders={expandAllFolders}
-        collapseAllFolders={collapseAllFolders}
-        hasResult={result !== null}
-        listFilePaths={listFilePaths}
-        activeView={activeView}
-        focusedFilePath={focusedFilePath}
-        handleFileClick={handleFileClick}
-        fileTree={fileTree}
-        openFolders={openFolders}
-        toggleFolderOpen={toggleFolderOpen}
-      />
-
-      <AnalysisSidebarInputSections
-        sections={sections}
-        onOpenChange={handleSectionChange}
-        config={config}
-        configInputResetKey={configInputResetKey}
-        setConfigAndRerun={setConfigAndRerun}
-        inputIssues={inputIssues}
-        blurOnEnter={blurOnEnter}
-        blameConfig={blameConfig}
-        copyMoveDraft={copyMoveDraft}
-        setCopyMoveDraft={setCopyMoveDraft}
-        commitCopyMoveDraft={commitCopyMoveDraft}
-      />
-    </fieldset>
+        <AnalysisSidebarInputSections
+          sections={sections}
+          onOpenChange={handleSectionChange}
+          config={config}
+          configInputResetKey={configInputResetKey}
+          setConfigAndRerun={setConfigAndRerun}
+          inputIssues={inputIssues}
+          blurOnEnter={blurOnEnter}
+          blameConfig={blameConfig}
+          copyMoveDraft={copyMoveDraft}
+          setCopyMoveDraft={setCopyMoveDraft}
+          commitCopyMoveDraft={commitCopyMoveDraft}
+        />
+      </fieldset>
+    </div>
   )
 }

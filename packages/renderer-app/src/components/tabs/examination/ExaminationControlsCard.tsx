@@ -56,7 +56,11 @@ export function ExaminationControlsCard({
             />
           </div>
           <Button
-            {...(isGenerating ? { [sessionCancellationControl]: "" } : {})}
+            {...(isGenerating
+              ? {
+                  [sessionCancellationControl]: "examination.generateQuestions",
+                }
+              : {})}
             onClick={isGenerating ? onStopGeneration : onGenerate}
             disabled={isGenerating ? false : blocker !== null}
             title={blocker ?? undefined}

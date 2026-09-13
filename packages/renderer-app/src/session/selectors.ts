@@ -59,6 +59,26 @@ export const selectVisibleSyncScope = (
 export const selectCommandError = (snapshot: SessionControllerSnapshot) =>
   snapshot.commandError
 
+export function selectOperationIsAdmitted(
+  snapshot: SessionControllerSnapshot,
+  operation: string | null,
+): boolean {
+  return [...snapshot.transactions.admitted.values()].some(
+    (entry) =>
+      (entry.kind === "operation" || entry.kind === "command") &&
+      entry.operation === operation,
+  )
+}
+
+export function selectCommandIsWaiting(
+  snapshot: SessionControllerSnapshot,
+): boolean {
+  const { admitted, runningTurnId } = snapshot.transactions
+  return [...admitted].some(
+    ([turnId, entry]) => entry.kind === "command" && turnId !== runningTurnId,
+  )
+}
+
 export const selectTheme = (snapshot: SessionControllerSnapshot) =>
   snapshot.settings.preferences.appearance.theme
 export const selectAppearance = (snapshot: SessionControllerSnapshot) =>

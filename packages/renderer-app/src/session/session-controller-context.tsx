@@ -5,6 +5,7 @@ import {
   useContext,
   useSyncExternalStore,
 } from "react"
+import { selectOperationIsAdmitted } from "./selectors.js"
 import type { SessionController } from "./session-controller.js"
 import {
   canAdmitSessionChange,
@@ -41,7 +42,7 @@ export function runSessionOperationBestEffort(
 
 const SessionControllerContext = createContext<SessionController | null>(null)
 
-// Only the current command's cancellation control carries this marker.
+// The marker names the admitted operation this control cancels.
 export const sessionCancellationControl = "data-session-cancellation-control"
 
 export function SessionControllerProvider({
@@ -59,7 +60,12 @@ export function SessionControllerProvider({
     if (
       snapshot.lifecycle.kind === "live" &&
       event.target instanceof Element &&
-      event.target.closest(`[${sessionCancellationControl}]`) !== null
+      selectOperationIsAdmitted(
+        snapshot,
+        event.target
+          .closest(`[${sessionCancellationControl}]`)
+          ?.getAttribute(sessionCancellationControl) ?? null,
+      )
     )
       return
     event.preventDefault()

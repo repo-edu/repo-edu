@@ -125,10 +125,6 @@ export type AnalysisBlameProgressValue = {
   blamePartialAuthorLines: ReadonlyMap<string, number>
 }
 
-export type AnalysisBlameValue = AnalysisBlameResultValue &
-  AnalysisBlameStatusValue &
-  AnalysisBlameProgressValue
-
 export type AnalysisAuthorViewValue = {
   mergedAuthorStats: AuthorStats[]
   filteredAuthorStats: AuthorStats[]
@@ -141,13 +137,6 @@ export type AnalysisFileViewValue = {
   mergedFileStats: FileStats[]
   filteredFileStats: FileStats[]
 }
-
-export type AnalysisCoordinatorValue = AnalysisDiscoveryValue &
-  AnalysisSelectionValue &
-  AnalysisResultValue &
-  AnalysisBlameValue &
-  AnalysisAuthorViewValue &
-  AnalysisFileViewValue
 
 const AnalysisDiscoveryContext = createContext<AnalysisDiscoveryValue | null>(
   null,
@@ -198,14 +187,6 @@ export function useAnalysisResult(): AnalysisResultValue {
   return useRequiredAnalysisContext(AnalysisResultContext, "useAnalysisResult")
 }
 
-export function useAnalysisBlame(): AnalysisBlameValue {
-  return {
-    ...useAnalysisBlameResult(),
-    ...useAnalysisBlameStatus(),
-    ...useAnalysisBlameProgress(),
-  }
-}
-
 export function useAnalysisBlameResult(): AnalysisBlameResultValue {
   return useRequiredAnalysisContext(
     AnalysisBlameResultContext,
@@ -239,17 +220,6 @@ export function useAnalysisFileView(): AnalysisFileViewValue {
     AnalysisFileViewContext,
     "useAnalysisFileView",
   )
-}
-
-export function useAnalysisCoordinator(): AnalysisCoordinatorValue {
-  return {
-    ...useAnalysisDiscovery(),
-    ...useAnalysisSelection(),
-    ...useAnalysisResult(),
-    ...useAnalysisBlame(),
-    ...useAnalysisAuthorView(),
-    ...useAnalysisFileView(),
-  }
 }
 
 function toAppErrorMessage(error: unknown, fallback: string): string {

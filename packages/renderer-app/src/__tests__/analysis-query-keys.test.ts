@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
-  analysisAutoDiscoveryScopeKey,
   analysisQueryKeys,
   analysisResultScopeKey,
   blameResultScopeKey,
@@ -154,23 +153,6 @@ describe("analysis query keys", () => {
     assert.equal(
       blameResultScopeKey(fewWorkers),
       blameResultScopeKey(manyWorkers),
-    )
-  })
-
-  it("scopes auto-discovery markers by source, folder and depth", () => {
-    const folder = "/courses/shared"
-
-    assert.notEqual(
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
-      analysisAutoDiscoveryScopeKey(["course", "course-b"], folder, 5),
-    )
-    assert.notEqual(
-      analysisAutoDiscoveryScopeKey(["folder", folder], folder, 5),
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
-    )
-    assert.notEqual(
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 5),
-      analysisAutoDiscoveryScopeKey(["course", "course-a"], folder, 6),
     )
   })
 })

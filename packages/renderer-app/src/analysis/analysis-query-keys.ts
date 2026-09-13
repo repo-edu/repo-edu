@@ -111,14 +111,6 @@ export function analysisSourceScopeKey(source: AnalysisSourceKeyParts): string {
   return JSON.stringify(source)
 }
 
-export function analysisAutoDiscoveryScopeKey(
-  source: AnalysisSourceKeyParts,
-  folder: string,
-  depth: number,
-): string {
-  return JSON.stringify([source, folder, depth])
-}
-
 export function analysisResultScopeKey(
   identity: AnalysisQueryIdentity,
 ): string {
@@ -234,7 +226,6 @@ export function buildBlameQueryIdentity(params: {
 }
 
 export const analysisQueryKeys = {
-  all: () => ["analysis"] as const,
   source: (source: AnalysisSourceKeyParts) =>
     ["analysis", "source", source] as const,
   sourceRepos: (source: AnalysisSourceKeyParts) =>
@@ -243,8 +234,6 @@ export const analysisQueryKeys = {
     ["analysis", "source", source, "repo", repoPath] as const,
   discovery: (source: AnalysisSourceKeyParts, folder: string, depth: number) =>
     ["analysis", "source", source, "discovery", folder, depth] as const,
-  repoSnapshotHeads: (source: AnalysisSourceKeyParts, repoPath: string) =>
-    ["analysis", "source", source, "repo", repoPath, "snapshot-head"] as const,
   snapshotHead: (params: {
     source: AnalysisSourceKeyParts
     repoPath: string
@@ -259,8 +248,6 @@ export const analysisQueryKeys = {
       "snapshot-head",
       params.until,
     ] as const,
-  repoResults: (source: AnalysisSourceKeyParts, repoPath: string) =>
-    ["analysis", "source", source, "repo", repoPath, "result"] as const,
   result: (identity: AnalysisQueryIdentity) =>
     [
       "analysis",
@@ -271,8 +258,6 @@ export const analysisQueryKeys = {
       "result",
       identity,
     ] as const,
-  repoBlames: (source: AnalysisSourceKeyParts, repoPath: string) =>
-    ["analysis", "source", source, "repo", repoPath, "blame"] as const,
   blame: (identity: BlameQueryIdentity) =>
     [
       "analysis",

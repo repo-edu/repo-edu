@@ -62,6 +62,7 @@ import {
   hasMacDesktopInset,
   MAC_TRAFFIC_LIGHT_INSET_PX,
 } from "../utils/platform.js"
+import { CommandWaitingBanner } from "./CommandWaitingBanner.js"
 import { CourseSwitcher } from "./CourseSwitcher.js"
 import { AddGroupDialog } from "./dialogs/AddGroupDialog.js"
 import { ConnectLmsGroupSetDialog } from "./dialogs/ConnectLmsGroupSetDialog.js"
@@ -422,6 +423,7 @@ function AppShell() {
           </div>
         </div>
 
+        <CommandWaitingBanner />
         <SyncErrorBanner />
 
         {activeSurface.kind === "home" ? (

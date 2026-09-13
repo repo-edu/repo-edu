@@ -14,17 +14,28 @@ import { createRoot } from "react-dom/client"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   AnalysisCoordinatorProvider,
-  type AnalysisCoordinatorValue,
   selectCurrentAnalysisResult,
   selectCurrentBlameResult,
   selectEffectiveDiscoveryOutcome,
-  useAnalysisCoordinator,
+  useAnalysisAuthorView,
+  useAnalysisBlameProgress,
+  useAnalysisBlameResult,
+  useAnalysisBlameStatus,
+  useAnalysisDiscovery,
+  useAnalysisFileView,
+  useAnalysisResult,
+  useAnalysisSelection,
 } from "../analysis/analysis-query-coordinator.js"
 import { analysisQueryKeys } from "../analysis/analysis-query-keys.js"
+import { CommandWaitingBanner } from "../components/CommandWaitingBanner.js"
 import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { SessionControllerProvider } from "../session/session-controller-context.js"
+import {
+  SessionControllerProvider,
+  sessionCancellationControl,
+} from "../session/session-controller-context.js"
+import type { SessionOperationReservation } from "../session/session-operations.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import {
   makeBaseResult,
@@ -41,8 +52,27 @@ import {
 
 const repos = ["/repos/first", "/repos/second"]
 const source = ["course", "course"] as const
+const repoResults = (repoPath: string) =>
+  [...analysisQueryKeys.repo(source, repoPath), "result"] as const
+const repoBlames = (repoPath: string) =>
+  [...analysisQueryKeys.repo(source, repoPath), "blame"] as const
 const flushQueries = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+function useAnalysisTestView() {
+  return {
+    ...useAnalysisDiscovery(),
+    ...useAnalysisSelection(),
+    ...useAnalysisResult(),
+    ...useAnalysisBlameResult(),
+    ...useAnalysisBlameStatus(),
+    ...useAnalysisBlameProgress(),
+    ...useAnalysisAuthorView(),
+    ...useAnalysisFileView(),
+  }
+}
+
+type AnalysisTestView = ReturnType<typeof useAnalysisTestView>
 
 async function mountCoordinator(
   t: TestContext,
@@ -63,6 +93,7 @@ async function mountCoordinator(
   const globals = {
     window,
     document: window.document,
+    Element: window.Element,
     getComputedStyle: window.getComputedStyle.bind(window),
     requestAnimationFrame: window.requestAnimationFrame.bind(window),
     cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
@@ -159,9 +190,9 @@ async function mountCoordinator(
         depth: 5,
       })
   }
-  let value: AnalysisCoordinatorValue | undefined
+  let value: AnalysisTestView | undefined
   function ReadAnalysis() {
-    value = useAnalysisCoordinator()
+    value = useAnalysisTestView()
     return null
   }
   const container = window.document.createElement("div")
@@ -182,6 +213,7 @@ async function mountCoordinator(
     root.render(
       <Mode>
         <SessionControllerProvider controller={controller}>
+          <CommandWaitingBanner />
           <WorkflowClientProvider value={controller.operations}>
             <QueryClientProvider client={queryClient}>
               <AnalysisCoordinatorProvider>
@@ -257,14 +289,6 @@ describe("analysis runner lifetime in React", () => {
       (button) => button.textContent?.trim() === "Cancel",
     )
     assert.ok(button)
-    await React.act(async () => {
-      button.click()
-      await flushQueries()
-    })
-    assert.equal(signal.aborted, true)
-    assert.equal(read().blameStatus, "idle")
-    assert.equal(read().blameResult, null)
-    assert.equal(blameCalls, 1)
     let commandStarted = false
     let command: Promise<unknown> | undefined
     await React.act(async () => {
@@ -274,7 +298,7 @@ describe("analysis runner lifetime in React", () => {
           queryClient
             .getQueryCache()
             .findAll({
-              queryKey: analysisQueryKeys.repoBlames(source, repos[0]),
+              queryKey: repoBlames(repos[0]),
             })
             .some((query) => query.state.data !== undefined),
           false,
@@ -284,6 +308,14 @@ describe("analysis runner lifetime in React", () => {
     })
     assert.equal(commandStarted, false)
     assert.equal(blameCalls, 1)
+    assert.equal(button.closest("fieldset[disabled]"), null)
+    await React.act(async () => {
+      button.click()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    assert.equal(read().blameStatus, "idle")
+    assert.equal(read().blameResult, null)
     await React.act(async () => {
       release.resolve()
       await command
@@ -555,7 +587,7 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(read().lastDiscoveryOutcome, "cancelled")
     const queries = queryClient
       .getQueryCache()
-      .findAll({ queryKey: analysisQueryKeys.repoResults(source, repos[0]) })
+      .findAll({ queryKey: repoResults(repos[0]) })
     assert.equal(queries.length, 1)
     assert.deepEqual(queries[0]?.state.data, result)
   })
@@ -566,6 +598,122 @@ describe("analysis sidebar admission", () => {
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
+
+  for (const ending of ["completion", "cancellation"] as const) {
+    it(`shows a reserved command and allows search ${ending} before its body starts`, {
+      timeout: 3000,
+    }, async (t) => {
+      const entered = deferred<AbortSignal>()
+      const releaseSearch = deferred<void>()
+      const releaseCommand = deferred<void>()
+      t.after(() => {
+        releaseSearch.resolve()
+        releaseCommand.resolve()
+      })
+      let searchCalls = 0
+      let commandStarted = false
+      const { controller, container, read } = await mountCoordinator(
+        t,
+        async () => assert.fail("An empty search must not start analysis"),
+        undefined,
+        {
+          sidebar: true,
+          discover: async (signal) => {
+            searchCalls++
+            entered.resolve(signal)
+            await releaseSearch.promise
+            return { repos: [] }
+          },
+        },
+      )
+      const signal = await entered.promise
+      assert.equal(container.querySelector('[role="status"]'), null)
+      let reservation: SessionOperationReservation<void> | null | undefined
+      await React.act(async () => {
+        reservation = controller.operations.reserve<void>("repo.bulkClone")
+        await flushQueries()
+      })
+      assert.ok(reservation)
+      assert.match(
+        container.querySelector('[role="status"]')?.textContent ?? "",
+        /Waiting for current work to finish/,
+      )
+      assert.equal(signal.aborted, false)
+      assert.equal(read().discoveryStatus, "loading")
+      const button = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent?.trim() === "Cancel Search",
+      )
+      assert.ok(button)
+      assert.equal(isDisabled(button), false)
+      for (const control of container.querySelectorAll(
+        "button, input, select, textarea",
+      )) {
+        if (control !== button) assert.equal(isDisabled(control), true)
+      }
+      const command = reservation.run(async () => {
+        commandStarted = true
+        await releaseCommand.promise
+      })
+      if (ending === "cancellation") {
+        // A marker for a body that is not admitted cannot pass the input gate.
+        button.setAttribute(sessionCancellationControl, "analysis.blame")
+        await React.act(async () => {
+          button.click()
+          await flushQueries()
+        })
+        assert.equal(signal.aborted, false)
+        assert.equal(read().lastDiscoveryOutcome, "none")
+        button.setAttribute(
+          sessionCancellationControl,
+          "analysis.discoverRepos",
+        )
+        await React.act(async () => {
+          // Exercise the capture path when the event comes from a child icon.
+          const icon = button.querySelector("svg")
+          const view = container.ownerDocument.defaultView
+          assert.ok(icon)
+          assert.ok(view)
+          icon.dispatchEvent(
+            new view.MouseEvent("click", {
+              bubbles: true,
+            }),
+          )
+          await flushQueries()
+        })
+        assert.equal(signal.aborted, true)
+        assert.equal(read().lastDiscoveryOutcome, "cancelled")
+      }
+      assert.equal(commandStarted, false)
+      assert.ok(container.querySelector('[role="status"]'))
+      await React.act(async () => {
+        releaseSearch.resolve()
+        await flushQueries()
+      })
+      assert.equal(commandStarted, true)
+      assert.equal(container.querySelector('[role="status"]'), null)
+      assert.equal(
+        container.querySelector(`[${sessionCancellationControl}]`),
+        null,
+      )
+      for (const control of container.querySelectorAll(
+        "button, input, select, textarea",
+      )) {
+        assert.equal(isDisabled(control), true)
+      }
+      await React.act(async () => {
+        releaseCommand.resolve()
+        await command
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.equal(searchCalls, 1)
+      assert.equal(
+        read().lastDiscoveryOutcome,
+        ending === "completion" ? "completed" : "cancelled",
+      )
+    })
+  }
+
   const cases = [
     { name: "repository list", searchFolder: "/repos", repos },
     { name: "empty search", searchFolder: "/repos", repos: [] },
