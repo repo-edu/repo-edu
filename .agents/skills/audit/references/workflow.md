@@ -13,6 +13,12 @@ range and `4` as one step, counted against the plan's **Implementation plan**
 numbering. A range makes the round scoped. No range makes the scope `all`, the
 whole plan. When no plan is named, ask which plan to audit and wait.
 
+An invocation that names no plan file and names one or more commits Git can
+resolve makes the round commit-scoped, judging work no plan covers. Read
+`commit-scope.md` beside this file for that round's scope, gate, baseline,
+coverage, report name, record and settlement, and follow the rest of this
+workflow unchanged.
+
 This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
 local substitutions: that repo's report root and finding metadata.
