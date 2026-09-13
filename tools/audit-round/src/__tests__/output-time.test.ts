@@ -91,3 +91,59 @@ for (const { zone, instant, timestamp, filename } of [
     }
   })
 }
+
+test("elapsed readings count assistant work and never the user's own time", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const log: string[] = []
+  const output = new RoundOutput(
+    roundRun({ repoRoot: "/repo", plan: "example.md" }, Date.now()),
+    {
+      terminal: { write: () => {}, status: () => {}, clear: () => {} },
+      openFiles: () => ({
+        log: (text) => {
+          log.push(text)
+        },
+        markdown: () => {},
+        close: () => {},
+      }),
+    },
+  )
+  t.after(() => output.close())
+  const stamp = () => log.filter((text) => text.startsWith("\n[fix]")).at(-1)
+
+  t.mock.timers.tick(5_000)
+  await output.phase.start(
+    {
+      phase: "fix",
+      assistant: "codex",
+      cwd: "/repo",
+      ownerRoot: "/repo",
+      arguments: ["REPORT.md"],
+      sessionId: null,
+    },
+    "Full prompt",
+  )
+  t.mock.timers.tick(60_000)
+  await output.phase.observe({ type: "text", text: "A ruling is needed." })
+  assert.equal(stamp(), "\n[fix] 01:00  total 01:05")
+
+  const session = {
+    assistant: "codex" as const,
+    sessionId: "session",
+    cwd: "/repo",
+  }
+  await output.prepareHandover(session)
+  // The user is away with the ruling; the round is doing nothing meanwhile.
+  t.mock.timers.tick(30 * 60_000)
+  await output.phase.observe({ type: "user-text", text: "Take the redesign." })
+  assert.equal(stamp(), "\n[fix] 00:00  total 01:05")
+
+  t.mock.timers.tick(120_000)
+  await output.phase.observe({ type: "text", text: "Applied." })
+  assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+
+  // Reading the reply and leaving the interactive CLI is the user's time too.
+  t.mock.timers.tick(10 * 60_000)
+  output.finish({ status: "handed-over", report: "REPORT.md", session })
+  assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
+})

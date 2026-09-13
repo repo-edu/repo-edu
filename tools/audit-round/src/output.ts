@@ -19,6 +19,7 @@ import {
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
+import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Terminal } from "./terminal.js"
 
@@ -90,12 +91,11 @@ export class RoundOutput<R extends Run = Run> {
   readonly paths: R["paths"]
   readonly phase: PhaseOutput
   private readonly files: RunFiles
-  private readonly now: () => number
-  private readonly started: number
+  private readonly clock: RunClock
   private active:
     | {
         input: Pick<PhaseInput, "phase" | "assistant">
-        started: number
+        started: RunMark
         context: Context | null
         previousToolTokens: number | null
         statusTokens: number | null
@@ -107,8 +107,7 @@ export class RoundOutput<R extends Run = Run> {
     private readonly run: R,
     private readonly options: OutputOptions,
   ) {
-    this.now = options.now ?? Date.now
-    this.started = run.started
+    this.clock = new RunClock(options.now ?? Date.now, run.started)
     this.paths = run.paths
     this.files = (options.openFiles ?? openRunFiles)(this.paths)
     this.phase = {
@@ -183,8 +182,7 @@ export class RoundOutput<R extends Run = Run> {
     if (this.active === undefined) return ""
     const { input, started, context, statusTokens } = this.active
     const measurement = contextText(context, changeSince(context, statusTokens))
-    const now = this.now()
-    return `\n[${input.phase}] ${elapsedText(now - started)}  total ${elapsedText(now - this.started)}${measurement ? `  ${measurement}` : ""}`
+    return `\n[${input.phase}] ${elapsedText(this.clock.elapsed(started))}  total ${elapsedText(this.clock.elapsed(this.clock.run))}${measurement ? `  ${measurement}` : ""}`
   }
 
   /** Written stamps chain: each reports the context added since the previous one. */
@@ -197,9 +195,10 @@ export class RoundOutput<R extends Run = Run> {
 
   private start(input: PhaseInput, prompt: string): void {
     this.release()
+    this.clock.active()
     this.active = {
       input,
-      started: this.now(),
+      started: this.clock.mark(),
       context: null,
       previousToolTokens: null,
       // A fresh session starts empty, so its first stamp reports the startup context.
@@ -232,6 +231,9 @@ export class RoundOutput<R extends Run = Run> {
     const active = this.active
     if (active === undefined)
       throw new Error("Phase feedback arrived without an active output")
+    // A user message is the user's own; every other feedback is a sign of life.
+    if (feedback.type === "user-text") this.clock.awaited()
+    else this.clock.active()
     const prefix = `[${active.input.phase}]`
     switch (feedback.type) {
       case "session":
@@ -296,9 +298,10 @@ export class RoundOutput<R extends Run = Run> {
 
   prepareHandover = async (session: InteractiveSession): Promise<void> => {
     this.release()
+    this.clock.active()
     this.active = {
       input: { phase: "fix", assistant: session.assistant },
-      started: this.now(),
+      started: this.clock.mark(),
       context: null,
       previousToolTokens: null,
       statusTokens: null,
@@ -320,7 +323,12 @@ export class RoundOutput<R extends Run = Run> {
         `${this.report()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
-      if (result.status === "handed-over") this.files.log(this.report())
+      // Leaving the interactive CLI is the user's own action, so the span back
+      // to the assistant's last sign of life was theirs too.
+      if (result.status === "handed-over") {
+        this.clock.awaited()
+        this.files.log(this.report())
+      }
       this.say(
         result.status === "finished"
           ? `${this.run.name} finished.`

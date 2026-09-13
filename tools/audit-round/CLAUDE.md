@@ -49,26 +49,28 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command. Claude uses
   `--permission-mode auto` in settings discovery and every session entry.
-- `output.ts` owns terminal presentation and incremental run recording. A run description
-  names the run, seats its roles and locates its files: a round records a log and transcript
-  pair, and a brief on its own records a log beside the transcript it retells and keeps no
-  transcript of its own. The output holds only the run start, current phase timing and
-  context observations. Every status stamp shows the phase's elapsed
-  time and the round's total. Two baselines measure context growth: a written status stamp reports
-  the tokens added since the previous written stamp, and a logged tool line reports the tokens added
-  since the previous tool line. Both chain into the totals beside them; a fresh phase starts its
-  stamp baseline at zero and a resumed phase reports no first change. `run-files.ts` completes each
-  required write before returning to the invocation; no complete transcript accumulates in memory.
-  `terminal.ts` uses log-update for terminals and plain text for redirected output. The log records
-  each tool invocation once, with shell wrappers removed and no event envelopes or result payloads.
-  Invocation lines stay complete in the log; assistant texts stay complete in Markdown. Only
-  terminal tool lines shorten. `prepareHandover` records the handover and releases the terminal
-  before `openSession` inherits it. The interactive output continues writing
-  the same log and transcript without touching the terminal. Its fix timer
-  starts at the handover; the total still counts from the round's start. User
-  messages and assistant replies have separate transcript labels. Both
-  handover functions must reject on failure. Exiting the interactive child
-  ends recording but does not prove workflow completion.
+- `output.ts` owns terminal presentation and incremental run recording. A run description names the
+  run, seats its roles and locates its files: a round records a log and transcript pair, and a brief
+  on its own records a log beside the transcript it retells and keeps no transcript of its own. The
+  output holds only the run start, current phase timing and context observations. Every status stamp
+  shows the phase's elapsed time and the round's total. `run-clock.ts` owns what those readings
+  count. A round measures its assistants, so time the user holds is not the run's. The assistant's
+  last sign of life opens a wait and the user's next action closes it: a user message during the
+  interactive fix, and leaving that session at the end. Each phase and the run read the same waiting
+  total through their own mark, so one rule serves every reading. Two baselines measure context
+  growth: a written status stamp reports the tokens added since the previous written stamp, and a
+  logged tool line reports the tokens added since the previous tool line. Both chain into the totals
+  beside them; a fresh phase starts its stamp baseline at zero and a resumed phase reports no first
+  change. `run-files.ts` completes each required write before returning to the invocation; no
+  complete transcript accumulates in memory. `terminal.ts` uses log-update for terminals and plain
+  text for redirected output. The log records each tool invocation once, with shell wrappers removed
+  and no event envelopes or result payloads. Invocation lines stay complete in the log; assistant
+  texts stay complete in Markdown. Only terminal tool lines shorten. `prepareHandover` records the
+  handover and releases the terminal before `openSession` inherits it. The interactive output
+  continues writing the same log and transcript without touching the terminal. Its fix timer starts
+  at the handover; the total still counts from the round's start, minus every wait. User messages
+  and assistant replies have separate transcript labels. Both handover functions must reject on
+  failure. Exiting the interactive child ends recording but does not prove workflow completion.
 - `command.ts` owns the `round` and `brief` subcommands, repository paths,
   startup and final reporting. `round` is the default, so a bare plan argument
   still runs a round. Required write failures stop phase progression. If recording itself fails,
