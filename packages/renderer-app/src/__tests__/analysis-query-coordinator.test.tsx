@@ -461,7 +461,13 @@ describe("analysis runner lifetime in React", () => {
         },
         { sidebar: false },
       )
-      await React.act(flushQueries)
+      // The analysis result lands first and its effect then queues the blame
+      // body, so wait for that queue to drain before reading blame's outcome.
+      await React.act(async () => {
+        await flushQueries()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
       assert.equal(blameCalls, 1)
       assert.equal(read().blameStatus, outcome === "error" ? "error" : "idle")
       const execute = t.mock.method(controller.operations, "execute")
