@@ -27,9 +27,13 @@ export type PickerFailureReport = (message: string) => void
  * error surface. Pass a setter when the caller already owns an error line that
  * carries its other failures, so one view does not split its failures across
  * two surfaces.
+ *
+ * `signal` belongs to the complete action. A stop skips a queued picker or
+ * discards its result if the dialog is already open.
  */
 type PickerRequest<HostOptions> = HostOptions & {
   readonly report?: PickerFailureReport
+  readonly signal?: AbortSignal
 }
 
 /**
@@ -55,12 +59,14 @@ async function runPicker<T>(
   report: PickerFailureReport,
   open: (scope: SessionOperationScope) => Promise<T | null>,
   apply: PickerApply<T>,
+  signal?: AbortSignal,
 ): Promise<void> {
   await gateway
     .execute(id, async (scope) => {
       try {
+        if (signal?.aborted) return
         const picked = await open(scope)
-        if (picked === null) return
+        if (picked === null || signal?.aborted) return
         await apply(picked, scope)
       } catch (error) {
         report(getErrorMessage(error))
@@ -83,7 +89,7 @@ export function useDirectoryPicker(
       request: PickerRequest<PickDirectoryOptions>,
       apply: PickerApply<string>,
     ) => {
-      const { report, ...options } = request
+      const { report, signal, ...options } = request
       await runPicker(
         gateway,
         operation,
@@ -93,6 +99,7 @@ export function useDirectoryPicker(
             rendererHost.pickDirectory(options),
           ),
         apply,
+        signal,
       )
     },
     [addToast, gateway, operation, rendererHost],
@@ -109,7 +116,7 @@ export function useUserFilePicker() {
       request: PickerRequest<OpenUserFileDialogOptions>,
       apply: PickerApply<RendererOpenUserFileRef>,
     ) => {
-      const { report, ...options } = request
+      const { report, signal, ...options } = request
       await runPicker(
         gateway,
         "pickUserFile",
@@ -119,6 +126,7 @@ export function useUserFilePicker() {
             rendererHost.pickUserFile(options),
           ),
         apply,
+        signal,
       )
     },
     [addToast, gateway, rendererHost],

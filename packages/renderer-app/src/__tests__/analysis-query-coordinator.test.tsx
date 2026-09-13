@@ -746,7 +746,210 @@ describe("analysis sidebar admission", () => {
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
 
+  it("keeps search cancellation available while the remaining analysis waits behind the picker", {
+    timeout: 3000,
+  }, async (t) => {
+    const analysisEntered = deferred<void>()
+    const releaseAnalysis = deferred<void>()
+    const searchEntered = deferred<AbortSignal>()
+    const releaseSearch = deferred<void>()
+    t.after(() => {
+      releaseAnalysis.resolve()
+      releaseSearch.resolve()
+    })
+    let analysisCalls = 0
+    const { controller, queryClient, container, read } = await mountCoordinator(
+      t,
+      async () => {
+        analysisCalls++
+        analysisEntered.resolve()
+        await releaseAnalysis.promise
+        return makeBaseResult()
+      },
+      undefined,
+      {
+        sidebar: true,
+        startDiscovery: false,
+        pickDirectory: async () => "/picked",
+        discover: async (signal) => {
+          searchEntered.resolve(signal)
+          await releaseSearch.promise
+          signal.throwIfAborted()
+          return { repos: [] }
+        },
+      },
+    )
+    await React.act(async () => {
+      queryClient.setQueryData(
+        analysisQueryKeys.discovery(source, "/repos", 5),
+        {
+          repos: repos.map((path) => ({ path, name: path })),
+        },
+      )
+      await flushQueries()
+    })
+    await analysisEntered.promise
+    const browse = container
+      .querySelector(".lucide-folder-open")
+      ?.closest("button")
+    assert.ok(browse)
+    await React.act(async () => {
+      browse.click()
+      releaseAnalysis.resolve()
+      await flushQueries()
+    })
+    const signal = await searchEntered.promise
+    await React.act(flushQueries)
+    const buttons = Array.from(container.querySelectorAll("button"))
+    const cancelSource = buttons.find(
+      (button) => button.textContent?.trim() === "Cancel",
+    )
+    const cancelSearch = buttons.find(
+      (button) => button.textContent?.trim() === "Cancel Search",
+    )
+    assert.ok(cancelSource)
+    assert.ok(cancelSearch)
+    assert.equal(isDisabled(cancelSource), false)
+    assert.equal(isDisabled(cancelSearch), false)
+    await React.act(async () => {
+      cancelSource.click()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, false)
+    await React.act(async () => {
+      cancelSearch.click()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    await React.act(async () => {
+      releaseSearch.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(analysisCalls, 1)
+    assert.equal(read().discoveryError, null)
+    assert.deepEqual(useToastStore.getState().toasts, [])
+  })
+
   for (const kind of ["folder", "course"] as const) {
+    for (const stage of ["queued", "open"] as const) {
+      it(`cancels the search-folder pick on a ${kind} surface while ${stage} and permits a later pick`, {
+        timeout: 3000,
+      }, async (t) => {
+        const releaseEarlier = deferred<void>()
+        const opened = deferred<void>()
+        const picked = deferred<string | null>()
+        t.after(() => {
+          releaseEarlier.resolve()
+          picked.resolve(null)
+        })
+        const activeSurface: PersistedActiveSurface =
+          kind === "folder"
+            ? { kind, path: "/repos" }
+            : { kind, courseId: "course" }
+        let pickerCalls = 0
+        let searchCalls = 0
+        const { controller, container } = await mountCoordinator(
+          t,
+          async () => assert.fail("An empty search must not start analysis"),
+          undefined,
+          {
+            sidebar: true,
+            activeSurface,
+            startDiscovery: false,
+            pickDirectory: async () => {
+              pickerCalls++
+              opened.resolve()
+              return picked.promise
+            },
+            discover: async () => {
+              searchCalls++
+              return { repos: [] }
+            },
+          },
+        )
+        const browse = container
+          .querySelector(".lucide-folder-open")
+          ?.closest("button")
+        assert.ok(browse)
+        let earlier: Promise<unknown> | undefined
+        await React.act(async () => {
+          if (stage === "queued") {
+            earlier = controller.operations.execute(
+              "analysis.listFolderFiles",
+              () => releaseEarlier.promise,
+            )
+          }
+          browse.click()
+          if (stage === "open") await opened.promise
+          await flushQueries()
+        })
+        let followed = false
+        let command: Promise<unknown> | undefined
+        await React.act(async () => {
+          command = controller.operations.execute("repo.clone", async () => {
+            followed = true
+            assert.deepEqual(
+              controller.getSnapshot().settings.preferences.activeSurface,
+              activeSurface,
+            )
+            if (kind === "course") {
+              assert.equal(
+                useCourseStore.getState().course?.searchFolder,
+                "/repos",
+              )
+            }
+            assert.equal(searchCalls, 0)
+          })
+          await flushQueries()
+        })
+        const cancelSearch = Array.from(
+          container.querySelectorAll("button"),
+        ).find((button) => button.textContent?.trim() === "Cancel Search")
+        assert.ok(cancelSearch)
+        assert.equal(isDisabled(cancelSearch), false)
+        await React.act(async () => {
+          cancelSearch.click()
+          await flushQueries()
+        })
+        assert.equal(followed, false)
+        await React.act(async () => {
+          releaseEarlier.resolve()
+          picked.resolve("/picked")
+          await earlier
+          await command
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.equal(followed, true)
+        assert.equal(pickerCalls, stage === "queued" ? 0 : 1)
+        assert.equal(searchCalls, 0)
+        assert.deepEqual(useToastStore.getState().toasts, [])
+
+        const retry = container
+          .querySelector(".lucide-folder-open")
+          ?.closest("button")
+        assert.ok(retry)
+        await React.act(async () => {
+          retry.click()
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.equal(pickerCalls, stage === "queued" ? 1 : 2)
+        assert.equal(searchCalls, 1)
+        assert.deepEqual(
+          controller.getSnapshot().settings.preferences.activeSurface,
+          kind === "folder" ? { kind, path: "/picked" } : activeSurface,
+        )
+        if (kind === "course") {
+          assert.equal(
+            useCourseStore.getState().course?.searchFolder,
+            "/picked",
+          )
+        }
+      })
+    }
+
     for (const ending of ["completion", "cancellation", "failure"] as const) {
       it(`keeps the ${kind} picker search and ${ending} before a command queued during the picker`, {
         timeout: 3000,

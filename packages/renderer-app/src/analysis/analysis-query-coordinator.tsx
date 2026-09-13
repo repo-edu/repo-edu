@@ -85,10 +85,14 @@ export type AnalysisDiscoveryValue = {
   discoveryCurrentFolder: string | null
   discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
-  createDiscoveryBody: (
-    surface: PersistedActiveSurface,
-    folder: string,
-  ) => (scope: SessionOperationScope) => Promise<void>
+  createDiscoveryRequest: () => {
+    signal: AbortSignal
+    run: (
+      scope: SessionOperationScope,
+      surface: PersistedActiveSurface,
+      folder: string,
+    ) => Promise<void>
+  }
   cancelDiscovery: () => void
 }
 
@@ -654,33 +658,36 @@ export function AnalysisCoordinatorProvider({
     [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
   )
 
-  const createDiscoveryBody = useCallback(
-    (surface: PersistedActiveSurface, folder: string) => {
-      const discover = discoveryRunner.createBody(surface, {
-        folder,
-        depth: searchDepth,
-      })
-      return async (scope: SessionOperationScope) => {
+  const createDiscoveryRequest = useCallback(() => {
+    const request = discoveryRunner.createRequest()
+    return {
+      signal: request.signal,
+      run: async (
+        scope: SessionOperationScope,
+        surface: PersistedActiveSurface,
+        folder: string,
+      ) => {
         scope.publish(() => sourceRunner?.restart())
         // The discovery query displays failures; cancellation stays silent.
-        await discover(scope).catch(() => {})
-      }
-    },
-    [sourceRunner, discoveryRunner, searchDepth],
-  )
+        await request
+          .run(scope, surface, { folder, depth: searchDepth })
+          .catch(() => {})
+      },
+    }
+  }, [sourceRunner, discoveryRunner, searchDepth])
 
   // Start and Re-search reserve a body; the picker uses its existing body.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
+      const request = createDiscoveryRequest()
       void client
-        .execute(
-          "analysis.discoverRepos",
-          createDiscoveryBody(activeSurface, folder),
+        .execute("analysis.discoverRepos", (scope) =>
+          request.run(scope, activeSurface, folder),
         )
         .catch(() => {})
     },
-    [client, createDiscoveryBody, activeSurface],
+    [client, createDiscoveryRequest, activeSurface],
   )
 
   const cancelDiscovery = useCallback(() => {
@@ -703,7 +710,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCurrentFolder,
       discoveryCompleted,
       runRepoDiscovery,
-      createDiscoveryBody,
+      createDiscoveryRequest,
       cancelDiscovery,
     }),
     [
@@ -714,7 +721,7 @@ export function AnalysisCoordinatorProvider({
       discoveryStatus,
       discoveryCompleted,
       runRepoDiscovery,
-      createDiscoveryBody,
+      createDiscoveryRequest,
     ],
   )
 

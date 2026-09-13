@@ -97,18 +97,19 @@ describe("discovery and blame bodies", () => {
       () => release.promise,
     )
     const runner = new AnalysisDiscoveryRunner(client)
+    const request = runner.createRequest()
     const running = controller.operations.execute(
       "analysis.discoverRepos",
-      runner.createBody(surface, { folder, depth: 5 }),
+      (scope) => request.run(scope, surface, { folder, depth: 5 }),
     )
     const cancelled = assert.rejects(running, { name: "AbortError" })
     runner.cancel()
     release.resolve()
     await Promise.all([earlier, cancelled])
     assert.equal(calls, 0)
-    await controller.operations.execute(
-      "analysis.discoverRepos",
-      runner.createBody(surface, { folder, depth: 5 }),
+    const nextRequest = runner.createRequest()
+    await controller.operations.execute("analysis.discoverRepos", (scope) =>
+      nextRequest.run(scope, surface, { folder, depth: 5 }),
     )
     assert.equal(calls, 1)
     assert.deepEqual(
@@ -154,9 +155,10 @@ describe("discovery and blame bodies", () => {
         )
       }
       const runner = new AnalysisDiscoveryRunner(client)
+      const request = runner.createRequest()
       const running = controller.operations.execute(
         "analysis.discoverRepos",
-        runner.createBody(folderSurface, input),
+        (scope) => request.run(scope, folderSurface, input),
       )
       await entered.promise
       let followed = false
@@ -222,14 +224,11 @@ describe("discovery and blame bodies", () => {
         })
         const unsubscribe = observer.subscribe(() => {})
         t.after(unsubscribe)
+        const discovery = new AnalysisDiscoveryRunner(client).createRequest()
         const running =
           kind === "discovery"
-            ? controller.operations.execute(
-                "analysis.discoverRepos",
-                new AnalysisDiscoveryRunner(client).createBody(surface, {
-                  folder,
-                  depth: 5,
-                }),
+            ? controller.operations.execute("analysis.discoverRepos", (scope) =>
+                discovery.run(scope, surface, { folder, depth: 5 }),
               )
             : new AnalysisSourceRunner(controller.operations, client, {
                 source,
@@ -290,10 +289,10 @@ describe("discovery and blame bodies", () => {
       return discoveryResult
     })
     const runner = new AnalysisDiscoveryRunner(client)
+    const request = runner.createRequest()
     const running = controller.operations
-      .execute(
-        "analysis.discoverRepos",
-        runner.createBody(surface, { folder, depth: 5 }),
+      .execute("analysis.discoverRepos", (scope) =>
+        request.run(scope, surface, { folder, depth: 5 }),
       )
       .catch(() => {})
     const signal = await entered.promise

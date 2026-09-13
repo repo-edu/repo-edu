@@ -74,7 +74,7 @@ export function AnalysisSidebar() {
   const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
   const {
     runRepoDiscovery,
-    createDiscoveryBody,
+    createDiscoveryRequest,
     cancelDiscovery,
     discoveredRepos,
   } = useAnalysisDiscovery()
@@ -330,8 +330,9 @@ export function AnalysisSidebar() {
 
   const handleBrowseSearchFolder = useCallback(async () => {
     setBrowseTooltipKey((k) => k + 1)
+    const discovery = createDiscoveryRequest()
     await pickDirectory(
-      { title: "Open repository search folder" },
+      { title: "Open repository search folder", signal: discovery.signal },
       async (directory, scope) => {
         let surface = analysisContext.activeSurface
         scope.publish(() => {
@@ -346,11 +347,10 @@ export function AnalysisSidebar() {
             actions.setSearchFolder(directory),
           )
         }
-        const discover = createDiscoveryBody(surface, directory)
-        await discover(scope)
+        await discovery.run(scope, surface, directory)
       },
     )
-  }, [analysisContext, pickDirectory, createDiscoveryBody, selectRepository])
+  }, [analysisContext, pickDirectory, createDiscoveryRequest, selectRepository])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)
@@ -422,7 +422,8 @@ export function AnalysisSidebar() {
               <Square className="mr-1 size-4" />
               Cancel
             </Button>
-          ) : canCancelDiscovery ? (
+          ) : null}
+          {canCancelDiscovery ? (
             <Button
               variant="destructive"
               {...{ [sessionCancellationControl]: "analysis.discoverRepos" }}
