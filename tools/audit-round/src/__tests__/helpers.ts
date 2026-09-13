@@ -11,7 +11,7 @@ export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")
 export const finishedText =
-  'Résumé complete\nPHASE RESULT: {"status":"finished","file":null,"reason":null}'
+  'Résumé complete\nPHASE RESULT: {"status":"finished","file":null,"reason":null,"tier":null}'
 
 export async function phaseStream(
   assistant: Assistant,

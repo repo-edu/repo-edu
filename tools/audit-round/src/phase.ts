@@ -1,5 +1,18 @@
 export type Assistant = "claude" | "codex"
-export type Phase = "audit" | "vet" | "rebut" | "fix" | "brief"
+export type Phase =
+  | "audit"
+  | "vet"
+  | "rebut"
+  | "fix"
+  | "brief"
+  | "rule"
+  | "revise"
+
+/**
+ * The severity tier a finished fix recorded, lowercased from the record's
+ * sequence. Null means the round landed a clean record.
+ */
+export type Tier = "a" | "b" | "c" | "d"
 
 /** The single owner of which assistant runs each phase of a round. */
 export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
@@ -12,16 +25,19 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     fix: "codex",
     // The brief retells the finished transcript for the user; Claude always writes it.
     brief: "claude",
+    // The ruling explains an open item for the user, so Claude writes both passes.
+    rule: "claude",
+    revise: "claude",
   }
 }
 
 /**
- * Whether a phase's texts belong in the round transcript. The brief is the
- * transcript's plain-words twin, so its text lands in its own file and never
- * in the transcript it explains.
+ * Whether a phase's texts belong in the round transcript. The brief and the
+ * ruling are the transcript's plain-words twins, so their texts land in their
+ * own files and never in the transcript they explain.
  */
 export function transcribed(phase: Phase): boolean {
-  return phase !== "brief"
+  return phase !== "brief" && phase !== "rule" && phase !== "revise"
 }
 
 type PhaseArguments = {
@@ -43,6 +59,18 @@ type PhaseArguments = {
   }
   brief: {
     readonly arguments: readonly [transcript: string]
+    readonly sessionId: null
+  }
+  rule: {
+    readonly arguments: readonly [transcript: string, report: string]
+    readonly sessionId: null
+  }
+  revise: {
+    readonly arguments: readonly [
+      ruling: string,
+      transcript: string,
+      report: string,
+    ]
     readonly sessionId: null
   }
 }
@@ -83,6 +111,8 @@ type ReportResult = {
 type FixResult = {
   readonly status: "finished" | "needs-ruling"
   readonly sessionId: string
+  /** The highest tier the fix recorded, which a chained run reads. Null when clean. */
+  readonly tier: Tier | null
 }
 
 type PhaseResults = {
@@ -91,6 +121,8 @@ type PhaseResults = {
   rebut: ReportResult
   fix: FixResult
   brief: ReportResult
+  rule: ReportResult
+  revise: ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

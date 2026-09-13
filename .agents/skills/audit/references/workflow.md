@@ -29,7 +29,9 @@ The round ends at its report file. The auditor answers a vet through the
 rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
 from the user's ruling through applying corrections, landing records and
 deleting the report belongs to the fix workflow at
-`.agents/skills/fix/references/workflow.md`. The fix starts in a fresh session
+`.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling,
+the document the user rules from is written by
+`.agents/skills/rule/references/workflow.md`. The fix starts in a fresh session
 from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
@@ -43,8 +45,8 @@ explicitly says to.
 
 When the prompt identifies an unattended implementation-audit phase, follow
 this rule for every ending, including an early stop. It is shared by audit,
-vet, rebuttal, fix and brief, including when a plan-repo launcher routes the
-phase here with local substitutions. Ordinary interactive invocations do not add
+vet, rebuttal, fix, brief and the two ruling passes, including when a plan-repo
+launcher routes the phase here with local substitutions. Ordinary interactive invocations do not add
 a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
@@ -53,17 +55,24 @@ and its chat copy remain identical; append the result after the chat copy
 only. The object has exactly these fields:
 
 - `status`: one of the three outcomes below.
-- `file`: the absolute path written by a finished audit, vet, rebuttal or
-  brief. Use `null` for every other outcome, including a finished fix.
+- `file`: the absolute path written by a finished audit, vet, rebuttal, brief
+  or ruling pass. Use `null` for every other outcome, including a finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
+- `tier`: the grade a finished fix gives the round, and `null` everywhere else.
+  It is the highest tier among the records the fix landed, written as one
+  lowercase letter, `a`, `b`, `c` or `d`, whatever case the record's severity
+  sequence used. A clean record reports `null`. A fix that landed records in
+  two repos reports the highest tier across both. The runner reads this to
+  decide whether a chained run audits the same scope again, so report what the
+  records carry and nothing else.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
 | `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the brief. |
-| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then open that fix session interactively. |
+| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
-Each phase judges its own outcome. Audit, vet, rebuttal and brief use only `finished` or `failed`;
+Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`;
 the reports may carry open items for the fix phase to present, and the brief retells them for the
 user. An audit finishes when its required evidence and report are complete and the report is
 written. A clean report also finishes. Return the absolute path actually written, including when it
@@ -75,7 +84,10 @@ replace the audit path. The report's directory selects the later phase's
 owning launcher and local workflow rules, even when the resumed session
 started in the other repo. The brief's input is the round transcript instead,
 so its launcher always belongs to the Repo Edu root, where the runner writes
-every transcript.
+every transcript. The ruling passes take the transcript and the report, and
+their launchers belong to the Repo Edu root for the same reason; they run
+under `.agents/skills/rule/references/workflow.md` and only after a fix that
+returned `needs-ruling`.
 
 Required work still blocked by a permission refusal or another error means
 `failed`, even when the assistant can end its turn normally or a partial

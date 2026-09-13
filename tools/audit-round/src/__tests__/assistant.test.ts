@@ -32,7 +32,11 @@ for (const assistant of ["claude", "codex"] as const) {
       f.output,
       f.runtime,
     )
-    assert.deepEqual(result, { status: "finished", sessionId: "test-session" })
+    assert.deepEqual(result, {
+      status: "finished",
+      sessionId: "test-session",
+      tier: null,
+    })
     assert.equal(f.releases(), 1)
     assert.deepEqual(f.finishes, [result])
     assert.ok(
@@ -221,7 +225,11 @@ test("Claude completes a phase when its settings reply fails", async (t) => {
     f.output,
     f.runtime,
   )
-  assert.deepEqual(result, { status: "finished", sessionId: "test-session" })
+  assert.deepEqual(result, {
+    status: "finished",
+    sessionId: "test-session",
+    tier: null,
+  })
   assert.equal(
     f.feedback.some((event) => event.type === "model"),
     false,
@@ -238,7 +246,7 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null}',
+      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null,"tier":null}',
     ),
     usage: { path, text: await recorded("codex-rollout.jsonl") },
   })

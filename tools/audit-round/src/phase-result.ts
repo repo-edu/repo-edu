@@ -6,6 +6,8 @@ const resultSchema = z.strictObject({
   status: z.enum(["finished", "needs-ruling", "failed"]),
   file: z.string().nullable(),
   reason: z.string().nullable(),
+  // Only a finished fix grades itself; every other ending reports no tier.
+  tier: z.enum(["a", "b", "c", "d"]).nullable(),
 })
 
 export function phaseResult<P extends Phase>(
@@ -19,6 +21,11 @@ export function phaseResult<P extends Phase>(
   if (!line.startsWith(prefix))
     throw new Error("Missing final PHASE RESULT line")
   const result = resultSchema.parse(JSON.parse(line.slice(prefix.length)))
+  if (
+    result.tier !== null &&
+    !(phase === "fix" && result.status === "finished")
+  )
+    throw new Error("Only a finished fix PHASE RESULT may carry a tier")
   if (result.status === "failed") {
     if (result.file !== null || !result.reason?.trim())
       throw new Error("Invalid failed PHASE RESULT")
@@ -28,7 +35,11 @@ export function phaseResult<P extends Phase>(
   if (phase === "fix") {
     if (result.file !== null)
       throw new Error("Fix PHASE RESULT must have a null file")
-    return { status: result.status, sessionId } as PhaseResult<P>
+    return {
+      status: result.status,
+      sessionId,
+      tier: result.tier,
+    } as PhaseResult<P>
   }
   if (
     result.status !== "finished" ||

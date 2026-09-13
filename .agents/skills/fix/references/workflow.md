@@ -130,11 +130,13 @@ open choice awaiting the user's ruling is not an open item here. Its outcome lan
 deferral above or a later plan round, never through this session, so it holds no settled correction
 back. Keep it open in the deferral and apply the settled findings.
 
-In an unattended phase, present any open items and return `needs-ruling`
-instead of waiting for input. This also applies when a rule in the repo's
-`CLAUDE.md` stops a correction for a ruling. A permission refusal or another
-error that leaves required work blocked returns `failed`, not `needs-ruling`,
-under the shared result rule.
+In an unattended phase, present any open items and return `needs-ruling` instead of waiting for
+input. The ruling workflow at `.agents/skills/rule/references/workflow.md` then writes the document
+the user rules from, so present each open item with what it costs, what it buys and your
+recommendation; that presentation is the ruling's starting evidence. This also applies when a rule
+in the repo's `CLAUDE.md` stops a correction for a ruling. A permission refusal or another error
+that leaves required work blocked returns `failed`, not `needs-ruling`, under the shared result
+rule.
 
 ## Applying corrections
 
@@ -237,7 +239,12 @@ it. No other report or twin at the root is touched, under
 [Report discovery](#report-discovery).
 
 An unattended fix reports `finished` only after all required corrections,
-checks, records and report cleanup are complete. Its result has `file: null`.
+checks, records and report cleanup are complete. Its result has `file: null`
+and carries the round's grade in `tier`: the highest tier among the records
+just landed, as one lowercase letter, or `null` for a clean round. A both-repo
+round reports the highest tier across its two records. The audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result) defines the
+field, and a chained run reads it to decide whether to audit the scope again.
 Remaining required work means the phase has not finished, even when some
 records have already landed.
 

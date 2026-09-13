@@ -8,12 +8,21 @@ import type {
   PhaseResult,
   RoundDependencies,
 } from "../phase.js"
-import { rebuttalSessionId, runBrief, runRound } from "../round.js"
+import {
+  chainCap,
+  chainDecision,
+  rebuttalSessionId,
+  runBrief,
+  runRound,
+} from "../round.js"
 
 const repoRoot = "/workspace/repo-edu"
 const transcript = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38.md`
 const brief = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-brief.md`
+const ruling = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-ruling.md`
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
+/** Every phase in order, including the two the fix's open item adds. */
+const rulingPhases = [...phases, "rule", "revise"] as const
 
 /** Room enough that the rebuttal resumes unless a test says otherwise. */
 const spaciousContext = { tokens: 100_000, window: 258_000 }
@@ -43,11 +52,23 @@ function controlledRound(
       file: "/distinct-twins/REBUT-example.md",
       context: null,
     },
-    fix: { status: "finished", sessionId: "fix-session" },
+    fix: { status: "finished", sessionId: "fix-session", tier: null },
     brief: {
       status: "finished",
       sessionId: "brief-session",
       file: brief,
+      context: null,
+    },
+    rule: {
+      status: "finished",
+      sessionId: "rule-session",
+      file: ruling,
+      context: null,
+    },
+    revise: {
+      status: "finished",
+      sessionId: "revise-session",
+      file: ruling,
       context: null,
     },
   }
@@ -76,6 +97,14 @@ function controlledRound(
       async brief(input) {
         await record(input)
         return results.brief
+      },
+      async rule(input) {
+        await record(input)
+        return results.rule
+      },
+      async revise(input) {
+        await record(input)
+        return results.revise
       },
     },
     async prepareHandover(session) {
@@ -107,7 +136,7 @@ for (const auditor of ["claude", "codex"] as const) {
         round.dependencies,
       )
 
-      assert.deepEqual(result, { status: "finished", report })
+      assert.deepEqual(result, { status: "finished", report, tier: null })
       assert.deepEqual(round.calls, [
         {
           phase: "audit",
@@ -154,9 +183,14 @@ for (const auditor of ["claude", "codex"] as const) {
     })
   }
 
-  test(`Codex opens the fresh fix session after the brief when a ruling is requested with ${auditor} auditing`, async () => {
+  test(`Codex opens the fresh fix session after the ruling is written with ${auditor} auditing`, async () => {
+    const report = `${repoRoot}/AUDIT-example.md`
     const round = controlledRound()
-    round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+    round.results.fix = {
+      status: "needs-ruling",
+      sessionId: "fix-session",
+      tier: null,
+    }
 
     const result = await runRound(
       { repoRoot, plan: "example.md", auditor, transcript },
@@ -170,9 +204,28 @@ for (const auditor of ["claude", "codex"] as const) {
     }
     assert.deepEqual(
       round.calls.map((call) => call.phase),
-      phases,
+      rulingPhases,
     )
     assert.equal(round.calls[3].sessionId, null)
+    // Claude drafts the ruling and a fresh Claude session rewrites that draft.
+    assert.deepEqual(round.calls.slice(5), [
+      {
+        phase: "rule",
+        assistant: "claude",
+        cwd: repoRoot,
+        ownerRoot: repoRoot,
+        arguments: [transcript, report],
+        sessionId: null,
+      },
+      {
+        phase: "revise",
+        assistant: "claude",
+        cwd: repoRoot,
+        ownerRoot: repoRoot,
+        arguments: [ruling, transcript, report],
+        sessionId: null,
+      },
+    ])
     assert.deepEqual(round.handover, [
       { operation: "prepare", session },
       { operation: "open", session },
@@ -184,9 +237,15 @@ for (const auditor of ["claude", "codex"] as const) {
     })
   })
 
-  for (const phase of phases) {
+  for (const phase of rulingPhases) {
     test(`${auditor} round stops at a failed ${phase} with its recovery identity`, async () => {
       const round = controlledRound()
+      if (phase === "rule" || phase === "revise")
+        round.results.fix = {
+          status: "needs-ruling",
+          sessionId: "fix-session",
+          tier: null,
+        }
       const failure = {
         status: "failed",
         sessionId: phase === "rebut" ? "audit-session" : `${phase}-session`,
@@ -201,7 +260,7 @@ for (const auditor of ["claude", "codex"] as const) {
 
       assert.deepEqual(
         round.calls.map((call) => call.phase),
-        phases.slice(0, phases.indexOf(phase) + 1),
+        rulingPhases.slice(0, rulingPhases.indexOf(phase) + 1),
       )
       assert.deepEqual(round.handover, [])
       assert.deepEqual(result, {
@@ -210,7 +269,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assistant:
           phase === "fix"
             ? "codex"
-            : phase === "brief"
+            : ["brief", "rule", "revise"].includes(phase)
               ? "claude"
               : phase === "vet"
                 ? vetter
@@ -250,12 +309,18 @@ test("retains a failure before the assistant establishes a session", async () =>
   assert.equal(round.calls.length, 1)
 })
 
-for (const phase of phases) {
+for (const phase of rulingPhases) {
   test(`does not start another phase or retry when ${phase} rejects`, async () => {
     const failure = new Error("Required run-file write failed")
     const round = controlledRound(undefined, async (input) => {
       if (input.phase === phase) throw failure
     })
+    if (phase === "rule" || phase === "revise")
+      round.results.fix = {
+        status: "needs-ruling",
+        sessionId: "fix-session",
+        tier: null,
+      }
 
     await assert.rejects(
       runRound(
@@ -266,7 +331,7 @@ for (const phase of phases) {
     )
     assert.deepEqual(
       round.calls.map((call) => call.phase),
-      phases.slice(0, phases.indexOf(phase) + 1),
+      rulingPhases.slice(0, rulingPhases.indexOf(phase) + 1),
     )
     assert.deepEqual(round.handover, [])
   })
@@ -275,31 +340,40 @@ for (const phase of phases) {
 test("each phase settles before the next starts", {
   timeout: 2000,
 }, async () => {
-  const entered = phases.map(() => Promise.withResolvers<void>())
-  const release = phases.map(() => Promise.withResolvers<void>())
+  const entered = rulingPhases.map(() => Promise.withResolvers<void>())
+  const release = rulingPhases.map(() => Promise.withResolvers<void>())
   const round = controlledRound(undefined, async (input) => {
-    const index = phases.indexOf(input.phase)
+    const index = rulingPhases.indexOf(input.phase)
     entered[index].resolve()
     await release[index].promise
   })
+  round.results.fix = {
+    status: "needs-ruling",
+    sessionId: "fix-session",
+    tier: null,
+  }
   const running = runRound(
     { repoRoot, plan: "example.md", transcript },
     round.dependencies,
   )
 
-  for (let index = 0; index < phases.length; index += 1) {
+  for (let index = 0; index < rulingPhases.length; index += 1) {
     await entered[index].promise
     assert.equal(round.calls.length, index + 1)
     assert.deepEqual(round.handover, [])
     release[index].resolve()
   }
-  assert.equal((await running).status, "finished")
+  assert.equal((await running).status, "handed-over")
 })
 
 for (const operation of ["prepareHandover", "openSession"] as const) {
   test(`a failed ${operation} retains the fix session without retrying`, async () => {
     const round = controlledRound()
-    round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+    round.results.fix = {
+      status: "needs-ruling",
+      sessionId: "fix-session",
+      tier: null,
+    }
     let attempts = 0
     const result = await runRound(
       { repoRoot, plan: "example.md", transcript },
@@ -365,9 +439,13 @@ test("an unreported window keeps the resume, and a measured shortfall does not",
   )
 })
 
-test("a failed brief stops the round before the ruling is opened", async () => {
+test("a failed brief stops the round before the ruling is written", async () => {
   const round = controlledRound()
-  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  round.results.fix = {
+    status: "needs-ruling",
+    sessionId: "fix-session",
+    tier: null,
+  }
   round.results.brief = {
     status: "failed",
     sessionId: "brief-session",
@@ -411,4 +489,83 @@ test("a brief on its own runs only the brief phase over the named transcript", a
     },
   ])
   assert.deepEqual(round.handover, [])
+})
+
+const chained = (tier: "a" | "b" | "c" | "d" | null) =>
+  ({
+    status: "finished",
+    report: `${repoRoot}/AUDIT-example.md`,
+    tier,
+  }) as const
+
+test("a chain keeps the auditor while it lands an A or B finding", () => {
+  for (const tier of ["a", "b"] as const)
+    for (const auditor of ["claude", "codex"] as const)
+      assert.deepEqual(chainDecision(chained(tier), auditor, auditor, 1), {
+        next: auditor,
+      })
+})
+
+test("a chain crosses to the other assistant once findings fall to C, D or clean", () => {
+  for (const tier of ["c", "d", null] as const) {
+    assert.deepEqual(chainDecision(chained(tier), "codex", "codex", 1), {
+      next: "claude",
+    })
+    assert.deepEqual(chainDecision(chained(tier), "claude", "claude", 1), {
+      next: "codex",
+    })
+  }
+})
+
+test("the crossover round is the chain's last, whatever it finds", () => {
+  for (const tier of ["a", "b", "c", "d", null] as const)
+    assert.deepEqual(chainDecision(chained(tier), "claude", "codex", 2), {
+      next: null,
+      stop: "crossed",
+    })
+})
+
+test("a chain still finding A or B ends at the cap without crossing over", () => {
+  assert.deepEqual(chainDecision(chained("a"), "codex", "codex", chainCap), {
+    next: null,
+    stop: "cap",
+  })
+  assert.deepEqual(
+    chainDecision(chained("a"), "codex", "codex", chainCap - 1),
+    {
+      next: "codex",
+    },
+  )
+})
+
+test("a handover or a failure ends the chain where it stands", () => {
+  assert.deepEqual(
+    chainDecision(
+      {
+        status: "handed-over",
+        report: `${repoRoot}/AUDIT-example.md`,
+        session: { assistant: "codex", sessionId: "fix", cwd: repoRoot },
+      },
+      "codex",
+      "codex",
+      1,
+    ),
+    { next: null, stop: "open" },
+  )
+  assert.deepEqual(
+    chainDecision(
+      {
+        status: "failed",
+        phase: "audit",
+        assistant: "codex",
+        cwd: repoRoot,
+        sessionId: null,
+        reason: "Unable to start the CLI",
+      },
+      "codex",
+      "codex",
+      1,
+    ),
+    { next: null, stop: "failed" },
+  )
 })

@@ -7,6 +7,7 @@ import {
   phaseAssistants,
   type RoundDependencies,
   type SessionContext,
+  type Tier,
 } from "./phase.js"
 
 /** What names a round before it starts: the plan, the scope and who audits. */
@@ -34,7 +35,12 @@ type RoundFailure = PhaseFailure & {
 }
 
 export type RoundResult =
-  | { readonly status: "finished"; readonly report: string }
+  | {
+      readonly status: "finished"
+      readonly report: string
+      /** The fix's own grade, which the chain rule reads. Null when the round was clean. */
+      readonly tier: Tier | null
+    }
   | {
       readonly status: "handed-over"
       readonly report: string
@@ -48,6 +54,44 @@ export type BriefResult =
 
 /** The share of its window at which Codex summarises a session in place. */
 const compactionShare = 0.9
+
+/** The most rounds one chained run may spend on its scope. */
+export const chainCap = 3
+
+/** Why a chained run stopped, which the output turns into words. */
+export type ChainStop = "cap" | "crossed" | "open" | "failed"
+
+export type ChainDecision =
+  | { readonly next: Assistant }
+  | { readonly next: null; readonly stop: ChainStop }
+
+function other(assistant: Assistant): Assistant {
+  return assistant === "codex" ? "claude" : "codex"
+}
+
+/**
+ * The single owner of whether a chained run audits the same scope again, and
+ * with whom. While the current auditor still lands an A or B it keeps looking,
+ * because a second opinion buys nothing where findings are still coming. Once
+ * it falls to C, D or clean, the other assistant takes exactly one round and
+ * the chain ends, so the crossover is taken once and never iterated. A round
+ * that handed over or failed ends the chain where it stands: the user is in
+ * the session or the reason is on screen.
+ */
+export function chainDecision(
+  result: RoundResult,
+  current: Assistant,
+  start: Assistant,
+  completed: number,
+): ChainDecision {
+  if (result.status === "failed") return { next: null, stop: "failed" }
+  if (result.status === "handed-over") return { next: null, stop: "open" }
+  if (current !== start) return { next: null, stop: "crossed" }
+  if (completed >= chainCap) return { next: null, stop: "cap" }
+  return {
+    next: result.tier === "a" || result.tier === "b" ? current : other(current),
+  }
+}
 
 /**
  * What a rebuttal spends: the report, its vet twin and the source behind every
@@ -159,8 +203,32 @@ export async function runRound(
   )
   if (brief.status === "failed") return brief
   if (fix.status === "finished") {
-    return { status: "finished", report }
+    return { status: "finished", report, tier: fix.tier }
   }
+
+  // The ruling explains the open item and argues a choice, in a draft and then
+  // a rewrite by a session that did not write the draft.
+  const rule = await dependencies.runPhase.rule({
+    phase: "rule",
+    assistant: assistants.rule,
+    cwd,
+    ownerRoot: cwd,
+    arguments: [input.transcript, report],
+    sessionId: null,
+  })
+  if (rule.status === "failed")
+    return { ...rule, phase: "rule", assistant: assistants.rule, cwd }
+
+  const revise = await dependencies.runPhase.revise({
+    phase: "revise",
+    assistant: assistants.revise,
+    cwd,
+    ownerRoot: cwd,
+    arguments: [rule.file, input.transcript, report],
+    sessionId: null,
+  })
+  if (revise.status === "failed")
+    return { ...revise, phase: "revise", assistant: assistants.revise, cwd }
 
   const session: InteractiveSession = {
     assistant: assistants.fix,

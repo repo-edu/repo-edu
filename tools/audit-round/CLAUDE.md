@@ -6,7 +6,8 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 
 ## Ownership
 
-- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence. It
+- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the
+  two ruling passes a fix's open item adds, and the chain rule. It
   retains the audit session and report as local values. Audit, vet, fix and
   brief start fresh.
   Rebuttal resumes the audit session only when that session's last measurement
@@ -15,15 +16,23 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   holds a summary where the evidence was. An assistant that reports no window
   reports no shortfall and keeps the resume. `round.ts` owns that rule, the
   compaction share it compares against and the rebuttal's reserve.
-  Codex audits by default and always fixes. Claude always briefs. The brief
-  follows the fix on either outcome and precedes a ruling handover, because the
-  ruling is read from it; its input is the round transcript, never the report,
-  and its launcher always belongs to the Repo Edu root. `runBrief` runs that
-  one phase on its own over an earlier transcript. Only a fix needing a ruling
-  opens an interactive session, using that fix's session identity.
+  Codex audits by default and always fixes. Claude always briefs and writes
+  both ruling passes. The brief follows the fix on either outcome and precedes
+  the ruling, because the ruling starts from what the brief retells; its input
+  is the round transcript, never the report, and its launcher always belongs to
+  the Repo Edu root. `runBrief` runs that one phase on its own over an earlier
+  transcript. Only a fix needing a ruling runs `rule` and `revise` and then
+  opens an interactive session, using that fix's session identity. `rule`
+  drafts the ruling and `revise` rewrites that draft in a fresh session, so the
+  document the user rules from is read once by a session that did not write it.
+  `chainDecision` owns whether a chained run audits the same scope again and
+  with whom: the auditor repeats while the fix records an A or B tier, the other
+  assistant then takes exactly one round, and the cap, a handover or a failure
+  ends the chain. It reads the fix's own grade, never a report.
 - `phase.ts` defines the private inputs and results for assistant invocations
   and owns which phases' texts enter the round transcript: every phase but the
-  brief, which retells the transcript in its own file.
+  brief and the two ruling passes, which retell the transcript in their own
+  files.
   Assistant boundaries own processes, stream validation, session observations
   and phase output. They return only after accounting for the process, streams
   and required record writes. A failure retains the known session identity,
@@ -73,7 +82,12 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   failure. Exiting the interactive child ends recording but does not prove workflow completion.
 - `command.ts` owns the `round` and `brief` subcommands, repository paths,
   startup and final reporting. `round` is the default, so a bare plan argument
-  still runs a round. Required write failures stop phase progression. If recording itself fails,
+  still runs a round. It also owns the chain loop, because each round records
+  its own file pair and the coordinator has no filesystem side effects: it opens
+  one output per round, retires the previous one first, and reads updates and
+  settings once for the whole run. A chained round carries its place in its file
+  names and its title, so rounds starting in the same second stay distinct.
+  Required write failures stop phase progression. If recording itself fails,
   the emergency channel still reports the known session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
@@ -104,6 +118,7 @@ commands available:
 ```bash
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor claude -v
+pnpm audit-round ../plan/example.md 3 --chain
 pnpm audit-round brief ROUND-TS-example-step-3-claude-2026-09-12T22-17-38.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
@@ -111,8 +126,11 @@ pnpm audit-round:contract codex
 
 The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root, and
 its brief phase writes the pair's plain-words twin with `-brief` before the
-extension. `brief` writes that twin for an earlier transcript, logging beside
-it. Each header identifies the TypeScript implementation. The command remains
+extension. A fix that stops for a ruling adds the `-ruling` twin beside them.
+`brief` writes the plain-words twin for an earlier transcript, logging beside
+it. `--chain` runs at most three rounds on the one scope the user named and
+never changes that scope; each round adds `-round-<n>` to its pair. Each
+header identifies the TypeScript implementation. The command remains
 independent of the installed Bash `audit-round` command, its source and its
 tests in the plan repo. Both share the CLI update dates and workflow documents.
 Neither selects or invokes the other.

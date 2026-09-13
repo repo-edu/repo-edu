@@ -43,9 +43,13 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor claude|codex] [-v]`
+`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor claude|codex] [--chain] [-v]`
 runs the TypeScript implementation-audit tool from this checkout root, ending
-with a plain-words brief of the round for the user.
+with a plain-words brief of the round for the user. A fix that stops for the
+user's ruling adds a ruling document, drafted and then rewritten in a fresh
+session, which the user rules from. `--chain` runs at most three rounds on the
+scope the user named, keeping the auditor while an A or B finding lands and
+giving the other assistant one closing round.
 `pnpm audit-round brief <ROUND-TS-transcript.md>` writes that brief for an
 earlier round.
 `pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.

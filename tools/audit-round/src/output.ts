@@ -48,19 +48,26 @@ function fileTimestamp(started: number): string {
 export function roundRun(
   setup: RoundSetup,
   started: number,
+  /**
+   * The round's place in a chained run. Rounds within one chain can start in
+   * the same second, so the number keeps each round's file pair distinct and
+   * names which round the user is reading.
+   */
+  round?: number,
 ): Run & { readonly paths: { readonly markdown: string } } {
   const scope =
     setup.scope === undefined
       ? "all"
       : `${setup.scope.includes("-") ? "steps" : "step"}-${setup.scope}`
+  const place = round === undefined ? "" : `-round-${round}`
   const base = join(
     setup.repoRoot,
-    `ROUND-TS-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}`,
+    `ROUND-TS-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
   const assistants = phaseAssistants(setup.auditor ?? "codex")
   return {
     name: "Audit round",
-    title: `Audit round of ${setup.plan} ${setup.scope ?? "all"}`,
+    title: `Audit round of ${setup.plan} ${setup.scope ?? "all"}${round === undefined ? "" : ` (round ${round})`}`,
     roles: [
       ["auditor", assistants.audit],
       ["vetter", assistants.vet],

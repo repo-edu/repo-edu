@@ -107,6 +107,7 @@ test("output records complete invocations incrementally and refreshes only while
     status: "finished",
     sessionId: "audit",
     file: "/AUDIT.md",
+    context: null,
   })
   output.phase.release()
   const count = status.length

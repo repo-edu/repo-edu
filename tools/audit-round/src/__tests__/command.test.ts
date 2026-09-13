@@ -7,11 +7,15 @@ import type { Assistant } from "../phase.js"
 import { openRunFiles } from "../run-files.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
 
+/** The tier a finished fix reports, which a chained run reads. */
+type Grade = "a" | "b" | "c" | "d" | null
+
 async function roundFixture(
   t: TestContext,
   auditor: Assistant = "codex",
   owner: "repo-edu" | "plan" = "repo-edu",
   ruling = false,
+  tier: Grade = null,
 ) {
   const f = await fixture(t)
   await mkdir(join(f.root, "repo-edu/.agents/skills/audit/references"), {
@@ -28,12 +32,21 @@ async function roundFixture(
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
   const report = join(f.root, owner, "AUDIT-example.md")
   const brief = join(repoRoot, "ROUND-TS-example-brief.md")
+  const rulingFile = join(repoRoot, "ROUND-TS-example-ruling.md")
   const phases: Record<string, unknown> = {}
-  for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
+  for (const phase of [
+    "audit",
+    "vet",
+    "rebut",
+    "fix",
+    "brief",
+    "rule",
+    "revise",
+  ] as const) {
     const assistant =
       phase === "fix"
         ? "codex"
-        : phase === "brief"
+        : ["brief", "rule", "revise"].includes(phase)
           ? "claude"
           : phase === "vet"
             ? auditor === "codex"
@@ -48,10 +61,18 @@ async function roundFixture(
           ? report
           : phase === "brief"
             ? brief
-            : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status: phase === "fix" && ruling ? "needs-ruling" : "finished", file, reason: null })}`
+            : ["rule", "revise"].includes(phase)
+              ? rulingFile
+              : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
+    const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null })}`
     phases[phase] = {
       stream: await phaseStream(assistant, final, sessionId),
+      // Either CLI may run a phase once a chain crosses over, so both answer.
+      assistants: {
+        claude: { stream: await phaseStream("claude", final, sessionId) },
+        codex: { stream: await phaseStream("codex", final, sessionId) },
+      },
       usage: {
         path: join(f.root, `rollout-${sessionId}.jsonl`),
         text: await recorded("codex-rollout.jsonl"),
@@ -80,10 +101,10 @@ async function roundFixture(
     },
     cacheRoot: join(f.root, "cache"),
   }
+  const roundFiles = async () =>
+    (await readdir(repoRoot)).filter((name) => name.startsWith("ROUND-TS-"))
   const records = async () => {
-    const names = (await readdir(repoRoot)).filter((name) =>
-      name.startsWith("ROUND-TS-"),
-    )
+    const names = await roundFiles()
     assert.equal(names.length, 2)
     const log = await readFile(
       join(repoRoot, names.find((name) => name.endsWith(".log")) as string),
@@ -108,6 +129,8 @@ async function roundFixture(
     clears: () => clears,
     options,
     records,
+    roundFiles,
+    ruling: rulingFile,
     runtime: { ...f.runtime, cwd: repoRoot },
   }
 }
@@ -143,6 +166,8 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor,
             "codex",
             "claude",
+            // A requested ruling adds Claude's draft and its fresh rewrite.
+            ...(ruling ? (["claude", "claude"] as const) : []),
           ],
         )
         assert.equal(
@@ -204,13 +229,33 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
         if (ruling) {
-          // The brief lands before the ruling session opens, because the ruling is read from it.
+          // The brief and the ruling land before the fix session opens, because
+          // the user rules from them.
           assert.equal(calls.at(-2).assistant, "claude")
           assert.deepEqual(calls.at(-1).args, [
             "resume",
             "--approve-for-me",
             "fix-session",
           ])
+          assert.ok(log.includes(`${repoRoot}/.claude/commands/rule.md`))
+          assert.ok(log.includes(`${repoRoot}/.claude/commands/revise.md`))
+          assert.ok(
+            log.includes(
+              `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
+            ),
+          )
+          assert.ok(
+            log.includes(
+              `Phase arguments (JSON array): ${JSON.stringify([f.ruling, transcript, f.report])}`,
+            ),
+          )
+          assert.ok(log.includes(`[revise] finished: ${f.ruling}`))
+          // Both ruling passes retell the round, so neither enters the transcript.
+          for (const phase of ["rule", "revise"] as const) {
+            assert.equal(markdown.includes(`## ${phase} (`), false)
+            assert.equal(markdown.includes(`Complete ${phase} text.`), false)
+            assert.ok(visible.includes(`Complete ${phase} text.`))
+          }
           assert.match(visible, /Opening codex session fix-session/)
           assert.doesNotMatch(visible, /Audit round finished\./)
         } else assert.match(visible, /Audit round finished\./)
@@ -338,6 +383,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
+    ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["brief"],
     ["brief", "ROUND-TS-example.md", "extra"],
@@ -352,6 +398,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /Codex always fixes/)
   assert.match(visible, /always briefs/)
   assert.match(visible, /plain-words brief/)
+  assert.match(visible, /run up to 3 rounds on the same scope/)
 })
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
@@ -428,4 +475,113 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
+})
+
+test("a chained run repeats the auditor while the fix records a B finding", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  assert.equal(
+    await runCommand(["example.md", "3", "--chain"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const names = (await f.roundFiles()).toSorted()
+  assert.deepEqual(
+    names.map((name) =>
+      name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
+    ),
+    [
+      "ROUND-TS-example-step-3-codex-<stamp>-round-1.log",
+      "ROUND-TS-example-step-3-codex-<stamp>-round-1.md",
+      "ROUND-TS-example-step-3-codex-<stamp>-round-2.log",
+      "ROUND-TS-example-step-3-codex-<stamp>-round-2.md",
+      "ROUND-TS-example-step-3-codex-<stamp>-round-3.log",
+      "ROUND-TS-example-step-3-codex-<stamp>-round-3.md",
+    ],
+  )
+  const invocations = (await f.calls()).filter(
+    (call) =>
+      call.args[0] === "exec" ||
+      (call.args[0] === "-p" &&
+        !call.args.includes("--no-session-persistence")),
+  )
+  // Three rounds of the five phases; a finished fix opens no ruling.
+  assert.equal(invocations.length, 15)
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Chained round 2 of at most 3: codex audits the same scope again\./,
+  )
+  assert.match(
+    visible,
+    /Chained round 3 of at most 3: codex audits the same scope again\./,
+  )
+  assert.match(
+    visible,
+    /Chain stopped at the 3-round cap with findings still landing\./,
+  )
+  // Updates and settings are read once for the run; later rounds still seat
+  // their roles from the selections that first round discovered.
+  assert.equal(
+    (await f.calls()).filter((call) =>
+      call.args.includes("--no-session-persistence"),
+    ).length,
+    1,
+  )
+  const second = await readFile(join(f.repoRoot, names[2]), "utf8")
+  assert.match(second, /Audit round of example\.md 3 \(round 2\)/)
+  assert.match(second, /auditor +codex +chosen-model high/)
+})
+
+test("a chained run crosses to the other assistant once the fix records a clean round", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, null)
+  assert.equal(
+    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const names = (await f.roundFiles()).toSorted()
+  assert.deepEqual(
+    names.map((name) =>
+      name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
+    ),
+    [
+      "ROUND-TS-example-all-claude-<stamp>-round-2.log",
+      "ROUND-TS-example-all-claude-<stamp>-round-2.md",
+      "ROUND-TS-example-all-codex-<stamp>-round-1.log",
+      "ROUND-TS-example-all-codex-<stamp>-round-1.md",
+    ],
+  )
+  const visible = f.visible.join("\n")
+  assert.match(
+    visible,
+    /Chained round 2 of at most 3: claude audits the same scope again\./,
+  )
+  assert.match(visible, /Chain stopped after the second assistant's round\./)
+})
+
+test("a chained run stops at the round that opens a ruling session", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  assert.equal(
+    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.equal((await f.roundFiles()).length, 2)
+  assert.match(
+    f.visible.join("\n"),
+    /Chain stopped: this round opened a ruling session\./,
+  )
+})
+
+test("an unchained run leaves the round files unnumbered and says nothing about a chain", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  assert.equal(
+    await runCommand(["example.md", "3"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const names = await f.roundFiles()
+  assert.equal(names.length, 2)
+  assert.ok(names.every((name) => !name.includes("-round-")))
+  assert.doesNotMatch(f.visible.join("\n"), /Chain/)
 })

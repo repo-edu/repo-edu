@@ -8,7 +8,7 @@ import {
   Option,
 } from "commander"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
-import { errorMessage } from "./feedback.js"
+import { errorMessage, type ModelSelection } from "./feedback.js"
 import {
   briefRun,
   type OutputOptions,
@@ -16,10 +16,13 @@ import {
   type Run,
   roundRun,
 } from "./output.js"
-import type { Assistant, RoundDependencies } from "./phase.js"
+import { chainText } from "./output-format.js"
+import type { Assistant } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
+  chainCap,
+  chainDecision,
   type RoundResult,
   runBrief,
   runRound,
@@ -89,6 +92,7 @@ type Invocation =
       readonly plan: string
       readonly scope?: string
       readonly auditor: Assistant
+      readonly chain?: boolean
       readonly verbose?: boolean
     }
   | {
@@ -130,12 +134,16 @@ function parseInvocation(
         .choices(["claude", "codex"])
         .default("codex"),
     )
+    .option(
+      "--chain",
+      `run up to ${chainCap} rounds on the same scope, repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
+    )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .action(
       (
         plan: string,
         scope: string | undefined,
-        flags: { auditor: Assistant; verbose?: boolean },
+        flags: { auditor: Assistant; chain?: boolean; verbose?: boolean },
       ) => {
         invocation = { kind: "round", plan, scope, ...flags }
       },
@@ -174,48 +182,85 @@ export async function runCommand(
   let output: RoundOutput | undefined
   let result: RoundResult | BriefResult | undefined
   let code = 1
+  const now = options.now ?? Date.now
   try {
     const repoRoot = await checkRepoRoot(runtime.cwd)
-    const started = (options.now ?? Date.now)()
-    let run: Run
-    let execute: (
-      dependencies: RoundDependencies,
-    ) => Promise<RoundResult | BriefResult>
-    if (invocation.kind === "round") {
+    let selections: Record<Assistant, ModelSelection> | undefined
+    /**
+     * Each round records its own file pair, so a chained run opens one output
+     * per round and retires the previous one first. Updates and settings are
+     * read once; later rounds reuse the selections rather than re-entering the
+     * CLIs.
+     */
+    const open = async (run: Run): Promise<RoundOutput> => {
+      const previous = output
+      output = undefined
+      previous?.close()
+      const active = new RoundOutput(run, {
+        ...options,
+        verbose: invocation.verbose,
+      })
+      output = active
+      runtime.signal?.throwIfAborted()
+      selections ??= await prepareAssistants(
+        { ...runtime, cwd: repoRoot },
+        active,
+        { cacheRoot: options.cacheRoot },
+      )
+      active.models(selections)
+      return active
+    }
+    const dependenciesFor = (active: RoundOutput) =>
+      assistantDependencies(
+        { ...runtime, cwd: repoRoot },
+        active.phase,
+        active.prepareHandover,
+        active.interactive,
+      )
+
+    if (invocation.kind === "brief") {
+      const transcript = await checkTranscript(repoRoot, invocation.transcript)
+      const active = await open(briefRun(transcript, now()))
+      result = await runBrief({ repoRoot, transcript }, dependenciesFor(active))
+      active.finish(result)
+    } else {
       const setup = {
         repoRoot,
         plan: invocation.plan,
         scope: invocation.scope,
-        auditor: invocation.auditor,
       }
-      const round = roundRun(setup, started)
-      run = round
-      execute = (dependencies) =>
-        runRound({ ...setup, transcript: round.paths.markdown }, dependencies)
-    } else {
-      const transcript = await checkTranscript(repoRoot, invocation.transcript)
-      run = briefRun(transcript, started)
-      execute = (dependencies) =>
-        runBrief({ repoRoot, transcript }, dependencies)
+      let auditor = invocation.auditor
+      let completed = 0
+      for (;;) {
+        const run = roundRun(
+          { ...setup, auditor },
+          now(),
+          invocation.chain === true ? completed + 1 : undefined,
+        )
+        const active = await open(run)
+        const round = await runRound(
+          { ...setup, auditor, transcript: run.paths.markdown },
+          dependenciesFor(active),
+        )
+        result = round
+        active.finish(round)
+        completed += 1
+        if (invocation.chain !== true) break
+        const decision = chainDecision(
+          round,
+          auditor,
+          invocation.auditor,
+          completed,
+        )
+        await active.message(chainText(decision, completed, chainCap))
+        if (decision.next === null) break
+        auditor = decision.next
+      }
     }
-    output = new RoundOutput(run, { ...options, verbose: invocation.verbose })
-    runtime.signal?.throwIfAborted()
-    const selections = await prepareAssistants(
-      { ...runtime, cwd: repoRoot },
-      output,
-      { cacheRoot: options.cacheRoot },
-    )
-    output.models(selections)
-    result = await execute(
-      assistantDependencies(
-        { ...runtime, cwd: repoRoot },
-        output.phase,
-        output.prepareHandover,
-        output.interactive,
-      ),
-    )
-    output.finish(result)
-    if (result.status === "failed") {
+
+    // The last round's output is still open, so a failure reports through it.
+    const reporting = output
+    if (result.status === "failed" && reporting !== undefined) {
       const roots = await Promise.all(
         [repoRoot, resolve(repoRoot, "../plan")].map(async (root) => {
           try {
@@ -225,7 +270,7 @@ export async function runCommand(
           }
         }),
       )
-      await output.message(`Files at repository roots:\n${roots.join("\n")}`)
+      await reporting.message(`Files at repository roots:\n${roots.join("\n")}`)
     }
     code = result.status === "failed" ? 1 : 0
   } catch (error) {

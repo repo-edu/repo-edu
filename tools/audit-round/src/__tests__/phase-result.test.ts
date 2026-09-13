@@ -6,7 +6,15 @@ import { decodeCodex } from "../codex.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 
-for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
+for (const phase of [
+  "audit",
+  "vet",
+  "rebut",
+  "fix",
+  "brief",
+  "rule",
+  "revise",
+] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     const file = phase === "fix" ? null : "/written report.md"
     const text = (value: unknown) =>
@@ -16,7 +24,7 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
         phaseResult(
           phase,
           "session",
-          text({ status: "finished", file, reason: null }) + ending,
+          text({ status: "finished", file, reason: null, tier: null }) + ending,
           null,
         ).status,
         "finished",
@@ -30,6 +38,7 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
           status: "failed",
           file: null,
           reason: "Required work remains blocked",
+          tier: null,
         }),
         { tokens: 10, window: 100 },
       ),
@@ -43,26 +52,46 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
       phaseResult(
         phase,
         "session",
-        text({ status: "needs-ruling", file: null, reason: null }),
+        text({ status: "needs-ruling", file: null, reason: null, tier: null }),
         null,
       )
     if (phase === "fix") assert.equal(ruling().status, "needs-ruling")
     else assert.throws(ruling)
+    // Only a finished fix grades the round, and its tier reaches the chain rule.
+    const graded = () =>
+      phaseResult(
+        phase,
+        "session",
+        text({ status: "finished", file, reason: null, tier: "b" }),
+        null,
+      )
+    if (phase === "fix")
+      assert.deepEqual(graded(), {
+        status: "finished",
+        sessionId: "session",
+        tier: "b",
+      })
+    else assert.throws(graded)
     for (const value of [
-      { status: "retry", file: null, reason: null },
-      { status: "finished", file, reason: null, extra: true },
-      { status: "finished", file },
-      { status: "finished", file: "relative.md", reason: null },
-      { status: "finished", file, reason: "unexpected" },
-      { status: "failed", file: null, reason: " " },
-      { status: "failed", file: "/file.md", reason: "blocked" },
+      { status: "retry", file: null, reason: null, tier: null },
+      { status: "finished", file, reason: null, tier: null, extra: true },
+      { status: "finished", file, reason: null },
+      { status: "finished", file, tier: null },
+      { status: "finished", file: "relative.md", reason: null, tier: null },
+      { status: "finished", file, reason: "unexpected", tier: null },
+      { status: "failed", file: null, reason: " ", tier: null },
+      { status: "failed", file: "/file.md", reason: "blocked", tier: null },
+      { status: "failed", file: null, reason: "blocked", tier: "a" },
+      { status: "needs-ruling", file: null, reason: null, tier: "c" },
+      { status: "finished", file, reason: null, tier: "A" },
+      { status: "finished", file, reason: null, tier: "e" },
     ])
       assert.throws(() => phaseResult(phase, "session", text(value), null))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
-      `${text({ status: "finished", file, reason: null })}\nExtra text`,
-      `${text({ status: "finished", file, reason: null })}\n\`\`\``,
+      `${text({ status: "finished", file, reason: null, tier: null })}\nExtra text`,
+      `${text({ status: "finished", file, reason: null, tier: null })}\n\`\`\``,
     ]) {
       assert.throws(() => phaseResult(phase, "session", invalid, null))
     }
