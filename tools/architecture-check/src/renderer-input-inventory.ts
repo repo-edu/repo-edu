@@ -49,6 +49,8 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
       "canAdmitSessionChange",
       "controller.getSnapshot",
       "event.target.closest",
+      "control?.getAttribute",
+      "selectOperationIsAdmitted",
       "event.preventDefault",
       "event.stopPropagation",
     ],

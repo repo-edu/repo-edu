@@ -57,17 +57,11 @@ export function SessionControllerProvider({
   const admitInput = (event: SyntheticEvent) => {
     const snapshot = controller.getSnapshot()
     if (canAdmitSessionChange(snapshot)) return
-    if (
-      snapshot.lifecycle.kind === "live" &&
-      event.target instanceof Element &&
-      selectOperationIsAdmitted(
-        snapshot,
-        event.target
-          .closest(`[${sessionCancellationControl}]`)
-          ?.getAttribute(sessionCancellationControl) ?? null,
-      )
-    )
-      return
+    if (snapshot.lifecycle.kind === "live" && event.target instanceof Element) {
+      const control = event.target.closest(`[${sessionCancellationControl}]`)
+      const operation = control?.getAttribute(sessionCancellationControl)
+      if (selectOperationIsAdmitted(snapshot, operation ?? null)) return
+    }
     event.preventDefault()
     event.stopPropagation()
   }

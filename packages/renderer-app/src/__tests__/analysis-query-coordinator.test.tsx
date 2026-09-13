@@ -194,8 +194,12 @@ async function mountCoordinator(
     value = useAnalysisTestView()
     return null
   }
-  const container = window.document.createElement("div")
-  const root = createRoot(container as unknown as HTMLElement)
+  // Happy DOM implements the DOM the renderer expects, so the container is
+  // typed as the DOM element it stands in for.
+  const container = window.document.createElement(
+    "div",
+  ) as unknown as HTMLElement
+  const root = createRoot(container)
   t.after(async () => {
     await React.act(async () => root.unmount())
     controller.dispose()

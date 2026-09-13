@@ -103,8 +103,12 @@ it("retains listing rows and disables all clone-all controls during commands", {
     })
     return null
   }
-  const container = window.document.createElement("div")
-  const root = createRoot(container as unknown as HTMLElement)
+  // Happy DOM implements the DOM the renderer expects, so the container is
+  // typed as the DOM element it stands in for.
+  const container = window.document.createElement(
+    "div",
+  ) as unknown as HTMLElement
+  const root = createRoot(container)
   const render = (open: boolean, showControls = false) =>
     root.render(
       <SessionControllerProvider controller={controller}>
@@ -289,8 +293,8 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await flush()
   })
   const controls = Array.from(container.querySelectorAll("input, button"))
-  const cloneButton = controls.find((control) =>
-    control.textContent?.startsWith("Clone 1 Repository"),
+  const cloneButton = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.startsWith("Clone 1 Repository"),
   )
   assert.ok(cloneButton)
   assert.ok(container.querySelector("#clone-all-filter"))
