@@ -72,8 +72,12 @@ function serializeSidebarSettings(
 export function AnalysisSidebar() {
   const controller = useSessionController()
   const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
-  const { runRepoDiscovery, cancelDiscovery, discoveredRepos } =
-    useAnalysisDiscovery()
+  const {
+    runRepoDiscovery,
+    createDiscoveryBody,
+    cancelDiscovery,
+    discoveredRepos,
+  } = useAnalysisDiscovery()
   const {
     runAnalysis,
     cancelAnalysis,
@@ -84,7 +88,7 @@ export function AnalysisSidebar() {
   const { result, analysisProgress, analysisErrorMessage } = useAnalysisResult()
   const { blameResult } = useAnalysisBlameResult()
   const { mergedFileStats } = useAnalysisFileView()
-  const pickDirectory = useDirectoryPicker()
+  const pickDirectory = useDirectoryPicker("analysis.discoverRepos")
 
   const analysisContext = useAnalysisContext()
   const setAnalysisInputs = analysisContext.setAnalysisInputs
@@ -329,22 +333,24 @@ export function AnalysisSidebar() {
     await pickDirectory(
       { title: "Open repository search folder" },
       async (directory, scope) => {
+        let surface = analysisContext.activeSurface
         scope.publish(() => {
           selectRepository(null)
           setSections((prev) => ({ ...prev, repositories: true }))
         })
         if (analysisContext.kind === "folder") {
-          await scope.activateSurface({ kind: "folder", path: directory })
-          return
-        }
-        if (analysisContext.course)
+          surface = { kind: "folder", path: directory }
+          await scope.activateSurface(surface)
+        } else if (analysisContext.course) {
           scope.mutateCourse(analysisContext.course.id, (actions) =>
             actions.setSearchFolder(directory),
           )
-        scope.publish(() => runRepoDiscovery(directory))
+        }
+        const discover = createDiscoveryBody(surface, directory)
+        await discover(scope)
       },
     )
-  }, [analysisContext, pickDirectory, runRepoDiscovery, selectRepository])
+  }, [analysisContext, pickDirectory, createDiscoveryBody, selectRepository])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)

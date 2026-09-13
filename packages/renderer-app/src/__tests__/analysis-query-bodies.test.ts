@@ -84,6 +84,39 @@ async function setup(
 }
 
 describe("discovery and blame bodies", () => {
+  it("keeps cancellation while discovery waits for its turn and permits a later search", async (t) => {
+    let calls = 0
+    const { controller, client } = await setup(t, async () => {
+      calls++
+      return discoveryResult
+    })
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    const earlier = controller.operations.execute(
+      "analysis.listFolderFiles",
+      () => release.promise,
+    )
+    const runner = new AnalysisDiscoveryRunner(client)
+    const running = controller.operations.execute(
+      "analysis.discoverRepos",
+      runner.createBody(surface, { folder, depth: 5 }),
+    )
+    const cancelled = assert.rejects(running, { name: "AbortError" })
+    runner.cancel()
+    release.resolve()
+    await Promise.all([earlier, cancelled])
+    assert.equal(calls, 0)
+    await controller.operations.execute(
+      "analysis.discoverRepos",
+      runner.createBody(surface, { folder, depth: 5 }),
+    )
+    assert.equal(calls, 1)
+    assert.deepEqual(
+      client.getQueryData(analysisQueryKeys.discovery(source, folder, 5)),
+      discoveryResult,
+    )
+  })
+
   for (const previousSearch of ["absent", "empty"] as const) {
     it(`carries discovery to the enclosing folder before the next body when its previous search is ${previousSearch}`, async (t) => {
       const entered = deferred<void>()
@@ -120,10 +153,11 @@ describe("discovery and blame bodies", () => {
           { repos: [] },
         )
       }
-      const running = new AnalysisDiscoveryRunner(
-        controller.operations,
-        client,
-      ).run(folderSource, folderSurface, input)
+      const runner = new AnalysisDiscoveryRunner(client)
+      const running = controller.operations.execute(
+        "analysis.discoverRepos",
+        runner.createBody(folderSurface, input),
+      )
       await entered.promise
       let followed = false
       const next = controller.operations.execute(
@@ -190,10 +224,12 @@ describe("discovery and blame bodies", () => {
         t.after(unsubscribe)
         const running =
           kind === "discovery"
-            ? new AnalysisDiscoveryRunner(controller.operations, client).run(
-                source,
-                surface,
-                { folder, depth: 5 },
+            ? controller.operations.execute(
+                "analysis.discoverRepos",
+                new AnalysisDiscoveryRunner(client).createBody(surface, {
+                  folder,
+                  depth: 5,
+                }),
               )
             : new AnalysisSourceRunner(controller.operations, client, {
                 source,
@@ -253,9 +289,12 @@ describe("discovery and blame bodies", () => {
       await release.promise
       return discoveryResult
     })
-    const runner = new AnalysisDiscoveryRunner(controller.operations, client)
-    const running = runner
-      .run(source, surface, { folder, depth: 5 })
+    const runner = new AnalysisDiscoveryRunner(client)
+    const running = controller.operations
+      .execute(
+        "analysis.discoverRepos",
+        runner.createBody(surface, { folder, depth: 5 }),
+      )
       .catch(() => {})
     const signal = await entered.promise
     runner.cancel()

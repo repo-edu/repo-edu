@@ -198,12 +198,15 @@ for (const outcome of ["resolve", "reject"] as const) {
       .execute("analysis.resolveSnapshotHead", async (scope) => {
         return await queryClient.fetchQuery({
           queryKey: ["snapshot"],
-          ...scopedSessionQueryOptions(scope, abort.signal, (signal) =>
-            scope.run(
-              "analysis.resolveSnapshotHead",
-              { repositoryAbsolutePath: "/repos/one" },
-              { signal },
-            ),
+          ...scopedSessionQueryOptions(
+            scope,
+            (signal) =>
+              scope.run(
+                "analysis.resolveSnapshotHead",
+                { repositoryAbsolutePath: "/repos/one" },
+                { signal },
+              ),
+            abort.signal,
           ),
         })
       })

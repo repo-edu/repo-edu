@@ -23,7 +23,6 @@ describe("session reducer", () => {
       descriptor: {
         kind: "enter",
         targetSurface: { kind: "course", courseId: "course-b" },
-        leavingCourseId: "course-a",
       },
       visible: true,
     },
@@ -31,7 +30,6 @@ describe("session reducer", () => {
       descriptor: {
         kind: "create",
         targetSurface: { kind: "course", courseId: "course-b" },
-        leavingCourseId: "course-a",
       },
       visible: true,
     },
@@ -143,6 +141,44 @@ describe("session reducer", () => {
     assert.equal(canAdmitCourseMutation(state, "course-a"), true)
   })
 
+  for (const kind of ["enter", "create"] as const) {
+    it(`derives the course edit gate from the active and target courses during ${kind}`, () => {
+      let state = createInitialSessionSnapshot()
+      state = sessionReducer(state, {
+        type: "preference",
+        event: {
+          type: "set-navigation",
+          surface: { kind: "course", courseId: "course-a" },
+          tab: "roster",
+        },
+      })
+      const targetSurface = { kind: "course", courseId: "course-b" } as const
+      const descriptor = { kind, targetSurface }
+      state = sessionReducer(state, {
+        type: "transaction-enter",
+        turnId: 1,
+        descriptor,
+      })
+      state = sessionReducer(state, {
+        type: "transaction-start",
+        turnId: 1,
+        descriptor,
+      })
+      assert.equal(canAdmitCourseMutation(state, "course-a"), false)
+      assert.equal(canAdmitCourseMutation(state, "course-b"), false)
+      state = sessionReducer(state, {
+        type: "surface-commit",
+        turnId: 1,
+        surface: targetSurface,
+        tab: "roster",
+        courseLoadStatus: { state: "loaded", message: null },
+        preferenceEvents: [],
+      })
+      assert.equal(canAdmitCourseMutation(state, "course-a"), false)
+      assert.equal(canAdmitCourseMutation(state, "course-b"), true)
+    })
+  }
+
   it("makes disposal terminal and rejects queued transaction starts", () => {
     let state = createInitialSessionSnapshot()
     state = sessionReducer(state, {
@@ -151,7 +187,6 @@ describe("session reducer", () => {
       descriptor: {
         kind: "enter",
         targetSurface: { kind: "course", courseId: "course-b" },
-        leavingCourseId: null,
       },
     })
     const disposed = sessionReducer(state, { type: "dispose" })

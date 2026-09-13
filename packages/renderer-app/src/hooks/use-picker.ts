@@ -6,7 +6,10 @@ import type {
 import { useCallback } from "react"
 import { useRendererHost } from "../contexts/renderer-host.js"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
-import type { SessionDirectId } from "../session/session-operation-inventory.js"
+import type {
+  SessionDirectId,
+  SessionQueryWorkflowId,
+} from "../session/session-operation-inventory.js"
 import type {
   SessionOperationGateway,
   SessionOperationScope,
@@ -43,28 +46,34 @@ type PickerApply<T> = (
  * picker's operation, stay silent on a cancel and report a failure. The
  * follow-up differs per caller and runs inside the same scope.
  *
- * `open` starts the host dialog in its own reserved direct body, so each hook
- * names the direct id where it starts that picker.
+ * The reservation names the complete action. Each hook names the direct id
+ * where it starts its host dialog.
  */
 async function runPicker<T>(
   gateway: SessionOperationGateway,
-  id: SessionDirectId,
+  id: SessionDirectId | SessionQueryWorkflowId,
   report: PickerFailureReport,
   open: (scope: SessionOperationScope) => Promise<T | null>,
   apply: PickerApply<T>,
 ): Promise<void> {
-  await gateway.execute(id, async (scope) => {
-    try {
-      const picked = await open(scope)
-      if (picked === null) return
-      await apply(picked, scope)
-    } catch (error) {
-      report(getErrorMessage(error))
-    }
-  })
+  await gateway
+    .execute(id, async (scope) => {
+      try {
+        const picked = await open(scope)
+        if (picked === null) return
+        await apply(picked, scope)
+      } catch (error) {
+        report(getErrorMessage(error))
+      }
+    })
+    // Awaited work reports its failure above or in its own error display.
+    // Settlement can reject with that same failure after the body retires.
+    .catch(() => {})
 }
 
-export function useDirectoryPicker() {
+export function useDirectoryPicker(
+  operation: "pickDirectory" | SessionQueryWorkflowId = "pickDirectory",
+) {
   const gateway = useWorkflowClient()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
@@ -77,7 +86,7 @@ export function useDirectoryPicker() {
       const { report, ...options } = request
       await runPicker(
         gateway,
-        "pickDirectory",
+        operation,
         report ?? ((message) => addToast(message, { tone: "error" })),
         (scope) =>
           scope.direct("pickDirectory", () =>
@@ -86,7 +95,7 @@ export function useDirectoryPicker() {
         apply,
       )
     },
-    [addToast, gateway, rendererHost],
+    [addToast, gateway, operation, rendererHost],
   )
 }
 

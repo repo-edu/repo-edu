@@ -268,13 +268,8 @@ export class SessionController extends CourseMutationController {
     const targetSurface = normalizeActiveSurface(surface)
     const currentSurface = this.snapshot.settings.preferences.activeSurface
     if (activeSurfaceEquals(currentSurface, targetSurface)) return true
-    const activeCourseId = activeCourseIdFromSurface(currentSurface)
-    const leavingCourseId =
-      activeCourseId !== activeCourseIdFromSurface(targetSurface)
-        ? activeCourseId
-        : null
     return await this.transactions.enqueue(
-      { kind: "enter", targetSurface, leavingCourseId },
+      { kind: "enter", targetSurface },
       async (scope) => await this.enterSurface(scope, targetSurface),
     )
   }
@@ -434,11 +429,8 @@ export class SessionController extends CourseMutationController {
       kind: "course",
       courseId: generateCourseId(),
     }
-    const leavingCourseId = activeCourseIdFromSurface(
-      this.snapshot.settings.preferences.activeSurface,
-    )
     return await this.transactions.enqueue(
-      { kind: "create", targetSurface, leavingCourseId },
+      { kind: "create", targetSurface },
       async (scope) => {
         const course = await this.createCourseBody(scope, input, targetSurface)
         await this.refreshCoursesBody(scope)
@@ -979,15 +971,6 @@ export class SessionController extends CourseMutationController {
     const activeCourseId = activeCourseIdFromSurface(
       this.snapshot.settings.preferences.activeSurface,
     )
-    if (descriptor.kind === "enter" || descriptor.kind === "create") {
-      return {
-        ...descriptor,
-        leavingCourseId:
-          activeCourseId === activeCourseIdFromSurface(descriptor.targetSurface)
-            ? null
-            : activeCourseId,
-      }
-    }
     if (descriptor.kind === "delete") {
       return {
         ...descriptor,

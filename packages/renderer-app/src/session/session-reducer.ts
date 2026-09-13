@@ -49,12 +49,11 @@ export type SessionTransactionDescriptor =
   | {
       kind: "enter"
       targetSurface: PersistedActiveSurface
-      leavingCourseId: string | null
+      operation?: SessionOperationId
     }
   | {
       kind: "create"
       targetSurface: PersistedActiveSurface
-      leavingCourseId: string | null
     }
   | { kind: "duplicate" }
   | { kind: "rename" }
@@ -385,9 +384,6 @@ export function sessionReducer(
       const descriptor = state.transactions.admitted.get(event.turnId)
       if (descriptor?.kind !== "operation" && descriptor?.kind !== "enter")
         return state
-      const currentCourseId = activeCourseIdFromSurface(
-        state.settings.preferences.activeSurface,
-      )
       return {
         ...state,
         transactions: {
@@ -395,10 +391,7 @@ export function sessionReducer(
           admitted: new Map(state.transactions.admitted).set(event.turnId, {
             kind: "enter",
             targetSurface: event.surface,
-            leavingCourseId:
-              currentCourseId === activeCourseIdFromSurface(event.surface)
-                ? null
-                : currentCourseId,
+            operation: descriptor.operation,
           }),
         },
       }
@@ -492,11 +485,10 @@ export function canAdmitCourseMutation(
   const descriptor = snapshot.transactions.admitted.get(running)
   if (descriptor?.kind === "delete" && descriptor.blocksCourseMutation)
     return targetCourseId !== descriptor.courseId
-  if (
-    (descriptor?.kind === "enter" || descriptor?.kind === "create") &&
-    descriptor.leavingCourseId !== null
-  ) {
-    return targetCourseId !== descriptor.leavingCourseId
+  if (descriptor?.kind === "enter" || descriptor?.kind === "create") {
+    return (
+      targetCourseId === activeCourseIdFromSurface(descriptor.targetSurface)
+    )
   }
   return true
 }

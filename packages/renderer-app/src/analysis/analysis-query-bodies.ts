@@ -1,12 +1,12 @@
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type { QueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
-import type { SessionOperationGateway } from "../session/session-operations.js"
+import type { SessionOperationScope } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
+import { refreshSourceSnapshotHeadQueries } from "./analysis-query-client.js"
 import {
-  type AnalysisSourceKeyParts,
   analysisQueryKeys,
   analysisSourceKeyParts,
   analysisSourceScopeKey,
@@ -17,26 +17,37 @@ import { useAnalysisTransientStore } from "./analysis-transient-store.js"
 export class AnalysisDiscoveryRunner {
   private current: AbortController | null = null
 
-  constructor(
-    private readonly operations: SessionOperationGateway,
-    private readonly queryClient: QueryClient,
-  ) {}
+  constructor(private readonly queryClient: QueryClient) {}
 
-  async run(
-    source: AnalysisSourceKeyParts,
+  createBody(
     surface: PersistedActiveSurface,
     input: { folder: string; depth: number },
-  ): Promise<void> {
+  ): (scope: SessionOperationScope) => Promise<void> {
     this.current ??= new AbortController()
     const { signal } = this.current
-    await this.operations.execute("analysis.discoverRepos", async (scope) => {
+    return async (scope: SessionOperationScope) => {
       signal.throwIfAborted()
+      const source = analysisSourceKeyParts(
+        analysisSourceKeyFromSurface(surface),
+      )
+      const queryKey = analysisQueryKeys.discovery(
+        source,
+        input.folder,
+        input.depth,
+      )
+      scope.publish(() => {
+        refreshSourceSnapshotHeadQueries(this.queryClient, source)
+        void this.queryClient.invalidateQueries({
+          queryKey,
+          exact: true,
+          refetchType: "none",
+        })
+        useAnalysisStore
+          .getState()
+          .setPendingRepoDiscoveryRequest(analysisSourceScopeKey(source), input)
+      })
       const result = await this.queryClient.fetchQuery({
-        queryKey: analysisQueryKeys.discovery(
-          source,
-          input.folder,
-          input.depth,
-        ),
+        queryKey,
         ...scopedSessionQueryOptions(
           scope,
           async (signal) => {
@@ -84,7 +95,7 @@ export class AnalysisDiscoveryRunner {
             input,
           )
       })
-    })
+    }
   }
 
   cancel(): void {

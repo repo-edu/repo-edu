@@ -4,6 +4,7 @@ import type {
   AnalysisDiscoverReposResult,
   WorkflowClient,
   WorkflowId,
+  WorkflowInput,
 } from "@repo-edu/application-contract"
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
@@ -42,6 +43,8 @@ import {
 import type { SessionOperationReservation } from "../session/session-operations.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
+import { useCourseStore } from "../stores/course-store.js"
+import { useToastStore } from "../stores/toast-store.js"
 import {
   makeBaseResult,
   makeBlameResult,
@@ -84,7 +87,12 @@ async function mountCoordinator(
   analyse: (signal: AbortSignal) => Promise<unknown>,
   blame?: (signal: AbortSignal) => Promise<unknown>,
   options: {
-    discover?: (signal: AbortSignal) => Promise<AnalysisDiscoverReposResult>
+    discover?: (
+      signal: AbortSignal,
+      input: WorkflowInput<"analysis.discoverRepos">,
+    ) => Promise<AnalysisDiscoverReposResult>
+    startDiscovery?: boolean
+    pickDirectory?: RendererHost["pickDirectory"]
     initialDiscovery?: AnalysisDiscoverReposResult
     sidebar?: boolean
     searchFolder?: string | null
@@ -169,7 +177,10 @@ async function mountCoordinator(
         if (id === "analysis.discoverRepos") {
           assert.ok(options?.signal)
           assert.ok(discover)
-          return await discover(options.signal)
+          return await discover(
+            options.signal,
+            _input as WorkflowInput<"analysis.discoverRepos">,
+          )
         }
         if (id === "analysis.run") {
           assert.ok(options?.signal)
@@ -241,7 +252,11 @@ async function mountCoordinator(
               <AnalysisCoordinatorProvider>
                 <ReadAnalysis />
                 {(options.sidebar ?? blame !== undefined) && (
-                  <RendererHostProvider value={{} as RendererHost}>
+                  <RendererHostProvider
+                    value={
+                      { pickDirectory: options.pickDirectory } as RendererHost
+                    }
+                  >
                     <TooltipProvider>
                       <AnalysisSidebar />
                     </TooltipProvider>
@@ -255,7 +270,11 @@ async function mountCoordinator(
     )
     await flushQueries()
   })
-  if (discover && course.searchFolder !== null) {
+  if (
+    discover &&
+    course.searchFolder !== null &&
+    options.startDiscovery !== false
+  ) {
     const folder = course.searchFolder
     await React.act(async () => {
       value?.runRepoDiscovery(folder)
@@ -726,6 +745,129 @@ describe("analysis sidebar admission", () => {
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
+
+  for (const kind of ["folder", "course"] as const) {
+    for (const ending of ["completion", "cancellation", "failure"] as const) {
+      it(`keeps the ${kind} picker search and ${ending} before a command queued during the picker`, {
+        timeout: 3000,
+      }, async (t) => {
+        const opened = deferred<void>()
+        const picked = deferred<string | null>()
+        const entered = deferred<AbortSignal>()
+        const release = deferred<void>()
+        t.after(() => {
+          picked.resolve(null)
+          release.resolve()
+        })
+        const directory = "/picked/one/src"
+        const repository = "/picked/one"
+        const discovered = { repos: [{ name: "one", path: repository }] }
+        const activeSurface: PersistedActiveSurface =
+          kind === "folder"
+            ? { kind, path: "/repos" }
+            : { kind, courseId: "course" }
+        const order: string[] = []
+        const { controller, queryClient, container, read } =
+          await mountCoordinator(t, async () => makeBaseResult(), undefined, {
+            sidebar: true,
+            activeSurface,
+            startDiscovery: false,
+            pickDirectory: async () => {
+              order.push("picker")
+              opened.resolve()
+              return picked.promise
+            },
+            discover: async (signal, input) => {
+              assert.deepEqual(input, { searchFolder: directory, maxDepth: 5 })
+              order.push("search")
+              entered.resolve(signal)
+              await release.promise
+              signal.throwIfAborted()
+              if (ending === "failure") throw new Error("Search failed")
+              return discovered
+            },
+          })
+        assert.deepEqual([...order], [])
+        const browse = container
+          .querySelector(".lucide-folder-open")
+          ?.closest("button")
+        assert.ok(browse)
+        await React.act(async () => {
+          browse.click()
+          await opened.promise
+        })
+        let command: Promise<unknown> | undefined
+        const resultSource =
+          kind === "folder" ? (["folder", repository] as const) : source
+        const resultKey = analysisQueryKeys.discovery(
+          resultSource,
+          directory,
+          5,
+        )
+        await React.act(async () => {
+          command = controller.operations.execute("repo.clone", async () => {
+            order.push("command")
+            assert.deepEqual(
+              queryClient.getQueryData(resultKey),
+              ending === "completion" ? discovered : undefined,
+            )
+            if (ending === "completion") {
+              assert.deepEqual(
+                controller.getSnapshot().settings.preferences.activeSurface,
+                kind === "folder" ? { kind, path: repository } : activeSurface,
+              )
+              if (kind === "course") {
+                assert.equal(
+                  useCourseStore.getState().course?.searchFolder,
+                  repository,
+                )
+              }
+            }
+          })
+          await flushQueries()
+        })
+        assert.deepEqual(order, ["picker"])
+        await React.act(async () => {
+          picked.resolve(directory)
+          await flushQueries()
+        })
+        const signal = await entered.promise
+        await React.act(flushQueries)
+        assert.deepEqual(order, ["picker", "search"])
+        assert.equal(read().discoveryStatus, "loading")
+        const cancel = Array.from(container.querySelectorAll("button")).find(
+          (button) => button.textContent?.trim() === "Cancel Search",
+        )
+        assert.ok(cancel)
+        assert.equal(isDisabled(cancel), false)
+        if (ending === "cancellation") {
+          await React.act(async () => {
+            cancel.click()
+            await flushQueries()
+          })
+        }
+        assert.equal(signal.aborted, ending === "cancellation")
+        assert.deepEqual(order, ["picker", "search"])
+        await React.act(async () => {
+          release.resolve()
+          await command
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.deepEqual(order, ["picker", "search", "command"])
+        assert.equal(read().discoveryCompleted, ending === "completion")
+        assert.deepEqual(
+          read().discoveredRepos,
+          ending === "completion" ? discovered.repos : [],
+        )
+        assert.equal(
+          read().discoveryError,
+          ending === "failure" ? "Search failed" : null,
+        )
+        assert.deepEqual(useToastStore.getState().toasts, [])
+      })
+    }
+  }
 
   it("shows a surface switch waiting for a search and clears the banner when it starts", {
     timeout: 3000,

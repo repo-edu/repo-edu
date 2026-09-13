@@ -65,7 +65,9 @@ export function selectOperationIsAdmitted(
 ): boolean {
   return [...snapshot.transactions.admitted.values()].some(
     (entry) =>
-      (entry.kind === "operation" || entry.kind === "command") &&
+      (entry.kind === "operation" ||
+        entry.kind === "command" ||
+        entry.kind === "enter") &&
       entry.operation === operation,
   )
 }

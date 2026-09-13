@@ -3,6 +3,7 @@ import type {
   AnalysisProgress,
   DiscoveredRepo,
 } from "@repo-edu/application-contract"
+import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type {
   AnalysisBlameConfig,
   AnalysisResult,
@@ -29,12 +30,12 @@ import {
   selectDefaultExtensions,
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
+import type { SessionOperationScope } from "../session/session-operations.js"
 import {
   analysisSourceKeyFromSurface,
   canAdmitSessionChange,
 } from "../session/session-reducer.js"
 import {
-  type AnalysisDiscoveryRequest,
   selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
   selectPendingRepoDiscoveryRequestForScope,
@@ -45,10 +46,7 @@ import {
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { AnalysisDiscoveryRunner } from "./analysis-query-bodies.js"
-import {
-  clearAnalysisQueries,
-  refreshSourceSnapshotHeadQueries,
-} from "./analysis-query-client.js"
+import { clearAnalysisQueries } from "./analysis-query-client.js"
 import {
   type AnalysisQueryIdentity,
   analysisQueryKeys,
@@ -87,6 +85,10 @@ export type AnalysisDiscoveryValue = {
   discoveryCurrentFolder: string | null
   discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
+  createDiscoveryBody: (
+    surface: PersistedActiveSurface,
+    folder: string,
+  ) => (scope: SessionOperationScope) => Promise<void>
   cancelDiscovery: () => void
 }
 
@@ -276,9 +278,6 @@ export function AnalysisCoordinatorProvider({
   const discoveryInput = useAnalysisStore((state) =>
     selectPendingRepoDiscoveryRequestForScope(state, activeSourceText),
   )
-  const setPendingRepoDiscoveryRequest = useAnalysisStore(
-    (state) => state.setPendingRepoDiscoveryRequest,
-  )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
   const showRenames = useAnalysisStore((state) => state.showRenames)
@@ -363,8 +362,8 @@ export function AnalysisCoordinatorProvider({
     queryFn: skipToken,
   })
   const discoveryRunner = useMemo(
-    () => new AnalysisDiscoveryRunner(client, queryClient),
-    [client, queryClient],
+    () => new AnalysisDiscoveryRunner(queryClient),
+    [queryClient],
   )
   const discoveryCurrentFolder = useAnalysisTransientStore(
     (state) => state.discoveryProgress?.currentFolder ?? null,
@@ -655,41 +654,33 @@ export function AnalysisCoordinatorProvider({
     [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
   )
 
-  // The click is the only start of a search: the stored request keys the
-  // listing the tab shows, and nothing re-runs it on its own.
+  const createDiscoveryBody = useCallback(
+    (surface: PersistedActiveSurface, folder: string) => {
+      const discover = discoveryRunner.createBody(surface, {
+        folder,
+        depth: searchDepth,
+      })
+      return async (scope: SessionOperationScope) => {
+        scope.publish(() => sourceRunner?.restart())
+        // The discovery query displays failures; cancellation stays silent.
+        await discover(scope).catch(() => {})
+      }
+    },
+    [sourceRunner, discoveryRunner, searchDepth],
+  )
+
+  // Start and Re-search reserve a body; the picker uses its existing body.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
-      client.change(() => {
-        const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
-        sourceRunner?.restart()
-        refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
-        void queryClient.invalidateQueries({
-          queryKey: analysisQueryKeys.discovery(
-            activeSourceParts,
-            folder,
-            searchDepth,
-          ),
-          exact: true,
-          refetchType: "none",
-        })
-        setPendingRepoDiscoveryRequest(activeSourceText, input)
-        void discoveryRunner
-          .run(activeSourceParts, activeSurface, input)
-          .catch(() => {})
-      })
+      void client
+        .execute(
+          "analysis.discoverRepos",
+          createDiscoveryBody(activeSurface, folder),
+        )
+        .catch(() => {})
     },
-    [
-      client,
-      sourceRunner,
-      discoveryRunner,
-      activeSourceParts,
-      activeSourceText,
-      activeSurface,
-      queryClient,
-      searchDepth,
-      setPendingRepoDiscoveryRequest,
-    ],
+    [client, createDiscoveryBody, activeSurface],
   )
 
   const cancelDiscovery = useCallback(() => {
@@ -712,6 +703,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCurrentFolder,
       discoveryCompleted,
       runRepoDiscovery,
+      createDiscoveryBody,
       cancelDiscovery,
     }),
     [
@@ -722,6 +714,7 @@ export function AnalysisCoordinatorProvider({
       discoveryStatus,
       discoveryCompleted,
       runRepoDiscovery,
+      createDiscoveryBody,
     ],
   )
 
