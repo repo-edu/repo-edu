@@ -70,13 +70,12 @@ export function PerformancePane() {
         <div className="flex items-center gap-1.5">
           <Text weight="medium">Analysis concurrency</Text>
           <HelpIcon>
-            The two values multiply into a budget of total concurrent git
-            processes. Log analysis (after "Start" or "Re-run Analysis") fans
-            out across repos using the split — up to{" "}
-            {analysisConcurrency.repoParallelism} repos at once, each running up
-            to {analysisConcurrency.filesPerRepo} per-file git operations. Blame
-            runs against one repo at a time, so it ignores the split and uses up
-            to {blameProcesses} processes on the selected repo.
+            The two values multiply to set the total number of Git processes
+            that can run at once. Log analysis runs on up to{" "}
+            {analysisConcurrency.repoParallelism} repositories at once, with up
+            to {analysisConcurrency.filesPerRepo} Git operations per repository.
+            Blame analysis uses up to {blameProcesses} processes on the selected
+            repository.
           </HelpIcon>
         </div>
         <Text variant="muted" className="text-xs">
