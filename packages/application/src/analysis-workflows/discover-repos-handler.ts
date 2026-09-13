@@ -11,9 +11,8 @@ import { resolveGitRepositoryRoot } from "../repository-workflows/git-helpers.js
 import { throwIfAborted } from "../workflow-helpers.js"
 import type { AnalysisWorkflowPorts } from "./ports.js"
 
-// A repository root carries a `.git` entry: a directory for an ordinary
-// clone, a file for a worktree or submodule checkout. The walk reads that
-// entry from the listing it needs anyway, so no git process runs per folder.
+// A `.git` entry marks a candidate. Git validates it before the walk stops,
+// so ordinary folders need no Git process.
 const GIT_ENTRY_NAME = ".git"
 
 function isCancellationError(error: unknown): boolean {
@@ -23,7 +22,7 @@ function isCancellationError(error: unknown): boolean {
   )
 }
 
-function isRepositoryRoot(entries: readonly FileSystemDirectoryEntry[]) {
+function hasGitEntry(entries: readonly FileSystemDirectoryEntry[]) {
   return entries.some((entry) => entry.name === GIT_ENTRY_NAME)
 }
 
@@ -71,8 +70,13 @@ async function walkFolder(
     path: folder,
     signal: context.signal,
   })
-  if (isRepositoryRoot(entries)) {
-    return [{ name: basename(folder), path: folder }]
+  if (hasGitEntry(entries)) {
+    const root = await resolveGitRepositoryRoot(
+      context.ports.gitCommand,
+      folder,
+      context.signal,
+    )
+    if (root !== null) return [{ name: basename(root), path: root }]
   }
   return walkChildren(context, folder, entries, remainingDepth)
 }
@@ -88,8 +92,7 @@ async function discoverRepos(
   onProgress?.({ currentFolder: searchFolder })
 
   // Only the search folder may sit inside a repository whose root lies above
-  // it, so git resolves that one case. Every folder below is a root or not,
-  // which its own listing tells.
+  // it, so Git always checks that folder. Below it, only candidates need Git.
   const toplevel = await resolveGitRepositoryRoot(
     ports.gitCommand,
     searchFolder,

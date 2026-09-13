@@ -3,9 +3,13 @@ import type { QueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
 import type { SessionOperationGateway } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
+import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
+import { useAnalysisStore } from "../stores/analysis-store.js"
 import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
+  analysisSourceKeyParts,
+  analysisSourceScopeKey,
 } from "./analysis-query-keys.js"
 import { useAnalysisTransientStore } from "./analysis-transient-store.js"
 
@@ -59,7 +63,27 @@ export class AnalysisDiscoveryRunner {
         ),
       })
       signal.throwIfAborted()
-      await scope.reconcileDiscovery(surface, input.folder, result)
+      const openedSurface = await scope.reconcileDiscovery(
+        surface,
+        input.folder,
+        result,
+      )
+      if (openedSurface === null) return
+      scope.publish(() => {
+        const openedSource = analysisSourceKeyParts(
+          analysisSourceKeyFromSurface(openedSurface),
+        )
+        this.queryClient.setQueryData(
+          analysisQueryKeys.discovery(openedSource, input.folder, input.depth),
+          result,
+        )
+        useAnalysisStore
+          .getState()
+          .setPendingRepoDiscoveryRequest(
+            analysisSourceScopeKey(openedSource),
+            input,
+          )
+      })
     })
   }
 

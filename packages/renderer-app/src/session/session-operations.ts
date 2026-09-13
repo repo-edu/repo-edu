@@ -71,11 +71,12 @@ export type SessionOperationScope = {
   ): void
   canContinue(): boolean
   activateSurface(surface: PersistedActiveSurface): Promise<boolean>
+  /** Returns a newly opened surface so discovery can carry its result there. */
   reconcileDiscovery(
     surface: PersistedActiveSurface,
     folder: string,
     result: AnalysisDiscoverReposResult,
-  ): Promise<void>
+  ): Promise<PersistedActiveSurface | null>
 }
 
 export type SessionOperationReservation<T> = {
@@ -117,7 +118,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
       surface: PersistedActiveSurface,
       folder: string,
       result: AnalysisDiscoverReposResult,
-    ) => Promise<void> = async () => {
+    ) => Promise<PersistedActiveSurface | null> = async () => {
       throw new Error("Discovery follow-up is not installed.")
     },
     private readonly preparePersistence?: (

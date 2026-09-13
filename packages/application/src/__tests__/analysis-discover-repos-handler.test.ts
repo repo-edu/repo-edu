@@ -88,11 +88,18 @@ function createStubFileSystemPort(
 }
 
 describe("analysis.discoverRepos handler", () => {
-  it("finds roots by their .git entry and asks git only about the search folder", async () => {
-    const gitCommand = createMockGitCommandPort([])
+  it("validates .git candidates without asking Git about ordinary folders", async () => {
+    const worktreePath = join(nestedPath, "worktree")
+    const gitCommand = createMockGitCommandPort([
+      repoAPath,
+      repoBPath,
+      worktreePath,
+    ])
+    const listedPaths: string[] = []
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand,
       fileSystem: createStubFileSystemPort(async (request) => {
+        listedPaths.push(request.path)
         if (request.path === discoveryRoot) {
           return [
             directory("repo-a"),
@@ -108,7 +115,7 @@ describe("analysis.discoverRepos handler", () => {
           return [directory("repo-b"), directory("worktree")]
         }
         if (request.path === repoBPath) return [gitDirectory]
-        if (request.path === join(nestedPath, "worktree")) return [gitFile]
+        if (request.path === worktreePath) return [gitFile]
         if (request.path === blockedPath) {
           throw new Error("EACCES: permission denied")
         }
@@ -124,18 +131,33 @@ describe("analysis.discoverRepos handler", () => {
     assert.deepEqual(result.repos, [
       { name: "repo-a", path: repoAPath },
       { name: "repo-b", path: repoBPath },
-      { name: "worktree", path: join(nestedPath, "worktree") },
+      { name: "worktree", path: worktreePath },
     ])
-    assert.deepEqual(gitCommand.queriedPaths, [discoveryRoot])
+    assert.deepEqual(gitCommand.queriedPaths, [
+      discoveryRoot,
+      repoAPath,
+      repoBPath,
+      worktreePath,
+    ])
+    assert.deepEqual(listedPaths, [
+      discoveryRoot,
+      repoAPath,
+      nestedPath,
+      repoBPath,
+      worktreePath,
+      blockedPath,
+    ])
   })
 
   it("stops at the depth limit without listing deeper folders", async () => {
+    const listedPaths: string[] = []
     const handlers = createAnalysisWorkflowHandlers({
       gitCommand: createMockGitCommandPort([]),
       fileSystem: createStubFileSystemPort(async (request) => {
+        listedPaths.push(request.path)
         if (request.path === discoveryRoot) return [directory("nested")]
         if (request.path === nestedPath) return [directory("repo-b")]
-        assert.fail(`Unexpected listing: ${request.path}`)
+        return []
       }),
     })
 
@@ -145,6 +167,57 @@ describe("analysis.discoverRepos handler", () => {
     })
 
     assert.deepEqual(result.repos, [])
+    assert.deepEqual(listedPaths, [discoveryRoot, nestedPath])
+  })
+
+  for (const invalidEntry of [gitDirectory, gitFile]) {
+    it(`continues below an invalid .git ${invalidEntry.kind}`, async () => {
+      const gitCommand = createMockGitCommandPort([repoBPath])
+      const handlers = createAnalysisWorkflowHandlers({
+        gitCommand,
+        fileSystem: createStubFileSystemPort(async (request) => {
+          if (request.path === discoveryRoot) return [directory("nested")]
+          if (request.path === nestedPath)
+            return [invalidEntry, directory("repo-b")]
+          if (request.path === repoBPath) return [gitDirectory]
+          return []
+        }),
+      })
+
+      const result = await handlers["analysis.discoverRepos"]({
+        searchFolder: discoveryRoot,
+        maxDepth: 2,
+      })
+
+      assert.deepEqual(result.repos, [{ name: "repo-b", path: repoBPath }])
+      assert.deepEqual(gitCommand.queriedPaths, [
+        discoveryRoot,
+        nestedPath,
+        repoBPath,
+      ])
+    })
+  }
+
+  it("propagates cancellation while validating a candidate", async () => {
+    const gitCommand = createMockGitCommandPort([])
+    const handlers = createAnalysisWorkflowHandlers({
+      gitCommand: {
+        ...gitCommand,
+        async run(request) {
+          if (request.args[1] === nestedPath)
+            throw createCancelledAppError("Workflow was cancelled.")
+          return gitCommand.run(request)
+        },
+      },
+      fileSystem: createStubFileSystemPort(async (request) =>
+        request.path === discoveryRoot ? [directory("nested")] : [gitDirectory],
+      ),
+    })
+
+    await assert.rejects(
+      handlers["analysis.discoverRepos"]({ searchFolder: discoveryRoot }),
+      (error: unknown) => isAppError(error) && error.type === "cancelled",
+    )
   })
 
   it("returns the enclosing repo root when the search folder is inside a repo", async () => {

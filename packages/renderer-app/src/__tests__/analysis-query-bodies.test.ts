@@ -6,10 +6,15 @@ import { AnalysisDiscoveryRunner } from "../analysis/analysis-query-bodies.js"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
+  analysisSourceScopeKey,
   buildAnalysisQueryIdentity,
   buildBlameQueryIdentity,
 } from "../analysis/analysis-query-keys.js"
 import { AnalysisSourceRunner } from "../analysis/analysis-source-runner.js"
+import {
+  selectPendingRepoDiscoveryRequestForScope,
+  useAnalysisStore,
+} from "../stores/analysis-store.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
 import {
@@ -40,7 +45,10 @@ const identity = buildBlameQueryIdentity({
 })
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve))
 
-beforeEach(resetStores)
+beforeEach(() => {
+  resetStores()
+  useAnalysisStore.getState().reset()
+})
 
 async function setup(
   t: TestContext,
@@ -57,6 +65,7 @@ async function setup(
       ) {
         if (id === "settings.loadApp")
           return makeSettings({ activeSurface: surface })
+        if (id === "settings.savePreferences") return
         if (id === "course.load") return course
         if (id === "course.save")
           return { revision: 1, updatedAt: course.updatedAt }
@@ -75,6 +84,86 @@ async function setup(
 }
 
 describe("discovery and blame bodies", () => {
+  for (const previousSearch of ["absent", "empty"] as const) {
+    it(`carries discovery to the enclosing folder before the next body when its previous search is ${previousSearch}`, async (t) => {
+      const entered = deferred<void>()
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      let calls = 0
+      const { controller, client } = await setup(t, async () => {
+        calls++
+        entered.resolve()
+        await release.promise
+        return discoveryResult
+      })
+      const folderSurface = { kind: "folder", path: folder } as const
+      const folderSource = ["folder", folder] as const
+      const resolvedSource = ["folder", "/repos/one"] as const
+      const resolvedScope = analysisSourceScopeKey(resolvedSource)
+      const input = { folder, depth: 5 }
+      await controller.activateSurface(folderSurface)
+      useAnalysisStore
+        .getState()
+        .setPendingRepoDiscoveryRequest(
+          analysisSourceScopeKey(folderSource),
+          input,
+        )
+      if (previousSearch === "empty") {
+        useAnalysisStore
+          .getState()
+          .setPendingRepoDiscoveryRequest(resolvedScope, {
+            folder: "/repos/one",
+            depth: 1,
+          })
+        client.setQueryData(
+          analysisQueryKeys.discovery(resolvedSource, "/repos/one", 1),
+          { repos: [] },
+        )
+      }
+      const running = new AnalysisDiscoveryRunner(
+        controller.operations,
+        client,
+      ).run(folderSource, folderSurface, input)
+      await entered.promise
+      let followed = false
+      const next = controller.operations.execute(
+        "analysis.listFolderFiles",
+        async () => {
+          followed = true
+          assert.deepEqual(
+            controller.getSnapshot().settings.preferences.activeSurface,
+            {
+              kind: "folder",
+              path: "/repos/one",
+            },
+          )
+          const request = selectPendingRepoDiscoveryRequestForScope(
+            useAnalysisStore.getState(),
+            resolvedScope,
+          )
+          assert.deepEqual(request, input)
+          assert.ok(request)
+          assert.deepEqual(
+            client.getQueryData(
+              analysisQueryKeys.discovery(
+                resolvedSource,
+                request.folder,
+                request.depth,
+              ),
+            ),
+            discoveryResult,
+          )
+        },
+      )
+      await tick()
+      assert.equal(followed, false)
+      release.resolve()
+      await Promise.all([running, next])
+      assert.equal(followed, true)
+      assert.equal(calls, 1)
+    })
+  }
+
   for (const kind of ["discovery", "blame"] as const) {
     for (const ending of ["key change", "observer removal"] as const) {
       it(`keeps ${kind} through ${ending} and publishes before the next body`, async (t) => {

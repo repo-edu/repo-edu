@@ -5,6 +5,7 @@ import type {
   WorkflowClient,
   WorkflowId,
 } from "@repo-edu/application-contract"
+import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { TooltipProvider } from "@repo-edu/ui"
 import { QueryClientProvider } from "@tanstack/react-query"
@@ -25,7 +26,11 @@ import {
   useAnalysisResult,
   useAnalysisSelection,
 } from "../analysis/analysis-query-coordinator.js"
-import { analysisQueryKeys } from "../analysis/analysis-query-keys.js"
+import {
+  analysisQueryKeys,
+  analysisSourceKeyParts,
+  analysisSourceScopeKey,
+} from "../analysis/analysis-query-keys.js"
 import { CommandWaitingBanner } from "../components/CommandWaitingBanner.js"
 import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
@@ -35,6 +40,7 @@ import {
   sessionCancellationControl,
 } from "../session/session-controller-context.js"
 import type { SessionOperationReservation } from "../session/session-operations.js"
+import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import { useAnalysisStore } from "../stores/analysis-store.js"
 import {
   makeBaseResult,
@@ -82,6 +88,7 @@ async function mountCoordinator(
     initialDiscovery?: AnalysisDiscoverReposResult
     sidebar?: boolean
     searchFolder?: string | null
+    activeSurface?: PersistedActiveSurface
     strictEffects?: boolean
   } = {},
 ) {
@@ -109,6 +116,13 @@ async function mountCoordinator(
   const course = makeCourse("course")
   course.searchFolder =
     options.searchFolder === undefined ? "/repos" : options.searchFolder
+  const activeSurface = options.activeSurface ?? {
+    kind: "course",
+    courseId: course.id,
+  }
+  const mountedSource = analysisSourceKeyParts(
+    analysisSourceKeyFromSurface(activeSurface),
+  )
   course.analysisInputs = { blameSkip: blame === undefined }
   course.roster.students = [
     {
@@ -146,9 +160,10 @@ async function mountCoordinator(
       ) {
         if (id === "settings.loadApp")
           return makeSettings({
-            activeSurface: { kind: "course", courseId: course.id },
+            activeSurface,
             analysisConcurrency: { repoParallelism: 1, filesPerRepo: 1 },
           })
+        if (id === "settings.savePreferences") return
         if (id === "course.load") return course
         if (id === "analysis.resolveSnapshotHead") return "head"
         if (id === "analysis.discoverRepos") {
@@ -172,10 +187,12 @@ async function mountCoordinator(
     } as WorkflowClient,
   })
   await controller.waitForIdle()
+  assert.equal(controller.getSnapshot().bootstrap.status, "ready")
+  assert.equal(controller.getSnapshot().lifecycle.kind, "live")
   const queryClient = createRendererQueryClient()
   if (!discover) {
     queryClient.setQueryData(
-      analysisQueryKeys.discovery(source, "/repos", 5),
+      analysisQueryKeys.discovery(mountedSource, "/repos", 5),
       options.initialDiscovery ?? {
         repos: repos.map((path) => ({ path, name: path })),
       },
@@ -184,7 +201,7 @@ async function mountCoordinator(
   if (course.searchFolder !== null) {
     useAnalysisStore
       .getState()
-      .setPendingRepoDiscoveryRequest(JSON.stringify(source), {
+      .setPendingRepoDiscoveryRequest(analysisSourceScopeKey(mountedSource), {
         folder: course.searchFolder,
         depth: 5,
       })
@@ -257,6 +274,46 @@ async function mountCoordinator(
 }
 
 describe("analysis runner lifetime in React", () => {
+  it("keeps the completed search visible after opening the enclosing repository", {
+    timeout: 3000,
+  }, async (t) => {
+    const folder = "/repos/first/src"
+    const discoveredRepos = [{ name: "first", path: "/repos/first" }]
+    let searchCalls = 0
+    const { controller, read } = await mountCoordinator(
+      t,
+      async () => makeBaseResult(),
+      undefined,
+      {
+        activeSurface: { kind: "folder", path: folder },
+        searchFolder: folder,
+        discover: async () => {
+          searchCalls++
+          return { repos: discoveredRepos }
+        },
+      },
+    )
+    await React.act(async () => {
+      await flushQueries()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+
+    assert.equal(searchCalls, 1)
+    assert.equal(read().discoveryError, null)
+    assert.deepEqual(
+      controller.getSnapshot().settings.preferences.activeSurface,
+      {
+        kind: "folder",
+        path: "/repos/first",
+      },
+    )
+    assert.equal(read().discoveryCompleted, true)
+    assert.deepEqual(read().discoveredRepos, discoveredRepos)
+    assert.equal(read().selectedRepoPath, "/repos/first")
+    assert.deepEqual(read().result, makeBaseResult())
+  })
+
   it("resumes after React repeats effect setup and cleanup", {
     timeout: 3000,
   }, async (t) => {

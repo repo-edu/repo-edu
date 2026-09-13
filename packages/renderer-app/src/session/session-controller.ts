@@ -323,25 +323,25 @@ export class SessionController extends CourseMutationController {
     surface: PersistedActiveSurface,
     folder: string,
     result: AnalysisDiscoverReposResult,
-  ): Promise<void> {
-    if (!scope.canContinue()) return
+  ): Promise<PersistedActiveSurface | null> {
+    if (!scope.canContinue()) return null
     if (
       !activeSurfaceEquals(
         surface,
         this.snapshot.settings.preferences.activeSurface,
       )
     )
-      return
+      return null
     const path = result.repos[0]?.path
-    if (result.repos.length !== 1 || path === undefined) return
+    if (result.repos.length !== 1 || path === undefined) return null
     if (
       !folder.replaceAll("\\", "/").startsWith(`${path.replaceAll("\\", "/")}/`)
     )
-      return
+      return null
     if (surface.kind === "folder") {
-      if (surface.path === folder)
-        await this.enterSurface(scope, { kind: "folder", path })
-      return
+      if (surface.path !== folder) return null
+      const target = { kind: "folder", path } as const
+      return (await this.enterSurface(scope, target)) ? target : null
     }
     const courseId = activeCourseIdFromSurface(surface)
     const state = useCourseStore.getState()
@@ -351,6 +351,7 @@ export class SessionController extends CourseMutationController {
       state.course.searchFolder === folder
     )
       state.setSearchFolder(path)
+    return null
   }
 
   setActiveTab(tab: ActiveTab): void {
