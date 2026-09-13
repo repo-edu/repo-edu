@@ -16,7 +16,6 @@ import {
   AnalysisCoordinatorProvider,
   selectCurrentAnalysisResult,
   selectCurrentBlameResult,
-  selectEffectiveDiscoveryOutcome,
   useAnalysisAuthorView,
   useAnalysisBlameProgress,
   useAnalysisBlameResult,
@@ -208,6 +207,8 @@ async function mountCoordinator(
       else Reflect.deleteProperty(globalThis, key)
     }
   })
+  // A search starts only from the click, so a test that supplies a search
+  // presses Start once the tab is up.
   await React.act(async () => {
     const Mode = options.strictEffects ? React.StrictMode : React.Fragment
     root.render(
@@ -233,6 +234,13 @@ async function mountCoordinator(
     )
     await flushQueries()
   })
+  if (discover && course.searchFolder !== null) {
+    const folder = course.searchFolder
+    await React.act(async () => {
+      value?.runRepoDiscovery(folder)
+      await flushQueries()
+    })
+  }
   return {
     controller,
     queryClient,
@@ -429,7 +437,7 @@ describe("analysis runner lifetime in React", () => {
       await flushQueries()
     })
     assert.equal(calls, 1)
-    assert.equal(read().lastDiscoveryOutcome, "cancelled")
+    assert.equal(read().discoveryCompleted, false)
     await React.act(async () => {
       read().runRepoDiscovery("/repos")
       await flushQueries()
@@ -439,7 +447,7 @@ describe("analysis runner lifetime in React", () => {
       await flushQueries()
     })
     assert.equal(calls, 2)
-    assert.equal(read().lastDiscoveryOutcome, "completed")
+    assert.equal(read().discoveryCompleted, true)
     assert.deepEqual(read().discoveredRepos, [])
   })
 
@@ -573,7 +581,8 @@ describe("analysis runner lifetime in React", () => {
       read().cancelDiscovery()
       await flushQueries()
     })
-    assert.equal(read().lastDiscoveryOutcome, "cancelled")
+    assert.equal(read().discoveryStatus, "idle")
+    assert.equal(read().discoveredRepos.length, repos.length)
     pause = true
     await React.act(async () => {
       read().runAnalysis(repos[0])
@@ -590,7 +599,6 @@ describe("analysis runner lifetime in React", () => {
       await controller.waitForIdle()
       await flushQueries()
     })
-    assert.equal(read().lastDiscoveryOutcome, "cancelled")
     const queries = queryClient
       .getQueryCache()
       .findAll({ queryKey: repoResults(repos[0]) })
@@ -668,7 +676,6 @@ describe("analysis sidebar admission", () => {
           await flushQueries()
         })
         assert.equal(signal.aborted, false)
-        assert.equal(read().lastDiscoveryOutcome, "none")
         button.setAttribute(
           sessionCancellationControl,
           "analysis.discoverRepos",
@@ -687,7 +694,6 @@ describe("analysis sidebar admission", () => {
           await flushQueries()
         })
         assert.equal(signal.aborted, true)
-        assert.equal(read().lastDiscoveryOutcome, "cancelled")
       }
       assert.equal(commandStarted, false)
       assert.ok(container.querySelector('[role="status"]'))
@@ -713,10 +719,7 @@ describe("analysis sidebar admission", () => {
         await flushQueries()
       })
       assert.equal(searchCalls, 1)
-      assert.equal(
-        read().lastDiscoveryOutcome,
-        ending === "completion" ? "completed" : "cancelled",
-      )
+      assert.equal(read().discoveryCompleted, ending === "completion")
     })
   }
 
@@ -784,30 +787,6 @@ describe("analysis sidebar admission", () => {
 })
 
 describe("analysis query value projection", () => {
-  it("derives discovery completion unless cancellation masks query success", () => {
-    assert.equal(
-      selectEffectiveDiscoveryOutcome({
-        commandOutcome: "none",
-        discoveryIsSuccess: false,
-      }),
-      "none",
-    )
-    assert.equal(
-      selectEffectiveDiscoveryOutcome({
-        commandOutcome: "none",
-        discoveryIsSuccess: true,
-      }),
-      "completed",
-    )
-    assert.equal(
-      selectEffectiveDiscoveryOutcome({
-        commandOutcome: "cancelled",
-        discoveryIsSuccess: true,
-      }),
-      "cancelled",
-    )
-  })
-
   it("hides previous analysis data while the current query is errored", () => {
     const result = makeBaseResult()
 

@@ -178,7 +178,7 @@ export function RepositoriesSection({
     discoveryStatus,
     discoveryError,
     discoveryCurrentFolder,
-    lastDiscoveryOutcome,
+    discoveryCompleted,
   } = useAnalysisDiscovery()
   const { selectedRepoPath, selectRepository } = useAnalysisSelection()
   const searchFolder = analysisContext.searchFolder
@@ -293,7 +293,7 @@ export function RepositoriesSection({
 
       {discoveryStatus === "idle" &&
         searchFolder !== null &&
-        lastDiscoveryOutcome === "completed" &&
+        discoveryCompleted &&
         discoveredRepos.length === 0 && (
           <Text className="text-xs text-muted-foreground">
             No repositories found.

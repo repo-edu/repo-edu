@@ -16,12 +16,6 @@ export type AnalysisView = "authors" | "files" | "blame" | "examination"
 
 export type AnalysisFileSelectionMode = "all" | "subset"
 
-export type AnalysisDiscoveryOutcome = "none" | "completed" | "cancelled"
-export type AnalysisDiscoveryCommandOutcome = Exclude<
-  AnalysisDiscoveryOutcome,
-  "completed"
->
-
 export type AnalysisDiscoveryRequest = {
   readonly folder: string
   readonly depth: number
@@ -34,8 +28,6 @@ type DiscoveredRepoPath = {
 export type AnalysisState = {
   selectedRepoPaths: Map<string, string>
   pendingRepoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
-  lastDiscoveryOutcomesByScope: Map<string, AnalysisDiscoveryCommandOutcome>
-  autoDiscoveryRequestsByScope: Map<string, AnalysisDiscoveryRequest>
   searchDepth: number
   blameConfig: AnalysisBlameConfig
 
@@ -71,14 +63,6 @@ export type AnalysisActions = {
   setPendingRepoDiscoveryRequest: (
     scopeKey: string,
     request: AnalysisDiscoveryRequest | null,
-  ) => void
-  setLastDiscoveryOutcome: (
-    scopeKey: string,
-    outcome: AnalysisDiscoveryCommandOutcome,
-  ) => void
-  markAutoDiscoveryRequest: (
-    scopeKey: string,
-    request: AnalysisDiscoveryRequest,
   ) => void
   setSearchDepth: (depth: number) => void
   setBlameConfig: (patch: Partial<AnalysisBlameConfig>) => void
@@ -126,8 +110,6 @@ function createInitialAnalysisState(): AnalysisState {
   return {
     selectedRepoPaths: new Map(),
     pendingRepoDiscoveryRequestsByScope: new Map(),
-    lastDiscoveryOutcomesByScope: new Map(),
-    autoDiscoveryRequestsByScope: new Map(),
     searchDepth: 5,
     blameConfig: {
       copyMove: DEFAULT_BLAME_COPY_MOVE,
@@ -179,30 +161,6 @@ export function selectPendingRepoDiscoveryRequestForScope(
   scopeKey: string,
 ): AnalysisDiscoveryRequest | null {
   return selectScopedValue(state.pendingRepoDiscoveryRequestsByScope, scopeKey)
-}
-
-export function selectLastDiscoveryOutcomeForScope(
-  state: AnalysisState,
-  scopeKey: string,
-): AnalysisDiscoveryCommandOutcome {
-  return (
-    selectScopedValue(state.lastDiscoveryOutcomesByScope, scopeKey) ?? "none"
-  )
-}
-
-export function selectAutoDiscoveryRequestForScope(
-  state: AnalysisState,
-  scopeKey: string,
-): AnalysisDiscoveryRequest | null {
-  return selectScopedValue(state.autoDiscoveryRequestsByScope, scopeKey)
-}
-
-export function analysisDiscoveryRequestsEqual(
-  left: AnalysisDiscoveryRequest | null,
-  right: AnalysisDiscoveryRequest | null,
-): boolean {
-  if (left === null || right === null) return left === right
-  return left.folder === right.folder && left.depth === right.depth
 }
 
 export function selectEffectiveSelectedRepoPath(params: {
@@ -296,22 +254,6 @@ export const useAnalysisStore = create<AnalysisState & AnalysisActions>(
       set((state) => ({
         pendingRepoDiscoveryRequestsByScope: nextScopedMap(
           state.pendingRepoDiscoveryRequestsByScope,
-          scopeKey,
-          request,
-        ),
-      })),
-    setLastDiscoveryOutcome: (scopeKey, outcome) =>
-      set((state) => ({
-        lastDiscoveryOutcomesByScope: nextScopedMap(
-          state.lastDiscoveryOutcomesByScope,
-          scopeKey,
-          outcome === "none" ? null : outcome,
-        ),
-      })),
-    markAutoDiscoveryRequest: (scopeKey, request) =>
-      set((state) => ({
-        autoDiscoveryRequestsByScope: nextScopedMap(
-          state.autoDiscoveryRequestsByScope,
           scopeKey,
           request,
         ),

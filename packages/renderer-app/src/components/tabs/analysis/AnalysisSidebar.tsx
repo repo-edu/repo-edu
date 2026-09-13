@@ -451,7 +451,7 @@ export function AnalysisSidebar() {
               ) : (
                 <Button disabled={!searchFolder} onClick={handleSearchRepos}>
                   <Play className="mr-1 size-4" />
-                  Search Repos
+                  Start
                 </Button>
               ))}
             <Tooltip>

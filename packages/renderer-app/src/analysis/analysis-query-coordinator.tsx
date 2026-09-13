@@ -34,12 +34,9 @@ import {
   canAdmitSessionChange,
 } from "../session/session-reducer.js"
 import {
-  type AnalysisDiscoveryCommandOutcome,
-  type AnalysisDiscoveryOutcome,
   type AnalysisDiscoveryRequest,
   selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
-  selectLastDiscoveryOutcomeForScope,
   selectPendingRepoDiscoveryRequestForScope,
   selectSelectedAuthorsForScope,
   selectSelectedFilesForScope,
@@ -88,7 +85,7 @@ export type AnalysisDiscoveryValue = {
   discoveryStatus: DiscoveryStatus
   discoveryError: string | null
   discoveryCurrentFolder: string | null
-  lastDiscoveryOutcome: AnalysisDiscoveryOutcome
+  discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
   cancelDiscovery: () => void
 }
@@ -226,14 +223,6 @@ function toAppErrorMessage(error: unknown, fallback: string): string {
   return getErrorMessage(error, fallback)
 }
 
-export function selectEffectiveDiscoveryOutcome(params: {
-  commandOutcome: AnalysisDiscoveryCommandOutcome
-  discoveryIsSuccess: boolean
-}): AnalysisDiscoveryOutcome {
-  if (params.commandOutcome === "cancelled") return "cancelled"
-  return params.discoveryIsSuccess ? "completed" : "none"
-}
-
 export function selectCurrentAnalysisResult(params: {
   snapshotCommitOid: string | null
   analysisIsFetching: boolean
@@ -287,17 +276,8 @@ export function AnalysisCoordinatorProvider({
   const discoveryInput = useAnalysisStore((state) =>
     selectPendingRepoDiscoveryRequestForScope(state, activeSourceText),
   )
-  const commandDiscoveryOutcome = useAnalysisStore((state) =>
-    selectLastDiscoveryOutcomeForScope(state, activeSourceText),
-  )
   const setPendingRepoDiscoveryRequest = useAnalysisStore(
     (state) => state.setPendingRepoDiscoveryRequest,
-  )
-  const setLastDiscoveryOutcome = useAnalysisStore(
-    (state) => state.setLastDiscoveryOutcome,
-  )
-  const markAutoDiscoveryRequest = useAnalysisStore(
-    (state) => state.markAutoDiscoveryRequest,
   )
   const searchDepth = useAnalysisStore((state) => state.searchDepth)
   const blameConfig = useAnalysisStore((state) => state.blameConfig)
@@ -386,25 +366,6 @@ export function AnalysisCoordinatorProvider({
     () => new AnalysisDiscoveryRunner(client, queryClient),
     [client, queryClient],
   )
-  useEffect(() => {
-    if (
-      !canStartQueries ||
-      discoveryInput === null ||
-      commandDiscoveryOutcome === "cancelled"
-    )
-      return
-    void discoveryRunner
-      .run(activeSourceParts, activeSurface, discoveryInput)
-      .catch(() => {})
-  }, [
-    canStartQueries,
-    commandDiscoveryOutcome,
-    discoveryInput,
-    discoveryRunner,
-    activeSourceParts,
-    activeSurface,
-  ])
-
   const discoveryCurrentFolder = useAnalysisTransientStore(
     (state) => state.discoveryProgress?.currentFolder ?? null,
   )
@@ -432,10 +393,7 @@ export function AnalysisCoordinatorProvider({
   const discoveryError = discoveryQuery.isError
     ? toAppErrorMessage(discoveryQuery.error, "Discovery failed")
     : null
-  const lastDiscoveryOutcome = selectEffectiveDiscoveryOutcome({
-    commandOutcome: commandDiscoveryOutcome,
-    discoveryIsSuccess: discoveryQuery.isSuccess,
-  })
+  const discoveryCompleted = discoveryQuery.isSuccess
 
   useEffect(() => {
     if (!canStartQueries || discoveryQuery.isFetching) {
@@ -697,14 +655,14 @@ export function AnalysisCoordinatorProvider({
     [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
   )
 
+  // The click is the only start of a search: the stored request keys the
+  // listing the tab shows, and nothing re-runs it on its own.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
       client.change(() => {
         const input: AnalysisDiscoveryRequest = { folder, depth: searchDepth }
         sourceRunner?.restart()
-        setLastDiscoveryOutcome(activeSourceText, "none")
-        markAutoDiscoveryRequest(activeSourceText, input)
         refreshSourceSnapshotHeadQueries(queryClient, activeSourceParts)
         void queryClient.invalidateQueries({
           queryKey: analysisQueryKeys.discovery(
@@ -716,26 +674,28 @@ export function AnalysisCoordinatorProvider({
           refetchType: "none",
         })
         setPendingRepoDiscoveryRequest(activeSourceText, input)
+        void discoveryRunner
+          .run(activeSourceParts, activeSurface, input)
+          .catch(() => {})
       })
     },
     [
       client,
       sourceRunner,
+      discoveryRunner,
       activeSourceParts,
       activeSourceText,
-      markAutoDiscoveryRequest,
+      activeSurface,
       queryClient,
       searchDepth,
-      setLastDiscoveryOutcome,
       setPendingRepoDiscoveryRequest,
     ],
   )
 
   const cancelDiscovery = useCallback(() => {
-    setLastDiscoveryOutcome(activeSourceText, "cancelled")
     sourceRunner?.cancel()
     discoveryRunner.cancel()
-  }, [sourceRunner, discoveryRunner, activeSourceText, setLastDiscoveryOutcome])
+  }, [sourceRunner, discoveryRunner])
 
   const selectRepository = useCallback(
     (repoPath: string | null) => {
@@ -750,7 +710,7 @@ export function AnalysisCoordinatorProvider({
       discoveryStatus,
       discoveryError,
       discoveryCurrentFolder,
-      lastDiscoveryOutcome,
+      discoveryCompleted,
       runRepoDiscovery,
       cancelDiscovery,
     }),
@@ -760,7 +720,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCurrentFolder,
       discoveryError,
       discoveryStatus,
-      lastDiscoveryOutcome,
+      discoveryCompleted,
       runRepoDiscovery,
     ],
   )

@@ -8,32 +8,17 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo-edu/ui"
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { useAnalysisDiscovery } from "../../analysis/analysis-query-coordinator.js"
-import {
-  analysisSourceKeyParts,
-  analysisSourceScopeKey,
-} from "../../analysis/analysis-query-keys.js"
+import { useCallback, useEffect, useRef } from "react"
 import {
   ANALYSIS_SIDEBAR_DEFAULT_WIDTH_PX,
   ANALYSIS_SIDEBAR_MAX_WIDTH_PX,
   ANALYSIS_SIDEBAR_MIN_WIDTH_PX,
 } from "../../constants/layout.js"
 import { useAnalysisContext } from "../../hooks/use-analysis-context.js"
+import { selectPreferences } from "../../session/selectors.js"
+import { useSessionController } from "../../session/session-controller-context.js"
 import {
-  selectActiveSurface,
-  selectPreferences,
-} from "../../session/selectors.js"
-import {
-  useSessionController,
-  useSessionControllerSelector,
-} from "../../session/session-controller-context.js"
-import { analysisSourceKeyFromSurface } from "../../session/session-reducer.js"
-import {
-  type AnalysisDiscoveryRequest,
   type AnalysisView,
-  analysisDiscoveryRequestsEqual,
-  selectAutoDiscoveryRequestForScope,
   useAnalysisStore,
 } from "../../stores/analysis-store.js"
 import { AnalysisSidebar } from "./analysis/AnalysisSidebar.js"
@@ -99,52 +84,6 @@ function RepositoryAnalysisTabContent() {
       setActiveView("authors")
     }
   }, [blameSkip, canShowExamination, activeView, setActiveView])
-
-  const { runRepoDiscovery, discoveredRepos, discoveryStatus } =
-    useAnalysisDiscovery()
-  const searchFolder = analysisContext.searchFolder
-  const activeSurface = useSessionControllerSelector(selectActiveSurface)
-  const activeSourceParts = useMemo(
-    () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
-    [activeSurface],
-  )
-  const activeSourceText = useMemo(
-    () => analysisSourceScopeKey(activeSourceParts),
-    [activeSourceParts],
-  )
-  const searchDepth = useAnalysisStore((state) => state.searchDepth)
-  const autoDiscoveryRequest = useMemo<AnalysisDiscoveryRequest | null>(
-    () =>
-      searchFolder === null
-        ? null
-        : {
-            folder: searchFolder,
-            depth: searchDepth,
-          },
-    [searchDepth, searchFolder],
-  )
-  const markedAutoDiscoveryRequest = useAnalysisStore((state) =>
-    selectAutoDiscoveryRequestForScope(state, activeSourceText),
-  )
-  const hasDiscoveredRepos = discoveredRepos.length > 0
-  const runRepoDiscoveryRef = useRef(runRepoDiscovery)
-  runRepoDiscoveryRef.current = runRepoDiscovery
-  useEffect(() => {
-    if (autoDiscoveryRequest === null) return
-    if (discoveryStatus === "loading") return
-    const shouldAutoDiscover =
-      !analysisDiscoveryRequestsEqual(
-        markedAutoDiscoveryRequest,
-        autoDiscoveryRequest,
-      ) && !hasDiscoveredRepos
-    if (!shouldAutoDiscover) return
-    void runRepoDiscoveryRef.current(autoDiscoveryRequest.folder)
-  }, [
-    autoDiscoveryRequest,
-    discoveryStatus,
-    hasDiscoveredRepos,
-    markedAutoDiscoveryRequest,
-  ])
 
   const handleLayoutChanged = useCallback(() => {
     const panel = sidebarPanelRef.current
