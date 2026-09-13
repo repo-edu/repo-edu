@@ -33,7 +33,7 @@ test("startup finishes daily updates before read-only settings discovery", async
     (await f.calls()).map((call) => [call.assistant, call.args[0]]),
     [
       ["claude", "update"],
-      ["codex", "update"],
+      ["codex", "--version"],
       ["claude", "-p"],
       ["codex", "app-server"],
     ],
@@ -46,8 +46,10 @@ test("startup finishes daily updates before read-only settings discovery", async
   await prepareAssistants(f.runtime, output, { cacheRoot, now })
   assert.equal(
     (await f.calls()).filter((call) => call.args[0] === "update").length,
-    2,
+    1,
   )
+  assert.ok(messages.includes("Codex is up to date (1.0.0)"))
+  assert.equal(f.releaseLookup.mock.callCount(), 1)
   const requests = (await readFile(join(f.root, "requests.jsonl"), "utf8"))
     .trim()
     .split("\n")
@@ -81,7 +83,7 @@ test("startup finishes daily updates before read-only settings discovery", async
 })
 
 test("only failed updates repeat and an unavailable cache warns", async (t) => {
-  const f = await fixture(t, { updateFail: "codex" })
+  const f = await fixture(t, { version: "0.9.0", updateFail: "codex" })
   const warnings: string[] = []
   const output = {
     message: async () => {},
@@ -91,10 +93,12 @@ test("only failed updates repeat and an unavailable cache warns", async (t) => {
   }
   const cacheRoot = join(f.root, "cache")
   await updateClis(f.runtime, output, cacheRoot, now)
-  await f.configure({})
+  await f.configure({ version: "0.9.0", updatedVersion: "1.0.0" })
   await updateClis(f.runtime, output, cacheRoot, now)
   assert.deepEqual(
-    (await f.calls()).map((call) => call.assistant),
+    (await f.calls())
+      .filter((call) => call.args[0] === "update")
+      .map((call) => call.assistant),
     ["claude", "codex", "codex"],
   )
   assert.ok(warnings.some((warning) => warning.includes("codex update failed")))

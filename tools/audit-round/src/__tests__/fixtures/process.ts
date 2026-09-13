@@ -16,14 +16,24 @@ function send(value: unknown) {
 }
 
 if (args[0] === "--version") {
-  console.log(`${assistant} fixture CLI 1.0.0`)
-  process.exit(0)
+  console.log(
+    scenario.versionOutput ?? `${assistant}-cli ${scenario.version ?? "1.0.0"}`,
+  )
+  process.exit(scenario.versionExit ?? 0)
 }
 
 if (args[0] === "update") {
-  console.log(`${assistant} update output`)
+  console.log(scenario.updateOutput ?? `${assistant} update output`)
+  if (scenario.updateStderr) process.stderr.write(scenario.updateStderr)
   if (scenario.updateWait) await new Promise(() => setInterval(() => {}, 1000))
-  process.exit(scenario.updateFail === assistant ? 7 : 0)
+  if (scenario.updateFail === assistant) process.exit(7)
+  if (assistant === "codex" && scenario.updatedVersion !== undefined) {
+    await writeFile(
+      join(root, "scenario.json"),
+      JSON.stringify({ ...scenario, version: scenario.updatedVersion }),
+    )
+  }
+  process.exit(0)
 }
 
 if (args[0] === "app-server") {

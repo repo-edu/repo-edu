@@ -66,7 +66,13 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 - `startup.ts` owns where the shared `audit-round` cache lives and shares its
   update dates with the Bash runner. `resolveCacheRoot` is that one owner, so
   the update stamps and the watch record the glance reads resolve the same way.
-  Both update attempts precede settings discovery. Claude control
+  Both update checks precede settings discovery. Codex compares its installed
+  version with the standalone installer's release channel before running its
+  updater. A current or newer installation is kept. An update is successful
+  only when a fresh version read reaches the checked release or a newer one.
+  Installer output is retained for failure diagnostics, since its success
+  banner does not prove a version change. Failed checks and unverified updates
+  leave the date unstamped so the next run retries. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command. Claude uses

@@ -45,6 +45,9 @@ export async function fixture(
   t: TestContext,
   scenario: Record<string, unknown> = {},
 ) {
+  const releaseLookup = t.mock.method(globalThis, "fetch", async () =>
+    Response.json({ tag_name: "rust-v1.0.0" }),
+  )
   const root = await mkdtemp(join(tmpdir(), "audit-round-test-"))
   t.after(() => rm(root, { recursive: true, force: true }))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
@@ -82,6 +85,7 @@ export async function fixture(
     },
   }
   return {
+    releaseLookup,
     root,
     runtime,
     output,

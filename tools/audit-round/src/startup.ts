@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { ExecaError } from "execa"
+import { compare, valid } from "semver"
+import { z } from "zod"
 import { readClaudeSettings } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { readCodexSettings } from "./codex-settings.js"
@@ -15,6 +17,121 @@ export type StartupOutput = {
 
 function localDate(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+}
+
+/** An update can be retried; a failed output writer must stop the round. */
+class UpdateCheckError extends Error {}
+
+function codexVersion(text: string, prefix: string): string {
+  const version = text.startsWith(prefix)
+    ? valid(text.slice(prefix.length))
+    : null
+  if (version === null)
+    throw new UpdateCheckError(`Invalid Codex version: ${text}`)
+  return version
+}
+
+async function installedCodexVersion(
+  runtime: CliRuntime,
+  output: StartupOutput,
+): Promise<string> {
+  const lines: string[] = []
+  await withCliProcess(
+    runtime,
+    "codex",
+    ["--version"],
+    "",
+    (child) =>
+      readCliLines(child, "stdout", async (line) => {
+        lines.push(line)
+      }),
+    output.message,
+  )
+  return codexVersion(lines.join("\n").trim(), "codex-cli ")
+}
+
+async function latestCodexVersion(runtime: CliRuntime): Promise<string> {
+  try {
+    // This is the standalone installer's own latest-release channel.
+    const response = await fetch(
+      "https://releases.openai.com/codex/channels/latest",
+      {
+        signal: AbortSignal.any([
+          AbortSignal.timeout(30_000),
+          ...(runtime.signal === undefined ? [] : [runtime.signal]),
+        ]),
+      },
+    )
+    if (!response.ok)
+      throw new Error(`Release lookup returned HTTP ${response.status}`)
+    const release = z
+      .object({ tag_name: z.string() })
+      .parse(await response.json())
+    return codexVersion(release.tag_name, "rust-v")
+  } catch (error) {
+    runtime.signal?.throwIfAborted()
+    throw new UpdateCheckError(
+      `Cannot check the latest Codex release: ${errorMessage(error)}`,
+      { cause: error },
+    )
+  }
+}
+
+async function updateCodex(
+  runtime: CliRuntime,
+  output: StartupOutput,
+): Promise<void> {
+  const current = await installedCodexVersion(runtime, output)
+  const latest = await latestCodexVersion(runtime)
+  runtime.signal?.throwIfAborted()
+  const difference = compare(current, latest)
+  if (difference >= 0) {
+    await output.message(
+      difference === 0
+        ? `Codex is up to date (${current})`
+        : `Codex ${current} is newer than the latest release (${latest}); keeping the installed version`,
+    )
+    return
+  }
+  await output.message(`Updating Codex from ${current} to ${latest}...`)
+  const installed = await installCodex(runtime, output, latest)
+  await output.message(`Codex updated from ${current} to ${installed}`)
+}
+
+async function installCodex(
+  runtime: CliRuntime,
+  output: StartupOutput,
+  latest: string,
+): Promise<string> {
+  // The installer announces success even when it changed nothing. Keep its
+  // output for failure diagnostics; only the verified version proves an update.
+  const diagnostics: string[] = []
+  const record = async (line: string) => {
+    diagnostics.push(line)
+  }
+  try {
+    await withCliProcess(
+      runtime,
+      "codex",
+      ["update"],
+      "",
+      (child) => readCliLines(child, "stdout", record),
+      record,
+    )
+    const version = await installedCodexVersion(runtime, output)
+    runtime.signal?.throwIfAborted()
+    if (compare(version, latest) < 0)
+      throw new UpdateCheckError(
+        `Codex update was not verified: expected ${latest} or newer, but the command still reports ${version}`,
+      )
+    return version
+  } catch (error) {
+    if (diagnostics.length > 0) {
+      await output.message("Codex updater diagnostics (update not verified):")
+      for (const line of diagnostics) await output.message(line)
+    }
+    throw error
+  }
 }
 
 export async function updateClis(
@@ -44,19 +161,21 @@ export async function updateClis(
     }
     await output.message(`Checking ${assistant} updates...`)
     try {
-      await withCliProcess(
-        runtime,
-        assistant,
-        ["update"],
-        "",
-        async (child) => {
-          await readCliLines(child, "stdout", output.message)
-        },
-        output.message,
-      )
+      if (assistant === "codex") await updateCodex(runtime, output)
+      else
+        await withCliProcess(
+          runtime,
+          assistant,
+          ["update"],
+          "",
+          async (child) => {
+            await readCliLines(child, "stdout", output.message)
+          },
+          output.message,
+        )
     } catch (error) {
       if (
-        !(error instanceof ExecaError) ||
+        !(error instanceof ExecaError || error instanceof UpdateCheckError) ||
         runtime.signal?.aborted ||
         (error instanceof ExecaError && error.isCanceled)
       )
