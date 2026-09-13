@@ -36,6 +36,7 @@ import {
   type SessionControllerSnapshot,
 } from "./session-reducer.js"
 import {
+  type SessionOperationIntent,
   SessionSurfaceTransactions,
   type SessionTransactionScope,
 } from "./session-surface-transactions.js"
@@ -53,12 +54,18 @@ type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
     : never
 }
 
+/** A body never supplies its own signal: the reservation owns cancellation. */
+type ScopedCallOptions<K extends WorkflowId> = Omit<CallOptions<K>, "signal">
+
 export type SessionOperationScope = {
+  /** Aborts when this operation is stopped. Every host call already carries
+   * it; read it to skip work a stop has overtaken. */
+  readonly signal: AbortSignal
   preparePersistence(commit: CommitPersistencePreparation): Promise<void>
   run<K extends SessionWorkflowId>(
     id: K,
     input: WorkflowInput<K>,
-    options?: CallOptions<K>,
+    options?: ScopedCallOptions<K>,
   ): Promise<WorkflowResult<K>>
   direct<T>(id: SessionDirectId, start: () => Promise<T>): Promise<T>
   /** Hold asynchronous callback work, publication and semantic follow-up. */
@@ -81,6 +88,8 @@ export type SessionOperationScope = {
 
 export type SessionOperationReservation<T> = {
   run(body: (scope: SessionOperationScope) => Promise<T>): Promise<T>
+  /** End this operation's host work, whether or not its body has started. */
+  stop(): void
   cancel(error?: unknown): Promise<T>
 }
 
@@ -88,6 +97,7 @@ export type SessionOperationGateway = {
   execute<T>(
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
+    intent?: SessionOperationIntent,
   ): Promise<T | undefined>
   presentation<K extends PresentationWorkflowId>(
     id: K,
@@ -100,8 +110,10 @@ export type SessionOperationGateway = {
   ): Promise<T>
   reserve<T>(
     operation: SessionOperationId,
+    intent?: SessionOperationIntent,
   ): SessionOperationReservation<T> | null
-  hasWaitingBody(): boolean
+  /** Stop every live reservation for this operation. */
+  stop(operation: SessionOperationId): void
   change(apply: () => void): boolean
 }
 
@@ -138,8 +150,9 @@ export class SessionOperations extends SessionSurfaceTransactions {
     execute: async <T>(
       operation: SessionOperationId,
       body: (scope: SessionOperationScope) => Promise<T>,
+      intent?: SessionOperationIntent,
     ) => {
-      const reservation = this.reserveOperation<T>(operation)
+      const reservation = this.reserveOperation<T>(operation, intent)
       if (reservation === null) return undefined
       return await reservation.run(body)
     },
@@ -151,11 +164,13 @@ export class SessionOperations extends SessionSurfaceTransactions {
         throw new Error("The session is not accepting presentation calls.")
       return await start()
     },
-    reserve: (operation) => this.reserveOperation(operation),
-    hasWaitingBody: () => {
-      const { admitted, runningTurnId } = this.snapshot().transactions
-      return [...admitted.keys()].some((turnId) => turnId !== runningTurnId)
-    },
+    reserve: (operation, intent) => this.reserveOperation(operation, intent),
+    stop: (operation) =>
+      this.stopMatching(
+        (descriptor) =>
+          (descriptor.kind === "operation" || descriptor.kind === "command") &&
+          descriptor.operation === operation,
+      ),
     change: (apply) => {
       if (!canAdmitSessionChange(this.snapshot())) return false
       apply()
@@ -177,15 +192,17 @@ export class SessionOperations extends SessionSurfaceTransactions {
 
   private reserveOperation<T>(
     operation: SessionOperationId,
+    intent?: SessionOperationIntent,
   ): SessionOperationReservation<T> | null {
-    const reservation = this.reserve<T>({
-      kind: sessionOperationKind(operation),
-      operation,
-    })
+    const reservation = this.reserve<T>(
+      { kind: sessionOperationKind(operation), operation },
+      intent,
+    )
     if (reservation === null) return null
     return {
       run: (body) =>
         reservation.run((scope) => this.runBody(scope, operation, body)),
+      stop: reservation.stop,
       cancel: reservation.cancel,
     }
   }
@@ -222,6 +239,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
       return apply()
     }
     return {
+      signal: scope.signal,
       preparePersistence: (commit) =>
         scope.required(() => {
           if (
@@ -275,7 +293,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
     operation: SessionOperationId,
     id: K,
     input: WorkflowInput<K>,
-    options?: CallOptions<K>,
+    options?: ScopedCallOptions<K>,
     command?: ExclusiveBodyClient,
   ): Promise<WorkflowResult<K>> {
     const callback = <T>(apply: ((event: T) => void) | undefined) =>
@@ -317,7 +335,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
             : (values: never) =>
                 scope.required(async () => applyAuthoritative(values)),
         settlementInput: options?.settlementInput,
-        signal: options?.signal,
+        signal: scope.signal,
         onProgress: callback(options?.onProgress),
         onOutput: callback(options?.onOutput),
       }

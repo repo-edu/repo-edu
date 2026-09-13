@@ -427,8 +427,8 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().blameResult, makeBlameResult())
   })
 
-  for (const ending of ["pause", "cancel"] as const) {
-    it(`${ending === "pause" ? "resumes a paused" : "keeps a cancelled"} repository pass after command retirement`, {
+  for (const ending of ["command", "cancel"] as const) {
+    it(`keeps the repository pass stopped after a ${ending} ended it`, {
       timeout: 3000,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
@@ -462,20 +462,20 @@ describe("analysis runner lifetime in React", () => {
         await command
         await flushQueries()
       })
+      // Command retirement is not a start trigger, so neither ending resumes.
       await React.act(async () => {
         await controller.waitForIdle()
         controller.setDisplayName("course", "Renamed")
         await flushQueries()
       })
-      assert.equal(calls, ending === "cancel" ? 1 : repos.length + 1)
-      if (ending === "cancel") {
-        await React.act(async () => {
-          read().runAnalysis(repos[0])
-          await controller.waitForIdle()
-          await flushQueries()
-        })
-        assert.equal(calls, repos.length + 1)
-      }
+      assert.equal(calls, 1)
+      assert.equal(read().result, null)
+      await React.act(async () => {
+        read().runAnalysis(repos[0])
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.equal(calls, repos.length + 1)
       assert.deepEqual(read().result, makeBaseResult())
     })
   }
@@ -688,7 +688,7 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, result)
   })
 
-  it("keeps a later analysis after discovery was cancelled and selection moves", {
+  it("restarts the pass on the newly selected repository and still caches the rest", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -722,21 +722,25 @@ describe("analysis runner lifetime in React", () => {
       await flushQueries()
     })
     const signal = await entered.promise
+    // Selecting another repository is a new start, so the pass it replaces
+    // stops and the repository the user is looking at goes first.
     await React.act(async () => {
       read().selectRepository(repos[1])
       await flushQueries()
     })
-    assert.equal(signal.aborted, false)
+    assert.equal(signal.aborted, true)
     await React.act(async () => {
       release.resolve()
       await controller.waitForIdle()
       await flushQueries()
     })
-    const queries = queryClient
-      .getQueryCache()
-      .findAll({ queryKey: repoResults(repos[0]) })
-    assert.equal(queries.length, 1)
-    assert.deepEqual(queries[0]?.state.data, result)
+    for (const repoPath of repos) {
+      const queries = queryClient
+        .getQueryCache()
+        .findAll({ queryKey: repoResults(repoPath) })
+      assert.equal(queries.length, 1)
+      assert.deepEqual(queries[0]?.state.data, result)
+    }
   })
 })
 
@@ -746,7 +750,7 @@ describe("analysis sidebar admission", () => {
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
 
-  it("keeps search cancellation available while the remaining analysis waits behind the picker", {
+  it("stops the repository pass for a search folder pick and cancels the search itself", {
     timeout: 3000,
   }, async (t) => {
     const analysisEntered = deferred<void>()
@@ -789,6 +793,14 @@ describe("analysis sidebar admission", () => {
       await flushQueries()
     })
     await analysisEntered.promise
+    await React.act(flushQueries)
+    const cancelLabel = (label: string) =>
+      Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent?.trim() === label,
+      )
+    const cancelSource = cancelLabel("Cancel")
+    assert.ok(cancelSource)
+    assert.equal(isDisabled(cancelSource), false)
     const browse = container
       .querySelector(".lucide-folder-open")
       ?.closest("button")
@@ -800,22 +812,12 @@ describe("analysis sidebar admission", () => {
     })
     const signal = await searchEntered.promise
     await React.act(flushQueries)
-    const buttons = Array.from(container.querySelectorAll("button"))
-    const cancelSource = buttons.find(
-      (button) => button.textContent?.trim() === "Cancel",
-    )
-    const cancelSearch = buttons.find(
-      (button) => button.textContent?.trim() === "Cancel Search",
-    )
-    assert.ok(cancelSource)
+    // The pick is work the user asked for, so the background pass stopped and
+    // only the search keeps a Cancel control.
+    assert.equal(cancelLabel("Cancel"), undefined)
+    const cancelSearch = cancelLabel("Cancel Search")
     assert.ok(cancelSearch)
-    assert.equal(isDisabled(cancelSource), false)
     assert.equal(isDisabled(cancelSearch), false)
-    await React.act(async () => {
-      cancelSource.click()
-      await flushQueries()
-    })
-    assert.equal(signal.aborted, false)
     await React.act(async () => {
       cancelSearch.click()
       await flushQueries()

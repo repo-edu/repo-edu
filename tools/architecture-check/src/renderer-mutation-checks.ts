@@ -146,10 +146,20 @@ export function checkRendererMutationSource(
       memberName(node.expression) === "addEventListener"
     ) {
       const event = node.arguments[0]
+      // A reservation's abort signal is not a native input route: it carries
+      // that reservation's own stop, which the session owner already gates.
+      const reservationStop =
+        event !== undefined &&
+        ts.isStringLiteralLike(event) &&
+        event.text === "abort" &&
+        (ts.isPropertyAccessExpression(node.expression) ||
+          ts.isElementAccessExpression(node.expression)) &&
+        memberName(node.expression.expression) === "signal"
       if (
-        !event ||
-        !ts.isStringLiteralLike(event) ||
-        nativeListeners.get(relative) !== event.text
+        !reservationStop &&
+        (!event ||
+          !ts.isStringLiteralLike(event) ||
+          nativeListeners.get(relative) !== event.text)
       )
         report(
           "registers a native event route outside the session input inventory",

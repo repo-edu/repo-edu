@@ -16,11 +16,23 @@ for (const source of [
   "const client = operations.controllerClient",
   'window.addEventListener("paste", changeCourse)',
   "window.addEventListener(event, changeCourse)",
+  'scope.signal.addEventListener("keydown", changeCourse)',
+  "window.signal.addEventListener(event, changeCourse)",
 ]) {
   it(`refuses an unowned renderer route: ${source}`, () => {
     assert.ok(checkRendererMutationSource(feature, source).length > 0)
   })
 }
+
+it("permits a reservation's own stop listener", () => {
+  assert.deepEqual(
+    checkRendererMutationSource(
+      feature,
+      'scope.signal.addEventListener("abort", revert, { once: true })',
+    ),
+    [],
+  )
+})
 
 it("does not exempt newly added session helpers from raw client ownership", () => {
   assert.ok(

@@ -7,7 +7,6 @@ import {
   repositoryAnalysisSummaryMatchesRepoPath,
   submissionSummaryMatchesFolderPath,
 } from "./examination-key-scope.js"
-import { examinationRequestSidecar } from "./examination-request-sidecar.js"
 import {
   createErrorEntry,
   createInitialState,
@@ -595,25 +594,6 @@ export const useExaminationStore = create<
       return true
     },
 
-    cancelGenerationSession: (sourceSessionKey) =>
-      set((state) => {
-        const session = state.sourceSessions.get(sourceSessionKey)
-        const requestId = session?.pendingGenerationRequestId ?? null
-        const entryKey = session?.pendingGenerationEntryKey ?? null
-        if (session === undefined || requestId === null) return state
-        examinationRequestSidecar.abortGeneration(sourceSessionKey, requestId)
-        const sourceSessions = new Map(state.sourceSessions)
-        const entriesByKey = new Map(state.entriesByKey)
-        if (entryKey !== null) entriesByKey.delete(entryKey)
-        sourceSessions.set(sourceSessionKey, {
-          ...session,
-          display: { kind: "idle" },
-          pendingGenerationRequestId: null,
-          pendingGenerationEntryKey: null,
-        })
-        return { sourceSessions, entriesByKey }
-      }),
-
     clearEntry: (key) =>
       set((state) => {
         if (!state.entriesByKey.has(key)) return state
@@ -706,7 +686,6 @@ export const useExaminationStore = create<
       get().invalidateRepositoryAnalysisSource(null),
 
     reset: () => {
-      examinationRequestSidecar.clearAll()
       set(createInitialState())
     },
   }

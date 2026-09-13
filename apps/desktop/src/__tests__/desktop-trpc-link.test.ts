@@ -193,20 +193,14 @@ for (const outcome of ["resolve", "reject"] as const) {
       queryClient.clear()
     })
     await controller.waitForIdle()
-    const abort = new AbortController()
     const running = controller.operations
       .execute("analysis.resolveSnapshotHead", async (scope) => {
         return await queryClient.fetchQuery({
           queryKey: ["snapshot"],
-          ...scopedSessionQueryOptions(
-            scope,
-            (signal) =>
-              scope.run(
-                "analysis.resolveSnapshotHead",
-                { repositoryAbsolutePath: "/repos/one" },
-                { signal },
-              ),
-            abort.signal,
+          ...scopedSessionQueryOptions(scope, () =>
+            scope.run("analysis.resolveSnapshotHead", {
+              repositoryAbsolutePath: "/repos/one",
+            }),
           ),
         })
       })
@@ -225,8 +219,7 @@ for (const outcome of ["resolve", "reject"] as const) {
         "accepted",
       )
     })
-    abort.abort()
-    await queryClient.cancelQueries({ queryKey: ["snapshot"] })
+    controller.operations.stop("analysis.resolveSnapshotHead")
     await flushTransport()
     assert.equal(hostSignal.aborted, true)
     assert.equal(commandStarted, false)

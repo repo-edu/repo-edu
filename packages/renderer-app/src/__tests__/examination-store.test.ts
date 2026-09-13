@@ -12,7 +12,6 @@ import {
   type SourceIdentity,
 } from "../components/tabs/examination/source.js"
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
-import { examinationRequestSidecar } from "../stores/examination-request-sidecar.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 import { clampQuestionCount } from "../stores/examination-store-helpers.js"
 import type {
@@ -197,29 +196,6 @@ describe("examination store", () => {
     const updated = useExaminationStore.getState().entriesByKey.get("entry")
     assert.equal(updated?.streamedResponseCharacterCount, 12)
     assert.equal(updated?.generationProgressLabel, "Receiving model response.")
-  })
-
-  it("owns abort controllers in the request sidecar", () => {
-    const store = activateSession()
-    const controller = new AbortController()
-
-    const started = store.startGenerationSession({
-      sourceSessionKey,
-      entryKey: "session-1",
-      seedQuestions: [],
-      sourceReferences: [],
-      requestedQuestionCount: 4,
-    })
-    if (started === null) throw new Error("Generation did not start.")
-    examinationRequestSidecar.registerGeneration(
-      sourceSessionKey,
-      started.requestId,
-      controller,
-    )
-
-    assert.equal(controller.signal.aborted, false)
-    store.cancelGenerationSession(sourceSessionKey)
-    assert.equal(controller.signal.aborted, true)
   })
 
   it("migrates any loading key to the result archive key on success", () => {
@@ -456,30 +432,15 @@ describe("examination store", () => {
     const summary = store.startSourceSummaryLookup(summaryKey)
     if (lookup === null) throw new Error("Lookup did not start.")
     if (summary === null) throw new Error("Summary lookup did not start.")
-    const lookupController = new AbortController()
-    const summaryController = new AbortController()
-    examinationRequestSidecar.registerLookup(
-      sourceSessionKey,
-      lookup.requestId,
-      lookupController,
-    )
-    examinationRequestSidecar.registerSummary(
-      summaryKey,
-      summary.requestId,
-      summaryController,
-    )
 
     store.invalidateRepositoryAnalysisSource("/repo")
 
-    assert.equal(lookupController.signal.aborted, true)
-    assert.equal(summaryController.signal.aborted, true)
     assert.equal(useExaminationStore.getState().sourceSessions.size, 0)
     assert.equal(useExaminationStore.getState().sourceSummaries.size, 0)
   })
 
-  it("separates soft stop intent from transport cancellation", () => {
+  it("records a soft stop intent without ending the request itself", () => {
     const store = activateSession()
-    const controller = new AbortController()
     const started = store.startGenerationSession({
       sourceSessionKey,
       entryKey: "session-1",
@@ -488,27 +449,18 @@ describe("examination store", () => {
       requestedQuestionCount: 4,
     })
     if (started === null) throw new Error("Generation did not start.")
-    examinationRequestSidecar.registerGeneration(
-      sourceSessionKey,
-      started.requestId,
-      controller,
-    )
 
     store.requestGenerationStop(sourceSessionKey)
 
-    assert.equal(controller.signal.aborted, false)
     assert.equal(
       useExaminationStore.getState().entriesByKey.get("session-1")
         ?.stopRequested,
       true,
     )
-
-    store.cancelGenerationSession(sourceSessionKey)
-
-    assert.equal(controller.signal.aborted, true)
     assert.equal(
-      useExaminationStore.getState().entriesByKey.has("session-1"),
-      false,
+      useExaminationStore.getState().sourceSessions.get(sourceSessionKey)
+        ?.pendingGenerationRequestId,
+      started.requestId,
     )
   })
 

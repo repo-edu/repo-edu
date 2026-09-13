@@ -1,5 +1,11 @@
 import type { SessionTransactionDescriptor } from "./session-reducer.js"
 
+/** What a reservation is for. Work the user asked for keeps its turn until it
+ * finishes or the user stops it. Work the owner started on the user's behalf is
+ * background: entering any reservation stops it and nothing resumes it by
+ * hand. */
+export type SessionOperationIntent = "user-asked" | "background"
+
 type Deferred<T> = {
   promise: Promise<T>
   resolve: (value: T) => void
@@ -19,7 +25,11 @@ export class SessionTransactionScope {
   private acceptingDurableOperations = true
   private readonly settlements = new Set<Promise<Settlement>>()
 
-  constructor(private readonly mayContinue: () => boolean) {}
+  constructor(
+    private readonly mayContinue: () => boolean,
+    /** Aborts when this reservation is stopped. Every host call carries it. */
+    readonly signal: AbortSignal,
+  ) {}
 
   canContinue(): boolean {
     return this.acceptingDurableOperations && this.mayContinue()
@@ -83,7 +93,15 @@ type TransactionBody<T> = (scope: SessionTransactionScope) => Promise<T>
 export type SessionTransactionReservation<T> = {
   turnId: number
   run(body: TransactionBody<T>): Promise<T>
+  /** End this reservation's host work, whether or not its body has started. */
+  stop(): void
   cancel(error?: unknown): Promise<T>
+}
+
+type LiveReservation = {
+  descriptor: SessionTransactionDescriptor
+  intent: SessionOperationIntent
+  stop: () => void
 }
 
 type TransactionCallbacks = {
@@ -96,28 +114,58 @@ type TransactionCallbacks = {
 export class SessionSurfaceTransactions {
   private tail: Promise<void> = Promise.resolve()
   private nextTurnId = 0
+  // The reservation, not its body, owns cancellation. An entry lives from
+  // admission to retirement, so a queued turn is stoppable before it starts.
+  private readonly live = new Map<number, LiveReservation>()
 
   constructor(private readonly callbacks: TransactionCallbacks) {}
 
   reserve<T>(
     descriptor: SessionTransactionDescriptor,
+    intent: SessionOperationIntent = "user-asked",
   ): SessionTransactionReservation<T> | null {
     const turnId = ++this.nextTurnId
     if (!this.callbacks.enter(turnId, descriptor)) return null
+    this.stopBackgroundWork()
 
+    const controller = new AbortController()
     const body = deferred<TransactionBody<T>>()
     let bodySupplied = false
+    const supply = (run: TransactionBody<T>): Promise<T> => {
+      if (!bodySupplied) {
+        bodySupplied = true
+        body.resolve(run)
+      }
+      return result
+    }
+    const stop = (): void => {
+      if (controller.signal.aborted) return
+      controller.abort(new Error("The session operation was stopped."))
+      // A reservation stopped before its body arrives still drains its turn.
+      void supply(async () => {
+        throw controller.signal.reason
+      }).catch(() => undefined)
+    }
+    const retire = () => {
+      this.live.delete(turnId)
+      this.callbacks.retire(turnId)
+    }
     const result = this.tail.then(async () => {
       const run = await body.promise
+      if (controller.signal.aborted) {
+        retire()
+        throw controller.signal.reason
+      }
       if (!this.callbacks.start(turnId, descriptor)) {
-        this.callbacks.retire(turnId)
+        retire()
         throw new Error(
           "The session transaction was disposed before it started.",
         )
       }
 
-      const scope = new SessionTransactionScope(() =>
-        this.callbacks.canContinue(turnId),
+      const scope = new SessionTransactionScope(
+        () => this.callbacks.canContinue(turnId),
+        controller.signal,
       )
       let value: T | undefined
       let bodyError: unknown | null = null
@@ -134,7 +182,7 @@ export class SessionSurfaceTransactions {
         settlementError = error
       } finally {
         scope.close()
-        this.callbacks.retire(turnId)
+        retire()
       }
 
       if (bodyError !== null) throw bodyError
@@ -145,22 +193,25 @@ export class SessionSurfaceTransactions {
       () => undefined,
       () => undefined,
     )
-
-    const supply = (run: TransactionBody<T>): Promise<T> => {
-      if (!bodySupplied) {
-        bodySupplied = true
-        body.resolve(run)
-      }
-      return result
-    }
+    this.live.set(turnId, { descriptor, intent, stop })
 
     return {
       turnId,
       run: supply,
+      stop,
       cancel: (error = new Error("The session transaction was cancelled.")) =>
         supply(async () => {
           throw error
         }),
+    }
+  }
+
+  /** Stop every live reservation whose descriptor matches. */
+  stopMatching(
+    matches: (descriptor: SessionTransactionDescriptor) => boolean,
+  ): void {
+    for (const reservation of [...this.live.values()]) {
+      if (matches(reservation.descriptor)) reservation.stop()
     }
   }
 
@@ -177,5 +228,11 @@ export class SessionSurfaceTransactions {
 
   async flush(): Promise<void> {
     await this.tail
+  }
+
+  private stopBackgroundWork(): void {
+    for (const reservation of [...this.live.values()]) {
+      if (reservation.intent === "background") reservation.stop()
+    }
   }
 }

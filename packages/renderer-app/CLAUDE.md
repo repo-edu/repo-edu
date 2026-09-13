@@ -44,8 +44,9 @@ It consumes:
 - `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
   results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
 - `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame
-  fetches. It gives waiting session bodies a turn between repositories.
-- `src/analysis/analysis-query-bodies.ts`: owns discovery fetches.
+  fetches. One background body covers the whole source; work the user asked for stops it and
+  a later start skips the repositories already cached.
+- `src/analysis/analysis-query-bodies.ts`: owns the discovery fetch body.
 - `src/analysis/analysis-query-keys.ts`: keys cached results by input identity.
 - `src/analysis/analysis-transient-store.ts`: holds live progress.
 - `src/analysis/analysis-view-models.ts`: derives the displayed analysis results.
@@ -69,10 +70,15 @@ It consumes:
 - `useWorkflowClient()` returns the operation gateway. Keep result publication
   inside its reserved body with `scope.publish` and asynchronous follow-up with
   `scope.follow`. A promise callback after retirement cannot mutate session state.
-- Query fetches and mutations start inside reserved bodies. Each body owns its host
-  work and cancellation and awaits semantic follow-up. React Query owns the cache
-  and publishes results to its watchers. Components use disabled watchers and start
-  a body when their input becomes ready. Observer removal never cancels host work.
+- Query fetches and mutations start inside reserved bodies. The reservation owns the
+  cancellation of its host work from the moment it is queued, and the body awaits
+  semantic follow-up. React Query owns the cache and publishes results to its watchers.
+  Components use disabled watchers and start a body when their input becomes ready.
+  No render, effect or Query observer may start or stop host work; a stop goes through
+  the gateway, which reverts the query instead of failing it.
+- A reservation declares whether it is work the user asked for or background work the
+  owner started on the user's behalf. Entering a user-asked reservation stops every
+  live background one; background work never stops background work.
 - Command reservation freezes every semantic edit and persistence-worker start
   until retirement. Store actions and native edits obey the same gate; do not
   add field-specific exceptions, semantic refs or competing state owners.

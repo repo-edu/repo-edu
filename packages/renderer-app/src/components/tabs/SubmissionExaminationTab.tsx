@@ -305,26 +305,22 @@ function useSubmissionExaminationSource() {
       ? attachedCourse.roster
       : null
 
+  // Reserving a body is not host work. Leaving the tab retires the observer,
+  // never the listing: only the reservation's own stop ends it.
   useEffect(() => {
     if (submissionFolderPath === null) return
-    const abort = new AbortController()
     void workflowClient.execute("analysis.listFolderFiles", async (scope) => {
       setFileList({ status: "loading", files: [], error: null })
       await scope
-        .run(
-          "analysis.listFolderFiles",
-          {
-            folderPath: submissionFolderPath,
-            extensions: configuredExtensions,
-          },
-          { signal: abort.signal },
-        )
+        .run("analysis.listFolderFiles", {
+          folderPath: submissionFolderPath,
+          extensions: configuredExtensions,
+        })
         .then((result) => {
-          if (abort.signal.aborted) return
           setFileList({ status: "loaded", files: result.files, error: null })
         })
         .catch((error) => {
-          if (abort.signal.aborted) return
+          if (scope.signal.aborted) return
           setFileList({
             status: "error",
             files: [],
@@ -332,8 +328,6 @@ function useSubmissionExaminationSource() {
           })
         })
     })
-
-    return () => abort.abort()
   }, [configuredExtensions, submissionFolderPath, workflowClient])
 
   const eligibleFiles = useMemo(
@@ -404,7 +398,6 @@ function useSubmissionExaminationSource() {
 
     void prepareAttempt
     const selectedRelativePaths = JSON.parse(selectedPathsKey) as string[]
-    const abort = new AbortController()
     void workflowClient.execute(
       "examination.prepareSubmissionSource",
       async (scope) => {
@@ -416,20 +409,13 @@ function useSubmissionExaminationSource() {
         })
 
         await scope
-          .run(
-            "examination.prepareSubmissionSource",
-            {
-              folderPath: submissionFolderPath,
-              selectedRelativePaths,
-              configuredExtensions,
-              attachedRosterIdentities: rosterIdentities(attachedRoster),
-            },
-            {
-              signal: abort.signal,
-            },
-          )
+          .run("examination.prepareSubmissionSource", {
+            folderPath: submissionFolderPath,
+            selectedRelativePaths,
+            configuredExtensions,
+            attachedRosterIdentities: rosterIdentities(attachedRoster),
+          })
           .then((result) => {
-            if (abort.signal.aborted) return
             const lineCount = result.excerpts.reduce(
               (count, excerpt) => count + excerpt.lines.length,
               0,
@@ -457,7 +443,7 @@ function useSubmissionExaminationSource() {
             })
           })
           .catch((error) => {
-            if (abort.signal.aborted) return
+            if (scope.signal.aborted) return
             setPrepared({
               status: "error",
               pendingSourceKey,
@@ -467,8 +453,6 @@ function useSubmissionExaminationSource() {
           })
       },
     )
-
-    return () => abort.abort()
   }, [
     attachedRoster,
     configuredExtensions,

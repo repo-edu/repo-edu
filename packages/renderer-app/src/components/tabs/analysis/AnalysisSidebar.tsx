@@ -72,12 +72,8 @@ function serializeSidebarSettings(
 export function AnalysisSidebar() {
   const controller = useSessionController()
   const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
-  const {
-    runRepoDiscovery,
-    createDiscoveryRequest,
-    cancelDiscovery,
-    discoveredRepos,
-  } = useAnalysisDiscovery()
+  const { runRepoDiscovery, runDiscovery, cancelDiscovery, discoveredRepos } =
+    useAnalysisDiscovery()
   const {
     runAnalysis,
     cancelAnalysis,
@@ -330,9 +326,8 @@ export function AnalysisSidebar() {
 
   const handleBrowseSearchFolder = useCallback(async () => {
     setBrowseTooltipKey((k) => k + 1)
-    const discovery = createDiscoveryRequest()
     await pickDirectory(
-      { title: "Open repository search folder", signal: discovery.signal },
+      { title: "Open repository search folder" },
       async (directory, scope) => {
         let surface = analysisContext.activeSurface
         scope.publish(() => {
@@ -347,10 +342,10 @@ export function AnalysisSidebar() {
             actions.setSearchFolder(directory),
           )
         }
-        await discovery.run(scope, surface, directory)
+        await runDiscovery(scope, surface, directory)
       },
     )
-  }, [analysisContext, pickDirectory, createDiscoveryRequest, selectRepository])
+  }, [analysisContext, pickDirectory, runDiscovery, selectRepository])
 
   const handleRun = useCallback(() => {
     if (selectedRepoPath) runAnalysis(selectedRepoPath)

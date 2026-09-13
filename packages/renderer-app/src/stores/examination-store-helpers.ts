@@ -7,7 +7,6 @@ import {
   mergeSupersedingAvailableArchiveEntries,
   supersededAvailableArchiveEntryKeys,
 } from "./examination-archive-entries.js"
-import { examinationRequestSidecar } from "./examination-request-sidecar.js"
 import type {
   ExaminationEntry,
   ExaminationLivePreferences,
@@ -178,30 +177,16 @@ export function removeMatchingSourceState(
   | "activeSourceSessionKey"
   | "activeSourceSummaryKey"
 > {
+  // Removing a source drops its state. Host work belongs to the reservation
+  // that started it, which the owner stops when a new reservation enters.
   const sourceSessions = new Map(state.sourceSessions)
   for (const [key, session] of sourceSessions) {
-    if (matchesSession(key, session)) {
-      const lookupRequestId = session.pendingLookupRequestId
-      if (lookupRequestId !== null) {
-        examinationRequestSidecar.abortLookup(key, lookupRequestId)
-      }
-      const requestId = session.pendingGenerationRequestId
-      if (requestId !== null) {
-        examinationRequestSidecar.abortGeneration(key, requestId)
-      }
-      sourceSessions.delete(key)
-    }
+    if (matchesSession(key, session)) sourceSessions.delete(key)
   }
 
   const sourceSummaries = new Map(state.sourceSummaries)
   for (const [key, summary] of sourceSummaries) {
-    if (matchesSummary(key, summary)) {
-      const requestId = summary.pendingRequestId
-      if (requestId !== null) {
-        examinationRequestSidecar.abortSummary(key, requestId)
-      }
-      sourceSummaries.delete(key)
-    }
+    if (matchesSummary(key, summary)) sourceSummaries.delete(key)
   }
 
   return {

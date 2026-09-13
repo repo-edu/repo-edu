@@ -13,107 +13,73 @@ import {
 } from "./analysis-query-keys.js"
 import { useAnalysisTransientStore } from "./analysis-transient-store.js"
 
-/** Discovery keeps its cancellation across input changes and observer removal. */
-export class AnalysisDiscoveryRunner {
-  private current: AbortController | null = null
-
-  constructor(private readonly queryClient: QueryClient) {}
-
-  /** Capture cancellation before reserving the picker or search body. */
-  createRequest() {
-    this.current ??= new AbortController()
-    const { signal } = this.current
-    return {
-      signal,
-      run: (
-        scope: SessionOperationScope,
-        surface: PersistedActiveSurface,
-        input: { folder: string; depth: number },
-      ) => this.run(scope, surface, input, signal),
-    }
-  }
-
-  private async run(
-    scope: SessionOperationScope,
-    surface: PersistedActiveSurface,
-    input: { folder: string; depth: number },
-    signal: AbortSignal,
-  ): Promise<void> {
-    signal.throwIfAborted()
-    const source = analysisSourceKeyParts(analysisSourceKeyFromSurface(surface))
-    const queryKey = analysisQueryKeys.discovery(
-      source,
-      input.folder,
-      input.depth,
-    )
-    scope.publish(() => {
-      refreshSourceSnapshotHeadQueries(this.queryClient, source)
-      void this.queryClient.invalidateQueries({
-        queryKey,
-        exact: true,
-        refetchType: "none",
-      })
-      useAnalysisStore
-        .getState()
-        .setPendingRepoDiscoveryRequest(analysisSourceScopeKey(source), input)
-    })
-    const result = await this.queryClient.fetchQuery({
+/** Searches one folder for repositories and carries the result to the surface
+ * the search opened. The reservation that admits the body owns its stop, so a
+ * search queued behind a folder pick is cancellable before it begins. */
+export async function discoverRepositories(
+  scope: SessionOperationScope,
+  queryClient: QueryClient,
+  surface: PersistedActiveSurface,
+  input: { folder: string; depth: number },
+): Promise<void> {
+  const source = analysisSourceKeyParts(analysisSourceKeyFromSurface(surface))
+  const queryKey = analysisQueryKeys.discovery(
+    source,
+    input.folder,
+    input.depth,
+  )
+  scope.publish(() => {
+    refreshSourceSnapshotHeadQueries(queryClient, source)
+    void queryClient.invalidateQueries({
       queryKey,
-      ...scopedSessionQueryOptions(
-        scope,
-        async (signal) => {
-          const requestId = nanoid()
-          useAnalysisTransientStore.getState().startDiscovery(requestId)
-          try {
-            return await scope.run(
-              "analysis.discoverRepos",
-              { searchFolder: input.folder, maxDepth: input.depth },
-              {
-                signal,
-                onProgress: (progress) => {
-                  useAnalysisTransientStore
-                    .getState()
-                    .setDiscoveryProgress(requestId, progress)
-                },
-              },
-            )
-          } finally {
-            useAnalysisTransientStore.getState().finishDiscovery(requestId)
-          }
-        },
-        signal,
-      ),
+      exact: true,
+      refetchType: "none",
     })
-    signal.throwIfAborted()
-    const openedSurface = await scope.reconcileDiscovery(
-      surface,
-      input.folder,
+    useAnalysisStore
+      .getState()
+      .setPendingRepoDiscoveryRequest(analysisSourceScopeKey(source), input)
+  })
+  const result = await queryClient.fetchQuery({
+    queryKey,
+    ...scopedSessionQueryOptions(scope, async () => {
+      const requestId = nanoid()
+      useAnalysisTransientStore.getState().startDiscovery(requestId)
+      try {
+        return await scope.run(
+          "analysis.discoverRepos",
+          { searchFolder: input.folder, maxDepth: input.depth },
+          {
+            onProgress: (progress) => {
+              useAnalysisTransientStore
+                .getState()
+                .setDiscoveryProgress(requestId, progress)
+            },
+          },
+        )
+      } finally {
+        useAnalysisTransientStore.getState().finishDiscovery(requestId)
+      }
+    }),
+  })
+  const openedSurface = await scope.reconcileDiscovery(
+    surface,
+    input.folder,
+    result,
+  )
+  if (openedSurface === null) return
+  scope.publish(() => {
+    const openedSource = analysisSourceKeyParts(
+      analysisSourceKeyFromSurface(openedSurface),
+    )
+    queryClient.setQueryData(
+      analysisQueryKeys.discovery(openedSource, input.folder, input.depth),
       result,
     )
-    if (openedSurface === null) return
-    scope.publish(() => {
-      const openedSource = analysisSourceKeyParts(
-        analysisSourceKeyFromSurface(openedSurface),
+    useAnalysisStore
+      .getState()
+      .setPendingRepoDiscoveryRequest(
+        analysisSourceScopeKey(openedSource),
+        input,
       )
-      this.queryClient.setQueryData(
-        analysisQueryKeys.discovery(openedSource, input.folder, input.depth),
-        result,
-      )
-      useAnalysisStore
-        .getState()
-        .setPendingRepoDiscoveryRequest(
-          analysisSourceScopeKey(openedSource),
-          input,
-        )
-    })
-  }
-
-  cancel(): void {
-    this.current?.abort()
-    this.current = null
-    void this.queryClient.cancelQueries({
-      predicate: (query) =>
-        query.queryKey[0] === "analysis" && query.queryKey[3] === "discovery",
-    })
-  }
+  })
 }

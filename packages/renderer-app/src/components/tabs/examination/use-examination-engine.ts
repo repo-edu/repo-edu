@@ -24,7 +24,6 @@ import {
   examinationPreferencePersistence,
   useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
-import { examinationRequestSidecar } from "../../../stores/examination-request-sidecar.js"
 import {
   selectExaminationSession,
   selectExaminationSourceSummary,
@@ -391,7 +390,7 @@ export function useExaminationEngine({
   }, [llmSettings, questionCount, selectedSubject, source, sourceIdentity])
 
   const refreshLookup = useCallback(
-    async (scope: SessionOperationScope, abort: AbortController) => {
+    async (scope: SessionOperationScope) => {
       if (
         sourceSessionKey === null ||
         sourceIdentity === null ||
@@ -399,26 +398,18 @@ export function useExaminationEngine({
       ) {
         return
       }
-      if (abort.signal.aborted) return
       const started = useExaminationStore
         .getState()
         .startLookup(sourceSessionKey)
       if (started === null) return
-      examinationRequestSidecar.registerLookup(
-        sourceSessionKey,
-        started.requestId,
-        abort,
-      )
       await scope
         .run("examination.lookupQuestions", lookupInput, {
-          signal: abort.signal,
           onOutput: (output) => {
             if (output.channel !== "warn") return
             addToast(output.message, { tone: "warning", durationMs: 6000 })
           },
         })
         .then((result) => {
-          if (abort.signal.aborted) return
           applyLookupPublication(
             result,
             sourceSessionKey,
@@ -428,17 +419,11 @@ export function useExaminationEngine({
           )
         })
         .catch((_error: unknown) => {
-          if (!abort.signal.aborted) {
+          if (!scope.signal.aborted) {
             useExaminationStore
               .getState()
               .failLookup(sourceSessionKey, started.requestId)
           }
-        })
-        .finally(() => {
-          examinationRequestSidecar.clearLookup(
-            sourceSessionKey,
-            started.requestId,
-          )
         })
     },
     [
@@ -450,12 +435,10 @@ export function useExaminationEngine({
     ],
   )
 
+  // Reserving a body is not host work. Leaving the tab retires the observer,
+  // never the lookup: only the reservation's own stop ends it.
   useEffect(() => {
-    const abort = new AbortController()
-    void workflowClient.execute("examination.lookupQuestions", (scope) =>
-      refreshLookup(scope, abort),
-    )
-    return () => abort.abort()
+    void workflowClient.execute("examination.lookupQuestions", refreshLookup)
   }, [refreshLookup, workflowClient])
 
   const summaryInput = useMemo(() => {
@@ -474,50 +457,33 @@ export function useExaminationEngine({
   }, [source])
 
   const refreshSummary = useCallback(
-    async (scope: SessionOperationScope, abort: AbortController) => {
+    async (scope: SessionOperationScope) => {
       if (summaryInput === null || source.kind !== "repository-analysis") return
-      if (abort.signal.aborted) return
       const started = useExaminationStore
         .getState()
         .startSourceSummaryLookup(sourceSummaryKey)
       if (started === null) return
-      examinationRequestSidecar.registerSummary(
-        sourceSummaryKey,
-        started.requestId,
-        abort,
-      )
       await scope
-        .run("examination.lookupQuestionSummaries", summaryInput, {
-          signal: abort.signal,
-        })
+        .run("examination.lookupQuestionSummaries", summaryInput)
         .then((result) => {
-          if (abort.signal.aborted) return
           applySummaryPublication(result, sourceSummaryKey, started)
         })
         .catch((_error: unknown) => {
-          if (!abort.signal.aborted) {
+          if (!scope.signal.aborted) {
             useExaminationStore
               .getState()
               .failSourceSummaryLookup(sourceSummaryKey, started.requestId)
           }
-        })
-        .finally(() => {
-          examinationRequestSidecar.clearSummary(
-            sourceSummaryKey,
-            started.requestId,
-          )
         })
     },
     [source, sourceSummaryKey, summaryInput],
   )
 
   useEffect(() => {
-    const abort = new AbortController()
     void workflowClient.execute(
       "examination.lookupQuestionSummaries",
-      (scope) => refreshSummary(scope, abort),
+      refreshSummary,
     )
-    return () => abort.abort()
   }, [refreshSummary, workflowClient])
 
   const blocker =
@@ -890,19 +856,12 @@ export function useExaminationEngine({
               requestedQuestionCount: generationPlan.targetQuestionCount,
             })
           if (started === null) return
-          const abort = new AbortController()
-          examinationRequestSidecar.registerGeneration(
-            sourceSessionKey,
-            started.requestId,
-            abort,
-          )
 
           try {
             const result = await scope.run(
               "examination.generateQuestions",
               workflowInput,
               {
-                signal: abort.signal,
                 onProgress: (progress: MilestoneProgress) => {
                   useExaminationStore
                     .getState()
@@ -971,11 +930,6 @@ export function useExaminationEngine({
                 sourceSessionKey,
                 started.requestId,
               )
-          } finally {
-            examinationRequestSidecar.clearGeneration(
-              sourceSessionKey,
-              started.requestId,
-            )
           }
         },
       )
@@ -999,17 +953,10 @@ export function useExaminationEngine({
 
   const stopGeneration = useCallback(() => {
     if (sourceSessionKey === null) return
-    const requested = useExaminationStore
-      .getState()
-      .requestGenerationStop(sourceSessionKey)
-    if (!requested) return
-    const requestId = useExaminationStore
-      .getState()
-      .sourceSessions.get(sourceSessionKey)?.pendingGenerationRequestId
-    if (requestId !== null && requestId !== undefined) {
-      examinationRequestSidecar.abortGeneration(sourceSessionKey, requestId)
-    }
-  }, [sourceSessionKey])
+    if (!useExaminationStore.getState().requestGenerationStop(sourceSessionKey))
+      return
+    workflowClient.stop("examination.generateQuestions")
+  }, [sourceSessionKey, workflowClient])
 
   const copyMarkdown = useCallback(async () => {
     if (

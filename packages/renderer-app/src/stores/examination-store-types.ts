@@ -233,7 +233,6 @@ export type ExaminationActions = {
     requestId?: string,
   ) => void
   requestGenerationStop: (sourceSessionKey: string) => boolean
-  cancelGenerationSession: (sourceSessionKey: string) => void
   clearEntry: (key: string) => void
   archiveCatalogChanged: () => number
   invalidateRepositoryAnalysisSource: (

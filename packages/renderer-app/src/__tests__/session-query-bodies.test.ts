@@ -201,7 +201,7 @@ describe("session Query bodies", () => {
         })
         const unsubscribe = observer.subscribe(() => {})
         t.after(unsubscribe)
-        const { signal } = new AbortController()
+        const signals: AbortSignal[] = []
         const pause = async () => {
           paused.resolve()
           await release.promise
@@ -209,20 +209,15 @@ describe("session Query bodies", () => {
         const query = controller.operations.execute(
           "analysis.resolveSnapshotHead",
           async (scope) => {
+            signals.push(scope.signal)
             const result = await client.fetchQuery({
               queryKey: ["owned"],
-              ...scopedSessionQueryOptions(
-                scope,
-                async () => {
-                  if (stage === "fetch") await pause()
-                  return await scope.run(
-                    "analysis.resolveSnapshotHead",
-                    { repositoryAbsolutePath: "/repo" },
-                    { signal },
-                  )
-                },
-                signal,
-              ),
+              ...scopedSessionQueryOptions(scope, async () => {
+                if (stage === "fetch") await pause()
+                return await scope.run("analysis.resolveSnapshotHead", {
+                  repositoryAbsolutePath: "/repo",
+                })
+              }),
             })
             assert.equal(client.getQueryData(["owned"]), result)
             order.push("published")
@@ -234,7 +229,7 @@ describe("session Query bodies", () => {
         )
         await paused.promise
         unsubscribe()
-        assert.equal(signal.aborted, false)
+        assert.equal(signals[0]?.aborted, false)
         const next =
           successor === "command"
             ? controller.operations.execute("repo.clone", async () => {
@@ -252,29 +247,25 @@ describe("session Query bodies", () => {
     }
   }
 
-  it("retains cancelled host work until it settles", async () => {
+  it("reverts a stopped fetch and retains its host work until it settles", async () => {
     const { controller, client } = await session()
     const entered = deferred<void>()
     const host = deferred<string>()
-    const abort = new AbortController()
     const query = controller.operations
       .execute("analysis.resolveSnapshotHead", async (scope) => {
         await client.fetchQuery({
           queryKey: ["cancel"],
-          ...scopedSessionQueryOptions(
-            scope,
-            async () => {
-              entered.resolve()
-              return await host.promise
-            },
-            abort.signal,
-          ),
+          ...scopedSessionQueryOptions(scope, async () => {
+            entered.resolve()
+            return await host.promise
+          }),
         })
       })
       .catch(() => {})
     await entered.promise
-    abort.abort()
-    await client.cancelQueries({ queryKey: ["cancel"] })
+    // The stop alone reverts the query: the caller cancels nothing itself.
+    controller.operations.stop("analysis.resolveSnapshotHead")
+    assert.equal(client.getQueryState(["cancel"])?.fetchStatus, "idle")
     let closed = false
     const close = controller.requestClose(commitPreparation).then(() => {
       closed = true

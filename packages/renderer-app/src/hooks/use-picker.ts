@@ -27,13 +27,9 @@ export type PickerFailureReport = (message: string) => void
  * error surface. Pass a setter when the caller already owns an error line that
  * carries its other failures, so one view does not split its failures across
  * two surfaces.
- *
- * `signal` belongs to the complete action. A stop skips a queued picker or
- * discards its result if the dialog is already open.
  */
 type PickerRequest<HostOptions> = HostOptions & {
   readonly report?: PickerFailureReport
-  readonly signal?: AbortSignal
 }
 
 /**
@@ -50,8 +46,9 @@ type PickerApply<T> = (
  * picker's operation, stay silent on a cancel and report a failure. The
  * follow-up differs per caller and runs inside the same scope.
  *
- * The reservation names the complete action. Each hook names the direct id
- * where it starts its host dialog.
+ * The reservation names the complete action and owns its stop, so a stop skips
+ * a queued picker and discards a pick whose dialog was already open. Each hook
+ * names the direct id where it starts its host dialog.
  */
 async function runPicker<T>(
   gateway: SessionOperationGateway,
@@ -59,14 +56,12 @@ async function runPicker<T>(
   report: PickerFailureReport,
   open: (scope: SessionOperationScope) => Promise<T | null>,
   apply: PickerApply<T>,
-  signal?: AbortSignal,
 ): Promise<void> {
   await gateway
     .execute(id, async (scope) => {
       try {
-        if (signal?.aborted) return
         const picked = await open(scope)
-        if (picked === null || signal?.aborted) return
+        if (picked === null || scope.signal.aborted) return
         await apply(picked, scope)
       } catch (error) {
         report(getErrorMessage(error))
@@ -89,7 +84,7 @@ export function useDirectoryPicker(
       request: PickerRequest<PickDirectoryOptions>,
       apply: PickerApply<string>,
     ) => {
-      const { report, signal, ...options } = request
+      const { report, ...options } = request
       await runPicker(
         gateway,
         operation,
@@ -99,7 +94,6 @@ export function useDirectoryPicker(
             rendererHost.pickDirectory(options),
           ),
         apply,
-        signal,
       )
     },
     [addToast, gateway, operation, rendererHost],
@@ -116,7 +110,7 @@ export function useUserFilePicker() {
       request: PickerRequest<OpenUserFileDialogOptions>,
       apply: PickerApply<RendererOpenUserFileRef>,
     ) => {
-      const { report, signal, ...options } = request
+      const { report, ...options } = request
       await runPicker(
         gateway,
         "pickUserFile",
@@ -126,7 +120,6 @@ export function useUserFilePicker() {
             rendererHost.pickUserFile(options),
           ),
         apply,
-        signal,
       )
     },
     [addToast, gateway, rendererHost],

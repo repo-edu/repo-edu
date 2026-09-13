@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { beforeEach, describe, it, type TestContext } from "node:test"
 import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
 import { QueryObserver, skipToken } from "@tanstack/react-query"
-import { AnalysisDiscoveryRunner } from "../analysis/analysis-query-bodies.js"
+import { discoverRepositories } from "../analysis/analysis-query-bodies.js"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   analysisQueryKeys,
@@ -84,7 +84,7 @@ async function setup(
 }
 
 describe("discovery and blame bodies", () => {
-  it("keeps cancellation while discovery waits for its turn and permits a later search", async (t) => {
+  it("stops a queued search before it starts and permits a later search", async (t) => {
     let calls = 0
     const { controller, client } = await setup(t, async () => {
       calls++
@@ -96,20 +96,18 @@ describe("discovery and blame bodies", () => {
       "analysis.listFolderFiles",
       () => release.promise,
     )
-    const runner = new AnalysisDiscoveryRunner(client)
-    const request = runner.createRequest()
     const running = controller.operations.execute(
       "analysis.discoverRepos",
-      (scope) => request.run(scope, surface, { folder, depth: 5 }),
+      (scope) =>
+        discoverRepositories(scope, client, surface, { folder, depth: 5 }),
     )
-    const cancelled = assert.rejects(running, { name: "AbortError" })
-    runner.cancel()
+    const stopped = assert.rejects(running)
+    controller.operations.stop("analysis.discoverRepos")
     release.resolve()
-    await Promise.all([earlier, cancelled])
+    await Promise.all([earlier, stopped])
     assert.equal(calls, 0)
-    const nextRequest = runner.createRequest()
     await controller.operations.execute("analysis.discoverRepos", (scope) =>
-      nextRequest.run(scope, surface, { folder, depth: 5 }),
+      discoverRepositories(scope, client, surface, { folder, depth: 5 }),
     )
     assert.equal(calls, 1)
     assert.deepEqual(
@@ -154,11 +152,9 @@ describe("discovery and blame bodies", () => {
           { repos: [] },
         )
       }
-      const runner = new AnalysisDiscoveryRunner(client)
-      const request = runner.createRequest()
       const running = controller.operations.execute(
         "analysis.discoverRepos",
-        (scope) => request.run(scope, folderSurface, input),
+        (scope) => discoverRepositories(scope, client, folderSurface, input),
       )
       await entered.promise
       let followed = false
@@ -224,11 +220,13 @@ describe("discovery and blame bodies", () => {
         })
         const unsubscribe = observer.subscribe(() => {})
         t.after(unsubscribe)
-        const discovery = new AnalysisDiscoveryRunner(client).createRequest()
         const running =
           kind === "discovery"
             ? controller.operations.execute("analysis.discoverRepos", (scope) =>
-                discovery.run(scope, surface, { folder, depth: 5 }),
+                discoverRepositories(scope, client, surface, {
+                  folder,
+                  depth: 5,
+                }),
               )
             : new AnalysisSourceRunner(controller.operations, client, {
                 source,
@@ -280,7 +278,7 @@ describe("discovery and blame bodies", () => {
     }
   }
 
-  it("cancels discovery explicitly and retains its host before close", async (t) => {
+  it("stops discovery explicitly and retains its host before close", async (t) => {
     const entered = deferred<AbortSignal>()
     const release = deferred<void>()
     const { controller, client } = await setup(t, async (_id, signal) => {
@@ -288,15 +286,13 @@ describe("discovery and blame bodies", () => {
       await release.promise
       return discoveryResult
     })
-    const runner = new AnalysisDiscoveryRunner(client)
-    const request = runner.createRequest()
     const running = controller.operations
       .execute("analysis.discoverRepos", (scope) =>
-        request.run(scope, surface, { folder, depth: 5 }),
+        discoverRepositories(scope, client, surface, { folder, depth: 5 }),
       )
       .catch(() => {})
     const signal = await entered.promise
-    runner.cancel()
+    controller.operations.stop("analysis.discoverRepos")
     assert.equal(signal.aborted, true)
     let closed = false
     const closing = controller.requestClose(commitPreparation).then(() => {

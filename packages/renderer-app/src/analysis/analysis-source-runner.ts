@@ -32,22 +32,19 @@ type AnalysisSourceInput = {
 /** Owns every snapshot, analysis and blame fetch for one source and input set.
  * Selected-repository queries only observe the cache this body fills. */
 export class AnalysisSourceRunner {
-  // Null allows a start; an aborted controller retains an explicit stop.
-  private current: AbortController | null = null
-
   constructor(
     private readonly operations: SessionOperationGateway,
     private readonly queryClient: QueryClient,
     private readonly input: AnalysisSourceInput,
   ) {}
 
+  /** One background body analyses the whole source. A reservation entering
+   * behind it stops it; a later start skips the repositories already cached. */
   async run(
     repoPaths: readonly string[],
     selectedRepoPath: string | null,
   ): Promise<void> {
     if (repoPaths.length === 0) return
-    this.current ??= new AbortController()
-    const run = this.current
     // Start the selected repository first within the same parallel limit.
     const ordered =
       selectedRepoPath === null
@@ -56,118 +53,79 @@ export class AnalysisSourceRunner {
             selectedRepoPath,
             ...repoPaths.filter((path) => path !== selectedRepoPath),
           ]
-    let nextIndex = 0
-    const failures: unknown[] = []
-    while (!run.signal.aborted && nextIndex < ordered.length) {
-      const reservation = this.operations.reserve<void>("analysis.run")
-      if (reservation === null) break
-      try {
-        await reservation.run(async (scope) => {
-          const worker = async () => {
-            while (!run.signal.aborted && nextIndex < ordered.length) {
-              const repoPath = ordered[nextIndex++]
-              try {
-                await this.fetchRepo(scope, repoPath, run.signal)
-              } catch {
-                // Query publishes each repository's failure to its observers.
-              }
-              if (this.operations.hasWaitingBody()) break
+    await this.operations.execute(
+      "analysis.run",
+      async (scope) => {
+        let nextIndex = 0
+        const worker = async () => {
+          while (!scope.signal.aborted && nextIndex < ordered.length) {
+            try {
+              await this.fetchRepo(scope, ordered[nextIndex++])
+            } catch {
+              // Query publishes each repository's failure to its observers.
             }
           }
-          await Promise.all(
-            Array.from(
-              {
-                length: Math.max(
-                  1,
-                  Math.min(this.input.repoParallelism, ordered.length),
-                ),
-              },
-              worker,
-            ),
-          )
-        })
-      } catch (error) {
-        failures.push(error)
-      }
-    }
-    if (failures.length > 0) throw failures[0]
+        }
+        await Promise.all(
+          Array.from(
+            {
+              length: Math.max(
+                1,
+                Math.min(this.input.repoParallelism, ordered.length),
+              ),
+            },
+            worker,
+          ),
+        )
+      },
+      "background",
+    )
   }
 
   async fetchBlame(
     identity: BlameQueryIdentity,
     input: WorkflowInput<"analysis.blame">,
   ): Promise<BlameResult | undefined> {
-    this.current ??= new AbortController()
-    const { signal } = this.current
-    if (signal.aborted) return undefined
     return await this.operations.execute("analysis.blame", async (scope) => {
-      signal.throwIfAborted()
       return await this.queryClient.fetchQuery({
         queryKey: analysisQueryKeys.blame(identity),
-        ...scopedSessionQueryOptions(
-          scope,
-          async (signal) => {
-            const requestKey = blameResultScopeKey(identity)
-            const requestId = nanoid()
+        ...scopedSessionQueryOptions(scope, async () => {
+          const requestKey = blameResultScopeKey(identity)
+          const requestId = nanoid()
+          useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
+          try {
+            return await scope.run("analysis.blame", input, {
+              onProgress: (progress) => {
+                const transient = useAnalysisTransientStore.getState()
+                transient.setBlameProgress(requestKey, requestId, progress)
+                if (progress.partialAuthorLines) {
+                  transient.setBlamePartialAuthorLines(
+                    requestKey,
+                    requestId,
+                    new Map(
+                      progress.partialAuthorLines.map((entry) => [
+                        entry.personId,
+                        entry.lines,
+                      ]),
+                    ),
+                  )
+                }
+              },
+            })
+          } finally {
             useAnalysisTransientStore
               .getState()
-              .startBlame(requestKey, requestId)
-            try {
-              return await scope.run("analysis.blame", input, {
-                signal,
-                onProgress: (progress) => {
-                  const transient = useAnalysisTransientStore.getState()
-                  transient.setBlameProgress(requestKey, requestId, progress)
-                  if (progress.partialAuthorLines) {
-                    transient.setBlamePartialAuthorLines(
-                      requestKey,
-                      requestId,
-                      new Map(
-                        progress.partialAuthorLines.map((entry) => [
-                          entry.personId,
-                          entry.lines,
-                        ]),
-                      ),
-                    )
-                  }
-                },
-              })
-            } finally {
-              useAnalysisTransientStore
-                .getState()
-                .finishBlame(requestKey, requestId)
-            }
-          },
-          signal,
-        ),
+              .finishBlame(requestKey, requestId)
+          }
+        }),
       })
     })
-  }
-
-  cancel(): void {
-    this.current ??= new AbortController()
-    this.current.abort()
-    void this.queryClient.cancelQueries({
-      queryKey: analysisQueryKeys.sourceRepos(this.input.source),
-    })
-  }
-
-  restart(): void {
-    this.cancel()
-    this.current = null
-  }
-
-  pause(): void {
-    if (this.current?.signal.aborted) return
-    this.restart()
   }
 
   private async fetchRepo(
     scope: SessionOperationScope,
     repoPath: string,
-    signal: AbortSignal,
   ): Promise<void> {
-    signal.throwIfAborted()
     const { source, config, rosterContext, kind } = this.input
     const snapshotCommitOid = await this.queryClient.fetchQuery({
       queryKey: analysisQueryKeys.snapshotHead({
@@ -175,18 +133,13 @@ export class AnalysisSourceRunner {
         repoPath,
         until: config.until ?? null,
       }),
-      ...scopedSessionQueryOptions(
-        scope,
-        (signal) =>
-          scope.run(
-            "analysis.resolveSnapshotHead",
-            { repositoryAbsolutePath: repoPath, until: config.until },
-            { signal },
-          ),
-        signal,
+      ...scopedSessionQueryOptions(scope, () =>
+        scope.run("analysis.resolveSnapshotHead", {
+          repositoryAbsolutePath: repoPath,
+          until: config.until,
+        }),
       ),
     })
-    signal.throwIfAborted()
     const identity = buildAnalysisQueryIdentity({
       source,
       repoPath,
@@ -197,45 +150,40 @@ export class AnalysisSourceRunner {
     const requestKey = analysisResultScopeKey(identity)
     await this.queryClient.fetchQuery({
       queryKey: analysisQueryKeys.result(identity),
-      ...scopedSessionQueryOptions(
-        scope,
-        async (signal) => {
-          const requestId = nanoid()
+      ...scopedSessionQueryOptions(scope, async () => {
+        const requestId = nanoid()
+        useAnalysisTransientStore
+          .getState()
+          .startAnalysis(requestKey, requestId)
+        try {
+          return await scope.run(
+            "analysis.run",
+            {
+              repositoryAbsolutePath: repoPath,
+              config,
+              snapshotCommitOid,
+              analysisSource:
+                kind === "course"
+                  ? {
+                      kind: "course",
+                      ...(rosterContext ? { rosterContext } : {}),
+                    }
+                  : { kind: "folder" },
+            },
+            {
+              onProgress: (progress) => {
+                useAnalysisTransientStore
+                  .getState()
+                  .setAnalysisProgress(requestKey, requestId, progress)
+              },
+            },
+          )
+        } finally {
           useAnalysisTransientStore
             .getState()
-            .startAnalysis(requestKey, requestId)
-          try {
-            return await scope.run(
-              "analysis.run",
-              {
-                repositoryAbsolutePath: repoPath,
-                config,
-                snapshotCommitOid,
-                analysisSource:
-                  kind === "course"
-                    ? {
-                        kind: "course",
-                        ...(rosterContext ? { rosterContext } : {}),
-                      }
-                    : { kind: "folder" },
-              },
-              {
-                signal,
-                onProgress: (progress) => {
-                  useAnalysisTransientStore
-                    .getState()
-                    .setAnalysisProgress(requestKey, requestId, progress)
-                },
-              },
-            )
-          } finally {
-            useAnalysisTransientStore
-              .getState()
-              .finishAnalysis(requestKey, requestId)
-          }
-        },
-        signal,
-      ),
+            .finishAnalysis(requestKey, requestId)
+        }
+      }),
     })
   }
 }

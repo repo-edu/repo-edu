@@ -31,10 +31,7 @@ import {
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import type { SessionOperationScope } from "../session/session-operations.js"
-import {
-  analysisSourceKeyFromSurface,
-  canAdmitSessionChange,
-} from "../session/session-reducer.js"
+import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
   selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
@@ -45,7 +42,7 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
-import { AnalysisDiscoveryRunner } from "./analysis-query-bodies.js"
+import { discoverRepositories } from "./analysis-query-bodies.js"
 import { clearAnalysisQueries } from "./analysis-query-client.js"
 import {
   type AnalysisQueryIdentity,
@@ -85,14 +82,12 @@ export type AnalysisDiscoveryValue = {
   discoveryCurrentFolder: string | null
   discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
-  createDiscoveryRequest: () => {
-    signal: AbortSignal
-    run: (
-      scope: SessionOperationScope,
-      surface: PersistedActiveSurface,
-      folder: string,
-    ) => Promise<void>
-  }
+  /** Search inside a body the caller already owns, such as a folder pick. */
+  runDiscovery: (
+    scope: SessionOperationScope,
+    surface: PersistedActiveSurface,
+    folder: string,
+  ) => Promise<void>
   cancelDiscovery: () => void
 }
 
@@ -262,7 +257,6 @@ export function AnalysisCoordinatorProvider({
   const client = useWorkflowClient()
   const queryClient = useQueryClient()
   const analysisContext = useAnalysisContext()
-  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeSourceParts = useMemo(
     () => analysisSourceKeyParts(analysisSourceKeyFromSurface(activeSurface)),
@@ -345,13 +339,6 @@ export function AnalysisCoordinatorProvider({
     )
   }, [sourceRunner, blameConfig])
 
-  useEffect(
-    () => () => {
-      sourceRunner?.pause()
-    },
-    [sourceRunner],
-  )
-
   const discoveryQueryKey =
     discoveryInput === null
       ? (["analysis", "discovery", "disabled"] as const)
@@ -365,10 +352,6 @@ export function AnalysisCoordinatorProvider({
     enabled: false,
     queryFn: skipToken,
   })
-  const discoveryRunner = useMemo(
-    () => new AnalysisDiscoveryRunner(queryClient),
-    [queryClient],
-  )
   const discoveryCurrentFolder = useAnalysisTransientStore(
     (state) => state.discoveryProgress?.currentFolder ?? null,
   )
@@ -398,18 +381,18 @@ export function AnalysisCoordinatorProvider({
     : null
   const discoveryCompleted = discoveryQuery.isSuccess
 
+  // Starting the fan-out is a reservation, not host work: the body it reserves
+  // owns the stop. Each start stops the pass before it, so a changed source
+  // key, repository list or selection replaces stale work rather than racing
+  // it, and the new pass skips what the cache already holds. Command admission
+  // is not a start trigger, so it cannot undo a Cancel.
   useEffect(() => {
-    if (!canStartQueries || discoveryQuery.isFetching) {
-      sourceRunner?.pause()
-      return
-    }
-    if (discoveryQuery.dataUpdatedAt === 0) return
+    if (discoveryQuery.isFetching || discoveryQuery.dataUpdatedAt === 0) return
     void sourceRunner
       ?.run(discoveredRepoPaths, selectedRepoPath)
       .catch(() => {})
   }, [
     sourceRunner,
-    canStartQueries,
     discoveredRepoPaths,
     selectedRepoPath,
     discoveryQuery.isFetching,
@@ -552,7 +535,6 @@ export function AnalysisCoordinatorProvider({
   })
   useEffect(() => {
     if (
-      !canStartQueries ||
       selectedRepoPath === null ||
       selectedBlameIdentity === null ||
       selectedAnalysisIdentity === null ||
@@ -571,7 +553,6 @@ export function AnalysisCoordinatorProvider({
       })
       .catch(() => {})
   }, [
-    canStartQueries,
     sourceRunner,
     selectedRepoPath,
     selectedBlameIdentity,
@@ -641,14 +622,16 @@ export function AnalysisCoordinatorProvider({
     [result],
   )
 
+  // One control stops whatever the analysis source is running. Enablement and
+  // click both read the reservation, so they cannot disagree.
   const cancelAnalysis = useCallback(() => {
-    sourceRunner?.cancel()
-  }, [sourceRunner])
+    client.stop("analysis.run")
+    client.stop("analysis.blame")
+  }, [client])
 
   const runAnalysis = useCallback(
     (repoPath: string) => {
       client.change(() => {
-        sourceRunner?.restart()
         clearAnalysisQueries(queryClient, {
           queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
         })
@@ -658,42 +641,37 @@ export function AnalysisCoordinatorProvider({
     [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
   )
 
-  const createDiscoveryRequest = useCallback(() => {
-    const request = discoveryRunner.createRequest()
-    return {
-      signal: request.signal,
-      run: async (
-        scope: SessionOperationScope,
-        surface: PersistedActiveSurface,
-        folder: string,
-      ) => {
-        scope.publish(() => sourceRunner?.restart())
-        // The discovery query displays failures; cancellation stays silent.
-        await request
-          .run(scope, surface, { folder, depth: searchDepth })
-          .catch(() => {})
-      },
-    }
-  }, [sourceRunner, discoveryRunner, searchDepth])
+  const runDiscovery = useCallback(
+    async (
+      scope: SessionOperationScope,
+      surface: PersistedActiveSurface,
+      folder: string,
+    ) => {
+      // The discovery query displays failures; cancellation stays silent.
+      await discoverRepositories(scope, queryClient, surface, {
+        folder,
+        depth: searchDepth,
+      }).catch(() => {})
+    },
+    [queryClient, searchDepth],
+  )
 
   // Start and Re-search reserve a body; the picker uses its existing body.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
-      const request = createDiscoveryRequest()
       void client
         .execute("analysis.discoverRepos", (scope) =>
-          request.run(scope, activeSurface, folder),
+          runDiscovery(scope, activeSurface, folder),
         )
         .catch(() => {})
     },
-    [client, createDiscoveryRequest, activeSurface],
+    [client, runDiscovery, activeSurface],
   )
 
   const cancelDiscovery = useCallback(() => {
-    sourceRunner?.pause()
-    discoveryRunner.cancel()
-  }, [sourceRunner, discoveryRunner])
+    client.stop("analysis.discoverRepos")
+  }, [client])
 
   const selectRepository = useCallback(
     (repoPath: string | null) => {
@@ -710,7 +688,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCurrentFolder,
       discoveryCompleted,
       runRepoDiscovery,
-      createDiscoveryRequest,
+      runDiscovery,
       cancelDiscovery,
     }),
     [
@@ -721,7 +699,7 @@ export function AnalysisCoordinatorProvider({
       discoveryStatus,
       discoveryCompleted,
       runRepoDiscovery,
-      createDiscoveryRequest,
+      runDiscovery,
     ],
   )
 

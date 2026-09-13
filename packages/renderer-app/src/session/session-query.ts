@@ -1,21 +1,30 @@
+import type { QueryFunctionContext } from "@tanstack/react-query"
 import type { SessionOperationScope } from "./session-operations.js"
 
 /** A caller that already owns a body awaits fetchQuery through publication.
- * Its optional signal alone cancels host work; observer removal never does.
- * Without a signal, host work runs to completion.
- * Keep cancelled query functions in that body until their host work settles. */
+ * The reservation's stop alone cancels host work; observer removal never does.
+ * A stop reverts the query rather than failing it, so a cancelled fetch shows
+ * no error, and its query function stays in that body until the host settles. */
 export function scopedSessionQueryOptions<T>(
   scope: SessionOperationScope,
-  fetch: (signal: AbortSignal | undefined) => Promise<T>,
-  signal?: AbortSignal,
+  fetch: () => Promise<T>,
 ) {
   return {
     retry: false as const,
     networkMode: "always" as const,
-    queryFn: () =>
-      scope.follow(async () => {
-        signal?.throwIfAborted()
-        return await fetch(signal)
-      }),
+    queryFn: ({ client, queryKey }: QueryFunctionContext) => {
+      const revert = () => {
+        void client.cancelQueries({ queryKey, exact: true })
+      }
+      scope.signal.addEventListener("abort", revert, { once: true })
+      return scope.follow(async () => {
+        try {
+          scope.signal.throwIfAborted()
+          return await fetch()
+        } finally {
+          scope.signal.removeEventListener("abort", revert)
+        }
+      })
+    },
   }
 }
