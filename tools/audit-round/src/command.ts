@@ -109,18 +109,15 @@ function parseInvocation(
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
     .description(
-      "Run one TypeScript implementation-audit round from the Repo Edu checkout root.",
+      "Run the audit, vet, rebuttal, fix and brief phases of one TypeScript implementation-audit round from the Repo Edu checkout root.",
     )
+    // A round is the command itself, so the usage line offers no command slot.
+    .usage("[options] <plan> [scope]")
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
-  command
-    .command("round", { isDefault: true })
-    .description(
-      "Run the audit, vet, rebuttal, fix and brief phases of one round.",
-    )
     .argument("<plan>", "plan filename or path in the sibling plan repository")
     .addArgument(
       new Argument("[scope]", "step number or inclusive step range").argParser(
@@ -149,6 +146,7 @@ function parseInvocation(
         invocation = { kind: "round", plan, scope, ...flags }
       },
     )
+  // The program owns the round, so Commander adds no `help` command of its own.
   command
     .command("brief")
     .description(
@@ -160,7 +158,8 @@ function parseInvocation(
       invocation = { kind: "brief", transcript, ...flags }
     })
   try {
-    command.parse([...argv], { from: "user" })
+    // A bare command line asks for help rather than reporting a missing plan.
+    command.parse(argv.length === 0 ? ["--help"] : [...argv], { from: "user" })
   } catch (error) {
     if (error instanceof CommanderError) return error.exitCode === 0 ? 0 : 2
     throw error

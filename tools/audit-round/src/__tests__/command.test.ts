@@ -400,7 +400,6 @@ test("a recording failure during update output cannot be treated as an update wa
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    [],
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
@@ -410,16 +409,21 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["brief", "ROUND-TS-example.md", "extra"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
-  for (const argv of [["--help"], ["round", "--help"], ["brief", "--help"]])
+  // A bare command line, -h and --help all reach the same help.
+  for (const argv of [[], ["-h"], ["--help"], ["brief", "--help"]])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
   const visible = f.visible.join("\n")
+  assert.match(visible, /Usage: audit-round \[options\] <plan> \[scope\]/)
   assert.match(visible, /Codex always fixes/)
   assert.match(visible, /always briefs/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
+  // A round is the command itself, and each command carries its own help.
+  assert.doesNotMatch(visible, /^\s+round\b/m)
+  assert.doesNotMatch(visible, /^\s+help\b/m)
 })
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {

@@ -93,9 +93,12 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   at the handover; the total still counts from the round's start, minus every wait. User messages
   and assistant replies have separate transcript labels. Both handover functions must reject on
   failure. Exiting the interactive child ends recording but does not prove workflow completion.
-- `command.ts` owns the `round` and `brief` subcommands, repository paths,
-  startup and final reporting. `round` is the default, so a bare plan argument
-  still runs a round. It also owns the chain loop, because each round records
+- `command.ts` owns the command grammar, repository paths, startup and final
+  reporting. The round is the command itself, taking the plan and scope as its
+  own arguments, and `brief` is its one subcommand. So the program carries an
+  action handler, Commander adds no `help` command, and each command's own
+  `-h` prints its help. A bare command line prints that help rather than
+  reporting a missing plan. It also owns the chain loop, because each round records
   its own file pair and the coordinator has no filesystem side effects: it opens
   one output per round, retires the previous one first, and reads updates and
   settings once for the whole run. A chained round carries its place in its file
