@@ -1,6 +1,11 @@
 import { join as joinPath, resolve } from "node:path"
 import { join as shellJoin } from "shellwords"
-import type { Assistant, InteractiveSession, PhaseInput } from "./phase.js"
+import type {
+  Assistant,
+  InteractiveSession,
+  Phase,
+  PhaseInput,
+} from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -51,6 +56,22 @@ export function interactiveArguments(session: InteractiveSession): string[] {
 
 export function recoveryCommand(session: InteractiveSession): string {
   return shellJoin([session.assistant, ...interactiveArguments(session)])
+}
+
+/**
+ * Where a phase's shared workflow lives. A second pass is told which document
+ * shape to follow, so the path is a phase argument rather than something the
+ * pass knows about the repository.
+ */
+export function workflowPath(ownerRoot: string, phase: Phase): string {
+  return joinPath(
+    ownerRoot,
+    ".agents",
+    "skills",
+    phase,
+    "references",
+    "workflow.md",
+  )
 }
 
 export function phasePrompt(input: PhaseInput): string {

@@ -7,6 +7,10 @@ for the rest, so the two cannot drift apart. Where a launcher and this file
 disagree, this file is right. There is no Codex skill beside this file, because
 Claude writes both passes.
 
+`/revise` is the second pass over any draft twin a round produces, so it is
+given this file as the shape to rewrite towards. It serves the watch verdict
+the same way, under its own workflow.
+
 The ruling is written when the fix phase of an implementation-audit round stops
 for the user's decision. It is the document the user rules from. The round's
 brief already retells what the round found and what was agreed. The ruling does
@@ -27,7 +31,7 @@ survive.
 ## Input
 
 The first pass is given the round transcript and the audit report. The second
-pass is given the draft ruling, the transcript and the report.
+pass is given this workflow, the draft ruling, the transcript and the report.
 
 Both passes read what they need to be right:
 

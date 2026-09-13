@@ -1,6 +1,6 @@
 ---
-description: Rewrite the draft ruling of an implementation-audit round in a fresh session, so the document the user rules from is read once by someone who did not write it.
-argument-hint: [ruling-file] [transcript-file] [report-file]
+description: Rewrite one draft twin of an implementation-audit round in a fresh session, so the document the user decides from is read once by someone who did not write it.
+argument-hint: [workflow-file] [document-file] [source-file...]
 disable-model-invocation: true
 ---
 
@@ -11,9 +11,13 @@ directly with the rewrite.
 
 You are the second pass: you did not write this draft, so read it the way the
 user will. Apply the workflow's tests, then replace the file with the rewritten
-ruling. Never append a critique or a change list.
+document. Never append a critique or a change list.
 
-Read `.agents/skills/rule/references/workflow.md` completely and follow it,
-including its section on the second pass.
+The first argument is the workflow that owns this document's shape. Read it
+completely, including its section on the second pass, and follow it. The second
+argument is the draft to replace. Any further arguments are the sources that
+workflow grounds the document in; a workflow that grounds its document in
+something else names that itself, and one that names no extra source is given
+none.
 
 $ARGUMENTS

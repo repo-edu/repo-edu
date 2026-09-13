@@ -76,19 +76,32 @@ export async function updateClis(
   }
 }
 
-export async function prepareAssistants(
+/**
+ * The one `audit-round` cache, shared with the Bash runner. It holds the CLI
+ * update dates and the watch's own history, so both runs and watches survive
+ * a checkout being cleaned.
+ */
+export function resolveCacheRoot(
   runtime: CliRuntime,
-  output: StartupOutput,
-  options: { readonly cacheRoot?: string; readonly now?: () => Date } = {},
-): Promise<Record<Assistant, ModelSelection>> {
-  const cacheRoot =
-    options.cacheRoot ??
+  cacheRoot?: string,
+): string {
+  return (
+    cacheRoot ??
     join(
       runtime.env?.XDG_CACHE_HOME ??
         process.env.XDG_CACHE_HOME ??
         join(homedir(), ".cache"),
       "audit-round",
     )
+  )
+}
+
+export async function prepareAssistants(
+  runtime: CliRuntime,
+  output: StartupOutput,
+  options: { readonly cacheRoot?: string; readonly now?: () => Date } = {},
+): Promise<Record<Assistant, ModelSelection>> {
+  const cacheRoot = resolveCacheRoot(runtime, options.cacheRoot)
   await updateClis(runtime, output, cacheRoot, options.now)
   // Both update attempts finish before settings are read. Neither request starts an LLM turn.
   const claude = await readClaudeSettings(runtime, output.message)

@@ -15,6 +15,7 @@ import {
   RoundOutput,
   type Run,
   roundRun,
+  verdictPath,
 } from "./output.js"
 import { chainText } from "./output-format.js"
 import type { Assistant } from "./phase.js"
@@ -27,7 +28,7 @@ import {
   runBrief,
   runRound,
 } from "./round.js"
-import { prepareAssistants } from "./startup.js"
+import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 
 function stepScope(value: string): string {
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
@@ -239,7 +240,13 @@ export async function runCommand(
         )
         const active = await open(run)
         const round = await runRound(
-          { ...setup, auditor, transcript: run.paths.markdown },
+          {
+            ...setup,
+            auditor,
+            transcript: run.paths.markdown,
+            verdict: verdictPath(run.paths.markdown),
+            cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+          },
           dependenciesFor(active),
         )
         result = round

@@ -45,8 +45,9 @@ explicitly says to.
 
 When the prompt identifies an unattended implementation-audit phase, follow
 this rule for every ending, including an early stop. It is shared by audit,
-vet, rebuttal, fix, brief and the two ruling passes, including when a plan-repo
-launcher routes the phase here with local substitutions. Ordinary interactive invocations do not add
+vet, rebuttal, fix, brief, the two ruling passes and the glance and the two
+watch passes, including when a plan-repo launcher routes the phase here with
+local substitutions. Ordinary interactive invocations do not add
 a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
@@ -55,8 +56,9 @@ and its chat copy remain identical; append the result after the chat copy
 only. The object has exactly these fields:
 
 - `status`: one of the three outcomes below.
-- `file`: the absolute path written by a finished audit, vet, rebuttal, brief
-  or ruling pass. Use `null` for every other outcome, including a finished fix.
+- `file`: the absolute path written by a finished audit, vet, rebuttal, brief,
+  ruling pass or watch pass. Use `null` for every other outcome, including a
+  finished fix and a finished glance.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
 - `tier`: the grade a finished fix gives the round, and `null` everywhere else.
   It is the highest tier among the records the fix landed, written as one
@@ -65,11 +67,14 @@ only. The object has exactly these fields:
   two repos reports the highest tier across both. The runner reads this to
   decide whether a chained run audits the same scope again, so report what the
   records carry and nothing else.
+- `due`: whether a finished glance found the trajectory watch due, and `null`
+  everywhere else. The runner reads this to decide whether the two watch passes
+  run after the round, so report the rule's answer and nothing else.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the brief. |
-| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. |
+| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. A glance answered. | Continue, or finish the run after the watch. |
+| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. No watch follows. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
 Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`;
@@ -88,6 +93,15 @@ every transcript. The ruling passes take the transcript and the report, and
 their launchers belong to the Repo Edu root for the same reason; they run
 under `.agents/skills/rule/references/workflow.md` and only after a fix that
 returned `needs-ruling`.
+
+The glance and the two watch passes follow a round that finished, and take
+neither the report nor the transcript. The watch reads the commit record and
+never the round, so the runner gives the glance only the cache root, the
+verdict pass the file to write and that cache root, and the rewrite only the
+watch's workflow and its own draft. Their launchers belong to the Repo Edu
+root. They run under `.agents/skills/glance/references/workflow.md` and
+`.agents/skills/verdict/references/workflow.md`, and only when the glance
+returned `due` true.
 
 Required work still blocked by a permission refusal or another error means
 `failed`, even when the assistant can end its turn normally or a partial

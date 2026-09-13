@@ -7,7 +7,8 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
 ## Ownership
 
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the
-  two ruling passes a fix's open item adds, and the chain rule. It
+  two ruling passes a fix's open item adds, the watch that follows a finished
+  round, and the chain rule. It
   retains the audit session and report as local values. Audit, vet, fix and
   brief start fresh.
   Rebuttal resumes the audit session only when that session's last measurement
@@ -25,14 +26,24 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   opens an interactive session, using that fix's session identity. `rule`
   drafts the ruling and `revise` rewrites that draft in a fresh session, so the
   document the user rules from is read once by a session that did not write it.
+  `runWatch` owns the watch that follows a round: `glance` decides from the
+  commit record whether a watch is due, and only a due glance runs `verdict`
+  and a second `revise` pass over that draft. `revise` is the second pass over
+  any draft twin, so it takes the workflow that owns the document's shape as
+  its first argument. The watch runs only after a round that finished, because
+  a round that handed over has not proved its work landed; nothing is lost,
+  since the glance counts commits and not rounds. The watch reads the commit
+  record and never the round, so `runWatch` passes it no transcript and no
+  report.
   `chainDecision` owns whether a chained run audits the same scope again and
   with whom: the auditor repeats while the fix records an A or B tier, the other
   assistant then takes exactly one round, and the cap, a handover or a failure
   ends the chain. It reads the fix's own grade, never a report.
 - `phase.ts` defines the private inputs and results for assistant invocations
-  and owns which phases' texts enter the round transcript: every phase but the
-  brief and the two ruling passes, which retell the transcript in their own
-  files.
+  and owns which phases' texts enter the round transcript: only audit, vet,
+  rebuttal and fix. The brief, the two ruling passes and the watch's verdict
+  are the transcript's twins, written in their own files, and the glance only
+  decides; all five run once the transcript already holds the round.
   Assistant boundaries own processes, stream validation, session observations
   and phase output. They return only after accounting for the process, streams
   and required record writes. A failure retains the known session identity,
@@ -52,8 +63,10 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   after the child exits. A recording failure stops the child. The session
   decoder reads messages from display events and tools from response items,
   so duplicate records and tool results do not enter the round files.
-- `startup.ts` shares the existing `audit-round` cache dates with the Bash
-  runner. Both update attempts precede settings discovery. Claude control
+- `startup.ts` owns where the shared `audit-round` cache lives and shares its
+  update dates with the Bash runner. `resolveCacheRoot` is that one owner, so
+  the update stamps and the watch record the glance reads resolve the same way.
+  Both update attempts precede settings discovery. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
   `--approve-for-me` on every Codex phase and resume command. Claude uses
@@ -127,6 +140,10 @@ pnpm audit-round:contract codex
 The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root, and
 its brief phase writes the pair's plain-words twin with `-brief` before the
 extension. A fix that stops for a ruling adds the `-ruling` twin beside them.
+A round that finished ends with a glance at the commit record, and a due
+glance adds the `-verdict` twin carrying the trajectory watch. The watch also
+keeps its own history in the shared cache, which is how its cadence survives
+between rounds.
 `brief` writes the plain-words twin for an earlier transcript, logging beside
 it. `--chain` runs at most three rounds on the one scope the user named and
 never changes that scope; each round adds `-round-<n>` to its pair. Each

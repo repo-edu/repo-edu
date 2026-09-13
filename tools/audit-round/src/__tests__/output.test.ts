@@ -402,6 +402,7 @@ test("the settings header groups roles by assistant in aligned columns", async (
       "auditor   claude  claude-opus-5[1m] extra high",
       "rebutter  claude  claude-opus-5[1m] extra high",
       "briefer   claude  claude-opus-5[1m] extra high",
+      "watcher   claude  claude-opus-5[1m] extra high",
       "vetter    codex   gpt-6-astra high",
       "fixer     codex   gpt-6-astra high",
     ].join("\n"),
@@ -414,11 +415,12 @@ test("the settings header groups roles by assistant in aligned columns", async (
       "fixer     codex   gpt-6-astra high",
       "vetter    claude  claude-opus-5[1m] extra high",
       "briefer   claude  claude-opus-5[1m] extra high",
+      "watcher   claude  claude-opus-5[1m] extra high",
     ].join("\n"),
   )
   assert.equal(
     markdown.at(-1),
-    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\nbriefer   claude  claude-opus-5[1m] extra high\n```\n",
+    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\nbriefer   claude  claude-opus-5[1m] extra high\nwatcher   claude  claude-opus-5[1m] extra high\n```\n",
   )
 })
 

@@ -16,6 +16,8 @@ async function roundFixture(
   owner: "repo-edu" | "plan" = "repo-edu",
   ruling = false,
   tier: Grade = null,
+  /** Whether the glance calls a watch due, which no round does alongside a ruling. */
+  watch = false,
 ) {
   const f = await fixture(t)
   await mkdir(join(f.root, "repo-edu/.agents/skills/audit/references"), {
@@ -33,6 +35,9 @@ async function roundFixture(
   const report = join(f.root, owner, "AUDIT-example.md")
   const brief = join(repoRoot, "ROUND-TS-example-brief.md")
   const rulingFile = join(repoRoot, "ROUND-TS-example-ruling.md")
+  const verdictFile = join(repoRoot, "ROUND-TS-example-verdict.md")
+  // The second pass rewrites whichever draft its round produced.
+  const revised = watch ? verdictFile : rulingFile
   const phases: Record<string, unknown> = {}
   for (const phase of [
     "audit",
@@ -42,11 +47,13 @@ async function roundFixture(
     "brief",
     "rule",
     "revise",
+    "glance",
+    "verdict",
   ] as const) {
     const assistant =
       phase === "fix"
         ? "codex"
-        : ["brief", "rule", "revise"].includes(phase)
+        : ["brief", "rule", "revise", "glance", "verdict"].includes(phase)
           ? "claude"
           : phase === "vet"
             ? auditor === "codex"
@@ -55,17 +62,21 @@ async function roundFixture(
             : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
     const file =
-      phase === "fix"
+      phase === "fix" || phase === "glance"
         ? null
         : phase === "audit"
           ? report
           : phase === "brief"
             ? brief
-            : ["rule", "revise"].includes(phase)
+            : phase === "rule"
               ? rulingFile
-              : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
+              : phase === "revise"
+                ? revised
+                : phase === "verdict"
+                  ? verdictFile
+                  : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null })}`
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, due: phase === "glance" ? watch : null })}`
     phases[phase] = {
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase once a chain crosses over, so both answer.
@@ -131,6 +142,7 @@ async function roundFixture(
     records,
     roundFiles,
     ruling: rulingFile,
+    verdict: verdictFile,
     runtime: { ...f.runtime, cwd: repoRoot },
   }
 }
@@ -166,8 +178,11 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor,
             "codex",
             "claude",
-            // A requested ruling adds Claude's draft and its fresh rewrite.
-            ...(ruling ? (["claude", "claude"] as const) : []),
+            // A requested ruling adds Claude's draft and its fresh rewrite, and
+            // a round that finished instead glances at the record for the watch.
+            ...(ruling
+              ? (["claude", "claude"] as const)
+              : (["claude"] as const)),
           ],
         )
         assert.equal(
@@ -244,9 +259,15 @@ for (const auditor of ["claude", "codex"] as const) {
               `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
             ),
           )
+          // The second pass is told which document shape to rewrite towards.
           assert.ok(
             log.includes(
-              `Phase arguments (JSON array): ${JSON.stringify([f.ruling, transcript, f.report])}`,
+              `Phase arguments (JSON array): ${JSON.stringify([
+                `${repoRoot}/.agents/skills/rule/references/workflow.md`,
+                f.ruling,
+                transcript,
+                f.report,
+              ])}`,
             ),
           )
           assert.ok(log.includes(`[revise] finished: ${f.ruling}`))
@@ -504,8 +525,9 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
       (call.args[0] === "-p" &&
         !call.args.includes("--no-session-persistence")),
   )
-  // Three rounds of the five phases; a finished fix opens no ruling.
-  assert.equal(invocations.length, 15)
+  // Three rounds of the five phases, each glancing at the record afterwards; a
+  // finished fix opens no ruling.
+  assert.equal(invocations.length, 18)
   const visible = f.visible.join("\n")
   assert.match(
     visible,
@@ -557,6 +579,46 @@ test("a chained run crosses to the other assistant once the fix records a clean 
     /Chained round 2 of at most 3: claude audits the same scope again\./,
   )
   assert.match(visible, /Chain stopped after the second assistant's round\./)
+})
+
+test("a due glance sends the watch the record and the cache, never the round", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  assert.equal(
+    await runCommand(["example.md", "3"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  // The watch lands nothing of its own in the pair, so the round still writes two files.
+  const { log, markdown, transcript } = await f.records()
+  const verdict = transcript.replace(/\.md$/, "-verdict.md")
+  assert.ok(log.includes(`${f.repoRoot}/.claude/commands/glance.md`))
+  assert.ok(log.includes(`${f.repoRoot}/.claude/commands/verdict.md`))
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([f.options.cacheRoot])}`,
+    ),
+  )
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([verdict, f.options.cacheRoot])}`,
+    ),
+  )
+  // The rewrite is given the watch's own workflow and its draft, and no round file.
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ${JSON.stringify([
+        `${f.repoRoot}/.agents/skills/verdict/references/workflow.md`,
+        f.verdict,
+      ])}`,
+    ),
+  )
+  assert.ok(log.includes(`[revise] finished: ${f.verdict}`))
+  // The watch follows the round it grades, so none of its text enters the transcript.
+  for (const phase of ["glance", "verdict"] as const) {
+    assert.equal(markdown.includes(`## ${phase} (`), false)
+    assert.ok(f.visible.join("\n").includes(`Complete ${phase} text.`))
+  }
+  assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
 test("a chained run stops at the round that opens a ruling session", async (t) => {

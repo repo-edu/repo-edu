@@ -7,6 +7,8 @@ export type Phase =
   | "brief"
   | "rule"
   | "revise"
+  | "glance"
+  | "verdict"
 
 /**
  * The severity tier a finished fix recorded, lowercased from the record's
@@ -27,17 +29,25 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     brief: "claude",
     // The ruling explains an open item for the user, so Claude writes both passes.
     rule: "claude",
+    // The second pass over any draft twin, so it follows whichever pass wrote one.
     revise: "claude",
+    // The watch reads the commit record, never the round, so the auditor does not select it.
+    glance: "claude",
+    verdict: "claude",
   }
 }
 
 /**
- * Whether a phase's texts belong in the round transcript. The brief and the
- * ruling are the transcript's plain-words twins, so their texts land in their
- * own files and never in the transcript they explain.
+ * Whether a phase's texts belong in the round transcript. Only the four phases
+ * that carry out the round write into it. The brief, the ruling and the watch
+ * verdict are its twins, written for the user in their own files, and the
+ * glance decides rather than reports. All five run once the transcript holds
+ * the round, so none of them may add to it.
  */
 export function transcribed(phase: Phase): boolean {
-  return phase !== "brief" && phase !== "rule" && phase !== "revise"
+  return (
+    phase === "audit" || phase === "vet" || phase === "rebut" || phase === "fix"
+  )
 }
 
 type PhaseArguments = {
@@ -65,12 +75,26 @@ type PhaseArguments = {
     readonly arguments: readonly [transcript: string, report: string]
     readonly sessionId: null
   }
+  /**
+   * The second pass over one draft twin: the workflow that owns the document's
+   * shape, the draft itself and whatever sources that workflow grounds it in.
+   * The sources differ per document, so the pass takes them rather than naming
+   * the round's files itself.
+   */
   revise: {
     readonly arguments: readonly [
-      ruling: string,
-      transcript: string,
-      report: string,
+      workflow: string,
+      document: string,
+      ...sources: string[],
     ]
+    readonly sessionId: null
+  }
+  glance: {
+    readonly arguments: readonly [cacheRoot: string]
+    readonly sessionId: null
+  }
+  verdict: {
+    readonly arguments: readonly [verdict: string, cacheRoot: string]
     readonly sessionId: null
   }
 }
@@ -115,6 +139,13 @@ type FixResult = {
   readonly tier: Tier | null
 }
 
+/** Whether the commit record has moved far enough for a watch to be worth running. */
+type GlanceResult = {
+  readonly status: "finished"
+  readonly sessionId: string
+  readonly due: boolean
+}
+
 type PhaseResults = {
   audit: ReportResult
   vet: ReportResult
@@ -123,6 +154,8 @@ type PhaseResults = {
   brief: ReportResult
   rule: ReportResult
   revise: ReportResult
+  glance: GlanceResult
+  verdict: ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

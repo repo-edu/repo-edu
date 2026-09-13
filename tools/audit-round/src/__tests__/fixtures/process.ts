@@ -146,9 +146,10 @@ if (assistant === "claude") {
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
-  const phase = /^Run the (audit|vet|rebut|fix|brief|rule|revise) phase /.exec(
-    prompt ?? "",
-  )?.[1]
+  const phase =
+    /^Run the (audit|vet|rebut|fix|brief|rule|revise|glance|verdict) phase /.exec(
+      prompt ?? "",
+    )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
   // A chained round changes who audits, so a phase may answer as either CLI.

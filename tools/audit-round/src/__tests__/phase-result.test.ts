@@ -14,9 +14,14 @@ for (const phase of [
   "brief",
   "rule",
   "revise",
+  "glance",
+  "verdict",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    const file = phase === "fix" ? null : "/written report.md"
+    // A fix reports its grade and a glance its decision; the rest report a file.
+    const file =
+      phase === "fix" || phase === "glance" ? null : "/written report.md"
+    const due = phase === "glance" ? false : null
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"]) {
@@ -24,7 +29,8 @@ for (const phase of [
         phaseResult(
           phase,
           "session",
-          text({ status: "finished", file, reason: null, tier: null }) + ending,
+          text({ status: "finished", file, reason: null, tier: null, due }) +
+            ending,
           null,
         ).status,
         "finished",
@@ -39,6 +45,7 @@ for (const phase of [
           file: null,
           reason: "Required work remains blocked",
           tier: null,
+          due: null,
         }),
         { tokens: 10, window: 100 },
       ),
@@ -52,7 +59,13 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "needs-ruling", file: null, reason: null, tier: null }),
+        text({
+          status: "needs-ruling",
+          file: null,
+          reason: null,
+          tier: null,
+          due: null,
+        }),
         null,
       )
     if (phase === "fix") assert.equal(ruling().status, "needs-ruling")
@@ -62,7 +75,7 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "finished", file, reason: null, tier: "b" }),
+        text({ status: "finished", file, reason: null, tier: "b", due }),
         null,
       )
     if (phase === "fix")
@@ -72,26 +85,80 @@ for (const phase of [
         tier: "b",
       })
     else assert.throws(graded)
+    // Only a finished glance decides, and it must decide rather than omit one.
+    const decided = () =>
+      phaseResult(
+        phase,
+        "session",
+        text({ status: "finished", file, reason: null, tier: null, due: true }),
+        null,
+      )
+    if (phase === "glance")
+      assert.deepEqual(decided(), {
+        status: "finished",
+        sessionId: "session",
+        due: true,
+      })
+    else assert.throws(decided)
+    assert.throws(() =>
+      phaseResult(
+        phase,
+        "session",
+        text({
+          status: "finished",
+          file,
+          reason: null,
+          tier: null,
+          due: phase === "glance" ? null : false,
+        }),
+        null,
+      ),
+    )
     for (const value of [
-      { status: "retry", file: null, reason: null, tier: null },
-      { status: "finished", file, reason: null, tier: null, extra: true },
-      { status: "finished", file, reason: null },
-      { status: "finished", file, tier: null },
-      { status: "finished", file: "relative.md", reason: null, tier: null },
-      { status: "finished", file, reason: "unexpected", tier: null },
-      { status: "failed", file: null, reason: " ", tier: null },
-      { status: "failed", file: "/file.md", reason: "blocked", tier: null },
-      { status: "failed", file: null, reason: "blocked", tier: "a" },
-      { status: "needs-ruling", file: null, reason: null, tier: "c" },
-      { status: "finished", file, reason: null, tier: "A" },
-      { status: "finished", file, reason: null, tier: "e" },
+      { status: "retry", file: null, reason: null, tier: null, due },
+      { status: "finished", file, reason: null, tier: null, due, extra: true },
+      { status: "finished", file, reason: null, due },
+      { status: "finished", file, tier: null, due },
+      { status: "finished", file, reason: null, tier: null },
+      {
+        status: "finished",
+        file: "relative.md",
+        reason: null,
+        tier: null,
+        due,
+      },
+      { status: "finished", file, reason: "unexpected", tier: null, due },
+      { status: "failed", file: null, reason: " ", tier: null, due: null },
+      {
+        status: "failed",
+        file: "/file.md",
+        reason: "blocked",
+        tier: null,
+        due: null,
+      },
+      {
+        status: "failed",
+        file: null,
+        reason: "blocked",
+        tier: "a",
+        due: null,
+      },
+      {
+        status: "needs-ruling",
+        file: null,
+        reason: null,
+        tier: "c",
+        due: null,
+      },
+      { status: "finished", file, reason: null, tier: "A", due },
+      { status: "finished", file, reason: null, tier: "e", due },
     ])
       assert.throws(() => phaseResult(phase, "session", text(value), null))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
-      `${text({ status: "finished", file, reason: null, tier: null })}\nExtra text`,
-      `${text({ status: "finished", file, reason: null, tier: null })}\n\`\`\``,
+      `${text({ status: "finished", file, reason: null, tier: null, due })}\nExtra text`,
+      `${text({ status: "finished", file, reason: null, tier: null, due })}\n\`\`\``,
     ]) {
       assert.throws(() => phaseResult(phase, "session", invalid, null))
     }

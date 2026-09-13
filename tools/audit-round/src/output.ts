@@ -74,10 +74,20 @@ export function roundRun(
       ["rebutter", assistants.rebut],
       ["fixer", assistants.fix],
       ["briefer", assistants.brief],
+      ["watcher", assistants.verdict],
     ],
     paths: { log: `${base}.log`, markdown: `${base}.md` },
     started,
   }
+}
+
+/**
+ * Where the watch writes the verdict that follows one round: beside that
+ * round's transcript and named for it. The watch never reads the transcript,
+ * so the name is all the two share.
+ */
+export function verdictPath(transcript: string): string {
+  return `${transcript.replace(/\.md$/, "")}-verdict.md`
 }
 
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */

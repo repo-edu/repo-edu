@@ -9,6 +9,7 @@ import {
   type SessionContext,
   type Tier,
 } from "./phase.js"
+import { workflowPath } from "./requests.js"
 
 /** What names a round before it starts: the plan, the scope and who audits. */
 export type RoundSetup = {
@@ -21,6 +22,10 @@ export type RoundSetup = {
 export type RoundInput = RoundSetup & {
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
   readonly transcript: string
+  /** Where the watch writes its verdict, named for the round the watch follows. */
+  readonly verdict: string
+  /** The shared `audit-round` cache, which holds the watch's own history. */
+  readonly cacheRoot: string
 }
 
 export type BriefInput = {
@@ -139,6 +144,66 @@ export async function runBrief(
   return { status: "finished", brief: brief.file }
 }
 
+/**
+ * The watch that follows a round. It reads the commit record and never the
+ * round, so nothing it is given comes from the round's own files: the glance
+ * decides from the log alone and the verdict grounds itself in the code the
+ * log points at. The glance exists because the watch is expensive and most
+ * rounds do not move the record far enough to change its reading.
+ *
+ * Only a round that finished runs it. A round that handed over has not proved
+ * that its work landed, so the record it would grade may be missing its own
+ * commit. Nothing is lost by waiting: the glance counts what the log has
+ * gained since the last watch, not how many rounds have run.
+ *
+ * Returns the failure that stops the round, or null when the watch ran or was
+ * not due.
+ */
+async function runWatch(
+  input: Pick<RoundInput, "repoRoot" | "verdict" | "cacheRoot">,
+  dependencies: Pick<RoundDependencies, "runPhase">,
+): Promise<RoundFailure | null> {
+  const assistants = phaseAssistants("codex")
+  const cwd = input.repoRoot
+  const glance = await dependencies.runPhase.glance({
+    phase: "glance",
+    assistant: assistants.glance,
+    cwd,
+    ownerRoot: cwd,
+    arguments: [input.cacheRoot],
+    sessionId: null,
+  })
+  if (glance.status === "failed")
+    return { ...glance, phase: "glance", assistant: assistants.glance, cwd }
+  if (!glance.due) return null
+
+  const verdict = await dependencies.runPhase.verdict({
+    phase: "verdict",
+    assistant: assistants.verdict,
+    cwd,
+    ownerRoot: cwd,
+    arguments: [input.verdict, input.cacheRoot],
+    sessionId: null,
+  })
+  if (verdict.status === "failed")
+    return { ...verdict, phase: "verdict", assistant: assistants.verdict, cwd }
+
+  // The verdict is a document the user decides from, so a session that did not
+  // write it reads it once before the user does. It re-grounds in the record
+  // and the code, never in the round, so it is given no other source.
+  const revise = await dependencies.runPhase.revise({
+    phase: "revise",
+    assistant: assistants.revise,
+    cwd,
+    ownerRoot: cwd,
+    arguments: [workflowPath(cwd, "verdict"), verdict.file],
+    sessionId: null,
+  })
+  if (revise.status === "failed")
+    return { ...revise, phase: "revise", assistant: assistants.revise, cwd }
+  return null
+}
+
 export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
@@ -203,6 +268,8 @@ export async function runRound(
   )
   if (brief.status === "failed") return brief
   if (fix.status === "finished") {
+    const watched = await runWatch(input, dependencies)
+    if (watched !== null) return watched
     return { status: "finished", report, tier: fix.tier }
   }
 
@@ -224,7 +291,7 @@ export async function runRound(
     assistant: assistants.revise,
     cwd,
     ownerRoot: cwd,
-    arguments: [rule.file, input.transcript, report],
+    arguments: [workflowPath(cwd, "rule"), rule.file, input.transcript, report],
     sessionId: null,
   })
   if (revise.status === "failed")

@@ -8,6 +8,8 @@ const resultSchema = z.strictObject({
   reason: z.string().nullable(),
   // Only a finished fix grades itself; every other ending reports no tier.
   tier: z.enum(["a", "b", "c", "d"]).nullable(),
+  // Only a finished glance decides; every other ending reports no decision.
+  due: z.boolean().nullable(),
 })
 
 export function phaseResult<P extends Phase>(
@@ -26,12 +28,26 @@ export function phaseResult<P extends Phase>(
     !(phase === "fix" && result.status === "finished")
   )
     throw new Error("Only a finished fix PHASE RESULT may carry a tier")
+  if (
+    result.due !== null &&
+    !(phase === "glance" && result.status === "finished")
+  )
+    throw new Error("Only a finished glance PHASE RESULT may carry a decision")
   if (result.status === "failed") {
     if (result.file !== null || !result.reason?.trim())
       throw new Error("Invalid failed PHASE RESULT")
     return { status: "failed", sessionId, reason: result.reason }
   }
   if (result.reason !== null) throw new Error("Unexpected PHASE RESULT reason")
+  if (phase === "glance") {
+    if (result.file !== null || result.due === null)
+      throw new Error("Glance PHASE RESULT must decide and name no file")
+    return {
+      status: "finished",
+      sessionId,
+      due: result.due,
+    } as PhaseResult<P>
+  }
   if (phase === "fix") {
     if (result.file !== null)
       throw new Error("Fix PHASE RESULT must have a null file")
