@@ -693,7 +693,7 @@ export function AnalysisCoordinatorProvider({
   )
 
   const cancelDiscovery = useCallback(() => {
-    sourceRunner?.cancel()
+    sourceRunner?.pause()
     discoveryRunner.cancel()
   }, [sourceRunner, discoveryRunner])
 

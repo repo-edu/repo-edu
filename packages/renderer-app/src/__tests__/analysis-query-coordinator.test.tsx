@@ -31,7 +31,7 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
 } from "../analysis/analysis-query-keys.js"
-import { CommandWaitingBanner } from "../components/CommandWaitingBanner.js"
+import { SessionWaitingBanner } from "../components/SessionWaitingBanner.js"
 import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -235,7 +235,7 @@ async function mountCoordinator(
     root.render(
       <Mode>
         <SessionControllerProvider controller={controller}>
-          <CommandWaitingBanner />
+          <SessionWaitingBanner />
           <WorkflowClientProvider value={controller.operations}>
             <QueryClientProvider client={queryClient}>
               <AnalysisCoordinatorProvider>
@@ -616,6 +616,59 @@ describe("analysis runner lifetime in React", () => {
     assert.ok(read().result)
   })
 
+  it("restores analysis after cancelling a repeated search of the same folder and depth", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    const result = makeBaseResult()
+    const discoveredRepos = repos.map((path) => ({ path, name: path }))
+    let searches = 0
+    const { controller, read } = await mountCoordinator(
+      t,
+      async () => result,
+      undefined,
+      {
+        discover: async (signal) => {
+          searches++
+          if (searches > 1) {
+            entered.resolve(signal)
+            await release.promise
+          }
+          return { repos: discoveredRepos }
+        },
+      },
+    )
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.deepEqual(read().result, result)
+    await React.act(async () => {
+      read().runRepoDiscovery("/repos")
+      await flushQueries()
+    })
+    const signal = await entered.promise
+    await React.act(flushQueries)
+    assert.equal(read().discoveryStatus, "loading")
+    assert.equal(read().result, null)
+    await React.act(async () => {
+      read().cancelDiscovery()
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, true)
+    await React.act(async () => {
+      release.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(searches, 2)
+    assert.equal(read().discoveryStatus, "idle")
+    assert.deepEqual(read().discoveredRepos, discoveredRepos)
+    assert.deepEqual(read().result, result)
+  })
+
   it("keeps a later analysis after discovery was cancelled and selection moves", {
     timeout: 3000,
   }, async (t) => {
@@ -673,6 +726,53 @@ describe("analysis sidebar admission", () => {
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
+
+  it("shows a surface switch waiting for a search and clears the banner when it starts", {
+    timeout: 3000,
+  }, async (t) => {
+    const entered = deferred<AbortSignal>()
+    const release = deferred<void>()
+    t.after(() => release.resolve())
+    const { controller, container } = await mountCoordinator(
+      t,
+      async () => assert.fail("An empty search must not start analysis"),
+      undefined,
+      {
+        sidebar: true,
+        discover: async (signal) => {
+          entered.resolve(signal)
+          await release.promise
+          return { repos: [] }
+        },
+      },
+    )
+    const signal = await entered.promise
+    assert.equal(container.querySelector('[role="status"]'), null)
+    let transition: Promise<boolean> | undefined
+    await React.act(async () => {
+      transition = controller.activateSurface({ kind: "home" })
+      await flushQueries()
+    })
+    assert.equal(signal.aborted, false)
+    assert.deepEqual(
+      controller.getSnapshot().settings.preferences.activeSurface,
+      { kind: "course", courseId: "course" },
+    )
+    assert.match(
+      container.querySelector('[role="status"]')?.textContent ?? "",
+      /Waiting for current work to finish/,
+    )
+    await React.act(async () => {
+      release.resolve()
+      assert.equal(await transition, true)
+      await flushQueries()
+    })
+    assert.deepEqual(
+      controller.getSnapshot().settings.preferences.activeSurface,
+      { kind: "home" },
+    )
+    assert.equal(container.querySelector('[role="status"]'), null)
+  })
 
   for (const ending of ["completion", "cancellation"] as const) {
     it(`shows a reserved command and allows search ${ending} before its body starts`, {

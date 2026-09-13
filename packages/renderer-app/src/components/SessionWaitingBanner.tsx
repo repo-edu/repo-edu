@@ -1,8 +1,8 @@
-import { selectCommandIsWaiting } from "../session/selectors.js"
+import { selectUserActionIsWaiting } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 
-export function CommandWaitingBanner() {
-  const isWaiting = useSessionControllerSelector(selectCommandIsWaiting)
+export function SessionWaitingBanner() {
+  const isWaiting = useSessionControllerSelector(selectUserActionIsWaiting)
   if (!isWaiting) return null
 
   return (

@@ -70,12 +70,16 @@ export function selectOperationIsAdmitted(
   )
 }
 
-export function selectCommandIsWaiting(
+export function selectUserActionIsWaiting(
   snapshot: SessionControllerSnapshot,
 ): boolean {
   const { admitted, runningTurnId } = snapshot.transactions
   return [...admitted].some(
-    ([turnId, entry]) => entry.kind === "command" && turnId !== runningTurnId,
+    ([turnId, entry]) =>
+      turnId !== runningTurnId &&
+      ["command", "enter", "create", "duplicate", "rename", "delete"].includes(
+        entry.kind,
+      ),
   )
 }
 

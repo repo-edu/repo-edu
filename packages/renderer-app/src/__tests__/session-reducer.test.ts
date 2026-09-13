@@ -1,15 +1,101 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { savingSyncStatus } from "../persistence/create-persister.js"
-import { selectSettingsSyncState } from "../session/selectors.js"
+import {
+  selectSettingsSyncState,
+  selectUserActionIsWaiting,
+} from "../session/selectors.js"
 import {
   canAdmitCourseMutation,
   canAdmitSessionChange,
   createInitialSessionSnapshot,
+  type SessionTransactionDescriptor,
   sessionReducer,
 } from "../session/session-reducer.js"
 
 describe("session reducer", () => {
+  const waitingCases: {
+    descriptor: SessionTransactionDescriptor
+    visible: boolean
+  }[] = [
+    { descriptor: { kind: "command", operation: "repo.clone" }, visible: true },
+    {
+      descriptor: {
+        kind: "enter",
+        targetSurface: { kind: "course", courseId: "course-b" },
+        leavingCourseId: "course-a",
+      },
+      visible: true,
+    },
+    {
+      descriptor: {
+        kind: "create",
+        targetSurface: { kind: "course", courseId: "course-b" },
+        leavingCourseId: "course-a",
+      },
+      visible: true,
+    },
+    { descriptor: { kind: "duplicate" }, visible: true },
+    { descriptor: { kind: "rename" }, visible: true },
+    {
+      descriptor: {
+        kind: "delete",
+        courseId: "course-a",
+        blocksCourseMutation: true,
+      },
+      visible: true,
+    },
+    {
+      descriptor: { kind: "operation", operation: "course.list" },
+      visible: false,
+    },
+    { descriptor: { kind: "bootstrap" }, visible: false },
+    { descriptor: { kind: "close" }, visible: false },
+  ]
+
+  for (const { descriptor, visible } of waitingCases) {
+    it(`${visible ? "shows" : "hides"} a queued ${descriptor.kind} in the waiting display`, () => {
+      let state = createInitialSessionSnapshot()
+      const running = {
+        kind: "operation",
+        operation: "analysis.discoverRepos",
+      } as const
+      state = sessionReducer(state, {
+        type: "transaction-enter",
+        turnId: 1,
+        descriptor: running,
+      })
+      state = sessionReducer(state, {
+        type: "transaction-start",
+        turnId: 1,
+        descriptor: running,
+      })
+      assert.equal(selectUserActionIsWaiting(state), false)
+      if (descriptor.kind === "close") {
+        state = sessionReducer(state, { type: "close-start" })
+      }
+      state = sessionReducer(state, {
+        type: "transaction-enter",
+        turnId: 2,
+        descriptor,
+      })
+      assert.equal(state.transactions.admitted.has(2), true)
+      assert.equal(selectUserActionIsWaiting(state), visible)
+
+      state = sessionReducer(state, { type: "transaction-retire", turnId: 1 })
+      assert.equal(selectUserActionIsWaiting(state), visible)
+      state = sessionReducer(state, {
+        type: "transaction-start",
+        turnId: 2,
+        descriptor,
+      })
+      assert.equal(state.transactions.runningTurnId, 2)
+      assert.equal(selectUserActionIsWaiting(state), false)
+      state = sessionReducer(state, { type: "transaction-retire", turnId: 2 })
+      assert.equal(selectUserActionIsWaiting(state), false)
+    })
+  }
+
   it("holds one global freeze from command admission through retirement", () => {
     let state = createInitialSessionSnapshot()
     state = {
