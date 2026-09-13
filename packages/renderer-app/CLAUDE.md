@@ -44,8 +44,9 @@ It consumes:
 - `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
   results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
 - `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame
-  fetches. One background body covers the whole source; work the user asked for stops it and
-  a later start skips the repositories already cached.
+  fetches. One body covers the whole source and the selected repository's line authorship.
+  Explicit Run actions keep their turn. Automatic starts stop for later reservations.
+  A later start skips the repositories already cached.
 - `src/analysis/analysis-query-bodies.ts`: owns the discovery fetch body.
 - `src/analysis/analysis-query-keys.ts`: keys cached results by input identity.
 - `src/analysis/analysis-transient-store.ts`: holds live progress.
@@ -77,8 +78,8 @@ It consumes:
   No render, effect or Query observer may start or stop host work; a stop goes through
   the gateway, which reverts the query instead of failing it.
 - A reservation declares whether it is work the user asked for or background work the
-  owner started on the user's behalf. Entering a user-asked reservation stops every
-  live background one; background work never stops background work.
+  owner started on the user's behalf. Every accepted reservation stops live background
+  work. Work the user asked for keeps its turn until it finishes or the user stops it.
 - Command reservation freezes every semantic edit and persistence-worker start
   until retirement. Store actions and native edits obey the same gate; do not
   add field-specific exceptions, semantic refs or competing state owners.

@@ -327,7 +327,11 @@ export function AnalysisCoordinatorProvider({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The runner already keys source inputs, extensions and concurrency by content.
   const effectiveBlameConfig = useMemo<AnalysisBlameConfig | null>(() => {
-    if (analysisContext.kind === "none") return null
+    if (
+      analysisContext.kind === "none" ||
+      analysisContext.analysisInputs.blameSkip
+    )
+      return null
     return buildEffectiveBlameWorkflowConfig(
       {
         searchFolder: analysisContext.searchFolder,
@@ -337,7 +341,7 @@ export function AnalysisCoordinatorProvider({
       defaultExtensions,
       analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo,
     )
-  }, [sourceRunner, blameConfig])
+  }, [sourceRunner, blameConfig, analysisContext.analysisInputs.blameSkip])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -381,20 +385,24 @@ export function AnalysisCoordinatorProvider({
     : null
   const discoveryCompleted = discoveryQuery.isSuccess
 
-  // Starting the fan-out is a reservation, not host work: the body it reserves
-  // owns the stop. Each start stops the pass before it, so a changed source
-  // key, repository list or selection replaces stale work rather than racing
-  // it, and the new pass skips what the cache already holds. Command admission
-  // is not a start trigger, so it cannot undo a Cancel.
+  // Each automatic start replaces background work and waits for work the user
+  // asked for. The body skips cached results and owns its line-authorship
+  // follow-up. Command admission is not a start trigger, so it cannot undo Cancel.
   useEffect(() => {
     if (discoveryQuery.isFetching || discoveryQuery.dataUpdatedAt === 0) return
     void sourceRunner
-      ?.run(discoveredRepoPaths, selectedRepoPath)
+      ?.run(
+        discoveredRepoPaths,
+        selectedRepoPath,
+        "background",
+        effectiveBlameConfig,
+      )
       .catch(() => {})
   }, [
     sourceRunner,
     discoveredRepoPaths,
     selectedRepoPath,
+    effectiveBlameConfig,
     discoveryQuery.isFetching,
     discoveryQuery.dataUpdatedAt,
   ])
@@ -491,8 +499,7 @@ export function AnalysisCoordinatorProvider({
       selectedAnalysisIdentity === null ||
       effectiveBlameConfig === null ||
       result === null ||
-      result.fileStats.length === 0 ||
-      analysisContext.analysisInputs.blameSkip
+      result.fileStats.length === 0
     ) {
       return null
     }
@@ -504,7 +511,6 @@ export function AnalysisCoordinatorProvider({
     })
   }, [
     activeSourceParts,
-    analysisContext.analysisInputs.blameSkip,
     effectiveBlameConfig,
     result,
     selectedAnalysisIdentity,
@@ -517,14 +523,6 @@ export function AnalysisCoordinatorProvider({
         : blameResultScopeKey(selectedBlameIdentity),
     [selectedBlameIdentity],
   )
-  const selectedBlameFiles = useMemo(
-    () =>
-      result?.fileStats
-        .map((file) => file.path)
-        .sort((left, right) => left.localeCompare(right)) ?? [],
-    [result],
-  )
-
   const selectedBlameQuery = useQuery<BlameResult>({
     queryKey:
       selectedBlameIdentity === null
@@ -533,34 +531,6 @@ export function AnalysisCoordinatorProvider({
     enabled: false,
     queryFn: skipToken,
   })
-  useEffect(() => {
-    if (
-      selectedRepoPath === null ||
-      selectedBlameIdentity === null ||
-      selectedAnalysisIdentity === null ||
-      effectiveBlameConfig === null ||
-      result === null ||
-      selectedBlameFiles.length === 0
-    )
-      return
-    void sourceRunner
-      ?.fetchBlame(selectedBlameIdentity, {
-        repositoryAbsolutePath: selectedRepoPath,
-        config: effectiveBlameConfig,
-        personDbBaseline: result.personDbBaseline,
-        files: selectedBlameFiles,
-        snapshotCommitOid: selectedAnalysisIdentity.snapshotCommitOid,
-      })
-      .catch(() => {})
-  }, [
-    sourceRunner,
-    selectedRepoPath,
-    selectedBlameIdentity,
-    selectedAnalysisIdentity,
-    effectiveBlameConfig,
-    result,
-    selectedBlameFiles,
-  ])
 
   const selectedBlameTransient = useAnalysisTransientStore((state) =>
     selectedBlameScopeKey === null
@@ -626,7 +596,6 @@ export function AnalysisCoordinatorProvider({
   // click both read the reservation, so they cannot disagree.
   const cancelAnalysis = useCallback(() => {
     client.stop("analysis.run")
-    client.stop("analysis.blame")
   }, [client])
 
   const runAnalysis = useCallback(
@@ -635,10 +604,24 @@ export function AnalysisCoordinatorProvider({
         clearAnalysisQueries(queryClient, {
           queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
         })
-        void sourceRunner?.run(discoveredRepoPaths, repoPath).catch(() => {})
+        void sourceRunner
+          ?.run(
+            discoveredRepoPaths,
+            repoPath,
+            "user-asked",
+            effectiveBlameConfig,
+          )
+          .catch(() => {})
       })
     },
-    [client, sourceRunner, activeSourceParts, queryClient, discoveredRepoPaths],
+    [
+      client,
+      sourceRunner,
+      activeSourceParts,
+      queryClient,
+      discoveredRepoPaths,
+      effectiveBlameConfig,
+    ],
   )
 
   const runDiscovery = useCallback(

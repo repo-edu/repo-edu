@@ -1,5 +1,6 @@
 import type { WorkflowInput } from "@repo-edu/application-contract"
 import type {
+  AnalysisBlameConfig,
   AnalysisConfig,
   AnalysisRosterContext,
   BlameResult,
@@ -11,6 +12,7 @@ import type {
   SessionOperationScope,
 } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
+import type { SessionOperationIntent } from "../session/session-surface-transactions.js"
 import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
@@ -18,6 +20,7 @@ import {
   type BlameQueryIdentity,
   blameResultScopeKey,
   buildAnalysisQueryIdentity,
+  buildBlameQueryIdentity,
 } from "./analysis-query-keys.js"
 import { useAnalysisTransientStore } from "./analysis-transient-store.js"
 
@@ -38,11 +41,13 @@ export class AnalysisSourceRunner {
     private readonly input: AnalysisSourceInput,
   ) {}
 
-  /** One background body analyses the whole source. A reservation entering
-   * behind it stops it; a later start skips the repositories already cached. */
+  /** One body analyses the source and the selected repository's line authorship.
+   * The start site declares whether later reservations wait for it or stop it. */
   async run(
     repoPaths: readonly string[],
     selectedRepoPath: string | null,
+    intent: SessionOperationIntent,
+    blameConfig: AnalysisBlameConfig | null,
   ): Promise<void> {
     if (repoPaths.length === 0) return
     // Start the selected repository first within the same parallel limit.
@@ -60,7 +65,12 @@ export class AnalysisSourceRunner {
         const worker = async () => {
           while (!scope.signal.aborted && nextIndex < ordered.length) {
             try {
-              await this.fetchRepo(scope, ordered[nextIndex++])
+              const repoPath = ordered[nextIndex++]
+              await this.fetchRepo(
+                scope,
+                repoPath,
+                repoPath === selectedRepoPath ? blameConfig : null,
+              )
             } catch {
               // Query publishes each repository's failure to its observers.
             }
@@ -78,53 +88,53 @@ export class AnalysisSourceRunner {
           ),
         )
       },
-      "background",
+      intent,
     )
   }
 
-  async fetchBlame(
+  private async fetchBlame(
+    scope: SessionOperationScope,
     identity: BlameQueryIdentity,
     input: WorkflowInput<"analysis.blame">,
-  ): Promise<BlameResult | undefined> {
-    return await this.operations.execute("analysis.blame", async (scope) => {
-      return await this.queryClient.fetchQuery({
-        queryKey: analysisQueryKeys.blame(identity),
-        ...scopedSessionQueryOptions(scope, async () => {
-          const requestKey = blameResultScopeKey(identity)
-          const requestId = nanoid()
-          useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
-          try {
-            return await scope.run("analysis.blame", input, {
-              onProgress: (progress) => {
-                const transient = useAnalysisTransientStore.getState()
-                transient.setBlameProgress(requestKey, requestId, progress)
-                if (progress.partialAuthorLines) {
-                  transient.setBlamePartialAuthorLines(
-                    requestKey,
-                    requestId,
-                    new Map(
-                      progress.partialAuthorLines.map((entry) => [
-                        entry.personId,
-                        entry.lines,
-                      ]),
-                    ),
-                  )
-                }
-              },
-            })
-          } finally {
-            useAnalysisTransientStore
-              .getState()
-              .finishBlame(requestKey, requestId)
-          }
-        }),
-      })
+  ): Promise<BlameResult> {
+    return await this.queryClient.fetchQuery({
+      queryKey: analysisQueryKeys.blame(identity),
+      ...scopedSessionQueryOptions(scope, async () => {
+        const requestKey = blameResultScopeKey(identity)
+        const requestId = nanoid()
+        useAnalysisTransientStore.getState().startBlame(requestKey, requestId)
+        try {
+          return await scope.run("analysis.blame", input, {
+            onProgress: (progress) => {
+              const transient = useAnalysisTransientStore.getState()
+              transient.setBlameProgress(requestKey, requestId, progress)
+              if (progress.partialAuthorLines) {
+                transient.setBlamePartialAuthorLines(
+                  requestKey,
+                  requestId,
+                  new Map(
+                    progress.partialAuthorLines.map((entry) => [
+                      entry.personId,
+                      entry.lines,
+                    ]),
+                  ),
+                )
+              }
+            },
+          })
+        } finally {
+          useAnalysisTransientStore
+            .getState()
+            .finishBlame(requestKey, requestId)
+        }
+      }),
     })
   }
 
   private async fetchRepo(
     scope: SessionOperationScope,
     repoPath: string,
+    blameConfig: AnalysisBlameConfig | null,
   ): Promise<void> {
     const { source, config, rosterContext, kind } = this.input
     const snapshotCommitOid = await this.queryClient.fetchQuery({
@@ -148,7 +158,7 @@ export class AnalysisSourceRunner {
       rosterContext,
     })
     const requestKey = analysisResultScopeKey(identity)
-    await this.queryClient.fetchQuery({
+    const result = await this.queryClient.fetchQuery({
       queryKey: analysisQueryKeys.result(identity),
       ...scopedSessionQueryOptions(scope, async () => {
         const requestId = nanoid()
@@ -185,5 +195,24 @@ export class AnalysisSourceRunner {
         }
       }),
     })
+    if (blameConfig === null || result.fileStats.length === 0) return
+    await this.fetchBlame(
+      scope,
+      buildBlameQueryIdentity({
+        source,
+        repoPath,
+        analysis: identity,
+        config: blameConfig,
+      }),
+      {
+        repositoryAbsolutePath: repoPath,
+        config: blameConfig,
+        personDbBaseline: result.personDbBaseline,
+        files: result.fileStats
+          .map((file) => file.path)
+          .sort((left, right) => left.localeCompare(right)),
+        snapshotCommitOid,
+      },
+    )
   }
 }

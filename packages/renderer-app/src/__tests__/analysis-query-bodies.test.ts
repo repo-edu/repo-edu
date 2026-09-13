@@ -16,7 +16,11 @@ import {
   useAnalysisStore,
 } from "../stores/analysis-store.js"
 import { useCourseStore } from "../stores/course-store.js"
-import { makeBaseResult, makeBlameResult } from "./analysis.test-support.js"
+import {
+  makeBaseResult,
+  makeBlameResult,
+  makeFileStatsWithBreakdown,
+} from "./analysis.test-support.js"
 import {
   commitPreparation,
   deferred,
@@ -203,7 +207,13 @@ describe("discovery and blame bodies", () => {
         const release = deferred<void>()
         const result =
           kind === "discovery" ? discoveryResult : makeBlameResult()
-        const { controller, client } = await setup(t, async (_id, signal) => {
+        const { controller, client } = await setup(t, async (id, signal) => {
+          if (id === "analysis.resolveSnapshotHead") return "head"
+          if (id === "analysis.run")
+            return {
+              ...makeBaseResult(),
+              fileStats: makeFileStatsWithBreakdown(),
+            }
           entered.resolve(signal)
           await release.promise
           signal.throwIfAborted()
@@ -234,13 +244,7 @@ describe("discovery and blame bodies", () => {
                 rosterContext: undefined,
                 kind: "course",
                 repoParallelism: 1,
-              }).fetchBlame(identity, {
-                repositoryAbsolutePath: "/repos/one",
-                config: {},
-                personDbBaseline: makeBaseResult().personDbBaseline,
-                files: ["a.ts"],
-                snapshotCommitOid: "head",
-              })
+              }).run(["/repos/one"], "/repos/one", "user-asked", {})
         const signal = await entered.promise
         if (ending === "key change")
           observer.setOptions({

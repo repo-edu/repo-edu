@@ -13,7 +13,10 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
+import {
+  clearAnalysisQueries,
+  createRendererQueryClient,
+} from "../analysis/analysis-query-client.js"
 import {
   AnalysisCoordinatorProvider,
   selectCurrentAnalysisResult,
@@ -84,8 +87,14 @@ type AnalysisTestView = ReturnType<typeof useAnalysisTestView>
 
 async function mountCoordinator(
   t: TestContext,
-  analyse: (signal: AbortSignal) => Promise<unknown>,
-  blame?: (signal: AbortSignal) => Promise<unknown>,
+  analyse: (
+    signal: AbortSignal,
+    input: WorkflowInput<"analysis.run">,
+  ) => Promise<unknown>,
+  blame?: (
+    signal: AbortSignal,
+    input: WorkflowInput<"analysis.blame">,
+  ) => Promise<unknown>,
   options: {
     discover?: (
       signal: AbortSignal,
@@ -98,9 +107,10 @@ async function mountCoordinator(
     searchFolder?: string | null
     activeSurface?: PersistedActiveSurface
     strictEffects?: boolean
+    repoParallelism?: number
   } = {},
 ) {
-  const { discover } = options
+  const { discover, repoParallelism = 1 } = options
   resetStores()
   useAnalysisStore.getState().reset()
   const window = new Window()
@@ -169,7 +179,10 @@ async function mountCoordinator(
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface,
-            analysisConcurrency: { repoParallelism: 1, filesPerRepo: 1 },
+            analysisConcurrency: {
+              repoParallelism,
+              filesPerRepo: 1,
+            },
           })
         if (id === "settings.savePreferences") return
         if (id === "course.load") return course
@@ -184,12 +197,18 @@ async function mountCoordinator(
         }
         if (id === "analysis.run") {
           assert.ok(options?.signal)
-          return await analyse(options.signal)
+          return await analyse(
+            options.signal,
+            _input as WorkflowInput<"analysis.run">,
+          )
         }
         if (id === "analysis.blame") {
           assert.ok(options?.signal)
           assert.ok(blame)
-          return await blame(options.signal)
+          return await blame(
+            options.signal,
+            _input as WorkflowInput<"analysis.blame">,
+          )
         }
         if (id === "course.save")
           return { revision: 1, updatedAt: course.updatedAt }
@@ -350,82 +369,176 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, makeBaseResult())
   })
 
-  it("cancels host blame from the Cancel button and holds the next command until settlement", {
+  it("finishes line authorship without stopping the pending repositories", {
     timeout: 3000,
   }, async (t) => {
-    const entered = deferred<AbortSignal>()
+    const blameEntered = deferred<AbortSignal>()
     const release = deferred<void>()
     t.after(() => release.resolve())
-    let blameCalls = 0
-    const { controller, queryClient, container, read } = await mountCoordinator(
+    const paths = [...repos, "/repos/third"]
+    const analysed: string[] = []
+    const signals: AbortSignal[] = []
+    const result = {
+      ...makeBaseResult(),
+      fileStats: makeFileStatsWithBreakdown(),
+    }
+    const { controller, queryClient, read } = await mountCoordinator(
       t,
-      async () => ({
-        ...makeBaseResult(),
-        fileStats: makeFileStatsWithBreakdown(),
-      }),
-      async (signal) => {
-        blameCalls++
-        entered.resolve(signal)
-        await release.promise
+      async (signal, input) => {
+        const path = input.repositoryAbsolutePath
+        analysed.push(path)
+        signals.push(signal)
+        if (path !== paths[0]) await release.promise
+        return result
+      },
+      async (signal, input) => {
+        assert.equal(input.repositoryAbsolutePath, paths[0])
+        assert.deepEqual(input.personDbBaseline, result.personDbBaseline)
+        assert.deepEqual(
+          input.files,
+          result.fileStats.map((file) => file.path).sort(),
+        )
+        assert.equal(input.snapshotCommitOid, "head")
+        blameEntered.resolve(signal)
         return makeBlameResult()
       },
+      {
+        repoParallelism: 2,
+        sidebar: false,
+        initialDiscovery: {
+          repos: paths.map((path) => ({ path, name: path })),
+        },
+      },
     )
+    const signal = await blameEntered.promise
     await React.act(flushQueries)
-    const signal = await entered.promise
-    await React.act(flushQueries)
-    const button = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Cancel",
-    )
-    assert.ok(button)
-    let commandStarted = false
-    let command: Promise<unknown> | undefined
-    await React.act(async () => {
-      command = controller.operations.execute("repo.clone", async () => {
-        commandStarted = true
-        assert.equal(
-          queryClient
-            .getQueryCache()
-            .findAll({
-              queryKey: repoBlames(repos[0]),
-            })
-            .some((query) => query.state.data !== undefined),
-          false,
-        )
-      })
-      await flushQueries()
-    })
-    assert.equal(commandStarted, false)
-    assert.equal(blameCalls, 1)
-    assert.equal(button.closest("fieldset[disabled]"), null)
-    await React.act(async () => {
-      button.click()
-      await flushQueries()
-    })
-    assert.equal(signal.aborted, true)
-    assert.equal(read().blameStatus, "idle")
-    assert.equal(read().blameResult, null)
+    assert.equal(signal.aborted, false)
+    assert.ok(signals.every((entry) => entry === signal))
+    assert.deepEqual(analysed, paths)
+    assert.deepEqual(read().blameResult, makeBlameResult())
     await React.act(async () => {
       release.resolve()
-      await command
-      await flushQueries()
-    })
-    assert.equal(commandStarted, true)
-    await React.act(async () => {
-      controller.setDisplayName("course", "Renamed after Cancel")
-      await flushQueries()
-    })
-    assert.equal(blameCalls, 1)
-    assert.equal(read().blameResult, null)
-
-    await React.act(async () => {
-      read().runAnalysis(repos[0])
       await controller.waitForIdle()
       await flushQueries()
     })
-    await React.act(flushQueries)
-    assert.equal(blameCalls, 2)
-    assert.deepEqual(read().blameResult, makeBlameResult())
+    for (const path of paths) {
+      assert.deepEqual(
+        queryClient.getQueryCache().findAll({ queryKey: repoResults(path) })[0]
+          ?.state.data,
+        result,
+      )
+    }
   })
+
+  for (const stage of ["analysis", "blame"] as const) {
+    for (const ending of ["completion", "cancellation"] as const) {
+      it(`holds a command behind explicit ${stage} through ${ending}`, {
+        timeout: 3000,
+      }, async (t) => {
+        const entered = deferred<AbortSignal>()
+        const release = deferred<void>()
+        t.after(() => release.resolve())
+        let pause = false
+        let calls = 0
+        const result = {
+          ...makeBaseResult(),
+          fileStats: makeFileStatsWithBreakdown(),
+        }
+        const hold = async (signal: AbortSignal) => {
+          calls++
+          if (pause) {
+            entered.resolve(signal)
+            await release.promise
+          }
+        }
+        const { controller, queryClient, container, read } =
+          await mountCoordinator(
+            t,
+            async (signal) => {
+              if (stage === "analysis") await hold(signal)
+              return result
+            },
+            async (signal) => {
+              if (stage === "blame") await hold(signal)
+              return makeBlameResult()
+            },
+          )
+        await React.act(async () => {
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        pause = true
+        const run = Array.from(container.querySelectorAll("button")).find(
+          (button) => button.textContent?.trim() === "Re-run Analysis",
+        )
+        assert.ok(run)
+        await React.act(async () => {
+          run.click()
+          await flushQueries()
+        })
+        const signal = await entered.promise
+        let commandStarted = false
+        let command: Promise<unknown> | undefined
+        await React.act(async () => {
+          command = controller.operations.execute("repo.clone", async () => {
+            commandStarted = true
+            const data = queryClient
+              .getQueryCache()
+              .findAll({ queryKey: repoBlames(repos[0]) })[0]?.state.data
+            assert.deepEqual(
+              data,
+              ending === "completion" ? makeBlameResult() : undefined,
+            )
+          })
+          await flushQueries()
+        })
+        assert.equal(commandStarted, false)
+        assert.equal(signal.aborted, false)
+        if (ending === "cancellation") {
+          const cancel = Array.from(container.querySelectorAll("button")).find(
+            (button) => button.textContent?.trim() === "Cancel",
+          )
+          assert.ok(cancel)
+          assert.equal(cancel.closest("fieldset[disabled]"), null)
+          await React.act(async () => {
+            cancel.click()
+            await flushQueries()
+          })
+          assert.equal(signal.aborted, true)
+          assert.equal(commandStarted, false)
+        }
+        await React.act(async () => {
+          release.resolve()
+          await command
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.equal(commandStarted, true)
+        const completedCalls = calls
+        await React.act(async () => {
+          controller.setDisplayName("course", "Renamed after analysis")
+          await flushQueries()
+        })
+        assert.equal(calls, completedCalls)
+        if (ending === "cancellation") {
+          assert.equal(read().blameResult, null)
+          const retry = Array.from(container.querySelectorAll("button")).find(
+            (button) =>
+              button.textContent?.trim() ===
+              (stage === "analysis" ? "Run Analysis" : "Re-run Analysis"),
+          )
+          assert.ok(retry)
+          await React.act(async () => {
+            retry.click()
+            await controller.waitForIdle()
+            await flushQueries()
+          })
+          assert.equal(calls, completedCalls + 1)
+          assert.deepEqual(read().blameResult, makeBlameResult())
+        }
+      })
+    }
+  }
 
   for (const ending of ["command", "cancel"] as const) {
     it(`keeps the repository pass stopped after a ${ending} ended it`, {
@@ -549,8 +662,7 @@ describe("analysis runner lifetime in React", () => {
         },
         { sidebar: false },
       )
-      // The analysis result lands first and its effect then queues the blame
-      // body, so wait for that queue to drain before reading blame's outcome.
+      // The body includes line authorship, so its retirement settles both results.
       await React.act(async () => {
         await flushQueries()
         await controller.waitForIdle()
@@ -688,59 +800,145 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, result)
   })
 
-  it("restarts the pass on the newly selected repository and still caches the rest", {
+  for (const intent of ["user-asked", "background"] as const) {
+    it(`changes selection during a ${intent} pass with the declared ordering`, {
+      timeout: 3000,
+    }, async (t) => {
+      const entered = deferred<AbortSignal>()
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      const result = {
+        ...makeBaseResult(),
+        fileStats: makeFileStatsWithBreakdown(),
+      }
+      const paths = [...repos, "/repos/third"]
+      const order: string[] = []
+      let pause = intent === "background"
+      const { controller, queryClient, read } = await mountCoordinator(
+        t,
+        async (signal, input) => {
+          if (pause) {
+            order.push(`analysis:${input.repositoryAbsolutePath}`)
+            entered.resolve(signal)
+            await release.promise
+          }
+          return result
+        },
+        async (_signal, input) => {
+          if (pause) order.push(`blame:${input.repositoryAbsolutePath}`)
+          return makeBlameResult()
+        },
+        {
+          sidebar: false,
+          initialDiscovery: {
+            repos: paths.map((path) => ({ path, name: path })),
+          },
+        },
+      )
+      if (intent === "user-asked") {
+        await React.act(async () => {
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        pause = true
+        await React.act(async () => {
+          clearAnalysisQueries(queryClient, {
+            queryKey: analysisQueryKeys.sourceRepos(source),
+          })
+          read().runAnalysis(paths[0])
+          await flushQueries()
+        })
+      }
+      const signal = await entered.promise
+      await React.act(async () => {
+        read().selectRepository(paths[2])
+        await flushQueries()
+      })
+      assert.equal(signal.aborted, intent === "background")
+      assert.deepEqual(order, [`analysis:${paths[0]}`])
+      await React.act(async () => {
+        release.resolve()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.deepEqual(
+        order,
+        intent === "user-asked"
+          ? [
+              `analysis:${paths[0]}`,
+              `blame:${paths[0]}`,
+              `analysis:${paths[1]}`,
+              `analysis:${paths[2]}`,
+              `blame:${paths[2]}`,
+            ]
+          : [
+              `analysis:${paths[0]}`,
+              `analysis:${paths[2]}`,
+              `blame:${paths[2]}`,
+              `analysis:${paths[0]}`,
+              `analysis:${paths[1]}`,
+            ],
+      )
+      for (const repoPath of paths) {
+        const queries = queryClient
+          .getQueryCache()
+          .findAll({ queryKey: repoResults(repoPath) })
+        assert.equal(queries.length, 1)
+        assert.deepEqual(queries[0]?.state.data, result)
+      }
+      assert.deepEqual(read().blameResult, makeBlameResult())
+    })
+  }
+
+  it("uses cached analysis when line-authorship settings change or analysis is enabled again", {
     timeout: 3000,
   }, async (t) => {
-    const entered = deferred<AbortSignal>()
-    const release = deferred<void>()
-    t.after(() => release.resolve())
-    const result = makeBaseResult()
-    let pause = false
-    const { controller, queryClient, read } = await mountCoordinator(
+    let analysisCalls = 0
+    const blameConfigs: WorkflowInput<"analysis.blame">["config"][] = []
+    const { controller, read } = await mountCoordinator(
       t,
-      async (signal) => {
-        if (pause) {
-          entered.resolve(signal)
-          await release.promise
-        }
-        return result
+      async () => {
+        analysisCalls++
+        return { ...makeBaseResult(), fileStats: makeFileStatsWithBreakdown() }
       },
+      async (_signal, input) => {
+        blameConfigs.push(input.config)
+        return makeBlameResult()
+      },
+      { sidebar: false },
     )
     await React.act(async () => {
       await controller.waitForIdle()
       await flushQueries()
     })
     await React.act(async () => {
-      read().cancelDiscovery()
+      useAnalysisStore.getState().setBlameConfig({ copyMove: 3 })
       await flushQueries()
     })
-    assert.equal(read().discoveryStatus, "idle")
-    assert.equal(read().discoveredRepos.length, repos.length)
-    pause = true
     await React.act(async () => {
-      read().runAnalysis(repos[0])
-      await flushQueries()
-    })
-    const signal = await entered.promise
-    // Selecting another repository is a new start, so the pass it replaces
-    // stops and the repository the user is looking at goes first.
-    await React.act(async () => {
-      read().selectRepository(repos[1])
-      await flushQueries()
-    })
-    assert.equal(signal.aborted, true)
-    await React.act(async () => {
-      release.resolve()
       await controller.waitForIdle()
       await flushQueries()
     })
-    for (const repoPath of repos) {
-      const queries = queryClient
-        .getQueryCache()
-        .findAll({ queryKey: repoResults(repoPath) })
-      assert.equal(queries.length, 1)
-      assert.deepEqual(queries[0]?.state.data, result)
-    }
+    assert.deepEqual(
+      blameConfigs.map((config) => config.copyMove),
+      [1, 3],
+    )
+    await React.act(async () => {
+      controller.setAnalysisInputs("course", { blameSkip: true })
+      await flushQueries()
+    })
+    assert.equal(read().blameResult, null)
+    await React.act(async () => {
+      controller.setAnalysisInputs("course", { blameSkip: false })
+      await flushQueries()
+    })
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(analysisCalls, repos.length)
+    assert.equal(blameConfigs.length, 2)
+    assert.deepEqual(read().blameResult, makeBlameResult())
   })
 })
 

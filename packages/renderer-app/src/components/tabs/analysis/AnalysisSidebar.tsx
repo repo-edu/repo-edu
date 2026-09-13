@@ -369,13 +369,9 @@ export function AnalysisSidebar() {
     [setAnalysisInputs],
   )
 
-  const canCancelAnalysis = useSessionControllerSelector((snapshot) =>
+  const canCancelSource = useSessionControllerSelector((snapshot) =>
     selectOperationIsAdmitted(snapshot, "analysis.run"),
   )
-  const canCancelBlame = useSessionControllerSelector((snapshot) =>
-    selectOperationIsAdmitted(snapshot, "analysis.blame"),
-  )
-  const canCancelSource = canCancelAnalysis || canCancelBlame
   const canCancelDiscovery = useSessionControllerSelector((snapshot) =>
     selectOperationIsAdmitted(snapshot, "analysis.discoverRepos"),
   )
@@ -407,11 +403,7 @@ export function AnalysisSidebar() {
           {canCancelSource ? (
             <Button
               variant="destructive"
-              {...{
-                [sessionCancellationControl]: canCancelAnalysis
-                  ? "analysis.run"
-                  : "analysis.blame",
-              }}
+              {...{ [sessionCancellationControl]: "analysis.run" }}
               onClick={cancelAnalysis}
             >
               <Square className="mr-1 size-4" />
