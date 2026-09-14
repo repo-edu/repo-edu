@@ -1,3 +1,4 @@
+import type { BlameResult } from "@repo-edu/domain/analysis"
 import {
   type Query,
   QueryClient,
@@ -8,13 +9,19 @@ import {
   queryKeyMatchesSourceSnapshotHead,
 } from "./analysis-query-keys.js"
 
-const DEFAULT_ANALYSIS_QUERY_CACHE_BUDGET_BYTES = 1_000_000_000
+/**
+ * Blame lines kept across unobserved blame results before the oldest are
+ * evicted. One large course is 50 repositories of about 5,000 source lines,
+ * so this holds such a course under two settings variants. Analysis results
+ * are aggregates without source text and are never evicted.
+ */
+export const RETAINED_BLAME_LINE_BUDGET = 500_000
 
 type RendererQueryClientOptions = {
-  readonly analysisDataCacheBudgetBytes?: number
+  readonly retainedBlameLineBudget?: number
 }
 
-function isManagedAnalysisDataQuery(query: Query): boolean {
+function isBlameResultQuery(query: Query): boolean {
   const key = query.queryKey
   return (
     key[0] === "analysis" &&
@@ -22,48 +29,32 @@ function isManagedAnalysisDataQuery(query: Query): boolean {
     Array.isArray(key[2]) &&
     key[3] === "repo" &&
     typeof key[4] === "string" &&
-    (key[5] === "result" || key[5] === "blame")
+    key[5] === "blame"
   )
 }
 
-function estimateQueryDataSize(value: unknown): number {
-  const seen = new WeakSet<object>()
-  const serialized = JSON.stringify(value, (_key, currentValue) => {
-    if (typeof currentValue === "bigint") return currentValue.toString()
-    if (currentValue instanceof Map) return [...currentValue.entries()]
-    if (currentValue instanceof Set) return [...currentValue.values()]
-    if (typeof currentValue === "object" && currentValue !== null) {
-      if (seen.has(currentValue)) return "[Circular]"
-      seen.add(currentValue)
-    }
-    return currentValue
-  })
-  return serialized === undefined ? 0 : serialized.length * 2
+function countBlameLines(data: unknown): number {
+  const fileBlames = (data as Partial<BlameResult> | undefined)?.fileBlames
+  if (!Array.isArray(fileBlames)) return 0
+  let lines = 0
+  for (const fileBlame of fileBlames) lines += fileBlame.lines.length
+  return lines
 }
 
-function findManagedAnalysisDataQueries(queryClient: QueryClient): Query[] {
-  return queryClient.getQueryCache().findAll({
-    predicate: isManagedAnalysisDataQuery,
-  })
-}
-
-function enforceAnalysisQueryCacheBudget(
+function enforceBlameLineBudget(
   queryClient: QueryClient,
-  dataSizeByHash: Map<string, number>,
-  budgetBytes: number,
+  budgetLines: number,
 ): void {
-  const queries = findManagedAnalysisDataQueries(queryClient)
-  let totalBytes = 0
-  for (const query of queries) {
-    const size =
-      dataSizeByHash.get(query.queryHash) ??
-      estimateQueryDataSize(query.state.data)
-    dataSizeByHash.set(query.queryHash, size)
-    totalBytes += size
+  const blameQueries = queryClient.getQueryCache().findAll({
+    predicate: isBlameResultQuery,
+  })
+  let retainedLines = 0
+  for (const query of blameQueries) {
+    retainedLines += countBlameLines(query.state.data)
   }
-  if (totalBytes <= budgetBytes) return
+  if (retainedLines <= budgetLines) return
 
-  const inactiveOldestFirst = queries
+  const inactiveOldestFirst = blameQueries
     .filter((query) => query.getObserversCount() === 0)
     .sort(
       (left, right) =>
@@ -72,8 +63,8 @@ function enforceAnalysisQueryCacheBudget(
     )
 
   for (const query of inactiveOldestFirst) {
-    if (totalBytes <= budgetBytes) return
-    totalBytes -= dataSizeByHash.get(query.queryHash) ?? 0
+    if (retainedLines <= budgetLines) return
+    retainedLines -= countBlameLines(query.state.data)
     queryClient.removeQueries({ queryKey: query.queryKey, exact: true })
   }
 }
@@ -81,9 +72,8 @@ function enforceAnalysisQueryCacheBudget(
 export function createRendererQueryClient(
   options: RendererQueryClientOptions = {},
 ): QueryClient {
-  const analysisDataCacheBudgetBytes =
-    options.analysisDataCacheBudgetBytes ??
-    DEFAULT_ANALYSIS_QUERY_CACHE_BUDGET_BYTES
+  const retainedBlameLineBudget =
+    options.retainedBlameLineBudget ?? RETAINED_BLAME_LINE_BUDGET
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -97,24 +87,11 @@ export function createRendererQueryClient(
     },
   })
 
-  const analysisQueryDataSizeByHash = new Map<string, number>()
   queryClient.getQueryCache().subscribe((event) => {
-    if (!isManagedAnalysisDataQuery(event.query)) return
-    if (event.type === "removed") {
-      analysisQueryDataSizeByHash.delete(event.query.queryHash)
-      return
-    }
     if (event.type !== "added" && event.type !== "updated") return
+    if (!isBlameResultQuery(event.query)) return
     if (event.query.state.status !== "success") return
-    analysisQueryDataSizeByHash.set(
-      event.query.queryHash,
-      estimateQueryDataSize(event.query.state.data),
-    )
-    enforceAnalysisQueryCacheBudget(
-      queryClient,
-      analysisQueryDataSizeByHash,
-      analysisDataCacheBudgetBytes,
-    )
+    enforceBlameLineBudget(queryClient, retainedBlameLineBudget)
   })
 
   return queryClient
