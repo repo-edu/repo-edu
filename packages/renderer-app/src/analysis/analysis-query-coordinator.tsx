@@ -385,18 +385,16 @@ export function AnalysisCoordinatorProvider({
     : null
   const discoveryCompleted = discoveryQuery.isSuccess
 
-  // Each automatic start replaces background work and waits for work the user
-  // asked for. The body skips cached results and owns its line-authorship
-  // follow-up. Command admission is not a start trigger, so it cannot undo Cancel.
+  // Starting the fan-out is a reservation, not host work: the body it reserves
+  // owns the stop and its line-authorship follow-up. Each start stops the pass
+  // before it, so a changed source key, repository list or selection replaces
+  // stale work rather than racing it, and the new pass skips what the cache
+  // already holds. Command admission is not a start trigger, so it cannot undo
+  // a Cancel.
   useEffect(() => {
     if (discoveryQuery.isFetching || discoveryQuery.dataUpdatedAt === 0) return
     void sourceRunner
-      ?.run(
-        discoveredRepoPaths,
-        selectedRepoPath,
-        "background",
-        effectiveBlameConfig,
-      )
+      ?.run(discoveredRepoPaths, selectedRepoPath, effectiveBlameConfig)
       .catch(() => {})
   }, [
     sourceRunner,
@@ -605,12 +603,7 @@ export function AnalysisCoordinatorProvider({
           queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
         })
         void sourceRunner
-          ?.run(
-            discoveredRepoPaths,
-            repoPath,
-            "user-asked",
-            effectiveBlameConfig,
-          )
+          ?.run(discoveredRepoPaths, repoPath, effectiveBlameConfig)
           .catch(() => {})
       })
     },

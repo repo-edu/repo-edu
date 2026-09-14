@@ -65,8 +65,6 @@ const repos = ["/repos/first", "/repos/second"]
 const source = ["course", "course"] as const
 const repoResults = (repoPath: string) =>
   [...analysisQueryKeys.repo(source, repoPath), "result"] as const
-const repoBlames = (repoPath: string) =>
-  [...analysisQueryKeys.repo(source, repoPath), "blame"] as const
 const flushQueries = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0))
 
@@ -386,6 +384,7 @@ describe("analysis runner lifetime in React", () => {
       t,
       async (signal, input) => {
         const path = input.repositoryAbsolutePath
+        assert.ok(path)
         analysed.push(path)
         signals.push(signal)
         if (path !== paths[0]) await release.promise
@@ -429,116 +428,6 @@ describe("analysis runner lifetime in React", () => {
       )
     }
   })
-
-  for (const stage of ["analysis", "blame"] as const) {
-    for (const ending of ["completion", "cancellation"] as const) {
-      it(`holds a command behind explicit ${stage} through ${ending}`, {
-        timeout: 3000,
-      }, async (t) => {
-        const entered = deferred<AbortSignal>()
-        const release = deferred<void>()
-        t.after(() => release.resolve())
-        let pause = false
-        let calls = 0
-        const result = {
-          ...makeBaseResult(),
-          fileStats: makeFileStatsWithBreakdown(),
-        }
-        const hold = async (signal: AbortSignal) => {
-          calls++
-          if (pause) {
-            entered.resolve(signal)
-            await release.promise
-          }
-        }
-        const { controller, queryClient, container, read } =
-          await mountCoordinator(
-            t,
-            async (signal) => {
-              if (stage === "analysis") await hold(signal)
-              return result
-            },
-            async (signal) => {
-              if (stage === "blame") await hold(signal)
-              return makeBlameResult()
-            },
-          )
-        await React.act(async () => {
-          await controller.waitForIdle()
-          await flushQueries()
-        })
-        pause = true
-        const run = Array.from(container.querySelectorAll("button")).find(
-          (button) => button.textContent?.trim() === "Re-run Analysis",
-        )
-        assert.ok(run)
-        await React.act(async () => {
-          run.click()
-          await flushQueries()
-        })
-        const signal = await entered.promise
-        let commandStarted = false
-        let command: Promise<unknown> | undefined
-        await React.act(async () => {
-          command = controller.operations.execute("repo.clone", async () => {
-            commandStarted = true
-            const data = queryClient
-              .getQueryCache()
-              .findAll({ queryKey: repoBlames(repos[0]) })[0]?.state.data
-            assert.deepEqual(
-              data,
-              ending === "completion" ? makeBlameResult() : undefined,
-            )
-          })
-          await flushQueries()
-        })
-        assert.equal(commandStarted, false)
-        assert.equal(signal.aborted, false)
-        if (ending === "cancellation") {
-          const cancel = Array.from(container.querySelectorAll("button")).find(
-            (button) => button.textContent?.trim() === "Cancel",
-          )
-          assert.ok(cancel)
-          assert.equal(cancel.closest("fieldset[disabled]"), null)
-          await React.act(async () => {
-            cancel.click()
-            await flushQueries()
-          })
-          assert.equal(signal.aborted, true)
-          assert.equal(commandStarted, false)
-        }
-        await React.act(async () => {
-          release.resolve()
-          await command
-          await controller.waitForIdle()
-          await flushQueries()
-        })
-        assert.equal(commandStarted, true)
-        const completedCalls = calls
-        await React.act(async () => {
-          controller.setDisplayName("course", "Renamed after analysis")
-          await flushQueries()
-        })
-        assert.equal(calls, completedCalls)
-        if (ending === "cancellation") {
-          assert.equal(read().blameResult, null)
-          const retry = Array.from(container.querySelectorAll("button")).find(
-            (button) =>
-              button.textContent?.trim() ===
-              (stage === "analysis" ? "Run Analysis" : "Re-run Analysis"),
-          )
-          assert.ok(retry)
-          await React.act(async () => {
-            retry.click()
-            await controller.waitForIdle()
-            await flushQueries()
-          })
-          assert.equal(calls, completedCalls + 1)
-          assert.deepEqual(read().blameResult, makeBlameResult())
-        }
-      })
-    }
-  }
 
   for (const ending of ["command", "cancel"] as const) {
     it(`keeps the repository pass stopped after a ${ending} ended it`, {
@@ -800,8 +689,11 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, result)
   })
 
-  for (const intent of ["user-asked", "background"] as const) {
-    it(`changes selection during a ${intent} pass with the declared ordering`, {
+  // A selection change replaces the pass whatever started it. Run and Re-run
+  // declare no separate turn, so the teacher's latest click always wins and
+  // costs only the repositories in flight.
+  for (const start of ["automatic", "explicit run"] as const) {
+    it(`replaces an ${start} pass on the newly selected repository`, {
       timeout: 3000,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
@@ -813,7 +705,7 @@ describe("analysis runner lifetime in React", () => {
       }
       const paths = [...repos, "/repos/third"]
       const order: string[] = []
-      let pause = intent === "background"
+      let pause = start === "automatic"
       const { controller, queryClient, read } = await mountCoordinator(
         t,
         async (signal, input) => {
@@ -835,7 +727,7 @@ describe("analysis runner lifetime in React", () => {
           },
         },
       )
-      if (intent === "user-asked") {
+      if (start === "explicit run") {
         await React.act(async () => {
           await controller.waitForIdle()
           await flushQueries()
@@ -854,31 +746,20 @@ describe("analysis runner lifetime in React", () => {
         read().selectRepository(paths[2])
         await flushQueries()
       })
-      assert.equal(signal.aborted, intent === "background")
+      assert.equal(signal.aborted, true)
       assert.deepEqual(order, [`analysis:${paths[0]}`])
       await React.act(async () => {
         release.resolve()
         await controller.waitForIdle()
         await flushQueries()
       })
-      assert.deepEqual(
-        order,
-        intent === "user-asked"
-          ? [
-              `analysis:${paths[0]}`,
-              `blame:${paths[0]}`,
-              `analysis:${paths[1]}`,
-              `analysis:${paths[2]}`,
-              `blame:${paths[2]}`,
-            ]
-          : [
-              `analysis:${paths[0]}`,
-              `analysis:${paths[2]}`,
-              `blame:${paths[2]}`,
-              `analysis:${paths[0]}`,
-              `analysis:${paths[1]}`,
-            ],
-      )
+      assert.deepEqual(order, [
+        `analysis:${paths[0]}`,
+        `analysis:${paths[2]}`,
+        `blame:${paths[2]}`,
+        `analysis:${paths[0]}`,
+        `analysis:${paths[1]}`,
+      ])
       for (const repoPath of paths) {
         const queries = queryClient
           .getQueryCache()

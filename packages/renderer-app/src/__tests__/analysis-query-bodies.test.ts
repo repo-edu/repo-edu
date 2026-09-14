@@ -202,7 +202,7 @@ describe("discovery and blame bodies", () => {
 
   for (const kind of ["discovery", "blame"] as const) {
     for (const ending of ["key change", "observer removal"] as const) {
-      it(`keeps ${kind} through ${ending} and publishes before the next body`, async (t) => {
+      it(`keeps ${kind} fetching through ${ending}`, async (t) => {
         const entered = deferred<AbortSignal>()
         const release = deferred<void>()
         const result =
@@ -244,7 +244,7 @@ describe("discovery and blame bodies", () => {
                 rosterContext: undefined,
                 kind: "course",
                 repoParallelism: 1,
-              }).run(["/repos/one"], "/repos/one", "user-asked", {})
+              }).run(["/repos/one"], "/repos/one", {})
         const signal = await entered.promise
         if (ending === "key change")
           observer.setOptions({
@@ -260,24 +260,32 @@ describe("discovery and blame bodies", () => {
           })
         else unsubscribe()
         assert.equal(signal.aborted, false)
-        let followed = false
-        const next = controller.operations.execute(
-          "analysis.listFolderFiles",
-          async () => {
-            followed = true
-            assert.deepEqual(client.getQueryData(key), result)
-            if (kind === "discovery")
+        if (kind === "discovery") {
+          // A search is work the user asked for, so the next body waits for it.
+          let followed = false
+          const next = controller.operations.execute(
+            "analysis.listFolderFiles",
+            async () => {
+              followed = true
+              assert.deepEqual(client.getQueryData(key), result)
               assert.equal(
                 useCourseStore.getState().course?.searchFolder,
                 "/repos/one",
               )
-          },
-        )
-        await tick()
-        assert.equal(followed, false)
+            },
+          )
+          await tick()
+          assert.equal(followed, false)
+          release.resolve()
+          await Promise.all([running, next])
+          assert.equal(followed, true)
+          return
+        }
+        // The analysis pass is background, so a later reservation would stop
+        // it. Losing its observer does not, and it still publishes.
         release.resolve()
-        await Promise.all([running, next])
-        assert.equal(followed, true)
+        await running
+        assert.deepEqual(client.getQueryData(key), result)
       })
     }
   }

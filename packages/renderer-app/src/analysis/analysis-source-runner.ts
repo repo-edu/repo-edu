@@ -12,7 +12,6 @@ import type {
   SessionOperationScope,
 } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
-import type { SessionOperationIntent } from "../session/session-surface-transactions.js"
 import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
@@ -41,12 +40,13 @@ export class AnalysisSourceRunner {
     private readonly input: AnalysisSourceInput,
   ) {}
 
-  /** One body analyses the source and the selected repository's line authorship.
-   * The start site declares whether later reservations wait for it or stop it. */
+  /** One background body analyses the source and the selected repository's
+   * line authorship. Every reservation entering behind it stops it, whatever
+   * start control asked for it, because a later start reaches the same state
+   * from the cache and only the repositories in flight are redone. */
   async run(
     repoPaths: readonly string[],
     selectedRepoPath: string | null,
-    intent: SessionOperationIntent,
     blameConfig: AnalysisBlameConfig | null,
   ): Promise<void> {
     if (repoPaths.length === 0) return
@@ -88,7 +88,7 @@ export class AnalysisSourceRunner {
           ),
         )
       },
-      intent,
+      "background",
     )
   }
 

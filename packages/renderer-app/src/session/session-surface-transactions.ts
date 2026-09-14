@@ -3,7 +3,9 @@ import type { SessionTransactionDescriptor } from "./session-reducer.js"
 /** What a reservation is for. Work the user asked for keeps its turn until it
  * finishes or the user stops it. Work the owner started on the user's behalf is
  * background: entering any reservation stops it and nothing resumes it by
- * hand. */
+ * hand. Restart cost decides which of the two a reservation is, and the work
+ * owns that choice, never the control that started it: work is background when
+ * a later start reaches the same state from the cache. */
 export type SessionOperationIntent = "user-asked" | "background"
 
 type Deferred<T> = {
