@@ -65,9 +65,11 @@ consumers.
 - `assistant.ts` owns one invocation's session identity, final text, completion evidence and last
   context measurement. One observer keeps that measurement as the feedback passes, so the round
   decides on it rather than the display. Claude and Codex decoders validate the fields they consume.
-  `cli-process.ts` stops the child before unwinding a failed line consumer, because Execa's iterator
-  return awaits the child. It then awaits all readers and the process. Process output is never
-  accumulated by Execa.
+  `cli-process.ts` owns the child's environment and stops the child before unwinding a failed line
+  consumer, because Execa's iterator return awaits the child. It then awaits all readers and the
+  process. Process output is never accumulated by Execa. Every child carries its own seat's
+  `COMMIT_ASSISTANT` tag, overriding any inherited one, so a phase commits as the assistant that
+  ran it.
 - `codex-session.ts` reads the current session's appended records. A resumed
   rebuttal or interactive fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final

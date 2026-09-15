@@ -10,8 +10,8 @@ this repo.
 
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Before applying another fix,
-read the conventional kind from the postfix of a stem-marked file-changing
-commit or after the severity sequence of an ordinary commit. Attribute touched
+read the conventional kind from the subject's last tag before the sentence.
+Attribute touched
 tracked source files to their primary area ID and walk history until that area
 has ten touched commits. Commits with the `impl-audit-` role token do not
 count, because audit rounds exist to produce fix commits. If two or more of the
@@ -305,15 +305,16 @@ commit graph shows the subject and none of the finding tokens.
   highest kind of obligation whose count changed. The word gives the direction,
   `growth` when that kind grew and `pruning` when it shrank. The level names the
   kind, `low` for a rule, `medium` for state and `high` for an owner concern.
-  Omit the whole mark when no kind changed. The mark follows the sequence after
-  a space: `!B1C1c2d1 pruning-high:`. The direction is a word and not a sign,
+  Omit the whole mark when no kind changed. The direction is a word and not a sign,
   because a sign carries direction and not judgement: `+` reads as a gain where
   growth is the cost. The level is always written. A commit that moved only rules
   reads `growth-low` and never a bare `growth`, because an omitted level would
   pass as the floor and a level is countable in the log only when it is on the
   page. A commit can read `pruning-high` while one concern inside it added a
   rule, because the mark states the commit's own net result at its highest
-  changed kind.
+  changed kind. It carries no colon of its own.
+
+The mark follows the assistant tag after a space: `!B1C1c2d1 cdx pruning-high`.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
 which also defines the obligation kinds the trailing mark measures. The mark and
@@ -328,19 +329,19 @@ The [A]-[D] rubric in Implementation Review Findings grades a concern's
 severity whether the AI surfaced it formally in a review or only
 addressed it in the commit body. Grade each concern the commit addresses
 against the rubric and count by tier; a planned redesign that reshapes
-ownership across packages is `a1 redesign:`, a within-package bug fix a user
-meets is `B1 fix:`, a localised maintainability fix is `c1 fix:`, a typo is
-`d1 docs:` or `d1 fix:`. Larger audit closures compound into sequences
-like `A1B4c2:` for one architectural concern and four B-tier bugs a user meets,
-beside two developer-only C-tier issues closed together.
+ownership across packages is `a1` with `redesign`, a within-package bug fix a
+user meets is `B1` with `fix`, a localised maintainability fix is `c1` with
+`fix`, a typo is `d1` with `docs` or `fix`. Larger audit closures compound into
+sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
+user meets, beside two developer-only C-tier issues closed together.
 
-The conventional commit kind follows the prefix:
-`B3C8d4 fix(renderer-app): surface session command errors`.
+The conventional commit kind is the last tag before the sentence:
+`B3C8d4 cdx fix(renderer-app): surface session command errors`.
 
-`redesign:` is the typical kind at tier A, alongside `refactor`, `feat`
-and `docs`. `fix:` is essentially never tier A: an A-tier bug fix is a
-redesign that closes a bug, and commits as `A1 redesign:` with the bug
-named in the subject.
+`redesign` is the typical kind at tier A, alongside `refactor`, `feat`
+and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
+redesign that closes a bug, and commits as `A1` with `redesign` and the bug
+named in the sentence.
 
 Plan-related commits use the shared `<stem>/` subject grammar defined in the
 plan repo doctrine at `../plan/CLAUDE.md#shared-implementation-forms`. The
@@ -376,6 +377,40 @@ shared finding tokens:
 the user directs a plan-file fix during the round, the same run applies it and
 lands it as an independent plan-repo commit in the ordinary plan-round form.
 No repo-local action automatically requires or waits on the other commit.
+
+## Commit Assistant Tag
+
+Every commit subject names the assistant that wrote it, so a commit graph shows
+which assistant produced a change without opening the commit.
+
+A subject is a run of space-separated tags, then one colon, then the sentence.
+The assistant tag is the second tag: `cld` for Claude and `cdx` for Codex.
+
+- `c1d1 cdx fix(audit-round): align the recorder result`
+- `c2 cld pruning-high feat(audit-round): override the auditor's model`
+- `<stem>/impl-3 cdx feat(audit-round): expose the runner`
+- `<stem>/implemented cld: complete the Repo Edu tool implementation`
+
+Second place holds the tag inside the first sixty characters of every form, so
+it stays visible where a graph truncates the subject, and it leaves the first
+tag where the eye already starts.
+
+The colon belongs to the last tag before the sentence and stands once in a
+subject. A severity sequence, a growth mark, a plan form and a conventional kind
+are all tags and carry no colon of their own.
+
+An implementation-audit record takes no assistant tag. Its role token already
+names one, `impl-audit-cld-` or `impl-audit-cdx-`, and that mark names the
+round's auditor, which is what the trajectory reads. Exactly one assistant mark
+stands in a subject.
+
+The `.husky/commit-msg` hook writes the tag from `COMMIT_ASSISTANT`, which each
+assistant's environment sets, so no session has to remember it. The hook refuses
+a commit when that variable is unset, and when the subject already carries the
+other assistant's tag, so an amend or a rebase by the other assistant stops
+rather than inheriting a mark that is now wrong. `audit-round` sets the variable
+on every assistant it starts, so each phase commits under the seat the round
+gave it.
 
 ## Testing Strategy
 

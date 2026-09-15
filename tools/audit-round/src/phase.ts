@@ -1,4 +1,15 @@
 export type Assistant = "claude" | "codex"
+
+/**
+ * The three-letter tag a commit subject carries for the assistant that wrote
+ * it. The commit-msg hook reads it from `COMMIT_ASSISTANT`, so every phase
+ * commits under the seat the round gave it.
+ */
+export const assistantMark: Record<Assistant, "cld" | "cdx"> = {
+  claude: "cld",
+  codex: "cdx",
+}
+
 export type Phase =
   | "audit"
   | "vet"

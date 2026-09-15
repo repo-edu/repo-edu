@@ -1,0 +1,52 @@
+#!/usr/bin/env sh
+# Stamps the assistant tag into the commit subject. The grammar is owned by
+# CLAUDE.md under "Commit Assistant Tag".
+
+mark="${COMMIT_ASSISTANT:-}"
+case "$mark" in
+cld | cdx) ;;
+*)
+	echo "commit-msg: set COMMIT_ASSISTANT to cld or cdx before committing" >&2
+	exit 1
+	;;
+esac
+
+stamped="$1.stamp"
+if ! awk -v mark="$mark" '
+function bare(token) {
+	sub(/:$/, "", token)
+	return token
+}
+
+function stamp(line, parts, count, at, closing, tags, text) {
+	count = split(line, parts, " ")
+	closing = 0
+	for (at = 1; at <= count; at++)
+		if (parts[at] ~ /:$/) {
+			closing = at
+			break
+		}
+	# A subject without a closing tag carries no grammar to stamp.
+	if (closing == 0) return line
+	# An implementation-audit record already names an assistant.
+	if (parts[1] ~ /\/impl-audit-(cld|cdx)-/) return line
+	if (count >= 2 && (bare(parts[2]) == "cld" || bare(parts[2]) == "cdx")) {
+		if (bare(parts[2]) == mark) return line
+		printf "commit-msg: subject carries the %s tag, not %s\n", bare(parts[2]), mark > "/dev/stderr"
+		exit 1
+	}
+	parts[closing] = bare(parts[closing])
+	tags = parts[1] " " mark
+	for (at = 2; at <= closing; at++) tags = tags " " parts[at]
+	text = ""
+	for (at = closing + 1; at <= count; at++) text = text " " parts[at]
+	return tags ":" text
+}
+
+NR == 1 { print stamp($0); next }
+{ print }
+' "$1" >"$stamped"; then
+	rm -f "$stamped"
+	exit 1
+fi
+mv "$stamped" "$1"

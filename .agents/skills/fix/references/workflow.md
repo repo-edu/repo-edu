@@ -177,7 +177,8 @@ The auditor is `cld` or `cdx`, mapped from the report filename's `<auditor>`
 token, `claude` or `codex`, read under
 [Report discovery](#report-discovery). It names the assistant that ran the
 audit step only, never the one that vets, rebuts or fixes, and it reads on
-the clean record too.
+the clean record too. A record therefore takes no assistant tag of its own;
+Repo Edu's `CLAUDE.md` owns that rule under **Commit Assistant Tag**.
 
 The body carries one bullet per accepted finding, and each bullet opens with
 that finding's metadata before its prose:

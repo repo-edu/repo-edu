@@ -1,5 +1,9 @@
 import { execa } from "execa"
-import type { Assistant, InteractiveSession } from "./phase.js"
+import {
+  type Assistant,
+  assistantMark,
+  type InteractiveSession,
+} from "./phase.js"
 import { interactiveArguments } from "./requests.js"
 
 export type CliRuntime = {
@@ -12,6 +16,14 @@ export type CliRuntime = {
   >
   readonly env?: Readonly<Record<string, string>>
   readonly signal?: AbortSignal
+}
+
+/**
+ * The child's environment. The assistant's own tag overrides any inherited
+ * one, so a Codex phase started from a Claude session still commits as Codex.
+ */
+function environment(runtime: CliRuntime, assistant: Assistant) {
+  return { ...runtime.env, COMMIT_ASSISTANT: assistantMark[assistant] }
 }
 
 function command(
@@ -35,7 +47,7 @@ function launch(
   const invocation = command(runtime, assistant, args)
   return execa(invocation.file, invocation.args, {
     cwd: runtime.cwd,
-    env: runtime.env,
+    env: environment(runtime, assistant),
     input,
     buffer: false,
     reject: false,
@@ -113,7 +125,7 @@ export async function openAssistantSession(
       : AbortSignal.any([interruption.signal, runtime.signal])
   const child = execa(invocation.file, invocation.args, {
     cwd: session.cwd,
-    env: runtime.env,
+    env: environment(runtime, session.assistant),
     stdio: "inherit",
     cancelSignal: signal,
     forceKillAfterDelay: 5000,

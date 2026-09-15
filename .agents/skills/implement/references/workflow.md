@@ -61,8 +61,10 @@ remaining repo shares. After each share, run the step's named checks and that
 repo's required verification. Commit the share in its repo with the shared
 step form in `../plan/CLAUDE.md` and the conventional postfix that repo
 requires. The step form carries no severity sequence: the subject is
-`<stem>/impl-<n>: <kind>(<scope>): <subject>`, with the postfix stripped of
-the leading sequence an ordinary commit would carry. A both-repo step gets one
+`<stem>/impl-<n> <assistant> <kind>(<scope>): <subject>`, with the postfix
+stripped of the leading sequence an ordinary commit would carry. The
+commit-msg hook writes the `<assistant>` tag, so the subject you compose omits
+it. A both-repo step gets one
 independent commit in each repo. Each step
 gets exactly one commit per hosting repo; steps never combine into one commit.
 The invocation that started this run grants each in-scope repo share's commit

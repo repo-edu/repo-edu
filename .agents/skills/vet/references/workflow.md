@@ -130,8 +130,8 @@ are common here.
   several, or it patches an area that is already unstable. This check runs
   only when the correction is local to Repo Edu. Read the finding's primary
   area ID from `tools/architecture-check/src/area-model.json`, then walk that
-  area's last ten touched commits. Read the conventional kind from a
-  stem-marked commit's postfix or after an ordinary commit's severity sequence.
+  area's last ten touched commits. Read the conventional kind from the
+  subject's last tag before the sentence.
   Commits with the `impl-audit-` role token do not count, because audit
   rounds exist to produce fix commits. Two or more counted `fix:` commits
   there mean the area's history has to be read. When the report reads it as

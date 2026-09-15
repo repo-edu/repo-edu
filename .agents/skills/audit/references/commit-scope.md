@@ -112,8 +112,9 @@ with the same tiers and tokens.
 - A commit body that misdescribes what landed.
 - A severity sequence whose tier counts, case, `!` mark or trailing
   `growth-<level>` or `pruning-<level>` disagrees with the commit's own diff.
-- A conventional kind or scope that does not match the change, such as a `fix:`
+- A conventional kind or scope that does not match the change, such as a `fix`
   that reshapes ownership.
+- An assistant tag that names the assistant that did not write the commit.
 - An unclaimed change from the coverage line above.
 - A new tracked source file that no primary area owns, against the source
   growth gate in this repo's `CLAUDE.md`.
