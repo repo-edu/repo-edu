@@ -11,10 +11,13 @@ implementation-step range. The plan must be in the sibling `../plan` repo and
 may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
 range and `4` as one step, counted against the plan's **Implementation plan**
 numbering. A range makes the round scoped. No range makes the scope `all`, the
-whole plan. When no plan is named, ask which plan to audit and wait.
+whole plan. When neither a plan nor a commit reference is named, ask which to
+audit and wait.
 
-An invocation that names no plan file and names one or more commits Git can
-resolve makes the round commit-scoped, judging work no plan covers. Read
+An invocation that names no plan file and names commit references, including
+`HEAD` or `HEAD-<n>`, makes the round commit-scoped, judging work no plan covers.
+Resolve the references under **Range** in `commit-scope.md` before asking Git
+to resolve them; `HEAD-<n>` is workflow shorthand. Read
 `commit-scope.md` beside this file for that round's scope, gate, baseline,
 coverage, report name, record and settlement, and follow the rest of this
 workflow unchanged.

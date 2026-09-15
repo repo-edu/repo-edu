@@ -1,7 +1,6 @@
 import { readdir, realpath, stat } from "node:fs/promises"
 import { resolve } from "node:path"
 import {
-  Argument,
   Command,
   CommanderError,
   InvalidArgumentError,
@@ -29,25 +28,7 @@ import {
   runRound,
 } from "./round.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-
-function stepScope(value: string): string {
-  const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)
-  if (match === null)
-    throw new InvalidArgumentError(
-      "Use a positive step number or an increasing range, such as 2-4.",
-    )
-  const first = Number(match[1])
-  const last = Number(match[2] ?? match[1])
-  if (
-    !Number.isSafeInteger(first) ||
-    !Number.isSafeInteger(last) ||
-    last < first
-  )
-    throw new InvalidArgumentError(
-      "The step range must use safe positive integers in increasing order.",
-    )
-  return value
-}
+import { type AuditTarget, auditTarget } from "./target.js"
 
 export async function checkRepoRoot(cwd: string): Promise<string> {
   const root = await realpath(cwd)
@@ -90,8 +71,7 @@ async function checkTranscript(
 type Invocation =
   | {
       readonly kind: "round"
-      readonly plan: string
-      readonly scope?: string
+      readonly target: AuditTarget
       readonly auditor: Assistant
       readonly chain?: boolean
       readonly verbose?: boolean
@@ -112,17 +92,19 @@ function parseInvocation(
       "Run the audit, vet, rebuttal, fix and brief phases of one implementation-audit round from the Repo Edu checkout root.",
     )
     // A round is the command itself, so the usage line offers no command slot.
-    .usage("[options] <plan> [scope]")
+    .usage("[options] <target> [scope-or-commits...]")
     .configureOutput({
       writeOut: (text) => options.terminal.write(text.trimEnd()),
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
-    .argument("<plan>", "plan filename or path in the sibling plan repository")
-    .addArgument(
-      new Argument("[scope]", "step number or inclusive step range").argParser(
-        stepScope,
-      ),
+    .argument(
+      "<target>",
+      ".md plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range",
+    )
+    .argument(
+      "[scope-or-commits...]",
+      "plan step number or increasing step range; otherwise further commit references",
     )
     .addOption(
       new Option(
@@ -134,16 +116,27 @@ function parseInvocation(
     )
     .option(
       "--chain",
-      `run up to ${chainCap} rounds on the same scope, repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
+      `run up to ${chainCap} rounds on the same scope (plans only), repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
     )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .action(
       (
-        plan: string,
-        scope: string | undefined,
+        first: string,
+        rest: string[],
         flags: { auditor: Assistant; chain?: boolean; verbose?: boolean },
       ) => {
-        invocation = { kind: "round", plan, scope, ...flags }
+        try {
+          const target = auditTarget(first, rest)
+          if ("commits" in target && flags.chain)
+            throw new InvalidArgumentError(
+              "Commit audits run once. --chain requires a plan target.",
+            )
+          invocation = { kind: "round", target, ...flags }
+        } catch (error) {
+          if (error instanceof InvalidArgumentError)
+            command.error(error.message)
+          throw error
+        }
       },
     )
   // The program owns the round, so Commander adds no `help` command of its own.
@@ -226,8 +219,7 @@ export async function runCommand(
     } else {
       const setup = {
         repoRoot,
-        plan: invocation.plan,
-        scope: invocation.scope,
+        ...invocation.target,
       }
       let auditor = invocation.auditor
       let completed = 0

@@ -56,6 +56,11 @@ or B finding lands and giving the other assistant one closing round, and
 glances after each of them.
 `pnpm audit-round brief <ROUND-transcript.md>` writes that brief for an
 earlier round.
+`pnpm audit-round <commit> [<commit>...]` or
+`pnpm audit-round <from>..<to>` audits named commits. References accept SHAs,
+`HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
+Ranges include both endpoints. Commit audits run once, reject `--chain` and
+finish without a trajectory glance or watch.
 `pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
 
 - `fmt` — markdown formatting via rumdl

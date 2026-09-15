@@ -10,14 +10,13 @@ import {
   type Tier,
 } from "./phase.js"
 import { workflowPath } from "./requests.js"
+import type { AuditTarget } from "./target.js"
 
-/** What names a round before it starts: the plan, the scope and who audits. */
+/** What names a round before it starts: its target and who audits. */
 export type RoundSetup = {
   readonly repoRoot: string
-  readonly plan: string
-  readonly scope?: string
   readonly auditor?: Assistant
-}
+} & AuditTarget
 
 export type RoundInput = RoundSetup & {
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
@@ -216,7 +215,11 @@ export async function runRound(
     cwd,
     ownerRoot: cwd,
     arguments:
-      input.scope === undefined ? [input.plan] : [input.plan, input.scope],
+      "commits" in input
+        ? input.commits
+        : input.scope === undefined
+          ? [input.plan]
+          : [input.plan, input.scope],
     sessionId: null,
   })
   if (audit.status === "failed") {
@@ -268,8 +271,10 @@ export async function runRound(
   )
   if (brief.status === "failed") return brief
   if (fix.status === "finished") {
-    const watched = await runWatch(input, dependencies)
-    if (watched !== null) return watched
+    if ("plan" in input) {
+      const watched = await runWatch(input, dependencies)
+      if (watched !== null) return watched
+    }
     return { status: "finished", report, tier: fix.tier }
   }
 

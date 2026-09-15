@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Run a user-scoped implementation audit of a ready plan. Use when the user invokes `$audit` with a plan file and optional step range or asks for an implementation audit.
+description: Run a user-scoped implementation audit of a ready plan or named commits. Use when the user invokes `$audit` with a plan and optional steps, SHAs, HEAD or HEAD-n references, including inclusive commit ranges, or asks for an implementation audit.
 ---
 
 # Audit

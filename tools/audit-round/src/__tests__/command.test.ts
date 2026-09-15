@@ -400,6 +400,12 @@ test("a recording failure during update output cannot be treated as an update wa
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
+    ["HEAD", "--chain"],
+    ["HEAD-2..HEAD", "--chain"],
+    ["23674f", "--chain"],
+    ["HEAD--1"],
+    ["HEAD", "3"],
+    ["example.md", "HEAD"],
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
@@ -416,7 +422,11 @@ test("argument errors and help start no assistant processes", async (t) => {
     code: "ENOENT",
   })
   const visible = f.visible.join("\n")
-  assert.match(visible, /Usage: audit-round \[options\] <plan> \[scope\]/)
+  assert.match(
+    visible,
+    /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]/,
+  )
+  assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /Codex always fixes/)
   assert.match(visible, /always briefs/)
   assert.match(visible, /plain-words brief/)
@@ -425,6 +435,40 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.doesNotMatch(visible, /^\s+round\b/m)
   assert.doesNotMatch(visible, /^\s+help\b/m)
 })
+
+for (const auditor of ["codex", "claude"] as const) {
+  test(`${auditor} commit audit preserves its target and finishes without a watch`, async (t) => {
+    const f = await roundFixture(t, auditor, "repo-edu", false, "b", true)
+    const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
+    assert.equal(
+      await runCommand(
+        [...commits, "--auditor", auditor],
+        f.runtime,
+        f.options,
+      ),
+      0,
+      f.errors.join("\n"),
+    )
+    const { log, markdown, transcript } = await f.records()
+    assert.ok(
+      log.includes(`Phase arguments (JSON array): ${JSON.stringify(commits)}`),
+    )
+    assert.ok(
+      markdown.startsWith(`# Audit round of commits ${commits.join(" ")}\n`),
+    )
+    assert.ok(transcript.includes(commits[0]))
+    for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
+      assert.ok(log.includes(`[${phase}] finished`))
+    assert.doesNotMatch(log, /\[(?:glance|verdict)\]|watcher|Chained round/)
+    const invocations = (await f.calls()).filter(
+      (call) =>
+        call.args[0] === "exec" ||
+        (call.args[0] === "-p" &&
+          !call.args.includes("--no-session-persistence")),
+    )
+    assert.equal(invocations.length, 5)
+  })
+}
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)

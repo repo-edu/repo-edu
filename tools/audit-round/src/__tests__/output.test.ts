@@ -11,6 +11,21 @@ import type { Assistant } from "../phase.js"
 import { createTerminal } from "../terminal.js"
 import { fixture } from "./helpers.js"
 
+test("long commit lists record every reference without exceeding filename limits", async (t) => {
+  const f = await fixture(t)
+  const commits = [
+    "a".repeat(40),
+    ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
+  ] as const
+  const run = roundRun({ repoRoot: f.root, commits }, Date.now())
+  const output = new RoundOutput(run, {
+    terminal: { write() {}, status() {}, clear() {} },
+  })
+  output.close()
+  const transcript = await readFile(run.paths.markdown, "utf8")
+  assert.ok(transcript.includes(`Audit round of commits ${commits.join(" ")}`))
+})
+
 test("output records complete invocations incrementally and refreshes only while a phase runs", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10000 })

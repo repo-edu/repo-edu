@@ -413,6 +413,26 @@ test("defaults to Codex and preserves plan arguments as data without inventing a
   assert.deepEqual(round.calls[0].arguments, [plan])
 })
 
+for (const ruling of [false, true]) {
+  test(`commit audit ${ruling ? "hands over after its ruling" : "finishes after its brief"} without a watch`, async () => {
+    const round = controlledRound()
+    if (ruling) arrange(round, "ruling")
+    round.results.glance = {
+      status: "finished",
+      sessionId: "glance-session",
+      due: true,
+    }
+    const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
+    const result = await runRound({ ...files, commits }, round.dependencies)
+    assert.equal(result.status, ruling ? "handed-over" : "finished")
+    assert.deepEqual(round.calls[0].arguments, commits)
+    assert.deepEqual(
+      round.calls.map((call) => call.phase),
+      ruling ? rulingPhases : phases,
+    )
+  })
+}
+
 test("retains a failure before the assistant establishes a session", async () => {
   const round = controlledRound()
   round.results.audit = {

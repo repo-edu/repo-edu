@@ -20,9 +20,21 @@ source of standing rules, never as a source of intent.
 
 The user names the range. Follow it exactly. Never select, propose or replace
 it. The range may be given as `<from>..<to>`, as a list of commits or as one
-sha, which scopes the round to that commit alone. Ignore prose around the
-commits the user names, and never resolve a range from prose alone. When the
-invocation names no commit, ask for one and wait.
+commit reference, which scopes the round to that commit alone. Ignore prose
+around the commits the user names, and never resolve a range from prose alone.
+When the invocation names no commit, ask for one and wait.
+
+Each reference may be a sha, `HEAD` or `HEAD-<n>`. `HEAD` names the latest
+commit in the repo the round runs in. `HEAD-<n>` names its nth first-parent
+ancestor, with `<n>` a non-negative integer: `HEAD-0` is `HEAD` and `HEAD-1`
+is the commit before it. Translate `HEAD-<n>` to Git's `HEAD~<n>` before
+resolving it. These forms also work in lists and at either end of a range,
+including alongside shas. For example, `HEAD-2..HEAD` includes the latest
+three commits along the first-parent history.
+
+Resolve all references against the same HEAD at the start of the round and
+keep the resulting shas as its scope. If a reference is invalid or its ancestor
+does not exist, name it and stop for corrected input.
 
 Every form names an inclusive set of commits. Resolve each named commit on its
 own and take the span between the oldest and the newest, which are the round's
@@ -144,3 +156,8 @@ A commit-scoped round is one-shot. The range is the scope, and the round ends at
 its report, which the fix phase lands and deletes. There is no episode, no
 `implemented:` or `closed:` marker and no trajectory watch. A later round over
 later commits is a new round, not a continuation of this one.
+
+`pnpm audit-round` accepts these same references as its target arguments.
+It passes them to the audit phase unchanged, which resolves and fixes the
+scope under **Range** above. Commit targets reject `--chain` and run no
+trajectory glance or watch after the fix and brief.

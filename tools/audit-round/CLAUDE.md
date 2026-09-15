@@ -8,7 +8,7 @@ consumers.
 
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the
   two ruling passes a fix's open item adds, the watch that follows a finished
-  round, and the chain rule. It
+  plan round and the chain rule. It
   retains the audit session and report as local values. Audit, vet, fix and
   brief start fresh.
   Rebuttal resumes the audit session only when that session's last measurement
@@ -30,7 +30,7 @@ consumers.
   commit record whether a watch is due, and only a due glance runs `verdict`
   and a second `revise` pass over that draft. `revise` is the second pass over
   any draft twin, so it takes the workflow that owns the document's shape as
-  its first argument. The watch runs only after a round that finished, because
+  its first argument. The watch runs only after a plan round that finished, because
   a round that handed over has not proved its work landed; nothing is lost,
   since the glance counts commits and not rounds. The watch reads the commit
   record and never the round, so `runWatch` passes it no transcript and no
@@ -99,8 +99,13 @@ consumers.
   at the handover; the total still counts from the round's start, minus every wait. User messages
   and assistant replies have separate transcript labels. Both handover functions must reject on
   failure. Exiting the interactive child ends recording but does not prove workflow completion.
+- `target.ts` owns target validation and the target type: a plan with optional
+  steps or a non-empty list of commit references. The audit workflow owns Git
+  resolution and inclusive-range admission. The runner passes references
+  unchanged and rejects `--chain` for commit targets, which run once without
+  a trajectory glance or watch.
 - `command.ts` owns the command grammar, repository paths, startup and final
-  reporting. The round is the command itself, taking the plan and scope as its
+  reporting. The round is the command itself, taking the target as its
   own arguments, and `brief` is its one subcommand. So the program carries an
   action handler, Commander adds no `help` command, and each command's own
   `-h` prints its help. A bare command line prints that help rather than
@@ -141,6 +146,8 @@ commands available:
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor claude -v
 pnpm audit-round ../plan/example.md 3 --chain
+pnpm audit-round HEAD-1
+pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief ROUND-example-step-3-claude-2026-09-12T22-17-38.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
@@ -149,12 +156,12 @@ pnpm audit-round:contract codex
 The round writes a `ROUND-` log and Markdown pair at the Repo Edu root, and
 its brief phase writes the pair's plain-words twin with `-brief` before the
 extension. A fix that stops for a ruling adds the `-ruling` twin beside them.
-A round that finished ends with a glance at the commit record, and a due
+A plan round that finished ends with a glance at the commit record, and a due
 glance adds the `-verdict` twin carrying the trajectory watch. The watch also
 keeps its own history in the shared cache, which is how its cadence survives
 between rounds.
 `brief` writes the plain-words twin for an earlier transcript, logging beside
-it. `--chain` runs at most three rounds on the one scope the user named and
+it. `--chain` runs at most three rounds on the one plan scope the user named and
 never changes that scope; each round adds `-round-<n>` to its pair. Each
 header names the round's start time.
 

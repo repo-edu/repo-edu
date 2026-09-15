@@ -21,6 +21,7 @@ import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
+import type { AuditTarget } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type OutputOptions = {
@@ -45,6 +46,27 @@ function fileTimestamp(started: number): string {
   return format(new Date(started), "yyyy-MM-dd'T'HH-mm-ss")
 }
 
+function targetDescription(target: AuditTarget): {
+  label: string
+  title: string
+} {
+  if ("commits" in target) {
+    // Keep list filenames bounded; the title and phase arguments carry every reference.
+    return {
+      label: `${target.commits[0]}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}-all`,
+      title: `commits ${target.commits.join(" ")}`,
+    }
+  }
+  const scope =
+    target.scope === undefined
+      ? "all"
+      : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
+  return {
+    label: `${basename(target.plan, ".md")}-${scope}`,
+    title: `${target.plan} ${target.scope ?? "all"}`,
+  }
+}
+
 export function roundRun(
   setup: RoundSetup,
   started: number,
@@ -55,26 +77,23 @@ export function roundRun(
    */
   round?: number,
 ): Run & { readonly paths: { readonly markdown: string } } {
-  const scope =
-    setup.scope === undefined
-      ? "all"
-      : `${setup.scope.includes("-") ? "steps" : "step"}-${setup.scope}`
+  const target = targetDescription(setup)
   const place = round === undefined ? "" : `-round-${round}`
   const base = join(
     setup.repoRoot,
-    `ROUND-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
+    `ROUND-${target.label}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
   const assistants = phaseAssistants(setup.auditor ?? "codex")
   return {
     name: "Audit round",
-    title: `Audit round of ${setup.plan} ${setup.scope ?? "all"}${round === undefined ? "" : ` (round ${round})`}`,
+    title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
     roles: [
       ["auditor", assistants.audit],
       ["vetter", assistants.vet],
       ["rebutter", assistants.rebut],
       ["fixer", assistants.fix],
       ["briefer", assistants.brief],
-      ["watcher", assistants.verdict],
+      ...("plan" in setup ? [["watcher", assistants.verdict] as const] : []),
     ],
     paths: { log: `${base}.log`, markdown: `${base}.md` },
     started,
