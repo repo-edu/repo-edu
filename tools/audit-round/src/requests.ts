@@ -1,10 +1,11 @@
 import { join as joinPath, resolve } from "node:path"
 import { join as shellJoin } from "shellwords"
-import type {
-  Assistant,
-  InteractiveSession,
-  Phase,
-  PhaseInput,
+import {
+  type InteractiveSession,
+  type Phase,
+  type PhaseInput,
+  type PinnedModel,
+  phaseModel,
 } from "./phase.js"
 
 export const claudeSettingsRequest = {
@@ -35,10 +36,24 @@ export function claudeArguments(
 export function codexArguments(
   prompt: string,
   sessionId: string | null,
+  model: PinnedModel | null,
 ): string[] {
+  // A pin precedes any subcommand, where `codex exec` takes its own options.
+  const pin =
+    model === null
+      ? []
+      : ["-m", model.model, "-c", `model_reasoning_effort=${model.effort}`]
   return sessionId === null
-    ? ["exec", "--approve-for-me", "--json", prompt]
-    : ["exec", "--approve-for-me", "resume", "--json", sessionId, prompt]
+    ? ["exec", "--approve-for-me", ...pin, "--json", prompt]
+    : [
+        "exec",
+        "--approve-for-me",
+        ...pin,
+        "resume",
+        "--json",
+        sessionId,
+        prompt,
+      ]
 }
 
 export function interactiveArguments(session: InteractiveSession): string[] {
@@ -88,14 +103,13 @@ You are explicitly authorised to follow that repository's route and local substi
 For every ending, follow the shared Runner result rule in ${cwd}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.`
 }
 
-export function phaseRequest(
-  assistant: Assistant,
-  cwd: string,
-  sessionId: string | null,
-  prompt: string,
-) {
+export function phaseRequest(input: PhaseInput, prompt: string) {
+  const { assistant, cwd, sessionId } = input
   return assistant === "codex"
-    ? { args: codexArguments(prompt, sessionId), input: "" }
+    ? {
+        args: codexArguments(prompt, sessionId, phaseModel(input.phase)),
+        input: "",
+      }
     : {
         args: claudeArguments(cwd, sessionId),
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,

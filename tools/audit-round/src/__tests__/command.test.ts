@@ -51,9 +51,9 @@ async function roundFixture(
     "verdict",
   ] as const) {
     const assistant =
-      phase === "fix"
+      phase === "fix" || phase === "brief"
         ? "codex"
-        : ["brief", "rule", "revise", "glance", "verdict"].includes(phase)
+        : ["rule", "revise", "glance", "verdict"].includes(phase)
           ? "claude"
           : phase === "vet"
             ? auditor === "codex"
@@ -177,7 +177,7 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor === "codex" ? "claude" : "codex",
             auditor,
             "codex",
-            "claude",
+            "codex",
             // A requested ruling adds Claude's draft and its fresh rewrite, and
             // a round that finished instead glances at the record for the watch.
             ...(ruling
@@ -210,7 +210,7 @@ for (const auditor of ["claude", "codex"] as const) {
         const visible = f.visible.join("\n")
         assert.match(log, /\nStarted \d{4}-/)
         assert.match(log, /fixer +codex +chosen-model high/)
-        assert.match(log, /briefer +claude +claude-model high/)
+        assert.match(log, /briefer +codex +gpt-5\.6-terra low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           assert.ok(markdown.includes(`Complete ${phase} text.`))
@@ -229,7 +229,7 @@ for (const auditor of ["claude", "codex"] as const) {
             `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
           ),
         )
-        assert.ok(log.includes(`${repoRoot}/.claude/commands/brief.md`))
+        assert.ok(log.includes(`${repoRoot}/.agents/skills/brief/SKILL.md`))
         assert.ok(log.includes(`[brief] finished: ${brief}`))
         assert.equal(
           log.split(
@@ -494,7 +494,7 @@ test("a brief on its own retells the named transcript without a new round pair",
   )
   assert.deepEqual(
     invocations.map((call) => call.assistant),
-    ["claude"],
+    ["codex"],
   )
   const names = (await readdir(f.repoRoot)).filter((name) =>
     name.startsWith("ROUND-"),
@@ -518,7 +518,7 @@ test("a brief on its own retells the named transcript without a new round pair",
       `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
     ),
   )
-  assert.match(log, /briefer +claude +claude-model high/)
+  assert.match(log, /briefer +codex +gpt-5\.6-terra low/)
   assert.doesNotMatch(log, /auditor|fixer/)
   const visible = f.visible.join("\n")
   assert.ok(visible.includes("Complete brief text."))

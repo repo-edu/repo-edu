@@ -12,9 +12,12 @@ import {
 import {
   type Assistant,
   type InteractiveSession,
+  type Phase,
   type PhaseInput,
   type PhaseResult,
+  type PinnedModel,
   phaseAssistants,
+  phaseModel,
   transcribed,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
@@ -31,12 +34,20 @@ export type OutputOptions = {
   readonly openFiles?: typeof openRunFiles
 }
 
+/** One seat in a run: who fills it, and on which model when its phase pins one. */
+export type Seat = {
+  readonly role: string
+  readonly assistant: Assistant
+  /** Null when the phase runs on whatever its CLI is configured to use. */
+  readonly pinned: PinnedModel | null
+}
+
 /** What one command run is called, which roles it seats and where it records. */
 export type Run = {
   /** The run's kind, as the terminal names it when it ends. */
   readonly name: string
   readonly title: string
-  readonly roles: readonly (readonly [role: string, assistant: Assistant])[]
+  readonly roles: readonly Seat[]
   readonly paths: RunPaths
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
@@ -84,16 +95,21 @@ export function roundRun(
     `ROUND-${target.label}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
   const assistants = phaseAssistants(setup.auditor ?? "codex")
+  const seat = (role: string, phase: Phase): Seat => ({
+    role,
+    assistant: assistants[phase],
+    pinned: phaseModel(phase),
+  })
   return {
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
     roles: [
-      ["auditor", assistants.audit],
-      ["vetter", assistants.vet],
-      ["rebutter", assistants.rebut],
-      ["fixer", assistants.fix],
-      ["briefer", assistants.brief],
-      ...("plan" in setup ? [["watcher", assistants.verdict] as const] : []),
+      seat("auditor", "audit"),
+      seat("vetter", "vet"),
+      seat("rebutter", "rebut"),
+      seat("fixer", "fix"),
+      seat("briefer", "brief"),
+      ...("plan" in setup ? [seat("watcher", "verdict")] : []),
     ],
     paths: { log: `${base}.log`, markdown: `${base}.md` },
     started,
@@ -114,7 +130,13 @@ export function briefRun(transcript: string, started: number): Run {
   return {
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
-    roles: [["briefer", phaseAssistants("codex").brief]],
+    roles: [
+      {
+        role: "briefer",
+        assistant: phaseAssistants("codex").brief,
+        pinned: phaseModel("brief"),
+      },
+    ],
     paths: {
       log: `${transcript.replace(/\.md$/, "")}-brief-${fileTimestamp(started)}.log`,
       markdown: null,
@@ -173,17 +195,18 @@ export class RoundOutput<R extends Run = Run> {
 
   models(selections: Record<Assistant, ModelSelection>): void {
     const { roles } = this.run
-    const lead = roles[0]?.[1]
+    const lead = roles[0]?.assistant
     // Roles are grouped by assistant so one assistant's model reads as one block.
     const rows = roles
       .toSorted(
-        ([, first], [, second]) =>
-          Number(first !== lead) - Number(second !== lead),
+        (first, second) =>
+          Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
-      .map(([role, assistant]) => ({
+      // A pinned phase reports its own model, never the CLI's selection.
+      .map(({ role, assistant, pinned }) => ({
         role,
         assistant,
-        model: modelText(selections[assistant]),
+        model: modelText(pinned ?? selections[assistant]),
       }))
     const roleWidth = Math.max(...rows.map(({ role }) => role.length))
     const assistantWidth = Math.max(

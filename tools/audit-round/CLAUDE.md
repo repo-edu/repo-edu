@@ -17,7 +17,7 @@ consumers.
   holds a summary where the evidence was. An assistant that reports no window
   reports no shortfall and keeps the resume. `round.ts` owns that rule, the
   compaction share it compares against and the rebuttal's reserve.
-  Codex audits by default and always fixes. Claude always briefs and writes
+  Codex audits by default and always fixes and briefs. Claude writes
   both ruling passes. The brief follows the fix on either outcome and precedes
   the ruling, because the ruling starts from what the brief retells; its input
   is the round transcript, never the report, and its launcher always belongs to
@@ -39,7 +39,11 @@ consumers.
   with whom: the auditor repeats while the fix records an A or B tier, the other
   assistant then takes exactly one round, and the cap, a handover or a failure
   ends the chain. It reads the fix's own grade, never a report.
-- `phase.ts` defines the private inputs and results for assistant invocations
+- `phase.ts` owns which assistant runs each phase and which model a phase pins.
+  A pinned phase runs on the model it names whatever the CLI is configured to
+  use; every other phase follows that configuration. Only a Codex phase may
+  pin, because the pin travels as Codex invocation arguments. It also
+  defines the private inputs and results for assistant invocations
   and owns which phases' texts enter the round transcript: only audit, vet,
   rebuttal and fix. The brief, the two ruling passes and the watch's verdict
   are the transcript's twins, written in their own files, and the glance only
@@ -75,11 +79,14 @@ consumers.
   leave the date unstamped so the next run retries. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
-  `--approve-for-me` on every Codex phase and resume command. Claude uses
+  `--approve-for-me` on every Codex phase and resume command and a pinned
+  phase's model and reasoning effort before any subcommand. Claude uses
   `--permission-mode auto` in settings discovery and every session entry.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, seats its roles and locates its files: a round records a log and transcript pair, and a brief
-  on its own records a log beside the transcript it retells and keeps no transcript of its own. The
+  on its own records a log beside the transcript it retells and keeps no transcript of its own. A
+  seat carries its phase's pinned model, so the settings header reports that model and not the
+  CLI's own selection. The
   output holds only the run start, current phase timing and context observations. Every status stamp
   shows the phase's elapsed time and the round's total. `run-clock.ts` owns what those readings
   count. A round measures its assistants, so time the user holds is not the run's. The assistant's

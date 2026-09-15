@@ -63,12 +63,7 @@ export async function runAssistantInvocation(
       runtime.signal?.throwIfAborted()
       await output.start(input, prompt)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
-      const request = phaseRequest(
-        input.assistant,
-        input.cwd,
-        sessionId,
-        prompt,
-      )
+      const request = phaseRequest(input, prompt)
       const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
       await withCliProcess(
         { ...runtime, cwd: input.cwd },

@@ -180,7 +180,7 @@ function runner(
 ): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
   if (phase === "vet") return vetter
-  return phase === "fix" ? "codex" : "claude"
+  return phase === "fix" || phase === "brief" ? "codex" : "claude"
 }
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -237,7 +237,7 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "brief",
-          assistant: "claude",
+          assistant: "codex",
           cwd: repoRoot,
           ownerRoot: repoRoot,
           arguments: [transcript],
@@ -604,7 +604,7 @@ test("a failed brief stops the round before the ruling is written", async () => 
   assert.deepEqual(result, {
     status: "failed",
     phase: "brief",
-    assistant: "claude",
+    assistant: "codex",
     sessionId: "brief-session",
     cwd: repoRoot,
     reason: "The transcript could not be read",
@@ -620,7 +620,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
   assert.deepEqual(round.calls, [
     {
       phase: "brief",
-      assistant: "claude",
+      assistant: "codex",
       cwd: repoRoot,
       ownerRoot: repoRoot,
       arguments: [transcript],

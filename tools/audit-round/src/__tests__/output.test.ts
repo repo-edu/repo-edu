@@ -416,10 +416,10 @@ test("the settings header groups roles by assistant in aligned columns", async (
     [
       "auditor   claude  claude-opus-5[1m] extra high",
       "rebutter  claude  claude-opus-5[1m] extra high",
-      "briefer   claude  claude-opus-5[1m] extra high",
       "watcher   claude  claude-opus-5[1m] extra high",
       "vetter    codex   gpt-6-astra high",
       "fixer     codex   gpt-6-astra high",
+      "briefer   codex   gpt-5.6-terra low",
     ].join("\n"),
   )
   assert.equal(
@@ -428,14 +428,14 @@ test("the settings header groups roles by assistant in aligned columns", async (
       "auditor   codex   gpt-6-astra high",
       "rebutter  codex   gpt-6-astra high",
       "fixer     codex   gpt-6-astra high",
+      "briefer   codex   gpt-5.6-terra low",
       "vetter    claude  claude-opus-5[1m] extra high",
-      "briefer   claude  claude-opus-5[1m] extra high",
       "watcher   claude  claude-opus-5[1m] extra high",
     ].join("\n"),
   )
   assert.equal(
     markdown.at(-1),
-    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nvetter    claude  claude-opus-5[1m] extra high\nbriefer   claude  claude-opus-5[1m] extra high\nwatcher   claude  claude-opus-5[1m] extra high\n```\n",
+    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nbriefer   codex   gpt-5.6-terra low\nvetter    claude  claude-opus-5[1m] extra high\nwatcher   claude  claude-opus-5[1m] extra high\n```\n",
   )
 })
 
@@ -516,7 +516,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
     codex: { model: "gpt-6-astra", effort: "high" },
   })
-  assert.equal(visible.at(-1), "briefer  claude  claude-opus-5[1m] extra high")
+  assert.equal(visible.at(-1), "briefer  codex  gpt-5.6-terra low")
   assert.deepEqual(markdown, [])
   output.finish({
     status: "finished",

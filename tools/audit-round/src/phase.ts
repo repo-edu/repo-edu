@@ -25,8 +25,8 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     // The rebuttal answers in the auditor, resuming the audit when it has room.
     rebut: auditor,
     fix: "codex",
-    // The brief retells the finished transcript for the user; Claude always writes it.
-    brief: "claude",
+    // The brief retells the finished transcript for the user; Codex always writes it.
+    brief: "codex",
     // The ruling explains an open item for the user, so Claude writes both passes.
     rule: "claude",
     // The second pass over any draft twin, so it follows whichever pass wrote one.
@@ -35,6 +35,22 @@ export function phaseAssistants(auditor: Assistant): Record<Phase, Assistant> {
     glance: "claude",
     verdict: "claude",
   }
+}
+
+/** A model a phase names itself, with the reasoning effort it is to run at. */
+export type PinnedModel = {
+  readonly model: string
+  readonly effort: string
+}
+
+/**
+ * The single owner of which model a phase pins. A phase that pins none runs on
+ * whatever its CLI is configured to use, which is every phase but the brief.
+ * Only a Codex phase may pin, because the pin travels as Codex invocation
+ * arguments.
+ */
+export function phaseModel(phase: Phase): PinnedModel | null {
+  return phase === "brief" ? { model: "gpt-5.6-terra", effort: "low" } : null
 }
 
 /**

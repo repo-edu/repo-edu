@@ -313,3 +313,55 @@ test("cancellation stops and awaits an active CLI", async (t) => {
   assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
   assert.equal(await readFile(join(f.root, "stopped"), "utf8"), "SIGTERM")
 })
+
+test("the brief carries its pinned model and effort into the Codex invocation", async (t) => {
+  const f = await fixture(t)
+  await f.configure({
+    stream: await phaseStream(
+      "codex",
+      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null,"tier":null,"due":null}',
+    ),
+    usage: {
+      path: join(f.root, "rollout-test-session.jsonl"),
+      text: await recorded("codex-rollout.jsonl"),
+    },
+  })
+  const result = await runAssistantPhase(
+    {
+      phase: "brief",
+      assistant: "codex",
+      cwd: f.root,
+      ownerRoot: f.root,
+      arguments: [join(f.root, "ROUND-example.md")],
+      sessionId: null,
+    },
+    f.output,
+    f.runtime,
+  )
+  assert.equal(result.status, "finished")
+  const [call] = await f.calls()
+  assert.deepEqual(call.args.slice(0, 7), [
+    "exec",
+    "--approve-for-me",
+    "-m",
+    "gpt-5.6-terra",
+    "-c",
+    "model_reasoning_effort=low",
+    "--json",
+  ])
+})
+
+test("an unpinned Codex phase names no model", async (t) => {
+  const f = await fixture(t)
+  await f.configure({
+    stream: await phaseStream("codex"),
+    usage: {
+      path: join(f.root, "rollout-test-session.jsonl"),
+      text: await recorded("codex-rollout.jsonl"),
+    },
+  })
+  await runAssistantPhase(input("codex", f.root), f.output, f.runtime)
+  const [call] = await f.calls()
+  assert.equal(call.args.includes("-m"), false)
+  assert.equal(call.args.includes("-c"), false)
+})
