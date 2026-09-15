@@ -8,6 +8,7 @@ import {
   tokenSchema,
 } from "./feedback.js"
 import { toolInputText } from "./output-format.js"
+import { unpinned } from "./phase.js"
 import { claudeArguments, claudeSettingsRequest } from "./requests.js"
 
 const settingsResponse = z.object({
@@ -149,7 +150,11 @@ export async function readClaudeSettings(
   return withCliProcess(
     runtime,
     "claude",
-    [...claudeArguments(runtime.cwd, null), "--no-session-persistence"],
+    // The settings read reports the CLI's own selection, so it names none.
+    [
+      ...claudeArguments(runtime.cwd, null, unpinned),
+      "--no-session-persistence",
+    ],
     `${JSON.stringify(claudeSettingsRequest)}\n`,
     async (child) => {
       let selection: ModelSelection | undefined

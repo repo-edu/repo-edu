@@ -4,13 +4,14 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
-import type { Assistant, PhaseInput } from "../phase.js"
+import { type Assistant, type PhaseInput, unpinned } from "../phase.js"
 import { recoveryCommand } from "../requests.js"
 import { finishedText, fixture, phaseStream, recorded } from "./helpers.js"
 
 const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
   phase: "fix",
   assistant,
+  model: unpinned,
   cwd,
   ownerRoot: "/peer plan",
   arguments: ["/peer plan/AUDIT.md"],
@@ -181,7 +182,12 @@ for (const assistant of ["claude", "codex"] as const) {
 
   test(`${assistant} accounts for an interactive exit and quotes the same recovery invocation`, async (t) => {
     const f = await fixture(t)
-    const session = { assistant, sessionId: "fix-session", cwd: f.root }
+    const session = {
+      assistant,
+      model: unpinned,
+      sessionId: "fix-session",
+      cwd: f.root,
+    }
     await openAssistantSession(session, f.runtime)
     const [call] = await f.calls()
     if (assistant === "codex") {
@@ -330,6 +336,10 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
     {
       phase: "brief",
       assistant: "codex",
+      model: {
+        model: { value: "gpt-5.6-terra", source: "phase pin" },
+        effort: { value: "low", source: "phase pin" },
+      },
       cwd: f.root,
       ownerRoot: f.root,
       arguments: [join(f.root, "ROUND-example.md")],

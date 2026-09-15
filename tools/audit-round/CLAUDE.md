@@ -39,11 +39,21 @@ consumers.
   with whom: the auditor repeats while the fix records an A or B tier, the other
   assistant then takes exactly one round, and the cap, a handover or a failure
   ends the chain. It reads the fix's own grade, never a report.
-- `phase.ts` owns which assistant runs each phase and which model a phase pins.
-  A pinned phase runs on the model it names whatever the CLI is configured to
-  use; every other phase follows that configuration. Only a Codex phase may
-  pin, because the pin travels as Codex invocation arguments. It also
-  defines the private inputs and results for assistant invocations
+- `phase.ts` owns who runs each phase of a round and on what. `roundSeating` is
+  that one owner: the runner invokes from the value it returns and the run's
+  seating report prints the same value, so what a round says it ran on is what
+  it ran with. A seat names a model, an effort, both or neither; a named field
+  runs on what it names whatever the CLI is configured to use, and an unnamed
+  one follows that configuration. Three things name a field. The brief names
+  its own model and effort, because it retells a finished round. `--strength`
+  names the auditor's model through the strength table, which holds one model
+  per assistant per tier and is edited when a model family lands. `--effort`
+  names the auditor's reasoning effort. Both bind the audit and the rebuttal
+  together and nothing else, because the rebuttal resumes the audit session and
+  one thread cannot change model half way through. Each named field carries
+  what named it, so the report never guesses, and either CLI accepts one. It
+  also defines the private inputs and results for assistant invocations, a
+  seat among them,
   and owns which phases' texts enter the round transcript: only audit, vet,
   rebuttal and fix. The brief, the two ruling passes and the watch's verdict
   are the transcript's twins, written in their own files, and the glance only
@@ -79,14 +89,20 @@ consumers.
   leave the date unstamped so the next run retries. Claude control
   requests and the short-lived Codex settings connection start no LLM turn.
   `requests.ts` owns headless, interactive and recovery arguments, including
-  `--approve-for-me` on every Codex phase and resume command and a pinned
-  phase's model and reasoning effort before any subcommand. Claude uses
-  `--permission-mode auto` in settings discovery and every session entry.
+  `--approve-for-me` on every Codex phase and resume command and a named
+  model and reasoning effort: Codex takes them before any subcommand, so a
+  resumed phase keeps them, and Claude takes `--model` and `--effort`. A
+  handed-over session and a failure both carry their seat, so the interactive
+  and recovery commands resume on the model the round ran that seat on. Claude
+  uses `--permission-mode auto` in settings discovery and every session entry,
+  and that discovery names no model of its own.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, seats its roles and locates its files: a round records a log and transcript pair, and a brief
   on its own records a log beside the transcript it retells and keeps no transcript of its own. A
-  seat carries its phase's pinned model, so the settings header reports that model and not the
-  CLI's own selection. The
+  seat carries its phase's seating, so the settings header reports the model and effort that seat
+  will run on and names what set each of them: a command-line flag, the phase's own pin, or the
+  assistant's settings. A seat whose two fields came from different places names both, model
+  first. The
   output holds only the run start, current phase timing and context observations. Every status stamp
   shows the phase's elapsed time and the round's total. `run-clock.ts` owns what those readings
   count. A round measures its assistants, so time the user holds is not the run's. The assistant's
@@ -112,7 +128,8 @@ consumers.
   unchanged and rejects `--chain` for commit targets, which run once without
   a trajectory glance or watch.
 - `command.ts` owns the command grammar, repository paths, startup and final
-  reporting. The round is the command itself, taking the target as its
+  reporting, including the `--strength` and `--effort` choices the auditor's
+  seat takes. The round is the command itself, taking the target as its
   own arguments, and `brief` is its one subcommand. So the program carries an
   action handler, Commander adds no `help` command, and each command's own
   `-h` prints its help. A bare command line prints that help rather than
@@ -152,6 +169,7 @@ commands available:
 ```bash
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor claude -v
+pnpm audit-round ../plan/example.md 3 --strength high --effort xhigh
 pnpm audit-round ../plan/example.md 3 --chain
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD

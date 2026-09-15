@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { basename } from "node:path"
 import { test } from "node:test"
 import { RoundOutput, roundRun } from "../output.js"
+import { unpinned } from "../phase.js"
 
 for (const { zone, instant, timestamp, filename } of [
   {
@@ -112,6 +113,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     {
       phase: "fix",
       assistant: "codex",
+      model: unpinned,
       cwd: "/repo",
       ownerRoot: "/repo",
       arguments: ["REPORT.md"],
@@ -125,6 +127,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
 
   const session = {
     assistant: "codex" as const,
+    model: unpinned,
     sessionId: "session",
     cwd: "/repo",
   }

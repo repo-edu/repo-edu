@@ -53,7 +53,11 @@ watch adds its verdict document, drafted and rewritten the same way, and
 records its own grade so the next glance can count from it. `--chain` runs at
 most three rounds on the scope the user named, keeping the auditor while an A
 or B finding lands and giving the other assistant one closing round, and
-glances after each of them.
+glances after each of them. `--strength normal|high` names the model tier and
+`--effort low|medium|high|xhigh` the reasoning effort that the auditor and its
+rebuttal run on; the rebuttal resumes the audit session, so one override binds
+both. Every other seat follows the assistant's own settings, and the brief its
+own model. The run's seating report names what set each seat.
 `pnpm audit-round brief <ROUND-transcript.md>` writes that brief for an
 earlier round.
 `pnpm audit-round <commit> [<commit>...]` or

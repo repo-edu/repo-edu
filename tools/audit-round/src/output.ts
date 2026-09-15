@@ -7,17 +7,18 @@ import {
   contextText,
   elapsedText,
   modelText,
+  seatText,
   toolText,
 } from "./output-format.js"
 import {
   type Assistant,
   type InteractiveSession,
+  noOverride,
   type Phase,
   type PhaseInput,
   type PhaseResult,
-  type PinnedModel,
-  phaseAssistants,
-  phaseModel,
+  roundSeating,
+  type Seating,
   transcribed,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
@@ -34,13 +35,8 @@ export type OutputOptions = {
   readonly openFiles?: typeof openRunFiles
 }
 
-/** One seat in a run: who fills it, and on which model when its phase pins one. */
-export type Seat = {
-  readonly role: string
-  readonly assistant: Assistant
-  /** Null when the phase runs on whatever its CLI is configured to use. */
-  readonly pinned: PinnedModel | null
-}
+/** One seat in a run: which role it fills, and the seating that fills it. */
+export type Seat = Seating & { readonly role: string }
 
 /** What one command run is called, which roles it seats and where it records. */
 export type Run = {
@@ -94,11 +90,13 @@ export function roundRun(
     setup.repoRoot,
     `ROUND-${target.label}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
-  const assistants = phaseAssistants(setup.auditor ?? "codex")
+  const seating = roundSeating(
+    setup.auditor ?? "codex",
+    setup.override ?? noOverride,
+  )
   const seat = (role: string, phase: Phase): Seat => ({
     role,
-    assistant: assistants[phase],
-    pinned: phaseModel(phase),
+    ...seating[phase],
   })
   return {
     name: "Audit round",
@@ -130,13 +128,7 @@ export function briefRun(transcript: string, started: number): Run {
   return {
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
-    roles: [
-      {
-        role: "briefer",
-        assistant: phaseAssistants("codex").brief,
-        pinned: phaseModel("brief"),
-      },
-    ],
+    roles: [{ role: "briefer", ...roundSeating("codex", noOverride).brief }],
     paths: {
       log: `${transcript.replace(/\.md$/, "")}-brief-${fileTimestamp(started)}.log`,
       markdown: null,
@@ -202,20 +194,21 @@ export class RoundOutput<R extends Run = Run> {
         (first, second) =>
           Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
-      // A pinned phase reports its own model, never the CLI's selection.
-      .map(({ role, assistant, pinned }) => ({
+      // A named field reports itself; the rest reports the CLI's own selection.
+      .map(({ role, assistant, model }) => ({
         role,
         assistant,
-        model: modelText(pinned ?? selections[assistant]),
+        ...seatText(model, selections[assistant], assistant),
       }))
     const roleWidth = Math.max(...rows.map(({ role }) => role.length))
     const assistantWidth = Math.max(
       ...rows.map(({ assistant }) => assistant.length),
     )
+    const modelWidth = Math.max(...rows.map(({ model }) => model.length))
     const text = rows
       .map(
-        ({ role, assistant, model }) =>
-          `${role.padEnd(roleWidth)}  ${assistant.padEnd(assistantWidth)}  ${model}`,
+        ({ role, assistant, model, source }) =>
+          `${role.padEnd(roleWidth)}  ${assistant.padEnd(assistantWidth)}  ${model.padEnd(modelWidth)}  ${source}`,
       )
       .join("\n")
     this.say(text)

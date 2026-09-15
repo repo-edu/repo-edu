@@ -397,6 +397,67 @@ test("a recording failure during update output cannot be treated as an update wa
   assert.match(f.errors.join("\n"), /Update recording failed/)
 })
 
+for (const auditor of ["codex", "claude"] as const) {
+  test(`--strength and --effort reach the ${auditor} auditor and its rebuttal alone`, async (t) => {
+    const f = await roundFixture(t, auditor)
+    assert.equal(
+      await runCommand(
+        [
+          "example.md",
+          "3",
+          "--auditor",
+          auditor,
+          "--strength",
+          "high",
+          "--effort",
+          "xhigh",
+        ],
+        f.runtime,
+        f.options,
+      ),
+      0,
+      f.errors.join("\n"),
+    )
+    const invocations = (await f.calls()).filter(
+      (call) =>
+        call.args[0] === "exec" ||
+        (call.args[0] === "-p" &&
+          !call.args.includes("--no-session-persistence")),
+    )
+    const pin =
+      auditor === "codex"
+        ? ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=xhigh"]
+        : ["--model", "fable", "--effort", "xhigh"]
+    // The audit names the override and the rebuttal resumes that thread on it.
+    for (const index of [0, 2])
+      assert.ok(
+        pin.every((argument) => invocations[index].args.includes(argument)),
+        invocations[index].args.join(" "),
+      )
+    // A Codex pin precedes the subcommand, so a resumed rebuttal still carries it.
+    if (auditor === "codex")
+      assert.ok(
+        invocations[2].args.indexOf("-m") <
+          invocations[2].args.indexOf("resume"),
+      )
+    // The vetter and the fixer keep whatever their own CLI is configured to use.
+    for (const index of [1, 3])
+      for (const flag of ["-m", "--model", "-c", "--effort"])
+        assert.equal(invocations[index].args.includes(flag), false)
+    // The brief names its own model whatever the command line asked for.
+    assert.ok(invocations[4].args.includes("gpt-5.6-terra"))
+    const { log } = await f.records()
+    assert.match(
+      log,
+      auditor === "codex"
+        ? /auditor +codex +gpt-6-astra extra high +--strength\/--effort/
+        : /auditor +claude +fable extra high +--strength\/--effort/,
+    )
+    assert.match(log, /fixer +codex +chosen-model high +codex settings/)
+    assert.match(log, /briefer +codex +gpt-5\.6-terra low +phase pin/)
+  })
+}
+
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
@@ -409,6 +470,10 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
+    // The ladder stops below the two most extreme levels either CLI offers.
+    ["example.md", "--strength", "top"],
+    ["example.md", "--effort", "max"],
+    ["example.md", "--effort", "ultra"],
     ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["brief"],
@@ -430,6 +495,11 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /Codex always fixes and\s+briefs/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
+  assert.match(
+    visible,
+    /--strength <level>\s+model the auditor and its rebuttal run on/,
+  )
+  assert.match(visible, /choices:\s+"low", "medium", "high", "xhigh"/)
   // A round is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+round\b/m)
   assert.doesNotMatch(visible, /^\s+help\b/m)

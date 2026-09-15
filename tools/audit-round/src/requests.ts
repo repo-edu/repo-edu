@@ -1,11 +1,10 @@
 import { join as joinPath, resolve } from "node:path"
 import { join as shellJoin } from "shellwords"
-import {
-  type InteractiveSession,
-  type Phase,
-  type PhaseInput,
-  type PinnedModel,
-  phaseModel,
+import type {
+  InteractiveSession,
+  Phase,
+  PhaseInput,
+  PinnedModel,
 } from "./phase.js"
 
 export const claudeSettingsRequest = {
@@ -14,13 +13,36 @@ export const claudeSettingsRequest = {
   request: { subtype: "get_settings" },
 } as const
 
+/** How Claude names a seat's model and effort. An unnamed field is left out. */
+function claudePin(model: PinnedModel): string[] {
+  return [
+    ...(model.model === null ? [] : ["--model", model.model.value]),
+    ...(model.effort === null ? [] : ["--effort", model.effort.value]),
+  ]
+}
+
+/**
+ * How Codex names them. A pin precedes any subcommand, where `codex exec` and
+ * `codex resume` take their own options, so a resumed session keeps it.
+ */
+function codexPin(model: PinnedModel): string[] {
+  return [
+    ...(model.model === null ? [] : ["-m", model.model.value]),
+    ...(model.effort === null
+      ? []
+      : ["-c", `model_reasoning_effort=${model.effort.value}`]),
+  ]
+}
+
 export function claudeArguments(
   cwd: string,
   sessionId: string | null,
+  model: PinnedModel,
 ): string[] {
   return [
     "-p",
     ...(sessionId === null ? [] : ["--resume", sessionId]),
+    ...claudePin(model),
     "--input-format",
     "stream-json",
     "--output-format",
@@ -36,13 +58,9 @@ export function claudeArguments(
 export function codexArguments(
   prompt: string,
   sessionId: string | null,
-  model: PinnedModel | null,
+  model: PinnedModel,
 ): string[] {
-  // A pin precedes any subcommand, where `codex exec` takes its own options.
-  const pin =
-    model === null
-      ? []
-      : ["-m", model.model, "-c", `model_reasoning_effort=${model.effort}`]
+  const pin = codexPin(model)
   return sessionId === null
     ? ["exec", "--approve-for-me", ...pin, "--json", prompt]
     : [
@@ -57,11 +75,13 @@ export function codexArguments(
 }
 
 export function interactiveArguments(session: InteractiveSession): string[] {
+  const { model } = session
   return session.assistant === "codex"
-    ? ["resume", "--approve-for-me", session.sessionId]
+    ? [...codexPin(model), "resume", "--approve-for-me", session.sessionId]
     : [
         "--resume",
         session.sessionId,
+        ...claudePin(model),
         "--permission-mode",
         "auto",
         "--add-dir",
@@ -104,14 +124,14 @@ For every ending, follow the shared Runner result rule in ${cwd}/.agents/skills/
 }
 
 export function phaseRequest(input: PhaseInput, prompt: string) {
-  const { assistant, cwd, sessionId } = input
+  const { assistant, cwd, sessionId, model } = input
   return assistant === "codex"
     ? {
-        args: codexArguments(prompt, sessionId, phaseModel(input.phase)),
+        args: codexArguments(prompt, sessionId, model),
         input: "",
       }
     : {
-        args: claudeArguments(cwd, sessionId),
+        args: claudeArguments(cwd, sessionId, model),
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,
       }
 }

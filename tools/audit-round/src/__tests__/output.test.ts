@@ -7,7 +7,8 @@ import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import { briefRun, RoundOutput, roundRun } from "../output.js"
 import { commandText } from "../output-format.js"
-import type { Assistant } from "../phase.js"
+import type { Assistant, AuditorOverride } from "../phase.js"
+import { unpinned } from "../phase.js"
 import { createTerminal } from "../terminal.js"
 import { fixture } from "./helpers.js"
 
@@ -55,6 +56,7 @@ test("output records complete invocations incrementally and refreshes only while
       {
         phase: "audit",
         assistant: "codex",
+        model: unpinned,
         cwd: f.root,
         ownerRoot: f.root,
         arguments: ["example.md"],
@@ -158,6 +160,7 @@ test("written status stamps chain into the running total", async (t) => {
     {
       phase: "audit",
       assistant: "codex",
+      model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
       arguments: ["example.md"],
@@ -175,6 +178,7 @@ test("written status stamps chain into the running total", async (t) => {
     {
       phase: "rebut",
       assistant: "codex",
+      model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
       arguments: ["/AUDIT.md"],
@@ -214,6 +218,7 @@ for (const assistant of ["claude", "codex"] as const) {
         {
           phase: "audit",
           assistant,
+          model: unpinned,
           cwd: f.root,
           ownerRoot: f.root,
           arguments: ["example.md"],
@@ -369,6 +374,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
     {
       phase: "fix",
       assistant: "claude",
+      model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
       arguments: ["/AUDIT.md"],
@@ -411,31 +417,83 @@ test("the settings header groups roles by assistant in aligned columns", async (
     })
     return visible.at(-1)
   }
+  const codexHeader = [
+    "auditor   codex   gpt-6-astra high              codex settings",
+    "rebutter  codex   gpt-6-astra high              codex settings",
+    "fixer     codex   gpt-6-astra high              codex settings",
+    "briefer   codex   gpt-5.6-terra low             phase pin",
+    "vetter    claude  claude-opus-5[1m] extra high  claude settings",
+    "watcher   claude  claude-opus-5[1m] extra high  claude settings",
+  ]
   assert.equal(
     await header("claude"),
     [
-      "auditor   claude  claude-opus-5[1m] extra high",
-      "rebutter  claude  claude-opus-5[1m] extra high",
-      "watcher   claude  claude-opus-5[1m] extra high",
-      "vetter    codex   gpt-6-astra high",
-      "fixer     codex   gpt-6-astra high",
-      "briefer   codex   gpt-5.6-terra low",
+      "auditor   claude  claude-opus-5[1m] extra high  claude settings",
+      "rebutter  claude  claude-opus-5[1m] extra high  claude settings",
+      "watcher   claude  claude-opus-5[1m] extra high  claude settings",
+      "vetter    codex   gpt-6-astra high              codex settings",
+      "fixer     codex   gpt-6-astra high              codex settings",
+      "briefer   codex   gpt-5.6-terra low             phase pin",
     ].join("\n"),
   )
-  assert.equal(
-    await header("codex"),
-    [
-      "auditor   codex   gpt-6-astra high",
-      "rebutter  codex   gpt-6-astra high",
-      "fixer     codex   gpt-6-astra high",
-      "briefer   codex   gpt-5.6-terra low",
-      "vetter    claude  claude-opus-5[1m] extra high",
-      "watcher   claude  claude-opus-5[1m] extra high",
-    ].join("\n"),
-  )
+  assert.equal(await header("codex"), codexHeader.join("\n"))
   assert.equal(
     markdown.at(-1),
-    "```text\nauditor   codex   gpt-6-astra high\nrebutter  codex   gpt-6-astra high\nfixer     codex   gpt-6-astra high\nbriefer   codex   gpt-5.6-terra low\nvetter    claude  claude-opus-5[1m] extra high\nwatcher   claude  claude-opus-5[1m] extra high\n```\n",
+    `\`\`\`text\n${codexHeader.join("\n")}\n\`\`\`\n`,
+  )
+})
+
+test("the seating report names what set each seat's model and effort", async (t) => {
+  const header = async (override: AuditorOverride) => {
+    const f = await fixture(t)
+    const visible: string[] = []
+    const output = new RoundOutput(
+      roundRun({ repoRoot: f.root, plan: "example.md", override }, Date.now()),
+      {
+        terminal: {
+          write: (text) => {
+            visible.push(text)
+          },
+          status: () => {},
+          clear: () => {},
+        },
+        openFiles: () => ({
+          log: () => {},
+          markdown: () => {},
+          close: () => {},
+        }),
+      },
+    )
+    t.after(() => output.close())
+    output.models({
+      claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
+      codex: { model: "gpt-5.6-sol", effort: "high" },
+    })
+    return (visible.at(-1) as string).split("\n")
+  }
+  // Both flags name the whole selection, and the fixer keeps the CLI's own.
+  assert.deepEqual(await header({ strength: "high", effort: "xhigh" }), [
+    "auditor   codex   gpt-6-astra extra high        --strength/--effort",
+    "rebutter  codex   gpt-6-astra extra high        --strength/--effort",
+    "fixer     codex   gpt-5.6-sol high              codex settings",
+    "briefer   codex   gpt-5.6-terra low             phase pin",
+    "vetter    claude  claude-opus-5[1m] extra high  claude settings",
+    "watcher   claude  claude-opus-5[1m] extra high  claude settings",
+  ])
+  // One flag names one field, so the row reports both sources, model first.
+  assert.deepEqual(
+    (await header({ strength: "high", effort: null })).slice(0, 2),
+    [
+      "auditor   codex   gpt-6-astra high              --strength/codex settings",
+      "rebutter  codex   gpt-6-astra high              --strength/codex settings",
+    ],
+  )
+  assert.deepEqual(
+    (await header({ strength: null, effort: "medium" })).slice(0, 2),
+    [
+      "auditor   codex   gpt-5.6-sol medium            codex settings/--effort",
+      "rebutter  codex   gpt-5.6-sol medium            codex settings/--effort",
+    ],
   )
 })
 
@@ -459,6 +517,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
     {
       phase: "brief",
       assistant: "claude",
+      model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
       arguments: [output.paths.markdown],
@@ -516,7 +575,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
     codex: { model: "gpt-6-astra", effort: "high" },
   })
-  assert.equal(visible.at(-1), "briefer  codex  gpt-5.6-terra low")
+  assert.equal(visible.at(-1), "briefer  codex  gpt-5.6-terra low  phase pin")
   assert.deepEqual(markdown, [])
   output.finish({
     status: "finished",

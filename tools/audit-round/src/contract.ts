@@ -23,7 +23,7 @@ import {
 import { readCodexSettings } from "./codex-settings.js"
 import { eventSchema, type Feedback } from "./feedback.js"
 import { RoundOutput, roundRun } from "./output.js"
-import type { Assistant } from "./phase.js"
+import { type Assistant, unpinned } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
 import type { Terminal } from "./terminal.js"
 
@@ -184,6 +184,8 @@ export async function recordContracts(
           {
             phase: "fix",
             assistant,
+            // The probe records a CLI contract, so it names no model of its own.
+            model: unpinned,
             cwd: runtime.cwd,
             ownerRoot: runtime.cwd,
             arguments: ["CLI contract probe"],

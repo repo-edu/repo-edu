@@ -1,5 +1,6 @@
 import { split } from "shellwords"
 import type { Feedback, ModelSelection } from "./feedback.js"
+import type { Assistant, PinnedModel } from "./phase.js"
 import type { ChainDecision } from "./round.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
@@ -7,6 +8,31 @@ export type Context = Extract<Feedback, { type: "context" }>
 export function modelText(selection: ModelSelection): string {
   const effort = selection.effort === "xhigh" ? "extra high" : selection.effort
   return `${selection.model} ${effort ?? "effort unavailable"}`
+}
+
+/**
+ * What one seat runs on, and what named it. A field the phase did not name
+ * follows the assistant's own configuration, so a seat that took only its model
+ * from the command line names both sources, model first.
+ */
+export function seatText(
+  { model, effort }: PinnedModel,
+  configured: ModelSelection,
+  assistant: Assistant,
+): { readonly model: string; readonly source: string } {
+  const own = `${assistant} settings`
+  const modelSource = model?.source ?? own
+  const effortSource = effort?.source ?? own
+  return {
+    model: modelText({
+      model: model?.value ?? configured.model,
+      effort: effort?.value ?? configured.effort,
+    }),
+    source:
+      modelSource === effortSource
+        ? modelSource
+        : `${modelSource}/${effortSource}`,
+  }
 }
 
 export function tokenText(tokens: number, decimals = 0): string {

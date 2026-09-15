@@ -6,6 +6,7 @@ import { assistantDependencies } from "../assistant.js"
 import { decodeCodexSessionFeedback } from "../codex-session-feedback.js"
 import { recordInteractiveSession } from "../interactive.js"
 import { RoundOutput, roundRun } from "../output.js"
+import { unpinned } from "../phase.js"
 import { fixture } from "./helpers.js"
 
 const jsonl = (...records: unknown[]) =>
@@ -113,6 +114,7 @@ test("interactive recording stays live, excludes prior records and drains the fi
     {
       phase: "brief",
       assistant: "claude",
+      model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
       arguments: ["/transcript.md"],
@@ -123,6 +125,7 @@ test("interactive recording stays live, excludes prior records and drains the fi
   now = 10_000
   const session = {
     assistant: "codex",
+    model: unpinned,
     sessionId: "fix-session",
     cwd: f.root,
   } as const
@@ -195,7 +198,12 @@ for (const failure of [
     const cancelled = new AbortController()
     await assert.rejects(
       recordInteractiveSession(
-        { assistant: "codex", sessionId: "fix-session", cwd: f.root },
+        {
+          assistant: "codex",
+          model: unpinned,
+          sessionId: "fix-session",
+          cwd: f.root,
+        },
         { ...f.runtime, signal: cancelled.signal },
         async () => {
           if (failure === "writer")
@@ -220,7 +228,12 @@ test("a missing session file prevents an unrecorded interactive launch", async (
   const f = await fixture(t)
   await assert.rejects(
     recordInteractiveSession(
-      { assistant: "codex", sessionId: "missing", cwd: f.root },
+      {
+        assistant: "codex",
+        model: unpinned,
+        sessionId: "missing",
+        cwd: f.root,
+      },
       f.runtime,
       async () => {},
     ),

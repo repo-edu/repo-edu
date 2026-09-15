@@ -17,7 +17,13 @@ import {
   verdictPath,
 } from "./output.js"
 import { chainText } from "./output-format.js"
-import type { Assistant } from "./phase.js"
+import {
+  type Assistant,
+  type Effort,
+  efforts,
+  type Strength,
+  strengths,
+} from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -73,6 +79,8 @@ type Invocation =
       readonly kind: "round"
       readonly target: AuditTarget
       readonly auditor: Assistant
+      readonly strength?: Strength
+      readonly effort?: Effort
       readonly chain?: boolean
       readonly verbose?: boolean
     }
@@ -114,6 +122,18 @@ function parseInvocation(
         .choices(["claude", "codex"])
         .default("codex"),
     )
+    .addOption(
+      new Option(
+        "--strength <level>",
+        "model the auditor and its rebuttal run on; otherwise the assistant's own",
+      ).choices([...strengths]),
+    )
+    .addOption(
+      new Option(
+        "--effort <level>",
+        "reasoning effort the auditor and its rebuttal run at; otherwise the assistant's own",
+      ).choices([...efforts]),
+    )
     .option(
       "--chain",
       `run up to ${chainCap} rounds on the same scope (plans only), repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
@@ -123,7 +143,13 @@ function parseInvocation(
       (
         first: string,
         rest: string[],
-        flags: { auditor: Assistant; chain?: boolean; verbose?: boolean },
+        flags: {
+          auditor: Assistant
+          strength?: Strength
+          effort?: Effort
+          chain?: boolean
+          verbose?: boolean
+        },
       ) => {
         try {
           const target = auditTarget(first, rest)
@@ -220,6 +246,10 @@ export async function runCommand(
       const setup = {
         repoRoot,
         ...invocation.target,
+        override: {
+          strength: invocation.strength ?? null,
+          effort: invocation.effort ?? null,
+        },
       }
       let auditor = invocation.auditor
       let completed = 0

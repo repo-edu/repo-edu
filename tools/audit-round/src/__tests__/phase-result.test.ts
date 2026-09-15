@@ -3,6 +3,7 @@ import { test } from "node:test"
 import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
+import { unpinned } from "../phase.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 
@@ -206,6 +207,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
   const prompt = phasePrompt({
     phase: "audit",
     assistant: "codex",
+    model: unpinned,
     cwd: "/repo",
     ownerRoot: "/repo",
     sessionId: null,
@@ -218,7 +220,52 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
   )
   const sessionId = "session; $(touch forbidden) '"
   assert.deepEqual(
-    split(recoveryCommand({ assistant: "codex", sessionId, cwd: "/repo" })),
+    split(
+      recoveryCommand({
+        assistant: "codex",
+        model: unpinned,
+        sessionId,
+        cwd: "/repo",
+      }),
+    ),
     ["codex", "resume", "--approve-for-me", sessionId],
+  )
+  // A seat that named its model resumes on it, so the user continues the round's own run.
+  assert.deepEqual(
+    split(
+      recoveryCommand({
+        assistant: "codex",
+        model: {
+          model: { value: "gpt-6-astra", source: "--strength" },
+          effort: { value: "xhigh", source: "--effort" },
+        },
+        sessionId: "audit-session",
+        cwd: "/repo",
+      }),
+    ),
+    [
+      "codex",
+      "-m",
+      "gpt-6-astra",
+      "-c",
+      "model_reasoning_effort=xhigh",
+      "resume",
+      "--approve-for-me",
+      "audit-session",
+    ],
+  )
+  assert.deepEqual(
+    split(
+      recoveryCommand({
+        assistant: "claude",
+        model: {
+          model: { value: "fable", source: "--strength" },
+          effort: null,
+        },
+        sessionId: "audit-session",
+        cwd: "/repo",
+      }),
+    ).slice(0, 5),
+    ["claude", "--resume", "audit-session", "--model", "fable"],
   )
 })

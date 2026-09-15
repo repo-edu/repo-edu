@@ -1,12 +1,14 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import type {
-  Assistant,
-  InteractiveSession,
-  Phase,
-  PhaseInput,
-  PhaseResult,
-  RoundDependencies,
+import {
+  type Assistant,
+  type InteractiveSession,
+  type Phase,
+  type PhaseInput,
+  type PhaseResult,
+  type PinnedModel,
+  type RoundDependencies,
+  unpinned,
 } from "../phase.js"
 import {
   chainCap,
@@ -15,6 +17,12 @@ import {
   runBrief,
   runRound,
 } from "../round.js"
+
+/** The brief names its own model, so its seat is the one a round never overrides. */
+const briefPin: PinnedModel = {
+  model: { value: "gpt-5.6-terra", source: "phase pin" },
+  effort: { value: "low", source: "phase pin" },
+}
 
 const repoRoot = "/workspace/repo-edu"
 const transcript = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38.md`
@@ -172,7 +180,7 @@ function arrange(round: ControlledRound, ending: "ruling" | "watch"): void {
     }
 }
 
-/** Which assistant a phase seats, as `phaseAssistants` decides it. */
+/** Which assistant a phase seats, as `roundSeating` decides it. */
 function runner(
   phase: Phase,
   auditor: Assistant,
@@ -206,6 +214,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "audit",
           assistant: auditor,
+          model: unpinned,
           cwd: repoRoot,
           ownerRoot: repoRoot,
           arguments: ["../plan/example.md", "2-3"],
@@ -214,6 +223,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "vet",
           assistant: vetter,
+          model: unpinned,
           cwd: repoRoot,
           ownerRoot,
           arguments: [report],
@@ -222,6 +232,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "rebut",
           assistant: auditor,
+          model: unpinned,
           cwd: repoRoot,
           ownerRoot,
           arguments: [report],
@@ -230,6 +241,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "fix",
           assistant: "codex",
+          model: unpinned,
           cwd: repoRoot,
           ownerRoot,
           arguments: [report],
@@ -238,6 +250,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "brief",
           assistant: "codex",
+          model: briefPin,
           cwd: repoRoot,
           ownerRoot: repoRoot,
           arguments: [transcript],
@@ -246,6 +259,7 @@ for (const auditor of ["claude", "codex"] as const) {
         {
           phase: "glance",
           assistant: "claude",
+          model: unpinned,
           cwd: repoRoot,
           ownerRoot: repoRoot,
           arguments: [cacheRoot],
@@ -272,6 +286,7 @@ for (const auditor of ["claude", "codex"] as const) {
 
     const session = {
       assistant: "codex",
+      model: unpinned,
       sessionId: "fix-session",
       cwd: repoRoot,
     }
@@ -285,6 +300,7 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phase: "rule",
         assistant: "claude",
+        model: unpinned,
         cwd: repoRoot,
         ownerRoot: repoRoot,
         arguments: [transcript, report],
@@ -293,6 +309,7 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phase: "revise",
         assistant: "claude",
+        model: unpinned,
         cwd: repoRoot,
         ownerRoot: repoRoot,
         arguments: [ruleWorkflow, ruling, transcript, report],
@@ -336,6 +353,7 @@ for (const auditor of ["claude", "codex"] as const) {
           ...failure,
           phase,
           assistant: runner(phase, auditor, vetter),
+          model: phase === "brief" ? briefPin : unpinned,
           cwd: repoRoot,
         })
       })
@@ -362,6 +380,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
     {
       phase: "glance",
       assistant: "claude",
+      model: unpinned,
       cwd: repoRoot,
       ownerRoot: repoRoot,
       arguments: [cacheRoot],
@@ -370,6 +389,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
     {
       phase: "verdict",
       assistant: "claude",
+      model: unpinned,
       cwd: repoRoot,
       ownerRoot: repoRoot,
       arguments: [verdict, cacheRoot],
@@ -378,6 +398,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
     {
       phase: "revise",
       assistant: "claude",
+      model: unpinned,
       cwd: repoRoot,
       ownerRoot: repoRoot,
       arguments: [watchWorkflow, verdict],
@@ -448,6 +469,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     ...round.results.audit,
     phase: "audit",
     assistant: "codex",
+    model: unpinned,
     cwd: repoRoot,
   })
   assert.equal(round.calls.length, 1)
@@ -534,6 +556,7 @@ for (const operation of ["prepareHandover", "openSession"] as const) {
       status: "failed",
       phase: "handover",
       assistant: "codex",
+      model: unpinned,
       sessionId: "fix-session",
       cwd: repoRoot,
       reason: "Handover unavailable",
@@ -605,6 +628,7 @@ test("a failed brief stops the round before the ruling is written", async () => 
     status: "failed",
     phase: "brief",
     assistant: "codex",
+    model: briefPin,
     sessionId: "brief-session",
     cwd: repoRoot,
     reason: "The transcript could not be read",
@@ -621,6 +645,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
     {
       phase: "brief",
       assistant: "codex",
+      model: briefPin,
       cwd: repoRoot,
       ownerRoot: repoRoot,
       arguments: [transcript],
@@ -683,7 +708,12 @@ test("a handover or a failure ends the chain where it stands", () => {
       {
         status: "handed-over",
         report: `${repoRoot}/AUDIT-example.md`,
-        session: { assistant: "codex", sessionId: "fix", cwd: repoRoot },
+        session: {
+          assistant: "codex",
+          model: unpinned,
+          sessionId: "fix",
+          cwd: repoRoot,
+        },
       },
       "codex",
       "codex",
@@ -697,6 +727,7 @@ test("a handover or a failure ends the chain where it stands", () => {
         status: "failed",
         phase: "audit",
         assistant: "codex",
+        model: unpinned,
         cwd: repoRoot,
         sessionId: null,
         reason: "Unable to start the CLI",
