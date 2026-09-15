@@ -1,14 +1,12 @@
 # Assistant CLI recordings
 
-These recordings were copied from the plan repo's
-`home/local/bin/audit-round-tests/fixtures/` during implementation step 2.
-The last source-fixture commit was `aef089b`. The adjacent version files name
-the CLIs used for those recordings. Initialisation metadata was reduced by the
-original recorder; the consumed assistant, tool and usage events are retained.
+These recordings started as copies from the plan repo's retired Bash runner,
+taken during implementation step 2 from its fixture commit `aef089b`. The
+adjacent version files name the CLIs used for those recordings. Initialisation
+metadata was reduced by the original recorder; the consumed assistant, tool and
+usage events are retained.
 
-This fixture set belongs to the TypeScript tool. Tests read only these local
-copies and use the TypeScript process fixture. They do not invoke the Bash
-runner or use it as an oracle.
+Tests read only these local copies and the process fixture beside them.
 
 Run `pnpm audit-round:contract` from the Repo Edu root to refresh these files
 independently. Append `claude` or `codex` to record one assistant. This exercises

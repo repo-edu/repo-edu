@@ -196,7 +196,7 @@ export async function updateClis(
 }
 
 /**
- * The one `audit-round` cache, shared with the Bash runner. It holds the CLI
+ * The one `audit-round` cache. It holds the CLI
  * update dates and the watch's own history, so both runs and watches survive
  * a checkout being cleaned.
  */

@@ -8,7 +8,7 @@ import { createTerminal } from "./terminal.js"
 
 const command = new Command("audit-round:contract")
   .description(
-    "Record the TypeScript runner's CLI contracts with trivial live shell probes.",
+    "Record the runner's CLI contracts with trivial live shell probes.",
   )
   .addArgument(
     new Argument("[assistant]", "assistant to record")

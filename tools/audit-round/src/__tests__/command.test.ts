@@ -33,9 +33,9 @@ async function roundFixture(
   )
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
   const report = join(f.root, owner, "AUDIT-example.md")
-  const brief = join(repoRoot, "ROUND-TS-example-brief.md")
-  const rulingFile = join(repoRoot, "ROUND-TS-example-ruling.md")
-  const verdictFile = join(repoRoot, "ROUND-TS-example-verdict.md")
+  const brief = join(repoRoot, "ROUND-example-brief.md")
+  const rulingFile = join(repoRoot, "ROUND-example-ruling.md")
+  const verdictFile = join(repoRoot, "ROUND-example-verdict.md")
   // The second pass rewrites whichever draft its round produced.
   const revised = watch ? verdictFile : rulingFile
   const phases: Record<string, unknown> = {}
@@ -113,7 +113,7 @@ async function roundFixture(
     cacheRoot: join(f.root, "cache"),
   }
   const roundFiles = async () =>
-    (await readdir(repoRoot)).filter((name) => name.startsWith("ROUND-TS-"))
+    (await readdir(repoRoot)).filter((name) => name.startsWith("ROUND-"))
   const records = async () => {
     const names = await roundFiles()
     assert.equal(names.length, 2)
@@ -208,7 +208,7 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         const { log, markdown, transcript } = await f.records()
         const visible = f.visible.join("\n")
-        assert.match(log, /TypeScript runner/)
+        assert.match(log, /\nStarted \d{4}-/)
         assert.match(log, /fixer +codex +chosen-model high/)
         assert.match(log, /briefer +claude +claude-model high/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
@@ -406,7 +406,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["brief"],
-    ["brief", "ROUND-TS-example.md", "extra"],
+    ["brief", "ROUND-example.md", "extra"],
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
@@ -430,12 +430,12 @@ test("a brief on its own retells the named transcript without a new round pair",
   const f = await roundFixture(t)
   const transcript = join(
     f.repoRoot,
-    "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md",
+    "ROUND-example-step-7-claude-2026-09-12T22-17-38.md",
   )
   await writeFile(transcript, "# Audit round of example.md 7\n")
   assert.equal(
     await runCommand(
-      ["brief", "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md"],
+      ["brief", "ROUND-example-step-7-claude-2026-09-12T22-17-38.md"],
       f.runtime,
       f.options,
     ),
@@ -453,24 +453,21 @@ test("a brief on its own retells the named transcript without a new round pair",
     ["claude"],
   )
   const names = (await readdir(f.repoRoot)).filter((name) =>
-    name.startsWith("ROUND-TS-"),
+    name.startsWith("ROUND-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
   assert.match(
     logName,
-    /^ROUND-TS-example-step-7-claude-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
+    /^ROUND-example-step-7-claude-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
   )
   assert.deepEqual(
     names.toSorted(),
-    [
-      logName,
-      "ROUND-TS-example-step-7-claude-2026-09-12T22-17-38.md",
-    ].toSorted(),
+    [logName, "ROUND-example-step-7-claude-2026-09-12T22-17-38.md"].toSorted(),
   )
   const log = await readFile(join(f.repoRoot, logName), "utf8")
   assert.match(
     log,
-    /^Brief of ROUND-TS-example-step-7-claude-2026-09-12T22-17-38\.md\n/,
+    /^Brief of ROUND-example-step-7-claude-2026-09-12T22-17-38\.md\n/,
   )
   assert.ok(
     log.includes(
@@ -494,7 +491,7 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
     assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
     assert.match(
       f.errors.at(-1) as string,
-      /Name a round's ROUND-TS-\*\.md transcript/,
+      /Name a round's ROUND-\*\.md transcript/,
     )
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -515,12 +512,12 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
       name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
     ),
     [
-      "ROUND-TS-example-step-3-codex-<stamp>-round-1.log",
-      "ROUND-TS-example-step-3-codex-<stamp>-round-1.md",
-      "ROUND-TS-example-step-3-codex-<stamp>-round-2.log",
-      "ROUND-TS-example-step-3-codex-<stamp>-round-2.md",
-      "ROUND-TS-example-step-3-codex-<stamp>-round-3.log",
-      "ROUND-TS-example-step-3-codex-<stamp>-round-3.md",
+      "ROUND-example-step-3-codex-<stamp>-round-1.log",
+      "ROUND-example-step-3-codex-<stamp>-round-1.md",
+      "ROUND-example-step-3-codex-<stamp>-round-2.log",
+      "ROUND-example-step-3-codex-<stamp>-round-2.md",
+      "ROUND-example-step-3-codex-<stamp>-round-3.log",
+      "ROUND-example-step-3-codex-<stamp>-round-3.md",
     ],
   )
   const invocations = (await f.calls()).filter(
@@ -571,10 +568,10 @@ test("a chained run crosses to the other assistant once the fix records a clean 
       name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
     ),
     [
-      "ROUND-TS-example-all-claude-<stamp>-round-2.log",
-      "ROUND-TS-example-all-claude-<stamp>-round-2.md",
-      "ROUND-TS-example-all-codex-<stamp>-round-1.log",
-      "ROUND-TS-example-all-codex-<stamp>-round-1.md",
+      "ROUND-example-all-claude-<stamp>-round-2.log",
+      "ROUND-example-all-claude-<stamp>-round-2.md",
+      "ROUND-example-all-codex-<stamp>-round-1.log",
+      "ROUND-example-all-codex-<stamp>-round-1.md",
     ],
   )
   const visible = f.visible.join("\n")

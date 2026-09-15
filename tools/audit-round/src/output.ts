@@ -62,7 +62,7 @@ export function roundRun(
   const place = round === undefined ? "" : `-round-${round}`
   const base = join(
     setup.repoRoot,
-    `ROUND-TS-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
+    `ROUND-${basename(setup.plan, ".md")}-${scope}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
   const assistants = phaseAssistants(setup.auditor ?? "codex")
   return {
@@ -134,13 +134,11 @@ export class RoundOutput<R extends Run = Run> {
       release: () => this.release(),
     }
     try {
-      const implementation = `TypeScript runner; started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
+      const started = `Started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
       const texts =
         this.paths.markdown === null ? "" : `\nTexts: ${this.paths.markdown}`
-      this.say(
-        `${run.title}\n${implementation}\nLog: ${this.paths.log}${texts}`,
-      )
-      this.transcribe(`# ${run.title}\n\n${implementation}\n`)
+      this.say(`${run.title}\n${started}\nLog: ${this.paths.log}${texts}`)
+      this.transcribe(`# ${run.title}\n\n${started}\n`)
     } catch (error) {
       this.files.close()
       throw error

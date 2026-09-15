@@ -1,5 +1,5 @@
 ---
-description: Write the plain-words brief of one implementation-audit round from its ROUND-TS-*.md transcript, for the user.
+description: Write the plain-words brief of one implementation-audit round from its ROUND-*.md transcript, for the user.
 argument-hint: [transcript-file]
 disable-model-invocation: true
 ---

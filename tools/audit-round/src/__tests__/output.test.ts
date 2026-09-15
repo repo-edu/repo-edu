@@ -462,7 +462,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   const f = await fixture(t)
   const transcript = join(
     f.root,
-    "ROUND-TS-example-all-codex-2026-09-12T22-17-38.md",
+    "ROUND-example-all-codex-2026-09-12T22-17-38.md",
   )
   const visible: string[] = []
   const markdown: string[] = []
@@ -489,12 +489,12 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
   t.after(() => output.close())
   assert.match(
     output.paths.log,
-    /ROUND-TS-example-all-codex-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
+    /ROUND-example-all-codex-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
   )
   assert.equal(output.paths.markdown, null)
   assert.match(
     visible[0] as string,
-    /^Brief of ROUND-TS-example-all-codex-2026-09-12T22-17-38\.md\n/,
+    /^Brief of ROUND-example-all-codex-2026-09-12T22-17-38\.md\n/,
   )
   assert.doesNotMatch(visible[0] as string, /Texts:/)
   output.models({

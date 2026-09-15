@@ -81,7 +81,7 @@ async function checkTranscript(
   }
   if (!file || !path.endsWith(".md"))
     throw new Error(
-      "Name a round's ROUND-TS-*.md transcript at the Repo Edu checkout root.",
+      "Name a round's ROUND-*.md transcript at the Repo Edu checkout root.",
     )
   return path
 }
@@ -109,7 +109,7 @@ function parseInvocation(
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
     .description(
-      "Run the audit, vet, rebuttal, fix and brief phases of one TypeScript implementation-audit round from the Repo Edu checkout root.",
+      "Run the audit, vet, rebuttal, fix and brief phases of one implementation-audit round from the Repo Edu checkout root.",
     )
     // A round is the command itself, so the usage line offers no command slot.
     .usage("[options] <plan> [scope]")
@@ -150,7 +150,7 @@ function parseInvocation(
   command
     .command("brief")
     .description(
-      "Write the plain-words brief of a finished round from its ROUND-TS-*.md transcript.",
+      "Write the plain-words brief of a finished round from its ROUND-*.md transcript.",
     )
     .argument("<transcript>", "the round's Markdown transcript")
     .option("-v, --verbose", "show tool calls as well as assistant text")

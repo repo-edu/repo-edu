@@ -17,10 +17,10 @@ import {
 } from "../round.js"
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38.md`
-const brief = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-brief.md`
-const ruling = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-ruling.md`
-const verdict = `${repoRoot}/ROUND-TS-example-all-codex-2026-09-12T22-17-38-verdict.md`
+const transcript = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38.md`
+const brief = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-brief.md`
+const ruling = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-ruling.md`
+const verdict = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-verdict.md`
 const cacheRoot = "/cache/audit-round"
 const ruleWorkflow = `${repoRoot}/.agents/skills/rule/references/workflow.md`
 const watchWorkflow = `${repoRoot}/.agents/skills/verdict/references/workflow.md`

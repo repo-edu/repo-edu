@@ -252,7 +252,7 @@ export async function recordContracts(
       await copyFile(join(scratch, file), join(fixturesRoot, file))
     await writeFile(
       join(fixturesRoot, "recorded-at.txt"),
-      `TypeScript contract recorder: ${new Date().toISOString()}\n`,
+      `Contract recorder: ${new Date().toISOString()}\n`,
     )
     terminal.write(`Contract passed; fixtures recorded in ${fixturesRoot}`)
   } finally {

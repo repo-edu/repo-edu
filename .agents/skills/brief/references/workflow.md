@@ -7,7 +7,7 @@ to it and points here for the rest, so the two cannot drift apart. Where a
 launcher and this file disagree, this file is right.
 
 The brief is the plain-words twin of one round transcript, written for the
-user. The transcript is the `ROUND-TS-*.md` file the audit-round runner writes
+user. The transcript is the `ROUND-*.md` file the audit-round runner writes
 at the Repo Edu root: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
@@ -18,8 +18,8 @@ says the same things in words the user does not have to decode.
 ## Input
 
 The invocation names the transcript. When it names nothing, take the newest
-`ROUND-TS-*.md` file at the Repo Edu root by the timestamp in its name, say
-which one in chat and continue. A name that is not a `ROUND-TS-*.md` file at
+`ROUND-*.md` file at the Repo Edu root by the timestamp in its name, say
+which one in chat and continue. A name that is not a `ROUND-*.md` file at
 the root is a wrong input: name it, say what was expected and stop.
 
 Read the whole transcript. For the meaning of the rating tokens, read the
@@ -35,7 +35,7 @@ it.
 ## Output
 
 Write the brief beside the transcript, with the same name and `-brief` before
-the extension: `ROUND-TS-<name>.md` becomes `ROUND-TS-<name>-brief.md`.
+the extension: `ROUND-<name>.md` becomes `ROUND-<name>-brief.md`.
 Replace an existing brief at that name. The brief is the one file this
 workflow writes; the transcript stays as it is.
 

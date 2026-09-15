@@ -65,7 +65,7 @@ opened after this workflow finishes, and that session applies the ruling.
 ## Output
 
 Write the ruling beside the transcript, with the same name and `-ruling` before
-the extension: `ROUND-TS-<name>.md` becomes `ROUND-TS-<name>-ruling.md`. The
+the extension: `ROUND-<name>.md` becomes `ROUND-<name>-ruling.md`. The
 second pass replaces that same file. The transcript and the brief stay as they
 are.
 

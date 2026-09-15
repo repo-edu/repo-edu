@@ -76,18 +76,14 @@ for (const { zone, instant, timestamp, filename } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, `ROUND-TS-example-all-codex-${filename}.log`)
+    assert.equal(logName, `ROUND-example-all-codex-${filename}.log`)
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,
       output.paths.log.replace(/\.log$/, ".md"),
     )
     for (const content of [log, markdown, visible]) {
-      assert.ok(
-        content
-          .join("\n")
-          .includes(`TypeScript runner; started ${timestamp}\n`),
-      )
+      assert.ok(content.join("\n").includes(`Started ${timestamp}\n`))
     }
   })
 }

@@ -2,7 +2,7 @@
 
 This is the private implementation-audit tool (`@repo-edu/audit-round`). Its
 primary area is `tool-audit-round`. It targets macOS and Linux and has no product
-consumers. The separate Bash runner belongs to the sibling plan repo.
+consumers.
 
 ## Ownership
 
@@ -63,8 +63,8 @@ consumers. The separate Bash runner belongs to the sibling plan repo.
   after the child exits. A recording failure stops the child. The session
   decoder reads messages from display events and tools from response items,
   so duplicate records and tool results do not enter the round files.
-- `startup.ts` owns where the shared `audit-round` cache lives and shares its
-  update dates with the Bash runner. `resolveCacheRoot` is that one owner, so
+- `startup.ts` owns where the `audit-round` cache lives and holds its update
+  dates. `resolveCacheRoot` is that one owner, so
   the update stamps and the watch record the glance reads resolve the same way.
   Both update checks precede settings discovery. Codex compares its installed
   version with the standalone installer's release channel before running its
@@ -141,12 +141,12 @@ commands available:
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor claude -v
 pnpm audit-round ../plan/example.md 3 --chain
-pnpm audit-round brief ROUND-TS-example-step-3-claude-2026-09-12T22-17-38.md
+pnpm audit-round brief ROUND-example-step-3-claude-2026-09-12T22-17-38.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round writes a `ROUND-TS-` log and Markdown pair at the Repo Edu root, and
+The round writes a `ROUND-` log and Markdown pair at the Repo Edu root, and
 its brief phase writes the pair's plain-words twin with `-brief` before the
 extension. A fix that stops for a ruling adds the `-ruling` twin beside them.
 A round that finished ends with a glance at the commit record, and a due
@@ -156,14 +156,11 @@ between rounds.
 `brief` writes the plain-words twin for an earlier transcript, logging beside
 it. `--chain` runs at most three rounds on the one scope the user named and
 never changes that scope; each round adds `-round-<n>` to its pair. Each
-header identifies the TypeScript implementation. The command remains
-independent of the installed Bash `audit-round` command, its source and its
-tests in the plan repo. Both share the CLI update dates and workflow documents.
-Neither selects or invokes the other.
+header names the round's start time.
 
 ## Verification
 
 Run `pnpm check` and `pnpm test` from the workspace root. The package uses Node's
 test runner through `tsx`. Round tests use controlled assistant functions;
-boundary tests use TypeScript child processes and independently owned recordings
-under `src/__tests__/fixtures`. Ordinary tests make no live model calls.
+boundary tests use child processes and the recordings under
+`src/__tests__/fixtures`. Ordinary tests make no live model calls.
