@@ -109,7 +109,7 @@ function parseInvocation(
     .addOption(
       new Option(
         "--auditor <assistant>",
-        "assistant that audits; Codex always fixes and Claude always briefs",
+        "assistant that audits; Codex always fixes and briefs",
       )
         .choices(["claude", "codex"])
         .default("codex"),

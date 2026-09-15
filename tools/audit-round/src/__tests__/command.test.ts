@@ -427,8 +427,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]/,
   )
   assert.match(visible, /HEAD-<n>/)
-  assert.match(visible, /Codex always fixes/)
-  assert.match(visible, /always briefs/)
+  assert.match(visible, /Codex always fixes and\s+briefs/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
   // A round is the command itself, and each command carries its own help.
