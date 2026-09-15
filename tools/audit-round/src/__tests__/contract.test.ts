@@ -3,10 +3,20 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { decodeCodexUsage } from "../codex-session.js"
-import { recordContracts } from "../contract.js"
+import { contractPrompt, recordContracts } from "../contract.js"
+import { phaseResult } from "../phase-result.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
 
 const terminal = { write: () => {}, status: () => {}, clear: () => {} }
+
+test("the contract prompt requests a valid finished phase result", () => {
+  const result = contractPrompt.slice(contractPrompt.indexOf("PHASE RESULT: "))
+  assert.deepEqual(phaseResult("fix", "probe-session", result, null), {
+    status: "finished",
+    sessionId: "probe-session",
+    tier: null,
+  })
+})
 
 test("contract recorder validates both real boundaries before replacing only its fixtures", async (t) => {
   const f = await fixture(t)
