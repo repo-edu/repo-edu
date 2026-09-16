@@ -327,11 +327,15 @@ commit graph shows the subject and none of the finding tokens.
   rule, because the mark states the commit's own net result at its highest
   changed kind. It carries no colon of its own.
 
-The mark follows the sequence after a space: `!B1C1c2d1 pruning-high`.
+The mark precedes the sequence after a space: `adx pruning-high !B1C1c2d1`. It
+leads because what a commit did to the standing structure outranks how many
+concerns it closed, and a commit often carries the mark where the sequence is
+routine.
 
-A subject is a run of space-separated tags, then one colon, then the sentence.
-The severity sequence, the capability tag, a growth mark, a plan form and the
-conventional kind are all tags, and only the last of them carries the colon.
+A subject is a run of space-separated tags, then one colon, then the sentence,
+in one order: the plan form when there is one, the capability tag, the growth
+mark, the severity sequence, the conventional kind. Only the last tag carries
+the colon.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
 which also defines the obligation kinds the trailing mark measures. The mark and
@@ -353,7 +357,7 @@ sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
 user meets, beside two developer-only C-tier issues closed together.
 
 The conventional commit kind is the last tag before the sentence:
-`B3C8d4 a1x fix(renderer-app): surface session command errors`.
+`adx B3C8d4 fix(renderer-app): surface session command errors`.
 
 `redesign` is the typical kind at tier A, alongside `refactor`, `feat`
 and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
@@ -373,10 +377,9 @@ report and round record in that repo, even when the round started in the other
 repo. A both-repo round lands independent records in each repo and writes one
 report at the root of the repo where the round started, named with both HEAD
 shas and that repo's sha first. Each round record's subject carries the round's
-auditor and scope through the shared `impl-audit-<auditor>-<step scope>` form,
-with `<auditor>` the capability tag of the assistant that audited and the scope
-`<n>`, `<a>-<b>` or `all`; the plan repo owns that form and no `Audit:` body
-line repeats it. Each accepted
+scope through the shared `impl-audit-<step scope>` form, with the scope `<n>`,
+`<a>-<b>` or `all`, and its capability tag names the assistant that audited; the
+plan repo owns that form and no `Audit:` body line repeats it. Each accepted
 code finding bullet opens with the
 finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
@@ -399,30 +402,32 @@ No repo-local action automatically requires or waits on the other commit.
 ## Commit Capability Tag
 
 Every commit subject carries a three-character tag naming what produced it: the
-assistant's letter, the strength's digit and the effort's letter.
+assistant, the strength and the effort, one letter each.
 
 - `a` for Claude and `o` for Codex, naming the vendor rather than the product,
   because both products start with a C.
-- `1` for the default tier and `2` for the top one, matching how the work runs,
-  with the default model one tier below the highest. `0` says the model is not
-  on that ladder at all, and the body's model record says which it was.
+- `d` for the default tier and `t` for the top one, matching how the work runs,
+  with the default model one tier below the highest. `u` says the model is
+  unlisted, on neither tier, and the body's model record says which it was.
 - `l`, `m`, `h` and `x` for the four reasoning efforts.
 
-So `a2x` is Claude at the top tier and xhigh effort, and `o1m` is Codex at its
-default tier and medium effort. The digit separates the two letters visually, so
-the three fields read apart without a punctuation mark between them.
+So `atx` is Claude at the top tier and xhigh effort, and `odm` is Codex at its
+default tier and medium effort. The three alphabets share no character, so every
+letter decodes without counting positions, and the tag holds no digit, which a
+subject already spends on the severity sequence's counts.
 
-The tag is the subject's second tag:
+The tag opens the subject, after the plan form when the subject has one:
 
-- `c1d1 a1x fix(audit-round): align the recorder result`
-- `<stem>/impl-3 o1m feat(audit-round): expose the runner`
-- `<stem>/implemented a1x: complete the Repo Edu tool implementation`
+- `adx c1d1 fix(audit-round): align the recorder result`
+- `<stem>/impl-3 odm feat(audit-round): expose the runner`
+- `<stem>/implemented adx: complete the Repo Edu tool implementation`
 
-An implementation-audit record carries it inside the role token instead, where
-`impl-audit-o2x-7` names the assistant that audited and what it audited at. One
-tag stands in a subject, so a record takes no second one, and the tag there
-names the audit rather than the commit's writer, because the audit is what the
-trajectory reads.
+The tag names the assistant whose work the subject reports. On an
+implementation-audit record that is the audit, not the session that wrote the
+commit: Codex fixes whoever audited, so a writer's tag would say the same thing
+on every record, while the auditor is what the trajectory reads off a clean one.
+The role token right before the tag says which kind of subject it is, and a
+reader needs that token anyway for the scope and the severity.
 
 The session writes the tag, since it is the one that knows what it runs on. A
 round's fix writes the auditor's letter alone and the `.husky/commit-msg` hook

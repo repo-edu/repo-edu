@@ -7,12 +7,12 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
 }
 
 /**
- * The digit a capability tag gives a strength: 1 for the default tier, 2 for
- * the top one, 0 for a model the ladder does not name.
+ * The letter a capability tag gives a strength: `d` for the default tier and
+ * `t` for the top one. A model the ladder does not name reads `u`, unlisted.
  */
-export const strengthDigits: Record<Strength, "1" | "2"> = {
-  normal: "1",
-  high: "2",
+export const strengthLetters: Record<Strength, "d" | "t"> = {
+  normal: "d",
+  high: "t",
 }
 
 export type Phase =

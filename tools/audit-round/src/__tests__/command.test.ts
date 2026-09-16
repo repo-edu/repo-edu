@@ -206,7 +206,7 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor === "codex"
               ? "audit, rebut, fix: chosen-model high\nvet: claude-model high"
               : "audit, rebut: claude-model high\nvet, fix: chosen-model high",
-          auditor: auditor === "codex" ? "o0h" : "a0h",
+          auditor: auditor === "codex" ? "ouh" : "auh",
         }
         assert.deepEqual(
           {

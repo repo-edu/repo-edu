@@ -164,23 +164,18 @@ working tree.
 
 ## Records
 
-Land at most one implementation-audit record per repo judged. A record
-lands in the repo whose files its findings concern. A both-repo round
-therefore lands independent records in each repo. Repo Edu records use the
-shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round
-that accepts only findings deferred to a repo outside the round's repo set
-uses the shared empty severity form. The subject's
-`impl-audit-<auditor>-<step scope>` form carries the round's auditor and
-scope. The scope is `<n>`, `<a>-<b>` or `all`; no `Audit:` body line repeats
-it.
-The auditor is a capability tag, whose first letter is `a` or `o`, mapped from
-the report filename's `<auditor>` token, `claude` or `codex`, read under
-[Report discovery](#report-discovery). Write that letter alone: the runner holds
-the strength and effort behind it and the commit-msg hook widens the letter into
-the whole tag. It names the assistant that ran the audit step only, never the
-one that vets, rebuts or fixes, and it reads on the clean record too. A record
-therefore takes no second tag; Repo Edu's `CLAUDE.md` owns both rules under
-**Commit Capability Tag** and **Commit Model Record**.
+Land at most one implementation-audit record per repo judged. A record lands in the repo whose files
+its findings concern. A both-repo round therefore lands independent records in each repo. Repo Edu
+records use the shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round that
+accepts only findings deferred to a repo outside the round's repo set uses the shared empty severity
+form. The subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or
+`all`; no `Audit:` body line repeats it. The capability tag follows that form and names the
+assistant that ran the audit step, never the one that vets, rebuts or fixes, and it reads on the
+clean record too. Write its first letter alone, `a` or `o`, mapped from the report filename's
+`<auditor>` token, `claude` or `codex`, read under [Report discovery](#report-discovery): the runner
+holds the strength and effort behind it and the commit-msg hook widens the letter into the whole
+tag. Repo Edu's `CLAUDE.md` owns both rules under **Commit Capability Tag** and
+**Commit Model Record**.
 
 The body carries one bullet per accepted finding, and each bullet opens with
 that finding's metadata before its prose:

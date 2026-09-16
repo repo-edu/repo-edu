@@ -6,7 +6,7 @@ import {
   modelStrength,
   type Phase,
   type PinnedModel,
-  strengthDigits,
+  strengthLetters,
   transcribed,
 } from "./phase.js"
 import type { ChainDecision } from "./round.js"
@@ -90,10 +90,10 @@ const effortLetters: Record<string, string> = {
 }
 
 /**
- * A phase's capability tag: the assistant's letter, the strength's digit and
- * the effort's letter. The three characters are fixed, so an unreported effort
- * is the one case that has nothing to write and the commit body carries the
- * exact model either way.
+ * A phase's capability tag: the assistant's letter, the strength's letter and
+ * the effort's letter, each from its own alphabet so a character decodes
+ * without its position. An unreported effort is the one case with nothing to
+ * write, and the commit body carries the exact model either way.
  */
 export function capabilityTag(
   entry: RunEntry,
@@ -103,7 +103,7 @@ export function capabilityTag(
   const letter = effort === null ? undefined : effortLetters[effort]
   if (letter === undefined) return null
   const strength = modelStrength(entry.assistant, model)
-  return `${assistantLetters[entry.assistant]}${strength === null ? "0" : strengthDigits[strength]}${letter}`
+  return `${assistantLetters[entry.assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
 }
 
 /**

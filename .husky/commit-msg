@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Stamps and checks the commit's capability tag and model record. The grammar is
-# owned by CLAUDE.md under "Commit Model Record".
+# owned by CLAUDE.md under "Commit Capability Tag".
 
 stamped="$1.stamp"
 if ! awk '
@@ -30,51 +30,60 @@ BEGIN {
 
 END {
 	if (NR == 0) exit 0
-	subject = line[1]
-	auditor = ENVIRON["COMMIT_AUDITOR"]
-	# The round knows the capability the session composing the subject does not,
-	# so the assistant letter it wrote is widened into the whole tag here.
-	if (auditor != "")
-		sub(/impl-audit-(cld|cdx|[ao][0-2]?[lmhx]?)-/, "impl-audit-" auditor "-", subject)
-	line[1] = subject
+	count = split(line[1], tags, " ")
+	# A plan form opens the subject and takes the first field, so the tag follows
+	# it; an ordinary subject opens with the tag itself.
+	slot = tags[1] ~ /\// ? 2 : 1
+	if (count < slot) fail("the subject needs a capability tag, as atx")
+	tag = bare(tags[slot])
 
+	auditor = ENVIRON["COMMIT_AUDITOR"]
+	# An implementation-audit record names the audit, whose capability the round
+	# holds and the session composing the subject does not.
+	if (auditor != "" && tags[1] ~ /impl-audit-/) {
+		tags[slot] = tags[slot] ~ /:$/ ? auditor ":" : auditor
+		tag = auditor
+		line[1] = tags[1]
+		for (at = 2; at <= count; at++) line[1] = line[1] " " tags[at]
+	}
+	if (tag !~ /^[ao][dtu][lmhx]$/)
+		fail("the subject needs a capability tag in place of " tag ", as atx")
+
+	phases = ENVIRON["COMMIT_PHASES"]
 	first = 0
 	for (at = 2; at <= NR; at++)
 		if (line[at] != "" && line[at] !~ /^#/) {
 			first = at
 			break
 		}
-	phases = ENVIRON["COMMIT_PHASES"]
-	insert = phases != "" && (first == 0 || !shaped(line[first]))
-	if (first == 0 && !insert) fail("the body must open with the model the commit ran on")
-	if (!insert && !shaped(line[first]))
-		fail("the body must open with a model line, not " line[first])
-	record = insert ? phases : line[first]
-
-	# An implementation-audit record carries its tag inside the role token; every
-	# other subject carries it as the second tag.
-	if (subject ~ /impl-audit-/) {
-		if (subject !~ /impl-audit-[ao][0-2][lmhx]-/)
-			fail("the audit role token must carry a capability tag, as impl-audit-o2x-")
-	} else {
-		split(subject, tags, " ")
-		tag = bare(tags[2])
-		if (tag !~ /^[ao][0-2][lmhx]$/)
-			fail("the subject needs a capability tag as its second tag, as a2x")
-		# One unprefixed record line describes this commit alone, so the two must
-		# agree on the effort. A round lists several and states each phase itself.
-		fields = split(record, said, " ")
-		if (record !~ /:/ && said[fields] in words &&
-			said[fields] != efforts[substr(tag, 3, 1)])
-			fail("the subject tag and the model record disagree on the effort")
+	# A round states what every phase ran on, so its record replaces whatever the
+	# session opened the body with.
+	if (phases == "") {
+		if (first == 0) fail("the body must open with the model the commit ran on")
+		if (!shaped(line[first]))
+			fail("the body must open with a model line, not " line[first])
 	}
+	record = phases == "" ? line[first] : phases
+
+	# One unprefixed record line describes this commit alone, so the two must
+	# agree on the effort. A round lists several and states each phase itself, and
+	# an audit record names its audit while the record names the fix.
+	fields = split(record, said, " ")
+	if (tags[1] !~ /impl-audit-/ && record !~ /:/ && said[fields] in words &&
+		said[fields] != efforts[substr(tag, 3, 1)])
+		fail("the subject tag and the model record disagree on the effort")
 
 	print line[1]
-	if (insert) {
-		print ""
-		print phases
+	if (phases == "") {
+		for (at = 2; at <= NR; at++) print line[at]
+		exit 0
 	}
-	for (at = 2; at <= NR; at++) print line[at]
+	print ""
+	print phases
+	at = first == 0 ? NR + 1 : (shaped(line[first]) ? first + 1 : first)
+	while (at <= NR && line[at] == "") at++
+	if (at <= NR) print ""
+	for (; at <= NR; at++) print line[at]
 }
 ' "$1" >"$stamped"; then
 	rm -f "$stamped"
