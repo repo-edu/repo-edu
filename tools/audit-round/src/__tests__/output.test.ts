@@ -388,7 +388,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   assert.doesNotMatch(visible.join("\n"), /%/)
 })
 
-test("the settings header groups roles by assistant in aligned columns", async (t) => {
+test("the settings header groups phases by assistant in aligned columns", async (t) => {
   const markdown: string[] = []
   const header = async (auditor: Assistant) => {
     const f = await fixture(t)
@@ -418,22 +418,22 @@ test("the settings header groups roles by assistant in aligned columns", async (
     return visible.at(-1)
   }
   const codexHeader = [
-    "auditor   codex   gpt-6-astra high              codex settings",
-    "rebutter  codex   gpt-6-astra high              codex settings",
-    "fixer     codex   gpt-6-astra high              codex settings",
-    "briefer   codex   gpt-5.6-terra low             phase pin",
-    "vetter    claude  claude-opus-5[1m] extra high  claude settings",
-    "watcher   claude  claude-opus-5[1m] extra high  claude settings",
+    "audit    codex   gpt-6-astra high              codex settings",
+    "rebut    codex   gpt-6-astra high              codex settings",
+    "fix      codex   gpt-6-astra high              codex settings",
+    "brief    codex   gpt-5.6-terra low             phase pin",
+    "vet      claude  claude-opus-5[1m] extra high  claude settings",
+    "verdict  claude  claude-opus-5[1m] extra high  claude settings",
   ]
   assert.equal(
     await header("claude"),
     [
-      "auditor   claude  claude-opus-5[1m] extra high  claude settings",
-      "rebutter  claude  claude-opus-5[1m] extra high  claude settings",
-      "watcher   claude  claude-opus-5[1m] extra high  claude settings",
-      "vetter    codex   gpt-6-astra high              codex settings",
-      "fixer     codex   gpt-6-astra high              codex settings",
-      "briefer   codex   gpt-5.6-terra low             phase pin",
+      "audit    claude  claude-opus-5[1m] extra high  claude settings",
+      "rebut    claude  claude-opus-5[1m] extra high  claude settings",
+      "verdict  claude  claude-opus-5[1m] extra high  claude settings",
+      "vet      codex   gpt-6-astra high              codex settings",
+      "fix      codex   gpt-6-astra high              codex settings",
+      "brief    codex   gpt-5.6-terra low             phase pin",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -443,7 +443,7 @@ test("the settings header groups roles by assistant in aligned columns", async (
   )
 })
 
-test("the seating report names what set each seat's model and effort", async (t) => {
+test("the settings header names what set each phase's model and effort", async (t) => {
   const header = async (override: AuditorOverride) => {
     const f = await fixture(t)
     const visible: string[] = []
@@ -471,28 +471,28 @@ test("the seating report names what set each seat's model and effort", async (t)
     })
     return (visible.at(-1) as string).split("\n")
   }
-  // Both flags name the whole selection, and the fixer keeps the CLI's own.
+  // Both flags name the whole selection, and the fix keeps the CLI's own.
   assert.deepEqual(await header({ strength: "high", effort: "xhigh" }), [
-    "auditor   codex   gpt-6-astra extra high        --strength/--effort",
-    "rebutter  codex   gpt-6-astra extra high        --strength/--effort",
-    "fixer     codex   gpt-5.6-sol high              codex settings",
-    "briefer   codex   gpt-5.6-terra low             phase pin",
-    "vetter    claude  claude-opus-5[1m] extra high  claude settings",
-    "watcher   claude  claude-opus-5[1m] extra high  claude settings",
+    "audit    codex   gpt-6-astra extra high        --strength/--effort",
+    "rebut    codex   gpt-6-astra extra high        --strength/--effort",
+    "fix      codex   gpt-5.6-sol high              codex settings",
+    "brief    codex   gpt-5.6-terra low             phase pin",
+    "vet      claude  claude-opus-5[1m] extra high  claude settings",
+    "verdict  claude  claude-opus-5[1m] extra high  claude settings",
   ])
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
     (await header({ strength: "high", effort: null })).slice(0, 2),
     [
-      "auditor   codex   gpt-6-astra high              --strength/codex settings",
-      "rebutter  codex   gpt-6-astra high              --strength/codex settings",
+      "audit    codex   gpt-6-astra high              --strength/codex settings",
+      "rebut    codex   gpt-6-astra high              --strength/codex settings",
     ],
   )
   assert.deepEqual(
     (await header({ strength: null, effort: "medium" })).slice(0, 2),
     [
-      "auditor   codex   gpt-5.6-sol medium            codex settings/--effort",
-      "rebutter  codex   gpt-5.6-sol medium            codex settings/--effort",
+      "audit    codex   gpt-5.6-sol medium            codex settings/--effort",
+      "rebut    codex   gpt-5.6-sol medium            codex settings/--effort",
     ],
   )
 })
@@ -575,7 +575,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
     codex: { model: "gpt-6-astra", effort: "high" },
   })
-  assert.equal(visible.at(-1), "briefer  codex  gpt-5.6-terra low  phase pin")
+  assert.equal(visible.at(-1), "brief  codex  gpt-5.6-terra low  phase pin")
   assert.deepEqual(markdown, [])
   output.finish({
     status: "finished",

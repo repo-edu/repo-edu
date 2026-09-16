@@ -13,7 +13,7 @@ export const claudeSettingsRequest = {
   request: { subtype: "get_settings" },
 } as const
 
-/** How Claude names a seat's model and effort. An unnamed field is left out. */
+/** How Claude names a phase's model and effort. An unnamed field is left out. */
 function claudePin(model: PinnedModel): string[] {
   return [
     ...(model.model === null ? [] : ["--model", model.model.value]),

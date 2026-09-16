@@ -1,50 +1,81 @@
 #!/usr/bin/env sh
-# Stamps the assistant tag into the commit subject. The grammar is owned by
-# CLAUDE.md under "Commit Assistant Tag".
-
-mark="${COMMIT_ASSISTANT:-}"
-case "$mark" in
-cld | cdx) ;;
-*)
-	echo "commit-msg: set COMMIT_ASSISTANT to cld or cdx before committing" >&2
-	exit 1
-	;;
-esac
+# Stamps and checks the commit's capability tag and model record. The grammar is
+# owned by CLAUDE.md under "Commit Model Record".
 
 stamped="$1.stamp"
-if ! awk -v mark="$mark" '
+if ! awk '
+function shaped(line) {
+	return line ~ /^([a-z]+(, [a-z]+)*: )?[A-Za-z0-9][^ ]*( (low|medium|high|xhigh))?$/
+}
+
 function bare(token) {
 	sub(/:$/, "", token)
 	return token
 }
 
-function stamp(line, parts, count, at, closing, tags, text) {
-	count = split(line, parts, " ")
-	closing = 0
-	for (at = 1; at <= count; at++)
-		if (parts[at] ~ /:$/) {
-			closing = at
-			break
-		}
-	# A subject without a closing tag carries no grammar to stamp.
-	if (closing == 0) return line
-	# An implementation-audit record already names an assistant.
-	if (parts[1] ~ /\/impl-audit-(cld|cdx)-/) return line
-	if (count >= 2 && (bare(parts[2]) == "cld" || bare(parts[2]) == "cdx")) {
-		if (bare(parts[2]) == mark) return line
-		printf "commit-msg: subject carries the %s tag, not %s\n", bare(parts[2]), mark > "/dev/stderr"
-		exit 1
-	}
-	parts[closing] = bare(parts[closing])
-	tags = parts[1] " " mark
-	for (at = 2; at <= closing; at++) tags = tags " " parts[at]
-	text = ""
-	for (at = closing + 1; at <= count; at++) text = text " " parts[at]
-	return tags ":" text
+function fail(text) {
+	printf "commit-msg: %s\n", text > "/dev/stderr"
+	exit 1
 }
 
-NR == 1 { print stamp($0); next }
-{ print }
+BEGIN {
+	efforts["l"] = "low"
+	efforts["m"] = "medium"
+	efforts["h"] = "high"
+	efforts["x"] = "xhigh"
+	for (letter in efforts) words[efforts[letter]] = 1
+}
+
+{ line[NR] = $0 }
+
+END {
+	if (NR == 0) exit 0
+	subject = line[1]
+	auditor = ENVIRON["COMMIT_AUDITOR"]
+	# The round knows the capability the session composing the subject does not,
+	# so the assistant letter it wrote is widened into the whole tag here.
+	if (auditor != "")
+		sub(/impl-audit-(cld|cdx|[ao][0-2]?[lmhx]?)-/, "impl-audit-" auditor "-", subject)
+	line[1] = subject
+
+	first = 0
+	for (at = 2; at <= NR; at++)
+		if (line[at] != "" && line[at] !~ /^#/) {
+			first = at
+			break
+		}
+	phases = ENVIRON["COMMIT_PHASES"]
+	insert = phases != "" && (first == 0 || !shaped(line[first]))
+	if (first == 0 && !insert) fail("the body must open with the model the commit ran on")
+	if (!insert && !shaped(line[first]))
+		fail("the body must open with a model line, not " line[first])
+	record = insert ? phases : line[first]
+
+	# An implementation-audit record carries its tag inside the role token; every
+	# other subject carries it as the second tag.
+	if (subject ~ /impl-audit-/) {
+		if (subject !~ /impl-audit-[ao][0-2][lmhx]-/)
+			fail("the audit role token must carry a capability tag, as impl-audit-o2x-")
+	} else {
+		split(subject, tags, " ")
+		tag = bare(tags[2])
+		if (tag !~ /^[ao][0-2][lmhx]$/)
+			fail("the subject needs a capability tag as its second tag, as a2x")
+		# One unprefixed record line describes this commit alone, so the two must
+		# agree on the effort. A round lists several and states each phase itself.
+		fields = split(record, said, " ")
+		if (record !~ /:/ && said[fields] in words &&
+			said[fields] != efforts[substr(tag, 3, 1)])
+			fail("the subject tag and the model record disagree on the effort")
+	}
+
+	print line[1]
+	if (insert) {
+		print ""
+		print phases
+	}
+	for (at = 2; at <= NR; at++) print line[at]
+}
 ' "$1" >"$stamped"; then
 	rm -f "$stamped"
 	exit 1

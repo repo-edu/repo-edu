@@ -197,6 +197,31 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         assert.ok(invocations[2].args.includes("audit-session"))
         assert.equal(invocations[3].args.includes("resume"), false)
+        // The fix commits the round, so it carries the round's commit stamps:
+        // the phases grouped by what they ran on, and the auditor's capability
+        // tag. Neither fixture model sits on the strength ladder, so the tag
+        // reads its 0 digit.
+        const stamps = {
+          phases:
+            auditor === "codex"
+              ? "audit, rebut, fix: chosen-model high\nvet: claude-model high"
+              : "audit, rebut: claude-model high\nvet, fix: chosen-model high",
+          auditor: auditor === "codex" ? "o0h" : "a0h",
+        }
+        assert.deepEqual(
+          {
+            phases: invocations[3].phases,
+            auditor: invocations[3].auditor,
+          },
+          stamps,
+        )
+        if (ruling) {
+          const resumed = calls.find((call) => call.args[0] === "resume")
+          assert.deepEqual(
+            { phases: resumed?.phases, auditor: resumed?.auditor },
+            stamps,
+          )
+        }
         assert.ok(
           calls
             .filter(
@@ -209,8 +234,8 @@ for (const auditor of ["claude", "codex"] as const) {
         const { log, markdown, transcript } = await f.records()
         const visible = f.visible.join("\n")
         assert.match(log, /\nStarted \d{4}-/)
-        assert.match(log, /fixer +codex +chosen-model high/)
-        assert.match(log, /briefer +codex +gpt-5\.6-terra low/)
+        assert.match(log, /fix +codex +chosen-model high/)
+        assert.match(log, /brief +codex +gpt-5\.6-terra low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
           assert.ok(markdown.includes(`Complete ${phase} text.`))
@@ -440,7 +465,7 @@ for (const auditor of ["codex", "claude"] as const) {
         invocations[2].args.indexOf("-m") <
           invocations[2].args.indexOf("resume"),
       )
-    // The vetter and the fixer keep whatever their own CLI is configured to use.
+    // The vet and the fix keep whatever their own CLI is configured to use.
     for (const index of [1, 3])
       for (const flag of ["-m", "--model", "-c", "--effort"])
         assert.equal(invocations[index].args.includes(flag), false)
@@ -450,11 +475,11 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(
       log,
       auditor === "codex"
-        ? /auditor +codex +gpt-6-astra extra high +--strength\/--effort/
-        : /auditor +claude +fable extra high +--strength\/--effort/,
+        ? /audit +codex +gpt-6-astra extra high +--strength\/--effort/
+        : /audit +claude +fable extra high +--strength\/--effort/,
     )
-    assert.match(log, /fixer +codex +chosen-model high +codex settings/)
-    assert.match(log, /briefer +codex +gpt-5\.6-terra low +phase pin/)
+    assert.match(log, /fix +codex +chosen-model high +codex settings/)
+    assert.match(log, /brief +codex +gpt-5\.6-terra low +phase pin/)
   })
 }
 
@@ -528,7 +553,10 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.ok(transcript.includes(commits[0]))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
-    assert.doesNotMatch(log, /\[(?:glance|verdict)\]|watcher|Chained round/)
+    assert.doesNotMatch(
+      log,
+      /\[(?:glance|verdict)\]|verdict +claude|Chained round/,
+    )
     const invocations = (await f.calls()).filter(
       (call) =>
         call.args[0] === "exec" ||
@@ -587,8 +615,8 @@ test("a brief on its own retells the named transcript without a new round pair",
       `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
     ),
   )
-  assert.match(log, /briefer +codex +gpt-5\.6-terra low/)
-  assert.doesNotMatch(log, /auditor|fixer/)
+  assert.match(log, /brief +codex +gpt-5\.6-terra low/)
+  assert.doesNotMatch(log, /audit +codex|fix +codex/)
   const visible = f.visible.join("\n")
   assert.ok(visible.includes("Complete brief text."))
   assert.match(visible, /Brief finished\./)
@@ -665,7 +693,7 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
   )
   const second = await readFile(join(f.repoRoot, names[2]), "utf8")
   assert.match(second, /Audit round of example\.md 3 \(round 2\)/)
-  assert.match(second, /auditor +codex +chosen-model high/)
+  assert.match(second, /audit +codex +chosen-model high/)
 })
 
 test("a chained run crosses to the other assistant once the fix records a clean round", async (t) => {

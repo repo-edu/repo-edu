@@ -1,9 +1,5 @@
 import { execa } from "execa"
-import {
-  type Assistant,
-  assistantMark,
-  type InteractiveSession,
-} from "./phase.js"
+import type { Assistant, InteractiveSession } from "./phase.js"
 import { interactiveArguments } from "./requests.js"
 
 export type CliRuntime = {
@@ -15,15 +11,30 @@ export type CliRuntime = {
     >
   >
   readonly env?: Readonly<Record<string, string>>
+  /**
+   * What the commit-msg hook stamps into a commit this round's work lands: the
+   * body's phase lines and the auditor's subject mark.
+   */
+  readonly commit?: {
+    readonly phases: string
+    readonly auditor: string | null
+  }
   readonly signal?: AbortSignal
 }
 
 /**
- * The child's environment. The assistant's own tag overrides any inherited
- * one, so a Codex phase started from a Claude session still commits as Codex.
+ * The child's environment. The round's commit stamps travel with it and
+ * override any inherited ones, so a phase records the round that ran rather
+ * than whatever started it.
  */
-function environment(runtime: CliRuntime, assistant: Assistant) {
-  return { ...runtime.env, COMMIT_ASSISTANT: assistantMark[assistant] }
+function environment(runtime: CliRuntime) {
+  if (runtime.commit === undefined) return runtime.env
+  const { phases, auditor } = runtime.commit
+  return {
+    ...runtime.env,
+    COMMIT_PHASES: phases,
+    ...(auditor === null ? {} : { COMMIT_AUDITOR: auditor }),
+  }
 }
 
 function command(
@@ -47,7 +58,7 @@ function launch(
   const invocation = command(runtime, assistant, args)
   return execa(invocation.file, invocation.args, {
     cwd: runtime.cwd,
-    env: environment(runtime, assistant),
+    env: environment(runtime),
     input,
     buffer: false,
     reject: false,
@@ -125,7 +136,7 @@ export async function openAssistantSession(
       : AbortSignal.any([interruption.signal, runtime.signal])
   const child = execa(invocation.file, invocation.args, {
     cwd: session.cwd,
-    env: environment(runtime, session.assistant),
+    env: environment(runtime),
     stdio: "inherit",
     cancelSignal: signal,
     forceKillAfterDelay: 5000,

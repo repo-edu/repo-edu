@@ -184,15 +184,15 @@ function arrange(round: ControlledRound, ending: "ruling" | "watch"): void {
 function runner(
   phase: Phase,
   auditor: Assistant,
-  vetter: Assistant,
+  vetAssistant: Assistant,
 ): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
-  if (phase === "vet") return vetter
+  if (phase === "vet") return vetAssistant
   return phase === "fix" || phase === "brief" ? "codex" : "claude"
 }
 
 for (const auditor of ["claude", "codex"] as const) {
-  const vetter: Assistant = auditor === "claude" ? "codex" : "claude"
+  const vetAssistant: Assistant = auditor === "claude" ? "codex" : "claude"
 
   for (const ownerRoot of [repoRoot, "/workspace/plan"]) {
     test(`${auditor} audits with later phases following the report in ${ownerRoot}`, async () => {
@@ -222,7 +222,7 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "vet",
-          assistant: vetter,
+          assistant: vetAssistant,
           model: unpinned,
           cwd: repoRoot,
           ownerRoot,
@@ -352,7 +352,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.deepEqual(result, {
           ...failure,
           phase,
-          assistant: runner(phase, auditor, vetter),
+          assistant: runner(phase, auditor, vetAssistant),
           model: phase === "brief" ? briefPin : unpinned,
           cwd: repoRoot,
         })

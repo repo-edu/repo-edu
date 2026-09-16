@@ -56,19 +56,16 @@ not a sequencing defect and requires no workaround or approval.
 Resolve routine choices and step overlaps from the whole plan and code, then
 proceed. Ask only for a missing product decision or required authorisation.
 
-Implement the scope in plan order, one step at a time, changing only its
-remaining repo shares. After each share, run the step's named checks and that
-repo's required verification. Commit the share in its repo with the shared
-step form in `../plan/CLAUDE.md` and the conventional postfix that repo
-requires. The step form carries no severity sequence: the subject is
-`<stem>/impl-<n> <assistant> <kind>(<scope>): <subject>`, with the postfix
-stripped of the leading sequence an ordinary commit would carry. The
-commit-msg hook writes the `<assistant>` tag, so the subject you compose omits
-it. A both-repo step gets one
-independent commit in each repo. Each step
-gets exactly one commit per hosting repo; steps never combine into one commit.
-The invocation that started this run grants each in-scope repo share's commit
-once its checks pass.
+Implement the scope in plan order, one step at a time, changing only its remaining repo shares.
+After each share, run the step's named checks and that repo's required verification. Commit the
+share in its repo with the shared step form in `../plan/CLAUDE.md` and the conventional postfix that
+repo requires. The step form carries no severity sequence: the subject is
+`<stem>/impl-<n> <tag> <kind>(<scope>): <subject>`, with the postfix stripped of the leading
+sequence an ordinary commit would carry. `<tag>` is your own capability tag, which Repo Edu's
+`CLAUDE.md` defines under **Commit Capability Tag**, and the body opens with the model record that
+repo defines beside it. A both-repo step gets one independent commit in each repo. Each step gets
+exactly one commit per hosting repo; steps never combine into one commit. The invocation that
+started this run grants each in-scope repo share's commit once its checks pass.
 
 When a step's work cannot complete inside one context window and cannot be
 split into independently complete parts, follow `references/oversized-step.md`

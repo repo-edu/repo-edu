@@ -1,6 +1,14 @@
 import { split } from "shellwords"
 import type { Feedback, ModelSelection } from "./feedback.js"
-import type { Assistant, PinnedModel } from "./phase.js"
+import {
+  type Assistant,
+  assistantLetters,
+  modelStrength,
+  type Phase,
+  type PinnedModel,
+  strengthDigits,
+  transcribed,
+} from "./phase.js"
 import type { ChainDecision } from "./round.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
@@ -11,11 +19,11 @@ export function modelText(selection: ModelSelection): string {
 }
 
 /**
- * What one seat runs on, and what named it. A field the phase did not name
- * follows the assistant's own configuration, so a seat that took only its model
- * from the command line names both sources, model first.
+ * What one phase runs on, and what named it. A field the phase did not name
+ * follows the assistant's own configuration, so a phase that took only its
+ * model from the command line names both sources, model first.
  */
-export function seatText(
+export function phaseText(
   { model, effort }: PinnedModel,
   configured: ModelSelection,
   assistant: Assistant,
@@ -32,6 +40,88 @@ export function seatText(
       modelSource === effortSource
         ? modelSource
         : `${modelSource}/${effortSource}`,
+  }
+}
+
+/** What a phase ran on, resolved from what it named and what its CLI reported. */
+function resolved(
+  { model, effort }: PinnedModel,
+  configured: ModelSelection,
+): ModelSelection {
+  return {
+    model: model?.value ?? configured.model,
+    effort: effort?.value ?? configured.effort,
+  }
+}
+
+/** One phase of a run, as the commit body and the settings header list it. */
+export type RunEntry = {
+  readonly phase: Phase
+  readonly assistant: Assistant
+  readonly model: PinnedModel
+}
+
+/**
+ * The commit body's leading lines: the phases that carried out the round,
+ * grouped by what they ran on. Phases keep round order within a line and lines
+ * keep the order of their first phase, so one reading runs top to bottom.
+ */
+export function commitPhaseLines(
+  entries: readonly RunEntry[],
+  selections: Record<Assistant, ModelSelection>,
+): string {
+  const lines = new Map<string, Phase[]>()
+  for (const entry of entries) {
+    const { model, effort } = resolved(entry.model, selections[entry.assistant])
+    const ran = effort === null ? model : `${model} ${effort}`
+    lines.set(ran, [...(lines.get(ran) ?? []), entry.phase])
+  }
+  return [...lines]
+    .map(([ran, phases]) => `${phases.join(", ")}: ${ran}`)
+    .join("\n")
+}
+
+/** The letter a capability tag closes with, naming the reasoning effort. */
+const effortLetters: Record<string, string> = {
+  low: "l",
+  medium: "m",
+  high: "h",
+  xhigh: "x",
+}
+
+/**
+ * A phase's capability tag: the assistant's letter, the strength's digit and
+ * the effort's letter. The three characters are fixed, so an unreported effort
+ * is the one case that has nothing to write and the commit body carries the
+ * exact model either way.
+ */
+export function capabilityTag(
+  entry: RunEntry,
+  configured: ModelSelection,
+): string | null {
+  const { model, effort } = resolved(entry.model, configured)
+  const letter = effort === null ? undefined : effortLetters[effort]
+  if (letter === undefined) return null
+  const strength = modelStrength(entry.assistant, model)
+  return `${assistantLetters[entry.assistant]}${strength === null ? "0" : strengthDigits[strength]}${letter}`
+}
+
+/**
+ * What a round stamps into a commit its fix lands: the body's phase lines and
+ * the auditor's subject mark. A run with no audit phase stamps neither.
+ */
+export function commitStamps(
+  entries: readonly RunEntry[],
+  selections: Record<Assistant, ModelSelection>,
+): { readonly phases: string; readonly auditor: string | null } | undefined {
+  const audit = entries.find(({ phase }) => phase === "audit")
+  if (audit === undefined) return undefined
+  return {
+    phases: commitPhaseLines(
+      entries.filter(({ phase }) => transcribed(phase)),
+      selections,
+    ),
+    auditor: capabilityTag(audit, selections[audit.assistant]),
   }
 }
 

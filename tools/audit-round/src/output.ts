@@ -7,7 +7,8 @@ import {
   contextText,
   elapsedText,
   modelText,
-  seatText,
+  phaseText,
+  type RunEntry,
   toolText,
 } from "./output-format.js"
 import {
@@ -17,8 +18,7 @@ import {
   type Phase,
   type PhaseInput,
   type PhaseResult,
-  roundSeating,
-  type Seating,
+  roundPhases,
   transcribed,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
@@ -35,15 +35,12 @@ export type OutputOptions = {
   readonly openFiles?: typeof openRunFiles
 }
 
-/** One seat in a run: which role it fills, and the seating that fills it. */
-export type Seat = Seating & { readonly role: string }
-
-/** What one command run is called, which roles it seats and where it records. */
+/** What one command run is called, which phases it runs and where it records. */
 export type Run = {
   /** The run's kind, as the terminal names it when it ends. */
   readonly name: string
   readonly title: string
-  readonly roles: readonly Seat[]
+  readonly phases: readonly RunEntry[]
   readonly paths: RunPaths
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
@@ -90,24 +87,21 @@ export function roundRun(
     setup.repoRoot,
     `ROUND-${target.label}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
   )
-  const seating = roundSeating(
+  const phases = roundPhases(
     setup.auditor ?? "codex",
     setup.override ?? noOverride,
   )
-  const seat = (role: string, phase: Phase): Seat => ({
-    role,
-    ...seating[phase],
-  })
+  const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   return {
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
-    roles: [
-      seat("auditor", "audit"),
-      seat("vetter", "vet"),
-      seat("rebutter", "rebut"),
-      seat("fixer", "fix"),
-      seat("briefer", "brief"),
-      ...("plan" in setup ? [seat("watcher", "verdict")] : []),
+    phases: [
+      entry("audit"),
+      entry("vet"),
+      entry("rebut"),
+      entry("fix"),
+      entry("brief"),
+      ...("plan" in setup ? [entry("verdict")] : []),
     ],
     paths: { log: `${base}.log`, markdown: `${base}.md` },
     started,
@@ -128,7 +122,7 @@ export function briefRun(transcript: string, started: number): Run {
   return {
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
-    roles: [{ role: "briefer", ...roundSeating("codex", noOverride).brief }],
+    phases: [{ phase: "brief", ...roundPhases("codex", noOverride).brief }],
     paths: {
       log: `${transcript.replace(/\.md$/, "")}-brief-${fileTimestamp(started)}.log`,
       markdown: null,
@@ -186,29 +180,29 @@ export class RoundOutput<R extends Run = Run> {
   }
 
   models(selections: Record<Assistant, ModelSelection>): void {
-    const { roles } = this.run
-    const lead = roles[0]?.assistant
-    // Roles are grouped by assistant so one assistant's model reads as one block.
-    const rows = roles
+    const { phases } = this.run
+    const lead = phases[0]?.assistant
+    // Phases are grouped by assistant so one assistant's model reads as one block.
+    const rows = phases
       .toSorted(
         (first, second) =>
           Number(first.assistant !== lead) - Number(second.assistant !== lead),
       )
       // A named field reports itself; the rest reports the CLI's own selection.
-      .map(({ role, assistant, model }) => ({
-        role,
+      .map(({ phase, assistant, model }) => ({
+        phase,
         assistant,
-        ...seatText(model, selections[assistant], assistant),
+        ...phaseText(model, selections[assistant], assistant),
       }))
-    const roleWidth = Math.max(...rows.map(({ role }) => role.length))
+    const phaseWidth = Math.max(...rows.map(({ phase }) => phase.length))
     const assistantWidth = Math.max(
       ...rows.map(({ assistant }) => assistant.length),
     )
     const modelWidth = Math.max(...rows.map(({ model }) => model.length))
     const text = rows
       .map(
-        ({ role, assistant, model, source }) =>
-          `${role.padEnd(roleWidth)}  ${assistant.padEnd(assistantWidth)}  ${model.padEnd(modelWidth)}  ${source}`,
+        ({ phase, assistant, model, source }) =>
+          `${phase.padEnd(phaseWidth)}  ${assistant.padEnd(assistantWidth)}  ${model.padEnd(modelWidth)}  ${source}`,
       )
       .join("\n")
     this.say(text)

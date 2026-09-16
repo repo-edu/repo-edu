@@ -1,13 +1,18 @@
 export type Assistant = "claude" | "codex"
 
+/** The letter a commit subject's capability tag opens with, naming the vendor. */
+export const assistantLetters: Record<Assistant, "a" | "o"> = {
+  claude: "a",
+  codex: "o",
+}
+
 /**
- * The three-letter tag a commit subject carries for the assistant that wrote
- * it. The commit-msg hook reads it from `COMMIT_ASSISTANT`, so every phase
- * commits under the seat the round gave it.
+ * The digit a capability tag gives a strength: 1 for the default tier, 2 for
+ * the top one, 0 for a model the ladder does not name.
  */
-export const assistantMark: Record<Assistant, "cld" | "cdx"> = {
-  claude: "cld",
-  codex: "cdx",
+export const strengthDigits: Record<Strength, "1" | "2"> = {
+  normal: "1",
+  high: "2",
 }
 
 export type Phase =
@@ -36,7 +41,7 @@ export const efforts = ["low", "medium", "high", "xhigh"] as const
 export type Effort = (typeof efforts)[number]
 
 /**
- * What the command line asked of the auditor's seat. A null field follows the
+ * What the command line asked of the auditor's phases. A null field follows the
  * assistant's own configuration. The rebuttal resumes the audit session, so the
  * override binds both phases: one thread cannot change model half way through.
  */
@@ -45,7 +50,7 @@ export type AuditorOverride = {
   readonly effort: Effort | null
 }
 
-/** An auditor the command line said nothing about, which every other seat is. */
+/** An auditor the command line said nothing about, which every other phase is. */
 export const noOverride: AuditorOverride = { strength: null, effort: null }
 
 /**
@@ -58,16 +63,32 @@ const strengthModels: Record<Assistant, Record<Strength, string>> = {
   codex: { normal: "gpt-5.6-sol", high: "gpt-6-astra" },
 }
 
-/** One named field of a seat's selection, with what named it. */
+/**
+ * Which strength a reported model belongs to, or null when it belongs to
+ * neither. The table names a family and a CLI reports one release of it, so a
+ * reported `claude-opus-5` answers to the `opus` entry.
+ */
+export function modelStrength(
+  assistant: Assistant,
+  model: string,
+): Strength | null {
+  return (
+    strengths.find((strength) =>
+      model.includes(strengthModels[assistant][strength]),
+    ) ?? null
+  )
+}
+
+/** One named field of a phase's selection, with what named it. */
 export type PinnedField = {
   readonly value: string
-  /** What named the field, as the run's seating report prints it. */
+  /** What named the field, as the run's settings header prints it. */
   readonly source: string
 }
 
 /**
  * What a phase names for itself. A null field runs on whatever the phase's CLI
- * is configured to use, so one seat can take its model from the command line
+ * is configured to use, so one phase can take its model from the command line
  * and its effort from the assistant's own settings.
  */
 export type PinnedModel = {
@@ -76,12 +97,12 @@ export type PinnedModel = {
 }
 
 /** Who fills one phase of a round, and what that phase runs on. */
-export type Seating = {
+export type PhaseRun = {
   readonly assistant: Assistant
   readonly model: PinnedModel
 }
 
-/** A seat that names nothing, which every phase outside the two below is. */
+/** A phase that names nothing, which every phase outside the two below is. */
 export const unpinned: PinnedModel = { model: null, effort: null }
 
 /**
@@ -117,33 +138,33 @@ function phaseModel(
 
 /**
  * The single owner of who runs each phase of a round and on what. The runner
- * invokes from this value and the run's seating report prints it, so what a
+ * invokes from this value and the run's settings header prints it, so what a
  * round says it ran on is what it ran with.
  */
-export function roundSeating(
+export function roundPhases(
   auditor: Assistant,
   override: AuditorOverride,
-): Record<Phase, Seating> {
-  const seat = (phase: Phase, assistant: Assistant): Seating => ({
+): Record<Phase, PhaseRun> {
+  const run = (phase: Phase, assistant: Assistant): PhaseRun => ({
     assistant,
     model: phaseModel(phase, assistant, override),
   })
   return {
-    audit: seat("audit", auditor),
+    audit: run("audit", auditor),
     // The vetter is the other assistant, so no assistant vets its own report.
-    vet: seat("vet", auditor === "codex" ? "claude" : "codex"),
+    vet: run("vet", auditor === "codex" ? "claude" : "codex"),
     // The rebuttal answers in the auditor, resuming the audit when it has room.
-    rebut: seat("rebut", auditor),
-    fix: seat("fix", "codex"),
+    rebut: run("rebut", auditor),
+    fix: run("fix", "codex"),
     // The brief retells the finished transcript for the user; Codex always writes it.
-    brief: seat("brief", "codex"),
+    brief: run("brief", "codex"),
     // The ruling explains an open item for the user, so Claude writes both passes.
-    rule: seat("rule", "claude"),
+    rule: run("rule", "claude"),
     // The second pass over any draft twin, so it follows whichever pass wrote one.
-    revise: seat("revise", "claude"),
+    revise: run("revise", "claude"),
     // The watch reads the commit record, never the round, so the auditor does not select it.
-    glance: seat("glance", "claude"),
-    verdict: seat("verdict", "claude"),
+    glance: run("glance", "claude"),
+    verdict: run("verdict", "claude"),
   }
 }
 
@@ -211,7 +232,7 @@ type PhaseArguments = {
 
 type PhaseInputs = {
   [K in Phase]: PhaseArguments[K] &
-    Seating & {
+    PhaseRun & {
       readonly phase: K
       readonly cwd: string
       readonly ownerRoot: string
@@ -274,10 +295,10 @@ export type PhaseResult<P extends Phase = Phase> =
   | PhaseResults[P]
 
 /**
- * A session the user is handed or told how to resume. It carries its seat, so
+ * A session the user is handed or told how to resume. It carries its phase's run, so
  * a resumed session continues on the model the round ran it on.
  */
-export type InteractiveSession = Seating & {
+export type InteractiveSession = PhaseRun & {
   readonly sessionId: string
   readonly cwd: string
 }

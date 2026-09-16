@@ -6,9 +6,9 @@ import {
   noOverride,
   type Phase,
   type PhaseFailure,
+  type PhaseRun,
   type RoundDependencies,
-  roundSeating,
-  type Seating,
+  roundPhases,
   type SessionContext,
   type Tier,
 } from "./phase.js"
@@ -19,7 +19,7 @@ import type { AuditTarget } from "./target.js"
 export type RoundSetup = {
   readonly repoRoot: string
   readonly auditor?: Assistant
-  /** What the command line asked of the auditor's seat; absent asks nothing. */
+  /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
 } & AuditTarget
 
@@ -38,7 +38,7 @@ export type BriefInput = {
 }
 
 type RoundFailure = PhaseFailure &
-  Seating & {
+  PhaseRun & {
     readonly phase: Phase | "handover"
     readonly cwd: string
   }
@@ -134,18 +134,18 @@ export async function runBrief(
   input: BriefInput,
   dependencies: Pick<RoundDependencies, "runPhase">,
 ): Promise<BriefResult> {
-  // The brief pins its own model, so no override reaches this seat.
-  const seat = roundSeating("codex", noOverride).brief
+  // The brief pins its own model, so no override reaches this phase.
+  const run = roundPhases("codex", noOverride).brief
   const brief = await dependencies.runPhase.brief({
     phase: "brief",
-    ...seat,
+    ...run,
     cwd: input.repoRoot,
     ownerRoot: input.repoRoot,
     arguments: [input.transcript],
     sessionId: null,
   })
   if (brief.status === "failed")
-    return { ...brief, phase: "brief", ...seat, cwd: input.repoRoot }
+    return { ...brief, phase: "brief", ...run, cwd: input.repoRoot }
   return { status: "finished", brief: brief.file }
 }
 
@@ -169,44 +169,44 @@ async function runWatch(
   dependencies: Pick<RoundDependencies, "runPhase">,
 ): Promise<RoundFailure | null> {
   // The watch is Claude's whoever audited, and the override binds only the auditor.
-  const seating = roundSeating("codex", noOverride)
+  const phases = roundPhases("codex", noOverride)
   const cwd = input.repoRoot
   const glance = await dependencies.runPhase.glance({
     phase: "glance",
-    ...seating.glance,
+    ...phases.glance,
     cwd,
     ownerRoot: cwd,
     arguments: [input.cacheRoot],
     sessionId: null,
   })
   if (glance.status === "failed")
-    return { ...glance, phase: "glance", ...seating.glance, cwd }
+    return { ...glance, phase: "glance", ...phases.glance, cwd }
   if (!glance.due) return null
 
   const verdict = await dependencies.runPhase.verdict({
     phase: "verdict",
-    ...seating.verdict,
+    ...phases.verdict,
     cwd,
     ownerRoot: cwd,
     arguments: [input.verdict, input.cacheRoot],
     sessionId: null,
   })
   if (verdict.status === "failed")
-    return { ...verdict, phase: "verdict", ...seating.verdict, cwd }
+    return { ...verdict, phase: "verdict", ...phases.verdict, cwd }
 
   // The verdict is a document the user decides from, so a session that did not
   // write it reads it once before the user does. It re-grounds in the record
   // and the code, never in the round, so it is given no other source.
   const revise = await dependencies.runPhase.revise({
     phase: "revise",
-    ...seating.revise,
+    ...phases.revise,
     cwd,
     ownerRoot: cwd,
     arguments: [workflowPath(cwd, "verdict"), verdict.file],
     sessionId: null,
   })
   if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...seating.revise, cwd }
+    return { ...revise, phase: "revise", ...phases.revise, cwd }
   return null
 }
 
@@ -214,14 +214,14 @@ export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
 ): Promise<RoundResult> {
-  const seating = roundSeating(
+  const phases = roundPhases(
     input.auditor ?? "codex",
     input.override ?? noOverride,
   )
   const cwd = input.repoRoot
   const audit = await dependencies.runPhase.audit({
     phase: "audit",
-    ...seating.audit,
+    ...phases.audit,
     cwd,
     ownerRoot: cwd,
     arguments:
@@ -233,45 +233,45 @@ export async function runRound(
     sessionId: null,
   })
   if (audit.status === "failed") {
-    return { ...audit, phase: "audit", ...seating.audit, cwd }
+    return { ...audit, phase: "audit", ...phases.audit, cwd }
   }
 
   const report = audit.file
   const ownerRoot = dirname(report)
   const vet = await dependencies.runPhase.vet({
     phase: "vet",
-    ...seating.vet,
+    ...phases.vet,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (vet.status === "failed") {
-    return { ...vet, phase: "vet", ...seating.vet, cwd }
+    return { ...vet, phase: "vet", ...phases.vet, cwd }
   }
 
   const rebut = await dependencies.runPhase.rebut({
     phase: "rebut",
-    ...seating.rebut,
+    ...phases.rebut,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: rebuttalSessionId(audit.sessionId, audit.context),
   })
   if (rebut.status === "failed") {
-    return { ...rebut, phase: "rebut", ...seating.rebut, cwd }
+    return { ...rebut, phase: "rebut", ...phases.rebut, cwd }
   }
 
   const fix = await dependencies.runPhase.fix({
     phase: "fix",
-    ...seating.fix,
+    ...phases.fix,
     cwd,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (fix.status === "failed") {
-    return { ...fix, phase: "fix", ...seating.fix, cwd }
+    return { ...fix, phase: "fix", ...phases.fix, cwd }
   }
 
   // The brief precedes a ruling, because the ruling is read from it.
@@ -292,28 +292,28 @@ export async function runRound(
   // a rewrite by a session that did not write the draft.
   const rule = await dependencies.runPhase.rule({
     phase: "rule",
-    ...seating.rule,
+    ...phases.rule,
     cwd,
     ownerRoot: cwd,
     arguments: [input.transcript, report],
     sessionId: null,
   })
   if (rule.status === "failed")
-    return { ...rule, phase: "rule", ...seating.rule, cwd }
+    return { ...rule, phase: "rule", ...phases.rule, cwd }
 
   const revise = await dependencies.runPhase.revise({
     phase: "revise",
-    ...seating.revise,
+    ...phases.revise,
     cwd,
     ownerRoot: cwd,
     arguments: [workflowPath(cwd, "rule"), rule.file, input.transcript, report],
     sessionId: null,
   })
   if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...seating.revise, cwd }
+    return { ...revise, phase: "revise", ...phases.revise, cwd }
 
   const session: InteractiveSession = {
-    ...seating.fix,
+    ...phases.fix,
     sessionId: fix.sessionId,
     cwd,
   }

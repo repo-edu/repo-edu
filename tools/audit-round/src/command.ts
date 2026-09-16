@@ -7,6 +7,7 @@ import {
   Option,
 } from "commander"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
+import type { CliRuntime } from "./cli-process.js"
 import { errorMessage, type ModelSelection } from "./feedback.js"
 import {
   briefRun,
@@ -16,7 +17,7 @@ import {
   roundRun,
   verdictPath,
 } from "./output.js"
-import { chainText } from "./output-format.js"
+import { chainText, commitStamps } from "./output-format.js"
 import {
   type Assistant,
   type Effort,
@@ -211,7 +212,12 @@ export async function runCommand(
      * read once; later rounds reuse the selections rather than re-entering the
      * CLIs.
      */
-    const open = async (run: Run): Promise<RoundOutput> => {
+    const open = async (
+      run: Run,
+    ): Promise<{
+      readonly active: RoundOutput
+      readonly chosen: Record<Assistant, ModelSelection>
+    }> => {
       const previous = output
       output = undefined
       previous?.close()
@@ -226,12 +232,16 @@ export async function runCommand(
         active,
         { cacheRoot: options.cacheRoot },
       )
-      active.models(selections)
-      return active
+      const chosen = selections
+      active.models(chosen)
+      return { active, chosen }
     }
-    const dependenciesFor = (active: RoundOutput) =>
+    const dependenciesFor = (
+      active: RoundOutput,
+      commit?: CliRuntime["commit"],
+    ) =>
       assistantDependencies(
-        { ...runtime, cwd: repoRoot },
+        { ...runtime, cwd: repoRoot, commit },
         active.phase,
         active.prepareHandover,
         active.interactive,
@@ -239,7 +249,7 @@ export async function runCommand(
 
     if (invocation.kind === "brief") {
       const transcript = await checkTranscript(repoRoot, invocation.transcript)
-      const active = await open(briefRun(transcript, now()))
+      const { active } = await open(briefRun(transcript, now()))
       result = await runBrief({ repoRoot, transcript }, dependenciesFor(active))
       active.finish(result)
     } else {
@@ -259,7 +269,7 @@ export async function runCommand(
           now(),
           invocation.chain === true ? completed + 1 : undefined,
         )
-        const active = await open(run)
+        const { active, chosen } = await open(run)
         const round = await runRound(
           {
             ...setup,
@@ -268,7 +278,7 @@ export async function runCommand(
             verdict: verdictPath(run.paths.markdown),
             cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
           },
-          dependenciesFor(active),
+          dependenciesFor(active, commitStamps(run.phases, chosen)),
         )
         result = round
         active.finish(round)

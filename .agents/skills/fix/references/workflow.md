@@ -173,12 +173,14 @@ uses the shared empty severity form. The subject's
 `impl-audit-<auditor>-<step scope>` form carries the round's auditor and
 scope. The scope is `<n>`, `<a>-<b>` or `all`; no `Audit:` body line repeats
 it.
-The auditor is `cld` or `cdx`, mapped from the report filename's `<auditor>`
-token, `claude` or `codex`, read under
-[Report discovery](#report-discovery). It names the assistant that ran the
-audit step only, never the one that vets, rebuts or fixes, and it reads on
-the clean record too. A record therefore takes no assistant tag of its own;
-Repo Edu's `CLAUDE.md` owns that rule under **Commit Assistant Tag**.
+The auditor is a capability tag, whose first letter is `a` or `o`, mapped from
+the report filename's `<auditor>` token, `claude` or `codex`, read under
+[Report discovery](#report-discovery). Write that letter alone: the runner holds
+the strength and effort behind it and the commit-msg hook widens the letter into
+the whole tag. It names the assistant that ran the audit step only, never the
+one that vets, rebuts or fixes, and it reads on the clean record too. A record
+therefore takes no second tag; Repo Edu's `CLAUDE.md` owns both rules under
+**Commit Capability Tag** and **Commit Model Record**.
 
 The body carries one bullet per accepted finding, and each bullet opens with
 that finding's metadata before its prose:

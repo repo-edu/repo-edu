@@ -8,7 +8,13 @@ let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
 let prompt = assistant === "codex" ? args.at(-1) : undefined
 await appendFile(
   join(root, "calls.jsonl"),
-  `${JSON.stringify({ assistant, args, pid: process.pid, mark: process.env.COMMIT_ASSISTANT ?? null })}\n`,
+  `${JSON.stringify({
+    assistant,
+    args,
+    pid: process.pid,
+    phases: process.env.COMMIT_PHASES ?? null,
+    auditor: process.env.COMMIT_AUDITOR ?? null,
+  })}\n`,
 )
 
 function send(value: unknown) {

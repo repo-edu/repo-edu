@@ -4,12 +4,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
-import {
-  type Assistant,
-  assistantMark,
-  type PhaseInput,
-  unpinned,
-} from "../phase.js"
+import { type Assistant, type PhaseInput, unpinned } from "../phase.js"
 import { recoveryCommand } from "../requests.js"
 import { finishedText, fixture, phaseStream, recorded } from "./helpers.js"
 
@@ -70,7 +65,6 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.ok(f.starts[0].prompt.includes("/peer plan/"))
     const [call] = await f.calls()
-    assert.equal(call.mark, assistantMark[assistant])
     if (assistant === "codex")
       assert.deepEqual(call.args.slice(0, 3), [
         "exec",
@@ -196,7 +190,6 @@ for (const assistant of ["claude", "codex"] as const) {
     }
     await openAssistantSession(session, f.runtime)
     const [call] = await f.calls()
-    assert.equal(call.mark, assistantMark[assistant])
     if (assistant === "codex") {
       assert.deepEqual(call.args, ["resume", "--approve-for-me", "fix-session"])
       assert.equal(

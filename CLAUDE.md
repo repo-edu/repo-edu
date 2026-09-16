@@ -314,7 +314,11 @@ commit graph shows the subject and none of the finding tokens.
   rule, because the mark states the commit's own net result at its highest
   changed kind. It carries no colon of its own.
 
-The mark follows the assistant tag after a space: `!B1C1c2d1 cdx pruning-high`.
+The mark follows the sequence after a space: `!B1C1c2d1 pruning-high`.
+
+A subject is a run of space-separated tags, then one colon, then the sentence.
+The severity sequence, the capability tag, a growth mark, a plan form and the
+conventional kind are all tags, and only the last of them carries the colon.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
 which also defines the obligation kinds the trailing mark measures. The mark and
@@ -336,7 +340,7 @@ sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
 user meets, beside two developer-only C-tier issues closed together.
 
 The conventional commit kind is the last tag before the sentence:
-`B3C8d4 cdx fix(renderer-app): surface session command errors`.
+`B3C8d4 a1x fix(renderer-app): surface session command errors`.
 
 `redesign` is the typical kind at tier A, alongside `refactor`, `feat`
 and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
@@ -357,8 +361,9 @@ repo. A both-repo round lands independent records in each repo and writes one
 report at the root of the repo where the round started, named with both HEAD
 shas and that repo's sha first. Each round record's subject carries the round's
 auditor and scope through the shared `impl-audit-<auditor>-<step scope>` form,
-with `<auditor>` either `cld` or `cdx` and the scope `<n>`, `<a>-<b>` or
-`all`; no `Audit:` body line repeats it. Each accepted
+with `<auditor>` the capability tag of the assistant that audited and the scope
+`<n>`, `<a>-<b>` or `all`; the plan repo owns that form and no `Audit:` body
+line repeats it. Each accepted
 code finding bullet opens with the
 finding's metadata tokens,
 `- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
@@ -378,39 +383,79 @@ the user directs a plan-file fix during the round, the same run applies it and
 lands it as an independent plan-repo commit in the ordinary plan-round form.
 No repo-local action automatically requires or waits on the other commit.
 
-## Commit Assistant Tag
+## Commit Capability Tag
 
-Every commit subject names the assistant that wrote it, so a commit graph shows
-which assistant produced a change without opening the commit.
+Every commit subject carries a three-character tag naming what produced it: the
+assistant's letter, the strength's digit and the effort's letter.
 
-A subject is a run of space-separated tags, then one colon, then the sentence.
-The assistant tag is the second tag: `cld` for Claude and `cdx` for Codex.
+- `a` for Claude and `o` for Codex, naming the vendor rather than the product,
+  because both products start with a C.
+- `1` for the default tier and `2` for the top one, matching how the work runs,
+  with the default model one tier below the highest. `0` says the model is not
+  on that ladder at all, and the body's model record says which it was.
+- `l`, `m`, `h` and `x` for the four reasoning efforts.
 
-- `c1d1 cdx fix(audit-round): align the recorder result`
-- `c2 cld pruning-high feat(audit-round): override the auditor's model`
-- `<stem>/impl-3 cdx feat(audit-round): expose the runner`
-- `<stem>/implemented cld: complete the Repo Edu tool implementation`
+So `a2x` is Claude at the top tier and xhigh effort, and `o1m` is Codex at its
+default tier and medium effort. The digit separates the two letters visually, so
+the three fields read apart without a punctuation mark between them.
 
-Second place holds the tag inside the first sixty characters of every form, so
-it stays visible where a graph truncates the subject, and it leaves the first
-tag where the eye already starts.
+The tag is the subject's second tag:
 
-The colon belongs to the last tag before the sentence and stands once in a
-subject. A severity sequence, a growth mark, a plan form and a conventional kind
-are all tags and carry no colon of their own.
+- `c1d1 a1x fix(audit-round): align the recorder result`
+- `<stem>/impl-3 o1m feat(audit-round): expose the runner`
+- `<stem>/implemented a1x: complete the Repo Edu tool implementation`
 
-An implementation-audit record takes no assistant tag. Its role token already
-names one, `impl-audit-cld-` or `impl-audit-cdx-`, and that mark names the
-round's auditor, which is what the trajectory reads. Exactly one assistant mark
-stands in a subject.
+An implementation-audit record carries it inside the role token instead, where
+`impl-audit-o2x-7` names the assistant that audited and what it audited at. One
+tag stands in a subject, so a record takes no second one, and the tag there
+names the audit rather than the commit's writer, because the audit is what the
+trajectory reads.
 
-The `.husky/commit-msg` hook writes the tag from `COMMIT_ASSISTANT`, which each
-assistant's environment sets, so no session has to remember it. The hook refuses
-a commit when that variable is unset, and when the subject already carries the
-other assistant's tag, so an amend or a rebase by the other assistant stops
-rather than inheriting a mark that is now wrong. `audit-round` sets the variable
-on every assistant it starts, so each phase commits under the seat the round
-gave it.
+The session writes the tag, since it is the one that knows what it runs on. A
+round's fix writes the auditor's letter alone and the `.husky/commit-msg` hook
+widens it into the whole tag, because the round holds the capability the fix
+session cannot see.
+
+## Commit Model Record
+
+Every commit body opens with the model the work ran on, so the log says what
+produced a change without spending subject width on it.
+
+A commit no round produced opens with one line, the model and the reasoning
+effort:
+
+```text
+claude-opus-5 xhigh
+```
+
+A commit an implementation-audit round lands opens with one line per model, each
+naming the phases that ran on it:
+
+```text
+audit, rebut, fix: gpt-6-astra medium
+vet: claude-opus-5 xhigh
+```
+
+The phases listed are the four that carry out a round: audit, vet, rebut and
+fix. The brief, the two ruling passes and the watch write documents rather than
+landing work, so they stay out. Phases keep round order inside a line, lines
+keep the order of their first phase, and two phases share a line when their
+model and their effort both match.
+
+The model is the one the CLI reported running, never the one the round asked
+for: `claude-opus-5`, not `opus`. An alias names whichever release is current,
+so it would stop being true of the commit it sits in. The effort is one of
+`low`, `medium`, `high` and `xhigh`.
+
+`audit-round` passes the record to the phase that commits, because it holds
+every phase's reported model and that session does not. A session committing on
+its own writes its own line: it knows the model it was told to run and reads its
+effort from the environment.
+
+The `.husky/commit-msg` hook writes the record when a round supplies it and
+refuses any commit whose body does not open with one. It checks the line's shape
+rather than a list of model names, so a new model family needs no edit here, and
+it refuses a single-model record whose effort disagrees with the subject's tag.
 
 ## Testing Strategy
 

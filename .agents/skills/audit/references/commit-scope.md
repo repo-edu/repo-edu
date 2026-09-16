@@ -114,7 +114,7 @@ with the same tiers and tokens.
   `growth-<level>` or `pruning-<level>` disagrees with the commit's own diff.
 - A conventional kind or scope that does not match the change, such as a `fix`
   that reshapes ownership.
-- An assistant tag that names the assistant that did not write the commit.
+- A capability tag or model record that does not match what the commit ran on.
 - An unclaimed change from the coverage line above.
 - A new tracked source file that no primary area owns, against the source
   growth gate in this repo's `CLAUDE.md`.
