@@ -26,6 +26,10 @@ The user never reads or edits machine artifacts such as the area model,
 ledgers or generated files. Do not justify a feature or proposal by their
 upkeep or readability.
 
+Before adding a tracked source file under `apps/*/src`, `packages/*/src` or
+`tools/*/src`, assign it to one primary area from the area model. If no existing
+primary area owns it, update the area model in the same change.
+
 Before splitting a tracked source file, name the source file's current primary
 area ID and the child area ID each output file will join. If the split creates
 a new primary concern, update the area model in the same change and record
@@ -74,6 +78,15 @@ finish without a trajectory glance or watch.
 - `test` — runs all package tests workspace-wide
 - `file-sizes` — tree-style line/file counts per subfolder for a given directory
   (`pnpm file-sizes` for options)
+
+Run `fix` after a small change and `check` after a large one; either one closes
+a piece of work. Run `test` yourself when a plan asks for it or the change
+touches tested behaviour, rather than leaving the run to the user. Never run
+`dev`, `preview` or `build`: the user runs those. After changing a dependency
+manifest run `pnpm install` yourself and say so when you start it, because a
+cold install can run long with no output and must not be aborted. Never edit
+`pnpm-lock.yaml` or any other lockfile by hand; the lockfile that lands in a
+commit is the one `pnpm install` wrote.
 
 ## Architecture
 
@@ -456,6 +469,72 @@ The `.husky/commit-msg` hook writes the record when a round supplies it and
 refuses any commit whose body does not open with one. It checks the line's shape
 rather than a list of model names, so a new model family needs no edit here, and
 it refuses a single-model record whose effort disagrees with the subject's tag.
+
+## Vocabulary
+
+These are this repository's code and domain terms, and they may be used bare. A
+word not listed here or in the home policy's planning vocabulary is expanded
+where it is used. A word enters this list only when both admission tests pass:
+its plain expansion reads worse at every use, and it is met often enough in what
+the user reads to be learned rather than looked up. Each entry teaches the term
+in plain words rather than pointing at an external reference, because the reader
+is not assumed to know the source ecosystem's jargon.
+
+- **admission**: the check run at the moment a result or record arrives that
+  decides whether it is allowed to land, into session state or into the archive.
+- **body**: the function a queued session command runs when its turn comes; it
+  awaits its host work and commits its result before the next body starts.
+- **bootstrap**: the session's startup sequence: load settings, fill the stores,
+  start the workers, show the first surface. It can fail and be retried.
+- **commit**: the final step that makes a result count by writing it into the
+  session's official state; only queued bodies may commit.
+- **course data**: the content of one course: its name, student and team roster,
+  LMS link, repository template and clone settings, analysis settings and
+  revision number. Saved and loaded only as one whole course, never in parts.
+- **course database**: the one shared file holding every course at rest; the
+  only saved home of course data. Settings, window state and the examination
+  archive live elsewhere.
+- **disposal**: the synchronous, terminal teardown of a session; late results
+  land nowhere and a queued body that has not started never runs.
+- **drop**: the task modifier that refuses a new start while one is still
+  running, so the running work always reaches its own end. The app runs it at
+  the input layer: while a command is admitted the capture gate swallows every
+  event except that command's Cancel, so the second start never happens.
+- **enqueue**: the task modifier that makes a new start wait for the running one
+  and then take its turn. It is the dangerous one for anything a person
+  clicked, because the click is held invisibly and replays against a screen
+  that has moved on; work that uses it has to show the wait or refuse the
+  input.
+- **hydrate**: fill in-memory stores from data persisted on disk, typically
+  during bootstrap.
+- **keep-latest**: the task modifier that lets the running work finish, holds
+  only the most recent start that arrived meanwhile and drops the ones before
+  it. Listed for completeness: it is the one modifier the app does not use.
+- **reducer**: a function that takes the current state and one event and returns
+  the next state; the only place session state is allowed to change.
+- **restartable**: the task modifier that stops the running work when a new
+  start arrives and runs the new one instead. It is safe only where a later
+  start reaches the same state cheaply, as the repository analysis pass does,
+  because every finished repository already sits in the Query cache.
+- **row**: one entry in a database, like one line in a table. In the course
+  database each row is one complete course: all its course data in one entry,
+  replaced whole on every save.
+- **session**: the renderer's live working context from startup to teardown:
+  loaded settings, courses, the active surface, the stores and the workers
+  persisting them.
+- **surface**: the main content view the session has active, a course view or
+  home; changing it is a surface transition.
+- **task modifier**: which of restartable, enqueue, drop and keep-latest a piece
+  of work uses when a second start arrives while the first is still running. It
+  belongs to the work and is declared once, never chosen per button. Naming work
+  by who asked for it instead, as `user-asked` and `background` did, invites a
+  start control to claim a modifier of its own, and that is how one analysis
+  pass came to hold two. The four names are the standard ones, so they can be
+  looked up outside this repo: RxJS spells them `switchMap`, `concatMap`,
+  `exhaustMap` and `mergeMap`, Ember Concurrency uses these four, Redux-Saga
+  uses `takeLatest`, `takeEvery` and `takeLeading`.
+- **worker**: a long-lived background helper that writes changes to disk on its
+  own schedule; it reports status but may not commit session state.
 
 ## Testing Strategy
 
