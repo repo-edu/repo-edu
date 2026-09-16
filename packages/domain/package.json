@@ -98,7 +98,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check": "pnpm run typecheck",
-    "test": "pnpm --filter @repo-edu/tree-sitter-grammar-assets run copy-assets && node --import tsx --test src/__tests__/*.test.ts src/__tests__/**/*.test.ts"
+    "test": "node --import tsx --test src/__tests__/*.test.ts src/__tests__/**/*.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
@@ -107,8 +107,5 @@
     "ufo": "1.6.4",
     "web-tree-sitter": "0.26.12",
     "zod": "^4.5.4"
-  },
-  "devDependencies": {
-    "@repo-edu/tree-sitter-grammar-assets": "workspace:*"
   }
 }

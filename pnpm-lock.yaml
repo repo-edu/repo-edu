@@ -309,10 +309,6 @@ importers:
       zod:
         specifier: ^4.5.4
         version: 4.5.4
-    devDependencies:
-      '@repo-edu/tree-sitter-grammar-assets':
-        specifier: workspace:*
-        version: link:../tree-sitter-grammar-assets
 
   packages/fixture-engine:
     dependencies:
@@ -597,6 +593,9 @@ importers:
         version: link:../domain
     devDependencies:
       tree-sitter-cli:
+        specifier: 0.26.12
+        version: 0.26.12
+      web-tree-sitter:
         specifier: 0.26.12
         version: 0.26.12
 

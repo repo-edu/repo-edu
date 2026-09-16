@@ -13,7 +13,9 @@ This package owns browser-safe tree-sitter grammar WASM assets for source tokeni
   license and notice text files.
 - `scripts/copy-assets.ts` synchronizes `src/assets` into build output through
   atomic per-file replacement and removes stale output entries.
-- Keep parser lifecycle and host-specific file handling out of this package.
+- Keep production code free of parser lifecycle and host-specific file handling.
+- Tests own real-grammar integration with the domain tokenizer and comment
+  classifier. Pure language-extension checks stay in the domain package.
 
 ## Rules
 
@@ -22,5 +24,5 @@ This package owns browser-safe tree-sitter grammar WASM assets for source tokeni
   row, size, hash, ABI, license expression and committed license text.
 - Build and test both run the asset copy. Keep the copy safe when concurrent
   workspace commands target the same output directory.
-- Production `@repo-edu/domain` and `@repo-edu/host-runtime-contract` code must not import this
-  package.
+- The domain package must not depend on this package, including for tests.
+- Production `@repo-edu/host-runtime-contract` code must not import this package.

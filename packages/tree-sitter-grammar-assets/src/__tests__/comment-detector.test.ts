@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { classifyCommentLines } from "../../analysis/index.js"
-import { loadGrammarForTests } from "../helpers/load-tokenizer-language.js"
+import { classifyCommentLines } from "@repo-edu/domain/analysis"
+import { loadGrammarForTests } from "./helpers/load-tokenizer-language.js"
 
 function assertCommentLines(actual: Set<number>, expected: readonly number[]) {
   assert.deepEqual([...actual], [...expected])

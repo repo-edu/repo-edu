@@ -1,17 +1,17 @@
 import { readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
-import { getTokenizerGrammarAsset } from "@repo-edu/tree-sitter-grammar-assets"
+import type {
+  LoadedTokenizerLanguage,
+  TokenizerSupportedLanguage,
+} from "@repo-edu/domain/analysis"
 import {
   LANGUAGE_VERSION,
   Language,
   MIN_COMPATIBLE_VERSION,
   Parser,
 } from "web-tree-sitter"
-import type {
-  LoadedTokenizerLanguage,
-  TokenizerSupportedLanguage,
-} from "../../analysis/index.js"
+import { getTokenizerGrammarAsset } from "../../index.js"
 
 const require = createRequire(import.meta.url)
 let runtimeInit: Promise<void> | null = null
