@@ -472,9 +472,9 @@ test("the settings header names what set each phase's model and effort", async (
     return (visible.at(-1) as string).split("\n")
   }
   // Both flags name the whole selection, and the fix keeps the CLI's own.
-  assert.deepEqual(await header({ strength: "high", effort: "xhigh" }), [
-    "audit    codex   gpt-6-astra extra high        --strength/--effort",
-    "rebut    codex   gpt-6-astra extra high        --strength/--effort",
+  assert.deepEqual(await header({ strength: "top", effort: "xhigh" }), [
+    "audit    codex   gpt-6-astra extra high        --auditor",
+    "rebut    codex   gpt-6-astra extra high        --auditor",
     "fix      codex   gpt-5.6-sol high              codex settings",
     "brief    codex   gpt-5.6-terra low             phase pin",
     "vet      claude  claude-opus-5[1m] extra high  claude settings",
@@ -482,17 +482,17 @@ test("the settings header names what set each phase's model and effort", async (
   ])
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
-    (await header({ strength: "high", effort: null })).slice(0, 2),
+    (await header({ strength: "top", effort: null })).slice(0, 2),
     [
-      "audit    codex   gpt-6-astra high              --strength/codex settings",
-      "rebut    codex   gpt-6-astra high              --strength/codex settings",
+      "audit    codex   gpt-6-astra high              --auditor/codex settings",
+      "rebut    codex   gpt-6-astra high              --auditor/codex settings",
     ],
   )
   assert.deepEqual(
     (await header({ strength: null, effort: "medium" })).slice(0, 2),
     [
-      "audit    codex   gpt-5.6-sol medium            codex settings/--effort",
-      "rebut    codex   gpt-5.6-sol medium            codex settings/--effort",
+      "audit    codex   gpt-5.6-sol medium            codex settings/--auditor",
+      "rebut    codex   gpt-5.6-sol medium            codex settings/--auditor",
     ],
   )
 })

@@ -20,10 +20,9 @@ import {
 import { chainText, commitStamps } from "./output-format.js"
 import {
   type Assistant,
-  type Effort,
-  efforts,
-  type Strength,
-  strengths,
+  type AuditorSeat,
+  noOverride,
+  parseAuditorTag,
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
@@ -79,9 +78,7 @@ type Invocation =
   | {
       readonly kind: "round"
       readonly target: AuditTarget
-      readonly auditor: Assistant
-      readonly strength?: Strength
-      readonly effort?: Effort
+      readonly auditor: AuditorSeat
       readonly chain?: boolean
       readonly verbose?: boolean
     }
@@ -117,23 +114,18 @@ function parseInvocation(
     )
     .addOption(
       new Option(
-        "--auditor <assistant>",
-        "assistant that audits; Codex always fixes and briefs",
+        "--auditor <tag>",
+        "capability tag of the assistant that audits, as a commit subject spells it: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A named field binds the audit and its rebuttal; an unnamed one follows that assistant's own settings. Codex always fixes and briefs.",
       )
-        .choices(["claude", "codex"])
-        .default("codex"),
-    )
-    .addOption(
-      new Option(
-        "--strength <level>",
-        "model the auditor and its rebuttal run on; otherwise the assistant's own",
-      ).choices([...strengths]),
-    )
-    .addOption(
-      new Option(
-        "--effort <level>",
-        "reasoning effort the auditor and its rebuttal run at; otherwise the assistant's own",
-      ).choices([...efforts]),
+        .argParser((value) => {
+          const seat = parseAuditorTag(value)
+          if (seat === null)
+            throw new InvalidArgumentError(
+              "Expected a capability tag, as o, at or otx.",
+            )
+          return seat
+        })
+        .default({ assistant: "codex", ...noOverride } as AuditorSeat, "o"),
     )
     .option(
       "--chain",
@@ -145,9 +137,7 @@ function parseInvocation(
         first: string,
         rest: string[],
         flags: {
-          auditor: Assistant
-          strength?: Strength
-          effort?: Effort
+          auditor: AuditorSeat
           chain?: boolean
           verbose?: boolean
         },
@@ -257,11 +247,11 @@ export async function runCommand(
         repoRoot,
         ...invocation.target,
         override: {
-          strength: invocation.strength ?? null,
-          effort: invocation.effort ?? null,
+          strength: invocation.auditor.strength,
+          effort: invocation.auditor.effort,
         },
       }
-      let auditor = invocation.auditor
+      let auditor = invocation.auditor.assistant
       let completed = 0
       for (;;) {
         const run = roundRun(
@@ -287,7 +277,7 @@ export async function runCommand(
         const decision = chainDecision(
           round,
           auditor,
-          invocation.auditor,
+          invocation.auditor.assistant,
           completed,
         )
         await active.message(chainText(decision, completed, chainCap))

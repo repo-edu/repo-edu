@@ -47,29 +47,25 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor claude|codex] [--chain] [-v]`
-runs the implementation-audit tool from this checkout root, ending
-with a plain-words brief of the round for the user. A fix that stops for the
-user's ruling adds a ruling document, drafted and then rewritten in a fresh
-session, which the user rules from. A round that finished ends with a glance at
-the commit record, which decides whether the trajectory watch is due; a due
-watch adds its verdict document, drafted and rewritten the same way, and
-records its own grade so the next glance can count from it. `--chain` runs at
-most three rounds on the scope the user named, keeping the auditor while an A
-or B finding lands and giving the other assistant one closing round, and
-glances after each of them. `--strength normal|high` names the model tier and
-`--effort low|medium|high|xhigh` the reasoning effort that the auditor and its
-rebuttal run on; the rebuttal resumes the audit session, so one override binds
-both. Every other seat follows the assistant's own settings, and the brief its
-own model. The run's seating report names what set each seat.
-`pnpm audit-round brief <ROUND-transcript.md>` writes that brief for an
-earlier round.
-`pnpm audit-round <commit> [<commit>...]` or
-`pnpm audit-round <from>..<to>` audits named commits. References accept SHAs,
-`HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
-Ranges include both endpoints. Commit audits run once, reject `--chain` and
-finish without a trajectory glance or watch.
-`pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
+`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <tag>] [--chain] [-v]` runs the
+implementation-audit tool from this checkout root, ending with a plain-words brief of the round for
+the user. A fix that stops for the user's ruling adds a ruling document, drafted and then rewritten
+in a fresh session, which the user rules from. A round that finished ends with a glance at the
+commit record, which decides whether the trajectory watch is due; a due watch adds its verdict
+document, drafted and rewritten the same way, and records its own grade so the next glance can count
+from it. `--chain` runs at most three rounds on the scope the user named, keeping the auditor while
+an A or B finding lands and giving the other assistant one closing round, and glances after each of
+them. `--auditor` takes the capability tag a commit subject spells: `a` or `o` for the assistant,
+then an optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the
+reasoning effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the
+audit session; an unnamed one follows that assistant's own settings, as every other phase does, and
+the brief names its own model. The run's settings header names what set each phase.
+`pnpm audit-round brief <ROUND-transcript.md>` writes that brief for an earlier round.
+`pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
+References accept SHAs, `HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
+Ranges include both endpoints. Commit audits run once, reject `--chain` and finish without a
+trajectory glance or watch. `pnpm audit-round:contract [claude|codex|both]` records its live CLI
+contracts.
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix

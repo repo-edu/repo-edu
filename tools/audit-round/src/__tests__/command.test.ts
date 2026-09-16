@@ -156,7 +156,7 @@ for (const auditor of ["claude", "codex"] as const) {
         const argv = [
           "example.md",
           "2-3",
-          ...(auditor === "claude" ? ["--auditor", "claude"] : []),
+          ...(auditor === "claude" ? ["--auditor", "a"] : []),
         ]
         assert.equal(
           await runCommand(argv, f.runtime, f.options),
@@ -423,20 +423,11 @@ test("a recording failure during update output cannot be treated as an update wa
 })
 
 for (const auditor of ["codex", "claude"] as const) {
-  test(`--strength and --effort reach the ${auditor} auditor and its rebuttal alone`, async (t) => {
+  test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     assert.equal(
       await runCommand(
-        [
-          "example.md",
-          "3",
-          "--auditor",
-          auditor,
-          "--strength",
-          "high",
-          "--effort",
-          "xhigh",
-        ],
+        ["example.md", "3", "--auditor", auditor === "codex" ? "otx" : "atx"],
         f.runtime,
         f.options,
       ),
@@ -475,8 +466,8 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(
       log,
       auditor === "codex"
-        ? /audit +codex +gpt-6-astra extra high +--strength\/--effort/
-        : /audit +claude +fable extra high +--strength\/--effort/,
+        ? /audit +codex +gpt-6-astra extra high +--auditor/
+        : /audit +claude +fable extra high +--auditor/,
     )
     assert.match(log, /fix +codex +chosen-model high +codex settings/)
     assert.match(log, /brief +codex +gpt-5\.6-terra low +phase pin/)
@@ -495,10 +486,11 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
-    // The ladder stops below the two most extreme levels either CLI offers.
-    ["example.md", "--strength", "top"],
-    ["example.md", "--effort", "max"],
-    ["example.md", "--effort", "ultra"],
+    // A tag names its fields by letter, in order, and never asks for `u`.
+    ["example.md", "--auditor", "claude"],
+    ["example.md", "--auditor", "xa"],
+    ["example.md", "--auditor", "aux"],
+    ["example.md", "--auditor", "atxx"],
     ["example.md", "--chain", "extra", "3"],
     ["example.md", "--unknown"],
     ["brief"],
@@ -517,14 +509,12 @@ test("argument errors and help start no assistant processes", async (t) => {
     /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]/,
   )
   assert.match(visible, /HEAD-<n>/)
-  assert.match(visible, /Codex always fixes and\s+briefs/)
+  assert.match(visible, /Codex\s+always fixes and\s+briefs/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
-  assert.match(
-    visible,
-    /--strength <level>\s+model the auditor and its rebuttal run on/,
-  )
-  assert.match(visible, /choices:\s+"low", "medium", "high", "xhigh"/)
+  assert.match(visible, /--auditor <tag>\s+capability tag of the assistant/)
+  assert.match(visible, /an optional l,\s+m, h or x for the effort/)
+  assert.match(visible, /\(default: o\)/)
   // A round is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+round\b/m)
   assert.doesNotMatch(visible, /^\s+help\b/m)
@@ -536,7 +526,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
     assert.equal(
       await runCommand(
-        [...commits, "--auditor", auditor],
+        [...commits, "--auditor", auditor === "codex" ? "o" : "a"],
         f.runtime,
         f.options,
       ),

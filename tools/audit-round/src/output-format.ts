@@ -3,6 +3,7 @@ import type { Feedback, ModelSelection } from "./feedback.js"
 import {
   type Assistant,
   assistantLetters,
+  effortLetter,
   modelStrength,
   type Phase,
   type PinnedModel,
@@ -81,14 +82,6 @@ export function commitPhaseLines(
     .join("\n")
 }
 
-/** The letter a capability tag closes with, naming the reasoning effort. */
-const effortLetters: Record<string, string> = {
-  low: "l",
-  medium: "m",
-  high: "h",
-  xhigh: "x",
-}
-
 /**
  * A phase's capability tag: the assistant's letter, the strength's letter and
  * the effort's letter, each from its own alphabet so a character decodes
@@ -100,8 +93,8 @@ export function capabilityTag(
   configured: ModelSelection,
 ): string | null {
   const { model, effort } = resolved(entry.model, configured)
-  const letter = effort === null ? undefined : effortLetters[effort]
-  if (letter === undefined) return null
+  const letter = effort === null ? null : effortLetter(effort)
+  if (letter === null) return null
   const strength = modelStrength(entry.assistant, model)
   return `${assistantLetters[entry.assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
 }

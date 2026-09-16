@@ -6,15 +6,6 @@ export const assistantLetters: Record<Assistant, "a" | "o"> = {
   codex: "o",
 }
 
-/**
- * The letter a capability tag gives a strength: `d` for the default tier and
- * `t` for the top one. A model the ladder does not name reads `u`, unlisted.
- */
-export const strengthLetters: Record<Strength, "d" | "t"> = {
-  normal: "d",
-  high: "t",
-}
-
 export type Phase =
   | "audit"
   | "vet"
@@ -33,7 +24,7 @@ export type Phase =
 export type Tier = "a" | "b" | "c" | "d"
 
 /** The model tiers a round may ask its auditor for, as the command line names them. */
-export const strengths = ["normal", "high"] as const
+export const strengths = ["base", "top"] as const
 export type Strength = (typeof strengths)[number]
 
 /** The reasoning efforts a round may ask for. Both CLIs answer to these four words. */
@@ -54,13 +45,67 @@ export type AuditorOverride = {
 export const noOverride: AuditorOverride = { strength: null, effort: null }
 
 /**
+ * The letter a capability tag gives a strength: `b` for the base tier and `t`
+ * for the top one. A model the ladder does not name reads `u`, unlisted.
+ */
+export const strengthLetters: Record<Strength, "b" | "t"> = {
+  base: "b",
+  top: "t",
+}
+
+/** The letter a capability tag closes with, naming the reasoning effort. */
+const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
+  low: "l",
+  medium: "m",
+  high: "h",
+  xhigh: "x",
+}
+
+/** What `--auditor` names: who audits, and whatever it pinned of the model. */
+export type AuditorSeat = { readonly assistant: Assistant } & AuditorOverride
+
+function named<K extends string>(
+  letters: Record<K, string>,
+  letter: string | undefined,
+): K | null {
+  if (letter === undefined) return null
+  const keys = Object.keys(letters) as K[]
+  return keys.find((key) => letters[key] === letter) ?? null
+}
+
+/**
+ * The capability tag `--auditor` takes, as a commit subject spells it. The tier
+ * and the effort are optional, because an unnamed field follows the CLI's own
+ * configuration, and the three alphabets share no letter, so a partial tag says
+ * which fields it named. The `u` a subject may carry says the model is on
+ * neither tier, which is a reading and not a request, so it is not accepted.
+ */
+export function parseAuditorTag(value: string): AuditorSeat | null {
+  const match = /^([ao])([bt])?([lmhx])?$/.exec(value)
+  if (match === null) return null
+  const assistant = named(assistantLetters, match[1])
+  if (assistant === null) return null
+  return {
+    assistant,
+    strength: named(strengthLetters, match[2]),
+    effort: named(effortLetters, match[3]),
+  }
+}
+
+/** The tag letter a reported effort takes, or null when it is not one of the four. */
+export function effortLetter(effort: string): string | null {
+  // A CLI may report an effort outside the four the tag can spell.
+  return effortLetters[effort as Effort] ?? null
+}
+
+/**
  * Which model each assistant fills a strength with. Claude takes an alias,
  * which names the latest release of a family; Codex takes a slug, which names
  * one release and is edited when a family lands.
  */
 const strengthModels: Record<Assistant, Record<Strength, string>> = {
-  claude: { normal: "opus", high: "fable" },
-  codex: { normal: "gpt-5.6-sol", high: "gpt-6-astra" },
+  claude: { base: "opus", top: "fable" },
+  codex: { base: "gpt-5.6-sol", top: "gpt-6-astra" },
 }
 
 /**
@@ -127,12 +172,12 @@ function phaseModel(
         ? null
         : {
             value: strengthModels[assistant][override.strength],
-            source: "--strength",
+            source: "--auditor",
           },
     effort:
       override.effort === null
         ? null
-        : { value: override.effort, source: "--effort" },
+        : { value: override.effort, source: "--auditor" },
   }
 }
 

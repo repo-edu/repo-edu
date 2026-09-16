@@ -46,7 +46,7 @@ END {
 		line[1] = tags[1]
 		for (at = 2; at <= count; at++) line[1] = line[1] " " tags[at]
 	}
-	if (tag !~ /^[ao][dtu][lmhx]$/)
+	if (tag !~ /^[ao][btu][lmhx]$/)
 		fail("the subject needs a capability tag in place of " tag ", as atx")
 
 	phases = ENVIRON["COMMIT_PHASES"]
