@@ -110,6 +110,7 @@ it("an archive read failure cannot become an ordinary workflow error or start cl
   ])
   assert.deepEqual(h.effects, [
     { type: "disable-input" },
+    { type: "report-terminal", error },
     { type: "end-host", reason: "failure" },
   ])
   assert.equal(
@@ -138,6 +139,6 @@ it("rethrowing an archive failure through outer owners starts shutdown once", ()
   } catch (caught) {
     admission.terminal(caught)
   }
-  assert.deepEqual(effects, ["disable-input", "end-host"])
+  assert.deepEqual(effects, ["report-terminal", "disable-input", "end-host"])
   assert.deepEqual(admission.getSnapshot(), { phase: "terminal", error })
 })

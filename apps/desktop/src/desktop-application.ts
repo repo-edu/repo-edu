@@ -1,7 +1,9 @@
+import { writeSync } from "node:fs"
 import os from "node:os"
 import { delimiter, dirname, join } from "node:path"
 import { performance } from "node:perf_hooks"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { inspect } from "node:util"
 import { HostAdmissionRefusedError } from "@repo-edu/application-contract"
 import {
   defaultAppCredentials,
@@ -106,9 +108,7 @@ export function installDesktopApplication(): void {
   const desktopAppName = "Repo Edu"
 
   function desktopErrorText(error: unknown): string {
-    return error instanceof Error
-      ? (error.stack ?? error.message)
-      : String(error)
+    return inspect(error, { colors: false, depth: 6 })
   }
 
   function desktopErrorMessage(error: unknown): string {
@@ -313,6 +313,9 @@ export function installDesktopApplication(): void {
 
   function performAdmissionEffect(effect: HostAdmissionHostEffect): void {
     switch (effect.type) {
+      case "report-terminal":
+        writeSync(2, `[desktop] terminal ${desktopErrorText(effect.error)}\n`)
+        return
       case "install-update":
         quitAndInstall()
         return
@@ -862,9 +865,6 @@ export function installDesktopApplication(): void {
     if (mainWindow) {
       initAutoUpdater(mainWindow, (error) => {
         if (admission.getSnapshot().phase === "closing.installing") {
-          process.stderr.write(
-            `[desktop] update-failed ${desktopErrorText(error)}\n`,
-          )
           admission.terminal(error)
         }
       })
@@ -951,10 +951,5 @@ export function installDesktopApplication(): void {
 
   // Register readiness without keeping Electron's entry import pending.
   const ready = app.whenReady()
-  void bootstrapDesktop().catch((error) => {
-    process.stderr.write(
-      `[desktop] startup-failed ${desktopErrorText(error)}\n`,
-    )
-    admission.terminal(error)
-  })
+  void bootstrapDesktop().catch(admission.terminal)
 }

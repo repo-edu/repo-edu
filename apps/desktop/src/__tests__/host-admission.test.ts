@@ -298,8 +298,15 @@ describe("desktop host admission", () => {
         result.effects.filter((effect) => effect.type === "disable-input"),
         alreadyClosing ? [] : [{ type: "disable-input" }],
       )
+      if (state.phase !== "terminal") {
+        assert.equal(result.state.phase, "terminal")
+        assert.deepEqual(result.effects[0], {
+          type: "report-terminal",
+          error: result.state.error,
+        })
+      }
       if (!alreadyClosing)
-        assert.equal(result.effects[0]?.type, "disable-input")
+        assert.equal(result.effects[1]?.type, "disable-input")
       assert.deepEqual(
         hostAdmissionReducer(result.state, {
           type: "terminal",
@@ -436,6 +443,7 @@ describe("desktop host admission", () => {
       )
       assert.equal(result.state.phase, "terminal")
       assert.deepEqual(result.effects, [
+        { type: "report-terminal", error: result.state.error },
         { type: "disable-input" },
         { type: "end-host", reason: "failure" },
       ])

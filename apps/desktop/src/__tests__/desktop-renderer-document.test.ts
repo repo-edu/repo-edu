@@ -30,7 +30,7 @@ for (const rendererUrl of [
       h.invoke({ action: "bootstrapReady" })
       assert.deepEqual(
         h.effects.map((effect) => effect.type),
-        ["disable-input", "end-host"],
+        ["report-terminal", "disable-input", "end-host"],
       )
       assert.deepEqual(h.direct, [])
     })
@@ -44,7 +44,7 @@ for (const rendererUrl of [
       } as typeof h.event)
       assert.deepEqual(
         h.effects.map((effect) => effect.type),
-        ["disable-input", "end-host"],
+        ["report-terminal", "disable-input", "end-host"],
       )
       assert.deepEqual(h.direct, [])
     })
@@ -113,7 +113,7 @@ for (const rendererUrl of [
         assert.equal(events.length, 1)
         assert.deepEqual(
           h.effects.map((effect) => effect.type),
-          ["disable-input", "end-host"],
+          ["report-terminal", "disable-input", "end-host"],
         )
         assert.deepEqual(h.direct, [])
         assert.deepEqual(h.responses, [])
@@ -133,7 +133,7 @@ for (const rendererUrl of [
       } as typeof h.event)
       assert.deepEqual(
         h.effects.map((effect) => effect.type),
-        ["disable-input", "end-host"],
+        ["report-terminal", "disable-input", "end-host"],
       )
       assert.deepEqual(h.direct, [])
     })
@@ -151,7 +151,7 @@ for (const rendererUrl of [
         h.invoke(message)
         assert.deepEqual(
           h.effects.map((effect) => effect.type),
-          ["disable-input", "end-host"],
+          ["report-terminal", "disable-input", "end-host"],
         )
         assert.deepEqual(h.direct, [])
       })

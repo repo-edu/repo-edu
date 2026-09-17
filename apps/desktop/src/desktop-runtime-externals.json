@@ -6,5 +6,9 @@
   {
     "fullName": "@openai/codex-sdk",
     "proof": "rollup"
+  },
+  {
+    "fullName": "write-file-atomic",
+    "proof": "rollup"
   }
 ]

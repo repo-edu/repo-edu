@@ -144,7 +144,7 @@ it("an updater installation error exits without another owned-work stop", async 
     collaborators: updateCollaborators("linux"),
   })
   assert.equal(result.status, 1, result.stderr)
-  assert.ok(result.stderr.includes("update-failed"))
+  assert.ok(result.stderr.includes("[desktop] terminal"))
   assert.equal(
     result.events.filter((event) => event === "stop-owned-work").length,
     1,

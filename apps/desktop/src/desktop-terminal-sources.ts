@@ -13,14 +13,22 @@ export function installDesktopTerminalSources(options: {
   options.app.on("child-process-gone", (_event, details) => {
     // Type never changes admission, including types introduced by later Electron releases.
     if (details.reason === "clean-exit") return
-    terminal(new Error("An Electron child process ended unexpectedly."))
+    terminal(
+      new Error(
+        `Electron child process ended: type=${details.type}, reason=${details.reason}, exitCode=${details.exitCode}, name=${details.name ?? ""}, serviceName=${details.serviceName ?? ""}.`,
+      ),
+    )
   })
 
   return {
     observeRenderer(contents: Pick<WebContents, "on">) {
       // Losing the one session renderer is terminal even after a clean exit.
-      contents.on("render-process-gone", () => {
-        terminal(new Error("The desktop session renderer ended."))
+      contents.on("render-process-gone", (_event, details) => {
+        terminal(
+          new Error(
+            `Desktop session renderer ended: reason=${details.reason}, exitCode=${details.exitCode}.`,
+          ),
+        )
       })
     },
   }

@@ -90,7 +90,12 @@ for (const type of [...Object.keys(childTypes), "Future child"]) {
         assert.ok(event.error instanceof Error)
         assert.deepEqual(Object.keys(event.error), [])
         assert.equal(event.error.cause, undefined)
+        assert.equal(
+          event.error.message,
+          `Electron child process ended: type=${type}, reason=${reason}, exitCode=0, name=child, serviceName=service.`,
+        )
         assert.deepEqual(h.effects, [
+          { type: "report-terminal", error: event.error },
           { type: "disable-input" },
           { type: "end-host", reason: "failure" },
         ])
@@ -112,7 +117,13 @@ for (const reason of [...Object.keys(reasons), "future-reason"]) {
     h.renderer.emit("render-process-gone", {}, { reason, exitCode: 0 })
     assert.equal(h.events.length, 1)
     assert.equal(h.events[0].type, "terminal")
+    assert.ok(h.events[0].error instanceof Error)
+    assert.equal(
+      h.events[0].error.message,
+      `Desktop session renderer ended: reason=${reason}, exitCode=0.`,
+    )
     assert.deepEqual(h.effects, [
+      { type: "report-terminal", error: h.events[0].error },
       { type: "disable-input" },
       { type: "end-host", reason: "failure" },
     ])
@@ -138,6 +149,7 @@ it("reports arbitrary rejection reasons and coalesces cascading sources through 
       error: reason,
     })
     assert.deepEqual(h.effects, [
+      { type: "report-terminal", error: reason },
       { type: "disable-input" },
       { type: "end-host", reason: "failure" },
     ])
@@ -187,7 +199,9 @@ for (const [name, trigger] of Object.entries({
     trigger(h)
     trigger(h)
     assert.equal(events.length, 1)
+    assert.equal(events[0].type, "terminal")
     assert.deepEqual(h.effects, [
+      { type: "report-terminal", error: events[0].error },
       { type: "disable-input" },
       { type: "end-host", reason: "failure" },
     ])
@@ -227,7 +241,9 @@ for (const source of [
         )
       await until(() => h.events.length > 0)
       assert.equal(h.events.length, 1)
+      assert.equal(h.events[0].type, "terminal")
       assert.deepEqual(h.effects, [
+        { type: "report-terminal", error: h.events[0].error },
         { type: "disable-input" },
         { type: "end-host", reason: "failure" },
       ])
@@ -276,6 +292,7 @@ for (const workflow of [
     ])
     assert.deepEqual(h.effects, [
       { type: "disable-input" },
+      { type: "report-terminal", error },
       { type: "end-host", reason: "failure" },
     ])
     assert.equal(

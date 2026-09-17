@@ -1,7 +1,12 @@
 import assert from "node:assert/strict"
+import { execFileSync } from "node:child_process"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import { describe, it } from "node:test"
+import { build } from "esbuild"
 import {
   type DesktopRuntimeBundle,
+  desktopRuntimeExternalPackageRoots,
   desktopRuntimeExternals,
   isDesktopRuntimeExternalId,
   isRuntimeSuppliedLoadName,
@@ -37,7 +42,7 @@ function runtimeBundle(options?: {
       fileName: "chunks/host.js",
       name: "host",
       isEntry: false,
-      imports: options?.hostImports ?? [],
+      imports: ["write-file-atomic", ...(options?.hostImports ?? [])],
       dynamicImports: ["koffi"],
     },
   }
@@ -60,6 +65,45 @@ function recordingResolvers() {
 }
 
 describe("desktop runtime dependency boundary", () => {
+  it("publishes settings from an ES module with the shipped dependency boundary", async () => {
+    // Keep the test entry beneath the desktop package so its runtime imports
+    // resolve through the same production dependencies as the shipped entry.
+    const desktop = resolve(import.meta.dirname, "../..")
+    const directory = await mkdtemp(join(desktop, ".settings-runtime-"))
+    try {
+      const entry = join(directory, "publish.mjs")
+      await build({
+        stdin: {
+          contents: `
+            import { createNodeSettingsSectionStore } from "../../packages/host-node/src/settings-section-store"
+            const store = createNodeSettingsSectionStore({
+              settingsDirectory: process.argv[2],
+              fileName: "preferences.json",
+              unit: "preferences",
+              validate: value => ({ ok: true, value }),
+            })
+            await store.save({ theme: "light" })
+            await store.save({ theme: "dark" })
+          `,
+          resolveDir: desktop,
+          loader: "ts",
+        },
+        bundle: true,
+        platform: "node",
+        format: "esm",
+        external: [...desktopRuntimeExternalPackageRoots],
+        outfile: entry,
+      })
+      execFileSync(process.execPath, [entry, directory], { stdio: "pipe" })
+      assert.equal(
+        await readFile(join(directory, "preferences.json"), "utf8"),
+        '{\n  "theme": "dark"\n}\n',
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it("derives package roots and externalizes package subpaths", () => {
     assert.equal(packageRootForLoadName("koffi"), "koffi")
     assert.equal(

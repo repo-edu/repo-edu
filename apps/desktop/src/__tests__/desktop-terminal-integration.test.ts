@@ -5,6 +5,28 @@ import type { Details } from "electron"
 import { runDesktopEntry } from "./desktop-entry-harness"
 import { terminalCollaborators } from "./desktop-terminal-collaborators"
 
+for (const [error, expected] of [
+  [
+    '{ type: "persistence", message: "Could not write credentials.", operation: "write" }',
+    /type: 'persistence'[\s\S]*Could not write credentials\.[\s\S]*operation: 'write'/,
+  ],
+  [
+    'new Error("Could not write credentials.", { cause: new Error("Disk unavailable") })',
+    /Could not write credentials\.[\s\S]*Disk unavailable/,
+  ],
+] as const) {
+  it(`retains terminal diagnostics for ${error}`, async () => {
+    const result = await runDesktopEntry({
+      collaborators: terminalCollaborators(
+        `process.emit("unhandledRejection", ${error})`,
+      ),
+    })
+    assert.equal(result.status, 1, result.stderr)
+    assert.equal(result.stderr.match(/\[desktop\] terminal/g)?.length, 1)
+    assert.match(result.stderr, expected)
+  })
+}
+
 async function proveTerminal(
   trigger: string,
   unconfirmed = false,
@@ -17,7 +39,10 @@ async function proveTerminal(
   assert.equal(result.error, undefined)
   assert.equal(result.signal, null)
   assert.equal(result.status, exitCode, result.stderr)
-  assert.equal(result.stderr, "")
+  assert.equal(
+    result.stderr.match(/\[desktop\] terminal/g)?.length ?? 0,
+    failure ? 1 : 0,
+  )
   const events = result.events
   assert.equal(events.filter((event) => event === "stop-owned-work").length, 1)
   const ordered = [

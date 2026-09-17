@@ -104,13 +104,22 @@ export function hostAdmissionReducer(
   state: HostAdmissionState,
   event: HostAdmissionEvent,
 ): HostAdmissionTransition {
-  const next = reduceHostAdmission(state, event)
+  let next = reduceHostAdmission(state, event)
   if (
     state.phase !== "terminal" &&
     !state.phase.startsWith("closing.") &&
     (next.state.phase === "terminal" || next.state.phase.startsWith("closing."))
   ) {
-    return { ...next, effects: [{ type: "disable-input" }, ...next.effects] }
+    next = { ...next, effects: [{ type: "disable-input" }, ...next.effects] }
+  }
+  if (state.phase !== "terminal" && next.state.phase === "terminal") {
+    return {
+      ...next,
+      effects: [
+        { type: "report-terminal", error: next.state.error },
+        ...next.effects,
+      ],
+    }
   }
   return next
 }

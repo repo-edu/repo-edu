@@ -72,8 +72,10 @@ it("the loaded archive reports live storage failure through host admission", asy
     try {
       loaded.archiveHandle.db.exec("DROP TABLE examinations")
       assert.throws(() => loaded.examinationArchive.exportAll())
-      assert.equal(admission.getSnapshot().phase, "terminal")
+      const state = admission.getSnapshot()
+      assert.equal(state.phase, "terminal")
       assert.deepEqual(effects, [
+        { type: "report-terminal", error: state.error },
         { type: "disable-input" },
         { type: "end-host", reason: "failure" },
       ])

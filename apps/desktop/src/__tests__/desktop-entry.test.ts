@@ -46,6 +46,13 @@ for (const scenario of ["unhandled-rejection", "child-loss"]) {
   it(`the installed ${scenario} adapter enters reducer-owned ending before readiness`, async () => {
     const result = await runDesktopEntry({ scenario })
     assert.equal(result.status, 1, result.stderr)
+    assert.equal(result.stderr.match(/\[desktop\] terminal/g)?.length, 1)
+    assert.match(
+      result.stderr,
+      scenario === "unhandled-rejection"
+        ? /Error: unhandled rejection/
+        : /type=Future child, reason=future-reason/,
+    )
     assert.deepEqual(result.events.slice(-5), [
       "disable",
       "stop-owned-work",

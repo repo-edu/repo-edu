@@ -88,6 +88,7 @@ export type HostAdmissionCancellation =
 
 /** Every other effect reaches the desktop composition. */
 export type HostAdmissionHostEffect =
+  | { type: "report-terminal"; error: unknown }
   | { type: "disable-input" }
   | { type: "prepare-command"; request: HostRequest }
   | { type: "execute-command"; request: HostRequest }
