@@ -660,11 +660,16 @@ describe("analysis runner lifetime in React", () => {
         },
       },
     )
-    await React.act(async () => {
-      await controller.waitForIdle()
-      await flushQueries()
-    })
-    assert.deepEqual(read().result, result)
+    // Discovery notifications can enqueue analysis after the session is idle.
+    // Let each act finish rendering before checking, bounded by this test's timeout.
+    async function waitForResult() {
+      while (read().result === null) {
+        t.signal.throwIfAborted()
+        await React.act(flushQueries)
+      }
+      assert.deepEqual(read().result, result)
+    }
+    await waitForResult()
     await React.act(async () => {
       read().runRepoDiscovery("/repos")
       await flushQueries()
@@ -686,7 +691,7 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(searches, 2)
     assert.equal(read().discoveryStatus, "idle")
     assert.deepEqual(read().discoveredRepos, discoveredRepos)
-    assert.deepEqual(read().result, result)
+    await waitForResult()
   })
 
   // A selection change replaces the pass whatever started it. Run and Re-run
