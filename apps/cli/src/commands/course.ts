@@ -1,6 +1,7 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import { activeCourseIdFromSurface } from "@repo-edu/domain/active-surface"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 import {
   emitCommandError,
   loadAppSettings,
@@ -11,6 +12,7 @@ import {
 export function registerCourseCommands(
   parent: Command,
   createWorkflow: () => WorkflowClient,
+  output: CliOutput,
 ): void {
   const course = parent.command("course").description("Course management")
 
@@ -28,18 +30,18 @@ export function registerCourseCommands(
         )
 
         if (listedCourses.length === 0) {
-          process.stdout.write("No courses found.\n")
+          output.writeOut("No courses found.\n")
           return
         }
 
         for (const courseSummary of listedCourses) {
           const marker = courseSummary.id === selectedCourseId ? "*" : " "
-          process.stdout.write(
+          output.writeOut(
             `${marker} ${courseSummary.id}\t${courseSummary.displayName}\t${courseSummary.updatedAt}\n`,
           )
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 
@@ -56,13 +58,13 @@ export function registerCourseCommands(
         )
 
         if (selectedCourseId === null) {
-          process.stdout.write("No active course.\n")
+          output.writeOut("No active course.\n")
           return
         }
 
-        process.stdout.write(`${selectedCourseId}\n`)
+        output.writeOut(`${selectedCourseId}\n`)
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 
@@ -74,9 +76,9 @@ export function registerCourseCommands(
 
       try {
         const loaded = await loadSelectedCourse(this, workflowClient)
-        process.stdout.write(`${JSON.stringify(loaded.course, null, 2)}\n`)
+        output.writeOut(`${JSON.stringify(loaded.course, null, 2)}\n`)
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 }

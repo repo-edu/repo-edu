@@ -7,9 +7,15 @@ import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type { Assignment, PersistedCourse } from "@repo-edu/domain/types"
 import type { Command } from "commander"
 
-export function emitCommandError(message: string): void {
-  process.stderr.write(`${message}\n`)
-  process.exitCode = 1
+export type CliOutput = {
+  writeOut: (text: string) => void
+  writeErr: (text: string) => void
+  setExitCode: (code: number) => void
+}
+
+export function emitCommandError(output: CliOutput, message: string): void {
+  output.writeErr(`${message}\n`)
+  output.setExitCode(1)
 }
 
 export function toErrorMessage(error: unknown): string {

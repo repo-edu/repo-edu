@@ -1,5 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 import {
   emitCommandError,
   loadSelectedCourse,
@@ -10,6 +11,7 @@ import {
 export function registerLmsCommands(
   parent: Command,
   createWorkflow: () => WorkflowClient,
+  output: CliOutput,
 ): void {
   const lms = parent.command("lms").description("LMS operations")
 
@@ -32,14 +34,14 @@ export function registerLmsCommands(
           userAgent: connection.userAgent,
         })
 
-        process.stdout.write(
+        output.writeOut(
           `LMS connection '${connection.name}' verified=${result.verified} checkedAt=${result.checkedAt}\n`,
         )
         if (!result.verified) {
-          process.exitCode = 1
+          output.setExitCode(1)
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 }

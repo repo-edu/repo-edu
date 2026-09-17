@@ -1,5 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 import {
   emitCommandError,
   loadSelectedCourse,
@@ -10,6 +11,7 @@ import {
 export function registerValidateCommand(
   parent: Command,
   createWorkflow: () => WorkflowClient,
+  output: CliOutput,
 ): void {
   parent
     .command("validate")
@@ -27,6 +29,7 @@ export function registerValidateCommand(
 
         if (!assignment) {
           emitCommandError(
+            output,
             `Assignment '${options.assignment}' was not found in course '${course.id}'.`,
           )
           return
@@ -49,24 +52,24 @@ export function registerValidateCommand(
         ]
 
         if (allIssues.length === 0) {
-          process.stdout.write(
+          output.writeOut(
             `Validation passed for assignment '${assignment.name}' in course '${course.id}'.\n`,
           )
           return
         }
 
-        process.stdout.write(
+        output.writeOut(
           `Validation found ${allIssues.length} issue(s) for assignment '${assignment.name}' in course '${course.id}':\n`,
         )
         for (const issue of allIssues) {
-          process.stdout.write(
+          output.writeOut(
             `- ${issue.kind} [${issue.affectedIds.join(", ")}]${issue.context ? `: ${issue.context}` : ""}\n`,
           )
         }
 
-        process.exitCode = 1
+        output.setExitCode(1)
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 }

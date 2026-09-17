@@ -110,6 +110,17 @@ async function runCli(): Promise<void> {
         return
       }
       await createProgram({
+        output: {
+          writeOut: (text) => {
+            process.stdout.write(text)
+          },
+          writeErr: (text) => {
+            process.stderr.write(text)
+          },
+          setExitCode: (code) => {
+            process.exitCode = code
+          },
+        },
         createWorkflowClient: () =>
           createCliWorkflowClient({
             childProcessLifetimeController:

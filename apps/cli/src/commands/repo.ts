@@ -9,6 +9,7 @@ import type {
   RepositoryTemplate,
 } from "@repo-edu/domain/types"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 import {
   emitCommandError,
   loadAppSettings,
@@ -72,11 +73,12 @@ function normalizeCliTargetDirectory(rawInput: string): string {
 }
 
 function printRepositoryPlan(
+  output: CliOutput,
   assignmentName: string,
   assignmentId: string,
   courseId: string,
 ) {
-  process.stdout.write(
+  output.writeOut(
     `Planned repository operation for assignment '${assignmentName}' (${assignmentId}) in course '${courseId}':\n`,
   )
 }
@@ -223,8 +225,11 @@ function countRecordedRepositories(
   return count
 }
 
-async function promptConfirmation(message: string): Promise<boolean> {
-  process.stdout.write(`${message} [y/N] `)
+async function promptConfirmation(
+  output: CliOutput,
+  message: string,
+): Promise<boolean> {
+  output.writeOut(`${message} [y/N] `)
   return new Promise((resolve) => {
     let buffer = ""
     const stdin = process.stdin
@@ -246,6 +251,7 @@ async function promptConfirmation(message: string): Promise<boolean> {
 export function registerRepoCommands(
   parent: Command,
   createWorkflow: () => WorkflowClient,
+  output: CliOutput,
 ): void {
   const repo = parent.command("repo").description("Repository operations")
 
@@ -282,25 +288,26 @@ export function registerRepoCommands(
               "create",
             )
             if (!planned.ok) {
-              process.stdout.write("Repository plan is invalid:\n")
+              output.writeOut("Repository plan is invalid:\n")
               for (const issue of planned.issues) {
-                process.stdout.write(`- ${issue.path}: ${issue.message}\n`)
+                output.writeOut(`- ${issue.path}: ${issue.message}\n`)
               }
-              process.exitCode = 1
+              output.setExitCode(1)
               return
             }
 
             printRepositoryPlan(
+              output,
               selectedAssignment.name,
               selectedAssignment.id,
               course.id,
             )
             if (planned.value.groups.length === 0) {
-              process.stdout.write("- No repositories planned.\n")
+              output.writeOut("- No repositories planned.\n")
             }
             for (const group of planned.value.groups) {
               const groupLabel = group.groupName || group.groupId
-              process.stdout.write(
+              output.writeOut(
                 `- ${group.repoName}\tgroup=${groupLabel}\tassignment=${group.assignmentName}\n`,
               )
             }
@@ -333,16 +340,16 @@ export function registerRepoCommands(
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,
         )
-        process.stdout.write(
+        output.writeOut(
           `Repository create complete: planned=${result.repositoriesPlanned} created=${result.repositoriesCreated} adopted=${result.repositoriesAdopted} failed=${result.repositoriesFailed} completedAt=${result.completedAt}\n`,
         )
         if (recordedCount > 0) {
-          process.stdout.write(
+          output.writeOut(
             `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
           )
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 
@@ -397,16 +404,16 @@ export function registerRepoCommands(
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,
         )
-        process.stdout.write(
+        output.writeOut(
           `Repository clone complete: planned=${result.repositoriesPlanned} cloned=${result.repositoriesCloned} failed=${result.repositoriesFailed} completedAt=${result.completedAt}\n`,
         )
         if (recordedCount > 0) {
-          process.stdout.write(
+          output.writeOut(
             `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
           )
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 
@@ -477,16 +484,16 @@ export function registerRepoCommands(
         const recordedCount = countRecordedRepositories(
           result.recordedRepositories,
         )
-        process.stdout.write(
+        output.writeOut(
           `Repository update complete: planned=${result.repositoriesPlanned} prsCreated=${result.prsCreated} prsSkipped=${result.prsSkipped} prsFailed=${result.prsFailed} completedAt=${result.completedAt}\n`,
         )
         if (recordedCount > 0) {
-          process.stdout.write(
+          output.writeOut(
             `Recorded repository names for ${recordedCount} group${recordedCount === 1 ? "" : "s"}.\n`,
           )
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 
@@ -520,7 +527,7 @@ export function registerRepoCommands(
           includeArchived: options.includeArchived,
         })
 
-        process.stdout.write(
+        output.writeOut(
           `Found ${listResult.repositories.length} repositor${
             listResult.repositories.length === 1 ? "y" : "ies"
           } in '${options.namespace}'.\n`,
@@ -533,7 +540,7 @@ export function registerRepoCommands(
               : ""
           const subgroupAnnotation = subgroup ? `\t(${subgroup})` : ""
           const archivedAnnotation = entry.archived ? "\t(archived)" : ""
-          process.stdout.write(
+          output.writeOut(
             `- ${entry.name}${subgroupAnnotation}${archivedAnnotation}\n`,
           )
         }
@@ -550,12 +557,13 @@ export function registerRepoCommands(
             )
           }
           const confirmed = await promptConfirmation(
+            output,
             `Clone ${listResult.repositories.length} repositor${
               listResult.repositories.length === 1 ? "y" : "ies"
             } to '${targetDirectory}'?`,
           )
           if (!confirmed) {
-            process.stdout.write("Aborted.\n")
+            output.writeOut("Aborted.\n")
             return
           }
         }
@@ -569,11 +577,11 @@ export function registerRepoCommands(
           })),
           targetDirectory,
         })
-        process.stdout.write(
+        output.writeOut(
           `Cloned ${cloneResult.repositoriesCloned} / failed ${cloneResult.repositoriesFailed} completedAt=${cloneResult.completedAt}\n`,
         )
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 }

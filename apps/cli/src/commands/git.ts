@@ -1,5 +1,6 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 import {
   emitCommandError,
   loadAppSettings,
@@ -10,6 +11,7 @@ import {
 export function registerGitCommands(
   parent: Command,
   createWorkflow: () => WorkflowClient,
+  output: CliOutput,
 ): void {
   const git = parent.command("git").description("Git platform operations")
 
@@ -30,14 +32,14 @@ export function registerGitCommands(
           userAgent: connection.userAgent,
         })
 
-        process.stdout.write(
+        output.writeOut(
           `Git connection '${connection.id}' verified=${result.verified} checkedAt=${result.checkedAt}\n`,
         )
         if (!result.verified) {
-          process.exitCode = 1
+          output.setExitCode(1)
         }
       } catch (error) {
-        emitCommandError(toErrorMessage(error))
+        emitCommandError(output, toErrorMessage(error))
       }
     })
 }

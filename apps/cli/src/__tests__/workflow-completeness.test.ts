@@ -6,6 +6,12 @@ import { createProgram } from "../cli.js"
 // The command tree is inspected, never run, so no workflow client is composed.
 function createInspectionProgram() {
   return createProgram({
+    output: {
+      writeOut: assert.fail,
+      writeErr: assert.fail,
+      setExitCode: () =>
+        assert.fail("The command tree is inspected, never run."),
+    },
     createWorkflowClient: () => {
       throw new Error("The command tree is inspected, never run.")
     },

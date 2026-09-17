@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { chmod, rename, unlink, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import type { Command } from "commander"
+import type { CliOutput } from "../command-utils.js"
 
 const githubRepo = "repo-edu/repo-edu"
 
@@ -163,6 +164,7 @@ function isMissingFileError(error: unknown): boolean {
 export function registerUpdateCommand(
   parent: Command,
   currentVersion: string,
+  output: CliOutput,
 ): void {
   parent
     .command("update")
@@ -175,11 +177,11 @@ export function registerUpdateCommand(
         const latestVersion = release.tag_name.replace(/^v/, "")
 
         if (latestVersion === currentVersion) {
-          process.stdout.write(`redu is up to date (${currentVersion}).\n`)
+          output.writeOut(`redu is up to date (${currentVersion}).\n`)
           return
         }
 
-        process.stdout.write(
+        output.writeOut(
           `Update available: ${currentVersion} -> ${latestVersion}\n`,
         )
 
@@ -198,26 +200,24 @@ export function registerUpdateCommand(
         )
 
         if (!asset) {
-          process.stderr.write(
-            `No binary found for this platform (${assetName}).\n`,
-          )
-          process.exitCode = 1
+          output.writeErr(`No binary found for this platform (${assetName}).\n`)
+          output.setExitCode(1)
           return
         }
 
         if (!checksumAsset) {
-          process.stderr.write(
+          output.writeErr(
             `No checksum found for this platform (${checksumAssetName}).\n`,
           )
-          process.exitCode = 1
+          output.setExitCode(1)
           return
         }
 
         if (!noticeAsset) {
-          process.stderr.write(
+          output.writeErr(
             `No third-party notice file found for this platform (${noticeAssetName}).\n`,
           )
-          process.exitCode = 1
+          output.setExitCode(1)
           return
         }
 
@@ -246,7 +246,7 @@ export function registerUpdateCommand(
           },
         ]
 
-        process.stdout.write("Downloading...\n")
+        output.writeOut("Downloading...\n")
         const [binaryBuffer, checksumBuffer, noticeBuffer] = await Promise.all([
           downloadAssetBuffer(asset.browser_download_url),
           downloadAssetBuffer(checksumAsset.browser_download_url),
@@ -284,11 +284,11 @@ export function registerUpdateCommand(
           )
         }
 
-        process.stdout.write(`Updated to ${latestVersion}.\n`)
+        output.writeOut(`Updated to ${latestVersion}.\n`)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        process.stderr.write(`Update failed: ${message}\n`)
-        process.exitCode = 1
+        output.writeErr(`Update failed: ${message}\n`)
+        output.setExitCode(1)
       }
     })
 }

@@ -34,24 +34,18 @@ import {
 import { createProgram } from "../cli.js"
 import { createCliWorkflowClient } from "../workflow-runtime.js"
 
-function toText(chunk: unknown): string {
-  if (typeof chunk === "string") {
-    return chunk
-  }
-
-  if (chunk instanceof Uint8Array) {
-    return Buffer.from(chunk).toString("utf8")
-  }
-
-  return String(chunk)
-}
-
 function normalize(text: string): string {
   return text.replace(/\r\n/g, "\n").trimEnd()
 }
 
 function createInspectionProgram() {
   return createProgram({
+    output: {
+      writeOut: assert.fail,
+      writeErr: assert.fail,
+      setExitCode: () =>
+        assert.fail("The command tree is inspected, never run."),
+    },
     createWorkflowClient: () => {
       throw new Error("The command tree is inspected, never run.")
     },
@@ -75,7 +69,19 @@ async function runCli(
       throw error
     },
   })
+  const result = { exitCode: 0, stdout: "", stderr: "" }
   const program = createProgram({
+    output: {
+      writeOut: (text) => {
+        result.stdout += text
+      },
+      writeErr: (text) => {
+        result.stderr += text
+      },
+      setExitCode: (code) => {
+        result.exitCode = code
+      },
+    },
     createWorkflowClient: () =>
       "workflowClient" in options
         ? options.workflowClient
@@ -84,26 +90,10 @@ async function runCli(
             storageRoot: options.storageRoot,
           }),
   })
-  program.exitOverride()
-
-  let stdout = ""
-  let stderr = ""
-
-  const previousStdoutWrite = process.stdout.write.bind(process.stdout)
-  const previousStderrWrite = process.stderr.write.bind(process.stderr)
-  const previousExitCode = process.exitCode
-
-  process.stdout.write = ((chunk: unknown) => {
-    stdout += toText(chunk)
-    return true
-  }) as typeof process.stdout.write
-
-  process.stderr.write = ((chunk: unknown) => {
-    stderr += toText(chunk)
-    return true
-  }) as typeof process.stderr.write
-
-  process.exitCode = 0
+  program.exitOverride((error) => {
+    result.exitCode = error.exitCode
+    throw error
+  })
 
   try {
     await program.parseAsync(["node", "redu", ...args])
@@ -113,19 +103,10 @@ async function runCli(
       throw error
     }
   } finally {
-    process.stdout.write = previousStdoutWrite
-    process.stderr.write = previousStderrWrite
     await childProcessLifetimeController.stopAndConfirm()
   }
 
-  const exitCode = process.exitCode ?? 0
-  process.exitCode = previousExitCode
-
-  return {
-    exitCode,
-    stdout,
-    stderr,
-  }
+  return result
 }
 
 function makeProfile(): PersistedCourse {
@@ -291,6 +272,60 @@ async function withTempCliDataDirectory(
 }
 
 describe("CLI command tree", () => {
+  it("captures nested help and parser errors without running workflows", async () => {
+    const workflowClient: WorkflowClient = {
+      async run() {
+        assert.fail("Help and parser errors must not run workflows.")
+      },
+    }
+    const help = await runCli(["repo", "update", "--help"], { workflowClient })
+    assert.equal(help.exitCode, 0)
+    assert.match(help.stdout, /Usage: redu repo update/)
+    assert.equal(help.stderr, "")
+
+    const invalid = await runCli(["repo", "update"], { workflowClient })
+    assert.equal(invalid.exitCode, 1)
+    assert.equal(invalid.stdout, "")
+    assert.match(invalid.stderr, /required option '--assignment <name>'/)
+  })
+
+  it("keeps overlapping command output and exit status independent of host streams", async () => {
+    const stdoutWrite = process.stdout.write
+    const stderrWrite = process.stderr.write
+    const exitCode = process.exitCode
+    const started = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const handlers: Partial<WorkflowHandlerMap> = {
+      "settings.loadApp": async () => {
+        started.resolve()
+        await release.promise
+        return { ...splitAppSettings(makeSettings(null)), recovery: [] }
+      },
+    }
+    const workflowClient = createWorkflowClient(handlers as WorkflowHandlerMap)
+    const active = runCli(["course", "active"], { workflowClient })
+    try {
+      await started.promise
+      assert.equal(process.stdout.write, stdoutWrite)
+      assert.equal(process.stderr.write, stderrWrite)
+      assert.equal(process.exitCode, exitCode)
+      process.stdout.write("# Host output during a CLI command\n")
+      const failed = await runCli(["course", "show"], { workflowClient })
+      assert.equal(failed.exitCode, 1)
+      assert.equal(failed.stdout, "")
+      assert.match(failed.stderr, /requires --course <id>/)
+      assert.equal(process.exitCode, exitCode)
+    } finally {
+      release.resolve()
+      await active
+    }
+    assert.deepEqual(await active, {
+      exitCode: 0,
+      stdout: "No active course.\n",
+      stderr: "",
+    })
+  })
+
   it("top-level help matches golden", async () => {
     const golden = await readFile(
       join(import.meta.dirname, "goldens", "help-top.txt"),

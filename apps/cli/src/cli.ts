@@ -1,6 +1,7 @@
 import type { WorkflowClient } from "@repo-edu/application-contract"
 import { Command } from "commander"
 import pkg from "../package.json" with { type: "json" }
+import type { CliOutput } from "./command-utils.js"
 import { registerCourseCommands } from "./commands/course.js"
 import { registerGitCommands } from "./commands/git.js"
 import { registerLmsCommands } from "./commands/lms.js"
@@ -12,12 +13,14 @@ import { registerValidateCommand } from "./commands/validate.js"
 // client, so the storage root and the child-process lifetime controller stay
 // with the one owner that claimed the gate and can stop the controller.
 export type CreateProgramOptions = {
+  output: CliOutput
   createWorkflowClient: () => WorkflowClient
 }
 
 export function createProgram(options: CreateProgramOptions): Command {
   const program = new Command()
   program
+    .configureOutput(options.output)
     .name("redu")
     .description("Repository management for education")
     .version(pkg.version)
@@ -26,12 +29,12 @@ export function createProgram(options: CreateProgramOptions): Command {
       program.outputHelp()
     })
 
-  registerCourseCommands(program, options.createWorkflowClient)
-  registerLmsCommands(program, options.createWorkflowClient)
-  registerGitCommands(program, options.createWorkflowClient)
-  registerRepoCommands(program, options.createWorkflowClient)
-  registerUpdateCommand(program, pkg.version)
-  registerValidateCommand(program, options.createWorkflowClient)
+  registerCourseCommands(program, options.createWorkflowClient, options.output)
+  registerLmsCommands(program, options.createWorkflowClient, options.output)
+  registerGitCommands(program, options.createWorkflowClient, options.output)
+  registerRepoCommands(program, options.createWorkflowClient, options.output)
+  registerUpdateCommand(program, pkg.version, options.output)
+  registerValidateCommand(program, options.createWorkflowClient, options.output)
 
   return program
 }

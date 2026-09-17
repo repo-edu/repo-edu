@@ -82,7 +82,10 @@ the compiled Bun adapter and checks that settings remain untouched.
 - Do not move program-gate ownership into `createProgram`. Tests and other
   in-process callers provide isolated roots and own their surrounding lifetime.
 - `createProgram` owns only the command tree and takes the workflow client
-  from its caller. The workflow runtime requires the child-process lifetime
+  and output interface from its caller. Commands and Commander help and errors
+  share that output interface. Only the production entry connects command
+  output and exit status to the process; tests capture them per invocation.
+  The workflow runtime requires the child-process lifetime
   controller and the storage root from its caller. It may build neither,
   because a composition that did would own process trees no caller can stop
   and confirm, or reach the real database without the program gate.
