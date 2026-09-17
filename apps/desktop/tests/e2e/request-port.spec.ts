@@ -247,7 +247,7 @@ for (const entry of ["development", "packaged-file"]) {
           window.portRequests = []
           function observer(
             events: string[],
-            request: () => RendererRequest,
+            request: RendererRequest,
           ): RendererRequestObserver {
             return {
               admission(status) {
@@ -256,13 +256,13 @@ for (const entry of ["development", "packaged-file"]) {
               prepare() {
                 events.push("prepare")
                 if (scenario === "command" || scenario === "close")
-                  request().persist({})
+                  request.persist({})
               },
               persisted() {
                 events.push("persisted")
-                if (scenario === "close") request().readyToClose()
+                if (scenario === "close") request.readyToClose()
                 else
-                  request().prepareInput({
+                  request.prepareInput({
                     workflowId: "userFile.exportPreview",
                     input: {
                       kind: "user-save-target-ref",
@@ -281,7 +281,7 @@ for (const entry of ["development", "packaged-file"]) {
               },
               settlement() {
                 events.push("settlement")
-                request().acknowledgeSettlement()
+                request.acknowledgeSettlement()
               },
               released() {
                 events.push("released")
@@ -299,25 +299,25 @@ for (const entry of ["development", "packaged-file"]) {
               window.portRequests.push(request)
               const events: string[] = []
               window.portEvents.push(events)
-              return observer(events, () => request)
+              return observer(events, request)
             })
           } else {
             const events: string[] = []
             window.portEvents.push(events)
             const request = window.repoEduRequests?.command(
               "userFile.exportPreview",
-              observer(events, () => request as RendererRequest),
+              (request) => observer(events, request),
             )
             if (request) window.portRequests.push(request)
             if (scenario === "concurrent") {
               const second: string[] = []
               window.portEvents.push(second)
-              window.repoEduRequests?.command(
-                "repo.clone",
-                observer(second, () => {
+              window.repoEduRequests?.command("repo.clone", (request) => ({
+                ...observer(second, request),
+                prepare() {
                   throw new Error("Busy attempt requested preparation")
-                }),
-              )
+                },
+              }))
             }
           }
         }, scenario)
