@@ -66,6 +66,9 @@
       "@repo-edu/domain/analysis": [
         "./packages/domain/src/analysis/index.ts"
       ],
+      "@repo-edu/domain/analysis-inputs": [
+        "./packages/domain/src/analysis-inputs.ts"
+      ],
       "@repo-edu/tree-sitter-grammar-assets": [
         "./packages/tree-sitter-grammar-assets/src/index.ts"
       ],
