@@ -20,13 +20,16 @@ apps/desktop/playwright-report/
 .claude/plan
 plan/
 
-# Audit handoff: report and verdict files between auditor and vetter, never committed
-/AUDIT-*.md
-/VET-*.md
-/REBUT-*.md
-# Audit round runner: the texts twin of the run log and every plain-words twin
-# beside it, brief, ruling and watch verdict alike, never committed
-/ROUND-*.md
+# Round files at the repo root, grouped by target and round
+/*-round.md
+/*-round.log
+/*-audit.md
+/*-vet.md
+/*-rebut.md
+/*-brief.md
+/*-ruling.md
+/*-watch.md
+/*-claim.md
 
 # Oversized-step implementation ledger, deleted when the step's commit lands
 /LEDGER-*.md

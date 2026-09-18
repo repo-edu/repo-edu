@@ -9,7 +9,7 @@ arguments so its requirement enters this session, and apply that requirement
 to the whole session. Skip the skill's confirm-and-wait step: continue
 directly with the vet.
 
-Your assistant token is `claude`.
+Your writer tag's vendor letter is `a` for Claude.
 
 Read `.agents/skills/vet/references/workflow.md` completely and follow it.
 

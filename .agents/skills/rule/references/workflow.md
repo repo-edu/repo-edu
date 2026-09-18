@@ -30,13 +30,16 @@ survive.
 
 ## Input
 
+Read the shared [round protocol](../../../references/round-protocol.md) for
+file names, writer tags and twin matching.
+
 The first pass is given the round transcript and the audit report. The second
 pass is given this workflow, the draft ruling, the transcript and the report.
 
 Both passes read what they need to be right:
 
 - the transcript, for what the round found, vetted, rebutted and left open
-- the report and its `VET-` and `REBUT-` twins, for the evidence behind each
+- the report and its matched vet and rebuttal twins, for the evidence behind each
   open item
 - the plan in `../plan` for the steps the report's scope names, and every
   **Decisions** entry an open item cites
@@ -46,7 +49,7 @@ This is the difference from the brief, which reads only the transcript and adds
 nothing the round did not say. A ruling cannot be written that way: what an
 option costs the user and what it costs the code are not in the transcript.
 
-The report's directory says which repo hosts the round's findings. Follow the
+The report's opening names the judged repos and their audited heads. Follow the
 `CLAUDE.md` of every repo you read, including its complexity escalation and
 build-versus-buy rules, because those rules decide what an option really costs.
 
@@ -64,9 +67,9 @@ opened after this workflow finishes, and that session applies the ruling.
 
 ## Output
 
-Write the ruling beside the transcript, with the same name and `-ruling` before
-the extension: `ROUND-<name>.md` becomes `ROUND-<name>-ruling.md`. The
-second pass replaces that same file. The transcript and the brief stay as they
+Write the ruling beside the transcript under the shared round protocol: keep
+its target and round, spell your own writer tag and use the ruling kind. The
+second pass replaces the supplied draft at that same path. The transcript and the brief stay as they
 are.
 
 The ruling is Markdown for a person reading in a Markdown viewer. Use headings

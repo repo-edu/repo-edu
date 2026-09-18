@@ -60,7 +60,9 @@ then an optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or 
 reasoning effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the
 audit session; an unnamed one follows that assistant's own settings, as every other phase does, and
 the brief names its own model. The run's settings header names what set each phase.
-`pnpm audit-round brief <ROUND-transcript.md>` writes that brief for an earlier round.
+`pnpm audit-round brief <target-round-tag-round.md>` writes that brief for an earlier round.
+The shared file-name grammar and writer-tag rules live in
+[the round protocol](.agents/references/round-protocol.md).
 `pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
 References accept SHAs, `HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
 Ranges include both endpoints. Commit audits run once, reject `--chain` and finish without a
@@ -323,7 +325,7 @@ commit graph shows the subject and none of the finding tokens.
   rule, because the mark states the commit's own net result at its highest
   changed kind. It carries no colon of its own.
 
-The mark precedes the sequence after a space: `adx pruning-high !B1C1c2d1`. It
+The mark precedes the sequence after a space: `abx pruning-high !B1C1c2d1`. It
 leads because what a commit did to the standing structure outranks how many
 concerns it closed, and a commit often carries the mark where the sequence is
 routine.
@@ -353,7 +355,7 @@ sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
 user meets, beside two developer-only C-tier issues closed together.
 
 The conventional commit kind is the last tag before the sentence:
-`adx B3C8d4 fix(renderer-app): surface session command errors`.
+`abx B3C8d4 fix(renderer-app): surface session command errors`.
 
 `redesign` is the typical kind at tier A, alongside `refactor`, `feat`
 and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
@@ -371,8 +373,9 @@ files the finding concerns. The user's step range decides the repo set, which
 is the union of the hosting repos for its steps. A single-repo round writes its
 report and round record in that repo, even when the round started in the other
 repo. A both-repo round lands independent records in each repo and writes one
-report at the root of the repo where the round started, named with both HEAD
-shas and that repo's sha first. Each round record's subject carries the round's
+report at the root of the repo where the round started. The report opening
+names the judged repos and each repo's short HEAD at audit time. Its filename
+follows the shared round protocol. Each round record's subject carries the round's
 scope through the shared `impl-audit-<step scope>` form, with the scope `<n>`,
 `<a>-<b>` or `all`, and its capability tag names the assistant that audited; the
 plan repo owns that form and no `Audit:` body line repeats it. Each accepted
@@ -402,21 +405,21 @@ assistant, the strength and the effort, one letter each.
 
 - `a` for Claude and `o` for Codex, naming the vendor rather than the product,
   because both products start with a C.
-- `d` for the default tier and `t` for the top one, matching how the work runs,
+- `b` for the base tier and `t` for the top one, matching how the work runs,
   with the default model one tier below the highest. `u` says the model is
   unlisted, on neither tier, and the body's model record says which it was.
 - `l`, `m`, `h` and `x` for the four reasoning efforts.
 
-So `atx` is Claude at the top tier and xhigh effort, and `odm` is Codex at its
+So `atx` is Claude at the top tier and xhigh effort, and `obm` is Codex at its
 default tier and medium effort. The three alphabets share no character, so every
 letter decodes without counting positions, and the tag holds no digit, which a
 subject already spends on the severity sequence's counts.
 
 The tag opens the subject, after the plan form when the subject has one:
 
-- `adx c1d1 fix(audit-round): align the recorder result`
-- `<stem>/impl-3 odm feat(audit-round): expose the runner`
-- `<stem>/implemented adx: complete the Repo Edu tool implementation`
+- `abx c1d1 fix(audit-round): align the recorder result`
+- `<stem>/impl-3 obm feat(audit-round): expose the runner`
+- `<stem>/implemented abx: complete the Repo Edu tool implementation`
 
 The tag names the assistant whose work the subject reports. On an
 implementation-audit record that is the audit, not the session that wrote the

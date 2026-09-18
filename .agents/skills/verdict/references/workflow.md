@@ -34,8 +34,8 @@ doer's reasoning. So:
 
 - Read `git log`, the current artifact at the area the log points to, the area
   model and the plan the episode names.
-- Do not read the round's transcript, its brief, its report or its `VET-` and
-  `REBUT-` twins, and do not read the fix session. The invocation gives you
+- Do not read the round's transcript, its brief, its report or its vet and
+  rebuttal twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
 - Both passes are read-only except for the verdict file and the watch record.
   Change no code, run no writing command and land no commit.
@@ -51,7 +51,12 @@ HEAD alone; no anchor is supplied, because no user chose one.
 
 ## Output
 
-Write the verdict to the named file, replacing anything already there. The
+Read the shared [round protocol](../../../references/round-protocol.md) for
+file names and writer tags. The runner supplies a watch path carrying its
+chosen target and round with this phase's writer tag. Keep that path;
+allocate no round and read no transcript to derive it.
+
+Write the verdict to the named `-watch.md` file, replacing anything already there. The
 second pass replaces that same file. It is Markdown for a person reading in a
 Markdown viewer.
 

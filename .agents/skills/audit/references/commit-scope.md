@@ -128,16 +128,19 @@ it apart from the range's own work.
 ## Report
 
 Report order follows `workflow.md` with the range in place of the plan. Open by
-naming the workflow that ran, this repo, the range with its short shas and the
+naming the workflow that ran, this repo with its short `HEAD` at audit time,
+the commit references as typed, the resolved range with its short shas and the
 statement that no plan covers the work. Then the coverage table with its two
 closing lines, then the run statement and pricing when one applies, then the
 numbered tiered findings.
 
-Write the report to this repo's root as
-`AUDIT-<from>-<to>-all-<auditor>-<own-sha>.md`, with `<from>` and `<to>` the
-range's short shas and a single-commit round repeating its sha in both places.
-The scope token is `all`, because the range is the whole of the round's scope.
-The vet, rebuttal and fix workflows read this name under their existing rules.
+Write the report to this repo's root under the shared
+[round protocol](../../../references/round-protocol.md), with the audit kind
+and your own writer tag. Keep a supplied runner name start unchanged.
+Otherwise form the target from the typed commit references using the shared
+rule and allocate the round under `workflow.md`'s **Round allocation**.
+The opening carries the repo and audited head for vet, rebuttal and fix;
+the resolved range remains report content rather than a pair of filename shas.
 
 ## Record
 

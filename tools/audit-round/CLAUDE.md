@@ -94,7 +94,13 @@ consumers.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it runs and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
-  its own. Each entry carries its phase, so the settings header reports the model and effort that
+  its own. It builds file names under the shared
+  [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD`
+  in commit targets and scans both repo roots for the next target-wide number.
+  It validates all file-writing phase tags before `run-files.ts` exclusively
+  creates the tagless claim, then opens the transcript and log. The claim
+  remains after success or failure, and a conflict stops without retrying.
+  Each entry carries its phase, so the settings header reports the model and effort that
   phase will run on and names what set each of them: a command-line flag, the phase's own pin, or
   the assistant's settings. A phase whose two fields came from different places names both, model
   first. The output holds only the run start, current phase timing and context observations. Every
@@ -128,8 +134,10 @@ consumers.
   prints its help. A bare command line prints that help rather than reporting a missing plan. It
   also owns the chain loop, because each round records its own file pair and the coordinator has no
   filesystem side effects: it opens one output per round, retires the previous one first, and reads
-  updates and settings once for the whole run. A chained round carries its place in its file names
-  and its title, so rounds starting in the same second stay distinct. Required write failures stop
+  updates and settings once for the whole run before opening any files.
+  Startup messages go only to the terminal; the run log begins with the models
+  table. A chained round carries its place in its title and independently
+  claims the next number for its target. Required write failures stop
   phase progression. If recording itself fails, the emergency channel still reports the known
   session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
@@ -150,8 +158,9 @@ they never replace the audit report as the input to later phases.
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
-meaning. The runner does not read plan or report contents and performs no Git
-operations. Keep assistant adapters independent of the product LLM adapters.
+meaning. The runner does not read plan or report contents. Its only Git read
+for naming resolves `HEAD`; the audit workflow still resolves the audited
+scope. Keep assistant adapters independent of the product LLM adapters.
 
 ## Commands
 
@@ -165,22 +174,26 @@ pnpm audit-round ../plan/example.md 3 --auditor atx
 pnpm audit-round ../plan/example.md 3 --chain
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
-pnpm audit-round brief ROUND-example-step-3-claude-2026-09-12T22-17-38.md
+pnpm audit-round brief example-step-3-01-otm-round.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round writes a `ROUND-` log and Markdown pair at the Repo Edu root, and
-its brief phase writes the pair's plain-words twin with `-brief` before the
-extension. A fix that stops for a ruling adds the `-ruling` twin beside them.
-A plan round that finished ends with a glance at the commit record, and a due
-glance adds the `-verdict` twin carrying the trajectory watch. The watch also
-keeps its own history in the shared cache, which is how its cadence survives
-between rounds.
-`brief` writes the plain-words twin for an earlier transcript, logging beside
-it. `--chain` runs at most three rounds on the one plan scope the user named and
-never changes that scope; each round adds `-round-<n>` to its pair. Each
-header names the round's start time.
+The round writes a claim, log and transcript at the Repo Edu root under the
+shared round protocol. The audit receives the chosen target and number as its
+first argument, before the target and scope or commit references as typed.
+Every phase reuses that name start, even when the report goes to the plan repo.
+The transcript and log carry the auditor's tag; assistant-written files carry
+their own writer's tag.
+
+The brief writes a plain-words twin. A fix that stops for a ruling adds a
+ruling twin. A finished plan round ends with a glance at the commit record,
+and a due glance adds a `-watch.md` document. The watch keeps its own history
+in the shared cache, which is how its cadence survives between rounds.
+`brief` retells an earlier transcript without claiming a new number and
+overwrites its standalone log on each run. `--chain` runs at most three
+rounds on the named plan scope. Each header records the round's start time;
+filenames carry no timestamp.
 
 ## Verification
 

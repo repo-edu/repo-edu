@@ -9,7 +9,7 @@ arguments so its requirement enters this session, and apply that requirement
 to the whole session. Skip the skill's confirm-and-wait step: continue
 directly with the fix phase.
 
-Your assistant token is `claude`.
+Your writer tag's vendor letter is `a` for Claude.
 
 Read `.agents/skills/fix/references/workflow.md` completely and follow it.
 

@@ -6,7 +6,14 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-Interpret the invocation arguments as a plan file and an optional
+Read the shared [round protocol](../../../references/round-protocol.md) for
+file names and writer tags. In a runner-started audit, the first argument is
+the supplied `<target>-<round>`. Consume it as the output name start before
+reading the remaining arguments as the audit scope. Keep it at either report
+root and do not allocate or claim again. A hand-run audit has no supplied name
+start and follows [Round allocation](#round-allocation).
+
+Interpret the remaining invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
 may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
 range and `4` as one step, counted against the plan's **Implementation plan**
@@ -171,7 +178,7 @@ commit as written.
 ## Fix guard
 
 The round is read-only and ends at its report file. The one later phase this
-session takes part in is the rebuttal: the auditor's answer to the `VET-`
+session takes part in is the rebuttal: the auditor's answer to the `-vet.md`
 twin runs here through the rebuttal launcher, `/rebut` for Claude and
 `$rebut` for Codex, because this session already holds the evidence the
 findings rest on and the rebuttal fixes nothing. When this session is asked
@@ -540,15 +547,16 @@ on the user's word.
 
 ## Report order
 
-Open by naming the workflow that ran, the repo or repos the implementation
-audit judges, then the plan file, its ready commit, the episode's commit range
-and the round's user-set scope: the whole plan, one step or one step range.
-Then report the coverage table with its coverage line. Then, when a growth
-pattern or the reach and complexity pair runs across rounds, the run statement
-and the pricing under [Pricing a run](#pricing-a-run). Then the numbered tiered
-findings, each carrying its growth, reach and complexity tokens, and any
-cross-repo findings. Then write the report to its file under
-[Report file](#report-file) and stop there.
+Open by naming the workflow that ran, the repo set the implementation audit judges and each repo's
+short `HEAD` at audit time, labelled by repo name. These values select the repos for vet, rebuttal
+and fix and supply their checks of changes since the audit. Include only judged repos, whether the
+report lives in Repo Edu or the plan repo. Then name the plan file, its ready commit, the episode's
+commit range and the round's user-set scope: the whole plan, one step or one step range. Then report
+the coverage table with its coverage line. Then, when a growth pattern or the reach and complexity
+pair runs across rounds, the run statement and the pricing under [Pricing a run](#pricing-a-run).
+Then the numbered tiered findings, each carrying its growth, reach and complexity tokens, and any
+cross-repo findings. Then write the report to its file under [Report file](#report-file) and stop
+there.
 
 ## Report file
 
@@ -557,21 +565,30 @@ then stop. A single-repo round uses the root of the repo it judged. A both-repo
 round uses the root where the round started. The file is the copy the vet and
 fix workflows read, so the chat and the file must not differ.
 
-Both repos use `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md` for a
-single-repo implementation report. A both-repo report appends `-<other-sha>`
-before `.md`:
+Name the report under the shared round protocol, using the chosen target and
+round, your own writer tag and the audit kind. No other repo's sha is appended.
+The opening, not the filename, identifies the judged repos and their heads.
 
-- `<plan-name>` is the topic stem used by the shared subject grammar. For an
-  archived `plan.md`, use the archive folder's name.
-- `<scope>` is `all`, `step-<n>` or `steps-<a>-<b>`, the round's scope
-  with its spaces turned into hyphens.
-- `<auditor>` is the launcher's auditor token, `claude` or `codex`.
-- `<own-sha>` is the report repo's `git rev-parse --short HEAD` at audit time.
-- `<other-sha>` is the other repo's short HEAD for a both-repo round. The
-  repo where the round started holds the report and stays first.
+The report and a hand-run audit's claim are gitignored, so writing them keeps
+the round read-only. The round never deletes a report. The fix workflow
+deletes only the landed report and its matched vet and rebuttal files.
 
-The file is gitignored, so writing it keeps the round read-only; it is the
-only file the round writes. The round never deletes a report: the fix
-workflow deletes the round's own report and its `VET-` twin in the turn that
-lands the records, and never touches a file carrying the other auditor
-token.
+## Round allocation
+
+A supplied runner name wins at either report root. Without one, a report
+hosted in the plan repo uses that repo's local allocation rule. A hand-run
+Repo Edu report chooses its target under the shared round protocol, then
+scans both the Repo Edu and plan repo roots for every numbered round file
+with exactly that target, regardless of writer tag or kind. Include transcript
+and brief logs and tagless claims. Ignore old prefix names and sha-keyed
+plan-repo files. A numbered file has at least two decimal digits in its round
+field. A retained plan-root report still reserves its number after the Repo
+Edu files have gone.
+
+Take the highest number plus one, or `01` when none remain, padding to at
+least two digits. Resolve your writer tag before claiming. Exclusively create
+the empty claim file at the Repo Edu root with Node's `open` flag `wx`, then
+close its handle. Only the successful creator may write the report. A conflict
+stops the audit without waiting or retrying. Keep the claim after success or
+failure until the user removes the round files. The number lives only in those
+files and restarts at `01` after a full cleanup. Every later phase reuses it.

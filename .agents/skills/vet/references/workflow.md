@@ -7,7 +7,7 @@ specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
 The vet's input is another AI assistant's implementation-audit report, an
-`AUDIT-*.md` file at its owning repo root. A report at this repo's root belongs
+`*-audit.md` file at its owning repo root. A report at this repo's root belongs
 to a Repo-Edu-only round or to a both-repo round that started here.
 [Report discovery](#report-discovery) says how the file is found. Vet its
 graded findings. Do not run an audit round of your own. Whether a finding is a
@@ -18,12 +18,12 @@ tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the fix workflow
 that lands the round from its report. The auditor answers the verdicts through
 the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
-writing a `REBUT-` twin the fix workflow reads beside this one.
+writing a `-rebut.md` twin the fix workflow reads beside this one.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after completing the required checks and
-writing every verdict to the `VET-` twin; return its absolute path. A verdict
+writing every verdict to the `-vet.md` twin; return its absolute path. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
 that open item.
 
@@ -36,27 +36,24 @@ when the user explicitly says to.
 
 ## Report discovery
 
-The report file's name carries its metadata. A single-repo report is
-`AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md`. A both-repo report appends
-the other repo's sha:
-`AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>-<other-sha>.md`. Parse it from
-the right: recognise one or two short hexadecimal shas, then the auditor token,
-`claude` or `codex`, then the scope, `all`, `step-<n>` or
-`steps-<a>-<b>`, with the rest as the plan name. In a report stored here,
-`<own-sha>` names Repo Edu and `<other-sha>` names the plan repo.
+Read the shared [round protocol](../../../references/round-protocol.md) for
+file names, writer tags and twin matching. The report's opening names the
+judged repos and each repo's short audited `HEAD`; use it to select the repos
+and check changes since the audit. Never infer them from filename shas or the
+report's location. If that opening is missing or ambiguous, ask before vetting.
 
 When the invocation names a report file, vet that file. When it names
-nothing, list `AUDIT-*.md` at this repo's root and drop each file whose
-auditor token is your own. One file left means vet it. More than one means
+nothing, list `*-audit.md` at this repo's root and drop each file whose
+tag's vendor letter is your own. One file left means vet it. More than one means
 name them and ask which to vet. None means ask for the report and wait.
 
-Never vet a report whose auditor token is your own assistant. The vet exists
+Never vet a report whose tag's vendor letter is your own assistant. The vet exists
 to check findings from a fresh context in the other assistant. Continue only
 when the user explicitly says to.
 
 Check two mismatches before vetting:
 
-- A sha in the name differs from its repo's `git rev-parse --short HEAD`. The
+- An audited sha in the opening differs from its repo's `git rev-parse --short HEAD`. The
   tree has moved since the audit, so check what moved with
   `git diff --name-only <sha>..HEAD` in that repo. For a both-repo report, run
   this check independently for Repo Edu and the plan repo. Vet against HEAD
@@ -64,9 +61,11 @@ Check two mismatches before vetting:
   the verdicts. When a file a finding rests on has moved, ground the finding
   against that file at HEAD. When the moved tree already resolved the defect,
   the verdict is drop, naming the resolving commit.
-- The plan or scope in the name differs from the one the report names
-  inside. One of the two is wrong, so refuse and ask. A report that names
-  neither inside cannot pass this check, so ask before vetting.
+- The target in the name differs from the plan and scope or typed commit
+  references the report names inside. Apply the shared target rule, using
+  the audited head for `HEAD`. One of the two is wrong, so refuse and ask.
+  A report that names no scope inside cannot pass this check, so ask before
+  vetting.
 
 ## Axes
 
@@ -173,7 +172,7 @@ Conditions, notes and required explanations follow on separate lines.
 An unconditional Accept with no additional notes ends after the first line;
 do not repeat the finding title, evidence or reasoning. Required narrowing
 notes and corroboration markers below count as additional notes. This format
-applies in both chat and the `VET-` twin.
+applies in both chat and the `-vet.md` twin.
 
 A reopening of a settled decision takes one of two forms:
 
@@ -199,16 +198,19 @@ or a real unresolved choice about machinery's cost. Name what axis 1 classified
 and what the grounded and fix-follows checks found, then stop. Never settle either
 on the vet's own authority.
 
-Before returning the verdicts, look for the sibling report: the same plan name,
-scope and ordered sha set with the other auditor token. When it exists, read it
+Before returning the verdicts, look for sibling reports with the same target
+and judged repo-to-sha values in their openings, written by the other
+assistant. Their round numbers may differ because allocation spans auditors.
+When any exist, read them
 and mark every verdict `corroborated` when the sibling reports the same defect,
 the same file path producing the same wrong behaviour whatever its tier or
 wording, and `unique` when it does not. Corroboration is a signal for the
 user's reading order, never a verdict change. Without a sibling report the
 verdicts carry no marker.
 
-Write the verdicts to the report's twin file, the same name with `VET-` in
-place of `AUDIT-`, as well as into the chat. The twin is untracked and
+Write the verdicts beside the report under the shared round protocol: reuse
+its target and round, spell your own writer tag and use the vet kind. Write
+the same verdicts into the chat. The twin is untracked and
 gitignored, so writing it keeps the vet's read-only rule intact; it is the
 one file the vet writes.
 
@@ -225,6 +227,6 @@ ordinary plan-round form.
 
 ## Coverage table
 
-The report opens with a coverage table. Do not re-audit it. Check a row only
+The coverage table follows the report's opening metadata. Do not re-audit it. Check a row only
 where a finding depends on it, which is when a finding should have been a row,
 or a row should have been a finding.

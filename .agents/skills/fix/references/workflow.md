@@ -9,7 +9,7 @@ apart. Where a launcher and this file disagree, this file is right.
 This workflow is the fix phase of an implementation-audit round. The round
 itself runs under `.agents/skills/audit/references/workflow.md`, reads only,
 writes its report to the repo root and stops. This workflow starts from that
-report: it reads the report, its `VET-` twin and its `REBUT-` twin, presents
+report: it reads the report, its vet twin and its rebuttal twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands
 the round's records and deletes the report with its twins. The split exists
 because a round that reads a whole step range and then fixes in the same
@@ -29,27 +29,24 @@ When the fix needs a ruling, the runner opens that fix session interactively.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
-supplies the local substitutions: that repo's report name, Markdown format
+supplies the local substitutions: that repo's round allocation rule, Markdown format
 and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
 
 ## Report discovery
 
-The report file's name carries its metadata. At the Repo Edu root a
-single-repo report is `AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>.md` and
-a both-repo report appends the plan repo's sha:
-`AUDIT-<plan-name>-<scope>-<auditor>-<own-sha>-<other-sha>.md`. Parse it
-from the right: one or two short hexadecimal shas, then the auditor token,
-`claude` or `codex`, then the scope, `all`, `step-<n>` or `steps-<a>-<b>`,
-with the rest as the plan name. In a report stored here `<own-sha>` names
-Repo Edu and `<other-sha>` names the plan repo.
+Read the shared [round protocol](../../../references/round-protocol.md) for
+file names, writer tags and twin matching. Read the judged repos and each
+repo's short audited `HEAD` from the report opening, never from its filename
+or location. If that opening is missing or ambiguous, ask before applying
+corrections. The opening selects the repos whose records this fix lands.
 
 When the invocation names a report file, land that file. When it names
-nothing, list `AUDIT-*.md` at this repo's root. One file means land it. More
+nothing, list `*-audit.md` at this repo's root. One file means land it. More
 than one means name them, each with the twins it has, and ask which to land.
 None means ask for the report and wait. Either assistant may land a report:
-the auditor's token in the name says who wrote it, not who fixes it.
+the tag's vendor letter says who audited, not who fixes it.
 
-The round's file set is the report and its `VET-` and `REBUT-` twins, when
+The round's file set is the report and its matched vet and rebuttal twins, when
 they exist. This workflow reads that set, lands it and deletes it under
 [Closing the report](#closing-the-report). It never deletes or rewrites a
 file outside the set it lands. The user directed this after a session on
@@ -62,12 +59,12 @@ says to.
 
 ## Grounding
 
-Read the report end to end, then its `VET-` twin and its `REBUT-` twin when
+Read the report end to end, then its matched vet and rebuttal twins when
 they exist. Read the plan in `../plan` for the steps the report's scope names
 and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
 
-Check each sha in the report name against its repo's
+Check each sha in the report opening against its repo's
 `git rev-parse --short HEAD`. When one differs, the tree has moved since the
 audit, so list what moved with `git diff --name-only <sha>..HEAD` in that
 repo. For a both-repo report run the check independently for Repo Edu and
@@ -83,7 +80,7 @@ is about to change.
 
 ## Reconciliation
 
-When the report has a `REBUT-` twin, the auditor has already answered the
+When the report has a rebuttal twin, the auditor has already answered the
 vet and the twin closes with the reconciled outcome in three groups: verdicts
 both assistants agree on, verdicts the rebuttal contests, and the items for
 the user's ruling. Present those groups. For each contested verdict, read the
@@ -92,7 +89,7 @@ correction stands, or maintain, so the item moves to the user's ruling with
 both positions in one or two sentences each. Never re-argue an agreed
 verdict.
 
-When the report has a `VET-` twin and no rebuttal, answer each verdict here:
+When the report has a vet twin and no rebuttal, answer each verdict here:
 agreement carries it into the outcome, disagreement names the evidence the
 vet misread. Present the same three groups. Without a twin, present the
 report's findings in their numbered order with any drift corrections from
@@ -171,11 +168,12 @@ accepts only findings deferred to a repo outside the round's repo set uses the s
 form. The subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or
 `all`; no `Audit:` body line repeats it. The capability tag follows that form and names the
 assistant that ran the audit step, never the one that vets, rebuts or fixes, and it reads on the
-clean record too. Write its first letter alone, `a` or `o`, mapped from the report filename's
-`<auditor>` token, `claude` or `codex`, read under [Report discovery](#report-discovery): the runner
-holds the strength and effort behind it and the commit-msg hook widens the letter into the whole
-tag. Repo Edu's `CLAUDE.md` owns both rules under **Commit Capability Tag** and
-**Commit Model Record**.
+clean record too. Under the runner, write its first letter alone, `a` or `o`, from the report
+filename's writer tag, read under [Report discovery](#report-discovery). The runner holds the
+strength and effort behind it and the commit-msg hook widens the letter into the whole tag. Without
+the runner, use the report's full auditor tag. Use your own selection under the shared round
+protocol for your phase's model record and any file you write. Repo Edu's `CLAUDE.md` owns both
+rules under **Commit Capability Tag** and **Commit Model Record**.
 
 The body carries one bullet per accepted finding, and each bullet opens with
 that finding's metadata before its prose:
@@ -230,7 +228,7 @@ round's file set still asks.
 ## Closing the report
 
 The turn that lands the round's records deletes the landed report and its
-`VET-` and `REBUT-` twins: the commit bodies carry the accepted findings
+matched vet and rebuttal twins: the commit bodies carry the accepted findings
 durably, and a report left behind goes stale against the moved HEAD. The
 twins are the two assistants' exchange on this report and are consumed with
 it. No other report or twin at the root is touched, under
