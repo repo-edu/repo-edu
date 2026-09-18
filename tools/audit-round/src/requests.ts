@@ -117,6 +117,8 @@ export function phasePrompt(input: PhaseInput): string {
       : joinPath(ownerRoot, ".agents", "skills", phase, "SKILL.md")
   return `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
 Working directory: ${cwd}
+Repo Edu checkout: ${repoEduRoot}
+Plan checkout: ${input.planRoot}
 Read and follow this launcher: ${launcher}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}

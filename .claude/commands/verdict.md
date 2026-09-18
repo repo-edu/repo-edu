@@ -1,5 +1,5 @@
 ---
-description: Write the trajectory watch's verdict for the current episode after an implementation-audit round, as the document the user decides from.
+description: Write the trajectory watch's verdict for the current episode after a planning or plan-scoped implementation-audit round, as the document the user decides from.
 argument-hint: [verdict-file] [cache-root]
 disable-model-invocation: true
 ---

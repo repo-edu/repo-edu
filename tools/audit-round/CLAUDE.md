@@ -8,7 +8,7 @@ consumers.
 
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the
   two ruling passes a fix's open item adds, the watch that follows a finished
-  plan round and the chain rule. It
+  planning or plan-scoped implementation round and the chain rule. It
   retains the audit session and report as local values. Audit, vet, fix and
   brief start fresh.
   Rebuttal resumes the audit session only when that session's last measurement
@@ -78,7 +78,10 @@ consumers.
   so duplicate records and tool results do not enter the round files.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
-  resolve the same way. Both update checks precede settings discovery. Codex compares its installed
+  resolve the same way. The verdict workflow owns `watch.json`: each episode
+  records both repositories' graded heads beside one grade and horizon. The
+  glance counts from the invoking repository's head only. Both update checks
+  precede settings discovery. Codex compares its installed
   version with the standalone installer's release channel before running its updater. A current or
   newer installation is kept. An update is successful only when a fresh version read reaches the
   checked release or a newer one. Installer output is retained for failure diagnostics, since its

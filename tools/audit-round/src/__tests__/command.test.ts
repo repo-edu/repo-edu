@@ -921,6 +921,21 @@ for (const auditor of ["codex", "claude"] as const) {
         ),
       )
       assert.match(log, /unattended planning round/)
+      assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
+      assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
+      const fixCall = phases[3]
+      assert.equal(fixCall.assistant, "codex")
+      assert.equal(fixCall.args.includes("resume"), false)
+      assert.deepEqual(
+        { phases: fixCall.phases, auditor: fixCall.auditor },
+        {
+          phases:
+            auditor === "codex"
+              ? "audit, rebut, fix: chosen-model high\nvet: claude-model high"
+              : "audit, rebut: claude-model high\nvet, fix: chosen-model high",
+          auditor: auditor === "codex" ? "ouh" : "auh",
+        },
+      )
       if (ruling) {
         assert.ok(log.includes(join(f.repoRoot, ".claude/commands/rule.md")))
         assert.ok(log.includes(join(f.repoRoot, ".claude/commands/revise.md")))

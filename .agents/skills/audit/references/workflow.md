@@ -57,10 +57,11 @@ explicitly says to.
 
 ## Runner result
 
-When the prompt identifies an unattended implementation-audit phase, follow
+When the prompt identifies an unattended round phase, planning or implementation, follow
 this rule for every ending, including an early stop. It is shared by audit,
 vet, rebuttal, fix, brief, the two ruling passes and the glance and the two
-watch passes, including when a plan-repo launcher routes the phase here with
+watch passes. Planning workflows read this section from its Repo Edu home;
+their planning rules stay in the plan repo. Implementation routes may supply
 local substitutions. Ordinary interactive invocations do not add
 a result line.
 
@@ -102,9 +103,10 @@ vet or rebuttal returns its own twin's path for feedback; that path does not
 replace the audit path. The report's directory selects the later phase's
 owning launcher and local workflow rules, even when the resumed session
 started in the other repo. The brief's input is the round transcript instead,
-so its launcher always belongs to the Repo Edu root, where the runner writes
-every transcript. The ruling passes take the transcript and the report, and
-their launchers belong to the Repo Edu root for the same reason; they run
+and its launcher belongs to the Repo Edu root. Transcripts and the brief and
+ruling twins belong to the invoking root, which may be either repository.
+The ruling passes take the transcript and the report, and their shared
+launchers also belong to Repo Edu; they run
 under `.agents/skills/rule/references/workflow.md` and only after a fix that
 returned `needs-ruling`.
 

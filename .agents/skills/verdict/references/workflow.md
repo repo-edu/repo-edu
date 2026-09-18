@@ -7,20 +7,22 @@ for the rest, so the two cannot drift apart. Where a launcher and this file
 disagree, this file is right. There is no Codex skill beside this file, because
 Claude writes both passes.
 
-The verdict is the trajectory watch's document, written after an
-implementation-audit round whose glance said a watch was due. It is the
-document the user decides from.
+The verdict is the trajectory watch's document, written after an automated planning or plan-scoped
+implementation-audit round whose glance said a watch was due. It is the document the user decides
+from.
 
 ## The watch is defined elsewhere
 
 This file owns how the watch runs inside a round and nothing else. What the
 watch is, how it scopes its episode, what it computes, what the three grades
 mean and which response classes it may suggest are single-sourced in
-`../plan/CLAUDE.md`, under the **AI in watch** role, the **Watch step** and the
-**Trajectory diagnostic**. `../plan` resolves to the sibling plan repo. Read
+the plan checkout's `CLAUDE.md`, under the **AI in watch** role, the **Watch step** and the
+**Trajectory diagnostic**. Use the Repo Edu and plan checkout paths supplied
+in the phase prompt. Keep the invoking repository as the working directory;
+the launcher's Repo Edu location does not select the history to anchor. Read
 those three sections now and follow them.
 
-If `../plan/CLAUDE.md` is absent, say so and fail: you are outside the
+If the plan checkout's `CLAUDE.md` is absent, say so and fail: you are outside the
 repo-edu / plan workflow and cannot write a grounded verdict.
 
 The same capability has a second launcher, the `/watch` slash command, which
@@ -47,7 +49,10 @@ same as every earlier round.
 
 The invocation names two things: the file to write, and the cache root holding
 the watch's own history. Scope the episode by the **Watch step**'s rules, from
-HEAD alone; no anchor is supplied, because no user chose one.
+the invoking repository's HEAD alone; no anchor is supplied, because no user
+chose one. Read and retain the current HEAD of each checkout, then join their
+histories under the watch's episode rules. Those two heads bound the evidence
+this verdict grades.
 
 ## Output
 
@@ -66,13 +71,20 @@ an object keyed by episode stem, and you replace only this episode's entry:
 ```json
 {
   "<stem>": {
-    "sha": "<HEAD sha, short>",
+    "heads": {
+      "repo-edu": "<graded Repo Edu HEAD sha, short>",
+      "plan": "<graded plan HEAD sha, short>"
+    },
     "grade": "green | amber | red",
     "horizon": 3,
     "written": "<local date, YYYY-MM-DD>"
   }
 }
 ```
+
+Write both graded heads, including the peer checkout's head. A glance at either
+root counts from its own entry, never the other repository's history. The grade
+and horizon describe the joined episode. Keep other episode entries unchanged.
 
 `horizon` is the re-run distance in commits that the grade carries: the number
 the verdict names on amber, `8` on green and `0` on red. The glance reads this
@@ -105,7 +117,8 @@ The `simple` requirement governs the verdict. Beyond it:
 
 The verdict has these sections in this order.
 
-1. **Title**: `# <episode stem>: trajectory watch`.
+1. **Title**: `# <episode stem>: trajectory watch`, followed by the two graded
+   heads labelled `repo-edu` and `plan`.
 2. **What is drifting**: one or two paragraphs of grounded description. The
    unstable abstraction, where findings cluster, and the structural reason that
    area keeps reopening.
@@ -143,11 +156,11 @@ file the user opens must read as the finished verdict and nothing else.
 
 ## Runner result
 
-When the prompt identifies an unattended implementation-audit phase, follow the
+When the prompt identifies an unattended round phase, follow the
 audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after both the verdict file and the watch record
 are written, and return the verdict file's absolute path. A missing
-`../plan/CLAUDE.md`, an unreadable log or a record that cannot be written is
+plan checkout's `CLAUDE.md`, an unreadable log or a record that cannot be written is
 `failed`, with the reason. Never return `needs-ruling`: the watch suggests and
 never asks.

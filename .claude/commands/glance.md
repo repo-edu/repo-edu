@@ -1,5 +1,5 @@
 ---
-description: Decide from the commit log alone whether the trajectory watch is due after an implementation-audit round, without running the watch itself.
+description: Decide from the commit log alone whether the trajectory watch is due after a planning or plan-scoped implementation-audit round, without running the watch itself.
 argument-hint: [cache-root]
 disable-model-invocation: true
 ---

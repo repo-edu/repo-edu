@@ -5,7 +5,7 @@ only what is specific to it and points here for the rest. Where the launcher
 and this file disagree, this file is right. There is no Codex skill beside this
 file, because Claude runs every phase the user reads.
 
-The glance runs after every implementation-audit round that finished. It
+The glance runs after every planning or plan-scoped implementation-audit round that finished. It
 answers one question: has the commit record moved far enough that the
 trajectory watch would read it differently than last time? The watch is two
 whole sessions that read the log and then the code behind it, and most rounds
@@ -43,7 +43,10 @@ The watch record is `watch.json` inside it, an object keyed by episode stem:
 ```json
 {
   "desktop-application-architecture": {
-    "sha": "06c653b5",
+    "heads": {
+      "repo-edu": "06c653b5",
+      "plan": "b86dd22"
+    },
     "grade": "amber",
     "horizon": 3,
     "written": "2026-09-13"
@@ -51,7 +54,12 @@ The watch record is `watch.json` inside it, an object keyed by episode stem:
 }
 ```
 
-A missing file, a missing key or an unreadable file is not an error. It means
+Use the checkout paths in the phase prompt to identify the working repository,
+`repo-edu` or `plan`. Read only that repository's entry in `heads` when
+counting distance. Never compare a commit from the peer repository with this
+repository's log. The grade and horizon describe the joined episode.
+
+A missing file, a missing stem or repository entry or an unreadable file is not an error. It means
 the watch has never run on this episode here, and the rules below say what to
 do then.
 
@@ -69,7 +77,7 @@ HEAD is enough for that.
 
 ## The rule
 
-Count the commits that changed files since the recorded sha, excluding the
+Count the commits that changed files since this repository's recorded sha, excluding the
 audit-round record commits whose subject carries an `impl-audit-` role token,
 the same exclusion the repeated-fix gate makes. Call that count the distance.
 
@@ -84,8 +92,9 @@ Answer due when any one of these holds:
 4. The recorded grade is `green` and the distance has reached eight. Green says
    there was no near-term need, not that the episode is finished.
 5. The distance includes a subject whose severity sequence carries an
-   uppercase `A`, whatever the record says. An A-tier concern a user can meet
-   is a trajectory event on its own.
+   uppercase `A`, whatever the record says. In a planning record this names
+   a shape concern; in an implementation record it names an A-tier concern
+   a user can meet. Either is a trajectory event on its own.
 6. The distance includes three or more subjects carrying `growth-high`, or two
    or more carrying a `!` with an uppercase `B`. Either is a run the watch
    should read while it is forming.
@@ -104,7 +113,7 @@ which rule decided. Name the episode stem and the distance. Write no file.
 
 ## Runner result
 
-When the prompt identifies an unattended implementation-audit phase, follow the
+When the prompt identifies an unattended round phase, follow the
 audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. A finished glance reports `file` as null and puts its answer in `due`,

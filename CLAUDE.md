@@ -422,7 +422,7 @@ The tag opens the subject, after the plan form when the subject has one:
 - `<stem>/implemented abx: complete the Repo Edu tool implementation`
 
 The tag names the assistant whose work the subject reports. On an
-implementation-audit record that is the audit, not the session that wrote the
+automated planning or implementation-audit record that is the audit, not the session that wrote the
 commit: Codex fixes whoever audited, so a writer's tag would say the same thing
 on every record, while the auditor is what the trajectory reads off a clean one.
 The role token right before the tag says which kind of subject it is, and a
@@ -445,8 +445,8 @@ effort:
 claude-opus-5 xhigh
 ```
 
-A commit an implementation-audit round lands opens with one line per model, each
-naming the phases that ran on it:
+A commit an automated planning or implementation-audit round lands opens with one line per model,
+each naming the phases that ran on it:
 
 ```text
 audit, rebut, fix: gpt-6-astra medium
