@@ -56,7 +56,8 @@ which assistant wrote a file: `a` is Claude and `o` is Codex.
 
 Under the runner, audit, vet, rebuttal and fix read their own selection from
 `COMMIT_PHASES`. Other sessions use their current model and effort. Codex desktop
-sessions resolve them through [task settings](codex-desktop-settings.md).
+sessions resolve them through [task settings](codex-desktop-settings.md) and
+Claude sessions through [session settings](claude-desktop-settings.md).
 The runner's brief uses its pinned `gpt-5.6-terra` at low effort,
 spelled `oul`; a hand-run brief uses its own session's selection. Resolve the
 tag before writing a file or claiming a number. When the effort is missing or
