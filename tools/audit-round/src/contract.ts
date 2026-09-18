@@ -22,7 +22,7 @@ import {
 } from "./codex-session.js"
 import { readCodexSettings } from "./codex-settings.js"
 import { eventSchema, type Feedback } from "./feedback.js"
-import { RoundOutput, roundRun } from "./output.js"
+import { RoundOutput } from "./output.js"
 import { type Assistant, unpinned } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
 import type { Terminal } from "./terminal.js"
@@ -132,17 +132,25 @@ export async function recordContracts(
     const files: string[] = []
     for (const assistant of assistants) {
       terminal.write(`Recording ${assistant} contract...`)
+      const selection = await (assistant === "claude"
+        ? readClaudeSettings
+        : readCodexSettings)(runtime, async (text) => terminal.write(text))
       const output = new RoundOutput(
-        roundRun(
-          { repoRoot: scratch, plan: "CLI-contract", auditor: assistant },
-          Date.now(),
-        ),
+        {
+          name: "CLI contract",
+          title: `CLI contract for ${assistant}`,
+          phases: [{ phase: "fix", assistant, model: unpinned }],
+          selections: { claude: selection, codex: selection },
+          paths: {
+            claim: null,
+            log: join(scratch, `${assistant}.log`),
+            markdown: join(scratch, `${assistant}.md`),
+          },
+          started: Date.now(),
+        },
         { terminal, verbose: true },
       )
       try {
-        const selection = await (assistant === "claude"
-          ? readClaudeSettings
-          : readCodexSettings)(runtime, output.message)
         terminal.write(
           `Startup ${assistant}: ${selection.model} ${selection.effort}`,
         )

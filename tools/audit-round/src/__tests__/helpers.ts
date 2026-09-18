@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
@@ -8,6 +8,10 @@ import type { Feedback, PhaseOutput } from "../feedback.js"
 import type { Assistant, PhaseInput, PhaseResult } from "../phase.js"
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
+export const selections = {
+  claude: { model: "claude-opus-5", effort: "xhigh" },
+  codex: { model: "gpt-6-astra", effort: "high" },
+}
 export const recorded = async (name: string) =>
   readFile(join(fixtureRoot, name), "utf8")
 export const finishedText =
@@ -48,8 +52,11 @@ export async function fixture(
   const releaseLookup = t.mock.method(globalThis, "fetch", async () =>
     Response.json({ tag_name: "rust-v1.0.0" }),
   )
-  const root = await mkdtemp(join(tmpdir(), "audit-round-test-"))
-  t.after(() => rm(root, { recursive: true, force: true }))
+  const directory = await mkdtemp(join(tmpdir(), "audit-round-test-"))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const root = join(directory, "repo-edu")
+  await mkdir(root)
+  await mkdir(join(directory, "plan"))
   await writeFile(join(root, "scenario.json"), JSON.stringify(scenario))
   const executable = (assistant: Assistant) => ({
     file: process.execPath,

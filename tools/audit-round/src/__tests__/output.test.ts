@@ -10,7 +10,7 @@ import { commandText } from "../output-format.js"
 import type { Assistant, AuditorOverride } from "../phase.js"
 import { unpinned } from "../phase.js"
 import { createTerminal } from "../terminal.js"
-import { fixture } from "./helpers.js"
+import { fixture, selections } from "./helpers.js"
 
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
   const f = await fixture(t)
@@ -18,7 +18,11 @@ test("long commit lists record every reference without exceeding filename limits
     "a".repeat(40),
     ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
   ] as const
-  const run = roundRun({ repoRoot: f.root, commits }, Date.now())
+  const run = await roundRun(
+    { repoRoot: f.root, commits },
+    Date.now(),
+    selections,
+  )
   const output = new RoundOutput(run, {
     terminal: { write() {}, status() {}, clear() {} },
   })
@@ -34,7 +38,11 @@ test("output records complete invocations incrementally and refreshes only while
   const status: string[] = []
   let clears = 0
   const output = new RoundOutput(
-    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+    await roundRun(
+      { repoRoot: f.root, plan: "example.md" },
+      Date.now(),
+      selections,
+    ),
     {
       verbose: true,
       terminal: {
@@ -59,7 +67,7 @@ test("output records complete invocations incrementally and refreshes only while
         model: unpinned,
         cwd: f.root,
         ownerRoot: f.root,
-        arguments: ["example.md"],
+        arguments: ["example-all-01", "example.md"],
         sessionId: null,
       },
       "Full prompt\nMore prompt",
@@ -140,7 +148,11 @@ test("written status stamps chain into the running total", async (t) => {
   const f = await fixture(t)
   const visible: string[] = []
   const output = new RoundOutput(
-    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+    await roundRun(
+      { repoRoot: f.root, plan: "example.md" },
+      Date.now(),
+      selections,
+    ),
     {
       terminal: {
         write: (text) => {
@@ -163,7 +175,7 @@ test("written status stamps chain into the running total", async (t) => {
       model: unpinned,
       cwd: f.root,
       ownerRoot: f.root,
-      arguments: ["example.md"],
+      arguments: ["example-all-01", "example.md"],
       sessionId: null,
     },
     "Prompt",
@@ -201,7 +213,11 @@ for (const assistant of ["claude", "codex"] as const) {
       const f = await fixture(t)
       const visible: string[] = []
       const output = new RoundOutput(
-        roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+        await roundRun(
+          { repoRoot: f.root, plan: "example.md" },
+          Date.now(),
+          selections,
+        ),
         {
           verbose,
           terminal: {
@@ -221,7 +237,7 @@ for (const assistant of ["claude", "codex"] as const) {
           model: unpinned,
           cwd: f.root,
           ownerRoot: f.root,
-          arguments: ["example.md"],
+          arguments: ["example-all-01", "example.md"],
           sessionId: null,
         },
         "prompt",
@@ -358,7 +374,11 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const f = await fixture(t)
   const visible: string[] = []
   const output = new RoundOutput(
-    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+    await roundRun(
+      { repoRoot: f.root, plan: "example.md" },
+      Date.now(),
+      selections,
+    ),
     {
       terminal: {
         write: (text) => {
@@ -394,7 +414,11 @@ test("the settings header groups phases by assistant in aligned columns", async 
     const f = await fixture(t)
     const visible: string[] = []
     const output = new RoundOutput(
-      roundRun({ repoRoot: f.root, plan: "example.md", auditor }, Date.now()),
+      await roundRun(
+        { repoRoot: f.root, plan: "example.md", auditor },
+        Date.now(),
+        selections,
+      ),
       {
         terminal: {
           write: (text) => {
@@ -448,7 +472,11 @@ test("the settings header names what set each phase's model and effort", async (
     const f = await fixture(t)
     const visible: string[] = []
     const output = new RoundOutput(
-      roundRun({ repoRoot: f.root, plan: "example.md", override }, Date.now()),
+      await roundRun(
+        { repoRoot: f.root, plan: "example.md", override },
+        Date.now(),
+        selections,
+      ),
       {
         terminal: {
           write: (text) => {
@@ -501,7 +529,11 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
   const f = await fixture(t)
   const visible: string[] = []
   const output = new RoundOutput(
-    roundRun({ repoRoot: f.root, plan: "example.md" }, Date.now()),
+    await roundRun(
+      { repoRoot: f.root, plan: "example.md" },
+      Date.now(),
+      selections,
+    ),
     {
       terminal: {
         write: (text) => {
@@ -534,14 +566,11 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(
-    f.root,
-    "ROUND-example-all-codex-2026-09-12T22-17-38.md",
-  )
+  const transcript = join(f.root, "example-all-01-oth-round.md")
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
-    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z")),
+    briefRun(transcript, Date.parse("2026-09-13T08:00:00Z"), selections),
     {
       terminal: {
         write: (text) => {
@@ -561,16 +590,10 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     },
   )
   t.after(() => output.close())
-  assert.match(
-    output.paths.log,
-    /ROUND-example-all-codex-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
-  )
+  assert.match(output.paths.log, /example-all-01-oul-brief\.log$/)
   assert.equal(output.paths.markdown, null)
-  assert.match(
-    visible[0] as string,
-    /^Brief of ROUND-example-all-codex-2026-09-12T22-17-38\.md\n/,
-  )
-  assert.doesNotMatch(visible[0] as string, /Texts:/)
+  assert.match(visible[1] as string, /^Brief of example-all-01-oth-round\.md\n/)
+  assert.doesNotMatch(visible[1] as string, /Texts:/)
   output.models({
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
     codex: { model: "gpt-6-astra", effort: "high" },

@@ -134,16 +134,14 @@ for (const config of [
   })
 }
 
-test("Codex rejects an unresolved effort after searching every model page", async (t) => {
+test("Codex reports an unresolved effort for phase selection to validate", async (t) => {
   const f = await fixture(t, {
     config: { model: "unlisted-model", model_reasoning_effort: null },
   })
-  await assert.rejects(
-    readCodexSettings(f.runtime, async () => {}),
-    {
-      message: "Codex did not report defaults for the selected model",
-    },
-  )
+  assert.deepEqual(await readCodexSettings(f.runtime, async () => {}), {
+    model: "unlisted-model",
+    effort: null,
+  })
   const requests = (await readFile(join(f.root, "requests.jsonl"), "utf8"))
     .trim()
     .split("\n")

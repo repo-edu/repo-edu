@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { type TestContext, test } from "node:test"
+import { execa } from "execa"
 import { runCommand } from "../command.js"
 import type { Assistant } from "../phase.js"
 import { openRunFiles } from "../run-files.js"
@@ -113,7 +114,7 @@ async function roundFixture(
     cacheRoot: join(f.root, "cache"),
   }
   const roundFiles = async () =>
-    (await readdir(repoRoot)).filter((name) => name.startsWith("ROUND-"))
+    (await readdir(repoRoot)).filter((name) => /-round\.(md|log)$/.test(name))
   const records = async () => {
     const names = await roundFiles()
     assert.equal(names.length, 2)
@@ -247,7 +248,9 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(markdown.includes("Complete brief text."), false)
         assert.ok(visible.includes("Complete brief text."))
         assert.ok(
-          log.includes(`Phase arguments (JSON array): ["example.md","2-3"]`),
+          log.includes(
+            `Phase arguments (JSON array): ["example-steps-2-3-01","example.md","2-3"]`,
+          ),
         )
         assert.ok(
           log.includes(
@@ -399,28 +402,66 @@ test("an unavailable writer still prints the known session to the emergency chan
   )
 })
 
-test("a recording failure during update output cannot be treated as an update warning", async (t) => {
+test("a terminal failure during startup stops before any round file is created", async (t) => {
   const f = await roundFixture(t)
   assert.equal(
     await runCommand(["example.md"], f.runtime, {
       ...f.options,
-      openFiles(paths) {
-        const files = openRunFiles(paths)
-        return {
-          ...files,
-          log(text) {
-            if (text === "claude update output")
-              throw new Error("Update recording failed")
-            files.log(text)
-          },
-        }
+      terminal: {
+        ...f.options.terminal,
+        write(text) {
+          if (text === "claude update output")
+            throw new Error("Update presentation failed")
+          f.options.terminal.write(text)
+        },
       },
     }),
     1,
   )
   assert.equal((await f.calls()).length, 1)
-  assert.match(f.errors.join("\n"), /Update recording failed/)
+  assert.deepEqual(await f.roundFiles(), [])
+  assert.match(f.errors.join("\n"), /Update presentation failed/)
 })
+
+test("startup writes only to the terminal before the models table opens the run log", async (t) => {
+  const f = await roundFixture(t)
+  assert.equal(
+    await runCommand(["example.md"], f.runtime, {
+      ...f.options,
+      openFiles(paths) {
+        assert.ok(f.visible.includes("Checking claude updates..."))
+        assert.ok(f.visible.includes("claude update output"))
+        return openRunFiles(paths)
+      },
+    }),
+    0,
+    f.errors.join("\n"),
+  )
+  const { log } = await f.records()
+  assert.match(log, /^audit +codex +chosen-model high/)
+  assert.doesNotMatch(
+    log,
+    /Checking .* updates|claude update output|Codex is up to date/,
+  )
+})
+
+for (const effort of [null, "max"]) {
+  test(`a ${effort} configured effort stops the command before any round files exist`, async (t) => {
+    const f = await roundFixture(t)
+    await f.configure({
+      phases: f.phases,
+      config: { model: "unlisted-model", model_reasoning_effort: effort },
+    })
+    const before = await readdir(f.repoRoot)
+    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    assert.match(f.errors.join("\n"), /codex audit.*full --auditor tag/)
+    assert.deepEqual(await readdir(f.repoRoot), before)
+    assert.equal(
+      (await f.calls()).filter((call) => call.args[0] === "exec").length,
+      0,
+    )
+  })
+}
 
 for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
@@ -523,6 +564,28 @@ test("argument errors and help start no assistant processes", async (t) => {
 for (const auditor of ["codex", "claude"] as const) {
   test(`${auditor} commit audit preserves its target and finishes without a watch`, async (t) => {
     const f = await roundFixture(t, auditor, "repo-edu", false, "b", true)
+    await execa("git", ["init", "--quiet"], { cwd: f.repoRoot })
+    await execa(
+      "git",
+      [
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.test",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Fixture",
+      ],
+      { cwd: f.repoRoot },
+    )
+    const { stdout: head } = await execa(
+      "git",
+      ["rev-parse", "--short", "HEAD"],
+      { cwd: f.repoRoot },
+    )
     const commits = auditor === "codex" ? ["HEAD-2..HEAD"] : ["HEAD-1", "HEAD"]
     assert.equal(
       await runCommand(
@@ -535,12 +598,14 @@ for (const auditor of ["codex", "claude"] as const) {
     )
     const { log, markdown, transcript } = await f.records()
     assert.ok(
-      log.includes(`Phase arguments (JSON array): ${JSON.stringify(commits)}`),
+      log.includes(
+        `Phase arguments (JSON array): ${JSON.stringify([auditor === "codex" ? `${head}-2..${head}-01` : `${head}-1-plus-1-01`, ...commits])}`,
+      ),
     )
     assert.ok(
       markdown.startsWith(`# Audit round of commits ${commits.join(" ")}\n`),
     )
-    assert.ok(transcript.includes(commits[0]))
+    assert.ok(transcript.includes(commits[0].replaceAll("HEAD", head)))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
     assert.doesNotMatch(
@@ -559,14 +624,11 @@ for (const auditor of ["codex", "claude"] as const) {
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
-  const transcript = join(
-    f.repoRoot,
-    "ROUND-example-step-7-claude-2026-09-12T22-17-38.md",
-  )
+  const transcript = join(f.repoRoot, "example-step-7-01-abx-round.md")
   await writeFile(transcript, "# Audit round of example.md 7\n")
   assert.equal(
     await runCommand(
-      ["brief", "ROUND-example-step-7-claude-2026-09-12T22-17-38.md"],
+      ["brief", "example-step-7-01-abx-round.md"],
       f.runtime,
       f.options,
     ),
@@ -584,22 +646,16 @@ test("a brief on its own retells the named transcript without a new round pair",
     ["codex"],
   )
   const names = (await readdir(f.repoRoot)).filter((name) =>
-    name.startsWith("ROUND-"),
+    name.startsWith("example-step-7-01-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
-  assert.match(
-    logName,
-    /^ROUND-example-step-7-claude-2026-09-12T22-17-38-brief-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.log$/,
-  )
+  assert.match(logName, /^example-step-7-01-oul-brief\.log$/)
   assert.deepEqual(
     names.toSorted(),
-    [logName, "ROUND-example-step-7-claude-2026-09-12T22-17-38.md"].toSorted(),
+    [logName, "example-step-7-01-abx-round.md"].toSorted(),
   )
   const log = await readFile(join(f.repoRoot, logName), "utf8")
-  assert.match(
-    log,
-    /^Brief of ROUND-example-step-7-claude-2026-09-12T22-17-38\.md\n/,
-  )
+  assert.match(log, /Brief of example-step-7-01-abx-round\.md\n/)
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
@@ -618,11 +674,21 @@ test("a brief on its own retells the named transcript without a new round pair",
 
 test("a brief on its own refuses a transcript that is not a Markdown file at the root", async (t) => {
   const f = await roundFixture(t)
-  for (const name of ["missing.md", "pnpm-workspace.yaml"]) {
+  await writeFile(join(f.repoRoot, "ROUND-example-old.md"), "Old transcript")
+  await writeFile(
+    join(f.repoRoot, "../plan/example-01-oth-round.md"),
+    "Peer transcript",
+  )
+  for (const name of [
+    "missing.md",
+    "pnpm-workspace.yaml",
+    "ROUND-example-old.md",
+    "../plan/example-01-oth-round.md",
+  ]) {
     assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
     assert.match(
       f.errors.at(-1) as string,
-      /Name a round's ROUND-\*\.md transcript/,
+      /Name a round's \*-round\.md transcript/,
     )
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -638,19 +704,14 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
     f.errors.join("\n"),
   )
   const names = (await f.roundFiles()).toSorted()
-  assert.deepEqual(
-    names.map((name) =>
-      name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
-    ),
-    [
-      "ROUND-example-step-3-codex-<stamp>-round-1.log",
-      "ROUND-example-step-3-codex-<stamp>-round-1.md",
-      "ROUND-example-step-3-codex-<stamp>-round-2.log",
-      "ROUND-example-step-3-codex-<stamp>-round-2.md",
-      "ROUND-example-step-3-codex-<stamp>-round-3.log",
-      "ROUND-example-step-3-codex-<stamp>-round-3.md",
-    ],
-  )
+  assert.deepEqual(names, [
+    "example-step-3-01-ouh-round.log",
+    "example-step-3-01-ouh-round.md",
+    "example-step-3-02-ouh-round.log",
+    "example-step-3-02-ouh-round.md",
+    "example-step-3-03-ouh-round.log",
+    "example-step-3-03-ouh-round.md",
+  ])
   const invocations = (await f.calls()).filter(
     (call) =>
       call.args[0] === "exec" ||
@@ -694,17 +755,12 @@ test("a chained run crosses to the other assistant once the fix records a clean 
     f.errors.join("\n"),
   )
   const names = (await f.roundFiles()).toSorted()
-  assert.deepEqual(
-    names.map((name) =>
-      name.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/, "<stamp>"),
-    ),
-    [
-      "ROUND-example-all-claude-<stamp>-round-2.log",
-      "ROUND-example-all-claude-<stamp>-round-2.md",
-      "ROUND-example-all-codex-<stamp>-round-1.log",
-      "ROUND-example-all-codex-<stamp>-round-1.md",
-    ],
-  )
+  assert.deepEqual(names, [
+    "example-all-01-ouh-round.log",
+    "example-all-01-ouh-round.md",
+    "example-all-02-auh-round.log",
+    "example-all-02-auh-round.md",
+  ])
   const visible = f.visible.join("\n")
   assert.match(
     visible,
@@ -722,7 +778,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const verdict = transcript.replace(/\.md$/, "-verdict.md")
+  const verdict = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
   assert.ok(log.includes(`${f.repoRoot}/.claude/commands/glance.md`))
   assert.ok(log.includes(`${f.repoRoot}/.claude/commands/verdict.md`))
   assert.ok(
@@ -767,7 +823,7 @@ test("a chained run stops at the round that opens a ruling session", async (t) =
   )
 })
 
-test("an unchained run leaves the round files unnumbered and says nothing about a chain", async (t) => {
+test("an unchained run claims its round number and says nothing about a chain", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
     await runCommand(["example.md", "3"], f.runtime, f.options),
@@ -776,6 +832,8 @@ test("an unchained run leaves the round files unnumbered and says nothing about 
   )
   const names = await f.roundFiles()
   assert.equal(names.length, 2)
-  assert.ok(names.every((name) => !name.includes("-round-")))
+  assert.ok(
+    names.every((name) => name.startsWith("example-step-3-01-ouh-round.")),
+  )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
 })

@@ -1,8 +1,11 @@
-import { basename, join } from "node:path"
+import { readdir } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
+import { execa } from "execa"
 import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
 import {
   type Context,
+  capabilityTag,
   contextChange,
   contextText,
   elapsedText,
@@ -25,7 +28,6 @@ import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
-import type { AuditTarget } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type OutputOptions = {
@@ -41,23 +43,28 @@ export type Run = {
   readonly name: string
   readonly title: string
   readonly phases: readonly RunEntry[]
+  readonly selections: Record<Assistant, ModelSelection>
   readonly paths: RunPaths
   /** The reading that dates the run files; the timers count from it too. */
   readonly started: number
 }
 
-function fileTimestamp(started: number): string {
-  return format(new Date(started), "yyyy-MM-dd'T'HH-mm-ss")
-}
-
-function targetDescription(target: AuditTarget): {
+async function targetDescription(target: RoundSetup): Promise<{
   label: string
   title: string
-} {
+}> {
   if ("commits" in target) {
+    const first = target.commits[0]
+    const head = first.includes("HEAD")
+      ? (
+          await execa("git", ["rev-parse", "--short", "HEAD"], {
+            cwd: target.repoRoot,
+          })
+        ).stdout
+      : ""
     // Keep list filenames bounded; the title and phase arguments carry every reference.
     return {
-      label: `${target.commits[0]}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}-all`,
+      label: `${first.replaceAll("HEAD", head)}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}`,
       title: `commits ${target.commits.join(" ")}`,
     }
   }
@@ -66,33 +73,92 @@ function targetDescription(target: AuditTarget): {
       ? "all"
       : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
   return {
-    label: `${basename(target.plan, ".md")}-${scope}`,
+    label: `${basename(target.plan) === "plan.md" ? basename(dirname(target.plan)) : basename(target.plan, ".md")}-${scope}`,
     title: `${target.plan} ${target.scope ?? "all"}`,
   }
 }
 
-export function roundRun(
+/** A tag must be known before any file reserves or records the round. */
+function fileTag(
+  entry: RunEntry,
+  selections: Record<Assistant, ModelSelection>,
+): string {
+  const tag = capabilityTag(entry, selections[entry.assistant])
+  if (tag !== null) return tag
+  const advice =
+    entry.phase === "audit" || entry.phase === "rebut"
+      ? "Supply a full --auditor tag."
+      : `Set ${entry.assistant}'s effort in its CLI settings; --auditor does not control this phase.`
+  throw new Error(
+    `Cannot name ${entry.assistant} ${entry.phase} output: its effort is missing or unsupported. ${advice}`,
+  )
+}
+
+/** Read every retained kind at both roots; opening the run claims this candidate. */
+async function nextNameStart(
+  repoRoot: string,
+  target: string,
+): Promise<string> {
+  const roots = await Promise.all(
+    [repoRoot, join(repoRoot, "../plan")].map((root) =>
+      readdir(root, { withFileTypes: true }),
+    ),
+  )
+  const numbers = roots
+    .flat()
+    .filter((file) => file.isFile())
+    .map((file) => file.name)
+    .filter((name) => name.startsWith(`${target}-`))
+    .map((name) => {
+      const suffix = name.slice(target.length + 1)
+      const match =
+        /^(\d{2,})-(?:claim\.md|[ao][btu][lmhx]-(?:round\.(?:md|log)|(?:audit|vet|rebut|brief|ruling|watch)\.md|brief\.log))$/.exec(
+          suffix,
+        )
+      return match === null ? 0 : Number(match[1])
+    })
+  const next = Math.max(0, ...numbers) + 1
+  if (!Number.isSafeInteger(next))
+    throw new Error(`Round number exhausted for ${target}`)
+  return `${target}-${String(next).padStart(2, "0")}`
+}
+
+export async function roundRun(
   setup: RoundSetup,
   started: number,
+  selections: Record<Assistant, ModelSelection>,
   /**
-   * The round's place in a chained run. Rounds within one chain can start in
-   * the same second, so the number keeps each round's file pair distinct and
-   * names which round the user is reading.
+   * The round's place in a chain, for the title only. Disk claims own filenames.
    */
   round?: number,
-): Run & { readonly paths: { readonly markdown: string } } {
-  const target = targetDescription(setup)
-  const place = round === undefined ? "" : `-round-${round}`
-  const base = join(
-    setup.repoRoot,
-    `ROUND-${target.label}-${setup.auditor ?? "codex"}-${fileTimestamp(started)}${place}`,
-  )
+): Promise<
+  Run & {
+    readonly nameStart: string
+    readonly verdict: string
+    readonly paths: { readonly markdown: string }
+  }
+> {
   const phases = roundPhases(
     setup.auditor ?? "codex",
     setup.override ?? noOverride,
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
+  for (const phase of Object.keys(phases) as Phase[]) {
+    if (phase !== "glance" && (phase !== "verdict" || "plan" in setup))
+      fileTag(entry(phase), selections)
+  }
+  const target = await targetDescription(setup)
+  const nameStart = await nextNameStart(setup.repoRoot, target.label)
+  const base = join(
+    setup.repoRoot,
+    `${nameStart}-${fileTag(entry("audit"), selections)}-round`,
+  )
   return {
+    nameStart,
+    verdict: join(
+      setup.repoRoot,
+      `${nameStart}-${fileTag(entry("verdict"), selections)}-watch.md`,
+    ),
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
     phases: [
@@ -103,28 +169,49 @@ export function roundRun(
       entry("brief"),
       ...("plan" in setup ? [entry("verdict")] : []),
     ],
-    paths: { log: `${base}.log`, markdown: `${base}.md` },
+    paths: {
+      claim: join(setup.repoRoot, `${nameStart}-claim.md`),
+      log: `${base}.log`,
+      markdown: `${base}.md`,
+    },
+    selections,
     started,
   }
 }
 
-/**
- * Where the watch writes the verdict that follows one round: beside that
- * round's transcript and named for it. The watch never reads the transcript,
- * so the name is all the two share.
- */
-export function verdictPath(transcript: string): string {
-  return `${transcript.replace(/\.md$/, "")}-verdict.md`
+/** A later writer reuses the transcript's target and number, replacing its tag and kind. */
+export function transcriptNameStart(transcript: string): string {
+  const match = /^(.+-\d{2,})-[ao][btu][lmhx]-round\.md$/.exec(
+    basename(transcript),
+  )
+  if (match === null)
+    throw new Error(
+      "Name a round's *-round.md transcript at the Repo Edu checkout root.",
+    )
+  return match[1]
 }
 
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
-export function briefRun(transcript: string, started: number): Run {
+export function briefRun(
+  transcript: string,
+  started: number,
+  selections: Record<Assistant, ModelSelection>,
+): Run {
+  const phase = {
+    phase: "brief",
+    ...roundPhases("codex", noOverride).brief,
+  } as const
   return {
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
-    phases: [{ phase: "brief", ...roundPhases("codex", noOverride).brief }],
+    phases: [phase],
+    selections,
     paths: {
-      log: `${transcript.replace(/\.md$/, "")}-brief-${fileTimestamp(started)}.log`,
+      claim: null,
+      log: join(
+        dirname(transcript),
+        `${transcriptNameStart(transcript)}-${fileTag(phase, selections)}-brief.log`,
+      ),
       markdown: null,
     },
     started,
@@ -164,8 +251,9 @@ export class RoundOutput<R extends Run = Run> {
       const started = `Started ${format(new Date(run.started), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx")}`
       const texts =
         this.paths.markdown === null ? "" : `\nTexts: ${this.paths.markdown}`
-      this.say(`${run.title}\n${started}\nLog: ${this.paths.log}${texts}`)
       this.transcribe(`# ${run.title}\n\n${started}\n`)
+      this.models(run.selections)
+      this.say(`${run.title}\n${started}\nLog: ${this.paths.log}${texts}`)
     } catch (error) {
       this.files.close()
       throw error

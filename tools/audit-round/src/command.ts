@@ -1,5 +1,5 @@
 import { readdir, realpath, stat } from "node:fs/promises"
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 import {
   Command,
   CommanderError,
@@ -8,22 +8,17 @@ import {
 } from "commander"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import type { CliRuntime } from "./cli-process.js"
-import { errorMessage, type ModelSelection } from "./feedback.js"
+import { errorMessage } from "./feedback.js"
 import {
   briefRun,
   type OutputOptions,
   RoundOutput,
   type Run,
   roundRun,
-  verdictPath,
+  transcriptNameStart,
 } from "./output.js"
 import { chainText, commitStamps } from "./output-format.js"
-import {
-  type Assistant,
-  type AuditorSeat,
-  noOverride,
-  parseAuditorTag,
-} from "./phase.js"
+import { type AuditorSeat, noOverride, parseAuditorTag } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -66,10 +61,11 @@ async function checkTranscript(
   } catch {
     // The message below names the expected file.
   }
-  if (!file || !path.endsWith(".md"))
+  if (!file || dirname(path) !== repoRoot)
     throw new Error(
-      "Name a round's ROUND-*.md transcript at the Repo Edu checkout root.",
+      "Name a round's *-round.md transcript at the Repo Edu checkout root.",
     )
+  transcriptNameStart(path)
   return path
 }
 
@@ -160,7 +156,7 @@ function parseInvocation(
   command
     .command("brief")
     .description(
-      "Write the plain-words brief of a finished round from its ROUND-*.md transcript.",
+      "Write the plain-words brief of a finished round from its *-round.md transcript.",
     )
     .argument("<transcript>", "the round's Markdown transcript")
     .option("-v, --verbose", "show tool calls as well as assistant text")
@@ -195,36 +191,40 @@ export async function runCommand(
   const now = options.now ?? Date.now
   try {
     const repoRoot = await checkRepoRoot(runtime.cwd)
-    let selections: Record<Assistant, ModelSelection> | undefined
+    const prepared =
+      invocation.kind === "brief"
+        ? {
+            ...invocation,
+            transcript: await checkTranscript(repoRoot, invocation.transcript),
+          }
+        : invocation
+    runtime.signal?.throwIfAborted()
+    const selections = await prepareAssistants(
+      { ...runtime, cwd: repoRoot },
+      {
+        message: async (text) => options.terminal.write(text),
+        warning: async (text) => options.terminal.write(`Warning: ${text}`),
+      },
+      { cacheRoot: options.cacheRoot },
+    )
+    runtime.signal?.throwIfAborted()
     /**
      * Each round records its own file pair, so a chained run opens one output
      * per round and retires the previous one first. Updates and settings are
      * read once; later rounds reuse the selections rather than re-entering the
      * CLIs.
      */
-    const open = async (
-      run: Run,
-    ): Promise<{
-      readonly active: RoundOutput
-      readonly chosen: Record<Assistant, ModelSelection>
-    }> => {
+    const open = (run: Run): RoundOutput => {
       const previous = output
       output = undefined
       previous?.close()
+      runtime.signal?.throwIfAborted()
       const active = new RoundOutput(run, {
         ...options,
         verbose: invocation.verbose,
       })
       output = active
-      runtime.signal?.throwIfAborted()
-      selections ??= await prepareAssistants(
-        { ...runtime, cwd: repoRoot },
-        active,
-        { cacheRoot: options.cacheRoot },
-      )
-      const chosen = selections
-      active.models(chosen)
-      return { active, chosen }
+      return active
     }
     const dependenciesFor = (
       active: RoundOutput,
@@ -237,47 +237,49 @@ export async function runCommand(
         active.interactive,
       )
 
-    if (invocation.kind === "brief") {
-      const transcript = await checkTranscript(repoRoot, invocation.transcript)
-      const { active } = await open(briefRun(transcript, now()))
+    if (prepared.kind === "brief") {
+      const { transcript } = prepared
+      const active = open(briefRun(transcript, now(), selections))
       result = await runBrief({ repoRoot, transcript }, dependenciesFor(active))
       active.finish(result)
     } else {
       const setup = {
         repoRoot,
-        ...invocation.target,
+        ...prepared.target,
         override: {
-          strength: invocation.auditor.strength,
-          effort: invocation.auditor.effort,
+          strength: prepared.auditor.strength,
+          effort: prepared.auditor.effort,
         },
       }
-      let auditor = invocation.auditor.assistant
+      let auditor = prepared.auditor.assistant
       let completed = 0
       for (;;) {
-        const run = roundRun(
+        const run = await roundRun(
           { ...setup, auditor },
           now(),
-          invocation.chain === true ? completed + 1 : undefined,
+          selections,
+          prepared.chain === true ? completed + 1 : undefined,
         )
-        const { active, chosen } = await open(run)
+        const active = open(run)
         const round = await runRound(
           {
             ...setup,
             auditor,
+            nameStart: run.nameStart,
             transcript: run.paths.markdown,
-            verdict: verdictPath(run.paths.markdown),
+            verdict: run.verdict,
             cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
           },
-          dependenciesFor(active, commitStamps(run.phases, chosen)),
+          dependenciesFor(active, commitStamps(run.phases, selections)),
         )
         result = round
         active.finish(round)
         completed += 1
-        if (invocation.chain !== true) break
+        if (prepared.chain !== true) break
         const decision = chainDecision(
           round,
           auditor,
-          invocation.auditor.assistant,
+          prepared.auditor.assistant,
           completed,
         )
         await active.message(chainText(decision, completed, chainCap))

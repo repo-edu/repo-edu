@@ -25,15 +25,21 @@ const briefPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38.md`
-const brief = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-brief.md`
-const ruling = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-ruling.md`
-const verdict = `${repoRoot}/ROUND-example-all-codex-2026-09-12T22-17-38-verdict.md`
+const transcript = `${repoRoot}/example-all-01-oth-round.md`
+const brief = `${repoRoot}/example-all-01-oul-brief.md`
+const ruling = `${repoRoot}/example-all-01-abx-ruling.md`
+const verdict = `${repoRoot}/example-all-01-abx-watch.md`
 const cacheRoot = "/cache/audit-round"
 const ruleWorkflow = `${repoRoot}/.agents/skills/rule/references/workflow.md`
 const watchWorkflow = `${repoRoot}/.agents/skills/verdict/references/workflow.md`
 /** What every round input carries beyond the plan and the auditor. */
-const files = { repoRoot, transcript, verdict, cacheRoot }
+const files = {
+  repoRoot,
+  transcript,
+  verdict,
+  cacheRoot,
+  nameStart: "example-all-01",
+}
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** Every phase in order, including the two the fix's open item adds. */
 const rulingPhases = [...phases, "rule", "revise"] as const
@@ -217,7 +223,7 @@ for (const auditor of ["claude", "codex"] as const) {
           model: unpinned,
           cwd: repoRoot,
           ownerRoot: repoRoot,
-          arguments: ["../plan/example.md", "2-3"],
+          arguments: [files.nameStart, "../plan/example.md", "2-3"],
           sessionId: null,
         },
         {
@@ -431,7 +437,7 @@ test("defaults to Codex and preserves plan arguments as data without inventing a
   await runRound({ ...files, plan }, round.dependencies)
 
   assert.equal(round.calls[0].assistant, "codex")
-  assert.deepEqual(round.calls[0].arguments, [plan])
+  assert.deepEqual(round.calls[0].arguments, [files.nameStart, plan])
 })
 
 for (const ruling of [false, true]) {
@@ -446,7 +452,7 @@ for (const ruling of [false, true]) {
     const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
     const result = await runRound({ ...files, commits }, round.dependencies)
     assert.equal(result.status, ruling ? "handed-over" : "finished")
-    assert.deepEqual(round.calls[0].arguments, commits)
+    assert.deepEqual(round.calls[0].arguments, [files.nameStart, ...commits])
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ruling ? rulingPhases : phases,

@@ -211,11 +211,11 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
     cwd: "/repo",
     ownerRoot: "/repo",
     sessionId: null,
-    arguments: [plan, "2-3"],
+    arguments: ["example-steps-2-3-01", plan, "2-3"],
   })
   assert.ok(
     prompt.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([plan, "2-3"])}`,
+      `Phase arguments (JSON array): ${JSON.stringify(["example-steps-2-3-01", plan, "2-3"])}`,
     ),
   )
   const sessionId = "session; $(touch forbidden) '"

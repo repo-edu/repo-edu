@@ -24,6 +24,8 @@ export type RoundSetup = {
 } & AuditTarget
 
 export type RoundInput = RoundSetup & {
+  /** The output owner's claimed target and number, reused at either report root. */
+  readonly nameStart: string
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
   readonly transcript: string
   /** Where the watch writes its verdict, named for the round the watch follows. */
@@ -226,10 +228,10 @@ export async function runRound(
     ownerRoot: cwd,
     arguments:
       "commits" in input
-        ? input.commits
+        ? [input.nameStart, ...input.commits]
         : input.scope === undefined
-          ? [input.plan]
-          : [input.plan, input.scope],
+          ? [input.nameStart, input.plan]
+          : [input.nameStart, input.plan, input.scope],
     sessionId: null,
   })
   if (audit.status === "failed") {

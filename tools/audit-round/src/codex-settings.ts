@@ -111,11 +111,8 @@ export async function readCodexSettings(
             cursor = page.nextCursor ?? undefined
           } while (cursor !== undefined)
         }
-        if (effort == null)
-          throw new Error(
-            "Codex did not report defaults for the selected model",
-          )
-        const result = selectionSchema.parse({ model, effort })
+        // Naming validates the resolved phase selection, including its overrides.
+        const result = selectionSchema.parse({ model, effort: effort ?? null })
         child.stdin?.end()
         return result
       })()

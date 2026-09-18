@@ -1,6 +1,8 @@
 import { closeSync, openSync, writeFileSync } from "node:fs"
 
 export type RunPaths = {
+  /** Null for a standalone brief or contract probe, which reserves no round. */
+  readonly claim: string | null
   readonly log: string
   /** Null when the run keeps no transcript: a brief on its own retells an existing one. */
   readonly markdown: string | null
@@ -14,7 +16,9 @@ export type RunFiles = {
 
 /** Each write finishes before returning to the invocation that admitted it. */
 export function openRunFiles(paths: RunPaths): RunFiles {
-  const log = openSync(paths.log, "wx")
+  // A claim is retained even when opening or writing the tagged files fails.
+  if (paths.claim !== null) closeSync(openSync(paths.claim, "wx"))
+  const log = openSync(paths.log, paths.markdown === null ? "w" : "wx")
   let markdown: number | null = null
   try {
     if (paths.markdown !== null) markdown = openSync(paths.markdown, "wx")

@@ -228,7 +228,11 @@ export function transcribed(phase: Phase): boolean {
 
 type PhaseArguments = {
   audit: {
-    readonly arguments: readonly [target: string, ...scopeOrCommits: string[]]
+    readonly arguments: readonly [
+      nameStart: string,
+      target: string,
+      ...scopeOrCommits: string[],
+    ]
     readonly sessionId: null
   }
   vet: {
