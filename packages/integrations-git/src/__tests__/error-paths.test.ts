@@ -390,17 +390,50 @@ describe("error handling consistency across git providers", () => {
     assert.deepStrictEqual(gitea, [{ username: "alice", exists: false }])
   })
 
-  it("all operations and providers canonicalize custom caller abort reasons", async () => {
+  it("all operations and providers canonicalise custom caller abort reasons by operation kind", async () => {
     const controller = new AbortController()
     controller.abort(new Error("custom reason"))
 
     const http = createAbortedHttpPort()
-    const operations: Array<
+    const readOperations: Array<
       (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
     > = [
       (client, draft) => client.verifyConnection(draft, controller.signal),
       (client, draft) =>
         client.verifyGitUsernames(draft, ["alice"], controller.signal),
+      (client, draft) =>
+        client.getRepositoryDefaultBranchHead(
+          draft,
+          { owner: "course-org", repositoryName: "repo-1" },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.getTemplateDiff(
+          draft,
+          {
+            owner: "course-org",
+            repositoryName: "repo-1",
+            fromSha: "old",
+            toSha: "new",
+          },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.resolveRepositoryCloneUrls(
+          draft,
+          { organization: "course-org", repositoryNames: ["repo-1"] },
+          controller.signal,
+        ),
+      (client, draft) =>
+        client.listRepositories(
+          draft,
+          { namespace: "course-org" },
+          controller.signal,
+        ),
+    ]
+    const effectOperations: Array<
+      (client: GitProviderClient, draft: GitConnectionDraft) => Promise<unknown>
+    > = [
       (client, draft) =>
         client.createRepositories(
           draft,
@@ -435,23 +468,6 @@ describe("error handling consistency across git providers", () => {
           controller.signal,
         ),
       (client, draft) =>
-        client.getRepositoryDefaultBranchHead(
-          draft,
-          { owner: "course-org", repositoryName: "repo-1" },
-          controller.signal,
-        ),
-      (client, draft) =>
-        client.getTemplateDiff(
-          draft,
-          {
-            owner: "course-org",
-            repositoryName: "repo-1",
-            fromSha: "old",
-            toSha: "new",
-          },
-          controller.signal,
-        ),
-      (client, draft) =>
         client.createBranch(
           draft,
           {
@@ -477,18 +493,6 @@ describe("error handling consistency across git providers", () => {
           },
           controller.signal,
         ),
-      (client, draft) =>
-        client.resolveRepositoryCloneUrls(
-          draft,
-          { organization: "course-org", repositoryNames: ["repo-1"] },
-          controller.signal,
-        ),
-      (client, draft) =>
-        client.listRepositories(
-          draft,
-          { namespace: "course-org" },
-          controller.signal,
-        ),
     ]
     const providers: Array<[GitProviderClient, GitConnectionDraft]> = [
       [createGitHubClient(http), githubDraft],
@@ -497,7 +501,7 @@ describe("error handling consistency across git providers", () => {
     ]
 
     for (const [client, draft] of providers) {
-      for (const operation of operations) {
+      for (const operation of readOperations) {
         await assert.rejects(
           operation(client, draft),
           (error: unknown) =>
@@ -505,6 +509,14 @@ describe("error handling consistency across git providers", () => {
             error.name === "AbortError" &&
             error.message === "The operation was aborted.",
         )
+      }
+      for (const operation of effectOperations) {
+        await assert.rejects(operation(client, draft), {
+          name: "Error",
+          message: "Operation cancelled.",
+          type: "git-effect",
+          disposition: "stopped",
+        })
       }
     }
   })
