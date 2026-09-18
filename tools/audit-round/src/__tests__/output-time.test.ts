@@ -3,7 +3,7 @@ import { basename } from "node:path"
 import { test } from "node:test"
 import { RoundOutput, roundRun } from "../output.js"
 import { unpinned } from "../phase.js"
-import { fixture, selections } from "./helpers.js"
+import { fixture, selections, testContext } from "./helpers.js"
 
 for (const { zone, instant, timestamp } of [
   {
@@ -50,7 +50,7 @@ for (const { zone, instant, timestamp } of [
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { repoRoot: f.root, plan: "example.md" },
+        { ...testContext(f.root), plan: "example.md" },
         Date.parse(instant),
         selections,
       ),
@@ -95,7 +95,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   const log: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { repoRoot: f.root, plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md" },
       Date.now(),
       selections,
     ),
@@ -119,7 +119,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
       phase: "fix",
       assistant: "codex",
       model: unpinned,
-      cwd: "/repo",
+      ...testContext("/repo"),
       ownerRoot: "/repo",
       arguments: ["REPORT.md"],
       sessionId: null,
@@ -134,7 +134,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     assistant: "codex" as const,
     model: unpinned,
     sessionId: "session",
-    cwd: "/repo",
+    ...testContext("/repo"),
   }
   await output.prepareHandover(session)
   // The user is away with the ruling; the round is doing nothing meanwhile.

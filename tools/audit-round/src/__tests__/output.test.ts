@@ -10,7 +10,7 @@ import { commandText } from "../output-format.js"
 import type { Assistant, AuditorOverride } from "../phase.js"
 import { unpinned } from "../phase.js"
 import { createTerminal } from "../terminal.js"
-import { fixture, selections } from "./helpers.js"
+import { fixture, selections, testContext } from "./helpers.js"
 
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
   const f = await fixture(t)
@@ -19,7 +19,7 @@ test("long commit lists record every reference without exceeding filename limits
     ...Array.from({ length: 9 }, (_, n) => String(n).repeat(40)),
   ] as const
   const run = await roundRun(
-    { repoRoot: f.root, commits },
+    { ...testContext(f.root), commits },
     Date.now(),
     selections,
   )
@@ -39,7 +39,7 @@ test("output records complete invocations incrementally and refreshes only while
   let clears = 0
   const output = new RoundOutput(
     await roundRun(
-      { repoRoot: f.root, plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md" },
       Date.now(),
       selections,
     ),
@@ -65,7 +65,7 @@ test("output records complete invocations incrementally and refreshes only while
         phase: "audit",
         assistant: "codex",
         model: unpinned,
-        cwd: f.root,
+        ...testContext(f.root),
         ownerRoot: f.root,
         arguments: ["example-all-01", "example.md"],
         sessionId: null,
@@ -149,7 +149,7 @@ test("written status stamps chain into the running total", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { repoRoot: f.root, plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md" },
       Date.now(),
       selections,
     ),
@@ -173,7 +173,7 @@ test("written status stamps chain into the running total", async (t) => {
       phase: "audit",
       assistant: "codex",
       model: unpinned,
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: ["example-all-01", "example.md"],
       sessionId: null,
@@ -191,7 +191,7 @@ test("written status stamps chain into the running total", async (t) => {
       phase: "rebut",
       assistant: "codex",
       model: unpinned,
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: ["/AUDIT.md"],
       sessionId: "prior",
@@ -214,7 +214,7 @@ for (const assistant of ["claude", "codex"] as const) {
       const visible: string[] = []
       const output = new RoundOutput(
         await roundRun(
-          { repoRoot: f.root, plan: "example.md" },
+          { ...testContext(f.root), plan: "example.md" },
           Date.now(),
           selections,
         ),
@@ -235,7 +235,7 @@ for (const assistant of ["claude", "codex"] as const) {
           phase: "audit",
           assistant,
           model: unpinned,
-          cwd: f.root,
+          ...testContext(f.root),
           ownerRoot: f.root,
           arguments: ["example-all-01", "example.md"],
           sessionId: null,
@@ -375,7 +375,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { repoRoot: f.root, plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md" },
       Date.now(),
       selections,
     ),
@@ -395,7 +395,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
       phase: "fix",
       assistant: "claude",
       model: unpinned,
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: ["/AUDIT.md"],
       sessionId: null,
@@ -415,7 +415,7 @@ test("the settings header groups phases by assistant in aligned columns", async 
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { repoRoot: f.root, plan: "example.md", auditor },
+        { ...testContext(f.root), plan: "example.md", auditor },
         Date.now(),
         selections,
       ),
@@ -473,7 +473,7 @@ test("the settings header names what set each phase's model and effort", async (
     const visible: string[] = []
     const output = new RoundOutput(
       await roundRun(
-        { repoRoot: f.root, plan: "example.md", override },
+        { ...testContext(f.root), plan: "example.md", override },
         Date.now(),
         selections,
       ),
@@ -530,7 +530,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
   const visible: string[] = []
   const output = new RoundOutput(
     await roundRun(
-      { repoRoot: f.root, plan: "example.md" },
+      { ...testContext(f.root), plan: "example.md" },
       Date.now(),
       selections,
     ),
@@ -550,7 +550,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
       phase: "brief",
       assistant: "claude",
       model: unpinned,
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: [output.paths.markdown],
       sessionId: null,

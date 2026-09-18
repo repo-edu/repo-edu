@@ -6,13 +6,19 @@ import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
 import { type Assistant, type PhaseInput, unpinned } from "../phase.js"
 import { recoveryCommand } from "../requests.js"
-import { finishedText, fixture, phaseStream, recorded } from "./helpers.js"
+import {
+  finishedText,
+  fixture,
+  phaseStream,
+  recorded,
+  testContext,
+} from "./helpers.js"
 
 const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
   phase: "fix",
   assistant,
   model: unpinned,
-  cwd,
+  ...testContext(cwd),
   ownerRoot: "/peer plan",
   arguments: ["/peer plan/AUDIT.md"],
   sessionId: null,
@@ -186,7 +192,7 @@ for (const assistant of ["claude", "codex"] as const) {
       assistant,
       model: unpinned,
       sessionId: "fix-session",
-      cwd: f.root,
+      ...testContext(f.root),
     }
     await openAssistantSession(session, f.runtime)
     const [call] = await f.calls()
@@ -194,7 +200,7 @@ for (const assistant of ["claude", "codex"] as const) {
       assert.deepEqual(call.args, ["resume", "--approve-for-me", "fix-session"])
       assert.equal(
         recoveryCommand(session),
-        "codex resume --approve-for-me fix-session",
+        `cd ${f.root} && codex resume --approve-for-me fix-session`,
       )
     } else {
       assert.deepEqual(call.args.slice(0, 2), ["--resume", "fix-session"])
@@ -342,7 +348,7 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
         model: { value: "gpt-5.6-terra", source: "phase pin" },
         effort: { value: "low", source: "phase pin" },
       },
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: [join(f.root, "ROUND-example.md")],
       sessionId: null,

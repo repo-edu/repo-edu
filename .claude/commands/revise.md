@@ -1,5 +1,5 @@
 ---
-description: Rewrite one draft twin of an implementation-audit round in a fresh session, so the document the user decides from is read once by someone who did not write it.
+description: Rewrite one draft twin of a planning or implementation-audit round in a fresh session, so the document the user decides from is read once by someone who did not write it.
 argument-hint: [workflow-file] [document-file] [source-file...]
 disable-model-invocation: true
 ---

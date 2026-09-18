@@ -18,6 +18,7 @@ import {
   runBrief,
   runRound,
 } from "../round.js"
+import { testContext } from "./helpers.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
 const briefPin: PinnedModel = {
@@ -41,7 +42,7 @@ const watchWorkflow = join(
 )
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
-  repoRoot,
+  ...testContext(repoRoot),
   transcript,
   verdict,
   cacheRoot,
@@ -228,7 +229,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "audit",
           assistant: auditor,
           model: unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot: repoRoot,
           arguments: [files.nameStart, "../plan/example.md", "2-3"],
           sessionId: null,
@@ -237,7 +238,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "vet",
           assistant: vetAssistant,
           model: unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot,
           arguments: [report],
           sessionId: null,
@@ -246,7 +247,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "rebut",
           assistant: auditor,
           model: unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot,
           arguments: [report],
           sessionId: "audit-session",
@@ -255,7 +256,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "fix",
           assistant: "codex",
           model: unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot,
           arguments: [report],
           sessionId: null,
@@ -264,7 +265,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "brief",
           assistant: "codex",
           model: briefPin,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot: repoRoot,
           arguments: [transcript],
           sessionId: null,
@@ -273,7 +274,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase: "glance",
           assistant: "claude",
           model: unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
           ownerRoot: repoRoot,
           arguments: [cacheRoot],
           sessionId: null,
@@ -301,7 +302,7 @@ for (const auditor of ["claude", "codex"] as const) {
       assistant: "codex",
       model: unpinned,
       sessionId: "fix-session",
-      cwd: repoRoot,
+      ...testContext(repoRoot),
     }
     assert.deepEqual(
       round.calls.map((call) => call.phase),
@@ -314,7 +315,7 @@ for (const auditor of ["claude", "codex"] as const) {
         phase: "rule",
         assistant: "claude",
         model: unpinned,
-        cwd: repoRoot,
+        ...testContext(repoRoot),
         ownerRoot: repoRoot,
         arguments: [transcript, report],
         sessionId: null,
@@ -323,7 +324,7 @@ for (const auditor of ["claude", "codex"] as const) {
         phase: "revise",
         assistant: "claude",
         model: unpinned,
-        cwd: repoRoot,
+        ...testContext(repoRoot),
         ownerRoot: repoRoot,
         arguments: [ruleWorkflow, ruling, transcript, report],
         sessionId: null,
@@ -367,7 +368,7 @@ for (const auditor of ["claude", "codex"] as const) {
           phase,
           assistant: runner(phase, auditor, vetAssistant),
           model: phase === "brief" ? briefPin : unpinned,
-          cwd: repoRoot,
+          ...testContext(repoRoot),
         })
       })
     }
@@ -394,7 +395,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
       phase: "glance",
       assistant: "claude",
       model: unpinned,
-      cwd: repoRoot,
+      ...testContext(repoRoot),
       ownerRoot: repoRoot,
       arguments: [cacheRoot],
       sessionId: null,
@@ -403,7 +404,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
       phase: "verdict",
       assistant: "claude",
       model: unpinned,
-      cwd: repoRoot,
+      ...testContext(repoRoot),
       ownerRoot: repoRoot,
       arguments: [verdict, cacheRoot],
       sessionId: null,
@@ -412,7 +413,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
       phase: "revise",
       assistant: "claude",
       model: unpinned,
-      cwd: repoRoot,
+      ...testContext(repoRoot),
       ownerRoot: repoRoot,
       arguments: [watchWorkflow, verdict],
       sessionId: null,
@@ -483,7 +484,7 @@ test("retains a failure before the assistant establishes a session", async () =>
     phase: "audit",
     assistant: "codex",
     model: unpinned,
-    cwd: repoRoot,
+    ...testContext(repoRoot),
   })
   assert.equal(round.calls.length, 1)
 })
@@ -571,7 +572,7 @@ for (const operation of ["prepareHandover", "openSession"] as const) {
       assistant: "codex",
       model: unpinned,
       sessionId: "fix-session",
-      cwd: repoRoot,
+      ...testContext(repoRoot),
       reason: "Handover unavailable",
     })
   })
@@ -643,7 +644,7 @@ test("a failed brief stops the round before the ruling is written", async () => 
     assistant: "codex",
     model: briefPin,
     sessionId: "brief-session",
-    cwd: repoRoot,
+    ...testContext(repoRoot),
     reason: "The transcript could not be read",
   })
 })
@@ -651,7 +652,10 @@ test("a failed brief stops the round before the ruling is written", async () => 
 test("a brief on its own runs only the brief phase over the named transcript", async () => {
   const round = controlledRound()
 
-  const result = await runBrief({ repoRoot, transcript }, round.dependencies)
+  const result = await runBrief(
+    { ...testContext(repoRoot), transcript },
+    round.dependencies,
+  )
 
   assert.deepEqual(result, { status: "finished", brief })
   assert.deepEqual(round.calls, [
@@ -659,7 +663,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
       phase: "brief",
       assistant: "codex",
       model: briefPin,
-      cwd: repoRoot,
+      ...testContext(repoRoot),
       ownerRoot: repoRoot,
       arguments: [transcript],
       sessionId: null,
@@ -725,7 +729,7 @@ test("a handover or a failure ends the chain where it stands", () => {
           assistant: "codex",
           model: unpinned,
           sessionId: "fix",
-          cwd: repoRoot,
+          ...testContext(repoRoot),
         },
       },
       "codex",
@@ -741,7 +745,7 @@ test("a handover or a failure ends the chain where it stands", () => {
         phase: "audit",
         assistant: "codex",
         model: unpinned,
-        cwd: repoRoot,
+        ...testContext(repoRoot),
         sessionId: null,
         reason: "Unable to start the CLI",
       },

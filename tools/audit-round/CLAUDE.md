@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This is the private implementation-audit tool (`@repo-edu/audit-round`). Its
+This is the private planning and implementation-audit tool (`@repo-edu/audit-round`). Its
 primary area is `tool-audit-round`. It targets macOS and Linux and has no product
 consumers.
 
@@ -122,12 +122,18 @@ consumers.
   at the handover; the total still counts from the round's start, minus every wait. User messages
   and assistant replies have separate transcript labels. Both handover functions must reject on
   failure. Exiting the interactive child ends recording but does not prove workflow completion.
+- `context.ts` resolves the installed Repo Edu checkout, its sibling plan root,
+  the invoking working directory and the round kind once. Only those two roots
+  may start a round. The context follows every phase and recovery session;
+  workflow ownership never changes the working directory.
 - `target.ts` owns target validation and the target type: a plan with optional
-  steps or a non-empty list of commit references. The audit workflow owns Git
+  steps or a non-empty list of commit references from Repo Edu and an artifact
+  alone from the plan root. Planning starts reject step scopes and commit
+  references before assistant startup. The audit workflow owns Git
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects `--chain` for commit targets, which run once without
   a trajectory glance or watch.
-- `command.ts` owns the command grammar, repository paths, startup and final reporting, including
+- `command.ts` owns the command grammar, startup and final reporting, including
   the capability tag `--auditor` takes and the error a malformed one reports. The round is the
   command itself, taking the target as its own arguments, and `brief` is its one subcommand. So the
   program carries an action handler, Commander adds no `help` command, and each command's own `-h`
@@ -150,9 +156,12 @@ Its dependencies supply those operations explicitly. A returned phase failure
 stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
-The audit report's directory selects every later phase's launcher owner. The
-working directory remains the Repo Edu root, including when rebuttal resumes a
-session whose report belongs to the plan repo. Twin paths are phase feedback;
+The audit uses the invoking root's launcher. Its report directory selects the
+vet, rebuttal and fix launchers. Shared brief, ruling and watch launchers stay
+in Repo Edu. Every session keeps the invoking working directory, including
+when the report or transcript belongs to the other root. Claude receives the
+peer checkout as an additional directory; printed recovery commands restore
+the working directory before resuming. Twin paths are phase feedback;
 they never replace the audit report as the input to later phases.
 
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
@@ -179,7 +188,7 @@ pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round writes a claim, log and transcript at the Repo Edu root under the
+The round writes a claim, log and transcript at the invoking root under the
 shared round protocol. The audit receives the chosen target and number as its
 first argument, before the target and scope or commit references as typed.
 Every phase reuses that name start, even when the report goes to the plan repo.
@@ -190,7 +199,8 @@ The brief writes a plain-words twin. A fix that stops for a ruling adds a
 ruling twin. A finished plan round ends with a glance at the commit record,
 and a due glance adds a `-watch.md` document. The watch keeps its own history
 in the shared cache, which is how its cadence survives between rounds.
-`brief` retells an earlier transcript without claiming a new number and
+`brief` accepts an earlier transcript at either root, writes beside it without
+claiming a new number and
 overwrites its standalone log on each run. `--chain` runs at most three
 rounds on the named plan scope. Each header records the round's start time;
 filenames carry no timestamp.

@@ -2,6 +2,7 @@ import { readdir } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
 import { execa } from "execa"
+import type { ExecutionContext } from "./context.js"
 import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
 import {
   type Context,
@@ -58,7 +59,7 @@ async function targetDescription(target: RoundSetup): Promise<{
     const head = first.includes("HEAD")
       ? (
           await execa("git", ["rev-parse", "--short", "HEAD"], {
-            cwd: target.repoRoot,
+            cwd: target.cwd,
           })
         ).stdout
       : ""
@@ -68,13 +69,20 @@ async function targetDescription(target: RoundSetup): Promise<{
       title: `commits ${target.commits.join(" ")}`,
     }
   }
+  const stem = (
+    basename(target.plan) === "plan.md"
+      ? basename(dirname(target.plan))
+      : basename(target.plan, ".md")
+  ).replace(/-widen$/, "")
+  if (target.roundKind === "planning")
+    return { label: stem, title: `plan ${target.plan}` }
   const scope =
     target.scope === undefined
       ? "all"
       : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
   return {
-    label: `${basename(target.plan) === "plan.md" ? basename(dirname(target.plan)) : basename(target.plan, ".md")}-${scope}`,
-    title: `${target.plan} ${target.scope ?? "all"}`,
+    label: `${stem}-${scope}`,
+    title: `implementation ${target.plan} ${target.scope ?? "all"}`,
   }
 }
 
@@ -96,11 +104,11 @@ function fileTag(
 
 /** Read every retained kind at both roots; opening the run claims this candidate. */
 async function nextNameStart(
-  repoRoot: string,
+  context: ExecutionContext,
   target: string,
 ): Promise<string> {
   const roots = await Promise.all(
-    [repoRoot, join(repoRoot, "../plan")].map((root) =>
+    [context.repoEduRoot, context.planRoot].map((root) =>
       readdir(root, { withFileTypes: true }),
     ),
   )
@@ -148,15 +156,15 @@ export async function roundRun(
       fileTag(entry(phase), selections)
   }
   const target = await targetDescription(setup)
-  const nameStart = await nextNameStart(setup.repoRoot, target.label)
+  const nameStart = await nextNameStart(setup, target.label)
   const base = join(
-    setup.repoRoot,
+    setup.cwd,
     `${nameStart}-${fileTag(entry("audit"), selections)}-round`,
   )
   return {
     nameStart,
     verdict: join(
-      setup.repoRoot,
+      setup.cwd,
       `${nameStart}-${fileTag(entry("verdict"), selections)}-watch.md`,
     ),
     name: "Audit round",
@@ -170,7 +178,7 @@ export async function roundRun(
       ...("plan" in setup ? [entry("verdict")] : []),
     ],
     paths: {
-      claim: join(setup.repoRoot, `${nameStart}-claim.md`),
+      claim: join(setup.cwd, `${nameStart}-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
     },
@@ -186,7 +194,7 @@ export function transcriptNameStart(transcript: string): string {
   )
   if (match === null)
     throw new Error(
-      "Name a round's *-round.md transcript at the Repo Edu checkout root.",
+      "Name a round's *-round.md transcript at the Repo Edu or plan checkout root.",
     )
   return match[1]
 }

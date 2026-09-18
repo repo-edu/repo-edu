@@ -11,8 +11,9 @@ Round documents and logs use `<target>-<round>-<tag>-<kind>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
 Two files omit the tag: the empty `<target>-<round>-claim.md` reserves a
-number at the root where the report goes, and `<stem>-<sha>-handoff.md`
-briefs the commit it names.
+number, and `<stem>-<sha>-handoff.md` briefs the commit it names. The runner
+claims at the invoking repository root; a hand-run audit claims at its report
+root.
 The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. A planning-artifact audit uses its bare

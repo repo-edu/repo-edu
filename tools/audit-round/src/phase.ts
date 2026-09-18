@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "./context.js"
+
 export type Assistant = "claude" | "codex"
 
 /** The letter a commit subject's capability tag opens with, naming the vendor. */
@@ -281,9 +283,9 @@ type PhaseArguments = {
 
 type PhaseInputs = {
   [K in Phase]: PhaseArguments[K] &
-    PhaseRun & {
+    PhaseRun &
+    ExecutionContext & {
       readonly phase: K
-      readonly cwd: string
       readonly ownerRoot: string
     }
 }
@@ -347,10 +349,10 @@ export type PhaseResult<P extends Phase = Phase> =
  * A session the user is handed or told how to resume. It carries its phase's run, so
  * a resumed session continues on the model the round ran it on.
  */
-export type InteractiveSession = PhaseRun & {
-  readonly sessionId: string
-  readonly cwd: string
-}
+export type InteractiveSession = PhaseRun &
+  ExecutionContext & {
+    readonly sessionId: string
+  }
 
 export type RoundDependencies = {
   readonly runPhase: {

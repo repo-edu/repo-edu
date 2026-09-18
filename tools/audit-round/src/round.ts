@@ -1,4 +1,5 @@
 import { dirname } from "node:path"
+import type { ExecutionContext } from "./context.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -16,8 +17,7 @@ import { workflowPath } from "./requests.js"
 import type { AuditTarget } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
-export type RoundSetup = {
-  readonly repoRoot: string
+export type RoundSetup = ExecutionContext & {
   readonly auditor?: Assistant
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
@@ -34,15 +34,14 @@ export type RoundInput = RoundSetup & {
   readonly cacheRoot: string
 }
 
-export type BriefInput = {
-  readonly repoRoot: string
+export type BriefInput = ExecutionContext & {
   readonly transcript: string
 }
 
 type RoundFailure = PhaseFailure &
-  PhaseRun & {
+  PhaseRun &
+  ExecutionContext & {
     readonly phase: Phase | "handover"
-    readonly cwd: string
   }
 
 export type RoundResult =
@@ -130,7 +129,7 @@ export function rebuttalSessionId(
 /**
  * The brief reads only the transcript, so it runs the same way after a round
  * and on its own over an earlier transcript. Its launcher always belongs to
- * the Repo Edu root, because every transcript is written there.
+ * the Repo Edu root; output belongs beside the transcript at either root.
  */
 export async function runBrief(
   input: BriefInput,
@@ -138,16 +137,18 @@ export async function runBrief(
 ): Promise<BriefResult> {
   // The brief pins its own model, so no override reaches this phase.
   const run = roundPhases("codex", noOverride).brief
+  const { cwd, repoEduRoot, planRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
   const brief = await dependencies.runPhase.brief({
     phase: "brief",
     ...run,
-    cwd: input.repoRoot,
-    ownerRoot: input.repoRoot,
+    ...context,
+    ownerRoot: input.repoEduRoot,
     arguments: [input.transcript],
     sessionId: null,
   })
   if (brief.status === "failed")
-    return { ...brief, phase: "brief", ...run, cwd: input.repoRoot }
+    return { ...brief, phase: "brief", ...run, ...context }
   return { status: "finished", brief: brief.file }
 }
 
@@ -167,34 +168,35 @@ export async function runBrief(
  * not due.
  */
 async function runWatch(
-  input: Pick<RoundInput, "repoRoot" | "verdict" | "cacheRoot">,
+  input: ExecutionContext & Pick<RoundInput, "verdict" | "cacheRoot">,
   dependencies: Pick<RoundDependencies, "runPhase">,
 ): Promise<RoundFailure | null> {
   // The watch is Claude's whoever audited, and the override binds only the auditor.
   const phases = roundPhases("codex", noOverride)
-  const cwd = input.repoRoot
+  const { cwd, repoEduRoot, planRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
   const glance = await dependencies.runPhase.glance({
     phase: "glance",
     ...phases.glance,
-    cwd,
-    ownerRoot: cwd,
+    ...context,
+    ownerRoot: repoEduRoot,
     arguments: [input.cacheRoot],
     sessionId: null,
   })
   if (glance.status === "failed")
-    return { ...glance, phase: "glance", ...phases.glance, cwd }
+    return { ...glance, phase: "glance", ...phases.glance, ...context }
   if (!glance.due) return null
 
   const verdict = await dependencies.runPhase.verdict({
     phase: "verdict",
     ...phases.verdict,
-    cwd,
-    ownerRoot: cwd,
+    ...context,
+    ownerRoot: repoEduRoot,
     arguments: [input.verdict, input.cacheRoot],
     sessionId: null,
   })
   if (verdict.status === "failed")
-    return { ...verdict, phase: "verdict", ...phases.verdict, cwd }
+    return { ...verdict, phase: "verdict", ...phases.verdict, ...context }
 
   // The verdict is a document the user decides from, so a session that did not
   // write it reads it once before the user does. It re-grounds in the record
@@ -202,13 +204,13 @@ async function runWatch(
   const revise = await dependencies.runPhase.revise({
     phase: "revise",
     ...phases.revise,
-    cwd,
-    ownerRoot: cwd,
-    arguments: [workflowPath(cwd, "verdict"), verdict.file],
+    ...context,
+    ownerRoot: repoEduRoot,
+    arguments: [workflowPath(repoEduRoot, "verdict"), verdict.file],
     sessionId: null,
   })
   if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...phases.revise, cwd }
+    return { ...revise, phase: "revise", ...phases.revise, ...context }
   return null
 }
 
@@ -220,11 +222,12 @@ export async function runRound(
     input.auditor ?? "codex",
     input.override ?? noOverride,
   )
-  const cwd = input.repoRoot
+  const { cwd, repoEduRoot, planRoot, roundKind } = input
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
   const audit = await dependencies.runPhase.audit({
     phase: "audit",
     ...phases.audit,
-    cwd,
+    ...context,
     ownerRoot: cwd,
     arguments:
       "commits" in input
@@ -235,7 +238,7 @@ export async function runRound(
     sessionId: null,
   })
   if (audit.status === "failed") {
-    return { ...audit, phase: "audit", ...phases.audit, cwd }
+    return { ...audit, phase: "audit", ...phases.audit, ...context }
   }
 
   const report = audit.file
@@ -243,42 +246,42 @@ export async function runRound(
   const vet = await dependencies.runPhase.vet({
     phase: "vet",
     ...phases.vet,
-    cwd,
+    ...context,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (vet.status === "failed") {
-    return { ...vet, phase: "vet", ...phases.vet, cwd }
+    return { ...vet, phase: "vet", ...phases.vet, ...context }
   }
 
   const rebut = await dependencies.runPhase.rebut({
     phase: "rebut",
     ...phases.rebut,
-    cwd,
+    ...context,
     ownerRoot,
     arguments: [report],
     sessionId: rebuttalSessionId(audit.sessionId, audit.context),
   })
   if (rebut.status === "failed") {
-    return { ...rebut, phase: "rebut", ...phases.rebut, cwd }
+    return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
   }
 
   const fix = await dependencies.runPhase.fix({
     phase: "fix",
     ...phases.fix,
-    cwd,
+    ...context,
     ownerRoot,
     arguments: [report],
     sessionId: null,
   })
   if (fix.status === "failed") {
-    return { ...fix, phase: "fix", ...phases.fix, cwd }
+    return { ...fix, phase: "fix", ...phases.fix, ...context }
   }
 
   // The brief precedes a ruling, because the ruling is read from it.
   const brief = await runBrief(
-    { repoRoot: cwd, transcript: input.transcript },
+    { ...context, transcript: input.transcript },
     dependencies,
   )
   if (brief.status === "failed") return brief
@@ -295,29 +298,34 @@ export async function runRound(
   const rule = await dependencies.runPhase.rule({
     phase: "rule",
     ...phases.rule,
-    cwd,
-    ownerRoot: cwd,
+    ...context,
+    ownerRoot: repoEduRoot,
     arguments: [input.transcript, report],
     sessionId: null,
   })
   if (rule.status === "failed")
-    return { ...rule, phase: "rule", ...phases.rule, cwd }
+    return { ...rule, phase: "rule", ...phases.rule, ...context }
 
   const revise = await dependencies.runPhase.revise({
     phase: "revise",
     ...phases.revise,
-    cwd,
-    ownerRoot: cwd,
-    arguments: [workflowPath(cwd, "rule"), rule.file, input.transcript, report],
+    ...context,
+    ownerRoot: repoEduRoot,
+    arguments: [
+      workflowPath(repoEduRoot, "rule"),
+      rule.file,
+      input.transcript,
+      report,
+    ],
     sessionId: null,
   })
   if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...phases.revise, cwd }
+    return { ...revise, phase: "revise", ...phases.revise, ...context }
 
   const session: InteractiveSession = {
     ...phases.fix,
     sessionId: fix.sessionId,
-    cwd,
+    ...context,
   }
   try {
     await dependencies.prepareHandover(session)

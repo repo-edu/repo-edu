@@ -8,6 +8,7 @@ import {
 } from "commander"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import type { CliRuntime } from "./cli-process.js"
+import { type ExecutionContext, executionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
 import {
   briefRun,
@@ -29,41 +30,24 @@ import {
   runRound,
 } from "./round.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import { type AuditTarget, auditTarget } from "./target.js"
-
-export async function checkRepoRoot(cwd: string): Promise<string> {
-  const root = await realpath(cwd)
-  const workflow = resolve(root, ".agents/skills/audit/references/workflow.md")
-  try {
-    if (
-      (await stat(workflow)).isFile() &&
-      (await stat(resolve(root, "pnpm-workspace.yaml"))).isFile() &&
-      (await stat(resolve(root, "../plan"))).isDirectory()
-    )
-      return root
-  } catch {
-    // Report a command-level location error instead of a missing marker path.
-  }
-  throw new Error(
-    "Run pnpm audit-round from the Repo Edu checkout root beside the plan repository.",
-  )
-}
+import { auditTarget } from "./target.js"
 
 /** The transcript a brief retells: a round's Markdown pair member at the checkout root. */
 async function checkTranscript(
-  repoRoot: string,
+  context: ExecutionContext,
   transcript: string,
 ): Promise<string> {
-  const path = resolve(repoRoot, transcript)
+  let path = resolve(context.cwd, transcript)
   let file = false
   try {
+    path = await realpath(path)
     file = (await stat(path)).isFile()
   } catch {
     // The message below names the expected file.
   }
-  if (!file || dirname(path) !== repoRoot)
+  if (!file || ![context.repoEduRoot, context.planRoot].includes(dirname(path)))
     throw new Error(
-      "Name a round's *-round.md transcript at the Repo Edu checkout root.",
+      "Name a round's *-round.md transcript at the Repo Edu or plan checkout root.",
     )
   transcriptNameStart(path)
   return path
@@ -73,7 +57,8 @@ async function checkTranscript(
 type Invocation =
   | {
       readonly kind: "round"
-      readonly target: AuditTarget
+      readonly first: string
+      readonly rest: readonly string[]
       readonly auditor: AuditorSeat
       readonly chain?: boolean
       readonly verbose?: boolean
@@ -91,7 +76,7 @@ function parseInvocation(
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
     .description(
-      "Run the audit, vet, rebuttal, fix and brief phases of one implementation-audit round from the Repo Edu checkout root.",
+      "Run the audit, vet, rebuttal, fix and brief phases of one planning or implementation-audit round from the Repo Edu or plan checkout root.",
     )
     // A round is the command itself, so the usage line offers no command slot.
     .usage("[options] <target> [scope-or-commits...]")
@@ -102,11 +87,11 @@ function parseInvocation(
     .exitOverride()
     .argument(
       "<target>",
-      ".md plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range",
+      "from the plan root: .md artifact alone; from Repo Edu: .md plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range",
     )
     .argument(
       "[scope-or-commits...]",
-      "plan step number or increasing step range; otherwise further commit references",
+      "Repo Edu only: plan step number or increasing step range; otherwise further commit references",
     )
     .addOption(
       new Option(
@@ -138,18 +123,7 @@ function parseInvocation(
           verbose?: boolean
         },
       ) => {
-        try {
-          const target = auditTarget(first, rest)
-          if ("commits" in target && flags.chain)
-            throw new InvalidArgumentError(
-              "Commit audits run once. --chain requires a plan target.",
-            )
-          invocation = { kind: "round", target, ...flags }
-        } catch (error) {
-          if (error instanceof InvalidArgumentError)
-            command.error(error.message)
-          throw error
-        }
+        invocation = { kind: "round", first, rest, ...flags }
       },
     )
   // The program owns the round, so Commander adds no `help` command of its own.
@@ -180,6 +154,7 @@ export async function runCommand(
   options: OutputOptions & {
     readonly emergency: (text: string) => void
     readonly cacheRoot?: string
+    readonly repoEduRoot?: string
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
@@ -190,17 +165,32 @@ export async function runCommand(
   let code = 1
   const now = options.now ?? Date.now
   try {
-    const repoRoot = await checkRepoRoot(runtime.cwd)
+    const context = await executionContext(runtime.cwd, options.repoEduRoot)
     const prepared =
       invocation.kind === "brief"
         ? {
             ...invocation,
-            transcript: await checkTranscript(repoRoot, invocation.transcript),
+            transcript: await checkTranscript(context, invocation.transcript),
           }
-        : invocation
+        : {
+            ...invocation,
+            target: auditTarget(
+              invocation.first,
+              invocation.rest,
+              context.roundKind,
+            ),
+          }
+    if (
+      prepared.kind === "round" &&
+      "commits" in prepared.target &&
+      prepared.chain
+    )
+      throw new InvalidArgumentError(
+        "Commit audits run once. --chain requires a plan target.",
+      )
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
-      { ...runtime, cwd: repoRoot },
+      { ...runtime, cwd: context.cwd },
       {
         message: async (text) => options.terminal.write(text),
         warning: async (text) => options.terminal.write(`Warning: ${text}`),
@@ -231,7 +221,7 @@ export async function runCommand(
       commit?: CliRuntime["commit"],
     ) =>
       assistantDependencies(
-        { ...runtime, cwd: repoRoot, commit },
+        { ...runtime, cwd: context.cwd, commit },
         active.phase,
         active.prepareHandover,
         active.interactive,
@@ -240,11 +230,21 @@ export async function runCommand(
     if (prepared.kind === "brief") {
       const { transcript } = prepared
       const active = open(briefRun(transcript, now(), selections))
-      result = await runBrief({ repoRoot, transcript }, dependenciesFor(active))
+      result = await runBrief(
+        {
+          ...context,
+          roundKind:
+            dirname(transcript) === context.planRoot
+              ? "planning"
+              : "implementation",
+          transcript,
+        },
+        dependenciesFor(active),
+      )
       active.finish(result)
     } else {
       const setup = {
-        repoRoot,
+        ...context,
         ...prepared.target,
         override: {
           strength: prepared.auditor.strength,
@@ -292,7 +292,7 @@ export async function runCommand(
     const reporting = output
     if (result.status === "failed" && reporting !== undefined) {
       const roots = await Promise.all(
-        [repoRoot, resolve(repoRoot, "../plan")].map(async (root) => {
+        [context.repoEduRoot, context.planRoot].map(async (root) => {
           try {
             return `${root}:\n${(await readdir(root)).sort().join("\n")}`
           } catch (error) {
@@ -304,6 +304,7 @@ export async function runCommand(
     }
     code = result.status === "failed" ? 1 : 0
   } catch (error) {
+    if (error instanceof InvalidArgumentError) code = 2
     options.terminal.clear()
     options.emergency(`audit-round: ${errorMessage(error)}`)
     // Required recording failures cannot be reported through the failed writer.

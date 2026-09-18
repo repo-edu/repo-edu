@@ -12,6 +12,7 @@ await appendFile(
     assistant,
     args,
     pid: process.pid,
+    cwd: process.cwd(),
     phases: process.env.COMMIT_PHASES ?? null,
     auditor: process.env.COMMIT_AUDITOR ?? null,
   })}\n`,

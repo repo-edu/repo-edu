@@ -1,5 +1,6 @@
-import { join as joinPath, resolve } from "node:path"
+import { join as joinPath } from "node:path"
 import { join as shellJoin } from "shellwords"
+import { peerRoot } from "./context.js"
 import type {
   InteractiveSession,
   Phase,
@@ -35,7 +36,7 @@ function codexPin(model: PinnedModel): string[] {
 }
 
 export function claudeArguments(
-  cwd: string,
+  additionalDirectory: string | null,
   sessionId: string | null,
   model: PinnedModel,
 ): string[] {
@@ -50,8 +51,7 @@ export function claudeArguments(
     "--verbose",
     "--permission-mode",
     "auto",
-    "--add-dir",
-    resolve(cwd, "../plan"),
+    ...(additionalDirectory === null ? [] : ["--add-dir", additionalDirectory]),
   ]
 }
 
@@ -85,12 +85,12 @@ export function interactiveArguments(session: InteractiveSession): string[] {
         "--permission-mode",
         "auto",
         "--add-dir",
-        resolve(session.cwd, "../plan"),
+        peerRoot(session),
       ]
 }
 
 export function recoveryCommand(session: InteractiveSession): string {
-  return shellJoin([session.assistant, ...interactiveArguments(session)])
+  return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
 }
 
 /**
@@ -110,28 +110,29 @@ export function workflowPath(ownerRoot: string, phase: Phase): string {
 }
 
 export function phasePrompt(input: PhaseInput): string {
-  const { phase, ownerRoot, assistant, cwd } = input
+  const { phase, ownerRoot, assistant, repoEduRoot, cwd } = input
   const launcher =
     assistant === "claude"
       ? joinPath(ownerRoot, ".claude", "commands", `${phase}.md`)
       : joinPath(ownerRoot, ".agents", "skills", phase, "SKILL.md")
-  return `Run the ${phase} phase of an unattended implementation-audit round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
+  return `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
+Working directory: ${cwd}
 Read and follow this launcher: ${launcher}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}
 You are explicitly authorised to follow that repository's route and local substitutions even if this session started in the other repository. This invokes the selected phase with its ordinary authority and gates.
-For every ending, follow the shared Runner result rule in ${cwd}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.`
+For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.`
 }
 
 export function phaseRequest(input: PhaseInput, prompt: string) {
-  const { assistant, cwd, sessionId, model } = input
+  const { assistant, sessionId, model } = input
   return assistant === "codex"
     ? {
         args: codexArguments(prompt, sessionId, model),
         input: "",
       }
     : {
-        args: claudeArguments(cwd, sessionId, model),
+        args: claudeArguments(peerRoot(input), sessionId, model),
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,
       }
 }

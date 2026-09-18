@@ -151,10 +151,7 @@ export async function readClaudeSettings(
     runtime,
     "claude",
     // The settings read reports the CLI's own selection, so it names none.
-    [
-      ...claudeArguments(runtime.cwd, null, unpinned),
-      "--no-session-persistence",
-    ],
+    [...claudeArguments(null, null, unpinned), "--no-session-persistence"],
     `${JSON.stringify(claudeSettingsRequest)}\n`,
     async (child) => {
       let selection: ModelSelection | undefined

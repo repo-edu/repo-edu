@@ -11,11 +11,11 @@ Claude writes both passes.
 given this file as the shape to rewrite towards. It serves the watch verdict
 the same way, under its own workflow.
 
-The ruling is written when the fix phase of an implementation-audit round stops
+The ruling is written when the fix phase of a planning or implementation-audit round stops
 for the user's decision. It is the document the user rules from. The round's
 brief already retells what the round found and what was agreed. The ruling does
 the other job: it explains the open item in plain words, says what each way out
-costs the user and the code, and argues for one of them.
+costs the user and the plan or code and argues for one of them.
 
 The user directed this on 2026-09-13. Until then they opened a separate chat for
 each ruling and asked for the same explanation by hand, twice.
@@ -36,13 +36,18 @@ file names, writer tags and twin matching.
 The first pass is given the round transcript and the audit report. The second
 pass is given this workflow, the draft ruling, the transcript and the report.
 
+The launchers and this workflow stay in Repo Edu. Resolve their workflow
+references from that checkout. Transcripts may live at either checkout root;
+the transcript's directory owns the ruling output, regardless of the launcher
+or session directory.
+
 Both passes read what they need to be right:
 
 - the transcript, for what the round found, vetted, rebutted and left open
 - the report and its matched vet and rebuttal twins, for the evidence behind each
   open item
-- the plan in `../plan` for the steps the report's scope names, and every
-  **Decisions** entry an open item cites
+- the planning artifact the report names, or the implementation plan for its
+  named steps and every **Decisions** entry an open item cites
 - the code each open item rests on, at HEAD
 
 This is the difference from the brief, which reads only the transcript and adds
@@ -98,8 +103,8 @@ The `simple` requirement governs the ruling. Beyond it:
 
 The ruling has these sections in this order.
 
-1. **Title**: `# <plan> step <n>: what needs your ruling`, naming the plan and
-   the step range the way the transcript's first heading does.
+1. **Title**: `# <scope>: what needs your ruling`, naming the planning artifact,
+   implementation steps or commits the way the transcript's first heading does.
 2. **Opening**: one sentence on how the round ended, one sentence on how many
    items are open, and one sentence on what happens after the user rules.
 3. **One numbered section per open item**, each holding:
@@ -139,7 +144,7 @@ user opens must read as the finished ruling and nothing else.
 
 ## Runner result
 
-When the prompt identifies an unattended implementation-audit phase, follow the
+When the prompt identifies an unattended round phase, follow the
 audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after the ruling file is written, and return its

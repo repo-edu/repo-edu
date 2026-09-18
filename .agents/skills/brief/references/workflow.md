@@ -8,7 +8,7 @@ launcher and this file disagree, this file is right.
 
 The brief is the plain-words twin of one round transcript, written for the
 user. The transcript is the `*-round.md` file the audit-round runner writes
-at the Repo Edu root: the audit report, the vet's verdicts, the rebuttal and
+at the invoking Repo Edu or plan root: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
 ruling. The transcript is written for the assistants that run the later
@@ -19,14 +19,18 @@ says the same things in words the user does not have to decode.
 
 Read the shared [round protocol](../../../references/round-protocol.md) for
 file names and writer tags. The invocation names the transcript. When it names
-nothing, inspect the opening of each `*-round.md` transcript at the Repo Edu
-root and choose the latest `Started` time, including its timezone offset.
+nothing, inspect the opening of each `*-round.md` transcript at the working
+repository root and choose the latest `Started` time, including its timezone offset.
 Neither filenames nor round numbers order different targets, and file
 modification times do not record round starts. If no transcript exists, a
 start time is unreadable or the latest times tie, name the candidates and ask
 which transcript to use. Otherwise say which one in chat and continue.
-A name that is not a round transcript under the shared grammar at the root
+A name that is not a round transcript under the shared grammar at either checkout root
 is a wrong input: name it, say what was expected and stop.
+
+The launcher and this workflow stay in Repo Edu. Resolve their references
+from that checkout, regardless of the working directory. The transcript may
+belong to either root; its directory owns the output.
 
 Read the whole transcript. For the meaning of the rating tokens, read the
 audit workflow at `.agents/skills/audit/references/workflow.md` under
@@ -75,21 +79,21 @@ The `simple` requirement governs the brief. Beyond it:
 The brief has these sections in this order. The words after each heading say
 what it holds.
 
-1. **Title**: `# <plan> step <n> in plain words`, naming the plan and the
-   step range the way the transcript's first heading does.
+1. **Title**: `# <scope> in plain words`, naming the planning artifact,
+   implementation steps or commits the way the transcript's first heading does.
 2. **Opening**: who did what, as the transcript's fenced role table copied
    unchanged, because retelling it in sentences reads worse than the table;
-   what the audited step is about, one paragraph; how the round ended, one
+   what the audited scope is about, one paragraph; how the round ended, one
    sentence: the fix landed, the fix stopped for a ruling, or a phase failed
    and which.
-3. **What the audit checked**: the coverage counts in one sentence; every
+3. **What the audit checked**: the coverage counts when the round reports them; every
    deviation with the reason the round gave; the round yield and structure
    lines in words; the patterns across rounds and, when the round priced a
    run, each pricing question with its answer. The coverage table itself
    stays out.
 4. **The findings**: one numbered entry per finding, in the report's order,
    opening with a short title and the tier in words. Each entry says what
-   goes wrong and when, why the code does that, what the correction is, and
+   goes wrong and when, why the plan or code does that, what the correction is and
    the condition that makes a rare rating checkable. Then, when the vet or
    the rebuttal changed anything about the finding, what they said and what
    was agreed. A dropped finding says why it was dropped and, when the

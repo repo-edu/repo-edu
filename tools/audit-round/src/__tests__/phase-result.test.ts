@@ -6,6 +6,7 @@ import { decodeCodex } from "../codex.js"
 import { unpinned } from "../phase.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
+import { testContext } from "./helpers.js"
 
 for (const phase of [
   "audit",
@@ -208,7 +209,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
     phase: "audit",
     assistant: "codex",
     model: unpinned,
-    cwd: "/repo",
+    ...testContext("/repo"),
     ownerRoot: "/repo",
     sessionId: null,
     arguments: ["example-steps-2-3-01", plan, "2-3"],
@@ -225,10 +226,10 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
         assistant: "codex",
         model: unpinned,
         sessionId,
-        cwd: "/repo",
+        ...testContext("/repo"),
       }),
     ),
-    ["codex", "resume", "--approve-for-me", sessionId],
+    ["cd", "/repo", "&&", "codex", "resume", "--approve-for-me", sessionId],
   )
   // A seat that named its model resumes on it, so the user continues the round's own run.
   assert.deepEqual(
@@ -240,10 +241,13 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
           effort: { value: "xhigh", source: "--effort" },
         },
         sessionId: "audit-session",
-        cwd: "/repo",
+        ...testContext("/repo"),
       }),
     ),
     [
+      "cd",
+      "/repo",
+      "&&",
       "codex",
       "-m",
       "gpt-6-astra",
@@ -263,9 +267,9 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
           effort: null,
         },
         sessionId: "audit-session",
-        cwd: "/repo",
+        ...testContext("/repo"),
       }),
-    ).slice(0, 5),
+    ).slice(3, 8),
     ["claude", "--resume", "audit-session", "--model", "fable"],
   )
 })

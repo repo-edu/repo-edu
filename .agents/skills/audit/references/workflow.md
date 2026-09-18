@@ -33,7 +33,11 @@ This procedure also serves implementation-audit rounds on changes hosted by
 the plan repo. Its audit workflow routes those rounds here and supplies the
 local substitutions: that repo's report root and finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
-audits still belong to the plan repo's own audit workflow.
+audits still belong to the plan repo's own audit workflow. The runner selects
+that workflow when invoked from the plan root with an artifact alone. Its
+sessions and round files belong to the invoking root. Shared brief and ruling
+launchers stay in Repo Edu and write beside the supplied transcript at either
+root; their launcher location never changes the session's working directory.
 
 The round ends at its report file. The auditor answers a vet through the
 rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
@@ -575,7 +579,8 @@ deletes only the landed report and its matched vet and rebuttal files.
 
 ## Round allocation
 
-A supplied runner name wins at either report root. Without one, a hand-run
+A supplied runner name wins at either report root. The runner claims its
+number and writes its transcript at the invoking repository root. Without one, a hand-run
 report at either root chooses its target under the shared round protocol, then
 scans both the Repo Edu and plan repo roots for every numbered round file
 with exactly that target, regardless of writer tag or kind. Include transcript

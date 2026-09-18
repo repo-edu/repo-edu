@@ -1,11 +1,32 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
 import { fileURLToPath } from "node:url"
 import type { AssistantRuntime } from "../assistant.js"
+import type { ExecutionContext, RoundKind } from "../context.js"
 import type { Feedback, PhaseOutput } from "../feedback.js"
 import type { Assistant, PhaseInput, PhaseResult } from "../phase.js"
+
+export function testContext(
+  repoEduRoot: string,
+  roundKind: RoundKind = "implementation",
+): ExecutionContext {
+  const planRoot = join(repoEduRoot, "../plan")
+  return {
+    repoEduRoot,
+    planRoot,
+    roundKind,
+    cwd: roundKind === "planning" ? planRoot : repoEduRoot,
+  }
+}
 
 export const fixtureRoot = fileURLToPath(new URL("fixtures/", import.meta.url))
 export const selections = {
@@ -52,7 +73,9 @@ export async function fixture(
   const releaseLookup = t.mock.method(globalThis, "fetch", async () =>
     Response.json({ tag_name: "rust-v1.0.0" }),
   )
-  const directory = await mkdtemp(join(tmpdir(), "audit-round-test-"))
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), "audit-round-test-")),
+  )
   t.after(() => rm(directory, { recursive: true, force: true }))
   const root = join(directory, "repo-edu")
   await mkdir(root)
@@ -68,8 +91,8 @@ export async function fixture(
       assistant,
     ],
   })
-  const runtime: AssistantRuntime = {
-    cwd: root,
+  const runtime: AssistantRuntime & ExecutionContext = {
+    ...testContext(root),
     sessionsRoot: root,
     executables: { claude: executable("claude"), codex: executable("codex") },
   }

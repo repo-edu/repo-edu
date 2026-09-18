@@ -4,13 +4,13 @@ import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { briefRun, RoundOutput, roundRun } from "../output.js"
-import { fixture, selections } from "./helpers.js"
+import { fixture, selections, testContext } from "./helpers.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
 
 test("different auditors cannot open the same candidate and the next run advances", async (t) => {
   const f = await fixture(t)
-  const setup = { repoRoot: f.root, plan: "example.md", scope: "2-4" }
+  const setup = { ...testContext(f.root), plan: "example.md", scope: "2-4" }
   const codex = await roundRun({ ...setup, auditor: "codex" }, 0, selections)
   const claude = await roundRun({ ...setup, auditor: "claude" }, 0, selections)
   assert.equal(codex.nameStart, "example-steps-2-4-01")
@@ -32,7 +32,7 @@ test("different auditors cannot open the same candidate and the next run advance
 
 test("every retained round kind at either root reserves its number across auditors", async (t) => {
   const f = await fixture(t)
-  const setup = { repoRoot: f.root, plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md" }
   for (const root of [f.root, join(f.root, "../plan")]) {
     for (const suffix of [
       "claim.md",
@@ -65,7 +65,7 @@ test("every retained round kind at either root reserves its number across audito
 
 test("a plan-root report survives partial cleanup and full cleanup restarts numbering", async (t) => {
   const f = await fixture(t)
-  const setup = { repoRoot: f.root, plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md" }
   const run = await roundRun(setup, 0, selections)
   new RoundOutput(run, options).close()
   const report = join(f.root, "../plan", `${run.nameStart}-oth-audit.md`)
@@ -85,7 +85,7 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
 
 test("a failed tagged-file open retains the number's claim", async (t) => {
   const f = await fixture(t)
-  const setup = { repoRoot: f.root, plan: "example.md" }
+  const setup = { ...testContext(f.root), plan: "example.md" }
   const run = await roundRun(setup, 0, selections)
   await mkdir(run.paths.log)
   assert.throws(() => new RoundOutput(run, options))
@@ -98,7 +98,7 @@ test("a failed tagged-file open retains the number's claim", async (t) => {
 
 test("commit filenames resolve HEAD once while keeping typed offsets and list counts", async (t) => {
   const f = await fixture(t)
-  await execa("git", ["init", "--quiet"], { cwd: f.root })
+  await execa("git", ["init", "--quiet"], { ...testContext(f.root) })
   await execa(
     "git",
     [
@@ -113,12 +113,12 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
       "-m",
       "Fixture",
     ],
-    { cwd: f.root },
+    { ...testContext(f.root) },
   )
   const { stdout: head } = await execa(
     "git",
     ["rev-parse", "--short", "HEAD"],
-    { cwd: f.root },
+    { ...testContext(f.root) },
   )
   for (const [commits, target] of [
     [["HEAD"], head],
@@ -127,7 +127,11 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
     [["HEAD-4", "HEAD-1", "HEAD"], `${head}-4-plus-2`],
     [["abcd1234"], "abcd1234"],
   ] as const) {
-    const run = await roundRun({ repoRoot: f.root, commits }, 0, selections)
+    const run = await roundRun(
+      { ...testContext(f.root), commits },
+      0,
+      selections,
+    )
     assert.equal(basename(run.paths.markdown), `${target}-01-oth-round.md`)
     assert.equal(run.title, `Audit round of commits ${commits.join(" ")}`)
   }
@@ -141,7 +145,11 @@ test("archived plans use their folder and scopes keep separate numbering", async
     ["2-4", "steps-2-4"],
   ] as const) {
     const run = await roundRun(
-      { repoRoot: f.root, plan: "../plan/archive/example/plan.md", scope },
+      {
+        ...testContext(f.root),
+        plan: "../plan/archive/example/plan.md",
+        scope,
+      },
       0,
       selections,
     )
@@ -178,7 +186,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
         [assistant]: { ...selections[assistant], effort },
       }
       await assert.rejects(
-        roundRun({ repoRoot: f.root, plan: "example.md" }, 0, chosen),
+        roundRun({ ...testContext(f.root), plan: "example.md" }, 0, chosen),
         assistant === "codex"
           ? /codex audit.*full --auditor tag/
           : /claude vet.*CLI settings/,
@@ -189,7 +197,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
   await assert.rejects(
     roundRun(
       {
-        repoRoot: f.root,
+        ...testContext(f.root),
         plan: "example.md",
         override: { strength: "top", effort: "high" },
       },
@@ -202,7 +210,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
   await assert.rejects(
     roundRun(
       {
-        repoRoot: f.root,
+        ...testContext(f.root),
         plan: "example.md",
         auditor: "claude",
         override: { strength: "top", effort: "high" },
@@ -213,4 +221,29 @@ test("unspellable phase efforts fail before any claim or output is created", asy
     /claude rule.*CLI settings/,
   )
   assert.deepEqual(await readdir(f.root), before)
+})
+
+test("planning rounds share the bare target number across roots and write at the plan root", async (t) => {
+  const f = await fixture(t)
+  const context = testContext(f.root, "planning")
+  await writeFile(join(f.root, "example-04-oth-audit.md"), "")
+  await writeFile(join(context.planRoot, "example-05-claim.md"), "")
+  const run = await roundRun(
+    { ...context, plan: "example-widen.md" },
+    0,
+    selections,
+  )
+  assert.equal(run.nameStart, "example-06")
+  assert.equal(run.paths.claim, join(context.planRoot, "example-06-claim.md"))
+  assert.equal(
+    run.paths.markdown,
+    join(context.planRoot, "example-06-oth-round.md"),
+  )
+  assert.equal(run.verdict, join(context.planRoot, "example-06-abx-watch.md"))
+  const archived = await roundRun(
+    { ...context, plan: "archive/topic/plan.md" },
+    0,
+    selections,
+  )
+  assert.equal(archived.nameStart, "topic-01")
 })

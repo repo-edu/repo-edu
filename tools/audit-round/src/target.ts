@@ -1,4 +1,5 @@
 import { InvalidArgumentError } from "commander"
+import type { RoundKind } from "./context.js"
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
@@ -34,7 +35,15 @@ function commitReference(value: string): boolean {
 export function auditTarget(
   first: string,
   rest: readonly string[],
+  kind: RoundKind = "implementation",
 ): AuditTarget {
+  if (kind === "planning") {
+    if (!first.endsWith(".md") || rest.length > 0)
+      throw new InvalidArgumentError(
+        "From the plan root, name only a .md artifact. Implementation and commit audits run from Repo Edu.",
+      )
+    return { plan: first }
+  }
   if (first.endsWith(".md")) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")

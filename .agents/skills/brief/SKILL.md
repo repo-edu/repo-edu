@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Write the plain-words brief of one implementation-audit round from its *-round.md transcript at the Repo Edu root, for the user. Use when the user invokes `$brief` from the Repo Edu working directory, with or without a transcript file, or asks to retell a round in plain words.
+description: Write the plain-words brief of one planning or implementation-audit round from its *-round.md transcript at the Repo Edu or plan root, for the user. Use when the user invokes `$brief` through this Repo Edu launcher, with or without a transcript file, or asks to retell a round in plain words.
 ---
 
 # Brief

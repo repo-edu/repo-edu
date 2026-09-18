@@ -7,7 +7,7 @@ import { decodeCodexSessionFeedback } from "../codex-session-feedback.js"
 import { recordInteractiveSession } from "../interactive.js"
 import { RoundOutput, roundRun } from "../output.js"
 import { unpinned } from "../phase.js"
-import { fixture, selections } from "./helpers.js"
+import { fixture, selections, testContext } from "./helpers.js"
 
 const jsonl = (...records: unknown[]) =>
   `${records.map((record) => JSON.stringify(record)).join("\n")}\n`
@@ -91,7 +91,11 @@ test("interactive recording stays live, excludes prior records and drains the fi
   const terminal: string[] = []
   let now = 0
   const output = new RoundOutput(
-    await roundRun({ repoRoot: f.root, plan: "example.md" }, now, selections),
+    await roundRun(
+      { ...testContext(f.root), plan: "example.md" },
+      now,
+      selections,
+    ),
     {
       now: () => now,
       verbose: true,
@@ -115,7 +119,7 @@ test("interactive recording stays live, excludes prior records and drains the fi
       phase: "brief",
       assistant: "claude",
       model: unpinned,
-      cwd: f.root,
+      ...testContext(f.root),
       ownerRoot: f.root,
       arguments: ["/transcript.md"],
       sessionId: null,
@@ -127,7 +131,7 @@ test("interactive recording stays live, excludes prior records and drains the fi
     assistant: "codex",
     model: unpinned,
     sessionId: "fix-session",
-    cwd: f.root,
+    ...testContext(f.root),
   } as const
   const dependencies = assistantDependencies(
     f.runtime,
@@ -202,7 +206,7 @@ for (const failure of [
           assistant: "codex",
           model: unpinned,
           sessionId: "fix-session",
-          cwd: f.root,
+          ...testContext(f.root),
         },
         { ...f.runtime, signal: cancelled.signal },
         async () => {
@@ -232,7 +236,7 @@ test("a missing session file prevents an unrecorded interactive launch", async (
         assistant: "codex",
         model: unpinned,
         sessionId: "missing",
-        cwd: f.root,
+        ...testContext(f.root),
       },
       f.runtime,
       async () => {},

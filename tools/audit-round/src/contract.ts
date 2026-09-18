@@ -21,6 +21,7 @@ import {
   findSessionFile,
 } from "./codex-session.js"
 import { readCodexSettings } from "./codex-settings.js"
+import type { ExecutionContext } from "./context.js"
 import { eventSchema, type Feedback } from "./feedback.js"
 import { RoundOutput } from "./output.js"
 import { type Assistant, unpinned } from "./phase.js"
@@ -121,10 +122,12 @@ async function recordUsage(
 
 export async function recordContracts(
   selected: Assistant | "both",
-  runtime: AssistantRuntime,
+  runtime: AssistantRuntime & ExecutionContext,
   fixturesRoot: string,
   terminal: Terminal,
 ): Promise<void> {
+  const { cwd, repoEduRoot, planRoot, roundKind } = runtime
+  const context = { cwd, repoEduRoot, planRoot, roundKind }
   const scratch = await mkdtemp(join(tmpdir(), "audit-round-ts-contract-"))
   const assistants: readonly Assistant[] =
     selected === "both" ? ["claude", "codex"] : [selected]
@@ -194,7 +197,7 @@ export async function recordContracts(
             assistant,
             // The probe records a CLI contract, so it names no model of its own.
             model: unpinned,
-            cwd: runtime.cwd,
+            ...context,
             ownerRoot: runtime.cwd,
             arguments: ["CLI contract probe"],
             sessionId: null,

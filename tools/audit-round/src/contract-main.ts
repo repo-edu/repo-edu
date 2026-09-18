@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import { Argument, Command, CommanderError } from "commander"
-import { checkRepoRoot } from "./command.js"
+import { executionContext } from "./context.js"
 import { recordContracts } from "./contract.js"
 import { errorMessage } from "./feedback.js"
 import type { Assistant } from "./phase.js"
@@ -21,7 +21,7 @@ try {
   command.parse()
   await recordContracts(
     (command.args[0] as Assistant | "both") ?? "both",
-    { cwd: await checkRepoRoot(process.cwd()) },
+    await executionContext(process.cwd()),
     fileURLToPath(new URL("./__tests__/fixtures/", import.meta.url)),
     terminal,
   )
