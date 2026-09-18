@@ -55,8 +55,9 @@ the auditor from an input path. Use the tag's first letter alone when checking
 which assistant wrote a file: `a` is Claude and `o` is Codex.
 
 Under the runner, audit, vet, rebuttal and fix read their own selection from
-`COMMIT_PHASES`. Other sessions use the model they were told to run and their
-effort. The runner's brief uses its pinned `gpt-5.6-terra` at low effort,
+`COMMIT_PHASES`. Other sessions use their current model and effort. Codex desktop
+sessions resolve them through [task settings](codex-desktop-settings.md).
+The runner's brief uses its pinned `gpt-5.6-terra` at low effort,
 spelled `oul`; a hand-run brief uses its own session's selection. Resolve the
 tag before writing a file or claiming a number. When the effort is missing or
 cannot be spelled, stop and name the assistant and phase. For a runner audit,
