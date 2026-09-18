@@ -257,7 +257,7 @@ for (const auditor of ["claude", "codex"] as const) {
             `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
           ),
         )
-        assert.ok(log.includes(`${repoRoot}/.agents/skills/brief/SKILL.md`))
+        assert.ok(log.includes(join(repoRoot, ".agents/skills/brief/SKILL.md")))
         assert.ok(log.includes(`[brief] finished: ${brief}`))
         assert.equal(
           log.split(
@@ -266,7 +266,7 @@ for (const auditor of ["claude", "codex"] as const) {
           3,
         )
         assert.ok(
-          log.includes(`${join(f.root, owner)}/.agents/skills/fix/SKILL.md`),
+          log.includes(join(f.root, owner, ".agents/skills/fix/SKILL.md")),
         )
         assert.match(log, /audit-round-probe-error/)
         assert.equal(visible.includes("audit-round-probe-error"), false)
@@ -280,8 +280,8 @@ for (const auditor of ["claude", "codex"] as const) {
             "--approve-for-me",
             "fix-session",
           ])
-          assert.ok(log.includes(`${repoRoot}/.claude/commands/rule.md`))
-          assert.ok(log.includes(`${repoRoot}/.claude/commands/revise.md`))
+          assert.ok(log.includes(join(repoRoot, ".claude/commands/rule.md")))
+          assert.ok(log.includes(join(repoRoot, ".claude/commands/revise.md")))
           assert.ok(
             log.includes(
               `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
@@ -291,7 +291,7 @@ for (const auditor of ["claude", "codex"] as const) {
           assert.ok(
             log.includes(
               `Phase arguments (JSON array): ${JSON.stringify([
-                `${repoRoot}/.agents/skills/rule/references/workflow.md`,
+                join(repoRoot, ".agents/skills/rule/references/workflow.md"),
                 f.ruling,
                 transcript,
                 f.report,
@@ -779,8 +779,8 @@ test("a due glance sends the watch the record and the cache, never the round", a
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
   const verdict = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
-  assert.ok(log.includes(`${f.repoRoot}/.claude/commands/glance.md`))
-  assert.ok(log.includes(`${f.repoRoot}/.claude/commands/verdict.md`))
+  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/glance.md")))
+  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/verdict.md")))
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([f.options.cacheRoot])}`,
@@ -795,7 +795,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([
-        `${f.repoRoot}/.agents/skills/verdict/references/workflow.md`,
+        join(f.repoRoot, ".agents/skills/verdict/references/workflow.md"),
         f.verdict,
       ])}`,
     ),

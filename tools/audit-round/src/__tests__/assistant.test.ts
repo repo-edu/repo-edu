@@ -317,7 +317,9 @@ test("cancellation stops and awaits an active CLI", async (t) => {
   assert.equal(f.releases(), 1)
   const [call] = await f.calls()
   assert.throws(() => process.kill(call.pid, 0), { code: "ESRCH" })
-  assert.equal(await readFile(join(f.root, "stopped"), "utf8"), "SIGTERM")
+  // Windows terminates the process without running its signal handler.
+  if (process.platform !== "win32")
+    assert.equal(await readFile(join(f.root, "stopped"), "utf8"), "SIGTERM")
 })
 
 test("the brief carries its pinned model and effort into the Codex invocation", async (t) => {

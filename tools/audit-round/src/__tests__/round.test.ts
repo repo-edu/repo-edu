@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { join } from "node:path"
 import { test } from "node:test"
 import {
   type Assistant,
@@ -30,8 +31,14 @@ const brief = `${repoRoot}/example-all-01-oul-brief.md`
 const ruling = `${repoRoot}/example-all-01-abx-ruling.md`
 const verdict = `${repoRoot}/example-all-01-abx-watch.md`
 const cacheRoot = "/cache/audit-round"
-const ruleWorkflow = `${repoRoot}/.agents/skills/rule/references/workflow.md`
-const watchWorkflow = `${repoRoot}/.agents/skills/verdict/references/workflow.md`
+const ruleWorkflow = join(
+  repoRoot,
+  ".agents/skills/rule/references/workflow.md",
+)
+const watchWorkflow = join(
+  repoRoot,
+  ".agents/skills/verdict/references/workflow.md",
+)
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   repoRoot,
