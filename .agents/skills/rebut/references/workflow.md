@@ -29,7 +29,7 @@ complete the rebuttal: the fix phase presents them.
 
 This procedure also serves reports stored at the plan repo root. The plan
 repo's rebuttal workflow routes those here and supplies the local
-substitutions: that repo's round allocation rule and finding metadata.
+substitutions: that repo's report root and finding metadata.
 
 ## Report discovery
 

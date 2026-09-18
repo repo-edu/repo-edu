@@ -29,7 +29,7 @@ When the fix needs a ruling, the runner opens that fix session interactively.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
-supplies the local substitutions: that repo's round allocation rule, Markdown format
+supplies the local substitutions: that repo's report root, Markdown format
 and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
 
 ## Report discovery

@@ -11,7 +11,8 @@ Round documents and logs use `<target>-<round>-<tag>-<kind>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
 Two files omit the tag: the empty `<target>-<round>-claim.md` reserves a
-Repo Edu number, and `<stem>-<sha>-handoff.md` briefs the commit it names.
+number at the root where the report goes, and `<stem>-<sha>-handoff.md`
+briefs the commit it names.
 The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. A planning-artifact audit uses its bare
@@ -23,10 +24,11 @@ The plan repo's handoff rule owns that six-character sha.
   `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
   `-plus-<n>`, where `n` counts the remaining references. Never take a word
   from a commit subject or name a range with two resolved endpoint shas.
-- **Round** is the allocated number or audited sha supplied by the owning
-  workflow. A runner-supplied `<target>-<round>` takes precedence at either
-  report root. Every later phase keeps it exactly, even when another assistant
-  writes the next file. A later phase never allocates another round.
+- **Round** is the two-digit number allocated under the Repo Edu audit
+  workflow's round allocation rule, at either report root. A runner-supplied
+  `<target>-<round>` takes precedence at either report root. Every later phase
+  keeps it exactly, even when another assistant writes the next file. A later
+  phase never allocates another round.
 - **Tag** names the file's writer under [Writer tags](#writer-tags). The
   transcript and its log use the auditor's tag. All other tagged files use
   their own writer's tag.

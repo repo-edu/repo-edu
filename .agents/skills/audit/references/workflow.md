@@ -575,20 +575,20 @@ deletes only the landed report and its matched vet and rebuttal files.
 
 ## Round allocation
 
-A supplied runner name wins at either report root. Without one, a report
-hosted in the plan repo uses that repo's local allocation rule. A hand-run
-Repo Edu report chooses its target under the shared round protocol, then
+A supplied runner name wins at either report root. Without one, a hand-run
+report at either root chooses its target under the shared round protocol, then
 scans both the Repo Edu and plan repo roots for every numbered round file
 with exactly that target, regardless of writer tag or kind. Include transcript
-and brief logs and tagless claims. Ignore old prefix names and sha-keyed
-plan-repo files. A numbered file has at least two decimal digits in its round
-field. A retained plan-root report still reserves its number after the Repo
-Edu files have gone.
+and brief logs and tagless claims. Ignore old prefix names. A numbered file
+has at least two decimal digits in its round field. A retained plan-root
+report or claim still reserves its number after the Repo Edu files have gone.
+The plan repo's audit workflow routes its hand-run reports through this rule
+and has no allocation rule of its own.
 
 Take the highest number plus one, or `01` when none remain, padding to at
 least two digits. Resolve your writer tag before claiming. Exclusively create
-the empty claim file at the Repo Edu root with Node's `open` flag `wx`, then
-close its handle. Only the successful creator may write the report. A conflict
+the empty claim file at the root where the report goes with Node's `open` flag
+`wx`, then close its handle. Only the successful creator may write the report. A conflict
 stops the audit without waiting or retrying. Keep the claim after success or
 failure until the user removes the round files. The number lives only in those
 files and restarts at `01` after a full cleanup. Every later phase reuses it.
