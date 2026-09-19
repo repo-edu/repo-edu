@@ -31,6 +31,12 @@ plan/
 /*-watch.md
 /*-claim.md
 
+# legacy
+ROUND-*
+AUDIT-*
+VET-*
+REBUT-*
+
 # Oversized-step implementation ledger, deleted when the step's commit lands
 /LEDGER-*.md
 
