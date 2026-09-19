@@ -25,7 +25,10 @@ When unattended, follow the audit workflow's
 ending. Report `finished` only after completing the required checks and
 writing every verdict to the `-vet.md` twin; return its absolute path. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
-that open item.
+that open item. The result also says whether the vet accepted every finding,
+under the Runner result's `accepted` rule. When it did, the runner skips the
+rebuttal, because the auditor has nothing to answer, and the fix reads the
+report with this twin alone.
 
 Planning-artifact audit reports belong to the sibling plan repo. An
 implementation-audit report also lives there for a plan-repo-only round or a

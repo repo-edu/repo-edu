@@ -92,6 +92,16 @@ only. The object has exactly these fields:
   clean record from the report alone. Report what the report says and nothing
   else; a report with any finding, including a deferred plan-text finding, is
   not clean.
+- `accepted`: whether a finished vet accepted every finding without a
+  condition, and `null` everywhere else. The runner reads this to decide
+  whether the rebuttal runs: an accepted vet leaves the auditor nothing to
+  answer, so the round sends the report and its vet twin straight to the fix.
+  It is true only when every verdict is `Accept` and none carries a condition.
+  A `Revise`, `Drop` or `Needs user's ruling` verdict makes it false, and so
+  does an accept noted as a narrowing, because that reopens a settled decision
+  the auditor should get to answer. A corroboration marker alone does not,
+  because it never changes a verdict. Report what the twin says and nothing
+  else.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
@@ -108,7 +118,9 @@ replaced an existing report. Reports from other rounds do not block the run.
 The audit's path remains the input to every phase up to the fix. A finished
 vet or rebuttal returns its own twin's path for feedback; that path does not
 replace the audit path. After a clean audit neither phase runs, so the fix
-reads the report with no twins. The report's directory selects the later phase's
+reads the report with no twins. After a vet that accepted every finding the
+rebuttal does not run, so the fix reads the report with its vet twin alone.
+The report's directory selects the later phase's
 owning launcher and local workflow rules, even when the resumed session
 started in the other repo. The brief's input is the round transcript instead,
 and its launcher belongs to the Repo Edu root. Transcripts and the brief and

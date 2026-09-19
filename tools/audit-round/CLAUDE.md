@@ -14,7 +14,11 @@ consumers.
   report with no findings gives the one nothing to grade and the other nothing
   to answer; the fix then lands the clean record from the report alone. The
   audit's result says whether it was clean, so the coordinator routes on it
-  without reading the report.
+  without reading the report. A vet that accepted every finding without a
+  condition skips the rebuttal the same way, because the auditor has nothing
+  to answer; the fix then reads the report with its vet twin alone. The vet's
+  result says whether it accepted every finding, so the coordinator routes on
+  it without reading the twin.
   Rebuttal resumes the audit session only when that session's last measurement
   leaves room for a rebuttal before the assistant summarises itself in place. A
   measured shortfall starts the rebuttal fresh, because a summarised session
@@ -72,7 +76,7 @@ consumers.
   stamps, overriding any inherited ones, so a phase that commits records the round that ran rather
   than whatever started it. The stamps are read when the child starts, from the output's record
   of the phases that have run, so a clean round that skipped the vet and the rebuttal stamps
-  neither into its record.
+  neither into its record, and an accepted vet's round stamps no rebuttal.
 - `codex-session.ts` reads the current session's appended records. A resumed
   rebuttal or interactive fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final

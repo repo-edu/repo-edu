@@ -15,7 +15,9 @@ answers stand on what this workflow reads now, which the grounding below require
 workflow at `.agents/skills/fix/references/workflow.md` then reads all three files. The user
 directed this chain on 2026-09-09 to give the fix phase both assistants' views. On 2026-09-11 the
 user directed Codex to run the fix in a fresh session, with the audit report and both twins as its
-brief.
+brief. Under the runner the rebuttal runs only when the vet's verdicts leave the auditor something
+to answer: a vet that accepted every finding without a condition sends the report and its vet twin
+straight to the fix, which the user directed on 2026-09-20 so the fix starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. The `-rebut.md` twin is the one file it writes.

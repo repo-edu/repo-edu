@@ -244,8 +244,11 @@ export async function runRound(
   const report = audit.file
   const ownerRoot = dirname(report)
   // A clean report gives the vet nothing to grade and the rebuttal nothing to
-  // answer, so the fix lands the clean record from the report alone. The two
-  // phases run only where the report holds findings for them to exchange on.
+  // answer, so the fix lands the clean record from the report alone. The vet
+  // runs only where the report holds findings to grade, and the rebuttal only
+  // where the vet's verdicts leave the auditor something to answer: a vet that
+  // accepted every finding without a condition sends the report and its vet
+  // twin straight to the fix.
   if (!audit.clean) {
     const vet = await dependencies.runPhase.vet({
       phase: "vet",
@@ -259,16 +262,18 @@ export async function runRound(
       return { ...vet, phase: "vet", ...phases.vet, ...context }
     }
 
-    const rebut = await dependencies.runPhase.rebut({
-      phase: "rebut",
-      ...phases.rebut,
-      ...context,
-      ownerRoot,
-      arguments: [report],
-      sessionId: rebuttalSessionId(audit.sessionId, audit.context),
-    })
-    if (rebut.status === "failed") {
-      return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
+    if (!vet.accepted) {
+      const rebut = await dependencies.runPhase.rebut({
+        phase: "rebut",
+        ...phases.rebut,
+        ...context,
+        ownerRoot,
+        arguments: [report],
+        sessionId: rebuttalSessionId(audit.sessionId, audit.context),
+      })
+      if (rebut.status === "failed") {
+        return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
+      }
     }
   }
 

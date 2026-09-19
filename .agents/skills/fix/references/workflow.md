@@ -19,7 +19,9 @@ it on 2026-09-09.
 The fix phase always starts in a fresh session. After a rebuttal Codex runs
 it, using the audit report and both twins as its brief. After a clean audit
 the runner skips the vet and the rebuttal, so the fix reads the report alone
-and lands the clean record.
+and lands the clean record. After a vet that accepted every finding without a
+condition the runner skips the rebuttal, so the fix reads the report and its
+vet twin alone.
 The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
 context usage and compacted during implementation. Starting fresh gives the
 fix its own context and removes the capacity judgement and restart path.
@@ -91,11 +93,15 @@ correction stands, or maintain, so the item moves to the user's ruling with
 both positions in one or two sentences each. Never re-argue an agreed
 verdict.
 
-When the report has a vet twin and no rebuttal, answer each verdict here:
-agreement carries it into the outcome, disagreement names the evidence the
-vet misread. Present the same three groups. Without a twin, present the
-report's findings in their numbered order with any drift corrections from
-[Grounding](#grounding).
+When the report has a vet twin and no rebuttal, and every verdict is an
+unconditional accept, the runner skipped the rebuttal because the auditor had
+nothing to answer. Present the findings as agreed by both assistants, say
+that the vet accepted every finding, and do not re-answer the verdicts. When
+the vet twin holds any other verdict and no rebuttal exists, answer each
+verdict here: agreement carries it into the outcome, disagreement names the
+evidence the vet misread. Present the same three groups. Without a twin,
+present the report's findings in their numbered order with any drift
+corrections from [Grounding](#grounding).
 
 The user reads along and rules by exception: a go on the presented outcome
 is the acceptance, and a reservation on any item reopens it, including a

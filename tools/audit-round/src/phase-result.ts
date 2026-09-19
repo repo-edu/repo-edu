@@ -12,6 +12,8 @@ const resultSchema = z.strictObject({
   due: z.boolean().nullable(),
   // Only a finished audit says whether it found nothing; every other ending says neither.
   clean: z.boolean().nullable(),
+  // Only a finished vet says whether it accepted every finding; every other ending says neither.
+  accepted: z.boolean().nullable(),
 })
 
 export function phaseResult<P extends Phase>(
@@ -41,6 +43,13 @@ export function phaseResult<P extends Phase>(
   )
     throw new Error(
       "Only a finished audit PHASE RESULT may say whether it was clean",
+    )
+  if (
+    result.accepted !== null &&
+    !(phase === "vet" && result.status === "finished")
+  )
+    throw new Error(
+      "Only a finished vet PHASE RESULT may say whether it accepted every finding",
     )
   if (result.status === "failed") {
     if (result.file !== null || !result.reason?.trim())
@@ -84,6 +93,19 @@ export function phaseResult<P extends Phase>(
       file: result.file,
       context,
       clean: result.clean,
+    } as PhaseResult<P>
+  }
+  if (phase === "vet") {
+    if (result.accepted === null)
+      throw new Error(
+        "Vet PHASE RESULT must say whether it accepted every finding",
+      )
+    return {
+      status: "finished",
+      sessionId,
+      file: result.file,
+      context,
+      accepted: result.accepted,
     } as PhaseResult<P>
   }
   return {

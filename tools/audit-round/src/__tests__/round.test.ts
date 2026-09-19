@@ -89,6 +89,7 @@ function controlledRound(
       sessionId: "vet-session",
       file: "/distinct-twins/VET-example.md",
       context: null,
+      accepted: false,
     },
     rebut: {
       status: "finished",
@@ -624,6 +625,47 @@ for (const auditor of ["claude", "codex"] as const) {
       ["audit", "fix", "brief", "glance"],
     )
     assert.deepEqual(round.calls[1], {
+      phase: "fix",
+      assistant: "codex",
+      model: unpinned,
+      ...testContext(repoRoot),
+      ownerRoot: "/workspace/plan",
+      arguments: [report],
+      sessionId: null,
+    })
+    assert.deepEqual(round.handover, [])
+  })
+}
+
+for (const auditor of ["claude", "codex"] as const) {
+  test(`a vet that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
+    const report = "/workspace/plan/AUDIT-example.md"
+    const round = controlledRound(report)
+    round.results.vet = {
+      status: "finished",
+      sessionId: "vet-session",
+      file: "/workspace/plan/VET-example.md",
+      context: null,
+      accepted: true,
+    }
+    round.results.fix = {
+      status: "finished",
+      sessionId: "fix-session",
+      tier: "c",
+    }
+
+    const result = await runRound(
+      { ...files, plan: "../plan/example.md", auditor },
+      round.dependencies,
+    )
+
+    assert.deepEqual(result, { status: "finished", report, tier: "c" })
+    // Every verdict is an unconditional accept, so the auditor has nothing to answer.
+    assert.deepEqual(
+      round.calls.map((call) => call.phase),
+      ["audit", "vet", "fix", "brief", "glance"],
+    )
+    assert.deepEqual(round.calls[2], {
       phase: "fix",
       assistant: "codex",
       model: unpinned,

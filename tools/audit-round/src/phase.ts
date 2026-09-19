@@ -323,6 +323,15 @@ type AuditResult = ReportResult & {
   readonly clean: boolean
 }
 
+/**
+ * The vet also says whether it accepted every finding without a condition. An
+ * accepted vet leaves the rebuttal nothing to answer, so the round sends the
+ * report and the vet twin straight to the fix.
+ */
+type VetResult = ReportResult & {
+  readonly accepted: boolean
+}
+
 type FixResult = {
   readonly status: "finished" | "needs-ruling"
   readonly sessionId: string
@@ -339,7 +348,7 @@ type GlanceResult = {
 
 type PhaseResults = {
   audit: AuditResult
-  vet: ReportResult
+  vet: VetResult
   rebut: ReportResult
   fix: FixResult
   brief: ReportResult

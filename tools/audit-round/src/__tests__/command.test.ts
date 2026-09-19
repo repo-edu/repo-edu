@@ -240,6 +240,62 @@ for (const auditor of ["claude", "codex"] as const) {
   })
 }
 
+for (const auditor of ["claude", "codex"] as const) {
+  test(`a vet that accepts every ${auditor} finding skips the rebuttal, and the fix stamps only the phases that ran`, async (t) => {
+    const f = await roundFixture(
+      t,
+      auditor,
+      "plan",
+      false,
+      "b",
+      false,
+      "repo-edu",
+      false,
+      true,
+    )
+    const argv = [
+      "example.md",
+      "2-3",
+      ...(auditor === "claude" ? ["--auditor", "a"] : []),
+    ]
+    assert.equal(
+      await runCommand(argv, f.runtime, f.options),
+      0,
+      f.errors.join("\n"),
+    )
+    const calls = await f.calls()
+    const invocations = calls.filter(
+      (call) =>
+        call.args[0] === "exec" ||
+        (call.args[0] === "-p" &&
+          !call.args.includes("--no-session-persistence")),
+    )
+    const vetter = auditor === "codex" ? "claude" : "codex"
+    assert.deepEqual(
+      invocations.map((call) => call.assistant),
+      [auditor, vetter, "codex", "codex", "claude"],
+    )
+    // The auditor had nothing to answer, so the rebuttal that never ran is
+    // not stamped into the record.
+    assert.deepEqual(
+      { phases: invocations[2].phases, auditor: invocations[2].auditor },
+      {
+        phases:
+          auditor === "codex"
+            ? "audit: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+            : "audit: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "otx" : "ath",
+      },
+    )
+    const { log, markdown } = await f.records()
+    assert.doesNotMatch(log, /\[rebut\] starting/)
+    for (const phase of ["audit", "vet", "fix"] as const)
+      assert.ok(markdown.includes(`## ${phase} (`))
+    assert.equal(markdown.includes("## rebut ("), false)
+    assert.match(f.visible.join("\n"), /Audit round finished\./)
+  })
+}
+
 for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
   test(`command stops at ${phase} failure and retains recovery evidence`, async (t) => {
     const f = await roundFixture(t)
@@ -975,7 +1031,7 @@ test("a failed planning audit retains its root and recovery session without star
       audit: {
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null,"clean":null}',
+          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null,"clean":null,"accepted":null}',
           "audit-session",
         ),
       },

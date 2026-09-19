@@ -20,13 +20,22 @@ for (const phase of [
   "watch",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    // A fix reports its grade, a glance its decision and an audit whether it
-    // was clean; the rest report a file.
+    // A fix reports its grade, a glance its decision, an audit whether it
+    // was clean and a vet whether it accepted every finding; the rest report
+    // a file.
     const file =
       phase === "fix" || phase === "glance" ? null : "/written report.md"
     const due = phase === "glance" ? false : null
     const clean = phase === "audit" ? false : null
-    const finished = { status: "finished", file, reason: null, tier: null, due }
+    const accepted = phase === "vet" ? false : null
+    const finished = {
+      status: "finished",
+      file,
+      reason: null,
+      tier: null,
+      due,
+      accepted,
+    }
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"]) {
@@ -51,6 +60,7 @@ for (const phase of [
           tier: null,
           due: null,
           clean: null,
+          accepted: null,
         }),
         { tokens: 10, window: 100 },
       ),
@@ -71,6 +81,7 @@ for (const phase of [
           tier: null,
           due: null,
           clean: null,
+          accepted: null,
         }),
         null,
       )
@@ -138,12 +149,51 @@ for (const phase of [
         null,
       ),
     )
+    // Only a finished vet says whether it accepted every finding, and it must
+    // say so rather than leave it open, because the round routes on the answer.
+    const acceptedAll = () =>
+      phaseResult(
+        phase,
+        "session",
+        text({ ...finished, clean, accepted: true }),
+        { tokens: 10, window: 100 },
+      )
+    if (phase === "vet")
+      assert.deepEqual(acceptedAll(), {
+        status: "finished",
+        sessionId: "session",
+        file,
+        context: { tokens: 10, window: 100 },
+        accepted: true,
+      })
+    else assert.throws(acceptedAll)
+    assert.throws(() =>
+      phaseResult(
+        phase,
+        "session",
+        text({
+          ...finished,
+          clean,
+          accepted: phase === "vet" ? null : false,
+        }),
+        null,
+      ),
+    )
     for (const value of [
-      { status: "retry", file: null, reason: null, tier: null, due, clean },
+      {
+        status: "retry",
+        file: null,
+        reason: null,
+        tier: null,
+        due,
+        clean,
+        accepted,
+      },
       { ...finished, clean, extra: true },
-      { status: "finished", file, reason: null, due, clean },
-      { status: "finished", file, tier: null, due, clean },
-      { status: "finished", file, reason: null, tier: null, clean },
+      { status: "finished", file, reason: null, due, clean, accepted },
+      { status: "finished", file, tier: null, due, clean, accepted },
+      { status: "finished", file, reason: null, tier: null, clean, accepted },
+      { status: "finished", file, reason: null, tier: null, due, clean },
       { ...finished },
       { ...finished, file: "relative.md", clean },
       { ...finished, reason: "unexpected", clean },
@@ -154,6 +204,7 @@ for (const phase of [
         tier: null,
         due: null,
         clean: null,
+        accepted: null,
       },
       {
         status: "failed",
@@ -162,6 +213,7 @@ for (const phase of [
         tier: null,
         due: null,
         clean: null,
+        accepted: null,
       },
       {
         status: "failed",
@@ -170,6 +222,7 @@ for (const phase of [
         tier: "a",
         due: null,
         clean: null,
+        accepted: null,
       },
       {
         status: "failed",
@@ -178,6 +231,7 @@ for (const phase of [
         tier: null,
         due: null,
         clean: false,
+        accepted: null,
       },
       {
         status: "needs-ruling",
@@ -186,6 +240,16 @@ for (const phase of [
         tier: "c",
         due: null,
         clean: null,
+        accepted: null,
+      },
+      {
+        status: "failed",
+        file: null,
+        reason: "blocked",
+        tier: null,
+        due: null,
+        clean: null,
+        accepted: false,
       },
       { ...finished, tier: "A", clean },
       { ...finished, tier: "e", clean },
