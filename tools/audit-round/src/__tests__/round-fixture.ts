@@ -17,6 +17,8 @@ export async function roundFixture(
   /** Whether the glance calls a watch due, which no round does alongside a ruling. */
   watch = false,
   working: "repo-edu" | "plan" = "repo-edu",
+  /** Whether the audit reports no findings, which sends the round straight to the fix. */
+  clean = false,
 ) {
   const f = await fixture(t)
   await mkdir(join(f.root, "repo-edu/.agents/skills/audit/references"), {
@@ -83,7 +85,7 @@ export async function roundFixture(
                   ? watchFile
                   : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, due: phase === "glance" ? watch : null })}`
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, due: phase === "glance" ? watch : null, clean: phase === "audit" ? clean : null })}`
     phases[phase] = {
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase once a chain crosses over, so both answer.

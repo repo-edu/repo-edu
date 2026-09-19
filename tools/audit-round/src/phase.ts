@@ -314,6 +314,15 @@ type ReportResult = {
   readonly context: SessionContext | null
 }
 
+/**
+ * The audit also says whether its report holds no findings. A clean report
+ * gives the vet nothing to grade and the rebuttal nothing to answer, so the
+ * round sends it straight to the fix, which lands the clean record.
+ */
+type AuditResult = ReportResult & {
+  readonly clean: boolean
+}
+
 type FixResult = {
   readonly status: "finished" | "needs-ruling"
   readonly sessionId: string
@@ -329,7 +338,7 @@ type GlanceResult = {
 }
 
 type PhaseResults = {
-  audit: ReportResult
+  audit: AuditResult
   vet: ReportResult
   rebut: ReportResult
   fix: FixResult

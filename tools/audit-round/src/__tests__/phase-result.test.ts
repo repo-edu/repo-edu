@@ -20,10 +20,13 @@ for (const phase of [
   "watch",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    // A fix reports its grade and a glance its decision; the rest report a file.
+    // A fix reports its grade, a glance its decision and an audit whether it
+    // was clean; the rest report a file.
     const file =
       phase === "fix" || phase === "glance" ? null : "/written report.md"
     const due = phase === "glance" ? false : null
+    const clean = phase === "audit" ? false : null
+    const finished = { status: "finished", file, reason: null, tier: null, due }
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"]) {
@@ -31,8 +34,7 @@ for (const phase of [
         phaseResult(
           phase,
           "session",
-          text({ status: "finished", file, reason: null, tier: null, due }) +
-            ending,
+          text({ ...finished, clean }) + ending,
           null,
         ).status,
         "finished",
@@ -48,6 +50,7 @@ for (const phase of [
           reason: "Required work remains blocked",
           tier: null,
           due: null,
+          clean: null,
         }),
         { tokens: 10, window: 100 },
       ),
@@ -67,6 +70,7 @@ for (const phase of [
           reason: null,
           tier: null,
           due: null,
+          clean: null,
         }),
         null,
       )
@@ -77,7 +81,7 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "finished", file, reason: null, tier: "b", due }),
+        text({ ...finished, tier: "b", clean }),
         null,
       )
     if (phase === "fix")
@@ -92,7 +96,7 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "finished", file, reason: null, tier: null, due: true }),
+        text({ ...finished, due: true, clean }),
         null,
       )
     if (phase === "glance")
@@ -106,37 +110,58 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({
-          status: "finished",
-          file,
-          reason: null,
-          tier: null,
-          due: phase === "glance" ? null : false,
-        }),
+        text({ ...finished, due: phase === "glance" ? null : false, clean }),
+        null,
+      ),
+    )
+    // Only a finished audit says whether it was clean, and it must say so
+    // rather than leave it open, because the round routes on the answer.
+    const cleaned = () =>
+      phaseResult(phase, "session", text({ ...finished, clean: true }), {
+        tokens: 10,
+        window: 100,
+      })
+    if (phase === "audit")
+      assert.deepEqual(cleaned(), {
+        status: "finished",
+        sessionId: "session",
+        file,
+        context: { tokens: 10, window: 100 },
+        clean: true,
+      })
+    else assert.throws(cleaned)
+    assert.throws(() =>
+      phaseResult(
+        phase,
+        "session",
+        text({ ...finished, clean: phase === "audit" ? null : false }),
         null,
       ),
     )
     for (const value of [
-      { status: "retry", file: null, reason: null, tier: null, due },
-      { status: "finished", file, reason: null, tier: null, due, extra: true },
-      { status: "finished", file, reason: null, due },
-      { status: "finished", file, tier: null, due },
-      { status: "finished", file, reason: null, tier: null },
+      { status: "retry", file: null, reason: null, tier: null, due, clean },
+      { ...finished, clean, extra: true },
+      { status: "finished", file, reason: null, due, clean },
+      { status: "finished", file, tier: null, due, clean },
+      { status: "finished", file, reason: null, tier: null, clean },
+      { ...finished },
+      { ...finished, file: "relative.md", clean },
+      { ...finished, reason: "unexpected", clean },
       {
-        status: "finished",
-        file: "relative.md",
-        reason: null,
+        status: "failed",
+        file: null,
+        reason: " ",
         tier: null,
-        due,
+        due: null,
+        clean: null,
       },
-      { status: "finished", file, reason: "unexpected", tier: null, due },
-      { status: "failed", file: null, reason: " ", tier: null, due: null },
       {
         status: "failed",
         file: "/file.md",
         reason: "blocked",
         tier: null,
         due: null,
+        clean: null,
       },
       {
         status: "failed",
@@ -144,6 +169,15 @@ for (const phase of [
         reason: "blocked",
         tier: "a",
         due: null,
+        clean: null,
+      },
+      {
+        status: "failed",
+        file: null,
+        reason: "blocked",
+        tier: null,
+        due: null,
+        clean: false,
       },
       {
         status: "needs-ruling",
@@ -151,16 +185,17 @@ for (const phase of [
         reason: null,
         tier: "c",
         due: null,
+        clean: null,
       },
-      { status: "finished", file, reason: null, tier: "A", due },
-      { status: "finished", file, reason: null, tier: "e", due },
+      { ...finished, tier: "A", clean },
+      { ...finished, tier: "e", clean },
     ])
       assert.throws(() => phaseResult(phase, "session", text(value), null))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
-      `${text({ status: "finished", file, reason: null, tier: null, due })}\nExtra text`,
-      `${text({ status: "finished", file, reason: null, tier: null, due })}\n\`\`\``,
+      `${text({ ...finished, clean })}\nExtra text`,
+      `${text({ ...finished, clean })}\n\`\`\``,
     ]) {
       assert.throws(() => phaseResult(phase, "session", invalid, null))
     }

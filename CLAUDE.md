@@ -49,19 +49,20 @@ pnpm test
 
 `pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <tag>] [--chain] [-v]` runs the
 implementation-audit tool from this checkout root, ending with a plain-words brief of the round for
-the user. A fix that stops for the user's ruling adds a ruling document, drafted and then rewritten
-in a fresh session, which the user rules from. A round that finished ends with a glance at the
-commit record, which decides whether the trajectory watch is due; a due watch adds its
-document, drafted and rewritten the same way, and records its own grade so the next glance can count
-from it. `--chain` runs at most three rounds on the scope the user named, keeping the auditor while
-an A or B finding lands and giving the other assistant one closing round, and glances after each of
-them. `--auditor` takes the capability tag a commit subject spells: `a` or `o` for the assistant,
-then an optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the
-reasoning effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the
-audit session; an unnamed one follows that assistant's own settings, as every other phase does, and
-the brief names its own model. The run's settings header names what set each phase.
-`pnpm audit-round brief <target-round-tag-round.md>` writes that brief for an earlier round.
-The shared file-name grammar and writer-tag rules live in
+the user. A clean audit skips the vet and the rebuttal and goes straight to the fix, which lands the
+clean record. A fix that stops for the user's ruling adds a ruling document, drafted and then
+rewritten in a fresh session, which the user rules from. A round that finished ends with a glance at
+the commit record, which decides whether the trajectory watch is due; a due watch adds its document,
+drafted and rewritten the same way, and records its own grade so the next glance can count from it.
+`--chain` runs at most three rounds on the scope the user named, keeping the auditor while an A or B
+finding lands and giving the other assistant one closing round, and glances after each of them.
+`--auditor` takes the capability tag a commit subject spells: `a` or `o` for the assistant, then an
+optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the reasoning
+effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the audit
+session; an unnamed one follows that assistant's own settings, as every other phase does, and the
+brief names its own model. The run's settings header names what set each phase.
+`pnpm audit-round brief <target-round-tag-round.md>` writes that brief for an earlier round. The
+shared file-name grammar and writer-tag rules live in
 [the round protocol](.agents/references/round-protocol.md).
 `pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
 References accept SHAs, `HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.

@@ -85,6 +85,13 @@ only. The object has exactly these fields:
 - `due`: whether a finished glance found the trajectory watch due, and `null`
   everywhere else. The runner reads this to decide whether the two watch passes
   run after the round, so report the rule's answer and nothing else.
+- `clean`: whether a finished audit's report holds no findings, and `null`
+  everywhere else. The runner reads this to decide whether the vet and the
+  rebuttal run: a clean report gives the vet nothing to grade and the rebuttal
+  nothing to answer, so the round sends it straight to the fix, which lands the
+  clean record from the report alone. Report what the report says and nothing
+  else; a report with any finding, including a deferred plan-text finding, is
+  not clean.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
@@ -100,7 +107,8 @@ replaced an existing report. Reports from other rounds do not block the run.
 
 The audit's path remains the input to every phase up to the fix. A finished
 vet or rebuttal returns its own twin's path for feedback; that path does not
-replace the audit path. The report's directory selects the later phase's
+replace the audit path. After a clean audit neither phase runs, so the fix
+reads the report with no twins. The report's directory selects the later phase's
 owning launcher and local workflow rules, even when the resumed session
 started in the other repo. The brief's input is the round transcript instead,
 and its launcher belongs to the Repo Edu root. Transcripts and the brief and

@@ -17,7 +17,9 @@ context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
 
 The fix phase always starts in a fresh session. After a rebuttal Codex runs
-it, using the audit report and both twins as its brief.
+it, using the audit report and both twins as its brief. After a clean audit
+the runner skips the vet and the rebuttal, so the fix reads the report alone
+and lands the clean record.
 The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
 context usage and compacted during implementation. Starting fresh gives the
 fix its own context and removes the capacity judgement and restart path.

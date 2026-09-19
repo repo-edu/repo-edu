@@ -10,7 +10,11 @@ consumers.
   two ruling passes a fix's open item adds, the watch that follows a finished
   planning or plan-scoped implementation round and the chain rule. It
   retains the audit session and report as local values. Audit, vet, fix and
-  brief start fresh.
+  brief start fresh. A clean audit skips the vet and the rebuttal, because a
+  report with no findings gives the one nothing to grade and the other nothing
+  to answer; the fix then lands the clean record from the report alone. The
+  audit's result says whether it was clean, so the coordinator routes on it
+  without reading the report.
   Rebuttal resumes the audit session only when that session's last measurement
   leaves room for a rebuttal before the assistant summarises itself in place. A
   measured shortfall starts the rebuttal fresh, because a summarised session
@@ -66,7 +70,9 @@ consumers.
   consumer, because Execa's iterator return awaits the child. It then awaits all readers and the
   process. Process output is never accumulated by Execa. Every child carries the round's commit
   stamps, overriding any inherited ones, so a phase that commits records the round that ran rather
-  than whatever started it.
+  than whatever started it. The stamps are read when the child starts, from the output's record
+  of the phases that have run, so a clean round that skipped the vet and the rebuttal stamps
+  neither into its record.
 - `codex-session.ts` reads the current session's appended records. A resumed
   rebuttal or interactive fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final
@@ -95,36 +101,39 @@ consumers.
   uses `--permission-mode auto` in settings discovery and every session entry, and that discovery
   names no model of its own.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
-  run, lists the phases it runs and locates its files: a round records a log and transcript pair,
+  run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
   its own. It builds file names under the shared
-  [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD`
-  in commit targets and scans both repo roots for the next target-wide number.
-  It validates all file-writing phase tags before `run-files.ts` exclusively
-  creates the tagless claim, then opens the transcript and log. The claim
-  remains after success or failure, and a conflict stops without retrying.
-  Each entry carries its phase, so the settings header reports the model and effort that
-  phase will run on and names what set each of them: a command-line flag, the phase's own pin, or
-  the assistant's settings. A phase whose two fields came from different places names both, model
-  first. The output holds only the run start, current phase timing and context observations. Every
-  status stamp shows the phase's elapsed time and the round's total. `run-clock.ts` owns what those
-  readings count. A round measures its assistants, so time the user holds is not the run's. The
-  assistant's last sign of life opens a wait and the user's next action closes it: a user message
-  during the interactive fix, and leaving that session at the end. Each phase and the run read the
-  same waiting total through their own mark, so one rule serves every reading. Two baselines measure
-  context growth: a written status stamp reports the tokens added since the previous written stamp,
-  and a logged tool line reports the tokens added since the previous tool line. Both chain into the
-  totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase reports no
-  first change. `run-files.ts` completes each required write before returning to the invocation; no
-  complete transcript accumulates in memory. `terminal.ts` uses log-update for terminals and plain
-  text for redirected output. The log records each tool invocation once, with shell wrappers removed
-  and no event envelopes or result payloads. Invocation lines stay complete in the log; assistant
-  texts stay complete in Markdown. Only terminal tool lines shorten. `prepareHandover` records the
-  handover and releases the terminal before `openSession` inherits it. The interactive output
-  continues writing the same log and transcript without touching the terminal. Its fix timer starts
-  at the handover; the total still counts from the round's start, minus every wait. User messages
-  and assistant replies have separate transcript labels. Both handover functions must reject on
-  failure. Exiting the interactive child ends recording but does not prove workflow completion.
+  [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD` in commit targets
+  and scans both repo roots for the next target-wide number. It validates all file-writing phase
+  tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and
+  log. The claim remains after success or failure, and a conflict stops without retrying. Each entry
+  carries its phase, so the settings header reports the model and effort that phase will run on and
+  names what set each of them: a command-line flag, the phase's own pin, or the assistant's
+  settings. A phase whose two fields came from different places names both, model first. The output
+  holds only the run start, current phase timing, context observations and the record of which
+  phases have started, which is what the commit stamps name. Every status stamp shows the phase's
+  elapsed time and the round's total. Every logged tool line opens with its step's own time, the
+  assistant time since the previous tool line or since the phase start for the first, and carries no
+  total, so a stalled step shows where it stalled. `run-clock.ts` owns what those readings count. A
+  round measures its assistants, so time the user holds is not the run's. The assistant's last sign
+  of life opens a wait and the user's next action closes it: a user message during the interactive
+  fix, and leaving that session at the end. Each phase and the run read the same waiting total
+  through their own mark, so one rule serves every reading. Two baselines measure context growth: a
+  written status stamp reports the tokens added since the previous written stamp, and a logged tool
+  line reports the tokens added since the previous tool line, beside the time since it. Both chain
+  into the totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase
+  reports no first change. `run-files.ts` completes each required write before returning to the
+  invocation; no complete transcript accumulates in memory. `terminal.ts` uses log-update for
+  terminals and plain text for redirected output. The log records each tool invocation once, with
+  shell wrappers removed and no event envelopes or result payloads. Invocation lines stay complete
+  in the log; assistant texts stay complete in Markdown. Only terminal tool lines shorten.
+  `prepareHandover` records the handover and releases the terminal before `openSession` inherits it.
+  The interactive output continues writing the same log and transcript without touching the
+  terminal. Its fix timer starts at the handover; the total still counts from the round's start,
+  minus every wait. User messages and assistant replies have separate transcript labels. Both
+  handover functions must reject on failure. Exiting the interactive child ends recording but does
+  not prove workflow completion.
 - `context.ts` resolves the installed Repo Edu checkout, its sibling plan root,
   the invoking working directory and the round kind once. Only those two roots
   may start a round. The context follows every phase and recovery session;

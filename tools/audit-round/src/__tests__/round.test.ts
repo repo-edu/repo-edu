@@ -82,6 +82,7 @@ function controlledRound(
       sessionId: "audit-session",
       file: report,
       context: spaciousContext,
+      clean: false,
     },
     vet: {
       status: "finished",
@@ -585,6 +586,7 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
     sessionId: "audit-session",
     file: `${repoRoot}/AUDIT-example.md`,
     context: { tokens: 228_000, window: 258_000 },
+    clean: false,
   }
 
   const result = await runRound(
@@ -597,6 +599,42 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
   assert.equal(round.calls[2].sessionId, null)
   assert.equal(round.calls[2].assistant, "codex")
 })
+
+for (const auditor of ["claude", "codex"] as const) {
+  test(`a clean ${auditor} audit goes straight to the fix, which lands the clean record`, async () => {
+    const report = "/workspace/plan/AUDIT-example.md"
+    const round = controlledRound(report)
+    round.results.audit = {
+      status: "finished",
+      sessionId: "audit-session",
+      file: report,
+      context: spaciousContext,
+      clean: true,
+    }
+
+    const result = await runRound(
+      { ...files, plan: "../plan/example.md", auditor },
+      round.dependencies,
+    )
+
+    assert.deepEqual(result, { status: "finished", report, tier: null })
+    // Nothing to grade and nothing to answer, so neither exchange phase runs.
+    assert.deepEqual(
+      round.calls.map((call) => call.phase),
+      ["audit", "fix", "brief", "glance"],
+    )
+    assert.deepEqual(round.calls[1], {
+      phase: "fix",
+      assistant: "codex",
+      model: unpinned,
+      ...testContext(repoRoot),
+      ownerRoot: "/workspace/plan",
+      arguments: [report],
+      sessionId: null,
+    })
+    assert.deepEqual(round.handover, [])
+  })
+}
 
 test("an unreported window keeps the resume, and a measured shortfall does not", () => {
   assert.equal(

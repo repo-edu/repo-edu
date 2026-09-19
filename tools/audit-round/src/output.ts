@@ -7,6 +7,7 @@ import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
 import {
   type Context,
   capabilityTag,
+  commitStamps,
   contextChange,
   contextText,
   elapsedText,
@@ -236,11 +237,19 @@ export class RoundOutput<R extends Run = Run> {
         input: Pick<PhaseInput, "phase" | "assistant">
         started: RunMark
         context: Context | null
+        /** Where the next tool line's step time counts from: the previous tool line, else the phase start. */
+        previousToolMark: RunMark
         previousToolTokens: number | null
         statusTokens: number | null
       }
     | undefined
   private timer: ReturnType<typeof setInterval> | undefined
+  /**
+   * The phases this run has started, in order. The transcript records the same
+   * phases, so what a commit body names as the round's phases is read from
+   * here rather than from the plan of phases the run began with.
+   */
+  private readonly ran = new Set<Phase>()
 
   constructor(
     private readonly run: R,
@@ -306,6 +315,17 @@ export class RoundOutput<R extends Run = Run> {
     this.transcribe(`\`\`\`text\n${text}\n\`\`\`\n`)
   }
 
+  /**
+   * What the commit-msg hook stamps into a commit this run's work lands, read
+   * when a child starts so it names only the phases that ran by then. A clean
+   * round that skipped the vet and the rebuttal stamps neither.
+   */
+  commitStamps = (): ReturnType<typeof commitStamps> =>
+    commitStamps(
+      this.run.phases.filter(({ phase }) => this.ran.has(phase)),
+      this.run.selections,
+    )
+
   private say(
     text: string,
     terminal: Terminal | null = this.options.terminal,
@@ -336,14 +356,17 @@ export class RoundOutput<R extends Run = Run> {
   private start(input: PhaseInput, prompt: string): void {
     this.release()
     this.clock.active()
+    const started = this.clock.mark()
     this.active = {
       input,
-      started: this.clock.mark(),
+      started,
       context: null,
+      previousToolMark: started,
       previousToolTokens: null,
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
     }
+    this.ran.add(input.phase)
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
       `\n${"─".repeat(72)}\n[${input.phase}] starting ${input.assistant} (${mode})`,
@@ -412,11 +435,13 @@ export class RoundOutput<R extends Run = Run> {
         if (feedback.invocation !== null) {
           const line = toolText(
             feedback.invocation,
+            elapsedText(this.clock.elapsed(active.previousToolMark)),
             active.context,
             changeSince(active.context, active.previousToolTokens),
           )
           this.files.log(line)
           if (this.options.verbose) terminal?.write(line.slice(0, 160))
+          active.previousToolMark = this.clock.mark()
           active.previousToolTokens = active.context?.tokens ?? null
         }
         break
@@ -439,10 +464,12 @@ export class RoundOutput<R extends Run = Run> {
   prepareHandover = async (session: InteractiveSession): Promise<void> => {
     this.release()
     this.clock.active()
+    const started = this.clock.mark()
     this.active = {
       input: { phase: "fix", assistant: session.assistant },
-      started: this.clock.mark(),
+      started,
       context: null,
+      previousToolMark: started,
       previousToolTokens: null,
       statusTokens: null,
     }

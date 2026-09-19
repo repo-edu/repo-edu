@@ -174,6 +174,67 @@ for (const auditor of ["claude", "codex"] as const) {
   }
 }
 
+for (const auditor of ["claude", "codex"] as const) {
+  test(`a clean ${auditor} audit skips the vet and rebuttal, and the fix stamps only the phases that ran`, async (t) => {
+    const f = await roundFixture(
+      t,
+      auditor,
+      "plan",
+      false,
+      null,
+      false,
+      "repo-edu",
+      true,
+    )
+    const argv = [
+      "example.md",
+      "2-3",
+      ...(auditor === "claude" ? ["--auditor", "a"] : []),
+    ]
+    assert.equal(
+      await runCommand(argv, f.runtime, f.options),
+      0,
+      f.errors.join("\n"),
+    )
+    const calls = await f.calls()
+    const invocations = calls.filter(
+      (call) =>
+        call.args[0] === "exec" ||
+        (call.args[0] === "-p" &&
+          !call.args.includes("--no-session-persistence")),
+    )
+    assert.deepEqual(
+      invocations.map((call) => call.assistant),
+      [auditor, "codex", "codex", "claude"],
+    )
+    // The commit body names the phases the transcript holds, so the vet and
+    // the rebuttal that never ran are not stamped into the clean record.
+    assert.deepEqual(
+      { phases: invocations[1].phases, auditor: invocations[1].auditor },
+      {
+        phases:
+          auditor === "codex"
+            ? "audit, fix: chosen-model high"
+            : "audit: claude-model high\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "ouh" : "auh",
+      },
+    )
+    const { log, markdown } = await f.records()
+    assert.doesNotMatch(log, /\[(?:vet|rebut)\] starting/)
+    assert.ok(log.includes(join(f.planRoot, ".agents/skills/fix/SKILL.md")))
+    assert.equal(
+      log.split(`Phase arguments (JSON array): ${JSON.stringify([f.report])}`)
+        .length - 1,
+      1,
+    )
+    for (const phase of ["audit", "fix"] as const)
+      assert.ok(markdown.includes(`## ${phase} (`))
+    for (const phase of ["vet", "rebut"] as const)
+      assert.equal(markdown.includes(`## ${phase} (`), false)
+    assert.match(f.visible.join("\n"), /Audit round finished\./)
+  })
+}
+
 for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
   test(`command stops at ${phase} failure and retains recovery evidence`, async (t) => {
     const f = await roundFixture(t)
@@ -897,7 +958,7 @@ test("a failed planning audit retains its root and recovery session without star
       audit: {
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null}',
+          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null,"clean":null}',
           "audit-session",
         ),
       },

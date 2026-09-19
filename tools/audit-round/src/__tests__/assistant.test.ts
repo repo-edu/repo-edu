@@ -258,7 +258,7 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null,"tier":null,"due":null}',
+      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null,"tier":null,"due":null,"clean":null}',
     ),
     usage: { path, text: await recorded("codex-rollout.jsonl") },
   })
@@ -333,7 +333,7 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null,"tier":null,"due":null}',
+      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null,"tier":null,"due":null,"clean":null}',
     ),
     usage: {
       path: join(f.root, "rollout-test-session.jsonl"),

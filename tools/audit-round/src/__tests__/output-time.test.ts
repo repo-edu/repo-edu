@@ -151,3 +151,76 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   output.finish({ status: "handed-over", report: "REPORT.md", session })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
 })
+
+test("tool lines report the assistant time since the previous tool line, never the user's", async (t) => {
+  const f = await fixture(t)
+  t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
+  const log: string[] = []
+  const output = new RoundOutput(
+    await roundRun(
+      { ...testContext(f.root), plan: "example.md" },
+      Date.now(),
+      selections,
+    ),
+    {
+      terminal: { write: () => {}, status: () => {}, clear: () => {} },
+      openFiles: () => ({
+        log: (text) => {
+          log.push(text)
+        },
+        markdown: () => {},
+        close: () => {},
+      }),
+    },
+  )
+  t.after(() => output.close())
+  const tool = (invocation: string) =>
+    output.phase.observe({
+      type: "tool",
+      invocation,
+      detail: null,
+      stage: "started",
+    })
+  const line = () => log.at(-1)
+
+  await output.phase.start(
+    {
+      phase: "fix",
+      assistant: "codex",
+      model: unpinned,
+      ...testContext("/repo"),
+      ownerRoot: "/repo",
+      arguments: ["REPORT.md"],
+      sessionId: null,
+    },
+    "Full prompt",
+  )
+  t.mock.timers.tick(7_000)
+  await tool("first")
+  assert.match(line() as string, /^00:07\s+--\s+--\s+--\s+first$/)
+  // A written stamp in between does not reset the step: it counts tool line to tool line.
+  t.mock.timers.tick(60_000)
+  await output.phase.observe({ type: "text", text: "Half way." })
+  t.mock.timers.tick(11 * 60_000)
+  await tool("second")
+  assert.match(line() as string, /^12:00\s+--\s+--\s+--\s+second$/)
+
+  const session = {
+    assistant: "codex" as const,
+    model: unpinned,
+    sessionId: "session",
+    ...testContext("/repo"),
+  }
+  await output.prepareHandover(session)
+  t.mock.timers.tick(30 * 60_000)
+  await output.phase.observe({ type: "user-text", text: "Take the redesign." })
+  t.mock.timers.tick(4_000)
+  await output.interactive({
+    type: "tool",
+    invocation: "third",
+    detail: null,
+    stage: "started",
+  })
+  // The handover restarted the step and the user's half hour was theirs.
+  assert.match(line() as string, /^00:04\s+--\s+--\s+--\s+third$/)
+})

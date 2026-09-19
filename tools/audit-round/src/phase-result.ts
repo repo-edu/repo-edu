@@ -10,6 +10,8 @@ const resultSchema = z.strictObject({
   tier: z.enum(["a", "b", "c", "d"]).nullable(),
   // Only a finished glance decides; every other ending reports no decision.
   due: z.boolean().nullable(),
+  // Only a finished audit says whether it found nothing; every other ending says neither.
+  clean: z.boolean().nullable(),
 })
 
 export function phaseResult<P extends Phase>(
@@ -33,6 +35,13 @@ export function phaseResult<P extends Phase>(
     !(phase === "glance" && result.status === "finished")
   )
     throw new Error("Only a finished glance PHASE RESULT may carry a decision")
+  if (
+    result.clean !== null &&
+    !(phase === "audit" && result.status === "finished")
+  )
+    throw new Error(
+      "Only a finished audit PHASE RESULT may say whether it was clean",
+    )
   if (result.status === "failed") {
     if (result.file !== null || !result.reason?.trim())
       throw new Error("Invalid failed PHASE RESULT")
@@ -65,6 +74,17 @@ export function phaseResult<P extends Phase>(
     throw new Error(
       "Report PHASE RESULT must finish with an absolute file path",
     )
+  }
+  if (phase === "audit") {
+    if (result.clean === null)
+      throw new Error("Audit PHASE RESULT must say whether it was clean")
+    return {
+      status: "finished",
+      sessionId,
+      file: result.file,
+      context,
+      clean: result.clean,
+    } as PhaseResult<P>
   }
   return {
     status: "finished",

@@ -7,7 +7,6 @@ import {
   Option,
 } from "commander"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
-import type { CliRuntime } from "./cli-process.js"
 import { type ExecutionContext, executionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
 import {
@@ -18,7 +17,7 @@ import {
   roundRun,
   transcriptNameStart,
 } from "./output.js"
-import { chainText, commitStamps } from "./output-format.js"
+import { chainText } from "./output-format.js"
 import { type AuditorSeat, noOverride, parseAuditorTag } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
@@ -216,12 +215,11 @@ export async function runCommand(
       output = active
       return active
     }
-    const dependenciesFor = (
-      active: RoundOutput,
-      commit?: CliRuntime["commit"],
-    ) =>
+    // The commit stamps are the output's, because the output records which
+    // phases ran and a child reads them only when it starts.
+    const dependenciesFor = (active: RoundOutput) =>
       assistantDependencies(
-        { ...runtime, cwd: context.cwd, commit },
+        { ...runtime, cwd: context.cwd, commit: active.commitStamps },
         active.phase,
         active.prepareHandover,
         active.interactive,
@@ -270,7 +268,7 @@ export async function runCommand(
             watch: run.watch,
             cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
           },
-          dependenciesFor(active, commitStamps(run.phases, selections)),
+          dependenciesFor(active),
         )
         result = round
         active.finish(round)

@@ -88,7 +88,12 @@ test("output records complete invocations incrementally and refreshes only while
       if (event.type === "tool") await output.phase.observe(event)
   }
   await tool("first command")
-  assert.match(visible.at(-1) as string, /--\s+--\s+--\s+first command/)
+  // The step time counts from the phase start, the running total stays off the line.
+  assert.match(
+    visible.at(-1) as string,
+    /^00:00\s+--\s+--\s+--\s+first command/,
+  )
+  assert.doesNotMatch(visible.at(-1) as string, /total/)
   await output.phase.observe({ type: "context", tokens: 26000, window: 100000 })
   await tool("/bin/zsh -lc 'printf audit-round-probe'")
   assert.match(
@@ -118,9 +123,12 @@ test("output records complete invocations incrementally and refreshes only while
   )
   await tool("same count")
   assert.doesNotMatch(visible.at(-1) as string, /0\.0k|0\.2k/)
+  // Three seconds passed since the previous tool line, whatever the text stamp reported.
+  assert.match(visible.at(-1) as string, /^00:03\s+/)
   await output.phase.observe({ type: "context", tokens: 8000, window: 100000 })
   const long = `/bin/zsh -lc 'printf ${"x".repeat(400)}'`
   await tool(long)
+  assert.match(visible.at(-1) as string, /^00:00\s+/)
   assert.equal(visible.at(-1)?.length, 160)
   const log = await readFile(output.paths.log, "utf8")
   assert.equal(log.includes(long), false)
@@ -141,7 +149,7 @@ test("output records complete invocations incrementally and refreshes only while
   assert.ok(clears > 0)
   await start()
   await tool("new phase")
-  assert.match(visible.at(-1) as string, /--\s+--\s+--/)
+  assert.match(visible.at(-1) as string, /^00:00\s+--\s+--\s+--/)
 })
 
 test("written status stamps chain into the running total", async (t) => {
@@ -355,7 +363,9 @@ for (const assistant of ["claude", "codex"] as const) {
         text
           .trim()
           .split("\n")
-          .map((line) => line.trimStart().replace(/^--\s+--\s+--\s+/, ""))
+          .map((line) =>
+            line.trimStart().replace(/^\d+:\d\d\s+--\s+--\s+--\s+/, ""),
+          )
       const log = (await readFile(output.paths.log, "utf8")).slice(
         logBefore.length,
       )
