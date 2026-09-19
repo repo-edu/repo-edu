@@ -42,9 +42,9 @@ export async function roundFixture(
   const report = join(f.root, owner, "AUDIT-example.md")
   const brief = join(outputRoot, "ROUND-example-brief.md")
   const rulingFile = join(outputRoot, "ROUND-example-ruling.md")
-  const verdictFile = join(outputRoot, "ROUND-example-verdict.md")
+  const watchFile = join(outputRoot, "ROUND-example-watch.md")
   // The second pass rewrites whichever draft its round produced.
-  const revised = ruling ? rulingFile : verdictFile
+  const revised = ruling ? rulingFile : watchFile
   const phases: Record<string, unknown> = {}
   for (const phase of [
     "audit",
@@ -55,12 +55,12 @@ export async function roundFixture(
     "rule",
     "revise",
     "glance",
-    "verdict",
+    "watch",
   ] as const) {
     const assistant =
       phase === "fix" || phase === "brief"
         ? "codex"
-        : ["rule", "revise", "glance", "verdict"].includes(phase)
+        : ["rule", "revise", "glance", "watch"].includes(phase)
           ? "claude"
           : phase === "vet"
             ? auditor === "codex"
@@ -79,8 +79,8 @@ export async function roundFixture(
               ? rulingFile
               : phase === "revise"
                 ? revised
-                : phase === "verdict"
-                  ? verdictFile
+                : phase === "watch"
+                  ? watchFile
                   : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, due: phase === "glance" ? watch : null })}`
@@ -151,7 +151,7 @@ export async function roundFixture(
     records,
     roundFiles,
     ruling: rulingFile,
-    verdict: verdictFile,
+    watch: watchFile,
     runtime: { ...f.runtime, cwd: outputRoot },
   }
 }

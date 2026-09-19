@@ -17,7 +17,7 @@ export type Phase =
   | "rule"
   | "revise"
   | "glance"
-  | "verdict"
+  | "watch"
 
 /**
  * The severity tier a finished fix recorded, lowercased from the record's
@@ -211,15 +211,15 @@ export function roundPhases(
     revise: run("revise", "claude"),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     glance: run("glance", "claude"),
-    verdict: run("verdict", "claude"),
+    watch: run("watch", "claude"),
   }
 }
 
 /**
  * Whether a phase's texts belong in the round transcript. Only the four phases
  * that carry out the round write into it. The brief, the ruling and the watch
- * verdict are its twins, written for the user in their own files, and the
- * glance decides rather than reports. All five run once the transcript holds
+ * are its twins, written for the user in their own files. The glance decides
+ * rather than reports. All five run once the transcript holds
  * the round, so none of them may add to it.
  */
 export function transcribed(phase: Phase): boolean {
@@ -275,8 +275,8 @@ type PhaseArguments = {
     readonly arguments: readonly [cacheRoot: string]
     readonly sessionId: null
   }
-  verdict: {
-    readonly arguments: readonly [verdict: string, cacheRoot: string]
+  watch: {
+    readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
 }
@@ -337,7 +337,7 @@ type PhaseResults = {
   rule: ReportResult
   revise: ReportResult
   glance: GlanceResult
-  verdict: ReportResult
+  watch: ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

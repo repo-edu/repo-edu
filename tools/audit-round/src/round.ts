@@ -28,8 +28,8 @@ export type RoundInput = RoundSetup & {
   readonly nameStart: string
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
   readonly transcript: string
-  /** Where the watch writes its verdict, named for the round the watch follows. */
-  readonly verdict: string
+  /** Where the watch writes its document, named for the round the watch follows. */
+  readonly watch: string
   /** The shared `audit-round` cache, which holds the watch's own history. */
   readonly cacheRoot: string
 }
@@ -155,7 +155,7 @@ export async function runBrief(
 /**
  * The watch that follows a round. It reads the commit record and never the
  * round, so nothing it is given comes from the round's own files: the glance
- * decides from the log alone and the verdict grounds itself in the code the
+ * decides from the log alone and the watch grounds itself in the code the
  * log points at. The glance exists because the watch is expensive and most
  * rounds do not move the record far enough to change its reading.
  *
@@ -168,7 +168,7 @@ export async function runBrief(
  * not due.
  */
 async function runWatch(
-  input: ExecutionContext & Pick<RoundInput, "verdict" | "cacheRoot">,
+  input: ExecutionContext & Pick<RoundInput, "watch" | "cacheRoot">,
   dependencies: Pick<RoundDependencies, "runPhase">,
 ): Promise<RoundFailure | null> {
   // The watch is Claude's whoever audited, and the override binds only the auditor.
@@ -187,18 +187,18 @@ async function runWatch(
     return { ...glance, phase: "glance", ...phases.glance, ...context }
   if (!glance.due) return null
 
-  const verdict = await dependencies.runPhase.verdict({
-    phase: "verdict",
-    ...phases.verdict,
+  const watch = await dependencies.runPhase.watch({
+    phase: "watch",
+    ...phases.watch,
     ...context,
     ownerRoot: repoEduRoot,
-    arguments: [input.verdict, input.cacheRoot],
+    arguments: [input.watch, input.cacheRoot],
     sessionId: null,
   })
-  if (verdict.status === "failed")
-    return { ...verdict, phase: "verdict", ...phases.verdict, ...context }
+  if (watch.status === "failed")
+    return { ...watch, phase: "watch", ...phases.watch, ...context }
 
-  // The verdict is a document the user decides from, so a session that did not
+  // The watch is a document the user decides from, so a session that did not
   // write it reads it once before the user does. It re-grounds in the record
   // and the code, never in the round, so it is given no other source.
   const revise = await dependencies.runPhase.revise({
@@ -206,7 +206,7 @@ async function runWatch(
     ...phases.revise,
     ...context,
     ownerRoot: repoEduRoot,
-    arguments: [workflowPath(repoEduRoot, "verdict"), verdict.file],
+    arguments: [workflowPath(repoEduRoot, "watch"), watch.file],
     sessionId: null,
   })
   if (revise.status === "failed")

@@ -142,7 +142,7 @@ export async function roundRun(
 ): Promise<
   Run & {
     readonly nameStart: string
-    readonly verdict: string
+    readonly watch: string
     readonly paths: { readonly markdown: string }
   }
 > {
@@ -152,7 +152,7 @@ export async function roundRun(
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "glance" && (phase !== "verdict" || "plan" in setup))
+    if (phase !== "glance" && (phase !== "watch" || "plan" in setup))
       fileTag(entry(phase), selections)
   }
   const target = await targetDescription(setup)
@@ -163,9 +163,9 @@ export async function roundRun(
   )
   return {
     nameStart,
-    verdict: join(
+    watch: join(
       setup.cwd,
-      `${nameStart}-${fileTag(entry("verdict"), selections)}-watch.md`,
+      `${nameStart}-${fileTag(entry("watch"), selections)}-watch.md`,
     ),
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
@@ -175,7 +175,7 @@ export async function roundRun(
       entry("rebut"),
       entry("fix"),
       entry("brief"),
-      ...("plan" in setup ? [entry("verdict")] : []),
+      ...("plan" in setup ? [entry("watch")] : []),
     ],
     paths: {
       claim: join(setup.cwd, `${nameStart}-claim.md`),

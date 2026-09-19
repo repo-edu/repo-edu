@@ -51,7 +51,7 @@ pnpm test
 implementation-audit tool from this checkout root, ending with a plain-words brief of the round for
 the user. A fix that stops for the user's ruling adds a ruling document, drafted and then rewritten
 in a fresh session, which the user rules from. A round that finished ends with a glance at the
-commit record, which decides whether the trajectory watch is due; a due watch adds its verdict
+commit record, which decides whether the trajectory watch is due; a due watch adds its
 document, drafted and rewritten the same way, and records its own grade so the next glance can count
 from it. `--chain` runs at most three rounds on the scope the user named, keeping the auditor while
 an A or B finding lands and giving the other assistant one closing round, and glances after each of

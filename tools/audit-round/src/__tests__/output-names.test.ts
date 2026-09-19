@@ -26,7 +26,7 @@ test("different auditors cannot open the same candidate and the next run advance
     basename(next.paths.markdown),
     "example-steps-2-4-02-abx-round.md",
   )
-  assert.equal(basename(next.verdict), "example-steps-2-4-02-abx-watch.md")
+  assert.equal(basename(next.watch), "example-steps-2-4-02-abx-watch.md")
   new RoundOutput(next, options).close()
 })
 
@@ -239,7 +239,7 @@ test("planning rounds share the bare target number across roots and write at the
     run.paths.markdown,
     join(context.planRoot, "example-06-oth-round.md"),
   )
-  assert.equal(run.verdict, join(context.planRoot, "example-06-abx-watch.md"))
+  assert.equal(run.watch, join(context.planRoot, "example-06-abx-watch.md"))
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,

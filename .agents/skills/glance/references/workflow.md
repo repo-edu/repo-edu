@@ -32,7 +32,7 @@ you find yourself wanting one, the answer is that a watch is due; that is what
 the watch is for.
 
 You are strictly read-only except for nothing at all: the glance writes no
-file, not even the record. The verdict phase owns the record.
+file, not even the record. The watch phase owns the record.
 
 ## Input
 

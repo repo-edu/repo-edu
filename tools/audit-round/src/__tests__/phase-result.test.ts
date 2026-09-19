@@ -17,7 +17,7 @@ for (const phase of [
   "rule",
   "revise",
   "glance",
-  "verdict",
+  "watch",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     // A fix reports its grade and a glance its decision; the rest report a file.

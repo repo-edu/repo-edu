@@ -113,10 +113,10 @@ returned `needs-ruling`.
 The glance and the two watch passes follow a round that finished, and take
 neither the report nor the transcript. The watch reads the commit record and
 never the round, so the runner gives the glance only the cache root, the
-verdict pass the file to write and that cache root, and the rewrite only the
+watch pass the file to write and that cache root, and the rewrite only the
 watch's workflow and its own draft. Their launchers belong to the Repo Edu
 root. They run under `.agents/skills/glance/references/workflow.md` and
-`.agents/skills/verdict/references/workflow.md`, and only when the glance
+`.agents/skills/watch/references/workflow.md`, and only when the glance
 returned `due` true.
 
 Required work still blocked by a permission refusal or another error means

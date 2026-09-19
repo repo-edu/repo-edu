@@ -30,7 +30,7 @@ const repoRoot = "/workspace/repo-edu"
 const transcript = `${repoRoot}/example-all-01-oth-round.md`
 const brief = `${repoRoot}/example-all-01-oul-brief.md`
 const ruling = `${repoRoot}/example-all-01-abx-ruling.md`
-const verdict = `${repoRoot}/example-all-01-abx-watch.md`
+const watch = `${repoRoot}/example-all-01-abx-watch.md`
 const cacheRoot = "/cache/audit-round"
 const ruleWorkflow = join(
   repoRoot,
@@ -38,13 +38,13 @@ const ruleWorkflow = join(
 )
 const watchWorkflow = join(
   repoRoot,
-  ".agents/skills/verdict/references/workflow.md",
+  ".agents/skills/watch/references/workflow.md",
 )
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
   transcript,
-  verdict,
+  watch,
   cacheRoot,
   nameStart: "example-all-01",
 }
@@ -52,7 +52,7 @@ const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** Every phase in order, including the two the fix's open item adds. */
 const rulingPhases = [...phases, "rule", "revise"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
-const watchPhases = [...phases, "glance", "verdict", "revise"] as const
+const watchPhases = [...phases, "glance", "watch", "revise"] as const
 
 /**
  * The two ways a round runs past its brief: the fix leaves an open item and the
@@ -116,10 +116,10 @@ function controlledRound(
     },
     // Most rounds do not move the record far enough, so the watch is off by default.
     glance: { status: "finished", sessionId: "glance-session", due: false },
-    verdict: {
+    watch: {
       status: "finished",
-      sessionId: "verdict-session",
-      file: verdict,
+      sessionId: "watch-session",
+      file: watch,
       context: null,
     },
   }
@@ -161,9 +161,9 @@ function controlledRound(
         await record(input)
         return results.glance
       },
-      async verdict(input) {
+      async watch(input) {
         await record(input)
-        return results.verdict
+        return results.watch
       },
     },
     async prepareHandover(session) {
@@ -375,7 +375,7 @@ for (const auditor of ["claude", "codex"] as const) {
   }
 }
 
-test("a due glance sends the verdict to a fresh writer and a fresh rewriter", async () => {
+test("a due glance sends the watch to a fresh writer and a fresh rewriter", async () => {
   const round = controlledRound()
   arrange(round, "watch")
 
@@ -401,12 +401,12 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
       sessionId: null,
     },
     {
-      phase: "verdict",
+      phase: "watch",
       assistant: "claude",
       model: unpinned,
       ...testContext(repoRoot),
       ownerRoot: repoRoot,
-      arguments: [verdict, cacheRoot],
+      arguments: [watch, cacheRoot],
       sessionId: null,
     },
     {
@@ -415,7 +415,7 @@ test("a due glance sends the verdict to a fresh writer and a fresh rewriter", as
       model: unpinned,
       ...testContext(repoRoot),
       ownerRoot: repoRoot,
-      arguments: [watchWorkflow, verdict],
+      arguments: [watchWorkflow, watch],
       sessionId: null,
     },
   ])

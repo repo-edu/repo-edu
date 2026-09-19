@@ -8,7 +8,7 @@ disagree, this file is right. There is no Codex skill beside this file, because
 Claude writes both passes.
 
 `/revise` is the second pass over any draft twin a round produces, so it is
-given this file as the shape to rewrite towards. It serves the watch verdict
+given this file as the shape to rewrite towards. It serves the watch document
 the same way, under its own workflow.
 
 The ruling is written when the fix phase of a planning or implementation-audit round stops

@@ -471,10 +471,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.ok(transcript.includes(commits[0].replaceAll("HEAD", head)))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
-    assert.doesNotMatch(
-      log,
-      /\[(?:glance|verdict)\]|verdict +claude|Chained round/,
-    )
+    assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +claude|Chained round/)
     const invocations = (await f.calls()).filter(
       (call) =>
         call.args[0] === "exec" ||
@@ -643,9 +640,9 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const verdict = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
+  const watch = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
   assert.ok(log.includes(join(f.repoRoot, ".claude/commands/glance.md")))
-  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/verdict.md")))
+  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/watch.md")))
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([f.options.cacheRoot])}`,
@@ -653,21 +650,21 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([verdict, f.options.cacheRoot])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
     ),
   )
   // The rewrite is given the watch's own workflow and its draft, and no round file.
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([
-        join(f.repoRoot, ".agents/skills/verdict/references/workflow.md"),
-        f.verdict,
+        join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
+        f.watch,
       ])}`,
     ),
   )
-  assert.ok(log.includes(`[revise] finished: ${f.verdict}`))
+  assert.ok(log.includes(`[revise] finished: ${f.watch}`))
   // The watch follows the round it grades, so none of its text enters the transcript.
-  for (const phase of ["glance", "verdict"] as const) {
+  for (const phase of ["glance", "watch"] as const) {
     assert.equal(markdown.includes(`## ${phase} (`), false)
     assert.ok(f.visible.join("\n").includes(`Complete ${phase} text.`))
   }

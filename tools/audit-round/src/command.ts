@@ -267,7 +267,7 @@ export async function runCommand(
             auditor,
             nameStart: run.nameStart,
             transcript: run.paths.markdown,
-            verdict: run.verdict,
+            watch: run.watch,
             cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
           },
           dependenciesFor(active, commitStamps(run.phases, selections)),

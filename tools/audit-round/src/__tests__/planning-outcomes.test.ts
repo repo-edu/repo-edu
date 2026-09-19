@@ -57,7 +57,7 @@ for (const auditor of ["codex", "claude"] as const) {
           ),
         )
         assert.match(log, /\[glance\] finished/)
-        assert.doesNotMatch(log, /\[(?:rule|verdict)\] starting/)
+        assert.doesNotMatch(log, /\[(?:rule|watch)\] starting/)
       }
       const visible = f.visible.join("\n")
       assert.match(
@@ -111,7 +111,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(log, /\[audit\] failed: Premise conflict/)
     assert.doesNotMatch(
       log,
-      /\[(?:vet|rebut|fix|brief|rule|glance|verdict)\] starting/,
+      /\[(?:vet|rebut|fix|brief|rule|glance|watch)\] starting/,
     )
     assert.ok(log.includes(`Resume: cd ${f.planRoot} && ${auditor}`))
     assert.match(log, /audit-session/)
@@ -135,7 +135,7 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
     )
     assert.ok(log.includes(`[rule] finished: ${f.ruling}`))
-    assert.doesNotMatch(log, /\[(?:glance|verdict)\] starting/)
+    assert.doesNotMatch(log, /\[(?:glance|watch)\] starting/)
     assert.match(
       f.visible.join("\n"),
       /Chain stopped: this round opened a ruling session/,
@@ -158,7 +158,7 @@ for (const phase of [
   "fix",
   "brief",
   "glance",
-  "verdict",
+  "watch",
   "rule",
   "revise",
 ] as const) {
@@ -232,27 +232,27 @@ for (const working of ["repo-edu", "plan"] as const) {
       assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
       assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
       assert.ok(log.includes(join(f.repoRoot, ".claude/commands/glance.md")))
-      assert.equal(log.includes("[verdict] starting"), due)
+      assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const verdict = transcript.replace("-ouh-round.md", "-auh-watch.md")
+        const watch = transcript.replace("-ouh-round.md", "-auh-watch.md")
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([verdict, f.options.cacheRoot])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
           ),
         )
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([join(f.repoRoot, ".agents/skills/verdict/references/workflow.md"), f.verdict])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([join(f.repoRoot, ".agents/skills/watch/references/workflow.md"), f.watch])}`,
           ),
         )
         assert.ok(
           log.indexOf("[brief] finished") < log.indexOf("[glance] starting"),
         )
         assert.ok(
-          log.indexOf("[verdict] finished") < log.indexOf("[revise] starting"),
+          log.indexOf("[watch] finished") < log.indexOf("[revise] starting"),
         )
       }
-      assert.doesNotMatch(markdown, /## (?:glance|verdict|revise) /)
+      assert.doesNotMatch(markdown, /## (?:glance|watch|revise) /)
       assert.equal(await readFile(record, "utf8"), history)
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
     })

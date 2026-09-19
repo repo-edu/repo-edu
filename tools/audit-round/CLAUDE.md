@@ -27,7 +27,7 @@ consumers.
   drafts the ruling and `revise` rewrites that draft in a fresh session, so the
   document the user rules from is read once by a session that did not write it.
   `runWatch` owns the watch that follows a round: `glance` decides from the
-  commit record whether a watch is due, and only a due glance runs `verdict`
+  commit record whether a watch is due, and only a due glance runs `watch`
   and a second `revise` pass over that draft. `revise` is the second pass over
   any draft twin, so it takes the workflow that owns the document's shape as
   its first argument. The watch runs only after a plan round that finished, because
@@ -54,7 +54,7 @@ consumers.
   field carries what named it, so the report never guesses, and either CLI accepts one. It also
   defines the private inputs and results for assistant invocations, and owns which phases' texts
   enter the round transcript: only audit, vet, rebuttal and fix. The brief, the two ruling passes
-  and the watch's verdict are the transcript's twins, written in their own files, and the glance
+  and the watch are the transcript's twins, written in their own files, and the glance
   only decides; all five run once the transcript already holds the round. Assistant boundaries own
   processes, stream validation, session observations and phase output. They return only after
   accounting for the process, streams and required record writes. A failure retains the known
@@ -78,7 +78,7 @@ consumers.
   so duplicate records and tool results do not enter the round files.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
-  resolve the same way. The verdict workflow owns `watch.json`: each episode
+  resolve the same way. The watch workflow owns `watch.json`: each episode
   records both repositories' graded heads beside one grade and horizon. The
   glance counts from the invoking repository's head only. Both update checks
   precede settings discovery. Codex compares its installed
