@@ -60,14 +60,13 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(invocations[3].args.includes("resume"), false)
         // The fix commits the round, so it carries the round's commit stamps:
         // the phases grouped by what they ran on, and the auditor's capability
-        // tag. Neither fixture model sits on the strength ladder, so the tag
-        // reads its 0 digit.
+        // tag. The phase reports take precedence over the startup settings.
         const stamps = {
           phases:
             auditor === "codex"
-              ? "audit, rebut, fix: chosen-model high\nvet: claude-model high"
-              : "audit, rebut: claude-model high\nvet, fix: chosen-model high",
-          auditor: auditor === "codex" ? "ouh" : "auh",
+              ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
+          auditor: auditor === "codex" ? "otx" : "ath",
         }
         assert.deepEqual(
           {
@@ -80,7 +79,13 @@ for (const auditor of ["claude", "codex"] as const) {
           const resumed = calls.find((call) => call.args[0] === "resume")
           assert.deepEqual(
             { phases: resumed?.phases, auditor: resumed?.auditor },
-            stamps,
+            {
+              ...stamps,
+              phases:
+                auditor === "codex"
+                  ? "audit, rebut, fix: gpt-6-astra xhigh\nvet: claude-fable-5-1 high"
+                  : "audit, rebut: claude-fable-5-1 high\nvet, fix: gpt-6-astra xhigh",
+            },
           )
         }
         assert.ok(
@@ -214,9 +219,9 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phases:
           auditor === "codex"
-            ? "audit, fix: chosen-model high"
-            : "audit: claude-model high\nfix: chosen-model high",
-        auditor: auditor === "codex" ? "ouh" : "auh",
+            ? "audit: gpt-6-astra xhigh\nfix: chosen-model high"
+            : "audit: claude-fable-5-1 high\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "otx" : "ath",
       },
     )
     const { log, markdown } = await f.records()
@@ -436,6 +441,18 @@ for (const auditor of ["codex", "claude"] as const) {
     )
     assert.match(log, /fix +codex +chosen-model high +codex settings/)
     assert.match(log, /brief +codex +gpt-5\.6-terra low +phase pin/)
+    // The requested alias and effort stay in the arguments and header above.
+    // The fix receives the release and effort reported by each phase instead.
+    assert.deepEqual(
+      { phases: invocations[3].phases, auditor: invocations[3].auditor },
+      {
+        phases:
+          auditor === "codex"
+            ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+            : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "otx" : "ath",
+      },
+    )
   })
 }
 
@@ -831,9 +848,9 @@ for (const auditor of ["codex", "claude"] as const) {
         {
           phases:
             auditor === "codex"
-              ? "audit, rebut, fix: chosen-model high\nvet: claude-model high"
-              : "audit, rebut: claude-model high\nvet, fix: chosen-model high",
-          auditor: auditor === "codex" ? "ouh" : "auh",
+              ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
+          auditor: auditor === "codex" ? "otx" : "ath",
         },
       )
       if (ruling) {

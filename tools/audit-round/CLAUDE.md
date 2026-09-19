@@ -111,8 +111,10 @@ consumers.
   carries its phase, so the settings header reports the model and effort that phase will run on and
   names what set each of them: a command-line flag, the phase's own pin, or the assistant's
   settings. A phase whose two fields came from different places names both, model first. The output
-  holds only the run start, current phase timing, context observations and the record of which
-  phases have started, which is what the commit stamps name. Every status stamp shows the phase's
+  holds only the run start, current phase timing, context observations and each started phase's
+  model selection. A phase starts with its launch selection, then its CLI's model feedback replaces
+  it. Commit stamps use those phase selections; requested aliases remain in the settings header
+  and file tags. Every status stamp shows the phase's
   elapsed time and the round's total. Every logged tool line opens with its step's own time, the
   assistant time since the previous tool line or since the phase start for the first, and carries no
   total, so a stalled step shows where it stalled. `run-clock.ts` owns what those readings count. A

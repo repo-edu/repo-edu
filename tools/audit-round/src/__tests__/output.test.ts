@@ -8,7 +8,7 @@ import { decodeCodex } from "../codex.js"
 import { briefRun, RoundOutput, roundRun } from "../output.js"
 import { commandText } from "../output-format.js"
 import type { Assistant, AuditorOverride } from "../phase.js"
-import { unpinned } from "../phase.js"
+import { roundPhases, unpinned } from "../phase.js"
 import { createTerminal } from "../terminal.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
@@ -29,6 +29,48 @@ test("long commit lists record every reference without exceeding filename limits
   output.close()
   const transcript = await readFile(run.paths.markdown, "utf8")
   assert.ok(transcript.includes(`Audit round of commits ${commits.join(" ")}`))
+})
+
+test("commit stamps retain each phase's reported selection across later phases", async (t) => {
+  const f = await fixture(t)
+  const setup = {
+    ...testContext(f.root),
+    plan: "example.md",
+    auditor: "claude" as const,
+    override: { strength: "top", effort: "xhigh" } as const,
+  }
+  const phases = roundPhases(setup.auditor, setup.override)
+  const output = new RoundOutput(await roundRun(setup, 0, selections), {
+    terminal: { write() {}, status() {}, clear() {} },
+  })
+  t.after(() => output.close())
+  assert.equal(output.commitStamps(), undefined)
+  for (const [phase, selection] of [
+    ["audit", { model: "claude-fable-5-1", effort: "high" }],
+    ["vet", { model: "gpt-6-astra", effort: "medium" }],
+    ["rebut", { model: "claude-fable-5-1", effort: "xhigh" }],
+    ["fix", { model: "gpt-6-astra", effort: "medium" }],
+    ["brief", { model: "gpt-5.6-terra", effort: "low" }],
+  ] as const) {
+    await output.phase.start(
+      {
+        ...setup,
+        ...phases[phase],
+        ...(phase === "audit"
+          ? { phase, arguments: ["example-all-01", "example.md"] as const }
+          : { phase, arguments: ["report.md"] as const }),
+        ownerRoot: f.root,
+        sessionId: null,
+      },
+      "prompt",
+    )
+    await output.phase.observe({ type: "model", selection })
+  }
+  assert.deepEqual(output.commitStamps(), {
+    phases:
+      "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra medium\nrebut: claude-fable-5-1 xhigh",
+    auditor: "ath",
+  })
 })
 
 test("output records complete invocations incrementally and refreshes only while a phase runs", async (t) => {

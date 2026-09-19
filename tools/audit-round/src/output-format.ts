@@ -44,8 +44,8 @@ export function phaseText(
   }
 }
 
-/** What a phase ran on, resolved from what it named and what its CLI reported. */
-function resolved(
+/** What a phase requests before its own CLI reports the applied selection. */
+export function phaseSelection(
   { model, effort }: PinnedModel,
   configured: ModelSelection,
 ): ModelSelection {
@@ -68,14 +68,13 @@ export type RunEntry = {
  * keep the order of their first phase, so one reading runs top to bottom.
  */
 export function commitPhaseLines(
-  entries: readonly RunEntry[],
-  selections: Record<Assistant, ModelSelection>,
+  selections: ReadonlyMap<Phase, ModelSelection>,
 ): string {
   const lines = new Map<string, Phase[]>()
-  for (const entry of entries) {
-    const { model, effort } = resolved(entry.model, selections[entry.assistant])
+  for (const [phase, { model, effort }] of selections) {
+    if (!transcribed(phase)) continue
     const ran = effort === null ? model : `${model} ${effort}`
-    lines.set(ran, [...(lines.get(ran) ?? []), entry.phase])
+    lines.set(ran, [...(lines.get(ran) ?? []), phase])
   }
   return [...lines]
     .map(([ran, phases]) => `${phases.join(", ")}: ${ran}`)
@@ -92,11 +91,17 @@ export function capabilityTag(
   entry: RunEntry,
   configured: ModelSelection,
 ): string | null {
-  const { model, effort } = resolved(entry.model, configured)
+  return selectionTag(entry.assistant, phaseSelection(entry.model, configured))
+}
+
+function selectionTag(
+  assistant: Assistant,
+  { model, effort }: ModelSelection,
+): string | null {
   const letter = effort === null ? null : effortLetter(effort)
   if (letter === null) return null
-  const strength = modelStrength(entry.assistant, model)
-  return `${assistantLetters[entry.assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
+  const strength = modelStrength(assistant, model)
+  return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
 }
 
 /**
@@ -105,16 +110,14 @@ export function capabilityTag(
  */
 export function commitStamps(
   entries: readonly RunEntry[],
-  selections: Record<Assistant, ModelSelection>,
+  selections: ReadonlyMap<Phase, ModelSelection>,
 ): { readonly phases: string; readonly auditor: string | null } | undefined {
   const audit = entries.find(({ phase }) => phase === "audit")
-  if (audit === undefined) return undefined
+  const selection = selections.get("audit")
+  if (audit === undefined || selection === undefined) return undefined
   return {
-    phases: commitPhaseLines(
-      entries.filter(({ phase }) => transcribed(phase)),
-      selections,
-    ),
-    auditor: capabilityTag(audit, selections[audit.assistant]),
+    phases: commitPhaseLines(selections),
+    auditor: selectionTag(audit.assistant, selection),
   }
 }
 

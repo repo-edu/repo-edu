@@ -12,6 +12,7 @@ import {
   contextText,
   elapsedText,
   modelText,
+  phaseSelection,
   phaseText,
   type RunEntry,
   toolText,
@@ -245,11 +246,11 @@ export class RoundOutput<R extends Run = Run> {
     | undefined
   private timer: ReturnType<typeof setInterval> | undefined
   /**
-   * The phases this run has started, in order. The transcript records the same
-   * phases, so what a commit body names as the round's phases is read from
-   * here rather than from the plan of phases the run began with.
+   * Started phases in order, with each CLI's applied selection. Before a
+   * phase reports, its launch selection lets that child identify itself.
+   * Feedback replaces that selection without changing another phase's record.
    */
-  private readonly ran = new Set<Phase>()
+  private readonly ran = new Map<Phase, ModelSelection>()
 
   constructor(
     private readonly run: R,
@@ -321,10 +322,7 @@ export class RoundOutput<R extends Run = Run> {
    * round that skipped the vet and the rebuttal stamps neither.
    */
   commitStamps = (): ReturnType<typeof commitStamps> =>
-    commitStamps(
-      this.run.phases.filter(({ phase }) => this.ran.has(phase)),
-      this.run.selections,
-    )
+    commitStamps(this.run.phases, this.ran)
 
   private say(
     text: string,
@@ -366,7 +364,10 @@ export class RoundOutput<R extends Run = Run> {
       // A fresh session starts empty, so its first stamp reports the startup context.
       statusTokens: input.sessionId === null ? 0 : null,
     }
-    this.ran.add(input.phase)
+    this.ran.set(
+      input.phase,
+      phaseSelection(input.model, this.run.selections[input.assistant]),
+    )
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
       `\n${"─".repeat(72)}\n[${input.phase}] starting ${input.assistant} (${mode})`,
@@ -406,6 +407,7 @@ export class RoundOutput<R extends Run = Run> {
         )
         break
       case "model":
+        this.ran.set(active.input.phase, feedback.selection)
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
           terminal,

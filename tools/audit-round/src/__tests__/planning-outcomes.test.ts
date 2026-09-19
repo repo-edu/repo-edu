@@ -78,7 +78,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.deepEqual(
         fixes.map((call) => call.auditor),
-        files.map((name) => (name.includes("-ouh-") ? "ouh" : "auh")),
+        files.map((name) => (name.includes("-ouh-") ? "otx" : "ath")),
       )
     })
   }
@@ -148,7 +148,7 @@ for (const auditor of ["codex", "claude"] as const) {
       "--approve-for-me",
       "fix-session",
     ])
-    assert.equal(session.auditor, auditor === "codex" ? "ouh" : "auh")
+    assert.equal(session.auditor, auditor === "codex" ? "otx" : "ath")
   })
 }
 
