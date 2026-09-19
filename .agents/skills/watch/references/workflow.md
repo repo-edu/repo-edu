@@ -87,7 +87,7 @@ root counts from its own entry, never the other repository's history. The grade
 and horizon describe the joined episode. Keep other episode entries unchanged.
 
 `horizon` is the re-run distance in commits that the grade carries: the number
-the watch names on amber, `8` on green and `0` on red. The glance reads this
+the watch names on amber, `4` on green and `0` on red. The glance reads this
 record to decide whether the next round earns a watch, so the record is how the
 cadence survives between rounds. Create the file and its directory when they
 are missing. A record that cannot be written is a failure of this phase: say so

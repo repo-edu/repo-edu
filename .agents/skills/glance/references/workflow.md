@@ -89,7 +89,7 @@ Answer due when any one of these holds:
    the user acts on it and the record moves.
 3. The recorded grade is `amber` and the distance has reached the recorded
    horizon, counted in commits.
-4. The recorded grade is `green` and the distance has reached eight. Green says
+4. The recorded grade is `green` and the distance has reached four. Green says
    there was no near-term need, not that the episode is finished.
 5. The distance includes a subject whose severity sequence carries an
    uppercase `A`, whatever the record says. In a planning record this names
