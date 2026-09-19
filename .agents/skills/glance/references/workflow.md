@@ -19,12 +19,13 @@ thought of it, which is the cadence this replaces.
 
 You are not the watch. Do not compute the Trajectory diagnostic, grade the
 episode, name a drifting abstraction or suggest a response class. Read commit
-subjects, read the watch's own history, answer, and stop.
+subjects and the file names commits touched, read the watch's own history,
+answer, and stop.
 
 Read only these two things:
 
-- `git log` for the current repository, subjects only, as far back as the rules
-  below need
+- `git log` for the current repository, subjects and touched file names
+  (`--name-only`), as far back as the rules below need
 - the watch record in the cache root the invocation names
 
 Do not open a commit body, a source file, a plan, a report or a round file. If
@@ -71,15 +72,25 @@ bare `<topic>`, `plan-<topic>` or `topology-<topic>` prefix as one topic. When
 HEAD carries no such subject, the episode is the unstemmed recent history and
 its key is `-`.
 
+Then derive the episode's membership the way the watch does, within this one
+repository: the core artifact set is every file a commit carrying the stem
+touched, and a commit belongs to the episode when its subject carries the stem
+or it touches a file in that set. Only these commits count below. Off-plan
+rework drops the stem by convention, so the artifact-set test is what admits
+it, and it is the churn the watch exists to read.
+
 This is a cheaper scoping than the watch's. The watch joins both repos and
-walks the artifact set; you only need a key to count against, and the stem on
-HEAD is enough for that.
+grades the episode; you join nothing and count against one key, and the
+stem on HEAD plus this repository's touched files are enough for that.
 
 ## The rule
 
-Count the commits that changed files since this repository's recorded sha, excluding the
+Count the episode's commits since this repository's recorded sha, excluding the
 audit-round record commits whose subject carries an `impl-audit-` role token,
-the same exclusion the repeated-fix gate makes. Call that count the distance.
+the same exclusion the repeated-fix gate makes. A commit outside the episode
+never counts, whatever its subject says: the glance measures how far the plan's
+own record has moved, not how busy the branch has been. Call that count the
+distance.
 
 Answer due when any one of these holds:
 
@@ -108,8 +119,9 @@ cost of a missed one is the drift the user asked to stop meeting by intuition.
 
 ## Output
 
-Say in one or two sentences what the record held, how far the log has moved and
-which rule decided. Name the episode stem and the distance. Write no file.
+Say in one or two sentences what the record held, how far the episode has moved
+and which rule decided. Name the episode stem, the distance and how many
+commits since the recorded sha fell outside the episode. Write no file.
 
 ## Runner result
 
