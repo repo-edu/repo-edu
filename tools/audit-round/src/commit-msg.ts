@@ -44,6 +44,7 @@ export function stampCommitMessage(
   text: string,
   repository: Repository,
   stamps: CommitStamps,
+  primaryAreas: ReadonlySet<string>,
 ): string {
   const trailing = text.endsWith("\n")
   const lines = (trailing ? text.slice(0, -1) : text).split("\n")
@@ -109,6 +110,6 @@ export function stampCommitMessage(
     if (at < lines.length) output.push("")
     output.push(...lines.slice(at))
   }
-  correctionAreas(subject, output.slice(1).join("\n"), repository)
+  correctionAreas(subject, output.slice(1).join("\n"), repository, primaryAreas)
   return output.join("\n") + (trailing ? "\n" : "")
 }

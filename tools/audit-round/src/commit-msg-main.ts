@@ -1,4 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises"
+import areaModel from "../../architecture-check/src/area-model.json" with {
+  type: "json",
+}
 import { stampCommitMessage } from "./commit-msg.js"
 import { type Repository, SubjectError } from "./subject.js"
 
@@ -25,6 +28,11 @@ try {
       auditor: process.env.COMMIT_AUDITOR || null,
       phases: process.env.COMMIT_PHASES || null,
     },
+    new Set(
+      areaModel.areas
+        .filter((area) => area.kind === "partition")
+        .map((area) => area.id),
+    ),
   )
   await writeFile(file, stamped)
 } catch (error) {

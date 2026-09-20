@@ -164,6 +164,7 @@ P3        planning-rounds/ready ath:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):
 I2 plan   round-file-naming/impl-audit-all oth D1 docs(vet):
+I3        planning-rounds/impl-audit-all oth B1:
 I4        planning-rounds/impl-audit-all otm clean:
 I5        planning-rounds/implemented oth:
 O2        ath chore(repo):
@@ -175,6 +176,7 @@ Repo Edu:
 ```text
 I1           planning-rounds/impl-4 oth test(audit-round):
 I2 Repo Edu  round-file-naming/impl-audit-all oth growth-medium c1 fix(audit-round):
+I3           planning-rounds/impl-audit-all oth B1:
 I4           planning-rounds/impl-audit-all ath clean:
 I5           planning-rounds/closed oth:
 O1           ath growth-medium c1 feat(audit-round):

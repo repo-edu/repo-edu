@@ -86,7 +86,7 @@ consumers.
 - `corrections.ts` reads the fixed tier and location prefixes on finding
   bullets for both the glance and commit hooks. It checks that each A–C
   concern in a file-changing subject has a body record. It returns the areas
-  corrected locally, excluding deferred plan findings. A commit contributes
+  corrected locally, excluding findings deferred to the other repo. A commit contributes
   at most once per area, however many findings it fixed there.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under

@@ -4,6 +4,8 @@ import { stampCommitMessage } from "../commit-msg.js"
 import { correctionAreas } from "../corrections.js"
 import { parseSubject } from "../subject.js"
 
+const primaryAreas = new Set(["area-a", "area-b"])
+
 test("the hook refuses missing, misplaced and miscounted A-C finding locations", () => {
   const subject = "oth C1d1 fix(x): correct two concerns"
   for (const body of [
@@ -20,6 +22,7 @@ test("the hook refuses missing, misplaced and miscounted A-C finding locations",
           subject + "\n\ngpt-6-astra high\n\n" + body,
           "repo-edu",
           { auditor: null, phases: null },
+          primaryAreas,
         ),
       /finding|location/,
     )
@@ -28,7 +31,12 @@ test("the hook refuses missing, misplaced and miscounted A-C finding locations",
     subject +
     "\n\ngpt-6-astra high\n\n- [C] [area:area-a] Correct the behaviour.\n- [D] [area:area-b] Correct the words."
   assert.equal(
-    stampCommitMessage(valid, "repo-edu", { auditor: null, phases: null }),
+    stampCommitMessage(
+      valid,
+      "repo-edu",
+      { auditor: null, phases: null },
+      primaryAreas,
+    ),
     valid,
   )
 })
@@ -46,12 +54,17 @@ test("deferred plan findings are recorded but never counted as local corrections
   )
 })
 
-test("planning findings use sections and cannot borrow Repo Edu areas", () => {
+test("planning findings use sections and deferred Repo Edu findings add no local correction", () => {
   const subject = parseSubject("example/audit oth C1: correct the plan", "plan")
-  assert.throws(
-    () =>
-      correctionAreas(subject, "- C [area:area-a] Correct the plan.", "plan"),
-    /section/,
+  assert.deepEqual(
+    [
+      ...correctionAreas(
+        subject,
+        "- C [area:area-a] Defer the code fix.",
+        "plan",
+      ),
+    ],
+    [],
   )
   assert.deepEqual(
     [
@@ -62,5 +75,55 @@ test("planning findings use sections and cannot borrow Repo Edu areas", () => {
       ),
     ],
     ["section:decisions"],
+  )
+  const mixed = parseSubject("example/audit oth C2: correct and defer", "plan")
+  const message =
+    "example/audit oth C2: correct and defer\n\ngpt-6-astra high\n\n- C [section:decisions] Correct the decision.\n- C [area:area-a] Defer the code fix."
+  assert.equal(
+    stampCommitMessage(
+      message,
+      "plan",
+      { auditor: null, phases: null },
+      primaryAreas,
+    ),
+    message,
+  )
+  assert.deepEqual(
+    [
+      ...correctionAreas(
+        mixed,
+        "- C [section:decisions] Correct the decision.\n- C [area:area-a] Defer the code fix.",
+        "plan",
+      ),
+    ],
+    ["section:decisions"],
+  )
+  assert.throws(
+    () =>
+      correctionAreas(
+        subject,
+        "- C [area:area-a] [section:decisions] Ambiguous location.",
+        "plan",
+      ),
+    /location/,
+  )
+})
+
+test("new local findings require current primary areas while historical areas still count", () => {
+  const subject = parseSubject("oth c1 fix(x): correct the code", "repo-edu")
+  const body = "- [C] [area:retired-area] Correct the detail."
+  assert.throws(
+    () =>
+      stampCommitMessage(
+        `oth c1 fix(x): correct the code\n\ngpt-6-astra high\n\n${body}`,
+        "repo-edu",
+        { auditor: null, phases: null },
+        primaryAreas,
+      ),
+    /unknown primary area: retired-area/,
+  )
+  assert.deepEqual(
+    [...correctionAreas(subject, body, "repo-edu")],
+    ["area:retired-area"],
   )
 })

@@ -223,6 +223,33 @@ test("plan rounds count sections independently and ignore D findings", () => {
   )
 })
 
+test("plan commits count local sections without counting deferred Repo Edu findings", () => {
+  const mixed = commit(
+    "example/impl-audit-all ath C2 docs(x): correct the plan and defer the code",
+    "- C [section:decisions] Correct the decision.\n- C [area:tool-audit-round] Defer the code fix.",
+  )
+  const deferred = commit(
+    "example/impl-audit-all ath C1 docs(x): record the deferred code fix",
+    "- C [area:tool-audit-round] Defer the code fix.",
+  )
+  const decision = glanceDecision(
+    history(mixed, deferred),
+    record("amber", "c000001", "plan"),
+    "plan",
+  )
+  assert.equal(decision.due, false)
+  assert.match(decision.text, /section:decisions 1/)
+  assert.doesNotMatch(decision.text, /area:tool-audit-round/)
+  assert.equal(
+    glanceDecision(
+      history(mixed, mixed),
+      record("amber", "c000001", "plan"),
+      "plan",
+    ).due,
+    true,
+  )
+})
+
 test("historical stem prefixes join; unstemmed history uses its own record", () => {
   const a = {
     ...correction(),
