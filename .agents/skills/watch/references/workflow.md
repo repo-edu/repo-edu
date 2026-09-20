@@ -76,7 +76,6 @@ an object keyed by episode stem, and you replace only this episode's entry:
       "plan": "<graded plan HEAD sha, short>"
     },
     "grade": "green | amber | red",
-    "horizon": 3,
     "written": "<local date, YYYY-MM-DD>"
   }
 }
@@ -84,17 +83,18 @@ an object keyed by episode stem, and you replace only this episode's entry:
 
 Write both graded heads, including the peer checkout's head. A glance at either
 root counts from its own entry, never the other repository's history. The grade
-and horizon describe the joined episode. Keep other episode entries unchanged.
+describes the joined episode. Keep other episode entries unchanged.
 
-`horizon` is the re-run distance in commits that the grade carries: the number
-the watch names on amber, `4` on green and `0` on red. The glance reads this
-record to decide whether the next round earns a watch, so the record is how the
-cadence survives between rounds. Create the file and its directory when they
+The glance owns fixed limits: four A–C correction commits in one area on
+green, two on amber and every finished round on red. Plan rounds count by
+section. D-only work, clean records, deferral-only records and planned steps
+do not count. Severity, reach and growth have no early trigger. Save no
+`horizon`; the grade selects the limit. Create the file and its directory when they
 are missing. A record that cannot be written is a failure of this phase: say so
 rather than leaving a watch the next glance cannot count from.
 
 The first pass writes both. The second pass rewrites the file and leaves the
-record alone: it changes wording, never the grade or the horizon.
+record alone: it changes wording, never the grade or the graded heads.
 
 ## Voice
 
@@ -129,9 +129,10 @@ The watch has these sections in this order.
 4. **What to do about it**: the suggested response class and the reason it
    fits. Never a fix: proposing an implementation moves the user from judging
    the frame to judging a solution.
-5. **When to look again**: on amber, the area to watch and the horizon in
-   commits. On green, that there is no near-term need. On red, that this is for
-   the user to act on now.
+5. **When to look again**: on amber, name the area to watch and the fixed
+   two-correction limit. On green, state the fixed four-correction limit.
+   Both count A–C correction commits in one area. On red, state that this is
+   for the user to act on now.
 
 Nothing else belongs in the file. The round's own brief holds its findings.
 

@@ -12,14 +12,14 @@ const none = { auditor: null, phases: null }
 
 test("a session's own commit passes through once its subject and model line check out", () => {
   const message =
-    "atm growth-low c1 docs(repo): own the grammar\n\nclaude-fable-5-1 medium\n\n- Bullet.\n"
+    "atm growth-low c1 docs(repo): own the grammar\n\nclaude-fable-5-1 medium\n\n- [C] [area:tool-audit-round] Own the grammar.\n"
   assert.equal(stampCommitMessage(message, "repo-edu", none), message)
   const plan =
-    "atm C1 docs(claude): link the grammar\n\nclaude-fable-5-1 medium\n"
+    "atm C1 docs(claude): link the grammar\n\nclaude-fable-5-1 medium\n\n- C [section:commits] Link the grammar.\n"
   assert.equal(stampCommitMessage(plan, "plan", none), plan)
   // Git's comment lines are skipped when looking for the model line.
   const commented =
-    "atm c1 docs(repo): s\n# Please enter the commit message\n\nclaude-fable-5-1 medium\n"
+    "atm c1 docs(repo): s\n# Please enter the commit message\n\nclaude-fable-5-1 medium\n\n- [C] [area:tool-audit-round] Correct the record.\n"
   assert.equal(stampCommitMessage(commented, "repo-edu", none), commented)
 })
 
@@ -70,11 +70,11 @@ test("a refused subject, a missing model line and a disagreeing effort each stop
   // A record line with phases or without an effort word says nothing about the tag's effort.
   assert.equal(
     stampCommitMessage(
-      "atm c1 docs(repo): s\n\nclaude-fable-5-1\n",
+      "atm c1 docs(repo): s\n\nclaude-fable-5-1\n\n- [C] [area:tool-audit-round] Correct the record.\n",
       "repo-edu",
       none,
     ),
-    "atm c1 docs(repo): s\n\nclaude-fable-5-1\n",
+    "atm c1 docs(repo): s\n\nclaude-fable-5-1\n\n- [C] [area:tool-audit-round] Correct the record.\n",
   )
 })
 
@@ -87,11 +87,11 @@ test("a round's record takes the auditor's tag and the phases replace the body's
   // The fix writes the auditor's letter alone and the hook widens it.
   assert.equal(
     stampCommitMessage(
-      "example/impl-audit-all o c1 fix(x): s\n\ngpt-6-astra high\n\n- Bullet.\n",
+      "example/impl-audit-all o c1 fix(x): s\n\ngpt-6-astra high\n\n- [C] [area:area-x] Correct the record.\n",
       "repo-edu",
       stamps,
     ),
-    `example/impl-audit-all otx c1 fix(x): s\n\n${stamps.phases}\n\n- Bullet.\n`,
+    `example/impl-audit-all otx c1 fix(x): s\n\n${stamps.phases}\n\n- [C] [area:area-x] Correct the record.\n`,
   )
   // A clean record carries the tag as the colon's own token.
   assert.equal(
@@ -148,7 +148,10 @@ test("the hook entry stamps the file in place and names the grammar on a refusal
           reject: false,
         },
       )
-    await writeFile(file, "example/audit o B1: s\n\n- Bullet.\n")
+    await writeFile(
+      file,
+      "example/audit o B1: s\n\n- B [section:decisions] Correct the decision.\n",
+    )
     const stamped = await run({
       COMMIT_AUDITOR: "otx",
       COMMIT_PHASES: "audit: gpt-6-astra xhigh",
@@ -156,7 +159,7 @@ test("the hook entry stamps the file in place and names the grammar on a refusal
     assert.equal(stamped.exitCode, 0, stamped.stderr)
     assert.equal(
       await readFile(file, "utf8"),
-      "example/audit otx B1: s\n\naudit: gpt-6-astra xhigh\n\n- Bullet.\n",
+      "example/audit otx B1: s\n\naudit: gpt-6-astra xhigh\n\n- B [section:decisions] Correct the decision.\n",
     )
     await writeFile(file, "atm c1 docs(claude): s\n\nclaude-fable-5-1 medium\n")
     const refused = await run({})

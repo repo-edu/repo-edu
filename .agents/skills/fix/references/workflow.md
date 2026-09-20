@@ -183,11 +183,11 @@ the runner, use the report's full auditor tag. Use your own selection under the 
 protocol for your phase's model record and any file you write. Repo Edu's `CLAUDE.md` owns both
 rules under **Commit Capability Tag** and **Commit Model Record**.
 
-The body carries one bullet per accepted finding, and each bullet opens with
-that finding's metadata before its prose:
+The body carries one bullet per accepted finding. Each bullet opens with its
+uppercase tier, then its metadata and prose:
 
 ```text
-- [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
+- [B] [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
 ```
 
 For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary
@@ -195,8 +195,10 @@ partition area from `tools/architecture-check/src/area-model.json`, followed
 by `[cover:<cover-id>]` for each cover area that applies. `[growth:...]`,
 `[reach:...]` and `[complexity:...]` are the tokens the audit workflow
 defines, in the same form the report used. Repo Edu finding bullets require
-all four token kinds. Plan-repo finding bullets omit only `[area:]` under the
-plan repo's local substitution. The commit body is the only place a later
+all four token kinds. Plan-repo finding bullets use the planning form,
+`- B [section:<heading>] ...`, with the heading in kebab case, and omit
+`[area:]`. The glance counts A–C corrections by these locations, once per
+commit in each area or section. D findings never advance its count. The commit body is the only place a later
 round can read them: chat is gone, the report is deleted below and the
 finding list lives nowhere else. A bullet that records something other than
 a finding, such as a carried decision or a trade ruling with its reason,

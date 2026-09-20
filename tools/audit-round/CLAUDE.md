@@ -42,7 +42,7 @@ consumers.
   any draft twin, so it takes the workflow that owns the document's shape as
   its first argument. The watch runs only after a plan round that finished, because
   a round that handed over has not proved its work landed; nothing is lost,
-  since the glance counts commits and not rounds. A round given no watch
+  since the glance counts correction commits and not rounds. A round given no watch
   target, which is what `--no-watch` does, consults no glance at all. The
   watch reads the commit record and never the round, so `runWatch` passes it
   no transcript and no report.
@@ -73,11 +73,21 @@ consumers.
 - `glance.ts` owns the glance: the rule that decides from `git log` and the watch record in
   `watch.json` whether the trajectory watch is due. The episode is derived from HEAD the way the
   watch derives it, a commit counts when it carries the stem or touches the stem's artifact set,
-  implementation-audit fixes and records count like any other commit, and the five rules are stated
-  in the function's own comment. A subject the settled grammar refuses still counts toward the
-  distance and raises no subject rule. The record is read as data: a missing, unreadable or
-  pre-settlement entry is no record, which makes the first watch due. The decision's sentence goes
+  each file-changing commit counts once per area with an A–C correction.
+  Repo Edu groups by finding area and planning groups by finding section.
+  D-only work, clean records, deferral-only records and planned steps do not count.
+  Green waits for four corrections in one area and amber waits for two. Red runs
+  after every finished round. Severity, reach and growth have no early trigger.
+  A subject the grammar refuses supplies no correction evidence. A qualifying
+  subject with incomplete body records stops the round. The record is read as
+  data: a missing, unreadable or old-format entry is no record, which makes the
+  first watch due. The decision's sentence goes
   to the log and the terminal as `[glance]`.
+- `corrections.ts` reads the fixed tier and location prefixes on finding
+  bullets for both the glance and commit hooks. It checks that each A–C
+  concern in a file-changing subject has a body record. It returns the areas
+  corrected locally, excluding deferred plan findings. A commit contributes
+  at most once per area, however many findings it fixed there.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does
@@ -110,7 +120,7 @@ consumers.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
   resolve the same way. The watch workflow owns `watch.json`: each episode
-  records both repositories' graded heads beside one grade and horizon. The
+  records both repositories' graded heads beside one grade and written date. The
   glance counts from the invoking repository's head only. Both update checks
   precede settings discovery. Codex compares its installed
   version with the standalone installer's release channel before running its updater. A current or

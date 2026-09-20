@@ -30,7 +30,7 @@ try {
 } catch (error) {
   if (error instanceof SubjectError) {
     process.stderr.write(
-      `commit-msg: ${error.message}\ncommit-msg: the subject grammar is .agents/references/subject-grammar.md in the Repo Edu checkout\n`,
+      `commit-msg: ${error.message}\ncommit-msg: commit body rules are in CLAUDE.md; the subject grammar is .agents/references/subject-grammar.md in the Repo Edu checkout\n`,
     )
     process.exit(1)
   }

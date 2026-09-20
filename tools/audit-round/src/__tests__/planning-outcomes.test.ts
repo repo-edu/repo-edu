@@ -206,7 +206,6 @@ for (const working of ["repo-edu", "plan"] as const) {
             ? { "repo-edu": "1234567", plan: "abcdef0" }
             : { "repo-edu": f.heads["repo-edu"], plan: f.heads.plan },
           grade: "amber",
-          horizon: 3,
           written: "2026-09-18",
         },
       })
@@ -228,7 +227,7 @@ for (const working of ["repo-edu", "plan"] as const) {
               `\\[glance\\] due: episode example recorded amber at ${working === "plan" ? "abcdef0" : "1234567"}, which is not on HEAD's history`,
             )
           : new RegExp(
-              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]} with horizon 3; 0 episode commits since`,
+              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]}\\. No A–C correction commits since`,
             ),
       )
       assert.equal(log.includes("[watch] starting"), due)

@@ -1,3 +1,4 @@
+import { correctionAreas } from "./corrections.js"
 import {
   isAuditRole,
   looseForm,
@@ -108,5 +109,6 @@ export function stampCommitMessage(
     if (at < lines.length) output.push("")
     output.push(...lines.slice(at))
   }
+  correctionAreas(subject, output.slice(1).join("\n"), repository)
   return output.join("\n") + (trailing ? "\n" : "")
 }

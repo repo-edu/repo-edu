@@ -181,15 +181,16 @@ findings concern, under its Records section.
 
 Each finding in the report carries its metadata tokens in the form the fix
 workflow's record bullets use, so a finding copies from the report into the
-commit body unchanged. For a Repo Edu finding, `[area:<primary-id>]` is the
+commit body unchanged. Keep the uppercase tier before those tokens in the
+commit bullet, as `- [C] [area:<primary-id>] ...`. For a Repo Edu finding, `[area:<primary-id>]` is the
 finding's primary partition area from
 `tools/architecture-check/src/area-model.json`, followed by
 `[cover:<cover-id>]` for each cover area that applies. `[growth:...]` is the
 tag from [Growth tags](#growth-tags). `[reach:...]` and `[complexity:...]`
 are the ratings from [Reach and complexity](#reach-and-complexity). Repo Edu
-findings require all four token kinds. Plan-repo findings omit only
-`[area:]` under the local substitution above, because the area model belongs
-to Repo Edu.
+findings require all four token kinds. Plan-repo findings use
+`- C [section:<heading>] ...` in the commit, with the heading in kebab case.
+They omit `[area:]`, because the area model belongs to Repo Edu.
 
 A finding deferred from a Repo Edu-only round to the plan repo is written in
 the report with its tier and plan location before the shared tokens, the body

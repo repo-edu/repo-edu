@@ -190,7 +190,7 @@ function controlledRound(
 
 const dueDecision: GlanceDecision = {
   due: true,
-  text: "The distance has reached the horizon of 3 (rule 3).",
+  text: "An area reached the amber limit of 2 (rule 3).",
 }
 
 type ControlledRound = ReturnType<typeof controlledRound>

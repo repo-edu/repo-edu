@@ -169,7 +169,7 @@ export async function runBrief(
  * Only a round that finished runs it. A round that handed over has not proved
  * that its work landed, so the record it would grade may be missing its own
  * commit. Nothing is lost by waiting: the glance counts what the log has
- * gained since the last watch, not how many rounds have run. A user who asked
+ * gained in corrections since the last watch, not how many rounds have run. A user who asked
  * for no watch gets none, whatever the record says.
  *
  * Returns the failure that stops the round, or null when the watch ran, was

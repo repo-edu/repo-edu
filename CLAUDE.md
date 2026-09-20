@@ -346,6 +346,15 @@ exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
 that carries it, which a plan document has not reached yet.
 
+Every file-changing commit with A–C concerns records one body bullet per
+concern, including off-plan work. Each starts with its uppercase tier and
+primary area, as `- [C] [area:tool-audit-round] ...`. Use the area that owns
+the concern, including for its supporting docs. Other decision bullets need
+no tier. The hook checks the A–C totals against the subject, joining uppercase
+and lowercase counts. This lets the glance count repeated corrections in the
+same area without counting a mixed commit's D-only areas. Audit bullets keep
+their other required tokens. The user directed this on 2026-09-20.
+
 The [A]-[D] rubric in Implementation Review Findings grades a concern's
 severity whether the AI surfaced it formally in a review or only
 addressed it in the commit body. Grade each concern the commit addresses
@@ -383,9 +392,9 @@ follows the shared round protocol. Each round record's subject carries the round
 scope through the shared `impl-audit-<step scope>` form, with the scope `<n>`,
 `<a>-<b>` or `all`, and its capability tag names the assistant that audited; the
 plan repo owns that form and no `Audit:` body line repeats it. Each accepted
-code finding bullet opens with the
-finding's metadata tokens,
-`- [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
+code finding bullet opens with its uppercase tier and
+the finding's metadata tokens,
+`- [C] [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
 <prose>`, so a later round can read the round's findings, their suspected
 growth patterns and their reach and complexity ratings from the log alone.
 The fix workflow at `.agents/skills/fix/references/workflow.md` owns that

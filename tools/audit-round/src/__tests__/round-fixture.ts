@@ -87,7 +87,7 @@ export async function roundFixture(
     await writeFile(
       join(cacheRoot, "watch.json"),
       JSON.stringify({
-        example: { heads, grade: "green", horizon: 4, written: "2026-09-20" },
+        example: { heads, grade: "green", written: "2026-09-20" },
       }),
     )
   const report = join(f.root, owner, "AUDIT-example.md")
