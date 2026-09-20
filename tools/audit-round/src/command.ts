@@ -9,6 +9,7 @@ import {
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { type ExecutionContext, executionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
+import { runGlance } from "./glance.js"
 import {
   briefRun,
   type OutputOptions,
@@ -18,7 +19,12 @@ import {
   transcriptNameStart,
 } from "./output.js"
 import { chainText } from "./output-format.js"
-import { type AuditorSeat, noOverride, parseAuditorTag } from "./phase.js"
+import {
+  type AuditorSeat,
+  noOverride,
+  parseAuditorTag,
+  type RoundDependencies,
+} from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -60,6 +66,8 @@ type Invocation =
       readonly rest: readonly string[]
       readonly auditor: AuditorSeat
       readonly chain?: boolean
+      /** False when `--no-watch` was given; Commander defaults it to true. */
+      readonly watch: boolean
       readonly verbose?: boolean
     }
   | {
@@ -111,6 +119,10 @@ function parseInvocation(
       "--chain",
       `run up to ${chainCap} rounds on the same scope (plans only), repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
     )
+    .option(
+      "--no-watch",
+      "skip the trajectory watch and its glance after every round, whatever the commit record says",
+    )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .action(
       (
@@ -119,6 +131,7 @@ function parseInvocation(
         flags: {
           auditor: AuditorSeat
           chain?: boolean
+          watch: boolean
           verbose?: boolean
         },
       ) => {
@@ -217,13 +230,22 @@ export async function runCommand(
     }
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
-    const dependenciesFor = (active: RoundOutput) =>
-      assistantDependencies(
+    const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      ...assistantDependencies(
         { ...runtime, cwd: context.cwd, commit: active.commitStamps },
         active.phase,
         active.prepareHandover,
         active.interactive,
-      )
+      ),
+      // The glance decides in the runner; its sentence goes to the log and terminal.
+      glance: async (input) => {
+        const decision = await runGlance(input)
+        await active.message(
+          `[glance] ${decision.due ? "due" : "not due"}: ${decision.text}`,
+        )
+        return decision
+      },
+    })
 
     if (prepared.kind === "brief") {
       const { transcript } = prepared
@@ -265,8 +287,12 @@ export async function runCommand(
             auditor,
             nameStart: run.nameStart,
             transcript: run.paths.markdown,
-            watch: run.watch,
-            cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+            watch: prepared.watch
+              ? {
+                  file: run.watch,
+                  cacheRoot: resolveCacheRoot(runtime, options.cacheRoot),
+                }
+              : null,
           },
           dependenciesFor(active),
         )

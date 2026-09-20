@@ -121,7 +121,7 @@ export function assistantDependencies(
   output: PhaseOutput,
   prepareHandover: RoundDependencies["prepareHandover"],
   recordInteractive: (feedback: Feedback) => Promise<void>,
-): RoundDependencies {
+): Omit<RoundDependencies, "glance"> {
   return {
     runPhase: {
       audit: (input) => runAssistantPhase(input, output, runtime),
@@ -131,7 +131,6 @@ export function assistantDependencies(
       brief: (input) => runAssistantPhase(input, output, runtime),
       rule: (input) => runAssistantPhase(input, output, runtime),
       revise: (input) => runAssistantPhase(input, output, runtime),
-      glance: (input) => runAssistantPhase(input, output, runtime),
       watch: (input) => runAssistantPhase(input, output, runtime),
     },
     prepareHandover,

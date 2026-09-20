@@ -23,15 +23,21 @@ export type RoundSetup = ExecutionContext & {
   readonly override?: AuditorOverride
 } & AuditTarget
 
+/** Where a watch that follows the round writes, and where it keeps its history. */
+export type WatchTarget = {
+  /** The watch's document, named for the round the watch follows. */
+  readonly file: string
+  /** The shared `audit-round` cache, which holds the watch's own history. */
+  readonly cacheRoot: string
+}
+
 export type RoundInput = RoundSetup & {
   /** The output owner's claimed target and number, reused at either report root. */
   readonly nameStart: string
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
   readonly transcript: string
-  /** Where the watch writes its document, named for the round the watch follows. */
-  readonly watch: string
-  /** The shared `audit-round` cache, which holds the watch's own history. */
-  readonly cacheRoot: string
+  /** Null when the user asked for no watch, whatever the commit record says. */
+  readonly watch: WatchTarget | null
 }
 
 export type BriefInput = ExecutionContext & {
@@ -155,36 +161,34 @@ export async function runBrief(
 /**
  * The watch that follows a round. It reads the commit record and never the
  * round, so nothing it is given comes from the round's own files: the glance
- * decides from the log alone and the watch grounds itself in the code the
- * log points at. The glance exists because the watch is expensive and most
- * rounds do not move the record far enough to change its reading.
+ * decides from the log and the watch's own history alone, and the watch
+ * grounds itself in the code the log points at. The glance exists because the
+ * watch is expensive and most rounds do not move the record far enough to
+ * change its reading; `glance.ts` owns its rule.
  *
  * Only a round that finished runs it. A round that handed over has not proved
  * that its work landed, so the record it would grade may be missing its own
  * commit. Nothing is lost by waiting: the glance counts what the log has
- * gained since the last watch, not how many rounds have run.
+ * gained since the last watch, not how many rounds have run. A user who asked
+ * for no watch gets none, whatever the record says.
  *
- * Returns the failure that stops the round, or null when the watch ran or was
- * not due.
+ * Returns the failure that stops the round, or null when the watch ran, was
+ * not due or was not asked for.
  */
 async function runWatch(
-  input: ExecutionContext & Pick<RoundInput, "watch" | "cacheRoot">,
-  dependencies: Pick<RoundDependencies, "runPhase">,
+  input: ExecutionContext & Pick<RoundInput, "watch">,
+  dependencies: Pick<RoundDependencies, "runPhase" | "glance">,
 ): Promise<RoundFailure | null> {
+  if (input.watch === null) return null
   // The watch is Claude's whoever audited, and the override binds only the auditor.
   const phases = roundPhases("codex", noOverride)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
-  const glance = await dependencies.runPhase.glance({
-    phase: "glance",
-    ...phases.glance,
-    ...context,
-    ownerRoot: repoEduRoot,
-    arguments: [input.cacheRoot],
-    sessionId: null,
+  const glance = await dependencies.glance({
+    cwd,
+    repository: roundKind === "planning" ? "plan" : "repo-edu",
+    cacheRoot: input.watch.cacheRoot,
   })
-  if (glance.status === "failed")
-    return { ...glance, phase: "glance", ...phases.glance, ...context }
   if (!glance.due) return null
 
   const watch = await dependencies.runPhase.watch({
@@ -192,7 +196,7 @@ async function runWatch(
     ...phases.watch,
     ...context,
     ownerRoot: repoEduRoot,
-    arguments: [input.watch, input.cacheRoot],
+    arguments: [input.watch.file, input.watch.cacheRoot],
     sessionId: null,
   })
   if (watch.status === "failed")

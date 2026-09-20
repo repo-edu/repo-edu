@@ -57,13 +57,11 @@ explicitly says to.
 
 ## Runner result
 
-When the prompt identifies an unattended round phase, planning or implementation, follow
-this rule for every ending, including an early stop. It is shared by audit,
-vet, rebuttal, fix, brief, the two ruling passes and the glance and the two
-watch passes. Planning workflows read this section from its Repo Edu home;
-their planning rules stay in the plan repo. Implementation routes may supply
-local substitutions. Ordinary interactive invocations do not add
-a result line.
+When the prompt identifies an unattended round phase, planning or implementation, follow this rule
+for every ending, including an early stop. It is shared by audit, vet, rebuttal, fix, brief, the two
+ruling passes and the two watch passes. Planning workflows read this section from its Repo Edu home;
+their planning rules stay in the plan repo. Implementation routes may supply local substitutions.
+Ordinary interactive invocations do not add a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
 Keep it outside any code fence and out of the report or twin file. The report
@@ -73,7 +71,7 @@ only. The object has exactly these fields:
 - `status`: one of the three outcomes below.
 - `file`: the absolute path written by a finished audit, vet, rebuttal, brief,
   ruling pass or watch pass. Use `null` for every other outcome, including a
-  finished fix and a finished glance.
+  finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
 - `tier`: the grade a finished fix gives the round, and `null` everywhere else.
   It is the highest tier among the records the fix landed, written as one
@@ -82,9 +80,6 @@ only. The object has exactly these fields:
   two repos reports the highest tier across both. The runner reads this to
   decide whether a chained run audits the same scope again, so report what the
   records carry and nothing else.
-- `due`: whether a finished glance found the trajectory watch due, and `null`
-  everywhere else. The runner reads this to decide whether the two watch passes
-  run after the round, so report the rule's answer and nothing else.
 - `clean`: whether a finished audit's report holds no findings, and `null`
   everywhere else. The runner reads this to decide whether the vet and the
   rebuttal run: a clean report gives the vet nothing to grade and the rebuttal
@@ -105,7 +100,7 @@ only. The object has exactly these fields:
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
-| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. A glance answered. | Continue, or finish the run after the watch. |
+| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the watch. |
 | `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. No watch follows. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
@@ -130,14 +125,14 @@ launchers also belong to Repo Edu; they run
 under `.agents/skills/rule/references/workflow.md` and only after a fix that
 returned `needs-ruling`.
 
-The glance and the two watch passes follow a round that finished, and take
-neither the report nor the transcript. The watch reads the commit record and
-never the round, so the runner gives the glance only the cache root, the
-watch pass the file to write and that cache root, and the rewrite only the
-watch's workflow and its own draft. Their launchers belong to the Repo Edu
-root. They run under `.agents/skills/glance/references/workflow.md` and
-`.agents/skills/watch/references/workflow.md`, and only when the glance
-returned `due` true.
+The two watch passes follow a round that finished, and take neither the
+report nor the transcript. The watch reads the commit record and never the
+round, so the runner gives the watch pass only the file to write and the cache
+root, and the rewrite only the watch's workflow and its own draft. Their
+launchers belong to the Repo Edu root. They run under
+`.agents/skills/watch/references/workflow.md`, and only when the runner's own
+glance at the commit record found the watch due; that glance is code in
+`tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
 
 Required work still blocked by a permission refusal or another error means
 `failed`, even when the assistant can end its turn normally or a partial

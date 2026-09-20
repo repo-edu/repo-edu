@@ -2,8 +2,37 @@ import assert from "node:assert/strict"
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
+import { execa } from "execa"
 import type { Assistant } from "../phase.js"
 import { fixture, phaseStream, recorded } from "./helpers.js"
+
+/** One empty commit under a stem, so the glance finds an episode and a head to count from. */
+export async function commitFixture(
+  cwd: string,
+  subject = "example/init ath: fixture",
+): Promise<string> {
+  await execa("git", ["init", "--quiet"], { cwd })
+  await execa(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.test",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      subject,
+    ],
+    { cwd },
+  )
+  return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
+}
 
 /** The tier a finished fix reports, which a chained run reads. */
 type Grade = "a" | "b" | "c" | "d" | null
@@ -14,7 +43,12 @@ export async function roundFixture(
   owner: "repo-edu" | "plan" = "repo-edu",
   ruling = false,
   tier: Grade = null,
-  /** Whether the glance calls a watch due, which no round does alongside a ruling. */
+  /**
+   * Whether the commit record leaves the watch due, which no round does
+   * alongside a ruling. False records both heads at HEAD as green, so the
+   * glance finds nothing to count; true records nothing, so the first watch is
+   * due.
+   */
   watch = false,
   working: "repo-edu" | "plan" = "repo-edu",
   /** Whether the audit reports no findings, which sends the round straight to the fix. */
@@ -43,6 +77,19 @@ export async function roundFixture(
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
   const planRoot = await realpath(planDirectory)
   const outputRoot = working === "plan" ? planRoot : repoRoot
+  const heads = {
+    "repo-edu": await commitFixture(repoRoot),
+    plan: await commitFixture(planRoot),
+  }
+  const cacheRoot = join(f.root, "cache")
+  await mkdir(cacheRoot)
+  if (!watch)
+    await writeFile(
+      join(cacheRoot, "watch.json"),
+      JSON.stringify({
+        example: { heads, grade: "green", horizon: 4, written: "2026-09-20" },
+      }),
+    )
   const report = join(f.root, owner, "AUDIT-example.md")
   const brief = join(outputRoot, "ROUND-example-brief.md")
   const rulingFile = join(outputRoot, "ROUND-example-ruling.md")
@@ -58,13 +105,12 @@ export async function roundFixture(
     "brief",
     "rule",
     "revise",
-    "glance",
     "watch",
   ] as const) {
     const assistant =
       phase === "fix" || phase === "brief"
         ? "codex"
-        : ["rule", "revise", "glance", "watch"].includes(phase)
+        : ["rule", "revise", "watch"].includes(phase)
           ? "claude"
           : phase === "vet"
             ? auditor === "codex"
@@ -73,7 +119,7 @@ export async function roundFixture(
             : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
     const file =
-      phase === "fix" || phase === "glance"
+      phase === "fix"
         ? null
         : phase === "audit"
           ? report
@@ -87,7 +133,7 @@ export async function roundFixture(
                   ? watchFile
                   : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, due: phase === "glance" ? watch : null, clean: phase === "audit" ? clean : null, accepted: phase === "vet" ? accepted : null })}`
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, clean: phase === "audit" ? clean : null, accepted: phase === "vet" ? accepted : null })}`
     phases[phase] = {
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase once a chain crosses over, so both answer.
@@ -122,7 +168,7 @@ export async function roundFixture(
     emergency: (text: string) => {
       errors.push(text)
     },
-    cacheRoot: join(f.root, "cache"),
+    cacheRoot,
   }
   const roundFiles = async () =>
     (await readdir(outputRoot)).filter((name) => /-round\.(md|log)$/.test(name))
@@ -144,6 +190,7 @@ export async function roundFixture(
     ...f,
     repoRoot,
     planRoot,
+    heads,
     report,
     brief,
     phases,

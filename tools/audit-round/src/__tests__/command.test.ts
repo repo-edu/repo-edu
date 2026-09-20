@@ -39,11 +39,10 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor,
             "codex",
             "codex",
-            // A requested ruling adds Claude's draft and its fresh rewrite, and
-            // a round that finished instead glances at the record for the watch.
-            ...(ruling
-              ? (["claude", "claude"] as const)
-              : (["claude"] as const)),
+            // A requested ruling adds Claude's draft and its fresh rewrite. A
+            // round that finished glances at the record in the runner instead,
+            // and the record here leaves no watch due.
+            ...(ruling ? (["claude", "claude"] as const) : []),
           ],
         )
         assert.equal(
@@ -100,6 +99,13 @@ for (const auditor of ["claude", "codex"] as const) {
         const { log, markdown, transcript } = await f.records()
         const visible = f.visible.join("\n")
         assert.match(log, /\nStarted \d{4}-/)
+        // A round that handed over has not proved its work landed, so it never glances.
+        assert.equal(log.includes("[glance]"), !ruling)
+        if (!ruling)
+          assert.match(
+            log,
+            /\[glance\] not due: episode example recorded green at [0-9a-f]+ with horizon 4; 0 episode commits since, 0 outside the episode\. No rule holds/,
+          )
         assert.match(log, /fix +codex +chosen-model high/)
         assert.match(log, /brief +codex +gpt-5\.6-terra low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
@@ -210,7 +216,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     assert.deepEqual(
       invocations.map((call) => call.assistant),
-      [auditor, "codex", "codex", "claude"],
+      [auditor, "codex", "codex"],
     )
     // The commit body names the phases the transcript holds, so the vet and
     // the rebuttal that never ran are not stamped into the clean record.
@@ -273,7 +279,7 @@ for (const auditor of ["claude", "codex"] as const) {
     const vetter = auditor === "codex" ? "claude" : "codex"
     assert.deepEqual(
       invocations.map((call) => call.assistant),
-      [auditor, vetter, "codex", "codex", "claude"],
+      [auditor, vetter, "codex", "codex"],
     )
     // The auditor had nothing to answer, so the rebuttal that never ran is
     // not stamped into the record.
@@ -711,9 +717,9 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
       (call.args[0] === "-p" &&
         !call.args.includes("--no-session-persistence")),
   )
-  // Three rounds of the five phases, each glancing at the record afterwards; a
-  // finished fix opens no ruling.
-  assert.equal(invocations.length, 18)
+  // Three rounds of the five phases; the glance after each runs in the runner
+  // and a finished fix opens no ruling.
+  assert.equal(invocations.length, 15)
   const visible = f.visible.join("\n")
   assert.match(
     visible,
@@ -775,13 +781,11 @@ test("a due glance sends the watch the record and the cache, never the round", a
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
   const watch = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
-  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/glance.md")))
-  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/watch.md")))
-  assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([f.options.cacheRoot])}`,
-    ),
+  assert.match(
+    log,
+    /\[glance\] due: episode example has no watch record for repo-edu; the first watch is due \(rule 1\)\./,
   )
+  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/watch.md")))
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
@@ -798,10 +802,20 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   assert.ok(log.includes(`[revise] finished: ${f.watch}`))
   // The watch follows the round it grades, so none of its text enters the transcript.
-  for (const phase of ["glance", "watch"] as const) {
-    assert.equal(markdown.includes(`## ${phase} (`), false)
-    assert.ok(f.visible.join("\n").includes(`Complete ${phase} text.`))
-  }
+  assert.equal(markdown.includes("## watch ("), false)
+  assert.ok(f.visible.join("\n").includes("Complete watch text."))
+  assert.match(f.visible.join("\n"), /Audit round finished\./)
+})
+
+test("--no-watch skips the glance and the watch, whatever the record says", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  assert.equal(
+    await runCommand(["example.md", "3", "--no-watch"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const { log } = await f.records()
+  assert.doesNotMatch(log, /\[glance\]|\[watch\]/)
   assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
@@ -1031,7 +1045,7 @@ test("a failed planning audit retains its root and recovery session without star
       audit: {
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null,"clean":null,"accepted":null}',
+          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"clean":null,"accepted":null}',
           "audit-session",
         ),
       },

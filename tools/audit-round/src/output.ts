@@ -154,8 +154,7 @@ export async function roundRun(
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "glance" && (phase !== "watch" || "plan" in setup))
-      fileTag(entry(phase), selections)
+    if (phase !== "watch" || "plan" in setup) fileTag(entry(phase), selections)
   }
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)

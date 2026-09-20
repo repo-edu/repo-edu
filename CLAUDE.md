@@ -47,13 +47,15 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <tag>] [--chain] [-v]` runs the
+`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <tag>] [--chain] [--no-watch] [-v]` runs the
 implementation-audit tool from this checkout root, ending with a plain-words brief of the round for
 the user. A clean audit skips the vet and the rebuttal and goes straight to the fix, which lands the
 clean record. A fix that stops for the user's ruling adds a ruling document, drafted and then
 rewritten in a fresh session, which the user rules from. A round that finished ends with a glance at
 the commit record, which decides whether the trajectory watch is due; a due watch adds its document,
 drafted and rewritten the same way, and records its own grade so the next glance can count from it.
+The glance is the runner's own read of the log, not a session, and `--no-watch` skips it and the
+watch for every round of the run.
 `--chain` runs at most three rounds on the scope the user named, keeping the auditor while an A or B
 finding lands and giving the other assistant one closing round, and glances after each of them.
 `--auditor` takes the capability tag a commit subject spells: `a` or `o` for the assistant, then an
@@ -430,9 +432,9 @@ The role token right before the tag says which kind of subject it is, and a
 reader needs that token anyway for the scope and the severity.
 
 The session writes the tag, since it is the one that knows what it runs on. A
-round's fix writes the auditor's letter alone and the `.husky/commit-msg` hook
-widens it into the whole tag, because the round holds the capability the fix
-session cannot see.
+round's fix writes the auditor's letter alone and the commit hook, this repo's
+`.husky/commit-msg` or the plan repo's `hooks/commit-msg`, widens it into the
+whole tag, because the round holds the capability the fix session cannot see.
 
 ## Commit Model Record
 
@@ -470,7 +472,7 @@ every phase's reported model and that session does not. A session committing on
 its own writes its own line: it knows the model it was told to run and reads its
 effort from the environment.
 
-The `.husky/commit-msg` hook writes the record when a round supplies it and
+The commit hook of each repo writes the record when a round supplies it and
 refuses any commit whose body does not open with one. It checks the line's shape
 rather than a list of model names, so a new model family needs no edit here, and
 it refuses a single-model record whose effort disagrees with the subject's tag.

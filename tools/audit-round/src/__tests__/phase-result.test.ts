@@ -16,16 +16,12 @@ for (const phase of [
   "brief",
   "rule",
   "revise",
-  "glance",
   "watch",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    // A fix reports its grade, a glance its decision, an audit whether it
-    // was clean and a vet whether it accepted every finding; the rest report
-    // a file.
-    const file =
-      phase === "fix" || phase === "glance" ? null : "/written report.md"
-    const due = phase === "glance" ? false : null
+    // A fix reports its grade, an audit whether it was clean and a vet whether
+    // it accepted every finding; the rest report a file.
+    const file = phase === "fix" ? null : "/written report.md"
     const clean = phase === "audit" ? false : null
     const accepted = phase === "vet" ? false : null
     const finished = {
@@ -33,7 +29,6 @@ for (const phase of [
       file,
       reason: null,
       tier: null,
-      due,
       accepted,
     }
     const text = (value: unknown) =>
@@ -58,7 +53,6 @@ for (const phase of [
           file: null,
           reason: "Required work remains blocked",
           tier: null,
-          due: null,
           clean: null,
           accepted: null,
         }),
@@ -79,7 +73,6 @@ for (const phase of [
           file: null,
           reason: null,
           tier: null,
-          due: null,
           clean: null,
           accepted: null,
         }),
@@ -102,29 +95,6 @@ for (const phase of [
         tier: "b",
       })
     else assert.throws(graded)
-    // Only a finished glance decides, and it must decide rather than omit one.
-    const decided = () =>
-      phaseResult(
-        phase,
-        "session",
-        text({ ...finished, due: true, clean }),
-        null,
-      )
-    if (phase === "glance")
-      assert.deepEqual(decided(), {
-        status: "finished",
-        sessionId: "session",
-        due: true,
-      })
-    else assert.throws(decided)
-    assert.throws(() =>
-      phaseResult(
-        phase,
-        "session",
-        text({ ...finished, due: phase === "glance" ? null : false, clean }),
-        null,
-      ),
-    )
     // Only a finished audit says whether it was clean, and it must say so
     // rather than leave it open, because the round routes on the answer.
     const cleaned = () =>
@@ -185,15 +155,14 @@ for (const phase of [
         file: null,
         reason: null,
         tier: null,
-        due,
         clean,
         accepted,
       },
       { ...finished, clean, extra: true },
-      { status: "finished", file, reason: null, due, clean, accepted },
-      { status: "finished", file, tier: null, due, clean, accepted },
-      { status: "finished", file, reason: null, tier: null, clean, accepted },
-      { status: "finished", file, reason: null, tier: null, due, clean },
+      { ...finished, clean, due: null },
+      { status: "finished", file, reason: null, clean, accepted },
+      { status: "finished", file, tier: null, clean, accepted },
+      { status: "finished", file, reason: null, tier: null, clean },
       { ...finished },
       { ...finished, file: "relative.md", clean },
       { ...finished, reason: "unexpected", clean },
@@ -202,7 +171,6 @@ for (const phase of [
         file: null,
         reason: " ",
         tier: null,
-        due: null,
         clean: null,
         accepted: null,
       },
@@ -211,7 +179,6 @@ for (const phase of [
         file: "/file.md",
         reason: "blocked",
         tier: null,
-        due: null,
         clean: null,
         accepted: null,
       },
@@ -220,7 +187,6 @@ for (const phase of [
         file: null,
         reason: "blocked",
         tier: "a",
-        due: null,
         clean: null,
         accepted: null,
       },
@@ -229,7 +195,6 @@ for (const phase of [
         file: null,
         reason: "blocked",
         tier: null,
-        due: null,
         clean: false,
         accepted: null,
       },
@@ -238,7 +203,6 @@ for (const phase of [
         file: null,
         reason: null,
         tier: "c",
-        due: null,
         clean: null,
         accepted: null,
       },
@@ -247,7 +211,6 @@ for (const phase of [
         file: null,
         reason: "blocked",
         tier: null,
-        due: null,
         clean: null,
         accepted: false,
       },

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { join } from "node:path"
 import { test } from "node:test"
+import type { GlanceDecision, GlanceInput } from "../glance.js"
 import {
   type Assistant,
   type InteractiveSession,
@@ -44,15 +45,14 @@ const watchWorkflow = join(
 const files = {
   ...testContext(repoRoot),
   transcript,
-  watch,
-  cacheRoot,
+  watch: { file: watch, cacheRoot },
   nameStart: "example-all-01",
 }
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** Every phase in order, including the two the fix's open item adds. */
 const rulingPhases = [...phases, "rule", "revise"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
-const watchPhases = [...phases, "glance", "watch", "revise"] as const
+const watchPhases = [...phases, "watch", "revise"] as const
 
 /**
  * The two ways a round runs past its brief: the fix leaves an open item and the
@@ -75,7 +75,10 @@ function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
+  const glances: GlanceInput[] = []
   const handover: { operation: string; session: InteractiveSession }[] = []
+  // Most rounds do not move the record far enough, so the watch is off by default.
+  let glance: GlanceDecision = { due: false, text: "No rule holds." }
   const results: { [P in Phase]: PhaseResult<P> } = {
     audit: {
       status: "finished",
@@ -116,8 +119,6 @@ function controlledRound(
       file: ruling,
       context: null,
     },
-    // Most rounds do not move the record far enough, so the watch is off by default.
-    glance: { status: "finished", sessionId: "glance-session", due: false },
     watch: {
       status: "finished",
       sessionId: "watch-session",
@@ -159,14 +160,14 @@ function controlledRound(
         await record(input)
         return results.revise
       },
-      async glance(input) {
-        await record(input)
-        return results.glance
-      },
       async watch(input) {
         await record(input)
         return results.watch
       },
+    },
+    async glance(input) {
+      glances.push(input)
+      return glance
     },
     async prepareHandover(session) {
       handover.push({ operation: "prepare", session })
@@ -175,7 +176,21 @@ function controlledRound(
       handover.push({ operation: "open", session })
     },
   }
-  return { calls, handover, results, dependencies }
+  return {
+    calls,
+    glances,
+    handover,
+    results,
+    dependencies,
+    decide(decision: GlanceDecision) {
+      glance = decision
+    },
+  }
+}
+
+const dueDecision: GlanceDecision = {
+  due: true,
+  text: "The distance has reached the horizon of 3 (rule 3).",
 }
 
 type ControlledRound = ReturnType<typeof controlledRound>
@@ -188,12 +203,7 @@ function arrange(round: ControlledRound, ending: "ruling" | "watch"): void {
       sessionId: "fix-session",
       tier: null,
     }
-  else
-    round.results.glance = {
-      status: "finished",
-      sessionId: "glance-session",
-      due: true,
-    }
+  else round.decide(dueDecision)
 }
 
 /** Which assistant a phase seats, as `roundSeating` decides it. */
@@ -272,15 +282,10 @@ for (const auditor of ["claude", "codex"] as const) {
           arguments: [transcript],
           sessionId: null,
         },
-        {
-          phase: "glance",
-          assistant: "claude",
-          model: unpinned,
-          ...testContext(repoRoot),
-          ownerRoot: repoRoot,
-          arguments: [cacheRoot],
-          sessionId: null,
-        },
+      ])
+      // The glance reads the invoking repository's record, never the report's.
+      assert.deepEqual(round.glances, [
+        { cwd: repoRoot, repository: "repo-edu", cacheRoot },
       ])
       assert.deepEqual(round.handover, [])
     })
@@ -392,16 +397,8 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
     tier: null,
   })
   // The watch reads the commit record, so neither pass is given the round's files.
+  assert.equal(round.glances.length, 1)
   assert.deepEqual(round.calls.slice(5), [
-    {
-      phase: "glance",
-      assistant: "claude",
-      model: unpinned,
-      ...testContext(repoRoot),
-      ownerRoot: repoRoot,
-      arguments: [cacheRoot],
-      sessionId: null,
-    },
     {
       phase: "watch",
       assistant: "claude",
@@ -427,17 +424,71 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
 test("a round that hands over runs no watch, because its work has not landed", async () => {
   const round = controlledRound()
   arrange(round, "ruling")
-  round.results.glance = {
-    status: "finished",
-    sessionId: "glance-session",
-    due: true,
-  }
+  round.decide(dueDecision)
 
   await runRound({ ...files, plan: "example.md" }, round.dependencies)
 
   assert.deepEqual(
     round.calls.map((call) => call.phase),
     rulingPhases,
+  )
+  assert.deepEqual(round.glances, [])
+})
+
+test("a planning round glances at the plan repository's record from its own root", async () => {
+  const round = controlledRound("/workspace/plan/AUDIT-example.md")
+  const planning = testContext(repoRoot, "planning")
+
+  await runRound(
+    { ...files, ...planning, plan: "example.md" },
+    round.dependencies,
+  )
+
+  assert.deepEqual(round.glances, [
+    { cwd: planning.planRoot, repository: "plan", cacheRoot },
+  ])
+})
+
+test("a round asked for no watch consults no glance, whatever the record says", async () => {
+  const round = controlledRound()
+  round.decide(dueDecision)
+
+  const result = await runRound(
+    { ...files, watch: null, plan: "example.md" },
+    round.dependencies,
+  )
+
+  assert.deepEqual(result, {
+    status: "finished",
+    report: `${repoRoot}/AUDIT-example.md`,
+    tier: null,
+  })
+  assert.deepEqual(round.glances, [])
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    phases,
+  )
+})
+
+test("a glance that cannot read the record stops the round before any watch pass", async () => {
+  const round = controlledRound()
+  const failure = new Error("git log failed")
+
+  await assert.rejects(
+    runRound(
+      { ...files, plan: "example.md" },
+      {
+        ...round.dependencies,
+        async glance() {
+          throw failure
+        },
+      },
+    ),
+    (error) => error === failure,
+  )
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    phases,
   )
 })
 
@@ -454,14 +505,11 @@ for (const ruling of [false, true]) {
   test(`commit audit ${ruling ? "hands over after its ruling" : "finishes after its brief"} without a watch`, async () => {
     const round = controlledRound()
     if (ruling) arrange(round, "ruling")
-    round.results.glance = {
-      status: "finished",
-      sessionId: "glance-session",
-      due: true,
-    }
+    round.decide(dueDecision)
     const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
     const result = await runRound({ ...files, commits }, round.dependencies)
     assert.equal(result.status, ruling ? "handed-over" : "finished")
+    assert.deepEqual(round.glances, [])
     assert.deepEqual(round.calls[0].arguments, [files.nameStart, ...commits])
     assert.deepEqual(
       round.calls.map((call) => call.phase),
@@ -622,7 +670,7 @@ for (const auditor of ["claude", "codex"] as const) {
     // Nothing to grade and nothing to answer, so neither exchange phase runs.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
-      ["audit", "fix", "brief", "glance"],
+      ["audit", "fix", "brief"],
     )
     assert.deepEqual(round.calls[1], {
       phase: "fix",
@@ -663,7 +711,7 @@ for (const auditor of ["claude", "codex"] as const) {
     // Every verdict is an unconditional accept, so the auditor has nothing to answer.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
-      ["audit", "vet", "fix", "brief", "glance"],
+      ["audit", "vet", "fix", "brief"],
     )
     assert.deepEqual(round.calls[2], {
       phase: "fix",

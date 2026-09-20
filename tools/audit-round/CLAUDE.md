@@ -34,15 +34,18 @@ consumers.
   opens an interactive session, using that fix's session identity. `rule`
   drafts the ruling and `revise` rewrites that draft in a fresh session, so the
   document the user rules from is read once by a session that did not write it.
-  `runWatch` owns the watch that follows a round: `glance` decides from the
-  commit record whether a watch is due, and only a due glance runs `watch`
-  and a second `revise` pass over that draft. `revise` is the second pass over
+  `runWatch` owns the watch that follows a round: the glance decides from the
+  commit record and the watch's own history whether a watch is due, and only
+  a due glance runs `watch` and a second `revise` pass over that draft. The
+  glance is a dependency the runner supplies from `glance.ts`, not a phase, so
+  a not-due round starts no session for it. `revise` is the second pass over
   any draft twin, so it takes the workflow that owns the document's shape as
   its first argument. The watch runs only after a plan round that finished, because
   a round that handed over has not proved its work landed; nothing is lost,
-  since the glance counts commits and not rounds. The watch reads the commit
-  record and never the round, so `runWatch` passes it no transcript and no
-  report.
+  since the glance counts commits and not rounds. A round given no watch
+  target, which is what `--no-watch` does, consults no glance at all. The
+  watch reads the commit record and never the round, so `runWatch` passes it
+  no transcript and no report.
   `chainDecision` owns whether a chained run audits the same scope again and
   with whom: the auditor repeats while the fix records an A or B tier, the other
   assistant then takes exactly one round, and the cap, a handover or a failure
@@ -62,11 +65,29 @@ consumers.
   field carries what named it, so the report never guesses, and either CLI accepts one. It also
   defines the private inputs and results for assistant invocations, and owns which phases' texts
   enter the round transcript: only audit, vet, rebuttal and fix. The brief, the two ruling passes
-  and the watch are the transcript's twins, written in their own files, and the glance
-  only decides; all five run once the transcript already holds the round. Assistant boundaries own
+  and the watch are the transcript's twins, written in their own files; all four run once the
+  transcript already holds the round. Assistant boundaries own
   processes, stream validation, session observations and phase output. They return only after
   accounting for the process, streams and required record writes. A failure retains the known
   session identity, including a resumed session whose new invocation reported no identity.
+- `glance.ts` owns the glance: the rule that decides from `git log` and the watch record in
+  `watch.json` whether the trajectory watch is due. The episode is derived from HEAD the way the
+  watch derives it, a commit counts when it carries the stem or touches the stem's artifact set,
+  implementation-audit fixes and records count like any other commit, and the five rules are stated
+  in the function's own comment. A subject the settled grammar refuses still counts toward the
+  distance and raises no subject rule. The record is read as data: a missing, unreadable or
+  pre-settlement entry is no record, which makes the first watch due. The decision's sentence goes
+  to the log and the terminal as `[glance]`.
+- `subject.ts` is the one reader of the commit subject grammar in
+  [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
+  either repository's form, names the class it matched and refuses with the first slot that does
+  not fit. The commit hooks and the glance both read through it. Its loose form read, the first
+  token split at its slash, is the one read that reaches subjects older than the settled grammar,
+  because episode scoping and auditor stamping need nothing else from them. `commit-msg.ts` is the
+  hook's rule: it widens a record's auditor letter from `COMMIT_AUDITOR`, replaces the body's
+  opening with `COMMIT_PHASES` when a round supplies it, requires a model line otherwise and refuses
+  a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the entry both
+  repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar file.
 - `assistant.ts` owns one invocation's session identity, final text, completion evidence and last
   context measurement. One observer keeps that measurement as the feedback passes, so the round
   decides on it rather than the display. Claude and Codex decoders validate the fields they consume.
@@ -185,9 +206,10 @@ they never replace the audit report as the input to later phases.
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
-meaning. The runner does not read plan or report contents. Its only Git read
-for naming resolves `HEAD`; the audit workflow still resolves the audited
-scope. Keep assistant adapters independent of the product LLM adapters.
+meaning. The runner does not read plan or report contents. Its Git reads are
+`HEAD` for naming and the log the glance counts; the audit workflow still
+resolves the audited scope. Keep assistant adapters independent of the product
+LLM adapters.
 
 ## Commands
 
@@ -199,6 +221,7 @@ pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor a -v
 pnpm audit-round ../plan/example.md 3 --auditor atx
 pnpm audit-round ../plan/example.md 3 --chain
+pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-otm-round.md
@@ -216,7 +239,8 @@ their own writer's tag.
 The brief writes a plain-words twin. A fix that stops for a ruling adds a
 ruling twin. A finished plan round ends with a glance at the commit record,
 and a due glance adds a `-watch.md` document. The watch keeps its own history
-in the shared cache, which is how its cadence survives between rounds.
+in the shared cache, which is how its cadence survives between rounds, and
+`--no-watch` skips both.
 `brief` accepts an earlier transcript at either root, writes beside it without
 claiming a new number and
 overwrites its standalone log on each run. `--chain` runs at most three

@@ -1,4 +1,5 @@
 import type { ExecutionContext } from "./context.js"
+import type { GlanceDecision, GlanceInput } from "./glance.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -16,7 +17,6 @@ export type Phase =
   | "brief"
   | "rule"
   | "revise"
-  | "glance"
   | "watch"
 
 /**
@@ -210,7 +210,6 @@ export function roundPhases(
     // The second pass over any draft twin, so it follows whichever pass wrote one.
     revise: run("revise", "claude"),
     // The watch reads the commit record, never the round, so the auditor does not select it.
-    glance: run("glance", "claude"),
     watch: run("watch", "claude"),
   }
 }
@@ -218,9 +217,8 @@ export function roundPhases(
 /**
  * Whether a phase's texts belong in the round transcript. Only the four phases
  * that carry out the round write into it. The brief, the ruling and the watch
- * are its twins, written for the user in their own files. The glance decides
- * rather than reports. All five run once the transcript holds
- * the round, so none of them may add to it.
+ * are its twins, written for the user in their own files. All four run once
+ * the transcript holds the round, so none of them may add to it.
  */
 export function transcribed(phase: Phase): boolean {
   return (
@@ -269,10 +267,6 @@ type PhaseArguments = {
       document: string,
       ...sources: string[],
     ]
-    readonly sessionId: null
-  }
-  glance: {
-    readonly arguments: readonly [cacheRoot: string]
     readonly sessionId: null
   }
   watch: {
@@ -339,13 +333,6 @@ type FixResult = {
   readonly tier: Tier | null
 }
 
-/** Whether the commit record has moved far enough for a watch to be worth running. */
-type GlanceResult = {
-  readonly status: "finished"
-  readonly sessionId: string
-  readonly due: boolean
-}
-
 type PhaseResults = {
   audit: AuditResult
   vet: VetResult
@@ -354,7 +341,6 @@ type PhaseResults = {
   brief: ReportResult
   rule: ReportResult
   revise: ReportResult
-  glance: GlanceResult
   watch: ReportResult
 }
 
@@ -376,6 +362,12 @@ export type RoundDependencies = {
   readonly runPhase: {
     readonly [P in Phase]: (input: PhaseInput<P>) => Promise<PhaseResult<P>>
   }
+  /**
+   * The glance that decides whether the watch runs. It reads the commit record
+   * and the watch's own history, never the round, and rejects when the record
+   * cannot be read at all.
+   */
+  readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   /** Output must be recorded and the progress display released before opening. */
   readonly prepareHandover: (session: InteractiveSession) => Promise<void>
   /** Resolves after the inherited-terminal CLI exits successfully. */

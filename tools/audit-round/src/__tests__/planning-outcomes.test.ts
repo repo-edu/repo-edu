@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "../command.js"
@@ -56,7 +56,7 @@ for (const auditor of ["codex", "claude"] as const) {
             `Phase arguments (JSON array): ${JSON.stringify([`example-0${index + 1}`, "example-widen.md"])}`,
           ),
         )
-        assert.match(log, /\[glance\] finished/)
+        assert.match(log, /\[glance\] not due: episode example recorded green/)
         assert.doesNotMatch(log, /\[(?:rule|watch)\] starting/)
       }
       const visible = f.visible.join("\n")
@@ -92,7 +92,7 @@ for (const auditor of ["codex", "claude"] as const) {
           assistants: undefined,
           stream: await phaseStream(
             auditor,
-            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"due":null,"clean":null,"accepted":null}',
+            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"clean":null,"accepted":null}',
             "audit-session",
           ),
         },
@@ -109,10 +109,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log, markdown } = await f.records()
     assert.match(markdown, /Premise needs a decision/)
     assert.match(log, /\[audit\] failed: Premise conflict/)
-    assert.doesNotMatch(
-      log,
-      /\[(?:vet|rebut|fix|brief|rule|glance|watch)\] starting/,
-    )
+    assert.doesNotMatch(log, /\[(?:vet|rebut|fix|brief|rule|watch)\] starting/)
     assert.ok(log.includes(`Resume: cd ${f.planRoot} && ${auditor}`))
     assert.match(log, /audit-session/)
     assert.match(f.visible.join("\n"), /Chain stopped: this round failed/)
@@ -135,7 +132,7 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
     )
     assert.ok(log.includes(`[rule] finished: ${f.ruling}`))
-    assert.doesNotMatch(log, /\[(?:glance|watch)\] starting/)
+    assert.doesNotMatch(log, /\[glance\]|\[watch\] starting/)
     assert.match(
       f.visible.join("\n"),
       /Chain stopped: this round opened a ruling session/,
@@ -157,7 +154,6 @@ for (const phase of [
   "rebut",
   "fix",
   "brief",
-  "glance",
   "watch",
   "rule",
   "revise",
@@ -201,12 +197,14 @@ for (const working of ["repo-edu", "plan"] as const) {
         due,
         working,
       )
-      await mkdir(f.options.cacheRoot)
-      // Deliberately different repository positions must travel together. The
-      // workflow interprets history; this boundary test checks its context.
+      // Deliberately different repository positions travel together, and the
+      // glance counts from the invoking repository's own head. A head that is
+      // not on that history reads as no record, which is what makes the watch due.
       const history = JSON.stringify({
         example: {
-          heads: { "repo-edu": "1234567", plan: "abcdef0" },
+          heads: due
+            ? { "repo-edu": "1234567", plan: "abcdef0" }
+            : { "repo-edu": f.heads["repo-edu"], plan: f.heads.plan },
           grade: "amber",
           horizon: 3,
           written: "2026-09-18",
@@ -223,15 +221,16 @@ for (const working of ["repo-edu", "plan"] as const) {
         0,
       )
       const { log, markdown, transcript } = await f.records()
-      assert.ok(
-        log.includes(
-          `Phase arguments (JSON array): ${JSON.stringify([f.options.cacheRoot])}`,
-        ),
+      assert.match(
+        log,
+        due
+          ? new RegExp(
+              `\\[glance\\] due: episode example recorded amber at ${working === "plan" ? "abcdef0" : "1234567"}, which is not on HEAD's history`,
+            )
+          : new RegExp(
+              `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]} with horizon 3; 0 episode commits since`,
+            ),
       )
-      assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))
-      assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
-      assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
-      assert.ok(log.includes(join(f.repoRoot, ".claude/commands/glance.md")))
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
         const watch = transcript.replace("-ouh-round.md", "-auh-watch.md")
@@ -245,14 +244,15 @@ for (const working of ["repo-edu", "plan"] as const) {
             `Phase arguments (JSON array): ${JSON.stringify([join(f.repoRoot, ".agents/skills/watch/references/workflow.md"), f.watch])}`,
           ),
         )
-        assert.ok(
-          log.indexOf("[brief] finished") < log.indexOf("[glance] starting"),
-        )
+        assert.ok(log.indexOf("[brief] finished") < log.indexOf("[glance] due"))
+        assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))
+        assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
+        assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
         assert.ok(
           log.indexOf("[watch] finished") < log.indexOf("[revise] starting"),
         )
       }
-      assert.doesNotMatch(markdown, /## (?:glance|watch|revise) /)
+      assert.doesNotMatch(markdown, /## (?:watch|revise) /)
       assert.equal(await readFile(record, "utf8"), history)
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
     })

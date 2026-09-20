@@ -10,8 +10,9 @@ forms** and **Commit message convention**. Those sections link here instead of
 restating the shape. Read this file from the Repo Edu checkout; plan-repo
 readers reach it at `../repo-edu/.agents/references/subject-grammar.md`.
 
-The `.husky/commit-msg` hook of each repo enforces this grammar, and the
-audit-round runner's subject parser reads it. A change to the shape lands in
+Repo Edu's `.husky/commit-msg` hook and the plan repo's `hooks/commit-msg`
+hook enforce this grammar, and the audit-round runner's subject parser reads
+it. A change to the shape lands in
 this file, the parser and its tests in one commit.
 
 ## Notation
