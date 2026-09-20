@@ -331,10 +331,9 @@ leads because what a commit did to the standing structure outranks how many
 concerns it closed, and a commit often carries the mark where the sequence is
 routine.
 
-A subject is a run of space-separated tags, then one colon, then the sentence,
-in one order: the plan form when there is one, the capability tag, the growth
-mark, the severity sequence, the conventional kind. Only the last tag carries
-the colon.
+The subject's shape, the order of its tags and which slots each kind of commit
+fills, is owned by [the subject grammar](.agents/references/subject-grammar.md).
+This section owns what the sequence and its marks mean.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
 which also defines the obligation kinds the trailing mark measures. The mark and
@@ -355,7 +354,8 @@ user meets is `B1` with `fix`, a localised maintainability fix is `c1` with
 sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
 user meets, beside two developer-only C-tier issues closed together.
 
-The conventional commit kind is the last tag before the sentence:
+The conventional commit kind is the last tag before the sentence, from the
+closed list the subject grammar admits:
 `abx B3C8d4 fix(renderer-app): surface session command errors`.
 
 `redesign` is the typical kind at tier A, alongside `refactor`, `feat`
@@ -363,11 +363,12 @@ and `docs`. `fix` is essentially never tier A: an A-tier bug fix is a
 redesign that closes a bug, and commits as `A1` with `redesign` and the bug
 named in the sentence.
 
-Plan-related commits use the shared `<stem>/` subject grammar defined in the
-plan repo doctrine at `../plan/CLAUDE.md#shared-implementation-forms`. The
-subject is the only home for plan identity and step numbers. Use the shared
-forms without restating them here. A commit unattached to a plan keeps this
-repo's ordinary severity-prefixed conventional subject.
+Plan-related commits use the shared `<stem>/` forms. Their meaning and keying
+are owned by the plan repo doctrine at
+`../plan/CLAUDE.md#shared-implementation-forms` and their shape by the subject
+grammar. The subject is the only home for plan identity and step numbers. Use
+the shared forms without restating them here. A commit unattached to a plan
+keeps this repo's ordinary severity-prefixed conventional subject.
 
 An implementation-audit round records each accepted finding in the repo whose
 files the finding concerns. The user's step range decides the repo set, which
@@ -416,11 +417,10 @@ default tier and medium effort. The three alphabets share no character, so every
 letter decodes without counting positions, and the tag holds no digit, which a
 subject already spends on the severity sequence's counts.
 
-The tag opens the subject, after the plan form when the subject has one:
-
-- `abx c1d1 fix(audit-round): align the recorder result`
-- `<stem>/impl-3 obm feat(audit-round): expose the runner`
-- `<stem>/implemented abx: complete the Repo Edu tool implementation`
+The tag opens the subject, after the plan form when the subject has one, as
+`abx c1d1 fix(audit-round): align the recorder result`. Its place in every
+subject class is fixed by
+[the subject grammar](.agents/references/subject-grammar.md).
 
 The tag names the assistant whose work the subject reports. On an
 automated planning or implementation-audit record that is the audit, not the session that wrote the
