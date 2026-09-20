@@ -164,7 +164,7 @@ if (assistant === "claude") {
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
   const phase =
-    /^Run the (audit|vet|rebut|fix|brief|rule|revise|watch) phase /.exec(
+    /^Run the (audit|vet|rebut|fix|brief|rule|rule-edit|watch|watch-edit) phase /.exec(
       prompt ?? "",
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")

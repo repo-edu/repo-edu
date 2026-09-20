@@ -1,11 +1,13 @@
 # Watch workflow
 
-One shared workflow behind two launchers, both Claude commands:
-`.claude/commands/watch.md` writes the draft and `.claude/commands/revise.md`
-rewrites it. Each launcher carries only what is specific to it and points here
-for the rest, so the two cannot drift apart. Where a launcher and this file
-disagree, this file is right. There is no Codex skill beside this file, because
-Claude writes both passes.
+One shared workflow behind two passes. The Claude command
+`.claude/commands/watch.md` writes the draft. The watch edit rewrites it and
+has two launchers of its own, the Codex skill `.agents/skills/watch-edit/SKILL.md`
+that the round runs and the Claude command `.claude/commands/watch-edit.md`
+for the user's hand. Each launcher carries only what is specific to it and
+points here for the rest, so they cannot drift apart. Where a launcher and this
+file disagree, this file is right. There is no Codex skill beside this file,
+because Claude writes the draft.
 
 The trajectory watch is a document, written after an automated planning or plan-scoped
 implementation-audit round whose glance said a watch was due. It is the document the user decides
@@ -93,8 +95,9 @@ do not count. Severity, reach and growth have no early trigger. Save no
 are missing. A record that cannot be written is a failure of this phase: say so
 rather than leaving a watch the next glance cannot count from.
 
-The first pass writes both. The second pass rewrites the file and leaves the
-record alone: it changes wording, never the grade or the graded heads.
+The first pass writes both. The second pass, the watch edit, rewrites the file
+and leaves the record alone: it changes wording, never the grade or the graded
+heads.
 
 ## Voice
 

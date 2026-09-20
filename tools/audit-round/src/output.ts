@@ -33,6 +33,9 @@ import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Terminal } from "./terminal.js"
 
+/** The rule that sets a phase start or a glance off from what came before. */
+const separator = "─".repeat(72)
+
 export type OutputOptions = {
   readonly terminal: Terminal
   readonly verbose?: boolean
@@ -154,7 +157,8 @@ export async function roundRun(
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (phase !== "watch" || "plan" in setup) fileTag(entry(phase), selections)
+    if (!phase.startsWith("watch") || "plan" in setup)
+      fileTag(entry(phase), selections)
   }
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)
@@ -176,7 +180,7 @@ export async function roundRun(
       entry("rebut"),
       entry("fix"),
       entry("brief"),
-      ...("plan" in setup ? [entry("watch")] : []),
+      ...("plan" in setup ? [entry("watch"), entry("watch-edit")] : []),
     ],
     paths: {
       claim: join(setup.cwd, `${nameStart}-claim.md`),
@@ -280,6 +284,10 @@ export class RoundOutput<R extends Run = Run> {
   message = async (text: string): Promise<void> => {
     this.say(text)
   }
+  /** A message that opens a new section of the run, set off the way a phase start is. */
+  section = async (text: string): Promise<void> => {
+    this.say(`\n${separator}\n${text}`)
+  }
   warning = async (text: string): Promise<void> => {
     this.say(`Warning: ${text}`)
   }
@@ -369,7 +377,7 @@ export class RoundOutput<R extends Run = Run> {
     )
     const mode = input.sessionId === null ? "fresh" : "resumed"
     this.say(
-      `\n${"─".repeat(72)}\n[${input.phase}] starting ${input.assistant} (${mode})`,
+      `\n${separator}\n[${input.phase}] starting ${input.assistant} (${mode})`,
     )
     this.files.log(`[${input.phase}] prompt:\n${prompt}\n`)
     if (transcribed(input.phase))

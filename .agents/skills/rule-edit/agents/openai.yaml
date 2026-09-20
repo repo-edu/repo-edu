@@ -1,0 +1,7 @@
+interface:
+  display_name: "Rule edit"
+  short_description: "Rewrite a draft ruling in a fresh session"
+  default_prompt: "Use $rule-edit <ruling-file> <transcript-file> <report-file> to rewrite that draft ruling in place."
+
+policy:
+  allow_implicit_invocation: false

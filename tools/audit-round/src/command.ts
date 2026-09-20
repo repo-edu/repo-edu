@@ -237,10 +237,11 @@ export async function runCommand(
         active.prepareHandover,
         active.interactive,
       ),
-      // The glance decides in the runner; its sentence goes to the log and terminal.
+      // The glance decides in the runner; its sentence opens the watch's section
+      // of the log and terminal, whether or not a watch follows.
       glance: async (input) => {
         const decision = await runGlance(input)
-        await active.message(
+        await active.section(
           `[glance] ${decision.due ? "due" : "not due"}: ${decision.text}`,
         )
         return decision

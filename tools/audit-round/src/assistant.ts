@@ -130,8 +130,9 @@ export function assistantDependencies(
       fix: (input) => runAssistantPhase(input, output, runtime),
       brief: (input) => runAssistantPhase(input, output, runtime),
       rule: (input) => runAssistantPhase(input, output, runtime),
-      revise: (input) => runAssistantPhase(input, output, runtime),
+      "rule-edit": (input) => runAssistantPhase(input, output, runtime),
       watch: (input) => runAssistantPhase(input, output, runtime),
+      "watch-edit": (input) => runAssistantPhase(input, output, runtime),
     },
     prepareHandover,
     openSession: (session) =>

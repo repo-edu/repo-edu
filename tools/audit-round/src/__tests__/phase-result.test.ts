@@ -15,8 +15,9 @@ for (const phase of [
   "fix",
   "brief",
   "rule",
-  "revise",
+  "rule-edit",
   "watch",
+  "watch-edit",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
     // A fix reports its grade, an audit whether it was clean and a vet whether

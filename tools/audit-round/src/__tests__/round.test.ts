@@ -26,6 +26,11 @@ const briefPin: PinnedModel = {
   model: { value: "gpt-5.6-terra", source: "phase pin" },
   effort: { value: "low", source: "phase pin" },
 }
+/** Both edit passes name Codex's base tier, whoever audited. */
+const editPin: PinnedModel = {
+  model: { value: "gpt-5.6-sol", source: "phase pin" },
+  effort: { value: "medium", source: "phase pin" },
+}
 
 const repoRoot = "/workspace/repo-edu"
 const transcript = `${repoRoot}/example-all-01-oth-round.md`
@@ -33,14 +38,6 @@ const brief = `${repoRoot}/example-all-01-oul-brief.md`
 const ruling = `${repoRoot}/example-all-01-abx-ruling.md`
 const watch = `${repoRoot}/example-all-01-abx-watch.md`
 const cacheRoot = "/cache/audit-round"
-const ruleWorkflow = join(
-  repoRoot,
-  ".agents/skills/rule/references/workflow.md",
-)
-const watchWorkflow = join(
-  repoRoot,
-  ".agents/skills/watch/references/workflow.md",
-)
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
@@ -50,9 +47,9 @@ const files = {
 }
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** Every phase in order, including the two the fix's open item adds. */
-const rulingPhases = [...phases, "rule", "revise"] as const
+const rulingPhases = [...phases, "rule", "rule-edit"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
-const watchPhases = [...phases, "watch", "revise"] as const
+const watchPhases = [...phases, "watch", "watch-edit"] as const
 
 /**
  * The two ways a round runs past its brief: the fix leaves an open item and the
@@ -113,10 +110,16 @@ function controlledRound(
       file: ruling,
       context: null,
     },
-    revise: {
+    "rule-edit": {
       status: "finished",
-      sessionId: "revise-session",
+      sessionId: "rule-edit-session",
       file: ruling,
+      context: null,
+    },
+    "watch-edit": {
+      status: "finished",
+      sessionId: "watch-edit-session",
+      file: watch,
       context: null,
     },
     watch: {
@@ -156,9 +159,13 @@ function controlledRound(
         await record(input)
         return results.rule
       },
-      async revise(input) {
+      async "rule-edit"(input) {
         await record(input)
-        return results.revise
+        return results["rule-edit"]
+      },
+      async "watch-edit"(input) {
+        await record(input)
+        return results["watch-edit"]
       },
       async watch(input) {
         await record(input)
@@ -214,7 +221,7 @@ function runner(
 ): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
   if (phase === "vet") return vetAssistant
-  return phase === "fix" || phase === "brief" ? "codex" : "claude"
+  return phase === "rule" || phase === "watch" ? "claude" : "codex"
 }
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -328,12 +335,12 @@ for (const auditor of ["claude", "codex"] as const) {
         sessionId: null,
       },
       {
-        phase: "revise",
-        assistant: "claude",
-        model: unpinned,
+        phase: "rule-edit",
+        assistant: "codex",
+        model: editPin,
         ...testContext(repoRoot),
         ownerRoot: repoRoot,
-        arguments: [ruleWorkflow, ruling, transcript, report],
+        arguments: [ruling, transcript, report],
         sessionId: null,
       },
     ])
@@ -374,7 +381,12 @@ for (const auditor of ["claude", "codex"] as const) {
           ...failure,
           phase,
           assistant: runner(phase, auditor, vetAssistant),
-          model: phase === "brief" ? briefPin : unpinned,
+          model:
+            phase === "brief"
+              ? briefPin
+              : phase === "rule-edit" || phase === "watch-edit"
+                ? editPin
+                : unpinned,
           ...testContext(repoRoot),
         })
       })
@@ -409,12 +421,12 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
       sessionId: null,
     },
     {
-      phase: "revise",
-      assistant: "claude",
-      model: unpinned,
+      phase: "watch-edit",
+      assistant: "codex",
+      model: editPin,
       ...testContext(repoRoot),
       ownerRoot: repoRoot,
-      arguments: [watchWorkflow, watch],
+      arguments: [watch],
       sessionId: null,
     },
   ])

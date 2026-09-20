@@ -93,22 +93,6 @@ export function recoveryCommand(session: InteractiveSession): string {
   return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
 }
 
-/**
- * Where a phase's shared workflow lives. A second pass is told which document
- * shape to follow, so the path is a phase argument rather than something the
- * pass knows about the repository.
- */
-export function workflowPath(ownerRoot: string, phase: Phase): string {
-  return joinPath(
-    ownerRoot,
-    ".agents",
-    "skills",
-    phase,
-    "references",
-    "workflow.md",
-  )
-}
-
 export function phasePrompt(input: PhaseInput): string {
   const { phase, ownerRoot, assistant, repoEduRoot, cwd } = input
   const launcher =

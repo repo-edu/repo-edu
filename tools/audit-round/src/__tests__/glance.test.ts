@@ -40,7 +40,7 @@ const record = (
   example: { heads: { [repository]: head }, grade, written: "2026-09-20" },
 })
 
-test("missing, invalid and former watch records earn the first watch", () => {
+test("missing, invalid and former watch records read green from the episode's anchor", () => {
   for (const records of [
     null,
     {},
@@ -48,22 +48,52 @@ test("missing, invalid and former watch records earn the first watch", () => {
     { example: { sha: "c000001", grade: "green", horizon: 4, written: "x" } },
     { example: { ...record("amber").example, horizon: 6 } },
   ]) {
+    const decision = glanceDecision(history(), records, "repo-edu")
+    assert.equal(decision.due, false)
     assert.match(
-      glanceDecision(history(), records, "repo-edu").text,
-      /first watch is due \(rule 1\)/,
+      decision.text,
+      /has no watch record for repo-edu; it reads green from its anchor\. No A–C correction commits since\. No area reached the green limit of 4/,
     )
   }
+  const stale = glanceDecision(history(), record("red", "deadbeef"), "repo-edu")
+  assert.equal(stale.due, false)
   assert.match(
-    glanceDecision(history(), record("green", "deadbeef"), "repo-edu").text,
-    /not on HEAD's history/,
+    stale.text,
+    /recorded red at deadbeef, which is not on HEAD's history; it reads green from its anchor/,
   )
+})
+
+test("without a record the whole episode counts, from its earliest stem commit", () => {
+  const before = {
+    ...correction(),
+    subject: "ath c1 fix(x): before the episode",
+  }
+  const three = history(correction(), correction(), correction())
+  assert.equal(glanceDecision(three, null, "repo-edu").due, false)
+  const four = [
+    ...history(correction(), correction(), correction(), correction()),
+  ]
+  const decision = glanceDecision(four, null, "repo-edu")
+  assert.equal(decision.due, true)
+  assert.match(decision.text, /area:area-a 4.*green limit of 4 \(rule 2\)/)
+  // A correction older than the episode's first stem commit is outside it.
+  const older = [...three, { ...before, sha: "c000000" }]
+  assert.equal(glanceDecision(older, null, "repo-edu").due, false)
+  assert.match(glanceDecision(older, null, "repo-edu").text, /area:area-a 3/)
+  // The unstemmed history has no anchor, so all of it counts.
+  const bare = four.map(({ sha }) => ({
+    ...correction(),
+    sha,
+    subject: "ath c1 fix(x): correction",
+  }))
+  assert.equal(glanceDecision(bare, null, "repo-edu").due, true)
 })
 
 test("red earns a watch without any new correction", () => {
   for (const head of ["c000001", "c000001abc"]) {
     const decision = glanceDecision(history(), record("red", head), "repo-edu")
     assert.equal(decision.due, true)
-    assert.match(decision.text, /red record.*rule 2/)
+    assert.match(decision.text, /red record.*rule 1/)
   }
 })
 

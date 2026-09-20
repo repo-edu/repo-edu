@@ -13,7 +13,6 @@ import {
   type SessionContext,
   type Tier,
 } from "./phase.js"
-import { workflowPath } from "./requests.js"
 import type { AuditTarget } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
@@ -205,16 +204,21 @@ async function runWatch(
   // The watch is a document the user decides from, so a session that did not
   // write it reads it once before the user does. It re-grounds in the record
   // and the code, never in the round, so it is given no other source.
-  const revise = await dependencies.runPhase.revise({
-    phase: "revise",
-    ...phases.revise,
+  const edit = await dependencies.runPhase["watch-edit"]({
+    phase: "watch-edit",
+    ...phases["watch-edit"],
     ...context,
     ownerRoot: repoEduRoot,
-    arguments: [workflowPath(repoEduRoot, "watch"), watch.file],
+    arguments: [watch.file],
     sessionId: null,
   })
-  if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...phases.revise, ...context }
+  if (edit.status === "failed")
+    return {
+      ...edit,
+      phase: "watch-edit",
+      ...phases["watch-edit"],
+      ...context,
+    }
   return null
 }
 
@@ -320,21 +324,16 @@ export async function runRound(
   if (rule.status === "failed")
     return { ...rule, phase: "rule", ...phases.rule, ...context }
 
-  const revise = await dependencies.runPhase.revise({
-    phase: "revise",
-    ...phases.revise,
+  const edit = await dependencies.runPhase["rule-edit"]({
+    phase: "rule-edit",
+    ...phases["rule-edit"],
     ...context,
     ownerRoot: repoEduRoot,
-    arguments: [
-      workflowPath(repoEduRoot, "rule"),
-      rule.file,
-      input.transcript,
-      report,
-    ],
+    arguments: [rule.file, input.transcript, report],
     sessionId: null,
   })
-  if (revise.status === "failed")
-    return { ...revise, phase: "revise", ...phases.revise, ...context }
+  if (edit.status === "failed")
+    return { ...edit, phase: "rule-edit", ...phases["rule-edit"], ...context }
 
   const session: InteractiveSession = {
     ...phases.fix,

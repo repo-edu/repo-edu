@@ -1,15 +1,13 @@
 # Ruling workflow
 
-One shared workflow behind two launchers, both Claude commands:
-`.claude/commands/rule.md` writes the draft and `.claude/commands/revise.md`
-rewrites it. Each launcher carries only what is specific to it and points here
-for the rest, so the two cannot drift apart. Where a launcher and this file
+One shared workflow behind two passes. The Claude command
+`.claude/commands/rule.md` writes the draft. The rule edit rewrites it and has
+two launchers of its own, the Codex skill `.agents/skills/rule-edit/SKILL.md`
+that the round runs and the Claude command `.claude/commands/rule-edit.md` for
+the user's hand. Each launcher carries only what is specific to it and points
+here for the rest, so they cannot drift apart. Where a launcher and this file
 disagree, this file is right. There is no Codex skill beside this file, because
-Claude writes both passes.
-
-`/revise` is the second pass over any draft twin a round produces, so it is
-given this file as the shape to rewrite towards. It serves the watch document
-the same way, under its own workflow.
+Claude writes the draft.
 
 The ruling is written when the fix phase of a planning or implementation-audit round stops
 for the user's decision. It is the document the user rules from. The round's
@@ -34,7 +32,7 @@ Read the shared [round protocol](../../../references/round-protocol.md) for
 file names, writer tags and twin matching.
 
 The first pass is given the round transcript and the audit report. The second
-pass is given this workflow, the draft ruling, the transcript and the report.
+pass is given the draft ruling, the transcript and the report.
 
 The launchers and this workflow stay in Repo Edu. Resolve their workflow
 references from that checkout. Transcripts may live at either checkout root;

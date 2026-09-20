@@ -190,19 +190,16 @@ uppercase tier, then its metadata and prose:
 - [B] [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
 ```
 
-For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary
-partition area from `tools/architecture-check/src/area-model.json`, followed
-by `[cover:<cover-id>]` for each cover area that applies. `[growth:...]`,
-`[reach:...]` and `[complexity:...]` are the tokens the audit workflow
-defines, in the same form the report used. Repo Edu finding bullets require
-all four token kinds. Plan-repo finding bullets use the planning form,
-`- B [section:<heading>] ...`, with the heading in kebab case, and omit
-`[area:]`. The glance counts A–C corrections by these locations, once per
-commit in each area or section. D findings never advance its count. The commit body is the only place a later
-round can read them: chat is gone, the report is deleted below and the
-finding list lives nowhere else. A bullet that records something other than
-a finding, such as a carried decision or a trade ruling with its reason,
-takes no metadata.
+For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition area from
+`tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
+that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the audit workflow
+defines, in the same form the report used. Repo Edu finding bullets require all four token kinds.
+Plan-repo finding bullets use the planning form, `- B [section:<heading>] ...`, with the heading in
+kebab case, and omit `[area:]`. The glance counts A–C corrections by these locations, once per
+commit in each area or section. D findings never advance its count. The commit body is the only
+place a later round can read them: chat is gone, the report is deleted below and the finding list
+lives nowhere else. A bullet that records something other than a finding, such as a carried decision
+or a trade ruling with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
 the audit workflow defines under **Round yield** and carrying the same counts

@@ -155,11 +155,12 @@ for (const phase of [
   "fix",
   "brief",
   "watch",
+  "watch-edit",
   "rule",
-  "revise",
+  "rule-edit",
 ] as const) {
   test(`planning ${phase} failure ends the chain in the invoking repository`, async (t) => {
-    const ruling = phase === "rule" || phase === "revise"
+    const ruling = phase === "rule" || phase === "rule-edit"
     const f = await roundFixture(
       t,
       "codex",
@@ -198,14 +199,12 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       // Deliberately different repository positions travel together, and the
-      // glance counts from the invoking repository's own head. A head that is
-      // not on that history reads as no record, which is what makes the watch due.
+      // glance counts from the invoking repository's own head. Red is what
+      // makes the watch due without a correction to count.
       const history = JSON.stringify({
         example: {
-          heads: due
-            ? { "repo-edu": "1234567", plan: "abcdef0" }
-            : { "repo-edu": f.heads["repo-edu"], plan: f.heads.plan },
-          grade: "amber",
+          heads: { "repo-edu": f.heads["repo-edu"], plan: f.heads.plan },
+          grade: due ? "red" : "amber",
           written: "2026-09-18",
         },
       })
@@ -224,7 +223,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         log,
         due
           ? new RegExp(
-              `\\[glance\\] due: episode example recorded amber at ${working === "plan" ? "abcdef0" : "1234567"}, which is not on HEAD's history`,
+              `\\[glance\\] due: episode example recorded red at ${f.heads[working]}\\. A red record is re-read every round`,
             )
           : new RegExp(
               `\\[glance\\] not due: episode example recorded amber at ${f.heads[working]}\\. No A–C correction commits since`,
@@ -240,18 +239,22 @@ for (const working of ["repo-edu", "plan"] as const) {
         )
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([join(f.repoRoot, ".agents/skills/watch/references/workflow.md"), f.watch])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([f.watch])}`,
           ),
+        )
+        assert.ok(
+          log.includes(join(f.repoRoot, ".agents/skills/watch-edit/SKILL.md")),
         )
         assert.ok(log.indexOf("[brief] finished") < log.indexOf("[glance] due"))
         assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))
         assert.ok(log.includes(`Repo Edu checkout: ${f.repoRoot}`))
         assert.ok(log.includes(`Plan checkout: ${f.planRoot}`))
         assert.ok(
-          log.indexOf("[watch] finished") < log.indexOf("[revise] starting"),
+          log.indexOf("[watch] finished") <
+            log.indexOf("[watch-edit] starting"),
         )
       }
-      assert.doesNotMatch(markdown, /## (?:watch|revise) /)
+      assert.doesNotMatch(markdown, /## (?:watch|watch-edit) /)
       assert.equal(await readFile(record, "utf8"), history)
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
     })

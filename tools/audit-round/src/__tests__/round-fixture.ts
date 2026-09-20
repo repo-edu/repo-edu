@@ -45,9 +45,9 @@ export async function roundFixture(
   tier: Grade = null,
   /**
    * Whether the commit record leaves the watch due, which no round does
-   * alongside a ruling. False records both heads at HEAD as green, so the
-   * glance finds nothing to count; true records nothing, so the first watch is
-   * due.
+   * alongside a ruling. Both heads are recorded at HEAD, so the glance finds
+   * nothing to count: false records green, which is not due, and true records
+   * red, which is re-read every round.
    */
   watch = false,
   working: "repo-edu" | "plan" = "repo-edu",
@@ -83,19 +83,20 @@ export async function roundFixture(
   }
   const cacheRoot = join(f.root, "cache")
   await mkdir(cacheRoot)
-  if (!watch)
-    await writeFile(
-      join(cacheRoot, "watch.json"),
-      JSON.stringify({
-        example: { heads, grade: "green", written: "2026-09-20" },
-      }),
-    )
+  await writeFile(
+    join(cacheRoot, "watch.json"),
+    JSON.stringify({
+      example: {
+        heads,
+        grade: watch ? "red" : "green",
+        written: "2026-09-20",
+      },
+    }),
+  )
   const report = join(f.root, owner, "AUDIT-example.md")
   const brief = join(outputRoot, "ROUND-example-brief.md")
   const rulingFile = join(outputRoot, "ROUND-example-ruling.md")
   const watchFile = join(outputRoot, "ROUND-example-watch.md")
-  // The second pass rewrites whichever draft its round produced.
-  const revised = ruling ? rulingFile : watchFile
   const phases: Record<string, unknown> = {}
   for (const phase of [
     "audit",
@@ -104,19 +105,21 @@ export async function roundFixture(
     "fix",
     "brief",
     "rule",
-    "revise",
+    "rule-edit",
     "watch",
+    "watch-edit",
   ] as const) {
-    const assistant =
-      phase === "fix" || phase === "brief"
-        ? "codex"
-        : ["rule", "revise", "watch"].includes(phase)
-          ? "claude"
-          : phase === "vet"
-            ? auditor === "codex"
-              ? "claude"
-              : "codex"
-            : auditor
+    const assistant = ["fix", "brief", "rule-edit", "watch-edit"].includes(
+      phase,
+    )
+      ? "codex"
+      : phase === "rule" || phase === "watch"
+        ? "claude"
+        : phase === "vet"
+          ? auditor === "codex"
+            ? "claude"
+            : "codex"
+          : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
     const file =
       phase === "fix"
@@ -125,13 +128,11 @@ export async function roundFixture(
           ? report
           : phase === "brief"
             ? brief
-            : phase === "rule"
+            : phase === "rule" || phase === "rule-edit"
               ? rulingFile
-              : phase === "revise"
-                ? revised
-                : phase === "watch"
-                  ? watchFile
-                  : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
+              : phase === "watch" || phase === "watch-edit"
+                ? watchFile
+                : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, clean: phase === "audit" ? clean : null, accepted: phase === "vet" ? accepted : null })}`
     phases[phase] = {

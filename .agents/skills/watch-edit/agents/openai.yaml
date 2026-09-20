@@ -1,0 +1,7 @@
+interface:
+  display_name: "Watch edit"
+  short_description: "Rewrite a draft trajectory watch in a fresh session"
+  default_prompt: "Use $watch-edit <watch-file> to rewrite that draft watch in place."
+
+policy:
+  allow_implicit_invocation: false

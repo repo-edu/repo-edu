@@ -92,15 +92,19 @@ function sameHead(sha: string, head: string): boolean {
  * Repo Edu uses each finding's area; planning uses its section. D-only work,
  * clean records, deferral-only records and planned steps do not count.
  * Severity, reach and growth never trigger a watch on their own.
- * A watch is due when any one of these holds:
+ * A watch is due when either of these holds:
  *
- * 1. No record exists for this episode in this repository, or the recorded
- *    head is not on HEAD's history. The first round after a watch was never
- *    run always earns one.
- * 2. The recorded grade is red. A conclusive flag is re-read every round until
+ * 1. The recorded grade is red. A conclusive flag is re-read every round until
  *    the user acts on it and the record moves.
- * 3. One area reaches four correction commits on green or two on amber.
+ * 2. One area reaches four correction commits on green or two on amber.
  *    The watch then judges whether their causes show drift.
+ *
+ * A record the glance cannot count from reads as green: none for this
+ * episode in this repository, an old-format entry or a recorded head that is
+ * not on HEAD's history. The count then runs from the episode's anchor, the
+ * earliest commit carrying the stem, or over the whole unstemmed history. So
+ * an episode's first round never earns a watch by being first; only its
+ * corrections can. The user directed this on 2026-09-21.
  */
 export function glanceDecision(
   log: readonly LogCommit[],
@@ -118,26 +122,45 @@ export function glanceDecision(
     topic(commit) === stem ||
     commit.files.some((file) => artifacts.has(file))
 
-  const record = watchRecordSchema.safeParse(records?.[key])
-  const head = record.success ? record.data.heads[repository] : undefined
-  if (!record.success || head === undefined)
-    return {
-      due: true,
-      text: `${episode} has no watch record for ${repository}; the first watch is due (rule 1).`,
-    }
-  const at = log.findIndex((commit) => sameHead(commit.sha, head))
-  if (at === -1)
-    return {
-      due: true,
-      text: `${episode} recorded ${record.data.grade} at ${head}, which is not on HEAD's history; a watch is due (rule 1).`,
-    }
-  const since = log.slice(0, at)
-  const { grade } = record.data
-  const held = `${episode} recorded ${grade} at ${head}.`
+  const saved = watchRecordSchema.safeParse(records?.[key])
+  const record = saved.success ? saved.data : null
+  const head = record?.heads[repository]
+  const recorded =
+    record === null || head === undefined
+      ? null
+      : {
+          grade: record.grade,
+          head,
+          at: log.findIndex((commit) => sameHead(commit.sha, head)),
+        }
+  const anchor =
+    stem === null
+      ? log.length
+      : log.findLastIndex((commit) => topic(commit) === stem) + 1
+  const window =
+    recorded === null
+      ? {
+          grade: "green" as const,
+          end: anchor,
+          held: `${episode} has no watch record for ${repository}; it reads green from its anchor.`,
+        }
+      : recorded.at === -1
+        ? {
+            grade: "green" as const,
+            end: anchor,
+            held: `${episode} recorded ${recorded.grade} at ${recorded.head}, which is not on HEAD's history; it reads green from its anchor.`,
+          }
+        : {
+            grade: recorded.grade,
+            end: recorded.at,
+            held: `${episode} recorded ${recorded.grade} at ${recorded.head}.`,
+          }
+  const { grade, held } = window
+  const since = log.slice(0, window.end)
   if (grade === "red")
     return {
       due: true,
-      text: `${held} A red record is re-read every round (rule 2).`,
+      text: `${held} A red record is re-read every round (rule 1).`,
     }
 
   const counts = new Map<string, number>()
@@ -165,7 +188,7 @@ export function glanceDecision(
   const due = entries.some(([, count]) => count >= limit)
   return {
     due,
-    text: `${held} ${summary} ${due ? `An area reached the ${grade} limit of ${limit} (rule 3).` : `No area reached the ${grade} limit of ${limit}.`}`,
+    text: `${held} ${summary} ${due ? `An area reached the ${grade} limit of ${limit} (rule 2).` : `No area reached the ${grade} limit of ${limit}.`}`,
   }
 }
 

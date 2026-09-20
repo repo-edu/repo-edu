@@ -128,8 +128,8 @@ returned `needs-ruling`.
 The two watch passes follow a round that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the
 round, so the runner gives the watch pass only the file to write and the cache
-root, and the rewrite only the watch's workflow and its own draft. Their
-launchers belong to the Repo Edu root. They run under
+root, and the watch edit only the draft. Their launchers belong to the Repo Edu
+root. They run under
 `.agents/skills/watch/references/workflow.md`, and only when the runner's own
 glance at the commit record found the watch due; that glance is code in
 `tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
@@ -179,18 +179,16 @@ the round started. Report placement never changes record keying: the fix
 workflow lands one record per repo judged, in the repo whose files the
 findings concern, under its Records section.
 
-Each finding in the report carries its metadata tokens in the form the fix
-workflow's record bullets use, so a finding copies from the report into the
-commit body unchanged. Keep the uppercase tier before those tokens in the
-commit bullet, as `- [C] [area:<primary-id>] ...`. For a Repo Edu finding, `[area:<primary-id>]` is the
-finding's primary partition area from
-`tools/architecture-check/src/area-model.json`, followed by
-`[cover:<cover-id>]` for each cover area that applies. `[growth:...]` is the
-tag from [Growth tags](#growth-tags). `[reach:...]` and `[complexity:...]`
-are the ratings from [Reach and complexity](#reach-and-complexity). Repo Edu
-findings require all four token kinds. Plan-repo findings use
-`- C [section:<heading>] ...` in the commit, with the heading in kebab case.
-They omit `[area:]`, because the area model belongs to Repo Edu.
+Each finding in the report carries its metadata tokens in the form the fix workflow's record bullets
+use, so a finding copies from the report into the commit body unchanged. Keep the uppercase tier
+before those tokens in the commit bullet, as `- [C] [area:<primary-id>] ...`. For a Repo Edu
+finding, `[area:<primary-id>]` is the finding's primary partition area from
+`tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
+that applies. `[growth:...]` is the tag from [Growth tags](#growth-tags). `[reach:...]` and
+`[complexity:...]` are the ratings from [Reach and complexity](#reach-and-complexity). Repo Edu
+findings require all four token kinds. Plan-repo findings use `- C [section:<heading>] ...` in the
+commit, with the heading in kebab case. They omit `[area:]`, because the area model belongs to Repo
+Edu.
 
 A finding deferred from a Repo Edu-only round to the plan repo is written in
 the report with its tier and plan location before the shared tokens, the body

@@ -494,22 +494,24 @@ test("the settings header groups phases by assistant in aligned columns", async 
     return visible.at(-1)
   }
   const codexHeader = [
-    "audit  codex   gpt-6-astra high              codex settings",
-    "rebut  codex   gpt-6-astra high              codex settings",
-    "fix    codex   gpt-6-astra high              codex settings",
-    "brief  codex   gpt-5.6-terra low             phase pin",
-    "vet    claude  claude-opus-5[1m] extra high  claude settings",
-    "watch  claude  claude-opus-5[1m] extra high  claude settings",
+    "audit       codex   gpt-6-astra high              codex settings",
+    "rebut       codex   gpt-6-astra high              codex settings",
+    "fix         codex   gpt-6-astra high              codex settings",
+    "brief       codex   gpt-5.6-terra low             phase pin",
+    "watch-edit  codex   gpt-5.6-sol medium            phase pin",
+    "vet         claude  claude-opus-5[1m] extra high  claude settings",
+    "watch       claude  claude-opus-5[1m] extra high  claude settings",
   ]
   assert.equal(
     await header("claude"),
     [
-      "audit  claude  claude-opus-5[1m] extra high  claude settings",
-      "rebut  claude  claude-opus-5[1m] extra high  claude settings",
-      "watch  claude  claude-opus-5[1m] extra high  claude settings",
-      "vet    codex   gpt-6-astra high              codex settings",
-      "fix    codex   gpt-6-astra high              codex settings",
-      "brief  codex   gpt-5.6-terra low             phase pin",
+      "audit       claude  claude-opus-5[1m] extra high  claude settings",
+      "rebut       claude  claude-opus-5[1m] extra high  claude settings",
+      "watch       claude  claude-opus-5[1m] extra high  claude settings",
+      "vet         codex   gpt-6-astra high              codex settings",
+      "fix         codex   gpt-6-astra high              codex settings",
+      "brief       codex   gpt-5.6-terra low             phase pin",
+      "watch-edit  codex   gpt-5.6-sol medium            phase pin",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -553,26 +555,27 @@ test("the settings header names what set each phase's model and effort", async (
   }
   // Both flags name the whole selection, and the fix keeps the CLI's own.
   assert.deepEqual(await header({ strength: "top", effort: "xhigh" }), [
-    "audit  codex   gpt-6-astra extra high        --auditor",
-    "rebut  codex   gpt-6-astra extra high        --auditor",
-    "fix    codex   gpt-5.6-sol high              codex settings",
-    "brief  codex   gpt-5.6-terra low             phase pin",
-    "vet    claude  claude-opus-5[1m] extra high  claude settings",
-    "watch  claude  claude-opus-5[1m] extra high  claude settings",
+    "audit       codex   gpt-6-astra extra high        --auditor",
+    "rebut       codex   gpt-6-astra extra high        --auditor",
+    "fix         codex   gpt-5.6-sol high              codex settings",
+    "brief       codex   gpt-5.6-terra low             phase pin",
+    "watch-edit  codex   gpt-5.6-sol medium            phase pin",
+    "vet         claude  claude-opus-5[1m] extra high  claude settings",
+    "watch       claude  claude-opus-5[1m] extra high  claude settings",
   ])
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
     (await header({ strength: "top", effort: null })).slice(0, 2),
     [
-      "audit  codex   gpt-6-astra high              --auditor/codex settings",
-      "rebut  codex   gpt-6-astra high              --auditor/codex settings",
+      "audit       codex   gpt-6-astra high              --auditor/codex settings",
+      "rebut       codex   gpt-6-astra high              --auditor/codex settings",
     ],
   )
   assert.deepEqual(
     (await header({ strength: null, effort: "medium" })).slice(0, 2),
     [
-      "audit  codex   gpt-5.6-sol medium            codex settings/--auditor",
-      "rebut  codex   gpt-5.6-sol medium            codex settings/--auditor",
+      "audit       codex   gpt-5.6-sol medium            codex settings/--auditor",
+      "rebut       codex   gpt-5.6-sol medium            codex settings/--auditor",
     ],
   )
 })

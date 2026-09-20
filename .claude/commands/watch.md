@@ -10,8 +10,8 @@ to the whole session. Skip the skill's confirm-and-wait step: continue
 directly with the watch.
 
 You are the first pass: write the draft. A fresh session rewrites it afterwards
-through `/revise`, so write the watch as if it were final rather than leaving
-notes for that pass.
+through the watch edit, so write the watch as if it were final rather than
+leaving notes for that pass.
 
 Read `.agents/skills/watch/references/workflow.md` completely and follow it.
 

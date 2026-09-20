@@ -16,8 +16,9 @@ export type Phase =
   | "fix"
   | "brief"
   | "rule"
-  | "revise"
+  | "rule-edit"
   | "watch"
+  | "watch-edit"
 
 /**
  * The severity tier a finished fix recorded, lowercased from the record's
@@ -153,19 +154,33 @@ export type PhaseRun = {
 export const unpinned: PinnedModel = { model: null, effort: null }
 
 /**
- * Which model a phase names. The brief names the smallest current model
- * whatever its CLI is configured to use, and the auditor's own two phases take
- * what the command line asked for. Every other phase names nothing.
+ * The phases that name their own model, whatever their CLI is configured to
+ * use. The brief retells a finished transcript, so the smallest current model
+ * writes it. The two edit passes re-check a draft against the logs and the
+ * code before rewriting it, which is the fix's kind of work, so Codex's base
+ * tier writes them. The user directed the edit pins on 2026-09-21.
+ */
+const phasePins: Partial<Record<Phase, { model: string; effort: string }>> = {
+  brief: { model: "gpt-5.6-terra", effort: "low" },
+  "rule-edit": { model: "gpt-5.6-sol", effort: "medium" },
+  "watch-edit": { model: "gpt-5.6-sol", effort: "medium" },
+}
+
+/**
+ * Which model a phase names. A pinned phase names its pin, the auditor's own
+ * two phases take what the command line asked for and every other phase
+ * names nothing.
  */
 function phaseModel(
   phase: Phase,
   assistant: Assistant,
   override: AuditorOverride,
 ): PinnedModel {
-  if (phase === "brief")
+  const pin = phasePins[phase]
+  if (pin !== undefined)
     return {
-      model: { value: "gpt-5.6-terra", source: "phase pin" },
-      effort: { value: "low", source: "phase pin" },
+      model: { value: pin.model, source: "phase pin" },
+      effort: { value: pin.effort, source: "phase pin" },
     }
   if (phase !== "audit" && phase !== "rebut") return unpinned
   return {
@@ -205,12 +220,13 @@ export function roundPhases(
     fix: run("fix", "codex"),
     // The brief retells the finished transcript for the user; Codex always writes it.
     brief: run("brief", "codex"),
-    // The ruling explains an open item for the user, so Claude writes both passes.
+    // The ruling explains an open item for the user; Claude drafts it.
     rule: run("rule", "claude"),
-    // The second pass over any draft twin, so it follows whichever pass wrote one.
-    revise: run("revise", "claude"),
+    // The edit passes rewrite a draft in plain words; Codex writes both.
+    "rule-edit": run("rule-edit", "codex"),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", "claude"),
+    "watch-edit": run("watch-edit", "codex"),
   }
 }
 
@@ -255,22 +271,22 @@ type PhaseArguments = {
     readonly arguments: readonly [transcript: string, report: string]
     readonly sessionId: null
   }
-  /**
-   * The second pass over one draft twin: the workflow that owns the document's
-   * shape, the draft itself and whatever sources that workflow grounds it in.
-   * The sources differ per document, so the pass takes them rather than naming
-   * the round's files itself.
-   */
-  revise: {
+  /** The second pass over the ruling: the draft and the sources the ruling workflow grounds it in. */
+  "rule-edit": {
     readonly arguments: readonly [
-      workflow: string,
-      document: string,
-      ...sources: string[],
+      ruling: string,
+      transcript: string,
+      report: string,
     ]
     readonly sessionId: null
   }
   watch: {
     readonly arguments: readonly [watch: string, cacheRoot: string]
+    readonly sessionId: null
+  }
+  /** The second pass over the watch: the draft alone, because the watch grounds itself in the record. */
+  "watch-edit": {
+    readonly arguments: readonly [watch: string]
     readonly sessionId: null
   }
 }
@@ -340,8 +356,9 @@ type PhaseResults = {
   fix: FixResult
   brief: ReportResult
   rule: ReportResult
-  revise: ReportResult
+  "rule-edit": ReportResult
   watch: ReportResult
+  "watch-edit": ReportResult
 }
 
 /** Internal results, admitted only after the complete invocation has settled. */

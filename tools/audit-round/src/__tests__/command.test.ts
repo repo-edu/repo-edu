@@ -39,10 +39,10 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor,
             "codex",
             "codex",
-            // A requested ruling adds Claude's draft and its fresh rewrite. A
-            // round that finished glances at the record in the runner instead,
-            // and the record here leaves no watch due.
-            ...(ruling ? (["claude", "claude"] as const) : []),
+            // A requested ruling adds Claude's draft and Codex's fresh rewrite.
+            // A round that finished glances at the record in the runner
+            // instead, and the record here leaves no watch due.
+            ...(ruling ? (["claude", "codex"] as const) : []),
           ],
         )
         assert.equal(
@@ -145,33 +145,34 @@ for (const auditor of ["claude", "codex"] as const) {
         if (ruling) {
           // The brief and the ruling land before the fix session opens, because
           // the user rules from them.
-          assert.equal(calls.at(-2).assistant, "claude")
+          assert.equal(calls.at(-2).assistant, "codex")
           assert.deepEqual(calls.at(-1).args, [
             "resume",
             "--approve-for-me",
             "fix-session",
           ])
           assert.ok(log.includes(join(repoRoot, ".claude/commands/rule.md")))
-          assert.ok(log.includes(join(repoRoot, ".claude/commands/revise.md")))
+          assert.ok(
+            log.includes(join(repoRoot, ".agents/skills/rule-edit/SKILL.md")),
+          )
           assert.ok(
             log.includes(
               `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
             ),
           )
-          // The second pass is told which document shape to rewrite towards.
+          // The edit pass is given the draft and the sources the ruling grounds in.
           assert.ok(
             log.includes(
               `Phase arguments (JSON array): ${JSON.stringify([
-                join(repoRoot, ".agents/skills/rule/references/workflow.md"),
                 f.ruling,
                 transcript,
                 f.report,
               ])}`,
             ),
           )
-          assert.ok(log.includes(`[revise] finished: ${f.ruling}`))
+          assert.ok(log.includes(`[rule-edit] finished: ${f.ruling}`))
           // Both ruling passes retell the round, so neither enters the transcript.
-          for (const phase of ["rule", "revise"] as const) {
+          for (const phase of ["rule", "rule-edit"] as const) {
             assert.equal(markdown.includes(`## ${phase} (`), false)
             assert.equal(markdown.includes(`Complete ${phase} text.`), false)
             assert.ok(visible.includes(`Complete ${phase} text.`))
@@ -783,7 +784,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   const watch = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
   assert.match(
     log,
-    /\[glance\] due: episode example has no watch record for repo-edu; the first watch is due \(rule 1\)\./,
+    /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
   )
   assert.ok(log.includes(join(f.repoRoot, ".claude/commands/watch.md")))
   assert.ok(
@@ -791,16 +792,14 @@ test("a due glance sends the watch the record and the cache, never the round", a
       `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
     ),
   )
-  // The rewrite is given the watch's own workflow and its draft, and no round file.
+  // The edit pass is given the draft alone, and no round file.
   assert.ok(
-    log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([
-        join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
-        f.watch,
-      ])}`,
-    ),
+    log.includes(join(f.repoRoot, ".agents/skills/watch-edit/SKILL.md")),
   )
-  assert.ok(log.includes(`[revise] finished: ${f.watch}`))
+  assert.ok(
+    log.includes(`Phase arguments (JSON array): ${JSON.stringify([f.watch])}`),
+  )
+  assert.ok(log.includes(`[watch-edit] finished: ${f.watch}`))
   // The watch follows the round it grades, so none of its text enters the transcript.
   assert.equal(markdown.includes("## watch ("), false)
   assert.ok(f.visible.join("\n").includes("Complete watch text."))
@@ -925,7 +924,9 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       if (ruling) {
         assert.ok(log.includes(join(f.repoRoot, ".claude/commands/rule.md")))
-        assert.ok(log.includes(join(f.repoRoot, ".claude/commands/revise.md")))
+        assert.ok(
+          log.includes(join(f.repoRoot, ".agents/skills/rule-edit/SKILL.md")),
+        )
         assert.ok(
           log.includes(
             `Resume: cd ${f.planRoot} && codex resume --approve-for-me fix-session`,
