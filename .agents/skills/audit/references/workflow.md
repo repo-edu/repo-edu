@@ -49,8 +49,8 @@ the document the user rules from is written by
 from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
-workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md`,
-a `draft-<topic>.md` or a `carry-<topic>.md`. Each is a planning artifact, so
+workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
+a `carry-<topic>.md`. Each is a planning artifact, so
 naming one means the round was meant for the plan repo's own audit. Name the
 file, say the round belongs there and stop. Continue only when the user
 explicitly says to.

@@ -11,7 +11,7 @@ Follow the `CLAUDE.md` of every repo whose files the run changes. This workflow
 implements the plan in this session, step by step.
 
 Before any implementation work, check the named file is a plan. A
-`topology-<topic>.md`, a `topology-<topic>-detail.md`, a `draft-<topic>.md`
+`topology-<topic>.md`, a `topology-<topic>-detail.md`
 or a `carry-<topic>.md` is a planning artifact and carries no implementation
 steps. Name the file, say it cannot be implemented and stop.
 
