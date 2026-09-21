@@ -957,19 +957,27 @@ for (const [reader, phase, sessionId, called] of [
   })
 }
 
-test("a plan target with findings requires a landed commit, while commit targets may land nothing", async () => {
+test("every plan target requires a landed commit, while commit targets may land nothing", async () => {
   for (const target of [
     { plan: "example.md" },
     { commits: ["HEAD"] as const },
   ]) {
-    const round = controlledRound()
-    round.evidence.subjects = []
-    const result = await runRound({ ...files, ...target }, round.dependencies)
-    assert.equal(result.status, "plan" in target ? "failed" : "finished")
-    if (result.status === "failed") {
-      assert.match(result.reason, /landed no commit/)
-      assert.equal(result.sessionId, "fix-session")
-      assert.equal(round.calls.at(-1)?.phase, "fix")
+    for (const findings of [[], [1]]) {
+      const round = controlledRound()
+      round.evidence.findings = findings
+      round.evidence.subjects = []
+      const result = await runRound({ ...files, ...target }, round.dependencies)
+      assert.equal(result.status, "plan" in target ? "failed" : "finished")
+      if (result.status === "failed") {
+        assert.equal(
+          result.reason,
+          "The finished fix landed no commit for a plan target",
+        )
+        assert.equal(result.phase, "fix")
+        assert.equal(result.sessionId, "fix-session")
+        assert.equal(round.calls.at(-1)?.phase, "fix")
+        assert.deepEqual(round.glances, [])
+      }
     }
   }
 })

@@ -261,7 +261,7 @@ The tally exists because the decision to run another round needs the round's
 yield, and reading it out of per-finding tokens means re-reading the whole log
 by hand. It answers what a round bought: findings an end user can meet, and
 whether the corrections left the code with more standing structure or less.
-Both lines are counts over the findings, unlike the commit subject's trailing
+Both lines are counts over the findings, unlike the commit subject's leading
 `growth-<level>` or `pruning-<level>`, which measures one commit's own code
 before and after.
 The two answer different questions and neither replaces the other.
@@ -468,7 +468,7 @@ packages must stay in agreement, which is state; state replicated across
 packages leaves that agreement with no single keeper, which is an owner
 concern. Tests never move the token; they follow the machinery they cover,
 and counting them would charge every guarded mechanism twice. The commit
-subject's trailing mark runs this same measurement over a whole commit
+subject's leading mark runs this same measurement over a whole commit
 instead of one correction, and its level is this token's level: `growth-low`
 is `low` and `pruning-high` is `minus-high`. **Commit Severity Prefix** in
 this repo's `CLAUDE.md` owns that mark's form.

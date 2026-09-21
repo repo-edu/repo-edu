@@ -42,7 +42,7 @@ consumers.
   repeats while the fix records an A or B tier, the other assistant then takes exactly one round,
   and the cap, a handover or a failure ends the chain. The round records both repositories' HEADs
   before the fix and parses every landed subject under its repository's grammar to derive the
-  highest tier. A plan target with findings fails when a finished fix landed no commit. A commit
+  highest tier. A plan target fails when a finished fix landed no commit. A commit
   target may land nothing. Reader failures retain the owning phase and its session for recovery.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level finding fields. Planning
   reports have Excess functionality and Missing functionality fields; implementation reports have

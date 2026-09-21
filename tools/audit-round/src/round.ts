@@ -353,14 +353,8 @@ export async function runRound(
           dependencies.readSubjects(root, before[index]),
         ),
       )
-      if (
-        "plan" in input &&
-        findings.length > 0 &&
-        landed.every((subjects) => subjects.length === 0)
-      )
-        throw new Error(
-          "The finished fix landed no commit after a report with findings",
-        )
+      if ("plan" in input && landed.every((subjects) => subjects.length === 0))
+        throw new Error("The finished fix landed no commit for a plan target")
       for (const [index, subjects] of landed.entries()) {
         for (const subject of subjects) {
           const { severity } = parseSubject(

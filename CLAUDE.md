@@ -312,7 +312,7 @@ commit graph shows the subject and none of the finding tokens.
   and lowercase when its reach is `developer`.
 - A leading `!` says at least one concern has `ordinary` reach, the value that
   needs no special condition to hold: `!B1C1c2d1`.
-- A trailing `growth-<level>` or `pruning-<level>` says what the commit did to the
+- A leading `growth-<level>` or `pruning-<level>` says what the commit did to the
   standing structure. Measure the commit, never add up the finding tokens:
   compare the code before the commit with the code after it, then take the
   highest kind of obligation whose count changed. The word gives the direction,
@@ -337,7 +337,7 @@ fills, is owned by [the subject grammar](.agents/references/subject-grammar.md).
 This section owns what the sequence and its marks mean.
 
 Reach values are defined in the audit workflow under **Reach and complexity**,
-which also defines the obligation kinds the trailing mark measures. The mark and
+which also defines the obligation kinds the leading mark measures. The mark and
 the finding token `[complexity:...]` run that one measurement, so they translate
 exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 `[complexity:minus-high]` and an absent mark is `[complexity:none]`.
