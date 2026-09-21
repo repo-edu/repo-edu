@@ -25,10 +25,7 @@ When unattended, follow the audit workflow's
 ending. Report `finished` only after completing the required checks and
 writing every verdict to the `-vet.md` twin; return its absolute path. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
-that open item. The result also says whether the vet accepted every finding,
-under the Runner result's `accepted` rule. When it did, the runner skips the
-rebuttal, because the auditor has nothing to answer, and the fix reads the
-report with this twin alone.
+that open item. The runner reads the twin to decide whether to skip the rebuttal.
 
 Planning-artifact audit reports belong to the sibling plan repo. An
 implementation-audit report also lives there for a plan-repo-only round or a
@@ -172,6 +169,10 @@ Use the report's finding number and A/B/C/D tier. The verdict is exactly one
 of `Accept`, `Revise`, `Drop` or `Needs user's ruling`.
 The first line contains nothing else, for example `1. [B] Accept`.
 Conditions, notes and required explanations follow on separate lines.
+Prose before the first verdict is free; put drift notes there. After the first
+verdict, every non-empty line is a verdict, a marker or a condition. A marker
+line is exactly `corroborated` or `unique`. Any other line counts as a condition,
+including a narrowing note. The verdict numbers must match the report exactly.
 An unconditional Accept with no additional notes ends after the first line;
 do not repeat the finding title, evidence or reasoning. Required narrowing
 notes and corroboration markers below count as additional notes. This format

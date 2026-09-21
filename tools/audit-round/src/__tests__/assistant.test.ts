@@ -42,7 +42,6 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.deepEqual(result, {
       status: "finished",
       sessionId: "test-session",
-      tier: null,
     })
     assert.equal(f.releases(), 1)
     assert.deepEqual(f.finishes, [result])
@@ -240,7 +239,6 @@ test("Claude completes a phase when its settings reply fails", async (t) => {
   assert.deepEqual(result, {
     status: "finished",
     sessionId: "test-session",
-    tier: null,
   })
   assert.equal(
     f.feedback.some((event) => event.type === "model"),
@@ -258,7 +256,7 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null,"tier":null,"clean":null,"accepted":null}',
+      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null}',
     ),
     usage: { path, text: await recorded("codex-rollout.jsonl") },
   })
@@ -333,7 +331,7 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null,"tier":null,"clean":null,"accepted":null}',
+      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null}',
     ),
     usage: {
       path: join(f.root, "rollout-test-session.jsonl"),

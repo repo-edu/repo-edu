@@ -92,7 +92,7 @@ for (const auditor of ["codex", "claude"] as const) {
           assistants: undefined,
           stream: await phaseStream(
             auditor,
-            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"clean":null,"accepted":null}',
+            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict"}',
             "audit-session",
           ),
         },

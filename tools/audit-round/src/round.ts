@@ -1,5 +1,6 @@
 import { dirname } from "node:path"
 import type { ExecutionContext } from "./context.js"
+import { errorMessage } from "./feedback.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -13,6 +14,8 @@ import {
   type SessionContext,
   type Tier,
 } from "./phase.js"
+import type { ReportFindings } from "./report.js"
+import { parseSubject, type Repository } from "./subject.js"
 import type { AuditTarget } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
@@ -53,7 +56,7 @@ export type RoundResult =
   | {
       readonly status: "finished"
       readonly report: string
-      /** The fix's own grade, which the chain rule reads. Null when the round was clean. */
+      /** The highest tier in the landed commits, which the chain rule reads. */
       readonly tier: Tier | null
     }
   | {
@@ -251,13 +254,26 @@ export async function runRound(
 
   const report = audit.file
   const ownerRoot = dirname(report)
+  let findings: ReportFindings
+  try {
+    findings = await dependencies.readReport(report, roundKind)
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: audit.sessionId,
+      phase: "audit",
+      ...phases.audit,
+      ...context,
+      reason: errorMessage(error),
+    }
+  }
   // A clean report gives the vet nothing to grade and the rebuttal nothing to
   // answer, so the fix lands the clean record from the report alone. The vet
   // runs only where the report holds findings to grade, and the rebuttal only
   // where the vet's verdicts leave the auditor something to answer: a vet that
   // accepted every finding without a condition sends the report and its vet
   // twin straight to the fix.
-  if (!audit.clean) {
+  if (findings.length > 0) {
     const vet = await dependencies.runPhase.vet({
       phase: "vet",
       ...phases.vet,
@@ -270,7 +286,20 @@ export async function runRound(
       return { ...vet, phase: "vet", ...phases.vet, ...context }
     }
 
-    if (!vet.accepted) {
+    let accepted: boolean
+    try {
+      accepted = await dependencies.readVet(vet.file, findings)
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: vet.sessionId,
+        phase: "vet",
+        ...phases.vet,
+        ...context,
+        reason: errorMessage(error),
+      }
+    }
+    if (!accepted) {
       const rebut = await dependencies.runPhase.rebut({
         phase: "rebut",
         ...phases.rebut,
@@ -285,6 +314,25 @@ export async function runRound(
     }
   }
 
+  const repositories: readonly { root: string; repository: Repository }[] = [
+    { root: repoEduRoot, repository: "repo-edu" },
+    { root: planRoot, repository: "plan" },
+  ]
+  let before: readonly string[]
+  try {
+    before = await Promise.all(
+      repositories.map(({ root }) => dependencies.readHead(root)),
+    )
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: null,
+      phase: "fix",
+      ...phases.fix,
+      ...context,
+      reason: errorMessage(error),
+    }
+  }
   const fix = await dependencies.runPhase.fix({
     phase: "fix",
     ...phases.fix,
@@ -295,6 +343,45 @@ export async function runRound(
   })
   if (fix.status === "failed") {
     return { ...fix, phase: "fix", ...phases.fix, ...context }
+  }
+
+  let tier: Tier | null = null
+  if (fix.status === "finished") {
+    try {
+      const landed = await Promise.all(
+        repositories.map(({ root }, index) =>
+          dependencies.readSubjects(root, before[index]),
+        ),
+      )
+      if (
+        "plan" in input &&
+        findings.length > 0 &&
+        landed.every((subjects) => subjects.length === 0)
+      )
+        throw new Error(
+          "The finished fix landed no commit after a report with findings",
+        )
+      for (const [index, subjects] of landed.entries()) {
+        for (const subject of subjects) {
+          const { severity } = parseSubject(
+            subject,
+            repositories[index].repository,
+          )
+          if (severity === null || severity === "clean") continue
+          for (const run of [...severity.upper, ...severity.lower])
+            if (tier === null || run.tier < tier) tier = run.tier
+        }
+      }
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: fix.sessionId,
+        phase: "fix",
+        ...phases.fix,
+        ...context,
+        reason: errorMessage(error),
+      }
+    }
   }
 
   // The brief precedes a ruling, because the ruling is read from it.
@@ -308,7 +395,7 @@ export async function runRound(
       const watched = await runWatch(input, dependencies)
       if (watched !== null) return watched
     }
-    return { status: "finished", report, tier: fix.tier }
+    return { status: "finished", report, tier }
   }
 
   // The ruling explains the open item and argues a choice, in a draft and then

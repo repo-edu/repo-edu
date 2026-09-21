@@ -34,7 +34,7 @@ export async function commitFixture(
   return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
 }
 
-/** The tier a finished fix reports, which a chained run reads. */
+/** The tier a finished fix commits, which a chained run reads. */
 type Grade = "a" | "b" | "c" | "d" | null
 
 export async function roundFixture(
@@ -94,6 +94,20 @@ export async function roundFixture(
     }),
   )
   const report = join(f.root, owner, "AUDIT-example.md")
+  const finding = (location: string) =>
+    `1. **B: Fixture finding**\n   Correct the fixture.\n   ${location} [growth:none] [reach:developer] [complexity:none]\n`
+  await writeFile(
+    report,
+    working === "plan"
+      ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
+      : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`,
+  )
+  await writeFile(
+    join(f.root, owner, "VET-example.md"),
+    accepted
+      ? "1. [B] Accept\nunique\n"
+      : "1. [B] Revise\nCheck the correction.\n",
+  )
   const brief = join(outputRoot, "ROUND-example-brief.md")
   const rulingFile = join(outputRoot, "ROUND-example-ruling.md")
   const watchFile = join(outputRoot, "ROUND-example-watch.md")
@@ -134,8 +148,20 @@ export async function roundFixture(
                 ? watchFile
                 : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null, tier: status === "finished" && phase === "fix" ? tier : null, clean: phase === "audit" ? clean : null, accepted: phase === "vet" ? accepted : null })}`
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null })}`
     phases[phase] = {
+      commits:
+        phase === "fix" && !ruling
+          ? [
+              {
+                cwd: owner === "plan" ? planRoot : repoRoot,
+                subject:
+                  tier === null
+                    ? "example/impl-audit-all oth clean: fixture"
+                    : `example/impl-audit-all oth ${owner === "plan" ? tier.toUpperCase() : tier}1 fix(audit-round): fixture`,
+              },
+            ]
+          : [],
       stream: await phaseStream(assistant, final, sessionId),
       // Either CLI may run a phase once a chain crosses over, so both answer.
       assistants: {

@@ -11,11 +11,11 @@ consumers.
   round and the chain rule. It retains the audit session and report as local values. Audit, vet, fix
   and brief start fresh. A clean audit skips the vet and the rebuttal, because a report with no
   findings gives the one nothing to grade and the other nothing to answer; the fix then lands the
-  clean record from the report alone. The audit's result says whether it was clean, so the
-  coordinator routes on it without reading the report. A vet that accepted every finding without a
+  clean record from the report alone. The coordinator reads the report through `report.ts` to
+  decide whether it is clean. A vet that accepted every finding without a
   condition skips the rebuttal the same way, because the auditor has nothing to answer; the fix then
-  reads the report with its vet twin alone. The vet's result says whether it accepted every finding,
-  so the coordinator routes on it without reading the twin. Rebuttal resumes the audit session only
+  reads the report with its vet twin alone. The coordinator reads the twin through `vet.ts` to
+  decide whether every finding was accepted unconditionally. Rebuttal resumes the audit session only
   when that session's last measurement leaves room for a rebuttal before the assistant summarises
   itself in place. A measured shortfall starts the rebuttal fresh, because a summarised session
   holds a summary where the evidence was. An assistant that reports no window reports no shortfall
@@ -40,7 +40,17 @@ consumers.
   reads the commit record and never the round, so `runWatch` passes it no transcript and no report.
   `chainDecision` owns whether a chained run audits the same scope again and with whom: the auditor
   repeats while the fix records an A or B tier, the other assistant then takes exactly one round,
-  and the cap, a handover or a failure ends the chain. It reads the fix's own grade, never a report.
+  and the cap, a handover or a failure ends the chain. The round records both repositories' HEADs
+  before the fix and parses every landed subject under its repository's grammar to derive the
+  highest tier. A plan target with findings fails when a finished fix landed no commit. A commit
+  target may land nothing. Reader failures retain the owning phase and its session for recovery.
+- `report.ts` uses `mdast-util-from-markdown` to read the document-level finding fields. Planning
+  reports have Excess functionality and Missing functionality fields; implementation reports have
+  one Findings field including deferred findings. Each holds numbered finding blocks or its exact
+  empty-field sentence. Quoted evidence and code blocks supply no findings. `vet.ts` reads the
+  fixed verdict lines and requires the report's finding numbers in order. Only Accept verdicts
+  with no following conditions skip the rebuttal; exact corroboration markers are not conditions.
+  Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with, and `parseAuditorTag`,
   which reads the partial tag `--auditor` takes. The three alphabets share no letter, so a partial
@@ -212,7 +222,8 @@ they never replace the audit report as the input to later phases.
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
-meaning. The runner does not read plan or report contents. Its Git reads are
+meaning. Phase results carry only status, file and reason. The runner reads reports,
+vet twins and the fix's landed subjects for routing and chaining. It also reads
 `HEAD` for naming and the log the glance counts; the audit workflow still
 resolves the audited scope. Keep assistant adapters independent of the product
 LLM adapters.

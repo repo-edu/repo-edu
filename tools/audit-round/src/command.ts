@@ -1,4 +1,4 @@
-import { readdir, realpath, stat } from "node:fs/promises"
+import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import {
   Command,
@@ -6,6 +6,7 @@ import {
   InvalidArgumentError,
   Option,
 } from "commander"
+import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { type ExecutionContext, executionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
@@ -25,6 +26,7 @@ import {
   parseAuditorTag,
   type RoundDependencies,
 } from "./phase.js"
+import { readReport } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
@@ -36,6 +38,7 @@ import {
 } from "./round.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { auditTarget } from "./target.js"
+import { readVet } from "./vet.js"
 
 /** The transcript a brief retells: a round's Markdown pair member at the checkout root. */
 async function checkTranscript(
@@ -231,6 +234,20 @@ export async function runCommand(
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      readReport: async (file, kind) =>
+        readReport(await readFile(file, "utf8"), kind),
+      readVet: async (file, findings) =>
+        readVet(await readFile(file, "utf8"), findings),
+      readHead: async (cwd) =>
+        (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+      readSubjects: async (cwd, before) => {
+        const { stdout } = await execa(
+          "git",
+          ["log", `${before}..HEAD`, "--format=%s"],
+          { cwd },
+        )
+        return stdout.length === 0 ? [] : stdout.split("\n")
+      },
       ...assistantDependencies(
         { ...runtime, cwd: context.cwd, commit: active.commitStamps },
         active.phase,

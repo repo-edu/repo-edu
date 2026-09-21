@@ -73,30 +73,10 @@ only. The object has exactly these fields:
   ruling pass or watch pass. Use `null` for every other outcome, including a
   finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
-- `tier`: the grade a finished fix gives the round, and `null` everywhere else.
-  It is the highest tier among the records the fix landed, written as one
-  lowercase letter, `a`, `b`, `c` or `d`, whatever case the record's severity
-  sequence used. A clean record reports `null`. A fix that landed records in
-  two repos reports the highest tier across both. The runner reads this to
-  decide whether a chained run audits the same scope again, so report what the
-  records carry and nothing else.
-- `clean`: whether a finished audit's report holds no findings, and `null`
-  everywhere else. The runner reads this to decide whether the vet and the
-  rebuttal run: a clean report gives the vet nothing to grade and the rebuttal
-  nothing to answer, so the round sends it straight to the fix, which lands the
-  clean record from the report alone. Report what the report says and nothing
-  else; a report with any finding, including a deferred plan-text finding, is
-  not clean.
-- `accepted`: whether a finished vet accepted every finding without a
-  condition, and `null` everywhere else. The runner reads this to decide
-  whether the rebuttal runs: an accepted vet leaves the auditor nothing to
-  answer, so the round sends the report and its vet twin straight to the fix.
-  It is true only when every verdict is `Accept` and none carries a condition.
-  A `Revise`, `Drop` or `Needs user's ruling` verdict makes it false, and so
-  does an accept noted as a narrowing, because that reopens a settled decision
-  the auditor should get to answer. A corroboration marker alone does not,
-  because it never changes a verdict. Report what the twin says and nothing
-  else.
+
+The runner reads whether the audit is clean from the report, whether every
+finding was accepted unconditionally from the vet twin and the highest landed
+tier from both repositories' commit logs.
 
 | Status | Meaning | Runner action |
 | --- | --- | --- |
@@ -143,8 +123,8 @@ call failed earlier. A missing input or unmet workflow gate also means
 grants no permission to bypass a gate or make the user's decision.
 
 The user directed explicit results and successful permitted retries on
-2026-09-10. Workflows own the phase outcome; the runner follows it without
-reading reports or judging tool failures.
+2026-09-10. Workflows own the phase outcome; the runner validates the report,
+vet twin and landed subjects without judging tool failures.
 
 ## Ready gate
 
@@ -190,10 +170,9 @@ findings require all four token kinds. Plan-repo findings use `- C [section:<hea
 commit, with the heading in kebab case. They omit `[area:]`, because the area model belongs to Repo
 Edu.
 
-A finding deferred from a Repo Edu-only round to the plan repo is written in
-the report with its tier and plan location before the shared tokens, the body
-form in this repo's `CLAUDE.md`, so the fix workflow carries it into the round
-commit as written.
+A finding deferred from a Repo Edu-only round to the plan repo uses the same
+report block below, with `[plan:...]` in place of `[area:...]` on its closing
+token line. The fix carries that location into the round commit.
 
 ## Fix guard
 
@@ -312,6 +291,20 @@ and carry the plan correction into the cross-repo findings below. Every
 finding also carries a growth tag, per [Growth tags](#growth-tags).
 
 ## Finding shape
+
+Put every finding, including cross-repo findings, in one `## Findings` field.
+Use this block form, with a numbered bold tier and title on the first line and
+the metadata tokens on the last line:
+
+```text
+1. **C: Conflicting report names**
+   The report rule and its example name different files. The vet cannot resolve the example. Align the example with the rule.
+   [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none]
+```
+
+Keep numbering continuous from 1. A field with no findings contains exactly
+`No findings.` instead of finding blocks. A report with only deferred findings
+still has findings. Quoted evidence and code blocks belong inside their finding.
 
 Briefly explain the problem, its consequence and the correction, supported by
 decisive evidence from sources you have read. Combine these in a short paragraph
@@ -574,8 +567,8 @@ report lives in Repo Edu or the plan repo. Then name the plan file, its ready co
 commit range and the round's user-set scope: the whole plan, one step or one step range. Then report
 the coverage table with its coverage line. Then, when a growth pattern or the reach and complexity
 pair runs across rounds, the run statement and the pricing under [Pricing a run](#pricing-a-run).
-Then the numbered tiered findings, each carrying its growth, reach and complexity tokens, and any
-cross-repo findings. Then write the report to its file under [Report file](#report-file) and stop
+Then the `## Findings` field, including cross-repo findings in the same numbered list and block
+form. Then write the report to its file under [Report file](#report-file) and stop
 there.
 
 ## Report file

@@ -2,6 +2,7 @@ import { appendFile, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
+import { execa } from "execa"
 
 const [root, assistant, ...args] = process.argv.slice(2)
 let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
@@ -172,6 +173,27 @@ if (scenario.phases !== undefined) {
   // A chained round changes who audits, so a phase may answer as either CLI.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
 }
+
+for (const commit of scenario.commits ?? [])
+  await execa(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.test",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      commit.subject,
+    ],
+    { cwd: commit.cwd },
+  )
 
 if (scenario.usage !== undefined)
   await appendFile(scenario.usage.path, scenario.usage.text)

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -1039,6 +1046,33 @@ test("discovery admits a checkout alias but refuses subdirectories and unrelated
   for (const call of await f.calls()) assert.equal(call.cwd, f.repoRoot)
 })
 
+for (const phase of ["audit", "vet"] as const) {
+  for (const missing of [false, true]) {
+    test(`a ${missing ? "missing" : "malformed"} ${phase} file fails with its recovery session`, async (t) => {
+      const f = await roundFixture(t)
+      const file =
+        phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
+      if (missing) await rm(file)
+      else await writeFile(file, "Malformed evidence")
+      assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+      const { log } = await f.records()
+      assert.ok(log.includes(`[${phase}] failed:`))
+      assert.ok(log.includes(`${phase}-session`))
+      assert.doesNotMatch(log, /\[fix\] starting/)
+    })
+  }
+}
+
+test("a finished fix with no actual commit cannot complete a plan round with findings", async (t) => {
+  const f = await roundFixture(t)
+  f.phases.fix = { ...(f.phases.fix as object), commits: [] }
+  await f.configure({ phases: f.phases })
+  assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+  const { log } = await f.records()
+  assert.match(log, /\[fix\] failed:.*landed no commit/)
+  assert.doesNotMatch(log, /\[brief\] starting|\[glance\]/)
+})
+
 test("a failed planning audit retains its root and recovery session without starting the vet", async (t) => {
   const f = await roundFixture(t, "claude", "plan", false, null, false, "plan")
   await f.configure({
@@ -1046,7 +1080,7 @@ test("a failed planning audit retains its root and recovery session without star
       audit: {
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict","tier":null,"clean":null,"accepted":null}',
+          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict"}',
           "audit-session",
         ),
       },

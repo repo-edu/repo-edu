@@ -1,5 +1,6 @@
 import type { ExecutionContext } from "./context.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
+import type { ReportFindings } from "./report.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -324,34 +325,14 @@ type ReportResult = {
   readonly context: SessionContext | null
 }
 
-/**
- * The audit also says whether its report holds no findings. A clean report
- * gives the vet nothing to grade and the rebuttal nothing to answer, so the
- * round sends it straight to the fix, which lands the clean record.
- */
-type AuditResult = ReportResult & {
-  readonly clean: boolean
-}
-
-/**
- * The vet also says whether it accepted every finding without a condition. An
- * accepted vet leaves the rebuttal nothing to answer, so the round sends the
- * report and the vet twin straight to the fix.
- */
-type VetResult = ReportResult & {
-  readonly accepted: boolean
-}
-
 type FixResult = {
   readonly status: "finished" | "needs-ruling"
   readonly sessionId: string
-  /** The highest tier the fix recorded, which a chained run reads. Null when clean. */
-  readonly tier: Tier | null
 }
 
 type PhaseResults = {
-  audit: AuditResult
-  vet: VetResult
+  audit: ReportResult
+  vet: ReportResult
   rebut: ReportResult
   fix: FixResult
   brief: ReportResult
@@ -376,6 +357,16 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
+  readonly readReport: (
+    file: string,
+    kind: ExecutionContext["roundKind"],
+  ) => Promise<ReportFindings>
+  readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
+  readonly readHead: (root: string) => Promise<string>
+  readonly readSubjects: (
+    root: string,
+    before: string,
+  ) => Promise<readonly string[]>
   readonly runPhase: {
     readonly [P in Phase]: (input: PhaseInput<P>) => Promise<PhaseResult<P>>
   }

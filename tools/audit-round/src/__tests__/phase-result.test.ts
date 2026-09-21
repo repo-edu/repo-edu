@@ -20,213 +20,69 @@ for (const phase of [
   "watch-edit",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    // A fix reports its grade, an audit whether it was clean and a vet whether
-    // it accepted every finding; the rest report a file.
     const file = phase === "fix" ? null : "/written report.md"
-    const clean = phase === "audit" ? false : null
-    const accepted = phase === "vet" ? false : null
-    const finished = {
-      status: "finished",
-      file,
-      reason: null,
-      tier: null,
-      accepted,
-    }
+    const finished = { status: "finished", file, reason: null }
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
-    for (const ending of ["", "\n", "\r\n", " \t\n\n"]) {
-      assert.equal(
-        phaseResult(
-          phase,
-          "session",
-          text({ ...finished, clean }) + ending,
-          null,
-        ).status,
-        "finished",
+    for (const ending of ["", "\n", "\r\n", " \t\n\n"])
+      assert.deepEqual(
+        phaseResult(phase, "session", text(finished) + ending, {
+          tokens: 10,
+          window: 100,
+        }),
+        phase === "fix"
+          ? { status: "finished", sessionId: "session" }
+          : {
+              status: "finished",
+              sessionId: "session",
+              file,
+              context: { tokens: 10, window: 100 },
+            },
       )
-    }
     assert.deepEqual(
       phaseResult(
         phase,
         "session",
-        text({
-          status: "failed",
-          file: null,
-          reason: "Required work remains blocked",
-          tier: null,
-          clean: null,
-          accepted: null,
-        }),
-        { tokens: 10, window: 100 },
+        text({ status: "failed", file: null, reason: "Blocked" }),
+        null,
       ),
-      {
-        status: "failed",
-        sessionId: "session",
-        reason: "Required work remains blocked",
-      },
+      { status: "failed", sessionId: "session", reason: "Blocked" },
     )
     const ruling = () =>
       phaseResult(
         phase,
         "session",
-        text({
-          status: "needs-ruling",
-          file: null,
-          reason: null,
-          tier: null,
-          clean: null,
-          accepted: null,
-        }),
-        null,
-      )
-    if (phase === "fix") assert.equal(ruling().status, "needs-ruling")
-    else assert.throws(ruling)
-    // Only a finished fix grades the round, and its tier reaches the chain rule.
-    const graded = () =>
-      phaseResult(
-        phase,
-        "session",
-        text({ ...finished, tier: "b", clean }),
+        text({ status: "needs-ruling", file: null, reason: null }),
         null,
       )
     if (phase === "fix")
-      assert.deepEqual(graded(), {
-        status: "finished",
-        sessionId: "session",
-        tier: "b",
-      })
-    else assert.throws(graded)
-    // Only a finished audit says whether it was clean, and it must say so
-    // rather than leave it open, because the round routes on the answer.
-    const cleaned = () =>
-      phaseResult(phase, "session", text({ ...finished, clean: true }), {
-        tokens: 10,
-        window: 100,
-      })
-    if (phase === "audit")
-      assert.deepEqual(cleaned(), {
-        status: "finished",
-        sessionId: "session",
-        file,
-        context: { tokens: 10, window: 100 },
-        clean: true,
-      })
-    else assert.throws(cleaned)
-    assert.throws(() =>
-      phaseResult(
-        phase,
-        "session",
-        text({ ...finished, clean: phase === "audit" ? null : false }),
-        null,
-      ),
-    )
-    // Only a finished vet says whether it accepted every finding, and it must
-    // say so rather than leave it open, because the round routes on the answer.
-    const acceptedAll = () =>
-      phaseResult(
-        phase,
-        "session",
-        text({ ...finished, clean, accepted: true }),
-        { tokens: 10, window: 100 },
-      )
-    if (phase === "vet")
-      assert.deepEqual(acceptedAll(), {
-        status: "finished",
-        sessionId: "session",
-        file,
-        context: { tokens: 10, window: 100 },
-        accepted: true,
-      })
-    else assert.throws(acceptedAll)
-    assert.throws(() =>
-      phaseResult(
-        phase,
-        "session",
-        text({
-          ...finished,
-          clean,
-          accepted: phase === "vet" ? null : false,
-        }),
-        null,
-      ),
-    )
-    for (const value of [
-      {
-        status: "retry",
-        file: null,
-        reason: null,
-        tier: null,
-        clean,
-        accepted,
-      },
-      { ...finished, clean, extra: true },
-      { ...finished, clean, due: null },
-      { status: "finished", file, reason: null, clean, accepted },
-      { status: "finished", file, tier: null, clean, accepted },
-      { status: "finished", file, reason: null, tier: null, clean },
-      { ...finished },
-      { ...finished, file: "relative.md", clean },
-      { ...finished, reason: "unexpected", clean },
-      {
-        status: "failed",
-        file: null,
-        reason: " ",
-        tier: null,
-        clean: null,
-        accepted: null,
-      },
-      {
-        status: "failed",
-        file: "/file.md",
-        reason: "blocked",
-        tier: null,
-        clean: null,
-        accepted: null,
-      },
-      {
-        status: "failed",
-        file: null,
-        reason: "blocked",
-        tier: "a",
-        clean: null,
-        accepted: null,
-      },
-      {
-        status: "failed",
-        file: null,
-        reason: "blocked",
-        tier: null,
-        clean: false,
-        accepted: null,
-      },
-      {
+      assert.deepEqual(ruling(), {
         status: "needs-ruling",
-        file: null,
-        reason: null,
-        tier: "c",
-        clean: null,
-        accepted: null,
-      },
-      {
-        status: "failed",
-        file: null,
-        reason: "blocked",
-        tier: null,
-        clean: null,
-        accepted: false,
-      },
-      { ...finished, tier: "A", clean },
-      { ...finished, tier: "e", clean },
+        sessionId: "session",
+      })
+    else assert.throws(ruling)
+    for (const value of [
+      { ...finished, status: "retry" },
+      { ...finished, tier: null },
+      { ...finished, clean: false },
+      { ...finished, accepted: true },
+      { ...finished, extra: true },
+      { status: "finished", file },
+      { status: "finished", reason: null },
+      { ...finished, file: phase === "fix" ? "/file.md" : null },
+      { ...finished, file: "relative.md" },
+      { ...finished, reason: "unexpected" },
+      { status: "failed", file: null, reason: " " },
+      { status: "failed", file: "/file.md", reason: "blocked" },
     ])
       assert.throws(() => phaseResult(phase, "session", text(value), null))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
-      `${text({ ...finished, clean })}\nExtra text`,
-      `${text({ ...finished, clean })}\n\`\`\``,
-    ]) {
+      `${text(finished)}\nExtra text`,
+      `${text(finished)}\n\`\`\``,
+    ])
       assert.throws(() => phaseResult(phase, "session", invalid, null))
-    }
   })
 }
 

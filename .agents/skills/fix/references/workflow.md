@@ -244,11 +244,9 @@ it. No other report or twin at the root is touched, under
 
 An unattended fix reports `finished` only after all required corrections,
 checks, records and report cleanup are complete. Its result has `file: null`
-and carries the round's grade in `tier`: the highest tier among the records
-just landed, as one lowercase letter, or `null` for a clean round. A both-repo
-round reports the highest tier across its two records. The audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) defines the
-field, and a chained run reads it to decide whether to audit the scope again.
+under the audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result). The runner
+reads the landed commits in both repos to derive the grade for chaining.
 Remaining required work means the phase has not finished, even when some
 records have already landed.
 
