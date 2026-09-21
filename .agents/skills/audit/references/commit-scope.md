@@ -110,7 +110,7 @@ durable memory this work has. Beyond the defects any round finds, grade these
 with the same tiers and tokens.
 
 - A commit body that misdescribes what landed.
-- A severity sequence whose tier counts, case, `!` mark or trailing
+- A severity sequence whose tier counts, case, `!` mark or leading
   `growth-<level>` or `pruning-<level>` disagrees with the commit's own diff.
 - A conventional kind or scope that does not match the change, such as a `fix`
   that reshapes ownership.

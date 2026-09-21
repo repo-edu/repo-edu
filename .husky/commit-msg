@@ -1,4 +1,5 @@
-# Stamps the commit's capability tag and model record and refuses a subject the
-# grammar in .agents/references/subject-grammar.md does not admit. The parser
-# in tools/audit-round/src/subject.ts is the grammar's one reader.
+# Derives the severity slot from graded bullets and stamps the capability tag
+# and model record. Refuses subjects outside the grammar in
+# .agents/references/subject-grammar.md. The parser in
+# tools/audit-round/src/subject.ts is the grammar's one reader.
 node --import tsx tools/audit-round/src/commit-msg-main.ts repo-edu "$1"
