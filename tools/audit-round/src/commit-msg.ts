@@ -1,4 +1,5 @@
-import { correctionAreas } from "./corrections.js"
+import { readFindings } from "./findings.js"
+import { stampSequence } from "./sequence.js"
 import {
   isAuditRole,
   looseForm,
@@ -63,7 +64,11 @@ export function stampCommitMessage(
     tokens[slot] = tokens[slot].endsWith(":")
       ? `${stamps.auditor}:`
       : stamps.auditor
-  const subjectLine = tokens.join(" ")
+  const findings = readFindings(lines.slice(1).join("\n"), repository, {
+    strict: true,
+    primaryAreas,
+  })
+  const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)
 
   const first = lines.findIndex(
@@ -110,6 +115,5 @@ export function stampCommitMessage(
     if (at < lines.length) output.push("")
     output.push(...lines.slice(at))
   }
-  correctionAreas(subject, output.slice(1).join("\n"), repository, primaryAreas)
   return output.join("\n") + (trailing ? "\n" : "")
 }

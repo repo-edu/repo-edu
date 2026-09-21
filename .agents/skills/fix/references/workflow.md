@@ -194,12 +194,15 @@ For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition
 `tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
 that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the audit workflow
 defines, in the same form the report used. Repo Edu finding bullets require all four token kinds.
-Plan-repo finding bullets use the planning form, `- B [section:<heading>] ...`, with the heading in
-kebab case, and omit `[area:]`. The glance counts A–C corrections by these locations, once per
-commit in each area or section. D findings never advance its count. The commit body is the only
-place a later round can read them: chat is gone, the report is deleted below and the finding list
-lives nowhere else. A bullet that records something other than a finding, such as a carried decision
-or a trade ruling with its reason, takes no metadata.
+Plan-repo finding bullets use the planning form,
+`- B [field:<excess|missing>] [section:<heading>] [growth:...] [reach:...]
+[complexity:...] <title and prose>`,
+with the heading in kebab case, and use `[area:]` instead of `[section:]` only for a deferred Repo
+Edu finding. The glance counts A–C corrections by these locations, once per commit in each area or
+section. D findings never advance its count. The commit body is the only place a later round can
+read them: chat is gone, the report is deleted below and the finding list lives nowhere else. A
+bullet that records something other than a finding, such as a carried decision or a trade ruling
+with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
 the audit workflow defines under **Round yield** and carrying the same counts
@@ -214,15 +217,13 @@ The report is deleted below, so the record is the only durable home for the
 round's yield. A clean record carries both lines with zeroes. A plan-repo
 record carries neither.
 
-A Repo Edu record's severity sequence carries the case, `!` and trailing
-`growth-<level>` or `pruning-<level>` marks this repo's `CLAUDE.md` defines, so a
-commit graph shows the round's reach without its tokens. A plan-repo record
-keeps bare tiers.
+The hook derives the severity sequence, its case and its `!` from the graded
+bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 
 A finding deferred from a Repo Edu-only round to the plan repo uses the body
 form in this repo's `CLAUDE.md`; it keeps its tier, plan location and
-metadata in the same round commit. A plan-repo round carries no `[area:]`
-token, because the area model belongs to Repo Edu. A clean round lands the
+metadata in the same round commit. A plan-repo round uses `[area:]` only for a
+finding deferred to Repo Edu. A clean round lands the
 shared clean record in each repo judged, its subject carrying the auditor
 and the step scope. When the user declines the outcome in full, no commit lands because
 disagreement is not a state. The logs show every confirmed round that ran,

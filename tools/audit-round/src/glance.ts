@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
-import { correctionAreas } from "./corrections.js"
+import { correctionAreas } from "./findings.js"
 import {
   looseForm,
   parseSubject,

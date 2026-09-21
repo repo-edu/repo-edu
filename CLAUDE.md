@@ -299,18 +299,17 @@ run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
 conventional subject with that sequence. An implementation-audit record places
 the same sequence in its shared stem form; a step commit lands planned work and
 carries none. The sequence enumerates how many concerns at each tier the commit
-addresses, with zero categories omitted.
+addresses, with zero categories omitted. The commit hook derives the sequence,
+its case and its `!` from the graded body bullets, overwriting any authored
+value. Write the rest of the subject and the bullets; leave the sequence slot
+to the hook.
 
 Three marks carry reach and structure change into the sequence itself, because a
 commit graph shows the subject and none of the finding tokens.
 
 - Case says who meets the concern. A tier letter is uppercase when the concern's
-  reach is `ordinary` or `rare`, the two values an end user can meet, and
-  lowercase when its reach is `developer`. The sequence lists the uppercase run
-  first, sorted A through D, then the lowercase run, sorted a through d. So
-  `B1C1c2d1` closes one B-tier and one C-tier concern a user can meet, beside
-  two C-tier and one D-tier concern no user can see. Every concern contributes
-  one letter at its own case, so the counts stay exact and nothing is averaged.
+  reach is `ordinary`, `rare` or `very-rare`, the values an end user can meet,
+  and lowercase when its reach is `developer`.
 - A leading `!` says at least one concern has `ordinary` reach, the value that
   needs no special condition to hold: `!B1C1c2d1`.
 - A trailing `growth-<level>` or `pruning-<level>` says what the commit did to the
@@ -346,24 +345,20 @@ exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
 that carries it, which a plan document has not reached yet.
 
-Every file-changing commit with A–C concerns records one body bullet per
-concern, including off-plan work. Each starts with its uppercase tier and
-primary area, as `- [C] [area:tool-audit-round] ...`. Use the area that owns
-the concern, including for its supporting docs. Other decision bullets need
-no tier. The hook checks the A–C totals against the subject, joining uppercase
-and lowercase counts. This lets the glance count repeated corrections in the
-same area without counting a mixed commit's D-only areas. Audit bullets keep
-their other required tokens. The user directed this on 2026-09-20.
+Every graded concern, D included, records one body bullet, including off-plan
+work. Each uses `- [T] [area:<primary-id>] [growth:<labels>] [reach:<value>]
+[complexity:<value>] <title and prose>`. Use the area that owns the concern,
+including for its supporting docs, or `[plan:<location>]` in place of `[area:]`
+for a deferred plan finding. The hook refuses missing tokens. Other decision
+bullets take no tier. The glance counts repeated A–C corrections in the same
+area; D findings do not advance that count. Steps and markers carry no graded
+bullets. The user directed the body record on 2026-09-20 and its extension to
+every graded concern on 2026-09-21.
 
 The [A]-[D] rubric in Implementation Review Findings grades a concern's
 severity whether the AI surfaced it formally in a review or only
-addressed it in the commit body. Grade each concern the commit addresses
-against the rubric and count by tier; a planned redesign that reshapes
-ownership across packages is `a1` with `redesign`, a within-package bug fix a
-user meets is `B1` with `fix`, a localised maintainability fix is `c1` with
-`fix`, a typo is `d1` with `docs` or `fix`. Larger audit closures compound into
-sequences like `A1B4c2` for one architectural concern and four B-tier bugs a
-user meets, beside two developer-only C-tier issues closed together.
+addressed it in the commit body. Grade each concern against that rubric in its
+bullet.
 
 The conventional commit kind is the last tag before the sentence, from the
 closed list the subject grammar admits:

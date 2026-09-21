@@ -76,18 +76,21 @@ consumers.
   anchor, the earliest commit carrying the stem, so a first round never earns a
   watch by being first. The decision's sentence opens its own section of the
   log and the terminal as `[glance]`.
-- `corrections.ts` reads the fixed tier and location prefixes on finding
-  bullets for both the glance and commit hooks. It checks that each A–C
-  concern in a file-changing subject has a body record. It returns the areas
-  corrected locally, excluding findings deferred to the other repo. A commit contributes
-  at most once per area, however many findings it fixed there.
+- `findings.ts` reads graded body bullets for both commit hooks and the glance.
+  The hook requires the complete tokens for every tier, D included. The glance
+  keeps historical A–C tier-count and location checks without requiring rating
+  tokens. Its reduction returns each locally corrected area once, excluding
+  deferred findings. `sequence.ts` derives severity from the strict read and
+  fills the subject's severity slot under its role and repository rules. The
+  growth mark remains authored.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
   either repository's form, names the class it matched and refuses with the first slot that does
   not fit. The commit hooks and the glance both read through it. Its loose form read, the first
   token split at its slash, is the one read that reaches subjects older than the settled grammar,
   because episode scoping and auditor stamping need nothing else from them. `commit-msg.ts` is the
-  hook's rule: it widens a record's auditor letter from `COMMIT_AUDITOR`, replaces the body's
+  hook's rule: it widens a record's auditor letter from `COMMIT_AUDITOR`, derives
+  severity from the graded bullets before parsing the subject, replaces the body's
   opening with `COMMIT_PHASES` when a round supplies it, requires a model line otherwise and refuses
   a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the entry both
   repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar file.
