@@ -55,7 +55,7 @@ export function readFindings(
   const opening = mode.strict
     ? repository === "repo-edu"
       ? /^- \[([A-D])\](?: |$)/
-      : /^- ([A-D])(?: |$)/
+      : /^- ([A-D]) (?=\[)/
     : /^- (?:\[([A-C])\]|([A-C])) /
   for (const [index, line] of body.split("\n").entries()) {
     const start = opening.exec(line)

@@ -101,6 +101,18 @@ test("strict reads require each token and name the offending bullet", () => {
       /field/,
     )
   }
+  const plan = `- C [field:missing] [section:decisions] ${rating} Correct.`
+  for (const key of ["section", "growth", "reach", "complexity"]) {
+    assert.throws(
+      () =>
+        readFindings(
+          plan.replace(new RegExp(`\\[${key}:[^\\]]+\\] `), ""),
+          "plan",
+          strict,
+        ),
+      key === "section" ? /location/ : new RegExp(key),
+    )
+  }
 })
 
 test("deferred findings retain ratings but contribute no local corrections", () => {
@@ -174,6 +186,13 @@ test("ungraded prose and the other repository's bullet opening are not findings"
   const body =
     "Model\n\n- A decision.\n- [Note] Explanation.\n- Ordinary prose."
   assert.deepEqual(readFindings(body, "repo-edu", strict), [])
+  assert.deepEqual(readFindings(body, "plan", strict), [])
+  for (const tier of ["A", "B", "C", "D"]) {
+    assert.deepEqual(
+      readFindings(`- ${tier} prose bullet.`, "plan", strict),
+      [],
+    )
+  }
   assert.deepEqual(
     readFindings("- C Prose in the other form.", "repo-edu", strict),
     [],
