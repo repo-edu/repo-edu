@@ -169,19 +169,22 @@ working tree.
 
 ## Records
 
-Land at most one implementation-audit record per repo judged. A record lands in the repo whose files
-its findings concern. A both-repo round therefore lands independent records in each repo. Repo Edu
-records use the shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round that
-accepts only findings deferred to a repo outside the round's repo set uses the shared empty severity
-form. The subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or
-`all`; no `Audit:` body line repeats it. The capability tag follows that form and names the
-assistant that ran the audit step, never the one that vets, rebuts or fixes, and it reads on the
-clean record too. Under the runner, write its first letter alone, `a` or `o`, from the report
-filename's writer tag, read under [Report discovery](#report-discovery). The runner holds the
-strength and effort behind it and the commit-msg hook widens the letter into the whole tag. Without
-the runner, use the report's full auditor tag. Use your own selection under the shared round
-protocol for your phase's model record and any file you write. Repo Edu's `CLAUDE.md` owns both
-rules under **Commit Capability Tag** and **Commit Model Record**.
+Land at most one implementation-audit record per repo judged, and only in a repo whose files took an
+accepted finding. A both-repo round whose findings all concern one repo lands one record there and
+nothing in the other: a record without findings would say nothing the record with them does not, and
+the watch would read it as convergence evidence for files the round did not re-test. A clean round
+lands one clean record where the paragraph on clean rounds below says. Repo Edu records use the
+shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round that accepts only
+findings deferred to a repo outside the round's repo set uses the shared empty severity form. The
+subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no
+`Audit:` body line repeats it. The capability tag follows that form and names the assistant that ran
+the audit step, never the one that vets, rebuts or fixes, and it reads on the clean record too.
+Under the runner, write its first letter alone, `a` or `o`, from the report filename's writer tag,
+read under [Report discovery](#report-discovery). The runner holds the strength and effort behind it
+and the commit-msg hook widens the letter into the whole tag. Without the runner, use the report's
+full auditor tag. Use your own selection under the shared round protocol for your phase's model
+record and any file you write. Repo Edu's `CLAUDE.md` owns both rules under
+**Commit Capability Tag** and **Commit Model Record**.
 
 The body carries one bullet per accepted finding. Each bullet opens with its
 uppercase tier, then its metadata and prose:
@@ -221,14 +224,15 @@ record carries neither.
 The hook derives the severity sequence, its case and its `!` from the graded
 bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 
-A finding deferred from a Repo Edu-only round to the plan repo uses the body
-form in this repo's `CLAUDE.md`; it keeps its tier, plan location and
-metadata in the same round commit. A plan-repo round uses `[area:]` only for a
-finding deferred to Repo Edu. A clean round lands the
-shared clean record in each repo judged, its subject carrying the auditor
-and the step scope. When the user declines the outcome in full, no commit lands because
-disagreement is not a state. The logs show every confirmed round that ran,
-including clean rounds that would otherwise exist only in chat.
+A finding deferred from a Repo Edu-only round to the plan repo uses the body form in this repo's
+`CLAUDE.md`; it keeps its tier, plan location and metadata in the same round commit. A plan-repo
+round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
+record, at the root that holds the report: the repo a single-repo round judged, or the repo where a
+both-repo round started. Its subject carries the auditor and the step scope, and its sentence names
+the repo set when the round judged both. The user directed the single placement on 2026-09-21, after
+three plan-repo clean records stood for rounds whose fixes touched only Repo Edu. When the user
+declines the outcome in full, no commit lands because disagreement is not a state. The logs show
+every confirmed round that ran, including clean rounds that would otherwise exist only in chat.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed

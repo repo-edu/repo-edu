@@ -155,9 +155,9 @@ and stop.
 
 A single-repo round writes its report at that repo's root, even when the round
 started in the other repo. A both-repo round writes one report at the root where
-the round started. Report placement never changes record keying: the fix
-workflow lands one record per repo judged, in the repo whose files the
-findings concern, under its Records section.
+the round started. Report placement decides only where a clean record lands:
+the fix workflow lands one record in each repo whose files took a finding, and
+a clean round's one record at the report's root, under its Records section.
 
 Each finding in the report carries its metadata tokens in the form the fix workflow's record bullets
 use, so a finding copies from the report into the commit body unchanged. Keep the uppercase tier

@@ -379,11 +379,14 @@ keeps this repo's ordinary severity-prefixed conventional subject.
 An implementation-audit round records each accepted finding in the repo whose
 files the finding concerns. The user's step range decides the repo set, which
 is the union of the hosting repos for its steps. A single-repo round writes its
-report and round record in that repo, even when the round started in the other
-repo. A both-repo round lands independent records in each repo and writes one
-report at the root of the repo where the round started. The report opening
-names the judged repos and each repo's short HEAD at audit time. Its filename
-follows the shared round protocol. Each round record's subject carries the round's
+report in that repo, even when the round started in the other repo. A both-repo
+round writes one report at the root of the repo where the round started. A
+record lands only in a repo whose files took an accepted finding, so a both-repo
+round with findings in one repo lands one record. A clean round lands one clean
+record at the root that holds its report. The plan repo doctrine owns that
+keying under its shared implementation forms. The report opening names the
+judged repos and each repo's short HEAD at audit time. Its filename follows the
+shared round protocol. Each round record's subject carries the round's
 scope through the shared `impl-audit-<step scope>` form, with the scope `<n>`,
 `<a>-<b>` or `all`, and its capability tag names the assistant that audited; the
 plan repo owns that form and no `Audit:` body line repeats it. Each accepted
