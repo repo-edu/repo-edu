@@ -67,6 +67,7 @@ export function stampCommitMessage(
   const findings = readFindings(lines.slice(1).join("\n"), repository, {
     strict: true,
     primaryAreas,
+    role: form?.role ?? null,
   })
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)

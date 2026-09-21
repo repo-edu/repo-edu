@@ -194,11 +194,12 @@ For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition
 `tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
 that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the audit workflow
 defines, in the same form the report used. Repo Edu finding bullets require all four token kinds.
-Plan-repo finding bullets use the planning form,
-`- B [field:<excess|missing>] [section:<heading>] [growth:...] [reach:...]
-[complexity:...] <title and prose>`,
-with the heading in kebab case, and use `[area:]` instead of `[section:]` only for a deferred Repo
-Edu finding. The glance counts A–C corrections by these locations, once per commit in each area or
+Plan-repo implementation and off-plan finding bullets use
+`- B [section:<heading>] [growth:...] [reach:...] [complexity:...] <title and prose>`. Only a
+planning `audit` record adds exactly one `[field:<excess|missing>]` token before the location. Other
+plan-repo records refuse `[field:]`, because their findings have no search direction. Both forms use
+a heading in kebab case and replace `[section:]` with `[area:]` only for a deferred Repo Edu
+finding. The glance counts A–C corrections by these locations, once per commit in each area or
 section. D findings never advance its count. The commit body is the only place a later round can
 read them: chat is gone, the report is deleted below and the finding list lives nowhere else. A
 bullet that records something other than a finding, such as a carried decision or a trade ruling

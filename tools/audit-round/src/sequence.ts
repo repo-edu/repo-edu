@@ -1,5 +1,6 @@
 import type { Finding } from "./findings.js"
 import {
+  locateSubjectSlots,
   looseForm,
   type Repository,
   type Run,
@@ -55,22 +56,18 @@ export function stampSequence(
   findings: readonly Finding[],
   repository: Repository,
 ): string {
-  const tokens = line.split(" ")
-  const colon = tokens.findIndex((token) => token.endsWith(":"))
-  if (colon === -1)
-    throw new SubjectError("the subject needs a colon after its last tag")
-  const tags = tokens.slice(0, colon + 1)
-  tags[colon] = tags[colon].slice(0, -1)
+  const {
+    tags,
+    sentence,
+    severity: slot,
+    hasSeverity,
+    kind,
+  } = locateSubjectSlots(line)
   const form = looseForm(line)
-  let slot = form === null ? 1 : 2
-  if (/^(growth|pruning)-(low|medium|high)$/.test(tags[slot] ?? "")) slot += 1
-  if (/^(?:clean|!?(?:[A-Da-d]\d+)+)$/.test(tags[slot] ?? ""))
-    tags.splice(slot, 1)
+  if (hasSeverity) tags.splice(slot, 1)
   const sequence = findingSequence(findings, repository)
   const audit = form?.role === "audit" || form?.role.startsWith("impl-audit-")
-  const hasKind = tags
-    .slice(slot)
-    .some((token) => /^[a-z]+\([a-z0-9-]+\)$/.test(token))
+  const hasKind = kind !== null
   if (audit || form === null) {
     if (sequence !== "clean") tags.splice(slot, 0, printSequence(sequence))
     else if (form?.role === "audit" || (audit && !hasKind))
@@ -84,5 +81,5 @@ export function stampSequence(
       `the ${form.role} class carries no severity and refuses graded finding bullets`,
     )
   }
-  return `${tags.join(" ")}: ${tokens.slice(colon + 1).join(" ")}`
+  return `${tags.join(" ")}: ${sentence}`
 }

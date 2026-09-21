@@ -12,7 +12,8 @@ const none = { auditor: null, phases: null }
 const primaryAreas = new Set(["tool-audit-round", "area-x"])
 const ratings = "[growth:none] [reach:developer] [complexity:none]"
 const codeFinding = `- [C] [area:tool-audit-round] ${ratings} Correct the record.`
-const planFinding = `- C [field:missing] [section:decisions] ${ratings} Correct the record.`
+const planFinding = `- C [section:decisions] ${ratings} Correct the record.`
+const planningFinding = planFinding.replace("- C ", "- C [field:missing] ")
 const message = (subject: string, body = "", model = "gpt-6-astra high") =>
   `${subject}\n\n${model}\n${body === "" ? "" : `\n${body}\n`}`
 const stamp = (text: string, repository: Repository = "repo-edu") =>
@@ -100,14 +101,57 @@ test("every subject class derives only the severity its role admits", () => {
     message("example/audit oth clean: s"),
   )
   assert.equal(
-    stamp(message("example/audit oth: s", planFinding), "plan"),
-    message("example/audit oth C1: s", planFinding),
+    stamp(message("example/audit oth: s", planningFinding), "plan"),
+    message("example/audit oth C1: s", planningFinding),
   )
   assert.equal(
     stamp(message("oth C9 docs(x): s"), "plan"),
     message("oth docs(x): s"),
   )
   assert.throws(() => stamp(message("oth docs(x): s")), /graded finding bullet/)
+})
+
+test("only planning-audit findings carry a search direction", () => {
+  for (const location of ["[section:decisions]", "[area:area-x]"]) {
+    const finding = planFinding.replace("[section:decisions]", location)
+    for (const field of ["excess", "missing"]) {
+      const planning = finding.replace("- C ", `- C [field:${field}] `)
+      assert.equal(
+        stamp(message("example/audit oth: s", planning), "plan"),
+        message("example/audit oth C1: s", planning),
+      )
+      for (const subject of [
+        "example/impl-audit-all oth docs(x)",
+        "example/impl-audit-1-2 oth",
+        "oth docs(x)",
+      ]) {
+        assert.doesNotThrow(() =>
+          stamp(message(`${subject}: s`, finding), "plan"),
+        )
+        assert.throws(
+          () => stamp(message(`${subject}: s`, planning), "plan"),
+          /field.*only to a planning audit/,
+        )
+      }
+    }
+    for (const fields of [
+      "",
+      "[field:other] ",
+      "[field:missing] [field:excess] ",
+    ]) {
+      assert.throws(
+        () =>
+          stamp(
+            message(
+              "example/audit oth: s",
+              finding.replace("- C ", `- C ${fields}`),
+            ),
+            "plan",
+          ),
+        /field/,
+      )
+    }
+  }
 })
 
 test("a refused subject, missing model and disagreeing effort still stop the commit", () => {
@@ -136,7 +180,7 @@ test("a refused subject, missing model and disagreeing effort still stop the com
       /step .*not a number/,
     ],
     [
-      message("example/audit oth docs(x): s", planFinding),
+      message("example/audit oth docs(x): s", planningFinding),
       "plan",
       /no conventional kind/,
     ],
@@ -242,7 +286,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
           reject: false,
         },
       )
-    await writeFile(file, `example/audit o !a9: s\n\n${planFinding}\n`)
+    await writeFile(file, `example/audit o !a9: s\n\n${planningFinding}\n`)
     const result = await run("plan", {
       COMMIT_AUDITOR: "otx",
       COMMIT_PHASES: "audit: gpt-6-astra xhigh",
@@ -252,10 +296,29 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
       await readFile(file, "utf8"),
       message(
         "example/audit otx C1: s",
-        planFinding,
+        planningFinding,
         "audit: gpt-6-astra xhigh",
       ),
     )
+    for (const subject of [
+      "example/impl-audit-all oth docs(x)",
+      "example/impl-audit-all oth",
+      "oth docs(x)",
+    ]) {
+      await writeFile(file, message(`${subject}: s`, planFinding))
+      const accepted = await run("plan")
+      assert.equal(accepted.exitCode, 0, accepted.stderr)
+      assert.equal(
+        await readFile(file, "utf8"),
+        stamp(message(`${subject}: s`, planFinding), "plan"),
+      )
+      const input = message(`${subject}: s`, planningFinding)
+      await writeFile(file, input)
+      const refused = await run("plan")
+      assert.equal(refused.exitCode, 1)
+      assert.match(refused.stderr, /field.*only to a planning audit/)
+      assert.equal(await readFile(file, "utf8"), input)
+    }
     for (const area of [
       "tool-audit-round",
       "tool-audit-rounds",

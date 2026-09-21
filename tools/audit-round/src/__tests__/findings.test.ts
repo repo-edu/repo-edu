@@ -7,6 +7,7 @@ import { parseSubject } from "../subject.js"
 const strict = {
   strict: true,
   primaryAreas: new Set(["area-a", "area-b"]),
+  role: "audit",
 } as const
 const rating = "[growth:none] [reach:developer] [complexity:none]"
 

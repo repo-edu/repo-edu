@@ -107,6 +107,8 @@ const tagPattern = /^([ao])([btu])([lmhx])$/
 const growthPattern = /^(growth|pruning)-(low|medium|high)$/
 const sequencePattern =
   /^(!)?((?:[A-D](?:[1-9]\d*))+)?((?:[a-d](?:[1-9]\d*))+)?$/
+// The hook replaces authored counts before strict sequence validation.
+const authoredSeverityPattern = /^(?:clean|!?(?:[A-Da-d]\d+)+)$/
 const runPattern = /([A-Da-d])([1-9]\d*)/g
 const kindPattern = /^([a-z]+)\(([a-z0-9-]+)\)$/
 const stepPattern = /^[1-9]\d*$/
@@ -264,35 +266,51 @@ function classify(slots: Slots, repository: Repository): SubjectClass {
   }
 }
 
-/**
- * Parse one subject line under the repository's form. Throws a `SubjectError`
- * naming the first slot that does not fit.
- */
-export function parseSubject(line: string, repository: Repository): Subject {
+/** Locate the tag slots before the hook replaces severity or the parser validates them. */
+export function locateSubjectSlots(line: string) {
   const tokens = line.split(" ")
   const colon = tokens.findIndex((token) => token.endsWith(":"))
   if (colon === -1) fail("the subject needs a colon after its last tag")
   const tags = tokens.slice(0, colon + 1)
   tags[colon] = tags[colon].slice(0, -1)
   const sentence = tokens.slice(colon + 1).join(" ")
+  const tag = tags[0]?.includes("/") ? 1 : 0
+  let at = tag + 1
+  const growth = growthPattern.test(tags[at] ?? "") ? at++ : null
+  const severity = at
+  const hasSeverity = authoredSeverityPattern.test(tags[at] ?? "")
+  if (hasSeverity) at += 1
+  const kind = kindPattern.test(tags[at] ?? "") ? at++ : null
+  return { tags, sentence, tag, growth, severity, hasSeverity, kind, end: at }
+}
+
+/**
+ * Parse one subject line under the repository's form. Throws a `SubjectError`
+ * naming the first slot that does not fit.
+ */
+export function parseSubject(line: string, repository: Repository): Subject {
+  const located = locateSubjectSlots(line)
+  const { tags, sentence } = located
   if (sentence.trim().length === 0) fail("the subject needs a sentence")
   if (tags.some((token) => token.length === 0))
     fail("the tags are separated by single spaces")
-  let at = 0
-  const form = tags[0]?.includes("/") ? parseForm(tags[at++]) : null
-  const tag = parseTag(tags[at++])
-  const growth = at < tags.length ? parseGrowth(tags[at]) : null
-  if (growth !== null) at += 1
-  let severity: Severity | null = null
-  if (at < tags.length) {
-    severity = tags[at] === "clean" ? "clean" : parseSequence(tags[at])
-    if (severity !== null) at += 1
-  }
-  const kind = at < tags.length ? parseKind(tags[at]) : null
-  if (kind !== null) at += 1
-  if (at < tags.length)
+  const form = located.tag === 1 ? parseForm(tags[0]) : null
+  const tag = parseTag(tags[located.tag])
+  const growth =
+    located.growth === null ? null : parseGrowth(tags[located.growth])
+  const severity = located.hasSeverity
+    ? tags[located.severity] === "clean"
+      ? "clean"
+      : parseSequence(tags[located.severity])
+    : null
+  if (located.hasSeverity && severity === null)
     fail(
-      `the tag ${tags[at]} fits no slot; the order is form, tag, growth, severity, kind`,
+      `the tag ${tags[located.severity]} fits no slot; the sequence is invalid`,
+    )
+  const kind = located.kind === null ? null : parseKind(tags[located.kind])
+  if (located.end < tags.length)
+    fail(
+      `the tag ${tags[located.end]} fits no slot; the order is form, tag, growth, severity, kind`,
     )
   const slots: Slots = { form, tag, growth, severity, kind, sentence }
   return { class: classify(slots, repository), ...slots }

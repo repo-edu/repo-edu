@@ -34,7 +34,11 @@ export type Finding = {
 }
 
 type ReadMode =
-  | { readonly strict: true; readonly primaryAreas: ReadonlySet<string> }
+  | {
+      readonly strict: true
+      readonly primaryAreas: ReadonlySet<string>
+      readonly role: string | null
+    }
   | { readonly strict: false }
 
 /**
@@ -106,11 +110,12 @@ export function readFindings(
     )
       fail(`unknown primary area: ${location.value}`)
     if (mode.strict) {
+      const planning = repository === "plan" && mode.role === "audit"
       for (const token of [
         "growth",
         "reach",
         "complexity",
-        ...(repository === "plan" ? ["field"] : []),
+        ...(planning ? ["field"] : []),
       ]) {
         if (values(token).length !== 1)
           fail(`needs exactly one [${token}:...] token`)
@@ -123,10 +128,12 @@ export function readFindings(
         fail(`invalid [${String(issue.path[0])}:...]: ${issue.message}`)
       }
       if (
-        repository === "plan" &&
+        planning &&
         !z.enum(["excess", "missing"]).safeParse(values("field")[0]).success
       )
         fail("[field:...] must be excess or missing")
+      if (repository === "plan" && !planning && values("field").length > 0)
+        fail("[field:...] belongs only to a planning audit")
     }
     findings.push({
       tier: (start[1] ?? start[2]).toLowerCase() as TierLetter,
