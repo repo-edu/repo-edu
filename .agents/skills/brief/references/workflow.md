@@ -68,9 +68,15 @@ The `simple` requirement governs the brief. Beyond it:
   check something. Expand every acronym and coined term the first time.
 - Describe from the user's chair: what they do, what they see, and what
   happens instead of what they expect.
-- Tiers become plain words with the letter after them: `A` is the wrong
-  shape, `B` is a real bug, `C` is a detail an implementer would get wrong
-  and `D` is wording. Write "a real bug [B]", never "B-tier".
+- Tiers become plain words with the letter after them, in the words of the
+  rubric that graded the round; the transcript's first heading says which
+  kind of round it was. An implementation round grades under Repo Edu's
+  `CLAUDE.md`, **Implementation Review Findings**: `A` is data loss, a broken
+  core workflow or a wrong architecture, `B` is a real bug, `C` is a narrow
+  correctness or test-coverage issue and `D` is wording. A planning round
+  grades under the plan audit workflow's tiers: `A` is the wrong shape, `B`
+  is a real bug or a missing decision, `C` is a detail an implementer would
+  get wrong and `D` is wording. Write "a real bug [B]", never "B-tier".
 - Keep the transcript's numbering for findings and open items, so a reply in
   chat can point at them.
 
