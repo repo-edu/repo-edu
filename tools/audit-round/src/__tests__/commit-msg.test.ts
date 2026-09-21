@@ -9,7 +9,11 @@ import { stampCommitMessage } from "../commit-msg.js"
 import { type Repository, SubjectError } from "../subject.js"
 
 const none = { auditor: null, phases: null }
-const primaryAreas = new Set(["tool-audit-round", "area-x"])
+const areaKinds = new Map([
+  ["tool-audit-round", "partition"],
+  ["area-x", "partition"],
+  ["cover-llm-runtime", "cover"],
+])
 const ratings = "[growth:none] [reach:developer] [complexity:none]"
 const codeFinding = `- [C] [area:tool-audit-round] ${ratings} Correct the record.`
 const planFinding = `- C [section:decisions] ${ratings} Correct the record.`
@@ -17,7 +21,7 @@ const planningFinding = planFinding.replace("- C ", "- C [field:missing] ")
 const message = (subject: string, body = "", model = "gpt-6-astra high") =>
   `${subject}\n\n${model}\n${body === "" ? "" : `\n${body}\n`}`
 const stamp = (text: string, repository: Repository = "repo-edu") =>
-  stampCommitMessage(text, repository, none, primaryAreas)
+  stampCommitMessage(text, repository, none, areaKinds)
 
 test("the hook inserts and overwrites severity while preserving growth, prose and model records", () => {
   for (const authored of ["", "c9 ", "!B2d3 ", "clean ", "D0C2C1 "]) {
@@ -210,7 +214,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       message("example/impl-audit-all o clean fix(x): s", codeFinding),
       "repo-edu",
       stamps,
-      primaryAreas,
+      areaKinds,
     ),
     message(
       "example/impl-audit-all otx c1 fix(x): s",
@@ -219,7 +223,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
     ),
   )
   assert.equal(
-    stampCommitMessage("example/audit o: s\n", "plan", stamps, primaryAreas),
+    stampCommitMessage("example/audit o: s\n", "plan", stamps, areaKinds),
     message("example/audit otx clean: s", "", stamps.phases),
   )
   assert.equal(
@@ -227,7 +231,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       `example/impl-audit-2 a docs(x): s\n\n${planFinding}\n`,
       "plan",
       { ...stamps, auditor: "ath" },
-      primaryAreas,
+      areaKinds,
     ),
     message(
       "example/impl-audit-2 ath C1 docs(x): s",
@@ -241,7 +245,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       step,
       "repo-edu",
       { auditor: "otx", phases: null },
-      primaryAreas,
+      areaKinds,
     ),
     step,
   )
@@ -251,7 +255,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
         step.replace("gpt medium", "gpt high"),
         "repo-edu",
         { auditor: "otx", phases: null },
-        primaryAreas,
+        areaKinds,
       ),
     /disagree/,
   )
@@ -319,30 +323,52 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
       assert.match(refused.stderr, /field.*only to a planning audit/)
       assert.equal(await readFile(file, "utf8"), input)
     }
-    for (const area of [
-      "tool-audit-round",
-      "tool-audit-rounds",
-      "cover-llm-runtime",
-    ]) {
-      const input = message(
-        "oth fix(audit-round): correct the record",
-        codeFinding.replace("area:tool-audit-round", `area:${area}`),
-      )
-      await writeFile(file, input)
-      const checked = await run("repo-edu")
-      assert.equal(
-        checked.exitCode,
-        area === "tool-audit-round" ? 0 : 1,
-        checked.stderr,
-      )
-      if (area === "tool-audit-round")
-        assert.match(await readFile(file, "utf8"), /^oth c1 fix/)
-      else {
-        assert.match(checked.stderr, /unknown primary area/)
-        assert.match(checked.stderr, /subject-grammar\.md/)
-        assert.equal(await readFile(file, "utf8"), input)
+    for (const repository of ["repo-edu", "plan"] as const) {
+      const finding =
+        repository === "repo-edu"
+          ? codeFinding
+          : codeFinding.replace("- [C]", "- C")
+      for (const [location, accepted, reason] of [
+        ["[area:tool-audit-round]", true, null],
+        ["[area:tool-audit-rounds]", false, /unknown primary area/],
+        ["[area:cover-llm-runtime]", false, /unknown primary area/],
+        ["[area:tool-audit-round] [cover:cover-llm-runtime]", true, null],
+        [
+          "[area:tool-audit-round] [cover:tool-audit-round]",
+          false,
+          /unknown cover area/,
+        ],
+        [
+          "[area:tool-audit-round] [cover:retired-cover]",
+          false,
+          /unknown cover area/,
+        ],
+      ] as const) {
+        const input = message(
+          "oth fix(audit-round): correct the record",
+          finding.replace("[area:tool-audit-round]", location),
+        )
+        await writeFile(file, input)
+        const checked = await run(repository)
+        assert.equal(checked.exitCode, accepted ? 0 : 1, checked.stderr)
+        if (accepted)
+          assert.equal(await readFile(file, "utf8"), stamp(input, repository))
+        else {
+          assert.match(checked.stderr, reason)
+          assert.match(checked.stderr, /subject-grammar\.md/)
+          assert.equal(await readFile(file, "utf8"), input)
+        }
       }
     }
+    const joined = message(
+      "oth fix(audit-round): correct the record",
+      `${codeFinding}\n${codeFinding.replace("[C] ", "[C]")}`,
+    )
+    await writeFile(file, joined)
+    const joinedResult = await run("repo-edu")
+    assert.equal(joinedResult.exitCode, 1)
+    assert.match(joinedResult.stderr, /finding bullet.*needs location/)
+    assert.equal(await readFile(file, "utf8"), joined)
     const missing = message(
       "oth fix(audit-round): correct the record",
       codeFinding.replace("[reach:developer] ", ""),

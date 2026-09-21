@@ -6,7 +6,12 @@ import { parseSubject } from "../subject.js"
 
 const strict = {
   strict: true,
-  primaryAreas: new Set(["area-a", "area-b"]),
+  areaKinds: new Map([
+    ["area-a", "partition"],
+    ["area-b", "partition"],
+    ["cover-x", "cover"],
+    ["cover-y", "cover"],
+  ]),
   role: "audit",
 } as const
 const rating = "[growth:none] [reach:developer] [complexity:none]"
@@ -112,6 +117,44 @@ test("strict reads require each token and name the offending bullet", () => {
         ),
       key === "section" ? /location/ : new RegExp(key),
     )
+  }
+})
+
+test("a Repo Edu tier opening cannot hide a finding as prose", () => {
+  for (const tier of ["A", "B", "C", "D"]) {
+    for (const remainder of [
+      `[area:area-a] ${rating} Missing space.`,
+      "Prose without tokens.",
+    ]) {
+      assert.throws(
+        () =>
+          readFindings(
+            `- [C] [area:area-a] ${rating} Valid.\n- [${tier}]${remainder}`,
+            "repo-edu",
+            strict,
+          ),
+        /finding bullet on body line 2.*needs location/,
+      )
+    }
+  }
+})
+
+test("strict reads check every area and cover ID against its model kind", () => {
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const opening = repository === "repo-edu" ? "- [C]" : "- C [field:missing]"
+    const valid = `${opening} [area:area-a] [cover:cover-x] [cover:cover-y] ${rating} Correct.`
+    assert.equal(readFindings(valid, repository, strict).length, 1)
+    for (const [from, to, reason] of [
+      ["area:area-a", "area:retired-area", /unknown primary area/],
+      ["area:area-a", "area:cover-x", /unknown primary area/],
+      ["cover:cover-y", "cover:retired-cover", /unknown cover area/],
+      ["cover:cover-y", "cover:area-a", /unknown cover area/],
+    ] as const) {
+      assert.throws(
+        () => readFindings(valid.replace(from, to), repository, strict),
+        reason,
+      )
+    }
   }
 })
 

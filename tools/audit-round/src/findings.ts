@@ -36,7 +36,7 @@ export type Finding = {
 type ReadMode =
   | {
       readonly strict: true
-      readonly primaryAreas: ReadonlySet<string>
+      readonly areaKinds: ReadonlyMap<string, string>
       readonly role: string | null
     }
   | { readonly strict: false }
@@ -54,8 +54,8 @@ export function readFindings(
   const findings: Finding[] = []
   const opening = mode.strict
     ? repository === "repo-edu"
-      ? /^- \[([A-D])\](?: |$)/
-      : /^- ([A-D]) (?=\[)/
+      ? /^- \[([A-D])\]/
+      : /^- ([A-D])(?= \[)/
     : /^- (?:\[([A-C])\]|([A-C])) /
   for (const [index, line] of body.split("\n").entries()) {
     const start = opening.exec(line)
@@ -67,7 +67,7 @@ export function readFindings(
     }
     const remainder = line.slice(start[0].length)
     const prefix = mode.strict
-      ? /^((?:\[[^\]\n]+\](?: |$))+)(.*)$/.exec(remainder)
+      ? /^ ((?:\[[^\]\n]+\](?: |$))+)(.*)$/.exec(remainder)
       : /^((?:\[[^\]\n]+\] )+)\S/.exec(remainder)
     if (prefix === null || (mode.strict && prefix[2].trim().length === 0)) {
       if (mode.strict)
@@ -102,14 +102,15 @@ export function readFindings(
       key: deferred ? foreignKey : key,
       value: (deferred ? foreign : local)[0],
     }
-    if (
-      mode.strict &&
-      !deferred &&
-      repository === "repo-edu" &&
-      !mode.primaryAreas.has(location.value)
-    )
-      fail(`unknown primary area: ${location.value}`)
     if (mode.strict) {
+      for (const area of values("area")) {
+        if (mode.areaKinds.get(area) !== "partition")
+          fail(`unknown primary area: ${area}`)
+      }
+      for (const cover of values("cover")) {
+        if (mode.areaKinds.get(cover) !== "cover")
+          fail(`unknown cover area: ${cover}`)
+      }
       const planning = repository === "plan" && mode.role === "audit"
       for (const token of [
         "growth",

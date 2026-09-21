@@ -132,7 +132,7 @@ naming the workflow that ran, this repo with its short `HEAD` at audit time,
 the commit references as typed, the resolved range with its short shas and the
 statement that no plan covers the work. Then the coverage table with its two
 closing lines, then the run statement and pricing when one applies, then the
-numbered tiered findings.
+`## Findings` field.
 
 Write the report to this repo's root under the shared
 [round protocol](../../../references/round-protocol.md), with the audit kind

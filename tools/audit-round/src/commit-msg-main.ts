@@ -28,11 +28,7 @@ try {
       auditor: process.env.COMMIT_AUDITOR || null,
       phases: process.env.COMMIT_PHASES || null,
     },
-    new Set(
-      areaModel.areas
-        .filter((area) => area.kind === "partition")
-        .map((area) => area.id),
-    ),
+    new Map(areaModel.areas.map((area) => [area.id, area.kind])),
   )
   await writeFile(file, stamped)
 } catch (error) {

@@ -45,7 +45,7 @@ export function stampCommitMessage(
   text: string,
   repository: Repository,
   stamps: CommitStamps,
-  primaryAreas: ReadonlySet<string>,
+  areaKinds: ReadonlyMap<string, string>,
 ): string {
   const trailing = text.endsWith("\n")
   const lines = (trailing ? text.slice(0, -1) : text).split("\n")
@@ -66,7 +66,7 @@ export function stampCommitMessage(
       : stamps.auditor
   const findings = readFindings(lines.slice(1).join("\n"), repository, {
     strict: true,
-    primaryAreas,
+    areaKinds,
     role: form?.role ?? null,
   })
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
