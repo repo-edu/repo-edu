@@ -106,12 +106,8 @@ export function stampCommitMessage(
   if (stamps.phases === null) output.push(...lines.slice(1))
   else {
     output.push("", stamps.phases)
-    let at =
-      first === -1
-        ? lines.length
-        : modelLine.test(lines[first])
-          ? first + 1
-          : first
+    let at = first === -1 ? lines.length : first
+    while (at < lines.length && modelLine.test(lines[at])) at += 1
     while (at < lines.length && lines[at] === "") at += 1
     if (at < lines.length) output.push("")
     output.push(...lines.slice(at))

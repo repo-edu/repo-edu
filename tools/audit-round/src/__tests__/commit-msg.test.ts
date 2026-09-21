@@ -261,6 +261,36 @@ test("round stamps compose with the derived sequence and retain every finding", 
   )
 })
 
+test("round stamps replace the whole opening model record without changing on a second stamp", () => {
+  const stamps = {
+    auditor: "ath",
+    phases: "audit: claude-fable-5-1 high\nvet, fix: gpt-6-astra high",
+  }
+  const previous =
+    "audit: claude-fable-5-1 medium\nvet, fix: gpt-6-astra medium"
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const finding = repository === "repo-edu" ? codeFinding : planFinding
+    for (const body of [
+      "",
+      `${finding}\n\nRecord details\n\ngpt-6-astra low`,
+    ]) {
+      const input = message("example/impl-audit-all ath: s", body, previous)
+      const expected = message(
+        `example/impl-audit-all ath ${body === "" ? "clean" : repository === "repo-edu" ? "c1" : "C1"}: s`,
+        body,
+        stamps.phases,
+      )
+      const first = stampCommitMessage(input, repository, stamps, areaKinds)
+      assert.equal(first, expected)
+      assert.equal(
+        stampCommitMessage(first, repository, stamps, areaKinds),
+        expected,
+      )
+      assert.equal(stamp(first, repository), expected)
+    }
+  }
+})
+
 test("an amendment recalculates removed and regraded findings", () => {
   const original = message("example/impl-audit-all oth: s", codeFinding)
   const first = stamp(original)
