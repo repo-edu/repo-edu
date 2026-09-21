@@ -75,6 +75,11 @@ export async function roundFixture(
     "Fixture marker",
   )
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
+  // The command checks the plan where the phases open it, so both roots hold
+  // the plan and its widening artifact.
+  for (const root of [repoRoot, planDirectory])
+    for (const name of ["example.md", "example-widen.md"])
+      await writeFile(join(root, name), "# Example plan\n")
   const planRoot = await realpath(planDirectory)
   const outputRoot = working === "plan" ? planRoot : repoRoot
   const heads = {

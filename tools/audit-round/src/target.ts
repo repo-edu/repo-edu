@@ -31,6 +31,26 @@ function commitReference(value: string): boolean {
   return head !== null && Number.isSafeInteger(Number(head[1] ?? 0))
 }
 
+/**
+ * A reference attempt is judged as commits, so a malformed `HEAD-<n>` or
+ * range is refused as one, and a plan whose bare stem reads as a SHA keeps its
+ * `.md` to be told apart. A path separator marks a plan, so `../plan/<stem>`
+ * never reads as a range.
+ */
+function commitShaped(value: string): boolean {
+  return (
+    !value.includes("/") &&
+    (value.includes("..") ||
+      value.startsWith("HEAD") ||
+      /^[a-fA-F0-9]+$/.test(value))
+  )
+}
+
+/** A plan is named by its Markdown file; a bare stem gets the extension. */
+function planFile(value: string): string {
+  return value.endsWith(".md") ? value : `${value}.md`
+}
+
 /** Git resolution and inclusive-range admission belong to the audit workflow. */
 export function auditTarget(
   first: string,
@@ -38,17 +58,17 @@ export function auditTarget(
   kind: RoundKind = "implementation",
 ): AuditTarget {
   if (kind === "planning") {
-    if (!first.endsWith(".md") || rest.length > 0)
+    if (commitShaped(first) || rest.length > 0)
       throw new InvalidArgumentError(
-        "From the plan root, name only a .md artifact. Implementation and commit audits run from Repo Edu.",
+        "From the plan root, name only a plan artifact. Implementation and commit audits run from Repo Edu.",
       )
-    return { plan: first }
+    return { plan: planFile(first) }
   }
-  if (first.endsWith(".md")) {
+  if (!commitShaped(first)) {
     if (rest.length > 1)
       throw new InvalidArgumentError("A plan accepts at most one step scope.")
     return {
-      plan: first,
+      plan: planFile(first),
       scope: rest[0] === undefined ? undefined : stepScope(rest[0]),
     }
   }
@@ -62,6 +82,6 @@ export function auditTarget(
   )
     return { commits }
   throw new InvalidArgumentError(
-    "Name a .md plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
+    "Name a plan, a SHA, HEAD, HEAD-<n>, a list of commit references or an inclusive <from>..<to> range.",
   )
 }

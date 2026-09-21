@@ -14,6 +14,29 @@ test("plan targets retain their filename and optional step scope", () => {
     })
 })
 
+test("a plan named without its extension gets .md in either round kind", () => {
+  assert.deepEqual(auditTarget("phase-arguments", []), {
+    plan: "phase-arguments.md",
+    scope: undefined,
+  })
+  assert.deepEqual(auditTarget("../plan/phase-arguments", ["2"]), {
+    plan: "../plan/phase-arguments.md",
+    scope: "2",
+  })
+  assert.deepEqual(auditTarget("phase-arguments", [], "planning"), {
+    plan: "phase-arguments.md",
+  })
+  assert.deepEqual(auditTarget("example.md", [], "planning"), {
+    plan: "example.md",
+  })
+})
+
+test("commit-shaped names stay commits and are refused from the plan root", () => {
+  for (const first of ["HEAD", "HEAD-1", "abcdef", "HEAD-2..HEAD"])
+    assert.throws(() => auditTarget(first, [], "planning"))
+  assert.throws(() => auditTarget("phase-arguments", ["1"], "planning"))
+})
+
 test("commit targets preserve references for the workflow to resolve", () => {
   for (const commits of [
     ["HEAD"],
@@ -49,7 +72,8 @@ test("invalid targets and mixed plan/commit scopes are refused", () => {
     ["example.md", "3-1"],
     ["example.md", "9007199254740992"],
     ["example.md", "1", "2"],
-    ["unknown"],
+    ["phase-arguments", "1", "2"],
+    ["phase-arguments", "HEAD"],
   ])
     assert.throws(() => auditTarget(args[0], args.slice(1)))
 })

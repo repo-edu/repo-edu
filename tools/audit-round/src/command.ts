@@ -61,6 +61,21 @@ async function checkTranscript(
   return path
 }
 
+/** The plan a round audits, resolved where its phases open it. */
+async function checkPlan(
+  context: ExecutionContext,
+  plan: string,
+): Promise<void> {
+  const path = resolve(context.cwd, plan)
+  let file = false
+  try {
+    file = (await stat(path)).isFile()
+  } catch {
+    // The message below names the resolved file.
+  }
+  if (!file) throw new Error(`No plan file at ${path}.`)
+}
+
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
   | {
@@ -97,7 +112,7 @@ function parseInvocation(
     .exitOverride()
     .argument(
       "<target>",
-      "from the plan root: .md artifact alone; from Repo Edu: .md plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range",
+      "from the plan root: plan artifact alone; from Repo Edu: plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range. A plan named without .md gets the extension",
     )
     .argument(
       "[scope-or-commits...]",
@@ -203,6 +218,8 @@ export async function runCommand(
       throw new InvalidArgumentError(
         "Commit audits run once. --chain requires a plan target.",
       )
+    if (prepared.kind === "round" && "plan" in prepared.target)
+      await checkPlan(context, prepared.target.plan)
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
       { ...runtime, cwd: context.cwd },

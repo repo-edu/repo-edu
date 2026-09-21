@@ -183,8 +183,12 @@ consumers.
   workflow ownership never changes the working directory.
 - `target.ts` owns target validation and the target type: a plan with optional
   steps or a non-empty list of commit references from Repo Edu and an artifact
-  alone from the plan root. Planning starts reject step scopes and commit
-  references before assistant startup. The audit workflow owns Git
+  alone from the plan root. A plan named by its stem gets `.md`; a name shaped
+  like a commit reference, a range or a bare hex string is judged as commits,
+  so a plan whose stem reads as a SHA keeps its extension. Planning starts
+  reject step scopes and commit references before assistant startup.
+  `command.ts` checks that the plan file exists where the phases open it,
+  before any assistant starts. The audit workflow owns Git
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects `--chain` for commit targets, which run once without
   a trajectory glance or watch.

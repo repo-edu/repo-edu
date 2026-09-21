@@ -680,6 +680,32 @@ test("a brief on its own retells the named transcript without a new round pair",
   )
 })
 
+test("a plan named without its extension runs as its .md file", async (t) => {
+  const f = await roundFixture(t)
+  assert.equal(
+    await runCommand(["example", "2-3"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  const { log } = await f.records()
+  assert.ok(
+    log.includes(
+      `Phase arguments (JSON array): ["example-steps-2-3-01","example.md","2-3"]`,
+    ),
+  )
+})
+
+test("a missing plan file is refused before any assistant starts", async (t) => {
+  const f = await roundFixture(t)
+  for (const name of ["missing", "missing.md", "../plan/missing"]) {
+    assert.equal(await runCommand([name, "3"], f.runtime, f.options), 1)
+    assert.match(f.errors.at(-1) as string, /No plan file at .*missing\.md/)
+  }
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 test("a brief on its own refuses a transcript that is not a Markdown file at the root", async (t) => {
   const f = await roundFixture(t)
   await writeFile(join(f.repoRoot, "ROUND-example-old.md"), "Old transcript")
