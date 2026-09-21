@@ -105,11 +105,14 @@ what it holds.
    was agreed. A dropped finding says why it was dropped and, when the
    rebuttal left a note for a later round, what the note says.
 5. **The ratings**: one table over the findings, in the report's order, with
-   the columns Finding, Reach and Complexity. The finding cell is the number
-   and short title. The reach cell is the rating followed by the condition in
+   the columns Finding, Tier, Reach and Complexity. The finding cell is the
+   number and short title. The tier cell is the letter the finding ended the
+   round with, `A`, `B`, `C` or `D`, so the table shows the tier the commit
+   sequence counts. The reach cell is the rating followed by the condition in
    words. The complexity cell is the rating followed by what the correction
    adds or removes in a few words. A rating the vet changed shows both
-   values, such as "developer, raised to rare by the vet". A dropped finding
+   values, such as "developer, raised to rare by the vet"; a tier the vet or
+   the rebuttal changed shows both letters the same way. A dropped finding
    keeps its row and says so. The area tokens stay out of the table, because
    the finding's title already says where the problem sits.
 6. **The fix**: what the fix phase did. When it landed, what it changed and
