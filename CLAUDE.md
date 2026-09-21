@@ -481,10 +481,11 @@ every phase's reported model and that session does not. A session committing on
 its own writes its own line: it knows the model it was told to run and reads its
 effort from the environment.
 
-The commit hook of each repo writes the record when a round supplies it and
-refuses any commit whose body does not open with one. It checks the line's shape
-rather than a list of model names, so a new model family needs no edit here, and
-it refuses a single-model record whose effort disagrees with the subject's tag.
+Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the
+record when a round supplies it. Each hook refuses any commit whose body does
+not open with a model record. It checks the line's shape rather than a list of
+model names, so a new model family needs no edit here. It also refuses a
+single-model record whose effort disagrees with the subject's tag.
 
 ## Vocabulary
 
