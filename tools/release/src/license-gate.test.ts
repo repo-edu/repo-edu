@@ -8,11 +8,13 @@ import { koffiRuntimePackageName } from "./license-gate/runtime-desktop.js"
 import {
   currentReleasePlatform,
   desktopTargetsForPlatform,
+  enumerateRealProductionDependencies,
   forbidElectronRuntimeInstallEnv,
   repoRoot,
   restoreEnv,
 } from "./license-gate/test-support.js"
 import {
+  findReachedPackageByReachedName,
   runLicenseGate,
   validateLicenseGateArtifactTargets,
 } from "./license-gate.js"
@@ -116,13 +118,18 @@ describe("ripgrep notice evidence", () => {
       assert.match(manifest, /ripgrep vendored by @openai\/codex/)
       assert.ok(manifest.includes(koffiRuntimePackageName(platform)))
       assert.match(manifest, /vendored vendor\/.*\/codex-path\/rg/)
-      assert.match(
-        manifest,
-        /root @openai\/codex 0\.147\.0 layout from vendor\/.*\/codex-package\.json/,
+      const dependencies =
+        await enumerateRealProductionDependencies("@repo-edu/desktop")
+      const codex = findReachedPackageByReachedName(
+        dependencies.productionReached,
+        "@openai/codex",
       )
-      assert.doesNotMatch(
-        manifest,
-        /root @openai\/codex 0\.147\.0-darwin-arm64/,
+      assert.ok(codex)
+      assert.equal(
+        /root @openai\/codex (\S+) layout from vendor\/.*\/codex-package\.json/.exec(
+          manifest,
+        )?.[1],
+        codex.version,
       )
       assert.match(manifest, /notice text from committed ripgrep 15\.2\.0/)
       assert.match(manifest, /This project is dual-licensed/)

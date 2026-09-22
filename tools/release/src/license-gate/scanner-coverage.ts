@@ -3,7 +3,7 @@ import {
   type ScannedPackageNotice,
   scanPackageNoticesFromStart,
 } from "./scanner.js"
-import { canonicalPackagePath, packageKey } from "./shared.js"
+import { canonicalPackagePath, packageKey, readPackageJson } from "./shared.js"
 import type { NoticeEntry, ReachedPackage } from "./types.js"
 
 type ScannerCoverage = {
@@ -17,7 +17,10 @@ export async function completeScannerPackageNotices(
 ): Promise<ScannedPackageNotice[]> {
   const supplementalPackages: ScannedPackageNotice[] = []
   for (const pkg of scannerMisses(options)) {
-    if (!pkg.packageDirectoryExists || isExpectedScannerMiss(pkg)) {
+    if (
+      !pkg.packageDirectoryExists ||
+      isExpectedScannerMiss(pkg, options.thirdParty)
+    ) {
       continue
     }
 
@@ -56,7 +59,7 @@ export async function completeScannerPackageNotices(
 
 export function assertScannerParity(options: ScannerCoverage): void {
   const unexpected = scannerMisses(options).filter(
-    (pkg) => !isExpectedScannerMiss(pkg),
+    (pkg) => !isExpectedScannerMiss(pkg, options.thirdParty),
   )
   if (unexpected.length > 0) {
     throw new Error(
@@ -111,9 +114,13 @@ function baseIdentity(pkg: {
   return `${pkg.packageName}@${pkg.version}`
 }
 
-function isExpectedScannerMiss(pkg: ReachedPackage): boolean {
+function isExpectedScannerMiss(
+  pkg: ReachedPackage,
+  thirdParty: readonly ReachedPackage[],
+): boolean {
   return (
-    isOpenAiCodexPlatformOptional(pkg) || isAbsentKoffiPlatformOptional(pkg)
+    isOpenAiCodexPlatformOptional(pkg) ||
+    isAbsentKoffiPlatformOptional(pkg, thirdParty)
   )
 }
 
@@ -121,16 +128,35 @@ function isOpenAiCodexPlatformOptional(pkg: ReachedPackage): boolean {
   return /^@openai\/codex-(?:darwin|linux|win32)-/.test(pkg.reachedName)
 }
 
-function isAbsentKoffiPlatformOptional(pkg: ReachedPackage): boolean {
+function isAbsentKoffiPlatformOptional(
+  pkg: ReachedPackage,
+  thirdParty: readonly ReachedPackage[],
+): boolean {
   return (
     !pkg.packageDirectoryExists &&
-    /^@koromix\/koffi-(?:darwin|freebsd|linux|openbsd|win32)-/.test(
-      pkg.reachedName,
-    ) &&
+    pkg.reachedName.startsWith("@koromix/koffi-") &&
     pkg.paths.length > 0 &&
-    pkg.paths.every(
-      (path) => path.at(-1) === pkg.reachedName && path.at(-2) === "koffi",
-    )
+    pkg.paths.every((path) => {
+      const parent = thirdParty.find(
+        (candidate) =>
+          candidate.packageName === "koffi" &&
+          candidate.reachedName === "koffi" &&
+          candidate.packageDirectoryExists &&
+          path.at(-1) === pkg.reachedName &&
+          candidate.paths.some(
+            (parentPath) =>
+              parentPath.length === path.length - 1 &&
+              parentPath.every((segment, index) => segment === path[index]),
+          ),
+      )
+      return (
+        parent !== undefined &&
+        Object.hasOwn(
+          readPackageJson(parent.packagePath).optionalDependencies ?? {},
+          pkg.reachedName,
+        )
+      )
+    })
   )
 }
 

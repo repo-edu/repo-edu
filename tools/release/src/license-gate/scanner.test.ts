@@ -117,6 +117,40 @@ describe("scanner package notices", () => {
     )
   })
 
+  it("uses metadata evidence for Codex 0.155.1 instead of its README", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      await writePackage(root, "", {
+        name: "@repo-edu/scanner-fixture",
+        version: "1.0.0",
+        private: true,
+        dependencies: { "@openai/codex": "0.155.1" },
+      })
+      await writePackage(
+        root,
+        "node_modules/@openai/codex",
+        {
+          name: "@openai/codex",
+          version: "0.155.1",
+          license: "Apache-2.0",
+        },
+        {
+          "README.md":
+            "Codex CLI installation instructions.\nThis repository is licensed under the [Apache-2.0 License](LICENSE).\n",
+        },
+      )
+
+      const [codex] = await scanPackageNoticesFromStart(root)
+      assert.ok(codex)
+      assert.equal(codex.licenseExpression, "Apache-2.0")
+      assert.equal(codex.licenseText, undefined)
+      assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
+      assert.match(codex.source, /metadata clarification/)
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
+
   it("scans production closure packages omitted from package-manifest traversal", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
@@ -225,7 +259,7 @@ describe("scanner parity guard", () => {
     )
   })
 
-  it("keeps Codex and absent Koffi platform optional misses benign", () => {
+  it("keeps Codex platform optional misses benign", () => {
     assert.doesNotThrow(() =>
       assertScannerParity({
         scannerPackages: [],
@@ -235,13 +269,89 @@ describe("scanner parity guard", () => {
             version: "0.128.0-linux-x64",
             packageDirectoryExists: false,
           }),
-          reachedPackage("@koromix/koffi-linux-x64", {
-            packageDirectoryExists: false,
-            path: ["@repo-edu/host-node", "koffi", "@koromix/koffi-linux-x64"],
-          }),
         ],
       }),
     )
+  })
+
+  it("exempts only absent platform packages declared optional by their reached Koffi parent", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+    try {
+      const koffiPath = await writePackage(
+        root,
+        "node_modules/koffi",
+        {
+          name: "koffi",
+          version: "3.3.1",
+          optionalDependencies: {
+            "@koromix/koffi-android-arm64": "3.3.1",
+            "@koromix/koffi-android-x64": "3.3.1",
+            "@koromix/koffi-linux-x64": "3.3.1",
+          },
+        },
+        { LICENSE: "Koffi fixture license text\n" },
+      )
+      const koffi = reachedPackage("koffi", {
+        version: "3.3.1",
+        packagePath: koffiPath,
+        path: ["@repo-edu/host-node", "koffi"],
+      })
+      const absentPackages = [
+        "@koromix/koffi-android-arm64",
+        "@koromix/koffi-android-x64",
+        "@koromix/koffi-linux-x64",
+      ].map((name) =>
+        reachedPackage(name, {
+          version: "3.3.1",
+          packageDirectoryExists: false,
+          path: [...koffi.path, name],
+        }),
+      )
+      const scannerPackages = await completeScannerPackageNotices({
+        scannerPackages: [],
+        thirdParty: [koffi, ...absentPackages],
+        sourceRoot: root,
+      })
+      assert.deepEqual(
+        scannerPackages.map((entry) => entry.name),
+        ["koffi"],
+      )
+
+      const name = "@koromix/koffi-android-arm64"
+      for (const unexpected of [
+        reachedPackage(name, { path: [...koffi.path, name] }),
+        reachedPackage("@koromix/koffi-undeclared-x64", {
+          packageDirectoryExists: false,
+          path: [...koffi.path, "@koromix/koffi-undeclared-x64"],
+        }),
+        reachedPackage(name, {
+          packageDirectoryExists: false,
+          path: ["other-runtime", name],
+        }),
+        reachedPackage(name, {
+          packageDirectoryExists: false,
+          paths: [
+            [...koffi.path, name],
+            ["other-runtime", name],
+          ],
+        }),
+        reachedPackage(name, {
+          packageDirectoryExists: false,
+          path: ["unrelated-parent", "koffi", name],
+        }),
+      ]) {
+        assert.throws(
+          () =>
+            assertScannerParity({
+              scannerPackages,
+              thirdParty: [koffi, unexpected],
+            }),
+          /missed production package/,
+        )
+      }
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 
   it("requires explicit runtime evidence for the installed Koffi package", () => {

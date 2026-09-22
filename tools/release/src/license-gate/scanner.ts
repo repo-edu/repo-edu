@@ -34,15 +34,17 @@ const scannerCustomFormat = {
   noticeFile: "",
 } as const
 
-// Third-party packages that ship no scanner-discoverable license file and so
-// rely on metadata-only evidence. Keys are pinned to the installed
-// `name@version` because license-checker matches clarifications by exact
-// version: a Codex package bump invalidates the key, the scanner
-// then reports no license file and the gate fails closed until the pin is
-// refreshed against pnpm-lock.yaml. The gate re-checks the license evidence
-// whenever the package changes.
+// Packages with reviewed metadata-only evidence. Keys are exact `name@version`
+// matches. Review new versions before adding them: the scanner can return a
+// README as license text when a clarification is missing. The real-graph test
+// requires explicit metadata evidence for Codex to catch a stale clarification.
 const checkerClarifications = {
   "@openai/codex@0.147.0": {
+    license: "Apache-2.0",
+    context:
+      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
+  },
+  "@openai/codex@0.155.1": {
     license: "Apache-2.0",
     context:
       "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
@@ -179,8 +181,8 @@ async function toScannedPackageNotice(
     noticeText,
   } as const
 
-  // A clarified package is the only metadata-only path: it carries no scanner
-  // license file by design, so it skips the file/text requirement below.
+  // A clarified package is the only metadata-only path. Ignore scanner text,
+  // which may come from a README rather than a dedicated license file.
   const clarification = checkerClarificationFor(`${packageName}@${version}`)
   if (clarification) {
     return {

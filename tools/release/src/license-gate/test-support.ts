@@ -67,6 +67,7 @@ export async function writePackage(
     readonly license?: string
     readonly private?: boolean
     readonly dependencies?: Record<string, string>
+    readonly optionalDependencies?: Record<string, string>
   },
   files?: Record<string, string>,
 ): Promise<string> {

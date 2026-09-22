@@ -70,6 +70,7 @@ export type PackageJson = {
   readonly name?: string
   readonly version?: string
   readonly license?: string
+  readonly optionalDependencies?: Readonly<Record<string, string>>
   readonly author?: string | { readonly name?: string }
   readonly homepage?: string
   readonly description?: string
