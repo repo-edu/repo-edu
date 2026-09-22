@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
-import { runCommand } from "../command.js"
+import { runCommand } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -231,7 +231,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const watch = transcript.replace("-ouh-round.md", "-auh-watch.md")
+        const watch = transcript.replace("-ouh-round.md", "-ouh-watch.md")
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,

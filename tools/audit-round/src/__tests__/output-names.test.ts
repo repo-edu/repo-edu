@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { briefRun, RoundOutput, roundRun } from "../output.js"
+import { briefRun, RoundOutput, roundRun } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
@@ -26,7 +26,7 @@ test("different auditors cannot open the same candidate and the next run advance
     basename(next.paths.markdown),
     "example-steps-2-4-02-abx-round.md",
   )
-  assert.equal(basename(next.watch), "example-steps-2-4-02-abx-watch.md")
+  assert.equal(basename(next.watch), "example-steps-2-4-02-oth-watch.md")
   new RoundOutput(next, options).close()
 })
 
@@ -239,7 +239,7 @@ test("planning rounds share the bare target number across roots and write at the
     run.paths.markdown,
     join(context.planRoot, "example-06-oth-round.md"),
   )
-  assert.equal(run.watch, join(context.planRoot, "example-06-abx-watch.md"))
+  assert.equal(run.watch, join(context.planRoot, "example-06-oth-watch.md"))
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,

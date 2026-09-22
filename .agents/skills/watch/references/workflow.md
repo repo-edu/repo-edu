@@ -1,13 +1,12 @@
 # Watch workflow
 
-One shared workflow behind two passes. The Claude command
-`.claude/commands/watch.md` writes the draft. The watch edit rewrites it and
-has two launchers of its own, the Codex skill `.agents/skills/watch-edit/SKILL.md`
-that the round runs and the Claude command `.claude/commands/watch-edit.md`
-for the user's hand. Each launcher carries only what is specific to it and
-points here for the rest, so they cannot drift apart. Where a launcher and this
-file disagree, this file is right. There is no Codex skill beside this file,
-because Claude writes the draft.
+One shared workflow behind two passes. The Codex skills
+`.agents/skills/watch/SKILL.md` and `.agents/skills/watch-edit/SKILL.md` write
+the draft and rewrite it. Claude has matching commands at
+`.claude/commands/watch.md` and `.claude/commands/watch-edit.md`. The runner's
+settings select each pass's assistant. Each launcher carries only what is
+specific to it and points here for the rest. Where a launcher and this file
+disagree, this file is right.
 
 The trajectory watch is a document, written after an automated planning or plan-scoped
 implementation-audit round whose glance said a watch was due. It is the document the user decides

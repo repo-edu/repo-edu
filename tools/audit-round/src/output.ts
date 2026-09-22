@@ -31,6 +31,7 @@ import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
+import type { RoundSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
 /** The rule that sets a phase start or a glance off from what came before. */
@@ -45,6 +46,7 @@ export type OutputOptions = {
 
 /** What one command run is called, which phases it runs and where it records. */
 export type Run = {
+  readonly settings: RoundSettings
   /** The run's kind, as the terminal names it when it ends. */
   readonly name: string
   readonly title: string
@@ -95,8 +97,9 @@ async function targetDescription(target: RoundSetup): Promise<{
 function fileTag(
   entry: RunEntry,
   selections: Record<Assistant, ModelSelection>,
+  settings: RoundSettings,
 ): string {
-  const tag = capabilityTag(entry, selections[entry.assistant])
+  const tag = capabilityTag(entry, selections[entry.assistant], settings)
   if (tag !== null) return tag
   const advice =
     entry.phase === "audit" || entry.phase === "rebut"
@@ -140,6 +143,7 @@ export async function roundRun(
   setup: RoundSetup,
   started: number,
   selections: Record<Assistant, ModelSelection>,
+  settings: RoundSettings,
   /**
    * The round's place in a chain, for the title only. Disk claims own filenames.
    */
@@ -152,25 +156,26 @@ export async function roundRun(
   }
 > {
   const phases = roundPhases(
-    setup.auditor ?? "codex",
+    setup.auditor ?? settings.defaultAuditor,
     setup.override ?? noOverride,
+    settings,
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   for (const phase of Object.keys(phases) as Phase[]) {
     if (!phase.startsWith("watch") || "plan" in setup)
-      fileTag(entry(phase), selections)
+      fileTag(entry(phase), selections, settings)
   }
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)
   const base = join(
     setup.cwd,
-    `${nameStart}-${fileTag(entry("audit"), selections)}-round`,
+    `${nameStart}-${fileTag(entry("audit"), selections, settings)}-round`,
   )
   return {
     nameStart,
     watch: join(
       setup.cwd,
-      `${nameStart}-${fileTag(entry("watch"), selections)}-watch.md`,
+      `${nameStart}-${fileTag(entry("watch"), selections, settings)}-watch.md`,
     ),
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
@@ -188,6 +193,7 @@ export async function roundRun(
       markdown: `${base}.md`,
     },
     selections,
+    settings,
     started,
   }
 }
@@ -209,21 +215,23 @@ export function briefRun(
   transcript: string,
   started: number,
   selections: Record<Assistant, ModelSelection>,
+  settings: RoundSettings,
 ): Run {
   const phase = {
     phase: "brief",
-    ...roundPhases("codex", noOverride).brief,
+    ...roundPhases("codex", noOverride, settings).brief,
   } as const
   return {
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
     phases: [phase],
+    settings,
     selections,
     paths: {
       claim: null,
       log: join(
         dirname(transcript),
-        `${transcriptNameStart(transcript)}-${fileTag(phase, selections)}-brief.log`,
+        `${transcriptNameStart(transcript)}-${fileTag(phase, selections, settings)}-brief.log`,
       ),
       markdown: null,
     },
@@ -329,7 +337,7 @@ export class RoundOutput<R extends Run = Run> {
    * round that skipped the vet and the rebuttal stamps neither.
    */
   commitStamps = (): ReturnType<typeof commitStamps> =>
-    commitStamps(this.run.phases, this.ran)
+    commitStamps(this.run.phases, this.ran, this.run.settings)
 
   private say(
     text: string,

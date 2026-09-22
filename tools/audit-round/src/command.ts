@@ -36,6 +36,7 @@ import {
   runBrief,
   runRound,
 } from "./round.js"
+import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { auditTarget } from "./target.js"
 import { readVet } from "./vet.js"
@@ -82,7 +83,7 @@ type Invocation =
       readonly kind: "round"
       readonly first: string
       readonly rest: readonly string[]
-      readonly auditor: AuditorSeat
+      readonly auditor?: AuditorSeat
       readonly chain?: boolean
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
@@ -121,17 +122,15 @@ function parseInvocation(
     .addOption(
       new Option(
         "--auditor <tag>",
-        "capability tag of the assistant that audits, as a commit subject spells it: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A named field binds the audit and its rebuttal; an unnamed one follows that assistant's own settings. Codex always fixes and briefs.",
-      )
-        .argParser((value) => {
-          const seat = parseAuditorTag(value)
-          if (seat === null)
-            throw new InvalidArgumentError(
-              "Expected a capability tag, as o, at or otx.",
-            )
-          return seat
-        })
-        .default({ assistant: "codex", ...noOverride } as AuditorSeat, "o"),
+        "capability tag of the assistant that audits, as a commit subject spells it: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A named field binds the audit and its rebuttal; an unnamed one follows settings.json, then that assistant's own settings. The default auditor comes from settings.json. Codex always fixes.",
+      ).argParser((value) => {
+        const seat = parseAuditorTag(value)
+        if (seat === null)
+          throw new InvalidArgumentError(
+            "Expected a capability tag, as o, at or otx.",
+          )
+        return seat
+      }),
     )
     .option(
       "--chain",
@@ -147,7 +146,7 @@ function parseInvocation(
         first: string,
         rest: string[],
         flags: {
-          auditor: AuditorSeat
+          auditor?: AuditorSeat
           chain?: boolean
           watch: boolean
           verbose?: boolean
@@ -185,11 +184,11 @@ export async function runCommand(
     readonly emergency: (text: string) => void
     readonly cacheRoot?: string
     readonly repoEduRoot?: string
+    readonly settings?: RoundSettings
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
   if (typeof invocation === "number") return invocation
-
   let output: RoundOutput | undefined
   let result: RoundResult | BriefResult | undefined
   let code = 1
@@ -220,6 +219,7 @@ export async function runCommand(
       )
     if (prepared.kind === "round" && "plan" in prepared.target)
       await checkPlan(context, prepared.target.plan)
+    const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
       { ...runtime, cwd: context.cwd },
@@ -284,7 +284,7 @@ export async function runCommand(
 
     if (prepared.kind === "brief") {
       const { transcript } = prepared
-      const active = open(briefRun(transcript, now(), selections))
+      const active = open(briefRun(transcript, now(), selections, settings))
       result = await runBrief(
         {
           ...context,
@@ -295,24 +295,30 @@ export async function runCommand(
           transcript,
         },
         dependenciesFor(active),
+        settings,
       )
       active.finish(result)
     } else {
+      const seat = prepared.auditor ?? {
+        assistant: settings.defaultAuditor,
+        ...noOverride,
+      }
       const setup = {
         ...context,
         ...prepared.target,
         override: {
-          strength: prepared.auditor.strength,
-          effort: prepared.auditor.effort,
+          strength: seat.strength,
+          effort: seat.effort,
         },
       }
-      let auditor = prepared.auditor.assistant
+      let auditor = seat.assistant
       let completed = 0
       for (;;) {
         const run = await roundRun(
           { ...setup, auditor },
           now(),
           selections,
+          settings,
           prepared.chain === true ? completed + 1 : undefined,
         )
         const active = open(run)
@@ -330,6 +336,7 @@ export async function runCommand(
               : null,
           },
           dependenciesFor(active),
+          settings,
         )
         result = round
         active.finish(round)
@@ -338,7 +345,7 @@ export async function runCommand(
         const decision = chainDecision(
           round,
           auditor,
-          prepared.auditor.assistant,
+          seat.assistant,
           completed,
         )
         await active.message(chainText(decision, completed, chainCap))

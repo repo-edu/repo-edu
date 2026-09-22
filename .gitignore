@@ -46,6 +46,7 @@ plan/
 
 # Tools
 .rumdl_cache/
+tools/audit-round/settings.json
 
 # pnpm sweep skip cache: disposable, hash-keyed, never committed.
 # The tracked refactor backlog lives beside it under tools/sweep.

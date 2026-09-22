@@ -1,8 +1,7 @@
 import assert from "node:assert/strict"
 import { basename } from "node:path"
 import { test } from "node:test"
-import { RoundOutput, roundRun } from "../output.js"
-import { unpinned } from "../phase.js"
+import { RoundOutput, roundRun, unpinned } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 for (const { zone, instant, timestamp } of [

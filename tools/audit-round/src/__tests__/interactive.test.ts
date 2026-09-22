@@ -5,8 +5,7 @@ import { test } from "node:test"
 import { assistantDependencies } from "../assistant.js"
 import { decodeCodexSessionFeedback } from "../codex-session-feedback.js"
 import { recordInteractiveSession } from "../interactive.js"
-import { RoundOutput, roundRun } from "../output.js"
-import { unpinned } from "../phase.js"
+import { RoundOutput, roundRun, unpinned } from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 const jsonl = (...records: unknown[]) =>

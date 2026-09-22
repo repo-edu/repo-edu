@@ -26,6 +26,7 @@ import { eventSchema, type Feedback } from "./feedback.js"
 import { RoundOutput } from "./output.js"
 import { type Assistant, unpinned } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
+import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
 export const contractPrompt = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","file":null,"reason":null}`
@@ -140,6 +141,7 @@ export async function recordContracts(
         : readCodexSettings)(runtime, async (text) => terminal.write(text))
       const output = new RoundOutput(
         {
+          settings: defaultSettings,
           name: "CLI contract",
           title: `CLI contract for ${assistant}`,
           phases: [{ phase: "fix", assistant, model: unpinned }],

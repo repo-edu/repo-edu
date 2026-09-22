@@ -4,8 +4,12 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
-import { type Assistant, type PhaseInput, unpinned } from "../phase.js"
 import { recoveryCommand } from "../requests.js"
+import {
+  type Assistant,
+  type PhaseInput,
+  unpinned,
+} from "./configured-runner.js"
 import {
   finishedText,
   fixture,

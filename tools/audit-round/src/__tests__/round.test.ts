@@ -4,32 +4,30 @@ import { test } from "node:test"
 import type { GlanceDecision, GlanceInput } from "../glance.js"
 import {
   type Assistant,
+  chainCap,
+  chainDecision,
   type InteractiveSession,
   type Phase,
   type PhaseInput,
   type PhaseResult,
   type PinnedModel,
   type RoundDependencies,
-  unpinned,
-} from "../phase.js"
-import {
-  chainCap,
-  chainDecision,
   rebuttalSessionId,
   runBrief,
   runRound,
-} from "../round.js"
+  unpinned,
+} from "./configured-runner.js"
 import { testContext } from "./helpers.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
 const briefPin: PinnedModel = {
-  model: { value: "gpt-5.6-terra", source: "phase pin" },
-  effort: { value: "low", source: "phase pin" },
+  model: { value: "gpt-5.6-terra", source: "settings.json" },
+  effort: { value: "low", source: "settings.json" },
 }
 /** Both edit passes name Codex's base tier, whoever audited. */
 const editPin: PinnedModel = {
-  model: { value: "gpt-5.6-sol", source: "phase pin" },
-  effort: { value: "medium", source: "phase pin" },
+  model: { value: "gpt-5.6-sol", source: "settings.json" },
+  effort: { value: "medium", source: "settings.json" },
 }
 
 const repoRoot = "/workspace/repo-edu"
@@ -228,7 +226,7 @@ function runner(
 ): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
   if (phase === "vet") return vetAssistant
-  return phase === "rule" || phase === "watch" ? "claude" : "codex"
+  return phase === "rule" ? "claude" : "codex"
 }
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -419,7 +417,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
   assert.deepEqual(round.calls.slice(5), [
     {
       phase: "watch",
-      assistant: "claude",
+      assistant: "codex",
       model: unpinned,
       ...testContext(repoRoot),
       ownerRoot: repoRoot,

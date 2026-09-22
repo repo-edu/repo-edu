@@ -3,9 +3,9 @@ import { test } from "node:test"
 import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
-import { unpinned } from "../phase.js"
 import { phaseResult } from "../phase-result.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
+import { unpinned } from "./configured-runner.js"
 import { testContext } from "./helpers.js"
 
 for (const phase of [

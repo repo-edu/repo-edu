@@ -1,13 +1,12 @@
 # Ruling workflow
 
-One shared workflow behind two passes. The Claude command
-`.claude/commands/rule.md` writes the draft. The rule edit rewrites it and has
-two launchers of its own, the Codex skill `.agents/skills/rule-edit/SKILL.md`
-that the round runs and the Claude command `.claude/commands/rule-edit.md` for
-the user's hand. Each launcher carries only what is specific to it and points
-here for the rest, so they cannot drift apart. Where a launcher and this file
-disagree, this file is right. There is no Codex skill beside this file, because
-Claude writes the draft.
+One shared workflow behind two passes. The Codex skills
+`.agents/skills/rule/SKILL.md` and `.agents/skills/rule-edit/SKILL.md` write
+the draft and rewrite it. Claude has matching commands at
+`.claude/commands/rule.md` and `.claude/commands/rule-edit.md`. The runner's
+settings select each pass's assistant. Each launcher carries only what is
+specific to it and points here for the rest. Where a launcher and this file
+disagree, this file is right.
 
 The ruling is written when the fix phase of a planning or implementation-audit round stops
 for the user's decision. It is the document the user rules from. The round's

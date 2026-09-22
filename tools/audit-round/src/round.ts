@@ -15,6 +15,7 @@ import {
   type Tier,
 } from "./phase.js"
 import type { ReportFindings } from "./report.js"
+import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
 import type { AuditTarget } from "./target.js"
 
@@ -142,9 +143,10 @@ export function rebuttalSessionId(
 export async function runBrief(
   input: BriefInput,
   dependencies: Pick<RoundDependencies, "runPhase">,
+  settings: RoundSettings,
 ): Promise<BriefResult> {
-  // The brief pins its own model, so no override reaches this phase.
-  const run = roundPhases("codex", noOverride).brief
+  // The brief uses its own settings, so no auditor override reaches this phase.
+  const run = roundPhases("codex", noOverride, settings).brief
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
   const brief = await dependencies.runPhase.brief({
@@ -180,10 +182,11 @@ export async function runBrief(
 async function runWatch(
   input: ExecutionContext & Pick<RoundInput, "watch">,
   dependencies: Pick<RoundDependencies, "runPhase" | "glance">,
+  settings: RoundSettings,
 ): Promise<RoundFailure | null> {
   if (input.watch === null) return null
-  // The watch is Claude's whoever audited, and the override binds only the auditor.
-  const phases = roundPhases("codex", noOverride)
+  // The watch uses its configured assistant, independently of the auditor.
+  const phases = roundPhases("codex", noOverride, settings)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
   const glance = await dependencies.glance({
@@ -228,10 +231,12 @@ async function runWatch(
 export async function runRound(
   input: RoundInput,
   dependencies: RoundDependencies,
+  settings: RoundSettings,
 ): Promise<RoundResult> {
   const phases = roundPhases(
-    input.auditor ?? "codex",
+    input.auditor ?? settings.defaultAuditor,
     input.override ?? noOverride,
+    settings,
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
@@ -382,11 +387,12 @@ export async function runRound(
   const brief = await runBrief(
     { ...context, transcript: input.transcript },
     dependencies,
+    settings,
   )
   if (brief.status === "failed") return brief
   if (fix.status === "finished") {
     if ("plan" in input) {
-      const watched = await runWatch(input, dependencies)
+      const watched = await runWatch(input, dependencies, settings)
       if (watched !== null) return watched
     }
     return { status: "finished", report, tier }

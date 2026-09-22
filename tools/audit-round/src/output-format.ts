@@ -11,6 +11,7 @@ import {
   transcribed,
 } from "./phase.js"
 import type { ChainDecision } from "./round.js"
+import type { RoundSettings } from "./settings.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
 
@@ -90,17 +91,23 @@ export function commitPhaseLines(
 export function capabilityTag(
   entry: RunEntry,
   configured: ModelSelection,
+  settings: RoundSettings,
 ): string | null {
-  return selectionTag(entry.assistant, phaseSelection(entry.model, configured))
+  return selectionTag(
+    entry.assistant,
+    phaseSelection(entry.model, configured),
+    settings,
+  )
 }
 
 function selectionTag(
   assistant: Assistant,
   { model, effort }: ModelSelection,
+  settings: RoundSettings,
 ): string | null {
   const letter = effort === null ? null : effortLetter(effort)
   if (letter === null) return null
-  const strength = modelStrength(assistant, model)
+  const strength = modelStrength(assistant, model, settings)
   return `${assistantLetters[assistant]}${strength === null ? "u" : strengthLetters[strength]}${letter}`
 }
 
@@ -111,13 +118,14 @@ function selectionTag(
 export function commitStamps(
   entries: readonly RunEntry[],
   selections: ReadonlyMap<Phase, ModelSelection>,
+  settings: RoundSettings,
 ): { readonly phases: string; readonly auditor: string | null } | undefined {
   const audit = entries.find(({ phase }) => phase === "audit")
   const selection = selections.get("audit")
   if (audit === undefined || selection === undefined) return undefined
   return {
     phases: commitPhaseLines(selections),
-    auditor: selectionTag(audit.assistant, selection),
+    auditor: selectionTag(audit.assistant, selection, settings),
   }
 }
 

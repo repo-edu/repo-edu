@@ -10,10 +10,51 @@ import {
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { runCommand } from "../command.js"
 import { openRunFiles } from "../run-files.js"
+import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
+
+test("one supplied configuration controls default auditor, phase arguments and output tags", async (t) => {
+  const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
+  const settings = structuredClone(testSettings)
+  settings.defaultAuditor = "claude"
+  settings.phases.audit.claude = { model: "chosen-auditor", effort: "low" }
+  settings.phases.watch = {
+    assistant: "codex",
+    model: "chosen-watch",
+    effort: "medium",
+  }
+  settings.phases["watch-edit"] = {
+    assistant: "codex",
+    model: null,
+    effort: "medium",
+  }
+  settings.strengthModels.codex.top = "chosen-watch"
+  assert.equal(
+    await runCommand(["example.md", "3"], f.runtime, {
+      ...f.options,
+      settings,
+    }),
+    0,
+  )
+  const { log, transcript } = await f.records()
+  assert.ok(transcript.endsWith("-aul-round.md"))
+  assert.match(log, /audit +claude +chosen-auditor low +settings\.json/)
+  assert.match(log, /watch +codex +chosen-watch medium +settings\.json/)
+  assert.match(
+    log,
+    /watch-edit +codex +chosen-model medium +codex settings\/settings\.json/,
+  )
+  const watchCall = (await f.calls()).find(
+    (call) =>
+      call.assistant === "codex" &&
+      /^Run the watch phase /.test(call.args.at(-1)),
+  )
+  assert.ok(watchCall.args.includes("chosen-watch"))
+  assert.ok(watchCall.args.includes("model_reasoning_effort=medium"))
+  assert.ok(watchCall.args.at(-1).includes("-otm-watch.md"))
+})
 
 for (const auditor of ["claude", "codex"] as const) {
   for (const owner of ["repo-edu", "plan"] as const) {
@@ -483,7 +524,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const pin =
       auditor === "codex"
         ? ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=xhigh"]
-        : ["--model", "fable", "--effort", "xhigh"]
+        : ["--model", "claude-fable-5-1", "--effort", "xhigh"]
     // The audit names the override and the rebuttal resumes that thread on it.
     for (const index of [0, 2])
       assert.ok(
@@ -507,10 +548,10 @@ for (const auditor of ["codex", "claude"] as const) {
       log,
       auditor === "codex"
         ? /audit +codex +gpt-6-astra extra high +--auditor/
-        : /audit +claude +fable extra high +--auditor/,
+        : /audit +claude +claude-fable-5-1 extra high +--auditor/,
     )
     assert.match(log, /fix +codex +chosen-model high +codex settings/)
-    assert.match(log, /brief +codex +gpt-5\.6-terra low +phase pin/)
+    assert.match(log, /brief +codex +gpt-5\.6-terra low +settings\.json/)
     // The requested alias and effort stay in the arguments and header above.
     // The fix receives the release and effort reported by each phase instead.
     assert.deepEqual(
@@ -561,12 +602,12 @@ test("argument errors and help start no assistant processes", async (t) => {
     /Usage: audit-round \[options\] <target> \[scope-or-commits\.\.\.\]/,
   )
   assert.match(visible, /HEAD-<n>/)
-  assert.match(visible, /Codex\s+always fixes and\s+briefs/)
+  assert.match(visible, /Codex\s+always fixes/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
   assert.match(visible, /--auditor <tag>\s+capability tag of the assistant/)
   assert.match(visible, /an optional l,\s+m, h or x for the effort/)
-  assert.match(visible, /\(default: o\)/)
+  assert.match(visible, /default auditor comes from\s+settings\.json/)
   // A round is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+round\b/m)
   assert.doesNotMatch(visible, /^\s+help\b/m)
@@ -619,7 +660,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.ok(transcript.includes(commits[0].replaceAll("HEAD", head)))
     for (const phase of ["audit", "vet", "rebut", "fix", "brief"])
       assert.ok(log.includes(`[${phase}] finished`))
-    assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +claude|Chained round/)
+    assert.doesNotMatch(log, /\[(?:glance|watch)\]|watch +codex|Chained round/)
     const invocations = (await f.calls()).filter(
       (call) =>
         call.args[0] === "exec" ||
@@ -814,12 +855,12 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const watch = transcript.replace(/-ouh-round\.md$/, "-auh-watch.md")
+  const watch = transcript.replace(/-ouh-round\.md$/, "-ouh-watch.md")
   assert.match(
     log,
     /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
   )
-  assert.ok(log.includes(join(f.repoRoot, ".claude/commands/watch.md")))
+  assert.ok(log.includes(join(f.repoRoot, ".agents/skills/watch/SKILL.md")))
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,

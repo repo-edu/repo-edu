@@ -20,8 +20,8 @@ consumers.
   itself in place. A measured shortfall starts the rebuttal fresh, because a summarised session
   holds a summary where the evidence was. An assistant that reports no window reports no shortfall
   and keeps the resume. `round.ts` owns that rule, the compaction share it compares against and the
-  rebuttal's reserve. Codex audits by default and always fixes and briefs. Claude drafts the ruling
-  and the watch; Codex rewrites both drafts. The brief follows the fix on either outcome and
+  rebuttal's reserve. The settings file selects the default auditor and the assistants that write
+  documents. Codex always fixes. The brief follows the fix on either outcome and
   precedes the ruling, because the ruling starts from what the brief retells; its input is the round
   transcript, never the report, and its launcher always belongs to the Repo Edu root. `runBrief`
   runs that one phase on its own over an earlier transcript. Only a fix needing a ruling runs `rule`
@@ -33,7 +33,7 @@ consumers.
   dependency the runner supplies from `glance.ts`, not a phase, so a not-due round starts no session
   for it. Each edit pass is named after the document it rewrites and its launcher knows that
   document's workflow, so it takes only the draft and the sources the workflow grounds it in. Both
-  edit passes pin Codex's base tier at medium effort in `phase.ts`, beside the brief's pin. The
+  edit passes have their own model and effort in `settings.json`, beside the brief's settings. The
   watch runs only after a plan round that finished, because a round that handed over has not proved
   its work landed; nothing is lost, since the glance counts correction commits and not rounds. A
   round given no watch target, which is what `--no-watch` does, consults no glance at all. The watch
@@ -58,10 +58,11 @@ consumers.
   invokes from the value it returns and the run's settings header prints the same value, so what a
   round says it ran on is what it ran with. A phase names a model, an effort, both or neither; a
   named field runs on what it names whatever the CLI is configured to use, and an unnamed one
-  follows that configuration. Two things name a field. The brief names its own model and effort,
-  because it retells a finished round. `--auditor` names the auditor's model through the strength
-  table, which holds one model per assistant per tier and is edited when a model family lands, and
-  its reasoning effort. Both bind the audit and the rebuttal together and nothing else, because the
+  follows that configuration. `settings.json` owns phase selections and the model tier table.
+  `settings.ts` loads and validates it once at command entry, independently of the working
+  directory. That configuration is passed through routing, output naming and commit stamps.
+  `--auditor` overrides each field it names, using the configured tier table for its model.
+  Both audit settings and command-line overrides bind the audit and rebuttal together, because the
   rebuttal resumes the audit session and one thread cannot change model half way through. Each named
   field carries what named it, so the report never guesses, and either CLI accepts one. It also
   defines the private inputs and results for assistant invocations, and owns which phases' texts
@@ -233,6 +234,35 @@ resolves the audited scope. Keep assistant adapters independent of the product
 LLM adapters.
 
 ## Commands
+
+### Model settings
+
+Edit `tools/audit-round/settings.json` to change model selection for runs from
+either checkout. Changes apply to the next invocation. This local file is
+gitignored. When it is missing, the runner creates it from
+[default-settings.json](default-settings.json), the version-controlled
+defaults. An invalid file stops the command with a validation error and is
+left unchanged. The user supplied the defaults on 2026-09-23.
+
+- `defaultAuditor` selects Claude or Codex when `--auditor` is absent.
+- `strengthModels` maps each assistant's base and top tiers to a model name.
+  The same names classify reported models for capability tags. A family alias
+  such as `opus` follows the CLI's current release; a full model name pins it.
+- `phases` sets each phase's model and effort. A `null` field inherits the
+  assistant CLI's effective setting. A named model must suit the selected CLI.
+- Audit and vet each have separate Claude and Codex selections, so changing
+  auditor in a chain keeps each CLI on its own model. Rebuttal shares the
+  audit selection. The vet uses the other assistant and fix uses Codex.
+  Document phases each select their assistant.
+- A field supplied by `--auditor` wins over the corresponding audit setting.
+  Other fields use this file, then the CLI when the file says `null`.
+
+Tests supply an independent configuration through `configured-runner.ts` and
+`fixtures/settings.json`. Neither changes to the local file nor changes to
+the built-in defaults change the test inputs. Settings tests cover loading,
+generation and validation separately.
+
+### Invocation
 
 Run from the Repo Edu checkout root with authenticated `claude` and `codex`
 commands available:

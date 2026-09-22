@@ -55,14 +55,15 @@ rewritten in a fresh session, which the user rules from. A round that finished e
 the commit record, which decides whether the trajectory watch is due; a due watch adds its document,
 drafted and rewritten the same way, and records its own grade so the next glance can count from it.
 The glance is the runner's own read of the log, not a session, and `--no-watch` skips it and the
-watch for every round of the run.
-`--chain` runs at most three rounds on the scope the user named, keeping the auditor while an A or B
-finding lands and giving the other assistant one closing round, and glances after each of them.
-`--auditor` takes the capability tag a commit subject spells: `a` or `o` for the assistant, then an
-optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the reasoning
-effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the audit
-session; an unnamed one follows that assistant's own settings, as every other phase does, and the
-brief names its own model. The run's settings header names what set each phase.
+watch for every round of the run. `--chain` runs at most three rounds on the scope the user named,
+keeping the auditor while an A or B finding lands and giving the other assistant one closing round,
+and glances after each of them. `--auditor` takes the capability tag a commit subject spells: `a` or
+`o` for the assistant, then an optional `b` or `t` for the model tier and an optional `l`, `m`, `h`
+or `x` for the reasoning effort. A named field binds the auditor and its rebuttal, because the
+rebuttal resumes the audit session. Other fields follow
+[the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
+assistant CLI's own setting. That file also owns the default auditor, model tier mappings and
+document assistants. The run's settings header names what set each phase.
 `pnpm audit-round brief <target-round-tag-round.md>` writes that brief for an earlier round. The
 shared file-name grammar and writer-tag rules live in
 [the round protocol](.agents/references/round-protocol.md).

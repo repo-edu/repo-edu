@@ -5,11 +5,16 @@ import { Writable } from "node:stream"
 import { test } from "node:test"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
-import { briefRun, RoundOutput, roundRun } from "../output.js"
-import { commandText } from "../output-format.js"
-import type { Assistant, AuditorOverride } from "../phase.js"
-import { roundPhases, unpinned } from "../phase.js"
 import { createTerminal } from "../terminal.js"
+import type { Assistant, AuditorOverride } from "./configured-runner.js"
+import {
+  briefRun,
+  commandText,
+  RoundOutput,
+  roundPhases,
+  roundRun,
+  unpinned,
+} from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 test("long commit lists record every reference without exceeding filename limits", async (t) => {
@@ -497,21 +502,21 @@ test("the settings header groups phases by assistant in aligned columns", async 
     "audit       codex   gpt-6-astra high              codex settings",
     "rebut       codex   gpt-6-astra high              codex settings",
     "fix         codex   gpt-6-astra high              codex settings",
-    "brief       codex   gpt-5.6-terra low             phase pin",
-    "watch-edit  codex   gpt-5.6-sol medium            phase pin",
+    "brief       codex   gpt-5.6-terra low             settings.json",
+    "watch       codex   gpt-6-astra high              codex settings",
+    "watch-edit  codex   gpt-5.6-sol medium            settings.json",
     "vet         claude  claude-opus-5[1m] extra high  claude settings",
-    "watch       claude  claude-opus-5[1m] extra high  claude settings",
   ]
   assert.equal(
     await header("claude"),
     [
       "audit       claude  claude-opus-5[1m] extra high  claude settings",
       "rebut       claude  claude-opus-5[1m] extra high  claude settings",
-      "watch       claude  claude-opus-5[1m] extra high  claude settings",
       "vet         codex   gpt-6-astra high              codex settings",
       "fix         codex   gpt-6-astra high              codex settings",
-      "brief       codex   gpt-5.6-terra low             phase pin",
-      "watch-edit  codex   gpt-5.6-sol medium            phase pin",
+      "brief       codex   gpt-5.6-terra low             settings.json",
+      "watch       codex   gpt-6-astra high              codex settings",
+      "watch-edit  codex   gpt-5.6-sol medium            settings.json",
     ].join("\n"),
   )
   assert.equal(await header("codex"), codexHeader.join("\n"))
@@ -558,10 +563,10 @@ test("the settings header names what set each phase's model and effort", async (
     "audit       codex   gpt-6-astra extra high        --auditor",
     "rebut       codex   gpt-6-astra extra high        --auditor",
     "fix         codex   gpt-5.6-sol high              codex settings",
-    "brief       codex   gpt-5.6-terra low             phase pin",
-    "watch-edit  codex   gpt-5.6-sol medium            phase pin",
+    "brief       codex   gpt-5.6-terra low             settings.json",
+    "watch       codex   gpt-5.6-sol high              codex settings",
+    "watch-edit  codex   gpt-5.6-sol medium            settings.json",
     "vet         claude  claude-opus-5[1m] extra high  claude settings",
-    "watch       claude  claude-opus-5[1m] extra high  claude settings",
   ])
   // One flag names one field, so the row reports both sources, model first.
   assert.deepEqual(
@@ -653,7 +658,7 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },
     codex: { model: "gpt-6-astra", effort: "high" },
   })
-  assert.equal(visible.at(-1), "brief  codex  gpt-5.6-terra low  phase pin")
+  assert.equal(visible.at(-1), "brief  codex  gpt-5.6-terra low  settings.json")
   assert.deepEqual(markdown, [])
   output.finish({
     status: "finished",
