@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { split } from "shellwords"
 import { runCommand } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
@@ -110,8 +111,22 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.match(markdown, /Premise needs a decision/)
     assert.match(log, /\[audit\] failed: Premise conflict/)
     assert.doesNotMatch(log, /\[(?:vet|rebut|fix|brief|rule|watch)\] starting/)
-    assert.ok(log.includes(`Resume: cd ${f.planRoot} && ${auditor}`))
-    assert.match(log, /audit-session/)
+    assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
+      "cd",
+      f.planRoot,
+      "&&",
+      auditor,
+      ...(auditor === "codex"
+        ? ["resume", "--approve-for-me", "audit-session"]
+        : [
+            "--resume",
+            "audit-session",
+            "--permission-mode",
+            "auto",
+            "--add-dir",
+            f.repoRoot,
+          ]),
+    ])
     assert.match(f.visible.join("\n"), /Chain stopped: this round failed/)
   })
 

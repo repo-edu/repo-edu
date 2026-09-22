@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
+import { split } from "shellwords"
 import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
 import { recoveryCommand } from "../requests.js"
@@ -199,19 +200,21 @@ for (const assistant of ["claude", "codex"] as const) {
     }
     await openAssistantSession(session, f.runtime)
     const [call] = await f.calls()
+    assert.deepEqual(split(recoveryCommand(session)), [
+      "cd",
+      f.root,
+      "&&",
+      assistant,
+      ...call.args,
+    ])
     if (assistant === "codex") {
       assert.deepEqual(call.args, ["resume", "--approve-for-me", "fix-session"])
-      assert.equal(
-        recoveryCommand(session),
-        `cd ${f.root} && codex resume --approve-for-me fix-session`,
-      )
     } else {
       assert.deepEqual(call.args.slice(0, 2), ["--resume", "fix-session"])
       assert.equal(
         call.args[call.args.indexOf("--permission-mode") + 1],
         "auto",
       )
-      assert.ok(recoveryCommand(session).includes("--permission-mode auto"))
     }
     await f.configure({ exitCode: 7 })
     await assert.rejects(openAssistantSession(session, f.runtime))

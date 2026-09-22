@@ -10,6 +10,7 @@ import {
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import { split } from "shellwords"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
@@ -1000,11 +1001,15 @@ for (const auditor of ["codex", "claude"] as const) {
         assert.ok(
           log.includes(join(f.repoRoot, ".agents/skills/rule-edit/SKILL.md")),
         )
-        assert.ok(
-          log.includes(
-            `Resume: cd ${f.planRoot} && codex resume --approve-for-me fix-session`,
-          ),
-        )
+        assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
+          "cd",
+          f.planRoot,
+          "&&",
+          "codex",
+          "resume",
+          "--approve-for-me",
+          "fix-session",
+        ])
       }
       assert.equal(
         (await readdir(f.repoRoot)).some((name) =>
@@ -1159,11 +1164,18 @@ test("a failed planning audit retains its root and recovery session without star
   const { log } = await f.records()
   assert.match(log, /Premise conflict/)
   assert.doesNotMatch(log, /\[vet\] starting/)
-  assert.ok(
-    log.includes(
-      `Resume: cd ${f.planRoot} && claude --resume audit-session --permission-mode auto --add-dir ${f.repoRoot}`,
-    ),
-  )
+  assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
+    "cd",
+    f.planRoot,
+    "&&",
+    "claude",
+    "--resume",
+    "audit-session",
+    "--permission-mode",
+    "auto",
+    "--add-dir",
+    f.repoRoot,
+  ])
   assert.ok(log.includes(`Files at repository roots:\n${f.repoRoot}:\n`))
   assert.ok(log.includes(`${f.planRoot}:\n`))
 })
