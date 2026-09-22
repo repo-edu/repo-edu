@@ -1,3 +1,4 @@
+import type { CleanInput } from "./clean.js"
 import type { ExecutionContext } from "./context.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
 import type { ReportFindings } from "./report.js"
@@ -335,6 +336,7 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
+  readonly completeClean: (input: CleanInput) => Promise<void>
   readonly readReport: (
     file: string,
     kind: ExecutionContext["roundKind"],

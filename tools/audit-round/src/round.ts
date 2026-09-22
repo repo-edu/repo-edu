@@ -50,7 +50,7 @@ export type BriefInput = ExecutionContext & {
 type RoundFailure = PhaseFailure &
   PhaseRun &
   ExecutionContext & {
-    readonly phase: Phase | "handover"
+    readonly phase: Phase | "handover" | "complete"
   }
 
 export type RoundResult =
@@ -272,13 +272,24 @@ export async function runRound(
       reason: errorMessage(error),
     }
   }
-  // A clean report gives the vet nothing to grade and the rebuttal nothing to
-  // answer, so the fix lands the clean record from the report alone. The vet
-  // runs only where the report holds findings to grade, and the rebuttal only
-  // where the vet's verdicts leave the auditor something to answer: a vet that
-  // accepted every finding without a condition sends the report and its vet
-  // twin straight to the fix.
-  if (findings.length > 0) {
+  // Zero findings complete in the runner. No later assistant or historical
+  // watch can add anything needed to close this audit.
+  if (findings.length === 0) {
+    try {
+      await dependencies.completeClean({ ...input, report })
+      return { status: "finished", report, tier: null }
+    } catch (error) {
+      return {
+        status: "failed",
+        sessionId: null,
+        phase: "complete",
+        ...phases.audit,
+        ...context,
+        reason: errorMessage(error),
+      }
+    }
+  }
+  {
     const vet = await dependencies.runPhase.vet({
       phase: "vet",
       ...phases.vet,

@@ -9,41 +9,48 @@ consumers.
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the two ruling passes a
   fix's open item adds, the watch that follows a finished planning or plan-scoped implementation
   round and the chain rule. It retains the audit session and report as local values. Audit, vet, fix
-  and brief start fresh. A clean audit skips the vet and the rebuttal, because a report with no
-  findings gives the one nothing to grade and the other nothing to answer; the fix then lands the
-  clean record from the report alone. The coordinator reads the report through `report.ts` to
-  decide whether it is clean. A vet that accepted every finding without a
-  condition skips the rebuttal the same way, because the auditor has nothing to answer; the fix then
-  reads the report with its vet twin alone. The coordinator reads the twin through `vet.ts` to
-  decide whether every finding was accepted unconditionally. Rebuttal resumes the audit session only
-  when that session's last measurement leaves room for a rebuttal before the assistant summarises
-  itself in place. A measured shortfall starts the rebuttal fresh, because a summarised session
-  holds a summary where the evidence was. An assistant that reports no window reports no shortfall
-  and keeps the resume. `round.ts` owns that rule, the compaction share it compares against and the
-  rebuttal's reserve. The settings file selects the default auditor and the assistants that write
-  documents. Codex always fixes. The brief follows the fix on either outcome and
-  precedes the ruling, because the ruling starts from what the brief retells; its input is the round
-  transcript, never the report, and its launcher always belongs to the Repo Edu root. `runBrief`
-  runs that one phase on its own over an earlier transcript. Only a fix needing a ruling runs `rule`
-  and `rule-edit` and then opens an interactive session, using that fix's session identity. `rule`
-  drafts the ruling and `rule-edit` rewrites that draft in a fresh session, so the document the user
-  rules from is read once by a session that did not write it. `runWatch` owns the watch that follows
-  a round: the glance decides from the commit record and the watch's own history whether a watch is
-  due, and only a due glance runs `watch` and `watch-edit` over that draft. The glance is a
-  dependency the runner supplies from `glance.ts`, not a phase, so a not-due round starts no session
-  for it. Each edit pass is named after the document it rewrites and its launcher knows that
-  document's workflow, so it takes only the draft and the sources the workflow grounds it in. Both
-  edit passes have their own model and effort in `settings.json`, beside the brief's settings. The
-  watch runs only after a plan round that finished, because a round that handed over has not proved
-  its work landed; nothing is lost, since the glance counts correction commits and not rounds. A
-  round given no watch target, which is what `--no-watch` does, consults no glance at all. The watch
-  reads the commit record and never the round, so `runWatch` passes it no transcript and no report.
-  `chainDecision` owns whether a chained run audits the same scope again and with whom: the auditor
-  repeats while the fix records an A or B tier, the other assistant then takes exactly one round,
-  and the cap, a handover or a failure ends the chain. The round records both repositories' HEADs
-  before the fix and parses every landed subject under its repository's grammar to derive the
-  highest tier. A plan target fails when a finished fix landed no commit. A commit
-  target may land nothing. Reader failures retain the owning phase and its session for recovery.
+  and brief start fresh. A clean audit completes directly through `clean.ts` without any later
+  phase, glance or watch. The coordinator reads the report through `report.ts` to decide whether it
+  is clean. A vet that accepted every finding without a condition skips the rebuttal the same way,
+  because the auditor has nothing to answer; the fix then reads the report with its vet twin alone.
+  The coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
+  unconditionally. Rebuttal resumes the audit session only when that session's last measurement
+  leaves room for a rebuttal before the assistant summarises itself in place. A measured shortfall
+  starts the rebuttal fresh, because a summarised session holds a summary where the evidence was. An
+  assistant that reports no window reports no shortfall and keeps the resume. `round.ts` owns that
+  rule, the compaction share it compares against and the rebuttal's reserve. The settings file
+  selects the default auditor and the assistants that write documents. Codex always fixes. The brief
+  follows the fix on either outcome and precedes the ruling, because the ruling starts from what the
+  brief retells; its input is the round transcript, never the report, and its launcher always
+  belongs to the Repo Edu root. `runBrief` runs that one phase on its own over an earlier
+  transcript. Only a fix needing a ruling runs `rule` and `rule-edit` and then opens an interactive
+  session, using that fix's session identity. `rule` drafts the ruling and `rule-edit` rewrites that
+  draft in a fresh session, so the document the user rules from is read once by a session that did
+  not write it. `runWatch` owns the watch that follows a round: the glance decides from the commit
+  record and the watch's own history whether a watch is due, and only a due glance runs `watch` and
+  `watch-edit` over that draft. The glance is a dependency the runner supplies from `glance.ts`, not
+  a phase, so a not-due round starts no session for it. Each edit pass is named after the document
+  it rewrites and its launcher knows that document's workflow, so it takes only the draft and the
+  sources the workflow grounds it in. Both edit passes have their own model and effort in
+  `settings.json`, beside the brief's settings. The watch runs only after a plan round with audit
+  findings that finished, because a round that handed over has not proved its work landed; nothing
+  is lost, since the glance counts correction commits and not rounds. A round given no watch target,
+  which is what `--no-watch` does, consults no glance at all. The watch reads the commit record and
+  never the round, so `runWatch` passes it no transcript and no report. `chainDecision` owns whether
+  a chained run audits the same scope again and with whom: the auditor repeats while the fix records
+  an A or B tier, the other assistant then takes exactly one round, and the cap, a handover or a
+  failure ends the chain. The round records both repositories' HEADs before the fix and parses every
+  landed subject under its repository's grammar to derive the highest tier. A plan target fails when
+  a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
+  owning phase and its session for recovery.
+- `clean.ts` owns direct completion when the audit report has no findings. A
+  plan target lands one empty clean record at the report's root with the audit's
+  actual model record and capability tag. `git commit --only --allow-empty`
+  preserves staged work while using the normal hooks and signing settings.
+  A commit target lands no commit. Both routes retain their report and leave
+  existing handoffs untouched. Completion failures stop the run without a
+  fictitious fix session or resume command. `target.ts` supplies the plan stem
+  shared by output naming and clean records, including archived plans.
 - `report.ts` uses `mdast-util-from-markdown` to read the document-level finding fields. Planning
   reports have Excess functionality and Missing functionality fields; implementation reports have
   one Findings field including deferred findings. Each holds numbered finding blocks or its exact
@@ -79,7 +86,8 @@ consumers.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
   Green waits for four corrections in one area and amber waits for two. Red runs
-  after every finished round. Severity, reach and growth have no early trigger.
+  after every finished round with audit findings. Clean audits never call the
+  glance. Severity, reach and growth have no early trigger.
   A subject the grammar refuses supplies no correction evidence. A qualifying
   subject with incomplete body records stops the round. The record is read as
   data: a missing, unreadable or old-format entry, or a recorded head off HEAD's
@@ -287,16 +295,14 @@ Every phase reuses that name start, even when the report goes to the plan repo.
 The transcript and log carry the auditor's tag; assistant-written files carry
 their own writer's tag.
 
-The brief writes a plain-words twin. A fix that stops for a ruling adds a
-ruling twin. A finished plan round ends with a glance at the commit record,
-and a due glance adds a `-watch.md` document. The watch keeps its own history
-in the shared cache, which is how its cadence survives between rounds, and
-`--no-watch` skips both.
-`brief` accepts an earlier transcript at either root, writes beside it without
-claiming a new number and
-overwrites its standalone log on each run. `--chain` runs at most three
-rounds on the named plan scope. Each header records the round's start time;
-filenames carry no timestamp.
+The brief writes a plain-words twin after a fix. A clean audit records its outcome directly and
+retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A
+finished plan round with audit findings ends with a glance at the commit record, and a due glance
+adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
+cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
+at either root, writes beside it without claiming a new number and overwrites its standalone log on
+each run. `--chain` runs at most three rounds on the named plan scope. Each header records the
+round's start time; filenames carry no timestamp.
 
 ## Verification
 

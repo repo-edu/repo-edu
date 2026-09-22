@@ -12,7 +12,8 @@ import {
 } from "./subject.js"
 
 /**
- * The glance that follows a finished plan round. It answers one question from
+ * The glance that follows a finished plan round whose audit had findings.
+ * Clean audits never call it. It answers one question from
  * the commit record and the watch's own history: has the record moved far
  * enough that the trajectory watch would read it differently than last time?
  * The watch is two sessions that read the log and then the code behind it,
@@ -94,7 +95,7 @@ function sameHead(sha: string, head: string): boolean {
  * Severity, reach and growth never trigger a watch on their own.
  * A watch is due when either of these holds:
  *
- * 1. The recorded grade is red. A conclusive flag is re-read every round until
+ * 1. The recorded grade is red. A conclusive flag is re-read every eligible round until
  *    the user acts on it and the record moves.
  * 2. One area reaches four correction commits on green or two on amber.
  *    The watch then judges whether their causes show drift.

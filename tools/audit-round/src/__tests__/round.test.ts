@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { join } from "node:path"
 import { test } from "node:test"
+import type { CleanInput } from "../clean.js"
 import type { GlanceDecision, GlanceInput } from "../glance.js"
 import {
   type Assistant,
@@ -70,6 +71,7 @@ function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
+  const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const handover: { operation: string; session: InteractiveSession }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
@@ -135,6 +137,9 @@ function controlledRound(
     subjects: ["example/impl-audit-all oth clean: settled"],
   }
   const dependencies: RoundDependencies = {
+    completeClean: async (input) => {
+      completions.push(input)
+    },
     readReport: async () => evidence.findings,
     readVet: async () => evidence.accepted,
     readHead: async (root) => `before-${root}`,
@@ -190,6 +195,7 @@ function controlledRound(
   }
   return {
     calls,
+    completions,
     glances,
     handover,
     results,
@@ -664,7 +670,7 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
 })
 
 for (const auditor of ["claude", "codex"] as const) {
-  test(`a clean ${auditor} audit goes straight to the fix, which lands the clean record`, async () => {
+  test(`a clean ${auditor} audit completes without another assistant even when watch is due`, async () => {
     const report = "/workspace/plan/AUDIT-example.md"
     const round = controlledRound(report)
     round.results.audit = {
@@ -675,29 +681,48 @@ for (const auditor of ["claude", "codex"] as const) {
     }
 
     round.evidence.findings = []
+    round.decide(dueDecision)
     const result = await runRound(
       { ...files, plan: "../plan/example.md", auditor },
       round.dependencies,
     )
 
     assert.deepEqual(result, { status: "finished", report, tier: null })
-    // Nothing to grade and nothing to answer, so neither exchange phase runs.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
-      ["audit", "fix", "brief"],
+      ["audit"],
     )
-    assert.deepEqual(round.calls[1], {
-      phase: "fix",
-      assistant: "codex",
-      model: unpinned,
-      ...testContext(repoRoot),
-      ownerRoot: "/workspace/plan",
-      arguments: [report],
-      sessionId: null,
-    })
+    assert.deepEqual(round.completions, [
+      { ...files, plan: "../plan/example.md", auditor, report },
+    ])
+    assert.deepEqual(round.glances, [])
     assert.deepEqual(round.handover, [])
   })
 }
+
+test("failed clean bookkeeping stops the round without a fictitious fix session", async () => {
+  const round = controlledRound()
+  round.evidence.findings = []
+  const result = await runRound(
+    { ...files, plan: "example.md" },
+    {
+      ...round.dependencies,
+      completeClean: async () => {
+        throw new Error("Commit refused")
+      },
+    },
+  )
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.phase, "complete")
+  assert.equal(result.sessionId, null)
+  assert.equal(result.reason, "Commit refused")
+  assert.deepEqual(
+    round.calls.map(({ phase }) => phase),
+    ["audit"],
+  )
+  assert.deepEqual(round.glances, [])
+})
 
 for (const auditor of ["claude", "codex"] as const) {
   test(`a vet that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
@@ -955,7 +980,7 @@ for (const [reader, phase, sessionId, called] of [
   })
 }
 
-test("every plan target requires a landed commit, while commit targets may land nothing", async () => {
+test("a finished fix on a plan target requires a landed commit; clean audits use direct completion", async () => {
   for (const target of [
     { plan: "example.md" },
     { commits: ["HEAD"] as const },
@@ -965,7 +990,11 @@ test("every plan target requires a landed commit, while commit targets may land 
       round.evidence.findings = findings
       round.evidence.subjects = []
       const result = await runRound({ ...files, ...target }, round.dependencies)
-      assert.equal(result.status, "plan" in target ? "failed" : "finished")
+      assert.equal(
+        result.status,
+        "plan" in target && findings.length > 0 ? "failed" : "finished",
+      )
+      assert.equal(round.completions.length, findings.length === 0 ? 1 : 0)
       if (result.status === "failed") {
         assert.equal(
           result.reason,

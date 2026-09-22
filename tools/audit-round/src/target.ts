@@ -1,3 +1,4 @@
+import { basename, dirname } from "node:path"
 import { InvalidArgumentError } from "commander"
 import type { RoundKind } from "./context.js"
 
@@ -5,6 +6,15 @@ import type { RoundKind } from "./context.js"
 export type AuditTarget =
   | { readonly plan: string; readonly scope?: string }
   | { readonly commits: readonly [string, ...string[]] }
+
+/** Active and archived plan paths share one identity for files and records. */
+export function planStem(plan: string): string {
+  return (
+    basename(plan) === "plan.md"
+      ? basename(dirname(plan))
+      : basename(plan, ".md")
+  ).replace(/-widen$/, "")
+}
 
 function stepScope(value: string): string {
   const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value)

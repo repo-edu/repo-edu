@@ -17,9 +17,9 @@ context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
 
 The fix phase always starts in a fresh session. After a rebuttal Codex runs
-it, using the audit report and both twins as its brief. After a clean audit
-the runner skips the vet and the rebuttal, so the fix reads the report alone
-and lands the clean record. After a vet that accepted every finding without a
+it, using the audit report and both twins as its brief. An automated audit with
+no findings completes directly in the runner and never enters this workflow.
+A hand-run clean report may still be closed here. After a vet that accepted every finding without a
 condition the runner skips the rebuttal, so the fix reads the report and its
 vet twin alone.
 The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
@@ -229,10 +229,12 @@ A finding deferred from a Repo Edu-only round to the plan repo uses the body for
 round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
 record, at the root that holds the report: the repo a single-repo round judged, or the repo where a
 both-repo round started. Its subject carries the auditor and the step scope, and its sentence names
-the repo set when the round judged both. The user directed the single placement on 2026-09-21, after
-three plan-repo clean records stood for rounds whose fixes touched only Repo Edu. When the user
-declines the outcome in full, no commit lands because disagreement is not a state. The logs show
-every confirmed round that ran, including clean rounds that would otherwise exist only in chat.
+the repo set when the round judged both. Direct automated clean completion retains the report with
+its repo set instead and creates no fix session, under the audit workflow's **Runner result** rule.
+The user directed the single placement on 2026-09-21, after three plan-repo clean records stood for
+rounds whose fixes touched only Repo Edu. When the user declines the outcome in full, no commit
+lands because disagreement is not a state. The logs show every confirmed round that ran, including
+clean rounds that would otherwise exist only in chat.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed

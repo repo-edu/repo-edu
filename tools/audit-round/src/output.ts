@@ -32,6 +32,7 @@ import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
+import { planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 /** The rule that sets a phase start or a glance off from what came before. */
@@ -76,11 +77,7 @@ async function targetDescription(target: RoundSetup): Promise<{
       title: `commits ${target.commits.join(" ")}`,
     }
   }
-  const stem = (
-    basename(target.plan) === "plan.md"
-      ? basename(dirname(target.plan))
-      : basename(target.plan, ".md")
-  ).replace(/-widen$/, "")
+  const stem = planStem(target.plan)
   if (target.roundKind === "planning")
     return { label: stem, title: `plan ${target.plan}` }
   const scope =
@@ -291,6 +288,12 @@ export class RoundOutput<R extends Run = Run> {
 
   message = async (text: string): Promise<void> => {
     this.say(text)
+  }
+
+  /** Runner bookkeeping belongs in both records, without inventing an AI phase. */
+  cleanCompletion(text: string): void {
+    this.say(`[complete] ${text}`)
+    this.transcribe(`## Clean completion\n\n${text}\n`)
   }
   /** A message that opens a new section of the run, set off the way a phase start is. */
   section = async (text: string): Promise<void> => {

@@ -92,8 +92,15 @@ replaced an existing report. Reports from other rounds do not block the run.
 
 The audit's path remains the input to every phase up to the fix. A finished
 vet or rebuttal returns its own twin's path for feedback; that path does not
-replace the audit path. After a clean audit neither phase runs, so the fix
-reads the report with no twins. After a vet that accepted every finding the
+replace the audit path. After a clean audit the runner completes the round
+directly. It retains the report and records an empty clean commit at the report's
+root for a plan target, using only the audit's model record and capability tag.
+Commit audits retain their report without a commit. This path starts no later
+session, brief, glance or watch and leaves existing handoffs untouched. The
+report retains the judged repo set and audited heads. The user directed this
+on 2026-09-23. An explicitly requested chain still follows its normal crossover
+rule, and an explicit watch remains available.
+After a vet that accepted every finding the
 rebuttal does not run, so the fix reads the report with its vet twin alone.
 The report's directory selects the later phase's
 owning launcher and local workflow rules, even when the resumed session
@@ -105,7 +112,7 @@ launchers also belong to Repo Edu; they run
 under `.agents/skills/rule/references/workflow.md` and only after a fix that
 returned `needs-ruling`.
 
-The two watch passes follow a round that finished, and take neither the
+The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the
 round, so the runner gives the watch pass only the file to write and the cache
 root, and the watch edit only the draft. Their launchers belong to the Repo Edu

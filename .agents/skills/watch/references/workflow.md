@@ -87,7 +87,8 @@ root counts from its own entry, never the other repository's history. The grade
 describes the joined episode. Keep other episode entries unchanged.
 
 The glance owns fixed limits: four A–C correction commits in one area on
-green, two on amber and every finished round on red. Plan rounds count by
+green, two on amber and every finished round with audit findings on red. A
+clean audit skips the glance and both watch passes. Plan rounds count by
 section. D-only work, clean records, deferral-only records and planned steps
 do not count. Severity, reach and growth have no early trigger. Save no
 `horizon`; the grade selects the limit. Create the file and its directory when they

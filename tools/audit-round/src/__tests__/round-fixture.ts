@@ -12,6 +12,13 @@ export async function commitFixture(
   subject = "example/init ath: fixture",
 ): Promise<string> {
   await execa("git", ["init", "--quiet"], { cwd })
+  for (const [key, value] of Object.entries({
+    "user.name": "Test",
+    "user.email": "test@example.test",
+    "core.hooksPath": "/dev/null",
+    "commit.gpgsign": "false",
+  }))
+    await execa("git", ["config", key, value], { cwd })
   await execa(
     "git",
     [
@@ -51,7 +58,7 @@ export async function roundFixture(
    */
   watch = false,
   working: "repo-edu" | "plan" = "repo-edu",
-  /** Whether the audit reports no findings, which sends the round straight to the fix. */
+  /** Whether the audit reports no findings, which completes without another assistant. */
   clean = false,
   /** Whether the vet accepts every finding, which sends the round past the rebuttal. */
   accepted = false,

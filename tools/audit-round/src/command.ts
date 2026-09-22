@@ -8,6 +8,7 @@ import {
 } from "commander"
 import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
+import { completeClean } from "./clean.js"
 import { type ExecutionContext, executionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
@@ -251,6 +252,11 @@ export async function runCommand(
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      completeClean: async (input) => {
+        const stamps = active.commitStamps()
+        if (stamps === undefined) throw new Error("Missing audit model record")
+        active.cleanCompletion(await completeClean(input, stamps))
+      },
       readReport: async (file, kind) =>
         readReport(await readFile(file, "utf8"), kind),
       readVet: async (file, findings) =>

@@ -235,7 +235,7 @@ for (const auditor of ["claude", "codex"] as const) {
 }
 
 for (const auditor of ["claude", "codex"] as const) {
-  test(`a clean ${auditor} audit skips the vet and rebuttal, and the fix stamps only the phases that ran`, async (t) => {
+  test(`a clean ${auditor} audit records only its auditor without later sessions`, async (t) => {
     const f = await roundFixture(
       t,
       auditor,
@@ -265,32 +265,31 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     assert.deepEqual(
       invocations.map((call) => call.assistant),
-      [auditor, "codex", "codex"],
+      [auditor],
     )
-    // The commit body names the phases the transcript holds, so the vet and
-    // the rebuttal that never ran are not stamped into the clean record.
-    assert.deepEqual(
-      { phases: invocations[1].phases, auditor: invocations[1].auditor },
-      {
-        phases:
-          auditor === "codex"
-            ? "audit: gpt-6-astra xhigh\nfix: chosen-model high"
-            : "audit: claude-fable-5-1 high\nfix: chosen-model high",
-        auditor: auditor === "codex" ? "otx" : "ath",
-      },
+    const commit = (
+      await execa("git", ["log", "-1", "--format=%s%n%b"], { cwd: f.planRoot })
+    ).stdout
+    assert.match(
+      commit,
+      new RegExp(
+        `^example/impl-audit-2-3 ${auditor === "codex" ? "otx" : "ath"} clean:`,
+      ),
     )
+    assert.ok(
+      commit.includes(
+        auditor === "codex"
+          ? "audit: gpt-6-astra xhigh"
+          : "audit: claude-fable-5-1 high",
+      ),
+    )
+    assert.doesNotMatch(commit, /fix:|vet:|rebut:/)
     const { log, markdown } = await f.records()
-    assert.doesNotMatch(log, /\[(?:vet|rebut)\] starting/)
-    assert.ok(log.includes(join(f.planRoot, ".agents/skills/fix/SKILL.md")))
-    assert.equal(
-      log.split(`Phase arguments (JSON array): ${JSON.stringify([f.report])}`)
-        .length - 1,
-      1,
+    assert.doesNotMatch(
+      log,
+      /\[(?:vet|rebut|fix|brief|rule|watch)\] starting|\[glance\]/,
     )
-    for (const phase of ["audit", "fix"] as const)
-      assert.ok(markdown.includes(`## ${phase} (`))
-    for (const phase of ["vet", "rebut"] as const)
-      assert.equal(markdown.includes(`## ${phase} (`), false)
+    assert.match(markdown, /## Clean completion/)
     assert.match(f.visible.join("\n"), /Audit round finished\./)
   })
 }
