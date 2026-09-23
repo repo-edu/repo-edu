@@ -22,7 +22,6 @@ import {
   roundRun,
   transcriptNameStart,
 } from "./output.js"
-import { chainText } from "./output-format.js"
 import {
   type AuditorSeat,
   noOverride,
@@ -33,8 +32,6 @@ import { readReport } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type BriefResult,
-  chainCap,
-  chainDecision,
   type RoundResult,
   runBrief,
   runRound,
@@ -95,8 +92,7 @@ type Invocation =
       readonly kind: "round"
       readonly first: string
       readonly rest: readonly string[]
-      readonly auditor?: AuditorSeat
-      readonly chain?: boolean
+      readonly auditor?: readonly AuditorSeat[]
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
       readonly verbose?: boolean
@@ -134,20 +130,18 @@ function parseInvocation(
     )
     .addOption(
       new Option(
-        "--auditor <selection>",
-        "claude or codex to use that CLI's current model and effort, bypassing audit pins in settings.json; or a capability tag: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A tag's unnamed fields follow settings.json, then the CLI. Both forms bind audit and rebuttal. The default auditor comes from settings.json. Codex always fixes.",
+        "--auditor <selections>",
+        "comma-separated auditors in round order (multiple entries require a plan): claude or codex to inherit that CLI's model and effort, bypassing audit pins; or a capability tag: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A tag's unnamed fields follow settings.json, then the CLI. Each entry binds audit and rebuttal. A clean audit skips all later entries for that assistant, regardless of tag. Failure or a ruling handover stops the sequence. Quote lists containing spaces. The default auditor comes from settings.json. Codex always fixes.",
       ).argParser((value) => {
-        const seat = parseAuditor(value)
-        if (seat === null)
-          throw new InvalidArgumentError(
-            "Expected claude, codex or a capability tag, such as o, at or otx.",
-          )
-        return seat
+        return value.split(",").map((entry, index) => {
+          const seat = parseAuditor(entry.trim())
+          if (seat === null)
+            throw new InvalidArgumentError(
+              `Auditor entry ${index + 1}: expected claude, codex or a capability tag, such as o, at or otx.`,
+            )
+          return seat
+        })
       }),
-    )
-    .option(
-      "--chain",
-      `run up to ${chainCap} rounds on the same scope (plans only), repeating the auditor while an A or B finding lands and ending with one round by the other assistant`,
     )
     .option(
       "--no-watch",
@@ -159,8 +153,7 @@ function parseInvocation(
         first: string,
         rest: string[],
         flags: {
-          auditor?: AuditorSeat
-          chain?: boolean
+          auditor?: readonly AuditorSeat[]
           watch: boolean
           verbose?: boolean
         },
@@ -298,10 +291,10 @@ export async function runCommand(
     if (
       prepared.kind === "round" &&
       "commits" in prepared.target &&
-      prepared.chain
+      (prepared.auditor?.length ?? 1) > 1
     )
       throw new InvalidArgumentError(
-        "Commit audits run once. --chain requires a plan target.",
+        "Commit audits run once. Multiple auditors require a plan target.",
       )
     if (prepared.kind !== "brief" && "plan" in prepared.target)
       await checkPlan(context, prepared.target.plan)
@@ -433,30 +426,33 @@ export async function runCommand(
       )
       active.finish(result)
     } else {
-      const seat = prepared.auditor ?? {
-        assistant: settings.defaultAuditor,
-        override: noOverride,
-      }
-      const setup = {
-        ...context,
-        ...prepared.target,
-        override: seat.override,
-      }
-      let auditor = seat.assistant
+      const seats = prepared.auditor ?? [
+        {
+          assistant: settings.defaultAuditor,
+          override: noOverride,
+        },
+      ]
+      let pending = seats
       let completed = 0
-      for (;;) {
+      do {
+        const seat = pending[0]
+        const setup = {
+          ...context,
+          ...prepared.target,
+          auditor: seat.assistant,
+          override: seat.override,
+        }
         const run = await roundRun(
-          { ...setup, auditor },
+          setup,
           now(),
           selections,
           settings,
-          prepared.chain === true ? completed + 1 : undefined,
+          seats.length > 1 ? completed + 1 : undefined,
         )
         const active = open(run)
         const round = await runRound(
           {
             ...setup,
-            auditor,
             documents: run.documents,
             transcript: run.paths.markdown,
             watch: prepared.watch
@@ -472,17 +468,32 @@ export async function runCommand(
         result = round
         active.finish(round)
         completed += 1
-        if (prepared.chain !== true) break
-        const decision = chainDecision(
-          round,
-          auditor,
-          seat.assistant,
-          completed,
+        if (seats.length === 1) break
+        if (round.status !== "finished") {
+          await active.message(
+            round.status === "failed"
+              ? "Auditor sequence stopped: this round failed."
+              : "Auditor sequence stopped: this round opened a ruling session.",
+          )
+          break
+        }
+        pending = pending.slice(1)
+        if (round.cleanAudit) {
+          const remaining = pending.filter(
+            (entry) => entry.assistant !== seat.assistant,
+          )
+          if (remaining.length < pending.length)
+            await active.message(
+              `Clean audit by ${seat.assistant}; skipping all remaining entries for ${seat.assistant}.`,
+            )
+          pending = remaining
+        }
+        await active.message(
+          pending.length === 0
+            ? `Auditor sequence finished after ${completed} round${completed === 1 ? "" : "s"}.`
+            : `Next round: ${pending[0].assistant}; ${pending.length} auditor entries remain.`,
         )
-        await active.message(chainText(decision, completed, chainCap))
-        if (decision.next === null) break
-        auditor = decision.next
-      }
+      } while (pending.length > 0)
     }
 
     code = result.status === "failed" ? 1 : 0

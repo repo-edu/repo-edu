@@ -60,7 +60,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           ]
         : [
             ["example.md", "0"],
-            ["HEAD", "--chain"],
+            ["HEAD", "--auditor", "codex,claude"],
           ]
     for (const args of invalid) {
       const result = await execa("pnpm", ["audit-round", ...args], options)
@@ -69,7 +69,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         result.stderr,
         working === "plan"
           ? /Implementation and commit audits run from Repo Edu/
-          : /positive step number|--chain requires a plan target/,
+          : /positive step number|Multiple auditors require a plan target/,
       )
     }
     const brief = await execa(

@@ -13,7 +13,6 @@ import {
   type RoundDependencies,
   roundPhases,
   type SessionContext,
-  type Tier,
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
 import type { RoundSettings } from "./settings.js"
@@ -58,8 +57,8 @@ export type RoundResult =
   | {
       readonly status: "finished"
       readonly report: string
-      /** The highest tier in the landed commits, which the chain rule reads. */
-      readonly tier: Tier | null
+      /** True only when the audit report itself contained no findings. */
+      readonly cleanAudit: boolean
     }
   | {
       readonly status: "handed-over"
@@ -74,44 +73,6 @@ export type BriefResult =
 
 /** The share of its window at which Codex summarises a session in place. */
 const compactionShare = 0.9
-
-/** The most rounds one chained run may spend on its scope. */
-export const chainCap = 3
-
-/** Why a chained run stopped, which the output turns into words. */
-export type ChainStop = "cap" | "crossed" | "open" | "failed"
-
-export type ChainDecision =
-  | { readonly next: Assistant }
-  | { readonly next: null; readonly stop: ChainStop }
-
-function other(assistant: Assistant): Assistant {
-  return assistant === "codex" ? "claude" : "codex"
-}
-
-/**
- * The single owner of whether a chained run audits the same scope again, and
- * with whom. While the current auditor still lands an A or B it keeps looking,
- * because a second opinion buys nothing where findings are still coming. Once
- * it falls to C, D or clean, the other assistant takes exactly one round and
- * the chain ends, so the crossover is taken once and never iterated. A round
- * that handed over or failed ends the chain where it stands: the user is in
- * the session or the reason is on screen.
- */
-export function chainDecision(
-  result: RoundResult,
-  current: Assistant,
-  start: Assistant,
-  completed: number,
-): ChainDecision {
-  if (result.status === "failed") return { next: null, stop: "failed" }
-  if (result.status === "handed-over") return { next: null, stop: "open" }
-  if (current !== start) return { next: null, stop: "crossed" }
-  if (completed >= chainCap) return { next: null, stop: "cap" }
-  return {
-    next: result.tier === "a" || result.tier === "b" ? current : other(current),
-  }
-}
 
 /**
  * What a rebuttal spends: the report, its vet twin and the source behind every
@@ -327,7 +288,7 @@ export async function runRound(
         report,
         judgedRepos: evidence.judgedRepos,
       })
-      return { status: "finished", report, tier: null }
+      return { status: "finished", report, cleanAudit: true }
     } catch (error) {
       return {
         status: "failed",
@@ -423,7 +384,6 @@ export async function runRound(
     return { ...fix, phase: "fix", ...phases.fix, ...context }
   }
 
-  let tier: Tier | null = null
   if (fix.status === "finished") {
     try {
       await dependencies.closeRound(cwd, transcriptNameStart(input.transcript))
@@ -436,13 +396,7 @@ export async function runRound(
         throw new Error("The finished fix landed no commit for a plan target")
       for (const [index, subjects] of landed.entries()) {
         for (const subject of subjects) {
-          const { severity } = parseSubject(
-            subject,
-            repositories[index].repository,
-          )
-          if (severity === null || severity === "clean") continue
-          for (const run of [...severity.upper, ...severity.lower])
-            if (tier === null || run.tier < tier) tier = run.tier
+          parseSubject(subject, repositories[index].repository)
         }
       }
     } catch (error) {
@@ -469,7 +423,7 @@ export async function runRound(
       const watched = await runWatch(input, dependencies, settings)
       if (watched !== null) return watched
     }
-    return { status: "finished", report, tier }
+    return { status: "finished", report, cleanAudit: false }
   }
 
   // The ruling explains the open item and argues a choice, in a draft and then

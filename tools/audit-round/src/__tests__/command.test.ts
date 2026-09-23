@@ -895,18 +895,99 @@ for (const auditor of ["codex", "claude"] as const) {
   })
 }
 
+test("auditor lists keep each entry's model and effort independent", async (t) => {
+  const f = await roundFixture(t, "claude")
+  const settings = structuredClone(testSettings)
+  settings.phases.audit.claude = { model: "pinned-claude", effort: "low" }
+  settings.phases.audit.codex = { model: "pinned-codex", effort: "high" }
+  assert.equal(
+    await runCommand(
+      [
+        "example.md",
+        "2-3",
+        "--auditor",
+        " atx, obm, claude, otl ",
+        "--no-watch",
+      ],
+      f.runtime,
+      { ...f.options, settings },
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const prompts = await f.prompts()
+  const expected = [
+    {
+      assistant: "claude",
+      pin: ["--model", "claude-fable-5-1", "--effort", "xhigh"],
+    },
+    {
+      assistant: "codex",
+      pin: ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=medium"],
+    },
+    { assistant: "claude", pin: [] },
+    {
+      assistant: "codex",
+      pin: ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=low"],
+    },
+  ]
+  for (const phase of ["audit", "rebut"]) {
+    const calls = prompts.filter((call) =>
+      call.prompt.startsWith(`Run the ${phase} phase `),
+    )
+    assert.deepEqual(
+      calls.map((call) => call.assistant),
+      expected.map((entry) => entry.assistant),
+    )
+    for (const [index, call] of calls.entries()) {
+      for (const arg of expected[index].pin)
+        assert.ok(call.args.includes(arg), call.args.join(" "))
+      assert.equal(call.args.includes("pinned-claude"), false)
+      assert.equal(call.args.includes("pinned-codex"), false)
+      if (index === 2) {
+        assert.equal(call.args.includes("--model"), false)
+        assert.equal(call.args.includes("--effort"), false)
+      }
+    }
+  }
+  for (const phase of ["vet", "fix"]) {
+    for (const call of prompts.filter((call) =>
+      call.prompt.startsWith(`Run the ${phase} phase `),
+    )) {
+      for (const flag of ["--model", "--effort", "-m", "-c"])
+        assert.equal(call.args.includes(flag), false)
+    }
+  }
+  assert.deepEqual(
+    prompts
+      .filter((call) => call.prompt.startsWith("Run the vet phase "))
+      .map((call) => call.assistant),
+    ["codex", "claude", "codex", "claude"],
+  )
+  assert.equal((await f.roundFiles()).length, 8)
+  assert.doesNotMatch(f.visible.join("\n"), /\[glance\]|\[watch\]/)
+})
+
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
-    ["HEAD", "--chain"],
-    ["HEAD-2..HEAD", "--chain"],
-    ["23674f", "--chain"],
+    ["HEAD", "--auditor", "codex,claude"],
+    ["HEAD-2..HEAD", "--auditor", "codex,claude"],
+    ["23674f", "--auditor", "codex,claude"],
     ["HEAD--1"],
     ["HEAD", "3"],
     ["example.md", "HEAD"],
     ["example.md", "3-1"],
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
+    ["example.md", "--auditor", ""],
+    ["example.md", "--auditor", "codex,"],
+    ["example.md", "--auditor", ",claude"],
+    ["example.md", "--auditor", "codex,,claude"],
+    ["example.md", "--auditor", "codex, ,claude"],
+    ["example.md", "--auditor", "codex,other"],
+    ["example.md", "--chain"],
+    ["name", "example.md", "--auditor", "oth,ath"],
     // A tag names its fields by letter, in order, and never asks for `u`.
     ["example.md", "--auditor", "claudex"],
     ["example.md", "--auditor", "xa"],
@@ -919,6 +1000,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   ])
     assert.equal(await runCommand(argv, f.runtime, f.options), 2)
   // A bare command line, -h and --help all reach the same help.
+  assert.match(f.errors.join("\n"), /Auditor entry 2: expected/)
   for (const argv of [[], ["-h"], ["--help"], ["brief", "--help"]])
     assert.equal(await runCommand(argv, f.runtime, f.options), 0)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -932,8 +1014,11 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /HEAD-<n>/)
   assert.match(visible, /Codex\s+always fixes/)
   assert.match(visible, /plain-words brief/)
-  assert.match(visible, /run up to 3 rounds on the same scope/)
-  assert.match(visible, /--auditor <selection>\s+claude or codex/)
+  assert.match(
+    visible,
+    /--auditor <selections>\s+comma-separated auditors in round order/,
+  )
+  assert.doesNotMatch(visible, /--chain/)
   assert.match(visible, /an optional l,\s+m, h or x for the effort/)
   assert.match(visible, /default auditor comes from\s+settings\.json/)
   // A round is the command itself, and each command carries its own help.
@@ -1102,10 +1187,14 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
   })
 })
 
-test("a chained run repeats the auditor while the fix records a B finding", async (t) => {
+test("repeated auditor entries run beyond the old cap with one startup", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
   assert.equal(
-    await runCommand(["example.md", "3", "--chain"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "3", "--auditor", "codex,codex,codex,codex"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1117,6 +1206,8 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
     "example-step-3-02-0-round.ouh.md",
     "example-step-3-03-0-round.ouh.log",
     "example-step-3-03-0-round.ouh.md",
+    "example-step-3-04-0-round.ouh.log",
+    "example-step-3-04-0-round.ouh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -1124,22 +1215,13 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
       (call.args[0] === "-p" &&
         !call.args.includes("--no-session-persistence")),
   )
-  // Three rounds of the five phases; the glance after each runs in the runner
+  // Four rounds of the five phases; the glance after each runs in the runner
   // and a finished fix opens no ruling.
-  assert.equal(invocations.length, 15)
+  assert.equal(invocations.length, 20)
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Chained round 2 of at most 3: codex audits the same scope again\./,
-  )
-  assert.match(
-    visible,
-    /Chained round 3 of at most 3: codex audits the same scope again\./,
-  )
-  assert.match(
-    visible,
-    /Chain stopped at the 3-round cap with findings still landing\./,
-  )
+  assert.match(visible, /Next round: codex; 3 auditor entries remain\./)
+  assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
+  assert.match(visible, /Auditor sequence finished after 4 rounds\./)
   // Updates and settings are read once for the run; later rounds still seat
   // their roles from the selections that first round discovered.
   assert.equal(
@@ -1156,10 +1238,14 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
   assert.match(second, /audit +codex +chosen-model high/)
 })
 
-test("a chained run crosses to the other assistant once the fix records a clean round", async (t) => {
+test("a clean fix record does not skip later entries for the same auditor", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null)
   assert.equal(
-    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "--auditor", "codex,codex,claude"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
@@ -1167,15 +1253,14 @@ test("a chained run crosses to the other assistant once the fix records a clean 
   assert.deepEqual(names, [
     "example-all-01-0-round.ouh.log",
     "example-all-01-0-round.ouh.md",
-    "example-all-02-0-round.auh.log",
-    "example-all-02-0-round.auh.md",
+    "example-all-02-0-round.ouh.log",
+    "example-all-02-0-round.ouh.md",
+    "example-all-03-0-round.auh.log",
+    "example-all-03-0-round.auh.md",
   ])
   const visible = f.visible.join("\n")
-  assert.match(
-    visible,
-    /Chained round 2 of at most 3: claude audits the same scope again\./,
-  )
-  assert.match(visible, /Chain stopped after the second assistant's round\./)
+  assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
+  assert.match(visible, /Auditor sequence finished after 3 rounds\./)
 })
 
 test("a due glance sends the watch the record and the cache, never the round", async (t) => {
@@ -1227,14 +1312,18 @@ test("--no-watch skips the glance and the watch, whatever the record says", asyn
 test("a chained run stops at the round that opens a ruling session", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
-    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "--auditor", "codex,claude"],
+      f.runtime,
+      f.options,
+    ),
     0,
     f.errors.join("\n"),
   )
   assert.equal((await f.roundFiles()).length, 2)
   assert.match(
     f.visible.join("\n"),
-    /Chain stopped: this round opened a ruling session\./,
+    /Auditor sequence stopped: this round opened a ruling session\./,
   )
 })
 

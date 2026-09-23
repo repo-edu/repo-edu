@@ -152,7 +152,7 @@ test("clean commit audit keeps the report and makes no commit", async (t) => {
   assert.match(markdown, /Clean audit\. Report retained/)
 })
 
-test("two clean audits still complete the explicitly requested chain with no other sessions", async (t) => {
+test("two clean audits skip all remaining entries for both assistants regardless of tags", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -164,7 +164,11 @@ test("two clean audits still complete the explicitly requested chain with no oth
     true,
   )
   assert.equal(
-    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "--auditor", "codex,otl,claude,atx,codex"],
+      f.runtime,
+      f.options,
+    ),
     0,
   )
   const calls = (await f.calls()).filter(
@@ -182,7 +186,66 @@ test("two clean audits still complete the explicitly requested chain with no oth
   ).stdout
   assert.match(subjects, /^example\/audit ath clean:/)
   assert.match(subjects, /\nexample\/audit oth clean:/)
+  assert.equal((await f.roundFiles()).length, 4)
+  assert.match(f.visible.join("\n"), /skipping all remaining entries for codex/)
+  assert.match(
+    f.visible.join("\n"),
+    /skipping all remaining entries for claude/,
+  )
 })
+
+for (const cleanAssistant of ["codex", "claude"] as const) {
+  for (const includePeer of [false, true]) {
+    test(`a clean ${cleanAssistant} audit skips its later tags with peer rounds=${includePeer}`, async (t) => {
+      const peer = cleanAssistant === "codex" ? "claude" : "codex"
+      const laterTag = cleanAssistant === "codex" ? "otl" : "atx"
+      const f = await roundFixture(t, cleanAssistant)
+      await f.configure({
+        phases: f.phases,
+        assistants: {
+          [cleanAssistant]: {
+            phases: {
+              ...f.phases,
+              audit: {
+                ...(f.phases.audit as object),
+                document: {
+                  text: `Judged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
+                },
+              },
+            },
+          },
+        },
+      })
+      assert.equal(
+        await runCommand(
+          [
+            "example.md",
+            "--auditor",
+            includePeer
+              ? `${cleanAssistant},${peer},${laterTag},${peer}`
+              : `${cleanAssistant},${laterTag}`,
+          ],
+          f.runtime,
+          f.options,
+        ),
+        0,
+        f.errors.join("\n"),
+      )
+      const audits = (await f.prompts()).filter((call) =>
+        call.prompt.startsWith("Run the audit phase "),
+      )
+      assert.deepEqual(
+        audits.map((call) => call.assistant),
+        includePeer ? [cleanAssistant, peer, peer] : [cleanAssistant],
+      )
+      assert.equal((await f.roundFiles()).length, includePeer ? 6 : 2)
+      assert.match(
+        f.visible.join("\n"),
+        new RegExp(`skipping all remaining entries for ${cleanAssistant}`),
+      )
+    })
+  }
+}
 
 test("a refused clean commit fails without starting a fix or deleting the evidence", async (t) => {
   const f = await roundFixture(
@@ -202,7 +265,11 @@ test("a refused clean commit fails without starting a fix or deleting the eviden
   })
   await execa("git", ["config", "core.hooksPath", hooks], { cwd: f.planRoot })
   assert.equal(
-    await runCommand(["example.md", "--chain"], f.runtime, f.options),
+    await runCommand(
+      ["example.md", "--auditor", "codex,otl,claude,atx,codex"],
+      f.runtime,
+      f.options,
+    ),
     1,
   )
   const { log } = await f.records()

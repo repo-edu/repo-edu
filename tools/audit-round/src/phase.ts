@@ -43,12 +43,6 @@ export function phaseOwnerRoot(
   return input[launcherRoots[input.phase]]
 }
 
-/**
- * The severity tier a finished fix recorded, lowercased from the record's
- * sequence. Null means the round landed a clean record.
- */
-export type Tier = "a" | "b" | "c" | "d"
-
 /** The model tiers a round may ask its auditor for, as the command line names them. */
 export const strengths = ["base", "top"] as const
 export type Strength = (typeof strengths)[number]

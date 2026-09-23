@@ -8,7 +8,7 @@ consumers.
 
 - `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the two ruling passes a
   fix's open item adds, the watch that follows a finished planning or plan-scoped implementation
-  round and the chain rule. It retains the audit session and report as local values. Audit, vet, fix
+  round. It retains the audit session and report as local values. Audit, vet, fix
   and brief start fresh. A clean audit completes directly through `clean.ts` without any later
   phase, glance or watch. The coordinator reads the report through `report.ts` to decide whether it
   is clean. A vet that accepted every finding without a condition skips the rebuttal the same way,
@@ -40,11 +40,11 @@ consumers.
   findings that finished, because a round that handed over has not proved its work landed; nothing
   is lost, since the glance counts correction commits and not rounds. A round given no watch target,
   which is what `--no-watch` does, consults no glance at all. The watch reads the commit record and
-  never the round, so `runWatch` passes it no transcript and no report. `chainDecision` owns whether
-  a chained run audits the same scope again and with whom: the auditor repeats while the fix records
-  an A or B tier, the other assistant then takes exactly one round, and the cap, a handover or a
-  failure ends the chain. The round records both repositories' HEADs before the fix and parses every
-  landed subject under its repository's grammar to derive the highest tier. A plan target fails when
+  never the round, so `runWatch` passes it no transcript and no report. A finished round reports
+  whether its audit had no findings, independently of any clean record the fix lands. The command
+  runner uses that result to skip later auditor entries for the same assistant. The round records
+  both repositories' HEADs before the fix and validates every landed subject under its repository's
+  grammar. A plan target fails when
   a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
   owning phase and its session for recovery. As soon as a fix returns `finished`,
   the coordinator closes the report set through its dependency, before reading
@@ -68,13 +68,13 @@ consumers.
   Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
-  reads the assistant name or partial tag `--auditor` takes. Assistant names bypass audit model and
-  effort pins to inherit the CLI settings. The three alphabets share no letter, so a partial tag
-  says which fields it named. `roundPhases` is the one owner of the round's phases: the runner
-  invokes from the value it returns and the run's settings header prints the same value, so what a
-  round says it ran on is what it ran with. A phase names a model, an effort, both or neither; a
-  named field runs on what it names whatever the CLI is configured to use, and an unnamed one
-  follows that configuration. `settings.json` owns phase selections and the model tier table.
+  reads each assistant name or partial tag in the `--auditor` list. Assistant names bypass audit
+  model and effort pins to inherit the CLI settings. The three alphabets share no letter, so a
+  partial tag says which fields it named. `roundPhases` is the one owner of the round's phases: the
+  runner invokes from the value it returns and the run's settings header prints the same value, so
+  what a round says it ran on is what it ran with. A phase names a model, an effort, both or
+  neither; a named field runs on what it names whatever the CLI is configured to use, and an unnamed
+  one follows that configuration. `settings.json` owns phase selections and the model tier table.
   `settings.ts` loads and validates it once at command entry, independently of the working
   directory. That configuration is passed through routing, output naming and commit stamps.
   `--auditor` overrides each field it names, using the configured tier table for its model. Both
@@ -230,10 +230,11 @@ consumers.
   `command.ts` checks that the plan file exists where the phases open it,
   before any assistant starts. The audit workflow owns Git
   resolution and inclusive-range admission. The runner passes references
-  unchanged and rejects `--chain` for commit targets, which run once without
+  unchanged and rejects multiple auditor entries for commit targets, which run once without
   a trajectory glance or watch.
-- `command.ts` owns the command grammar, startup and final reporting, including the assistant name
-  or capability tag `--auditor` takes and the error a malformed one reports. The round is the
+- `command.ts` owns the command grammar, startup and final reporting, including the comma-separated
+  auditor list and the error that identifies a malformed entry. It trims each entry and delegates
+  its assistant name or capability tag to `parseAuditor`. The round is the
   command itself, taking the target as its own arguments. Its subcommands are `brief`, `name`,
   `close` and `episode`. The `episode` command prints joined watch evidence from the shared reader
   and formatter without settings discovery, assistant startup or file writes. The `name` command
@@ -242,7 +243,11 @@ consumers.
   `close` command uses the same closing function as the coordinator and starts no assistant or
   settings discovery. So the program carries an action handler, Commander adds no `help` command,
   and each command's own `-h` prints its help. A bare command line prints that help rather than
-  reporting a missing plan. It also owns the chain loop, because each round records its own file
+  reporting a missing plan. It also owns the remaining auditor list and round counter. Each entry
+  runs once in the supplied order with its own override. Only an audit with no findings removes
+  all remaining entries for that assistant, across model and effort tags. A fix that lands a clean
+  record removes none. Failure or a ruling handover stops the sequence. The list length is the only
+  round limit and an omitted list uses the configured default once. Each round records its own file
   pair and the coordinator has no filesystem side effects: it opens one output per round, retires
   the previous one first, and reads updates and settings once for the whole run before opening any
   files. Startup messages go only to the terminal; the run log begins with the models table. A
@@ -269,7 +274,7 @@ Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads reports,
-vet twins and the fix's landed subjects for routing and chaining. It also reads
+vet twins and the fix's landed subjects for routing and completion checks. It also reads
 `HEAD` for naming and the log the glance counts; the audit workflow still
 resolves the audited scope. Keep assistant adapters independent of the product
 LLM adapters.
@@ -299,7 +304,7 @@ left unchanged. The user supplied the defaults on 2026-09-23.
   Other fields use this file, then the CLI when the file says `null`.
 - `--auditor claude` and `--auditor codex` inherit the selected CLI's current
   model and effort for audit and rebuttal, bypassing both audit pins in this
-  file. In a chain, each auditor inherits its own CLI settings. Other phases
+  file. Each list entry selects its own settings independently. Other phases
   keep their configured selections. Letter tags such as `a` and `o` still
   follow this file.
 
@@ -319,7 +324,8 @@ pnpm audit-round ../plan/example.md 3 --auditor a -v
 pnpm audit-round ../plan/example.md 3 --auditor atx
 pnpm audit-round task-modifier --auditor claude
 pnpm audit-round task-modifier --auditor codex
-pnpm audit-round ../plan/example.md 3 --chain
+pnpm audit-round ../plan/example.md 3 --auditor codex,claude,claude
+pnpm audit-round ../plan/example.md 3 --auditor "atx, obm"
 pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
@@ -351,8 +357,10 @@ finished plan round with audit findings ends with a glance at the commit record,
 adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
 cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
 at either root, writes beside it without claiming a new number and overwrites its standalone log on
-each run. `--chain` runs at most three rounds on the named plan scope. Each header records the
-round's start time; filenames carry no timestamp.
+each run. `--auditor` accepts one selection or a comma-separated sequence on the named plan scope.
+Repeated entries request separate rounds. A clean audit skips all remaining entries for its
+assistant; failure or a ruling handover stops the sequence. Each header records the round's start
+time; filenames carry no timestamp.
 
 ## Verification
 

@@ -10,7 +10,6 @@ import {
   strengthLetters,
   transcribed,
 } from "./phase.js"
-import type { ChainDecision } from "./round.js"
 import type { RoundSettings } from "./settings.js"
 
 export type Context = Extract<Feedback, { type: "context" }>
@@ -205,24 +204,4 @@ export function toolInputText(input: Record<string, unknown>): string {
       return key === "command" ? commandText(value) : value
   }
   return JSON.stringify(input)
-}
-
-/** What a chained run says about its next round, or about ending. */
-export function chainText(
-  decision: ChainDecision,
-  completed: number,
-  cap: number,
-): string {
-  if (decision.next !== null)
-    return `Chained round ${completed + 1} of at most ${cap}: ${decision.next} audits the same scope again.`
-  switch (decision.stop) {
-    case "cap":
-      return `Chain stopped at the ${cap}-round cap with findings still landing.`
-    case "crossed":
-      return "Chain stopped after the second assistant's round."
-    case "open":
-      return "Chain stopped: this round opened a ruling session."
-    case "failed":
-      return "Chain stopped: this round failed."
-  }
 }

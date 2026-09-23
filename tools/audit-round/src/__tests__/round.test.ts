@@ -14,8 +14,6 @@ import {
 import { phasePrompt } from "../requests.js"
 import {
   type Assistant,
-  chainCap,
-  chainDecision,
   type InteractiveSession,
   type Phase,
   type PhaseInput,
@@ -443,7 +441,11 @@ for (const auditor of ["claude", "codex"] as const) {
         round.dependencies,
       )
 
-      assert.deepEqual(result, { status: "finished", report, tier: null })
+      assert.deepEqual(result, {
+        status: "finished",
+        report,
+        cleanAudit: false,
+      })
       assert.deepEqual(round.calls, [
         {
           phase: "audit",
@@ -619,7 +621,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
   assert.deepEqual(result, {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
-    tier: null,
+    cleanAudit: false,
   })
   // The watch reads the commit record, so neither pass is given the round's files.
   assert.equal(round.glances.length, 1)
@@ -692,7 +694,7 @@ test("a round asked for no watch consults no glance, whatever the record says", 
   assert.deepEqual(result, {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
-    tier: null,
+    cleanAudit: false,
   })
   assert.deepEqual(round.glances, [])
   assert.deepEqual(
@@ -897,7 +899,7 @@ for (const auditor of ["claude", "codex"] as const) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished", report, tier: null })
+    assert.deepEqual(result, { status: "finished", report, cleanAudit: true })
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ["audit"],
@@ -963,7 +965,7 @@ for (const auditor of ["claude", "codex"] as const) {
       round.dependencies,
     )
 
-    assert.deepEqual(result, { status: "finished", report, tier: "c" })
+    assert.deepEqual(result, { status: "finished", report, cleanAudit: false })
     // Every verdict is an unconditional accept, so the auditor has nothing to answer.
     assert.deepEqual(
       round.calls.map((call) => call.phase),
@@ -1053,53 +1055,6 @@ test("a brief on its own runs only the brief phase over the named transcript", a
   assert.deepEqual(round.handover, [])
 })
 
-const chained = (tier: "a" | "b" | "c" | "d" | null) =>
-  ({
-    status: "finished",
-    report: `${repoRoot}/AUDIT-example.md`,
-    tier,
-  }) as const
-
-test("a chain keeps the auditor while it lands an A or B finding", () => {
-  for (const tier of ["a", "b"] as const)
-    for (const auditor of ["claude", "codex"] as const)
-      assert.deepEqual(chainDecision(chained(tier), auditor, auditor, 1), {
-        next: auditor,
-      })
-})
-
-test("a chain crosses to the other assistant once findings fall to C, D or clean", () => {
-  for (const tier of ["c", "d", null] as const) {
-    assert.deepEqual(chainDecision(chained(tier), "codex", "codex", 1), {
-      next: "claude",
-    })
-    assert.deepEqual(chainDecision(chained(tier), "claude", "claude", 1), {
-      next: "codex",
-    })
-  }
-})
-
-test("the crossover round is the chain's last, whatever it finds", () => {
-  for (const tier of ["a", "b", "c", "d", null] as const)
-    assert.deepEqual(chainDecision(chained(tier), "claude", "codex", 2), {
-      next: null,
-      stop: "crossed",
-    })
-})
-
-test("a chain still finding A or B ends at the cap without crossing over", () => {
-  assert.deepEqual(chainDecision(chained("a"), "codex", "codex", chainCap), {
-    next: null,
-    stop: "cap",
-  })
-  assert.deepEqual(
-    chainDecision(chained("a"), "codex", "codex", chainCap - 1),
-    {
-      next: "codex",
-    },
-  )
-})
-
 test("the round reads each supplied file and records both heads immediately before the fix", async () => {
   const round = controlledRound()
   const reads: unknown[] = []
@@ -1144,11 +1099,11 @@ test("the round reads each supplied file and records both heads immediately befo
   assert.deepEqual(result, {
     status: "finished",
     report: `${repoRoot}/AUDIT-example.md`,
-    tier: "a",
+    cleanAudit: false,
   })
 })
 
-test("a directed plan correction participates in the chain grade", async () => {
+test("landed plan corrections do not make an audit clean", async () => {
   const round = controlledRound()
   const result = await runRound(
     { ...files, plan: "example.md" },
@@ -1160,7 +1115,7 @@ test("a directed plan correction participates in the chain grade", async () => {
           : ["example/audit ath A1C2: correct the plan"],
     },
   )
-  assert.equal(result.status === "finished" && result.tier, "a")
+  assert.equal(result.status === "finished" && result.cleanAudit, false)
 })
 
 for (const [reader, phase, sessionId, called] of [
@@ -1256,42 +1211,4 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
     },
   )
   assert.equal(result.status, "handed-over")
-})
-
-test("a handover or a failure ends the chain where it stands", () => {
-  assert.deepEqual(
-    chainDecision(
-      {
-        status: "handed-over",
-        report: `${repoRoot}/AUDIT-example.md`,
-        session: {
-          assistant: "codex",
-          model: unpinned,
-          sessionId: "fix",
-          ...testContext(repoRoot),
-        },
-      },
-      "codex",
-      "codex",
-      1,
-    ),
-    { next: null, stop: "open" },
-  )
-  assert.deepEqual(
-    chainDecision(
-      {
-        status: "failed",
-        phase: "audit",
-        assistant: "codex",
-        model: unpinned,
-        ...testContext(repoRoot),
-        sessionId: null,
-        reason: "Unable to start the CLI",
-      },
-      "codex",
-      "codex",
-      1,
-    ),
-    { next: null, stop: "failed" },
-  )
 })

@@ -9,7 +9,7 @@ import { roundFixture } from "./round-fixture.js"
 
 for (const auditor of ["codex", "claude"] as const) {
   for (const tier of ["a", "b", "c", "d", null] as const) {
-    test(`planning chain with ${auditor} and ${tier ?? "clean"} records repeats or crosses once`, async (t) => {
+    test(`planning chain with ${auditor} and ${tier ?? "clean"} follows the requested sequence regardless of landed severity`, async (t) => {
       const f = await roundFixture(
         t,
         auditor,
@@ -23,9 +23,8 @@ for (const auditor of ["codex", "claude"] as const) {
         await runCommand(
           [
             "example-widen.md",
-            "--chain",
             "--auditor",
-            auditor === "codex" ? "o" : "a",
+            auditor === "codex" ? "o,a,a" : "a,o,o",
           ],
           f.runtime,
           f.options,
@@ -33,19 +32,14 @@ for (const auditor of ["codex", "claude"] as const) {
         0,
         f.errors.join("\n"),
       )
-      const repeats = tier === "a" || tier === "b"
-      const rounds = repeats ? 3 : 2
+      const rounds = 3
       const files = (await f.roundFiles())
         .filter((name) => name.endsWith(".log"))
         .sort()
       assert.equal(files.length, rounds)
       for (const [index, file] of files.entries()) {
         const writer =
-          index === 0 || repeats
-            ? auditor
-            : auditor === "codex"
-              ? "claude"
-              : "codex"
+          index === 0 ? auditor : auditor === "codex" ? "claude" : "codex"
         assert.equal(
           file,
           `example-0${index + 1}-0-round.${writer === "codex" ? "ouh" : "auh"}.log`,
@@ -61,10 +55,7 @@ for (const auditor of ["codex", "claude"] as const) {
         assert.doesNotMatch(log, /\[(?:rule|watch)\] starting/)
       }
       const visible = f.visible.join("\n")
-      assert.match(
-        visible,
-        repeats ? /3-round cap/ : /second assistant's round/,
-      )
+      assert.match(visible, /Auditor sequence finished after 3 rounds/)
       const calls = await f.calls()
       assert.equal(
         calls.filter((call) => call.args.includes("--no-session-persistence"))
@@ -100,7 +91,7 @@ for (const auditor of ["codex", "claude"] as const) {
     })
     assert.equal(
       await runCommand(
-        ["example.md", "--chain", "--auditor", auditor === "codex" ? "o" : "a"],
+        ["example.md", "--auditor", auditor === "codex" ? "o,a" : "a,o"],
         f.runtime,
         f.options,
       ),
@@ -126,14 +117,17 @@ for (const auditor of ["codex", "claude"] as const) {
             f.repoRoot,
           ]),
     ])
-    assert.match(f.visible.join("\n"), /Chain stopped: this round failed/)
+    assert.match(
+      f.visible.join("\n"),
+      /Auditor sequence stopped: this round failed/,
+    )
   })
 
   test(`planning handover with ${auditor} stops the chain after the ruling rewrite`, async (t) => {
     const f = await roundFixture(t, auditor, "plan", true, null, true, "plan")
     assert.equal(
       await runCommand(
-        ["example.md", "--chain", "--auditor", auditor === "codex" ? "o" : "a"],
+        ["example.md", "--auditor", auditor === "codex" ? "o,a" : "a,o"],
         f.runtime,
         f.options,
       ),
@@ -149,7 +143,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.doesNotMatch(log, /\[glance\]|\[watch\] starting/)
     assert.match(
       f.visible.join("\n"),
-      /Chain stopped: this round opened a ruling session/,
+      /Auditor sequence stopped: this round opened a ruling session/,
     )
     const calls = await f.calls()
     const session = calls.at(-1)
@@ -187,12 +181,19 @@ for (const phase of [
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
     assert.equal(
-      await runCommand(["example.md", "--chain"], f.runtime, f.options),
+      await runCommand(
+        ["example.md", "--auditor", "codex,claude"],
+        f.runtime,
+        f.options,
+      ),
       1,
     )
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed:`))
-    assert.match(f.visible.join("\n"), /Chain stopped: this round failed/)
+    assert.match(
+      f.visible.join("\n"),
+      /Auditor sequence stopped: this round failed/,
+    )
     assert.equal(
       (await f.calls()).some((call) => call.args[0] === "resume"),
       false,

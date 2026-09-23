@@ -42,7 +42,7 @@ export async function commitFixture(
   return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
 }
 
-/** The tier a finished fix commits, which a chained run reads. */
+/** The tier a finished fix commits, independent of the audit report's findings. */
 type Grade = "a" | "b" | "c" | "d" | null
 
 export async function roundFixture(
@@ -184,7 +184,7 @@ export async function roundFixture(
             ]
           : [],
       stream: await phaseStream(assistant, final, sessionId),
-      // Either CLI may run a phase once a chain crosses over, so both answer.
+      // Either CLI may run a phase when the next auditor changes, so both answer.
       assistants: {
         claude: { stream: await phaseStream("claude", final, sessionId) },
         codex: { stream: await phaseStream("codex", final, sessionId) },
