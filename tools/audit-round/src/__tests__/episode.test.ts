@@ -274,13 +274,29 @@ test("Git supplies complete bodies, unusual touched paths and both sides of rena
   try {
     const first = await commitFixture(cwd, "example/init ath: start")
     const name = 'odd\tname\n".md'
-    await writeFile(join(cwd, name), "# Contents\n")
-    await execa("git", ["add", "."], { cwd })
-    await commitFixture(
-      cwd,
-      `example/audit ath C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.`,
+    // Git can store names that the host filesystem cannot create.
+    const { stdout: blob } = await execa(
+      "git",
+      ["hash-object", "-w", "--stdin"],
+      {
+        cwd,
+        input: "# Contents\n",
+      },
     )
-    await rename(join(cwd, name), join(cwd, "example.md"))
+    const { stdout: tree } = await execa("git", ["mktree", "-z"], {
+      cwd,
+      input: `100644 blob ${blob}\t${name}\0`,
+    })
+    const { stdout: added } = await execa(
+      "git",
+      ["commit-tree", tree, "-p", "HEAD"],
+      {
+        cwd,
+        input: `example/audit ath C1: add\n\n- C [field:missing] [section:decisions] ${ratings} Correct.\n`,
+      },
+    )
+    await execa("git", ["update-ref", "HEAD", added], { cwd })
+    await writeFile(join(cwd, "example.md"), "# Contents\n")
     await execa("git", ["add", "-A"], { cwd })
     await commitFixture(cwd, "example/settle ath: name")
     await rename(join(cwd, "example.md"), join(cwd, "example-widen.md"))

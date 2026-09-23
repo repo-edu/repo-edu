@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
 import { completeClean } from "../clean.js"
@@ -73,7 +73,7 @@ for (const working of ["plan", "repo-edu"] as const) {
         owner === "repo-edu",
       )
       assert.equal(await readFile(f.report, "utf8"), report)
-      assert.ok(f.report.startsWith(`${f.runtime.cwd}/`))
+      assert.equal(dirname(f.report), f.runtime.cwd)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
         (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: peer }))
