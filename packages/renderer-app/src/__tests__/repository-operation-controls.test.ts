@@ -8,16 +8,17 @@ import {
 import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import {
   buildCloneAllWorkflowInput,
+  type CloneAllListingState,
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
-  type CloneAllScheduler,
   cloneAllInputIsCurrent,
+  cloneAllListingReducer,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
-  createCloneAllListingTransition,
   createCloneAllSafeListingInput,
   extractSubgroupPath,
   fetchCloneAllListing,
+  initialCloneAllListingState,
   selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
 
@@ -77,197 +78,131 @@ const listingResult: RepositoryListNamespaceResult = {
   ],
 }
 
-type ManualScheduler = {
-  readonly schedule: CloneAllScheduler
-  flush(): void
-  readonly pendingCount: number
-}
-
-function createManualScheduler(): ManualScheduler {
-  const pending = new Set<() => void>()
-  return {
-    schedule(callback) {
-      pending.add(callback)
-      return () => pending.delete(callback)
-    },
-    flush() {
-      for (const callback of [...pending]) {
-        pending.delete(callback)
-        callback()
-      }
-    },
-    get pendingCount() {
-      return pending.size
-    },
+describe("clone-all listing requests", () => {
+  const context = {
+    connectionId: initialInput.connectionId,
+    namespace: initialInput.namespace,
+    credentials: firstCredentials,
   }
-}
+  const listedState: CloneAllListingState = {
+    filter: initialInput.filter,
+    includeArchived: false,
+    publishedInput: initialPublishedInput,
+  }
 
-describe("clone-all listing transition", () => {
-  it("publishes settled inputs with a new safe generation", () => {
-    const scheduler = createManualScheduler()
-    let publishedInput: CloneAllPublishedListingInput | null = null
-    const transition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: initialInput,
-      credentials: firstCredentials,
-      updatePublishedInput: (update) => {
-        publishedInput = update(publishedInput)
-      },
-      schedule: scheduler.schedule,
+  it("publishes an initial listing with a credential-free query key", () => {
+    const state = cloneAllListingReducer(initialCloneAllListingState, {
+      type: "context",
+      ...context,
     })
-
-    assert.equal(publishedInput, null)
-    assert.equal(scheduler.pendingCount, 1)
-
-    scheduler.flush()
-
-    assert.deepEqual(publishedInput, initialPublishedInput)
+    assert.equal(state.publishedInput?.admissionId.filter, "")
+    assert.equal(state.publishedInput?.admissionId.listingGeneration, 1)
     assert.equal(
       JSON.stringify(
         createCloneAllListingQueryPolicy(
-          (publishedInput as CloneAllPublishedListingInput).admissionId,
+          state.publishedInput?.admissionId ?? null,
         ).queryKey,
       ).includes("secret-token"),
       false,
     )
-
-    transition.dispose()
   })
 
-  it("advances generation when only the credentials snapshot changes", () => {
-    const scheduler = createManualScheduler()
-    let publishedInput: CloneAllPublishedListingInput | null =
-      initialPublishedInput
-    const transition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: initialInput,
-      credentials: secondCredentials,
-      updatePublishedInput: (update) => {
-        publishedInput = update(publishedInput)
-      },
-      schedule: scheduler.schedule,
+  it("keeps typing local until a search request publishes the current filter", () => {
+    const draft = cloneAllListingReducer(listedState, {
+      type: "filter",
+      value: " lab-2* ",
     })
-
-    scheduler.flush()
-
-    assert.equal(publishedInput?.admissionId.listingGeneration, 2)
-    assert.equal(publishedInput?.credentials, secondCredentials)
-    transition.dispose()
+    assert.equal(draft.publishedInput, initialPublishedInput)
+    const submitted = cloneAllListingReducer(draft, {
+      type: "search",
+      ...context,
+    })
+    assert.equal(submitted.publishedInput?.admissionId.filter, "lab-2*")
+    assert.equal(submitted.publishedInput?.admissionId.listingGeneration, 2)
+    const repeated = cloneAllListingReducer(submitted, {
+      type: "search",
+      ...context,
+    })
+    assert.equal(repeated.publishedInput?.admissionId.listingGeneration, 3)
   })
 
-  const unrelatedCredentials: Record<string, PersistedAppCredentials> = {
-    LMS: {
+  it("publishes archived changes with the current filter immediately", () => {
+    const draft = cloneAllListingReducer(listedState, {
+      type: "filter",
+      value: "lab-2*",
+    })
+    const state = cloneAllListingReducer(draft, {
+      type: "include-archived",
+      value: true,
+      ...context,
+    })
+    assert.equal(state.includeArchived, true)
+    assert.equal(state.publishedInput?.admissionId.includeArchived, true)
+    assert.equal(state.publishedInput?.admissionId.filter, "lab-2*")
+  })
+
+  it("advances generation when the active credentials change", () => {
+    const state = cloneAllListingReducer(listedState, {
+      type: "context",
+      ...context,
+      credentials: secondCredentials,
+    })
+    assert.equal(state.publishedInput?.admissionId.listingGeneration, 2)
+    assert.equal(state.publishedInput?.credentials, secondCredentials)
+  })
+
+  it("keeps unfinished drafts unpublished when unrelated credentials change", () => {
+    const draft = cloneAllListingReducer(listedState, {
+      type: "filter",
+      value: "unfinished",
+    })
+    const credentials = {
       ...firstCredentials,
+      gitConnections: [
+        ...firstCredentials.gitConnections,
+        { ...firstCredentials.gitConnections[0], id: "other-git" },
+      ],
       lmsConnections: [
         {
           id: "lms",
-          name: "Course LMS",
-          provider: "canvas",
+          name: "LMS",
+          provider: "canvas" as const,
           baseUrl: "https://canvas.example.edu",
           token: "example-token",
         },
       ],
-    },
-    LLM: {
-      ...firstCredentials,
       llmConnections: [
         {
           id: "llm",
-          name: "Question model",
-          provider: "codex",
-          authMode: "api",
+          name: "Model",
+          provider: "codex" as const,
+          authMode: "api" as const,
           apiKey: "example-key",
         },
       ],
-    },
-    "another Git connection": {
-      ...firstCredentials,
-      gitConnections: [
-        ...firstCredentials.gitConnections,
-        { ...firstCredentials.gitConnections[0], id: "connection-2" },
-      ],
-    },
-  }
-
-  for (const [name, credentials] of Object.entries(unrelatedCredentials)) {
-    it(`keeps the admitted listing when ${name} changes`, () => {
-      const scheduler = createManualScheduler()
-      let publishedInput: CloneAllPublishedListingInput | null =
-        initialPublishedInput
-      assert.equal(
-        cloneAllInputIsCurrent({
-          input: initialInput,
-          credentials,
-          publishedInput,
-        }),
-        true,
-      )
-      const transition = createCloneAllListingTransition({
-        canStartQueries: true,
-        input: initialInput,
+    }
+    assert.equal(
+      cloneAllListingReducer(draft, {
+        type: "context",
+        ...context,
         credentials,
-        updatePublishedInput: (update) => {
-          publishedInput = update(publishedInput)
-        },
-        schedule: scheduler.schedule,
-      })
-      scheduler.flush()
-      assert.equal(publishedInput, initialPublishedInput)
-      transition.dispose()
-    })
-  }
-
-  it("reuses the admitted generation after a transient disable", () => {
-    const scheduler = createManualScheduler()
-    let publishedInput: CloneAllPublishedListingInput | null =
-      initialPublishedInput
-    const disabledTransition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: null,
-      credentials: firstCredentials,
-      updatePublishedInput: (update) => {
-        publishedInput = update(publishedInput)
-      },
-      schedule: scheduler.schedule,
-    })
-
-    assert.equal(publishedInput, initialPublishedInput)
-    disabledTransition.dispose()
-
-    const enabledTransition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: initialInput,
-      credentials: firstCredentials,
-      updatePublishedInput: (update) => {
-        publishedInput = update(publishedInput)
-      },
-      schedule: scheduler.schedule,
-    })
-    scheduler.flush()
-
-    assert.equal(publishedInput, initialPublishedInput)
-    enabledTransition.dispose()
+      }),
+      draft,
+    )
   })
 
-  it("discards scheduled input publication on disposal", () => {
-    const scheduler = createManualScheduler()
-    let publishedInput: CloneAllPublishedListingInput | null =
-      initialPublishedInput
-    const transition = createCloneAllListingTransition({
-      canStartQueries: true,
-      input: { ...initialInput, filter: "lab-2*" },
-      credentials: firstCredentials,
-      updatePublishedInput: (update) => {
-        publishedInput = update(publishedInput)
-      },
-      schedule: scheduler.schedule,
+  it("retains the listing across a transient unavailable connection", () => {
+    const disabled = cloneAllListingReducer(listedState, {
+      type: "context",
+      ...context,
+      connectionId: null,
     })
-
-    assert.equal(scheduler.pendingCount, 1)
-    transition.dispose()
-    assert.equal(scheduler.pendingCount, 0)
-    scheduler.flush()
-    assert.equal(publishedInput, initialPublishedInput)
+    assert.equal(disabled.publishedInput, initialPublishedInput)
+    const restored = cloneAllListingReducer(disabled, {
+      type: "context",
+      ...context,
+    })
+    assert.equal(restored.publishedInput, initialPublishedInput)
   })
 })
 

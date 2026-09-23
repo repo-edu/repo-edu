@@ -27,11 +27,16 @@ export function CloneAllRepositoriesPanel({
           id="clone-all-filter"
           value={cloneAll.filter}
           onChange={(event) => cloneAll.setFilter(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return
+            event.preventDefault()
+            cloneAll.search()
+          }}
           placeholder="Example: 1*"
         />
         <p className="text-xs text-muted-foreground">
           Filter syntax: * = any characters, ? = one character. Leave blank to
-          list all.
+          list all. Press Enter to search.
         </p>
       </div>
       <div className="flex items-center gap-2">

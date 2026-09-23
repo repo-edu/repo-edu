@@ -35,7 +35,6 @@ import {
   analysisSourceKeyParts,
   analysisSourceScopeKey,
 } from "../analysis/analysis-query-keys.js"
-import { SessionWaitingBanner } from "../components/SessionWaitingBanner.js"
 import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
@@ -263,7 +262,6 @@ async function mountCoordinator(
     root.render(
       <Mode>
         <SessionControllerProvider controller={controller}>
-          <SessionWaitingBanner />
           <WorkflowClientProvider value={controller.operations}>
             <QueryClientProvider client={queryClient}>
               <AnalysisCoordinatorProvider>
@@ -834,7 +832,7 @@ describe("analysis sidebar admission", () => {
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
 
-  it("stops the repository pass for a search folder pick and cancels the search itself", {
+  it("refuses Browse during a pass and permits a cancellable search after Cancel", {
     timeout: 3000,
   }, async (t) => {
     const analysisEntered = deferred<void>()
@@ -889,15 +887,26 @@ describe("analysis sidebar admission", () => {
       .querySelector(".lucide-folder-open")
       ?.closest("button")
     assert.ok(browse)
+    assert.equal(isDisabled(browse), true)
     await React.act(async () => {
       browse.click()
+      await flushQueries()
+    })
+    assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
+    assert.equal(cancelLabel("Cancel Search"), undefined)
+    await React.act(async () => {
+      cancelSource.click()
       releaseAnalysis.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    await React.act(async () => {
+      browse.click()
       await flushQueries()
     })
     const signal = await searchEntered.promise
     await React.act(flushQueries)
-    // The pick is work the user asked for, so the background pass stopped and
-    // only the search keeps a Cancel control.
+    // The pass retired before the new input was admitted.
     assert.equal(cancelLabel("Cancel"), undefined)
     const cancelSearch = cancelLabel("Cancel Search")
     assert.ok(cancelSearch)
@@ -918,8 +927,8 @@ describe("analysis sidebar admission", () => {
   })
 
   for (const kind of ["folder", "course"] as const) {
-    for (const stage of ["queued", "open"] as const) {
-      it(`cancels the search-folder pick on a ${kind} surface while ${stage} and permits a later pick`, {
+    for (const stage of ["refused", "open"] as const) {
+      it(`handles ${stage} search-folder picks on a ${kind} surface and permits a later pick`, {
         timeout: 3000,
       }, async (t) => {
         const releaseEarlier = deferred<void>()
@@ -960,7 +969,7 @@ describe("analysis sidebar admission", () => {
         assert.ok(browse)
         let earlier: Promise<unknown> | undefined
         await React.act(async () => {
-          if (stage === "queued") {
+          if (stage === "refused") {
             earlier = controller.operations.execute(
               "analysis.listFolderFiles",
               () => releaseEarlier.promise,
@@ -992,12 +1001,17 @@ describe("analysis sidebar admission", () => {
         const cancelSearch = Array.from(
           container.querySelectorAll("button"),
         ).find((button) => button.textContent?.trim() === "Cancel Search")
-        assert.ok(cancelSearch)
-        assert.equal(isDisabled(cancelSearch), false)
-        await React.act(async () => {
-          cancelSearch.click()
-          await flushQueries()
-        })
+        if (stage === "refused") {
+          assert.equal(cancelSearch, undefined)
+          assert.equal(pickerCalls, 0)
+        } else {
+          assert.ok(cancelSearch)
+          assert.equal(isDisabled(cancelSearch), false)
+          await React.act(async () => {
+            cancelSearch.click()
+            await flushQueries()
+          })
+        }
         assert.equal(followed, false)
         await React.act(async () => {
           releaseEarlier.resolve()
@@ -1008,7 +1022,7 @@ describe("analysis sidebar admission", () => {
           await flushQueries()
         })
         assert.equal(followed, true)
-        assert.equal(pickerCalls, stage === "queued" ? 0 : 1)
+        assert.equal(pickerCalls, stage === "refused" ? 0 : 1)
         assert.equal(searchCalls, 0)
         assert.deepEqual(useToastStore.getState().toasts, [])
 
@@ -1021,7 +1035,7 @@ describe("analysis sidebar admission", () => {
           await controller.waitForIdle()
           await flushQueries()
         })
-        assert.equal(pickerCalls, stage === "queued" ? 1 : 2)
+        assert.equal(pickerCalls, stage === "refused" ? 1 : 2)
         assert.equal(searchCalls, 1)
         assert.deepEqual(
           controller.getSnapshot().settings.preferences.activeSurface,
@@ -1158,7 +1172,7 @@ describe("analysis sidebar admission", () => {
     }
   }
 
-  it("shows a surface switch waiting for a search and clears the banner when it starts", {
+  it("orders an internal surface switch after the search body", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -1189,10 +1203,7 @@ describe("analysis sidebar admission", () => {
       controller.getSnapshot().settings.preferences.activeSurface,
       { kind: "course", courseId: "course" },
     )
-    assert.match(
-      container.querySelector('[role="status"]')?.textContent ?? "",
-      /Waiting for current work to finish/,
-    )
+    assert.equal(controller.getSnapshot().transactions.admitted.size, 2)
     await React.act(async () => {
       release.resolve()
       assert.equal(await transition, true)
@@ -1206,7 +1217,7 @@ describe("analysis sidebar admission", () => {
   })
 
   for (const ending of ["completion", "cancellation"] as const) {
-    it(`shows a reserved command and allows search ${ending} before its body starts`, {
+    it(`keeps search ${ending} reachable before a chained command body starts`, {
       timeout: 3000,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
@@ -1240,10 +1251,7 @@ describe("analysis sidebar admission", () => {
         await flushQueries()
       })
       assert.ok(reservation)
-      assert.match(
-        container.querySelector('[role="status"]')?.textContent ?? "",
-        /Waiting for current work to finish/,
-      )
+      assert.equal(controller.getSnapshot().transactions.admitted.size, 2)
       assert.equal(signal.aborted, false)
       assert.equal(read().discoveryStatus, "loading")
       const button = Array.from(container.querySelectorAll("button")).find(
@@ -1288,7 +1296,7 @@ describe("analysis sidebar admission", () => {
         assert.equal(signal.aborted, true)
       }
       assert.equal(commandStarted, false)
-      assert.ok(container.querySelector('[role="status"]'))
+      assert.equal(controller.getSnapshot().transactions.admitted.size, 2)
       await React.act(async () => {
         releaseSearch.resolve()
         await flushQueries()

@@ -1,27 +1,29 @@
 import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { normalizeGitNamespaceInput } from "@repo-edu/domain/repository-namespace"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useEffect, useReducer, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
 import { selectCredentials } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
-import { canAdmitSessionChange } from "../../../../session/session-reducer.js"
+import {
+  canAdmitSessionChange,
+  canAdmitSessionInput,
+} from "../../../../session/session-reducer.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   type CloneAllCommandState,
   type CloneAllCommandVariables,
-  type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
-  type CloneAllScheduler,
   cloneAllInputIsCurrent,
+  cloneAllListingReducer,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
-  createCloneAllListingTransition,
   createCloneAllSafeListingInput,
   executeCloneAllCommand,
   fetchCloneAllListing,
   formatCloneAllResult,
+  initialCloneAllListingState,
   selectCloneAllCanClone,
 } from "./clone-all-repositories.js"
 
@@ -29,11 +31,6 @@ type UseCloneAllRepositoriesParams = {
   readonly activeConnectionId: string | null
   readonly organization: string | null
   readonly initialTargetDirectory: string
-}
-
-const scheduleCloneAllTransition: CloneAllScheduler = (callback, delayMs) => {
-  const timer = setTimeout(callback, delayMs)
-  return () => clearTimeout(timer)
 }
 
 export function useCloneAllRepositories({
@@ -45,12 +42,13 @@ export function useCloneAllRepositories({
   const pickDirectory = useDirectoryPicker()
   const queryClient = useQueryClient()
   const credentials = useSessionControllerSelector(selectCredentials)
-  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
-  const [filter, setFilter] = useState("")
-  const [includeArchived, setIncludeArchived] = useState(false)
+  const canStartQueries = useSessionControllerSelector(canAdmitSessionInput)
+  const canStartListing = useSessionControllerSelector(canAdmitSessionChange)
+  const [
+    { filter, includeArchived, publishedInput: publishedListingInput },
+    dispatchListing,
+  ] = useReducer(cloneAllListingReducer, initialCloneAllListingState)
   const [targetDirectory, setTargetDirectory] = useState(initialTargetDirectory)
-  const [publishedListingInput, setPublishedListingInput] =
-    useState<CloneAllPublishedListingInput | null>(null)
 
   const namespace =
     organization === null ? "" : normalizeGitNamespaceInput(organization)
@@ -66,33 +64,29 @@ export function useCloneAllRepositories({
     })
 
   useEffect(() => {
-    const transition = createCloneAllListingTransition({
-      canStartQueries,
-      input: createCloneAllSafeListingInput({
-        connectionId: activeConnectionId,
-        namespace,
-        filter: normalizedFilter,
-        includeArchived,
-      }),
+    if (!canStartListing) return
+    dispatchListing({
+      type: "context",
+      connectionId: activeConnectionId,
+      namespace,
       credentials,
-      updatePublishedInput: (updater) => {
-        client.change(() => setPublishedListingInput(updater))
-      },
-      schedule: scheduleCloneAllTransition,
     })
-    return () => transition.dispose()
-  }, [
-    activeConnectionId,
-    canStartQueries,
-    client,
-    credentials,
-    includeArchived,
-    namespace,
-    normalizedFilter,
-  ])
+  }, [activeConnectionId, canStartListing, credentials, namespace])
 
   const inputIsCurrent = cloneAllInputIsCurrent({
     input: rawListingInput,
+    credentials,
+    publishedInput: publishedListingInput,
+  })
+  const listingContextIsCurrent = cloneAllInputIsCurrent({
+    input:
+      publishedListingInput === null
+        ? null
+        : createCloneAllSafeListingInput({
+            ...publishedListingInput.admissionId,
+            connectionId: activeConnectionId,
+            namespace,
+          }),
     credentials,
     publishedInput: publishedListingInput,
   })
@@ -106,14 +100,18 @@ export function useCloneAllRepositories({
   })
 
   useEffect(() => {
-    if (!canStartQueries || !inputIsCurrent || publishedListingInput === null)
+    if (
+      !canStartListing ||
+      !listingContextIsCurrent ||
+      publishedListingInput === null
+    )
       return
     void fetchCloneAllListing(client, queryClient, publishedListingInput).catch(
       () => {},
     )
   }, [
-    canStartQueries,
-    inputIsCurrent,
+    canStartListing,
+    listingContextIsCurrent,
     publishedListingInput,
     client,
     queryClient,
@@ -163,11 +161,29 @@ export function useCloneAllRepositories({
     canStartQueries,
     filter,
     setFilter: (value: string) => {
-      client.change(() => setFilter(value))
+      client.change(() => dispatchListing({ type: "filter", value }))
+    },
+    search: () => {
+      client.change(() =>
+        dispatchListing({
+          type: "search",
+          connectionId: activeConnectionId,
+          namespace,
+          credentials,
+        }),
+      )
     },
     includeArchived,
     setIncludeArchived: (value: boolean) => {
-      client.change(() => setIncludeArchived(value))
+      client.change(() =>
+        dispatchListing({
+          type: "include-archived",
+          value,
+          connectionId: activeConnectionId,
+          namespace,
+          credentials,
+        }),
+      )
     },
     targetDirectory,
     setTargetDirectory: (value: string) => {

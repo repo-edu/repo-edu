@@ -1,0 +1,156 @@
+import assert from "node:assert/strict"
+import { it } from "node:test"
+import { Window } from "happy-dom"
+import React from "react"
+import { createPortal } from "react-dom"
+import { createRoot } from "react-dom/client"
+import {
+  SessionControllerProvider,
+  sessionCancellationControl,
+} from "../session/session-controller-context.js"
+import {
+  deferred,
+  makeSettings,
+  resetStores,
+  startController,
+  workflowClient,
+} from "./session-controller.test-support.js"
+
+it("refuses input during an operation but passes scrolling, focus and its Cancel through portals", async (t) => {
+  resetStores()
+  const window = new Window()
+  const globals = {
+    window,
+    document: window.document,
+    Element: window.Element,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(globalThis)
+  for (const [key, value] of Object.entries(globals)) {
+    Object.defineProperty(globalThis, key, {
+      configurable: true,
+      writable: true,
+      value,
+    })
+  }
+  const controller = startController({
+    workflowClient: workflowClient(async (id) => {
+      if (id === "settings.loadApp") return makeSettings()
+      assert.fail(id)
+    }),
+  })
+  await controller.waitForIdle()
+  const container = window.document.createElement(
+    "div",
+  ) as unknown as HTMLElement
+  const portal = window.document.createElement("div") as unknown as HTMLElement
+  const root = createRoot(container)
+  const release = deferred<void>()
+  t.after(async () => {
+    release.resolve()
+    await controller.waitForIdle()
+    await React.act(async () => root.unmount())
+    controller.dispose()
+    await window.happyDOM.close()
+    for (const key of Object.keys(globals)) {
+      const descriptor = descriptors[key]
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+    }
+  })
+  let starts = 0
+  let wheels = 0
+  let scrolls = 0
+  let focuses = 0
+  let blurs = 0
+  const entered = deferred<AbortSignal>()
+  await React.act(async () => {
+    root.render(
+      <SessionControllerProvider controller={controller}>
+        {createPortal(
+          <section
+            aria-label="Operation controls"
+            onWheel={() => wheels++}
+            onScroll={() => scrolls++}
+            onFocus={() => focuses++}
+            onBlur={() => blurs++}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                starts++
+                void controller.operations.execute(
+                  "course.list",
+                  async () => {},
+                )
+              }}
+            >
+              Start
+            </button>
+            <button
+              type="button"
+              {...{ [sessionCancellationControl]: "analysis.discoverRepos" }}
+              onClick={() =>
+                controller.operations.stop("analysis.discoverRepos")
+              }
+            >
+              <span>Cancel</span>
+            </button>
+          </section>,
+          portal,
+        )}
+      </SessionControllerProvider>,
+    )
+  })
+  const running = controller.operations.execute(
+    "analysis.discoverRepos",
+    async (scope) => {
+      entered.resolve(scope.signal)
+      await release.promise
+    },
+  )
+  // Admission closes input synchronously, before the body or a React update.
+  const start = portal.querySelector("button")
+  const cancel = portal.querySelector("span")
+  assert.ok(start)
+  assert.ok(cancel)
+  start.click()
+  assert.equal(starts, 0)
+  assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
+  assert.equal(
+    controller.operations.change(() => assert.fail("An edit was admitted")),
+    false,
+  )
+  for (const type of ["wheel", "scroll", "focusin", "focusout"]) {
+    const event = new window.Event(type, { bubbles: true, cancelable: true })
+    const target = type === "scroll" ? portal.firstElementChild : start
+    target?.dispatchEvent(event as unknown as Event)
+    assert.equal(event.defaultPrevented, false)
+  }
+  assert.deepEqual([wheels, scrolls, focuses, blurs], [1, 1, 1, 1])
+  const signal = await entered.promise
+  cancel.parentElement?.setAttribute(
+    sessionCancellationControl,
+    "analysis.blame",
+  )
+  cancel.dispatchEvent(
+    new window.MouseEvent("click", { bubbles: true }) as unknown as Event,
+  )
+  assert.equal(signal.aborted, false)
+  cancel.parentElement?.setAttribute(
+    sessionCancellationControl,
+    "analysis.discoverRepos",
+  )
+  cancel.dispatchEvent(
+    new window.MouseEvent("click", { bubbles: true }) as unknown as Event,
+  )
+  assert.equal(signal.aborted, true)
+  release.resolve()
+  await running
+  await controller.waitForIdle()
+  assert.equal(starts, 0)
+  assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
+  start.click()
+  await controller.waitForIdle()
+  assert.equal(starts, 1)
+})

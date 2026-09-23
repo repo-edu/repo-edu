@@ -129,7 +129,7 @@ for (const [file, before, after, owner] of [
   ],
   [
     "packages/renderer-app/src/session/session-operations.ts",
-    "canAdmitSessionChange(this.snapshot())",
+    "canAdmitSessionInput(this.snapshot())",
     "true",
     "session programmatic mutation admission",
   ],

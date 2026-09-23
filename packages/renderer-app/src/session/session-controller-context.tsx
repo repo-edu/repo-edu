@@ -8,7 +8,7 @@ import {
 import { selectOperationIsAdmitted } from "./selectors.js"
 import type { SessionController } from "./session-controller.js"
 import {
-  canAdmitSessionChange,
+  canAdmitSessionInput,
   type SessionControllerSnapshot,
 } from "./session-reducer.js"
 
@@ -56,7 +56,7 @@ export function SessionControllerProvider({
   // React capture also reaches children rendered through dialog portals.
   const admitInput = (event: SyntheticEvent) => {
     const snapshot = controller.getSnapshot()
-    if (canAdmitSessionChange(snapshot)) return
+    if (canAdmitSessionInput(snapshot)) return
     if (snapshot.lifecycle.kind === "live" && event.target instanceof Element) {
       const control = event.target.closest(`[${sessionCancellationControl}]`)
       const operation = control?.getAttribute(sessionCancellationControl)
@@ -94,12 +94,8 @@ export function SessionControllerProvider({
         onCompositionStartCapture={admitInput}
         onCompositionUpdateCapture={admitInput}
         onCompositionEndCapture={admitInput}
-        onFocusCapture={admitInput}
-        onBlurCapture={admitInput}
         onSubmitCapture={admitInput}
         onResetCapture={admitInput}
-        onWheelCapture={admitInput}
-        onScrollCapture={admitInput}
       >
         {children}
       </div>

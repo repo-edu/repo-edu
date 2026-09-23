@@ -1,98 +1,60 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { savingSyncStatus } from "../persistence/create-persister.js"
-import {
-  selectSettingsSyncState,
-  selectUserActionIsWaiting,
-} from "../session/selectors.js"
+import { selectSettingsSyncState } from "../session/selectors.js"
 import {
   canAdmitCourseMutation,
   canAdmitSessionChange,
+  canAdmitSessionInput,
   createInitialSessionSnapshot,
-  type SessionTransactionDescriptor,
   sessionReducer,
 } from "../session/session-reducer.js"
 
 describe("session reducer", () => {
-  const waitingCases: {
-    descriptor: SessionTransactionDescriptor
-    visible: boolean
-  }[] = [
-    { descriptor: { kind: "command", operation: "repo.clone" }, visible: true },
-    {
-      descriptor: {
-        kind: "enter",
-        targetSurface: { kind: "course", courseId: "course-b" },
-      },
-      visible: true,
-    },
-    {
-      descriptor: {
-        kind: "create",
-        targetSurface: { kind: "course", courseId: "course-b" },
-      },
-      visible: true,
-    },
-    { descriptor: { kind: "duplicate" }, visible: true },
-    { descriptor: { kind: "rename" }, visible: true },
-    {
-      descriptor: {
-        kind: "delete",
-        courseId: "course-a",
-        blocksCourseMutation: true,
-      },
-      visible: true,
-    },
-    {
-      descriptor: { kind: "operation", operation: "course.list" },
-      visible: false,
-    },
-    { descriptor: { kind: "bootstrap" }, visible: false },
-    { descriptor: { kind: "close" }, visible: false },
-  ]
-
-  for (const { descriptor, visible } of waitingCases) {
-    it(`${visible ? "shows" : "hides"} a queued ${descriptor.kind} in the waiting display`, () => {
-      let state = createInitialSessionSnapshot()
-      const running = {
-        kind: "operation",
-        operation: "analysis.discoverRepos",
-      } as const
-      state = sessionReducer(state, {
-        type: "transaction-enter",
-        turnId: 1,
-        descriptor: running,
-      })
-      state = sessionReducer(state, {
-        type: "transaction-start",
-        turnId: 1,
-        descriptor: running,
-      })
-      assert.equal(selectUserActionIsWaiting(state), false)
-      if (descriptor.kind === "close") {
-        state = sessionReducer(state, { type: "close-start" })
-      }
-      state = sessionReducer(state, {
-        type: "transaction-enter",
-        turnId: 2,
-        descriptor,
-      })
-      assert.equal(state.transactions.admitted.has(2), true)
-      assert.equal(selectUserActionIsWaiting(state), visible)
-
-      state = sessionReducer(state, { type: "transaction-retire", turnId: 1 })
-      assert.equal(selectUserActionIsWaiting(state), visible)
-      state = sessionReducer(state, {
-        type: "transaction-start",
-        turnId: 2,
-        descriptor,
-      })
-      assert.equal(state.transactions.runningTurnId, 2)
-      assert.equal(selectUserActionIsWaiting(state), false)
-      state = sessionReducer(state, { type: "transaction-retire", turnId: 2 })
-      assert.equal(selectUserActionIsWaiting(state), false)
+  it("freezes input while allowing a chained pass and body-owned settings changes", () => {
+    let state = createInitialSessionSnapshot()
+    const search = {
+      kind: "operation",
+      operation: "analysis.discoverRepos",
+    } as const
+    assert.equal(canAdmitSessionInput(state), true)
+    state = sessionReducer(state, {
+      type: "transaction-enter",
+      turnId: 1,
+      descriptor: search,
     })
-  }
+    assert.equal(canAdmitSessionInput(state), false)
+    assert.equal(canAdmitSessionChange(state), true)
+    state = sessionReducer(state, {
+      type: "transaction-start",
+      turnId: 1,
+      descriptor: search,
+    })
+    state = sessionReducer(state, {
+      type: "transaction-enter",
+      turnId: 2,
+      descriptor: { kind: "operation", operation: "analysis.run" },
+    })
+    assert.equal(state.transactions.admitted.size, 2)
+    state = sessionReducer(state, {
+      type: "preference",
+      event: { type: "set-theme", theme: "dark" },
+    })
+    assert.equal(state.settings.preferences.appearance.theme, "dark")
+    state = sessionReducer(state, {
+      type: "credential",
+      event: { type: "set-active-git-connection", id: "git" },
+    })
+    assert.equal(state.settings.credentials.activeGitConnectionId, "git")
+    state = sessionReducer(state, { type: "transaction-retire", turnId: 1 })
+    assert.equal(canAdmitSessionInput(state), false)
+    state = sessionReducer(state, { type: "transaction-retire", turnId: 2 })
+    assert.equal(canAdmitSessionInput(state), true)
+    state = sessionReducer(state, { type: "close-start" })
+    assert.equal(canAdmitSessionInput(state), false)
+    state = sessionReducer(state, { type: "dispose" })
+    assert.equal(canAdmitSessionInput(state), false)
+  })
 
   it("holds one global freeze from command admission through retirement", () => {
     let state = createInitialSessionSnapshot()
@@ -121,6 +83,7 @@ describe("session reducer", () => {
       }),
     ]) {
       assert.equal(canAdmitSessionChange(current), false)
+      assert.equal(canAdmitSessionInput(current), false)
       assert.equal(canAdmitCourseMutation(current, "course-a"), false)
       for (const event of [
         { type: "preference", event: { type: "set-theme", theme: "dark" } },

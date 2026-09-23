@@ -493,8 +493,18 @@ export function canAdmitCourseMutation(
   return true
 }
 
-// Reservation, rather than body start, closes external semantic input. Earlier
-// admitted bodies retain their own publication authority until retirement.
+// User input never joins the queue behind admitted work.
+export function canAdmitSessionInput(
+  snapshot: SessionControllerSnapshot,
+): boolean {
+  return (
+    snapshot.lifecycle.kind === "live" &&
+    snapshot.transactions.admitted.size === 0
+  )
+}
+
+// Operations may chain bodies and publish session changes in their own turn.
+// A command reservation closes that admission until retirement.
 export function canAdmitSessionChange(
   snapshot: SessionControllerSnapshot,
 ): boolean {

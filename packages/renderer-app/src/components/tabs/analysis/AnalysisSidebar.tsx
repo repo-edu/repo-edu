@@ -29,7 +29,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../../session/session-controller-context.js"
-import { canAdmitSessionChange } from "../../../session/session-reducer.js"
+import { canAdmitSessionInput } from "../../../session/session-reducer.js"
 import {
   selectFileSelectionModeForScope,
   selectFocusedFilePathForScope,
@@ -71,7 +71,7 @@ function serializeSidebarSettings(
 
 export function AnalysisSidebar() {
   const controller = useSessionController()
-  const canStartQueries = useSessionControllerSelector(canAdmitSessionChange)
+  const canStartQueries = useSessionControllerSelector(canAdmitSessionInput)
   const { runRepoDiscovery, runDiscovery, cancelDiscovery, discoveredRepos } =
     useAnalysisDiscovery()
   const {

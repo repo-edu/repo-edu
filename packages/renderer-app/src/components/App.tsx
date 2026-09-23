@@ -80,7 +80,6 @@ import { UsernameVerificationDialog } from "./dialogs/UsernameVerificationDialog
 import { ValidationDialog } from "./dialogs/ValidationDialog.js"
 import { HomeView } from "./HomeView.js"
 import { IssuesButton } from "./IssuesButton.js"
-import { SessionWaitingBanner } from "./SessionWaitingBanner.js"
 import { SettingsButton } from "./SettingsButton.js"
 import { SyncErrorBanner } from "./SyncErrorBanner.js"
 import { SettingsSheet } from "./settings/SettingsSheet.js"
@@ -423,7 +422,6 @@ function AppShell() {
           </div>
         </div>
 
-        <SessionWaitingBanner />
         <SyncErrorBanner />
 
         {activeSurface.kind === "home" ? (

@@ -72,19 +72,6 @@ export function selectOperationIsAdmitted(
   )
 }
 
-export function selectUserActionIsWaiting(
-  snapshot: SessionControllerSnapshot,
-): boolean {
-  const { admitted, runningTurnId } = snapshot.transactions
-  return [...admitted].some(
-    ([turnId, entry]) =>
-      turnId !== runningTurnId &&
-      ["command", "enter", "create", "duplicate", "rename", "delete"].includes(
-        entry.kind,
-      ),
-  )
-}
-
 export const selectTheme = (snapshot: SessionControllerSnapshot) =>
   snapshot.settings.preferences.appearance.theme
 export const selectAppearance = (snapshot: SessionControllerSnapshot) =>

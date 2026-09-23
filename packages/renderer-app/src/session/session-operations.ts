@@ -32,7 +32,7 @@ import {
   sessionWorkflowClasses,
 } from "./session-operation-inventory.js"
 import {
-  canAdmitSessionChange,
+  canAdmitSessionInput,
   type SessionControllerSnapshot,
 } from "./session-reducer.js"
 import {
@@ -172,7 +172,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
           descriptor.operation === operation,
       ),
     change: (apply) => {
-      if (!canAdmitSessionChange(this.snapshot())) return false
+      if (!canAdmitSessionInput(this.snapshot())) return false
       apply()
       return true
     },

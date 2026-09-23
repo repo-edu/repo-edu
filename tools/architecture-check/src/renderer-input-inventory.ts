@@ -33,12 +33,8 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
       "CompositionStart",
       "CompositionUpdate",
       "CompositionEnd",
-      "Focus",
-      "Blur",
       "Submit",
       "Reset",
-      "Wheel",
-      "Scroll",
     ].map((event) => `on${event}Capture:{admitInput}`),
   },
   {
@@ -46,7 +42,7 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
     file: `${session}session-controller-context.tsx`,
     selector: { kind: "calls", within: "admitInput" },
     members: [
-      "canAdmitSessionChange",
+      "canAdmitSessionInput",
       "controller.getSnapshot",
       "event.target.closest",
       "control?.getAttribute",
@@ -59,7 +55,7 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
     owner: "session programmatic mutation admission",
     file: `${session}session-operations.ts`,
     selector: { kind: "calls", within: "change" },
-    members: ["canAdmitSessionChange", "this.snapshot", "apply"],
+    members: ["canAdmitSessionInput", "this.snapshot", "apply"],
   },
   {
     owner: "session native keyboard admission",

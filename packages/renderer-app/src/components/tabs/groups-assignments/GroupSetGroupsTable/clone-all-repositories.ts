@@ -8,8 +8,6 @@ import { keepPreviousData, type QueryClient } from "@tanstack/react-query"
 import type { SessionOperationGateway } from "../../../../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../../../../session/session-query.js"
 
-export const cloneAllListingDebounceMs = 350
-
 export type CloneAllSafeListingInput = {
   readonly connectionId: string
   readonly namespace: string
@@ -105,68 +103,72 @@ export function executeCloneAllCommand(
   })
 }
 
-export type CloneAllScheduler = (
-  callback: () => void,
-  delayMs: number,
-) => () => void
-
-type PublishedListingUpdater = (
-  previous: CloneAllPublishedListingInput | null,
-) => CloneAllPublishedListingInput | null
-
-type CloneAllListingTransitionOptions = {
-  readonly canStartQueries: boolean
-  readonly input: CloneAllSafeListingInput | null
+type CloneAllListingContext = {
+  readonly connectionId: string | null
+  readonly namespace: string
   readonly credentials: PersistedAppCredentials
-  readonly updatePublishedInput: (updater: PublishedListingUpdater) => void
-  readonly schedule: CloneAllScheduler
 }
 
-export type CloneAllListingTransition = {
-  dispose(): void
+export type CloneAllListingState = {
+  readonly filter: string
+  readonly includeArchived: boolean
+  readonly publishedInput: CloneAllPublishedListingInput | null
 }
 
-export function createCloneAllListingTransition({
-  canStartQueries,
-  input,
-  credentials,
-  updatePublishedInput,
-  schedule,
-}: CloneAllListingTransitionOptions): CloneAllListingTransition {
-  let disposed = false
-  let cancelScheduledPublication: (() => void) | null = null
+type CloneAllListingEvent =
+  | { type: "filter"; value: string }
+  | ({ type: "context" | "search" } & CloneAllListingContext)
+  | ({ type: "include-archived"; value: boolean } & CloneAllListingContext)
 
-  if (canStartQueries && input !== null) {
-    cancelScheduledPublication = schedule(() => {
-      if (disposed) return
-      updatePublishedInput((previous) => {
-        if (
-          cloneAllInputIsCurrent({
-            input,
-            credentials,
-            publishedInput: previous,
-          })
-        ) {
-          return previous
-        }
-        return {
-          admissionId: {
-            ...input,
-            listingGeneration:
-              (previous?.admissionId.listingGeneration ?? 0) + 1,
-          },
-          credentials,
-        }
+export const initialCloneAllListingState: CloneAllListingState = {
+  filter: "",
+  includeArchived: false,
+  publishedInput: null,
+}
+
+export function cloneAllListingReducer(
+  state: CloneAllListingState,
+  event: CloneAllListingEvent,
+): CloneAllListingState {
+  if (event.type === "filter") return { ...state, filter: event.value }
+  if (event.type === "context" && state.publishedInput !== null) {
+    // Unrelated settings changes must not submit an unfinished filter draft.
+    const input = createCloneAllSafeListingInput({
+      ...state.publishedInput.admissionId,
+      connectionId: event.connectionId,
+      namespace: event.namespace,
+    })
+    if (
+      cloneAllInputIsCurrent({
+        input,
+        credentials: event.credentials,
+        publishedInput: state.publishedInput,
       })
-    }, cloneAllListingDebounceMs)
+    )
+      return state
   }
-
+  const includeArchived =
+    event.type === "include-archived" ? event.value : state.includeArchived
+  const input = createCloneAllSafeListingInput({
+    connectionId: event.connectionId,
+    namespace: event.namespace,
+    filter: state.filter.trim(),
+    includeArchived,
+  })
   return {
-    dispose() {
-      if (disposed) return
-      disposed = true
-      cancelScheduledPublication?.()
-    },
+    ...state,
+    includeArchived,
+    publishedInput:
+      input === null
+        ? state.publishedInput
+        : {
+            admissionId: {
+              ...input,
+              listingGeneration:
+                (state.publishedInput?.admissionId.listingGeneration ?? 0) + 1,
+            },
+            credentials: event.credentials,
+          },
   }
 }
 
