@@ -260,31 +260,27 @@ describe("discovery and blame bodies", () => {
           })
         else unsubscribe()
         assert.equal(signal.aborted, false)
-        if (kind === "discovery") {
-          // A search is work the user asked for, so the next body waits for it.
-          let followed = false
-          const next = controller.operations.execute(
-            "analysis.listFolderFiles",
-            async () => {
-              followed = true
-              assert.deepEqual(client.getQueryData(key), result)
+        // Both search and analysis retain their turn through publication.
+        let followed = false
+        const next = controller.operations.execute(
+          "analysis.listFolderFiles",
+          async () => {
+            followed = true
+            assert.deepEqual(client.getQueryData(key), result)
+            if (kind === "discovery") {
               assert.equal(
                 useCourseStore.getState().course?.searchFolder,
                 "/repos/one",
               )
-            },
-          )
-          await tick()
-          assert.equal(followed, false)
-          release.resolve()
-          await Promise.all([running, next])
-          assert.equal(followed, true)
-          return
-        }
-        // The analysis pass is background, so a later reservation would stop
-        // it. Losing its observer does not, and it still publishes.
+            }
+          },
+        )
+        await tick()
+        assert.equal(followed, false)
+        assert.equal(signal.aborted, false)
         release.resolve()
-        await running
+        await Promise.all([running, next])
+        assert.equal(followed, true)
         assert.deepEqual(client.getQueryData(key), result)
       })
     }

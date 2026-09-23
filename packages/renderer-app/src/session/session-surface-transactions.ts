@@ -1,13 +1,5 @@
 import type { SessionTransactionDescriptor } from "./session-reducer.js"
 
-/** What a reservation is for. Work the user asked for keeps its turn until it
- * finishes or the user stops it. Work the owner started on the user's behalf is
- * background: entering any reservation stops it and nothing resumes it by
- * hand. Restart cost decides which of the two a reservation is, and the work
- * owns that choice, never the control that started it: work is background when
- * a later start reaches the same state from the cache. */
-export type SessionOperationIntent = "user-asked" | "background"
-
 type Deferred<T> = {
   promise: Promise<T>
   resolve: (value: T) => void
@@ -102,7 +94,6 @@ export type SessionTransactionReservation<T> = {
 
 type LiveReservation = {
   descriptor: SessionTransactionDescriptor
-  intent: SessionOperationIntent
   stop: () => void
 }
 
@@ -124,11 +115,9 @@ export class SessionSurfaceTransactions {
 
   reserve<T>(
     descriptor: SessionTransactionDescriptor,
-    intent: SessionOperationIntent = "user-asked",
   ): SessionTransactionReservation<T> | null {
     const turnId = ++this.nextTurnId
     if (!this.callbacks.enter(turnId, descriptor)) return null
-    this.stopBackgroundWork()
 
     const controller = new AbortController()
     const body = deferred<TransactionBody<T>>()
@@ -195,7 +184,7 @@ export class SessionSurfaceTransactions {
       () => undefined,
       () => undefined,
     )
-    this.live.set(turnId, { descriptor, intent, stop })
+    this.live.set(turnId, { descriptor, stop })
 
     return {
       turnId,
@@ -230,11 +219,5 @@ export class SessionSurfaceTransactions {
 
   async flush(): Promise<void> {
     await this.tail
-  }
-
-  private stopBackgroundWork(): void {
-    for (const reservation of [...this.live.values()]) {
-      if (reservation.intent === "background") reservation.stop()
-    }
   }
 }

@@ -537,8 +537,8 @@ describe("analysis runner lifetime in React", () => {
     }
   })
 
-  for (const ending of ["command", "cancel"] as const) {
-    it(`keeps the repository pass stopped after a ${ending} ended it`, {
+  for (const ending of ["completion", "cancel"] as const) {
+    it(`runs a queued command after analysis ${ending} without restarting the pass`, {
       timeout: 3000,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
@@ -560,26 +560,29 @@ describe("analysis runner lifetime in React", () => {
       }
       let command: Promise<unknown> | undefined
       await React.act(async () => {
-        command = controller.operations.execute(
-          "groupSet.export",
-          async () => {},
-        )
+        command = controller.operations.execute("groupSet.export", async () => {
+          assert.equal(calls, ending === "cancel" ? 1 : repos.length)
+        })
         await flushQueries()
       })
-      assert.equal(signal.aborted, true)
+      assert.equal(signal.aborted, ending === "cancel")
+      assert.equal(calls, 1)
       await React.act(async () => {
         release.resolve()
         await command
         await flushQueries()
       })
-      // Command retirement is not a start trigger, so neither ending resumes.
+      // Command retirement and unrelated edits do not start another pass.
       await React.act(async () => {
         await controller.waitForIdle()
         controller.setDisplayName("course", "Renamed")
         await flushQueries()
       })
-      assert.equal(calls, 1)
-      assert.equal(read().result, null)
+      assert.equal(calls, ending === "cancel" ? 1 : repos.length)
+      assert.deepEqual(
+        read().result,
+        ending === "cancel" ? null : makeBaseResult(),
+      )
       await React.act(async () => {
         read().runAnalysis()
         await controller.waitForIdle()

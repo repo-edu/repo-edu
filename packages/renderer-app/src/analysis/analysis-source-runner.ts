@@ -40,10 +40,9 @@ export class AnalysisSourceRunner {
     private readonly input: AnalysisSourceInput,
   ) {}
 
-  /** One background body analyses the source and the selected repository's
-   * line authorship. Every reservation entering behind it stops it, whatever
-   * start control asked for it, because a later start reaches the same state
-   * from the cache and only the repositories in flight are redone. */
+  /** One body analyses the requested repositories and the selected repository's
+   * line authorship. It keeps its turn until completion or an explicit stop;
+   * later runs reuse matching cached results. */
   async run(
     repoPaths: readonly string[],
     selectedRepoPath: string | null,
@@ -58,38 +57,34 @@ export class AnalysisSourceRunner {
             selectedRepoPath,
             ...repoPaths.filter((path) => path !== selectedRepoPath),
           ]
-    await this.operations.execute(
-      "analysis.run",
-      async (scope) => {
-        let nextIndex = 0
-        const worker = async () => {
-          while (!scope.signal.aborted && nextIndex < ordered.length) {
-            try {
-              const repoPath = ordered[nextIndex++]
-              await this.fetchRepo(
-                scope,
-                repoPath,
-                repoPath === selectedRepoPath ? blameConfig : null,
-              )
-            } catch {
-              // Query publishes each repository's failure to its observers.
-            }
+    await this.operations.execute("analysis.run", async (scope) => {
+      let nextIndex = 0
+      const worker = async () => {
+        while (!scope.signal.aborted && nextIndex < ordered.length) {
+          try {
+            const repoPath = ordered[nextIndex++]
+            await this.fetchRepo(
+              scope,
+              repoPath,
+              repoPath === selectedRepoPath ? blameConfig : null,
+            )
+          } catch {
+            // Query publishes each repository's failure to its observers.
           }
         }
-        await Promise.all(
-          Array.from(
-            {
-              length: Math.max(
-                1,
-                Math.min(this.input.repoParallelism, ordered.length),
-              ),
-            },
-            worker,
-          ),
-        )
-      },
-      "background",
-    )
+      }
+      await Promise.all(
+        Array.from(
+          {
+            length: Math.max(
+              1,
+              Math.min(this.input.repoParallelism, ordered.length),
+            ),
+          },
+          worker,
+        ),
+      )
+    })
   }
 
   private async fetchBlame(

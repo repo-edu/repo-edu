@@ -36,7 +36,6 @@ import {
   type SessionControllerSnapshot,
 } from "./session-reducer.js"
 import {
-  type SessionOperationIntent,
   SessionSurfaceTransactions,
   type SessionTransactionScope,
 } from "./session-surface-transactions.js"
@@ -97,7 +96,6 @@ export type SessionOperationGateway = {
   execute<T>(
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
-    intent?: SessionOperationIntent,
   ): Promise<T | undefined>
   presentation<K extends PresentationWorkflowId>(
     id: K,
@@ -110,7 +108,6 @@ export type SessionOperationGateway = {
   ): Promise<T>
   reserve<T>(
     operation: SessionOperationId,
-    intent?: SessionOperationIntent,
   ): SessionOperationReservation<T> | null
   /** Stop every live reservation for this operation. */
   stop(operation: SessionOperationId): void
@@ -150,9 +147,8 @@ export class SessionOperations extends SessionSurfaceTransactions {
     execute: async <T>(
       operation: SessionOperationId,
       body: (scope: SessionOperationScope) => Promise<T>,
-      intent?: SessionOperationIntent,
     ) => {
-      const reservation = this.reserveOperation<T>(operation, intent)
+      const reservation = this.reserveOperation<T>(operation)
       if (reservation === null) return undefined
       return await reservation.run(body)
     },
@@ -164,7 +160,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
         throw new Error("The session is not accepting presentation calls.")
       return await start()
     },
-    reserve: (operation, intent) => this.reserveOperation(operation, intent),
+    reserve: (operation) => this.reserveOperation(operation),
     stop: (operation) =>
       this.stopMatching(
         (descriptor) =>
@@ -192,12 +188,11 @@ export class SessionOperations extends SessionSurfaceTransactions {
 
   private reserveOperation<T>(
     operation: SessionOperationId,
-    intent?: SessionOperationIntent,
   ): SessionOperationReservation<T> | null {
-    const reservation = this.reserve<T>(
-      { kind: sessionOperationKind(operation), operation },
-      intent,
-    )
+    const reservation = this.reserve<T>({
+      kind: sessionOperationKind(operation),
+      operation,
+    })
     if (reservation === null) return null
     return {
       run: (body) =>

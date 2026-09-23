@@ -52,9 +52,9 @@ It consumes:
 - `src/analysis/analysis-query-coordinator.tsx`: starts bodies and observes their cached
   results. `App.tsx` installs its `AnalysisCoordinatorProvider` inside `QueryClientProvider`.
 - `src/analysis/analysis-source-runner.ts`: owns snapshot-head, repository analysis and blame
-  fetches. One background body covers the whole source and the selected repository's line
-  authorship. Every reservation entering behind it stops it, whatever start control asked for
-  it, and a later start skips the repositories already cached.
+  fetches. One body covers the requested repositories and the selected repository's line
+  authorship. It keeps its turn until completion or Cancel and freezes input while admitted.
+  A later run reuses matching cached results.
 - `src/analysis/analysis-query-bodies.ts`: owns the discovery fetch body.
 - `src/analysis/analysis-query-keys.ts`: keys cached results by input identity.
 - `src/analysis/analysis-transient-store.ts`: holds live progress.
@@ -85,14 +85,11 @@ It consumes:
   Components use disabled watchers and start a body when their input becomes ready.
   No render, effect or Query observer may start or stop host work; a stop goes through
   the gateway, which reverts the query instead of failing it.
-- A reservation declares whether it is work the user asked for or background work the
-  owner started on the user's behalf. Restart cost decides that declaration and the work
-  owns it, never the control that started it: work is background when a later start reaches
-  the same state from the cache, so stopping it costs only what was in flight. The repository
-  analysis pass is background at every start site, Run and Re-run included; a folder search is
-  work the user asked for at every start site. Every accepted reservation stops live
-  background work. Work the user asked for keeps its turn until it finishes or the user
-  stops it.
+- Every operation and command refuses input while admitted, except its own Cancel.
+  No user input is held to replay later. Drop governs a teacher's start; the queue orders
+  the bodies that one start chains, such as Start's search followed by its analysis pass.
+  Each body has its own stop handle from reservation, including while queued. A later
+  reservation does not stop earlier work. Scrolling and focus remain available.
 - Command reservation freezes every semantic edit and persistence-worker start
   until retirement. Store actions and native edits obey the same gate; do not
   add field-specific exceptions, semantic refs or competing state owners.

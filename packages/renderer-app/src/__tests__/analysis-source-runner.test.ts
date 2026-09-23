@@ -105,45 +105,51 @@ describe("source analysis ownership", () => {
       assert.deepEqual(client.getQueryData(resultKey(path)), result)
   })
 
-  it("stops the pass for a reservation entering behind it", {
-    timeout: 2000,
-  }, async (t) => {
-    const entered = deferred<void>()
-    const release = deferred<void>()
-    const result = makeBaseResult()
-    const calls: string[] = []
-    const { runner, client, controller } = await setup(
-      t,
-      async (id, path) => {
-        if (id === "analysis.resolveSnapshotHead") return "head"
-        calls.push(path)
-        if (path === repos[0]) {
-          entered.resolve()
-          await release.promise
-        }
-        return result
-      },
-      1,
-    )
-    const running = runner.run(repos, repos[0], null).catch(() => {})
-    await entered.promise
-    let commandStarted = false
-    const command = controller.operations.execute("repo.clone", async () => {
-      commandStarted = true
+  for (const operation of ["analysis.listFolderFiles", "repo.clone"] as const) {
+    it(`keeps the pass's turn when ${operation} enters behind it`, {
+      timeout: 2000,
+    }, async (t) => {
+      const entered = deferred<AbortSignal>()
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      const result = makeBaseResult()
+      const calls: string[] = []
+      const { runner, client, controller } = await setup(
+        t,
+        async (id, path, signal) => {
+          if (id === "analysis.resolveSnapshotHead") return "head"
+          calls.push(path)
+          if (path === repos[0]) {
+            assert.ok(signal)
+            entered.resolve(signal)
+            await release.promise
+            signal.throwIfAborted()
+          }
+          return result
+        },
+        1,
+      )
+      const running = runner.run(repos, repos[0], null)
+      const signal = await entered.promise
+      let followed = false
+      const next = controller.operations.execute(operation, async () => {
+        followed = true
+        assert.deepEqual(calls, repos)
+        for (const path of repos)
+          assert.deepEqual(client.getQueryData(resultKey(path)), result)
+      })
+      await tick()
+      assert.equal(followed, false)
+      assert.equal(signal.aborted, false)
+      release.resolve()
+      await Promise.all([running, next])
+      assert.equal(followed, true)
+      assert.equal(signal.aborted, false)
+      // The completed pass remains cached for later explicit requests.
+      await runner.run(repos, repos[0], null)
+      assert.deepEqual(calls, repos)
     })
-    await tick()
-    assert.equal(commandStarted, false)
-    release.resolve()
-    await Promise.all([running, command])
-    assert.equal(commandStarted, true)
-    // The stop costs the one repository in flight; the rest never started.
-    assert.deepEqual(calls, [repos[0]])
-    // A later start redoes that one and skips nothing else, because nothing
-    // else had reached the cache.
-    await runner.run(repos, repos[0], null)
-    assert.deepEqual(calls, [repos[0], ...repos])
-    assert.deepEqual(client.getQueryData(resultKey(repos[0])), result)
-  })
+  }
 
   for (const stage of ["snapshot", "analysis"] as const) {
     it(`keeps the pending ${stage} when its last observer leaves`, {
