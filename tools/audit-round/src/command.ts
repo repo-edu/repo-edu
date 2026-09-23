@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, stat } from "node:fs/promises"
+import { readFile, realpath, stat } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import {
   Command,
@@ -485,20 +485,6 @@ export async function runCommand(
       }
     }
 
-    // The last round's output is still open, so a failure reports through it.
-    const reporting = output
-    if (result.status === "failed" && reporting !== undefined) {
-      const roots = await Promise.all(
-        [context.repoEduRoot, context.planRoot].map(async (root) => {
-          try {
-            return `${root}:\n${(await readdir(root)).sort().join("\n")}`
-          } catch (error) {
-            return `${root}: ${errorMessage(error)}`
-          }
-        }),
-      )
-      await reporting.message(`Files at repository roots:\n${roots.join("\n")}`)
-    }
     code = result.status === "failed" ? 1 : 0
   } catch (error) {
     if (error instanceof InvalidArgumentError) code = 2

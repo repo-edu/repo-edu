@@ -167,6 +167,71 @@ test("Markdown quotes, nested evidence and code cannot introduce findings or emp
   )
 })
 
+test("closing metadata belongs to the finding after nested list evidence", () => {
+  for (const evidence of [
+    "Explanation.\n\n   - First correction.\n   - Last correction.",
+    "Explanation.\n\n   1. First option.\n   2. Last option.",
+    "Explanation.\n\n   - Outer detail.\n     - Nested detail.",
+    "Explanation.\n\n   - A **formatted** correction.\n",
+  ]) {
+    assert.deepEqual(
+      readReport(
+        implementation(
+          `${finding(1, "[area:tool-audit-round]", evidence)}\n${finding(2)}`,
+        ),
+        "implementation",
+      ),
+      [1, 2],
+    )
+    assert.deepEqual(
+      readReport(
+        planning(
+          "No excess findings.",
+          finding(1, "[field:missing] [section:decisions]", evidence),
+        ),
+        "planning",
+      ),
+      [1],
+    )
+  }
+  const body = Array.from({ length: 10 }, (_, index) => {
+    const number = index + 1
+    const indent = " ".repeat(String(number).length + 2)
+    return `${number}. **C: Preserve closing metadata**\n\n${indent}- Evidence.\n${indent}[area:tool-audit-round] ${ratings}\n`
+  }).join("\n")
+  assert.deepEqual(
+    readReport(implementation(body), "implementation"),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  )
+})
+
+test("metadata inside nested evidence cannot close a finding", () => {
+  const tokens = `[area:tool-audit-round] ${ratings}`
+  for (const evidence of [
+    `- Evidence.\n     ${tokens}`,
+    `- Evidence.\n\n     ${tokens}`,
+    `> Evidence.\n   ${tokens}`,
+    `> ${tokens}`,
+    `- > Evidence.\n   ${tokens}`,
+    `\`\`\`text\n   ${tokens}`,
+    `- \`\`\`text\n     ${tokens}`,
+    `    ${tokens}`,
+    `\`Evidence\n   ${tokens}\n   \``,
+    `- Evidence.\n   ${tokens}\n   More evidence.`,
+  ])
+    assert.throws(
+      () =>
+        readReport(
+          implementation(
+            `1. **C: Missing closing metadata**\n\n   ${evidence}`,
+          ),
+          "implementation",
+        ),
+      /Malformed finding/,
+      evidence,
+    )
+})
+
 test("malformed, contradictory or incomplete fields fail instead of reading clean", () => {
   for (const body of [
     "",

@@ -51,19 +51,34 @@ function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
     .join("")
 }
 
+function closingTokens(item: List["children"][number], line: string): string {
+  let end = item.children.at(-1)
+  // Markdown can attach an outer closing line to the last nested list item.
+  // Follow lists only: quoted evidence and code cannot supply metadata.
+  while (end?.type === "list") end = end.children.at(-1)?.children.at(-1)
+  const text = end?.type === "paragraph" ? end.children.at(-1) : undefined
+  const start = item.children[0]
+  if (
+    text?.type !== "text" ||
+    text.position?.end.line !== item.position?.end.line ||
+    line.search(/\S/) !== (start?.position?.start.column ?? 0) - 1
+  )
+    return ""
+  return line.trim()
+}
+
 function findingNumber(
   item: List["children"][number],
   source: string,
   field: string | null,
 ): number {
   const start = item.children[0]
-  const end = item.children.at(-1)
   const title = start?.type === "paragraph" ? start.children[0] : undefined
   const lines = source
     .slice(item.position?.start.offset, item.position?.end.offset)
     .split("\n")
   const number = /^([1-9]\d*)\. \*\*[A-D]: .+\*\*\s*$/.exec(lines[0])
-  const tokens = end?.type === "paragraph" ? (lines.at(-1)?.trim() ?? "") : ""
+  const tokens = closingTokens(item, lines.at(-1) ?? "")
   if (
     number === null ||
     title?.type !== "strong" ||

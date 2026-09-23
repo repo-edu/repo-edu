@@ -642,7 +642,8 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
     const log = (await f.records()).log
     assert.match(log, new RegExp(`\\[${phase}\\] failed:`))
-    assert.match(log, /Files at repository roots:/)
+    for (const output of [log, f.visible.join("\n")])
+      assert.doesNotMatch(output, /Files at repository roots:/)
     if (phase === "rebut")
       assert.match(
         log,
@@ -1539,6 +1540,6 @@ test("a failed planning audit retains its root and recovery session without star
     "--add-dir",
     f.repoRoot,
   ])
-  assert.ok(log.includes(`Files at repository roots:\n${f.repoRoot}:\n`))
-  assert.ok(log.includes(`${f.planRoot}:\n`))
+  for (const output of [log, f.visible.join("\n")])
+    assert.doesNotMatch(output, /Files at repository roots:/)
 })
