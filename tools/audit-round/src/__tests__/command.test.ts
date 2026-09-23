@@ -850,6 +850,50 @@ for (const auditor of ["codex", "claude"] as const) {
   })
 }
 
+for (const auditor of ["codex", "claude"] as const) {
+  test(`--auditor ${auditor} inherits CLI settings for audit and rebuttal despite phase pins`, async (t) => {
+    const f = await roundFixture(t, auditor)
+    const settings = structuredClone(testSettings)
+    settings.defaultAuditor = auditor === "codex" ? "claude" : "codex"
+    settings.phases.audit[auditor] = { model: "pinned-auditor", effort: "low" }
+    settings.phases.fix = { model: "pinned-fix", effort: "medium" }
+    assert.equal(
+      await runCommand(["example.md", "--auditor", auditor], f.runtime, {
+        ...f.options,
+        settings,
+      }),
+      0,
+      f.errors.join("\n"),
+    )
+    const prompts = await f.prompts()
+    for (const phase of ["audit", "rebut"]) {
+      const call = prompts.find((call) =>
+        call.prompt.startsWith(`Run the ${phase} phase `),
+      )
+      assert.ok(call)
+      assert.equal(call.assistant, auditor)
+      for (const flag of ["-m", "--model", "-c", "--effort"])
+        assert.equal(call.args.includes(flag), false)
+    }
+    const fix = prompts.find((call) =>
+      call.prompt.startsWith("Run the fix phase "),
+    )
+    assert.ok(fix?.args.includes("pinned-fix"))
+    assert.ok(fix?.args.includes("model_reasoning_effort=medium"))
+    const { log, transcript } = await f.records()
+    for (const phase of ["audit", "rebut"])
+      assert.match(
+        log,
+        new RegExp(
+          `${phase} +${auditor} +${auditor === "claude" ? "claude-model" : "chosen-model"} high +${auditor} settings`,
+        ),
+      )
+    assert.ok(
+      transcript.endsWith(`-0-round.${auditor === "claude" ? "a" : "o"}uh.md`),
+    )
+  })
+}
+
 test("argument errors and help start no assistant processes", async (t) => {
   const f = await roundFixture(t)
   for (const argv of [
@@ -863,7 +907,7 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["example.md", "0"],
     ["example.md", "--auditor", "other"],
     // A tag names its fields by letter, in order, and never asks for `u`.
-    ["example.md", "--auditor", "claude"],
+    ["example.md", "--auditor", "claudex"],
     ["example.md", "--auditor", "xa"],
     ["example.md", "--auditor", "aux"],
     ["example.md", "--auditor", "atxx"],
@@ -888,7 +932,7 @@ test("argument errors and help start no assistant processes", async (t) => {
   assert.match(visible, /Codex\s+always fixes/)
   assert.match(visible, /plain-words brief/)
   assert.match(visible, /run up to 3 rounds on the same scope/)
-  assert.match(visible, /--auditor <tag>\s+capability tag of the assistant/)
+  assert.match(visible, /--auditor <selection>\s+claude or codex/)
   assert.match(visible, /an optional l,\s+m, h or x for the effort/)
   assert.match(visible, /default auditor comes from\s+settings\.json/)
   // A round is the command itself, and each command carries its own help.

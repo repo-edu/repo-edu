@@ -60,7 +60,9 @@ glance can count from it. The glance is the runner's own read of the log, not a 
 `--no-watch` skips it and the watch for every round of the run. `--chain` runs at most three rounds
 on the scope the user named, keeping the auditor while an A or B finding lands and giving the other
 assistant one closing round, and glances after each round whose audit reported findings. `--auditor`
-takes the capability tag a commit subject spells: `a` or `o` for the assistant, then an optional `b`
+takes `claude` or `codex` to inherit that CLI's current model and effort for audit and rebuttal,
+bypassing the runner's audit pins. It also takes the capability tag a commit subject spells:
+`a` or `o` for the assistant, then an optional `b`
 or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the reasoning effort. A named
 field binds the auditor and its rebuttal, because the rebuttal resumes the audit session. Other
 fields follow [the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null`

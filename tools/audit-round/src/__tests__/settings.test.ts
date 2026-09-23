@@ -9,6 +9,7 @@ import { defaultSettings, readSettings, settingsSchema } from "../settings.js"
 import {
   modelStrength,
   noOverride,
+  parseAuditor,
   roundPhases,
   testSettings as settings,
 } from "./configured-runner.js"
@@ -95,6 +96,41 @@ test("watch follows the configured assistant independently of the auditor", () =
     assert.equal(phases.vet.assistant, "codex")
     assert.equal(phases.fix.assistant, "codex")
     assert.deepEqual(phases.rebut, phases.audit)
+  }
+})
+
+test("assistant names bypass audit pins while letter tags retain them across chained auditors", () => {
+  const config = structuredClone(settings)
+  config.phases.audit.claude = { model: "claude-auditor", effort: "high" }
+  config.phases.audit.codex = { model: "codex-auditor", effort: "medium" }
+  for (const value of ["claude", "codex", "a", "o"]) {
+    const seat = parseAuditor(value)
+    assert.ok(seat)
+    assert.equal(
+      seat.assistant,
+      value === "claude" || value === "a" ? "claude" : "codex",
+    )
+    for (const assistant of ["claude", "codex"] as const) {
+      const phases = roundPhases(assistant, seat.override, config)
+      const configured = roundPhases(assistant, noOverride, config)
+      assert.deepEqual(
+        phases.audit.model,
+        value.length > 1
+          ? { model: null, effort: null }
+          : configured.audit.model,
+      )
+      assert.deepEqual(phases.rebut, phases.audit)
+      for (const phase of [
+        "vet",
+        "fix",
+        "brief",
+        "rule",
+        "rule-edit",
+        "watch",
+        "watch-edit",
+      ] as const)
+        assert.deepEqual(phases[phase], configured[phase])
+    }
   }
 })
 

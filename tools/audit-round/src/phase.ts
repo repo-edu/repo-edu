@@ -58,14 +58,17 @@ export const efforts = ["low", "medium", "high", "xhigh"] as const
 export type Effort = (typeof efforts)[number]
 
 /**
- * What the command line asked of the auditor's phases. A null field follows the
- * assistant's own configuration. The rebuttal resumes the audit session, so the
- * override binds both phases: one thread cannot change model half way through.
+ * What the command line asked of the auditor's phases. `cli` bypasses phase
+ * settings; a null tag field follows settings.json, then the CLI. The rebuttal
+ * resumes the audit session, so the override binds both phases: one thread
+ * cannot change model half way through.
  */
-export type AuditorOverride = {
-  readonly strength: Strength | null
-  readonly effort: Effort | null
-}
+export type AuditorOverride =
+  | "cli"
+  | {
+      readonly strength: Strength | null
+      readonly effort: Effort | null
+    }
 
 /** An auditor the command line said nothing about, which every other phase is. */
 export const noOverride: AuditorOverride = { strength: null, effort: null }
@@ -88,7 +91,10 @@ const effortLetters: Record<Effort, "l" | "m" | "h" | "x"> = {
 }
 
 /** What `--auditor` names: who audits, and whatever it pinned of the model. */
-export type AuditorSeat = { readonly assistant: Assistant } & AuditorOverride
+export type AuditorSeat = {
+  readonly assistant: Assistant
+  readonly override: AuditorOverride
+}
 
 function named<K extends string>(
   letters: Record<K, string>,
@@ -100,21 +106,25 @@ function named<K extends string>(
 }
 
 /**
- * The capability tag `--auditor` takes, as a commit subject spells it. The tier
- * and the effort are optional, because an unnamed field follows the CLI's own
- * configuration, and the three alphabets share no letter, so a partial tag says
+ * Assistant names inherit both CLI settings. Capability tags may name a tier
+ * and effort; unnamed fields follow settings.json, then the CLI. The three
+ * alphabets share no letter, so a partial tag says
  * which fields it named. The `u` a subject may carry says the model is on
  * neither tier, which is a reading and not a request, so it is not accepted.
  */
-export function parseAuditorTag(value: string): AuditorSeat | null {
+export function parseAuditor(value: string): AuditorSeat | null {
+  if (value === "claude" || value === "codex")
+    return { assistant: value, override: "cli" }
   const match = /^([ao])([bt])?([lmhx])?$/.exec(value)
   if (match === null) return null
   const assistant = named(assistantLetters, match[1])
   if (assistant === null) return null
   return {
     assistant,
-    strength: named(strengthLetters, match[2]),
-    effort: named(effortLetters, match[3]),
+    override: {
+      strength: named(strengthLetters, match[2]),
+      effort: named(effortLetters, match[3]),
+    },
   }
 }
 
@@ -182,19 +192,21 @@ function phaseModel(
     configuredPhase === "audit" || configuredPhase === "vet"
       ? config.phases[configuredPhase][assistant]
       : config.phases[configuredPhase]
-  const auditor = phase === "audit" || phase === "rebut"
   const field = (value: string | null): PinnedField | null =>
     value === null ? null : { value, source: "settings.json" }
+  if (configuredPhase !== "audit")
+    return { model: field(pin.model), effort: field(pin.effort) }
+  if (override === "cli") return unpinned
   return {
     model:
-      auditor && override.strength !== null
+      override.strength !== null
         ? {
             value: config.strengthModels[assistant][override.strength],
             source: "--auditor",
           }
         : field(pin.model),
     effort:
-      auditor && override.effort !== null
+      override.effort !== null
         ? { value: override.effort, source: "--auditor" }
         : field(pin.effort),
   }

@@ -67,9 +67,10 @@ consumers.
   with no following conditions skip the rebuttal.
   Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
-  vocabulary in both directions: the letters a subject spells a phase with, and `parseAuditorTag`,
-  which reads the partial tag `--auditor` takes. The three alphabets share no letter, so a partial
-  tag says which fields it named. `roundPhases` is the one owner of the round's phases: the runner
+  vocabulary in both directions: the letters a subject spells a phase with and `parseAuditor`, which
+  reads the assistant name or partial tag `--auditor` takes. Assistant names bypass audit model and
+  effort pins to inherit the CLI settings. The three alphabets share no letter, so a partial tag
+  says which fields it named. `roundPhases` is the one owner of the round's phases: the runner
   invokes from the value it returns and the run's settings header prints the same value, so what a
   round says it ran on is what it ran with. A phase names a model, an effort, both or neither; a
   named field runs on what it names whatever the CLI is configured to use, and an unnamed one
@@ -231,26 +232,23 @@ consumers.
   resolution and inclusive-range admission. The runner passes references
   unchanged and rejects `--chain` for commit targets, which run once without
   a trajectory glance or watch.
-- `command.ts` owns the command grammar, startup and final reporting, including
-  the capability tag `--auditor` takes and the error a malformed one reports. The round is the
-  command itself, taking the target as its own arguments. Its subcommands are
-  `brief`, `name`, `close` and `episode`. The `episode` command prints joined
-  watch evidence from the shared reader and formatter without settings
-  discovery, assistant startup or file writes. The `name` command claims a round and prints its
-  file set without starting any phase. Its required `--auditor` is the hand-run
-  session's full tag, including `u`, checked separately from a round's model
-  request. The `close` command uses the same closing function as the coordinator
-  and starts no assistant or settings discovery. So the
-  program carries an action handler, Commander adds no `help` command, and each command's own `-h`
-  prints its help. A bare command line prints that help rather than reporting a missing plan. It
-  also owns the chain loop, because each round records its own file pair and the coordinator has no
-  filesystem side effects: it opens one output per round, retires the previous one first, and reads
-  updates and settings once for the whole run before opening any files.
-  Startup messages go only to the terminal; the run log begins with the models
-  table. A chained round carries its place in its title and independently
-  claims the next number for its target. Required write failures stop
-  phase progression. If recording itself fails, the emergency channel still reports the known
-  session and recovery command.
+- `command.ts` owns the command grammar, startup and final reporting, including the assistant name
+  or capability tag `--auditor` takes and the error a malformed one reports. The round is the
+  command itself, taking the target as its own arguments. Its subcommands are `brief`, `name`,
+  `close` and `episode`. The `episode` command prints joined watch evidence from the shared reader
+  and formatter without settings discovery, assistant startup or file writes. The `name` command
+  claims a round and prints its file set without starting any phase. Its required `--auditor` is the
+  hand-run session's full tag, including `u`, checked separately from a round's model request. The
+  `close` command uses the same closing function as the coordinator and starts no assistant or
+  settings discovery. So the program carries an action handler, Commander adds no `help` command,
+  and each command's own `-h` prints its help. A bare command line prints that help rather than
+  reporting a missing plan. It also owns the chain loop, because each round records its own file
+  pair and the coordinator has no filesystem side effects: it opens one output per round, retires
+  the previous one first, and reads updates and settings once for the whole run before opening any
+  files. Startup messages go only to the terminal; the run log begins with the models table. A
+  chained round carries its place in its title and independently claims the next number for its
+  target. Required write failures stop phase progression. If recording itself fails, the emergency
+  channel still reports the known session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -299,6 +297,11 @@ left unchanged. The user supplied the defaults on 2026-09-23.
   Document phases each select their assistant.
 - A field supplied by `--auditor` wins over the corresponding audit setting.
   Other fields use this file, then the CLI when the file says `null`.
+- `--auditor claude` and `--auditor codex` inherit the selected CLI's current
+  model and effort for audit and rebuttal, bypassing both audit pins in this
+  file. In a chain, each auditor inherits its own CLI settings. Other phases
+  keep their configured selections. Letter tags such as `a` and `o` still
+  follow this file.
 
 Tests supply an independent configuration through `configured-runner.ts` and
 `fixtures/settings.json`. Neither changes to the local file nor changes to
@@ -314,6 +317,8 @@ commands available:
 pnpm audit-round ../plan/example.md 1-3
 pnpm audit-round ../plan/example.md 3 --auditor a -v
 pnpm audit-round ../plan/example.md 3 --auditor atx
+pnpm audit-round task-modifier --auditor claude
+pnpm audit-round task-modifier --auditor codex
 pnpm audit-round ../plan/example.md 3 --chain
 pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round HEAD-1

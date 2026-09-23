@@ -26,7 +26,7 @@ import { chainText } from "./output-format.js"
 import {
   type AuditorSeat,
   noOverride,
-  parseAuditorTag,
+  parseAuditor,
   type RoundDependencies,
 } from "./phase.js"
 import { readReport } from "./report.js"
@@ -134,13 +134,13 @@ function parseInvocation(
     )
     .addOption(
       new Option(
-        "--auditor <tag>",
-        "capability tag of the assistant that audits, as a commit subject spells it: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A named field binds the audit and its rebuttal; an unnamed one follows settings.json, then that assistant's own settings. The default auditor comes from settings.json. Codex always fixes.",
+        "--auditor <selection>",
+        "claude or codex to use that CLI's current model and effort, bypassing audit pins in settings.json; or a capability tag: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A tag's unnamed fields follow settings.json, then the CLI. Both forms bind audit and rebuttal. The default auditor comes from settings.json. Codex always fixes.",
       ).argParser((value) => {
-        const seat = parseAuditorTag(value)
+        const seat = parseAuditor(value)
         if (seat === null)
           throw new InvalidArgumentError(
-            "Expected a capability tag, as o, at or otx.",
+            "Expected claude, codex or a capability tag, such as o, at or otx.",
           )
         return seat
       }),
@@ -435,15 +435,12 @@ export async function runCommand(
     } else {
       const seat = prepared.auditor ?? {
         assistant: settings.defaultAuditor,
-        ...noOverride,
+        override: noOverride,
       }
       const setup = {
         ...context,
         ...prepared.target,
-        override: {
-          strength: seat.strength,
-          effort: seat.effort,
-        },
+        override: seat.override,
       }
       let auditor = seat.assistant
       let completed = 0
