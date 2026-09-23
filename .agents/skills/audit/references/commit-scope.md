@@ -155,7 +155,8 @@ record would have no reader.
 ## Settlement
 
 A commit-scoped round is one-shot. The range is the scope, and the round ends at
-its report, which the fix phase lands and deletes. There is no episode, no
+its report. The fix lands the record, then the runner closes the report set or
+a hand-run fix runs `pnpm audit-round close <target>-<round>`. There is no episode, no
 `implemented:` or `closed:` marker and no trajectory watch. A later round over
 later commits is a new round, not a continuation of this one.
 

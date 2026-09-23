@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { readdirSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
@@ -225,14 +225,25 @@ export async function roundFixture(
     return { log, markdown, transcript }
   }
   const document = (kind: string, fallback: string) => {
+    // Finished fixes remove their reports; the run log retains the paths passed to phases.
     for (const root of [
       outputRoot,
       outputRoot === repoRoot ? planRoot : repoRoot,
     ]) {
-      const name = readdirSync(root).find(
-        (name) => name.includes(`-${kind}.`) && name.endsWith(".md"),
-      )
-      if (name !== undefined) return join(root, name)
+      for (const name of readdirSync(root)
+        .filter((name) => name.endsWith(".log"))
+        .sort()
+        .reverse()) {
+        const log = readFileSync(join(root, name), "utf8")
+        for (const match of log.matchAll(
+          /^Phase arguments \(JSON array\): (.+)$/gm,
+        )) {
+          const path = (JSON.parse(match[1]) as string[]).find((path) =>
+            path.includes(`-${kind}.`),
+          )
+          if (path !== undefined) return path
+        }
+      }
     }
     return fallback
   }

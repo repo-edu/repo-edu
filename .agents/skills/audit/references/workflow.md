@@ -40,8 +40,7 @@ root; their launcher location never changes the session's working directory.
 
 The round ends at its report file. The auditor answers a vet through the
 rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
-from the user's ruling through applying corrections, landing records and
-deleting the report belongs to the fix workflow at
+from the user's ruling through applying corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling,
 the document the user rules from is written by
 `.agents/skills/rule/references/workflow.md`. The fix starts in a fresh session
@@ -572,32 +571,15 @@ write the report to its file under [Report file](#report-file) and stop there.
 ## Report file
 
 After presenting the report, write the same report to the supplied absolute
-path at the invoking root and say so, then stop. A hand-run audit names its
-report under the shared protocol after round allocation. The chat and file
+path at the invoking root and say so, then stop. A hand-run audit uses the
+report path printed by `pnpm audit-round name`. The chat and file
 must not differ. The opening identifies the judged repos and their heads.
 Do not add an opening writer tag.
 
 The report and a hand-run audit's claim are gitignored, so writing them keeps
-the round read-only. The round never deletes a report. The fix workflow
-deletes only the landed report and its supplied vet and rebuttal files.
+the round read-only. The audit never deletes a report. The runner closes the
+report set after a finished fix; a hand-run fix uses `pnpm audit-round close`.
 
 ## Round allocation
 
-A supplied absolute report path wins. The runner claims its
-number and writes its transcript at the invoking repository root. Without one, a hand-run
-report at either root chooses its target under the shared round protocol, then
-scans both the Repo Edu and plan repo roots for every numbered round file
-with exactly that target, regardless of writer tag or kind. Include transcript
-and brief logs and tagless claims. Ignore old prefix names. A numbered file
-has at least two decimal digits in its round field. A retained plan-root
-report or claim still reserves its number after the Repo Edu files have gone.
-The plan repo's audit workflow routes its hand-run reports through this rule
-and has no allocation rule of its own.
-
-Take the highest number plus one, or `01` when none remain, padding to at
-least two digits. Resolve your writer tag before claiming. Exclusively create
-the empty claim file at the root where the report goes with Node's `open` flag
-`wx`, then close its handle. Only the successful creator may write the report. A conflict
-stops the audit without waiting or retrying. Keep the claim after success or
-failure until the user removes the round files. The number lives only in those
-files and restarts at `01` after a full cleanup. Every later phase reuses it.
+Use the supplied report path; without one, run `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at the invoking root and use its printed paths.

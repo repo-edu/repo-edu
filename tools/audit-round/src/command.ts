@@ -14,6 +14,7 @@ import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
 import {
   briefRun,
+  closeRound,
   type OutputOptions,
   RoundOutput,
   type Run,
@@ -37,6 +38,7 @@ import {
   runBrief,
   runRound,
 } from "./round.js"
+import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { auditTarget } from "./target.js"
@@ -81,6 +83,13 @@ async function checkPlan(
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
   | {
+      readonly kind: "name"
+      readonly first: string
+      readonly rest: readonly string[]
+      readonly auditor: string
+    }
+  | { readonly kind: "close"; readonly nameStart: string }
+  | {
       readonly kind: "round"
       readonly first: string
       readonly rest: readonly string[]
@@ -102,6 +111,7 @@ function parseInvocation(
 ): Invocation | number {
   let invocation: Invocation | undefined
   const command = new Command("audit-round")
+    .enablePositionalOptions()
     .description(
       "Run the audit, vet, rebuttal, fix and brief phases of one planning or implementation-audit round from the Repo Edu or plan checkout root.",
     )
@@ -158,6 +168,49 @@ function parseInvocation(
     )
   // The program owns the round, so Commander adds no `help` command of its own.
   command
+    .command("name")
+    .description(
+      "Claim a hand-run round and print its absolute file paths, one per line.",
+    )
+    .argument("<target>", "the same plan or commit target accepted by a round")
+    .argument(
+      "[scope-or-commits...]",
+      "plan step scope or further commit references",
+    )
+    .requiredOption(
+      "--auditor <tag>",
+      "the auditing session's full three-letter tag, including u for an unlisted model",
+      (value: string) => {
+        if (!/^[ao][btu][lmhx]$/.test(value))
+          throw new InvalidArgumentError(
+            "Expected a full session tag, such as oth or oux.",
+          )
+        return value
+      },
+    )
+    .action((first: string, rest: string[], flags: { auditor: string }) => {
+      invocation = { kind: "name", first, rest, auditor: flags.auditor }
+    })
+  command
+    .command("close")
+    .description(
+      "Delete one round's audit, vet and rebuttal reports at the invoking root.",
+    )
+    .argument(
+      "<target-round>",
+      "exact target and round, such as example-step-2-01",
+      (value: string) => {
+        if (!/^[^/]+-\d{2,}$/.test(value))
+          throw new InvalidArgumentError(
+            "Expected a target and round, such as example-step-2-01.",
+          )
+        return value
+      },
+    )
+    .action((nameStart: string) => {
+      invocation = { kind: "close", nameStart }
+    })
+  command
     .command("brief")
     .description(
       "Write the plain-words brief of a finished round from its *-0-round.<tag>.md transcript.",
@@ -196,6 +249,10 @@ export async function runCommand(
   const now = options.now ?? Date.now
   try {
     const context = await executionContext(runtime.cwd, options.repoEduRoot)
+    if (invocation.kind === "close") {
+      await closeRound(context.cwd, invocation.nameStart)
+      return 0
+    }
     const prepared =
       invocation.kind === "brief"
         ? {
@@ -207,9 +264,17 @@ export async function runCommand(
             target: auditTarget(
               invocation.first,
               invocation.rest,
-              context.roundKind,
+              invocation.kind === "name" && invocation.rest.length > 0
+                ? "implementation"
+                : context.roundKind,
             ),
           }
+    if (
+      prepared.kind === "name" &&
+      context.roundKind === "planning" &&
+      "commits" in prepared.target
+    )
+      throw new InvalidArgumentError("Commit audits run from Repo Edu.")
     if (
       prepared.kind === "round" &&
       "commits" in prepared.target &&
@@ -218,19 +283,54 @@ export async function runCommand(
       throw new InvalidArgumentError(
         "Commit audits run once. --chain requires a plan target.",
       )
-    if (prepared.kind === "round" && "plan" in prepared.target)
+    if (prepared.kind !== "brief" && "plan" in prepared.target)
       await checkPlan(context, prepared.target.plan)
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
       { ...runtime, cwd: context.cwd },
       {
-        message: async (text) => options.terminal.write(text),
-        warning: async (text) => options.terminal.write(`Warning: ${text}`),
+        message: async (text) =>
+          prepared.kind === "name"
+            ? options.emergency(text)
+            : options.terminal.write(text),
+        warning: async (text) =>
+          prepared.kind === "name"
+            ? options.emergency(`Warning: ${text}`)
+            : options.terminal.write(`Warning: ${text}`),
       },
       { cacheRoot: options.cacheRoot },
     )
     runtime.signal?.throwIfAborted()
+    if (prepared.kind === "name") {
+      const run = await roundRun(
+        {
+          ...context,
+          ...prepared.target,
+          // The hand-run planning launcher also routes named implementation steps.
+          roundKind:
+            "plan" in prepared.target && prepared.target.scope !== undefined
+              ? "implementation"
+              : context.roundKind,
+          auditor: prepared.auditor[0] === "a" ? "claude" : "codex",
+        },
+        now(),
+        selections,
+        settings,
+        undefined,
+        prepared.auditor,
+      )
+      claimRound(run.paths.claim)
+      for (const path of [
+        run.paths.claim,
+        run.paths.markdown,
+        run.paths.log,
+        ...Object.values(run.documents),
+        run.watch,
+      ])
+        options.terminal.write(path)
+      return 0
+    }
     /**
      * Each round records its own file pair, so a chained run opens one output
      * per round and retires the previous one first. Updates and settings are
@@ -244,7 +344,7 @@ export async function runCommand(
       runtime.signal?.throwIfAborted()
       const active = new RoundOutput(run, {
         ...options,
-        verbose: invocation.verbose,
+        verbose: prepared.verbose,
       })
       output = active
       return active
@@ -252,6 +352,7 @@ export async function runCommand(
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      closeRound,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())
           throw new Error(`Phase output is empty: ${file}`)

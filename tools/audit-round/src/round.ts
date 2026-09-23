@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
-import type { RoundDocuments } from "./output.js"
+import { type RoundDocuments, transcriptNameStart } from "./output.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -417,6 +417,7 @@ export async function runRound(
   let tier: Tier | null = null
   if (fix.status === "finished") {
     try {
+      await dependencies.closeRound(cwd, transcriptNameStart(input.transcript))
       const landed = await Promise.all(
         repositories.map(({ root }, index) =>
           dependencies.readSubjects(root, before[index]),

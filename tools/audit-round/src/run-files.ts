@@ -14,10 +14,15 @@ export type RunFiles = {
   readonly close: () => void
 }
 
+/** A retained exclusive claim reserves the number for either entry route. */
+export function claimRound(path: string): void {
+  closeSync(openSync(path, "wx"))
+}
+
 /** Each write finishes before returning to the invocation that admitted it. */
 export function openRunFiles(paths: RunPaths): RunFiles {
   // A claim is retained even when opening or writing the tagged files fails.
-  if (paths.claim !== null) closeSync(openSync(paths.claim, "wx"))
+  if (paths.claim !== null) claimRound(paths.claim)
   const log = openSync(paths.log, paths.markdown === null ? "w" : "wx")
   let markdown: number | null = null
   try {

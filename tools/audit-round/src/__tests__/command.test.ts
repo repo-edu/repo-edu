@@ -9,6 +9,198 @@ import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
+for (const working of ["repo-edu", "plan"] as const) {
+  for (const tag of ["abl", "otx", "oux", "auh"]) {
+    test(`name at ${working} preserves the actual ${tag} auditor and only writes its claim`, async (t) => {
+      const f = await roundFixture(
+        t,
+        "codex",
+        working,
+        false,
+        null,
+        false,
+        working,
+      )
+      const root = f.runtime.cwd
+      const target = working === "plan" ? "example" : "example-step-2"
+      const peer = working === "plan" ? f.repoRoot : f.planRoot
+      await writeFile(join(peer, `${target}-09-1-audit.oth.md`), "Peer report")
+      const before = await readdir(root)
+      const settings = structuredClone(testSettings)
+      for (const assistant of ["claude", "codex"] as const)
+        settings.phases.audit[assistant] = {
+          model: settings.strengthModels[assistant].top,
+          effort: "medium",
+        }
+      const args = [
+        "name",
+        "example.md",
+        ...(working === "plan" ? [] : ["2"]),
+        "--auditor",
+        tag,
+      ]
+      assert.equal(
+        await runCommand(args, f.runtime, { ...f.options, settings }),
+        0,
+        f.errors.join("\n"),
+      )
+      assert.deepEqual(
+        f.visible,
+        [
+          `${target}-10-claim.md`,
+          `${target}-10-0-round.${tag}.md`,
+          `${target}-10-0-round.${tag}.log`,
+          `${target}-10-1-audit.${tag}.md`,
+          `${target}-10-2-vet.${tag[0] === "a" ? "ouh" : "auh"}.md`,
+          `${target}-10-3-rebut.${tag}.md`,
+          `${target}-10-5-brief.oul.md`,
+          `${target}-10-6-ruling.auh.md`,
+          `${target}-10-8-watch.ouh.md`,
+        ].map((name) => join(root, name)),
+      )
+      assert.deepEqual(
+        (await readdir(root)).filter((name) => !before.includes(name)),
+        [`${target}-10-claim.md`],
+      )
+      assert.equal(await readFile(f.visible[0], "utf8"), "")
+      f.visible.length = 0
+      assert.equal(await runCommand(args, f.runtime, f.options), 0)
+      assert.equal(f.visible[0], join(root, `${target}-11-claim.md`))
+      assert.equal(
+        (await f.calls()).some((call) => call.args[0] === "exec"),
+        false,
+      )
+    })
+  }
+}
+
+test("name shares commit range and list targets with the runner", async (t) => {
+  const f = await roundFixture(t)
+  for (const [references, target] of [
+    [["HEAD-2..HEAD"], `${f.heads["repo-edu"]}-2..${f.heads["repo-edu"]}`],
+    [["abcd", "HEAD", "ef01"], "abcd-plus-2"],
+  ] as const) {
+    f.visible.length = 0
+    assert.equal(
+      await runCommand(
+        ["name", ...references, "--auditor", "oux"],
+        f.runtime,
+        f.options,
+      ),
+      0,
+    )
+    assert.equal(f.visible[3], join(f.repoRoot, `${target}-01-1-audit.oux.md`))
+  }
+})
+
+test("name requires a complete session tag before any assistant or claim", async (t) => {
+  const f = await roundFixture(t)
+  for (const tag of [null, "o", "ot", "ox", "utx", "otz", "otxx", "Otx"]) {
+    assert.equal(
+      await runCommand(
+        ["name", "example.md", ...(tag === null ? [] : ["--auditor", tag])],
+        f.runtime,
+        f.options,
+      ),
+      2,
+    )
+  }
+  assert.equal(
+    (await readdir(f.repoRoot)).some((name) => name.endsWith("-claim.md")),
+    false,
+  )
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
+test("name preserves the hand-run implementation-step route at the plan root", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  assert.equal(
+    await runCommand(
+      ["name", "example.md", "2-3", "--auditor", "oux"],
+      f.runtime,
+      f.options,
+    ),
+    0,
+  )
+  assert.equal(
+    f.visible[3],
+    join(f.planRoot, "example-steps-2-3-01-1-audit.oux.md"),
+  )
+  assert.equal(
+    await runCommand(
+      ["name", "abcd", "ef01", "--auditor", "oux"],
+      f.runtime,
+      f.options,
+    ),
+    2,
+  )
+})
+
+for (const working of ["repo-edu", "plan"] as const) {
+  test(`close at ${working} removes only the exact round's numbered report kinds without assistant startup`, async (t) => {
+    const f = await roundFixture(
+      t,
+      "codex",
+      working,
+      false,
+      null,
+      false,
+      working,
+    )
+    const root = f.runtime.cwd
+    const target = "abcd-2..ef01-01"
+    const removed = [
+      "1-audit.oux.md",
+      "1-audit.abl.md",
+      "2-vet.ath.md",
+      "3-rebut.oux.md",
+    ].map((suffix) => `${target}-${suffix}`)
+    const retained = [
+      `${target}-claim.md`,
+      `${target}-0-round.oux.md`,
+      `${target}-0-round.oux.log`,
+      `${target}-5-brief.obm.md`,
+      `${target}-5-brief.obm.log`,
+      `${target}-6-ruling.ath.md`,
+      `${target}-8-watch.oth.md`,
+      `${target}-2-audit.oux.md`,
+      `${target}-1-audit.md`,
+      `${target}-1-audit.oux.log`,
+      "abcd-2..ef01-010-1-audit.oux.md",
+      "abcd-2..ef01-02-1-audit.oux.md",
+      "abcd-2..ef01-extra-01-1-audit.oux.md",
+    ]
+    for (const name of [...removed, ...retained])
+      await writeFile(join(root, name), name)
+    const peerFile = join(
+      working === "plan" ? f.repoRoot : f.planRoot,
+      removed[0],
+    )
+    await writeFile(peerFile, "Peer report")
+    for (const invalid of [
+      "example",
+      "../example-01",
+      "/example-01",
+      "example-1",
+    ])
+      assert.equal(
+        await runCommand(["close", invalid], f.runtime, f.options),
+        2,
+      )
+    assert.equal(await runCommand(["close", target], f.runtime, f.options), 0)
+    const names = await readdir(root)
+    for (const name of removed) assert.equal(names.includes(name), false, name)
+    for (const name of retained) assert.ok(names.includes(name), name)
+    assert.equal(await readFile(peerFile, "utf8"), "Peer report")
+    assert.equal(await runCommand(["close", target], f.runtime, f.options), 0)
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+      code: "ENOENT",
+    })
+  })
+}
+
 test("one supplied configuration controls default auditor, phase arguments and output tags", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
   const settings = structuredClone(testSettings)
@@ -139,6 +331,10 @@ for (const auditor of ["claude", "codex"] as const) {
             .every((call) => call.args.includes("--approve-for-me")),
         )
         const { log, markdown, transcript } = await f.records()
+        for (const path of [f.report, f.vet, f.rebut]) {
+          if (ruling) assert.ok((await readFile(path, "utf8")).length > 0)
+          else await assert.rejects(readFile(path), { code: "ENOENT" })
+        }
         const visible = f.visible.join("\n")
         assert.match(log, /\nStarted \d{4}-/)
         // A round that handed over has not proved its work landed, so it never glances.

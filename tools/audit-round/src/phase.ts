@@ -356,6 +356,7 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
+  readonly closeRound: (cwd: string, nameStart: string) => Promise<void>
   readonly checkFile: (file: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<void>
   readonly readReport: (

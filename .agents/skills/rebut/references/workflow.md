@@ -39,6 +39,9 @@ Read the supplied report and vet paths and write the supplied rebuttal path, in 
 read the judged repos and audited heads from the report opening and the auditor's vendor letter from
 its filename.
 
+A hand-run invocation supplies the paths printed by `pnpm audit-round name` for
+the audit. Do not run `name` again or search for twins.
+
 Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's
 verdicts are not yours to defend. Continue only when the user explicitly
@@ -104,5 +107,5 @@ so writing it keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
 and `$fix` for Codex, in a fresh Codex session.
-The audit report and both twins are its brief. The fix workflow deletes those
-files when the records land; this workflow deletes nothing.
+The audit report and both twins are its brief. The runner closes that set after
+a finished fix; a hand-run fix uses `pnpm audit-round close`. This workflow deletes nothing.

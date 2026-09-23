@@ -11,7 +11,7 @@ itself runs under `.agents/skills/audit/references/workflow.md`, reads only,
 writes its report to the repo root and stops. This workflow starts from that
 report: it reads the report, its vet twin and its rebuttal twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands
-the round's records and deletes the report with its twins. The split exists
+the round's records. The split exists
 because a round that reads a whole step range and then fixes in the same
 context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
@@ -41,13 +41,6 @@ and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
 Read the supplied report path followed by the vet and rebuttal paths that exist; the judged-repos
 opening selects the repo set and audited heads, and the report filename's writer tag identifies the
 auditor.
-
-The round's file set is the report and its supplied vet and rebuttal twins, when
-they exist. This workflow reads that set, lands it and deletes it under
-[Closing the report](#closing-the-report). It never deletes or rewrites a
-file outside the set it lands. The user directed this after a session on
-2026-08-21 deleted the other assistant's still-open report; this origin note
-stands in place of a case.
 
 When the invocation names a report stored at the plan repo root, say the fix
 phase belongs in `../plan` and stop. Continue only when the user explicitly
@@ -196,7 +189,7 @@ plan-repo records refuse `[field:]`, because their findings have no search direc
 a heading in kebab case and replace `[section:]` with `[area:]` only for a deferred Repo Edu
 finding. The glance counts A–C corrections by these locations, once per commit in each area or
 section. D findings never advance its count. The commit body is the only place a later round can
-read them: chat is gone, the report is deleted below and the finding list lives nowhere else. A
+read them: chat is gone, the report is removed after completion and the finding list lives nowhere else. A
 bullet that records something other than a finding, such as a carried decision or a trade ruling
 with its reason, takes no metadata.
 
@@ -209,7 +202,7 @@ Round yield: 0 ordinary; 5 rare; 3 developer.
 Structure: 3 removing, 2 adding, 3 flat.
 ```
 
-The report is deleted below, so the record is the only durable home for the
+The report is removed after completion, so the record is the only durable home for the
 round's yield. A clean record carries both lines with zeroes. A plan-repo
 record carries neither.
 
@@ -232,17 +225,16 @@ The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed
 round's file set still asks.
 
-## Closing the report
+## Completion
 
-The turn that lands the round's records deletes the landed report and its
-supplied vet and rebuttal twins: the commit bodies carry the accepted findings
-durably, and a report left behind goes stale against the moved HEAD. The
-twins are the two assistants' exchange on this report and are consumed with
-it. No other report or twin at the root is touched, under
-[Report discovery](#report-discovery).
+An unattended fix deletes no round files. The runner closes the report set
+when the fix returns `finished`. After a hand-run fix lands its records, run
+`pnpm audit-round close <target>-<round>` at the report's root. Use the exact
+target and round from the report filename. This also closes a round after an
+interactive ruling has been resolved and its records have landed.
 
 An unattended fix reports `finished` only after all required corrections,
-checks, records and report cleanup are complete. It reports completion under the audit workflow's
+checks and records are complete. It reports completion under the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result). The runner
 reads the landed commits in both repos to derive the grade for chaining.
 Remaining required work means the phase has not finished, even when some

@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises"
+import { readdir, unlink } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
 import { execa } from "execa"
@@ -68,6 +68,22 @@ function readPhaseFilename(
   )
     return null
   return { nameStart: match[1], kind, extension: match[5] }
+}
+
+/** Close exactly one round's reports, using their recorded names, not today's settings. */
+export async function closeRound(
+  cwd: string,
+  nameStart: string,
+): Promise<void> {
+  for (const file of await readdir(cwd, { withFileTypes: true })) {
+    const parsed = readPhaseFilename(file.name)
+    if (
+      file.isFile() &&
+      parsed?.nameStart === nameStart &&
+      ["audit", "vet", "rebut"].includes(parsed.kind)
+    )
+      await unlink(join(cwd, file.name))
+  }
 }
 
 export type RoundDocuments = {
@@ -190,12 +206,14 @@ export async function roundRun(
    * The round's place in a chain, for the title only. Disk claims own filenames.
    */
   round?: number,
+  /** A hand-run audit records its actual session tag, independent of phase settings. */
+  auditorTag?: string,
 ): Promise<
   Run & {
     readonly nameStart: string
     readonly watch: string
     readonly documents: RoundDocuments
-    readonly paths: { readonly markdown: string }
+    readonly paths: { readonly claim: string; readonly markdown: string }
   }
 > {
   const phases = roundPhases(
@@ -204,21 +222,17 @@ export async function roundRun(
     settings,
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
+  const tag = (phase: Phase): string =>
+    auditorTag !== undefined && (phase === "audit" || phase === "rebut")
+      ? auditorTag
+      : fileTag(entry(phase), selections, settings)
   for (const phase of Object.keys(phases) as Phase[]) {
-    if (!phase.startsWith("watch") || "plan" in setup)
-      fileTag(entry(phase), selections, settings)
+    if (!phase.startsWith("watch") || "plan" in setup) tag(phase)
   }
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)
   const path = (kind: FileKind, phase: Phase) =>
-    join(
-      setup.cwd,
-      phaseFilename(
-        nameStart,
-        kind,
-        fileTag(entry(phase), selections, settings),
-      ),
-    )
+    join(setup.cwd, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   return {
     nameStart,

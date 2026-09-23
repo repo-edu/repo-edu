@@ -1,7 +1,7 @@
 # Shared round protocol
 
 This reference owns the file-name grammar for rounds in Repo Edu and the
-sibling plan repo. Each repo's audit workflow owns its round allocation rule.
+sibling plan repo. The runner owns round allocation for both entry routes.
 Read this file from the Repo Edu checkout; plan-repo workflows reach it at
 `../repo-edu/.agents/references/round-protocol.md`.
 
@@ -24,8 +24,8 @@ The plan repo's handoff rule owns that six-character sha.
   `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
   `-plus-<n>`, where `n` counts the remaining references. Never take a word
   from a commit subject or name a range with two resolved endpoint shas.
-- **Round** is the two-digit number allocated under the Repo Edu audit workflow's round allocation
-  rule, at either report root. A runner-supplied report path already fixes the target and round.
+- **Round** is the number allocated by the runner, padded to at least two digits.
+  A supplied report path already fixes the target and round.
   Every later phase keeps it exactly, even when another assistant writes the next file. A later
   phase never allocates another round.
 - **Tag** names the file's writer under [Writer tags](#writer-tags). The
@@ -104,6 +104,17 @@ and round. Its document and log share `5-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
 `0-round.<tag>`. The second ruling or watch pass replaces the supplied draft.
 
-A fix consumes only its supplied report and vet and rebuttal files. Claims,
-transcripts, logs, briefs, rulings, watches and reports from other rounds remain
-until their own cleanup.
+A hand-run audit runs `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>`
+before auditing. It passes its own resolved three-letter tag, including `u` for
+an unlisted model. The command claims the next number and prints absolute paths
+in this order: claim, transcript, log, audit, vet, rebuttal, brief, ruling and
+watch. The audit and rebuttal keep the supplied tag; other writers use the
+runner's settings and the vet uses the other assistant. Hand-run vet, rebuttal
+and fix invocations take the printed paths in the same argument order above.
+They run no naming command and never search for twins.
+
+The runner deletes the audit, vet and rebuttal reports as soon as a fix returns
+`finished`. Other outcomes retain them. After a hand-run fix lands its records,
+`pnpm audit-round close <target>-<round>` at the report's root deletes those
+same numbered report kinds for that exact round, regardless of writer tag.
+Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.

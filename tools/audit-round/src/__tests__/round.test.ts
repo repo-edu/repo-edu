@@ -76,6 +76,7 @@ function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
+  const closed: { cwd: string; nameStart: string }[] = []
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const handover: { operation: string; session: InteractiveSession }[] = []
@@ -134,6 +135,10 @@ function controlledRound(
     subjects: ["example/impl-audit-all oth clean: settled"],
   }
   const dependencies: RoundDependencies = {
+    closeRound: async (cwd, nameStart) => {
+      assert.equal(calls.at(-1)?.phase, "fix")
+      closed.push({ cwd, nameStart })
+    },
     checkFile: async () => {},
     completeClean: async (input) => {
       completions.push(input)
@@ -196,6 +201,7 @@ function controlledRound(
   }
   return {
     calls,
+    closed,
     completions,
     glances,
     handover,
@@ -212,6 +218,46 @@ const dueDecision: GlanceDecision = {
   due: true,
   text: "An area reached the amber limit of 2 (rule 3).",
 }
+
+for (const accepted of [false, true]) {
+  for (const target of [
+    { plan: "example.md" },
+    { commits: ["HEAD"] as const },
+  ]) {
+    test(`a finished ${"plan" in target ? "plan" : "commit"} fix closes once before the brief with accepted=${accepted}`, async () => {
+      const round = controlledRound(async (input) => {
+        if (input.phase === "brief")
+          assert.deepEqual(round.closed, [
+            { cwd: repoRoot, nameStart: "example-all-01" },
+          ])
+      })
+      round.evidence.accepted = accepted
+      assert.equal(
+        (await runRound({ ...files, ...target }, round.dependencies)).status,
+        "finished",
+      )
+      assert.equal(round.closed.length, 1)
+    })
+  }
+}
+
+test("clean audits, failed fixes and rulings retain the report set", async () => {
+  for (const ending of ["clean", "failed", "needs-ruling"] as const) {
+    const round = controlledRound()
+    if (ending === "clean") round.evidence.findings = []
+    else
+      round.results.fix =
+        ending === "failed"
+          ? {
+              status: ending,
+              sessionId: "fix-session",
+              reason: "Unable to finish",
+            }
+          : { status: ending, sessionId: "fix-session" }
+    await runRound({ ...files, plan: "example.md" }, round.dependencies)
+    assert.deepEqual(round.closed, [])
+  }
+})
 
 for (const [ending, sequence] of endings) {
   for (const phase of sequence.filter((phase) => phase !== "fix")) {
@@ -994,6 +1040,7 @@ test("a directed plan correction participates in the chain grade", async () => {
 })
 
 for (const [reader, phase, sessionId, called] of [
+  ["closeRound", "fix", "fix-session", ["audit", "vet", "rebut", "fix"]],
   ["readReport", "audit", "audit-session", ["audit"]],
   ["readVet", "vet", "vet-session", ["audit", "vet"]],
   ["readHead", "fix", null, ["audit", "vet", "rebut"]],

@@ -42,7 +42,9 @@ consumers.
   failure ends the chain. The round records both repositories' HEADs before the fix and parses every
   landed subject under its repository's grammar to derive the highest tier. A plan target fails when
   a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
-  owning phase and its session for recovery.
+  owning phase and its session for recovery. As soon as a fix returns `finished`,
+  the coordinator closes the report set through its dependency, before reading
+  landed subjects or running the brief. Other outcomes retain the set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or at the
   invoking root when both repos were judged, using the report's judged-repos
@@ -159,7 +161,11 @@ consumers.
   [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD` in commit targets
   and scans both repo roots for the next target-wide number. It validates all file-writing phase
   tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and
-  log. The claim remains after success or failure, and a conflict stops without retrying. Each entry
+  log. The claim remains after success or failure, and a conflict stops without retrying.
+  Hand-run naming reuses the same paths with the auditing session's full tag
+  supplied for audit and rebuttal. `closeRound` deletes only the audit, vet and
+  rebuttal kinds for the exact target and round at the invoking root, using
+  recorded filenames without consulting model settings. Each entry
   carries its phase, so the settings header reports the model and effort that phase will run on and
   names what set each of them: a command-line flag, the phase's own pin, or the assistant's
   settings. A phase whose two fields came from different places names both, model first. The output
@@ -205,7 +211,12 @@ consumers.
   a trajectory glance or watch.
 - `command.ts` owns the command grammar, startup and final reporting, including
   the capability tag `--auditor` takes and the error a malformed one reports. The round is the
-  command itself, taking the target as its own arguments, and `brief` is its one subcommand. So the
+  command itself, taking the target as its own arguments. Its subcommands are
+  `brief`, `name` and `close`. The `name` command claims a round and prints its
+  file set without starting any phase. Its required `--auditor` is the hand-run
+  session's full tag, including `u`, checked separately from a round's model
+  request. The `close` command uses the same closing function as the coordinator
+  and starts no assistant or settings discovery. So the
   program carries an action handler, Commander adds no `help` command, and each command's own `-h`
   prints its help. A bare command line prints that help rather than reporting a missing plan. It
   also owns the chain loop, because each round records its own file pair and the coordinator has no
@@ -284,6 +295,8 @@ pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-0-round.otm.md
+pnpm audit-round name ../plan/example.md 3 --auditor oth
+pnpm audit-round close example-step-3-01
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
@@ -293,6 +306,13 @@ audit starts. It writes the tagless claim, transcript and log at the invoking
 root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
 the shared round protocol, with the transcript and log sharing `0-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
+
+`name` prints one absolute path per line: claim, transcript, log, audit, vet,
+rebuttal, brief, ruling and watch. Startup messages go to standard error so
+standard output contains only paths. It creates only the claim. A plan-root
+hand-run implementation audit may name a step scope; the automated round still
+requires Repo Edu for that route. `close` deletes the audit and twins for its
+exact target and round at the invoking root. Claims and runner documents remain.
 
 The brief writes a plain-words twin after a fix. A clean audit records its outcome directly and
 retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A
