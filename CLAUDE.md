@@ -512,25 +512,24 @@ is not assumed to know the source ecosystem's jargon.
 - **disposal**: the synchronous, terminal teardown of a session; late results
   land nowhere and a queued body that has not started never runs.
 - **drop**: the task modifier that refuses a new start while one is still
-  running, so the running work always reaches its own end. The app runs it at
-  the input layer: while a command is admitted the capture gate swallows every
-  event except that command's Cancel, so the second start never happens.
+  running. Every operation and command uses it at the input layer. While any
+  work is admitted, the capture gate refuses input except that work's Cancel.
+  Wheel, scroll, focus and blur pass through.
 - **enqueue**: the task modifier that makes a new start wait for the running one
-  and then take its turn. It is the dangerous one for anything a person
-  clicked, because the click is held invisibly and replays against a screen
-  that has moved on; work that uses it has to show the wait or refuse the
-  input.
+  and then take its turn. The app never holds a teacher's input to replay later;
+  a wait sign does not make that acceptable. The queue orders bodies that one
+  start chains, such as Start's search followed by its analysis pass. Startup
+  and host close also use the queue without teacher input.
 - **hydrate**: fill in-memory stores from data persisted on disk, typically
   during bootstrap.
 - **keep-latest**: the task modifier that lets the running work finish, holds
   only the most recent start that arrived meanwhile and drops the ones before
-  it. Listed for completeness: it is the one modifier the app does not use.
+  it. The app does not use it.
 - **reducer**: a function that takes the current state and one event and returns
   the next state; the only place session state is allowed to change.
 - **restartable**: the task modifier that stops the running work when a new
-  start arrives and runs the new one instead. It is safe only where a later
-  start reaches the same state cheaply, as the repository analysis pass does,
-  because every finished repository already sits in the Query cache.
+  start arrives and runs the new one instead. The app does not use it. An
+  analysis pass keeps its turn until it ends or the teacher presses Cancel.
 - **row**: one entry in a database, like one line in a table. In the course
   database each row is one complete course: all its course data in one entry,
   replaced whole on every save.
@@ -541,13 +540,8 @@ is not assumed to know the source ecosystem's jargon.
   home; changing it is a surface transition.
 - **task modifier**: which of restartable, enqueue, drop and keep-latest a piece
   of work uses when a second start arrives while the first is still running. It
-  belongs to the work and is declared once, never chosen per button. Naming work
-  by who asked for it instead, as `user-asked` and `background` did, invites a
-  start control to claim a modifier of its own, and that is how one analysis
-  pass came to hold two. The four names are the standard ones, so they can be
-  looked up outside this repo: RxJS spells them `switchMap`, `concatMap`,
-  `exhaustMap` and `mergeMap`, Ember Concurrency uses these four, Redux-Saga
-  uses `takeLatest`, `takeEvery` and `takeLeading`.
+  is always drop in this app, so there is no per-operation modifier field.
+  The four standard names remain here to describe the choices.
 - **worker**: a long-lived background helper that writes changes to disk on its
   own schedule; it reports status but may not commit session state.
 

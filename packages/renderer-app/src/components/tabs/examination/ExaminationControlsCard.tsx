@@ -2,8 +2,25 @@ import {
   EXAMINATION_QUESTION_COUNT_MAX,
   EXAMINATION_QUESTION_COUNT_MIN,
 } from "@repo-edu/application-contract"
-import { Button, Card, CardContent, Input, Label } from "@repo-edu/ui"
+import {
+  Button,
+  Card,
+  CardContent,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo-edu/ui"
 import { sessionCancellationControl } from "../../../session/session-controller-context.js"
+
+const questionCounts = Array.from(
+  {
+    length: EXAMINATION_QUESTION_COUNT_MAX - EXAMINATION_QUESTION_COUNT_MIN + 1,
+  },
+  (_, index) => EXAMINATION_QUESTION_COUNT_MIN + index,
+)
 
 type ExaminationControlsCardProps = {
   questionCount: number
@@ -42,18 +59,22 @@ export function ExaminationControlsCard({
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="examination-question-count">New questions</Label>
-            <Input
-              id="examination-question-count"
-              type="number"
-              min={EXAMINATION_QUESTION_COUNT_MIN}
-              max={EXAMINATION_QUESTION_COUNT_MAX}
-              value={questionCount}
+            <Select
+              value={String(questionCount)}
               disabled={isGenerating}
-              onChange={(event) =>
-                onQuestionCountChange(Number(event.target.value))
-              }
-              className="w-24"
-            />
+              onValueChange={(value) => onQuestionCountChange(Number(value))}
+            >
+              <SelectTrigger id="examination-question-count" className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {questionCounts.map((count) => (
+                  <SelectItem key={count} value={String(count)}>
+                    {count}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button
             {...(isGenerating
