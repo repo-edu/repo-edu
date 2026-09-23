@@ -517,7 +517,7 @@ export class RoundOutput<R extends Run = Run> {
               )
             this.transcribe(`${feedback.text}\n`)
           }
-          terminal?.write(feedback.text.trimEnd())
+          terminal?.write(feedback.text.trimEnd(), "markdown")
         }
         break
       case "diagnostic":

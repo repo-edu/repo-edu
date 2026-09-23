@@ -207,8 +207,10 @@ consumers.
   line reports the tokens added since the previous tool line, beside the time since it. Both chain
   into the totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase
   reports no first change. `run-files.ts` completes each required write before returning to the
-  invocation; no complete transcript accumulates in memory. `terminal.ts` uses log-update for
-  terminals and plain text for redirected output. The log records each tool invocation once, with
+  invocation; no complete transcript accumulates in memory. `terminal.ts` renders assistant
+  Markdown through Glow at the current terminal width. It writes the rendered document directly
+  and uses log-update only for the live status line, so permanent text is not wrapped twice.
+  Redirected output retains the original Markdown. The log records each tool invocation once, with
   shell wrappers removed and no event envelopes or result payloads. Invocation lines stay complete
   in the log; assistant texts stay complete in Markdown. Only terminal tool lines shorten.
   `prepareHandover` records the handover and releases the terminal before `openSession` inherits it.
@@ -316,7 +318,10 @@ generation and validation separately.
 ### Invocation
 
 Run from the Repo Edu checkout root with authenticated `claude` and `codex`
-commands available:
+commands available. Terminal output also requires [Glow](https://github.com/charmbracelet/glow)
+on PATH (`brew install glow` on macOS or install its official release binary).
+`GLOW_STYLE=light` selects its light theme; the default is Glow's `auto` style.
+The runner disables Glow's pager and interactive browser so reports stay in the round output.
 
 ```bash
 pnpm audit-round ../plan/example.md 1-3

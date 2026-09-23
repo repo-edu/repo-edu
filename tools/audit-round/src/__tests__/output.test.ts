@@ -87,6 +87,7 @@ test("output records complete invocations incrementally and refreshes only while
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10000 })
   const visible: string[] = []
+  const rendered: string[] = []
   const status: string[] = []
   let clears = 0
   const output = new RoundOutput(
@@ -98,8 +99,9 @@ test("output records complete invocations incrementally and refreshes only while
     {
       verbose: true,
       terminal: {
-        write: (text) => {
+        write: (text, format) => {
           visible.push(text)
+          if (format === "markdown") rendered.push(text)
         },
         status: (text) => {
           status.push(text)
@@ -167,6 +169,9 @@ test("output records complete invocations incrementally and refreshes only while
   const markdown = await readFile(output.paths.markdown, "utf8")
   assert.match(markdown, /Full assistant text/)
   assert.match(markdown, /\| 1 \| 2 \|/)
+  assert.deepEqual(rendered, [
+    "Full assistant text\n\n| A | B |\n| --- | --- |\n| 1 | 2 |",
+  ])
   assert.doesNotMatch(
     await readFile(output.paths.log, "utf8"),
     /Full assistant text/,
