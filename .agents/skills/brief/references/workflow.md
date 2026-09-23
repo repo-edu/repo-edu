@@ -60,8 +60,8 @@ The `simple` requirement governs the brief. Beyond it:
   check something. Expand every acronym and coined term the first time.
 - Describe from the user's chair: what they do, what they see, and what
   happens instead of what they expect.
-- Tiers become plain words with the letter after them, in the words of the
-  rubric that graded the round; the transcript's first heading says which
+- Outside finding titles, tiers become plain words with the letter after them,
+  in the words of the rubric that graded the round; the transcript's first heading says which
   kind of round it was. An implementation round grades under Repo Edu's
   `CLAUDE.md`, **Implementation Review Findings**: `A` is data loss, a broken
   core workflow or a wrong architecture, `B` is a real bug, `C` is a narrow
@@ -90,8 +90,11 @@ what it holds.
    run, each pricing question with its answer. The coverage table itself
    stays out.
 4. **The findings**: one numbered entry per finding, in the report's order,
-   opening with a short title and the tier in words. Each entry says what
-   goes wrong and when, why the plan or code does that, what the correction is and
+   opening with the tier letter and a colon before the short title, as in
+   `1. **B: A listing starts again after every command**`. Use the tier the
+   finding ended the round with and explain any tier change in the entry.
+   Each entry says what goes wrong and when, why the plan or code does that,
+   what the correction is and
    the condition that makes a rare rating checkable. Then, when the vet or
    the rebuttal changed anything about the finding, what they said and what
    was agreed. A dropped finding says why it was dropped and, when the
