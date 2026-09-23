@@ -226,9 +226,7 @@ export async function roundRun(
     auditorTag !== undefined && (phase === "audit" || phase === "rebut")
       ? auditorTag
       : fileTag(entry(phase), selections, settings)
-  for (const phase of Object.keys(phases) as Phase[]) {
-    if (!phase.startsWith("watch") || "plan" in setup) tag(phase)
-  }
+  for (const phase of Object.keys(phases) as Phase[]) tag(phase)
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)
   const path = (kind: FileKind, phase: Phase) =>

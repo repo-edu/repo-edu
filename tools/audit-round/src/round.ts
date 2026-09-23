@@ -222,6 +222,7 @@ async function runWatch(
   const stem = planStem(input.plan)
   const glance = await dependencies.glance({
     cwd,
+    repoEduRoot,
     repository: roundKind === "planning" ? "plan" : "repo-edu",
     cacheRoot: target.cacheRoot,
     stem,

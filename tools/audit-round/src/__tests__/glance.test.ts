@@ -323,7 +323,7 @@ test("real Git history carries finding bodies and touched files into the decisio
       cwd,
       "example/impl-1 ath feat(x): fixture",
     )
-    const body = bullet("area:tool-audit-round")
+    const body = bullet("area:fixture-area")
     for (let i = 0; i < 2; i++) {
       await writeFile(join(cwd, "a.md"), String(i))
       await execa("git", ["add", "."], { cwd })
@@ -346,16 +346,39 @@ test("real Git history carries finding bodies and touched files into the decisio
       join(cacheRoot, "watch.json"),
       JSON.stringify(record("amber", first)),
     )
+    const repoEduRoot = join(directory, "repo-edu")
+    const modelDirectory = join(repoEduRoot, "tools/architecture-check/src")
+    await mkdir(modelDirectory, { recursive: true })
+    await writeFile(
+      join(modelDirectory, "area-model.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        areas: [
+          {
+            id: "fixture-area",
+            kind: "partition",
+            name: "Fixture area",
+            members: [{ type: "pattern", path: "^src/" }],
+          },
+        ],
+      }),
+    )
     const decision = await runGlance({
       cwd,
+      repoEduRoot,
       repository: "repo-edu",
       cacheRoot,
       stem: "example",
     })
     assert.equal(decision.due, true)
-    assert.match(decision.text, /area:tool-audit-round 2/)
+    assert.match(decision.text, /area:fixture-area 2/)
     await assert.rejects(
-      runGlance({ cwd: directory, repository: "repo-edu", cacheRoot }),
+      runGlance({
+        cwd: directory,
+        repoEduRoot,
+        repository: "repo-edu",
+        cacheRoot,
+      }),
     )
   } finally {
     await rm(directory, { recursive: true, force: true })

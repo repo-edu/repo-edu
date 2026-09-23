@@ -30,6 +30,7 @@ export type WatchRecord = z.infer<typeof watchRecordSchema>
 
 export type GlanceInput = {
   readonly cwd: string
+  readonly repoEduRoot: string
   readonly repository: Repository
   readonly cacheRoot: string
   readonly stem?: string
@@ -176,7 +177,7 @@ export async function readWatchRecords(
 
 export async function runGlance(input: GlanceInput): Promise<GlanceDecision> {
   const [episode, records] = await Promise.all([
-    readEpisode(input.cwd, input.repository, input.stem),
+    readEpisode(input.cwd, input.repository, input.stem, input.repoEduRoot),
     readWatchRecords(input.cacheRoot),
   ])
   return glanceDecision(episode, records)

@@ -493,7 +493,13 @@ for (const auditor of ["claude", "codex"] as const) {
       ])
       // The glance reads the invoking repository's record, never the report's.
       assert.deepEqual(round.glances, [
-        { cwd: ownerRoot, repository: "repo-edu", cacheRoot, stem: "example" },
+        {
+          cwd: ownerRoot,
+          repoEduRoot: repoRoot,
+          repository: "repo-edu",
+          cacheRoot,
+          stem: "example",
+        },
       ])
       for (const call of round.calls) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
@@ -664,7 +670,13 @@ test("a planning round glances at the plan repository's record from its own root
   )
 
   assert.deepEqual(round.glances, [
-    { cwd: planning.planRoot, repository: "plan", cacheRoot, stem: "example" },
+    {
+      cwd: planning.planRoot,
+      repoEduRoot: planning.repoEduRoot,
+      repository: "plan",
+      cacheRoot,
+      stem: "example",
+    },
   ])
 })
 

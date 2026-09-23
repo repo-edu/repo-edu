@@ -1,6 +1,6 @@
 import { execa } from "execa"
 import { loadAreaModel } from "../../architecture-check/src/area-model.js"
-import { type ExecutionContext, installationRoot } from "./context.js"
+import type { ExecutionContext } from "./context.js"
 import {
   checkFindingTotals,
   repeatedGrowth,
@@ -251,8 +251,8 @@ export function joinedEpisode(
 export async function readEpisode(
   cwd: string,
   repository: Repository,
-  topic?: string,
-  repoEduRoot = installationRoot,
+  topic: string | undefined,
+  repoEduRoot: string,
 ): Promise<Episode> {
   const log = await readLog(cwd)
   // A finished fix may have changed the model since this runner started.
