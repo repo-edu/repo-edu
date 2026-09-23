@@ -35,6 +35,22 @@ test("the report opening identifies the judged repos independently of evidence",
   }
 })
 
+test("plain judged-repos lines survive formatted neighbours in the same paragraph", () => {
+  for (const opening of [
+    "Judged repos: repo-edu@def456\nPlan: `../plan/example.md`",
+    "Plan: `../plan/example.md`\nJudged repos: repo-edu@def456",
+    "**Audit**\nJudged repos: repo-edu@def456\n[Plan](../plan/example.md)",
+    "Plan: `first\nsecond`\nJudged repos: repo-edu@def456",
+  ])
+    assert.deepEqual(
+      readAuditReport(
+        `${opening}\n\n## Findings\n\nNo findings.`,
+        "implementation",
+      ),
+      { findings: [], judgedRepos: ["repo-edu"] },
+    )
+})
+
 test("missing, duplicate, quoted and malformed judged-repos openings fail", () => {
   for (const opening of [
     "",
@@ -45,6 +61,11 @@ test("missing, duplicate, quoted and malformed judged-repos openings fail", () =
     "Judged repos: plan@HEAD",
     "Judged repos: plan@abc123, plan@def456",
     "Judged repos: repo-edu@def456, plan@abc123",
+    "Judged repos: **plan@abc123**",
+    "**Opening:** Judged repos: plan@abc123",
+    "Judged repos: plan@abc123 `extra`",
+    "`Example:\nJudged repos: plan@abc123\nEnd`",
+    "Judged repos: plan@abc123\nPlan: `example.md`\nJudged repos: repo-edu@def456",
   ])
     assert.throws(
       () =>

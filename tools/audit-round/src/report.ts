@@ -21,7 +21,10 @@ function judgedRepos(children: readonly Block[]): readonly Repository[] {
   )
   const lines = opening.flatMap((node) =>
     node.type === "paragraph"
-      ? plain(node)
+      ? node.children
+          // Mark formatted spans so only complete plain lines can match.
+          .map((child) => (child.type === "text" ? child.value : "\0"))
+          .join("")
           .split("\n")
           .filter((line) => line.startsWith("Judged repos:"))
       : [],
