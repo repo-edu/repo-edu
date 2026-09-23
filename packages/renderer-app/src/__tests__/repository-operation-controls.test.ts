@@ -12,6 +12,7 @@ import {
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   cloneAllInputIsCurrent,
+  cloneAllListingIsReady,
   cloneAllListingReducer,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
@@ -100,7 +101,9 @@ describe("clone-all listing requests", () => {
     assert.equal(
       JSON.stringify(
         createCloneAllListingQueryPolicy(
-          state.publishedInput?.admissionId ?? null,
+          cloneAllListingIsReady(state.publishedInput)
+            ? state.publishedInput.admissionId
+            : null,
         ).queryKey,
       ).includes("secret-token"),
       false,
@@ -191,18 +194,49 @@ describe("clone-all listing requests", () => {
     )
   })
 
-  it("retains the listing across a transient unavailable connection", () => {
+  it("requests a new listing when a connection becomes available again", () => {
     const disabled = cloneAllListingReducer(listedState, {
       type: "context",
       ...context,
       connectionId: null,
     })
-    assert.equal(disabled.publishedInput, initialPublishedInput)
+    assert.equal(cloneAllListingIsReady(disabled.publishedInput), false)
     const restored = cloneAllListingReducer(disabled, {
       type: "context",
       ...context,
     })
-    assert.equal(restored.publishedInput, initialPublishedInput)
+    assert.equal(
+      restored.publishedInput?.admissionId.connectionId,
+      context.connectionId,
+    )
+    assert.equal(restored.publishedInput?.admissionId.listingGeneration, 3)
+  })
+
+  it("waits for Enter when typing a namespace, including an initially empty one", () => {
+    for (const namespace of ["", context.namespace]) {
+      const opened = cloneAllListingReducer(initialCloneAllListingState, {
+        type: "context",
+        ...context,
+        namespace,
+      })
+      for (const draft of ["", "n", "ne", "new-org", namespace]) {
+        assert.equal(
+          cloneAllListingReducer(opened, {
+            type: "context",
+            ...context,
+            namespace: draft,
+          }),
+          opened,
+        )
+      }
+      const searched = cloneAllListingReducer(opened, {
+        type: "search",
+        ...context,
+        namespace: "new-org",
+      })
+      assert.equal(searched.publishedInput?.admissionId.namespace, "new-org")
+      assert.equal(cloneAllListingIsReady(searched.publishedInput), true)
+    }
   })
 })
 

@@ -30,6 +30,7 @@ it("the window gate protects dialogs and permits remote request cancellation", {
   timeout: 10000,
 }, async (t) => {
   const window = new Window()
+  window.document.documentElement.style.setProperty("--foreground", "#1f1f1f")
   const globals = {
     window,
     document: window.document,
@@ -269,9 +270,11 @@ it("the window gate protects dialogs and permits remote request cancellation", {
                     </nav>
                     {operation === "repo.listNamespace" ? (
                       <CloneAllRepositoriesPanel
+                        groupSetId="test"
                         operations={
                           {
                             activeGitConnection: git,
+                            gitConnections: [git],
                             organization: "org",
                             cloneTargetDirectory: "/repos",
                           } as RepoOperations
@@ -326,6 +329,7 @@ it("the window gate protects dialogs and permits remote request cancellation", {
         assert.equal(cancel.getAttribute(sessionCancellationControl), operation)
         assert.equal(cancel.disabled, false)
         assert.equal(cancel.closest("fieldset[disabled]"), null)
+        assert.equal(window.getComputedStyle(cancel).outlineWidth, "3px")
         for (const type of ["keydown", "keyup"]) {
           const event = new window.KeyboardEvent(type, {
             key: "Enter",

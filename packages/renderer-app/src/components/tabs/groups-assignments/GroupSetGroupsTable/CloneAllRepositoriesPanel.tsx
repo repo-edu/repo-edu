@@ -3,13 +3,18 @@ import { Button, Checkbox, Input, Label } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
 import { sessionCancellationControl } from "../../../../session/session-controller-context.js"
 import { extractSubgroupPath } from "./clone-all-repositories.js"
-import type { RepoOperations } from "./repository-operation-fields.js"
+import {
+  type RepoOperations,
+  SharedRepositoryFields,
+} from "./repository-operation-fields.js"
 import { useCloneAllRepositories } from "./use-clone-all-repositories.js"
 
 export function CloneAllRepositoriesPanel({
   operations,
+  groupSetId,
 }: {
   readonly operations: RepoOperations
+  readonly groupSetId: string
 }) {
   const cloneAll = useCloneAllRepositories({
     activeConnectionId: operations.activeGitConnection?.id ?? null,
@@ -19,6 +24,11 @@ export function CloneAllRepositoriesPanel({
 
   return (
     <div className="min-w-0 space-y-3">
+      <SharedRepositoryFields
+        groupSetId={groupSetId}
+        operations={operations}
+        onNamespaceSearch={cloneAll.search}
+      />
       <div className="space-y-1">
         <Label htmlFor="clone-all-filter">Name filter</Label>
         <Input

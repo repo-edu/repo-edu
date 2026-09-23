@@ -19,6 +19,7 @@ import {
 it("shows the window freeze and refuses input while scrolling and portal Cancel remain usable", async (t) => {
   resetStores()
   const window = new Window()
+  window.document.documentElement.style.setProperty("--foreground", "#1f1f1f")
   const globals = {
     window,
     document: window.document,
@@ -44,6 +45,7 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
     "div",
   ) as unknown as HTMLElement
   const portal = window.document.createElement("div") as unknown as HTMLElement
+  window.document.body.appendChild(portal as never)
   const root = createRoot(container)
   const release = deferred<void>()
   t.after(async () => {
@@ -157,6 +159,11 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
   }
   assert.deepEqual([wheels, scrolls, focuses, blurs], [1, 1, 1, 1])
   const signal = await entered.promise
+  assert.equal(
+    window.getComputedStyle(cancel.parentElement as never).outlineWidth,
+    "3px",
+  )
+  assert.notEqual(window.getComputedStyle(start as never).outlineWidth, "3px")
   cancel.parentElement?.setAttribute(
     sessionCancellationControl,
     "analysis.blame",
@@ -165,6 +172,10 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
     new window.MouseEvent("click", { bubbles: true }) as unknown as Event,
   )
   assert.equal(signal.aborted, false)
+  assert.notEqual(
+    window.getComputedStyle(cancel.parentElement as never).outlineWidth,
+    "3px",
+  )
   cancel.parentElement?.setAttribute(
     sessionCancellationControl,
     "analysis.discoverRepos",

@@ -19,6 +19,7 @@ import {
   type CloneAllCommandVariables,
   type CloneAllSafeListingInput,
   cloneAllInputIsCurrent,
+  cloneAllListingIsReady,
   cloneAllListingReducer,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
@@ -51,10 +52,13 @@ export function useCloneAllRepositories({
     selectOperationIsAdmitted(snapshot, "repo.listNamespace"),
   )
   const [
-    { filter, includeArchived, publishedInput: publishedListingInput },
+    { filter, includeArchived, publishedInput: listingRequest },
     dispatchListing,
   ] = useReducer(cloneAllListingReducer, initialCloneAllListingState)
   const [targetDirectory, setTargetDirectory] = useState(initialTargetDirectory)
+  const publishedListingInput = cloneAllListingIsReady(listingRequest)
+    ? listingRequest
+    : null
 
   const namespace =
     organization === null ? "" : normalizeGitNamespaceInput(organization)
@@ -84,18 +88,6 @@ export function useCloneAllRepositories({
     credentials,
     publishedInput: publishedListingInput,
   })
-  const listingContextIsCurrent = cloneAllInputIsCurrent({
-    input:
-      publishedListingInput === null
-        ? null
-        : createCloneAllSafeListingInput({
-            ...publishedListingInput.admissionId,
-            connectionId: activeConnectionId,
-            namespace,
-          }),
-    credentials,
-    publishedInput: publishedListingInput,
-  })
   const queryPolicy = createCloneAllListingQueryPolicy(
     publishedListingInput?.admissionId ?? null,
   )
@@ -106,22 +98,11 @@ export function useCloneAllRepositories({
   })
 
   useEffect(() => {
-    if (
-      !canStartListing ||
-      !listingContextIsCurrent ||
-      publishedListingInput === null
-    )
-      return
+    if (publishedListingInput === null) return
     void fetchCloneAllListing(client, queryClient, publishedListingInput).catch(
       () => {},
     )
-  }, [
-    canStartListing,
-    listingContextIsCurrent,
-    publishedListingInput,
-    client,
-    queryClient,
-  ])
+  }, [publishedListingInput, client, queryClient])
 
   const [cloneCommand, setCloneCommand] = useState<CloneAllCommandState>({
     status: "idle",

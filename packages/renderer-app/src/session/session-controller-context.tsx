@@ -47,6 +47,22 @@ const SessionControllerContext = createContext<SessionController | null>(null)
 // The marker names the admitted operation this control cancels.
 export const sessionCancellationControl = "data-session-cancellation-control"
 
+function sessionFreezeStyle(
+  snapshot: SessionControllerSnapshot,
+): string | null {
+  if (canAdmitSessionInput(snapshot)) return null
+  if (snapshot.lifecycle.kind !== "live") return ""
+  const controls = [...snapshot.transactions.admitted.values()].flatMap(
+    (entry) =>
+      "operation" in entry
+        ? [`[${sessionCancellationControl}="${entry.operation}"]`]
+        : [],
+  )
+  if (controls.length === 0) return ""
+  // The outline stays visible through the fade, including in dialog layers.
+  return `${controls.join(", ")} { outline: 3px solid var(--foreground); outline-offset: 3px; }`
+}
+
 function admitSessionInput(
   controller: SessionController,
   event: SyntheticEvent | Event,
@@ -70,10 +86,10 @@ export function SessionControllerProvider({
   controller: SessionController
   children: ReactNode
 }) {
-  const inputIsFrozen = useSyncExternalStore(
+  const freezeStyle = useSyncExternalStore(
     controller.subscribe,
-    () => !canAdmitSessionInput(controller.getSnapshot()),
-    () => !canAdmitSessionInput(controller.getSnapshot()),
+    () => sessionFreezeStyle(controller.getSnapshot()),
+    () => sessionFreezeStyle(controller.getSnapshot()),
   )
   useEffect(() => {
     // Window capture runs before Radix's document-level Escape dismissal.
@@ -94,7 +110,7 @@ export function SessionControllerProvider({
     <SessionControllerContext.Provider value={controller}>
       <div
         className="contents"
-        aria-busy={inputIsFrozen}
+        aria-busy={freezeStyle !== null}
         onBeforeInputCapture={admitInput}
         onInputCapture={admitInput}
         onChangeCapture={admitInput}
@@ -122,13 +138,16 @@ export function SessionControllerProvider({
         onResetCapture={admitInput}
       >
         {children}
-        {inputIsFrozen &&
+        {freezeStyle !== null &&
           createPortal(
-            <div
-              aria-hidden="true"
-              data-session-input-frozen=""
-              className="pointer-events-none fixed inset-0 z-[100] bg-background/40"
-            />,
+            <>
+              <style>{freezeStyle}</style>
+              <div
+                aria-hidden="true"
+                data-session-input-frozen=""
+                className="pointer-events-none fixed inset-0 z-[100] bg-background/40"
+              />
+            </>,
             document.body,
           )}
       </div>

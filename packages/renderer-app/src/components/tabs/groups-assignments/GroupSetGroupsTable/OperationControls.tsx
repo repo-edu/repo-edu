@@ -150,16 +150,24 @@ function OperationPanel({
 }: OperationPanelProps) {
   return (
     <div className="border rounded-md p-3 space-y-3">
-      <SharedRepositoryFields groupSetId={groupSetId} operations={operations} />
       {operation === "clone-all" ? (
-        <CloneAllRepositoriesPanel operations={operations} />
-      ) : (
-        <RepositoryOperationFields
-          operation={operation as RepositoryOperationMode}
+        <CloneAllRepositoriesPanel
+          groupSetId={groupSetId}
           operations={operations}
-          nonEmptyCount={nonEmptyCount}
-          emptyCount={emptyCount}
         />
+      ) : (
+        <>
+          <SharedRepositoryFields
+            groupSetId={groupSetId}
+            operations={operations}
+          />
+          <RepositoryOperationFields
+            operation={operation as RepositoryOperationMode}
+            operations={operations}
+            nonEmptyCount={nonEmptyCount}
+            emptyCount={emptyCount}
+          />
+        </>
       )}
     </div>
   )

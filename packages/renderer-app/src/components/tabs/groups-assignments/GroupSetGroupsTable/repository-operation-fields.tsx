@@ -29,11 +29,13 @@ export type RepoOperations = ReturnType<typeof useRepoOperations>
 type SharedRepositoryFieldsProps = {
   readonly groupSetId: string
   readonly operations: RepoOperations
+  readonly onNamespaceSearch?: () => void
 }
 
 export function SharedRepositoryFields({
   groupSetId,
   operations,
+  onNamespaceSearch,
 }: SharedRepositoryFieldsProps) {
   const rawNamespace = operations.organization ?? ""
   const baseUrl = (operations.activeGitConnection?.baseUrl ?? "").replace(
@@ -47,7 +49,11 @@ export function SharedRepositoryFields({
 
   return (
     <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-      <NamespaceField groupSetId={groupSetId} operations={operations} />
+      <NamespaceField
+        groupSetId={groupSetId}
+        operations={operations}
+        onNamespaceSearch={onNamespaceSearch}
+      />
       {!inputRevealsConnection && (
         <GitConnectionField groupSetId={groupSetId} operations={operations} />
       )}
@@ -58,6 +64,7 @@ export function SharedRepositoryFields({
 function NamespaceField({
   groupSetId,
   operations,
+  onNamespaceSearch,
 }: SharedRepositoryFieldsProps) {
   const id = `group-set-${groupSetId}-namespace`
   const connection = operations.activeGitConnection
@@ -79,8 +86,16 @@ function NamespaceField({
         onChange={(event) =>
           operations.setOrganization(event.target.value || null)
         }
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || onNamespaceSearch === undefined) return
+          event.preventDefault()
+          onNamespaceSearch()
+        }}
         placeholder={placeholder}
       />
+      {onNamespaceSearch && (
+        <p className="text-xs text-muted-foreground">Press Enter to search.</p>
+      )}
       {showPreview && (
         <p className="text-xs text-muted-foreground">
           → {normalized === "" ? "(no namespace found)" : normalized}

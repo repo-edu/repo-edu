@@ -41,6 +41,23 @@ export type CloneAllPublishedListingInput = {
   readonly credentials: PersistedAppCredentials
 }
 
+type CloneAllListingRequest = {
+  readonly admissionId: Omit<CloneAllListingAdmissionId, "connectionId"> & {
+    readonly connectionId: string | null
+  }
+  readonly credentials: PersistedAppCredentials
+}
+
+export function cloneAllListingIsReady(
+  request: CloneAllListingRequest | null,
+): request is CloneAllPublishedListingInput {
+  return (
+    request !== null &&
+    request.admissionId.connectionId !== null &&
+    request.admissionId.namespace.length > 0
+  )
+}
+
 export type CloneAllCommandVariables = {
   readonly listingAdmissionId: CloneAllListingAdmissionId
   readonly targetDirectory: string
@@ -112,7 +129,7 @@ type CloneAllListingContext = {
 export type CloneAllListingState = {
   readonly filter: string
   readonly includeArchived: boolean
-  readonly publishedInput: CloneAllPublishedListingInput | null
+  readonly publishedInput: CloneAllListingRequest | null
 }
 
 type CloneAllListingEvent =
@@ -132,43 +149,40 @@ export function cloneAllListingReducer(
 ): CloneAllListingState {
   if (event.type === "filter") return { ...state, filter: event.value }
   if (event.type === "context" && state.publishedInput !== null) {
-    // Unrelated settings changes must not submit an unfinished filter draft.
-    const input = createCloneAllSafeListingInput({
-      ...state.publishedInput.admissionId,
-      connectionId: event.connectionId,
-      namespace: event.namespace,
-    })
+    // Text edits wait for Enter. Only a connection change requests a listing.
+    const previous = state.publishedInput
     if (
-      cloneAllInputIsCurrent({
-        input,
-        credentials: event.credentials,
-        publishedInput: state.publishedInput,
-      })
+      event.connectionId === previous.admissionId.connectionId &&
+      event.credentials.gitConnections.find(
+        (connection) => connection.id === event.connectionId,
+      ) ===
+        previous.credentials.gitConnections.find(
+          (connection) => connection.id === event.connectionId,
+        )
     )
       return state
   }
   const includeArchived =
     event.type === "include-archived" ? event.value : state.includeArchived
-  const input = createCloneAllSafeListingInput({
+  const input = {
     connectionId: event.connectionId,
     namespace: event.namespace,
     filter: state.filter.trim(),
     includeArchived,
-  })
+  }
   return {
     ...state,
     includeArchived,
-    publishedInput:
-      input === null
-        ? state.publishedInput
-        : {
-            admissionId: {
-              ...input,
-              listingGeneration:
-                (state.publishedInput?.admissionId.listingGeneration ?? 0) + 1,
-            },
-            credentials: event.credentials,
-          },
+    // Keep even incomplete requests, so typing the first namespace does not
+    // turn an earlier panel-open event into a new listing request.
+    publishedInput: {
+      admissionId: {
+        ...input,
+        listingGeneration:
+          (state.publishedInput?.admissionId.listingGeneration ?? 0) + 1,
+      },
+      credentials: event.credentials,
+    },
   }
 }
 

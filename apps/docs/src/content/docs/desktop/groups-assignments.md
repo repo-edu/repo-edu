@@ -136,8 +136,10 @@ across roster edits and `{members}`-parameterized templates.
 
 ### Clone All
 
-Opens a live panel: the preview list populates automatically from the configured Git connection and
-namespace, and re-runs whenever you edit an input that affects the query.
+Opening the panel lists repositories from the configured Git connection and namespace.
+After editing the namespace or name filter, press Enter in either field to list the current inputs.
+Typing, pausing and leaving a text field do not start a listing. Changing the Git connection or its
+saved token starts a new listing.
 
 - **Name filter** (optional, e.g. `1*`) — filters by leaf name. Syntax: `*` = any characters, `?` =
   one character; leave blank to list all. The filter matches the leaf shown, never the subgroup
@@ -145,7 +147,7 @@ namespace, and re-runs whenever you edit an input that affects the query.
   team subgroup `111_…` is not matched. When a repo sits inside a subgroup, the panel shows the
   subgroup path next to the leaf (e.g. `group-30-2iv60  (111_dyliiev_…)`) so its origin is obvious
   at a glance.
-- **Include archived** — toggles archived repos into/out of the preview.
+- **Include archived** — starts a listing with archived repositories included or excluded.
 - **Target folder** — destination for the clone. Must be an absolute path or start with `~`. Editing
   this field does *not* re-run the listing (the target isn't part of the listing query).
 - **Clone N Repositories** — bulk-clones every repository in the current preview into the target
@@ -153,11 +155,11 @@ namespace, and re-runs whenever you edit an input that affects the query.
   `parent-group/team-101/lab-1` clones into `<target>/lab-1` (not the flattened subgroup path). If
   two listed repositories share the same leaf name, the operation aborts with a validation error
   rather than overwriting. Disabled while the preview is refreshing so a stale list can't be cloned
-  by mistake.
+  by mistake. It also stays disabled until the listing matches the namespace and filter fields.
 
-Filter edits are debounced and the in-flight listing request is cancelled when inputs change again,
-so rapid typing coalesces into a single provider call. A small "refreshing…" indicator appears next
-to the match count while the next listing is resolving.
+While a listing runs, the window refuses input except **Cancel**. Scrolling remains available.
+Cancel stops the listing. A small "refreshing…" indicator appears next to the match count while
+the next listing is resolving.
 
 The target folder is pre-filled from the course-level clone target but edits are held in panel state
 only — assignment-scoped Clone remains the sole writer of the course setting.

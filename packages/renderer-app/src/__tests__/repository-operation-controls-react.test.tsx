@@ -50,6 +50,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
   const cloneRelease = deferred<void>()
   const pending = deferred<void>()
   const filters: unknown[] = []
+  const namespaces: string[] = []
   const archived: boolean[] = []
   const first = {
     repositories: [{ name: "old", identifier: "old", archived: false }],
@@ -74,6 +75,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
           })
         if (id === "settings.saveCredentials") return undefined
         if (id === "repo.listNamespace") {
+          namespaces.push((input as { namespace: string }).namespace)
           filters.push((input as { filter?: string }).filter)
           archived.push((input as { includeArchived: boolean }).includeArchived)
           if (filters.length === 2) {
@@ -107,6 +109,31 @@ it("retains listing rows and disables all clone-all controls during commands", {
     })
     return null
   }
+  function Controls({ initialNamespace }: { initialNamespace: string }) {
+    const [organization, setOrganization] = React.useState<string | null>(
+      initialNamespace,
+    )
+    const gitConnections = selectCredentials(
+      controller.getSnapshot(),
+    ).gitConnections
+    return (
+      <CloneAllRepositoriesPanel
+        groupSetId="test"
+        operations={
+          {
+            activeGitConnection: gitConnections[0],
+            activeGitConnectionId: "git",
+            gitConnections: [gitConnections[0]],
+            organization,
+            setOrganization: (next) => {
+              controller.operations.change(() => setOrganization(next))
+            },
+            cloneTargetDirectory: "/repos",
+          } as RepoOperations
+        }
+      />
+    )
+  }
   // Happy DOM implements the DOM the renderer expects, so the container is
   // typed as the DOM element it stands in for.
   const container = window.document.createElement(
@@ -114,7 +141,11 @@ it("retains listing rows and disables all clone-all controls during commands", {
   ) as unknown as HTMLElement
   window.document.body.appendChild(container as never)
   const root = createRoot(container)
-  const render = (open: boolean, showControls = false) =>
+  const render = (
+    open: boolean,
+    showControls = false,
+    initialNamespace = "org",
+  ) =>
     root.render(
       <SessionControllerProvider controller={controller}>
         <WorkflowClientProvider value={controller.operations}>
@@ -122,17 +153,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
             <QueryClientProvider client={client}>
               {open ? (
                 showControls ? (
-                  <CloneAllRepositoriesPanel
-                    operations={
-                      {
-                        activeGitConnection: selectCredentials(
-                          controller.getSnapshot(),
-                        ).gitConnections[0],
-                        organization: "org",
-                        cloneTargetDirectory: "/repos",
-                      } as RepoOperations
-                    }
-                  />
+                  <Controls initialNamespace={initialNamespace} />
                 ) : (
                   <Panel />
                 )
@@ -275,6 +296,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
   })
   assert.equal(value.canClone, true)
   assert.equal(value.canStartQueries, true)
+  assert.equal(filters.length, 3, "export completion must not list again")
 
   const callsBeforeCredentialChange = filters.length
   let preceding: Promise<unknown> | undefined
@@ -314,8 +336,10 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await controller.waitForIdle()
     await flush()
   })
-  const controls = Array.from(container.querySelectorAll("input, button"))
-  const cloneButton = Array.from(container.querySelectorAll("button")).find(
+  let controls = Array.from(container.querySelectorAll("input, button")).filter(
+    (control) => control.id !== "group-set-test-namespace",
+  )
+  let cloneButton = Array.from(container.querySelectorAll("button")).find(
     (button) => button.textContent?.startsWith("Clone 1 Repository"),
   )
   assert.ok(cloneButton)
@@ -378,11 +402,72 @@ it("retains listing rows and disables all clone-all controls during commands", {
   })
   assert.equal(filters.length, beforeInputEvents + 2)
   assert.equal(archived.at(-1), true)
+
+  const namespaceInput = container.querySelector<HTMLInputElement>(
+    "#group-set-test-namespace",
+  )
+  assert.ok(namespaceInput)
+  const typeNamespace = async (next: string) => {
+    await React.act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set
+      assert.ok(setValue)
+      setValue.call(namespaceInput, next)
+      namespaceInput.dispatchEvent(
+        new window.Event("input", { bubbles: true }) as unknown as Event,
+      )
+      await flush()
+    })
+  }
+  const beforeNamespaceEdit = filters.length
+  for (const draft of ["", "o", "or", "org"]) await typeNamespace(draft)
+  assert.equal(filters.length, beforeNamespaceEdit)
+  cloneButton = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.startsWith("Clone 1 Repository"),
+  )
+  assert.ok(cloneButton)
+  assert.equal(cloneButton.disabled, false)
+  for (const draft of ["", "n", "ne", "new-org"]) await typeNamespace(draft)
+  await React.act(async () => {
+    namespaceInput.dispatchEvent(
+      new window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+    )
+    await typingPause()
+  })
+  assert.equal(filters.length, beforeNamespaceEdit)
+  cloneButton = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.startsWith("Clone 1 Repository"),
+  )
+  assert.ok(cloneButton)
+  assert.equal(cloneButton.disabled, true)
+  await React.act(async () => {
+    namespaceInput.dispatchEvent(
+      new window.KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+      }) as unknown as Event,
+    )
+    await flush()
+  })
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.equal(filters.length, beforeNamespaceEdit + 1)
+  assert.equal(namespaces.at(-1), "new-org")
+  assert.equal(filters.at(-1), "typed-*")
+  assert.equal(cloneButton.disabled, false)
+  controls = Array.from(container.querySelectorAll("input, button")).filter(
+    (control) => control.id !== "group-set-test-namespace",
+  )
   // Happy DOM does not include a parent fieldset in its :disabled check.
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
   assert.ok(controls.every((control) => !isDisabled(control)))
+  const beforeClone = filters.length
   await React.act(async () => {
     cloneButton.click()
     await flush()
@@ -399,4 +484,50 @@ it("retains listing rows and disables all clone-all controls during commands", {
   })
   assert.match(container.textContent, /1 cloned \/ 0 failed/)
   assert.ok(controls.every((control) => !isDisabled(control)))
+  assert.equal(
+    filters.length,
+    beforeClone,
+    "clone completion must not list again",
+  )
+
+  await React.act(async () => {
+    render(false)
+    await flush()
+  })
+  await React.act(async () => {
+    render(true, true, "")
+    await flush()
+  })
+  const emptyNamespace = container.querySelector<HTMLInputElement>(
+    "#group-set-test-namespace",
+  )
+  assert.ok(emptyNamespace)
+  await React.act(async () => {
+    const setValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set
+    assert.ok(setValue)
+    setValue.call(emptyNamespace, "first-org")
+    emptyNamespace.dispatchEvent(
+      new window.Event("input", { bubbles: true }) as unknown as Event,
+    )
+    await flush()
+  })
+  assert.equal(filters.length, beforeClone)
+  await React.act(async () => {
+    emptyNamespace.dispatchEvent(
+      new window.KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+      }) as unknown as Event,
+    )
+    await flush()
+  })
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.equal(filters.length, beforeClone + 1)
+  assert.equal(namespaces.at(-1), "first-org")
 })

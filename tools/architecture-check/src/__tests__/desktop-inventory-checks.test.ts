@@ -153,8 +153,8 @@ for (const [file, before, after, owner] of [
   ],
   [
     "packages/renderer-app/src/session/session-controller-context.tsx",
-    "canAdmitSessionInput(snapshot)",
-    "true",
+    "const snapshot = controller.getSnapshot()\n  if (canAdmitSessionInput(snapshot)) return",
+    "const snapshot = controller.getSnapshot()\n  if (true) return",
     "session input admission",
   ],
   [
