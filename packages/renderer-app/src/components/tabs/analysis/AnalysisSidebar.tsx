@@ -425,30 +425,33 @@ export function AnalysisSidebar() {
               Cancel Search
             </Button>
           ) : null}
-          <fieldset
-            disabled={!canStartQueries}
-            className="flex flex-1 items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
-          >
+          <div className="flex flex-1 items-center gap-1">
             {!canCancelSource &&
               !canCancelDiscovery &&
               (hasDiscoveredRepos ? (
                 result ? (
                   <Button
                     variant="outline"
-                    disabled={!selectedRepoPath}
+                    disabled={!canStartQueries || !selectedRepoPath}
                     onClick={runAnalysis}
                   >
                     <RefreshCw className="mr-1 size-4" />
                     Re-run Analysis
                   </Button>
                 ) : (
-                  <Button disabled={!selectedRepoPath} onClick={runAnalysis}>
+                  <Button
+                    disabled={!canStartQueries || !selectedRepoPath}
+                    onClick={runAnalysis}
+                  >
                     <Play className="mr-1 size-4" />
                     Run Analysis
                   </Button>
                 )
               ) : (
-                <Button disabled={!searchFolder} onClick={handleStart}>
+                <Button
+                  disabled={!canStartQueries || !searchFolder}
+                  onClick={handleStart}
+                >
                   <Play className="mr-1 size-4" />
                   Start
                 </Button>
@@ -479,7 +482,7 @@ export function AnalysisSidebar() {
               </TooltipTrigger>
               <TooltipContent side="bottom">Collapse all</TooltipContent>
             </Tooltip>
-          </fieldset>
+          </div>
         </div>
         {analysisProgress && <ProgressDisplay progress={analysisProgress} />}
         {analysisErrorMessage && (
@@ -489,10 +492,7 @@ export function AnalysisSidebar() {
         )}
       </div>
 
-      <fieldset
-        disabled={!canStartQueries}
-        className="flex min-w-0 flex-col gap-3 disabled:opacity-50 disabled:pointer-events-none"
-      >
+      <div className="flex min-w-0 flex-col gap-3">
         {/* A. Repositories */}
         <CollapsibleSection
           title="Repos"
@@ -504,9 +504,7 @@ export function AnalysisSidebar() {
               expandAllRepoFolders={expandAllRepoFolders}
               collapseAllRepoFolders={collapseAllRepoFolders}
               onSearchRepos={handleSearchRepos}
-              searchReposDisabled={
-                !searchFolder || canCancelSource || canCancelDiscovery
-              }
+              searchReposDisabled={!canStartQueries || !searchFolder}
               repoViewMode={repoViewMode}
               setRepoViewMode={setRepoViewMode}
             />
@@ -590,7 +588,7 @@ export function AnalysisSidebar() {
           setCopyMoveDraft={setCopyMoveDraft}
           commitCopyMoveDraft={commitCopyMoveDraft}
         />
-      </fieldset>
+      </div>
     </div>
   )
 }

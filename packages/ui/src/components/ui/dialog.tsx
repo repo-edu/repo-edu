@@ -47,6 +47,9 @@ function DialogOverlay({
 interface DialogContentProps
   extends React.ComponentProps<typeof DialogPrimitive.Content> {
   showCloseButton?: boolean
+  closeButtonProps?: React.ComponentProps<typeof DialogPrimitive.Close> & {
+    [attribute: `data-${string}`]: string | undefined
+  }
   size?: "default" | "compact"
 }
 
@@ -54,6 +57,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  closeButtonProps,
   size = "default",
   ...props
 }: DialogContentProps) {
@@ -72,10 +76,12 @@ function DialogContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
+            {...closeButtonProps}
             data-slot="dialog-close"
             className={cn(
               "ring-offset-background focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute rounded-xs opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
               size === "compact" ? "top-2 right-2" : "top-4 right-4",
+              closeButtonProps?.className,
             )}
           >
             <XIcon />

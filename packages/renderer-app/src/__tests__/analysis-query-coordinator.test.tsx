@@ -64,6 +64,14 @@ const repoResults = (repoPath: string) =>
 const flushQueries = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0))
 
+function assertInputRefused(control: Element) {
+  assert.ok(control.ownerDocument.querySelector("[data-session-input-frozen]"))
+  const event = control.ownerDocument.createEvent("Event")
+  event.initEvent("click", true, true)
+  control.dispatchEvent(event)
+  assert.equal(event.defaultPrevented, true, control.outerHTML)
+}
+
 function useAnalysisTestView() {
   return {
     ...useAnalysisDiscovery(),
@@ -1248,7 +1256,7 @@ describe("analysis sidebar admission", () => {
       .querySelector(".lucide-folder-open")
       ?.closest("button")
     assert.ok(browse)
-    assert.equal(isDisabled(browse), true)
+    assertInputRefused(browse)
     await React.act(async () => {
       browse.click()
       await flushQueries()
@@ -1623,7 +1631,7 @@ describe("analysis sidebar admission", () => {
       for (const control of container.querySelectorAll(
         "button, input, select, textarea",
       )) {
-        if (control !== button) assert.equal(isDisabled(control), true)
+        if (control !== button) assertInputRefused(control)
       }
       const command = reservation.run(async () => {
         commandStarted = true
@@ -1671,7 +1679,7 @@ describe("analysis sidebar admission", () => {
       for (const control of container.querySelectorAll(
         "button, input, select, textarea",
       )) {
-        assert.equal(isDisabled(control), true)
+        assertInputRefused(control)
       }
       await React.act(async () => {
         releaseCommand.resolve()
@@ -1696,7 +1704,7 @@ describe("analysis sidebar admission", () => {
   ] as const
 
   for (const entry of cases) {
-    it(`disables all sidebar controls during question generation with ${entry.name}`, {
+    it(`freezes sidebar input during question generation with ${entry.name}`, {
       timeout: 3000,
     }, async (t) => {
       const { controller, container } = await mountCoordinator(
@@ -1735,7 +1743,7 @@ describe("analysis sidebar admission", () => {
         await flushQueries()
       })
       for (const control of controls) {
-        assert.equal(isDisabled(control), true, control.outerHTML)
+        assertInputRefused(control)
       }
       await React.act(async () => {
         release.resolve()
@@ -1743,6 +1751,10 @@ describe("analysis sidebar admission", () => {
         await flushQueries()
       })
       assert.deepEqual(controls.map(isDisabled), wasDisabled)
+      assert.equal(
+        container.ownerDocument.querySelector("[data-session-input-frozen]"),
+        null,
+      )
     })
   }
 })

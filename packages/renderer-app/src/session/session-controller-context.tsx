@@ -5,6 +5,7 @@ import {
   useContext,
   useSyncExternalStore,
 } from "react"
+import { createPortal } from "react-dom"
 import { selectOperationIsAdmitted } from "./selectors.js"
 import type { SessionController } from "./session-controller.js"
 import {
@@ -52,6 +53,11 @@ export function SessionControllerProvider({
   controller: SessionController
   children: ReactNode
 }) {
+  const inputIsFrozen = useSyncExternalStore(
+    controller.subscribe,
+    () => !canAdmitSessionInput(controller.getSnapshot()),
+    () => !canAdmitSessionInput(controller.getSnapshot()),
+  )
   // Read the owner at event delivery, without waiting for a React render.
   // React capture also reaches children rendered through dialog portals.
   const admitInput = (event: SyntheticEvent) => {
@@ -69,6 +75,7 @@ export function SessionControllerProvider({
     <SessionControllerContext.Provider value={controller}>
       <div
         className="contents"
+        aria-busy={inputIsFrozen}
         onBeforeInputCapture={admitInput}
         onInputCapture={admitInput}
         onChangeCapture={admitInput}
@@ -98,6 +105,15 @@ export function SessionControllerProvider({
         onResetCapture={admitInput}
       >
         {children}
+        {inputIsFrozen &&
+          createPortal(
+            <div
+              aria-hidden="true"
+              data-session-input-frozen=""
+              className="pointer-events-none fixed inset-0 z-[100] bg-background/40"
+            />,
+            document.body,
+          )}
       </div>
     </SessionControllerContext.Provider>
   )

@@ -4,7 +4,10 @@ import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useReducer, useState } from "react"
 import { useWorkflowClient } from "../../../../contexts/workflow-client.js"
 import { useDirectoryPicker } from "../../../../hooks/use-picker.js"
-import { selectCredentials } from "../../../../session/selectors.js"
+import {
+  selectCredentials,
+  selectOperationIsAdmitted,
+} from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import {
   canAdmitSessionChange,
@@ -44,6 +47,9 @@ export function useCloneAllRepositories({
   const credentials = useSessionControllerSelector(selectCredentials)
   const canStartQueries = useSessionControllerSelector(canAdmitSessionInput)
   const canStartListing = useSessionControllerSelector(canAdmitSessionChange)
+  const isListing = useSessionControllerSelector((snapshot) =>
+    selectOperationIsAdmitted(snapshot, "repo.listNamespace"),
+  )
   const [
     { filter, includeArchived, publishedInput: publishedListingInput },
     dispatchListing,
@@ -201,7 +207,8 @@ export function useCloneAllRepositories({
     listError: listingQuery.isError
       ? getErrorMessage(listingQuery.error)
       : null,
-    isListing: listingQuery.isFetching,
+    isListing,
+    cancelListing: () => client.stop("repo.listNamespace"),
     isCloning: cloneCommand.status === "pending",
     resultBelongsToCurrentCommand,
     hasConnection,

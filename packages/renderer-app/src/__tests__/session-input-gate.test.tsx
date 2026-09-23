@@ -16,7 +16,7 @@ import {
   workflowClient,
 } from "./session-controller.test-support.js"
 
-it("refuses input during an operation but passes scrolling, focus and its Cancel through portals", async (t) => {
+it("shows the window freeze and refuses input while scrolling and portal Cancel remain usable", async (t) => {
   resetStores()
   const window = new Window()
   const globals = {
@@ -67,6 +67,11 @@ it("refuses input during an operation but passes scrolling, focus and its Cancel
   await React.act(async () => {
     root.render(
       <SessionControllerProvider controller={controller}>
+        <nav>
+          <button type="button" onClick={() => starts++}>
+            Home
+          </button>
+        </nav>
         {createPortal(
           <section
             aria-label="Operation controls"
@@ -102,25 +107,48 @@ it("refuses input during an operation but passes scrolling, focus and its Cancel
       </SessionControllerProvider>,
     )
   })
-  const running = controller.operations.execute(
-    "analysis.discoverRepos",
-    async (scope) => {
-      entered.resolve(scope.signal)
-      await release.promise
-    },
+  assert.equal(
+    window.document.querySelector("[data-session-input-frozen]"),
+    null,
   )
-  // Admission closes input synchronously, before the body or a React update.
+  let running: Promise<unknown> | undefined
+  await React.act(async () => {
+    running = controller.operations.execute(
+      "analysis.discoverRepos",
+      async (scope) => {
+        entered.resolve(scope.signal)
+        await release.promise
+      },
+    )
+    // Admission closes input synchronously, before the body or a React update.
+    const start = portal.querySelector("button")
+    const cancel = portal.querySelector("span")
+    assert.ok(start)
+    assert.ok(cancel)
+    start.click()
+    assert.equal(starts, 0)
+    assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
+    assert.equal(
+      controller.operations.change(() => assert.fail("An edit was admitted")),
+      false,
+    )
+  })
+  const freeze = window.document.querySelector("[data-session-input-frozen]")
+  assert.ok(freeze)
+  assert.equal(freeze.parentElement, window.document.body)
+  assert.match(freeze.className, /fixed inset-0 z-\[100\] bg-background\/40/)
+  assert.match(freeze.className, /pointer-events-none/)
+  assert.equal(container.firstElementChild?.getAttribute("aria-busy"), "true")
+  container
+    .querySelector("nav button")
+    ?.dispatchEvent(
+      new window.MouseEvent("click", { bubbles: true }) as unknown as Event,
+    )
+  assert.equal(starts, 0)
   const start = portal.querySelector("button")
   const cancel = portal.querySelector("span")
   assert.ok(start)
   assert.ok(cancel)
-  start.click()
-  assert.equal(starts, 0)
-  assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
-  assert.equal(
-    controller.operations.change(() => assert.fail("An edit was admitted")),
-    false,
-  )
   for (const type of ["wheel", "scroll", "focusin", "focusout"]) {
     const event = new window.Event(type, { bubbles: true, cancelable: true })
     const target = type === "scroll" ? portal.firstElementChild : start
@@ -145,12 +173,21 @@ it("refuses input during an operation but passes scrolling, focus and its Cancel
     new window.MouseEvent("click", { bubbles: true }) as unknown as Event,
   )
   assert.equal(signal.aborted, true)
-  release.resolve()
-  await running
-  await controller.waitForIdle()
+  await React.act(async () => {
+    release.resolve()
+    await running
+    await controller.waitForIdle()
+  })
+  assert.equal(
+    window.document.querySelector("[data-session-input-frozen]"),
+    null,
+  )
+  assert.equal(container.firstElementChild?.getAttribute("aria-busy"), "false")
   assert.equal(starts, 0)
   assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
-  start.click()
-  await controller.waitForIdle()
+  await React.act(async () => {
+    start.click()
+    await controller.waitForIdle()
+  })
   assert.equal(starts, 1)
 })

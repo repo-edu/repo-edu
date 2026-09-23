@@ -18,6 +18,7 @@ import {
 import { useLmsPreview } from "../../session/lms-preview.js"
 import { selectCredentials } from "../../session/selectors.js"
 import {
+  sessionCancellationControl,
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
@@ -43,6 +44,7 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
   const result =
     state.status === "ready" && "summary" in state.result ? state.result : null
   const close = () => {
+    controller.operations.stop("roster.importFromLms")
     setOpen(false)
     setConflicts(null)
   }
@@ -53,7 +55,12 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
         if (!open) close()
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-lg"
+        closeButtonProps={{
+          [sessionCancellationControl]: "roster.importFromLms",
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Sync Roster from LMS</DialogTitle>
         </DialogHeader>
@@ -111,7 +118,11 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={close}>
+          <Button
+            variant="outline"
+            {...{ [sessionCancellationControl]: "roster.importFromLms" }}
+            onClick={close}
+          >
             Cancel
           </Button>
           <Button

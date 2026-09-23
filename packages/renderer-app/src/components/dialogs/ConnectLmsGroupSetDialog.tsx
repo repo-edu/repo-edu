@@ -19,7 +19,12 @@ import {
 } from "@repo-edu/ui"
 import { useEffect, useState } from "react"
 import { useLmsPreview } from "../../session/lms-preview.js"
-import { useSessionController } from "../../session/session-controller-context.js"
+import { selectOperationIsAdmitted } from "../../session/selectors.js"
+import {
+  sessionCancellationControl,
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -28,6 +33,12 @@ type Discovery =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; groupSets: GroupSetLmsSummary[]; selectedId: string }
+
+const groupSetOperations = [
+  "groupSet.fetchAvailableFromLms",
+  "groupSet.connectFromLms",
+  "groupSet.syncFromLms",
+] as const
 
 export function ConnectLmsGroupSetDialog() {
   const open = useUiStore((state) => state.connectLmsGroupSetDialogOpen)
@@ -50,6 +61,11 @@ function GroupSetPreviewDialog({
   syncId: string | null
 }) {
   const controller = useSessionController()
+  const admittedOperation = useSessionControllerSelector((snapshot) =>
+    groupSetOperations.find((operation) =>
+      selectOperationIsAdmitted(snapshot, operation),
+    ),
+  )
   const course = useCourseStore((state) => state.course)
   const setOpen = useUiStore((state) => state.setConnectLmsGroupSetDialogOpen)
   const setSyncId = useUiStore((state) => state.setSyncGroupSetTriggerId)
@@ -117,6 +133,7 @@ function GroupSetPreviewDialog({
   const result =
     state.status === "ready" && "id" in state.result ? state.result : null
   const close = () => {
+    if (admittedOperation) controller.operations.stop(admittedOperation)
     setOpen(false)
     setSyncId(null)
   }
@@ -129,7 +146,11 @@ function GroupSetPreviewDialog({
         if (!open) close()
       }}
     >
-      <DialogContent>
+      <DialogContent
+        closeButtonProps={{
+          [sessionCancellationControl]: admittedOperation,
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {syncId === null
@@ -213,7 +234,11 @@ function GroupSetPreviewDialog({
           )}
         </DialogBody>
         <DialogFooter>
-          <Button variant="outline" onClick={close}>
+          <Button
+            variant="outline"
+            {...{ [sessionCancellationControl]: admittedOperation }}
+            onClick={close}
+          >
             Cancel
           </Button>
           <Button

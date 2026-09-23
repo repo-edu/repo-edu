@@ -1,6 +1,7 @@
 import type { RepositoryListNamespaceResult } from "@repo-edu/application-contract"
 import { Button, Checkbox, Input, Label } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
+import { sessionCancellationControl } from "../../../../session/session-controller-context.js"
 import { extractSubgroupPath } from "./clone-all-repositories.js"
 import type { RepoOperations } from "./repository-operation-fields.js"
 import { useCloneAllRepositories } from "./use-clone-all-repositories.js"
@@ -17,14 +18,12 @@ export function CloneAllRepositoriesPanel({
   })
 
   return (
-    <fieldset
-      disabled={!cloneAll.canStartQueries}
-      className="min-w-0 space-y-3"
-    >
+    <div className="min-w-0 space-y-3">
       <div className="space-y-1">
         <Label htmlFor="clone-all-filter">Name filter</Label>
         <Input
           id="clone-all-filter"
+          disabled={!cloneAll.canStartQueries}
           value={cloneAll.filter}
           onChange={(event) => cloneAll.setFilter(event.target.value)}
           onKeyDown={(event) => {
@@ -42,6 +41,7 @@ export function CloneAllRepositoriesPanel({
       <div className="flex items-center gap-2">
         <Checkbox
           id="clone-all-include-archived"
+          disabled={!cloneAll.canStartQueries}
           checked={cloneAll.includeArchived}
           onCheckedChange={(next) => cloneAll.setIncludeArchived(next === true)}
         />
@@ -52,6 +52,7 @@ export function CloneAllRepositoriesPanel({
         <div className="flex gap-1">
           <Input
             id="clone-all-target"
+            disabled={!cloneAll.canStartQueries}
             value={cloneAll.targetDirectory}
             onChange={(event) =>
               cloneAll.setTargetDirectory(event.target.value)
@@ -61,6 +62,7 @@ export function CloneAllRepositoriesPanel({
           <Button
             variant="outline"
             size="sm"
+            disabled={!cloneAll.canStartQueries}
             onClick={() => void cloneAll.browseTargetDirectory()}
           >
             Browse
@@ -79,8 +81,19 @@ export function CloneAllRepositoriesPanel({
         hasConnection={cloneAll.hasConnection}
         hasNamespace={cloneAll.hasNamespace}
         onClone={cloneAll.handleBulkClone}
-        canClone={cloneAll.canClone}
+        canClone={cloneAll.canStartQueries && cloneAll.canClone}
       />
+
+      {cloneAll.isListing && (
+        <Button
+          size="sm"
+          variant="outline"
+          {...{ [sessionCancellationControl]: "repo.listNamespace" }}
+          onClick={cloneAll.cancelListing}
+        >
+          Cancel
+        </Button>
+      )}
 
       {cloneAll.isCloning && !cloneAll.resultBelongsToCurrentCommand && (
         <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
@@ -100,7 +113,7 @@ export function CloneAllRepositoriesPanel({
           {cloneAll.resultSummary}
         </p>
       )}
-    </fieldset>
+    </div>
   )
 }
 
@@ -143,6 +156,7 @@ function CloneAllPreview({
     return <p className="text-sm text-destructive">{listError}</p>
   }
   if (listResult === null) {
+    if (!isListing) return null
     return (
       <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
         <Loader2 className="size-4 animate-spin" />
