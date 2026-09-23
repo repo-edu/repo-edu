@@ -11,7 +11,7 @@ the **Ready gate**, **Round strategy**, **Coverage**, **Episode settlement**
 and **Report file** sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written, including the
 tiers, the finding metadata tokens, the growth tags, the trade pricing, the
-round yield, the fix guard, the twins and the cleanup.
+round yield, the fix guard and the twins.
 
 The round's repo set is the repo the round runs in. The plan repo is read as a
 source of standing rules, never as a source of intent.
@@ -130,8 +130,7 @@ it apart from the range's own work.
 Report order follows `workflow.md` with the range in place of the plan. Open by naming the workflow
 that ran and a plain `Judged repos: repo-edu@<sha>` line with this repo's short audited HEAD, the
 commit references as typed, the resolved range with its short shas and the statement that no plan
-covers the work. Then the coverage table with its two closing lines, then the run statement and
-pricing when one applies, then the `## Findings` field.
+covers the work. Then the coverage table with its two closing lines, then the `## Findings` field.
 
 Write the report to the supplied absolute path at the invoking root under the shared
 [round protocol](../../../references/round-protocol.md), with the numbered audit kind and
