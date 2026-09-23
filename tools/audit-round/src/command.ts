@@ -111,8 +111,12 @@ function parseInvocation(
   const command = new Command("audit-round")
     .enablePositionalOptions()
     .description(
-      "Run the audit, vet, rebuttal, fix and brief phases of one planning or implementation-audit round from the Repo Edu or plan checkout root.",
+      "Audit a plan or its implementation, review the findings and apply agreed fixes.\nRun from the Repo Edu or plan checkout root.",
     )
+    .configureHelp({
+      helpWidth: 88,
+      subcommandTerm: (subcommand) => subcommand.name(),
+    })
     // A round is the command itself, so the usage line offers no command slot.
     .usage("[options] <target> [scope-or-commits...]")
     .configureOutput({
@@ -120,18 +124,15 @@ function parseInvocation(
       writeErr: (text) => options.emergency(text.trimEnd()),
     })
     .exitOverride()
-    .argument(
-      "<target>",
-      "from the plan root: plan artifact alone; from Repo Edu: plan in ../plan, SHA, HEAD, HEAD-<n> or inclusive <from>..<to> range. A plan named without .md gets the extension",
-    )
+    .argument("<target>", "plan file, commit reference or commit range")
     .argument(
       "[scope-or-commits...]",
-      "Repo Edu only: plan step number or increasing step range; otherwise further commit references",
+      "plan step scope or more commit references (Repo Edu only)",
     )
     .addOption(
       new Option(
         "--auditor <selections>",
-        "comma-separated auditors in round order (multiple entries require a plan): claude or codex to inherit that CLI's model and effort, bypassing audit pins; or a capability tag: a or o, then an optional b or t for the tier and an optional l, m, h or x for the effort. A tag's unnamed fields follow settings.json, then the CLI. Each entry binds audit and rebuttal. A clean audit skips all later entries for that assistant, regardless of tag. Failure or a ruling handover stops the sequence. Quote lists containing spaces. The default auditor comes from settings.json. Codex always fixes.",
+        "comma-separated auditors in round order (see below)",
       ).argParser((value) => {
         return value.split(",").map((entry, index) => {
           const seat = parseAuditor(entry.trim())
@@ -145,9 +146,87 @@ function parseInvocation(
     )
     .option(
       "--no-watch",
-      "skip the trajectory watch and its glance after every round, whatever the commit record says",
+      "skip the trajectory glance and watch after every round",
     )
     .option("-v, --verbose", "show tool calls as well as assistant text")
+    .addHelpText(
+      "after",
+      `
+Targets and scope:
+  From Repo Edu: audit a plan's implementation or named commits.
+    Plan     Path to the plan in ../plan; .md may be omitted.
+    Scope    One step (3) or an increasing range (1-3). Omit for all steps.
+    Commits  SHA, HEAD, HEAD-<n>, a space-separated list or <from>..<to>.
+             HEAD-1 is the previous first-parent commit. Ranges include both ends.
+
+  From the plan root: audit the plan document itself.
+    Name only the plan file; .md may be omitted. No steps or commit references.
+
+Auditor selection (--auditor <selections>):
+  <selections> accepts one or more comma-separated names or tags:
+
+    claude | codex
+      Use that CLI's current model and effort instead of the runner's audit settings.
+
+    <assistant>[<tier>][<effort>]
+      A capability tag, written without spaces. Brackets mark optional fields.
+      <assistant>  a = Claude, o = Codex
+      <tier>       b = base model, t = top model
+      <effort>     l = low, m = medium, h = high, x = xhigh
+      Omitted fields use settings.json, then the CLI's settings.
+
+  Quote the whole --auditor value if it contains spaces.
+  Each selection applies to both audit and rebuttal. Other phases keep their settings.
+  The default auditor comes from settings.json.
+  Without --auditor, one round runs with that default.
+  Settings file: tools/audit-round/settings.json in the Repo Edu checkout.
+
+Round sequence:
+
+  Round order (--auditor):
+    - Each name or tag after --auditor selects the auditor for one round.
+    - Rounds run from left to right, all on the same target and step scope.
+    - Repeat a name or tag to run another round with that auditor.
+    - Multiple rounds require a plan target. Commit audits run once.
+
+  Phases within a round:
+    1. Audit     The selected auditor reports findings.
+    2. Vet       The other assistant reviews those findings.
+    3. Rebuttal  The auditor answers the vet's objections or conditions.
+                 Skipped if the vet accepts every finding unconditionally.
+    4. Fix       Codex always fixes the accepted findings.
+    5. Brief     A plain-words summary follows the fix.
+
+  Skipping rounds and stopping:
+    - If the audit finds nothing, the round ends before vet or any later phase.
+      All remaining --auditor selections for that assistant are skipped,
+      even if they specify a different model tier or effort.
+    - A fix that records a clean result does not skip later rounds.
+    - A failure stops the sequence. A decision requiring your ruling also
+      stops the sequence and opens an interactive session.
+
+  Trajectory watch:
+    - After a completed plan round with findings, the glance decides if a watch is due.
+    - --no-watch skips both the glance and the watch.
+    - Commit audits never run a glance or watch.
+
+Examples (from Repo Edu):
+
+  1. Audit steps 1-3, first with Codex and then with Claude.
+
+     $ pnpm audit-round ../plan/example.md 1-3 --auditor codex,claude
+
+  2. Audit step 3 with Claude's top model at xhigh effort (atx),
+     then Codex's base model at medium effort (obm).
+
+     $ pnpm audit-round ../plan/example.md 3 --auditor atx,obm
+
+  3. Audit an inclusive commit range.
+
+     $ pnpm audit-round HEAD-2..HEAD
+
+Use pnpm audit-round <command> --help for a helper command's arguments and options.`,
+    )
     .action(
       (
         first: string,

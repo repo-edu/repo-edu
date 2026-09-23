@@ -1019,8 +1019,15 @@ test("argument errors and help start no assistant processes", async (t) => {
     /--auditor <selections>\s+comma-separated auditors in round order/,
   )
   assert.doesNotMatch(visible, /--chain/)
-  assert.match(visible, /an optional l,\s+m, h or x for the effort/)
+  assert.match(visible, /<effort>\s+l = low, m = medium, h = high, x = xhigh/)
   assert.match(visible, /default auditor comes from\s+settings\.json/)
+  assert.match(visible, /Targets and scope:/)
+  assert.match(visible, /Auditor selection \(--auditor <selections>\):/)
+  assert.match(visible, /<assistant>\[<tier>\]\[<effort>\]/)
+  assert.match(visible, /--auditor atx,obm/)
+  assert.match(visible, /Round sequence:/)
+  assert.match(visible, /Examples \(from Repo Edu\):/)
+  assert.ok(visible.split("\n").every((line) => line.length <= 88))
   // A round is the command itself, and each command carries its own help.
   assert.doesNotMatch(visible, /^\s+round\b/m)
   assert.doesNotMatch(visible, /^\s+help\b/m)
