@@ -38,13 +38,12 @@ sessions and round files belong to the invoking root. Shared brief and ruling
 launchers stay in Repo Edu and write beside the supplied transcript at either
 root; their launcher location never changes the session's working directory.
 
-The round ends at its report file. The auditor answers a vet through the
-rebuttal workflow at `.agents/skills/rebut/references/workflow.md`. Everything
-from the user's ruling through applying corrections and landing records belongs to the fix workflow at
-`.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling,
-the document the user rules from is written by
-`.agents/skills/rule/references/workflow.md`. The fix starts in a fresh session
-from the report file. See [Fix guard](#fix-guard).
+The round ends at its report file. The auditor answers a vet through the rebuttal workflow at
+`.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
+corrections and landing records belongs to the fix workflow at
+`.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
+rules from is written by `.agents/skills/rule/references/workflow.md`. The fix starts in a fresh
+session from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
@@ -582,4 +581,6 @@ report set after a finished fix; a hand-run fix uses `pnpm audit-round close`.
 
 ## Round allocation
 
-Use the supplied report path; without one, run `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at the invoking root and use its printed paths.
+Use the supplied report path; without one, run
+`pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at the invoking root and
+use its printed paths.

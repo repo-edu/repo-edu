@@ -4,34 +4,28 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
+import { type LogCommit, readLog } from "../episode-log.js"
 import {
-  glanceDecision,
-  type LogCommit,
-  readLog,
+  glanceDecision as decide,
   readWatchRecords,
   runGlance,
 } from "../glance.js"
+import type { Repository } from "../subject.js"
+import {
+  bullet,
+  commit,
+  correction,
+  episode,
+  history,
+  ratings,
+} from "./episode-fixture.js"
 import { commitFixture } from "./round-fixture.js"
 
-function commit(
-  subject: string,
-  body = "",
-  files = ["src/a.ts"],
-): Omit<LogCommit, "sha"> {
-  return { subject, body, files }
-}
-const base = commit("example/impl-1 ath feat(x): step")
-const correction = (area = "area-a", severity = "c1", tier = "C") =>
-  commit(
-    "example/impl-audit-all ath " + severity + " fix(x): correction",
-    "- [" + tier + "] [area:" + area + "] Correct the behaviour.",
-  )
-function history(...commits: Omit<LogCommit, "sha">[]): LogCommit[] {
-  return [...commits, base].map((c, at, all) => ({
-    ...c,
-    sha: "c" + String(all.length - at).padStart(6, "0"),
-  }))
-}
+const glanceDecision = (
+  log: readonly LogCommit[],
+  records: Readonly<Record<string, unknown>> | null,
+  repository: Repository,
+) => decide(episode(log, repository), records)
 const record = (
   grade: "green" | "amber" | "red",
   head = "c000001",
@@ -148,7 +142,7 @@ test("D-only work, clean records, deferrals, steps and empty commits do not adva
 test("mixed tiers count only areas with A-C corrections, once per commit", () => {
   const mixed = commit(
     "example/impl-audit-all ath C2d1 fix(x): mixed corrections",
-    "- [C] [area:area-a] First.\n- [C] [area:area-a] Second.\n- [D] [area:area-b] Wording.",
+    [bullet(), bullet(), bullet("area:area-b", "D")].join("\n"),
   )
   const decision = glanceDecision(
     history(mixed, correction("area-b")),
@@ -170,7 +164,7 @@ test("mixed tiers count only areas with A-C corrections, once per commit", () =>
 test("a commit can correct two areas without merging their counts", () => {
   const mixed = commit(
     "example/impl-audit-all ath c2 fix(x): two areas",
-    "- [C] [area:area-a] First.\n- [C] [area:area-b] Second.",
+    [bullet(), bullet("area:area-b")].join("\n"),
   )
   assert.equal(
     glanceDecision(
@@ -185,7 +179,7 @@ test("a commit can correct two areas without merging their counts", () => {
 test("severity, reach and growth have no early trigger; both cases count", () => {
   const severe = commit(
     "example/impl-audit-all ath A1 redesign(x): proper correction",
-    "- [A] [area:area-a] Correct the owner.",
+    bullet("area:area-a", "A"),
   )
   assert.equal(
     glanceDecision(history(severe), record("green"), "repo-edu").due,
@@ -232,9 +226,7 @@ test("plan rounds count sections independently and ignore D findings", () => {
   const plan = (section: string) =>
     commit(
       "example/audit ath C1D1: correct the plan",
-      "- C [field:missing] [section:" +
-        section +
-        "] Correct the decision.\n- D [field:missing] [section:wording] Correct the words.",
+      `- C [field:missing] [section:${section}] ${ratings} Correct.\n- D [field:missing] [section:wording] ${ratings} Words.`,
       ["example.md"],
     )
   const saved = record("amber", "c000001", "plan")
@@ -256,11 +248,11 @@ test("plan rounds count sections independently and ignore D findings", () => {
 test("plan commits count local sections without counting deferred Repo Edu findings", () => {
   const mixed = commit(
     "example/impl-audit-all ath C2 docs(x): correct the plan and defer the code",
-    "- C [section:decisions] Correct the decision.\n- C [area:tool-audit-round] Defer the code fix.",
+    `- C [section:decisions] ${ratings} Correct.\n- C [area:tool-audit-round] ${ratings} Defer.`,
   )
   const deferred = commit(
     "example/impl-audit-all ath C1 docs(x): record the deferred code fix",
-    "- C [area:tool-audit-round] Defer the code fix.",
+    `- C [area:tool-audit-round] ${ratings} Defer.`,
   )
   const decision = glanceDecision(
     history(mixed, deferred),
@@ -303,16 +295,23 @@ test("historical stem prefixes join; unstemmed history uses its own record", () 
   )
 })
 
-test("missing correction locations stop the glance rather than hiding recurrence", () => {
-  assert.throws(
-    () =>
-      glanceDecision(
-        history(commit("example/impl-audit-all ath c1 fix(x): correction")),
-        record("green"),
-        "repo-edu",
-      ),
-    /Cannot count corrections in c000002.*tier-and-location/,
+test("unreadable corrections stay in episode evidence without contributing partial counts", () => {
+  const data = episode(
+    history(commit("example/impl-audit-all ath c1 fix(x): correction")),
   )
+  assert.equal(data.unreadable.length, 1)
+  assert.equal(decide(data, record("green")).due, false)
+})
+
+test("the supplied topic wins over HEAD and retired areas count once in each child", () => {
+  const log = history(
+    commit("other/impl-1 ath feat(x): another plan", "", ["other.ts"]),
+    correction("retired"),
+    correction("retired"),
+  )
+  const decision = decide(episode(log, "repo-edu", "example"), record("amber"))
+  assert.equal(decision.due, true)
+  assert.match(decision.text, /episode example.*area:child-a 2, area:child-b 2/)
 })
 
 test("real Git history carries finding bodies and touched files into the decision", async () => {
@@ -324,7 +323,7 @@ test("real Git history carries finding bodies and touched files into the decisio
       cwd,
       "example/impl-1 ath feat(x): fixture",
     )
-    const body = "- [C] [area:area-a] Correct the behaviour."
+    const body = bullet("area:tool-audit-round")
     for (let i = 0; i < 2; i++) {
       await writeFile(join(cwd, "a.md"), String(i))
       await execa("git", ["add", "."], { cwd })
@@ -337,7 +336,7 @@ test("real Git history carries finding bodies and touched files into the decisio
     assert.equal(commits.length, 3)
     assert.equal(commits[0].body.trim(), body)
     assert.deepEqual(commits[0].files, ["a.md"])
-    assert.equal(commits[2].sha, first)
+    assert.ok(commits[2].sha.startsWith(first))
     const cacheRoot = join(directory, "cache")
     assert.equal(await readWatchRecords(cacheRoot), null)
     await mkdir(cacheRoot)
@@ -347,9 +346,14 @@ test("real Git history carries finding bodies and touched files into the decisio
       join(cacheRoot, "watch.json"),
       JSON.stringify(record("amber", first)),
     )
-    const decision = await runGlance({ cwd, repository: "repo-edu", cacheRoot })
+    const decision = await runGlance({
+      cwd,
+      repository: "repo-edu",
+      cacheRoot,
+      stem: "example",
+    })
     assert.equal(decision.due, true)
-    assert.match(decision.text, /area:area-a 2/)
+    assert.match(decision.text, /area:tool-audit-round 2/)
     await assert.rejects(
       runGlance({ cwd: directory, repository: "repo-edu", cacheRoot }),
     )

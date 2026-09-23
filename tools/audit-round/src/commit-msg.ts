@@ -64,11 +64,22 @@ export function stampCommitMessage(
     tokens[slot] = tokens[slot].endsWith(":")
       ? `${stamps.auditor}:`
       : stamps.auditor
-  const findings = readFindings(lines.slice(1).join("\n"), repository, {
-    strict: true,
-    areaKinds,
-    role: form?.role ?? null,
-  })
+  const findings = readFindings(
+    lines.slice(1).join("\n"),
+    repository,
+    form?.role ?? null,
+  )
+  for (const finding of findings) {
+    const check = (id: string, kind: string, name: string) => {
+      if (areaKinds.get(id) !== kind)
+        throw new SubjectError(
+          `finding bullet on body line ${finding.line} (${finding.text}): unknown ${name} area: ${id}`,
+        )
+    }
+    if (finding.location.key === "area")
+      check(finding.location.value, "partition", "primary")
+    for (const cover of finding.covers) check(cover, "cover", "cover")
+  }
   const subjectLine = stampSequence(tokens.join(" "), findings, repository)
   const subject = parseSubject(subjectLine, repository)
 

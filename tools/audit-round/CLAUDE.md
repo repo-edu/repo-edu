@@ -83,27 +83,36 @@ consumers.
   validation, session observations and phase output. They return only after accounting for the
   process, streams and required record writes. A failure retains the known session identity,
   including a resumed session whose new invocation reported no identity.
-- `glance.ts` owns the glance: the rule that decides from `git log` and the watch record in
-  `watch.json` whether the trajectory watch is due. The episode is derived from HEAD the way the
-  watch derives it, a commit counts when it carries the stem or touches the stem's artifact set,
-  each file-changing commit counts once per area with an A–C correction.
+- `episode.ts` owns episode membership and history facts for the glance and
+  joined watch evidence. It joins historical stems, includes rework touching
+  the topic's artifacts and retains both repositories' heads and anchors.
+  `episode-log.ts` reads Git's bodies, touched paths and renames.
+  `episode-facts.ts` derives severity, token counts and repeated-growth evidence
+  without grading them. Every member keeps its complete findings or an
+  unreadable reason; unreadable findings contribute no partial counts. Current
+  areas resolve directly, retired areas resolve through `splitFrom` and unknown
+  areas remain listed on their findings. Redesigns and widening renames identify
+  possible new graded windows for the watch to judge.
+- `glance.ts` owns the rule that decides from an episode and the watch record in
+  `watch.json` whether the trajectory watch is due. The episode uses a supplied
+  topic, with the latest stem in HEAD's history as the default. Each
+  file-changing commit counts once per area with an A–C correction.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
   Green waits for four corrections in one area and amber waits for two. Red runs
   after every finished round with audit findings. Clean audits never call the
   glance. Severity, reach and growth have no early trigger.
-  A subject the grammar refuses supplies no correction evidence. A qualifying
-  subject with incomplete body records stops the round. The record is read as
+  A subject the grammar refuses or an unreadable finding set supplies no
+  correction count. The episode retains the unreadable evidence. The watch record is read as
   data: a missing, unreadable or old-format entry, or a recorded head off HEAD's
   history, is no record. No record reads as green and counts from the episode's
   anchor, the earliest commit carrying the stem, so a first round never earns a
   watch by being first. The decision's sentence opens its own section of the
   log and the terminal as `[glance]`.
-- `findings.ts` reads graded body bullets for both commit hooks and the glance.
-  The hook requires the complete tokens for every tier, D included. The glance
-  keeps historical A–C tier-count and location checks without requiring rating
-  tokens. Its reduction returns each locally corrected area once, excluding
-  deferred findings. `sequence.ts` derives severity from the strict read and
+- `findings.ts` reads the complete current bullet form for commit hooks and
+  episodes, D included. It validates token values without consulting the area
+  model. `commit-msg.ts` checks primary and cover IDs against the current model
+  at write time. `sequence.ts` derives severity from the strict read and
   fills the subject's severity slot under its role and repository rules. The
   growth mark remains authored.
 - `subject.ts` is the one reader of the commit subject grammar in

@@ -23,6 +23,45 @@ const message = (subject: string, body = "", model = "gpt-6-astra high") =>
 const stamp = (text: string, repository: Repository = "repo-edu") =>
   stampCommitMessage(text, repository, none, areaKinds)
 
+test("the hook alone requires current primary and cover IDs, including deferred findings", () => {
+  for (const repository of ["repo-edu", "plan"] as const) {
+    const finding =
+      repository === "repo-edu"
+        ? codeFinding
+        : codeFinding.replace("- [C]", "- C")
+    for (const [location, reason] of [
+      ["[area:retired]", /unknown primary area/],
+      ["[area:cover-llm-runtime]", /unknown primary area/],
+      ["[area:area-x] [cover:retired]", /unknown cover area/],
+      ["[area:area-x] [cover:area-x]", /unknown cover area/],
+    ] as const) {
+      assert.throws(
+        () =>
+          stamp(
+            message(
+              "oth fix(x): change",
+              finding.replace("[area:tool-audit-round]", location),
+            ),
+            repository,
+          ),
+        reason,
+      )
+    }
+    assert.doesNotThrow(() =>
+      stamp(
+        message(
+          "oth fix(x): change",
+          finding.replace(
+            "[area:tool-audit-round]",
+            "[area:area-x] [cover:cover-llm-runtime]",
+          ),
+        ),
+        repository,
+      ),
+    )
+  }
+})
+
 test("the hook inserts and overwrites severity while preserving growth, prose and model records", () => {
   for (const authored of ["", "c9 ", "!B2d3 ", "clean ", "D0C2C1 "]) {
     const input = message(

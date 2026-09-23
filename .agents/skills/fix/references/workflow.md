@@ -189,9 +189,9 @@ plan-repo records refuse `[field:]`, because their findings have no search direc
 a heading in kebab case and replace `[section:]` with `[area:]` only for a deferred Repo Edu
 finding. The glance counts A–C corrections by these locations, once per commit in each area or
 section. D findings never advance its count. The commit body is the only place a later round can
-read them: chat is gone, the report is removed after completion and the finding list lives nowhere else. A
-bullet that records something other than a finding, such as a carried decision or a trade ruling
-with its reason, takes no metadata.
+read them: chat is gone, the report is removed after completion and the finding list lives nowhere
+else. A bullet that records something other than a finding, such as a carried decision or a trade
+ruling with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
 the audit workflow defines under **Round yield** and carrying the same counts

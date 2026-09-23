@@ -1,15 +1,8 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { execa } from "execa"
 import { z } from "zod"
-import { correctionAreas } from "./findings.js"
-import {
-  looseForm,
-  parseSubject,
-  type Repository,
-  type Subject,
-  stemTopic,
-} from "./subject.js"
+import { type Episode, readEpisode, sameHead } from "./episode.js"
+import type { Repository } from "./subject.js"
 
 /**
  * The glance that follows a finished plan round whose audit had findings.
@@ -26,14 +19,6 @@ import {
  * growth triggers with repeated A–C corrections in the same area.
  */
 
-/** One commit as the log lists it, newest first. */
-export type LogCommit = {
-  readonly sha: string
-  readonly subject: string
-  readonly body: string
-  readonly files: readonly string[]
-}
-
 const watchRecordSchema = z.strictObject({
   heads: z.record(z.string(), z.string()),
   grade: z.enum(["green", "amber", "red"]),
@@ -47,6 +32,7 @@ export type GlanceInput = {
   readonly cwd: string
   readonly repository: Repository
   readonly cacheRoot: string
+  readonly stem?: string
 }
 
 export type GlanceDecision = {
@@ -58,35 +44,10 @@ export type GlanceDecision = {
 /** Fixed correction-commit limits per area. The watch chooses only the grade. */
 const correctionLimits = { green: 4, amber: 2 } as const
 
-function parsed(commit: LogCommit, repository: Repository): Subject | null {
-  try {
-    return parseSubject(commit.subject, repository)
-  } catch {
-    // An unreadable subject supplies no graded correction evidence.
-    return null
-  }
-}
-
-function topic(commit: LogCommit): string | null {
-  const form = looseForm(commit.subject)
-  return form === null ? null : stemTopic(form.stem)
-}
-
-function sameHead(sha: string, head: string): boolean {
-  return sha.startsWith(head) || head.startsWith(sha)
-}
-
 /**
- * The rule. `log` lists the repository's history from HEAD, newest first, and
+ * The rule. The episode owns membership and finding reads, and
  * `records` is the whole watch record keyed by episode stem, or null when it
  * cannot be read.
- *
- * The episode is derived from HEAD alone, the way the watch does: the most
- * recent stem on HEAD names it, its core artifact set is every file a commit
- * carrying that stem touched, and a commit belongs when its subject carries
- * the stem or it touches that set. Off-plan rework drops the stem by
- * convention, so the artifact-set test is what admits it. When no commit in
- * the history carries a stem, the episode uses the key `-`.
  *
  * Count file-changing corrections since this repository's recorded head.
  * Each commit counts once per area with an A–C finding, in either case.
@@ -108,21 +69,12 @@ function sameHead(sha: string, head: string): boolean {
  * corrections can. The user directed this on 2026-09-21.
  */
 export function glanceDecision(
-  log: readonly LogCommit[],
+  data: Episode,
   records: Readonly<Record<string, unknown>> | null,
-  repository: Repository,
 ): GlanceDecision {
-  const stem = log.map(topic).find((name) => name !== null) ?? null
+  const { topic: stem, repository } = data
   const key = stem ?? "-"
   const episode = stem === null ? "the unstemmed history" : `episode ${stem}`
-  const artifacts = new Set(
-    log.filter((commit) => topic(commit) === stem).flatMap((c) => c.files),
-  )
-  const member = (commit: LogCommit) =>
-    stem === null ||
-    topic(commit) === stem ||
-    commit.files.some((file) => artifacts.has(file))
-
   const saved = watchRecordSchema.safeParse(records?.[key])
   const record = saved.success ? saved.data : null
   const head = record?.heads[repository]
@@ -132,12 +84,10 @@ export function glanceDecision(
       : {
           grade: record.grade,
           head,
-          at: log.findIndex((commit) => sameHead(commit.sha, head)),
+          at: data.history.findIndex((sha) => sameHead(sha, head)),
         }
   const anchor =
-    stem === null
-      ? log.length
-      : log.findLastIndex((commit) => topic(commit) === stem) + 1
+    data.anchor === null ? 0 : data.history.indexOf(data.anchor) + 1
   const window =
     recorded === null
       ? {
@@ -157,7 +107,7 @@ export function glanceDecision(
             held: `${episode} recorded ${recorded.grade} at ${recorded.head}.`,
           }
   const { grade, held } = window
-  const since = log.slice(0, window.end)
+  const since = new Set(data.history.slice(0, window.end))
   if (grade === "red")
     return {
       due: true,
@@ -165,19 +115,29 @@ export function glanceDecision(
     }
 
   const counts = new Map<string, number>()
-  for (const commit of since.filter(member)) {
-    if (commit.files.length === 0) continue
-    const subject = parsed(commit, repository)
-    if (subject === null) continue
-    let areas: ReadonlySet<string>
-    try {
-      areas = correctionAreas(subject, commit.body, repository)
-    } catch (error) {
-      throw new Error(
-        `Cannot count corrections in ${commit.sha}: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      )
-    }
+  for (const commit of data.commits) {
+    if (
+      !since.has(commit.sha) ||
+      commit.files.length === 0 ||
+      commit.unreadable !== null
+    )
+      continue
+    const subject = commit.parsed
+    if (
+      subject === null ||
+      subject.severity === null ||
+      subject.severity === "clean" ||
+      subject.class === "I3"
+    )
+      continue
+    const areas = new Set(
+      commit.findings.flatMap((finding) => {
+        if (finding.deferred || finding.tier === "d") return []
+        return repository === "plan"
+          ? [`section:${finding.location.value}`]
+          : finding.areas.map((area) => `area:${area}`)
+      }),
+    )
     for (const area of areas) counts.set(area, (counts.get(area) ?? 0) + 1)
   }
   const limit = correctionLimits[grade]
@@ -191,27 +151,6 @@ export function glanceDecision(
     due,
     text: `${held} ${summary} ${due ? `An area reached the ${grade} limit of ${limit} (rule 2).` : `No area reached the ${grade} limit of ${limit}.`}`,
   }
-}
-
-/** The repository's history from HEAD, newest first, with the files each commit touched. */
-export async function readLog(cwd: string): Promise<LogCommit[]> {
-  const { stdout } = await execa(
-    "git",
-    ["log", "--format=%x1e%h%x1f%s%x1f%b%x1f", "--name-only"],
-    { cwd, maxBuffer: 256 * 1024 * 1024 },
-  )
-  return stdout
-    .split("\x1e")
-    .filter((entry) => entry.trim().length > 0)
-    .map((entry) => {
-      const [sha, subject, body, files] = entry.split("\x1f")
-      return {
-        sha,
-        subject: subject ?? "",
-        body: body ?? "",
-        files: (files ?? "").split("\n").filter((line) => line.length > 0),
-      }
-    })
 }
 
 /**
@@ -236,9 +175,9 @@ export async function readWatchRecords(
 }
 
 export async function runGlance(input: GlanceInput): Promise<GlanceDecision> {
-  const [log, records] = await Promise.all([
-    readLog(input.cwd),
+  const [episode, records] = await Promise.all([
+    readEpisode(input.cwd, input.repository, input.stem),
     readWatchRecords(input.cacheRoot),
   ])
-  return glanceDecision(log, records, input.repository)
+  return glanceDecision(episode, records)
 }
