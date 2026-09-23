@@ -21,7 +21,7 @@ export type AnalysisInputIssues = Partial<Record<keyof AnalysisInputs, string>>
 type SidebarInputControls = {
   config: AnalysisInputs
   configInputResetKey: string
-  setConfigAndRerun: (patch: Partial<AnalysisInputs>) => void
+  updateAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
   inputIssues: AnalysisInputIssues
   blurOnEnter: (event: React.KeyboardEvent<HTMLInputElement>) => void
 }
@@ -41,7 +41,7 @@ export function AnalysisSidebarInputSections({
   onOpenChange,
   config,
   configInputResetKey,
-  setConfigAndRerun,
+  updateAnalysisInputs,
   inputIssues,
   blurOnEnter,
   blameConfig,
@@ -63,7 +63,7 @@ export function AnalysisSidebarInputSections({
         onOpenChange={onOpenChange}
         config={config}
         configInputResetKey={configInputResetKey}
-        setConfigAndRerun={setConfigAndRerun}
+        updateAnalysisInputs={updateAnalysisInputs}
         inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
@@ -72,7 +72,7 @@ export function AnalysisSidebarInputSections({
         onOpenChange={onOpenChange}
         config={config}
         configInputResetKey={configInputResetKey}
-        setConfigAndRerun={setConfigAndRerun}
+        updateAnalysisInputs={updateAnalysisInputs}
         inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
@@ -88,7 +88,7 @@ export function AnalysisSidebarInputSections({
             id="blameSkip"
             checked={blameSkip}
             onCheckedChange={(checked) =>
-              setConfigAndRerun({ blameSkip: checked === true })
+              updateAnalysisInputs({ blameSkip: checked === true })
             }
           />
           <Label htmlFor="blameSkip" className="text-xs">
@@ -133,7 +133,7 @@ export function AnalysisSidebarInputSections({
             id="whitespace"
             checked={config.whitespace ?? false}
             onCheckedChange={(checked) =>
-              setConfigAndRerun({ whitespace: checked === true })
+              updateAnalysisInputs({ whitespace: checked === true })
             }
           />
           <Label htmlFor="whitespace" className="text-xs">
@@ -146,7 +146,7 @@ export function AnalysisSidebarInputSections({
         onOpenChange={onOpenChange}
         config={config}
         configInputResetKey={configInputResetKey}
-        setConfigAndRerun={setConfigAndRerun}
+        updateAnalysisInputs={updateAnalysisInputs}
         inputIssues={inputIssues}
         blurOnEnter={blurOnEnter}
       />
@@ -159,7 +159,7 @@ function FileSelectionSection({
   onOpenChange,
   config,
   configInputResetKey,
-  setConfigAndRerun,
+  updateAnalysisInputs,
   inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
@@ -184,7 +184,7 @@ function FileSelectionSection({
           defaultValue={config.subfolder ?? ""}
           aria-invalid={inputIssues.subfolder !== undefined || undefined}
           onBlur={(event) =>
-            setConfigAndRerun({ subfolder: event.target.value || undefined })
+            updateAnalysisInputs({ subfolder: event.target.value || undefined })
           }
           onKeyDown={blurOnEnter}
         />
@@ -201,7 +201,7 @@ function FileSelectionSection({
           aria-invalid={inputIssues.includeFiles !== undefined || undefined}
           onBlur={(event) => {
             const raw = event.target.value
-            setConfigAndRerun({
+            updateAnalysisInputs({
               includeFiles: raw
                 ? raw
                     .split(",")
@@ -220,7 +220,7 @@ function FileSelectionSection({
           size="xs"
           values={config.extensions ?? []}
           onChange={(next) =>
-            setConfigAndRerun({
+            updateAnalysisInputs({
               extensions: next.length === 0 ? undefined : next,
             })
           }
@@ -238,7 +238,7 @@ function DateRangeSection({
   onOpenChange,
   config,
   configInputResetKey,
-  setConfigAndRerun,
+  updateAnalysisInputs,
   inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
@@ -264,7 +264,7 @@ function DateRangeSection({
             defaultValue={config.since ?? ""}
             aria-invalid={inputIssues.since !== undefined || undefined}
             onBlur={(event) =>
-              setConfigAndRerun({ since: event.target.value || undefined })
+              updateAnalysisInputs({ since: event.target.value || undefined })
             }
             onKeyDown={blurOnEnter}
           />
@@ -280,7 +280,7 @@ function DateRangeSection({
             defaultValue={config.until ?? ""}
             aria-invalid={inputIssues.until !== undefined || undefined}
             onBlur={(event) =>
-              setConfigAndRerun({ until: event.target.value || undefined })
+              updateAnalysisInputs({ until: event.target.value || undefined })
             }
             onKeyDown={blurOnEnter}
           />
@@ -296,7 +296,7 @@ function ExclusionsSection({
   onOpenChange,
   config,
   configInputResetKey,
-  setConfigAndRerun,
+  updateAnalysisInputs,
   inputIssues,
   blurOnEnter,
 }: SidebarInputControls & {
@@ -317,7 +317,7 @@ function ExclusionsSection({
         placeholder="*.test.ts"
         value={config.excludeFiles}
         issue={inputIssues.excludeFiles}
-        onChange={(excludeFiles) => setConfigAndRerun({ excludeFiles })}
+        onChange={(excludeFiles) => updateAnalysisInputs({ excludeFiles })}
         onKeyDown={blurOnEnter}
       />
       <CommaListInput
@@ -326,7 +326,7 @@ function ExclusionsSection({
         placeholder="bot*"
         value={config.excludeAuthors}
         issue={inputIssues.excludeAuthors}
-        onChange={(excludeAuthors) => setConfigAndRerun({ excludeAuthors })}
+        onChange={(excludeAuthors) => updateAnalysisInputs({ excludeAuthors })}
         onKeyDown={blurOnEnter}
       />
       <CommaListInput
@@ -335,7 +335,7 @@ function ExclusionsSection({
         placeholder="noreply@*"
         value={config.excludeEmails}
         issue={inputIssues.excludeEmails}
-        onChange={(excludeEmails) => setConfigAndRerun({ excludeEmails })}
+        onChange={(excludeEmails) => updateAnalysisInputs({ excludeEmails })}
         onKeyDown={blurOnEnter}
       />
       <CommaListInput
@@ -344,7 +344,9 @@ function ExclusionsSection({
         placeholder="abc1234"
         value={config.excludeRevisions}
         issue={inputIssues.excludeRevisions}
-        onChange={(excludeRevisions) => setConfigAndRerun({ excludeRevisions })}
+        onChange={(excludeRevisions) =>
+          updateAnalysisInputs({ excludeRevisions })
+        }
         onKeyDown={blurOnEnter}
       />
       <CommaListInput
@@ -353,7 +355,9 @@ function ExclusionsSection({
         placeholder="merge*"
         value={config.excludeMessages}
         issue={inputIssues.excludeMessages}
-        onChange={(excludeMessages) => setConfigAndRerun({ excludeMessages })}
+        onChange={(excludeMessages) =>
+          updateAnalysisInputs({ excludeMessages })
+        }
         onKeyDown={blurOnEnter}
       />
     </CollapsibleSection>

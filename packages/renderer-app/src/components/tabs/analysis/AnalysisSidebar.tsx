@@ -72,13 +72,18 @@ function serializeSidebarSettings(
 export function AnalysisSidebar() {
   const controller = useSessionController()
   const canStartQueries = useSessionControllerSelector(canAdmitSessionInput)
-  const { runRepoDiscovery, runDiscovery, cancelDiscovery, discoveredRepos } =
-    useAnalysisDiscovery()
+  const {
+    runRepoDiscovery,
+    startAnalysis,
+    runDiscovery,
+    cancelDiscovery,
+    discoveredRepos,
+  } = useAnalysisDiscovery()
   const {
     runAnalysis,
     cancelAnalysis,
     selectedRepoPath,
-    selectRepository,
+    clearRepositorySelection,
     analysisScopeKey,
   } = useAnalysisSelection()
   const { result, analysisProgress, analysisErrorMessage } = useAnalysisResult()
@@ -331,7 +336,7 @@ export function AnalysisSidebar() {
       async (directory, scope) => {
         let surface = analysisContext.activeSurface
         scope.publish(() => {
-          selectRepository(null)
+          clearRepositorySelection()
           setSections((prev) => ({ ...prev, repositories: true }))
         })
         if (analysisContext.kind === "folder") {
@@ -345,16 +350,16 @@ export function AnalysisSidebar() {
         await runDiscovery(scope, surface, directory)
       },
     )
-  }, [analysisContext, pickDirectory, runDiscovery, selectRepository])
+  }, [analysisContext, pickDirectory, runDiscovery, clearRepositorySelection])
 
-  const handleRun = useCallback(() => {
-    if (selectedRepoPath) runAnalysis(selectedRepoPath)
-  }, [selectedRepoPath, runAnalysis])
+  const handleStart = useCallback(() => {
+    if (searchFolder) startAnalysis(searchFolder)
+  }, [searchFolder, startAnalysis])
 
   // Presentation only: the message for a refused edit stays beside the field
   // that carries the rejected text, until an admitted edit replaces it.
   const [inputIssues, setInputIssues] = useState<AnalysisInputIssues>({})
-  const setConfigAndRerun = useCallback(
+  const updateAnalysisInputs = useCallback(
     (patch: Partial<AnalysisInputs>) => {
       const issues = setAnalysisInputs(patch)
       setInputIssues((current) => {
@@ -431,19 +436,19 @@ export function AnalysisSidebar() {
                   <Button
                     variant="outline"
                     disabled={!selectedRepoPath}
-                    onClick={handleRun}
+                    onClick={runAnalysis}
                   >
                     <RefreshCw className="mr-1 size-4" />
                     Re-run Analysis
                   </Button>
                 ) : (
-                  <Button disabled={!selectedRepoPath} onClick={handleRun}>
+                  <Button disabled={!selectedRepoPath} onClick={runAnalysis}>
                     <Play className="mr-1 size-4" />
                     Run Analysis
                   </Button>
                 )
               ) : (
-                <Button disabled={!searchFolder} onClick={handleSearchRepos}>
+                <Button disabled={!searchFolder} onClick={handleStart}>
                   <Play className="mr-1 size-4" />
                   Start
                 </Button>
@@ -554,7 +559,7 @@ export function AnalysisSidebar() {
           sortedFilePaths={sortedFilePaths}
           effectiveFileSelection={effectiveFileSelection}
           nFiles={config.nFiles}
-          setConfigAndRerun={setConfigAndRerun}
+          updateAnalysisInputs={updateAnalysisInputs}
           blurOnEnter={blurOnEnter}
           fileViewMode={fileViewMode}
           setFileViewMode={setFileViewMode}
@@ -577,7 +582,7 @@ export function AnalysisSidebar() {
           onOpenChange={handleSectionChange}
           config={config}
           configInputResetKey={configInputResetKey}
-          setConfigAndRerun={setConfigAndRerun}
+          updateAnalysisInputs={updateAnalysisInputs}
           inputIssues={inputIssues}
           blurOnEnter={blurOnEnter}
           blameConfig={blameConfig}

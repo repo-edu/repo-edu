@@ -1,3 +1,4 @@
+import type { AnalysisDiscoverReposResult } from "@repo-edu/application-contract"
 import type { PersistedActiveSurface } from "@repo-edu/domain/active-surface"
 import type { QueryClient } from "@tanstack/react-query"
 import { nanoid } from "nanoid"
@@ -21,7 +22,10 @@ export async function discoverRepositories(
   queryClient: QueryClient,
   surface: PersistedActiveSurface,
   input: { folder: string; depth: number },
-): Promise<void> {
+): Promise<{
+  surface: PersistedActiveSurface
+  result: AnalysisDiscoverReposResult
+}> {
   const source = analysisSourceKeyParts(analysisSourceKeyFromSurface(surface))
   const queryKey = analysisQueryKeys.discovery(
     source,
@@ -66,7 +70,7 @@ export async function discoverRepositories(
     input.folder,
     result,
   )
-  if (openedSurface === null) return
+  if (openedSurface === null) return { surface, result }
   scope.publish(() => {
     const openedSource = analysisSourceKeyParts(
       analysisSourceKeyFromSurface(openedSurface),
@@ -82,4 +86,5 @@ export async function discoverRepositories(
         input,
       )
   })
+  return { surface: openedSurface, result }
 }

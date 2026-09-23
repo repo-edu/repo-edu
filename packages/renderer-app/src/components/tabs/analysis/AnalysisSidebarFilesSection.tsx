@@ -37,7 +37,7 @@ export function AnalysisSidebarFilesSection({
   sortedFilePaths,
   effectiveFileSelection,
   nFiles,
-  setConfigAndRerun,
+  updateAnalysisInputs,
   blurOnEnter,
   fileViewMode,
   setFileViewMode,
@@ -59,7 +59,7 @@ export function AnalysisSidebarFilesSection({
   sortedFilePaths: string[]
   effectiveFileSelection: ReadonlySet<string>
   nFiles: number | undefined
-  setConfigAndRerun: (patch: Partial<AnalysisInputs>) => void
+  updateAnalysisInputs: (patch: Partial<AnalysisInputs>) => void
   blurOnEnter: (event: React.KeyboardEvent<HTMLInputElement>) => void
   fileViewMode: AnalysisSidebarFileViewMode
   setFileViewMode: (mode: AnalysisSidebarFileViewMode) => void
@@ -105,13 +105,13 @@ export function AnalysisSidebarFilesSection({
                 onChange={(event) => {
                   const raw = event.target.value.trim()
                   if (raw === "") {
-                    setConfigAndRerun({ nFiles: undefined })
+                    updateAnalysisInputs({ nFiles: undefined })
                     return
                   }
                   const parsed = Number(raw)
                   if (!Number.isFinite(parsed)) return
                   const value = Math.max(1, Math.trunc(parsed))
-                  setConfigAndRerun({ nFiles: value })
+                  updateAnalysisInputs({ nFiles: value })
                 }}
                 onKeyDown={blurOnEnter}
               />

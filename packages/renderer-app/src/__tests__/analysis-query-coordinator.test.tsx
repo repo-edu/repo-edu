@@ -13,10 +13,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
 import React from "react"
 import { createRoot } from "react-dom/client"
-import {
-  clearAnalysisQueries,
-  createRendererQueryClient,
-} from "../analysis/analysis-query-client.js"
+import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import {
   AnalysisCoordinatorProvider,
   selectCurrentAnalysisResult,
@@ -98,6 +95,7 @@ async function mountCoordinator(
       input: WorkflowInput<"analysis.discoverRepos">,
     ) => Promise<AnalysisDiscoverReposResult>
     startDiscovery?: boolean
+    requestAnalysis?: boolean
     pickDirectory?: RendererHost["pickDirectory"]
     initialDiscovery?: AnalysisDiscoverReposResult
     sidebar?: boolean
@@ -292,7 +290,12 @@ async function mountCoordinator(
   ) {
     const folder = course.searchFolder
     await React.act(async () => {
-      value?.runRepoDiscovery(folder)
+      value?.startAnalysis(folder)
+      await flushQueries()
+    })
+  } else if (!discover && options.requestAnalysis !== false) {
+    await React.act(async () => {
+      value?.runAnalysis()
       await flushQueries()
     })
   }
@@ -308,6 +311,113 @@ async function mountCoordinator(
 }
 
 describe("analysis runner lifetime in React", () => {
+  it("starts no work on mount or settings edits and displays matching cached results", {
+    timeout: 3000,
+  }, async (t) => {
+    const inputs: WorkflowInput<"analysis.run">[] = []
+    const { controller, read } = await mountCoordinator(
+      t,
+      async (_signal, input) => {
+        inputs.push(input)
+        return makeBaseResult()
+      },
+      undefined,
+      { requestAnalysis: false, strictEffects: true },
+    )
+    assert.equal(inputs.length, 0)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(inputs.length, 1)
+    assert.deepEqual(read().result, makeBaseResult())
+    await React.act(async () => {
+      controller.setAnalysisInputs("course", { whitespace: true })
+      await flushQueries()
+    })
+    assert.equal(read().result, null)
+    await React.act(async () => {
+      useAnalysisStore.getState().setBlameConfig({ copyMove: 4 })
+      await flushQueries()
+    })
+    await React.act(async () => {
+      controller.setDefaultExtensions(["rs"])
+      await flushQueries()
+    })
+    assert.equal(inputs.length, 1)
+    assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(inputs.length, 2)
+    assert.equal(inputs[1].repositoryAbsolutePath, repos[0])
+    assert.deepEqual(inputs[1].config.extensions, ["rs"])
+    assert.equal(inputs[1].config.whitespace, true)
+    await React.act(async () => {
+      controller.setAnalysisInputs("course", { whitespace: undefined })
+      controller.setDefaultExtensions(inputs[0].config.extensions ?? [])
+      await flushQueries()
+    })
+    assert.equal(inputs.length, 2)
+    assert.deepEqual(read().result, makeBaseResult())
+  })
+
+  for (const kind of ["course", "folder"] as const) {
+    it(`returns to a ${kind} with unfinished analysis without starting a pass`, {
+      timeout: 3000,
+    }, async (t) => {
+      const activeSurface: PersistedActiveSurface =
+        kind === "course"
+          ? { kind, courseId: "course" }
+          : { kind, path: "/repos" }
+      const analysed: string[] = []
+      const { controller, read } = await mountCoordinator(
+        t,
+        async (_signal, input) => {
+          analysed.push(input.repositoryAbsolutePath!)
+          return makeBaseResult()
+        },
+        undefined,
+        { activeSurface, requestAnalysis: false },
+      )
+      await React.act(async () => {
+        read().selectRepository(repos[0])
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.deepEqual(analysed, [repos[0]])
+      assert.deepEqual(read().result, makeBaseResult())
+      await React.act(async () => {
+        await controller.activateSurface({ kind: "home" })
+        await flushQueries()
+      })
+      await React.act(async () => {
+        await controller.activateSurface(activeSurface)
+        await flushQueries()
+      })
+      assert.deepEqual(analysed, [repos[0]])
+      assert.deepEqual(read().result, makeBaseResult())
+      await React.act(async () => {
+        useAnalysisStore
+          .getState()
+          .setSelectedRepoPath(
+            analysisSourceScopeKey(
+              analysisSourceKeyParts(
+                analysisSourceKeyFromSurface(activeSurface),
+              ),
+            ),
+            repos[1],
+          )
+        await flushQueries()
+      })
+      assert.equal(read().result, null)
+      assert.deepEqual(analysed, [repos[0]])
+    })
+  }
+
   it("keeps the completed search visible after opening the enclosing repository", {
     timeout: 3000,
   }, async (t) => {
@@ -348,7 +458,7 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, makeBaseResult())
   })
 
-  it("resumes after React repeats effect setup and cleanup", {
+  it("runs an explicit request after React repeats effect setup and cleanup", {
     timeout: 3000,
   }, async (t) => {
     const { controller, read } = await mountCoordinator(
@@ -471,7 +581,7 @@ describe("analysis runner lifetime in React", () => {
       assert.equal(calls, 1)
       assert.equal(read().result, null)
       await React.act(async () => {
-        read().runAnalysis(repos[0])
+        read().runAnalysis()
         await controller.waitForIdle()
         await flushQueries()
       })
@@ -608,7 +718,7 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().result, result)
   })
 
-  it("replaces the pending runner when analysis inputs change", {
+  it("leaves new analysis inputs idle until an explicit request", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -624,17 +734,23 @@ describe("analysis runner lifetime in React", () => {
       controller.updateMember("course", "student", { email: "new@example.edu" })
       await flushQueries()
     })
-    assert.equal(signal.aborted, true)
+    assert.equal(signal.aborted, false)
     await React.act(async () => {
       release.resolve()
       await controller.waitForIdle()
       await flushQueries()
     })
     assert.equal(read().analysisIdentity?.roster[0]?.email, "new@example.edu")
+    assert.equal(read().result, null)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
+      await controller.waitForIdle()
+      await flushQueries()
+    })
     assert.ok(read().result)
   })
 
-  it("restores analysis after cancelling a repeated search of the same folder and depth", {
+  it("waits for a repository request after cancelling a repeated search", {
     timeout: 3000,
   }, async (t) => {
     const entered = deferred<AbortSignal>()
@@ -658,8 +774,7 @@ describe("analysis runner lifetime in React", () => {
         },
       },
     )
-    // Discovery notifications can enqueue analysis after the session is idle.
-    // Let each act finish rendering before checking, bounded by this test's timeout.
+    // Let cache notifications reach the disabled observers.
     async function waitForResult() {
       while (read().result === null) {
         t.signal.throwIfAborted()
@@ -689,14 +804,17 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(searches, 2)
     assert.equal(read().discoveryStatus, "idle")
     assert.deepEqual(read().discoveredRepos, discoveredRepos)
+    assert.equal(read().result, null)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
+      await controller.waitForIdle()
+      await flushQueries()
+    })
     await waitForResult()
   })
 
-  // A selection change replaces the pass whatever started it. Run and Re-run
-  // declare no separate turn, so the teacher's latest click always wins and
-  // costs only the repositories in flight.
-  for (const start of ["automatic", "explicit run"] as const) {
-    it(`replaces an ${start} pass on the newly selected repository`, {
+  for (const start of ["Start", "Run Analysis"] as const) {
+    it(`refuses selection during ${start} and analyses only the selected repository after Cancel`, {
       timeout: 3000,
     }, async (t) => {
       const entered = deferred<AbortSignal>()
@@ -708,51 +826,50 @@ describe("analysis runner lifetime in React", () => {
       }
       const paths = [...repos, "/repos/third"]
       const order: string[] = []
-      let pause = start === "automatic"
       const { controller, queryClient, read } = await mountCoordinator(
         t,
         async (signal, input) => {
-          if (pause) {
-            order.push(`analysis:${input.repositoryAbsolutePath}`)
+          order.push(`analysis:${input.repositoryAbsolutePath}`)
+          if (input.repositoryAbsolutePath === paths[0]) {
             entered.resolve(signal)
             await release.promise
           }
           return result
         },
         async (_signal, input) => {
-          if (pause) order.push(`blame:${input.repositoryAbsolutePath}`)
+          order.push(`blame:${input.repositoryAbsolutePath}`)
           return makeBlameResult()
         },
         {
           sidebar: false,
+          discover:
+            start === "Start"
+              ? async () => ({
+                  repos: paths.map((path) => ({ path, name: path })),
+                })
+              : undefined,
           initialDiscovery: {
             repos: paths.map((path) => ({ path, name: path })),
           },
         },
       )
-      if (start === "explicit run") {
-        await React.act(async () => {
-          await controller.waitForIdle()
-          await flushQueries()
-        })
-        pause = true
-        await React.act(async () => {
-          clearAnalysisQueries(queryClient, {
-            queryKey: analysisQueryKeys.sourceRepos(source),
-          })
-          read().runAnalysis(paths[0])
-          await flushQueries()
-        })
-      }
       const signal = await entered.promise
       await React.act(async () => {
         read().selectRepository(paths[2])
         await flushQueries()
       })
-      assert.equal(signal.aborted, true)
+      assert.equal(signal.aborted, false)
+      assert.equal(read().selectedRepoPath, paths[0])
       assert.deepEqual(order, [`analysis:${paths[0]}`])
       await React.act(async () => {
+        read().cancelAnalysis()
         release.resolve()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.equal(signal.aborted, true)
+      await React.act(async () => {
+        read().selectRepository(paths[2])
         await controller.waitForIdle()
         await flushQueries()
       })
@@ -760,21 +877,17 @@ describe("analysis runner lifetime in React", () => {
         `analysis:${paths[0]}`,
         `analysis:${paths[2]}`,
         `blame:${paths[2]}`,
-        `analysis:${paths[0]}`,
-        `analysis:${paths[1]}`,
       ])
-      for (const repoPath of paths) {
-        const queries = queryClient
-          .getQueryCache()
-          .findAll({ queryKey: repoResults(repoPath) })
-        assert.equal(queries.length, 1)
-        assert.deepEqual(queries[0]?.state.data, result)
-      }
+      assert.equal(
+        queryClient.getQueryCache().findAll({ queryKey: repoResults(paths[1]) })
+          .length,
+        0,
+      )
       assert.deepEqual(read().blameResult, makeBlameResult())
     })
   }
 
-  it("uses cached analysis when line-authorship settings change or analysis is enabled again", {
+  it("waits for the selected repository request after line-authorship edits and reuses cached analysis", {
     timeout: 3000,
   }, async (t) => {
     let analysisCalls = 0
@@ -800,6 +913,16 @@ describe("analysis runner lifetime in React", () => {
       await flushQueries()
     })
     await React.act(async () => {
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.deepEqual(
+      blameConfigs.map((config) => config.copyMove),
+      [1],
+    )
+    assert.equal(read().blameResult, null)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -831,6 +954,237 @@ describe("analysis sidebar admission", () => {
   const isDisabled = (control: Element) =>
     control.matches(":disabled") ||
     control.closest("fieldset[disabled]") !== null
+
+  it("chains Start's full pass before search retirement with separate Cancel targets", {
+    timeout: 3000,
+  }, async (t) => {
+    const searchEntered = deferred<AbortSignal>()
+    const analysisEntered = deferred<AbortSignal>()
+    const releaseSearch = deferred<void>()
+    const releaseAnalysis = deferred<void>()
+    t.after(() => {
+      releaseSearch.resolve()
+      releaseAnalysis.resolve()
+    })
+    const analysed: string[] = []
+    const { controller, container, read } = await mountCoordinator(
+      t,
+      async (signal, input) => {
+        analysed.push(input.repositoryAbsolutePath!)
+        analysisEntered.resolve(signal)
+        await releaseAnalysis.promise
+        return makeBaseResult()
+      },
+      undefined,
+      {
+        sidebar: true,
+        startDiscovery: false,
+        discover: async (signal) => {
+          searchEntered.resolve(signal)
+          await releaseSearch.promise
+          return { repos: repos.map((path) => ({ path, name: path })) }
+        },
+      },
+    )
+    let chained = false
+    const unsubscribe = controller.subscribe(() => {
+      const { admitted, runningTurnId } = controller.getSnapshot().transactions
+      const running =
+        runningTurnId === null ? null : admitted.get(runningTurnId)
+      if (
+        running?.kind !== "operation" ||
+        running.operation !== "analysis.discoverRepos"
+      )
+        return
+      chained ||= [...admitted.values()].some(
+        (entry) =>
+          entry.kind === "operation" && entry.operation === "analysis.run",
+      )
+    })
+    t.after(unsubscribe)
+    const start = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Start",
+    )
+    assert.ok(start)
+    await React.act(async () => {
+      start.click()
+      await flushQueries()
+    })
+    const searchSignal = await searchEntered.promise
+    assert.ok(
+      container.querySelector(
+        `[${sessionCancellationControl}="analysis.discoverRepos"]`,
+      ),
+    )
+    assert.equal(
+      container.querySelector(`[${sessionCancellationControl}="analysis.run"]`),
+      null,
+    )
+    await React.act(async () => {
+      releaseSearch.resolve()
+      await flushQueries()
+    })
+    const analysisSignal = await analysisEntered.promise
+    assert.equal(chained, true)
+    assert.notEqual(searchSignal, analysisSignal)
+    assert.equal(searchSignal.aborted, false)
+    const cancel = container.querySelector(
+      `[${sessionCancellationControl}="analysis.run"]`,
+    )
+    assert.ok(cancel)
+    assert.equal(isDisabled(cancel), false)
+    assert.equal(
+      container.querySelector(
+        `[${sessionCancellationControl}="analysis.discoverRepos"]`,
+      ),
+      null,
+    )
+    await React.act(async () => {
+      read().cancelDiscovery()
+      releaseAnalysis.resolve()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(analysisSignal.aborted, false)
+    assert.deepEqual(analysed, repos)
+  })
+
+  it("runs the full list from Run and Re-run Analysis", {
+    timeout: 3000,
+  }, async (t) => {
+    const analysed: string[] = []
+    const { controller, container } = await mountCoordinator(
+      t,
+      async (_signal, input) => {
+        analysed.push(input.repositoryAbsolutePath!)
+        if (analysed.length === 2) throw new Error("Analysis failed")
+        return makeBaseResult()
+      },
+      undefined,
+      { sidebar: true, requestAnalysis: false },
+    )
+    assert.equal(analysed.length, 0)
+    for (const label of ["Run Analysis", "Re-run Analysis"]) {
+      const button = Array.from(container.querySelectorAll("button")).find(
+        (entry) => entry.textContent?.trim() === label,
+      )
+      assert.ok(button, label)
+      await React.act(async () => {
+        button.click()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+    }
+    assert.deepEqual(analysed, [...repos, ...repos])
+  })
+
+  for (const singleRepo of [false, true]) {
+    it(`requests the selected repository after a settings edit with ${singleRepo ? "a single repository" : "a repository list"}`, {
+      timeout: 3000,
+    }, async (t) => {
+      const release = deferred<void>()
+      t.after(() => release.resolve())
+      const analysed: WorkflowInput<"analysis.run">[] = []
+      const paths = singleRepo ? ["/repos"] : repos
+      const { controller, container, read } = await mountCoordinator(
+        t,
+        async (_signal, input) => {
+          analysed.push(input)
+          await release.promise
+          return makeBaseResult()
+        },
+        undefined,
+        {
+          sidebar: true,
+          requestAnalysis: false,
+          initialDiscovery: {
+            repos: paths.map((path) => ({
+              path,
+              name: path.split("/").at(-1)!,
+            })),
+          },
+        },
+      )
+      assert.equal(read().selectedRepoPath, paths[0])
+      await React.act(async () => {
+        controller.setAnalysisInputs("course", { extensions: ["rs"] })
+        await flushQueries()
+      })
+      assert.equal(analysed.length, 0)
+      const row = container.querySelector<HTMLButtonElement>(
+        `button[title="${singleRepo ? "repos" : "first"}"]`,
+      )
+      assert.ok(row)
+      await React.act(async () => {
+        row.click()
+        await flushQueries()
+      })
+      assert.equal(analysed.length, 1)
+      assert.equal(analysed[0].repositoryAbsolutePath, paths[0])
+      assert.deepEqual(analysed[0].config.extensions, ["rs"])
+      const cancel = container.querySelector<HTMLButtonElement>(
+        `[${sessionCancellationControl}="analysis.run"]`,
+      )
+      assert.ok(cancel)
+      assert.equal(isDisabled(cancel), false)
+      await React.act(async () => {
+        cancel.click()
+        release.resolve()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
+      assert.equal(analysed.length, 1)
+    })
+  }
+
+  it("keeps Browse, Re-search and restored selection free of analysis starts", {
+    timeout: 3000,
+  }, async (t) => {
+    let searches = 0
+    const { controller, container, read } = await mountCoordinator(
+      t,
+      async () =>
+        assert.fail("Discovery and restored selection must not start analysis"),
+      undefined,
+      {
+        sidebar: true,
+        startDiscovery: false,
+        pickDirectory: async () => "/repos",
+        discover: async () => {
+          searches++
+          return { repos: repos.map((path) => ({ path, name: path })) }
+        },
+      },
+    )
+    const browse = container
+      .querySelector(".lucide-folder-open")
+      ?.closest("button")
+    assert.ok(browse)
+    await React.act(async () => {
+      browse.click()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(searches, 1)
+    const research = container
+      .querySelector(".lucide-refresh-cw")
+      ?.closest("button")
+    assert.ok(research)
+    await React.act(async () => {
+      research.click()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(searches, 2)
+    await React.act(async () => {
+      useAnalysisStore
+        .getState()
+        .setSelectedRepoPath(analysisSourceScopeKey(source), repos[1])
+      await flushQueries()
+    })
+    assert.equal(read().selectedRepoPath, repos[1])
+    assert.equal(read().result, null)
+  })
 
   it("refuses Browse during a pass and permits a cancellable search after Cancel", {
     timeout: 3000,
@@ -872,6 +1226,10 @@ describe("analysis sidebar admission", () => {
           repos: repos.map((path) => ({ path, name: path })),
         },
       )
+      await flushQueries()
+    })
+    await React.act(async () => {
+      read().runAnalysis()
       await flushQueries()
     })
     await analysisEntered.promise

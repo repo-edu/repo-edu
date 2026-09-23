@@ -191,13 +191,6 @@ export function RepositoriesSection({
     searchFolderIsRepo,
     toggleRepoFolderOpen,
   } = tree
-  const handleSelectRepo = useCallback(
-    (path: string) => {
-      if (path === selectedRepoPath) return
-      selectRepository(path)
-    },
-    [selectedRepoPath, selectRepository],
-  )
 
   return (
     <>
@@ -230,7 +223,7 @@ export function RepositoriesSection({
                 toggleFolderOpen: toggleRepoFolderOpen,
                 selectedRepoPath,
                 repoPathByRelative,
-                onRepoClick: searchFolderIsRepo ? onBrowse : handleSelectRepo,
+                onRepoClick: selectRepository,
                 viewMode: searchFolderIsRepo ? "tree" : repoViewMode,
               }}
             >

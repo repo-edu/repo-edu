@@ -19,7 +19,6 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
 } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
@@ -82,6 +81,7 @@ export type AnalysisDiscoveryValue = {
   discoveryCurrentFolder: string | null
   discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
+  startAnalysis: (folder: string) => void
   /** Search inside a body the caller already owns, such as a folder pick. */
   runDiscovery: (
     scope: SessionOperationScope,
@@ -93,8 +93,9 @@ export type AnalysisDiscoveryValue = {
 
 export type AnalysisSelectionValue = {
   selectedRepoPath: string | null
-  selectRepository: (repoPath: string | null) => void
-  runAnalysis: (repoPath: string) => void
+  clearRepositorySelection: () => void
+  selectRepository: (repoPath: string) => void
+  runAnalysis: () => void
   cancelAnalysis: () => void
   snapshotCommitOid: string | null
   analysisIdentity: AnalysisQueryIdentity | null
@@ -311,12 +312,14 @@ export function AnalysisCoordinatorProvider({
   })
   // The result key fields define input equality; the host still takes full inputs.
   // biome-ignore lint/correctness/useExhaustiveDependencies: The content key replaces the identities of the course-derived objects.
-  const sourceRunner = useMemo(
-    () =>
+  const createSourceRunner = useCallback(
+    (surface: PersistedActiveSurface) =>
       analysisConfig === null
         ? null
         : new AnalysisSourceRunner(client, queryClient, {
-            source: activeSourceParts,
+            source: analysisSourceKeyParts(
+              analysisSourceKeyFromSurface(surface),
+            ),
             config: analysisConfig,
             rosterContext: analysisContext.rosterContext,
             kind: analysisContext.kind === "course" ? "course" : "folder",
@@ -341,7 +344,11 @@ export function AnalysisCoordinatorProvider({
       defaultExtensions,
       analysisConcurrency.repoParallelism * analysisConcurrency.filesPerRepo,
     )
-  }, [sourceRunner, blameConfig, analysisContext.analysisInputs.blameSkip])
+  }, [
+    createSourceRunner,
+    blameConfig,
+    analysisContext.analysisInputs.blameSkip,
+  ])
 
   const discoveryQueryKey =
     discoveryInput === null
@@ -385,26 +392,6 @@ export function AnalysisCoordinatorProvider({
     : null
   const discoveryCompleted = discoveryQuery.isSuccess
 
-  // Starting the fan-out is a reservation, not host work: the body it reserves
-  // owns the stop and its line-authorship follow-up. Each start stops the pass
-  // before it, so a changed source key, repository list or selection replaces
-  // stale work rather than racing it, and the new pass skips what the cache
-  // already holds. Command admission is not a start trigger, so it cannot undo
-  // a Cancel.
-  useEffect(() => {
-    if (discoveryQuery.isFetching || discoveryQuery.dataUpdatedAt === 0) return
-    void sourceRunner
-      ?.run(discoveredRepoPaths, selectedRepoPath, effectiveBlameConfig)
-      .catch(() => {})
-  }, [
-    sourceRunner,
-    discoveredRepoPaths,
-    selectedRepoPath,
-    effectiveBlameConfig,
-    discoveryQuery.isFetching,
-    discoveryQuery.dataUpdatedAt,
-  ])
-
   const selectedSnapshotQueryKey =
     selectedRepoPath === null || analysisConfig === null
       ? (["analysis", "snapshot-head", "disabled"] as const)
@@ -439,7 +426,7 @@ export function AnalysisCoordinatorProvider({
       config: analysisConfig,
       rosterContext: analysisContext.rosterContext,
     })
-  }, [sourceRunner, selectedRepoPath, selectedSnapshotCommitOid])
+  }, [createSourceRunner, selectedRepoPath, selectedSnapshotCommitOid])
 
   const analysisScopeKey = useMemo(
     () =>
@@ -596,26 +583,26 @@ export function AnalysisCoordinatorProvider({
     client.stop("analysis.run")
   }, [client])
 
-  const runAnalysis = useCallback(
-    (repoPath: string) => {
-      client.change(() => {
-        clearAnalysisQueries(queryClient, {
-          queryKey: analysisQueryKeys.repo(activeSourceParts, repoPath),
-        })
-        void sourceRunner
-          ?.run(discoveredRepoPaths, repoPath, effectiveBlameConfig)
-          .catch(() => {})
+  const runAnalysis = useCallback(() => {
+    if (selectedRepoPath === null) return
+    client.change(() => {
+      clearAnalysisQueries(queryClient, {
+        queryKey: analysisQueryKeys.repo(activeSourceParts, selectedRepoPath),
       })
-    },
-    [
-      client,
-      sourceRunner,
-      activeSourceParts,
-      queryClient,
-      discoveredRepoPaths,
-      effectiveBlameConfig,
-    ],
-  )
+      void createSourceRunner(activeSurface)
+        ?.run(discoveredRepoPaths, selectedRepoPath, effectiveBlameConfig)
+        .catch(() => {})
+    })
+  }, [
+    client,
+    createSourceRunner,
+    activeSurface,
+    selectedRepoPath,
+    activeSourceParts,
+    queryClient,
+    discoveredRepoPaths,
+    effectiveBlameConfig,
+  ])
 
   const runDiscovery = useCallback(
     async (
@@ -632,17 +619,70 @@ export function AnalysisCoordinatorProvider({
     [queryClient, searchDepth],
   )
 
-  // Start and Re-search reserve a body; the picker uses its existing body.
+  // Re-search only updates discovery; the picker uses its existing body.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
-      void client
-        .execute("analysis.discoverRepos", (scope) =>
-          runDiscovery(scope, activeSurface, folder),
-        )
-        .catch(() => {})
+      client.change(() => {
+        void client
+          .execute("analysis.discoverRepos", (scope) =>
+            runDiscovery(scope, activeSurface, folder),
+          )
+          .catch(() => {})
+      })
     },
     [client, runDiscovery, activeSurface],
+  )
+
+  const startAnalysis = useCallback(
+    (folder: string) => {
+      if (!folder) return
+      client.change(() => {
+        void client
+          .execute("analysis.discoverRepos", async (scope) => {
+            const discovery = await discoverRepositories(
+              scope,
+              queryClient,
+              activeSurface,
+              {
+                folder,
+                depth: searchDepth,
+              },
+            )
+            scope.signal.throwIfAborted()
+            scope.publish(() => {
+              const source = analysisSourceKeyParts(
+                analysisSourceKeyFromSurface(discovery.surface),
+              )
+              const selected = selectEffectiveSelectedRepoPath({
+                storedRepoPath: selectSelectedRepoPathForScope(
+                  useAnalysisStore.getState(),
+                  analysisSourceScopeKey(source),
+                ),
+                discoveredRepos: discovery.result.repos,
+              })
+              // Reserve before search retirement without awaiting the next queue turn.
+              // Search and analysis retain independent cancellation targets.
+              void createSourceRunner(discovery.surface)
+                ?.run(
+                  discovery.result.repos.map((repo) => repo.path),
+                  selected,
+                  effectiveBlameConfig,
+                )
+                .catch(() => {})
+            })
+          })
+          .catch(() => {})
+      })
+    },
+    [
+      client,
+      queryClient,
+      activeSurface,
+      searchDepth,
+      createSourceRunner,
+      effectiveBlameConfig,
+    ],
   )
 
   const cancelDiscovery = useCallback(() => {
@@ -650,11 +690,27 @@ export function AnalysisCoordinatorProvider({
   }, [client])
 
   const selectRepository = useCallback(
-    (repoPath: string | null) => {
-      setSelectedRepoPath(activeSourceText, repoPath)
+    (repoPath: string) => {
+      client.change(() => {
+        setSelectedRepoPath(activeSourceText, repoPath)
+        void createSourceRunner(activeSurface)
+          ?.run([repoPath], repoPath, effectiveBlameConfig)
+          .catch(() => {})
+      })
     },
-    [activeSourceText, setSelectedRepoPath],
+    [
+      client,
+      activeSourceText,
+      setSelectedRepoPath,
+      createSourceRunner,
+      activeSurface,
+      effectiveBlameConfig,
+    ],
   )
+
+  const clearRepositorySelection = useCallback(() => {
+    setSelectedRepoPath(activeSourceText, null)
+  }, [activeSourceText, setSelectedRepoPath])
 
   const discoveryValue = useMemo<AnalysisDiscoveryValue>(
     () => ({
@@ -664,6 +720,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCurrentFolder,
       discoveryCompleted,
       runRepoDiscovery,
+      startAnalysis,
       runDiscovery,
       cancelDiscovery,
     }),
@@ -675,6 +732,7 @@ export function AnalysisCoordinatorProvider({
       discoveryStatus,
       discoveryCompleted,
       runRepoDiscovery,
+      startAnalysis,
       runDiscovery,
     ],
   )
@@ -682,6 +740,7 @@ export function AnalysisCoordinatorProvider({
   const selectionValue = useMemo<AnalysisSelectionValue>(
     () => ({
       selectedRepoPath,
+      clearRepositorySelection,
       selectRepository,
       runAnalysis,
       cancelAnalysis,
@@ -691,6 +750,7 @@ export function AnalysisCoordinatorProvider({
     }),
     [
       analysisScopeKey,
+      clearRepositorySelection,
       cancelAnalysis,
       runAnalysis,
       selectedAnalysisIdentity,
