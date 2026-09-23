@@ -14,8 +14,6 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
       "Click",
       "DoubleClick",
       "ContextMenu",
-      "KeyDown",
-      "KeyUp",
       "PointerDown",
       "PointerMove",
       "PointerUp",
@@ -38,9 +36,27 @@ export const rendererInputLists: readonly DesktopEntryList[] = [
     ].map((event) => `on${event}Capture:{admitInput}`),
   },
   {
-    owner: "session input admission",
+    owner: "session window keyboard freeze",
+    file: `${session}session-controller-context.tsx`,
+    selector: { kind: "call", name: "window.addEventListener" },
+    members: ["keydown", "keyup"],
+  },
+  {
+    owner: "session keyboard input route",
+    file: `${session}session-controller-context.tsx`,
+    selector: { kind: "calls", within: "admitKeyboardInput" },
+    members: ["admitSessionInput"],
+  },
+  {
+    owner: "session React input route",
     file: `${session}session-controller-context.tsx`,
     selector: { kind: "calls", within: "admitInput" },
+    members: ["admitSessionInput"],
+  },
+  {
+    owner: "session input admission",
+    file: `${session}session-controller-context.tsx`,
+    selector: { kind: "calls", within: "admitSessionInput" },
     members: [
       "canAdmitSessionInput",
       "controller.getSnapshot",

@@ -128,6 +128,36 @@ for (const [file, before, after, owner] of [
     "session native-input freeze",
   ],
   [
+    "packages/renderer-app/src/session/session-controller-context.tsx",
+    'window.addEventListener("keydown", admitKeyboardInput, true)',
+    'window.addEventListener("keypress", admitKeyboardInput, true)',
+    "session window keyboard freeze",
+  ],
+  [
+    "packages/renderer-app/src/session/session-controller-context.tsx",
+    'window.addEventListener("keyup", admitKeyboardInput, true)',
+    "",
+    "session window keyboard freeze",
+  ],
+  [
+    "packages/renderer-app/src/session/session-controller-context.tsx",
+    "const admitKeyboardInput = (event: KeyboardEvent) =>\n      admitSessionInput(controller, event)",
+    "const admitKeyboardInput = (event: KeyboardEvent) => allowInput(event)",
+    "session keyboard input route",
+  ],
+  [
+    "packages/renderer-app/src/session/session-controller-context.tsx",
+    "const admitInput = (event: SyntheticEvent) => {\n    admitSessionInput(controller, event)",
+    "const admitInput = (event: SyntheticEvent) => {\n    allowInput(event)",
+    "session React input route",
+  ],
+  [
+    "packages/renderer-app/src/session/session-controller-context.tsx",
+    "canAdmitSessionInput(snapshot)",
+    "true",
+    "session input admission",
+  ],
+  [
     "packages/renderer-app/src/session/session-operations.ts",
     "canAdmitSessionInput(this.snapshot())",
     "true",

@@ -34,6 +34,29 @@ it("permits a reservation's own stop listener", () => {
   )
 })
 
+for (const event of ["keydown", "keyup"]) {
+  it(`permits ${event} at the session input owner only`, () => {
+    const source = `window.addEventListener("${event}", admitKeyboardInput, true)`
+    assert.deepEqual(
+      checkRendererMutationSource(
+        "packages/renderer-app/src/session/session-controller-context.tsx",
+        source,
+      ),
+      [],
+    )
+    assert.ok(checkRendererMutationSource(feature, source).length > 0)
+  })
+}
+
+it("refuses an unlisted native event at the session input owner", () => {
+  assert.ok(
+    checkRendererMutationSource(
+      "packages/renderer-app/src/session/session-controller-context.tsx",
+      'window.addEventListener("paste", changeCourse)',
+    ).length > 0,
+  )
+})
+
 it("does not exempt newly added session helpers from raw client ownership", () => {
   assert.ok(
     checkRendererMutationSource(

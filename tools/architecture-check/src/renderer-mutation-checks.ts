@@ -17,14 +17,15 @@ const rawClientOwners = new Set([
   "persistence/course-persister.ts",
   "persistence/settings-persister.ts",
 ])
-const nativeListeners = new Map([
-  ["components/App.tsx", "keydown"],
-  ["hooks/use-theme.ts", "change"],
+const nativeListeners = new Map<string, readonly string[]>([
+  ["components/App.tsx", ["keydown"]],
+  ["session/session-controller-context.tsx", ["keydown", "keyup"]],
+  ["hooks/use-theme.ts", ["change"]],
   [
     "components/tabs/groups-assignments/GroupSetGroupsTable/GroupSetGroupsTable.tsx",
-    "scroll",
+    ["scroll"],
   ],
-  ["components/tabs/students/use-scroll-back-to-top.ts", "scroll"],
+  ["components/tabs/students/use-scroll-back-to-top.ts", ["scroll"]],
 ])
 const directActions = new Set([
   "pickDirectory",
@@ -159,7 +160,7 @@ export function checkRendererMutationSource(
         !reservationStop &&
         (!event ||
           !ts.isStringLiteralLike(event) ||
-          nativeListeners.get(relative) !== event.text)
+          !nativeListeners.get(relative)?.includes(event.text))
       )
         report(
           "registers a native event route outside the session input inventory",
