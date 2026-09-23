@@ -174,12 +174,12 @@ export function commandText(command: string): string {
 
 /**
  * One logged tool invocation. It opens with the step's own time, the assistant
- * time since the previous tool line, so a stalled step shows where it stalled;
- * the running total stays on the status stamps.
+ * time since the previous tool line, followed by the run's total assistant time.
  */
 export function toolText(
   invocation: string,
   elapsed: string,
+  runningTotal: string,
   context: Context | null,
   change: string,
 ): string {
@@ -188,7 +188,7 @@ export function toolText(
     context?.window == null
       ? "--"
       : `${Math.round((context.tokens / context.window) * 100)}%`
-  return `${elapsed.padStart(5)}  ${change.padStart(9)}  ${total.padStart(7)}  ${percent.padStart(4)}  ${invocation.replace(/[\r\n\t]/g, " ")}`
+  return `  ${elapsed.padStart(5)}  ${runningTotal.padStart(5)}  ${change.padStart(6)}  ${total.padStart(4)}  ${percent.padStart(4)}  ${invocation.replace(/[\r\n\t]/g, " ")}`
 }
 
 export function toolInputText(input: Record<string, unknown>): string {

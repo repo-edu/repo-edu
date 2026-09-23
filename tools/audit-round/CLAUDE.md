@@ -197,8 +197,8 @@ consumers.
   it. Commit stamps use those phase selections; requested aliases remain in the settings header
   and file tags. Every status stamp shows the phase's
   elapsed time and the round's total. Every logged tool line opens with its step's own time, the
-  assistant time since the previous tool line or since the phase start for the first, and carries no
-  total, so a stalled step shows where it stalled. `run-clock.ts` owns what those readings count. A
+  assistant time since the previous tool line or since the phase start for the first, followed by
+  the round's total assistant time. `run-clock.ts` owns what those readings count. A
   round measures its assistants, so time the user holds is not the run's. The assistant's last sign
   of life opens a wait and the user's next action closes it: a user message during the interactive
   fix, and leaving that session at the end. Each phase and the run read the same waiting total

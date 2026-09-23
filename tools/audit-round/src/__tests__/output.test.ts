@@ -139,12 +139,11 @@ test("output records complete invocations incrementally and refreshes only while
       if (event.type === "tool") await output.phase.observe(event)
   }
   await tool("first command")
-  // The step time counts from the phase start, the running total stays off the line.
+  // The step time counts from the phase start, the total from the run start.
   assert.match(
     visible.at(-1) as string,
-    /^00:00\s+--\s+--\s+--\s+first command/,
+    /^ {2}00:00 {2}00:05\s+--\s+--\s+--\s+first command/,
   )
-  assert.doesNotMatch(visible.at(-1) as string, /total/)
   await output.phase.observe({ type: "context", tokens: 26000, window: 100000 })
   await tool("/bin/zsh -lc 'printf audit-round-probe'")
   assert.match(
@@ -175,11 +174,11 @@ test("output records complete invocations incrementally and refreshes only while
   await tool("same count")
   assert.doesNotMatch(visible.at(-1) as string, /0\.0k|0\.2k/)
   // Three seconds passed since the previous tool line, whatever the text stamp reported.
-  assert.match(visible.at(-1) as string, /^00:03\s+/)
+  assert.match(visible.at(-1) as string, /^ {2}00:03 {2}00:08\s+/)
   await output.phase.observe({ type: "context", tokens: 8000, window: 100000 })
   const long = `/bin/zsh -lc 'printf ${"x".repeat(400)}'`
   await tool(long)
-  assert.match(visible.at(-1) as string, /^00:00\s+/)
+  assert.match(visible.at(-1) as string, /^ {2}00:00\s+/)
   assert.equal(visible.at(-1)?.length, 160)
   const log = await readFile(output.paths.log, "utf8")
   assert.equal(log.includes(long), false)
@@ -199,7 +198,7 @@ test("output records complete invocations incrementally and refreshes only while
   assert.ok(clears > 0)
   await start()
   await tool("new phase")
-  assert.match(visible.at(-1) as string, /^00:00\s+--\s+--\s+--/)
+  assert.match(visible.at(-1) as string, /^ {2}00:00 {2}00:13\s+--\s+--\s+--/)
 })
 
 test("written status stamps chain into the running total", async (t) => {
@@ -412,7 +411,9 @@ for (const assistant of ["claude", "codex"] as const) {
           .trim()
           .split("\n")
           .map((line) =>
-            line.trimStart().replace(/^\d+:\d\d\s+--\s+--\s+--\s+/, ""),
+            line
+              .trimStart()
+              .replace(/^\d+:\d\d\s+\d+:\d\d\s+--\s+--\s+--\s+/, ""),
           )
       const log = (await readFile(output.paths.log, "utf8")).slice(
         logBefore.length,

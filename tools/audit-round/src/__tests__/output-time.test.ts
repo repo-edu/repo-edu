@@ -150,7 +150,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
 })
 
-test("tool lines report the assistant time since the previous tool line, never the user's", async (t) => {
+test("tool lines report step and total assistant time, excluding user waits", async (t) => {
   const f = await fixture(t)
   t.mock.timers.enable({ apis: ["Date", "setInterval"], now: 10_000 })
   const log: string[] = []
@@ -194,13 +194,13 @@ test("tool lines report the assistant time since the previous tool line, never t
   )
   t.mock.timers.tick(7_000)
   await tool("first")
-  assert.match(line() as string, /^00:07\s+--\s+--\s+--\s+first$/)
+  assert.match(line() as string, /^ {2}00:07 {2}00:07\s+--\s+--\s+--\s+first$/)
   // A written stamp in between does not reset the step: it counts tool line to tool line.
   t.mock.timers.tick(60_000)
   await output.phase.observe({ type: "text", text: "Half way." })
   t.mock.timers.tick(11 * 60_000)
   await tool("second")
-  assert.match(line() as string, /^12:00\s+--\s+--\s+--\s+second$/)
+  assert.match(line() as string, /^ {2}12:00 {2}12:07\s+--\s+--\s+--\s+second$/)
 
   const session = {
     assistant: "codex" as const,
@@ -219,5 +219,5 @@ test("tool lines report the assistant time since the previous tool line, never t
     stage: "started",
   })
   // The handover restarted the step and the user's half hour was theirs.
-  assert.match(line() as string, /^00:04\s+--\s+--\s+--\s+third$/)
+  assert.match(line() as string, /^ {2}00:04 {2}12:11\s+--\s+--\s+--\s+third$/)
 })

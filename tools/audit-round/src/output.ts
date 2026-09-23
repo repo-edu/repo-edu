@@ -528,6 +528,7 @@ export class RoundOutput<R extends Run = Run> {
           const line = toolText(
             feedback.invocation,
             elapsedText(this.clock.elapsed(active.previousToolMark)),
+            elapsedText(this.clock.elapsed(this.clock.run)),
             active.context,
             changeSince(active.context, active.previousToolTokens),
           )
