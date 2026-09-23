@@ -63,8 +63,13 @@ test("commit stamps retain each phase's reported selection across later phases",
         ...phases[phase],
         ...(phase === "audit"
           ? { phase, arguments: ["example-all-01", "example.md"] as const }
-          : { phase, arguments: ["report.md"] as const }),
-        ownerRoot: f.root,
+          : phase === "rebut"
+            ? {
+                phase,
+                arguments: ["/report.md", "/vet.md", "/rebut.md"] as const,
+              }
+            : { phase, arguments: ["/report.md", "/output.md"] as const }),
+
         sessionId: null,
       },
       "prompt",
@@ -113,7 +118,6 @@ test("output records complete invocations incrementally and refreshes only while
         assistant: "codex",
         model: unpinned,
         ...testContext(f.root),
-        ownerRoot: f.root,
         arguments: ["example-all-01", "example.md"],
         sessionId: null,
       },
@@ -186,7 +190,6 @@ test("output records complete invocations incrementally and refreshes only while
   await output.phase.finish({
     status: "finished",
     sessionId: "audit",
-    file: "/AUDIT.md",
     context: null,
   })
   output.phase.release()
@@ -229,7 +232,6 @@ test("written status stamps chain into the running total", async (t) => {
       assistant: "codex",
       model: unpinned,
       ...testContext(f.root),
-      ownerRoot: f.root,
       arguments: ["example-all-01", "example.md"],
       sessionId: null,
     },
@@ -244,11 +246,11 @@ test("written status stamps chain into the running total", async (t) => {
   await output.phase.start(
     {
       phase: "rebut",
+      arguments: ["/report.md", "/vet.md", "/rebut.md"],
       assistant: "codex",
       model: unpinned,
       ...testContext(f.root),
-      ownerRoot: f.root,
-      arguments: ["/AUDIT.md"],
+
       sessionId: "prior",
     },
     "Prompt",
@@ -291,7 +293,6 @@ for (const assistant of ["claude", "codex"] as const) {
           assistant,
           model: unpinned,
           ...testContext(f.root),
-          ownerRoot: f.root,
           arguments: ["example-all-01", "example.md"],
           sessionId: null,
         },
@@ -453,7 +454,6 @@ test("Claude measurements omit percentages when the window is unknown", async (t
       assistant: "claude",
       model: unpinned,
       ...testContext(f.root),
-      ownerRoot: f.root,
       arguments: ["/AUDIT.md"],
       sessionId: null,
     },
@@ -611,8 +611,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
       assistant: "claude",
       model: unpinned,
       ...testContext(f.root),
-      ownerRoot: f.root,
-      arguments: [output.paths.markdown],
+      arguments: [output.paths.markdown, "/brief.md"],
       sessionId: null,
     },
     "Brief prompt",
@@ -626,7 +625,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-all-01-oth-round.md")
+  const transcript = join(f.root, "example-all-01-0-round.oth.md")
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
@@ -650,9 +649,12 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     },
   )
   t.after(() => output.close())
-  assert.match(output.paths.log, /example-all-01-oul-brief\.log$/)
+  assert.match(output.paths.log, /example-all-01-5-brief\.oul\.log$/)
   assert.equal(output.paths.markdown, null)
-  assert.match(visible[1] as string, /^Brief of example-all-01-oth-round\.md\n/)
+  assert.match(
+    visible[1] as string,
+    /^Brief of example-all-01-0-round\.oth\.md\n/,
+  )
   assert.doesNotMatch(visible[1] as string, /Texts:/)
   output.models({
     claude: { model: "claude-opus-5[1m]", effort: "xhigh" },

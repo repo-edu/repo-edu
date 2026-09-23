@@ -28,10 +28,10 @@ survive.
 ## Input
 
 Read the shared [round protocol](../../../references/round-protocol.md) for
-file names, writer tags and twin matching.
+file names, writer tags and supplied paths.
 
-The first pass is given the round transcript and the audit report. The second
-pass is given the draft ruling, the transcript and the report.
+The first pass is given the round transcript, audit report and ruling output path, in that order.
+The second pass is given the draft ruling, the transcript and the report.
 
 The launchers and this workflow stay in Repo Edu. Resolve their workflow
 references from that checkout. Transcripts may live at either checkout root;
@@ -41,7 +41,7 @@ or session directory.
 Both passes read what they need to be right:
 
 - the transcript, for what the round found, vetted, rebutted and left open
-- the report and its matched vet and rebuttal twins, for the evidence behind each
+- the report, for the evidence behind each
   open item
 - the planning artifact the report names, or the implementation plan for its
   named steps and every **Decisions** entry an open item cites
@@ -69,10 +69,8 @@ opened after this workflow finishes, and that session applies the ruling.
 
 ## Output
 
-Write the ruling beside the transcript under the shared round protocol: keep
-its target and round, spell your own writer tag and use the ruling kind. The
-second pass replaces the supplied draft at that same path. The transcript and the brief stay as they
-are.
+Write the ruling to the supplied output path. The second pass replaces the
+supplied draft at that same path. The transcript and brief stay as they are.
 
 The ruling is Markdown for a person reading in a Markdown viewer. Use headings
 and numbered lists where they help. Bold the first words of a paragraph or
@@ -141,9 +139,8 @@ user opens must read as the finished ruling and nothing else.
 
 ## Runner result
 
-When the prompt identifies an unattended round phase, follow the
-audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. Report `finished` only after the ruling file is written, and return its
-absolute path. A wrong or unreadable input is `failed`, with the reason. Never
-return `needs-ruling`: this workflow presents a ruling, it never asks one.
+When the prompt identifies an unattended round phase, follow the audit workflow's
+[Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
+`finished` only after the ruling file is written, at its supplied path. A wrong or unreadable input
+is `failed`, with the reason. Never return `needs-ruling`: this workflow presents a ruling, it never
+asks one.

@@ -24,7 +24,6 @@ const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
   assistant,
   model: unpinned,
   ...testContext(cwd),
-  ownerRoot: "/peer plan",
   arguments: ["/peer plan/AUDIT.md"],
   sessionId: null,
 })
@@ -161,6 +160,7 @@ for (const assistant of ["claude", "codex"] as const) {
       {
         ...input(assistant, f.root),
         phase: "rebut",
+        arguments: ["/report.md", "/vet.md", "/rebut.md"],
         sessionId: "prior-session",
       },
       f.output,
@@ -263,21 +263,25 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'PHASE RESULT: {"status":"finished","file":"/REBUT.md","reason":null}',
+      'PHASE RESULT: {"status":"finished","reason":null}',
     ),
     usage: { path, text: await recorded("codex-rollout.jsonl") },
   })
   const result = await runAssistantPhase(
-    { ...input("codex", f.root), phase: "rebut", sessionId: "test-session" },
+    {
+      ...input("codex", f.root),
+      phase: "rebut",
+      arguments: ["/report.md", "/vet.md", "/rebut.md"],
+      sessionId: "test-session",
+    },
     f.output,
     f.runtime,
   )
   assert.deepEqual(result, {
     status: "finished",
     sessionId: "test-session",
-    file: "/REBUT.md",
     // The recorded rollout's last measurement, which the round resumes on.
-    context: { tokens: 26_115, window: 258_400 },
+    context: { tokens: 28_286, window: 258_400 },
   })
   assert.equal(f.feedback.filter((event) => event.type === "model").length, 1)
   assert.ok(
@@ -338,7 +342,7 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
   await f.configure({
     stream: await phaseStream(
       "codex",
-      'Brief written\nPHASE RESULT: {"status":"finished","file":"/peer plan/BRIEF.md","reason":null}',
+      'Brief written\nPHASE RESULT: {"status":"finished","reason":null}',
     ),
     usage: {
       path: join(f.root, "rollout-test-session.jsonl"),
@@ -354,8 +358,7 @@ test("the brief carries its pinned model and effort into the Codex invocation", 
         effort: { value: "low", source: "phase pin" },
       },
       ...testContext(f.root),
-      ownerRoot: f.root,
-      arguments: [join(f.root, "ROUND-example.md")],
+      arguments: [join(f.root, "ROUND-example.md"), "/brief.md"],
       sessionId: null,
     },
     f.output,

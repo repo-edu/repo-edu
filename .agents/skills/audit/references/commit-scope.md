@@ -127,20 +127,18 @@ it apart from the range's own work.
 
 ## Report
 
-Report order follows `workflow.md` with the range in place of the plan. Open by
-naming the workflow that ran, this repo with its short `HEAD` at audit time,
-the commit references as typed, the resolved range with its short shas and the
-statement that no plan covers the work. Then the coverage table with its two
-closing lines, then the run statement and pricing when one applies, then the
-`## Findings` field.
+Report order follows `workflow.md` with the range in place of the plan. Open by naming the workflow
+that ran and a plain `Judged repos: repo-edu@<sha>` line with this repo's short audited HEAD, the
+commit references as typed, the resolved range with its short shas and the statement that no plan
+covers the work. Then the coverage table with its two closing lines, then the run statement and
+pricing when one applies, then the `## Findings` field.
 
-Write the report to this repo's root under the shared
-[round protocol](../../../references/round-protocol.md), with the audit kind
-and your own writer tag. Keep a supplied runner name start unchanged.
-Otherwise form the target from the typed commit references using the shared
-rule and allocate the round under `workflow.md`'s **Round allocation**.
-The opening carries the repo and audited head for vet, rebuttal and fix;
-the resolved range remains report content rather than a pair of filename shas.
+Write the report to the supplied absolute path at the invoking root under the shared
+[round protocol](../../../references/round-protocol.md), with the numbered audit kind and
+dot-separated writer tag. Keep the supplied path unchanged. Otherwise form the target from the typed
+commit references using the shared rule and allocate the round under `workflow.md`'s
+**Round allocation**. The opening carries the repo and audited head for vet, rebuttal and fix; the
+resolved range remains report content rather than a pair of filename shas.
 
 ## Record
 

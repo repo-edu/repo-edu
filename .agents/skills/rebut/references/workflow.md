@@ -7,27 +7,27 @@ specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
 The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
-`*-audit.md` report, the other assistant vets it into the `-vet.md` twin and this workflow answers
-those verdicts, writing the `-rebut.md` twin. The answers come from the auditor. They come from the
-audit session itself when it still has room for them, and from a fresh session when it does not,
-because a session summarised to make room holds a summary where the evidence was. Either way the
-answers stand on what this workflow reads now, which the grounding below requires of both. The fix
-workflow at `.agents/skills/fix/references/workflow.md` then reads all three files. The user
-directed this chain on 2026-09-09 to give the fix phase both assistants' views. On 2026-09-11 the
-user directed Codex to run the fix in a fresh session, with the audit report and both twins as its
-brief. Under the runner the rebuttal runs only when the vet's verdicts leave the auditor something
-to answer: a vet that accepted every finding without a condition sends the report and its vet twin
-straight to the fix, which the user directed on 2026-09-20 so the fix starts sooner.
+`*-1-audit.<tag>.md` report, the other assistant vets it into the `-2-vet.<tag>.md` twin and this
+workflow answers those verdicts, writing the `-3-rebut.<tag>.md` twin. The answers come from the
+auditor. They come from the audit session itself when it still has room for them, and from a fresh
+session when it does not, because a session summarised to make room holds a summary where the
+evidence was. Either way the answers stand on what this workflow reads now, which the grounding
+below requires of both. The fix workflow at `.agents/skills/fix/references/workflow.md` then reads
+all three files. The user directed this chain on 2026-09-09 to give the fix phase both assistants'
+views. On 2026-09-11 the user directed Codex to run the fix in a fresh session, with the audit
+report and both twins as its brief. Under the runner the rebuttal runs only when the vet's verdicts
+leave the auditor something to answer: a vet that accepted every finding without a condition sends
+the report and its vet twin straight to the fix, which the user directed on 2026-09-20 so the fix
+starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
-a tracked file. The `-rebut.md` twin is the one file it writes.
+a tracked file. The `-3-rebut.<tag>.md` twin is the one file it writes.
 
 When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. Report `finished` only after grounding and answering every verdict
-and writing the answers and grouped outcome to the `-rebut.md` twin; return its
-absolute path. Contested verdicts and items for the user's ruling still
-complete the rebuttal: the fix phase presents them.
+[Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
+`finished` only after grounding and answering every verdict and writing the answers and grouped
+outcome to the `-3-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
+user's ruling still complete the rebuttal: the fix phase presents them.
 
 This procedure also serves reports stored at the plan repo root. The plan
 repo's rebuttal workflow routes those here and supplies the local
@@ -35,15 +35,9 @@ substitutions: that repo's report root and finding metadata.
 
 ## Report discovery
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
-file names, writer tags and twin matching. Read the judged repos and each
-repo's short audited `HEAD` from the report opening, never from its filename
-or location. If that opening is missing or ambiguous, ask before answering.
-When the invocation names a report file, answer that report's vet. When it
-names nothing, list `*-audit.md` at this repo's root and keep each file whose
-tag's vendor letter is your own and which has a vet twin and no rebuttal twin yet. One file left
-means answer it. More than one means name them and ask which. None means
-ask for the report and wait.
+Read the supplied report and vet paths and write the supplied rebuttal path, in that argument order;
+read the judged repos and audited heads from the report opening and the auditor's vendor letter from
+its filename.
 
 Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's
@@ -56,7 +50,7 @@ explicitly says to.
 
 ## Grounding
 
-Read the report end to end, then the matched vet twin. Check each sha in the
+Read the report end to end, then the supplied vet twin. Check each sha in the
 report opening against its repo's `git rev-parse --short HEAD`, and when one
 differs list what moved with `git diff --name-only <sha>..HEAD` in that
 repo. Answer against HEAD either way, and say where a moved file changes an
@@ -96,9 +90,6 @@ few short sentences. Every answer is one of three kinds.
   cost, including a run price. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
-A verdict marked `corroborated` by a sibling report still gets its own
-answer; corroboration is a reading-order signal, not evidence.
-
 Close with the reconciled outcome in the three groups the fix phase
 presents: verdicts both assistants agree on, verdicts this rebuttal
 contests, and the items for the user's ruling. This closing section is the
@@ -107,11 +98,9 @@ under its outcome group.
 
 ## Rebuttal file
 
-Write the answers and the closing outcome beside the report under the shared
-round protocol: reuse its target and round, spell your own writer tag and use
-the rebut kind. Write the same answers and outcome into the chat. The
-chat and the file must not differ. The twin is untracked and gitignored, so
-writing it keeps the rebuttal read-only.
+Write the answers and the closing outcome to the supplied rebuttal path. Write the same answers and
+outcome into the chat. The chat and the file must not differ. The twin is untracked and gitignored,
+so writing it keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
 and `$fix` for Codex, in a fresh Codex session.

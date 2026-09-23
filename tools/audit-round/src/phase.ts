@@ -1,7 +1,7 @@
 import type { CleanInput } from "./clean.js"
 import type { ExecutionContext } from "./context.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
-import type { ReportFindings } from "./report.js"
+import type { AuditReport, ReportFindings } from "./report.js"
 import type { RoundSettings } from "./settings.js"
 
 export type Assistant = "claude" | "codex"
@@ -22,6 +22,25 @@ export type Phase =
   | "rule-edit"
   | "watch"
   | "watch-edit"
+
+/** Launcher ownership is independent of the files a phase reads or writes. */
+const launcherRoots: Record<Phase, "cwd" | "repoEduRoot"> = {
+  audit: "cwd",
+  vet: "cwd",
+  rebut: "cwd",
+  fix: "cwd",
+  brief: "repoEduRoot",
+  rule: "repoEduRoot",
+  "rule-edit": "repoEduRoot",
+  watch: "repoEduRoot",
+  "watch-edit": "repoEduRoot",
+}
+
+export function phaseOwnerRoot(
+  input: ExecutionContext & { phase: Phase },
+): string {
+  return input[launcherRoots[input.phase]]
+}
 
 /**
  * The severity tier a finished fix recorded, lowercased from the record's
@@ -225,30 +244,34 @@ export function transcribed(phase: Phase): boolean {
 type PhaseArguments = {
   audit: {
     readonly arguments: readonly [
-      nameStart: string,
+      report: string,
       target: string,
       ...scopeOrCommits: string[],
     ]
     readonly sessionId: null
   }
   vet: {
-    readonly arguments: readonly [report: string]
+    readonly arguments: readonly [report: string, vet: string]
     readonly sessionId: null
   }
   rebut: {
-    readonly arguments: readonly [report: string]
+    readonly arguments: readonly [report: string, vet: string, rebut: string]
     readonly sessionId: string | null
   }
   fix: {
-    readonly arguments: readonly [report: string]
+    readonly arguments: readonly [report: string, ...twins: string[]]
     readonly sessionId: null
   }
   brief: {
-    readonly arguments: readonly [transcript: string]
+    readonly arguments: readonly [transcript: string, brief: string]
     readonly sessionId: null
   }
   rule: {
-    readonly arguments: readonly [transcript: string, report: string]
+    readonly arguments: readonly [
+      transcript: string,
+      report: string,
+      ruling: string,
+    ]
     readonly sessionId: null
   }
   /** The second pass over the ruling: the draft and the sources the ruling workflow grounds it in. */
@@ -276,7 +299,6 @@ type PhaseInputs = {
     PhaseRun &
     ExecutionContext & {
       readonly phase: K
-      readonly ownerRoot: string
     }
 }
 
@@ -298,8 +320,6 @@ export type SessionContext = {
 type ReportResult = {
   readonly status: "finished"
   readonly sessionId: string
-  /** Absolute path validated by the assistant boundary. */
-  readonly file: string
   /** The session's last measurement, which decides whether a later phase may resume it. */
   readonly context: SessionContext | null
 }
@@ -336,11 +356,12 @@ export type InteractiveSession = PhaseRun &
   }
 
 export type RoundDependencies = {
+  readonly checkFile: (file: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<void>
   readonly readReport: (
     file: string,
     kind: ExecutionContext["roundKind"],
-  ) => Promise<ReportFindings>
+  ) => Promise<AuditReport>
   readonly readVet: (file: string, findings: ReportFindings) => Promise<boolean>
   readonly readHead: (root: string) => Promise<string>
   readonly readSubjects: (

@@ -1,4 +1,4 @@
-{"type":"turn_context","payload":{"model":"gpt-6-astra","effort":"xhigh"}}
-{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":25898},"model_context_window":258400}}}
-{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":26010},"model_context_window":258400}}}
-{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":26115},"model_context_window":258400}}}
+{"type":"turn_context","payload":{"model":"gpt-6-astra","effort":"high"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":28065},"model_context_window":258400}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":28180},"model_context_window":258400}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":28286},"model_context_window":258400}}}

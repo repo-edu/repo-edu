@@ -57,7 +57,7 @@ async function checkTranscript(
   }
   if (!file || ![context.repoEduRoot, context.planRoot].includes(dirname(path)))
     throw new Error(
-      "Name a round's *-round.md transcript at the Repo Edu or plan checkout root.",
+      "Name a round's *-0-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
     )
   transcriptNameStart(path)
   return path
@@ -160,7 +160,7 @@ function parseInvocation(
   command
     .command("brief")
     .description(
-      "Write the plain-words brief of a finished round from its *-round.md transcript.",
+      "Write the plain-words brief of a finished round from its *-0-round.<tag>.md transcript.",
     )
     .argument("<transcript>", "the round's Markdown transcript")
     .option("-v, --verbose", "show tool calls as well as assistant text")
@@ -252,6 +252,10 @@ export async function runCommand(
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      checkFile: async (file) => {
+        if (!(await readFile(file, "utf8")).trim())
+          throw new Error(`Phase output is empty: ${file}`)
+      },
       completeClean: async (input) => {
         const stamps = active.commitStamps()
         if (stamps === undefined) throw new Error("Missing audit model record")
@@ -290,7 +294,8 @@ export async function runCommand(
 
     if (prepared.kind === "brief") {
       const { transcript } = prepared
-      const active = open(briefRun(transcript, now(), selections, settings))
+      const run = briefRun(transcript, now(), selections, settings)
+      const active = open(run)
       result = await runBrief(
         {
           ...context,
@@ -299,6 +304,7 @@ export async function runCommand(
               ? "planning"
               : "implementation",
           transcript,
+          brief: run.brief,
         },
         dependenciesFor(active),
         settings,
@@ -332,7 +338,7 @@ export async function runCommand(
           {
             ...setup,
             auditor,
-            nameStart: run.nameStart,
+            documents: run.documents,
             transcript: run.paths.markdown,
             watch: prepared.watch
               ? {

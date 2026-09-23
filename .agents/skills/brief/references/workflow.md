@@ -7,7 +7,7 @@ to it and points here for the rest, so the two cannot drift apart. Where a
 launcher and this file disagree, this file is right.
 
 The brief is the plain-words twin of one round transcript, written for the
-user. The transcript is the `*-round.md` file the audit-round runner writes
+user. The transcript is the `*-0-round.<tag>.md` file the audit-round runner writes
 at the invoking Repo Edu or plan root: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
@@ -18,19 +18,13 @@ says the same things in words the user does not have to decode.
 ## Input
 
 Read the shared [round protocol](../../../references/round-protocol.md) for
-file names and writer tags. The invocation names the transcript. When it names
-nothing, inspect the opening of each `*-round.md` transcript at the working
-repository root and choose the latest `Started` time, including its timezone offset.
-Neither filenames nor round numbers order different targets, and file
-modification times do not record round starts. If no transcript exists, a
-start time is unreadable or the latest times tie, name the candidates and ask
-which transcript to use. Otherwise say which one in chat and continue.
-A name that is not a round transcript under the shared grammar at either checkout root
-is a wrong input: name it, say what was expected and stop.
+file names and writer tags. The invocation supplies the transcript to read
+and the brief to write, in that order. Missing paths or a transcript outside the
+shared grammar fail under the result rule. A hand-run standalone brief uses
+`pnpm audit-round brief <transcript>`.
 
-The launcher and this workflow stay in Repo Edu. Resolve their references
-from that checkout, regardless of the working directory. The transcript may
-belong to either root; its directory owns the output.
+Resolve workflow references from Repo Edu. The transcript may belong to either
+root; use the supplied output path.
 
 Read the whole transcript. For the meaning of the rating tokens, read the
 audit workflow at `.agents/skills/audit/references/workflow.md` under
@@ -44,10 +38,8 @@ it.
 
 ## Output
 
-Write the brief beside the transcript under the shared round protocol, reusing
-its target and round with your own writer tag and the brief kind. Allocate no
-number and make no claim. Replace an existing brief at that name. The brief is the one file this
-workflow writes; the transcript stays as it is.
+Write the brief to the supplied output path, replacing an existing file.
+The brief is the one file this workflow writes; the transcript stays as it is.
 
 The brief is Markdown for a person reading in a Markdown viewer. Use
 headings, numbered lists and tables where they help. Bold the first words of
@@ -124,7 +116,7 @@ what it holds.
 ## Runner result
 
 When the prompt identifies an unattended phase, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. Report `finished` only after the brief is written, and return its
-absolute path. A wrong or unreadable input is `failed`, with the reason.
-Never return `needs-ruling`: the brief presents a ruling, it never asks one.
+[Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
+`finished` only after the brief is written, at its supplied path. A wrong or unreadable input is
+`failed`, with the reason. Never return `needs-ruling`: the brief presents a ruling, it never asks
+one.

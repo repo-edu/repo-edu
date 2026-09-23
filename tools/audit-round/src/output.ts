@@ -35,6 +35,49 @@ import type { RoundSettings } from "./settings.js"
 import { planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
+const phaseOrder = {
+  round: 0,
+  audit: 1,
+  vet: 2,
+  rebut: 3,
+  fix: 4,
+  brief: 5,
+  ruling: 6,
+  glance: 7,
+  watch: 8,
+} as const
+
+type FileKind = Exclude<keyof typeof phaseOrder, "fix" | "glance">
+
+function phaseFilename(nameStart: string, kind: FileKind, tag: string): string {
+  return `${nameStart}-${phaseOrder[kind]}-${kind}.${tag}`
+}
+
+function readPhaseFilename(
+  name: string,
+): { nameStart: string; kind: FileKind; extension: string } | null {
+  const match =
+    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
+      name,
+    )
+  if (match === null) return null
+  const kind = match[3] as FileKind
+  if (
+    Number(match[2]) !== phaseOrder[kind] ||
+    (match[5] === "log" && kind !== "round" && kind !== "brief")
+  )
+    return null
+  return { nameStart: match[1], kind, extension: match[5] }
+}
+
+export type RoundDocuments = {
+  readonly report: string
+  readonly vet: string
+  readonly rebut: string
+  readonly brief: string
+  readonly ruling: string
+}
+
 /** The rule that sets a phase start or a glance off from what came before. */
 const separator = "─".repeat(72)
 
@@ -124,11 +167,13 @@ async function nextNameStart(
     .filter((name) => name.startsWith(`${target}-`))
     .map((name) => {
       const suffix = name.slice(target.length + 1)
-      const match =
-        /^(\d{2,})-(?:claim\.md|[ao][btu][lmhx]-(?:round\.(?:md|log)|(?:audit|vet|rebut|brief|ruling|watch)\.md|brief\.log))$/.exec(
-          suffix,
-        )
-      return match === null ? 0 : Number(match[1])
+      const claim = /^(\d{2,})-claim\.md$/.exec(suffix)
+      if (claim !== null) return Number(claim[1])
+      const parsed = readPhaseFilename(name)
+      const number = parsed?.nameStart.slice(target.length + 1)
+      return number !== undefined && /^\d{2,}$/.test(number)
+        ? Number(number)
+        : 0
     })
   const next = Math.max(0, ...numbers) + 1
   if (!Number.isSafeInteger(next))
@@ -149,6 +194,7 @@ export async function roundRun(
   Run & {
     readonly nameStart: string
     readonly watch: string
+    readonly documents: RoundDocuments
     readonly paths: { readonly markdown: string }
   }
 > {
@@ -164,16 +210,26 @@ export async function roundRun(
   }
   const target = await targetDescription(setup)
   const nameStart = await nextNameStart(setup, target.label)
-  const base = join(
-    setup.cwd,
-    `${nameStart}-${fileTag(entry("audit"), selections, settings)}-round`,
-  )
+  const path = (kind: FileKind, phase: Phase) =>
+    join(
+      setup.cwd,
+      phaseFilename(
+        nameStart,
+        kind,
+        fileTag(entry(phase), selections, settings),
+      ),
+    )
+  const base = path("round", "audit")
   return {
     nameStart,
-    watch: join(
-      setup.cwd,
-      `${nameStart}-${fileTag(entry("watch"), selections, settings)}-watch.md`,
-    ),
+    watch: `${path("watch", "watch")}.md`,
+    documents: {
+      report: `${path("audit", "audit")}.md`,
+      vet: `${path("vet", "vet")}.md`,
+      rebut: `${path("rebut", "rebut")}.md`,
+      brief: `${path("brief", "brief")}.md`,
+      ruling: `${path("ruling", "rule")}.md`,
+    },
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
     phases: [
@@ -197,14 +253,12 @@ export async function roundRun(
 
 /** A later writer reuses the transcript's target and number, replacing its tag and kind. */
 export function transcriptNameStart(transcript: string): string {
-  const match = /^(.+-\d{2,})-[ao][btu][lmhx]-round\.md$/.exec(
-    basename(transcript),
-  )
-  if (match === null)
+  const parsed = readPhaseFilename(basename(transcript))
+  if (parsed?.kind !== "round" || parsed.extension !== "md")
     throw new Error(
-      "Name a round's *-round.md transcript at the Repo Edu or plan checkout root.",
+      "Name a round's *-0-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
     )
-  return match[1]
+  return parsed.nameStart
 }
 
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */
@@ -213,12 +267,21 @@ export function briefRun(
   started: number,
   selections: Record<Assistant, ModelSelection>,
   settings: RoundSettings,
-): Run {
+): Run & { readonly brief: string } {
   const phase = {
     phase: "brief",
     ...roundPhases("codex", noOverride, settings).brief,
   } as const
+  const base = join(
+    dirname(transcript),
+    phaseFilename(
+      transcriptNameStart(transcript),
+      "brief",
+      fileTag(phase, selections, settings),
+    ),
+  )
   return {
+    brief: `${base}.md`,
     name: "Brief",
     title: `Brief of ${basename(transcript)}`,
     phases: [phase],
@@ -226,10 +289,7 @@ export function briefRun(
     selections,
     paths: {
       claim: null,
-      log: join(
-        dirname(transcript),
-        `${transcriptNameStart(transcript)}-${fileTag(phase, selections, settings)}-brief.log`,
-      ),
+      log: `${base}.log`,
       markdown: null,
     },
     started,
@@ -472,12 +532,7 @@ export class RoundOutput<R extends Run = Run> {
 
   private finishPhase(result: PhaseResult): void {
     this.say(this.report())
-    const detail =
-      result.status === "failed"
-        ? `: ${result.reason}`
-        : "file" in result
-          ? `: ${result.file}`
-          : ""
+    const detail = result.status === "failed" ? `: ${result.reason}` : ""
     this.say(`[${this.active?.input.phase}] ${result.status}${detail}`)
   }
 

@@ -1,13 +1,13 @@
-import { dirname } from "node:path"
 import { execa } from "execa"
 import type { CommitStamps } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
-import { parseSubject } from "./subject.js"
+import { parseSubject, type Repository } from "./subject.js"
 import { type AuditTarget, planStem } from "./target.js"
 
 export type CleanInput = ExecutionContext &
   AuditTarget & {
     readonly report: string
+    readonly judgedRepos: readonly Repository[]
   }
 
 /**
@@ -21,11 +21,12 @@ export async function completeClean(
 ): Promise<string> {
   if ("commits" in input) return `Clean audit. Report retained: ${input.report}`
 
-  const cwd = dirname(input.report)
-  if (cwd !== input.repoEduRoot && cwd !== input.planRoot)
-    throw new Error(
-      "The clean report must belong to one of the judged repositories",
-    )
+  const cwd =
+    input.judgedRepos.length === 1
+      ? input.judgedRepos[0] === "plan"
+        ? input.planRoot
+        : input.repoEduRoot
+      : input.cwd
   if (stamps.auditor === null || stamps.phases === null)
     throw new Error(
       "The clean record needs the audit's model and capability tag",

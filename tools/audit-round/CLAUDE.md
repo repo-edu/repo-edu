@@ -44,7 +44,9 @@ consumers.
   a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
   owning phase and its session for recovery.
 - `clean.ts` owns direct completion when the audit report has no findings. A
-  plan target lands one empty clean record at the report's root with the audit's
+  plan target lands one empty clean record in the sole judged repo or at the
+  invoking root when both repos were judged, using the report's judged-repos
+  opening and the audit's
   actual model record and capability tag. `git commit --only --allow-empty`
   preserves staged work while using the normal hooks and signing settings.
   A commit target lands no commit. Both routes retain their report and leave
@@ -56,7 +58,7 @@ consumers.
   one Findings field including deferred findings. Each holds numbered finding blocks or its exact
   empty-field sentence. Quoted evidence and code blocks supply no findings. `vet.ts` reads the
   fixed verdict lines and requires the report's finding numbers in order. Only Accept verdicts
-  with no following conditions skip the rebuttal; exact corroboration markers are not conditions.
+  with no following conditions skip the rebuttal.
   Both readers are supplied through `RoundDependencies`, alongside the HEAD and subject reads.
 - `phase.ts` owns who runs each phase of a round and on what, and the capability tag's whole
   vocabulary in both directions: the letters a subject spells a phase with, and `parseAuditorTag`,
@@ -68,17 +70,17 @@ consumers.
   follows that configuration. `settings.json` owns phase selections and the model tier table.
   `settings.ts` loads and validates it once at command entry, independently of the working
   directory. That configuration is passed through routing, output naming and commit stamps.
-  `--auditor` overrides each field it names, using the configured tier table for its model.
-  Both audit settings and command-line overrides bind the audit and rebuttal together, because the
+  `--auditor` overrides each field it names, using the configured tier table for its model. Both
+  audit settings and command-line overrides bind the audit and rebuttal together, because the
   rebuttal resumes the audit session and one thread cannot change model half way through. Each named
   field carries what named it, so the report never guesses, and either CLI accepts one. It also
-  defines the private inputs and results for assistant invocations, and owns which phases' texts
-  enter the round transcript: only audit, vet, rebuttal and fix. The brief, the two ruling passes
-  and the watch are the transcript's twins, written in their own files; all four run once the
-  transcript already holds the round. Assistant boundaries own
-  processes, stream validation, session observations and phase output. They return only after
-  accounting for the process, streams and required record writes. A failure retains the known
-  session identity, including a resumed session whose new invocation reported no identity.
+  defines the private inputs and results for assistant invocations, and the launcher-root table, and
+  owns which phases' texts enter the round transcript: only audit, vet, rebuttal and fix. The brief,
+  the two ruling passes and the watch are the transcript's twins, written in their own files; all
+  four run once the transcript already holds the round. Assistant boundaries own processes, stream
+  validation, session observations and phase output. They return only after accounting for the
+  process, streams and required record writes. A failure retains the known session identity,
+  including a resumed session whose new invocation reported no identity.
 - `glance.ts` owns the glance: the rule that decides from `git log` and the watch record in
   `watch.json` whether the trajectory watch is due. The episode is derived from HEAD the way the
   watch derives it, a commit counts when it carries the stem or touches the stem's artifact set,
@@ -224,18 +226,16 @@ Its dependencies supply those operations explicitly. A returned phase failure
 stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
-The audit uses the invoking root's launcher. Its report directory selects the
-vet, rebuttal and fix launchers. Shared brief, ruling and watch launchers stay
-in Repo Edu. Every session keeps the invoking working directory, including
-when the report or transcript belongs to the other root. Claude receives the
-peer checkout as an additional directory; printed recovery commands restore
-the working directory before resuming. Twin paths are phase feedback;
-they never replace the audit report as the input to later phases.
+The phase table in `phase.ts` owns launcher roots. Every session keeps the
+invoking working directory and every round file lives there. The runner names
+all input and output paths before the audit. Report phases finish only when
+their supplied output exists and is non-empty. Claude receives the peer checkout
+as an additional directory; recovery commands restore the working directory.
 
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/skills/audit/references/workflow.md#runner-result` defines their
-meaning. Phase results carry only status, file and reason. The runner reads reports,
+meaning. Phase results carry only status and reason. The runner reads reports,
 vet twins and the fix's landed subjects for routing and chaining. It also reads
 `HEAD` for naming and the log the glance counts; the audit workflow still
 resolves the audited scope. Keep assistant adapters independent of the product
@@ -283,17 +283,16 @@ pnpm audit-round ../plan/example.md 3 --chain
 pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
-pnpm audit-round brief example-step-3-01-otm-round.md
+pnpm audit-round brief example-step-3-01-0-round.otm.md
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```
 
-The round writes a claim, log and transcript at the invoking root under the
-shared round protocol. The audit receives the chosen target and number as its
-first argument, before the target and scope or commit references as typed.
-Every phase reuses that name start, even when the report goes to the plan repo.
-The transcript and log carry the auditor's tag; assistant-written files carry
-their own writer's tag.
+The round names the report, vet, rebuttal, brief, ruling and watch before the
+audit starts. It writes the tagless claim, transcript and log at the invoking
+root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
+the shared round protocol, with the transcript and log sharing `0-round`.
+Each phase receives the complete paths it reads and writes in protocol order.
 
 The brief writes a plain-words twin after a fix. A clean audit records its outcome directly and
 retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A

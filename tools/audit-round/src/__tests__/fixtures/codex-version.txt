@@ -1,1 +1,1 @@
-codex-cli 0.154.0
+codex-cli 0.156.0

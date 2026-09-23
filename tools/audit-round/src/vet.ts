@@ -13,11 +13,7 @@ export function readVet(source: string, findings: ReportFindings): boolean {
     if (verdict !== null) {
       numbers.push(Number(verdict[1]))
       if (verdict[3] !== "Accept") accepted = false
-    } else if (
-      numbers.length > 0 &&
-      line !== "corroborated" &&
-      line !== "unique"
-    ) {
+    } else if (numbers.length > 0) {
       accepted = false
     }
   }

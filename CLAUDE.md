@@ -66,7 +66,7 @@ field binds the auditor and its rebuttal, because the rebuttal resumes the audit
 fields follow [the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null`
 inherits the assistant CLI's own setting. That file also owns the default auditor, model tier
 mappings and document assistants. The run's settings header names what set each phase.
-`pnpm audit-round brief <target-round-tag-round.md>` writes that brief for an earlier round. The
+`pnpm audit-round brief <target-round-0-round.tag.md>` writes that brief for an earlier round. The
 shared file-name grammar and writer-tag rules live in
 [the round protocol](.agents/references/round-protocol.md).
 `pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
@@ -379,29 +379,23 @@ grammar. The subject is the only home for plan identity and step numbers. Use
 the shared forms without restating them here. A commit unattached to a plan
 keeps this repo's ordinary severity-prefixed conventional subject.
 
-An implementation-audit round records each accepted finding in the repo whose
-files the finding concerns. The user's step range decides the repo set, which
-is the union of the hosting repos for its steps. A single-repo round writes its
-report in that repo, even when the round started in the other repo. A both-repo
-round writes one report at the root of the repo where the round started. A
-record lands only in a repo whose files took an accepted finding, so a both-repo
-round with findings in one repo lands one record. A clean round lands one clean
-record at the root that holds its report. The plan repo doctrine owns that
-keying under its shared implementation forms. The report opening names the
-judged repos and each repo's short HEAD at audit time. Its filename follows the
-shared round protocol. Each round record's subject carries the round's
-scope through the shared `impl-audit-<step scope>` form, with the scope `<n>`,
-`<a>-<b>` or `all`, and its capability tag names the assistant that audited; the
-plan repo owns that form and no `Audit:` body line repeats it. Each accepted
-code finding bullet opens with its uppercase tier and
-the finding's metadata tokens,
-`- [C] [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>]
-<prose>`, so a later round can read the round's findings, their suspected
-growth patterns and their reach and complexity ratings from the log alone.
-The fix workflow at `.agents/skills/fix/references/workflow.md` owns that
-format, the audit workflow at `.agents/skills/audit/references/workflow.md`
-owns the tokens' meaning, and the patterns and their numbering live in
-`../plan/GROWTH-PATTERNS.md`.
+An implementation-audit round records each accepted finding in the repo whose files the finding
+concerns. The user's step range decides the repo set, which is the union of the hosting repos for
+its steps. Every round writes its report at the invoking root. A record lands only in a repo whose
+files took an accepted finding, so a both-repo round with findings in one repo lands one record. A
+clean round lands one clean record in the sole judged repo or at the invoking root when both repos
+were judged. The plan repo doctrine owns that keying under its shared implementation forms. The
+report opening names the judged repos and each repo's short HEAD at audit time. Its filename follows
+the shared round protocol. Each round record's subject carries the round's scope through the shared
+`impl-audit-<step scope>` form, with the scope `<n>`, `<a>-<b>` or `all`, and its capability tag
+names the assistant that audited; the plan repo owns that form and no `Audit:` body line repeats it.
+Each accepted code finding bullet opens with its uppercase tier and the finding's metadata tokens,
+`- [C] [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>] <prose>`, so a
+later round can read the round's findings, their suspected growth patterns and their reach and
+complexity ratings from the log alone. The fix workflow at
+`.agents/skills/fix/references/workflow.md` owns that format, the audit workflow at
+`.agents/skills/audit/references/workflow.md` owns the tokens' meaning, and the patterns and their
+numbering live in `../plan/GROWTH-PATTERNS.md`.
 
 A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu
 round commit. Its bullet starts with its tier and plan location before the

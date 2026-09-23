@@ -170,6 +170,28 @@ if (scenario.phases !== undefined) {
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
+  const phaseArguments = JSON.parse(
+    /^Phase arguments \(JSON array\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "[]",
+  )
+  if (selected?.document !== undefined) {
+    const outputIndex = {
+      audit: 0,
+      vet: 1,
+      rebut: 2,
+      brief: 1,
+      rule: 2,
+      "rule-edit": 0,
+      watch: 0,
+      "watch-edit": 0,
+    }[phase]
+    if (outputIndex !== undefined) {
+      const text =
+        selected.document.source === undefined
+          ? selected.document.text
+          : await readFile(selected.document.source, "utf8")
+      await writeFile(phaseArguments[outputIndex], text)
+    }
+  }
   // A chained round changes who audits, so a phase may answer as either CLI.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
 }

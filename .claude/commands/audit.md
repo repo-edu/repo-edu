@@ -1,6 +1,6 @@
 ---
 description: Run a read-only implementation audit of a ready plan from ../plan or named commits, reporting tiered findings in a concise form.
-argument-hint: [runner-name-start] <plan-file|SHA|HEAD|HEAD-n|from..to> [steps-or-commits...]
+argument-hint: [report-path] <plan-file|SHA|HEAD|HEAD-n|from..to> [steps-or-commits...]
 disable-model-invocation: true
 ---
 

@@ -1,6 +1,6 @@
-import { dirname } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
+import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -8,13 +8,14 @@ import {
   noOverride,
   type Phase,
   type PhaseFailure,
+  type PhaseResult,
   type PhaseRun,
   type RoundDependencies,
   roundPhases,
   type SessionContext,
   type Tier,
 } from "./phase.js"
-import type { ReportFindings } from "./report.js"
+import type { AuditReport } from "./report.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
 import type { AuditTarget } from "./target.js"
@@ -35,8 +36,7 @@ export type WatchTarget = {
 }
 
 export type RoundInput = RoundSetup & {
-  /** The output owner's claimed target and number, reused at either report root. */
-  readonly nameStart: string
+  readonly documents: RoundDocuments
   /** The round's Markdown transcript, which the brief retells once the fix has returned. */
   readonly transcript: string
   /** Null when the user asked for no watch, whatever the commit record says. */
@@ -45,6 +45,7 @@ export type RoundInput = RoundSetup & {
 
 export type BriefInput = ExecutionContext & {
   readonly transcript: string
+  readonly brief: string
 }
 
 type RoundFailure = PhaseFailure &
@@ -135,6 +136,26 @@ export function rebuttalSessionId(
   return room < rebuttalTokens ? null : sessionId
 }
 
+/** A completed report phase must have written its supplied output. */
+async function reportPhase<R extends PhaseResult>(
+  invoke: () => Promise<R>,
+  file: string,
+  dependencies: Pick<RoundDependencies, "checkFile">,
+): Promise<R | PhaseFailure> {
+  const result = await invoke()
+  if (result.status === "failed") return result
+  try {
+    await dependencies.checkFile(file)
+    return result
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: result.sessionId,
+      reason: errorMessage(error),
+    }
+  }
+}
+
 /**
  * The brief reads only the transcript, so it runs the same way after a round
  * and on its own over an earlier transcript. Its launcher always belongs to
@@ -142,24 +163,28 @@ export function rebuttalSessionId(
  */
 export async function runBrief(
   input: BriefInput,
-  dependencies: Pick<RoundDependencies, "runPhase">,
+  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile">,
   settings: RoundSettings,
 ): Promise<BriefResult> {
   // The brief uses its own settings, so no auditor override reaches this phase.
   const run = roundPhases("codex", noOverride, settings).brief
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
-  const brief = await dependencies.runPhase.brief({
-    phase: "brief",
-    ...run,
-    ...context,
-    ownerRoot: input.repoEduRoot,
-    arguments: [input.transcript],
-    sessionId: null,
-  })
+  const brief = await reportPhase(
+    () =>
+      dependencies.runPhase.brief({
+        phase: "brief",
+        ...run,
+        ...context,
+        arguments: [input.transcript, input.brief],
+        sessionId: null,
+      }),
+    input.brief,
+    dependencies,
+  )
   if (brief.status === "failed")
     return { ...brief, phase: "brief", ...run, ...context }
-  return { status: "finished", brief: brief.file }
+  return { status: "finished", brief: input.brief }
 }
 
 /**
@@ -181,10 +206,11 @@ export async function runBrief(
  */
 async function runWatch(
   input: ExecutionContext & Pick<RoundInput, "watch">,
-  dependencies: Pick<RoundDependencies, "runPhase" | "glance">,
+  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile" | "glance">,
   settings: RoundSettings,
 ): Promise<RoundFailure | null> {
-  if (input.watch === null) return null
+  const target = input.watch
+  if (target === null) return null
   // The watch uses its configured assistant, independently of the auditor.
   const phases = roundPhases("codex", noOverride, settings)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
@@ -192,32 +218,40 @@ async function runWatch(
   const glance = await dependencies.glance({
     cwd,
     repository: roundKind === "planning" ? "plan" : "repo-edu",
-    cacheRoot: input.watch.cacheRoot,
+    cacheRoot: target.cacheRoot,
   })
   if (!glance.due) return null
 
-  const watch = await dependencies.runPhase.watch({
-    phase: "watch",
-    ...phases.watch,
-    ...context,
-    ownerRoot: repoEduRoot,
-    arguments: [input.watch.file, input.watch.cacheRoot],
-    sessionId: null,
-  })
+  const watch = await reportPhase(
+    () =>
+      dependencies.runPhase.watch({
+        phase: "watch",
+        ...phases.watch,
+        ...context,
+        arguments: [target.file, target.cacheRoot],
+        sessionId: null,
+      }),
+    target.file,
+    dependencies,
+  )
   if (watch.status === "failed")
     return { ...watch, phase: "watch", ...phases.watch, ...context }
 
   // The watch is a document the user decides from, so a session that did not
   // write it reads it once before the user does. It re-grounds in the record
   // and the code, never in the round, so it is given no other source.
-  const edit = await dependencies.runPhase["watch-edit"]({
-    phase: "watch-edit",
-    ...phases["watch-edit"],
-    ...context,
-    ownerRoot: repoEduRoot,
-    arguments: [watch.file],
-    sessionId: null,
-  })
+  const edit = await reportPhase(
+    () =>
+      dependencies.runPhase["watch-edit"]({
+        phase: "watch-edit",
+        ...phases["watch-edit"],
+        ...context,
+        arguments: [target.file],
+        sessionId: null,
+      }),
+    target.file,
+    dependencies,
+  )
   if (edit.status === "failed")
     return {
       ...edit,
@@ -240,28 +274,31 @@ export async function runRound(
   )
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
-  const audit = await dependencies.runPhase.audit({
-    phase: "audit",
-    ...phases.audit,
-    ...context,
-    ownerRoot: cwd,
-    arguments:
-      "commits" in input
-        ? [input.nameStart, ...input.commits]
-        : input.scope === undefined
-          ? [input.nameStart, input.plan]
-          : [input.nameStart, input.plan, input.scope],
-    sessionId: null,
-  })
+  const audit = await reportPhase(
+    () =>
+      dependencies.runPhase.audit({
+        phase: "audit",
+        ...phases.audit,
+        ...context,
+        arguments:
+          "commits" in input
+            ? [input.documents.report, ...input.commits]
+            : input.scope === undefined
+              ? [input.documents.report, input.plan]
+              : [input.documents.report, input.plan, input.scope],
+        sessionId: null,
+      }),
+    input.documents.report,
+    dependencies,
+  )
   if (audit.status === "failed") {
     return { ...audit, phase: "audit", ...phases.audit, ...context }
   }
 
-  const report = audit.file
-  const ownerRoot = dirname(report)
-  let findings: ReportFindings
+  const report = input.documents.report
+  let evidence: AuditReport
   try {
-    findings = await dependencies.readReport(report, roundKind)
+    evidence = await dependencies.readReport(report, roundKind)
   } catch (error) {
     return {
       status: "failed",
@@ -274,9 +311,13 @@ export async function runRound(
   }
   // Zero findings complete in the runner. No later assistant or historical
   // watch can add anything needed to close this audit.
-  if (findings.length === 0) {
+  if (evidence.findings.length === 0) {
     try {
-      await dependencies.completeClean({ ...input, report })
+      await dependencies.completeClean({
+        ...input,
+        report,
+        judgedRepos: evidence.judgedRepos,
+      })
       return { status: "finished", report, tier: null }
     } catch (error) {
       return {
@@ -289,22 +330,30 @@ export async function runRound(
       }
     }
   }
+  const twins = [input.documents.vet]
   {
-    const vet = await dependencies.runPhase.vet({
-      phase: "vet",
-      ...phases.vet,
-      ...context,
-      ownerRoot,
-      arguments: [report],
-      sessionId: null,
-    })
+    const vet = await reportPhase(
+      () =>
+        dependencies.runPhase.vet({
+          phase: "vet",
+          ...phases.vet,
+          ...context,
+          arguments: [report, input.documents.vet],
+          sessionId: null,
+        }),
+      input.documents.vet,
+      dependencies,
+    )
     if (vet.status === "failed") {
       return { ...vet, phase: "vet", ...phases.vet, ...context }
     }
 
     let accepted: boolean
     try {
-      accepted = await dependencies.readVet(vet.file, findings)
+      accepted = await dependencies.readVet(
+        input.documents.vet,
+        evidence.findings,
+      )
     } catch (error) {
       return {
         status: "failed",
@@ -316,17 +365,22 @@ export async function runRound(
       }
     }
     if (!accepted) {
-      const rebut = await dependencies.runPhase.rebut({
-        phase: "rebut",
-        ...phases.rebut,
-        ...context,
-        ownerRoot,
-        arguments: [report],
-        sessionId: rebuttalSessionId(audit.sessionId, audit.context),
-      })
+      const rebut = await reportPhase(
+        () =>
+          dependencies.runPhase.rebut({
+            phase: "rebut",
+            ...phases.rebut,
+            ...context,
+            arguments: [report, input.documents.vet, input.documents.rebut],
+            sessionId: rebuttalSessionId(audit.sessionId, audit.context),
+          }),
+        input.documents.rebut,
+        dependencies,
+      )
       if (rebut.status === "failed") {
         return { ...rebut, phase: "rebut", ...phases.rebut, ...context }
       }
+      twins.push(input.documents.rebut)
     }
   }
 
@@ -353,8 +407,7 @@ export async function runRound(
     phase: "fix",
     ...phases.fix,
     ...context,
-    ownerRoot,
-    arguments: [report],
+    arguments: [report, ...twins],
     sessionId: null,
   })
   if (fix.status === "failed") {
@@ -396,7 +449,7 @@ export async function runRound(
 
   // The brief precedes a ruling, because the ruling is read from it.
   const brief = await runBrief(
-    { ...context, transcript: input.transcript },
+    { ...context, transcript: input.transcript, brief: input.documents.brief },
     dependencies,
     settings,
   )
@@ -411,25 +464,33 @@ export async function runRound(
 
   // The ruling explains the open item and argues a choice, in a draft and then
   // a rewrite by a session that did not write the draft.
-  const rule = await dependencies.runPhase.rule({
-    phase: "rule",
-    ...phases.rule,
-    ...context,
-    ownerRoot: repoEduRoot,
-    arguments: [input.transcript, report],
-    sessionId: null,
-  })
+  const rule = await reportPhase(
+    () =>
+      dependencies.runPhase.rule({
+        phase: "rule",
+        ...phases.rule,
+        ...context,
+        arguments: [input.transcript, report, input.documents.ruling],
+        sessionId: null,
+      }),
+    input.documents.ruling,
+    dependencies,
+  )
   if (rule.status === "failed")
     return { ...rule, phase: "rule", ...phases.rule, ...context }
 
-  const edit = await dependencies.runPhase["rule-edit"]({
-    phase: "rule-edit",
-    ...phases["rule-edit"],
-    ...context,
-    ownerRoot: repoEduRoot,
-    arguments: [rule.file, input.transcript, report],
-    sessionId: null,
-  })
+  const edit = await reportPhase(
+    () =>
+      dependencies.runPhase["rule-edit"]({
+        phase: "rule-edit",
+        ...phases["rule-edit"],
+        ...context,
+        arguments: [input.documents.ruling, input.transcript, report],
+        sessionId: null,
+      }),
+    input.documents.ruling,
+    dependencies,
+  )
   if (edit.status === "failed")
     return { ...edit, phase: "rule-edit", ...phases["rule-edit"], ...context }
 

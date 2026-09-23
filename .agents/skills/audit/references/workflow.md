@@ -8,10 +8,9 @@ apart. Where a launcher and this file disagree, this file is right.
 
 Read the shared [round protocol](../../../references/round-protocol.md) for
 file names and writer tags. In a runner-started audit, the first argument is
-the supplied `<target>-<round>`. Consume it as the output name start before
-reading the remaining arguments as the audit scope. Keep it at either report
-root and do not allocate or claim again. A hand-run audit has no supplied name
-start and follows [Round allocation](#round-allocation).
+the absolute report path to write. Read the remaining arguments as the audit
+scope. Do not allocate or claim again. A hand-run audit follows
+[Round allocation](#round-allocation).
 
 Interpret the remaining invocation arguments as a plan file and an optional
 implementation-step range. The plan must be in the sibling `../plan` repo and
@@ -69,9 +68,6 @@ and its chat copy remain identical; append the result after the chat copy
 only. The object has exactly these fields:
 
 - `status`: one of the three outcomes below.
-- `file`: the absolute path written by a finished audit, vet, rebuttal, brief,
-  ruling pass or watch pass. Use `null` for every other outcome, including a
-  finished fix.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
 
 The runner reads whether the audit is clean from the report, whether every
@@ -84,17 +80,17 @@ tier from both repositories' commit logs.
 | `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. No watch follows. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
-Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`;
-the reports may carry open items for the fix phase to present, and the brief retells them for the
-user. An audit finishes when its required evidence and report are complete and the report is
-written. A clean report also finishes. Return the absolute path actually written, including when it
-replaced an existing report. Reports from other rounds do not block the run.
+Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`; the
+reports may carry open items for the fix phase to present, and the brief retells them for the user.
+An audit finishes when its required evidence and report are complete and the report is written. A
+clean report also finishes. Write only the supplied report path, replacing it when it already
+exists. Reports from other rounds do not block the run.
 
-The audit's path remains the input to every phase up to the fix. A finished
-vet or rebuttal returns its own twin's path for feedback; that path does not
-replace the audit path. After a clean audit the runner completes the round
-directly. It retains the report and records an empty clean commit at the report's
-root for a plan target, using only the audit's model record and capability tag.
+The audit's supplied path remains an input through the fix. Vet and rebuttal
+receive their complete input and output paths. After a clean audit the runner
+completes the round directly. For a plan target it retains the report and lands
+one empty clean record in the sole judged repo or at the invoking root when
+both repos were judged, using only the audit's model record and capability tag.
 Commit audits retain their report without a commit. This path starts no later
 session, brief, glance or watch and leaves existing handoffs untouched. The
 report retains the judged repo set and audited heads. The user directed this
@@ -102,21 +98,18 @@ on 2026-09-23. An explicitly requested chain still follows its normal crossover
 rule, and an explicit watch remains available.
 After a vet that accepted every finding the
 rebuttal does not run, so the fix reads the report with its vet twin alone.
-The report's directory selects the later phase's
-owning launcher and local workflow rules, even when the resumed session
-started in the other repo. The brief's input is the round transcript instead,
-and its launcher belongs to the Repo Edu root. Transcripts and the brief and
-ruling twins belong to the invoking root, which may be either repository.
-The ruling passes take the transcript and the report, and their shared
-launchers also belong to Repo Edu; they run
-under `.agents/skills/rule/references/workflow.md` and only after a fix that
+Launcher ownership is defined by the phase table in
+`tools/audit-round/src/phase.ts`, independently of report placement.
+All round files live at the invoking root. The brief receives the transcript
+and its output path. The ruling receives the transcript, report and its output
+path; its second pass receives the draft, transcript and report. Ruling passes
+run under `.agents/skills/rule/references/workflow.md` only after a fix
 returned `needs-ruling`.
 
 The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the
 round, so the runner gives the watch pass only the file to write and the cache
-root, and the watch edit only the draft. Their launchers belong to the Repo Edu
-root. They run under
+root, and the watch edit only the draft. They run under
 `.agents/skills/watch/references/workflow.md`, and only when the runner's own
 glance at the commit record found the watch due; that glance is code in
 `tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
@@ -160,11 +153,9 @@ Run one read-only implementation-audit round. Judge only the repos in the
 round's repo set. Report in the order prescribed below, write the report file
 and stop.
 
-A single-repo round writes its report at that repo's root, even when the round
-started in the other repo. A both-repo round writes one report at the root where
-the round started. Report placement decides only where a clean record lands:
-the fix workflow lands one record in each repo whose files took a finding, and
-a clean round's one record at the report's root, under its Records section.
+The fix lands one record in each repo whose files took an accepted finding.
+A clean round lands one record in the sole judged repo or at the invoking
+root when both repos were judged, as named in the report opening.
 
 Each finding in the report carries its metadata tokens in the form the fix workflow's record bullets
 use, so a finding copies from the report into the commit body unchanged. Keep the uppercase tier
@@ -184,7 +175,7 @@ token line. The fix carries that location into the round commit.
 ## Fix guard
 
 The round is read-only and ends at its report file. The one later phase this
-session takes part in is the rebuttal: the auditor's answer to the `-vet.md`
+session takes part in is the rebuttal: the auditor's answer to the `-2-vet.<tag>.md`
 twin runs here through the rebuttal launcher, `/rebut` for Claude and
 `$rebut` for Codex, because this session already holds the evidence the
 findings rest on and the rebuttal fixes nothing. When this session is asked
@@ -567,35 +558,32 @@ on the user's word.
 
 ## Report order
 
-Open by naming the workflow that ran, the repo set the implementation audit judges and each repo's
-short `HEAD` at audit time, labelled by repo name. These values select the repos for vet, rebuttal
-and fix and supply their checks of changes since the audit. Include only judged repos, whether the
-report lives in Repo Edu or the plan repo. Then name the plan file, its ready commit, the episode's
-commit range and the round's user-set scope: the whole plan, one step or one step range. Then report
-the coverage table with its coverage line. Then, when a growth pattern or the reach and complexity
-pair runs across rounds, the run statement and the pricing under [Pricing a run](#pricing-a-run).
-Then the `## Findings` field, including cross-repo findings in the same numbered list and block
-form. Then write the report to its file under [Report file](#report-file) and stop
-there.
+Open by naming the workflow that ran and include exactly one plain line: `Judged repos: plan@<sha>`,
+`Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
+short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
+vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
+that tag for the opening. Then name the plan file, its ready commit, the episode's commit range and
+the round's user-set scope: the whole plan, one step or one step range. Then report the coverage
+table with its coverage line. Then, when a growth pattern or the reach and complexity pair runs
+across rounds, the run statement and the pricing under [Pricing a run](#pricing-a-run). Then the
+`## Findings` field, including cross-repo findings in the same numbered list and block form. Then
+write the report to its file under [Report file](#report-file) and stop there.
 
 ## Report file
 
-After presenting the report, write the same report to its repo root and say so,
-then stop. A single-repo round uses the root of the repo it judged. A both-repo
-round uses the root where the round started. The file is the copy the vet and
-fix workflows read, so the chat and the file must not differ.
-
-Name the report under the shared round protocol, using the chosen target and
-round, your own writer tag and the audit kind. No other repo's sha is appended.
-The opening, not the filename, identifies the judged repos and their heads.
+After presenting the report, write the same report to the supplied absolute
+path at the invoking root and say so, then stop. A hand-run audit names its
+report under the shared protocol after round allocation. The chat and file
+must not differ. The opening identifies the judged repos and their heads.
+Do not add an opening writer tag.
 
 The report and a hand-run audit's claim are gitignored, so writing them keeps
 the round read-only. The round never deletes a report. The fix workflow
-deletes only the landed report and its matched vet and rebuttal files.
+deletes only the landed report and its supplied vet and rebuttal files.
 
 ## Round allocation
 
-A supplied runner name wins at either report root. The runner claims its
+A supplied absolute report path wins. The runner claims its
 number and writes its transcript at the invoking repository root. Without one, a hand-run
 report at either root chooses its target under the shared round protocol, then
 scans both the Repo Edu and plan repo roots for every numbered round file

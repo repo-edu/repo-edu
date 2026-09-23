@@ -48,13 +48,13 @@ for (const auditor of ["codex", "claude"] as const) {
               : "codex"
         assert.equal(
           file,
-          `example-0${index + 1}-${writer === "codex" ? "ouh" : "auh"}-round.log`,
+          `example-0${index + 1}-0-round.${writer === "codex" ? "ouh" : "auh"}.log`,
         )
         const log = await readFile(join(f.planRoot, file), "utf8")
         assert.match(log, /Audit round of plan example-widen\.md/)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([`example-0${index + 1}`, "example-widen.md"])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, file.replace("-0-round.", "-1-audit.").replace(".log", ".md")), "example-widen.md"])}`,
           ),
         )
         assert.match(log, /\[glance\] not due: episode example recorded green/)
@@ -79,7 +79,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.deepEqual(
         fixes.map((call) => call.auditor),
-        files.map((name) => (name.includes("-ouh-") ? "otx" : "ath")),
+        files.map((name) => (name.includes(".ouh.") ? "oth" : "ath")),
       )
     })
   }
@@ -93,7 +93,7 @@ for (const auditor of ["codex", "claude"] as const) {
           assistants: undefined,
           stream: await phaseStream(
             auditor,
-            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict"}',
+            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","reason":"Premise conflict"}',
             "audit-session",
           ),
         },
@@ -143,10 +143,10 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log, transcript } = await f.records()
     assert.ok(
       log.includes(
-        `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
+        `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report, f.ruling])}`,
       ),
     )
-    assert.ok(log.includes(`[rule] finished: ${f.ruling}`))
+    assert.ok(log.includes(`[rule] finished`))
     assert.doesNotMatch(log, /\[glance\]|\[watch\] starting/)
     assert.match(
       f.visible.join("\n"),
@@ -160,7 +160,7 @@ for (const auditor of ["codex", "claude"] as const) {
       "--approve-for-me",
       "fix-session",
     ])
-    assert.equal(session.auditor, auditor === "codex" ? "otx" : "ath")
+    assert.equal(session.auditor, auditor === "codex" ? "oth" : "ath")
   })
 }
 
@@ -246,7 +246,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const watch = transcript.replace("-ouh-round.md", "-ouh-watch.md")
+        const watch = transcript.replace("-0-round.ouh.md", "-8-watch.ouh.md")
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,

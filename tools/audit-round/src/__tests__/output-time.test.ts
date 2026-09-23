@@ -76,7 +76,7 @@ for (const { zone, instant, timestamp } of [
     t.after(() => output.close())
 
     const logName = basename(output.paths.log)
-    assert.equal(logName, "example-all-01-oth-round.log")
+    assert.equal(logName, "example-all-01-0-round.oth.log")
     assert.doesNotMatch(logName, /[:<>"|?*]/)
     assert.equal(
       output.paths.markdown,
@@ -119,7 +119,6 @@ test("elapsed readings count assistant work and never the user's own time", asyn
       assistant: "codex",
       model: unpinned,
       ...testContext("/repo"),
-      ownerRoot: "/repo",
       arguments: ["REPORT.md"],
       sessionId: null,
     },
@@ -188,7 +187,6 @@ test("tool lines report the assistant time since the previous tool line, never t
       assistant: "codex",
       model: unpinned,
       ...testContext("/repo"),
-      ownerRoot: "/repo",
       arguments: ["REPORT.md"],
       sessionId: null,
     },

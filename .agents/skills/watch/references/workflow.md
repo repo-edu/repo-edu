@@ -62,7 +62,7 @@ file names and writer tags. The runner supplies a watch path carrying its
 chosen target and round with this phase's writer tag. Keep that path;
 allocate no round and read no transcript to derive it.
 
-Write the watch to the named `-watch.md` file, replacing anything already there. The
+Write the watch to the named `-8-watch.<tag>.md` file, replacing anything already there. The
 second pass replaces that same file. It is Markdown for a person reading in a
 Markdown viewer.
 
@@ -164,7 +164,7 @@ When the prompt identifies an unattended round phase, follow the
 audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after both the watch file and the watch record
-are written, and return the watch file's absolute path. A missing
+are written at the supplied paths. A missing
 plan checkout's `CLAUDE.md`, an unreadable log or a record that cannot be written is
 `failed`, with the reason. Never return `needs-ruling`: the watch suggests and
 never asks.

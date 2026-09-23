@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import { join } from "node:path"
 import { test } from "node:test"
 import type { CleanInput } from "../clean.js"
 import type { GlanceDecision, GlanceInput } from "../glance.js"
+import { phasePrompt } from "../requests.js"
 import {
   type Assistant,
   chainCap,
@@ -32,17 +32,23 @@ const editPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-all-01-oth-round.md`
-const brief = `${repoRoot}/example-all-01-oul-brief.md`
-const ruling = `${repoRoot}/example-all-01-abx-ruling.md`
-const watch = `${repoRoot}/example-all-01-abx-watch.md`
+const transcript = `${repoRoot}/example-all-01-0-round.oth.md`
+const brief = `${repoRoot}/example-all-01-5-brief.oul.md`
+const ruling = `${repoRoot}/example-all-01-6-ruling.abx.md`
+const watch = `${repoRoot}/example-all-01-8-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 /** What every round input carries beyond the plan and the auditor. */
 const files = {
   ...testContext(repoRoot),
   transcript,
   watch: { file: watch, cacheRoot },
-  nameStart: "example-all-01",
+  documents: {
+    report: `${repoRoot}/AUDIT-example.md`,
+    vet: "/distinct-twins/VET-example.md",
+    rebut: "/distinct-twins/REBUT-example.md",
+    brief,
+    ruling,
+  },
 }
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
 /** Every phase in order, including the two the fix's open item adds. */
@@ -67,7 +73,6 @@ const endings: readonly (readonly [
 const spaciousContext = { tokens: 100_000, window: 258_000 }
 
 function controlledRound(
-  report = `${repoRoot}/AUDIT-example.md`,
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
   const calls: PhaseInput[] = []
@@ -80,50 +85,42 @@ function controlledRound(
     audit: {
       status: "finished",
       sessionId: "audit-session",
-      file: report,
       context: spaciousContext,
     },
     vet: {
       status: "finished",
       sessionId: "vet-session",
-      file: "/distinct-twins/VET-example.md",
       context: null,
     },
     rebut: {
       status: "finished",
       sessionId: "audit-session",
-      file: "/distinct-twins/REBUT-example.md",
       context: null,
     },
     fix: { status: "finished", sessionId: "fix-session" },
     brief: {
       status: "finished",
       sessionId: "brief-session",
-      file: brief,
       context: null,
     },
     rule: {
       status: "finished",
       sessionId: "rule-session",
-      file: ruling,
       context: null,
     },
     "rule-edit": {
       status: "finished",
       sessionId: "rule-edit-session",
-      file: ruling,
       context: null,
     },
     "watch-edit": {
       status: "finished",
       sessionId: "watch-edit-session",
-      file: watch,
       context: null,
     },
     watch: {
       status: "finished",
       sessionId: "watch-session",
-      file: watch,
       context: null,
     },
   }
@@ -137,10 +134,14 @@ function controlledRound(
     subjects: ["example/impl-audit-all oth clean: settled"],
   }
   const dependencies: RoundDependencies = {
+    checkFile: async () => {},
     completeClean: async (input) => {
       completions.push(input)
     },
-    readReport: async () => evidence.findings,
+    readReport: async () => ({
+      findings: evidence.findings,
+      judgedRepos: ["repo-edu"],
+    }),
     readVet: async () => evidence.accepted,
     readHead: async (root) => `before-${root}`,
     readSubjects: async (root) => (root === repoRoot ? evidence.subjects : []),
@@ -212,6 +213,38 @@ const dueDecision: GlanceDecision = {
   text: "An area reached the amber limit of 2 (rule 3).",
 }
 
+for (const [ending, sequence] of endings) {
+  for (const phase of sequence.filter((phase) => phase !== "fix")) {
+    test(`missing output stops ${phase} before the next phase on the ${ending} route`, async () => {
+      const round = controlledRound()
+      arrange(round, ending)
+      const result = await runRound(
+        { ...files, plan: "example.md" },
+        {
+          ...round.dependencies,
+          async checkFile(file) {
+            const call = round.calls.at(-1)
+            if (call?.phase === phase)
+              throw new Error(`Missing output: ${file}`)
+          },
+        },
+      )
+      assert.equal(result.status, "failed")
+      if (result.status !== "failed") return
+      assert.equal(result.phase, phase)
+      assert.equal(
+        result.sessionId,
+        phase === "rebut" ? "audit-session" : `${phase}-session`,
+      )
+      assert.deepEqual(
+        round.calls.map((call) => call.phase),
+        sequence.slice(0, sequence.indexOf(phase) + 1),
+      )
+      assert.deepEqual(round.handover, [])
+    })
+  }
+}
+
 type ControlledRound = ReturnType<typeof controlledRound>
 
 /** Sends a controlled round down one of the two paths past its brief. */
@@ -239,13 +272,14 @@ for (const auditor of ["claude", "codex"] as const) {
   const vetAssistant: Assistant = auditor === "claude" ? "codex" : "claude"
 
   for (const ownerRoot of [repoRoot, "/workspace/plan"]) {
-    test(`${auditor} audits with later phases following the report in ${ownerRoot}`, async () => {
-      const report = `${ownerRoot}/AUDIT-example.md`
-      const round = controlledRound(report)
+    test(`${auditor} audit uses the invoking launchers at ${ownerRoot}`, async () => {
+      const report = files.documents.report
+      const round = controlledRound()
 
       const result = await runRound(
         {
           ...files,
+          cwd: ownerRoot,
           plan: "../plan/example.md",
           scope: "2-3",
           auditor,
@@ -260,8 +294,8 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: auditor,
           model: unpinned,
           ...testContext(repoRoot),
-          ownerRoot: repoRoot,
-          arguments: [files.nameStart, "../plan/example.md", "2-3"],
+          cwd: ownerRoot,
+          arguments: [files.documents.report, "../plan/example.md", "2-3"],
           sessionId: null,
         },
         {
@@ -269,8 +303,8 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: vetAssistant,
           model: unpinned,
           ...testContext(repoRoot),
-          ownerRoot,
-          arguments: [report],
+          cwd: ownerRoot,
+          arguments: [report, files.documents.vet],
           sessionId: null,
         },
         {
@@ -278,8 +312,8 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: auditor,
           model: unpinned,
           ...testContext(repoRoot),
-          ownerRoot,
-          arguments: [report],
+          cwd: ownerRoot,
+          arguments: [report, files.documents.vet, files.documents.rebut],
           sessionId: "audit-session",
         },
         {
@@ -287,8 +321,8 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: "codex",
           model: unpinned,
           ...testContext(repoRoot),
-          ownerRoot,
-          arguments: [report],
+          cwd: ownerRoot,
+          arguments: [report, files.documents.vet, files.documents.rebut],
           sessionId: null,
         },
         {
@@ -296,15 +330,24 @@ for (const auditor of ["claude", "codex"] as const) {
           assistant: "codex",
           model: briefPin,
           ...testContext(repoRoot),
-          ownerRoot: repoRoot,
-          arguments: [transcript],
+          cwd: ownerRoot,
+          arguments: [transcript, brief],
           sessionId: null,
         },
       ])
       // The glance reads the invoking repository's record, never the report's.
       assert.deepEqual(round.glances, [
-        { cwd: repoRoot, repository: "repo-edu", cacheRoot },
+        { cwd: ownerRoot, repository: "repo-edu", cacheRoot },
       ])
+      for (const call of round.calls) {
+        const root = call.phase === "brief" ? repoRoot : ownerRoot
+        assert.ok(
+          phasePrompt(call).includes(
+            "Resolve the launcher's workflow paths from its owning repository: " +
+              root,
+          ),
+        )
+      }
       assert.deepEqual(round.handover, [])
     })
   }
@@ -340,8 +383,7 @@ for (const auditor of ["claude", "codex"] as const) {
         assistant: "claude",
         model: unpinned,
         ...testContext(repoRoot),
-        ownerRoot: repoRoot,
-        arguments: [transcript, report],
+        arguments: [transcript, report, ruling],
         sessionId: null,
       },
       {
@@ -349,7 +391,6 @@ for (const auditor of ["claude", "codex"] as const) {
         assistant: "codex",
         model: editPin,
         ...testContext(repoRoot),
-        ownerRoot: repoRoot,
         arguments: [ruling, transcript, report],
         sessionId: null,
       },
@@ -426,7 +467,6 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
       assistant: "codex",
       model: unpinned,
       ...testContext(repoRoot),
-      ownerRoot: repoRoot,
       arguments: [watch, cacheRoot],
       sessionId: null,
     },
@@ -435,7 +475,6 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
       assistant: "codex",
       model: editPin,
       ...testContext(repoRoot),
-      ownerRoot: repoRoot,
       arguments: [watch],
       sessionId: null,
     },
@@ -458,7 +497,7 @@ test("a round that hands over runs no watch, because its work has not landed", a
 })
 
 test("a planning round glances at the plan repository's record from its own root", async () => {
-  const round = controlledRound("/workspace/plan/AUDIT-example.md")
+  const round = controlledRound()
   const planning = testContext(repoRoot, "planning")
 
   await runRound(
@@ -520,7 +559,7 @@ test("defaults to Codex and preserves plan arguments as data without inventing a
   await runRound({ ...files, plan }, round.dependencies)
 
   assert.equal(round.calls[0].assistant, "codex")
-  assert.deepEqual(round.calls[0].arguments, [files.nameStart, plan])
+  assert.deepEqual(round.calls[0].arguments, [files.documents.report, plan])
 })
 
 for (const ruling of [false, true]) {
@@ -532,7 +571,10 @@ for (const ruling of [false, true]) {
     const result = await runRound({ ...files, commits }, round.dependencies)
     assert.equal(result.status, ruling ? "handed-over" : "finished")
     assert.deepEqual(round.glances, [])
-    assert.deepEqual(round.calls[0].arguments, [files.nameStart, ...commits])
+    assert.deepEqual(round.calls[0].arguments, [
+      files.documents.report,
+      ...commits,
+    ])
     assert.deepEqual(
       round.calls.map((call) => call.phase),
       ruling ? rulingPhases : phases,
@@ -565,7 +607,7 @@ for (const [ending, sequence] of endings) {
   for (const phase of sequence) {
     test(`does not start another phase or retry when ${phase} rejects before a ${ending}`, async () => {
       const failure = new Error("Required run-file write failed")
-      const round = controlledRound(undefined, async (input) => {
+      const round = controlledRound(async (input) => {
         if (input.phase === phase) throw failure
       })
       arrange(round, ending)
@@ -589,7 +631,7 @@ for (const [ending, sequence] of endings) {
   }, async () => {
     const entered = sequence.map(() => Promise.withResolvers<void>())
     const release = sequence.map(() => Promise.withResolvers<void>())
-    const round = controlledRound(undefined, async (input) => {
+    const round = controlledRound(async (input) => {
       const index = sequence.indexOf(input.phase)
       entered[index].resolve()
       await release[index].promise
@@ -654,7 +696,6 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
   round.results.audit = {
     status: "finished",
     sessionId: "audit-session",
-    file: `${repoRoot}/AUDIT-example.md`,
     context: { tokens: 228_000, window: 258_000 },
   }
 
@@ -671,12 +712,11 @@ test("the rebuttal answers fresh when the audit leaves no room before compaction
 
 for (const auditor of ["claude", "codex"] as const) {
   test(`a clean ${auditor} audit completes without another assistant even when watch is due`, async () => {
-    const report = "/workspace/plan/AUDIT-example.md"
-    const round = controlledRound(report)
+    const report = files.documents.report
+    const round = controlledRound()
     round.results.audit = {
       status: "finished",
       sessionId: "audit-session",
-      file: report,
       context: spaciousContext,
     }
 
@@ -693,7 +733,13 @@ for (const auditor of ["claude", "codex"] as const) {
       ["audit"],
     )
     assert.deepEqual(round.completions, [
-      { ...files, plan: "../plan/example.md", auditor, report },
+      {
+        ...files,
+        plan: "../plan/example.md",
+        auditor,
+        report,
+        judgedRepos: ["repo-edu"],
+      },
     ])
     assert.deepEqual(round.glances, [])
     assert.deepEqual(round.handover, [])
@@ -726,12 +772,11 @@ test("failed clean bookkeeping stops the round without a fictitious fix session"
 
 for (const auditor of ["claude", "codex"] as const) {
   test(`a vet that accepts every ${auditor} finding skips the rebuttal on the way to the fix`, async () => {
-    const report = "/workspace/plan/AUDIT-example.md"
-    const round = controlledRound(report)
+    const report = files.documents.report
+    const round = controlledRound()
     round.results.vet = {
       status: "finished",
       sessionId: "vet-session",
-      file: "/workspace/plan/VET-example.md",
       context: null,
     }
     round.results.fix = {
@@ -759,8 +804,7 @@ for (const auditor of ["claude", "codex"] as const) {
       assistant: "codex",
       model: unpinned,
       ...testContext(repoRoot),
-      ownerRoot: "/workspace/plan",
-      arguments: [report],
+      arguments: [report, files.documents.vet],
       sessionId: null,
     })
     assert.deepEqual(round.handover, [])
@@ -821,7 +865,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
   const round = controlledRound()
 
   const result = await runBrief(
-    { ...testContext(repoRoot), transcript },
+    { ...testContext(repoRoot), transcript, brief },
     round.dependencies,
   )
 
@@ -832,8 +876,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
       assistant: "codex",
       model: briefPin,
       ...testContext(repoRoot),
-      ownerRoot: repoRoot,
-      arguments: [transcript],
+      arguments: [transcript, brief],
       sessionId: null,
     },
   ])
@@ -887,7 +930,7 @@ test("a chain still finding A or B ends at the cap without crossing over", () =>
   )
 })
 
-test("the round reads each returned file and records both heads immediately before the fix", async () => {
+test("the round reads each supplied file and records both heads immediately before the fix", async () => {
   const round = controlledRound()
   const reads: unknown[] = []
   const result = await runRound(
@@ -896,7 +939,7 @@ test("the round reads each returned file and records both heads immediately befo
       ...round.dependencies,
       async readReport(file, kind) {
         reads.push([file, kind])
-        return [1, 2]
+        return { findings: [1, 2], judgedRepos: ["repo-edu"] }
       },
       async readVet(file, findings) {
         reads.push([file, findings])

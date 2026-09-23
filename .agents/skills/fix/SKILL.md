@@ -1,6 +1,6 @@
 ---
 name: fix
-description: Run the fix phase of an implementation-audit round on Repo Edu code from its report file, under the simple-words requirement. Use when the user invokes `$fix` from the Repo Edu working directory, with or without a report file, or asks to apply and land an implementation audit's findings.
+description: Run the fix phase of an implementation-audit round on Repo Edu code from its report file, under the simple-words requirement. Use when the user invokes `$fix` from the Repo Edu working directory, with the phase's report and twin paths, or asks to apply and land an implementation audit's findings.
 ---
 
 # Fix

@@ -1,12 +1,5 @@
 import assert from "node:assert/strict"
-import {
-  mkdir,
-  readdir,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises"
+import { mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
@@ -40,7 +33,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
     0,
   )
   const { log, transcript } = await f.records()
-  assert.ok(transcript.endsWith("-aul-round.md"))
+  assert.ok(transcript.endsWith("-0-round.aul.md"))
   assert.match(log, /audit +claude +chosen-auditor low +settings\.json/)
   assert.match(log, /watch +codex +chosen-watch medium +settings\.json/)
   assert.match(
@@ -54,7 +47,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
   )
   assert.ok(watchCall.args.includes("chosen-watch"))
   assert.ok(watchCall.args.includes("model_reasoning_effort=medium"))
-  assert.ok(watchCall.args.at(-1).includes("-otm-watch.md"))
+  assert.ok(watchCall.args.at(-1).includes("-8-watch.otm.md"))
 })
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -62,7 +55,7 @@ for (const auditor of ["claude", "codex"] as const) {
     for (const ruling of [false, true]) {
       test(`command runs ${auditor} audit, ${owner} routing and ${ruling ? "ruling" : "completion"}`, async (t) => {
         const f = await roundFixture(t, auditor, owner, ruling)
-        const { repoRoot, brief } = f
+        const { repoRoot } = f
         const argv = [
           "example.md",
           "2-3",
@@ -112,9 +105,9 @@ for (const auditor of ["claude", "codex"] as const) {
         const stamps = {
           phases:
             auditor === "codex"
-              ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
-          auditor: auditor === "codex" ? "otx" : "ath",
+              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+          auditor: auditor === "codex" ? "oth" : "ath",
         }
         assert.deepEqual(
           {
@@ -131,8 +124,8 @@ for (const auditor of ["claude", "codex"] as const) {
               ...stamps,
               phases:
                 auditor === "codex"
-                  ? "audit, rebut, fix: gpt-6-astra xhigh\nvet: claude-fable-5-1 high"
-                  : "audit, rebut: claude-fable-5-1 high\nvet, fix: gpt-6-astra xhigh",
+                  ? "audit, rebut, fix: gpt-6-astra high\nvet: claude-fable-5-1 high"
+                  : "audit, rebut: claude-fable-5-1 high\nvet, fix: gpt-6-astra high",
             },
           )
         }
@@ -169,25 +162,27 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.ok(visible.includes("Complete brief text."))
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ["example-steps-2-3-01","example.md","2-3"]`,
+            `Phase arguments (JSON array): ${JSON.stringify([f.report, "example.md", "2-3"])}`,
           ),
         )
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
           ),
         )
         assert.ok(log.includes(join(repoRoot, ".agents/skills/brief/SKILL.md")))
-        assert.ok(log.includes(`[brief] finished: ${brief}`))
-        assert.equal(
-          log.split(
-            `Phase arguments (JSON array): ${JSON.stringify([f.report])}`,
-          ).length - 1,
-          3,
-        )
-        assert.ok(
-          log.includes(join(f.root, owner, ".agents/skills/fix/SKILL.md")),
-        )
+        assert.ok(log.includes(`[brief] finished`))
+        for (const args of [
+          [f.report, f.vet],
+          [f.report, f.vet, f.rebut],
+        ]) {
+          assert.ok(
+            log.includes(
+              `Phase arguments (JSON array): ${JSON.stringify(args)}`,
+            ),
+          )
+        }
+        assert.ok(log.includes(join(repoRoot, ".agents/skills/fix/SKILL.md")))
         assert.match(log, /audit-round-probe-error/)
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
@@ -206,7 +201,7 @@ for (const auditor of ["claude", "codex"] as const) {
           )
           assert.ok(
             log.includes(
-              `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report])}`,
+              `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report, f.ruling])}`,
             ),
           )
           // The edit pass is given the draft and the sources the ruling grounds in.
@@ -219,7 +214,7 @@ for (const auditor of ["claude", "codex"] as const) {
               ])}`,
             ),
           )
-          assert.ok(log.includes(`[rule-edit] finished: ${f.ruling}`))
+          assert.ok(log.includes(`[rule-edit] finished`))
           // Both ruling passes retell the round, so neither enters the transcript.
           for (const phase of ["rule", "rule-edit"] as const) {
             assert.equal(markdown.includes(`## ${phase} (`), false)
@@ -274,13 +269,13 @@ for (const auditor of ["claude", "codex"] as const) {
     assert.match(
       commit,
       new RegExp(
-        `^example/impl-audit-2-3 ${auditor === "codex" ? "otx" : "ath"} clean:`,
+        `^example/impl-audit-2-3 ${auditor === "codex" ? "oth" : "ath"} clean:`,
       ),
     )
     assert.ok(
       commit.includes(
         auditor === "codex"
-          ? "audit: gpt-6-astra xhigh"
+          ? "audit: gpt-6-astra high"
           : "audit: claude-fable-5-1 high",
       ),
     )
@@ -337,13 +332,19 @@ for (const auditor of ["claude", "codex"] as const) {
       {
         phases:
           auditor === "codex"
-            ? "audit: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-            : "audit: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
-        auditor: auditor === "codex" ? "otx" : "ath",
+            ? "audit: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+            : "audit: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "oth" : "ath",
       },
     )
     const { log, markdown } = await f.records()
     assert.doesNotMatch(log, /\[rebut\] starting/)
+    const files = await readdir(f.repoRoot)
+    assert.equal(
+      files.some((name) => name.includes("-3-rebut.")),
+      false,
+    )
+    assert.ok(files.includes("example-steps-2-3-01-5-brief.oul.md"))
     for (const phase of ["audit", "vet", "fix"] as const)
       assert.ok(markdown.includes(`## ${phase} (`))
     assert.equal(markdown.includes("## rebut ("), false)
@@ -559,9 +560,9 @@ for (const auditor of ["codex", "claude"] as const) {
       {
         phases:
           auditor === "codex"
-            ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-            : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
-        auditor: auditor === "codex" ? "otx" : "ath",
+            ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+            : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+        auditor: auditor === "codex" ? "oth" : "ath",
       },
     )
   })
@@ -651,7 +652,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log, markdown, transcript } = await f.records()
     assert.ok(
       log.includes(
-        `Phase arguments (JSON array): ${JSON.stringify([auditor === "codex" ? `${head}-2..${head}-01` : `${head}-1-plus-1-01`, ...commits])}`,
+        `Phase arguments (JSON array): ${JSON.stringify([f.report, ...commits])}`,
       ),
     )
     assert.ok(
@@ -673,11 +674,11 @@ for (const auditor of ["codex", "claude"] as const) {
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
-  const transcript = join(f.repoRoot, "example-step-7-01-abx-round.md")
+  const transcript = join(f.repoRoot, "example-step-7-01-0-round.abx.md")
   await writeFile(transcript, "# Audit round of implementation example.md 7\n")
   assert.equal(
     await runCommand(
-      ["brief", "example-step-7-01-abx-round.md"],
+      ["brief", "example-step-7-01-0-round.abx.md"],
       f.runtime,
       f.options,
     ),
@@ -698,16 +699,20 @@ test("a brief on its own retells the named transcript without a new round pair",
     name.startsWith("example-step-7-01-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
-  assert.match(logName, /^example-step-7-01-oul-brief\.log$/)
+  assert.match(logName, /^example-step-7-01-5-brief\.oul\.log$/)
   assert.deepEqual(
     names.toSorted(),
-    [logName, "example-step-7-01-abx-round.md"].toSorted(),
+    [
+      logName,
+      "example-step-7-01-0-round.abx.md",
+      "example-step-7-01-5-brief.oul.md",
+    ].toSorted(),
   )
   const log = await readFile(join(f.repoRoot, logName), "utf8")
-  assert.match(log, /Brief of example-step-7-01-abx-round\.md\n/)
+  assert.match(log, /Brief of example-step-7-01-0-round\.abx\.md\n/)
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
+      `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
     ),
   )
   assert.match(log, /brief +codex +gpt-5\.6-terra low/)
@@ -731,7 +736,7 @@ test("a plan named without its extension runs as its .md file", async (t) => {
   const { log } = await f.records()
   assert.ok(
     log.includes(
-      `Phase arguments (JSON array): ["example-steps-2-3-01","example.md","2-3"]`,
+      `Phase arguments (JSON array): ${JSON.stringify([f.report, "example.md", "2-3"])}`,
     ),
   )
 })
@@ -751,7 +756,7 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
   const f = await roundFixture(t)
   await writeFile(join(f.repoRoot, "ROUND-example-old.md"), "Old transcript")
   await writeFile(
-    join(f.repoRoot, "../plan/example-01-oth-round.md"),
+    join(f.repoRoot, "../plan/example-01-0-round.oth.md"),
     "Peer transcript",
   )
   for (const name of [
@@ -762,7 +767,7 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
     assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
     assert.match(
       f.errors.at(-1) as string,
-      /Name a round's \*-round\.md transcript/,
+      /Name a round's \*-0-round\.<tag>\.md transcript/,
     )
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -779,12 +784,12 @@ test("a chained run repeats the auditor while the fix records a B finding", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-step-3-01-ouh-round.log",
-    "example-step-3-01-ouh-round.md",
-    "example-step-3-02-ouh-round.log",
-    "example-step-3-02-ouh-round.md",
-    "example-step-3-03-ouh-round.log",
-    "example-step-3-03-ouh-round.md",
+    "example-step-3-01-0-round.ouh.log",
+    "example-step-3-01-0-round.ouh.md",
+    "example-step-3-02-0-round.ouh.log",
+    "example-step-3-02-0-round.ouh.md",
+    "example-step-3-03-0-round.ouh.log",
+    "example-step-3-03-0-round.ouh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -833,10 +838,10 @@ test("a chained run crosses to the other assistant once the fix records a clean 
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-all-01-ouh-round.log",
-    "example-all-01-ouh-round.md",
-    "example-all-02-auh-round.log",
-    "example-all-02-auh-round.md",
+    "example-all-01-0-round.ouh.log",
+    "example-all-01-0-round.ouh.md",
+    "example-all-02-0-round.auh.log",
+    "example-all-02-0-round.auh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(
@@ -855,7 +860,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const watch = transcript.replace(/-ouh-round\.md$/, "-ouh-watch.md")
+  const watch = transcript.replace(/-0-round\.ouh\.md$/, "-8-watch.ouh.md")
   assert.match(
     log,
     /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
@@ -873,7 +878,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   assert.ok(
     log.includes(`Phase arguments (JSON array): ${JSON.stringify([f.watch])}`),
   )
-  assert.ok(log.includes(`[watch-edit] finished: ${f.watch}`))
+  assert.ok(log.includes(`[watch-edit] finished`))
   // The watch follows the round it grades, so none of its text enters the transcript.
   assert.equal(markdown.includes("## watch ("), false)
   assert.ok(f.visible.join("\n").includes("Complete watch text."))
@@ -916,7 +921,7 @@ test("an unchained run claims its round number and says nothing about a chain", 
   const names = await f.roundFiles()
   assert.equal(names.length, 2)
   assert.ok(
-    names.every((name) => name.startsWith("example-step-3-01-ouh-round.")),
+    names.every((name) => name.startsWith("example-step-3-01-0-round.ouh.")),
   )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
 })
@@ -947,13 +952,13 @@ for (const auditor of ["codex", "claude"] as const) {
         transcript,
         join(
           f.planRoot,
-          `example-01-${auditor === "codex" ? "ouh" : "auh"}-round.md`,
+          `example-01-0-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
         ),
       )
       assert.match(log, /Audit round of plan example-widen\.md/)
       assert.ok(
         log.includes(
-          `Phase arguments (JSON array): ${JSON.stringify(["example-01", "example-widen.md"])}`,
+          `Phase arguments (JSON array): ${JSON.stringify([f.report, "example-widen.md"])}`,
         ),
       )
       const calls = await f.calls()
@@ -991,9 +996,9 @@ for (const auditor of ["codex", "claude"] as const) {
         {
           phases:
             auditor === "codex"
-              ? "audit, rebut: gpt-6-astra xhigh\nvet: claude-fable-5-1 high\nfix: chosen-model high"
-              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra xhigh\nfix: chosen-model high",
-          auditor: auditor === "codex" ? "otx" : "ath",
+              ? "audit, rebut: gpt-6-astra high\nvet: claude-fable-5-1 high\nfix: chosen-model high"
+              : "audit, rebut: claude-fable-5-1 high\nvet: gpt-6-astra high\nfix: chosen-model high",
+          auditor: auditor === "codex" ? "oth" : "ath",
         },
       )
       if (ruling) {
@@ -1013,7 +1018,7 @@ for (const auditor of ["codex", "claude"] as const) {
       }
       assert.equal(
         (await readdir(f.repoRoot)).some((name) =>
-          /-(round|claim)\.(md|log)$/.test(name),
+          /-(?:0-round\.[ao][btu][lmhx]\.(?:md|log)|claim\.md)$/.test(name),
         ),
         false,
       )
@@ -1056,19 +1061,19 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       const outputRoot = owner === "plan" ? f.planRoot : f.repoRoot
-      const transcript = join(outputRoot, "example-01-oth-round.md")
+      const transcript = join(outputRoot, "example-01-0-round.oth.md")
       await writeFile(transcript, "# Planning round\n")
       const argument =
         working === owner
-          ? "example-01-oth-round.md"
-          : `../${owner}/example-01-oth-round.md`
+          ? "example-01-0-round.oth.md"
+          : `../${owner}/example-01-0-round.oth.md`
       assert.equal(
         await runCommand(["brief", argument], f.runtime, f.options),
         0,
         f.errors.join("\n"),
       )
       const log = await readFile(
-        join(outputRoot, "example-01-oul-brief.log"),
+        join(outputRoot, "example-01-5-brief.oul.log"),
         "utf8",
       )
       assert.ok(
@@ -1079,7 +1084,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       assert.ok(log.includes(join(f.repoRoot, ".agents/skills/brief/SKILL.md")))
       assert.ok(
         log.includes(
-          `Phase arguments (JSON array): ${JSON.stringify([transcript])}`,
+          `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
         ),
       )
       for (const call of await f.calls()) assert.equal(call.cwd, f.runtime.cwd)
@@ -1123,8 +1128,13 @@ for (const phase of ["audit", "vet"] as const) {
       const f = await roundFixture(t)
       const file =
         phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
-      if (missing) await rm(file)
-      else await writeFile(file, "Malformed evidence")
+      if (missing) {
+        f.phases[phase] = {
+          ...(f.phases[phase] as object),
+          document: undefined,
+        }
+        await f.configure({ phases: f.phases })
+      } else await writeFile(file, "Malformed evidence")
       assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
       const { log } = await f.records()
       assert.ok(log.includes(`[${phase}] failed:`))
@@ -1132,6 +1142,33 @@ for (const phase of ["audit", "vet"] as const) {
       assert.doesNotMatch(log, /\[fix\] starting/)
     })
   }
+}
+
+for (const phase of [
+  "audit",
+  "vet",
+  "rebut",
+  "brief",
+  "rule",
+  "rule-edit",
+  "watch",
+  "watch-edit",
+] as const) {
+  test(`an empty ${phase} output cannot complete its phase`, async (t) => {
+    const ruling = phase === "rule" || phase === "rule-edit"
+    const f = await roundFixture(t, "codex", "repo-edu", ruling, null, !ruling)
+    f.phases[phase] = {
+      ...(f.phases[phase] as object),
+      document: { text: " \n" },
+    }
+    await f.configure({ phases: f.phases })
+    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    const { log } = await f.records()
+    assert.ok(log.includes(`[${phase}] failed: Phase output is empty:`))
+    assert.ok(
+      log.includes(`Session: ${phase === "rebut" ? "audit" : phase}-session`),
+    )
+  })
 }
 
 test("a finished fix with no actual commit cannot complete a plan round with findings", async (t) => {
@@ -1151,7 +1188,7 @@ test("a failed planning audit retains its root and recovery session without star
       audit: {
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","file":null,"reason":"Premise conflict"}',
+          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","reason":"Premise conflict"}',
           "audit-session",
         ),
       },

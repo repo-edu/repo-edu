@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readdirSync } from "node:fs"
 import { mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { TestContext } from "node:test"
@@ -105,24 +106,20 @@ export async function roundFixture(
       },
     }),
   )
-  const report = join(f.root, owner, "AUDIT-example.md")
+  const report = join(outputRoot, "audit-source.md")
   const finding = (location: string) =>
     `1. **B: Fixture finding**\n   Correct the fixture.\n   ${location} [growth:none] [reach:developer] [complexity:none]\n`
   await writeFile(
     report,
-    working === "plan"
-      ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
-      : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`,
+    `Judged repos: ${owner}@${heads[owner]}\n\n` +
+      (working === "plan"
+        ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
+        : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`),
   )
   await writeFile(
     join(f.root, owner, "VET-example.md"),
-    accepted
-      ? "1. [B] Accept\nunique\n"
-      : "1. [B] Revise\nCheck the correction.\n",
+    accepted ? "1. [B] Accept\n" : "1. [B] Revise\nCheck the correction.\n",
   )
-  const brief = join(outputRoot, "ROUND-example-brief.md")
-  const rulingFile = join(outputRoot, "ROUND-example-ruling.md")
-  const watchFile = join(outputRoot, "ROUND-example-watch.md")
   const phases: Record<string, unknown> = {}
   for (const phase of [
     "audit",
@@ -151,21 +148,17 @@ export async function roundFixture(
             : "codex"
           : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
-    const file =
-      phase === "fix"
-        ? null
-        : phase === "audit"
-          ? report
-          : phase === "brief"
-            ? brief
-            : phase === "rule" || phase === "rule-edit"
-              ? rulingFile
-              : phase === "watch" || phase === "watch-edit"
-                ? watchFile
-                : join(f.root, owner, `${phase.toUpperCase()}-example.md`)
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
-    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, file, reason: null })}`
+    const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {
+      document:
+        phase === "audit"
+          ? { source: report }
+          : phase === "vet"
+            ? { source: join(f.root, owner, "VET-example.md") }
+            : phase === "fix"
+              ? undefined
+              : { text: `Written ${phase}` },
       commits:
         phase === "fix" && !ruling
           ? [
@@ -214,7 +207,9 @@ export async function roundFixture(
     cacheRoot,
   }
   const roundFiles = async () =>
-    (await readdir(outputRoot)).filter((name) => /-round\.(md|log)$/.test(name))
+    (await readdir(outputRoot)).filter((name) =>
+      /-0-round\.[ao][btu][lmhx]\.(md|log)$/.test(name),
+    )
   const records = async () => {
     const names = await roundFiles()
     assert.equal(names.length, 2)
@@ -229,13 +224,35 @@ export async function roundFixture(
     const markdown = await readFile(transcript, "utf8")
     return { log, markdown, transcript }
   }
+  const document = (kind: string, fallback: string) => {
+    for (const root of [
+      outputRoot,
+      outputRoot === repoRoot ? planRoot : repoRoot,
+    ]) {
+      const name = readdirSync(root).find(
+        (name) => name.includes(`-${kind}.`) && name.endsWith(".md"),
+      )
+      if (name !== undefined) return join(root, name)
+    }
+    return fallback
+  }
   return {
     ...f,
     repoRoot,
     planRoot,
     heads,
-    report,
-    brief,
+    get report() {
+      return document("audit", report)
+    },
+    get brief() {
+      return document("brief", "")
+    },
+    get vet() {
+      return document("vet", "")
+    },
+    get rebut() {
+      return document("rebut", "")
+    },
     phases,
     visible,
     errors,
@@ -244,8 +261,12 @@ export async function roundFixture(
     options,
     records,
     roundFiles,
-    ruling: rulingFile,
-    watch: watchFile,
+    get ruling() {
+      return document("ruling", "")
+    },
+    get watch() {
+      return document("watch", "")
+    },
     runtime: { ...f.runtime, cwd: outputRoot },
   }
 }

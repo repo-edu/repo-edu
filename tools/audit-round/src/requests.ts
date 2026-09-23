@@ -1,12 +1,8 @@
 import { join as joinPath } from "node:path"
 import { join as shellJoin } from "shellwords"
 import { peerRoot } from "./context.js"
-import type {
-  InteractiveSession,
-  Phase,
-  PhaseInput,
-  PinnedModel,
-} from "./phase.js"
+import type { InteractiveSession, PhaseInput, PinnedModel } from "./phase.js"
+import { phaseOwnerRoot } from "./phase.js"
 
 export const claudeSettingsRequest = {
   type: "control_request",
@@ -94,7 +90,8 @@ export function recoveryCommand(session: InteractiveSession): string {
 }
 
 export function phasePrompt(input: PhaseInput): string {
-  const { phase, ownerRoot, assistant, repoEduRoot, cwd } = input
+  const { phase, assistant, repoEduRoot, cwd } = input
+  const ownerRoot = phaseOwnerRoot(input)
   const launcher =
     assistant === "claude"
       ? joinPath(ownerRoot, ".claude", "commands", `${phase}.md`)

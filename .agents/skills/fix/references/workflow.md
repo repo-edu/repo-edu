@@ -38,19 +38,11 @@ and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
 
 ## Report discovery
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
-file names, writer tags and twin matching. Read the judged repos and each
-repo's short audited `HEAD` from the report opening, never from its filename
-or location. If that opening is missing or ambiguous, ask before applying
-corrections. The opening selects the repos whose records this fix lands.
+Read the supplied report path followed by the vet and rebuttal paths that exist; the judged-repos
+opening selects the repo set and audited heads, and the report filename's writer tag identifies the
+auditor.
 
-When the invocation names a report file, land that file. When it names
-nothing, list `*-audit.md` at this repo's root. One file means land it. More
-than one means name them, each with the twins it has, and ask which to land.
-None means ask for the report and wait. Either assistant may land a report:
-the tag's vendor letter says who audited, not who fixes it.
-
-The round's file set is the report and its matched vet and rebuttal twins, when
+The round's file set is the report and its supplied vet and rebuttal twins, when
 they exist. This workflow reads that set, lands it and deletes it under
 [Closing the report](#closing-the-report). It never deletes or rewrites a
 file outside the set it lands. The user directed this after a session on
@@ -63,7 +55,7 @@ says to.
 
 ## Grounding
 
-Read the report end to end, then its matched vet and rebuttal twins when
+Read the report end to end, then its supplied vet and rebuttal twins when
 they exist. Read the plan in `../plan` for the steps the report's scope names
 and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
@@ -227,14 +219,14 @@ bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 A finding deferred from a Repo Edu-only round to the plan repo uses the body form in this repo's
 `CLAUDE.md`; it keeps its tier, plan location and metadata in the same round commit. A plan-repo
 round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
-record, at the root that holds the report: the repo a single-repo round judged, or the repo where a
-both-repo round started. Its subject carries the auditor and the step scope, and its sentence names
-the repo set when the round judged both. Direct automated clean completion retains the report with
-its repo set instead and creates no fix session, under the audit workflow's **Runner result** rule.
-The user directed the single placement on 2026-09-21, after three plan-repo clean records stood for
-rounds whose fixes touched only Repo Edu. When the user declines the outcome in full, no commit
-lands because disagreement is not a state. The logs show every confirmed round that ran, including
-clean rounds that would otherwise exist only in chat.
+record, in the sole judged repo or at the invoking root when both repos were judged. Its subject
+carries the auditor and the step scope, and its sentence names the repo set when the round judged
+both. Direct automated clean completion retains the report with its repo set instead and creates no
+fix session, under the audit workflow's **Runner result** rule. The user directed the single
+placement on 2026-09-21, after three plan-repo clean records stood for rounds whose fixes touched
+only Repo Edu. When the user declines the outcome in full, no commit lands because disagreement is
+not a state. The logs show every confirmed round that ran, including clean rounds that would
+otherwise exist only in chat.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed
@@ -243,15 +235,14 @@ round's file set still asks.
 ## Closing the report
 
 The turn that lands the round's records deletes the landed report and its
-matched vet and rebuttal twins: the commit bodies carry the accepted findings
+supplied vet and rebuttal twins: the commit bodies carry the accepted findings
 durably, and a report left behind goes stale against the moved HEAD. The
 twins are the two assistants' exchange on this report and are consumed with
 it. No other report or twin at the root is touched, under
 [Report discovery](#report-discovery).
 
 An unattended fix reports `finished` only after all required corrections,
-checks, records and report cleanup are complete. Its result has `file: null`
-under the audit workflow's
+checks, records and report cleanup are complete. It reports completion under the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result). The runner
 reads the landed commits in both repos to derive the grade for chaining.
 Remaining required work means the phase has not finished, even when some

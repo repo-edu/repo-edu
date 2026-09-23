@@ -56,7 +56,7 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.match(
         message,
         new RegExp(
-          `^example/${working === "plan" ? "audit" : "impl-audit-2-3"} otx clean:`,
+          `^example/${working === "plan" ? "audit" : "impl-audit-2-3"} oth clean:`,
         ),
       )
       assert.equal(
@@ -73,6 +73,13 @@ for (const working of ["plan", "repo-edu"] as const) {
         owner === "repo-edu",
       )
       assert.equal(await readFile(f.report, "utf8"), report)
+      assert.ok(f.report.startsWith(`${f.runtime.cwd}/`))
+      const peer = owner === "plan" ? f.repoRoot : f.planRoot
+      assert.equal(
+        (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: peer }))
+          .stdout,
+        f.heads[owner === "plan" ? "repo-edu" : "plan"],
+      )
       assert.equal(await readFile(handoff, "utf8"), "Prior reasoning\n")
       const { log, markdown } = await f.records()
       assert.doesNotMatch(
@@ -82,6 +89,44 @@ for (const working of ["plan", "repo-edu"] as const) {
       assert.match(markdown, /Clean audit recorded/)
     })
   }
+}
+
+for (const working of ["repo-edu", "plan"] as const) {
+  test(`a both-repo clean audit lands one record at the invoking ${working} root`, async (t) => {
+    const f = await roundFixture(
+      t,
+      "codex",
+      working,
+      false,
+      null,
+      false,
+      working,
+      true,
+    )
+    await writeFile(
+      f.report,
+      (await readFile(f.report, "utf8")).replace(
+        /^Judged repos: .+/,
+        `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}`,
+      ),
+    )
+    assert.equal(
+      await runCommand(["example.md"], f.runtime, f.options),
+      0,
+      f.errors.join("\n"),
+    )
+    for (const repository of ["repo-edu", "plan"] as const) {
+      const root = repository === "plan" ? f.planRoot : f.repoRoot
+      const count = (
+        await execa(
+          "git",
+          ["rev-list", "--count", `${f.heads[repository]}..HEAD`],
+          { cwd: root },
+        )
+      ).stdout
+      assert.equal(count, working === repository ? "1" : "0")
+    }
+  })
 }
 
 test("clean commit audit keeps the report and makes no commit", async (t) => {
@@ -136,7 +181,7 @@ test("two clean audits still complete the explicitly requested chain with no oth
     await execa("git", ["log", "-2", "--format=%s"], { cwd: f.planRoot })
   ).stdout
   assert.match(subjects, /^example\/audit ath clean:/)
-  assert.match(subjects, /\nexample\/audit otx clean:/)
+  assert.match(subjects, /\nexample\/audit oth clean:/)
 })
 
 test("a refused clean commit fails without starting a fix or deleting the evidence", async (t) => {
@@ -177,10 +222,11 @@ test("clean records share archived and widening plan identities with output file
         planRoot: "/plan",
         roundKind: "planning",
         plan: "topic.md",
-        report: "/elsewhere/topic-audit.md",
+        report: "/repo/topic-01-1-audit.oth.md",
+        judgedRepos: ["plan"],
       },
-      { auditor: "oth", phases: "audit: gpt-6-astra high" },
+      { auditor: null, phases: null },
     ),
-    /clean report must belong/,
+    /audit's model/,
   )
 })

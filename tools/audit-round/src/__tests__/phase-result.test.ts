@@ -20,8 +20,7 @@ for (const phase of [
   "watch-edit",
 ] as const) {
   test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    const file = phase === "fix" ? null : "/written report.md"
-    const finished = { status: "finished", file, reason: null }
+    const finished = { status: "finished", reason: null }
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"])
@@ -35,7 +34,6 @@ for (const phase of [
           : {
               status: "finished",
               sessionId: "session",
-              file,
               context: { tokens: 10, window: 100 },
             },
       )
@@ -43,7 +41,7 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "failed", file: null, reason: "Blocked" }),
+        text({ status: "failed", reason: "Blocked" }),
         null,
       ),
       { status: "failed", sessionId: "session", reason: "Blocked" },
@@ -52,7 +50,7 @@ for (const phase of [
       phaseResult(
         phase,
         "session",
-        text({ status: "needs-ruling", file: null, reason: null }),
+        text({ status: "needs-ruling", reason: null }),
         null,
       )
     if (phase === "fix")
@@ -67,12 +65,12 @@ for (const phase of [
       { ...finished, clean: false },
       { ...finished, accepted: true },
       { ...finished, extra: true },
-      { status: "finished", file },
-      { status: "finished", reason: null },
+      { status: "finished" },
+
       { ...finished, file: phase === "fix" ? "/file.md" : null },
       { ...finished, file: "relative.md" },
       { ...finished, reason: "unexpected" },
-      { status: "failed", file: null, reason: " " },
+      { status: "failed", reason: " " },
       { status: "failed", file: "/file.md", reason: "blocked" },
     ])
       assert.throws(() => phaseResult(phase, "session", text(value), null))
@@ -129,7 +127,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
     assistant: "codex",
     model: unpinned,
     ...testContext("/repo"),
-    ownerRoot: "/repo",
+
     sessionId: null,
     arguments: ["example-steps-2-3-01", plan, "2-3"],
   })

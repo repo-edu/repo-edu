@@ -6,46 +6,36 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-The vet's input is another AI assistant's implementation-audit report, an
-`*-audit.md` file at its owning repo root. A report at this repo's root belongs
-to a Repo-Edu-only round or to a both-repo round that started here.
-[Report discovery](#report-discovery) says how the file is found. Vet its
-graded findings. Do not run an audit round of your own. Whether a finding is a
-good idea is not an axis: a finding can be appealing and still unauthorised.
+The vet's input is another AI assistant's implementation-audit report, an `*-1-audit.<tag>.md` file
+at its owning repo root. A report at this repo's root belongs to a round that started here.
+[Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
+run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
+appealing and still unauthorised.
 
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the fix workflow
 that lands the round from its report. The auditor answers the verdicts through
 the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
-writing a `-rebut.md` twin the fix workflow reads beside this one.
+writing a `-3-rebut.<tag>.md` twin the fix workflow reads beside this one.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after completing the required checks and
-writing every verdict to the `-vet.md` twin; return its absolute path. A verdict
+writing every verdict to the `-2-vet.<tag>.md` twin; report completion. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
 that open item. The runner reads the twin to decide whether to skip the rebuttal.
 
-Planning-artifact audit reports belong to the sibling plan repo. An
-implementation-audit report also lives there for a plan-repo-only round or a
-both-repo round that started there. Its local vet workflow routes to this owned
-procedure. When the invocation here names any report stored at the plan repo
-root, name the file, say the vet belongs in `../plan` and stop. Continue only
-when the user explicitly says to.
+Planning-artifact audit reports belong to the sibling plan repo. An implementation-audit report
+lives there when its round started there. Its local vet workflow routes to this owned procedure.
+When the invocation here names any report stored at the plan repo root, name the file, say the vet
+belongs in `../plan` and stop. Continue only when the user explicitly says to.
 
 ## Report discovery
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
-file names, writer tags and twin matching. The report's opening names the
-judged repos and each repo's short audited `HEAD`; use it to select the repos
-and check changes since the audit. Never infer them from filename shas or the
-report's location. If that opening is missing or ambiguous, ask before vetting.
-
-When the invocation names a report file, vet that file. When it names
-nothing, list `*-audit.md` at this repo's root and drop each file whose
-tag's vendor letter is your own. One file left means vet it. More than one means
-name them and ask which to vet. None means ask for the report and wait.
+Read the supplied report path and write the supplied vet path, in that argument order; use the
+report's judged-repos opening for repo and head checks and its filename for the auditor's vendor
+letter.
 
 Never vet a report whose tag's vendor letter is your own assistant. The vet exists
 to check findings from a fresh context in the other assistant. Continue only
@@ -164,19 +154,15 @@ Return one verdict per finding, in the report's order: accept, revise, drop or
 needs the user's ruling. A revise verdict states the revision. A drop verdict
 states why. Keep each verdict to a few short sentences.
 
-Every verdict starts with exactly `<finding number>. [<tier>] <verdict>`.
-Use the report's finding number and A/B/C/D tier. The verdict is exactly one
-of `Accept`, `Revise`, `Drop` or `Needs user's ruling`.
-The first line contains nothing else, for example `1. [B] Accept`.
-Conditions, notes and required explanations follow on separate lines.
-Prose before the first verdict is free; put drift notes there. After the first
-verdict, every non-empty line is a verdict, a marker or a condition. A marker
-line is exactly `corroborated` or `unique`. Any other line counts as a condition,
-including a narrowing note. The verdict numbers must match the report exactly.
-An unconditional Accept with no additional notes ends after the first line;
-do not repeat the finding title, evidence or reasoning. Required narrowing
-notes and corroboration markers below count as additional notes. This format
-applies in both chat and the `-vet.md` twin.
+Every verdict starts with exactly `<finding number>. [<tier>] <verdict>`. Use the report's finding
+number and A/B/C/D tier. The verdict is exactly one of `Accept`, `Revise`, `Drop` or
+`Needs user's ruling`. The first line contains nothing else, for example `1. [B] Accept`.
+Conditions, notes and required explanations follow on separate lines. Prose before the first verdict
+is free; put drift notes there. After the first verdict, every non-empty line is a verdict or a
+condition. Any other line counts as a condition, including a narrowing note. The verdict numbers
+must match the report exactly. An unconditional Accept with no additional notes ends after the first
+line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
+additional notes. This format applies in both chat and the `-2-vet.<tag>.md` twin.
 
 A reopening of a settled decision takes one of two forms:
 
@@ -202,19 +188,8 @@ or a real unresolved choice about machinery's cost. Name what axis 1 classified
 and what the grounded and fix-follows checks found, then stop. Never settle either
 on the vet's own authority.
 
-Before returning the verdicts, look for sibling reports with the same target
-and judged repo-to-sha values in their openings, written by the other
-assistant. Their round numbers may differ because allocation spans auditors.
-When any exist, read them
-and mark every verdict `corroborated` when the sibling reports the same defect,
-the same file path producing the same wrong behaviour whatever its tier or
-wording, and `unique` when it does not. Corroboration is a signal for the
-user's reading order, never a verdict change. Without a sibling report the
-verdicts carry no marker.
-
-Write the verdicts beside the report under the shared round protocol: reuse
-its target and round, spell your own writer tag and use the vet kind. Write
-the same verdicts into the chat. The twin is untracked and
+Write the verdicts to the supplied vet path and into chat.
+The twin is untracked and
 gitignored, so writing it keeps the vet's read-only rule intact; it is the
 one file the vet writes.
 

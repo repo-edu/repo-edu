@@ -1,6 +1,6 @@
 ---
-description: Answer the other assistant's vet of your implementation-audit report, one answer per verdict, written to a -rebut.md twin file for the fix phase to read.
-argument-hint: [report-file]
+description: Answer the other assistant's vet of your implementation-audit report, one answer per verdict, written to a -3-rebut.<tag>.md twin file for the fix phase to read.
+argument-hint: <report-file> <vet-file> <rebut-output>
 disable-model-invocation: true
 ---
 

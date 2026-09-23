@@ -1,7 +1,10 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readReport } from "../report.js"
+import { readReport as readAuditReport } from "../report.js"
 import { readVet } from "../vet.js"
+
+const readReport = (source: string, kind: "planning" | "implementation") =>
+  readAuditReport(source, kind).findings
 
 const ratings = "[growth:none] [reach:developer] [complexity:none]"
 function finding(
@@ -12,9 +15,46 @@ function finding(
   return `${number}. **B: Preserve the evidence**\n   ${evidence}\n   ${location} ${ratings}\n`
 }
 const implementation = (body: string) =>
-  `# Audit\n\nOpening and coverage.\n\n## Findings\n\n${body}`
+  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
 const planning = (excess: string, missing: string) =>
-  `# Audit\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+  `# Audit\n\nJudged repos: plan@abc123, repo-edu@def456\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
+
+test("the report opening identifies the judged repos independently of evidence", () => {
+  for (const [line, judgedRepos] of [
+    ["plan@abc123", ["plan"]],
+    ["repo-edu@def456", ["repo-edu"]],
+    ["plan@abc123, repo-edu@def456", ["plan", "repo-edu"]],
+  ] as const) {
+    assert.deepEqual(
+      readAuditReport(
+        `# Audit\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
+        "implementation",
+      ),
+      { findings: [], judgedRepos },
+    )
+  }
+})
+
+test("missing, duplicate, quoted and malformed judged-repos openings fail", () => {
+  for (const opening of [
+    "",
+    "> Judged repos: plan@abc123",
+    "```text\nJudged repos: plan@abc123\n```",
+    "Judged repos: plan@abc123\nJudged repos: repo-edu@def456",
+    "Judged repos: other@abc123",
+    "Judged repos: plan@HEAD",
+    "Judged repos: plan@abc123, plan@def456",
+    "Judged repos: repo-edu@def456, plan@abc123",
+  ])
+    assert.throws(
+      () =>
+        readAuditReport(
+          `${opening}\n\n## Findings\n\nNo findings.`,
+          "implementation",
+        ),
+      /Judged repos/,
+    )
+})
 
 test("reports read explicit empty fields and count both planning fields", () => {
   assert.deepEqual(
@@ -155,10 +195,10 @@ test("malformed, contradictory or incomplete fields fail instead of reading clea
   )
 })
 
-test("vet reads unconditional accepts with exact markers and preamble notes", () => {
+test("vet reads unconditional accepts with preamble notes", () => {
   assert.equal(
     readVet(
-      "Drift since the audit.\n\n1. [B] Accept\ncorroborated\n\n2. [C] Accept\nunique\n",
+      "Drift since the audit.\n\n1. [B] Accept\n\n2. [C] Accept\n",
       [1, 2],
     ),
     true,
@@ -171,6 +211,8 @@ test("every other verdict or line after a verdict prevents skipping the rebuttal
   for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
     assert.equal(readVet(`1. [B] ${verdict}`, [1]), false)
   for (const condition of [
+    "unique",
+    "corroborated",
     "Noted as a narrowing",
     "Explanation.",
     "## Summary",

@@ -3,10 +3,57 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { execa } from "execa"
-import { briefRun, RoundOutput, roundRun } from "./configured-runner.js"
+import {
+  briefRun,
+  RoundOutput,
+  roundRun,
+  transcriptNameStart,
+} from "./configured-runner.js"
 import { fixture, selections, testContext } from "./helpers.js"
 
 const options = { terminal: { write() {}, status() {}, clear() {} } }
+
+test("phase files sort in fixed order with paired logs and dotted commit-range targets", async (t) => {
+  const f = await fixture(t)
+  const run = await roundRun(
+    { ...testContext(f.root), commits: ["abcdef..123abc"] },
+    0,
+    selections,
+  )
+  const names = [
+    run.paths.markdown,
+    ...Object.values(run.documents),
+    run.watch,
+  ].map((file) => basename(file))
+  assert.deepEqual(names.toSorted(), [
+    "abcdef..123abc-01-0-round.oth.md",
+    "abcdef..123abc-01-1-audit.oth.md",
+    "abcdef..123abc-01-2-vet.abx.md",
+    "abcdef..123abc-01-3-rebut.oth.md",
+    "abcdef..123abc-01-5-brief.oul.md",
+    "abcdef..123abc-01-6-ruling.abx.md",
+    "abcdef..123abc-01-8-watch.oth.md",
+  ])
+  assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
+  assert.equal(transcriptNameStart(run.paths.markdown), "abcdef..123abc-01")
+  const brief = briefRun(run.paths.markdown, 0, selections)
+  assert.equal(brief.paths.log, brief.brief.replace(/\.md$/, ".log"))
+  assert.equal(
+    basename(run.paths.claim as string),
+    "abcdef..123abc-01-claim.md",
+  )
+  await writeFile(run.documents.report, "Retained report")
+  assert.equal(
+    (
+      await roundRun(
+        { ...testContext(f.root), commits: ["abcdef..123abc"] },
+        0,
+        selections,
+      )
+    ).nameStart,
+    "abcdef..123abc-02",
+  )
+})
 
 test("different auditors cannot open the same candidate and the next run advances", async (t) => {
   const f = await fixture(t)
@@ -24,9 +71,9 @@ test("different auditors cannot open the same candidate and the next run advance
   assert.equal(next.nameStart, "example-steps-2-4-02")
   assert.equal(
     basename(next.paths.markdown),
-    "example-steps-2-4-02-abx-round.md",
+    "example-steps-2-4-02-0-round.abx.md",
   )
-  assert.equal(basename(next.watch), "example-steps-2-4-02-oth-watch.md")
+  assert.equal(basename(next.watch), "example-steps-2-4-02-8-watch.oth.md")
   new RoundOutput(next, options).close()
 })
 
@@ -36,15 +83,15 @@ test("every retained round kind at either root reserves its number across audito
   for (const root of [f.root, join(f.root, "../plan")]) {
     for (const suffix of [
       "claim.md",
-      "abx-round.md",
-      "otm-round.log",
-      "abx-audit.md",
-      "otm-vet.md",
-      "abx-rebut.md",
-      "oul-brief.md",
-      "oul-brief.log",
-      "abx-ruling.md",
-      "abx-watch.md",
+      "0-round.abx.md",
+      "0-round.otm.log",
+      "1-audit.abx.md",
+      "2-vet.otm.md",
+      "3-rebut.abx.md",
+      "5-brief.oul.md",
+      "5-brief.oul.log",
+      "6-ruling.abx.md",
+      "8-watch.abx.md",
     ]) {
       const path = join(root, `example-all-09-${suffix}`)
       await writeFile(path, "")
@@ -55,8 +102,8 @@ test("every retained round kind at either root reserves its number across audito
   }
   await writeFile(join(f.root, "ROUND-example-all-codex-old.md"), "")
   await writeFile(join(f.root, "example-all-99-otm-unknown.md"), "")
-  await writeFile(join(f.root, "example-all-other-99-otm-audit.md"), "")
-  await mkdir(join(f.root, "example-all-99-otm-round.md"))
+  await writeFile(join(f.root, "example-all-other-99-1-audit.otm.md"), "")
+  await mkdir(join(f.root, "example-all-99-0-round.otm.md"))
   assert.equal(
     (await roundRun(setup, 0, selections)).nameStart,
     "example-all-01",
@@ -68,7 +115,7 @@ test("a plan-root report survives partial cleanup and full cleanup restarts numb
   const setup = { ...testContext(f.root), plan: "example.md" }
   const run = await roundRun(setup, 0, selections)
   new RoundOutput(run, options).close()
-  const report = join(f.root, "../plan", `${run.nameStart}-oth-audit.md`)
+  const report = join(f.root, "../plan", `${run.nameStart}-1-audit.oth.md`)
   await writeFile(report, "Report")
   for (const path of [run.paths.claim, run.paths.log, run.paths.markdown])
     await rm(path as string)
@@ -132,7 +179,7 @@ test("commit filenames resolve HEAD once while keeping typed offsets and list co
       0,
       selections,
     )
-    assert.equal(basename(run.paths.markdown), `${target}-01-oth-round.md`)
+    assert.equal(basename(run.paths.markdown), `${target}-01-0-round.oth.md`)
     assert.equal(run.title, `Audit round of commits ${commits.join(" ")}`)
   }
 })
@@ -160,10 +207,10 @@ test("archived plans use their folder and scopes keep separate numbering", async
 
 test("a standalone brief reuses the number and overwrites only its pinned writer's log", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-all-09-abx-round.md")
+  const transcript = join(f.root, "example-all-09-0-round.abx.md")
   await writeFile(transcript, "Original transcript")
   const run = briefRun(transcript, 0, selections)
-  assert.equal(basename(run.paths.log), "example-all-09-oul-brief.log")
+  assert.equal(basename(run.paths.log), "example-all-09-5-brief.oul.log")
   const first = new RoundOutput(run, options)
   await first.message("First brief")
   first.close()
@@ -226,7 +273,7 @@ test("unspellable phase efforts fail before any claim or output is created", asy
 test("planning rounds share the bare target number across roots and write at the plan root", async (t) => {
   const f = await fixture(t)
   const context = testContext(f.root, "planning")
-  await writeFile(join(f.root, "example-04-oth-audit.md"), "")
+  await writeFile(join(f.root, "example-04-1-audit.oth.md"), "")
   await writeFile(join(context.planRoot, "example-05-claim.md"), "")
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },
@@ -237,9 +284,9 @@ test("planning rounds share the bare target number across roots and write at the
   assert.equal(run.paths.claim, join(context.planRoot, "example-06-claim.md"))
   assert.equal(
     run.paths.markdown,
-    join(context.planRoot, "example-06-oth-round.md"),
+    join(context.planRoot, "example-06-0-round.oth.md"),
   )
-  assert.equal(run.watch, join(context.planRoot, "example-06-oth-watch.md"))
+  assert.equal(run.watch, join(context.planRoot, "example-06-8-watch.oth.md"))
   const archived = await roundRun(
     { ...context, plan: "archive/topic/plan.md" },
     0,

@@ -1,6 +1,6 @@
 ---
 description: Draft the ruling document for a planning or implementation-audit round whose fix phase stopped for the user's decision, explaining each open item and arguing a choice.
-argument-hint: [transcript-file] [report-file]
+argument-hint: <transcript-file> <report-file> <ruling-output>
 disable-model-invocation: true
 ---
 

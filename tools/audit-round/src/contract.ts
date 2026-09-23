@@ -29,7 +29,7 @@ import { claudeSettingsRequest } from "./requests.js"
 import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
-export const contractPrompt = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","file":null,"reason":null}`
+export const contractPrompt = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
 
 /** Keep consumed events while excluding unrelated initialisation and configuration. */
 function selectRecord(
@@ -200,7 +200,6 @@ export async function recordContracts(
             // The probe records a CLI contract, so it names no model of its own.
             model: unpinned,
             ...context,
-            ownerRoot: runtime.cwd,
             arguments: ["CLI contract probe"],
             sessionId: null,
           },

@@ -1,5 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
 import type { RoundKind } from "./context.js"
+import type { Repository } from "./subject.js"
 
 type Block = ReturnType<typeof fromMarkdown>["children"][number]
 type List = Extract<Block, { type: "list" }>
@@ -7,6 +8,38 @@ type Paragraph = Extract<Block, { type: "paragraph" }>
 
 /** Finding identities survive the fix consuming the report and its twins. */
 export type ReportFindings = readonly number[]
+
+export type AuditReport = {
+  readonly findings: ReportFindings
+  readonly judgedRepos: readonly Repository[]
+}
+
+function judgedRepos(children: readonly Block[]): readonly Repository[] {
+  const opening = children.slice(
+    0,
+    children.findIndex((node) => node.type === "heading" && node.depth === 2),
+  )
+  const lines = opening.flatMap((node) =>
+    node.type === "paragraph"
+      ? plain(node)
+          .split("\n")
+          .filter((line) => line.startsWith("Judged repos:"))
+      : [],
+  )
+  if (
+    lines.length !== 1 ||
+    !/^Judged repos: (?:plan@[0-9a-f]+(?:, repo-edu@[0-9a-f]+)?|repo-edu@[0-9a-f]+)$/.test(
+      lines[0],
+    )
+  )
+    throw new Error(
+      "Report needs one Judged repos: opening with each audited head",
+    )
+  return lines[0]
+    .slice("Judged repos: ".length)
+    .split(", ")
+    .map((entry) => entry.split("@")[0] as Repository)
+}
 
 function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
   if (node.children.some((child) => child.type !== "text")) return ""
@@ -47,7 +80,7 @@ function findingNumber(
 }
 
 /** Read only document-level fields and lists; quoted evidence and code are not findings. */
-export function readReport(source: string, kind: RoundKind): ReportFindings {
+export function readReport(source: string, kind: RoundKind): AuditReport {
   const definitions =
     kind === "planning"
       ? [
@@ -110,5 +143,5 @@ export function readReport(source: string, kind: RoundKind): ReportFindings {
     throw new Error(
       "Report finding numbers must run from 1 without gaps or duplicates",
     )
-  return findings
+  return { findings, judgedRepos: judgedRepos(children) }
 }
