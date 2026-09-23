@@ -95,8 +95,8 @@ before answering it.
 
 One kind of finding is not covered by accepting the round as a whole, in a
 vetted round and an unvetted one alike: a real unresolved choice about cost
-needs its own answer, whether the report explains it in the finding's prose,
-a separate trade block or a run pricing above the findings. List these apart in the presentation.
+needs its own answer, whether the report explains it in the finding's prose or
+a separate trade block. List these apart in the presentation.
 When the user picks the simpler mechanism, that mechanism becomes the
 finding's required correction, revised in the discussion like any other
 revision. When that ruling overturns a reason the plan records, the round
@@ -115,7 +115,7 @@ choosing for them.
 The invocation is the acceptance of everything the files already settle. Stop for a ruling only on
 open items: an item sent to the user's ruling, a contested verdict this session maintains, a drift
 correction that changes a finding, or this session's own answers to a vet with no rebuttal. When
-nothing is open, state the outcome in one line per finding and apply. A priced run or a cross-repo
+nothing is open, state the outcome in one line per finding and apply. A cross-repo
 open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
 deferral above or a later plan round, never through this session, so it holds no settled correction
 back. Keep it open in the deferral and apply the settled findings.

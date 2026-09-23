@@ -83,6 +83,18 @@ export async function roundFixture(
     "Fixture marker",
   )
   await writeFile(join(repoRoot, "pnpm-workspace.yaml"), "packages: []\n")
+  await mkdir(join(repoRoot, "tools/architecture-check/src"), {
+    recursive: true,
+  })
+  await writeFile(
+    join(repoRoot, "tools/architecture-check/src/area-model.json"),
+    await readFile(
+      new URL(
+        "../../../architecture-check/src/area-model.json",
+        import.meta.url,
+      ),
+    ),
+  )
   // The command checks the plan where the phases open it, so both roots hold
   // the plan and its widening artifact.
   for (const root of [repoRoot, planDirectory])

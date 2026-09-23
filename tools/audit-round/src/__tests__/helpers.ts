@@ -130,5 +130,10 @@ export async function fixture(
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line)),
+    prompts: async () =>
+      (await readFile(join(root, "prompts.jsonl"), "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
   }
 }

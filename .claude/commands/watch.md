@@ -13,6 +13,8 @@ You are the first pass: write the draft. A fresh session rewrites it afterwards
 through the watch edit, so write the watch as if it were final rather than
 leaving notes for that pass.
 
+The prompt supplies joined Git evidence separately from the file arguments.
+
 Read `.agents/skills/watch/references/workflow.md` completely and follow it.
 
 $ARGUMENTS

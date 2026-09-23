@@ -63,13 +63,12 @@ test("phase settings inherit CLI values and apply partial auditor overrides", ()
     model: null,
     effort: { value: "low", source: "settings.json" },
   })
-  assert.deepEqual(codexArguments("watch prompt", null, phases.watch.model), [
+  assert.deepEqual(codexArguments(null, phases.watch.model), [
     "exec",
     "--approve-for-me",
     "-c",
     "model_reasoning_effort=low",
     "--json",
-    "watch prompt",
   ])
   assert.equal(modelStrength("codex", "custom-top-model", config), "top")
   assert.equal(modelStrength("codex", "gpt-6-astra", config), null)

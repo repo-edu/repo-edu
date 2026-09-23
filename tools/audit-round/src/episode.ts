@@ -1,5 +1,6 @@
+import { execa } from "execa"
 import { loadAreaModel } from "../../architecture-check/src/area-model.js"
-import { installationRoot } from "./context.js"
+import { type ExecutionContext, installationRoot } from "./context.js"
 import {
   checkFindingTotals,
   repeatedGrowth,
@@ -260,5 +261,68 @@ export async function readEpisode(
     repository,
     topic ?? historyTopic(log),
     loadAreaModel(repoEduRoot).areas,
+  )
+}
+
+/** A named topic bypasses reference resolution for the runner's audited plan. */
+export type WatchEvidenceInput = ExecutionContext &
+  ({ readonly stem: string } | { readonly target?: string })
+
+/** Resolve hand-run targets and join both histories only when evidence is requested. */
+export async function readWatchEvidence(
+  input: WatchEvidenceInput,
+): Promise<string> {
+  const [plan, repoEdu] = await Promise.all([
+    readLog(input.planRoot),
+    readLog(input.repoEduRoot),
+  ])
+  const repository = input.cwd === input.planRoot ? "plan" : "repo-edu"
+  const logs = { plan, "repo-edu": repoEdu }
+  const log = logs[repository]
+  let topic = "stem" in input ? input.stem : historyTopic(log)
+  let anchor: { repository: Repository; sha: string } | undefined
+  if ("target" in input && input.target !== undefined) {
+    const reference = input.target.replace(/^HEAD-(\d+)$/, "HEAD~$1")
+    const result = await execa(
+      "git",
+      [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "--end-of-options",
+        `${reference}^{commit}`,
+      ],
+      { cwd: input.cwd, reject: false },
+    )
+    if (result.exitCode === 0) {
+      const commit = log.find((commit) => commit.sha === result.stdout)
+      if (commit === undefined)
+        throw new Error(
+          `Episode anchor ${input.target} is not on ${repository}'s history.`,
+        )
+      topic = commitTopic(commit) ?? historyTopic(log)
+      anchor = { repository, sha: commit.sha }
+    } else {
+      topic = input.target
+    }
+  }
+  return formatWatchEvidence(
+    joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),
+  )
+}
+
+/** One serialisation for the command and both watch prompts; no episode file. */
+export function formatWatchEvidence(
+  evidence: ReturnType<typeof joinedEpisode>,
+): string {
+  return JSON.stringify(
+    {
+      ...evidence,
+      repositories: evidence.repositories.map(
+        ({ history: _history, ...episode }) => episode,
+      ),
+    },
+    null,
+    2,
   )
 }

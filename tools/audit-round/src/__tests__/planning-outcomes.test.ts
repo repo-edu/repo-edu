@@ -72,10 +72,9 @@ for (const auditor of ["codex", "claude"] as const) {
         1,
       )
       for (const call of calls) assert.equal(call.cwd, f.planRoot)
-      const fixes = calls.filter(
+      const fixes = (await f.prompts()).filter(
         (call) =>
-          call.assistant === "codex" &&
-          /^Run the fix phase /.test(call.args.at(-1)),
+          call.assistant === "codex" && /^Run the fix phase /.test(call.prompt),
       )
       assert.deepEqual(
         fixes.map((call) => call.auditor),

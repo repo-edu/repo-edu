@@ -13,8 +13,10 @@ You are the second pass: you did not write this draft, so read it the way the
 user will. Apply the workflow's tests, then replace the file with the rewritten
 document. Never append a critique or a change list.
 
-The one argument is the draft watch to replace. The watch grounds itself in
-the commit record and the code, so no other source is given.
+The one file argument is the draft watch to replace. The runner supplies the
+same Git evidence as the first pass separately in the prompt. For a hand-run
+edit, obtain evidence with `pnpm audit-round episode <stem>` using the draft's
+topic, as the workflow specifies.
 
 Read `.agents/skills/watch/references/workflow.md` completely, including its
 section on the second pass, and follow it.

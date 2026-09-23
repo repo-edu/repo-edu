@@ -140,16 +140,15 @@ cost is only rework or re-derivation, verify that cost. These facts may share th
 finding's prose; no separate trace is required. A trace that ends with the same
 behaviour shipping is not a finding, so the verdict is drop.
 
-Check the trade under the audit workflow's finding-shape and run-pricing rules. The explanation may
+Check the trade under the audit workflow's finding-shape rules. The explanation may
 be part of the finding's prose. Verify the simpler mechanism, cost, benefit and any claim that the
 choice is settled against their sources; return revise for missing substance, not for missing labels
 or separate parts. When the correction is the simplest mechanism, verify that claim and the cited
 boundary or decision against the code. When that claim cites a plan decision, reopen it only with
 evidence that the decision is wrong; otherwise accept it. The user directed this on 2026-09-09.
 
-When run pricing replaces the finding's explanation, check the same facts and
-its rarity against the episode evidence. A real unresolved choice about cost
-goes to the user's ruling; the vet never settles it.
+Check the finding's rarity against its cited evidence. A real unresolved
+choice about cost goes to the user's ruling; the vet never settles it.
 
 ## Verdicts
 

@@ -6,7 +6,7 @@ import { execa } from "execa"
 
 const [root, assistant, ...args] = process.argv.slice(2)
 let scenario = JSON.parse(await readFile(join(root, "scenario.json"), "utf8"))
-let prompt = assistant === "codex" ? args.at(-1) : undefined
+let prompt: string | undefined
 await appendFile(
   join(root, "calls.jsonl"),
   `${JSON.stringify({
@@ -160,7 +160,15 @@ if (assistant === "claude") {
     })
     process.exit(0)
   }
+} else {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk))
+  prompt = Buffer.concat(chunks).toString("utf8")
 }
+await appendFile(
+  join(root, "prompts.jsonl"),
+  `${JSON.stringify({ assistant, args, prompt, auditor: process.env.COMMIT_AUDITOR ?? null, phases: process.env.COMMIT_PHASES ?? null })}\n`,
+)
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {

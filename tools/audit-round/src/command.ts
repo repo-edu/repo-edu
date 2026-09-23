@@ -10,6 +10,7 @@ import { execa } from "execa"
 import { type AssistantRuntime, assistantDependencies } from "./assistant.js"
 import { completeClean } from "./clean.js"
 import { type ExecutionContext, executionContext } from "./context.js"
+import { readWatchEvidence } from "./episode.js"
 import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
 import {
@@ -82,6 +83,7 @@ async function checkPlan(
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
+  | { readonly kind: "episode"; readonly target?: string }
   | {
       readonly kind: "name"
       readonly first: string
@@ -192,6 +194,18 @@ function parseInvocation(
       invocation = { kind: "name", first, rest, auditor: flags.auditor }
     })
   command
+    .command("episode")
+    .description(
+      "Print joined Git evidence for a hand-run watch without writing files.",
+    )
+    .argument(
+      "[stem-or-commit]",
+      "topic or explicit anchor commit; defaults to HEAD's topic",
+    )
+    .action((target?: string) => {
+      invocation = { kind: "episode", target }
+    })
+  command
     .command("close")
     .description(
       "Delete one round's audit, vet and rebuttal reports at the invoking root.",
@@ -249,6 +263,12 @@ export async function runCommand(
   const now = options.now ?? Date.now
   try {
     const context = await executionContext(runtime.cwd, options.repoEduRoot)
+    if (invocation.kind === "episode") {
+      options.terminal.write(
+        await readWatchEvidence({ ...context, target: invocation.target }),
+      )
+      return 0
+    }
     if (invocation.kind === "close") {
       await closeRound(context.cwd, invocation.nameStart)
       return 0
@@ -352,6 +372,7 @@ export async function runCommand(
     // The commit stamps are the output's, because the output records which
     // phases ran and a child reads them only when it starts.
     const dependenciesFor = (active: RoundOutput): RoundDependencies => ({
+      watchEvidence: readWatchEvidence,
       closeRound,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())

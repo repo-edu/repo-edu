@@ -52,22 +52,13 @@ export function claudeArguments(
 }
 
 export function codexArguments(
-  prompt: string,
   sessionId: string | null,
   model: PinnedModel,
 ): string[] {
   const pin = codexPin(model)
   return sessionId === null
-    ? ["exec", "--approve-for-me", ...pin, "--json", prompt]
-    : [
-        "exec",
-        "--approve-for-me",
-        ...pin,
-        "resume",
-        "--json",
-        sessionId,
-        prompt,
-      ]
+    ? ["exec", "--approve-for-me", ...pin, "--json"]
+    : ["exec", "--approve-for-me", ...pin, "resume", "--json", sessionId, "-"]
 }
 
 export function interactiveArguments(session: InteractiveSession): string[] {
@@ -104,15 +95,15 @@ Read and follow this launcher: ${launcher}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}
 You are explicitly authorised to follow that repository's route and local substitutions even if this session started in the other repository. This invokes the selected phase with its ordinary authority and gates.
-For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.`
+For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.${input.phase === "watch" || input.phase === "watch-edit" ? `\n\nGit episode evidence (the same snapshot for both watch passes):\n${input.evidence}` : ""}`
 }
 
 export function phaseRequest(input: PhaseInput, prompt: string) {
   const { assistant, sessionId, model } = input
   return assistant === "codex"
     ? {
-        args: codexArguments(prompt, sessionId, model),
-        input: "",
+        args: codexArguments(sessionId, model),
+        input: prompt,
       }
     : {
         args: claudeArguments(peerRoot(input), sessionId, model),

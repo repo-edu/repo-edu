@@ -28,7 +28,11 @@ consumers.
   draft in a fresh session, so the document the user rules from is read once by a session that did
   not write it. `runWatch` owns the watch that follows a round: the glance decides from the commit
   record and the watch's own history whether a watch is due, and only a due glance runs `watch` and
-  `watch-edit` over that draft. The glance is a dependency the runner supplies from `glance.ts`, not
+  `watch-edit` over that draft. The audited plan's stem comes from `planStem`
+  and selects both the glance record and joined watch evidence. Only a due
+  glance computes and formats that evidence, once after the fix. Both watch
+  prompts receive the same snapshot separately from their file arguments.
+  The glance is a dependency the runner supplies from `glance.ts`, not
   a phase, so a not-due round starts no session for it. Each edit pass is named after the document
   it rewrites and its launcher knows that document's workflow, so it takes only the draft and the
   sources the workflow grounds it in. Both edit passes have their own model and effort in
@@ -92,10 +96,16 @@ consumers.
   unreadable reason; unreadable findings contribute no partial counts. Current
   areas resolve directly, retired areas resolve through `splitFrom` and unknown
   areas remain listed on their findings. Redesigns and widening renames identify
-  possible new graded windows for the watch to judge.
+  possible new graded windows for the watch to judge. `readWatchEvidence`
+  joins both histories and `formatWatchEvidence` serialises the evidence for
+  the runner and hand-run command. It resolves a hand-run commit target as an
+  explicit anchor in the invoking repo only; the peer keeps its own anchor.
+  Without a target it takes the latest stem on HEAD's history. No episode
+  file is written.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
-  topic, with the latest stem in HEAD's history as the default. Each
+  topic from the audited plan for every runner glance. The episode reader
+  also serves hand-run default-topic resolution. Each
   file-changing commit counts once per area with an A–C correction.
   Repo Edu groups by finding area and planning groups by finding section.
   D-only work, clean records, deferral-only records and planned steps do not count.
@@ -162,7 +172,10 @@ consumers.
   Claude takes `--model` and `--effort`. A handed-over session and a failure both carry their phase,
   so the interactive and recovery commands resume on the model the round ran that phase on. Claude
   uses `--permission-mode auto` in settings discovery and every session entry, and that discovery
-  names no model of its own.
+  names no model of its own. Both assistants receive their phase prompts on
+  standard input. Codex command-line arguments contain no prompt text,
+  including on resume, so joined evidence is not limited by the operating
+  system's per-argument size.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
@@ -221,7 +234,9 @@ consumers.
 - `command.ts` owns the command grammar, startup and final reporting, including
   the capability tag `--auditor` takes and the error a malformed one reports. The round is the
   command itself, taking the target as its own arguments. Its subcommands are
-  `brief`, `name` and `close`. The `name` command claims a round and prints its
+  `brief`, `name`, `close` and `episode`. The `episode` command prints joined
+  watch evidence from the shared reader and formatter without settings
+  discovery, assistant startup or file writes. The `name` command claims a round and prints its
   file set without starting any phase. Its required `--auditor` is the hand-run
   session's full tag, including `u`, checked separately from a round's model
   request. The `close` command uses the same closing function as the coordinator
@@ -306,6 +321,8 @@ pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-0-round.otm.md
 pnpm audit-round name ../plan/example.md 3 --auditor oth
 pnpm audit-round close example-step-3-01
+pnpm audit-round episode example
+pnpm audit-round episode HEAD-2
 pnpm audit-round:contract
 pnpm audit-round:contract codex
 ```

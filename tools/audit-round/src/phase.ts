@@ -1,5 +1,6 @@
 import type { CleanInput } from "./clean.js"
 import type { ExecutionContext } from "./context.js"
+import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
 import type { AuditReport, ReportFindings } from "./report.js"
 import type { RoundSettings } from "./settings.js"
@@ -284,11 +285,13 @@ type PhaseArguments = {
     readonly sessionId: null
   }
   watch: {
+    readonly evidence: string
     readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
-  /** The second pass over the watch: the draft alone, because the watch grounds itself in the record. */
+  /** Both watch passes receive the same evidence separately from their file arguments. */
   "watch-edit": {
+    readonly evidence: string
     readonly arguments: readonly [watch: string]
     readonly sessionId: null
   }
@@ -378,6 +381,7 @@ export type RoundDependencies = {
    * cannot be read at all.
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
+  readonly watchEvidence: (input: WatchEvidenceInput) => Promise<string>
   /** Output must be recorded and the progress display released before opening. */
   readonly prepareHandover: (session: InteractiveSession) => Promise<void>
   /** Resolves after the inherited-terminal CLI exits successfully. */

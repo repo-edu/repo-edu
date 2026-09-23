@@ -7,7 +7,94 @@ import { split } from "shellwords"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
-import { roundFixture } from "./round-fixture.js"
+import { commitFixture, roundFixture } from "./round-fixture.js"
+
+for (const working of ["repo-edu", "plan"] as const) {
+  test(`episode at ${working} prints shared evidence and resolves stems and explicit anchors without writes`, async (t) => {
+    const f = await roundFixture(
+      t,
+      "codex",
+      working,
+      false,
+      null,
+      false,
+      working,
+    )
+    const root = f.runtime.cwd
+    const older = await commitFixture(
+      root,
+      "older/impl-1 oth docs(x): older topic",
+    )
+    await commitFixture(root, "oth docs(x): unstemmed anchor")
+    const unstemmed = (await execa("git", ["rev-parse", "HEAD"], { cwd: root }))
+      .stdout
+    const newest = await commitFixture(
+      root,
+      "newest/impl-1 oth docs(x): newest topic",
+    )
+    const before = await Promise.all(
+      [f.repoRoot, f.planRoot, f.options.cacheRoot].map((path) =>
+        readdir(path, { recursive: true }),
+      ),
+    )
+    const invoke = async (target?: string) => {
+      f.visible.length = 0
+      assert.equal(
+        await runCommand(
+          ["episode", ...(target === undefined ? [] : [target])],
+          f.runtime,
+          f.options,
+        ),
+        0,
+        f.errors.join("\n"),
+      )
+      return JSON.parse(f.visible.join("\n"))
+    }
+    assert.equal((await invoke()).topic, "newest")
+    const stem = await invoke("topology-example")
+    assert.equal(stem.topic, "example")
+    assert.equal(stem.repositories.length, 2)
+    const anchored = await invoke(older)
+    assert.equal(anchored.topic, "older")
+    assert.ok(
+      anchored.repositories
+        .find((entry: { repository: string }) => entry.repository === working)
+        .anchor.startsWith(older),
+    )
+    const fallback = await invoke("HEAD-1")
+    assert.equal(fallback.topic, "newest")
+    assert.equal(
+      fallback.repositories.find(
+        (entry: { repository: string }) => entry.repository === working,
+      ).anchor,
+      unstemmed,
+    )
+    const head = await invoke("HEAD")
+    assert.ok(
+      head.repositories
+        .find((entry: { repository: string }) => entry.repository === working)
+        .head.startsWith(newest),
+    )
+    const exampleAnchor = await invoke(f.heads[working])
+    for (const entry of exampleAnchor.repositories)
+      assert.ok(
+        entry.anchor.startsWith(
+          f.heads[entry.repository as keyof typeof f.heads],
+        ),
+      )
+    assert.deepEqual(
+      await Promise.all(
+        [f.repoRoot, f.planRoot, f.options.cacheRoot].map((path) =>
+          readdir(path, { recursive: true }),
+        ),
+      ),
+      before,
+    )
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+      code: "ENOENT",
+    })
+  })
+}
 
 for (const working of ["repo-edu", "plan"] as const) {
   for (const tag of ["abl", "otx", "oux", "auh"]) {
@@ -232,14 +319,13 @@ test("one supplied configuration controls default auditor, phase arguments and o
     log,
     /watch-edit +codex +chosen-model medium +codex settings\/settings\.json/,
   )
-  const watchCall = (await f.calls()).find(
+  const watchCall = (await f.prompts()).find(
     (call) =>
-      call.assistant === "codex" &&
-      /^Run the watch phase /.test(call.args.at(-1)),
+      call.assistant === "codex" && /^Run the watch phase /.test(call.prompt),
   )
   assert.ok(watchCall.args.includes("chosen-watch"))
   assert.ok(watchCall.args.includes("model_reasoning_effort=medium"))
-  assert.ok(watchCall.args.at(-1).includes("-8-watch.otm.md"))
+  assert.ok(watchCall.prompt.includes("-8-watch.otm.md"))
 })
 
 for (const auditor of ["claude", "codex"] as const) {

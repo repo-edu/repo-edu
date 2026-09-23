@@ -107,7 +107,9 @@ returned `needs-ruling`.
 The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the
 round, so the runner gives the watch pass only the file to write and the cache
-root, and the watch edit only the draft. They run under
+root, and the watch edit only the draft as file arguments. Both prompts also
+receive the same joined Git evidence for the audited plan, computed after the
+fix and only when due. They run under
 `.agents/skills/watch/references/workflow.md`, and only when the runner's own
 glance at the commit record found the watch due; that glance is code in
 `tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
@@ -191,19 +193,20 @@ of a case.
 
 ## Evidence
 
-Scope the implementation episode in every judged repo the way the watch does.
-In each repo, anchor on the earliest commit whose subject carries the topic's
-bare, `plan-<topic>` or `topology-<topic>` stem. Walk from that anchor to its
-HEAD, including every commit that carries a joined stem or touches the same
-files. Read the judged repos' walks together for a both-repo round.
+In every judged repo, locate the implementation commits for the user-named
+steps through the joined topic stems. Follow later corrections and the history
+of the files those steps changed, including off-plan corrections, to find the
+evidence needed to judge their current behaviour and recorded departures.
+Read both repos for a both-repo round. This discovers scope evidence; it does
+not compute the watch episode or classify its trajectory.
 
 When the plan is under `../plan/archive/<name>/`, first read `README.md` in the
 same folder when it exists. It records later outcomes that the frozen plan
 cannot carry. Treat a recorded correct departure under the deviation rules
 below, not as a strict conformance failure.
 
-Read the plan end to end. Read the final state of the files the episode touched
-in every repo the round judges.
+Read the plan end to end. Read the current files that implement every in-scope step
+in every judged repo, including files added or moved by later corrections.
 
 Read `../plan/BOUNDARIES.md` beside the plan: boundaries change only by user
 decision, so the current file can be newer than the plan. This is a check, not
@@ -329,8 +332,7 @@ concern rather than repeating the complexity token.
 Keep this in the finding's explanation; a separate `Trade:` block is optional.
 When the correction is itself the simplest mechanism, one sentence saying so
 and naming the boundary or decision that settles it is enough. Expand only for
-a real unresolved choice. Do not repeat pricing already given under
-[Pricing a run](#pricing-a-run). D-tier findings need no trade explanation.
+a real unresolved choice. D-tier findings need no trade explanation.
 The user directed this shorter form on 2026-09-09.
 
 Check the simpler mechanism against the plan's recorded reasons and the code.
@@ -365,65 +367,9 @@ there is no reason to suppress one. The tag's cross-round signal lives in
 the run; a single risky finding prices its own trade inside its trade
 block, per [Finding shape](#finding-shape), and still lands.
 
-The tag is what gives a fresh round the memory it otherwise lacks. Before
-drafting findings, read the full bodies of the episode's audit commits, found
-by the walk under [Evidence](#evidence), and collect every metadata bullet
-in them. Count the growth tags by pattern and the reach and complexity
-values by level. Rounds that predate a token, or that tagged growth by
-number before the labels existed, carry no readable form of it; read their
-bullets on their prose and say the history is partial rather than reading
-absence as a clean run. When one pattern appears across several rounds, say
-so in the report above the tiered findings, naming the rounds and the
-pattern. That statement is the round's own output, not a diagnosis of the
-user's judgment.
-
-## Pricing a run
-
-When a pattern runs across rounds, or the reach and complexity pair
-shows the unpriced-trade run named under
-[Reach and complexity](#reach-and-complexity), the round stops adding to the
-run and prices it instead, before its tiered findings. Four answers, all
-short:
-
-- How rare the defended event is. Ground this in the reach tokens and the
-  conditions named by the rounds in the run.
-- The simplest mechanism that works and still satisfies
-  `../plan/BOUNDARIES.md`. Read the boundary the machinery invokes and state
-  only what it actually asks for. Check the mechanism against the plan's
-  recorded reasons, the same check the trade block under
-  [Finding shape](#finding-shape) runs.
-- What the current design costs to build and own. Name the standing rule,
-  state or owner concern.
-- What the current design buys over that mechanism, stated as what the user
-  gets, not as what the code does.
-
-Then stop for the user's ruling. Do not resolve the trade in the report. The
-plan requiring the machinery is not an answer, because the plan was written by
-rounds: `GROWTH-PATTERNS.md` records the anchor-rule trap where a round
-invents a requirement and a later round reads that requirement as
-justification. Only a written user decision or a boundary entry ends the
-question.
-
-When the answer is that no boundary asks for the machinery, say that the plan
-step is the defect and stop, rather than reporting more findings against it.
-Carry the correction into [Cross-repo findings](#cross-repo-findings) when the
-user accepts it. When the trade is genuinely worth its cost, the user says so
-and the cross-repo record carries the ruling with its reason. A directed plan
-fix applies it in the fix phase; otherwise a later plan round applies it.
-Either route stops the pattern from remaining an open signal for that
-machinery.
-
-Pricing a run is expensive, so it runs only on a cross-round run of a
-growth pattern or of the reach and complexity pair. A single tagged finding
-is not priced here; when its three tokens all show risk, its own trade
-block under [Finding shape](#finding-shape) prices it.
-
-A run is on one piece of machinery only when its bullets name the same standing rule, state or owner
-concern. A shared area, file or panel is not the same machinery. The pricing quotes those bullets
-and prices only what they name. Bullets that each carry one existing rule to one more surface are
-consistency, not a run, and are not priced. The `desktop-application-architecture` step 7 audit at
-`5c321b66` priced a listing counter that none of its three run bullets named; each bullet had
-carried the session admission rule to one more clone-all surface.
+The watch alone counts these tags across rounds and judges repeated growth.
+The audit may read history to establish a finding or a prior ruling, without
+a mandatory episode scan. Each finding keeps its own trade assessment.
 
 ## Reach and complexity
 
@@ -476,8 +422,7 @@ gives the user against what its machinery costs. The pair fires that test on
 every finding, so a cross-round run of `[reach:developer]`,
 `[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high`
 `[complexity:...]` values on the same machinery is the unpriced trade shown
-in the log without anyone having to notice it, and it prices under
-[Pricing a run](#pricing-a-run) the same way a growth-number run does. A
+in the log for the watch to judge. A
 `minus-` value is the opposite signal: the correction removed more structure
 than it added, which counts in its favour and never joins a priced run. Both
 tokens rate facts, not worth, and like the growth tag they block nothing: a
@@ -533,12 +478,9 @@ round's table classifying every row. A round that finds nothing is not required.
 Prior audit commits inform those rounds, ranking their reports and naming the
 fixes to re-verify. They never excuse a row from inspection.
 
-Structure joins that proof. A `growth-medium` or `growth-high` run across those
-rounds that no later round repaid says the code is still ratcheting where
-severity has already settled, the failure `../plan/GROWTH-PATTERNS.md` records.
-The round names the run and the machinery under it, and the user prices that
-machinery under growth pattern 6. A single high mark is not a bar, because
-closing an A-tier finding can require adding an owner.
+The watch judges convergence and repeated structural growth across these
+rounds. The audit supplies current coverage and findings; it does not price
+runs or classify the trajectory. The user owns the settlement decision.
 
 The final whole-plan round expects the shared `implemented:` marker in every
 repo
@@ -560,10 +502,9 @@ Open by naming the workflow that ran and include exactly one plain line: `Judged
 `Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
 short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
 vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
-that tag for the opening. Then name the plan file, its ready commit, the episode's commit range and
-the round's user-set scope: the whole plan, one step or one step range. Then report the coverage
-table with its coverage line. Then, when a growth pattern or the reach and complexity pair runs
-across rounds, the run statement and the pricing under [Pricing a run](#pricing-a-run). Then the
+that tag for the opening. Then name the plan file, its ready commit and the implementation commits
+inspected. State the round's user-set scope: the whole plan, one step or one step range.
+Then report the coverage table with its coverage line. Then the
 `## Findings` field, including cross-repo findings in the same numbered list and block form. Then
 write the report to its file under [Report file](#report-file) and stop there.
 

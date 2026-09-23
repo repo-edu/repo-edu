@@ -1,7 +1,16 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import type { CleanInput } from "../clean.js"
-import type { GlanceDecision, GlanceInput } from "../glance.js"
+import {
+  formatWatchEvidence,
+  joinedEpisode,
+  type WatchEvidenceInput,
+} from "../episode.js"
+import {
+  type GlanceDecision,
+  type GlanceInput,
+  glanceDecision,
+} from "../glance.js"
 import { phasePrompt } from "../requests.js"
 import {
   type Assistant,
@@ -18,6 +27,14 @@ import {
   runRound,
   unpinned,
 } from "./configured-runner.js"
+import {
+  areas,
+  bullet,
+  commit,
+  correction,
+  episode,
+  history,
+} from "./episode-fixture.js"
 import { testContext } from "./helpers.js"
 
 /** The brief names its own model, so its seat is the one a round never overrides. */
@@ -79,6 +96,7 @@ function controlledRound(
   const closed: { cwd: string; nameStart: string }[] = []
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
+  const watchEvidence: WatchEvidenceInput[] = []
   const handover: { operation: string; session: InteractiveSession }[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
@@ -135,6 +153,11 @@ function controlledRound(
     subjects: ["example/impl-audit-all oth clean: settled"],
   }
   const dependencies: RoundDependencies = {
+    watchEvidence: async (input) => {
+      assert.equal(calls.at(-1)?.phase, "brief")
+      watchEvidence.push(input)
+      return "Joined evidence including the finished fix"
+    },
     closeRound: async (cwd, nameStart) => {
       assert.equal(calls.at(-1)?.phase, "fix")
       closed.push({ cwd, nameStart })
@@ -204,6 +227,7 @@ function controlledRound(
     closed,
     completions,
     glances,
+    watchEvidence,
     handover,
     results,
     dependencies,
@@ -217,6 +241,92 @@ function controlledRound(
 const dueDecision: GlanceDecision = {
   due: true,
   text: "An area reached the amber limit of 2 (rule 3).",
+}
+
+for (const grade of ["green", "amber"] as const) {
+  test(`a both-repo round with only a plan fix uses the audited topic's ${grade} record`, async () => {
+    const repo = history(
+      commit("other/impl-1 oth feat(x): other plan", "", ["src/other.ts"]),
+      correction(),
+      correction(),
+    )
+    const plan = history(
+      commit("example/impl-1 oth docs(x): initial plan", "", ["example.md"]),
+    )
+    const records = {
+      other: {
+        heads: { "repo-edu": repo[0].sha },
+        grade: "red",
+        written: "2026-09-23",
+      },
+      example: {
+        heads: { "repo-edu": repo.at(-1)?.sha },
+        grade,
+        written: "2026-09-23",
+      },
+    }
+    const landed = {
+      ...commit(
+        "example/impl-audit-all oth C1 docs(x): finished fix",
+        bullet("section:decisions"),
+        ["example.md"],
+      ),
+      sha: "finished-plan-fix",
+    }
+    const round = controlledRound(async (input) => {
+      if (input.phase === "audit") assert.equal(round.watchEvidence.length, 0)
+      if (input.phase === "fix") plan.unshift(landed)
+    })
+    let computations = 0
+    const result = await runRound(
+      { ...files, plan: "../plan/archive/example/plan.md" },
+      {
+        ...round.dependencies,
+        readReport: async () => ({
+          findings: [1],
+          judgedRepos: ["plan", "repo-edu"],
+        }),
+        readSubjects: async (root) =>
+          root === files.planRoot ? [landed.subject] : [],
+        glance: async (input) => {
+          assert.equal(input.stem, "example")
+          const result = glanceDecision(
+            episode(repo, "repo-edu", input.stem),
+            records,
+          )
+          assert.match(result.text, /area:area-a 2/)
+          assert.match(
+            result.text,
+            new RegExp(`episode example recorded ${grade}`),
+          )
+          return result
+        },
+        watchEvidence: async (input) => {
+          computations++
+          assert.equal(round.calls.at(-1)?.phase, "brief")
+          assert.ok("stem" in input)
+          assert.equal(input.stem, "example")
+          return formatWatchEvidence(
+            joinedEpisode({ plan, "repo-edu": repo }, input.stem, areas),
+          )
+        },
+      },
+    )
+    assert.equal(result.status, "finished")
+    assert.equal(computations, grade === "amber" ? 1 : 0)
+    const watches = round.calls.filter(
+      (call) => call.phase === "watch" || call.phase === "watch-edit",
+    )
+    assert.equal(watches.length, grade === "amber" ? 2 : 0)
+    if (watches.length === 2) {
+      assert.equal(watches[0].evidence, watches[1].evidence)
+      assert.match(watches[0].evidence, /finished-plan-fix/)
+      for (const watch of watches) {
+        assert.ok(phasePrompt(watch).endsWith(watch.evidence))
+        assert.equal(watch.arguments.includes(watch.evidence), false)
+      }
+    }
+  })
 }
 
 for (const accepted of [false, true]) {
@@ -383,7 +493,7 @@ for (const auditor of ["claude", "codex"] as const) {
       ])
       // The glance reads the invoking repository's record, never the report's.
       assert.deepEqual(round.glances, [
-        { cwd: ownerRoot, repository: "repo-edu", cacheRoot },
+        { cwd: ownerRoot, repository: "repo-edu", cacheRoot, stem: "example" },
       ])
       for (const call of round.calls) {
         const root = call.phase === "brief" ? repoRoot : ownerRoot
@@ -510,6 +620,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
   assert.deepEqual(round.calls.slice(5), [
     {
       phase: "watch",
+      evidence: "Joined evidence including the finished fix",
       assistant: "codex",
       model: unpinned,
       ...testContext(repoRoot),
@@ -518,6 +629,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
     },
     {
       phase: "watch-edit",
+      evidence: "Joined evidence including the finished fix",
       assistant: "codex",
       model: editPin,
       ...testContext(repoRoot),
@@ -552,7 +664,7 @@ test("a planning round glances at the plan repository's record from its own root
   )
 
   assert.deepEqual(round.glances, [
-    { cwd: planning.planRoot, repository: "plan", cacheRoot },
+    { cwd: planning.planRoot, repository: "plan", cacheRoot, stem: "example" },
   ])
 })
 

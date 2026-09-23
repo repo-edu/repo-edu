@@ -5,7 +5,7 @@ import { test } from "node:test"
 import { split } from "shellwords"
 import { runAssistantPhase } from "../assistant.js"
 import { openAssistantSession } from "../cli-process.js"
-import { recoveryCommand } from "../requests.js"
+import { phaseRequest, recoveryCommand } from "../requests.js"
 import {
   type Assistant,
   type PhaseInput,
@@ -74,13 +74,10 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     assert.ok(f.starts[0].prompt.includes("/peer plan/"))
     const [call] = await f.calls()
-    if (assistant === "codex")
-      assert.deepEqual(call.args.slice(0, 3), [
-        "exec",
-        "--approve-for-me",
-        "--json",
-      ])
-    else {
+    if (assistant === "codex") {
+      assert.deepEqual(call.args, ["exec", "--approve-for-me", "--json"])
+      assert.equal((await f.prompts())[0].prompt, f.starts[0].prompt)
+    } else {
       assert.equal(
         call.args[call.args.indexOf("--permission-mode") + 1],
         "auto",
@@ -220,6 +217,28 @@ for (const assistant of ["claude", "codex"] as const) {
     await assert.rejects(openAssistantSession(session, f.runtime))
   })
 }
+
+test("fresh and resumed Codex requests carry large prompts only on stdin", () => {
+  const prompt = "Evidence: é\n".repeat(30_000)
+  for (const sessionId of [null, "audit-session"]) {
+    const request = phaseRequest(
+      {
+        ...input("codex", "/workspace/repo-edu"),
+        phase: "rebut",
+        arguments: ["report", "vet", "rebut"],
+        sessionId,
+      },
+      prompt,
+    )
+    assert.equal(request.input, prompt)
+    assert.deepEqual(
+      request.args,
+      sessionId === null
+        ? ["exec", "--approve-for-me", "--json"]
+        : ["exec", "--approve-for-me", "resume", "--json", sessionId, "-"],
+    )
+  }
+})
 
 test("Claude completes a phase when its settings reply fails", async (t) => {
   const stream = (await phaseStream("claude"))

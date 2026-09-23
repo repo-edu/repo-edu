@@ -14,4 +14,5 @@ through the watch edit, so write the watch as if it were final rather than
 leaving notes for that pass.
 
 The arguments name the watch file to write and the cache root holding its
-cadence record. Read `references/workflow.md` completely and follow it.
+cadence record. The prompt supplies the joined Git evidence separately. Read
+`references/workflow.md` completely and follow it.

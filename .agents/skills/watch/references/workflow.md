@@ -35,8 +35,9 @@ The two never run together and neither invokes the other.
 The watch's value rests on reading the commit record and the code, never the
 doer's reasoning. So:
 
-- Read `git log`, the current artifact at the area the log points to, the area
-  model and the plan the episode names.
+- Read the supplied Git evidence, the current artifact at the area it points
+  to, the area model and the named plan. Inspect named commits as needed to
+  verify a claim; do not repeat the episode walk or token counts.
 - Do not read the round's transcript, its brief, its report or its vet and
   rebuttal twins, and do not read the fix session. The invocation gives you
   none of them on purpose.
@@ -48,12 +49,18 @@ same as every earlier round.
 
 ## Input
 
-The invocation names two things: the file to write and the cache root holding
-the watch's own history. Scope the episode by the **Watch step**'s rules, from
-the invoking repository's HEAD alone; no anchor is supplied, because no user
-chose one. Read and retain the current HEAD of each checkout, then join their
-histories under the watch's episode rules. Those two heads bound the evidence
-this watch grades.
+The file arguments name the watch file to write and the cache root holding
+its cadence record. The prompt separately supplies joined Git evidence for the
+audited plan. Take the topic and both graded heads from that evidence; do not
+select a topic from HEAD or reread current heads to replace the supplied ones.
+The runner computes this snapshot after the fix, only when glance says watch
+is due, and supplies the same text to both watch passes.
+
+For a hand-run watch edit without supplied evidence, read the draft's topic
+and run `pnpm audit-round episode <stem>` from the invoking root. Read that
+output in this session. Keep the draft's grade and graded heads unchanged;
+use any later commits only as context, not as evidence for its earlier grade.
+No route reads or writes an episode file.
 
 ## Output
 
@@ -141,7 +148,8 @@ Nothing else belongs in the file. The round's own brief holds its findings.
 
 ## The second pass
 
-Read the draft, then judge it against these tests before writing anything:
+Read the draft and the same supplied evidence, then judge it against these
+tests before writing anything:
 
 1. Does the description name a real abstraction and a structural reason or
    does it only restate what the log shows?
@@ -154,9 +162,9 @@ Read the draft, then judge it against these tests before writing anything:
 5. Is any sentence impossible to follow without `git log` open beside it?
 
 Then rewrite the whole file. Fix what the tests caught, and re-ground anything
-the draft asserts that you cannot confirm in the log, the area model or the
-code. Never append a critique, a change list or a note about the draft: the
-file the user opens must read as the finished watch and nothing else.
+the draft asserts that you cannot confirm in the supplied evidence, a named
+commit, the area model or the current artifact. Never append a critique, a change
+list or a note about the draft: the file must read as the finished watch.
 
 ## Runner result
 

@@ -90,7 +90,7 @@ few short sentences. Every answer is one of three kinds.
   note.
 - For user's ruling. The vet sent the item to the user: a full
   reversal of a settled decision or a real unresolved choice about machinery's
-  cost, including a run price. State the auditor's position and its
+  cost. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
 Close with the reconciled outcome in the three groups the fix phase

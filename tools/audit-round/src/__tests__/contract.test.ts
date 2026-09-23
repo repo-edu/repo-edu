@@ -91,10 +91,9 @@ test("contract recorder validates both real boundaries before replacing only its
     false,
   )
   assert.ok(
-    calls
+    (await f.prompts())
       .find((call) => call.args[0] === "exec")
-      .args.at(-1)
-      .includes("Do not read or edit repository files"),
+      .prompt.includes("Do not read or edit repository files"),
   )
 })
 

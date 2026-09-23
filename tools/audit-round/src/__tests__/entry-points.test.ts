@@ -108,10 +108,9 @@ for (const auditor of ["codex", "claude"] as const) {
         ),
         0,
       )
-      const call = (await f.calls()).find(
+      const call = (await f.prompts()).find(
         (call) =>
-          call.assistant === "codex" &&
-          /^Run the fix phase /.test(call.args.at(-1)),
+          call.assistant === "codex" && /^Run the fix phase /.test(call.prompt),
       )
       const message = join(f.root, "commit-message")
       const suffix = clean

@@ -18,7 +18,7 @@ import {
 import type { AuditReport } from "./report.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
-import type { AuditTarget } from "./target.js"
+import { type AuditTarget, planStem } from "./target.js"
 
 /** What names a round before it starts: its target, who audits and on what. */
 export type RoundSetup = ExecutionContext & {
@@ -205,8 +205,12 @@ export async function runBrief(
  * not due or was not asked for.
  */
 async function runWatch(
-  input: ExecutionContext & Pick<RoundInput, "watch">,
-  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile" | "glance">,
+  input: ExecutionContext &
+    Pick<RoundInput, "watch"> & { readonly plan: string },
+  dependencies: Pick<
+    RoundDependencies,
+    "runPhase" | "checkFile" | "glance" | "watchEvidence"
+  >,
   settings: RoundSettings,
 ): Promise<RoundFailure | null> {
   const target = input.watch
@@ -215,12 +219,15 @@ async function runWatch(
   const phases = roundPhases("codex", noOverride, settings)
   const { cwd, repoEduRoot, planRoot, roundKind } = input
   const context = { cwd, repoEduRoot, planRoot, roundKind }
+  const stem = planStem(input.plan)
   const glance = await dependencies.glance({
     cwd,
     repository: roundKind === "planning" ? "plan" : "repo-edu",
     cacheRoot: target.cacheRoot,
+    stem,
   })
   if (!glance.due) return null
+  const evidence = await dependencies.watchEvidence({ ...context, stem })
 
   const watch = await reportPhase(
     () =>
@@ -229,6 +236,7 @@ async function runWatch(
         ...phases.watch,
         ...context,
         arguments: [target.file, target.cacheRoot],
+        evidence,
         sessionId: null,
       }),
     target.file,
@@ -238,8 +246,7 @@ async function runWatch(
     return { ...watch, phase: "watch", ...phases.watch, ...context }
 
   // The watch is a document the user decides from, so a session that did not
-  // write it reads it once before the user does. It re-grounds in the record
-  // and the code, never in the round, so it is given no other source.
+  // write it reads it once before the user does, against the same Git evidence.
   const edit = await reportPhase(
     () =>
       dependencies.runPhase["watch-edit"]({
@@ -247,6 +254,7 @@ async function runWatch(
         ...phases["watch-edit"],
         ...context,
         arguments: [target.file],
+        evidence,
         sessionId: null,
       }),
     target.file,
