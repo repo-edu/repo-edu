@@ -21,11 +21,12 @@ import {
   makeSettings,
   resetStores,
   startController,
+  workflowClient,
 } from "./session-controller.test-support.js"
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-it("remote request controls stop admitted work and release the window freeze", {
+it("the window gate protects dialogs and permits remote request cancellation", {
   timeout: 10000,
 }, async (t) => {
   const window = new Window()
@@ -64,6 +65,7 @@ it("remote request controls stop admitted work and release the window freeze", {
   })
   // Radix checks DOM availability at import time.
   const { createRoot } = await import("react-dom/client")
+  const { Dialog, DialogContent, DialogTitle } = await import("@repo-edu/ui")
   const { StudentSyncDialog } = await import(
     "../components/dialogs/StudentSyncDialog.js"
   )
@@ -72,6 +74,86 @@ it("remote request controls stop admitted work and release the window freeze", {
   )
   const { CloneAllRepositoriesPanel } = await import(
     "../components/tabs/groups-assignments/GroupSetGroupsTable/CloneAllRepositoriesPanel.js"
+  )
+  await t.test(
+    "Escape cannot dismiss a dialog while a command is admitted",
+    async (t) => {
+      resetStores()
+      const controller = startController({
+        workflowClient: workflowClient(async (id) => {
+          if (id === "settings.loadApp") return makeSettings()
+          assert.fail(id)
+        }),
+      })
+      await controller.waitForIdle()
+      const container = window.document.createElement("div")
+      window.document.body.appendChild(container)
+      const root = createRoot(container as unknown as HTMLElement)
+      const release = deferred<void>()
+      t.after(async () => {
+        await React.act(async () => {
+          release.resolve()
+          await controller.waitForIdle()
+          root.unmount()
+        })
+        controller.dispose()
+        container.remove()
+      })
+      let dismissals = 0
+      await React.act(async () => {
+        root.render(
+          <SessionControllerProvider controller={controller}>
+            <Dialog defaultOpen onOpenChange={() => dismissals++}>
+              <DialogContent aria-describedby={undefined}>
+                <DialogTitle>Import Git Usernames</DialogTitle>
+                <button type="button">Import</button>
+              </DialogContent>
+            </Dialog>
+          </SessionControllerProvider>,
+        )
+        await flush()
+      })
+      const dialog = window.document.querySelector('[role="dialog"]')
+      assert.ok(dialog)
+      const input = dialog.querySelector("button")
+      assert.ok(input)
+      const pressEscape = () => {
+        const event = new window.KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        })
+        input.dispatchEvent(event)
+        return event
+      }
+      let running: Promise<unknown> | undefined
+      await React.act(async () => {
+        running = controller.operations.execute(
+          "gitUsernames.import",
+          async () => {
+            await release.promise
+          },
+        )
+        // Admission must take effect before React has rendered the freeze.
+        assert.equal(pressEscape().defaultPrevented, true)
+        assert.equal(dismissals, 0)
+      })
+      assert.ok(window.document.querySelector("[data-session-input-frozen]"))
+      assert.equal(pressEscape().defaultPrevented, true)
+      assert.equal(dismissals, 0)
+      assert.equal(window.document.querySelector('[role="dialog"]'), dialog)
+      await React.act(async () => {
+        release.resolve()
+        await running
+        await controller.waitForIdle()
+      })
+      await React.act(async () => {
+        pressEscape()
+        await flush()
+      })
+      assert.equal(dismissals, 1)
+      assert.equal(window.document.querySelector('[role="dialog"]'), null)
+    },
   )
   const operations = [
     "roster.importFromLms",
@@ -244,6 +326,15 @@ it("remote request controls stop admitted work and release the window freeze", {
         assert.equal(cancel.getAttribute(sessionCancellationControl), operation)
         assert.equal(cancel.disabled, false)
         assert.equal(cancel.closest("fieldset[disabled]"), null)
+        for (const type of ["keydown", "keyup"]) {
+          const event = new window.KeyboardEvent(type, {
+            key: "Enter",
+            bubbles: true,
+            cancelable: true,
+          })
+          cancel.dispatchEvent(event)
+          assert.equal(event.defaultPrevented, false)
+        }
         await React.act(async () => {
           cancel.click()
           await flush()

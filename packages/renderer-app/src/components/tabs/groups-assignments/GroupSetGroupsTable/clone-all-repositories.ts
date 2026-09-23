@@ -62,7 +62,7 @@ export function fetchCloneAllListing(
   input: CloneAllPublishedListingInput,
 ): Promise<RepositoryListNamespaceResult | undefined> {
   return operations.execute("repo.listNamespace", async (scope) => {
-    // Listings are not cancellable, including when newer input is published.
+    // Input changes do not cancel a listing; its Cancel control does.
     return await queryClient.fetchQuery({
       ...createCloneAllListingQueryPolicy(input.admissionId),
       ...scopedSessionQueryOptions(scope, () =>

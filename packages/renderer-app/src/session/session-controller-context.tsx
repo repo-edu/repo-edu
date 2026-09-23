@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type SyntheticEvent,
   useContext,
+  useEffect,
   useSyncExternalStore,
 } from "react"
 import { createPortal } from "react-dom"
@@ -46,6 +47,22 @@ const SessionControllerContext = createContext<SessionController | null>(null)
 // The marker names the admitted operation this control cancels.
 export const sessionCancellationControl = "data-session-cancellation-control"
 
+function admitSessionInput(
+  controller: SessionController,
+  event: SyntheticEvent | Event,
+): void {
+  // Read the owner at event delivery, without waiting for a React render.
+  const snapshot = controller.getSnapshot()
+  if (canAdmitSessionInput(snapshot)) return
+  if (snapshot.lifecycle.kind === "live" && event.target instanceof Element) {
+    const control = event.target.closest(`[${sessionCancellationControl}]`)
+    const operation = control?.getAttribute(sessionCancellationControl)
+    if (selectOperationIsAdmitted(snapshot, operation ?? null)) return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+}
+
 export function SessionControllerProvider({
   controller,
   children,
@@ -58,18 +75,20 @@ export function SessionControllerProvider({
     () => !canAdmitSessionInput(controller.getSnapshot()),
     () => !canAdmitSessionInput(controller.getSnapshot()),
   )
-  // Read the owner at event delivery, without waiting for a React render.
-  // React capture also reaches children rendered through dialog portals.
-  const admitInput = (event: SyntheticEvent) => {
-    const snapshot = controller.getSnapshot()
-    if (canAdmitSessionInput(snapshot)) return
-    if (snapshot.lifecycle.kind === "live" && event.target instanceof Element) {
-      const control = event.target.closest(`[${sessionCancellationControl}]`)
-      const operation = control?.getAttribute(sessionCancellationControl)
-      if (selectOperationIsAdmitted(snapshot, operation ?? null)) return
+  useEffect(() => {
+    // Window capture runs before Radix's document-level Escape dismissal.
+    const admitKeyboardInput = (event: KeyboardEvent) =>
+      admitSessionInput(controller, event)
+    window.addEventListener("keydown", admitKeyboardInput, true)
+    window.addEventListener("keyup", admitKeyboardInput, true)
+    return () => {
+      window.removeEventListener("keydown", admitKeyboardInput, true)
+      window.removeEventListener("keyup", admitKeyboardInput, true)
     }
-    event.preventDefault()
-    event.stopPropagation()
+  }, [controller])
+  // React capture reaches other input in children and dialog portals.
+  const admitInput = (event: SyntheticEvent) => {
+    admitSessionInput(controller, event)
   }
   return (
     <SessionControllerContext.Provider value={controller}>
@@ -82,8 +101,6 @@ export function SessionControllerProvider({
         onClickCapture={admitInput}
         onDoubleClickCapture={admitInput}
         onContextMenuCapture={admitInput}
-        onKeyDownCapture={admitInput}
-        onKeyUpCapture={admitInput}
         onPointerDownCapture={admitInput}
         onPointerMoveCapture={admitInput}
         onPointerUpCapture={admitInput}
