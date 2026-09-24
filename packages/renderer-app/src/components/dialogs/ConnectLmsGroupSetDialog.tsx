@@ -17,7 +17,7 @@ import {
   SelectValue,
   Text,
 } from "@repo-edu/ui"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useLmsPreview } from "../../session/lms-preview.js"
 import { selectOperationIsAdmitted } from "../../session/selectors.js"
 import {
@@ -30,6 +30,7 @@ import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 
 type Discovery =
+  | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; groupSets: GroupSetLmsSummary[]; selectedId: string }
@@ -70,34 +71,35 @@ function GroupSetPreviewDialog({
   const setOpen = useUiStore((state) => state.setConnectLmsGroupSetDialogOpen)
   const setSyncId = useUiStore((state) => state.setSyncGroupSetTriggerId)
   const setSelection = useUiStore((state) => state.setSidebarSelection)
-  const [discovery, setDiscovery] = useState<Discovery>({ status: "loading" })
+  const [discovery, setDiscovery] = useState<Discovery>({ status: "idle" })
   const { state, preview, apply, reset } = useLmsPreview()
 
-  useEffect(() => {
-    if (syncId !== null) return
-    let cancelled = false
-    void controller.operations.execute(
+  const loadGroupSets = () =>
+    controller.operations.execute(
       "groupSet.fetchAvailableFromLms",
       async (scope) => {
         const current = useCourseStore.getState().course
         if (current?.id !== courseId) return
+        scope.publish(() => {
+          setDiscovery({ status: "loading" })
+          reset()
+        })
         try {
           const groupSets = await scope.run("groupSet.fetchAvailableFromLms", {
             course: current,
             credentials: controller.getSnapshot().settings.credentials,
           })
           scope.publish(() => {
-            if (!cancelled)
-              setDiscovery({
-                status: "ready",
-                groupSets: [...groupSets].sort((a, b) =>
-                  a.name.localeCompare(b.name),
-                ),
-                selectedId: "",
-              })
+            setDiscovery({
+              status: "ready",
+              groupSets: [...groupSets].sort((a, b) =>
+                a.name.localeCompare(b.name),
+              ),
+              selectedId: "",
+            })
           })
         } catch (error) {
-          if (!cancelled && scope.canContinue())
+          if (scope.canContinue())
             scope.publish(() =>
               setDiscovery({
                 status: "error",
@@ -107,10 +109,6 @@ function GroupSetPreviewDialog({
         }
       },
     )
-    return () => {
-      cancelled = true
-    }
-  }, [controller, courseId, syncId])
 
   const connectedIds = new Set(
     course?.roster.groupSets.flatMap(({ connection }) =>
@@ -161,6 +159,16 @@ function GroupSetPreviewDialog({
         <DialogBody className="space-y-4">
           {syncId === null ? (
             <>
+              <Button
+                variant="outline"
+                disabled={admittedOperation !== undefined}
+                onClick={() => void loadGroupSets()}
+              >
+                Load group sets
+              </Button>
+              {discovery.status === "idle" && (
+                <Text>Load group sets to choose one from the LMS.</Text>
+              )}
               {discovery.status === "error" && (
                 <Alert variant="destructive">{discovery.message}</Alert>
               )}
@@ -200,7 +208,7 @@ function GroupSetPreviewDialog({
               </FormField>
               {discovery.status === "ready" && available.length === 0 && (
                 <Text>
-                  All LMS group sets are already connected for this course.
+                  No unconnected LMS group sets are available for this course.
                 </Text>
               )}
             </>

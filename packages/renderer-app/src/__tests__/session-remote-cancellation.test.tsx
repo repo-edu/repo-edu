@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
-import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
+import type {
+  GroupSetLmsApplyResult,
+  GroupSetLmsSummary,
+  WorkflowClient,
+  WorkflowId,
+  WorkflowInput,
+} from "@repo-edu/application-contract"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
@@ -26,7 +32,7 @@ import {
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-it("the window gate protects dialogs and permits remote request cancellation", {
+it("remote requests start explicitly and retain window-gate cancellation", {
   timeout: 10000,
 }, async (t) => {
   const window = new Window()
@@ -155,6 +161,172 @@ it("the window gate protects dialogs and permits remote request cancellation", {
       })
       assert.equal(dismissals, 1)
       assert.equal(window.document.querySelector('[role="dialog"]'), null)
+    },
+  )
+  await t.test(
+    "group sets load only on request and discard unmatched previews",
+    async (t) => {
+      resetStores()
+      const course = makeCourse("course")
+      course.lmsConnectionId = "lms"
+      course.lmsCourseId = "remote-course"
+      let listing: GroupSetLmsSummary[] | Error = []
+      const calls: WorkflowId[] = []
+      const controller = startController({
+        workflowClient: workflowClient(async (id, input) => {
+          if (id === "settings.loadApp")
+            return makeSettings({
+              activeSurface: { kind: "course", courseId: course.id },
+            })
+          if (id === "course.list") return [course]
+          if (id === "course.load") return course
+          if (id === "course.save")
+            return {
+              revision: (input as WorkflowInput<"course.save">).revision + 1,
+              updatedAt: "2026-09-25T00:00:00Z",
+            }
+          calls.push(id)
+          if (id === "groupSet.fetchAvailableFromLms") {
+            if (listing instanceof Error) throw listing
+            return listing
+          }
+          if (id === "groupSet.connectFromLms") {
+            const { remoteGroupSetId, course: previewCourse } =
+              input as WorkflowInput<"groupSet.connectFromLms">
+            const groupSet = {
+              id: "new-group-set",
+              name: remoteGroupSetId,
+              nameMode: "named" as const,
+              groupIds: [],
+              connection: {
+                kind: "canvas" as const,
+                courseId: "remote-course",
+                groupSetId: remoteGroupSetId,
+                lastUpdated: "2026-09-25T00:00:00Z",
+              },
+              repoNameTemplate: null,
+              columnVisibility: {},
+              columnSizing: {},
+            }
+            return {
+              ...groupSet,
+              roster: {
+                ...previewCourse.roster,
+                groupSets: [...previewCourse.roster.groupSets, groupSet],
+              },
+              idSequences: previewCourse.idSequences,
+            } satisfies GroupSetLmsApplyResult
+          }
+          assert.fail(id)
+        }),
+      })
+      await controller.waitForIdle()
+      const originalGroupSets =
+        useCourseStore.getState().course?.roster.groupSets
+      const container = window.document.createElement("div")
+      window.document.body.appendChild(container)
+      const root = createRoot(container as unknown as HTMLElement)
+      t.after(async () => {
+        await React.act(async () => root.unmount())
+        controller.dispose()
+        container.remove()
+      })
+      const button = (label: string) => {
+        const result = [...window.document.querySelectorAll("button")].find(
+          (candidate) => candidate.textContent?.trim() === label,
+        )
+        assert.ok(result, `Missing ${label} button`)
+        return result
+      }
+      const click = async (label: string) => {
+        const control = button(label)
+        assert.equal(control.disabled, false, `${label} should be enabled`)
+        await React.act(async () => {
+          control.click()
+          await controller.waitForIdle()
+          await flush()
+        })
+      }
+      await React.act(async () => {
+        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        root.render(
+          <SessionControllerProvider controller={controller}>
+            <ConnectLmsGroupSetDialog />
+          </SessionControllerProvider>,
+        )
+        await flush()
+      })
+      assert.deepEqual(calls, [])
+      assert.equal(button("Preview").disabled, true)
+      assert.equal(button("Apply").disabled, true)
+      await click("Cancel")
+      await React.act(async () => {
+        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        await flush()
+      })
+      assert.deepEqual(calls, [])
+      await click("Load group sets")
+      assert.deepEqual(calls, ["groupSet.fetchAvailableFromLms"])
+      assert.match(
+        window.document.body.textContent,
+        /No unconnected LMS group sets/,
+      )
+      assert.equal(button("Preview").disabled, true)
+      listing = new Error("LMS unavailable")
+      await click("Load group sets")
+      assert.match(window.document.body.textContent, /LMS unavailable/)
+      assert.equal(button("Preview").disabled, true)
+      listing = [{ id: "first-set", name: "First set", groupCount: 0 }]
+      await click("Load group sets")
+      await click("Preview")
+      assert.match(window.document.body.textContent, /Preview: first-set/)
+      assert.equal(button("Apply").disabled, false)
+      listing = [{ id: "second-set", name: "Second set", groupCount: 0 }]
+      await click("Load group sets")
+      assert.equal(button("Apply").disabled, true)
+      assert.doesNotMatch(
+        window.document.body.textContent,
+        /Preview: first-set/,
+      )
+      assert.deepEqual(
+        useCourseStore.getState().course?.roster.groupSets,
+        originalGroupSets,
+      )
+      await click("Preview")
+      assert.match(window.document.body.textContent, /Preview: second-set/)
+      await React.act(async () => {
+        controller.setDisplayName(course.id, "Edited course")
+      })
+      await click("Apply")
+      assert.match(window.document.body.textContent, /The course changed/)
+      assert.deepEqual(
+        useCourseStore.getState().course?.roster.groupSets,
+        originalGroupSets,
+      )
+      assert.equal(button("Apply").disabled, true)
+      await click("Refresh Preview")
+      await click("Apply")
+      assert.equal(
+        useCourseStore
+          .getState()
+          .course?.roster.groupSets.find(({ id }) => id === "new-group-set")
+          ?.name,
+        "second-set",
+      )
+      assert.equal(window.document.querySelector('[role="dialog"]'), null)
+      assert.equal(
+        calls.filter((id) => id === "groupSet.fetchAvailableFromLms").length,
+        4,
+      )
+      await React.act(async () => {
+        useUiStore.getState().setConnectLmsGroupSetDialogOpen(true)
+        await flush()
+      })
+      assert.equal(
+        calls.filter((id) => id === "groupSet.fetchAvailableFromLms").length,
+        4,
+      )
+      assert.equal(button("Preview").disabled, true)
     },
   )
   const operations = [
@@ -300,6 +472,20 @@ it("the window gate protects dialogs and permits remote request cancellation", {
           assert.ok(search)
           await React.act(async () => {
             search.click()
+            await flush()
+          })
+        }
+        if (
+          operation === "groupSet.fetchAvailableFromLms" ||
+          operation === "groupSet.connectFromLms"
+        ) {
+          assert.equal(calls.includes("groupSet.fetchAvailableFromLms"), false)
+          const load = [...window.document.querySelectorAll("button")].find(
+            (button) => button.textContent === "Load group sets",
+          )
+          assert.ok(load)
+          await React.act(async () => {
+            load.click()
             await flush()
           })
         }
