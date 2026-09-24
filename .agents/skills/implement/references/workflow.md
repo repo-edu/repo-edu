@@ -26,6 +26,9 @@ only when the user explicitly says to.
 
 ## Scope
 
+Before choosing implementation mechanisms or editing files, read
+`../plan/GROWTH-PATTERNS.md` completely.
+
 Read the plan end to end. Read `../plan/BOUNDARIES.md` beside it: boundaries
 change only by user decision, so the current file can be newer than the plan.
 This is a check, not a source of work. Derive no requirements from boundary

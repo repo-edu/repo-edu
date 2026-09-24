@@ -194,6 +194,9 @@ of a case.
 
 ## Evidence
 
+Before assessing the implementation or drafting findings, read
+`../plan/GROWTH-PATTERNS.md` completely.
+
 In every judged repo, locate the implementation commits for the user-named
 steps through the joined topic stems. Follow later corrections and the history
 of the files those steps changed, including off-plan corrections, to find the
