@@ -144,14 +144,28 @@ describe("clone-all listing requests", () => {
     assert.equal(state.publishedInput?.admissionId.filter, "lab-2*")
   })
 
-  it("advances generation when the active credentials change", () => {
+  it("waits for search after the active credentials change", () => {
     const state = cloneAllListingReducer(listedState, {
       type: "context",
       ...context,
       credentials: secondCredentials,
     })
-    assert.equal(state.publishedInput?.admissionId.listingGeneration, 2)
-    assert.equal(state.publishedInput?.credentials, secondCredentials)
+    assert.equal(state, listedState)
+    assert.equal(
+      cloneAllInputIsCurrent({
+        input: initialInput,
+        credentials: secondCredentials,
+        publishedInput: initialPublishedInput,
+      }),
+      false,
+    )
+    const searched = cloneAllListingReducer(state, {
+      type: "search",
+      ...context,
+      credentials: secondCredentials,
+    })
+    assert.equal(searched.publishedInput?.admissionId.listingGeneration, 2)
+    assert.equal(searched.publishedInput?.credentials, secondCredentials)
   })
 
   it("keeps unfinished drafts unpublished when unrelated credentials change", () => {
@@ -194,22 +208,38 @@ describe("clone-all listing requests", () => {
     )
   })
 
-  it("requests a new listing when a connection becomes available again", () => {
+  it("keeps the request when a connection is removed or restored", () => {
     const disabled = cloneAllListingReducer(listedState, {
       type: "context",
       ...context,
       connectionId: null,
     })
-    assert.equal(cloneAllListingIsReady(disabled.publishedInput), false)
+    assert.equal(disabled, listedState)
     const restored = cloneAllListingReducer(disabled, {
       type: "context",
       ...context,
     })
+    assert.equal(restored, listedState)
+  })
+
+  it("waits for search when the first connection becomes available", () => {
+    const opened = cloneAllListingReducer(initialCloneAllListingState, {
+      type: "context",
+      ...context,
+      connectionId: null,
+      credentials: defaultAppCredentials,
+    })
+    assert.equal(cloneAllListingIsReady(opened.publishedInput), false)
     assert.equal(
-      restored.publishedInput?.admissionId.connectionId,
-      context.connectionId,
+      cloneAllListingReducer(opened, { type: "context", ...context }),
+      opened,
     )
-    assert.equal(restored.publishedInput?.admissionId.listingGeneration, 3)
+    const searched = cloneAllListingReducer(opened, {
+      type: "search",
+      ...context,
+    })
+    assert.equal(cloneAllListingIsReady(searched.publishedInput), true)
+    assert.equal(searched.publishedInput?.credentials, firstCredentials)
   })
 
   it("waits for Enter when typing a namespace, including an initially empty one", () => {

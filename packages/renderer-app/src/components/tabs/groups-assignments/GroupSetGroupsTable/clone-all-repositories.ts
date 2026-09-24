@@ -149,18 +149,9 @@ export function cloneAllListingReducer(
 ): CloneAllListingState {
   if (event.type === "filter") return { ...state, filter: event.value }
   if (event.type === "context" && state.publishedInput !== null) {
-    // Text edits wait for Enter. Only a connection change requests a listing.
-    const previous = state.publishedInput
-    if (
-      event.connectionId === previous.admissionId.connectionId &&
-      event.credentials.gitConnections.find(
-        (connection) => connection.id === event.connectionId,
-      ) ===
-        previous.credentials.gitConnections.find(
-          (connection) => connection.id === event.connectionId,
-        )
-    )
-      return state
+    // Only opening the panel requests a listing from context. Later text and
+    // connection changes wait for Enter, keeping Settings free of remote work.
+    return state
   }
   const includeArchived =
     event.type === "include-archived" ? event.value : state.includeArchived

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { WorkflowClient, WorkflowId } from "@repo-edu/application-contract"
+import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Window } from "happy-dom"
@@ -46,12 +47,12 @@ it("retains listing rows and disables all clone-all controls during commands", {
   const { createRoot } = await import("react-dom/client")
   const release = deferred<void>()
   const exportRelease = deferred<void>()
-  const queueRelease = deferred<void>()
   const cloneRelease = deferred<void>()
   const pending = deferred<void>()
   const filters: unknown[] = []
   const namespaces: string[] = []
   const archived: boolean[] = []
+  const listingCredentials: PersistedAppCredentials[] = []
   const first = {
     repositories: [{ name: "old", identifier: "old", archived: false }],
   }
@@ -75,6 +76,9 @@ it("retains listing rows and disables all clone-all controls during commands", {
           })
         if (id === "settings.saveCredentials") return undefined
         if (id === "repo.listNamespace") {
+          listingCredentials.push(
+            (input as { credentials: PersistedAppCredentials }).credentials,
+          )
           namespaces.push((input as { namespace: string }).namespace)
           filters.push((input as { filter?: string }).filter)
           archived.push((input as { includeArchived: boolean }).includeArchived)
@@ -166,7 +170,6 @@ it("retains listing rows and disables all clone-all controls during commands", {
   t.after(async () => {
     release.resolve()
     exportRelease.resolve()
-    queueRelease.resolve()
     cloneRelease.resolve()
     await React.act(async () => root.unmount())
     controller.dispose()
@@ -298,34 +301,48 @@ it("retains listing rows and disables all clone-all controls during commands", {
   assert.equal(value.canStartQueries, true)
   assert.equal(filters.length, 3, "export completion must not list again")
 
-  const callsBeforeCredentialChange = filters.length
-  let preceding: Promise<unknown> | undefined
-  await React.act(async () => {
-    preceding = controller.operations.execute(
-      "course.list",
-      () => queueRelease.promise,
-    )
-    controller.updateGitConnection("git", {
-      id: "git",
-      provider: "github",
-      baseUrl: "https://github.com",
-      token: "updated-example-token",
-    })
-    await flush()
-  })
-  assert.equal(value.canClone, false)
-  await React.act(flush)
-  assert.equal(filters.length, callsBeforeCredentialChange)
-  assert.equal(value.canClone, false)
-  assert.deepEqual(value.listResult, second)
-  await React.act(async () => {
-    queueRelease.resolve()
-    await preceding
-    await controller.waitForIdle()
-    await flush()
-  })
-  assert.equal(filters.length, callsBeforeCredentialChange + 1)
-  assert.equal(value.canClone, true)
+  await t.test(
+    "saving the active connection with the panel mounted waits for search",
+    async () => {
+      const callsBeforeCredentialChange = filters.length
+      await React.act(async () => {
+        controller.updateGitConnection("git", {
+          id: "git",
+          provider: "github",
+          baseUrl: "https://github.com",
+          token: "updated-example-token",
+        })
+        await flush()
+      })
+      await React.act(async () => {
+        await controller.waitForIdle()
+        await flush()
+      })
+      assert.ok(value)
+      assert.equal(filters.length, callsBeforeCredentialChange)
+      assert.equal(value.canStartQueries, true)
+      assert.equal(value.canClone, false)
+      assert.deepEqual(value.listResult, second)
+      assert.equal(
+        window.document.querySelector("[data-session-input-frozen]"),
+        null,
+      )
+      await React.act(async () => {
+        value?.search()
+        await flush()
+      })
+      await React.act(async () => {
+        await controller.waitForIdle()
+        await flush()
+      })
+      assert.equal(filters.length, callsBeforeCredentialChange + 1)
+      assert.equal(
+        listingCredentials.at(-1)?.gitConnections[0].token,
+        "updated-example-token",
+      )
+      assert.equal(value.canClone, true)
+    },
+  )
 
   await React.act(async () => {
     render(true, true)

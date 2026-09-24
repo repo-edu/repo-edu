@@ -138,8 +138,9 @@ across roster edits and `{members}`-parameterized templates.
 
 Opening the panel lists repositories from the configured Git connection and namespace.
 After editing the namespace or name filter, press Enter in either field to list the current inputs.
-Typing, pausing and leaving a text field do not start a listing. Changing the Git connection or its
-saved token starts a new listing.
+Typing, pausing and leaving a text field do not start a listing. After changing the Git connection
+or its saved token, press Enter in either field to refresh the listing. Saving a connection in
+Settings starts no listing.
 
 - **Name filter** (optional, e.g. `1*`) — filters by leaf name. Syntax: `*` = any characters, `?` =
   one character; leave blank to list all. The filter matches the leaf shown, never the subgroup
@@ -155,7 +156,8 @@ saved token starts a new listing.
   `parent-group/team-101/lab-1` clones into `<target>/lab-1` (not the flattened subgroup path). If
   two listed repositories share the same leaf name, the operation aborts with a validation error
   rather than overwriting. Disabled while the preview is refreshing so a stale list can't be cloned
-  by mistake. It also stays disabled until the listing matches the namespace and filter fields.
+  by mistake. It also stays disabled until the listing matches the namespace, filter and current
+  Git connection.
 
 While a listing runs, the window refuses input except **Cancel**. Scrolling remains available.
 Cancel stops the listing. A small "refreshing…" indicator appears next to the match count while
