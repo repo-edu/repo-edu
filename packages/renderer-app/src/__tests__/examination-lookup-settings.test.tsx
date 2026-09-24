@@ -4,7 +4,10 @@ import type {
   ExaminationLookupQuestionsInput,
   ExaminationLookupQuestionsResult,
 } from "@repo-edu/application-contract"
-import type { PersistedLlmConnection } from "@repo-edu/domain/connection"
+import {
+  DEFAULT_CLAUDE_API_MAX_TOKENS,
+  type PersistedLlmConnection,
+} from "@repo-edu/domain/connection"
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
 import React from "react"
@@ -55,13 +58,14 @@ it("looks up questions only when result inputs change while Settings is open", {
   resetStores()
   useExaminationStore.getState().reset()
   useExaminationStore.getState().setQuestionCount(4)
-  const connection: PersistedLlmConnection = {
+  const connection = {
     id: "claude",
     name: "Claude",
     provider: "claude",
     authMode: "api",
     apiKey: "original-key",
-  }
+    maxTokens: DEFAULT_CLAUDE_API_MAX_TOKENS,
+  } satisfies PersistedLlmConnection
   let source: SubmissionExaminationSource = {
     kind: "submission",
     folderPath: "/submission",
@@ -137,10 +141,14 @@ it("looks up questions only when result inputs change while Settings is open", {
       else Reflect.deleteProperty(globalThis, key)
     }
   })
-  let view: ExaminationEngineViewModel
+  let view: ExaminationEngineViewModel | undefined
   function Probe() {
     view = useExaminationEngine({ source, emptyBlocker: null })
     return null
+  }
+  function getView() {
+    assert.ok(view, "The examination probe must render before reading its view")
+    return view
   }
   async function render() {
     await React.act(async () => {
@@ -166,7 +174,7 @@ it("looks up questions only when result inputs change while Settings is open", {
   }
   await render()
   assert.equal(lookups.length, 1)
-  await change(() => view.commands.openLlmSettings())
+  await change(() => getView().commands.openLlmSettings())
   assert.equal(useUiStore.getState().settingsDialogOpen, true)
   assert.equal(useUiStore.getState().settingsCategory, "llm-connections")
   const updated = { ...connection, name: "Renamed", apiKey: "current-key" }
@@ -175,7 +183,7 @@ it("looks up questions only when result inputs change while Settings is open", {
     () => controller.updateLlmConnection(connection.id, updated),
     () => controller.addLlmConnection(second),
     () => controller.setActiveLlmConnectionId(second.id),
-    () => view.commands.selectConnection(second.id),
+    () => getView().commands.selectConnection(second.id),
     () => controller.removeLlmConnection(connection.id),
   ]) {
     await change(edit)
@@ -186,12 +194,12 @@ it("looks up questions only when result inputs change while Settings is open", {
   const latest = { ...second, apiKey: "latest-key" }
   await change(() => controller.updateLlmConnection(second.id, latest))
   assert.equal(lookups.length, 1)
-  await change(() => view.commands.changeQuestionCount(5))
-  assert.equal(view.questionCount, 5)
+  await change(() => getView().commands.changeQuestionCount(5))
+  assert.equal(getView().questionCount, 5)
   assert.equal(lookups.length, 2)
   assert.deepEqual(lookups.at(-1)?.llmSettings.llmConnections, [latest])
   assert.equal(lookups.at(-1)?.llmSettings.activeLlmConnectionId, second.id)
-  await change(() => view.commands.selectModelCode("23"))
+  await change(() => getView().commands.selectModelCode("23"))
   assert.equal(lookups.length, 3)
   assert.equal(
     lookups.at(-1)?.llmSettings.examinationModelsByProvider.claude,
