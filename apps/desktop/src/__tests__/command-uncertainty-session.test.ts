@@ -113,6 +113,11 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
             activeSurface: { kind: "course", courseId: "course" },
           })
         if (id === "course.load") return makeCourse("course")
+        if (
+          id === "course.list" &&
+          admission.getSnapshot().phase === "starting"
+        )
+          return [makeCourse("course")]
         assert.equal(
           id,
           "course.list",

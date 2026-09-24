@@ -56,7 +56,6 @@ export async function assertCommandFreeze(controller: SessionController) {
 
   for (const attempt of [
     () => controller.activateSurface({ kind: "folder", path: "/blocked" }),
-    () => controller.refreshCourses(),
     () => controller.createCourse({ backing: "lms", displayName: "Blocked" }),
     () => controller.duplicateCourse("course", "Blocked"),
     () => controller.renameCourse("course", "Blocked"),

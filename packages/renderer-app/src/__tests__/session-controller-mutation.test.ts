@@ -20,6 +20,8 @@ describe("SessionController mutation admission", () => {
   it("refuses course, settings and surface changes for the entire command reservation", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list")
+          return [makeCourse("course-a"), makeCourse("x")]
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -56,6 +58,8 @@ describe("SessionController mutation admission", () => {
   it("admits target-aware course mutations only for the active course", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("x")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -110,6 +114,8 @@ describe("SessionController mutation admission", () => {
   it("drops course mutations after controller disposal", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("x")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -148,6 +154,8 @@ describe("SessionController mutation admission", () => {
     const courseLoad = deferred<PersistedCourse>()
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("x")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },

@@ -108,6 +108,7 @@ async function harness(
 ) {
   const controller = startController({
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") {
         return makeSettings({
           activeSurface: { kind: "home" },

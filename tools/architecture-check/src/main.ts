@@ -13,6 +13,7 @@ import { buildDependencyCruiserRuleSet } from "./graph-policy.js"
 import { readSourceInventory } from "./inventory.js"
 import { checkProductProcessLaunches } from "./product-process-launches.js"
 import { checkRendererMutationOwnership } from "./renderer-mutation-checks.js"
+import { checkRendererStartDocument } from "./renderer-start-document.js"
 import { ROOT } from "./repo-paths.js"
 import { runRepositoryChecks } from "./repository-checks.js"
 import { compareViolations, type Violation } from "./violations.js"
@@ -49,6 +50,7 @@ export async function runArchitectureCheck(root = ROOT): Promise<{
       ...checkDesktopEntryOwnership(root, inventory),
       ...checkDesktopInventories(root, inventory),
       ...checkRendererMutationOwnership(root, inventory),
+      ...checkRendererStartDocument(root),
     ].sort(compareViolations),
   }
 }

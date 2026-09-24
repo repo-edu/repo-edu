@@ -274,13 +274,6 @@ export class SessionController extends CourseMutationController {
     )
   }
 
-  async refreshCourses(): Promise<void> {
-    await this.transactions.enqueue(
-      { kind: "operation", operation: "course.list" },
-      (scope) => this.refreshCoursesBody(scope),
-    )
-  }
-
   private async refreshCoursesBody(
     scope: SessionTransactionScope,
   ): Promise<void> {
@@ -719,6 +712,8 @@ export class SessionController extends CourseMutationController {
         )
         if (!this.commitSurface(scope, commit))
           throw new Error("The bootstrap surface could not be committed.")
+        await this.refreshCoursesBody(scope)
+        if (!scope.canContinue()) return
         await this.onBootstrapReady()
         if (!scope.canContinue()) return
         this.settings.replaceWorkers(settings)

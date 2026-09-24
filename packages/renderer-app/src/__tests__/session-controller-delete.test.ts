@@ -3,7 +3,6 @@ import { beforeEach, describe, it } from "node:test"
 import type { WorkflowResult } from "@repo-edu/application-contract"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
-import { useUiStore } from "../stores/ui-store.js"
 import {
   activeCourseId,
   activeSurface,
@@ -21,20 +20,7 @@ beforeEach(resetStores)
 
 describe("SessionController deletion", () => {
   it("commits home after active delete when fallback course loading fails", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-      {
-        id: "course-b",
-        backing: "lms",
-        displayName: "Course B",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
+    let removed = false
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -51,9 +37,13 @@ describe("SessionController deletion", () => {
         }
         if (workflowId === "course.delete") {
           assert.deepStrictEqual(input, { courseId: "course-a" })
+          removed = true
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "course.list") return [makeCourse("course-b")]
+        if (workflowId === "course.list")
+          return removed
+            ? [makeCourse("course-b")]
+            : [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -77,22 +67,9 @@ describe("SessionController deletion", () => {
   })
 
   it("keeps an active delete pending until fallback commit before later activation", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-      {
-        id: "course-b",
-        backing: "lms",
-        displayName: "Course B",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
     const deleteGate = deferred<void>()
     let courseBLoadCount = 0
+    let removed = false
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -110,9 +87,13 @@ describe("SessionController deletion", () => {
         if (workflowId === "course.delete") {
           assert.deepStrictEqual(input, { courseId: "course-a" })
           await deleteGate.promise
+          removed = true
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "course.list") return [makeCourse("course-b")]
+        if (workflowId === "course.list")
+          return removed
+            ? [makeCourse("course-b")]
+            : [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -158,20 +139,7 @@ describe("SessionController deletion", () => {
   })
 
   it("commits the fallback course after deleting the active course", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-      {
-        id: "course-b",
-        backing: "lms",
-        displayName: "Course B",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
+    let removed = false
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -185,9 +153,13 @@ describe("SessionController deletion", () => {
         }
         if (workflowId === "course.delete") {
           assert.deepStrictEqual(input, { courseId: "course-a" })
+          removed = true
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "course.list") return [makeCourse("course-b")]
+        if (workflowId === "course.list")
+          return removed
+            ? [makeCourse("course-b")]
+            : [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -212,17 +184,10 @@ describe("SessionController deletion", () => {
   })
 
   it("keeps the committed course and resumes saving when active delete fails", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
     const savedDrafts: PersistedCourse[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -273,15 +238,8 @@ describe("SessionController deletion", () => {
   })
 
   it("rejects course mutations against a course pending deletion", async () => {
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
     const deleteGate = deferred<void>()
+    let removed = false
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {
@@ -297,9 +255,11 @@ describe("SessionController deletion", () => {
         }
         if (workflowId === "course.delete") {
           await deleteGate.promise
+          removed = true
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "course.list") return []
+        if (workflowId === "course.list")
+          return removed ? [] : [makeCourse("course-a")]
         if (workflowId === "settings.savePreferences") {
           return undefined as WorkflowResult<typeof workflowId>
         }
@@ -348,7 +308,8 @@ describe("SessionController deletion", () => {
           deleted.push((input as { courseId: string }).courseId)
           return undefined as WorkflowResult<typeof workflowId>
         }
-        if (workflowId === "course.list") return []
+        if (workflowId === "course.list")
+          return deleted.length > 0 ? [] : [makeCourse("course-a")]
         if (
           workflowId === "course.save" ||
           workflowId === "settings.savePreferences" ||

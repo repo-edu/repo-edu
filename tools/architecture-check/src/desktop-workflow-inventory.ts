@@ -1,7 +1,7 @@
-/** Decision 21's fixed gateway list. course.load has startup and ordinary
+/** Decision 21's fixed gateway list. Course listing and loading have startup and ordinary
  * admission; the current request port alone carries cancellation. */
 export const desktopWorkflowInventory = [
-  ["course.list", "ordinary", "session-changing"],
+  ["course.list", "startup-or-ordinary", "session-changing"],
   ["course.load", "startup-or-ordinary", "session-changing"],
   ["course.save", "ordinary", "session-changing"],
   ["course.delete", "ordinary", "session-changing"],

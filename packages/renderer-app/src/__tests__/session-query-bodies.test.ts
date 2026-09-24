@@ -39,6 +39,7 @@ async function session(
 ) {
   const controller = startController({
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") return makeSettings()
       return run ? await run(id, input) : "head"
     }),

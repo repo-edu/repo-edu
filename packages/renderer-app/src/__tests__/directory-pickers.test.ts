@@ -39,6 +39,7 @@ describe("directory picker errors", () => {
       it(`handles ${name} picker ${outcome} before its body retires`, async (t) => {
         const controller = startController({
           workflowClient: workflowClient(async (id) => {
+            if (id === "course.list") return []
             assert.equal(id, "settings.loadApp")
             return makeSettings({ activeSurface: { kind: "home" } })
           }),

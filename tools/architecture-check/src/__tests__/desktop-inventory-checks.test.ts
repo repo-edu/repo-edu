@@ -67,7 +67,10 @@ it("detects edited runtime classifications instead of trusting the declared key 
   assert.ok(original)
   mutated.set(
     file,
-    original.replace('"course.list": "ordinary"', '"course.list": "exclusive"'),
+    original.replace(
+      '"course.list": "startup-or-ordinary"',
+      '"course.list": "exclusive"',
+    ),
   )
   assert.ok(
     checkDesktopInventorySources(mutated).some((v) =>

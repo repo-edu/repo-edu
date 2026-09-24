@@ -98,6 +98,7 @@ async function harness(workflow: LmsPreviewWorkflow) {
       },
     },
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return [makeCourse("course")]
       if (id === "settings.loadApp")
         return makeSettings({
           activeSurface: { kind: "course", courseId: course.id },

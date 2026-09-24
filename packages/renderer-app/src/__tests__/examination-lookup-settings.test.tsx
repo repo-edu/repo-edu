@@ -90,6 +90,7 @@ it("looks up questions only when result inputs change while Settings is open", {
   const lookups: ExaminationLookupQuestionsInput[] = []
   const controller = startController({
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") {
         return makeSettings({
           activeSurface: { kind: "home" },

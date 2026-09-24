@@ -17,8 +17,6 @@ export function useCourses() {
   const loading = useUiStore((s) => s.courseListLoading)
   const controller = useSessionController()
 
-  const refresh = useCallback(() => controller.refreshCourses(), [controller])
-
   const switchCourse = useCallback(
     async (courseId: string) => {
       await controller.activateSurface({ kind: "course", courseId })
@@ -93,7 +91,6 @@ export function useCourses() {
   return {
     courses: courseList,
     loading,
-    refresh,
     createCourse,
     switchCourse,
     duplicateCourse,

@@ -52,7 +52,6 @@ describe("session course listing", () => {
         const listing = deferred<void>()
         const listRelease = deferred<void>()
         const order: string[] = []
-        useUiStore.getState().setCourseList(summaries())
         const controller = startController({
           workflowClient: workflowClient(async (id, input) => {
             if (id === "settings.loadApp")
@@ -80,6 +79,7 @@ describe("session course listing", () => {
               return stamp
             }
             if (id === "course.list") {
+              if (order.length === 0) return summaries()
               listing.resolve()
               await listRelease.promise
               return summaries()
@@ -189,6 +189,7 @@ describe("session course listing", () => {
             return { revision: 1, updatedAt: "2026-09-07T00:00:00Z" }
           }
           if (id === "course.list") {
+            if (order.length === 0) return [makeCourse("old")]
             listed.resolve()
             return await listRelease.promise
           }
@@ -196,8 +197,7 @@ describe("session course listing", () => {
       })
       controllers.push(controller)
       await controller.waitForIdle()
-      controller.setDisplayName("old", "Edited")
-      const refresh = controller.refreshCourses()
+      const refresh = controller.renameCourse("old", "Edited")
       await saved.promise
       let listStarted = false
       void listed.promise.then(() => {
@@ -259,8 +259,6 @@ describe("session course listing", () => {
       }),
     })
     controllers.push(controller)
-    await controller.waitForIdle()
-    const refresh = controller.refreshCourses()
     await entered.promise
     const command = controller.operations.execute("repo.clone", async () => {
       assert.deepEqual(
@@ -269,12 +267,14 @@ describe("session course listing", () => {
       )
     })
     release.resolve()
-    await Promise.all([refresh, command])
+    await Promise.all([controller.waitForIdle(), command])
   })
 
   it("applies discovery follow-up without recursively reserving a surface turn", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list")
+          return [makeCourse("active"), makeCourse("inactive")]
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "folder", path: "/repo/subfolder" },

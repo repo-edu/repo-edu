@@ -24,6 +24,7 @@ describe("SessionController close preparation", () => {
   function controllerWithCourse() {
     return startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list") return [makeCourse("course-a")]
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -75,6 +76,7 @@ describe("SessionController close preparation", () => {
     const saveRefused = deferred<void>()
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list") return [makeCourse("course-a")]
         if (id === "settings.loadApp") return makeSettings()
         if (id === "settings.savePreferences") {
           saveRefused.resolve()
@@ -143,6 +145,7 @@ describe("SessionController close preparation", () => {
   it("installs credential cleanup before notifying subscribers", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp")
           return makeSettings() as WorkflowResult<typeof workflowId>
         if (
@@ -182,6 +185,7 @@ describe("SessionController close preparation", () => {
   it("isolates throwing settings subscribers", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp")
           return makeSettings() as WorkflowResult<typeof workflowId>
         if (

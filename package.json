@@ -23,6 +23,7 @@
         "build:types": "tsc -b tsconfig.json && pnpm --filter @repo-edu/tree-sitter-grammar-assets run copy-assets",
         "check:fixtures": "pnpm --filter @repo-edu/fixtures-check start",
         "check:architecture": "pnpm --filter @repo-edu/architecture-check start",
+        "generate:session-starts": "tsx tools/architecture-check/src/generate-session-starts.ts",
         "check": "pnpm fix && pnpm typecheck && pnpm build:types && pnpm check:fixtures && pnpm check:architecture",
         "// ---- test ----": "",
         "test": "pnpm -r --if-present run test",

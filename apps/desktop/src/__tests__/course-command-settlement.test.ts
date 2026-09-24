@@ -224,6 +224,7 @@ for (const command of commands) {
             activeSurface: { kind: "course", courseId: course.id },
           })
         if (id === "course.load") return course
+        if (id === "course.list") return [course]
         throw new Error(`Unexpected ordinary workflow ${id}`)
       }),
       onBootstrapReady: async () => {

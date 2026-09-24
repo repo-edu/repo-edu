@@ -73,6 +73,7 @@ describe("desktop host admission", () => {
       Object.keys(exclusiveCommandDeclarations).sort(),
     )
     assert.equal(desktopWorkflowStarts["course.load"], "startup-or-ordinary")
+    assert.equal(desktopWorkflowStarts["course.list"], "startup-or-ordinary")
   })
 
   it("keeps unsettled startup calls in starting and terminates premature acknowledgement", () => {
@@ -84,7 +85,9 @@ describe("desktop host admission", () => {
       },
     })
     assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
-    assert.throws(() => owner.startWorkflow("course.list", request()))
+    assert.throws(() =>
+      owner.startWorkflow("analysis.discoverRepos", request()),
+    )
     assert.equal(dispatch({ type: "bootstrap-acknowledged" }), "terminal")
     assert.equal(owner.getSnapshot().phase, "terminal")
     assert.equal(cancellations, 1)
@@ -93,19 +96,24 @@ describe("desktop host admission", () => {
     assert.equal(effects.filter((e) => e.type === "end-host").length, 1)
   })
 
-  it("requires both startup loads to settle before readiness and counts course loads by phase", () => {
+  it("requires startup loads and listing to settle before readiness and admits later course reads", () => {
     const { owner, dispatch } = harness()
     const settings = owner.startWorkflow("settings.loadApp", request())
     const course = owner.startWorkflow("course.load", request())
+    const list = owner.startWorkflow("course.list", request())
     settings()
     settings()
-    assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
+    assert.equal(acceptedHostCallCount(owner.getSnapshot()), 2)
     course()
+    assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
+    list()
     assert.equal(dispatch({ type: "bootstrap-acknowledged" }), "accepted")
     assert.throws(() => owner.startWorkflow("settings.loadApp", request()))
     const nextCourse = owner.startWorkflow("course.load", request())
     assert.equal(acceptedHostCallCount(owner.getSnapshot()), 1)
     nextCourse()
+    const nextList = owner.startWorkflow("course.list", request())
+    nextList()
   })
 
   it("ignores bootstrap acknowledgement after an aborting close without restarting shutdown", () => {

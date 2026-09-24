@@ -113,8 +113,11 @@ it("preserves admission refusal through the workflow client and cleans up its li
     assert.fail("Refused workflow started")
   })
   await assert.rejects(
-    runSubscriptionFromFactory<"course.list">((handlers) =>
-      h.client["course.list"].subscribe(undefined, handlers),
+    runSubscriptionFromFactory<"analysis.resolveSnapshotHead">((handlers) =>
+      h.client["analysis.resolveSnapshotHead"].subscribe(
+        { repositoryAbsolutePath: "/repos/one" },
+        handlers,
+      ),
     ),
     HostAdmissionRefusedError,
   )
@@ -175,6 +178,7 @@ for (const outcome of ["resolve", "reject"] as const) {
           options?: { signal?: AbortSignal },
         ) {
           if (id === "settings.loadApp") return makeSettings()
+          if (id === "course.list") return []
           assert.equal(id, "analysis.resolveSnapshotHead")
           return await runSubscriptionFromFactory<"analysis.resolveSnapshotHead">(
             (handlers) =>

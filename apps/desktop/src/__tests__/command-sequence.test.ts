@@ -128,6 +128,7 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
           activeSurface: { kind: "course", courseId: "course" },
         })
       if (id === "course.load") return makeCourse("course")
+      if (id === "course.list") return [makeCourse("course")]
       throw new Error(`Unexpected ordinary workflow ${id}`)
     }),
     onBootstrapReady: async () => {

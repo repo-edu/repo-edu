@@ -25,6 +25,8 @@ describe("SessionController activation", () => {
     let pauseSave = false
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list")
+          return [makeCourse("course-a"), makeCourse("course-b")]
         if (id === "settings.loadApp")
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -74,6 +76,8 @@ describe("SessionController activation", () => {
     const savedSettings: PersistedAppPreferences[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.loadApp") {
           return makeSettings() as WorkflowResult<typeof workflowId>
         }
@@ -133,6 +137,8 @@ describe("SessionController activation", () => {
     let courseBLoadCount = 0
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.loadApp") {
           return makeSettings() as WorkflowResult<typeof workflowId>
         }
@@ -201,6 +207,8 @@ describe("SessionController activation", () => {
     } as unknown as PersistedCourse
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -242,6 +250,8 @@ describe("SessionController activation", () => {
     const courseBLoad = deferred<PersistedCourse>()
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list")
+          return [makeCourse("course-a"), makeCourse("course-b")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -322,7 +332,11 @@ describe("SessionController activation", () => {
           return undefined as WorkflowResult<typeof workflowId>
         }
         if (workflowId === "course.list")
-          return [...savedDrafts, makeCourse("course-b")]
+          return [
+            ...savedDrafts,
+            makeCourse("course-a"),
+            makeCourse("course-b"),
+          ]
         throw new Error(`Unexpected workflow ${workflowId}`)
       }),
     })

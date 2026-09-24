@@ -92,6 +92,7 @@ it("selects a complete question count before lookup freezes further choices", {
   const counts: number[] = []
   const controller = startController({
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") {
         return makeSettings({
           activeSurface: { kind: "home" },

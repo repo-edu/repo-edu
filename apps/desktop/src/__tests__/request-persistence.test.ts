@@ -58,6 +58,7 @@ it("claims a save refused after close-port transfer while its renderer queue tur
     },
     workflowClient: workflowClient(async (id) => {
       if (id === "settings.loadApp") return makeSettings()
+      if (id === "course.list") return []
       try {
         admission.startWorkflow(id, { cancel() {} })
       } catch (error) {

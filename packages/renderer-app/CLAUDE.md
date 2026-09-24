@@ -65,7 +65,7 @@ It consumes:
   workflows nor caches their results.
 - `src/hooks/use-analysis-context.ts`: derives the active surface, course, search folder and
   analysis inputs for the coordinator.
-- `src/hooks/*`: app behaviour hooks (`use-analysis-context`, course-list refresh, folder open
+- `src/hooks/*`: app behaviour hooks (`use-analysis-context`, course controls, folder open
   helpers, etc.); session switching, save-before-leave behaviour, recents updates and tab fallback
   belong to `SessionController`
 - `src/utils/*`: formatting, sorting, workflow helpers; `nanoid.ts` is retained for course ID
@@ -79,12 +79,12 @@ It consumes:
 - `useWorkflowClient()` returns the operation gateway. Keep result publication
   inside its reserved body with `scope.publish` and asynchronous follow-up with
   `scope.follow`. A promise callback after retirement cannot mutate session state.
-- Query fetches and mutations start inside reserved bodies. The reservation owns the
-  cancellation of its host work from the moment it is queued, and the body awaits
-  semantic follow-up. React Query owns the cache and publishes results to its watchers.
-  Components use disabled watchers and start a body when their input becomes ready.
-  No render, effect or Query observer may start or stop host work; a stop goes through
-  the gateway, which reverts the query instead of failing it.
+- Query fetches and mutations start inside reserved bodies. The reservation owns the cancellation of
+  its host work from the moment it is queued, and the body awaits semantic follow-up. React Query
+  owns the cache and publishes results to its watchers. Components use disabled watchers. Work
+  starts only from a pressed control in the [start table](#start-controls). Changing an input starts
+  nothing. No render, effect, Query observer or store subscription may initiate user work; a stop
+  goes through the gateway, which reverts the query instead of failing it.
 - Every operation and command refuses input while admitted, except its own Cancel.
   No user input is held to replay later. Drop governs a teacher's start; the queue orders
   the bodies that one start chains, such as Start's search followed by its analysis pass.
@@ -97,6 +97,59 @@ It consumes:
   course-store actions directly. View actions also pass the global semantic
   freeze through the operation owner.
 - Keep store/component behaviour deterministic and testable in browser contexts.
+
+## Start controls
+
+`src/session/session-start-inventory.ts` owns this table. Regenerate it with
+`pnpm generate:session-starts`; `pnpm check` rejects a stale section.
+Startup, shutdown, autosave and update download use their named lifecycle routes.
+Bootstrap loads the initial course list before readiness. Course-changing bodies
+refresh it within the initiating action.
+
+<!-- session-start-inventory:begin -->
+
+| Control | Where | Starts | Cancel |
+| --- | --- | --- | --- |
+| Start | Analysis sidebar | `analysis.discoverRepos`, then `analysis.run` for all repositories | Cancel Search, then Cancel |
+| Run Analysis, Re-run Analysis | Analysis sidebar | `analysis.run` for all repositories | Cancel |
+| Search, Re-search | Analysis sidebar | `analysis.discoverRepos` | Cancel Search |
+| Browse (search folder) | Analysis sidebar | `pickDirectory`, then update the chosen path only | none |
+| Analyse selected repository | Analysis sidebar | `analysis.run` for one repository | Cancel |
+| Search, or Enter in namespace or name filter | Clone All panel | `repo.listNamespace` | Cancel |
+| Browse (target directory) | Clone All panel | `pickDirectory` | none |
+| Clone | Clone All panel | `repo.bulkClone` | command Cancel |
+| Create | Repository operation fields | `repo.create` | command Cancel |
+| Clone | Repository operation fields | `repo.clone` | command Cancel |
+| Update | Repository operation fields | `repo.update` | command Cancel |
+| Browse (clone directory) | Repository operation fields | `pickDirectory` | none |
+| Preview, Refresh Preview | Import students dialog | `roster.importFromLms` | close control |
+| Load group sets | Connect group set dialog | `groupSet.fetchAvailableFromLms` | close control |
+| Preview, Refresh Preview | Connect group set dialog | `groupSet.connectFromLms`, `groupSet.syncFromLms` | close control |
+| Browse | Import students dialog | `pickUserFile` | none |
+| Browse | Git usernames dialog | `pickUserFile` | none |
+| Browse | Import group set dialog | `pickUserFile`, then `groupSet.previewImportFromFile` | none |
+| Import | Import students dialog | `roster.importFromFile` | command Cancel |
+| Import | Import group set dialog | `groupSet.importFromFile` | command Cancel |
+| Import | Git usernames dialog | `gitUsernames.import` | command Cancel |
+| Export | Students tab | `roster.exportMembers` | none |
+| Export | Group set sidebar | `groupSet.export` | none |
+| Home | Top bar, course switcher | surface change to Home | none |
+| Open recent repository folder | Course switcher | surface change to the folder | none |
+| Open recent submission folder | Course switcher | surface change to the submission, then `analysis.listFolderFiles` only when no listing is held for that folder and its extensions | none |
+| Open folder of repositories | Home view | `pickDirectory`, then surface change | none |
+| Open student submission folder | Course switcher, submission views | `pickDirectory`, then surface change, then `analysis.listFolderFiles` | none |
+| Open course | Course switcher | `course.load` | none |
+| New | Course switcher, Home view | `course.save`, then `course.list` | none |
+| Rename | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
+| Duplicate | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
+| Delete | Course switcher | `course.delete`, fallback surface change when needed, then `course.list` | none |
+| Refresh | Submission tab | `analysis.listFolderFiles` | none |
+| Load questions, Refresh questions | Examination view | `examination.prepareSubmissionSource` as needed, then `examination.lookupQuestions` and `examination.lookupQuestionSummaries` | none |
+| Generate questions, Re-generate | Examination view | preparation and lookup as needed, then `examination.generateQuestions` | Stop |
+| Import archive | Examination view | `pickUserFile`, then `examination.archive.import` | command Cancel |
+| Export archive | Examination view | `pickSaveTarget`, then `examination.archive.export` | none |
+
+<!-- session-start-inventory:end -->
 
 ## UI proposals
 

@@ -36,13 +36,7 @@ import {
   Trash2,
   X,
 } from "@repo-edu/ui/components/icons"
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { type KeyboardEvent, type MouseEvent, useMemo, useState } from "react"
 import { useCourses } from "../hooks/use-courses.js"
 import { useDirectoryPicker } from "../hooks/use-picker.js"
 import {
@@ -94,19 +88,9 @@ export function CourseSwitcher() {
     selectRecentSubmissionFolders,
   )
   const pickDirectory = useDirectoryPicker()
-  const {
-    courses,
-    refresh: refreshCourses,
-    switchCourse,
-    duplicateCourse,
-    renameCourse,
-    deleteCourse,
-  } = useCourses()
+  const { courses, switchCourse, duplicateCourse, renameCourse, deleteCourse } =
+    useCourses()
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    runSessionOperationBestEffort(refreshCourses(), "course listing")
-  }, [refreshCourses])
 
   const activeCourseName =
     courses.find((course) => course.id === activeCourseId)?.displayName ?? null

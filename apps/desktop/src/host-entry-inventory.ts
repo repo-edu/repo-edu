@@ -5,7 +5,7 @@ import type {
 
 /** Decision 21 owns these classes; the shared catalogue does not infer them. */
 export const desktopWorkflowStarts = {
-  "course.list": "ordinary",
+  "course.list": "startup-or-ordinary",
   "course.load": "startup-or-ordinary",
   "course.save": "ordinary",
   "course.delete": "ordinary",

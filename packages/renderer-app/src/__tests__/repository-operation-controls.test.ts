@@ -278,6 +278,7 @@ describe("clone-all query ownership", () => {
       const release = deferred<void>()
       const controller = startController({
         workflowClient: workflowClient(async (id) => {
+          if (id === "course.list") return []
           if (id === "settings.loadApp") return makeSettings()
           if (id === "repo.listNamespace") {
             entered.resolve()

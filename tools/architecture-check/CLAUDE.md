@@ -38,6 +38,8 @@ violations. The checks cover:
 - Renderer mutation ownership (`renderer-mutation-checks.ts` and the renderer
   input inventory): raw-client confinement, complete session operation bodies
   and semantic store/input routes through the session owner and its global freeze.
+- Renderer start documentation (`renderer-start-document.ts`): checks the
+  generated control table in the renderer `CLAUDE.md` against its code source.
 
 ## Area model
 

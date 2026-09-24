@@ -5,6 +5,7 @@ import type { PersistedAppPreferences } from "@repo-edu/domain/settings"
 import type { PersistedCourse } from "@repo-edu/domain/types"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
+import { useUiStore } from "../stores/ui-store.js"
 import {
   activeCourseId,
   activeSurface,
@@ -20,6 +21,95 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController bootstrap", () => {
+  it("loads the course list before host acknowledgement and readiness", async () => {
+    const listing = deferred<void>()
+    const listed = deferred<ReturnType<typeof makeCourse>[]>()
+    let acknowledgements = 0
+    const courses = [makeCourse("course-a")]
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp") return makeSettings()
+        if (id === "course.list") {
+          listing.resolve()
+          return listed.promise
+        }
+        assert.fail(id)
+      }),
+      async onBootstrapReady() {
+        assert.deepEqual(useUiStore.getState().courseList, courses)
+        acknowledgements++
+      },
+    })
+    try {
+      await listing.promise
+      assert.equal(controller.getSnapshot().bootstrap.status, "loading")
+      assert.equal(useUiStore.getState().courseListLoading, true)
+      assert.equal(acknowledgements, 0)
+      listed.resolve(courses)
+      await controller.waitForIdle()
+      assert.equal(controller.getSnapshot().bootstrap.status, "ready")
+      assert.equal(useUiStore.getState().courseListLoaded, true)
+      assert.equal(useUiStore.getState().courseListLoading, false)
+      assert.equal(acknowledgements, 1)
+    } finally {
+      controller.dispose()
+    }
+  })
+
+  it("does not publish or acknowledge a listing completed after disposal", async () => {
+    const listing = deferred<void>()
+    const listed = deferred<ReturnType<typeof makeCourse>[]>()
+    let acknowledgements = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp") return makeSettings()
+        if (id === "course.list") {
+          listing.resolve()
+          return listed.promise
+        }
+        assert.fail(id)
+      }),
+      async onBootstrapReady() {
+        acknowledgements++
+      },
+    })
+    await listing.promise
+    controller.dispose()
+    listed.resolve([makeCourse("course-a")])
+    await controller.waitForIdle()
+    assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
+    assert.equal(useUiStore.getState().courseListLoaded, false)
+    assert.equal(acknowledgements, 0)
+  })
+
+  it("retries a failed initial course listing through bootstrap", async () => {
+    let listings = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp") return makeSettings()
+        if (id === "course.list") {
+          if (++listings === 1) throw new Error("Course listing unavailable")
+          return []
+        }
+        assert.fail(id)
+      }),
+    })
+    try {
+      await controller.waitForIdle()
+      assert.deepEqual(controller.getSnapshot().bootstrap, {
+        status: "error",
+        attempt: 1,
+        message: "Course listing unavailable",
+      })
+      assert.equal(useUiStore.getState().courseListLoading, false)
+      controller.retryBootstrap()
+      await controller.waitForIdle()
+      assert.equal(controller.getSnapshot().bootstrap.status, "ready")
+      assert.equal(listings, 2)
+    } finally {
+      controller.dispose()
+    }
+  })
   it("coalesces repeated bootstrap starts and subsequent settings and course edits", async () => {
     const load = deferred<ReturnType<typeof makeSettings>>()
     let loads = 0
@@ -27,6 +117,7 @@ describe("SessionController bootstrap", () => {
     const savedCourses: PersistedCourse[] = []
     const controller = startController({
       workflowClient: workflowClient(async (id, input) => {
+        if (id === "course.list") return [makeCourse("course-a")]
         if (id === "settings.loadApp") {
           loads++
           return await load.promise
@@ -89,6 +180,7 @@ describe("SessionController bootstrap", () => {
     let acknowledged = 0
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
+        if (id === "course.list") return [makeCourse("course-a")]
         if (id === "settings.loadApp") return await load.promise
         if (id === "settings.savePreferences") return undefined
         throw new Error(`Unexpected workflow ${id}`)
@@ -114,7 +206,9 @@ describe("SessionController bootstrap", () => {
 
   it("does not publish readiness when the host rejects bootstrap acknowledgement", async () => {
     const controller = startController({
-      workflowClient: workflowClient(async () => makeSettings()),
+      workflowClient: workflowClient(async (id) =>
+        id === "course.list" ? [] : makeSettings(),
+      ),
       async onBootstrapReady() {
         throw new Error("Host closed during bootstrap.")
       },
@@ -135,7 +229,9 @@ describe("SessionController bootstrap", () => {
     const acknowledgement = deferred<void>()
     const requested = deferred<void>()
     const controller = startController({
-      workflowClient: workflowClient(async () => makeSettings()),
+      workflowClient: workflowClient(async (id) =>
+        id === "course.list" ? [] : makeSettings(),
+      ),
       async onBootstrapReady() {
         requested.resolve()
         await acknowledgement.promise
@@ -152,6 +248,7 @@ describe("SessionController bootstrap", () => {
   it("bootstraps settings and hydrates the restored active course", async () => {
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -202,6 +299,7 @@ describe("SessionController bootstrap", () => {
     ]
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return restoredSettings as WorkflowResult<typeof workflowId>
         }
@@ -243,6 +341,7 @@ describe("SessionController bootstrap", () => {
     const settingsLoad = deferred<ReturnType<typeof makeSettings>>()
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return (await settingsLoad.promise) as WorkflowResult<
             typeof workflowId
@@ -272,6 +371,7 @@ describe("SessionController bootstrap", () => {
     const savedSettings: PersistedAppPreferences[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: {
@@ -318,6 +418,7 @@ describe("SessionController bootstrap", () => {
     const loadedCourse = makeCourse("course-a")
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -352,6 +453,7 @@ describe("SessionController bootstrap", () => {
     let settingsLoadAttempts = 0
     const controller = startController({
       workflowClient: workflowClient(async (workflowId) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           settingsLoadAttempts += 1
           if (settingsLoadAttempts === 1) {

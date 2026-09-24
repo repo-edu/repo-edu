@@ -44,6 +44,8 @@ it("drains host calls before close transfer and queues persistence behind render
           activeSurface: { kind: "course", courseId: "course" },
         })
       if (id === "course.load") return makeCourse("course")
+      if (id === "course.list" && admission.getSnapshot().phase === "starting")
+        return [makeCourse("course")]
       const retire = admission.startWorkflow(id, { cancel() {} })
       hostStarted.resolve()
       await hostResult.promise

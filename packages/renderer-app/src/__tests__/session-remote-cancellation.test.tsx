@@ -82,6 +82,7 @@ it("the window gate protects dialogs and permits remote request cancellation", {
       resetStores()
       const controller = startController({
         workflowClient: workflowClient(async (id) => {
+          if (id === "course.list") return [makeCourse("course")]
           if (id === "settings.loadApp") return makeSettings()
           assert.fail(id)
         }),

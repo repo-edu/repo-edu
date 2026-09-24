@@ -79,6 +79,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   ]
   const controller = startController({
     workflowClient: workflowClient(async (id, input) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") {
         return makeSettings({
           activeSurface: { kind: "submission", path: "/submission" },

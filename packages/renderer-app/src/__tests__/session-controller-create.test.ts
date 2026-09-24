@@ -72,6 +72,7 @@ describe("SessionController creation", () => {
     const savedCourses: PersistedCourse[] = []
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
+        if (workflowId === "course.list") return [makeCourse("course-a")]
         if (workflowId === "settings.loadApp") {
           return makeSettings({
             activeSurface: { kind: "course", courseId: "course-a" },
@@ -127,14 +128,6 @@ describe("SessionController creation", () => {
 
   it("seeds a loaded catalogue before activating a newly created course", async () => {
     const savedCourses: PersistedCourse[] = []
-    useUiStore.getState().setCourseList([
-      {
-        id: "course-a",
-        backing: "lms",
-        displayName: "Course A",
-        updatedAt: "2026-05-29T00:00:00.000Z",
-      },
-    ])
     const controller = startController({
       workflowClient: workflowClient(async (workflowId, input) => {
         if (workflowId === "settings.loadApp") {

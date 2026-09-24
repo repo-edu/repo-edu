@@ -36,6 +36,7 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
   }
   const controller = startController({
     workflowClient: workflowClient(async (id) => {
+      if (id === "course.list") return []
       if (id === "settings.loadApp") return makeSettings()
       assert.fail(id)
     }),

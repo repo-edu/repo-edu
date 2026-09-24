@@ -17,6 +17,7 @@ it("closes worker starts at command reservation and applies persistence before i
   const calls: string[] = []
   const controller = startController({
     workflowClient: workflowClient(async (id) => {
+      if (id === "course.list") return [makeCourse("course")]
       calls.push(id)
       if (id === "settings.loadApp")
         return makeSettings({
@@ -50,6 +51,7 @@ it("retires a busy command without claiming dirty persistence", async () => {
   let saves = 0
   const controller = startController({
     workflowClient: workflowClient(async (id) => {
+      if (id === "course.list") return [makeCourse("course")]
       if (id === "settings.loadApp") return makeSettings()
       if (id === "settings.savePreferences") {
         saves++

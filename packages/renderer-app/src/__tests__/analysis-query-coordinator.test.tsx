@@ -192,6 +192,7 @@ async function mountCoordinator(
           })
         if (id === "settings.savePreferences") return
         if (id === "course.load") return course
+        if (id === "course.list") return [course]
         if (id === "analysis.resolveSnapshotHead") return "head"
         if (id === "analysis.discoverRepos") {
           assert.ok(options?.signal)
