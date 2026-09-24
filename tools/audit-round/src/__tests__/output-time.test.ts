@@ -135,19 +135,31 @@ test("elapsed readings count assistant work and never the user's own time", asyn
     sessionId: "session",
     ...testContext("/repo"),
   }
-  await output.prepareHandover(session)
+  output.beginRuling("RULING.md", "Choose a design.")
   // The user is away with the ruling; the round is doing nothing meanwhile.
   t.mock.timers.tick(30 * 60_000)
-  await output.phase.observe({ type: "user-text", text: "Take the redesign." })
+  output.endRuling("Take the redesign.")
+  await output.phase.start(
+    {
+      ...session,
+      phase: "fix",
+      rulingFile: "RULING.md",
+      arguments: ["REPORT.md"],
+      rulingReply: "Take the redesign.",
+    },
+    "Continue the fix",
+  )
+  await output.phase.observe({ type: "text", text: "Applying your ruling." })
   assert.equal(stamp(), "\n[fix] 00:00  total 01:05")
 
   t.mock.timers.tick(120_000)
   await output.phase.observe({ type: "text", text: "Applied." })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
 
-  // Reading the reply and leaving the interactive CLI is the user's time too.
+  output.beginRuling("RULING.md", "Another choice.")
   t.mock.timers.tick(10 * 60_000)
-  output.finish({ status: "handed-over", report: "REPORT.md", session })
+  output.endRuling(null)
+  output.finish({ status: "awaiting-ruling", report: "REPORT.md", session })
   assert.equal(stamp(), "\n[fix] 02:00  total 03:05")
 })
 
@@ -210,16 +222,27 @@ test("tool lines report step and total assistant time, excluding user waits", as
     sessionId: "session",
     ...testContext("/repo"),
   }
-  await output.prepareHandover(session)
+  output.beginRuling("RULING.md", "Choose a design.")
   t.mock.timers.tick(30 * 60_000)
-  await output.phase.observe({ type: "user-text", text: "Take the redesign." })
+  output.endRuling("Take the redesign.")
+  await output.phase.start(
+    {
+      ...session,
+      phase: "fix",
+      rulingFile: "RULING.md",
+      arguments: ["REPORT.md"],
+      rulingReply: "Take the redesign.",
+    },
+    "Continue the fix",
+  )
+  await output.phase.observe({ type: "text", text: "Applying your ruling." })
   t.mock.timers.tick(4_000)
-  await output.interactive({
+  await output.phase.observe({
     type: "tool",
     invocation: "third",
     detail: null,
     stage: "started",
   })
-  // The handover restarted the step and the user's half hour was theirs.
+  // The resumed fix restarted the step and the user's half hour was theirs.
   assert.match(line() as string, /^ {2}00:04 {2}12:11\s+--\s+--\s+--\s+third$/)
 })

@@ -3,7 +3,6 @@ import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import { errorMessage, type Feedback, type PhaseOutput } from "./feedback.js"
-import { recordInteractiveSession } from "./interactive.js"
 import type {
   Phase,
   PhaseInput,
@@ -119,9 +118,7 @@ export async function runAssistantInvocation(
 export function assistantDependencies(
   runtime: AssistantRuntime,
   output: PhaseOutput,
-  prepareHandover: RoundDependencies["prepareHandover"],
-  recordInteractive: (feedback: Feedback) => Promise<void>,
-): Pick<RoundDependencies, "runPhase" | "prepareHandover" | "openSession"> {
+): Pick<RoundDependencies, "runPhase"> {
   return {
     runPhase: {
       audit: (input) => runAssistantPhase(input, output, runtime),
@@ -132,8 +129,5 @@ export function assistantDependencies(
       watch: (input) => runAssistantPhase(input, output, runtime),
       "watch-edit": (input) => runAssistantPhase(input, output, runtime),
     },
-    prepareHandover,
-    openSession: (session) =>
-      recordInteractiveSession(session, runtime, recordInteractive),
   }
 }

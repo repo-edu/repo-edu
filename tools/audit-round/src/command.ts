@@ -36,6 +36,7 @@ import {
   runBrief,
   runRound,
 } from "./round.js"
+import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
@@ -203,7 +204,7 @@ Round sequence:
       even if they specify a different model tier or effort.
     - A fix that records a clean result does not skip later rounds.
     - A failure stops the sequence. A decision requiring your ruling also
-      stops the sequence and opens an interactive session.
+      stops the sequence and asks for your reply in the runner.
 
   Trajectory watch:
     - After a completed plan round with findings, the glance decides if a watch is due.
@@ -325,6 +326,7 @@ export async function runCommand(
     readonly cacheRoot?: string
     readonly repoEduRoot?: string
     readonly settings?: RoundSettings
+    readonly readReply?: () => Promise<string | null>
   },
 ): Promise<number> {
   const invocation = parseInvocation(argv, options)
@@ -450,6 +452,9 @@ export async function runCommand(
         if (!(await readFile(file, "utf8")).trim())
           throw new Error(`Phase output is empty: ${file}`)
       },
+      showBrief: async (document) => {
+        active.showBrief(await readFile(document, "utf8"))
+      },
       completeClean: async (input) => {
         const stamps = active.commitStamps()
         if (stamps === undefined) throw new Error("Missing audit model record")
@@ -472,9 +477,21 @@ export async function runCommand(
       ...assistantDependencies(
         { ...runtime, cwd: context.cwd, commit: active.commitStamps },
         active.phase,
-        active.prepareHandover,
-        active.interactive,
       ),
+      requestRuling: async (document) => {
+        active.beginRuling(document, await readFile(document, "utf8"))
+        let reply: string | null = null
+        try {
+          reply = await (
+            options.readReply ??
+            (() =>
+              readRulingReply(process.stdin, process.stdout, runtime.signal))
+          )()
+          return reply
+        } finally {
+          active.endRuling(reply)
+        }
+      },
       // The glance decides in the runner; its sentence opens the watch's section
       // of the log and terminal, whether or not a watch follows.
       glance: async (input) => {
@@ -548,11 +565,11 @@ export async function runCommand(
         active.finish(round)
         completed += 1
         if (seats.length === 1) break
-        if (round.status !== "finished") {
+        if (round.status !== "finished" || round.ruled) {
           await active.message(
             round.status === "failed"
               ? "Auditor sequence stopped: this round failed."
-              : "Auditor sequence stopped: this round opened a ruling session.",
+              : "Auditor sequence stopped: this round required your ruling.",
           )
           break
         }

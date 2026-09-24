@@ -27,10 +27,14 @@ context usage and compacted during implementation. Starting fresh gives the
 fix its own context and removes the capacity judgement and restart path.
 
 When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every ending. The runner
-starts one fresh fix session in Codex. When the fix needs a ruling, it writes the final document in
-this session under [Writing a ruling](ruling.md). The runner completes the brief and opens that fix
-session interactively.
+[Runner result](../../audit/references/workflow.md#runner-result) for every
+ending. The runner starts one fresh fix session in Codex.
+When the fix needs a ruling, it writes the final document in this session under
+[Writing a ruling](ruling.md). The runner displays that document directly
+and collects the user's reply. It resumes the same fix session in the background
+with that reply. Questions may leave a decision open; return `needs-ruling`
+again until the user resolves it. The runner keeps the internal prompt out of
+the terminal. It writes and displays the brief only after the full fix has completed.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
@@ -231,8 +235,8 @@ round's file set still asks.
 An unattended fix deletes no round files. The runner closes the report set
 when the fix returns `finished`. After a hand-run fix lands its records, run
 `pnpm audit-round close <target>-<round>` at the report's root. Use the exact
-target and round from the report filename. This also closes a round after an
-interactive ruling has been resolved and its records have landed.
+target and round from the report filename. A fix resumed by the runner after a
+ruling remains unattended; the runner closes its report set after `finished`.
 
 An unattended fix reports `finished` only after all required corrections,
 checks and records are complete. It reports completion under the audit workflow's

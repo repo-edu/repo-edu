@@ -193,6 +193,7 @@ export async function roundFixture(
   const status: string[] = []
   let clears = 0
   const options = {
+    readReply: async (): Promise<string | null> => null,
     repoEduRoot: repoRoot,
     terminal: {
       write: (text: string) => {

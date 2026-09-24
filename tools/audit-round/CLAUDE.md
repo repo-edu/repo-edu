@@ -6,8 +6,8 @@ consumers.
 
 ## Ownership
 
-- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the ruling a fix writes
-  for its open items, the watch that follows a finished planning or plan-scoped implementation
+- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the reply a
+  fix's open item needs and the watch that follows a finished planning or plan-scoped implementation
   round. It retains the audit session and report as local values. Audit, vet, fix and brief start
   fresh. A clean audit completes directly through `clean.ts` without any later phase, glance or
   watch. The coordinator reads the report through `report.ts` to decide whether it is clean. A vet
@@ -20,33 +20,39 @@ consumers.
   assistant that reports no window reports no shortfall and keeps the resume. `round.ts` owns that
   rule, the compaction share it compares against and the rebuttal's reserve. The settings file
   selects the default auditor and the assistants that write documents. Codex always fixes. The brief
-  follows the fix on either outcome and completes before the interactive fix opens. Its input is the
-  round transcript, never the report, and its launcher always belongs to the Repo Edu root.
-  `runBrief` runs that one phase on its own over an earlier transcript. The fix receives a ruling
-  output path separately from its report arguments. It writes the final ruling and checks it for
-  clarity before returning `needs-ruling`. The runner checks that file before running the brief and
-  opening the same fix session interactively. A missing or empty ruling fails the fix with its
-  recovery session. The fix reuses established evidence and verifies only uncertain claims. It keeps
-  the explanation proportional to the choice. No separate ruling phases run. `runWatch` owns the
-  watch that follows a round: the glance decides from the commit record and the watch's own history
-  whether a watch is due. Only a due glance runs `watch` and `watch-edit` over that draft. The
-  audited plan's stem comes from `planStem` and selects both the glance record and joined watch
-  evidence. Only a due glance computes and formats that evidence, once after the fix. Both watch
-  prompts receive the same snapshot separately from their file arguments. The glance is a dependency
-  the runner supplies from `glance.ts`, not a phase, so a not-due round starts no session for it.
-  Both watch passes have their own model and effort in `settings.json`, beside the brief's settings.
-  The watch runs only after a plan round with audit findings that finished, because a round that
-  handed over has not proved its work landed; nothing is lost, since the glance counts correction
-  commits and not rounds. A round given no watch target, which is what `--no-watch` does, consults
-  no glance at all. The watch reads the commit record and never the round, so `runWatch` passes it
-  no transcript and no report. A finished round reports whether its audit had no findings,
-  independently of any clean record the fix lands. The command runner uses that result to skip later
-  auditor entries for the same assistant. The round records both repositories' HEADs before the fix
-  and validates every landed subject under its repository's grammar. A plan target fails when a
-  finished fix landed no commit. A commit target may land nothing. Reader failures retain the owning
-  phase and its session for recovery. As soon as a fix returns `finished`, the coordinator closes
-  the report set through its dependency, before reading landed subjects or running the brief. Other
-  outcomes retain the set.
+  follows only a finished fix, after all rulings and resumed fix invocations have completed.
+  Its input is the round transcript, never the report, and its launcher always
+  belongs to the Repo Edu root. `runBrief` runs that one phase on its own over an earlier
+  transcript. The fix receives a ruling output path separately from its report arguments. It writes
+  the final ruling and checks it for clarity before returning `needs-ruling`. The runner checks that
+  file, then displays it and collects a reply without running the brief. A missing or empty ruling
+  fails the fix with its recovery session. The same fix session resumes in the background with that
+  reply. Further open decisions repeat this route. A completed fix follows the same report closure,
+  commit checks, brief and watch as an uninterrupted fix. Stopping without a reply retains the round
+  files and reports the fix's recovery command. A round that required a ruling ends the auditor
+  sequence even when the resumed fix completes. Further open decisions replace the ruling in that
+  same session. The fix reuses established evidence and verifies only uncertain claims. It keeps
+  the explanation proportional to the choice. No separate ruling phases run.
+  `runWatch` owns the watch that follows a round: the glance decides from the
+  commit record and the watch's own history whether a watch is due, and only a due glance runs
+  `watch` and `watch-edit` over that draft. The audited plan's stem comes from `planStem` and
+  selects both the glance record and joined watch evidence. Only a due glance computes and formats
+  that evidence, once after the fix. Both watch prompts receive the same snapshot separately from
+  their file arguments. The glance is a dependency the runner supplies from `glance.ts`, not a
+  phase, so a not-due round starts no session for it. The watch edit takes the draft and the
+  shared evidence snapshot. Both watch passes have their own model and effort in
+  `settings.json`, beside the brief's settings. The watch runs only after a plan round with audit
+  findings that finished, because a round awaiting a ruling has not proved its work landed; nothing
+  is lost, since the glance counts correction commits and not rounds. A round given no watch target,
+  which is what `--no-watch` does, consults no glance at all. The watch reads the commit record and
+  never the round, so `runWatch` passes it no transcript and no report. A finished round reports
+  whether its audit had no findings, independently of any clean record the fix lands. The command
+  runner uses that result to skip later auditor entries for the same assistant. The round records
+  both repositories' HEADs before the fix and validates every landed subject under its repository's
+  grammar. A plan target fails when a finished fix landed no commit. A commit target may land
+  nothing. Reader failures retain the owning phase and its session for recovery. As soon as a fix
+  returns `finished`, the coordinator closes the report set through its dependency, before reading
+  landed subjects or running the brief. Other outcomes retain the set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or at the
   invoking root when both repos were judged, using the report's judged-repos
@@ -146,35 +152,32 @@ consumers.
   of the phases that have run, so a clean round that skipped the vet and the rebuttal stamps
   neither into its record, and an accepted vet's round stamps no rebuttal.
 - `codex-session.ts` reads the current session's appended records. A resumed
-  rebuttal or interactive fix starts at the file's pre-invocation end. An
+  rebuttal or resumed fix starts at the file's pre-invocation end. An
   incomplete record stays with the reader until more bytes arrive; a final
   incomplete record fails the invocation.
-- `interactive.ts` records the resumed fix while Codex owns the terminal. Its
-  reader and the interactive child settle together, including a final read
-  after the child exits. A recording failure stops the child. The session
-  decoder reads messages from display events and tools from response items,
-  so duplicate records and tool results do not enter the round files.
+- `ruling-input.ts` owns the reply reader through Node's `readline`. A blank line
+  sends a non-empty multiline reply. Ctrl-C, end of input and cancellation discard
+  an unfinished reply. Non-terminal input supplies no ruling. The assistant never
+  inherits the terminal. Reply recording completes before the fix can resume.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
-  resolve the same way. The watch workflow owns `watch.json`: each episode
-  records both repositories' graded heads beside one grade and written date. The
-  glance counts from the invoking repository's head only. Both update checks
-  precede settings discovery. Codex compares its installed
-  version with the standalone installer's release channel before running its updater. A current or
-  newer installation is kept. An update is successful only when a fresh version read reaches the
-  checked release or a newer one. Installer output is retained for failure diagnostics, since its
-  success banner does not prove a version change. Failed checks and unverified updates leave the
-  date unstamped so the next run retries. Claude control requests and the short-lived Codex settings
-  connection start no LLM turn. `requests.ts` owns headless, interactive and recovery arguments,
-  including `--approve-for-me` on every Codex phase and resume command and a named model and
-  reasoning effort: Codex takes them before any subcommand, so a resumed phase keeps them, and
-  Claude takes `--model` and `--effort`. A handed-over session and a failure both carry their phase,
-  so the interactive and recovery commands resume on the model the round ran that phase on. Claude
-  uses `--permission-mode auto` in settings discovery and every session entry, and that discovery
-  names no model of its own. Both assistants receive their phase prompts on
-  standard input. Codex command-line arguments contain no prompt text,
-  including on resume, so joined evidence is not limited by the operating
-  system's per-argument size.
+  resolve the same way. The watch workflow owns `watch.json`: each episode records both
+  repositories' graded heads beside one grade and written date. The glance counts from the invoking
+  repository's head only. Both update checks precede settings discovery. Codex compares its
+  installed version with the standalone installer's release channel before running its updater. A
+  current or newer installation is kept. An update is successful only when a fresh version read
+  reaches the checked release or a newer one. Installer output is retained for failure diagnostics,
+  since its success banner does not prove a version change. Failed checks and unverified updates
+  leave the date unstamped so the next run retries. Claude control requests and the short-lived
+  Codex settings connection start no LLM turn. `requests.ts` owns headless and manual recovery
+  arguments, including `--approve-for-me` on every Codex phase and resume command and a named model
+  and reasoning effort: Codex takes them before any subcommand, so a resumed phase keeps them, and
+  Claude takes `--model` and `--effort`. A fix awaiting a ruling and a failure both carry their
+  phase, so continuation and recovery use the model the round ran that phase on. Claude uses
+  `--permission-mode auto` in settings discovery and every session entry, and that discovery names
+  no model of its own. Both assistants receive their phase prompts on standard input. Codex
+  command-line arguments contain no prompt text, including on resume, so joined evidence is not
+  limited by the operating system's per-argument size.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
@@ -182,41 +185,41 @@ consumers.
   [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD` in commit targets
   and scans both repo roots for the next target-wide number. It validates all file-writing phase
   tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and
-  log. The claim remains after success or failure, and a conflict stops without retrying.
-  Hand-run naming reuses the same paths with the auditing session's full tag
-  supplied for audit and rebuttal. `closeRound` deletes only the audit, vet and
-  rebuttal kinds for the exact target and round at the invoking root, using
-  recorded filenames without consulting model settings. Each entry
-  carries its phase, so the settings header reports the model and effort that phase will run on and
-  names what set each of them: a command-line flag, the phase's own pin, or the assistant's
-  settings. A phase whose two fields came from different places names both, model first. The output
-  holds only the run start, current phase timing, context observations and each started phase's
-  model selection. A phase starts with its launch selection, then its CLI's model feedback replaces
-  it. Commit stamps use those phase selections; requested aliases remain in the settings header
-  and file tags. Every status stamp shows the phase's
-  elapsed time and the round's total. Every logged tool line opens with its step's own time, the
-  assistant time since the previous tool line or since the phase start for the first, followed by
-  the round's total assistant time. `run-clock.ts` owns what those readings count. A
-  round measures its assistants, so time the user holds is not the run's. The assistant's last sign
-  of life opens a wait and the user's next action closes it: a user message during the interactive
-  fix, and leaving that session at the end. Each phase and the run read the same waiting total
-  through their own mark, so one rule serves every reading. Two baselines measure context growth: a
-  written status stamp reports the tokens added since the previous written stamp, and a logged tool
-  line reports the tokens added since the previous tool line, beside the time since it. Both chain
-  into the totals beside them; a fresh phase starts its stamp baseline at zero and a resumed phase
-  reports no first change. `run-files.ts` completes each required write before returning to the
-  invocation; no complete transcript accumulates in memory. `terminal.ts` renders assistant
-  Markdown through Glow at the current terminal width. It writes the rendered document directly
-  and uses log-update only for the live status line, so permanent text is not wrapped twice.
-  Redirected output retains the original Markdown. The log records each tool invocation once, with
-  shell wrappers removed and no event envelopes or result payloads. Invocation lines stay complete
-  in the log; assistant texts stay complete in Markdown. Only terminal tool lines shorten.
-  `prepareHandover` records the handover and releases the terminal before `openSession` inherits it.
-  The interactive output continues writing the same log and transcript without touching the
-  terminal. Its fix timer starts at the handover; the total still counts from the round's start,
-  minus every wait. User messages and assistant replies have separate transcript labels. Both
-  handover functions must reject on failure. Exiting the interactive child ends recording but does
-  not prove workflow completion.
+  log. The claim remains after success or failure, and a conflict stops without retrying. Hand-run
+  naming reuses the same paths with the auditing session's full tag supplied for audit and rebuttal.
+  `closeRound` deletes only the audit, vet and rebuttal kinds for the exact target and round at the
+  invoking root, using recorded filenames without consulting model settings. Each entry carries its
+  phase, so the settings header reports the model and effort that phase will run on and names what
+  set each of them: a command-line flag, the phase's own pin, or the assistant's settings. A phase
+  whose two fields came from different places names both, model first. The output holds only the run
+  start, current phase timing, context observations and each started phase's model selection. A
+  phase starts with its launch selection, then its CLI's model feedback replaces it. Commit stamps
+  use those phase selections; requested aliases remain in the settings header and file tags. Every
+  status stamp shows the phase's elapsed time and the round's total. Every logged tool line opens
+  with its step's own time, the assistant time since the previous tool line or since the phase start
+  for the first, followed by the round's total assistant time. `run-clock.ts` owns what those
+  readings count. A round measures its assistants, so time the user holds is not the run's.
+  Displaying the ruling opens a wait and submitting or cancelling the reply closes it. Each phase
+  and the run read the same waiting total through their own mark, so one rule serves every reading.
+  Two baselines measure context growth: a written status stamp reports the tokens added since the
+  previous written stamp, and a logged tool line reports the tokens added since the previous tool
+  line, beside the time since it. Both chain into the totals beside them; a fresh phase starts its
+  stamp baseline at zero and a resumed phase reports no first change. `run-files.ts` completes each
+  required write before returning to the invocation; no complete transcript accumulates in memory.
+  `terminal.ts` renders assistant Markdown through the `pi-tui` Markdown component at the current
+  terminal width, preserving paragraph spacing, nested lists and source finding numbers. It uses
+  cyan for inline code without background blocks and honours `NO_COLOR`. It writes the rendered
+  document directly and uses log-update only for the live status line, so permanent text is not
+  wrapped twice. Redirected output retains the original Markdown. The log records each tool
+  invocation once, with shell wrappers removed and no event envelopes or result payloads. Invocation
+  lines stay complete in the log; assistant texts stay complete in Markdown. Only terminal tool
+  lines shorten. `showBrief` renders the saved brief after validation and appends it to the log,
+  keeping it out of the transcript it retells. The brief's assistant text is not displayed, so
+  a writer echo cannot duplicate the saved document. Both full rounds and standalone briefs use this
+  route. `beginRuling` releases the live status display and renders the fix's ruling.
+  `endRuling` excludes the user's waiting time and records a submitted reply in the log and
+  transcript before any resumed process starts. Assistant replies use the normal phase output, so
+  launch prompts stay in the log and never reach the terminal.
 - `context.ts` resolves the installed Repo Edu checkout, its sibling plan root,
   the invoking working directory and the round kind once. Only those two roots
   may start a round. The context follows every phase and recovery session;
@@ -234,26 +237,26 @@ consumers.
   a trajectory glance or watch.
 - `command.ts` owns the command grammar, startup and final reporting, including the comma-separated
   auditor list and the error that identifies a malformed entry. It trims each entry and delegates
-  its assistant name or capability tag to `parseAuditor`. The round is the
-  command itself, taking the target as its own arguments. Its subcommands are `brief`, `name`,
-  `close` and `episode`. The `episode` command prints joined watch evidence from the shared reader
-  and formatter without settings discovery, assistant startup or file writes. The `name` command
-  claims a round and prints its file set without starting any phase. Its required `--auditor` is the
-  hand-run session's full tag, including `u`, checked separately from a round's model request. The
-  `close` command uses the same closing function as the coordinator and starts no assistant or
-  settings discovery. So the program carries an action handler, Commander adds no `help` command,
-  and each command's own `-h` prints its help. A bare command line prints that help rather than
-  reporting a missing plan. It also owns the remaining auditor list and round counter. Each entry
-  runs once in the supplied order with its own override. Only an audit with no findings removes
-  all remaining entries for that assistant, across model and effort tags. A fix that lands a clean
-  record removes none. Failure or a ruling handover stops the sequence. The list length is the only
-  round limit and an omitted list uses the configured default once. Each round records its own file
-  pair and the coordinator has no filesystem side effects: it opens one output per round, retires
-  the previous one first, and reads updates and settings once for the whole run before opening any
-  files. Startup messages go only to the terminal; the run log begins with the models table. A
-  chained round carries its place in its title and independently claims the next number for its
-  target. Required write failures stop phase progression. If recording itself fails, the emergency
-  channel still reports the known session and recovery command.
+  its assistant name or capability tag to `parseAuditor`. The round is the command itself, taking
+  the target as its own arguments. Its subcommands are `brief`, `name`, `close` and `episode`. The
+  `episode` command prints joined watch evidence from the shared reader and formatter without
+  settings discovery, assistant startup or file writes. The `name` command claims a round and prints
+  its file set without starting any phase. Its required `--auditor` is the hand-run session's full
+  tag, including `u`, checked separately from a round's model request. The `close` command uses the
+  same closing function as the coordinator and starts no assistant or settings discovery. So the
+  program carries an action handler, Commander adds no `help` command, and each command's own `-h`
+  prints its help. A bare command line prints that help rather than reporting a missing plan. It
+  also owns the remaining auditor list and round counter. Each entry runs once in the supplied order
+  with its own override. Only an audit with no findings removes all remaining entries for that
+  assistant, across model and effort tags. A fix that lands a clean record removes none. Failure or
+  a round requiring a ruling stops the sequence. The list length is the only round limit and an
+  omitted list uses the configured default once. Each round records its own file pair and the
+  coordinator has no filesystem side effects: it opens one output per round, retires the previous
+  one first, and reads updates and settings once for the whole run before opening any files. Startup
+  messages go only to the terminal; the run log begins with the models table. A chained round
+  carries its place in its title and independently claims the next number for its target. Required
+  write failures stop phase progression. If recording itself fails, the emergency channel still
+  reports the known session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -316,10 +319,14 @@ generation and validation separately.
 ### Invocation
 
 Run from the Repo Edu checkout root with authenticated `claude` and `codex`
-commands available. Terminal output also requires [Glow](https://github.com/charmbracelet/glow)
-on PATH (`brew install glow` on macOS or install its official release binary).
-`GLOW_STYLE=light` selects its light theme; the default is Glow's `auto` style.
-The runner disables Glow's pager and interactive browser so reports stay in the round output.
+commands available. Terminal Markdown rendering is bundled with the runner and needs no separate
+executable. Set `NO_COLOR=1` to disable colour. Redirected output retains the original Markdown.
+
+The terminal renderer is `@earendil-works/pi-tui`, replacing Glow. On 2026-09-24,
+the user confirmed a strong preference for its output in a live audit round.
+The accepted presentation keeps tables aligned, preserves paragraph and nested-list
+spacing and uses cyan code references without heavy background blocks. Preserve
+these qualities when changing terminal rendering.
 
 ```bash
 pnpm audit-round ../plan/example.md 1-3
@@ -354,7 +361,8 @@ hand-run implementation audit may name a step scope; the automated round still
 requires Repo Edu for that route. `close` deletes the audit and twins for its
 exact target and round at the invoking root. Claims and runner documents remain.
 
-The brief writes a plain-words twin after a fix. A clean audit records its outcome directly and
+The brief writes a plain-words twin only after the full fix has completed, then prints the saved
+document in the terminal. A clean audit records its outcome directly and
 retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A
 finished plan round with audit findings ends with a glance at the commit record, and a due glance
 adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
@@ -362,8 +370,8 @@ cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an
 at either root, writes beside it without claiming a new number and overwrites its standalone log on
 each run. `--auditor` accepts one selection or a comma-separated sequence on the named plan scope.
 Repeated entries request separate rounds. A clean audit skips all remaining entries for its
-assistant; failure or a ruling handover stops the sequence. Each header records the round's start
-time; filenames carry no timestamp.
+assistant; failure or a round requiring a ruling stops the sequence. Each header records the round's
+start time; filenames carry no timestamp.
 
 ## Verification
 

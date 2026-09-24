@@ -14,7 +14,6 @@ import {
 import { phasePrompt } from "../requests.js"
 import {
   type Assistant,
-  type InteractiveSession,
   type Phase,
   type PhaseInput,
   type PhaseResult,
@@ -66,15 +65,14 @@ const files = {
   },
 }
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
-/** An open decision needs no assistant phase after the brief. */
-const rulingPhases = phases
+/** An open decision returns directly from the fix to the user. */
+const rulingPhases = ["audit", "vet", "rebut", "fix"] as const
 /** Every phase in order when the round finishes and the glance calls a watch due. */
 const watchPhases = [...phases, "watch", "watch-edit"] as const
 
 /**
- * The two ways a round runs past its brief: the fix leaves an open item and the
- * runner displays its ruling, or the round finishes and the glance calls a watch
- * due. Each is walked by the failure, rejection and settling tests.
+ * The fix either leaves an open item for the user or finishes through the brief
+ * and a due watch. Each route is walked by the failure, rejection and settling tests.
  */
 const endings: readonly (readonly [
   ending: "ruling" | "watch",
@@ -95,7 +93,8 @@ function controlledRound(
   const completions: CleanInput[] = []
   const glances: GlanceInput[] = []
   const watchEvidence: WatchEvidenceInput[] = []
-  const handover: { operation: string; session: InteractiveSession }[] = []
+  const rulings: string[] = []
+  const briefs: string[] = []
   // Most rounds do not move the record far enough, so the watch is off by default.
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   const results: { [P in Phase]: PhaseResult<P> } = {
@@ -151,6 +150,9 @@ function controlledRound(
       closed.push({ cwd, nameStart })
     },
     checkFile: async () => {},
+    showBrief: async (document) => {
+      briefs.push(document)
+    },
     completeClean: async (input) => {
       completions.push(input)
     },
@@ -195,11 +197,9 @@ function controlledRound(
       glances.push(input)
       return glance
     },
-    async prepareHandover(session) {
-      handover.push({ operation: "prepare", session })
-    },
-    async openSession(session) {
-      handover.push({ operation: "open", session })
+    async requestRuling(document) {
+      rulings.push(document)
+      return null
     },
   }
   return {
@@ -208,7 +208,8 @@ function controlledRound(
     completions,
     glances,
     watchEvidence,
-    handover,
+    rulings,
+    briefs,
     results,
     dependencies,
     evidence,
@@ -222,6 +223,119 @@ const dueDecision: GlanceDecision = {
   due: true,
   text: "An area reached the amber limit of 2 (rule 3).",
 }
+
+test("a ruling waits for a reply then resumes the fix through normal completion and watch", async () => {
+  const round = controlledRound()
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  round.decide(dueDecision)
+  const shown = Promise.withResolvers<void>()
+  const reply = Promise.withResolvers<string | null>()
+  const requestRuling = async (document: string) => {
+    assert.equal(document, ruling)
+    shown.resolve()
+    return reply.promise
+  }
+  const running = runRound(
+    { ...files, plan: "example.md" },
+    { ...round.dependencies, requestRuling },
+  )
+  await shown.promise
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    rulingPhases,
+  )
+  assert.equal(round.closed.length, 0)
+  assert.deepEqual(round.briefs, [])
+  round.results.fix = { status: "finished", sessionId: "fix-session" }
+  reply.resolve("Choose option 1.")
+  assert.deepEqual(await running, {
+    status: "finished",
+    report: files.documents.report,
+    cleanAudit: false,
+    ruled: true,
+  })
+  const fixes = round.calls.filter((call) => call.phase === "fix")
+  assert.equal(fixes.length, 2)
+  assert.deepEqual(fixes[1], {
+    ...fixes[0],
+    sessionId: "fix-session",
+    rulingReply: "Choose option 1.",
+  })
+  assert.equal(round.closed.length, 1)
+  assert.equal(round.glances.length, 1)
+  assert.deepEqual(round.briefs, [brief])
+  assert.equal(round.calls.filter((call) => call.phase === "brief").length, 1)
+  assert.deepEqual(
+    round.calls.slice(-3).map((call) => call.phase),
+    ["brief", "watch", "watch-edit"],
+  )
+})
+
+test("clarification can leave a decision open without creating a new fix session", async () => {
+  const round = controlledRound()
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const replies = ["Explain option 2.", "Choose option 1."]
+  const requested: string[] = []
+  const result = await runRound(
+    { ...files, plan: "example.md" },
+    {
+      ...round.dependencies,
+      requestRuling: async (document) => {
+        requested.push(document)
+        const reply = replies.shift()
+        assert.ok(reply)
+        if (replies.length === 0)
+          round.results.fix = { status: "finished", sessionId: "fix-session" }
+        return reply
+      },
+    },
+  )
+  assert.equal(result.status, "finished")
+  assert.deepEqual(requested, [ruling, ruling])
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    [...rulingPhases, "fix", "fix", "brief"],
+  )
+  assert.deepEqual(round.briefs, [brief])
+  assert.deepEqual(
+    round.calls
+      .filter((call) => call.phase === "fix")
+      .map((call) => call.sessionId),
+    [null, "fix-session", "fix-session"],
+  )
+  assert.equal(round.closed.length, 1)
+})
+
+test("a resumed fix failure retains the session and never closes the reports", async () => {
+  const round = controlledRound()
+  round.results.fix = { status: "needs-ruling", sessionId: "fix-session" }
+  const result = await runRound(
+    { ...files, plan: "example.md" },
+    {
+      ...round.dependencies,
+      requestRuling: async () => {
+        round.results.fix = {
+          status: "failed",
+          sessionId: "fix-session",
+          reason: "Resume failed",
+        }
+        return "Choose option 1."
+      },
+    },
+  )
+  assert.equal(result.status, "failed")
+  if (result.status === "failed") {
+    assert.equal(result.phase, "fix")
+    assert.equal(result.sessionId, "fix-session")
+  }
+  assert.equal(round.closed.length, 0)
+  assert.equal(round.glances.length, 0)
+  assert.deepEqual(round.briefs, [])
+  assert.equal(
+    round.calls.some((call) => call.phase === "brief"),
+    false,
+  )
+})
 
 for (const grade of ["green", "amber"] as const) {
   test(`a both-repo round with only a plan fix uses the audited topic's ${grade} record`, async () => {
@@ -376,7 +490,7 @@ for (const [ending, sequence] of endings) {
         round.calls.map((call) => call.phase),
         sequence.slice(0, sequence.indexOf(phase) + 1),
       )
-      assert.deepEqual(round.handover, [])
+      assert.deepEqual(round.rulings, [])
     })
   }
 }
@@ -495,11 +609,11 @@ for (const auditor of ["claude", "codex"] as const) {
           ),
         )
       }
-      assert.deepEqual(round.handover, [])
+      assert.deepEqual(round.rulings, [])
     })
   }
 
-  test(`Codex opens the fresh fix session after the ruling is written with ${auditor} auditing`, async () => {
+  test(`the runner requests a reply after the ruling is written with ${auditor} auditing`, async () => {
     const round = controlledRound()
     round.results.fix = {
       status: "needs-ruling",
@@ -522,13 +636,11 @@ for (const auditor of ["claude", "codex"] as const) {
       rulingPhases,
     )
     assert.equal(round.calls[3].sessionId, null)
+    assert.equal(round.calls[3].phase, "fix")
     assert.ok(phasePrompt(round.calls[3]).includes(JSON.stringify(ruling)))
-    assert.deepEqual(round.handover, [
-      { operation: "prepare", session },
-      { operation: "open", session },
-    ])
+    assert.deepEqual(round.rulings, [ruling])
     assert.deepEqual(result, {
-      status: "handed-over",
+      status: "awaiting-ruling",
       report: `${repoRoot}/AUDIT-example.md`,
       session,
     })
@@ -555,7 +667,7 @@ for (const auditor of ["claude", "codex"] as const) {
           round.calls.map((call) => call.phase),
           sequence.slice(0, sequence.indexOf(phase) + 1),
         )
-        assert.deepEqual(round.handover, [])
+        assert.deepEqual(round.rulings, [])
         assert.deepEqual(result, {
           ...failure,
           phase,
@@ -609,7 +721,7 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
       sessionId: null,
     },
   ])
-  assert.deepEqual(round.handover, [])
+  assert.deepEqual(round.rulings, [])
 })
 
 test("a round that hands over runs no watch, because its work has not landed", async () => {
@@ -705,7 +817,7 @@ for (const ruling of [false, true]) {
     round.decide(dueDecision)
     const commits = ["HEAD-2", "HEAD-1", "HEAD"] as const
     const result = await runRound({ ...files, commits }, round.dependencies)
-    assert.equal(result.status, ruling ? "handed-over" : "finished")
+    assert.equal(result.status, ruling ? "awaiting-ruling" : "finished")
     assert.deepEqual(round.glances, [])
     assert.deepEqual(round.calls[0].arguments, [
       files.documents.report,
@@ -756,7 +868,7 @@ for (const [ending, sequence] of endings) {
         round.calls.map((call) => call.phase),
         sequence.slice(0, sequence.indexOf(phase) + 1),
       )
-      assert.deepEqual(round.handover, [])
+      assert.deepEqual(round.rulings, [])
     })
   }
 }
@@ -781,17 +893,17 @@ for (const [ending, sequence] of endings) {
     for (let index = 0; index < sequence.length; index += 1) {
       await entered[index].promise
       assert.equal(round.calls.length, index + 1)
-      assert.deepEqual(round.handover, [])
+      assert.deepEqual(round.rulings, [])
       release[index].resolve()
     }
     assert.equal(
       (await running).status,
-      ending === "ruling" ? "handed-over" : "finished",
+      ending === "ruling" ? "awaiting-ruling" : "finished",
     )
   })
 }
 
-for (const operation of ["prepareHandover", "openSession"] as const) {
+for (const operation of ["requestRuling"] as const) {
   test(`a failed ${operation} retains the fix session without retrying`, async () => {
     const round = controlledRound()
     round.results.fix = {
@@ -805,24 +917,21 @@ for (const operation of ["prepareHandover", "openSession"] as const) {
         ...round.dependencies,
         async [operation]() {
           attempts += 1
-          throw new Error("Handover unavailable")
+          throw new Error("Ruling input unavailable")
         },
       },
     )
 
     assert.equal(attempts, 1)
-    assert.deepEqual(
-      round.handover.map((call) => call.operation),
-      operation === "prepareHandover" ? [] : ["prepare"],
-    )
+    assert.deepEqual(round.rulings, [])
     assert.deepEqual(result, {
       status: "failed",
-      phase: "handover",
+      phase: "ruling-input",
       assistant: "codex",
       model: unpinned,
       sessionId: "fix-session",
       ...testContext(repoRoot),
-      reason: "Handover unavailable",
+      reason: "Ruling input unavailable",
     })
   })
 }
@@ -878,7 +987,7 @@ for (const auditor of ["claude", "codex"] as const) {
       },
     ])
     assert.deepEqual(round.glances, [])
-    assert.deepEqual(round.handover, [])
+    assert.deepEqual(round.rulings, [])
   })
 }
 
@@ -944,7 +1053,7 @@ for (const auditor of ["claude", "codex"] as const) {
       arguments: [report, files.documents.vet],
       sessionId: null,
     })
-    assert.deepEqual(round.handover, [])
+    assert.deepEqual(round.rulings, [])
   })
 }
 
@@ -965,12 +1074,9 @@ test("an unreported window keeps the resume, and a measured shortfall does not",
   )
 })
 
-test("a failed brief stops the round before the ruling is displayed", async () => {
+test("a failed brief after a completed fix stops the round before the watch", async () => {
   const round = controlledRound()
-  round.results.fix = {
-    status: "needs-ruling",
-    sessionId: "fix-session",
-  }
+  round.decide(dueDecision)
   round.results.brief = {
     status: "failed",
     sessionId: "brief-session",
@@ -986,7 +1092,9 @@ test("a failed brief stops the round before the ruling is displayed", async () =
     round.calls.map((call) => call.phase),
     phases,
   )
-  assert.deepEqual(round.handover, [])
+  assert.deepEqual(round.rulings, [])
+  assert.deepEqual(round.briefs, [])
+  assert.deepEqual(round.glances, [])
   assert.deepEqual(result, {
     status: "failed",
     phase: "brief",
@@ -995,6 +1103,28 @@ test("a failed brief stops the round before the ruling is displayed", async () =
     sessionId: "brief-session",
     ...testContext(repoRoot),
     reason: "The transcript could not be read",
+  })
+})
+
+test("a brief display failure retains the brief session for recovery", async () => {
+  const round = controlledRound()
+  const result = await runBrief(
+    { ...testContext(repoRoot), transcript, brief },
+    {
+      ...round.dependencies,
+      showBrief: async () => {
+        throw new Error("Cannot write the brief to the terminal")
+      },
+    },
+  )
+  assert.deepEqual(result, {
+    status: "failed",
+    phase: "brief",
+    assistant: "codex",
+    model: briefPin,
+    sessionId: "brief-session",
+    ...testContext(repoRoot),
+    reason: "Cannot write the brief to the terminal",
   })
 })
 
@@ -1023,7 +1153,7 @@ test("a missing ruling fails the fix before the brief or user input", async () =
     round.calls.map((call) => call.phase),
     ["audit", "vet", "rebut", "fix"],
   )
-  assert.deepEqual(round.handover, [])
+  assert.deepEqual(round.rulings, [])
   assert.deepEqual(round.closed, [])
 })
 
@@ -1046,7 +1176,7 @@ test("a brief on its own runs only the brief phase over the named transcript", a
       sessionId: null,
     },
   ])
-  assert.deepEqual(round.handover, [])
+  assert.deepEqual(round.rulings, [])
 })
 
 test("the round reads each supplied file and records both heads immediately before the fix", async () => {
@@ -1204,5 +1334,5 @@ test("a fix needing a ruling is not graded or required to have landed work", asy
       },
     },
   )
-  assert.equal(result.status, "handed-over")
+  assert.equal(result.status, "awaiting-ruling")
 })

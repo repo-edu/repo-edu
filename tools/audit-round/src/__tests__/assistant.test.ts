@@ -4,8 +4,11 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { split } from "shellwords"
 import { runAssistantPhase } from "../assistant.js"
-import { openAssistantSession } from "../cli-process.js"
-import { phaseRequest, recoveryCommand } from "../requests.js"
+import {
+  interactiveArguments,
+  phaseRequest,
+  recoveryCommand,
+} from "../requests.js"
 import {
   type Assistant,
   type PhaseInput,
@@ -188,7 +191,7 @@ for (const assistant of ["claude", "codex"] as const) {
     }
   })
 
-  test(`${assistant} accounts for an interactive exit and quotes the same recovery invocation`, async (t) => {
+  test(`${assistant} quotes the manual recovery invocation`, async (t) => {
     const f = await fixture(t)
     const session = {
       assistant,
@@ -196,26 +199,20 @@ for (const assistant of ["claude", "codex"] as const) {
       sessionId: "fix-session",
       ...testContext(f.root),
     }
-    await openAssistantSession(session, f.runtime)
-    const [call] = await f.calls()
+    const args = interactiveArguments(session)
     assert.deepEqual(split(recoveryCommand(session)), [
       "cd",
       f.root,
       "&&",
       assistant,
-      ...call.args,
+      ...args,
     ])
     if (assistant === "codex") {
-      assert.deepEqual(call.args, ["resume", "--approve-for-me", "fix-session"])
+      assert.deepEqual(args, ["resume", "--approve-for-me", "fix-session"])
     } else {
-      assert.deepEqual(call.args.slice(0, 2), ["--resume", "fix-session"])
-      assert.equal(
-        call.args[call.args.indexOf("--permission-mode") + 1],
-        "auto",
-      )
+      assert.deepEqual(args.slice(0, 2), ["--resume", "fix-session"])
+      assert.equal(args[args.indexOf("--permission-mode") + 1], "auto")
     }
-    await f.configure({ exitCode: 7 })
-    await assert.rejects(openAssistantSession(session, f.runtime))
   })
 }
 

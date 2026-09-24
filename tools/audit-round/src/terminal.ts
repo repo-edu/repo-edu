@@ -1,7 +1,6 @@
-import { stripVTControlCharacters } from "node:util"
-import { execaSync } from "execa"
+import { stripVTControlCharacters, styleText } from "node:util"
+import { Markdown, type MarkdownTheme } from "@earendil-works/pi-tui"
 import { createLogUpdate } from "log-update"
-import { errorMessage } from "./feedback.js"
 
 export type Terminal = {
   readonly write: (text: string, format?: "markdown") => void
@@ -9,36 +8,51 @@ export type Terminal = {
   readonly clear: () => void
 }
 
-/** Glow owns Markdown layout; log-update only owns the live status line. */
-function renderMarkdown(text: string, width: number): string {
-  try {
-    const { stdout } = execaSync(
-      "glow",
-      [
-        "--style",
-        process.env.GLOW_STYLE || "auto",
-        "--width",
-        String(width),
-        "-",
-      ],
-      {
-        input: text,
-        // Environment overrides disable user-configured interactive modes.
-        // Glow treats even --pager=false as a request to open the pager.
-        env: { GLOW_PAGER: "false", GLOW_TUI: "false" },
-      },
-    )
-    return process.env.NO_COLOR ? stripVTControlCharacters(stdout) : stdout
-  } catch (cause) {
-    throw new Error(`Glow could not render Markdown: ${errorMessage(cause)}`, {
-      cause,
-    })
+function trimRenderedPadding(text: string): string {
+  const lines = text.split("\n")
+  const hasContent = (line: string) =>
+    stripVTControlCharacters(line).trim().length > 0
+  return lines
+    .slice(lines.findIndex(hasContent), lines.findLastIndex(hasContent) + 1)
+    .join("\n")
+}
+
+/** Markdown owns document layout; log-update only owns the live status line. */
+function renderMarkdown(
+  text: string,
+  width: number,
+  stream: NodeJS.WriteStream,
+): string {
+  const style = (format: Parameters<typeof styleText>[0]) => (value: string) =>
+    styleText(format, value, { stream })
+  const theme: MarkdownTheme = {
+    heading: style(["bold", "cyan"]),
+    link: style("underline"),
+    linkUrl: style("cyan"),
+    code: style("cyan"),
+    codeBlock: (value) => value,
+    codeBlockBorder: style("dim"),
+    quote: style("italic"),
+    quoteBorder: style("dim"),
+    hr: style("dim"),
+    listBullet: (value) => value,
+    bold: style("bold"),
+    italic: style("italic"),
+    strikethrough: style("strikethrough"),
+    underline: style("underline"),
   }
+  return new Markdown(text, 0, 0, theme, undefined, {
+    preserveOrderedListMarkers: true,
+    renderLatex: false,
+  })
+    .render(width)
+    .join("\n")
 }
 
 export function createTerminal(
   stream: NodeJS.WriteStream = process.stdout,
-  render: (text: string, width: number) => string = renderMarkdown,
+  render: (text: string, width: number) => string = (text, width) =>
+    renderMarkdown(text, width, stream),
 ): Terminal {
   const update = stream.isTTY
     ? createLogUpdate(stream, { showCursor: true })
@@ -47,7 +61,9 @@ export function createTerminal(
     write(text, format) {
       const rendered =
         update !== undefined && format === "markdown"
-          ? render(text, stream.columns > 0 ? stream.columns : 80)
+          ? trimRenderedPadding(
+              render(text, stream.columns > 0 ? stream.columns : 80),
+            )
           : text
       update?.clear()
       // Do not pass permanent text through log-update's hard wrapping again.

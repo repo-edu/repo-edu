@@ -19,7 +19,6 @@ import {
 } from "./output-format.js"
 import {
   type Assistant,
-  type InteractiveSession,
   noOverride,
   type Phase,
   type PhaseInput,
@@ -414,12 +413,9 @@ export class RoundOutput<R extends Run = Run> {
   commitStamps = (): ReturnType<typeof commitStamps> =>
     commitStamps(this.run.phases, this.ran, this.run.settings)
 
-  private say(
-    text: string,
-    terminal: Terminal | null = this.options.terminal,
-  ): void {
+  private say(text: string): void {
     this.files.log(text)
-    terminal?.write(text)
+    this.options.terminal.write(text)
   }
 
   private transcribe(text: string): void {
@@ -473,55 +469,41 @@ export class RoundOutput<R extends Run = Run> {
     this.timer.unref()
   }
 
-  /** Recording keeps the same formatting and measurements while Codex owns the terminal. */
-  interactive = async (feedback: Feedback): Promise<void> => {
-    this.observe(feedback, null)
-  }
-
-  private observe(
-    feedback: Feedback,
-    terminal: Terminal | null = this.options.terminal,
-  ): void {
+  private observe(feedback: Feedback): void {
+    const terminal = this.options.terminal
     const active = this.active
     if (active === undefined)
       throw new Error("Phase feedback arrived without an active output")
-    // A user message is the user's own; every other feedback is a sign of life.
-    if (feedback.type === "user-text") this.clock.awaited()
-    else this.clock.active()
+    this.clock.active()
     const prefix = `[${active.input.phase}]`
     switch (feedback.type) {
       case "session":
         this.say(
           `${prefix} ${active.input.assistant} session ${feedback.sessionId}`,
-          terminal,
         )
         break
       case "model":
         this.ran.set(active.input.phase, feedback.selection)
         this.say(
           `${prefix} ${active.input.assistant} ${modelText(feedback.selection)}`,
-          terminal,
         )
         break
       case "context":
         active.context = feedback
         break
       case "text":
-      case "user-text":
+        // The saved brief is displayed once after validation, even if its writer echoes it.
+        if (active.input.phase === "brief") break
         if (feedback.text.length > 0) {
-          this.say(this.report(), terminal)
+          this.say(this.report())
           if (transcribed(active.input.phase)) {
-            if (terminal === null)
-              this.transcribe(
-                `### ${feedback.type === "user-text" ? "User" : "Assistant"}\n`,
-              )
             this.transcribe(`${feedback.text}\n`)
           }
           terminal?.write(feedback.text.trimEnd(), "markdown")
         }
         break
       case "diagnostic":
-        this.say(`${prefix} ${feedback.text}`, terminal)
+        this.say(`${prefix} ${feedback.text}`)
         break
       case "tool": {
         if (feedback.invocation !== null) {
@@ -549,22 +531,27 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`[${this.active?.input.phase}] ${result.status}${detail}`)
   }
 
-  prepareHandover = async (session: InteractiveSession): Promise<void> => {
+  showBrief(text: string): void {
     this.release()
-    this.clock.active()
-    const started = this.clock.mark()
-    this.active = {
-      input: { phase: "fix", assistant: session.assistant },
-      started,
-      context: null,
-      previousToolMark: started,
-      previousToolTokens: null,
-      statusTokens: null,
-    }
+    this.files.log(text)
+    this.options.terminal.write(text, "markdown")
+  }
+
+  beginRuling(document: string, text: string): void {
+    this.release()
+    this.say(`\n${separator}\nYour ruling is needed.\nDocument: ${document}`)
+    this.options.terminal.write(text, "markdown")
     this.say(
-      `Opening ${session.assistant} session ${session.sessionId} for the ruling.\nRecording continues in the round files until this interactive session exits.\nResume: ${recoveryCommand(session)}`,
+      "Write your reply below. A blank line sends it; Ctrl-C stops without sending.",
     )
-    this.transcribe(`## fix (${session.assistant}, interactive)\n`)
+    this.clock.active()
+  }
+
+  endRuling(reply: string | null): void {
+    this.clock.awaited()
+    if (reply === null) return
+    this.files.log(`[ruling] User reply:\n${reply}`)
+    this.transcribe(`## User ruling\n\n${reply}\n`)
   }
 
   finish(result: RoundResult | BriefResult): void {
@@ -578,16 +565,10 @@ export class RoundOutput<R extends Run = Run> {
         `${this.report()}\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}${resume}`,
       )
     } else {
-      // Leaving the interactive CLI is the user's own action, so the span back
-      // to the assistant's last sign of life was theirs too.
-      if (result.status === "handed-over") {
-        this.clock.awaited()
-        this.files.log(this.report())
-      }
       this.say(
         result.status === "finished"
           ? `${this.run.name} finished.`
-          : "Interactive session ended; workflow completion is not inferred.",
+          : `Stopped without a ruling. The round files are retained.\nResume: ${recoveryCommand(result.session)}`,
       )
     }
   }

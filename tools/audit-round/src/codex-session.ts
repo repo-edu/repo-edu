@@ -84,10 +84,7 @@ export class CodexSessionReader {
   private tail = ""
   private readonly decoder = new StringDecoder("utf8")
 
-  constructor(
-    private readonly root: string,
-    private readonly decode: (record: unknown) => Feedback[] = decodeCodexUsage,
-  ) {}
+  constructor(private readonly root: string) {}
 
   async prepareResume(sessionId: string): Promise<void> {
     const path = await findSessionFile(this.root, sessionId)
@@ -130,7 +127,7 @@ export class CodexSessionReader {
         while (newline !== -1) {
           const line = this.tail.slice(0, newline)
           this.tail = this.tail.slice(newline + 1)
-          for (const feedback of this.decode(JSON.parse(line)))
+          for (const feedback of decodeCodexUsage(JSON.parse(line)))
             await observe(feedback)
           newline = this.tail.indexOf("\n")
         }

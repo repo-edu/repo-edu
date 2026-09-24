@@ -630,10 +630,16 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
     "Brief prompt",
   )
   await output.phase.observe({ type: "text", text: "Plain words" })
+  output.showBrief("# Saved brief\n\nThe full explanation.")
   const markdown = await readFile(output.paths.markdown, "utf8")
-  assert.doesNotMatch(markdown, /## brief|Plain words/)
-  assert.ok(visible.join("\n").includes("Plain words"))
+  assert.doesNotMatch(markdown, /## brief|Plain words|The full explanation/)
+  assert.doesNotMatch(visible.join("\n"), /Plain words/)
+  assert.equal(visible.at(-1), "# Saved brief\n\nThe full explanation.")
   assert.match(await readFile(output.paths.log, "utf8"), /Brief prompt/)
+  assert.match(
+    await readFile(output.paths.log, "utf8"),
+    /# Saved brief\n\nThe full explanation\./,
+  )
 })
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {

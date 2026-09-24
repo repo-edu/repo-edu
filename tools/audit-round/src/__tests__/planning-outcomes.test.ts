@@ -123,7 +123,7 @@ for (const auditor of ["codex", "claude"] as const) {
     )
   })
 
-  test(`planning handover with ${auditor} stops the chain after the fix writes its ruling`, async (t) => {
+  test(`planning ruling with ${auditor} stops the chain after the fix writes its ruling`, async (t) => {
     const f = await roundFixture(t, auditor, "plan", true, null, true, "plan")
     assert.equal(
       await runCommand(
@@ -143,16 +143,17 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.doesNotMatch(log, /\[glance\]|\[watch\] starting/)
     assert.match(
       f.visible.join("\n"),
-      /Auditor sequence stopped: this round opened a ruling session/,
+      /Auditor sequence stopped: this round required your ruling/,
     )
     const calls = await f.calls()
     const session = calls.at(-1)
     assert.equal(session.cwd, f.planRoot)
-    assert.deepEqual(session.args, [
-      "resume",
-      "--approve-for-me",
-      "fix-session",
-    ])
+    assert.equal(session.args[0], "exec")
+    assert.equal(
+      calls.some((call) => call.args[0] === "resume"),
+      false,
+    )
+    assert.ok(f.visible.includes("Written ruling by fix"))
     assert.equal(session.auditor, auditor === "codex" ? "oth" : "ath")
   })
 }

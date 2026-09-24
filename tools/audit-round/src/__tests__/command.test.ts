@@ -9,6 +9,84 @@ import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
+test("a ruling stays in the runner and resumes the fix without replaying internal prompts", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  const reply = "Choose option 1.\nKeep the existing range."
+  let requests = 0
+  const code = await runCommand(
+    ["example.md", "--auditor", "codex,claude", "--no-watch"],
+    f.runtime,
+    {
+      ...f.options,
+      readReply: async () => {
+        requests++
+        assert.ok(f.visible.includes("Written ruling by fix"))
+        assert.doesNotMatch(
+          f.visible.join("\n"),
+          /\[brief\] starting|Written brief/,
+        )
+        const stream = await phaseStream(
+          "codex",
+          'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          "fix-session",
+        )
+        await f.configure({
+          phases: {
+            ...f.phases,
+            fix: {
+              ...(f.phases.fix as Record<string, unknown>),
+              assistants: { codex: { stream } },
+              commits: [
+                {
+                  cwd: f.repoRoot,
+                  subject:
+                    "example/impl-audit-all oth c1 fix(audit-round): apply ruling",
+                },
+              ],
+            },
+          },
+        })
+        return reply
+      },
+    },
+  )
+  assert.equal(code, 0, f.errors.join("\n"))
+  assert.equal(requests, 1)
+  const visible = f.visible.join("\n")
+  assert.match(visible, /Applied the ruling/)
+  assert.equal(f.visible.filter((text) => text === "Written brief").length, 1)
+  assert.ok(
+    visible.indexOf("Applied the ruling") < visible.indexOf("Written brief"),
+  )
+  assert.doesNotMatch(
+    visible,
+    /Run the .* phase|Phase arguments|SKILL\.md|OpenAI Codex/,
+  )
+  assert.match(
+    visible,
+    /Auditor sequence stopped: this round required your ruling/,
+  )
+  const calls = await f.calls()
+  assert.equal(
+    calls.some((call) => call.args[0] === "resume"),
+    false,
+  )
+  const resumed = calls.find(
+    (call) => call.args[0] === "exec" && call.args.includes("fix-session"),
+  )
+  assert.ok(resumed)
+  assert.ok(resumed.args.includes("--json"))
+  assert.ok(resumed.args.includes("--approve-for-me"))
+  const { markdown, log } = await f.records()
+  assert.ok(markdown.includes(`## User ruling\n\n${reply}`))
+  assert.ok(log.includes(reply))
+  assert.match(log, /Run the fix phase .* resumed session/)
+  assert.equal(log.match(/\[brief\] starting/g)?.length, 1)
+  assert.match(log, /Written brief/)
+  assert.doesNotMatch(markdown, /Written brief/)
+  assert.equal((await f.roundFiles()).length, 2)
+})
+
 for (const working of ["repo-edu", "plan"] as const) {
   test(`episode at ${working} prints shared evidence and resolves stems and explicit anchors without writes`, async (t) => {
     const f = await roundFixture(
@@ -358,7 +436,7 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor === "codex" ? "claude" : "codex",
             auditor,
             "codex",
-            "codex",
+            ...(ruling ? [] : ["codex"]),
           ],
         )
         assert.equal(
@@ -390,19 +468,11 @@ for (const auditor of ["claude", "codex"] as const) {
           },
           stamps,
         )
-        if (ruling) {
-          const resumed = calls.find((call) => call.args[0] === "resume")
-          assert.deepEqual(
-            { phases: resumed?.phases, auditor: resumed?.auditor },
-            {
-              ...stamps,
-              phases:
-                auditor === "codex"
-                  ? "audit, rebut, fix: gpt-6-astra high\nvet: claude-fable-5-1 high"
-                  : "audit, rebut: claude-fable-5-1 high\nvet, fix: gpt-6-astra high",
-            },
+        if (ruling)
+          assert.equal(
+            calls.some((call) => call.args[0] === "resume"),
+            false,
           )
-        }
         assert.ok(
           calls
             .filter(
@@ -437,19 +507,29 @@ for (const auditor of ["claude", "codex"] as const) {
         // The brief retells the transcript, so the transcript never carries it.
         assert.equal(markdown.includes("## brief ("), false)
         assert.equal(markdown.includes("Complete brief text."), false)
-        assert.ok(visible.includes("Complete brief text."))
+        assert.equal(visible.includes("Complete brief text."), false)
+        assert.equal(
+          f.visible.filter((text) => text === "Written brief").length,
+          ruling ? 0 : 1,
+        )
+        assert.equal(log.includes("Written brief"), !ruling)
+        assert.equal(markdown.includes("Written brief"), false)
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([f.report, "example.md", "2-3"])}`,
           ),
         )
-        assert.ok(
+        assert.equal(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
           ),
+          !ruling,
         )
-        assert.ok(log.includes(join(repoRoot, ".agents/skills/brief/SKILL.md")))
-        assert.ok(log.includes(`[brief] finished`))
+        assert.equal(
+          log.includes(join(repoRoot, ".agents/skills/brief/SKILL.md")),
+          !ruling,
+        )
+        assert.equal(log.includes(`[brief] finished`), !ruling)
         for (const args of [
           [f.report, f.vet],
           [f.report, f.vet, f.rebut],
@@ -465,22 +545,16 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
         if (ruling) {
-          assert.deepEqual(calls.at(-1).args, [
-            "resume",
-            "--approve-for-me",
-            "fix-session",
-          ])
+          assert.ok(visible.includes("Written ruling by fix"))
           assert.ok(
             log.includes(
               `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,
             ),
           )
           assert.doesNotMatch(log, /\[rule(?:-edit)?\] starting/)
-          assert.equal(
-            await readFile(f.ruling, "utf8"),
-            "Written ruling by fix",
-          )
-          assert.match(visible, /Opening codex session fix-session/)
+          assert.doesNotMatch(log, /\[brief\] starting/)
+          assert.match(visible, /Stopped without a ruling/)
+          assert.doesNotMatch(visible, /Opening codex session/)
           assert.doesNotMatch(visible, /Audit round finished\./)
         } else assert.match(visible, /Audit round finished\./)
         assert.ok(f.clears() >= 4)
@@ -1114,7 +1188,9 @@ test("a brief on its own retells the named transcript without a new round pair",
   assert.match(log, /brief +codex +gpt-5\.6-terra low/)
   assert.doesNotMatch(log, /audit +codex|fix +codex/)
   const visible = f.visible.join("\n")
-  assert.ok(visible.includes("Complete brief text."))
+  assert.equal(visible.includes("Complete brief text."), false)
+  assert.equal(f.visible.filter((text) => text === "Written brief").length, 1)
+  assert.match(log, /Written brief/)
   assert.match(visible, /Brief finished\./)
   assert.equal(
     await readFile(transcript, "utf8"),
@@ -1293,7 +1369,7 @@ test("--no-watch skips the glance and the watch, whatever the record says", asyn
   assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
-test("a chained run stops at the round that opens a ruling session", async (t) => {
+test("a chained run stops at the round that requires a ruling", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", true)
   assert.equal(
     await runCommand(
@@ -1307,7 +1383,7 @@ test("a chained run stops at the round that opens a ruling session", async (t) =
   assert.equal((await f.roundFiles()).length, 2)
   assert.match(
     f.visible.join("\n"),
-    /Auditor sequence stopped: this round opened a ruling session\./,
+    /Auditor sequence stopped: this round required your ruling\./,
   )
 })
 
@@ -1379,7 +1455,10 @@ for (const auditor of ["codex", "claude"] as const) {
             : join(f.planRoot, `.claude/commands/${phase}.md`)
         assert.ok(log.includes(launcher), launcher)
       }
-      assert.ok(log.includes(join(f.repoRoot, ".agents/skills/brief/SKILL.md")))
+      assert.equal(
+        log.includes(join(f.repoRoot, ".agents/skills/brief/SKILL.md")),
+        !ruling,
+      )
       assert.ok(
         log.includes(
           `${f.repoRoot}/.agents/skills/audit/references/workflow.md#runner-result`,

@@ -13,7 +13,9 @@ the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
 ruling. The transcript is written for the assistants that run the later
 phases, so it is dense with paths, identifiers and rating tokens. The brief
-says the same things in words the user does not have to decode.
+says the same things in words the user does not have to decode. In an automated
+round it runs only after the full fix has completed, including all rulings and
+resumed fix invocations. A standalone invocation may retell an earlier incomplete round.
 
 ## Input
 
@@ -40,6 +42,8 @@ it.
 
 Write the brief to the supplied output path, replacing an existing file.
 The brief is the one file this workflow writes; the transcript stays as it is.
+The runner displays the saved file after this phase succeeds, so the final reply
+need only confirm completion before the required result line.
 
 The brief is Markdown for a person reading in a Markdown viewer. Use
 headings, numbered lists and tables where they help. Bold the first words of
@@ -111,7 +115,8 @@ what it holds.
    keeps its row and says so. The area tokens stay out of the table, because
    the finding's title already says where the problem sits.
 6. **The fix**: what the fix phase did. When it landed, what it changed and
-   what it committed, from the fix phase's text. When it stopped for a
+   what it committed, from the fix phase's text. Include the user's rulings and
+   how the resumed fix applied them. When it stopped for a
    ruling, the open items as a numbered list, each with what it costs, what
    it buys and what the fixer recommends, so the user can rule from the brief
    alone. When a phase failed, which one and the reason the transcript gives.

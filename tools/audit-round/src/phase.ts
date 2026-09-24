@@ -262,8 +262,13 @@ type PhaseArguments = {
   fix: {
     readonly arguments: readonly [report: string, ...twins: string[]]
     readonly rulingFile: string
-    readonly sessionId: null
-  }
+  } & (
+    | { readonly sessionId: null; readonly rulingReply?: never }
+    | {
+        readonly sessionId: string
+        readonly rulingReply: string
+      }
+  )
   brief: {
     readonly arguments: readonly [transcript: string, brief: string]
     readonly sessionId: null
@@ -343,6 +348,8 @@ export type InteractiveSession = PhaseRun &
 export type RoundDependencies = {
   readonly closeRound: (cwd: string, nameStart: string) => Promise<void>
   readonly checkFile: (file: string) => Promise<void>
+  /** Prints the saved brief after its phase and output validation have completed. */
+  readonly showBrief: (document: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<void>
   readonly readReport: (
     file: string,
@@ -364,8 +371,6 @@ export type RoundDependencies = {
    */
   readonly glance: (input: GlanceInput) => Promise<GlanceDecision>
   readonly watchEvidence: (input: WatchEvidenceInput) => Promise<string>
-  /** Output must be recorded and the progress display released before opening. */
-  readonly prepareHandover: (session: InteractiveSession) => Promise<void>
-  /** Resolves after the inherited-terminal CLI exits successfully. */
-  readonly openSession: (session: InteractiveSession) => Promise<void>
+  /** Displays the ruling and records a reply; null stops without submitting a draft. */
+  readonly requestRuling: (document: string) => Promise<string | null>
 }

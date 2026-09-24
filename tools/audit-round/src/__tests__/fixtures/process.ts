@@ -108,36 +108,6 @@ process.on("SIGTERM", () => {
   void writeFile(join(root, "stopped"), "SIGTERM").then(() => process.exit(0))
 })
 
-if (args[0] === "resume" || args[0] === "--resume") {
-  const continuation = scenario.interactive
-  if (continuation?.usage !== undefined) {
-    const bytes = Buffer.from(continuation.usage.text)
-    const size = continuation.chunkSize ?? bytes.length
-    for (let offset = 0; offset < bytes.length; offset += size) {
-      await appendFile(
-        continuation.usage.path,
-        bytes.subarray(offset, offset + size),
-      )
-      if (continuation.chunkSize !== undefined) await setTimeout(1)
-    }
-    if (continuation.waitForFile !== undefined) {
-      while (true) {
-        try {
-          await readFile(continuation.waitForFile)
-          break
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-          await setTimeout(10)
-        }
-      }
-    }
-    if (continuation.finalText !== undefined)
-      await appendFile(continuation.usage.path, continuation.finalText)
-  }
-  if (continuation?.wait) await new Promise(() => setInterval(() => {}, 1000))
-  process.exit(continuation?.exitCode ?? scenario.exitCode ?? 0)
-}
-
 if (assistant === "claude") {
   const requests = []
   for await (const line of createInterface({ input: process.stdin }))

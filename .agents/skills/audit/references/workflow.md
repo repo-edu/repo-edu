@@ -42,8 +42,8 @@ The round ends at its report file. The auditor answers a vet through the rebutta
 `.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
 corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
-rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix
-starts in a fresh session from the report file. See [Fix guard](#fix-guard).
+rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix starts in a fresh
+session from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
@@ -75,7 +75,7 @@ tier from both repositories' commit logs.
 | Status | Meaning | Runner action |
 | --- | --- | --- |
 | `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the watch. |
-| `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check the ruling file, run the brief and open that fix session interactively. No watch follows. |
+| `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check and display the ruling file, collect the user's reply and resume the same fix in the background. Only a completed fix proceeds through the normal checks, brief and watch; stopping without a reply retains the round files. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
 Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`; the
@@ -101,8 +101,9 @@ Launcher ownership is defined by the phase table in
 All round files live at the invoking root. The brief receives the transcript
 and its output path. The fix receives the ruling output path separately from
 its report arguments. It writes the final ruling and checks it for clarity
-before returning `needs-ruling`. The runner checks that file and completes the
-brief before handing the fix session back to the user. No separate ruling session runs.
+before returning `needs-ruling`. The runner checks and displays that file directly.
+Only after the full fix has completed does the runner write the brief and append its saved
+contents to the terminal output. No separate ruling session runs.
 
 The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the

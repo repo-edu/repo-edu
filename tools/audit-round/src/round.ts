@@ -8,6 +8,7 @@ import {
   noOverride,
   type Phase,
   type PhaseFailure,
+  type PhaseInput,
   type PhaseResult,
   type PhaseRun,
   type RoundDependencies,
@@ -36,7 +37,7 @@ export type WatchTarget = {
 
 export type RoundInput = RoundSetup & {
   readonly documents: RoundDocuments
-  /** The round's Markdown transcript, which the brief retells once the fix has returned. */
+  /** The round's Markdown transcript, which the brief retells once the fix has finished. */
   readonly transcript: string
   /** Null when the user asked for no watch, whatever the commit record says. */
   readonly watch: WatchTarget | null
@@ -50,7 +51,7 @@ export type BriefInput = ExecutionContext & {
 type RoundFailure = PhaseFailure &
   PhaseRun &
   ExecutionContext & {
-    readonly phase: Phase | "handover" | "complete"
+    readonly phase: Phase | "ruling-input" | "complete"
   }
 
 export type RoundResult =
@@ -59,9 +60,11 @@ export type RoundResult =
       readonly report: string
       /** True only when the audit report itself contained no findings. */
       readonly cleanAudit: boolean
+      /** A user ruling ends the auditor sequence even after the fix completes. */
+      readonly ruled?: true
     }
   | {
-      readonly status: "handed-over"
+      readonly status: "awaiting-ruling"
       readonly report: string
       readonly session: InteractiveSession
     }
@@ -124,7 +127,7 @@ async function reportPhase<R extends PhaseResult>(
  */
 export async function runBrief(
   input: BriefInput,
-  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile">,
+  dependencies: Pick<RoundDependencies, "runPhase" | "checkFile" | "showBrief">,
   settings: RoundSettings,
 ): Promise<BriefResult> {
   // The brief uses its own settings, so no auditor override reaches this phase.
@@ -145,6 +148,18 @@ export async function runBrief(
   )
   if (brief.status === "failed")
     return { ...brief, phase: "brief", ...run, ...context }
+  try {
+    await dependencies.showBrief(input.brief)
+  } catch (error) {
+    return {
+      status: "failed",
+      sessionId: brief.sessionId,
+      phase: "brief",
+      ...run,
+      ...context,
+      reason: errorMessage(error),
+    }
+  }
   return { status: "finished", brief: input.brief }
 }
 
@@ -156,7 +171,7 @@ export async function runBrief(
  * watch is expensive and most rounds do not move the record far enough to
  * change its reading; `glance.ts` owns its rule.
  *
- * Only a round that finished runs it. A round that handed over has not proved
+ * Only a round that finished runs it. A round awaiting a ruling has not proved
  * that its work landed, so the record it would grade may be missing its own
  * commit. Nothing is lost by waiting: the glance counts what the log has
  * gained in corrections since the last watch, not how many rounds have run. A user who asked
@@ -373,91 +388,109 @@ export async function runRound(
       reason: errorMessage(error),
     }
   }
-  const fix = await dependencies.runPhase.fix({
+  let fixInput: PhaseInput<"fix"> = {
     phase: "fix",
     ...phases.fix,
     ...context,
     arguments: [report, ...twins],
     rulingFile: input.documents.ruling,
     sessionId: null,
-  })
-  if (fix.status === "failed") {
-    return { ...fix, phase: "fix", ...phases.fix, ...context }
   }
-
-  if (fix.status === "needs-ruling") {
-    try {
-      await dependencies.checkFile(input.documents.ruling)
-    } catch (error) {
-      return {
-        status: "failed",
-        phase: "fix",
-        sessionId: fix.sessionId,
-        ...phases.fix,
-        ...context,
-        reason: errorMessage(error),
-      }
+  while (true) {
+    const fix = await dependencies.runPhase.fix(fixInput)
+    if (fix.status === "failed") {
+      return { ...fix, phase: "fix", ...phases.fix, ...context }
     }
-  }
 
-  if (fix.status === "finished") {
-    try {
-      await dependencies.closeRound(cwd, transcriptNameStart(input.transcript))
-      const landed = await Promise.all(
-        repositories.map(({ root }, index) =>
-          dependencies.readSubjects(root, before[index]),
-        ),
-      )
-      if ("plan" in input && landed.every((subjects) => subjects.length === 0))
-        throw new Error("The finished fix landed no commit for a plan target")
-      for (const [index, subjects] of landed.entries()) {
-        for (const subject of subjects) {
-          parseSubject(subject, repositories[index].repository)
+    if (fix.status === "needs-ruling") {
+      try {
+        await dependencies.checkFile(input.documents.ruling)
+      } catch (error) {
+        return {
+          status: "failed",
+          phase: "fix",
+          sessionId: fix.sessionId,
+          ...phases.fix,
+          ...context,
+          reason: errorMessage(error),
         }
       }
+    }
+
+    if (fix.status === "finished") {
+      try {
+        await dependencies.closeRound(
+          cwd,
+          transcriptNameStart(input.transcript),
+        )
+        const landed = await Promise.all(
+          repositories.map(({ root }, index) =>
+            dependencies.readSubjects(root, before[index]),
+          ),
+        )
+        if (
+          "plan" in input &&
+          landed.every((subjects) => subjects.length === 0)
+        )
+          throw new Error("The finished fix landed no commit for a plan target")
+        for (const [index, subjects] of landed.entries()) {
+          for (const subject of subjects) {
+            parseSubject(subject, repositories[index].repository)
+          }
+        }
+      } catch (error) {
+        return {
+          status: "failed",
+          sessionId: fix.sessionId,
+          phase: "fix",
+          ...phases.fix,
+          ...context,
+          reason: errorMessage(error),
+        }
+      }
+      // Retell the complete fix, including every ruling and resumed invocation.
+      const brief = await runBrief(
+        {
+          ...context,
+          transcript: input.transcript,
+          brief: input.documents.brief,
+        },
+        dependencies,
+        settings,
+      )
+      if (brief.status === "failed") return brief
+      if ("plan" in input) {
+        const watched = await runWatch(input, dependencies, settings)
+        if (watched !== null) return watched
+      }
+      return {
+        status: "finished",
+        report,
+        cleanAudit: false,
+        ...(fixInput.sessionId === null ? {} : { ruled: true as const }),
+      }
+    }
+
+    const session: InteractiveSession = {
+      ...phases.fix,
+      sessionId: fix.sessionId,
+      ...context,
+    }
+    try {
+      const reply = await dependencies.requestRuling(input.documents.ruling)
+      if (reply === null) return { status: "awaiting-ruling", report, session }
+      fixInput = {
+        ...fixInput,
+        sessionId: fix.sessionId,
+        rulingReply: reply,
+      }
     } catch (error) {
       return {
         status: "failed",
-        sessionId: fix.sessionId,
-        phase: "fix",
-        ...phases.fix,
-        ...context,
-        reason: errorMessage(error),
+        phase: "ruling-input",
+        ...session,
+        reason: error instanceof Error ? error.message : String(error),
       }
     }
   }
-
-  // Complete the brief before handing the fix session back to the user.
-  const brief = await runBrief(
-    { ...context, transcript: input.transcript, brief: input.documents.brief },
-    dependencies,
-    settings,
-  )
-  if (brief.status === "failed") return brief
-  if (fix.status === "finished") {
-    if ("plan" in input) {
-      const watched = await runWatch(input, dependencies, settings)
-      if (watched !== null) return watched
-    }
-    return { status: "finished", report, cleanAudit: false }
-  }
-
-  const session: InteractiveSession = {
-    ...phases.fix,
-    sessionId: fix.sessionId,
-    ...context,
-  }
-  try {
-    await dependencies.prepareHandover(session)
-    await dependencies.openSession(session)
-  } catch (error) {
-    return {
-      status: "failed",
-      phase: "handover",
-      ...session,
-      reason: error instanceof Error ? error.message : String(error),
-    }
-  }
-  // An interactive CLI exit does not prove that the workflow finished its work.
-  return { status: "handed-over", report, session }
 }

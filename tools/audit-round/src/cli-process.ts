@@ -1,6 +1,5 @@
 import { execa } from "execa"
-import type { Assistant, InteractiveSession } from "./phase.js"
-import { interactiveArguments } from "./requests.js"
+import type { Assistant } from "./phase.js"
 
 export type CliRuntime = {
   readonly cwd: string
@@ -119,42 +118,6 @@ export async function withCliProcess<T>(
     // A consumer failure must not leave the CLI running or readers unobserved.
     child.kill()
     await Promise.allSettled([work, stderr, child])
-    process.off("SIGINT", interrupt)
-  }
-}
-
-export async function openAssistantSession(
-  session: InteractiveSession,
-  runtime: CliRuntime,
-  record: (stopped: AbortSignal) => Promise<void> = async () => {},
-): Promise<void> {
-  const invocation = command(
-    runtime,
-    session.assistant,
-    interactiveArguments(session),
-  )
-  const stopped = new AbortController()
-  const interruption = new AbortController()
-  const signal =
-    runtime.signal === undefined
-      ? interruption.signal
-      : AbortSignal.any([interruption.signal, runtime.signal])
-  const child = execa(invocation.file, invocation.args, {
-    cwd: session.cwd,
-    env: environment(runtime),
-    stdio: "inherit",
-    cancelSignal: signal,
-    forceKillAfterDelay: 5000,
-  })
-  const interrupt = () => interruption.abort()
-  process.on("SIGINT", interrupt)
-  const processResult = child.finally(() => stopped.abort())
-  const recording = Promise.resolve().then(() => record(stopped.signal))
-  try {
-    await Promise.all([processResult, recording])
-  } finally {
-    child.kill()
-    await Promise.allSettled([processResult, recording])
     process.off("SIGINT", interrupt)
   }
 }
