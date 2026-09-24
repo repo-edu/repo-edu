@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { it } from "node:test"
+import * as ts from "typescript"
 import {
   checkDesktopInventorySources,
   ownershipEntryLists,
@@ -9,6 +10,7 @@ import {
   compareEntryMembers,
   readEntryMembers,
   syntaxTree,
+  walk,
 } from "../desktop-inventory-syntax.js"
 import { desktopEntryLists } from "../desktop-source-inventory.js"
 import { ROOT, repoPathToAbsolute } from "../repo-paths.js"
@@ -141,18 +143,6 @@ for (const [file, before, after, owner] of [
   ],
   [
     "packages/renderer-app/src/session/session-controller-context.tsx",
-    "const admitKeyboardInput = (event: KeyboardEvent) =>\n      admitSessionInput(controller, event)",
-    "const admitKeyboardInput = (event: KeyboardEvent) => allowInput(event)",
-    "session keyboard input route",
-  ],
-  [
-    "packages/renderer-app/src/session/session-controller-context.tsx",
-    "const admitInput = (event: SyntheticEvent) => {\n    admitSessionInput(controller, event)",
-    "const admitInput = (event: SyntheticEvent) => {\n    allowInput(event)",
-    "session React input route",
-  ],
-  [
-    "packages/renderer-app/src/session/session-controller-context.tsx",
     "const snapshot = controller.getSnapshot()\n  if (canAdmitSessionInput(snapshot)) return",
     "const snapshot = controller.getSnapshot()\n  if (true) return",
     "session input admission",
@@ -170,6 +160,50 @@ for (const [file, before, after, owner] of [
     assert.ok(original)
     assert.ok(original.includes(before), `Missing mutation target: ${before}`)
     mutated.set(file, original.replace(before, after))
+    assert.ok(
+      checkDesktopInventorySources(mutated).some((v) =>
+        v.message.startsWith(owner),
+      ),
+    )
+  })
+}
+
+for (const [handler, owner] of [
+  ["admitKeyboardInput", "session keyboard input route"],
+  ["admitInput", "session React input route"],
+] as const) {
+  it(`detects a changed runtime owner: ${owner}`, () => {
+    const file =
+      "packages/renderer-app/src/session/session-controller-context.tsx"
+    const original = sources.get(file)
+    assert.ok(original)
+    const tree = syntaxTree(file, original)
+    const targets: ts.Identifier[] = []
+    walk(tree, (node) => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === handler &&
+        node.initializer
+      ) {
+        walk(node.initializer, (child) => {
+          if (
+            ts.isCallExpression(child) &&
+            ts.isIdentifier(child.expression) &&
+            child.expression.text === "admitSessionInput"
+          )
+            targets.push(child.expression)
+        })
+      }
+    })
+    assert.equal(targets.length, 1, `Expected one admission call in ${handler}`)
+    const [target] = targets
+    assert.ok(target)
+    const mutated = new Map(sources)
+    mutated.set(
+      file,
+      `${original.slice(0, target.getStart(tree))}allowInput${original.slice(target.end)}`,
+    )
     assert.ok(
       checkDesktopInventorySources(mutated).some((v) =>
         v.message.startsWith(owner),
