@@ -29,7 +29,6 @@ import {
   selectDefaultExtensions,
 } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
-import type { SessionOperationScope } from "../session/session-operations.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
   selectEffectiveSelectedRepoPath,
@@ -82,19 +81,14 @@ export type AnalysisDiscoveryValue = {
   discoveryCompleted: boolean
   runRepoDiscovery: (folder: string) => void
   startAnalysis: (folder: string) => void
-  /** Search inside a body the caller already owns, such as a folder pick. */
-  runDiscovery: (
-    scope: SessionOperationScope,
-    surface: PersistedActiveSurface,
-    folder: string,
-  ) => Promise<void>
+  clearRepositoryDiscovery: () => void
   cancelDiscovery: () => void
 }
 
 export type AnalysisSelectionValue = {
   selectedRepoPath: string | null
-  clearRepositorySelection: () => void
   selectRepository: (repoPath: string) => void
+  analyseSelectedRepository: () => void
   runAnalysis: () => void
   cancelAnalysis: () => void
   snapshotCommitOid: string | null
@@ -604,34 +598,22 @@ export function AnalysisCoordinatorProvider({
     effectiveBlameConfig,
   ])
 
-  const runDiscovery = useCallback(
-    async (
-      scope: SessionOperationScope,
-      surface: PersistedActiveSurface,
-      folder: string,
-    ) => {
-      // The discovery query displays failures; cancellation stays silent.
-      await discoverRepositories(scope, queryClient, surface, {
-        folder,
-        depth: searchDepth,
-      }).catch(() => {})
-    },
-    [queryClient, searchDepth],
-  )
-
-  // Re-search only updates discovery; the picker uses its existing body.
+  // Search only updates discovery; Start owns the chained analysis pass.
   const runRepoDiscovery = useCallback(
     (folder: string) => {
       if (!folder) return
       client.change(() => {
         void client
           .execute("analysis.discoverRepos", (scope) =>
-            runDiscovery(scope, activeSurface, folder),
+            discoverRepositories(scope, queryClient, activeSurface, {
+              folder,
+              depth: searchDepth,
+            }),
           )
           .catch(() => {})
       })
     },
-    [client, runDiscovery, activeSurface],
+    [client, queryClient, activeSurface, searchDepth],
   )
 
   const startAnalysis = useCallback(
@@ -693,23 +675,31 @@ export function AnalysisCoordinatorProvider({
     (repoPath: string) => {
       client.change(() => {
         setSelectedRepoPath(activeSourceText, repoPath)
-        void createSourceRunner(activeSurface)
-          ?.run([repoPath], repoPath, effectiveBlameConfig)
-          .catch(() => {})
       })
     },
-    [
-      client,
-      activeSourceText,
-      setSelectedRepoPath,
-      createSourceRunner,
-      activeSurface,
-      effectiveBlameConfig,
-    ],
+    [client, activeSourceText, setSelectedRepoPath],
   )
 
-  const clearRepositorySelection = useCallback(() => {
+  const analyseSelectedRepository = useCallback(() => {
+    if (selectedRepoPath === null) return
+    client.change(() => {
+      void createSourceRunner(activeSurface)
+        ?.run([selectedRepoPath], selectedRepoPath, effectiveBlameConfig)
+        .catch(() => {})
+    })
+  }, [
+    client,
+    createSourceRunner,
+    activeSurface,
+    selectedRepoPath,
+    effectiveBlameConfig,
+  ])
+
+  const clearRepositoryDiscovery = useCallback(() => {
     setSelectedRepoPath(activeSourceText, null)
+    useAnalysisStore
+      .getState()
+      .setPendingRepoDiscoveryRequest(activeSourceText, null)
   }, [activeSourceText, setSelectedRepoPath])
 
   const discoveryValue = useMemo<AnalysisDiscoveryValue>(
@@ -721,7 +711,7 @@ export function AnalysisCoordinatorProvider({
       discoveryCompleted,
       runRepoDiscovery,
       startAnalysis,
-      runDiscovery,
+      clearRepositoryDiscovery,
       cancelDiscovery,
     }),
     [
@@ -733,15 +723,15 @@ export function AnalysisCoordinatorProvider({
       discoveryCompleted,
       runRepoDiscovery,
       startAnalysis,
-      runDiscovery,
+      clearRepositoryDiscovery,
     ],
   )
 
   const selectionValue = useMemo<AnalysisSelectionValue>(
     () => ({
       selectedRepoPath,
-      clearRepositorySelection,
       selectRepository,
+      analyseSelectedRepository,
       runAnalysis,
       cancelAnalysis,
       snapshotCommitOid: selectedSnapshotCommitOid,
@@ -750,7 +740,7 @@ export function AnalysisCoordinatorProvider({
     }),
     [
       analysisScopeKey,
-      clearRepositorySelection,
+      analyseSelectedRepository,
       cancelAnalysis,
       runAnalysis,
       selectedAnalysisIdentity,

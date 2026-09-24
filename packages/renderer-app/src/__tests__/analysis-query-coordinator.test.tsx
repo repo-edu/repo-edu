@@ -339,9 +339,23 @@ describe("analysis runner lifetime in React", () => {
       undefined,
       { requestAnalysis: false, strictEffects: true },
     )
+    const execute = t.mock.method(controller.operations, "execute")
+    assert.equal(inputs.length, 0)
+    await React.act(async () => {
+      read().selectRepository(repos[1])
+      await flushQueries()
+    })
+    assert.equal(read().selectedRepoPath, repos[1])
+    assert.equal(read().result, null)
     assert.equal(inputs.length, 0)
     await React.act(async () => {
       read().selectRepository(repos[0])
+      await flushQueries()
+    })
+    assert.equal(inputs.length, 0)
+    assert.equal(execute.mock.callCount(), 0)
+    await React.act(async () => {
+      read().analyseSelectedRepository()
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -361,9 +375,10 @@ describe("analysis runner lifetime in React", () => {
       await flushQueries()
     })
     assert.equal(inputs.length, 1)
+    assert.equal(execute.mock.callCount(), 1)
     assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
     await React.act(async () => {
-      read().selectRepository(repos[0])
+      read().analyseSelectedRepository()
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -378,6 +393,17 @@ describe("analysis runner lifetime in React", () => {
     })
     assert.equal(inputs.length, 2)
     assert.deepEqual(read().result, makeBaseResult())
+    await React.act(async () => {
+      read().selectRepository(repos[1])
+      await flushQueries()
+    })
+    assert.equal(read().result, null)
+    await React.act(async () => {
+      read().selectRepository(repos[0])
+      await flushQueries()
+    })
+    assert.deepEqual(read().result, makeBaseResult())
+    assert.equal(execute.mock.callCount(), 2)
   })
 
   for (const kind of ["course", "folder"] as const) {
@@ -400,7 +426,7 @@ describe("analysis runner lifetime in React", () => {
         { activeSurface, requestAnalysis: false },
       )
       await React.act(async () => {
-        read().selectRepository(repos[0])
+        read().analyseSelectedRepository()
         await controller.waitForIdle()
         await flushQueries()
       })
@@ -762,7 +788,7 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(read().analysisIdentity?.roster[0]?.email, "new@example.edu")
     assert.equal(read().result, null)
     await React.act(async () => {
-      read().selectRepository(repos[0])
+      read().analyseSelectedRepository()
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -825,7 +851,7 @@ describe("analysis runner lifetime in React", () => {
     assert.deepEqual(read().discoveredRepos, discoveredRepos)
     assert.equal(read().result, null)
     await React.act(async () => {
-      read().selectRepository(repos[0])
+      read().analyseSelectedRepository()
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -892,6 +918,14 @@ describe("analysis runner lifetime in React", () => {
         await controller.waitForIdle()
         await flushQueries()
       })
+      assert.equal(read().selectedRepoPath, paths[2])
+      assert.equal(read().result, null)
+      assert.deepEqual(order, [`analysis:${paths[0]}`])
+      await React.act(async () => {
+        read().analyseSelectedRepository()
+        await controller.waitForIdle()
+        await flushQueries()
+      })
       assert.deepEqual(order, [
         `analysis:${paths[0]}`,
         `analysis:${paths[2]}`,
@@ -943,10 +977,10 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(read().blameResult, null)
     assert.equal(
       container.textContent,
-      "No line authorship for the current settings. Click the repository in the sidebar to run it.",
+      "No line authorship for the current settings. Press Analyse selected repository in the sidebar.",
     )
     await React.act(async () => {
-      read().selectRepository(repos[0])
+      read().analyseSelectedRepository()
       await controller.waitForIdle()
       await flushQueries()
     })
@@ -1146,6 +1180,16 @@ describe("analysis sidebar admission", () => {
         row.click()
         await flushQueries()
       })
+      assert.equal(analysed.length, 0)
+      const analyse = Array.from(container.querySelectorAll("button")).find(
+        (button) =>
+          button.textContent?.trim() === "Analyse selected repository",
+      )
+      assert.ok(analyse)
+      await React.act(async () => {
+        analyse.click()
+        await flushQueries()
+      })
       assert.equal(analysed.length, 1)
       assert.equal(analysed[0].repositoryAbsolutePath, paths[0])
       assert.deepEqual(analysed[0].config.extensions, ["rs"])
@@ -1192,7 +1236,7 @@ describe("analysis sidebar admission", () => {
       await controller.waitForIdle()
       await flushQueries()
     })
-    assert.equal(searches, 1)
+    assert.equal(searches, 0)
     const research = container
       .querySelector(".lucide-refresh-cw")
       ?.closest("button")
@@ -1202,7 +1246,7 @@ describe("analysis sidebar admission", () => {
       await controller.waitForIdle()
       await flushQueries()
     })
-    assert.equal(searches, 2)
+    assert.equal(searches, 1)
     await React.act(async () => {
       useAnalysisStore
         .getState()
@@ -1287,6 +1331,17 @@ describe("analysis sidebar admission", () => {
     })
     await React.act(async () => {
       browse.click()
+      await controller.waitForIdle()
+      await flushQueries()
+    })
+    assert.equal(useCourseStore.getState().course?.searchFolder, "/picked")
+    assert.equal(cancelLabel("Cancel Search"), undefined)
+    const search = container
+      .querySelector(".lucide-refresh-cw")
+      ?.closest("button")
+    assert.ok(search)
+    await React.act(async () => {
+      search.click()
       await flushQueries()
     })
     const signal = await searchEntered.promise
@@ -1312,151 +1367,110 @@ describe("analysis sidebar admission", () => {
   })
 
   for (const kind of ["folder", "course"] as const) {
-    for (const stage of ["refused", "open"] as const) {
-      it(`handles ${stage} search-folder picks on a ${kind} surface and permits a later pick`, {
+    for (const start of ["Start", "Search"] as const) {
+      it(`chooses a ${kind} search folder without work until ${start} is pressed`, {
         timeout: 3000,
       }, async (t) => {
-        const releaseEarlier = deferred<void>()
-        const opened = deferred<void>()
-        const picked = deferred<string | null>()
-        t.after(() => {
-          releaseEarlier.resolve()
-          picked.resolve(null)
-        })
         const activeSurface: PersistedActiveSurface =
           kind === "folder"
             ? { kind, path: "/repos" }
             : { kind, courseId: "course" }
-        let pickerCalls = 0
-        let searchCalls = 0
-        const { controller, container } = await mountCoordinator(
-          t,
-          async () => assert.fail("An empty search must not start analysis"),
-          undefined,
-          {
-            sidebar: true,
-            activeSurface,
-            startDiscovery: false,
-            pickDirectory: async () => {
-              pickerCalls++
-              opened.resolve()
-              return picked.promise
+        const directory = "/picked"
+        const searched: string[] = []
+        const analysed: string[] = []
+        const { controller, queryClient, container, read } =
+          await mountCoordinator(
+            t,
+            async (_signal, input) => {
+              assert.ok(input.repositoryAbsolutePath)
+              analysed.push(input.repositoryAbsolutePath)
+              return makeBaseResult()
             },
-            discover: async () => {
-              searchCalls++
-              return { repos: [] }
+            undefined,
+            {
+              sidebar: true,
+              activeSurface,
+              startDiscovery: false,
+              pickDirectory: async () => directory,
+              discover: async (_signal, input) => {
+                searched.push(input.searchFolder)
+                return { repos: [{ name: "one", path: directory + "/one" }] }
+              },
             },
-          },
-        )
+          )
+        await React.act(async () => {
+          queryClient.setQueryData(
+            analysisQueryKeys.discovery(
+              analysisSourceKeyParts(
+                analysisSourceKeyFromSurface(activeSurface),
+              ),
+              "/repos",
+              5,
+            ),
+            { repos: repos.map((path) => ({ path, name: path })) },
+          )
+          await flushQueries()
+        })
+        assert.equal(read().discoveryCompleted, true)
         const browse = container
           .querySelector(".lucide-folder-open")
           ?.closest("button")
         assert.ok(browse)
-        let earlier: Promise<unknown> | undefined
         await React.act(async () => {
-          if (stage === "refused") {
-            earlier = controller.operations.execute(
-              "analysis.listFolderFiles",
-              () => releaseEarlier.promise,
-            )
-          }
           browse.click()
-          if (stage === "open") await opened.promise
-          await flushQueries()
-        })
-        let followed = false
-        let command: Promise<unknown> | undefined
-        await React.act(async () => {
-          command = controller.operations.execute("repo.clone", async () => {
-            followed = true
-            assert.deepEqual(
-              controller.getSnapshot().settings.preferences.activeSurface,
-              activeSurface,
-            )
-            if (kind === "course") {
-              assert.equal(
-                useCourseStore.getState().course?.searchFolder,
-                "/repos",
-              )
-            }
-            assert.equal(searchCalls, 0)
-          })
-          await flushQueries()
-        })
-        const cancelSearch = Array.from(
-          container.querySelectorAll("button"),
-        ).find((button) => button.textContent?.trim() === "Cancel Search")
-        if (stage === "refused") {
-          assert.equal(cancelSearch, undefined)
-          assert.equal(pickerCalls, 0)
-        } else {
-          assert.ok(cancelSearch)
-          assert.equal(isDisabled(cancelSearch), false)
-          await React.act(async () => {
-            cancelSearch.click()
-            await flushQueries()
-          })
-        }
-        assert.equal(followed, false)
-        await React.act(async () => {
-          releaseEarlier.resolve()
-          picked.resolve("/picked")
-          await earlier
-          await command
           await controller.waitForIdle()
           await flushQueries()
         })
-        assert.equal(followed, true)
-        assert.equal(pickerCalls, stage === "refused" ? 0 : 1)
-        assert.equal(searchCalls, 0)
-        assert.deepEqual(useToastStore.getState().toasts, [])
-
-        const retry = container
-          .querySelector(".lucide-folder-open")
-          ?.closest("button")
-        assert.ok(retry)
-        await React.act(async () => {
-          retry.click()
-          await controller.waitForIdle()
-          await flushQueries()
-        })
-        assert.equal(pickerCalls, stage === "refused" ? 1 : 2)
-        assert.equal(searchCalls, 1)
+        assert.deepEqual(searched, [])
+        assert.deepEqual(analysed, [])
+        assert.equal(read().discoveryCompleted, false)
         assert.deepEqual(
           controller.getSnapshot().settings.preferences.activeSurface,
-          kind === "folder" ? { kind, path: "/picked" } : activeSurface,
+          kind === "folder" ? { kind, path: directory } : activeSurface,
         )
         if (kind === "course") {
           assert.equal(
             useCourseStore.getState().course?.searchFolder,
-            "/picked",
+            directory,
           )
         }
+        const control =
+          start === "Start"
+            ? Array.from(container.querySelectorAll("button")).find(
+                (button) => button.textContent?.trim() === "Start",
+              )
+            : container.querySelector(".lucide-refresh-cw")?.closest("button")
+        assert.ok(control)
+        await React.act(async () => {
+          control.click()
+          await controller.waitForIdle()
+          await flushQueries()
+        })
+        assert.deepEqual(searched, [directory])
+        assert.deepEqual(
+          analysed,
+          start === "Start" ? [directory + "/one"] : [],
+        )
       })
     }
 
-    for (const ending of ["completion", "cancellation", "failure"] as const) {
-      it(`keeps the ${kind} picker search and ${ending} before a command queued during the picker`, {
+    for (const pickedPath of [null, "/picked"]) {
+      it(`settles ${pickedPath === null ? "a cancelled" : "an accepted"} folder choice on a ${kind} surface before a chained command without discovery`, {
         timeout: 3000,
       }, async (t) => {
         const opened = deferred<void>()
         const picked = deferred<string | null>()
-        const entered = deferred<AbortSignal>()
-        const release = deferred<void>()
-        t.after(() => {
-          picked.resolve(null)
-          release.resolve()
-        })
-        const directory = "/picked/one/src"
-        const repository = "/picked/one"
-        const discovered = { repos: [{ name: "one", path: repository }] }
+        t.after(() => picked.resolve(null))
         const activeSurface: PersistedActiveSurface =
           kind === "folder"
             ? { kind, path: "/repos" }
             : { kind, courseId: "course" }
         const order: string[] = []
-        const { controller, queryClient, container, read } =
-          await mountCoordinator(t, async () => makeBaseResult(), undefined, {
+        const { controller, container } = await mountCoordinator(
+          t,
+          async () => assert.fail("Browse must not start analysis"),
+          undefined,
+          {
             sidebar: true,
             activeSurface,
             startDiscovery: false,
@@ -1465,17 +1479,10 @@ describe("analysis sidebar admission", () => {
               opened.resolve()
               return picked.promise
             },
-            discover: async (signal, input) => {
-              assert.deepEqual(input, { searchFolder: directory, maxDepth: 5 })
-              order.push("search")
-              entered.resolve(signal)
-              await release.promise
-              signal.throwIfAborted()
-              if (ending === "failure") throw new Error("Search failed")
-              return discovered
-            },
-          })
-        assert.deepEqual([...order], [])
+            discover: async () =>
+              assert.fail("Browse must not start discovery"),
+          },
+        )
         const browse = container
           .querySelector(".lucide-folder-open")
           ?.closest("button")
@@ -1483,75 +1490,41 @@ describe("analysis sidebar admission", () => {
         await React.act(async () => {
           browse.click()
           await opened.promise
+          await flushQueries()
         })
-        let command: Promise<unknown> | undefined
-        const resultSource =
-          kind === "folder" ? (["folder", repository] as const) : source
-        const resultKey = analysisQueryKeys.discovery(
-          resultSource,
-          directory,
-          5,
+        assert.equal(
+          container.querySelector(
+            `[${sessionCancellationControl}="analysis.discoverRepos"]`,
+          ),
+          null,
         )
+        let command: Promise<unknown> | undefined
         await React.act(async () => {
           command = controller.operations.execute("repo.clone", async () => {
             order.push("command")
             assert.deepEqual(
-              queryClient.getQueryData(resultKey),
-              ending === "completion" ? discovered : undefined,
+              controller.getSnapshot().settings.preferences.activeSurface,
+              kind === "folder" && pickedPath !== null
+                ? { kind, path: pickedPath }
+                : activeSurface,
             )
-            if (ending === "completion") {
-              assert.deepEqual(
-                controller.getSnapshot().settings.preferences.activeSurface,
-                kind === "folder" ? { kind, path: repository } : activeSurface,
+            if (kind === "course") {
+              assert.equal(
+                useCourseStore.getState().course?.searchFolder,
+                pickedPath ?? "/repos",
               )
-              if (kind === "course") {
-                assert.equal(
-                  useCourseStore.getState().course?.searchFolder,
-                  repository,
-                )
-              }
             }
           })
           await flushQueries()
         })
         assert.deepEqual(order, ["picker"])
         await React.act(async () => {
-          picked.resolve(directory)
-          await flushQueries()
-        })
-        const signal = await entered.promise
-        await React.act(flushQueries)
-        assert.deepEqual(order, ["picker", "search"])
-        assert.equal(read().discoveryStatus, "loading")
-        const cancel = Array.from(container.querySelectorAll("button")).find(
-          (button) => button.textContent?.trim() === "Cancel Search",
-        )
-        assert.ok(cancel)
-        assert.equal(isDisabled(cancel), false)
-        if (ending === "cancellation") {
-          await React.act(async () => {
-            cancel.click()
-            await flushQueries()
-          })
-        }
-        assert.equal(signal.aborted, ending === "cancellation")
-        assert.deepEqual(order, ["picker", "search"])
-        await React.act(async () => {
-          release.resolve()
+          picked.resolve(pickedPath)
           await command
           await controller.waitForIdle()
           await flushQueries()
         })
-        assert.deepEqual(order, ["picker", "search", "command"])
-        assert.equal(read().discoveryCompleted, ending === "completion")
-        assert.deepEqual(
-          read().discoveredRepos,
-          ending === "completion" ? discovered.repos : [],
-        )
-        assert.equal(
-          read().discoveryError,
-          ending === "failure" ? "Search failed" : null,
-        )
+        assert.deepEqual(order, ["picker", "command"])
         assert.deepEqual(useToastStore.getState().toasts, [])
       })
     }

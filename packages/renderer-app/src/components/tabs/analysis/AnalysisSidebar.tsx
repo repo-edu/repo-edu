@@ -75,21 +75,21 @@ export function AnalysisSidebar() {
   const {
     runRepoDiscovery,
     startAnalysis,
-    runDiscovery,
+    clearRepositoryDiscovery,
     cancelDiscovery,
     discoveredRepos,
   } = useAnalysisDiscovery()
   const {
     runAnalysis,
+    analyseSelectedRepository,
     cancelAnalysis,
     selectedRepoPath,
-    clearRepositorySelection,
     analysisScopeKey,
   } = useAnalysisSelection()
   const { result, analysisProgress, analysisErrorMessage } = useAnalysisResult()
   const { blameResult } = useAnalysisBlameResult()
   const { mergedFileStats } = useAnalysisFileView()
-  const pickDirectory = useDirectoryPicker("analysis.discoverRepos")
+  const pickDirectory = useDirectoryPicker()
 
   const analysisContext = useAnalysisContext()
   const setAnalysisInputs = analysisContext.setAnalysisInputs
@@ -334,23 +334,22 @@ export function AnalysisSidebar() {
     await pickDirectory(
       { title: "Open repository search folder" },
       async (directory, scope) => {
-        let surface = analysisContext.activeSurface
         scope.publish(() => {
-          clearRepositorySelection()
           setSections((prev) => ({ ...prev, repositories: true }))
         })
         if (analysisContext.kind === "folder") {
-          surface = { kind: "folder", path: directory }
-          await scope.activateSurface(surface)
+          await scope.activateSurface({ kind: "folder", path: directory })
         } else if (analysisContext.course) {
+          if (directory !== analysisContext.searchFolder) {
+            scope.publish(clearRepositoryDiscovery)
+          }
           scope.mutateCourse(analysisContext.course.id, (actions) =>
             actions.setSearchFolder(directory),
           )
         }
-        await runDiscovery(scope, surface, directory)
       },
     )
-  }, [analysisContext, pickDirectory, runDiscovery, clearRepositorySelection])
+  }, [analysisContext, pickDirectory, clearRepositoryDiscovery])
 
   const handleStart = useCallback(() => {
     if (searchFolder) startAnalysis(searchFolder)
@@ -484,6 +483,14 @@ export function AnalysisSidebar() {
             </Tooltip>
           </div>
         </div>
+        <Button
+          variant="outline"
+          disabled={!canStartQueries || !selectedRepoPath}
+          onClick={analyseSelectedRepository}
+        >
+          <Play className="mr-1 size-4" />
+          Analyse selected repository
+        </Button>
         {analysisProgress && <ProgressDisplay progress={analysisProgress} />}
         {analysisErrorMessage && (
           <div className="rounded border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">

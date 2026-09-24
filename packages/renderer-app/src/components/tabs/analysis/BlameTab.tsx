@@ -546,7 +546,7 @@ export function BlameTab({ filePath }: { filePath: string }) {
         <EmptyState
           message={
             blameResult === null
-              ? "No line authorship for the current settings. Click the repository in the sidebar to run it."
+              ? "No line authorship for the current settings. Press Analyse selected repository in the sidebar."
               : "No blame data for this file."
           }
         />
