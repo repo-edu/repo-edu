@@ -181,14 +181,10 @@ consumers.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
-  its own. It builds file names under the shared
-  [round protocol](../../.agents/references/round-protocol.md), resolves `HEAD` in commit targets
-  and scans both repo roots for the next target-wide number. It validates all file-writing phase
-  tags before `run-files.ts` exclusively creates the tagless claim, then opens the transcript and
-  log. The claim remains after success or failure, and a conflict stops without retrying. Hand-run
-  naming reuses the same paths with the auditing session's full tag supplied for audit and rebuttal.
-  `closeRound` deletes only the audit, vet and rebuttal kinds for the exact target and round at the
-  invoking root, using recorded filenames without consulting model settings. Each entry carries its
+  its own. It uses `round-paths.ts` for file names and round identity. It validates all
+  file-writing phase tags before `run-files.ts` exclusively creates the tagless claim, then opens
+  the transcript and log. The claim remains after success or failure, and a conflict stops without
+  retrying. Each entry carries its
   phase, so the settings header reports the model and effort that phase will run on and names what
   set each of them: a command-line flag, the phase's own pin, or the assistant's settings. A phase
   whose two fields came from different places names both, model first. The output holds only the run
@@ -220,6 +216,18 @@ consumers.
   `endRuling` excludes the user's waiting time and records a submitted reply in the log and
   transcript before any resumed process starts. Assistant replies use the normal phase output, so
   launch prompts stay in the log and never reach the terminal.
+- `round-paths.ts` owns the file-name grammar, target names, round allocation candidates,
+  existing document resolution and report closure for both entry routes. It resolves `HEAD`
+  in commit targets and scans both roots for the next target-wide number. Automated rounds
+  supply every phase path. A manual audit names only its claim and report; later manual phases
+  retain that report's round and name their output with the current session's writer tag.
+  `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
+  the exact round at the report's root. With no input, it selects the sole eligible document at
+  the invoking root: the other assistant's audit for vet, the current assistant's audit for
+  rebuttal, either assistant's audit for fix or either assistant's transcript for brief.
+  Multiple matches require an explicit file selection.
+  `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
+  filenames without consulting model settings.
 - `context.ts` resolves the installed Repo Edu checkout, its sibling plan root,
   the invoking working directory and the round kind once. Only those two roots
   may start a round. The context follows every phase and recovery session;
@@ -238,25 +246,27 @@ consumers.
 - `command.ts` owns the command grammar, startup and final reporting, including the comma-separated
   auditor list and the error that identifies a malformed entry. It trims each entry and delegates
   its assistant name or capability tag to `parseAuditor`. The round is the command itself, taking
-  the target as its own arguments. Its subcommands are `brief`, `name`, `close` and `episode`. The
-  `episode` command prints joined watch evidence from the shared reader and formatter without
-  settings discovery, assistant startup or file writes. The `name` command claims a round and prints
-  its file set without starting any phase. Its required `--auditor` is the hand-run session's full
-  tag, including `u`, checked separately from a round's model request. The `close` command uses the
-  same closing function as the coordinator and starts no assistant or settings discovery. So the
-  program carries an action handler, Commander adds no `help` command, and each command's own `-h`
-  prints its help. A bare command line prints that help rather than reporting a missing plan. It
-  also owns the remaining auditor list and round counter. Each entry runs once in the supplied order
-  with its own override. Only an audit with no findings removes all remaining entries for that
-  assistant, across model and effort tags. A fix that lands a clean record removes none. Failure or
-  a round requiring a ruling stops the sequence. The list length is the only round limit and an
-  omitted list uses the configured default once. Each round records its own file pair and the
-  coordinator has no filesystem side effects: it opens one output per round, retires the previous
-  one first, and reads updates and settings once for the whole run before opening any files. Startup
-  messages go only to the terminal; the run log begins with the models table. A chained round
-  carries its place in its title and independently claims the next number for its target. Required
-  write failures stop phase progression. If recording itself fails, the emergency channel still
-  reports the known session and recovery command.
+  the target as its own arguments. Its subcommands are `brief`, `name`, `paths`, `close` and
+  `episode`. The `episode` command prints joined watch evidence from the shared reader and formatter
+  without settings discovery, assistant startup or file writes. The `name` command claims a round
+  and prints its claim and audit report paths. Its required `--auditor` is the hand-run session's
+  full tag, including `u`, checked separately from a round's model request. The `paths` command
+  prints a JSON array of a manual phase's input and output paths for an existing report or
+  transcript. Both commands bypass assistant startup and settings discovery; `paths` writes nothing.
+  The `close` command uses the same closing function as the coordinator and starts no assistant or
+  settings discovery. So the program carries an action handler, Commander adds no `help` command,
+  and each command's own `-h` prints its help. A bare command line prints that help rather than
+  reporting a missing plan. It also owns the remaining auditor list and round counter. Each entry
+  runs once in the supplied order with its own override. Only an audit with no findings removes all
+  remaining entries for that assistant, across model and effort tags. A fix that lands a clean
+  record removes none. Failure or a round requiring a ruling stops the sequence. The list length is
+  the only round limit and an omitted list uses the configured default once. Each round records its
+  own file pair and the coordinator has no filesystem side effects: it opens one output per round,
+  retires the previous one first, and reads updates and settings once for the whole run before
+  opening any files. Startup messages go only to the terminal; the run log begins with the models
+  table. A chained round carries its place in its title and independently claims the next number for
+  its target. Required write failures stop phase progression. If recording itself fails, the
+  emergency channel still reports the known session and recovery command.
 - `contract.ts` invokes the same assistant and output boundaries with a probe
   prompt. It requires successful and deliberately failed shell calls before
   replacing any selected fixtures. It invokes no workflow and refreshes only
@@ -341,6 +351,9 @@ pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-0-round.otm.md
 pnpm audit-round name ../plan/example.md 3 --auditor oth
+pnpm audit-round paths vet example-step-3-01-1-audit.oth.md --writer abx
+pnpm audit-round paths rebut example-step-3-01-1-audit.oth.md --writer otm
+pnpm audit-round paths fix example-step-3-01-1-audit.oth.md
 pnpm audit-round close example-step-3-01
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
@@ -354,12 +367,21 @@ root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
 the shared round protocol, with the transcript and log sharing `0-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
 
-`name` prints one absolute path per line: claim, transcript, log, audit, vet,
-rebuttal, brief, ruling and watch. Startup messages go to standard error so
-standard output contains only paths. It creates only the claim. A plan-root
-hand-run implementation audit may name a step scope; the automated round still
-requires Repo Edu for that route. `close` deletes the audit and twins for its
-exact target and round at the invoking root. Claims and runner documents remain.
+`name` prints two absolute paths, claim then audit report, and creates only the
+claim. It does not load settings or start an assistant. A plan-root hand-run
+implementation audit may name a step scope; the automated round still requires
+Repo Edu for that route.
+
+`paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its
+arguments as one JSON array. Vet, rebuttal and brief take `--writer <full tag>`
+from the current session. Fix writes no phase report and needs no writer tag.
+Without an input, the command selects the sole eligible file at the invoking root.
+Use `--vet <file>` or `--rebut <file>` to select an existing review when several
+belong to that round. The command writes nothing and never claims another
+number. The shared round protocol owns manual invocation details.
+
+`close` deletes the audit and twins for its exact target and round at the
+invoking root. Claims and runner documents remain.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
 document in the terminal. A clean audit records its outcome directly and

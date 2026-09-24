@@ -1,7 +1,7 @@
 interface:
   display_name: "Fix"
   short_description: "Land an implementation audit's findings"
-  default_prompt: "Use $fix to land the pending implementation-audit report file, or $fix <report-file> to name one."
+  default_prompt: "Use $fix to apply the audit report's settled findings in a fresh session; the workflow discovers the report and resolves existing review files."
 
 policy:
   allow_implicit_invocation: false

@@ -1,8 +1,5 @@
-import { readdir, unlink } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { format } from "date-fns"
-import { execa } from "execa"
-import type { ExecutionContext } from "./context.js"
 import type { Feedback, ModelSelection, PhaseOutput } from "./feedback.js"
 import {
   type Context,
@@ -28,62 +25,16 @@ import {
 } from "./phase.js"
 import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
+import {
+  type FileKind,
+  phaseFilename,
+  roundIdentity,
+  transcriptNameStart,
+} from "./round-paths.js"
 import { RunClock, type RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { RoundSettings } from "./settings.js"
-import { planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
-
-const phaseOrder = {
-  round: 0,
-  audit: 1,
-  vet: 2,
-  rebut: 3,
-  fix: 4,
-  brief: 5,
-  ruling: 6,
-  glance: 7,
-  watch: 8,
-} as const
-
-type FileKind = Exclude<keyof typeof phaseOrder, "fix" | "glance">
-
-function phaseFilename(nameStart: string, kind: FileKind, tag: string): string {
-  return `${nameStart}-${phaseOrder[kind]}-${kind}.${tag}`
-}
-
-function readPhaseFilename(
-  name: string,
-): { nameStart: string; kind: FileKind; extension: string } | null {
-  const match =
-    /^(.+-\d{2,})-(\d)-(round|audit|vet|rebut|brief|ruling|watch)\.([ao][btu][lmhx])\.(md|log)$/.exec(
-      name,
-    )
-  if (match === null) return null
-  const kind = match[3] as FileKind
-  if (
-    Number(match[2]) !== phaseOrder[kind] ||
-    (match[5] === "log" && kind !== "round" && kind !== "brief")
-  )
-    return null
-  return { nameStart: match[1], kind, extension: match[5] }
-}
-
-/** Close exactly one round's reports, using their recorded names, not today's settings. */
-export async function closeRound(
-  cwd: string,
-  nameStart: string,
-): Promise<void> {
-  for (const file of await readdir(cwd, { withFileTypes: true })) {
-    const parsed = readPhaseFilename(file.name)
-    if (
-      file.isFile() &&
-      parsed?.nameStart === nameStart &&
-      ["audit", "vet", "rebut"].includes(parsed.kind)
-    )
-      await unlink(join(cwd, file.name))
-  }
-}
 
 export type RoundDocuments = {
   readonly report: string
@@ -116,38 +67,6 @@ export type Run = {
   readonly started: number
 }
 
-async function targetDescription(target: RoundSetup): Promise<{
-  label: string
-  title: string
-}> {
-  if ("commits" in target) {
-    const first = target.commits[0]
-    const head = first.includes("HEAD")
-      ? (
-          await execa("git", ["rev-parse", "--short", "HEAD"], {
-            cwd: target.cwd,
-          })
-        ).stdout
-      : ""
-    // Keep list filenames bounded; the title and phase arguments carry every reference.
-    return {
-      label: `${first.replaceAll("HEAD", head)}${target.commits.length === 1 ? "" : `-plus-${target.commits.length - 1}`}`,
-      title: `commits ${target.commits.join(" ")}`,
-    }
-  }
-  const stem = planStem(target.plan)
-  if (target.roundKind === "planning")
-    return { label: stem, title: `plan ${target.plan}` }
-  const scope =
-    target.scope === undefined
-      ? "all"
-      : `${target.scope.includes("-") ? "steps" : "step"}-${target.scope}`
-  return {
-    label: `${stem}-${scope}`,
-    title: `implementation ${target.plan} ${target.scope ?? "all"}`,
-  }
-}
-
 /** A tag must be known before any file reserves or records the round. */
 function fileTag(
   entry: RunEntry,
@@ -165,37 +84,6 @@ function fileTag(
   )
 }
 
-/** Read every retained kind at both roots; opening the run claims this candidate. */
-async function nextNameStart(
-  context: ExecutionContext,
-  target: string,
-): Promise<string> {
-  const roots = await Promise.all(
-    [context.repoEduRoot, context.planRoot].map((root) =>
-      readdir(root, { withFileTypes: true }),
-    ),
-  )
-  const numbers = roots
-    .flat()
-    .filter((file) => file.isFile())
-    .map((file) => file.name)
-    .filter((name) => name.startsWith(`${target}-`))
-    .map((name) => {
-      const suffix = name.slice(target.length + 1)
-      const claim = /^(\d{2,})-claim\.md$/.exec(suffix)
-      if (claim !== null) return Number(claim[1])
-      const parsed = readPhaseFilename(name)
-      const number = parsed?.nameStart.slice(target.length + 1)
-      return number !== undefined && /^\d{2,}$/.test(number)
-        ? Number(number)
-        : 0
-    })
-  const next = Math.max(0, ...numbers) + 1
-  if (!Number.isSafeInteger(next))
-    throw new Error(`Round number exhausted for ${target}`)
-  return `${target}-${String(next).padStart(2, "0")}`
-}
-
 export async function roundRun(
   setup: RoundSetup,
   started: number,
@@ -205,8 +93,6 @@ export async function roundRun(
    * The round's place in a chain, for the title only. Disk claims own filenames.
    */
   round?: number,
-  /** A hand-run audit records its actual session tag, independent of phase settings. */
-  auditorTag?: string,
 ): Promise<
   Run & {
     readonly nameStart: string
@@ -222,12 +108,9 @@ export async function roundRun(
   )
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
-    auditorTag !== undefined && (phase === "audit" || phase === "rebut")
-      ? auditorTag
-      : fileTag(entry(phase), selections, settings)
+    fileTag(entry(phase), selections, settings)
   for (const phase of Object.keys(phases) as Phase[]) tag(phase)
-  const target = await targetDescription(setup)
-  const nameStart = await nextNameStart(setup, target.label)
+  const { nameStart, title } = await roundIdentity(setup)
   const path = (kind: FileKind, phase: Phase) =>
     join(setup.cwd, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
@@ -242,7 +125,7 @@ export async function roundRun(
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
-    title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,
+    title: `Audit round of ${title}${round === undefined ? "" : ` (round ${round})`}`,
     phases: [
       entry("audit"),
       entry("vet"),
@@ -260,16 +143,6 @@ export async function roundRun(
     settings,
     started,
   }
-}
-
-/** A later writer reuses the transcript's target and number, replacing its tag and kind. */
-export function transcriptNameStart(transcript: string): string {
-  const parsed = readPhaseFilename(basename(transcript))
-  if (parsed?.kind !== "round" || parsed.extension !== "md")
-    throw new Error(
-      "Name a round's *-0-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
-    )
-  return parsed.nameStart
 }
 
 /** A brief on its own logs beside the transcript it retells and keeps no transcript of its own. */

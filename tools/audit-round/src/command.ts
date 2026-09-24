@@ -1,5 +1,5 @@
-import { readFile, realpath, stat } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
+import { readFile, stat } from "node:fs/promises"
+import { dirname, join, resolve } from "node:path"
 import {
   Command,
   CommanderError,
@@ -15,12 +15,10 @@ import { errorMessage } from "./feedback.js"
 import { runGlance } from "./glance.js"
 import {
   briefRun,
-  closeRound,
   type OutputOptions,
   RoundOutput,
   type Run,
   roundRun,
-  transcriptNameStart,
 } from "./output.js"
 import {
   type AuditorSeat,
@@ -36,33 +34,20 @@ import {
   runBrief,
   runRound,
 } from "./round.js"
+import {
+  closeRound,
+  type ManualPhase,
+  manualPhasePaths,
+  phaseFilename,
+  roundDocument,
+  roundIdentity,
+} from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
 import { auditTarget } from "./target.js"
 import { readVet } from "./vet.js"
-
-/** The transcript a brief retells: a round's Markdown pair member at the checkout root. */
-async function checkTranscript(
-  context: ExecutionContext,
-  transcript: string,
-): Promise<string> {
-  let path = resolve(context.cwd, transcript)
-  let file = false
-  try {
-    path = await realpath(path)
-    file = (await stat(path)).isFile()
-  } catch {
-    // The message below names the expected file.
-  }
-  if (!file || ![context.repoEduRoot, context.planRoot].includes(dirname(path)))
-    throw new Error(
-      "Name a round's *-0-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
-    )
-  transcriptNameStart(path)
-  return path
-}
 
 /** The plan a round audits, resolved where its phases open it. */
 async function checkPlan(
@@ -88,6 +73,14 @@ type Invocation =
       readonly rest: readonly string[]
       readonly auditor: string
     }
+  | {
+      readonly kind: "paths"
+      readonly phase: ManualPhase
+      readonly input?: string
+      readonly writer?: string
+      readonly vet?: string
+      readonly rebut?: string
+    }
   | { readonly kind: "close"; readonly nameStart: string }
   | {
       readonly kind: "round"
@@ -103,6 +96,14 @@ type Invocation =
       readonly transcript: string
       readonly verbose?: boolean
     }
+
+function sessionTag(value: string): string {
+  if (!/^[ao][btu][lmhx]$/.test(value))
+    throw new InvalidArgumentError(
+      "Expected a full session tag, such as oth or oux.",
+    )
+  return value
+}
 
 function parseInvocation(
   argv: readonly string[],
@@ -245,7 +246,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
   command
     .command("name")
     .description(
-      "Claim a hand-run round and print its absolute file paths, one per line.",
+      "Claim a hand-run round and print its claim and audit report paths.",
     )
     .argument("<target>", "the same plan or commit target accepted by a round")
     .argument(
@@ -255,17 +256,52 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
     .requiredOption(
       "--auditor <tag>",
       "the auditing session's full three-letter tag, including u for an unlisted model",
-      (value: string) => {
-        if (!/^[ao][btu][lmhx]$/.test(value))
-          throw new InvalidArgumentError(
-            "Expected a full session tag, such as oth or oux.",
-          )
-        return value
-      },
+      sessionTag,
     )
     .action((first: string, rest: string[], flags: { auditor: string }) => {
       invocation = { kind: "name", first, rest, auditor: flags.auditor }
     })
+  command
+    .command("paths")
+    .description(
+      "Resolve a manual phase's paths without starting an assistant or claiming a round.",
+    )
+    .argument(
+      "<phase>",
+      "vet, rebut, fix or brief",
+      (value: string): ManualPhase => {
+        if (!["vet", "rebut", "fix", "brief"].includes(value))
+          throw new InvalidArgumentError("Expected vet, rebut, fix or brief.")
+        return value as ManualPhase
+      },
+    )
+    .argument(
+      "[input]",
+      "audit report or round transcript; defaults to the sole eligible file at this root",
+    )
+    .option(
+      "--writer <tag>",
+      "current session's full tag; required except for fix",
+      sessionTag,
+    )
+    .option("--vet <file>", "select a vet when this round has several")
+    .option("--rebut <file>", "select a rebuttal when this round has several")
+    .action(
+      (
+        phase: ManualPhase,
+        input: string | undefined,
+        flags: { writer?: string; vet?: string; rebut?: string },
+      ) => {
+        if (
+          (flags.vet !== undefined && phase !== "rebut" && phase !== "fix") ||
+          (flags.rebut !== undefined && phase !== "fix")
+        )
+          throw new InvalidArgumentError(
+            "Review file selections apply only to phases that read them.",
+          )
+        invocation = { kind: "paths", phase, input, ...flags }
+      },
+    )
   command
     .command("episode")
     .description(
@@ -347,11 +383,26 @@ export async function runCommand(
       await closeRound(context.cwd, invocation.nameStart)
       return 0
     }
+    if (invocation.kind === "paths") {
+      options.terminal.write(
+        JSON.stringify(
+          await manualPhasePaths(
+            context,
+            invocation.phase,
+            invocation.input,
+            invocation,
+          ),
+        ),
+      )
+      return 0
+    }
     const prepared =
       invocation.kind === "brief"
         ? {
             ...invocation,
-            transcript: await checkTranscript(context, invocation.transcript),
+            transcript: (
+              await roundDocument(context, invocation.transcript, "round")
+            ).path,
           }
         : {
             ...invocation,
@@ -379,52 +430,37 @@ export async function runCommand(
       )
     if (prepared.kind !== "brief" && "plan" in prepared.target)
       await checkPlan(context, prepared.target.plan)
+    if (prepared.kind === "name") {
+      const { nameStart } = await roundIdentity({
+        ...context,
+        ...prepared.target,
+        roundKind:
+          "plan" in prepared.target && prepared.target.scope !== undefined
+            ? "implementation"
+            : context.roundKind,
+      })
+      const claim = join(context.cwd, `${nameStart}-claim.md`)
+      claimRound(claim)
+      options.terminal.write(claim)
+      options.terminal.write(
+        join(
+          context.cwd,
+          `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
+        ),
+      )
+      return 0
+    }
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
       { ...runtime, cwd: context.cwd },
       {
-        message: async (text) =>
-          prepared.kind === "name"
-            ? options.emergency(text)
-            : options.terminal.write(text),
-        warning: async (text) =>
-          prepared.kind === "name"
-            ? options.emergency(`Warning: ${text}`)
-            : options.terminal.write(`Warning: ${text}`),
+        message: async (text) => options.terminal.write(text),
+        warning: async (text) => options.terminal.write(`Warning: ${text}`),
       },
       { cacheRoot: options.cacheRoot },
     )
     runtime.signal?.throwIfAborted()
-    if (prepared.kind === "name") {
-      const run = await roundRun(
-        {
-          ...context,
-          ...prepared.target,
-          // The hand-run planning launcher also routes named implementation steps.
-          roundKind:
-            "plan" in prepared.target && prepared.target.scope !== undefined
-              ? "implementation"
-              : context.roundKind,
-          auditor: prepared.auditor[0] === "a" ? "claude" : "codex",
-        },
-        now(),
-        selections,
-        settings,
-        undefined,
-        prepared.auditor,
-      )
-      claimRound(run.paths.claim)
-      for (const path of [
-        run.paths.claim,
-        run.paths.markdown,
-        run.paths.log,
-        ...Object.values(run.documents),
-        run.watch,
-      ])
-        options.terminal.write(path)
-      return 0
-    }
     /**
      * Each round records its own file pair, so a chained run opens one output
      * per round and retires the previous one first. Updates and settings are

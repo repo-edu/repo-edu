@@ -1,6 +1,6 @@
 import type { ExecutionContext } from "./context.js"
 import { errorMessage } from "./feedback.js"
-import { type RoundDocuments, transcriptNameStart } from "./output.js"
+import type { RoundDocuments } from "./output.js"
 import {
   type Assistant,
   type AuditorOverride,
@@ -16,6 +16,7 @@ import {
   type SessionContext,
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
+import { transcriptNameStart } from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { parseSubject, type Repository } from "./subject.js"
 import { type AuditTarget, planStem } from "./target.js"

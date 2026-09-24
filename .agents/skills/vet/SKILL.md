@@ -1,6 +1,6 @@
 ---
 name: vet
-description: Vet another AI assistant's implementation-audit report on Repo Edu code before acceptance, under the simple-words requirement. Use when the user invokes `$vet` from the Repo Edu working directory, with the phase's report and twin paths, or asks to vet another assistant's findings on this repo's code.
+description: Vet another AI assistant's implementation-audit report on Repo Edu code before acceptance, under the simple-words requirement. Use when the user invokes `$vet` from the Repo Edu working directory, optionally with an audit report path, or asks to vet another assistant's findings on this repo's code.
 ---
 
 # Vet

@@ -1,6 +1,6 @@
 ---
 name: rebut
-description: Answer the other assistant's vet of your implementation-audit report on Repo Edu code, one answer per verdict, under the simple-words requirement. Use when the user invokes `$rebut` from the Repo Edu working directory, with the phase's report and twin paths, or asks you to respond to a vet of your findings.
+description: Answer the other assistant's vet of your implementation-audit report on Repo Edu code, one answer per verdict, under the simple-words requirement. Use when the user invokes `$rebut` from the Repo Edu working directory, optionally with an audit report path, or asks you to respond to a vet of your findings.
 ---
 
 # Rebut

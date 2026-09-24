@@ -11,6 +11,7 @@ export * from "../output.js"
 export * from "../output-format.js"
 export * from "../phase.js"
 export * from "../round.js"
+export * from "../round-paths.js"
 
 /** Test inputs stay fixed when an operator edits either settings file. */
 export const testSettings = settingsSchema.parse(fixture)

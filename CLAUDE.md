@@ -72,7 +72,9 @@ where `null` inherits the assistant CLI's own setting. That file also owns the d
 model tier mappings and document assistants. The run's settings header names what set each phase.
 `pnpm audit-round brief <target-round-0-round.tag.md>` writes that brief for an earlier round. The
 shared file-name grammar and writer-tag rules live in
-[the round protocol](.agents/references/round-protocol.md).
+[the round protocol](.agents/references/round-protocol.md). Manual vet, rebuttal and fix
+invocations resolve paths through shared code. They select the sole eligible audit report when
+none is named. A manual round brief does the same for its transcript.
 `pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
 References accept SHAs, `HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
 Ranges include both endpoints. Commit audits run once, reject multiple auditor entries and finish

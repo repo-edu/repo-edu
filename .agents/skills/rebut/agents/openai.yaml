@@ -1,7 +1,7 @@
 interface:
   display_name: "Rebut"
   short_description: "Answer a vet of your audit findings"
-  default_prompt: "Use $rebut to answer the vet on your pending implementation-audit report, or $rebut <report-file> to name one."
+  default_prompt: "Use $rebut to answer the vet of my audit report; the workflow discovers the input and resolves the review and output paths."
 
 policy:
   allow_implicit_invocation: false

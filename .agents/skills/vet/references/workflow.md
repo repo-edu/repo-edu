@@ -33,12 +33,14 @@ belongs in `../plan` and stop. Continue only when the user explicitly says to.
 
 ## Report discovery
 
-Read the supplied report path and write the supplied vet path, in that argument order; use the
-report's judged-repos opening for repo and head checks and its filename for the auditor's vendor
-letter.
+Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
+resolution. Read the supplied report path and write the supplied vet path, in that argument order;
+use the report's judged-repos opening for repo and head checks and its filename for the auditor's
+vendor letter.
 
-A hand-run invocation supplies the paths printed by `pnpm audit-round name` for
-the audit. Do not run `name` again or search for another report.
+A hand-run invocation may omit the audit report. Resolve its input and output
+under the shared round protocol's **Manual phases** with `paths vet` and your
+current writer tag. Automated invocations use their supplied paths unchanged.
 
 Never vet a report whose tag's vendor letter is your own assistant. The vet exists
 to check findings from a fresh context in the other assistant. Continue only

@@ -21,9 +21,12 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 Read the shared [round protocol](../../../references/round-protocol.md) for
 file names and writer tags. The invocation supplies the transcript to read
-and the brief to write, in that order. Missing paths or a transcript outside the
-shared grammar fail under the result rule. A hand-run standalone brief uses
-`pnpm audit-round brief <transcript>`.
+and the brief to write, in that order. A manual `/brief` or `$brief` may omit
+the transcript. Resolve its input and output through `paths brief` under the
+protocol's **Manual phases**, using this session's own tag. Automated
+invocations use their supplied paths unchanged. A missing input or a transcript
+outside the shared grammar fails under the result rule when unattended.
+`pnpm audit-round brief <transcript>` starts a separate brief session.
 
 Resolve workflow references from Repo Edu. The transcript may belong to either
 root; use the supplied output path.
@@ -42,8 +45,8 @@ it.
 
 Write the brief to the supplied output path, replacing an existing file.
 The brief is the one file this workflow writes; the transcript stays as it is.
-The runner displays the saved file after this phase succeeds, so the final reply
-need only confirm completion before the required result line.
+Confirm the saved path in the final reply. Under the runner, add the required
+result line; the runner displays the saved file after this phase succeeds.
 
 The brief is Markdown for a person reading in a Markdown viewer. Use
 headings, numbered lists and tables where they help. Bold the first words of

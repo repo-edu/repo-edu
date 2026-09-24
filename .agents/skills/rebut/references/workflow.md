@@ -35,12 +35,15 @@ substitutions: that repo's report root and finding metadata.
 
 ## Report discovery
 
-Read the supplied report and vet paths and write the supplied rebuttal path, in that argument order;
-read the judged repos and audited heads from the report opening and the auditor's vendor letter from
-its filename.
+Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
+resolution. Read the supplied report and vet paths and write the supplied rebuttal path, in that
+argument order; read the judged repos and audited heads from the report opening and the auditor's
+vendor letter from its filename.
 
-A hand-run invocation supplies the paths printed by `pnpm audit-round name` for
-the audit. Do not run `name` again or search for twins.
+A hand-run invocation may omit the audit report. Resolve the report, vet input
+and rebuttal output under the shared round protocol's **Manual phases** with
+`paths rebut` and your current writer tag. Automated invocations use their
+supplied paths unchanged.
 
 Never answer the vet on a report whose tag's vendor letter is the other
 assistant's. The rebuttal is the auditor's reply, and the other assistant's

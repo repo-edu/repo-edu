@@ -211,17 +211,9 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.deepEqual(
         f.visible,
-        [
-          `${target}-10-claim.md`,
-          `${target}-10-0-round.${tag}.md`,
-          `${target}-10-0-round.${tag}.log`,
-          `${target}-10-1-audit.${tag}.md`,
-          `${target}-10-2-vet.${tag[0] === "a" ? "ouh" : "auh"}.md`,
-          `${target}-10-3-rebut.${tag}.md`,
-          `${target}-10-5-brief.oul.md`,
-          `${target}-10-6-ruling.ouh.md`,
-          `${target}-10-8-watch.ouh.md`,
-        ].map((name) => join(root, name)),
+        [`${target}-10-claim.md`, `${target}-10-1-audit.${tag}.md`].map(
+          (name) => join(root, name),
+        ),
       )
       assert.deepEqual(
         (await readdir(root)).filter((name) => !before.includes(name)),
@@ -231,10 +223,9 @@ for (const working of ["repo-edu", "plan"] as const) {
       f.visible.length = 0
       assert.equal(await runCommand(args, f.runtime, f.options), 0)
       assert.equal(f.visible[0], join(root, `${target}-11-claim.md`))
-      assert.equal(
-        (await f.calls()).some((call) => call.args[0] === "exec"),
-        false,
-      )
+      await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+        code: "ENOENT",
+      })
     })
   }
 }
@@ -254,7 +245,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
       ),
       0,
     )
-    assert.equal(f.visible[3], join(f.repoRoot, `${target}-01-1-audit.oux.md`))
+    assert.equal(f.visible[1], join(f.repoRoot, `${target}-01-1-audit.oux.md`))
   }
 })
 
@@ -290,7 +281,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
     0,
   )
   assert.equal(
-    f.visible[3],
+    f.visible[1],
     join(f.planRoot, "example-steps-2-3-01-1-audit.oux.md"),
   )
   assert.equal(

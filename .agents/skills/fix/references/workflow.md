@@ -43,6 +43,11 @@ and finding metadata. Follow the `CLAUDE.md` of every repo a fix touches.
 
 ## Report discovery
 
+A hand-run invocation may omit the audit report. Resolve it and its existing review files through
+`paths fix` under the
+[shared round protocol](../../../references/round-protocol.md#manual-phases).
+Automated invocations use their supplied paths unchanged.
+
 Read the supplied report path followed by the vet and rebuttal paths that exist; the judged-repos
 opening selects the repo set and audited heads, and the report filename's writer tag identifies the
 auditor.

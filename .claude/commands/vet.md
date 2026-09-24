@@ -1,6 +1,6 @@
 ---
 description: Vet another assistant's implementation-audit report file on this repo's code, checking each finding is authorised, grounded and its fix follows, one verdict per finding.
-argument-hint: <report-file> <vet-output>
+argument-hint: [report-file] [vet-output]
 disable-model-invocation: true
 ---
 

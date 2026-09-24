@@ -527,4 +527,4 @@ report set after a finished fix; a hand-run fix uses `pnpm audit-round close`.
 
 Use the supplied report path; without one, run
 `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at the invoking root and
-use its printed paths.
+use its printed audit report path.

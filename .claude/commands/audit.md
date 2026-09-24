@@ -14,7 +14,7 @@ Your writer tag's vendor letter is `a` for Claude.
 For a hand-run audit without a supplied report path, resolve your full tag under the shared round
 protocol and pass it unchanged to
 `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` before auditing. Use the
-printed paths. Do not pass only the vendor letter.
+printed audit report path. Do not pass only the vendor letter.
 
 Read `.agents/skills/audit/references/workflow.md` completely and follow it.
 
