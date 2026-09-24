@@ -16,12 +16,16 @@ import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
 import { selectActiveSurface } from "../../../session/selectors.js"
-import { useSessionControllerSelector } from "../../../session/session-controller-context.js"
+import {
+  useSessionController,
+  useSessionControllerSelector,
+} from "../../../session/session-controller-context.js"
 import type { SessionOperationScope } from "../../../session/session-operations.js"
 import { analysisSourceKeyFromSurface } from "../../../session/session-reducer.js"
 import {
   type ExaminationPreferenceSnapshot,
   examinationPreferencePersistence,
+  selectExaminationPreferenceSnapshot,
   useExaminationPreferenceSnapshot,
 } from "../../../stores/examination-preferences.js"
 import {
@@ -159,6 +163,19 @@ function applySummaryPublication(
 
 const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
 
+function resolveActiveConnection(
+  preferences: ExaminationPreferenceSnapshot,
+  preferredId: string | null,
+) {
+  return (
+    preferences.connections.find(
+      (connection) => connection.id === preferredId,
+    ) ??
+    preferences.activeConnection ??
+    null
+  )
+}
+
 export function useExaminationEngine({
   source,
   emptyBlocker,
@@ -167,6 +184,7 @@ export function useExaminationEngine({
   emptyBlocker: string | null
 }): ExaminationEngineViewModel {
   const workflowClient = useWorkflowClient()
+  const controller = useSessionController()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
   const openSettings = useUiStore((state) => state.openSettings)
@@ -256,20 +274,10 @@ export function useExaminationEngine({
   const session = useExaminationStore(
     selectExaminationSession(sourceSessionKey),
   )
-  const activeConnection = useMemo(() => {
-    const preferredId = session?.preferences.activeConnectionId ?? null
-    return (
-      preferenceSnapshot.connections.find(
-        (connection) => connection.id === preferredId,
-      ) ??
-      preferenceSnapshot.activeConnection ??
-      null
-    )
-  }, [
-    preferenceSnapshot.activeConnection,
-    preferenceSnapshot.connections,
-    session?.preferences.activeConnectionId,
-  ])
+  const activeConnection = resolveActiveConnection(
+    preferenceSnapshot,
+    session?.preferences.activeConnectionId ?? null,
+  )
   const selectedModelCode = useMemo(() => {
     const provider = activeConnection?.provider ?? null
     if (provider === null) return null
@@ -353,44 +361,57 @@ export function useExaminationEngine({
     sourceSummaryKey,
   ])
 
-  const llmSettings = useMemo(() => {
-    const provider = activeConnection?.provider ?? null
+  const readLlmSettings = useCallback(() => {
+    const preferences = selectExaminationPreferenceSnapshot(
+      controller.getSnapshot(),
+    )
+    const currentSession = selectExaminationSession(sourceSessionKey)(
+      useExaminationStore.getState(),
+    )
+    const connection = resolveActiveConnection(
+      preferences,
+      currentSession?.preferences.activeConnectionId ?? null,
+    )
+    const provider = connection?.provider ?? null
     return {
-      llmConnections: preferenceSnapshot.connections,
-      activeLlmConnectionId: activeConnection?.id ?? null,
+      llmConnections: preferences.connections,
+      activeLlmConnectionId: connection?.id ?? null,
       examinationModelsByProvider:
         provider !== null && selectedModelCode !== null
           ? {
-              ...preferenceSnapshot.examinationModelsByProvider,
+              ...preferences.examinationModelsByProvider,
               [provider]: selectedModelCode,
             }
-          : preferenceSnapshot.examinationModelsByProvider,
+          : preferences.examinationModelsByProvider,
     }
-  }, [
-    activeConnection,
-    preferenceSnapshot.connections,
-    preferenceSnapshot.examinationModelsByProvider,
-    selectedModelCode,
-  ])
+  }, [controller, selectedModelCode, sourceSessionKey])
 
-  const lookupInput = useMemo<ExaminationLookupQuestionsInput | null>(() => {
-    if (selectedSubject === null || sourceIdentity === null) return null
-    return {
-      personId: selectedSubject.id,
-      contentScopeId:
-        source.kind === "repository-analysis"
-          ? source.commitOid
-          : source.contentScopeId,
-      localIdentityContext: source.localIdentityContext,
-      excerpts: selectedSubject.excerpts,
-      excerptFileSources: selectedSubject.excerptFileSources,
+  const readLookupInput =
+    useCallback((): ExaminationLookupQuestionsInput | null => {
+      if (selectedSubject === null || sourceIdentity === null) return null
+      return {
+        personId: selectedSubject.id,
+        contentScopeId:
+          source.kind === "repository-analysis"
+            ? source.commitOid
+            : source.contentScopeId,
+        localIdentityContext: source.localIdentityContext,
+        excerpts: selectedSubject.excerpts,
+        excerptFileSources: selectedSubject.excerptFileSources,
+        questionCount,
+        llmSettings: readLlmSettings(),
+      }
+    }, [
+      readLlmSettings,
       questionCount,
-      llmSettings,
-    }
-  }, [llmSettings, questionCount, selectedSubject, source, sourceIdentity])
+      selectedSubject,
+      source,
+      sourceIdentity,
+    ])
 
   const refreshLookup = useCallback(
     async (scope: SessionOperationScope) => {
+      const lookupInput = readLookupInput()
       if (
         sourceSessionKey === null ||
         sourceIdentity === null ||
@@ -429,7 +450,7 @@ export function useExaminationEngine({
     [
       addToast,
       analysisSourceKey,
-      lookupInput,
+      readLookupInput,
       sourceIdentity,
       sourceSessionKey,
     ],
@@ -573,6 +594,7 @@ export function useExaminationEngine({
             rendererHost.pickUserFile({ acceptFormats: ["json"] }),
           )
           if (!file) return
+          const lookupInput = readLookupInput()
           const summary = await scope.run("examination.archive.import", file, {
             settlementInput: {
               summaries: summaryInput ?? { subjects: [] },
@@ -641,7 +663,7 @@ export function useExaminationEngine({
     sourceIdentity,
     sourceSummaryKey,
     summaryInput,
-    lookupInput,
+    readLookupInput,
   ])
 
   const changeQuestionCount = useCallback(
@@ -840,7 +862,7 @@ export function useExaminationEngine({
             excerpts: selectedSubject.excerpts,
             excerptFileSources: selectedSubject.excerptFileSources,
             questionCount: generationPlan.targetQuestionCount,
-            llmSettings,
+            llmSettings: readLlmSettings(),
             ...(generationPlan.seedQuestions.length > 0
               ? { seedQuestions: generationPlan.seedQuestions }
               : {}),
@@ -937,7 +959,7 @@ export function useExaminationEngine({
     [
       addToast,
       blocker,
-      llmSettings,
+      readLlmSettings,
       questionCount,
       selectedModelCode,
       selectedModelSpec,
