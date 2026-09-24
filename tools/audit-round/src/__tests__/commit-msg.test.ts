@@ -204,7 +204,7 @@ test("a refused subject, missing model and disagreeing effort still stop the com
       "repo-edu",
       /disagree on the effort/,
     ],
-    ["oth docs(repo): s\n\n" + codeFinding, "repo-edu", /model line, not/],
+    [`oth docs(repo): s\n\n${codeFinding}`, "repo-edu", /model line, not/],
     ["example/impl-1 oth feat(x): s\n", "repo-edu", /open with the model/],
     [
       message("oth update(repo): s", codeFinding),

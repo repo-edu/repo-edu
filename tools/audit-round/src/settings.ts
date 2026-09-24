@@ -38,7 +38,7 @@ export async function readSettings(
     content = await readFile(path, "utf8")
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
-    content = JSON.stringify(defaultSettings, null, 2) + "\n"
+    content = `${JSON.stringify(defaultSettings, null, 2)}\n`
     await writeFile(path, content, { flag: "wx" })
   }
   try {

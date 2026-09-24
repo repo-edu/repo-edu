@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { posix } from "node:path"
 import { describe, it, type TestContext } from "node:test"
 import type {
   AnalysisDiscoverReposResult,
@@ -390,7 +391,8 @@ describe("analysis runner lifetime in React", () => {
       const { controller, read } = await mountCoordinator(
         t,
         async (_signal, input) => {
-          analysed.push(input.repositoryAbsolutePath!)
+          assert.ok(input.repositoryAbsolutePath)
+          analysed.push(input.repositoryAbsolutePath)
           return makeBaseResult()
         },
         undefined,
@@ -992,7 +994,8 @@ describe("analysis sidebar admission", () => {
     const { controller, container, read } = await mountCoordinator(
       t,
       async (signal, input) => {
-        analysed.push(input.repositoryAbsolutePath!)
+        assert.ok(input.repositoryAbsolutePath)
+        analysed.push(input.repositoryAbsolutePath)
         analysisEntered.resolve(signal)
         await releaseAnalysis.promise
         return makeBaseResult()
@@ -1078,7 +1081,8 @@ describe("analysis sidebar admission", () => {
     const { controller, container } = await mountCoordinator(
       t,
       async (_signal, input) => {
-        analysed.push(input.repositoryAbsolutePath!)
+        assert.ok(input.repositoryAbsolutePath)
+        analysed.push(input.repositoryAbsolutePath)
         if (analysed.length === 2) throw new Error("Analysis failed")
         return makeBaseResult()
       },
@@ -1122,7 +1126,7 @@ describe("analysis sidebar admission", () => {
           initialDiscovery: {
             repos: paths.map((path) => ({
               path,
-              name: path.split("/").at(-1)!,
+              name: posix.basename(path),
             })),
           },
         },

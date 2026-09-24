@@ -103,8 +103,8 @@ test("green requires four correction commits in one area; amber requires two", (
         "repo-edu",
       )
       assert.equal(decision.due, count >= limit)
-      assert.ok(decision.text.includes("area:area-a " + count))
-      assert.ok(decision.text.includes(grade + " limit of " + limit))
+      assert.ok(decision.text.includes(`area:area-a ${count}`))
+      assert.ok(decision.text.includes(`${grade} limit of ${limit}`))
     }
   }
 })
@@ -329,7 +329,7 @@ test("real Git history carries finding bodies and touched files into the decisio
       await execa("git", ["add", "."], { cwd })
       await commitFixture(
         cwd,
-        "example/impl-audit-all ath c1 fix(x): correction\n\n" + body,
+        `example/impl-audit-all ath c1 fix(x): correction\n\n${body}`,
       )
     }
     const commits = await readLog(cwd)
