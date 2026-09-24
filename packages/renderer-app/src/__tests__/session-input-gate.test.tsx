@@ -151,6 +151,27 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
   const cancel = portal.querySelector("span")
   assert.ok(start)
   assert.ok(cancel)
+  for (const type of ["keydown", "keyup"]) {
+    for (const shiftKey of [false, true]) {
+      const event = new window.KeyboardEvent(type, {
+        key: "Tab",
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+      })
+      start.dispatchEvent(event as unknown as Event)
+      assert.equal(event.defaultPrevented, false)
+    }
+    for (const key of ["ArrowDown", "ArrowRight", " ", "Enter", "Escape"]) {
+      const event = new window.KeyboardEvent(type, {
+        key,
+        bubbles: true,
+        cancelable: true,
+      })
+      start.dispatchEvent(event as unknown as Event)
+      assert.equal(event.defaultPrevented, true)
+    }
+  }
   for (const type of ["wheel", "scroll", "focusin", "focusout"]) {
     const event = new window.Event(type, { bubbles: true, cancelable: true })
     const target = type === "scroll" ? portal.firstElementChild : start

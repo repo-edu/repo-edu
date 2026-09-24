@@ -93,8 +93,11 @@ export function SessionControllerProvider({
   )
   useEffect(() => {
     // Window capture runs before Radix's document-level Escape dismissal.
-    const admitKeyboardInput = (event: KeyboardEvent) =>
+    const admitKeyboardInput = (event: KeyboardEvent) => {
+      // Focus movement stays available so the keyboard can reach Cancel.
+      if (event.key === "Tab") return
       admitSessionInput(controller, event)
+    }
     window.addEventListener("keydown", admitKeyboardInput, true)
     window.addEventListener("keyup", admitKeyboardInput, true)
     return () => {

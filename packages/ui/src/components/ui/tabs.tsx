@@ -7,9 +7,15 @@ interface TabsProps extends React.ComponentProps<typeof TabsPrimitive.Root> {
   size?: "default" | "compact"
 }
 
-function Tabs({ className, size = "default", ...props }: TabsProps) {
+function Tabs({
+  className,
+  size = "default",
+  activationMode = "manual",
+  ...props
+}: TabsProps) {
   return (
     <TabsPrimitive.Root
+      activationMode={activationMode}
       data-slot="tabs"
       data-size={size}
       className={cn(
