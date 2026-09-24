@@ -543,7 +543,13 @@ export function BlameTab({ filePath }: { filePath: string }) {
   if (!fileBlame || processed.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <EmptyState message="No blame data for this file." />
+        <EmptyState
+          message={
+            blameResult === null
+              ? "No line authorship for the current settings. Click the repository in the sidebar to run it."
+              : "No blame data for this file."
+          }
+        />
       </div>
     )
   }

@@ -11,7 +11,7 @@ export function resolveExaminationEmptyState(params: {
     return "Select a repository to choose an author for examination questions."
   }
   if (!params.hasBlameResult || params.authorCount === 0) {
-    return "Run blame analysis to identify authors in this repository."
+    return "Click the repository in the Analysis tab's sidebar to identify authors for examination questions."
   }
   return null
 }

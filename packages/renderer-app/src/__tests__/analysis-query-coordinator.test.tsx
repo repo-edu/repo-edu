@@ -33,6 +33,7 @@ import {
   analysisSourceScopeKey,
 } from "../analysis/analysis-query-keys.js"
 import { AnalysisSidebar } from "../components/tabs/analysis/AnalysisSidebar.js"
+import { BlameTab } from "../components/tabs/analysis/BlameTab.js"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
 import {
@@ -107,6 +108,7 @@ async function mountCoordinator(
     pickDirectory?: RendererHost["pickDirectory"]
     initialDiscovery?: AnalysisDiscoverReposResult
     sidebar?: boolean
+    blameFilePath?: string
     searchFolder?: string | null
     activeSurface?: PersistedActiveSurface
     strictEffects?: boolean
@@ -272,6 +274,9 @@ async function mountCoordinator(
             <QueryClientProvider client={queryClient}>
               <AnalysisCoordinatorProvider>
                 <ReadAnalysis />
+                {options.blameFilePath !== undefined && (
+                  <BlameTab filePath={options.blameFilePath} />
+                )}
                 {(options.sidebar ?? blame !== undefined) && (
                   <RendererHostProvider
                     value={
@@ -903,7 +908,7 @@ describe("analysis runner lifetime in React", () => {
   }, async (t) => {
     let analysisCalls = 0
     const blameConfigs: WorkflowInput<"analysis.blame">["config"][] = []
-    const { controller, read } = await mountCoordinator(
+    const { controller, container, read } = await mountCoordinator(
       t,
       async () => {
         analysisCalls++
@@ -913,12 +918,13 @@ describe("analysis runner lifetime in React", () => {
         blameConfigs.push(input.config)
         return makeBlameResult()
       },
-      { sidebar: false },
+      { sidebar: false, blameFilePath: "src/missing.ts" },
     )
     await React.act(async () => {
       await controller.waitForIdle()
       await flushQueries()
     })
+    assert.equal(container.textContent, "No blame data for this file.")
     await React.act(async () => {
       useAnalysisStore.getState().setBlameConfig({ copyMove: 3 })
       await flushQueries()
@@ -932,6 +938,10 @@ describe("analysis runner lifetime in React", () => {
       [1],
     )
     assert.equal(read().blameResult, null)
+    assert.equal(
+      container.textContent,
+      "No line authorship for the current settings. Click the repository in the sidebar to run it.",
+    )
     await React.act(async () => {
       read().selectRepository(repos[0])
       await controller.waitForIdle()
@@ -941,6 +951,7 @@ describe("analysis runner lifetime in React", () => {
       blameConfigs.map((config) => config.copyMove),
       [1, 3],
     )
+    assert.equal(container.textContent, "No blame data for this file.")
     await React.act(async () => {
       controller.setAnalysisInputs("course", { blameSkip: true })
       await flushQueries()
