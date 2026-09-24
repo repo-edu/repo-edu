@@ -7,8 +7,10 @@ range and `4` as one step, counted against the plan's **Implementation plan**
 numbering. No range means the earliest step not yet implemented. When no
 plan is named, ask which plan to implement and wait.
 
-Follow the `CLAUDE.md` of every repo whose files the run changes. This workflow
-implements the plan in this session, step by step.
+Follow the `CLAUDE.md` of every repo whose files the run changes. The invoking
+chat coordinates the run. It delegates each step to a fresh sub-agent and
+waits for that step to land before starting the next. An assigned worker
+implements its one step directly; it does not delegate another implementer.
 
 Before any implementation work, check the named file is a plan. A
 `topology-<topic>.md`, a `topology-<topic>-detail.md`
@@ -44,12 +46,45 @@ repo's log carries the step form. A both-repo step remains until both shares
 have landed.
 
 The scope is the given range minus the landed repo shares. With no range it is
-every remaining share of the earliest unfinished step: the plan's **Execution
-and audits** subsection requires a fresh-context session per step, and this
-session is one context. A given range is the user's explicit batching and
-stands as given, minus the landed shares. When no share remains, name the
-completed range, or say the whole plan is fully implemented for an unscoped
-run, and stop.
+every remaining share of the earliest unfinished step. A range selects steps
+to run sequentially, each in its own fresh context. When no share remains,
+name the completed range, or say the whole plan is fully implemented for an
+unscoped run, and stop.
+
+## Coordination
+
+The coordinator uses the app's sub-agent tools, not a CLI runner or separate
+desktop tasks. If fresh sub-agents are unavailable, report that limitation
+before implementation. Do not silently batch the steps in the coordinator's
+context.
+
+For each unfinished step in scope:
+
+1. Start a new worker with no inherited conversation. In Codex, use
+   `spawn_agent` with `fork_turns: "none"`. Use the current checkout and branch;
+   do not create a branch or worktree. Only one implementation worker runs at
+   a time, including when a step changes both repos.
+2. Give it the absolute paths to this workflow, the plan and the hosting
+   checkouts, its step number and remaining repo shares. State that it is the
+   worker, must read this workflow and the full plan, and has the user's grant
+   to implement and commit those shares after their checks pass. Pass any
+   explicit user constraints or rulings that apply. The plan and repository
+   are its implementation brief; do not pass earlier workers' reasoning.
+3. Wait for the worker to finish. It reports each hosting repo's commit SHA,
+   checks and results, any recorded deviations and any unresolved blocker.
+   Confirm the step commits in Git and inspect checkout status before starting
+   the next step. A worker's completion message alone does not prove a share
+   landed. The coordinator checks completion, not a second implementation audit.
+4. If the worker stops with unfinished work, keep later steps pending. Resolve
+   a required user ruling with the user and return it to that step's worker.
+   Do not start another writer while the worker is still active. On resuming
+   an interrupted run, inspect Git history and the remaining diff to recover
+   the unfinished shares; preserve work already present.
+
+The coordinator uses the plan and Git history to track completion. Add no run
+database or routine handoff file. The oversized-step ledger below remains
+available when one step needs it. Audits run only under a user-selected scope;
+the implementation range does not request an audit run.
 
 ## Steps
 
@@ -59,7 +94,7 @@ not a sequencing defect and requires no workaround or approval.
 Resolve routine choices and step overlaps from the whole plan and code, then
 proceed. Ask only for a missing product decision or required authorisation.
 
-Implement the scope in plan order, one step at a time, changing only its remaining repo shares.
+The worker implements its assigned step, changing only its remaining repo shares.
 After each share, run the step's named checks and that repo's required verification. Commit the
 share in its repo with the shared step form in `../plan/CLAUDE.md` and the conventional postfix that
 repo requires. The step form carries no severity sequence: the subject is
@@ -71,7 +106,7 @@ exactly one commit per hosting repo; steps never combine into one commit. The in
 started this run grants each in-scope repo share's commit once its checks pass.
 
 When a step's work cannot complete inside one context window and cannot be
-split into independently complete parts, follow `references/oversized-step.md`
+split into independently complete parts, follow `oversized-step.md`
 beside this file: it adds a gitignored ledger and a reconstruction rule across
 context boundaries while every rule above stays in force.
 
@@ -86,7 +121,8 @@ commit body.
 
 ## Close
 
-For each repo where the run lands its final hosted share, run the plan's final
+After the workers finish, the coordinator handles closure. For each repo where
+the run lands its final hosted share, run the plan's final
 verification when it names any for that repo. After that repo's checkout is
 clean and its log proves every share it hosts has landed, offer its shared
 `implemented:` marker from `../plan/CLAUDE.md` and write it only on the user's

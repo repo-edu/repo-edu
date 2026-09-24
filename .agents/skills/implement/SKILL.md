@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a ready plan from the sibling plan repo in this session, step by step with per-step commits. Use only when the user invokes `$implement` from the Repo Edu working directory with a plan file and an optional step range.
+description: Coordinate implementation of a ready plan from the sibling plan repo, using one fresh sub-agent per step with per-step commits. Use only when the user invokes `$implement` from the Repo Edu working directory with a plan file and an optional step range.
 ---
 
 # Implement
