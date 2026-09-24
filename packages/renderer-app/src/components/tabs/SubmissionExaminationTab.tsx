@@ -14,8 +14,14 @@ import {
 } from "@repo-edu/domain/analysis"
 import type { SubmissionSurfaceState } from "@repo-edu/domain/settings"
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
-import { Checkbox, Label } from "@repo-edu/ui"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { Button, Checkbox, Label } from "@repo-edu/ui"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveSurface,
@@ -40,7 +46,12 @@ type FolderFile = {
 
 type FileListState =
   | { status: "loading"; files: []; error: null }
-  | { status: "loaded"; files: FolderFile[]; error: null }
+  | {
+      status: "loaded"
+      files: FolderFile[]
+      extensions: string[]
+      error: null
+    }
   | { status: "error"; files: []; error: string }
 
 type PreparedSubmissionState =
@@ -259,9 +270,6 @@ function useSubmissionExaminationSource() {
     activeSurface.kind === "submission" ? activeSurface.path : null
   const workflowClient = useWorkflowClient()
   const course = useCourseStore((state) => state.course)
-  const defaultExtensions = useSessionControllerSelector(
-    selectDefaultExtensions,
-  )
   const submissionSurfaceStates = useSessionControllerSelector(
     selectSubmissionSurfaceStates,
   )
@@ -284,10 +292,8 @@ function useSubmissionExaminationSource() {
     stateKey === null
       ? EMPTY_SUBMISSION_STATE
       : (submissionSurfaceStates[stateKey] ?? EMPTY_SUBMISSION_STATE)
-  const configuredExtensions = useMemo(
-    () => normalizeConfiguredExtensions(defaultExtensions),
-    [defaultExtensions],
-  )
+  const configuredExtensions =
+    fileList.status === "loaded" ? fileList.extensions : null
   const attachedCourseId =
     activeSurface.kind === "submission" ? activeSurface.courseId : undefined
   const attachedCourse =
@@ -305,19 +311,27 @@ function useSubmissionExaminationSource() {
       ? attachedCourse.roster
       : null
 
-  // Reserving a body is not host work. Leaving the tab retires the observer,
-  // never the listing: only the reservation's own stop ends it.
-  useEffect(() => {
+  // Each request keeps its extensions with the files. Settings edits do not
+  // replace that input while the teacher is choosing files or editing settings.
+  const refreshFiles = useCallback(() => {
     if (submissionFolderPath === null) return
+    const extensions = normalizeConfiguredExtensions(
+      selectDefaultExtensions(controller.getSnapshot()),
+    )
     void workflowClient.execute("analysis.listFolderFiles", async (scope) => {
       setFileList({ status: "loading", files: [], error: null })
       await scope
         .run("analysis.listFolderFiles", {
           folderPath: submissionFolderPath,
-          extensions: configuredExtensions,
+          extensions,
         })
         .then((result) => {
-          setFileList({ status: "loaded", files: result.files, error: null })
+          setFileList({
+            status: "loaded",
+            files: result.files,
+            extensions,
+            error: null,
+          })
         })
         .catch((error) => {
           if (scope.signal.aborted) return
@@ -328,7 +342,10 @@ function useSubmissionExaminationSource() {
           })
         })
     })
-  }, [configuredExtensions, submissionFolderPath, workflowClient])
+  }, [controller, submissionFolderPath, workflowClient])
+
+  // Opening a folder requests its first listing. Only Refresh requests another.
+  useEffect(refreshFiles, [refreshFiles])
 
   const eligibleFiles = useMemo(
     () => fileList.files.filter(isEligible),
@@ -383,6 +400,7 @@ function useSubmissionExaminationSource() {
     if (
       submissionFolderPath === null ||
       fileList.status !== "loaded" ||
+      configuredExtensions === null ||
       effectiveSelection.length === 0 ||
       pendingSourceKey === null ||
       prepareBlocker !== null
@@ -558,10 +576,11 @@ function useSubmissionExaminationSource() {
             />
             <span>Files</span>
           </Label>
-          <span className="text-xs text-muted-foreground">
-            {summaryEstimate}
-          </span>
+          <Button variant="outline" size="sm" onClick={refreshFiles}>
+            Refresh
+          </Button>
         </div>
+        <span className="text-xs text-muted-foreground">{summaryEstimate}</span>
 
         {fileList.status === "loading" ? (
           <p className="text-xs text-muted-foreground">Loading files...</p>
