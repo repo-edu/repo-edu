@@ -1,4 +1,8 @@
 import {
+  canAdmitSessionInput,
+  useSessionControllerSelector,
+} from "@repo-edu/renderer-app"
+import {
   Button,
   Dialog,
   DialogContent,
@@ -117,7 +121,9 @@ export function UpdateDialog({
     [bridge],
   )
 
-  const isOpen = phase.kind !== "closed"
+  const isOpen =
+    useSessionControllerSelector(canAdmitSessionInput) &&
+    phase.kind !== "closed"
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && dismiss()}>

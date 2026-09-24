@@ -45,6 +45,7 @@ export {
   useSessionController,
   useSessionControllerSelector,
 } from "./session/session-controller-context.js"
+export { canAdmitSessionInput } from "./session/session-reducer.js"
 export { useConnectionsStore } from "./stores/connections-store.js"
 // ---------------------------------------------------------------------------
 // Stores — exposed for shell-level integration and testing.

@@ -146,14 +146,13 @@ if (isTRPCValidationMode) {
   document.title = "Repo Edu"
   createRoot(mountNode).render(
     React.createElement(
-      React.Fragment,
-      null,
-      React.createElement(RendererSessionRoot, {
+      RendererSessionRoot,
+      {
         workflowClient,
         commandClient,
         rendererHost,
         onBootstrapReady: window.repoEduDesktopHost.bootstrapReady,
-      }),
+      },
       React.createElement(UpdateDialog, {
         bridge: window.repoEduDesktopHost,
       }),

@@ -19,7 +19,7 @@ import {
 } from "@repo-edu/ui"
 import { Home, Redo2, Undo2 } from "@repo-edu/ui/components/icons"
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useLayoutEffect, useState } from "react"
+import { type ReactNode, useEffect, useLayoutEffect, useState } from "react"
 import { createRendererQueryClient } from "../analysis/analysis-query-client.js"
 import { AnalysisCoordinatorProvider } from "../analysis/analysis-query-coordinator.js"
 import { configureApp } from "../configure-app.js"
@@ -95,6 +95,7 @@ export type RendererSessionRootProps = {
   commandClient: ExclusiveCommandClient
   rendererHost: RendererHost
   onBootstrapReady: () => Promise<void>
+  children?: ReactNode
 }
 
 export function RendererSessionRoot({
@@ -102,6 +103,7 @@ export function RendererSessionRoot({
   commandClient,
   rendererHost,
   onBootstrapReady,
+  children,
 }: RendererSessionRootProps) {
   // A controller is bound to one mount lifecycle: its disposal is terminal, so
   // each mount must construct a fresh instance rather than reuse a cached one.
@@ -150,6 +152,7 @@ export function RendererSessionRoot({
               <TooltipProvider>
                 <AnalysisQueryLifecycleBridge />
                 <AppView />
+                {children}
               </TooltipProvider>
             </AnalysisCoordinatorProvider>
           </SessionControllerProvider>

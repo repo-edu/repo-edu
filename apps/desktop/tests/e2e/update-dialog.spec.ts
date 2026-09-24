@@ -6,7 +6,7 @@ import { build } from "esbuild"
 import { updateRestartRefusedMessage } from "../../src/renderer-host-bridge"
 import { createPackagedTrustRuntime } from "./packaged-trust-runtime"
 
-test("offers restart retry only for a downloaded update", async () => {
+test("defers update notices during session work and retains restart retry", async () => {
   const runtime = await createPackagedTrustRuntime()
   let application: Awaited<ReturnType<typeof runtime.launch>> | undefined
   try {
@@ -17,6 +17,8 @@ test("offers restart retry only for a downloaded update", async () => {
         loader: "tsx",
         contents: `
           import { createRoot } from "react-dom/client"
+          import { defaultAppSettings, splitAppSettings } from "@repo-edu/domain/settings"
+          import { canAdmitSessionInput, getSessionController, RendererSessionRoot, useSessionController } from "@repo-edu/renderer-app"
           import { UpdateDialog } from "./UpdateDialog"
           const listeners = new Map()
           const listen = name => callback => {
@@ -25,6 +27,13 @@ test("offers restart retry only for a downloaded update", async () => {
           }
           let attempts = 0
           let downloadFails = false
+          let stops = 0
+          const begin = () => getSessionController().operations.execute("repo.listNamespace", scope =>
+            new Promise(resolve => scope.signal.addEventListener("abort", () => {
+              stops++
+              resolve()
+            }, { once: true }))
+          )
           const bridge = {
             onUpdateAvailable: listen("available"),
             onDownloadProgress: listen("progress"),
@@ -40,18 +49,48 @@ test("offers restart retry only for a downloaded update", async () => {
             }
           }
           window.dialogTest = {
-            ready: () => listeners.size === 4,
+            ready: () => listeners.size === 4 && canAdmitSessionInput(getSessionController().getSnapshot()),
             available: () => listeners.get("available")({ version: "2.0.0" }),
             attempts: () => attempts,
-            failDownload: () => { downloadFails = true }
+            failDownload: () => { downloadFails = true },
+            begin: () => { void begin() },
+            stops: () => stops
           }
-          createRoot(document.getElementById("app")).render(<UpdateDialog bridge={bridge} />)
+          function Controls() {
+            const controller = useSessionController()
+            return <>
+              <button id="listing-start" onClick={() => { void begin() }}>List repositories</button>
+              <button data-session-cancellation-control="repo.listNamespace"
+                onClick={() => controller.operations.stop("repo.listNamespace")}>Cancel listing</button>
+            </>
+          }
+          const workflowClient = {
+            async run(id) {
+              if (id === "settings.loadApp") return { ...splitAppSettings(defaultAppSettings), recovery: [] }
+              if (id === "course.list") return []
+              throw new Error("Unexpected workflow: " + id)
+            }
+          }
+          const rendererHost = {
+            onCloseRequest: () => () => {},
+            setNativeTheme: async () => {}
+          }
+          createRoot(document.getElementById("app")).render(
+            <RendererSessionRoot workflowClient={workflowClient} commandClient={{}}
+              rendererHost={rendererHost} onBootstrapReady={async () => {}}>
+              <Controls />
+              <UpdateDialog bridge={bridge} />
+            </RendererSessionRoot>
+          )
         `,
       },
       bundle: true,
       platform: "browser",
-      format: "iife",
+      format: "esm",
+      loader: { ".wasm": "dataurl" },
       jsx: "automatic",
+      // Match Vite's browser treatment of the tokenizer's Node-only imports.
+      external: ["fs/promises", "module"],
       define: { "process.env.NODE_ENV": '"production"' },
       write: false,
     })
@@ -61,7 +100,7 @@ test("offers restart retry only for a downloaded update", async () => {
     )
     await writeFile(
       runtime.documentPath("index.html"),
-      '<!doctype html><title>Update dialog test</title><div id="app"></div><script src="renderer.js"></script>',
+      '<!doctype html><title>Update dialog test</title><div id="app"></div><script type="module" src="renderer.js"></script>',
     )
     await writeFile(
       runtime.documentPath("dialog-main.cjs"),
@@ -81,11 +120,42 @@ test("offers restart retry only for a downloaded update", async () => {
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
     await page.waitForFunction("window.dialogTest?.ready()")
+    const cancel = page.getByRole("button", { name: "Cancel listing" })
+    const freeze = page.locator("[data-session-input-frozen]")
+    await page.locator("#listing-start").click()
+    await expect(freeze).toHaveCount(1)
+    await page.evaluate("window.dialogTest.available()")
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await page.locator("#listing-start").focus()
+    await page.keyboard.press("Tab")
+    await expect(cancel).toBeFocused()
+    await page.keyboard.press("Enter")
+    await expect(freeze).toHaveCount(0)
+    await expect(
+      page.getByRole("dialog", { name: "Update Available" }),
+    ).toBeVisible()
+    assert.equal(await page.evaluate("window.dialogTest.stops()"), 1)
+    await page.getByRole("button", { name: "Later" }).click()
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+
     await page.evaluate("window.dialogTest.available()")
     await page.getByRole("button", { name: "Update Now" }).click()
     await expect(
       page.getByText("Repo Edu 2.0.0 has been downloaded.", { exact: false }),
     ).toBeVisible()
+    // Host-started work can close an already open notice without losing its phase.
+    await page.evaluate("window.dialogTest.begin()")
+    await expect(freeze).toHaveCount(1)
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await page.locator("#listing-start").focus()
+    await page.keyboard.press("Tab")
+    await expect(cancel).toBeFocused()
+    await page.keyboard.press("Space")
+    await expect(freeze).toHaveCount(0)
+    await expect(
+      page.getByRole("dialog", { name: "Ready to Install" }),
+    ).toBeVisible()
+    assert.equal(await page.evaluate("window.dialogTest.stops()"), 2)
     await page.getByRole("button", { name: "Install and Restart" }).click()
     await expect(page.getByText(updateRestartRefusedMessage)).toBeVisible()
     assert.equal(await page.evaluate("window.dialogTest.attempts()"), 1)

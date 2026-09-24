@@ -515,7 +515,7 @@ is not assumed to know the source ecosystem's jargon.
 - **drop**: the task modifier that refuses a new start while one is still
   running. Every operation and command uses it at the input layer. While any
   work is admitted, the capture gate refuses input except that work's Cancel.
-  Wheel, scroll, focus and blur pass through.
+  Wheel, scroll, focus, blur, Tab and Shift+Tab pass through.
 - **enqueue**: the task modifier that makes a new start wait for the running one
   and then take its turn. The app never holds a teacher's input to replay later;
   a wait sign does not make that acceptable. The queue orders bodies that one
