@@ -51,20 +51,23 @@ function plain(node: Paragraph | Extract<Block, { type: "heading" }>): string {
     .join("")
 }
 
-function closingTokens(item: List["children"][number], line: string): string {
-  let end = item.children.at(-1)
-  // Markdown can attach an outer closing line to the last nested list item.
-  // Follow lists only: quoted evidence and code cannot supply metadata.
-  while (end?.type === "list") end = end.children.at(-1)?.children.at(-1)
-  const text = end?.type === "paragraph" ? end.children.at(-1) : undefined
+function openingTokens(item: List["children"][number]): string {
   const start = item.children[0]
-  if (
-    text?.type !== "text" ||
-    text.position?.end.line !== item.position?.end.line ||
-    line.search(/\S/) !== (start?.position?.start.column ?? 0) - 1
-  )
-    return ""
-  return line.trim()
+  if (start?.type !== "paragraph") return ""
+  const next = item.children[1]
+  // The token line may share the title's paragraph or follow a blank line.
+  const children =
+    start.children.length > 1
+      ? start.children.slice(1)
+      : next?.type === "paragraph"
+        ? next.children
+        : []
+  return children
+    .map((child) => (child.type === "text" ? child.value : "\0"))
+    .join("")
+    .trimStart()
+    .split("\n")[0]
+    .trimEnd()
 }
 
 function findingNumber(
@@ -78,14 +81,14 @@ function findingNumber(
     .slice(item.position?.start.offset, item.position?.end.offset)
     .split("\n")
   const number = /^([1-9]\d*)\. \*\*[A-D]: .+\*\*\s*$/.exec(lines[0])
-  const tokens = closingTokens(item, lines.at(-1) ?? "")
+  const tokens = openingTokens(item)
   if (
     number === null ||
     title?.type !== "strong" ||
     !/^(?:\[[a-z]+:[^\]\n]+\])(?: \[[a-z]+:[^\]\n]+\])*$/.test(tokens)
   )
     throw new Error(
-      `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title and closing token line`,
+      `Malformed finding at report line ${item.position?.start.line}: expected a bold tier title followed by a token line`,
     )
   const has = (key: string) => tokens.includes(`[${key}:`)
   if (

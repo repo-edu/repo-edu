@@ -42,8 +42,8 @@ The round ends at its report file. The auditor answers a vet through the rebutta
 `.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
 corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
-rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix starts in a fresh
-session from the report file. See [Fix guard](#fix-guard).
+rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix
+starts in a fresh session from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
@@ -170,7 +170,7 @@ commit, with the heading in kebab case. They omit `[area:]`, because the area mo
 Edu.
 
 A finding deferred from a Repo Edu-only round to the plan repo uses the same
-report block below, with `[plan:...]` in place of `[area:...]` on its closing
+report block below, with `[plan:...]` in place of `[area:...]` on its opening
 token line. The fix carries that location into the round commit.
 
 ## Fix guard
@@ -294,13 +294,15 @@ finding also carries a growth tag, per [Growth tags](#growth-tags).
 
 Put every finding, including cross-repo findings, in one `## Findings` field.
 Use this block form, with a numbered bold tier and title on the first line and
-the metadata tokens on the last line:
+the metadata tokens on their own line immediately after the title, before the explanation.
+Separate the title, token line and explanation with blank lines:
 
-```text
 1. **C: Conflicting report names**
-   The report rule and its example name different files. The vet cannot resolve the example. Align the example with the rule.
+
    [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none]
-```
+
+   The report rule and its example name different files. The vet cannot resolve
+   the example. Align the example with the rule.
 
 Keep numbering continuous from 1. A field with no findings contains exactly
 `No findings.` instead of finding blocks. A report with only deferred findings

@@ -97,6 +97,10 @@ what it holds.
    opening with the tier letter and a colon before the short title, as in
    `1. **B: A listing starts again after every command**`. Use the tier the
    finding ended the round with and explain any tier change in the entry.
+   Preserve all of the finding's metadata tokens on their own line immediately
+   below the title, before the explanation. Separate the title, token line and
+   explanation with blank lines. Do not remove or translate the tokens. The
+   plain-language explanation and ratings table supplement the token line.
    Each entry says what goes wrong and when, why the plan or code does that,
    what the correction is and
    the condition that makes a rare rating checkable. Then, when the vet or
