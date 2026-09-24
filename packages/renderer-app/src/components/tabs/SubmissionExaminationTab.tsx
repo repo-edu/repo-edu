@@ -8,10 +8,6 @@ import {
   activeSurfaceRecentSubmission,
   activeSurfaceSubmissionStateKey,
 } from "@repo-edu/domain/active-surface"
-import {
-  DEFAULT_EXTENSIONS,
-  normalizeExtension,
-} from "@repo-edu/domain/analysis"
 import type { SubmissionSurfaceState } from "@repo-edu/domain/settings"
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Button, Checkbox, Label } from "@repo-edu/ui"
@@ -33,26 +29,26 @@ import {
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
 import { useCourseStore } from "../../stores/course-store.js"
+import { useExaminationStore } from "../../stores/examination-store.js"
+import type {
+  SubmissionFileList,
+  SubmissionFolderFile,
+} from "../../stores/examination-store-types.js"
 import { getErrorMessage } from "../../utils/error-message.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
 import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
 import type { SubmissionExaminationSource } from "./examination/source.js"
+import {
+  listSubmissionFiles,
+  normalizeConfiguredExtensions,
+} from "./examination/submission-file-listing.js"
 import { useExaminationEngine } from "./examination/use-examination-engine.js"
 
-type FolderFile = {
-  relativePath: string
-  size: number
+const EMPTY_FILE_LIST: SubmissionFileList = {
+  status: "idle",
+  files: [],
+  error: null,
 }
-
-type FileListState =
-  | { status: "loading"; files: []; error: null }
-  | {
-      status: "loaded"
-      files: FolderFile[]
-      extensions: string[]
-      error: null
-    }
-  | { status: "error"; files: []; error: string }
 
 type PreparedSubmissionState =
   | { status: "idle"; pendingSourceKey: null; source: null; error: null }
@@ -69,20 +65,7 @@ const EMPTY_SUBMISSION_STATE: SubmissionSurfaceState = {
   includedFiles: null,
 }
 
-function normalizeConfiguredExtensions(
-  extensions: readonly string[],
-): string[] {
-  const normalized = [
-    ...new Set(
-      extensions
-        .map((extension) => normalizeExtension(extension))
-        .filter((extension) => extension.length > 0),
-    ),
-  ]
-  return normalized.length === 0 ? [...DEFAULT_EXTENSIONS] : normalized
-}
-
-function isEligible(file: FolderFile): boolean {
+function isEligible(file: SubmissionFolderFile): boolean {
   return file.size <= SUBMISSION_FILE_MAX_BYTES
 }
 
@@ -93,7 +76,7 @@ function formatBytes(byteCount: number): string {
 }
 
 function resolveEffectiveSelection(
-  files: readonly FolderFile[],
+  files: readonly SubmissionFolderFile[],
   persisted: string[] | null,
 ): string[] {
   const eligible = files.filter(isEligible)
@@ -273,11 +256,12 @@ function useSubmissionExaminationSource() {
   const submissionSurfaceStates = useSessionControllerSelector(
     selectSubmissionSurfaceStates,
   )
-  const [fileList, setFileList] = useState<FileListState>({
-    status: "loading",
-    files: [],
-    error: null,
-  })
+  const fileList = useExaminationStore((state) =>
+    submissionFolderPath === null
+      ? EMPTY_FILE_LIST
+      : (state.submissionFileLists.get(submissionFolderPath) ??
+        EMPTY_FILE_LIST),
+  )
   const [prepared, setPrepared] = useState<PreparedSubmissionState>({
     status: "idle",
     pendingSourceKey: null,
@@ -319,33 +303,9 @@ function useSubmissionExaminationSource() {
       selectDefaultExtensions(controller.getSnapshot()),
     )
     void workflowClient.execute("analysis.listFolderFiles", async (scope) => {
-      setFileList({ status: "loading", files: [], error: null })
-      await scope
-        .run("analysis.listFolderFiles", {
-          folderPath: submissionFolderPath,
-          extensions,
-        })
-        .then((result) => {
-          setFileList({
-            status: "loaded",
-            files: result.files,
-            extensions,
-            error: null,
-          })
-        })
-        .catch((error) => {
-          if (scope.signal.aborted) return
-          setFileList({
-            status: "error",
-            files: [],
-            error: getErrorMessage(error),
-          })
-        })
+      await listSubmissionFiles(scope, submissionFolderPath, extensions)
     })
   }, [controller, submissionFolderPath, workflowClient])
-
-  // Opening a folder requests its first listing. Only Refresh requests another.
-  useEffect(refreshFiles, [refreshFiles])
 
   const eligibleFiles = useMemo(
     () => fileList.files.filter(isEligible),
@@ -517,17 +477,19 @@ function useSubmissionExaminationSource() {
           : "indeterminate"
 
   const summaryEstimate =
-    fileList.status === "loading"
-      ? "Loading..."
-      : fileList.status === "error"
-        ? "Unavailable"
-        : selectedSet.size === 0
-          ? "Nothing selected"
-          : `${selectedSet.size} file${
-              selectedSet.size === 1 ? "" : "s"
-            } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
-              selectedTotalBytes,
-            )} tokens`
+    fileList.status === "idle"
+      ? "Press Refresh to list files."
+      : fileList.status === "loading"
+        ? "Loading..."
+        : fileList.status === "error"
+          ? "Unavailable"
+          : selectedSet.size === 0
+            ? "Nothing selected"
+            : `${selectedSet.size} file${
+                selectedSet.size === 1 ? "" : "s"
+              } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
+                selectedTotalBytes,
+              )} tokens`
   const visiblePrepared =
     prepared.pendingSourceKey === pendingSourceKey
       ? prepared
@@ -546,14 +508,16 @@ function useSubmissionExaminationSource() {
   const placeholderMessage =
     visiblePrepared.status === "loaded"
       ? "Click Generate to produce questions for this submission."
-      : fileList.status === "loading"
-        ? "Loading files..."
-        : fileList.status === "error"
-          ? "Fix the file loading error before preparing examination generation."
-          : isAwaitingPreparation || visiblePrepared.status === "loading"
-            ? "Preparing submission..."
-            : (prepareBlocker ??
-              "Select at least one file to open examination generation.")
+      : fileList.status === "idle"
+        ? "Press Refresh to list submission files."
+        : fileList.status === "loading"
+          ? "Loading files..."
+          : fileList.status === "error"
+            ? "Fix the file loading error before preparing examination generation."
+            : isAwaitingPreparation || visiblePrepared.status === "loading"
+              ? "Preparing submission..."
+              : (prepareBlocker ??
+                "Select at least one file to open examination generation.")
 
   const sidebarContent = (
     <section className="grid gap-4">
@@ -582,7 +546,11 @@ function useSubmissionExaminationSource() {
         </div>
         <span className="text-xs text-muted-foreground">{summaryEstimate}</span>
 
-        {fileList.status === "loading" ? (
+        {fileList.status === "idle" ? (
+          <p className="text-xs text-muted-foreground">
+            Press Refresh to list submission files.
+          </p>
+        ) : fileList.status === "loading" ? (
           <p className="text-xs text-muted-foreground">Loading files...</p>
         ) : fileList.status === "error" ? (
           <p className="text-xs text-destructive">{fileList.error}</p>

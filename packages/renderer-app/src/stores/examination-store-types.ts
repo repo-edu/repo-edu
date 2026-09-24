@@ -136,9 +136,29 @@ export type ExaminationState = {
   sourceSummaries: Map<string, ExaminationSourceSummary>
   entriesByKey: Map<string, ExaminationEntry>
   archiveRevision: number
+  submissionFileLists: Map<string, SubmissionFileList>
 }
 
+export type SubmissionFolderFile = {
+  relativePath: string
+  size: number
+}
+
+export type SubmissionFileList =
+  | { status: "idle" | "loading"; files: []; error: null }
+  | {
+      status: "loaded"
+      files: SubmissionFolderFile[]
+      extensions: string[]
+      error: null
+    }
+  | { status: "error"; files: []; error: string }
+
 export type ExaminationActions = {
+  setSubmissionFileList: (
+    folderPath: string,
+    listing: SubmissionFileList,
+  ) => void
   activateSourceSummary: (input: ActivateSourceSummaryInput) => void
   activateSource: (input: ActivateSourceInput) => void
   selectRepositoryAnalysisSubject: (

@@ -55,6 +55,9 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   const { SubmissionExaminationTab } = await import(
     "../components/tabs/SubmissionExaminationTab.js"
   )
+  const { useOpenSubmissionFolder } = await import(
+    "../hooks/use-open-submission-folder.js"
+  )
   const { AnalysisPane } = await import(
     "../components/settings/AnalysisPane.js"
   )
@@ -152,12 +155,23 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     }
   })
   let settingsClicks = 0
-  await React.act(async () => {
+  function OpenSubmission() {
+    const open = useOpenSubmissionFolder()
+    return (
+      <button type="button" onClick={() => void open()}>
+        Open submission
+      </button>
+    )
+  }
+  const render = (tabKey: string) =>
     root.render(
       <SessionControllerProvider controller={controller}>
         <WorkflowClientProvider value={controller.operations}>
-          <RendererHostProvider value={{} as RendererHost}>
-            <SubmissionExaminationTab />
+          <RendererHostProvider
+            value={{ pickDirectory: async () => "/submission" } as RendererHost}
+          >
+            <OpenSubmission />
+            <SubmissionExaminationTab key={tabKey} />
             {createPortal(
               <>
                 <AnalysisPane />
@@ -171,12 +185,25 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
         </WorkflowClientProvider>
       </SessionControllerProvider>,
     )
+  await React.act(async () => {
+    render("first")
   })
   const settle = async () => {
     await React.act(async () => {
       await controller.waitForIdle()
     })
   }
+  await settle()
+  assert.equal(listings.length, 0)
+  assert.equal(preparations.length, 0)
+  assert.match(container.textContent, /Press Refresh to list submission files/)
+  await React.act(async () => {
+    const open = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Open submission",
+    )
+    assert.ok(open)
+    open.click()
+  })
   await settle()
   assert.equal(controller.getSnapshot().lifecycle.kind, "live")
   assert.deepEqual(
@@ -296,4 +323,10 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     window.document.querySelector("[data-session-input-frozen]"),
     null,
   )
+  await React.act(async () => {
+    render("returned")
+  })
+  await settle()
+  assert.equal(listings.length, 2)
+  assert.match(container.textContent, /main\.py/)
 })

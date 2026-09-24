@@ -37,11 +37,13 @@ import {
   X,
 } from "@repo-edu/ui/components/icons"
 import { type KeyboardEvent, type MouseEvent, useMemo, useState } from "react"
+import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
 import { useDirectoryPicker } from "../hooks/use-picker.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
+  selectDefaultExtensions,
   selectRecentAnalysisFolders,
   selectRecentSubmissionFolders,
 } from "../session/selectors.js"
@@ -50,6 +52,10 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
+import {
+  normalizeConfiguredExtensions,
+  openSubmissionFolder,
+} from "./tabs/examination/submission-file-listing.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -74,6 +80,7 @@ function folderParent(path: string): string {
 
 export function CourseSwitcher() {
   const controller = useSessionController()
+  const workflowClient = useWorkflowClient()
   const activeSurface = useSessionControllerSelector(selectActiveSurface)
   const activeCourseId = useSessionControllerSelector(selectActiveCourseId)
   const activeFolderPath =
@@ -155,28 +162,31 @@ export function CourseSwitcher() {
       { title: "Open student submission folder" },
       async (directory, scope) => {
         scope.publish(() => setOpen(false))
-        await scope.activateSurface({
-          kind: "submission",
-          path: directory,
-          courseId: course.id,
-        })
+        await openSubmissionFolder(
+          scope,
+          { path: directory, courseId: course.id },
+          normalizeConfiguredExtensions(
+            selectDefaultExtensions(controller.getSnapshot()),
+          ),
+          false,
+        )
       },
     )
   }
 
   const handleRecentSubmissionSelect = (recent: SubmissionFolderRecent) => {
-    const surface =
-      recent.courseId === undefined
-        ? { kind: "submission" as const, path: recent.path }
-        : {
-            kind: "submission" as const,
-            path: recent.path,
-            courseId: recent.courseId,
-          }
-    if (activeSurfaceEquals(activeSurface, surface)) return
     setOpen(false)
     runSessionOperationBestEffort(
-      controller.activateSurface(surface),
+      workflowClient.execute("analysis.listFolderFiles", async (scope) => {
+        await openSubmissionFolder(
+          scope,
+          recent,
+          normalizeConfiguredExtensions(
+            selectDefaultExtensions(controller.getSnapshot()),
+          ),
+          true,
+        )
+      }),
       "submission activation",
     )
   }

@@ -26,6 +26,7 @@ export function createInitialState(): ExaminationState {
     sourceSummaries: new Map(),
     entriesByKey: new Map(),
     archiveRevision: 0,
+    submissionFileLists: new Map(),
   }
 }
 

@@ -64,6 +64,13 @@ export const useExaminationStore = create<
   return {
     ...createInitialState(),
 
+    setSubmissionFileList: (folderPath, listing) =>
+      set((state) => {
+        const submissionFileLists = new Map(state.submissionFileLists)
+        submissionFileLists.set(folderPath, listing)
+        return { submissionFileLists }
+      }),
+
     activateSourceSummary: (input) =>
       set((state) => {
         const sourceSummaries = new Map(state.sourceSummaries)
