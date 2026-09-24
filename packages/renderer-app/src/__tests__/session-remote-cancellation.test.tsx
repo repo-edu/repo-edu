@@ -293,6 +293,16 @@ it("the window gate protects dialogs and permits remote request cancellation", {
           )
           await flush()
         })
+        if (operation === "repo.listNamespace") {
+          const search = [...window.document.querySelectorAll("button")].find(
+            (button) => button.textContent === "Search",
+          )
+          assert.ok(search)
+          await React.act(async () => {
+            search.click()
+            await flush()
+          })
+        }
         if (
           operation !== "groupSet.fetchAvailableFromLms" &&
           operation !== "repo.listNamespace"

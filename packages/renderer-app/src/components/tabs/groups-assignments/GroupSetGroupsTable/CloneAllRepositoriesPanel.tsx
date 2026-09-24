@@ -83,6 +83,19 @@ export function CloneAllRepositoriesPanel({
         </p>
       </div>
 
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={
+          !cloneAll.canStartQueries ||
+          !cloneAll.hasConnection ||
+          !cloneAll.hasNamespace
+        }
+        onClick={cloneAll.search}
+      >
+        Search
+      </Button>
+
       <CloneAllPreview
         listResult={cloneAll.listResult}
         listError={cloneAll.listError}
@@ -166,7 +179,13 @@ function CloneAllPreview({
     return <p className="text-sm text-destructive">{listError}</p>
   }
   if (listResult === null) {
-    if (!isListing) return null
+    if (!isListing) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          Press Search to list repositories for these inputs.
+        </p>
+      )
+    }
     return (
       <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
         <Loader2 className="size-4 animate-spin" />

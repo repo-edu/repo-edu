@@ -25,7 +25,7 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 const typingPause = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 400))
 
-it("retains listing rows and disables all clone-all controls during commands", {
+it("lists only on Search and clones only matching results", {
   timeout: 5000,
 }, async (t) => {
   resetStores()
@@ -52,6 +52,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
   const filters: unknown[] = []
   const namespaces: string[] = []
   const archived: boolean[] = []
+  const cloneInputs: unknown[] = []
   const listingCredentials: PersistedAppCredentials[] = []
   const first = {
     repositories: [{ name: "old", identifier: "old", archived: false }],
@@ -89,6 +90,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
           return filters.length === 1 ? first : second
         }
         if (id === "repo.bulkClone") {
+          cloneInputs.push(input)
           await cloneRelease.promise
           return {
             repositoriesPlanned: 1,
@@ -189,8 +191,33 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await controller.waitForIdle()
     await flush()
   })
-  assert.deepEqual(filters, [undefined])
+  assert.deepEqual(filters, [])
   assert.ok(value)
+  assert.equal(value.listResult, null)
+  assert.equal(value.canClone, false)
+  await React.act(async () => {
+    value?.setFilter("draft")
+    await flush()
+  })
+  await React.act(async () => {
+    value?.setFilter("")
+    value?.setIncludeArchived(true)
+    await flush()
+  })
+  await React.act(async () => {
+    value?.setIncludeArchived(false)
+    await flush()
+  })
+  assert.deepEqual(filters, [])
+  await React.act(async () => {
+    value?.search()
+    await flush()
+  })
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.deepEqual(filters, [undefined])
   assert.deepEqual(value.listResult, first)
   assert.equal(value.canClone, true)
 
@@ -230,7 +257,9 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await flush()
   })
   assert.equal(value.canClone, false)
-  assert.deepEqual(value.listResult, first)
+  assert.equal(value.listResult, null)
+  value.handleBulkClone()
+  assert.deepEqual(cloneInputs, [])
   await React.act(async () => {
     value?.setFilter("")
     await flush()
@@ -252,7 +281,9 @@ it("retains listing rows and disables all clone-all controls during commands", {
   await pending.promise
   assert.equal(value.canStartQueries, false)
   assert.equal(value.canClone, false)
-  assert.deepEqual(value.listResult, first)
+  assert.equal(value.listResult, null)
+  value.handleBulkClone()
+  assert.deepEqual(cloneInputs, [])
   assert.equal(client.isFetching(), 1)
   await React.act(async () => {
     release.resolve()
@@ -272,6 +303,17 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await flush()
   })
   await React.act(async () => {
+    await flush()
+  })
+  await React.act(async () => {
+    await controller.waitForIdle()
+    await flush()
+  })
+  assert.deepEqual(filters, [undefined, "new"])
+  assert.equal(value.listResult, null)
+  assert.equal(value.canClone, false)
+  await React.act(async () => {
+    value?.search()
     await flush()
   })
   await React.act(async () => {
@@ -322,7 +364,9 @@ it("retains listing rows and disables all clone-all controls during commands", {
       assert.equal(filters.length, callsBeforeCredentialChange)
       assert.equal(value.canStartQueries, true)
       assert.equal(value.canClone, false)
-      assert.deepEqual(value.listResult, second)
+      assert.equal(value.listResult, null)
+      value.handleBulkClone()
+      assert.deepEqual(cloneInputs, [])
       assert.equal(
         window.document.querySelector("[data-session-input-frozen]"),
         null,
@@ -353,6 +397,25 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await controller.waitForIdle()
     await flush()
   })
+  const pressSearch = async () => {
+    const search = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Search",
+    )
+    assert.ok(search)
+    assert.equal(search.disabled, false)
+    await React.act(async () => {
+      search.click()
+      await flush()
+    })
+    await React.act(async () => {
+      await controller.waitForIdle()
+      await flush()
+    })
+  }
+  assert.match(container.textContent, /Press Search to list repositories/)
+  const beforeOpeningControls = filters.length
+  await pressSearch()
+  assert.equal(filters.length, beforeOpeningControls + 1)
   let controls = Array.from(container.querySelectorAll("input, button")).filter(
     (control) => control.id !== "group-set-test-namespace",
   )
@@ -386,7 +449,8 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await flush()
   })
   assert.equal(filterInput.value, "typed-*")
-  assert.equal(cloneButton.disabled, true)
+  assert.match(container.textContent, /Press Search to list repositories/)
+  assert.doesNotMatch(container.textContent, /1 repository match/)
   await React.act(async () => {
     filterInput.dispatchEvent(
       new window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
@@ -417,6 +481,9 @@ it("retains listing rows and disables all clone-all controls during commands", {
     await controller.waitForIdle()
     await flush()
   })
+  assert.equal(filters.length, beforeInputEvents + 1)
+  assert.match(container.textContent, /Press Search to list repositories/)
+  await pressSearch()
   assert.equal(filters.length, beforeInputEvents + 2)
   assert.equal(archived.at(-1), true)
 
@@ -457,8 +524,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
   cloneButton = Array.from(container.querySelectorAll("button")).find(
     (button) => button.textContent?.startsWith("Clone 1 Repository"),
   )
-  assert.ok(cloneButton)
-  assert.equal(cloneButton.disabled, true)
+  assert.equal(cloneButton, undefined)
   await React.act(async () => {
     namespaceInput.dispatchEvent(
       new window.KeyboardEvent("keydown", {
@@ -475,6 +541,10 @@ it("retains listing rows and disables all clone-all controls during commands", {
   assert.equal(filters.length, beforeNamespaceEdit + 1)
   assert.equal(namespaces.at(-1), "new-org")
   assert.equal(filters.at(-1), "typed-*")
+  cloneButton = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.startsWith("Clone 1 Repository"),
+  )
+  assert.ok(cloneButton)
   assert.equal(cloneButton.disabled, false)
   controls = Array.from(container.querySelectorAll("input, button")).filter(
     (control) => control.id !== "group-set-test-namespace",
@@ -486,7 +556,7 @@ it("retains listing rows and disables all clone-all controls during commands", {
   assert.ok(controls.every((control) => !isDisabled(control)))
   const beforeClone = filters.length
   await React.act(async () => {
-    cloneButton.click()
+    cloneButton?.click()
     await flush()
   })
   assert.match(container.textContent, /Cloning/)

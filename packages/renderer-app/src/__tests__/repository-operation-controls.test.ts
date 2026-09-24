@@ -12,7 +12,6 @@ import {
   type CloneAllPublishedListingInput,
   type CloneAllSafeListingInput,
   cloneAllInputIsCurrent,
-  cloneAllListingIsReady,
   cloneAllListingReducer,
   cloneAllResultBelongsToCurrentCommand,
   createCloneAllListingQueryPolicy,
@@ -80,193 +79,44 @@ const listingResult: RepositoryListNamespaceResult = {
 }
 
 describe("clone-all listing requests", () => {
-  const context = {
-    connectionId: initialInput.connectionId,
-    namespace: initialInput.namespace,
-    credentials: firstCredentials,
-  }
   const listedState: CloneAllListingState = {
     filter: initialInput.filter,
     includeArchived: false,
     publishedInput: initialPublishedInput,
   }
 
-  it("publishes an initial listing with a credential-free query key", () => {
-    const state = cloneAllListingReducer(initialCloneAllListingState, {
-      type: "context",
-      ...context,
-    })
-    assert.equal(state.publishedInput?.admissionId.filter, "")
-    assert.equal(state.publishedInput?.admissionId.listingGeneration, 1)
+  it("starts with no published request", () => {
+    assert.equal(initialCloneAllListingState.publishedInput, null)
+  })
+
+  it("keeps filter and archived edits local until Search publishes its input", () => {
+    const draft = cloneAllListingReducer(
+      cloneAllListingReducer(listedState, {
+        type: "filter",
+        value: " lab-2* ",
+      }),
+      { type: "include-archived", value: true },
+    )
+    assert.equal(draft.filter, " lab-2* ")
+    assert.equal(draft.includeArchived, true)
+    assert.equal(draft.publishedInput, initialPublishedInput)
+    const input: CloneAllPublishedListingInput = {
+      admissionId: {
+        ...initialInput,
+        filter: "lab-2*",
+        includeArchived: true,
+        listingGeneration: 2,
+      },
+      credentials: secondCredentials,
+    }
+    const searched = cloneAllListingReducer(draft, { type: "search", input })
+    assert.equal(searched.publishedInput, input)
     assert.equal(
       JSON.stringify(
-        createCloneAllListingQueryPolicy(
-          cloneAllListingIsReady(state.publishedInput)
-            ? state.publishedInput.admissionId
-            : null,
-        ).queryKey,
+        createCloneAllListingQueryPolicy(input.admissionId).queryKey,
       ).includes("secret-token"),
       false,
     )
-  })
-
-  it("keeps typing local until a search request publishes the current filter", () => {
-    const draft = cloneAllListingReducer(listedState, {
-      type: "filter",
-      value: " lab-2* ",
-    })
-    assert.equal(draft.publishedInput, initialPublishedInput)
-    const submitted = cloneAllListingReducer(draft, {
-      type: "search",
-      ...context,
-    })
-    assert.equal(submitted.publishedInput?.admissionId.filter, "lab-2*")
-    assert.equal(submitted.publishedInput?.admissionId.listingGeneration, 2)
-    const repeated = cloneAllListingReducer(submitted, {
-      type: "search",
-      ...context,
-    })
-    assert.equal(repeated.publishedInput?.admissionId.listingGeneration, 3)
-  })
-
-  it("publishes archived changes with the current filter immediately", () => {
-    const draft = cloneAllListingReducer(listedState, {
-      type: "filter",
-      value: "lab-2*",
-    })
-    const state = cloneAllListingReducer(draft, {
-      type: "include-archived",
-      value: true,
-      ...context,
-    })
-    assert.equal(state.includeArchived, true)
-    assert.equal(state.publishedInput?.admissionId.includeArchived, true)
-    assert.equal(state.publishedInput?.admissionId.filter, "lab-2*")
-  })
-
-  it("waits for search after the active credentials change", () => {
-    const state = cloneAllListingReducer(listedState, {
-      type: "context",
-      ...context,
-      credentials: secondCredentials,
-    })
-    assert.equal(state, listedState)
-    assert.equal(
-      cloneAllInputIsCurrent({
-        input: initialInput,
-        credentials: secondCredentials,
-        publishedInput: initialPublishedInput,
-      }),
-      false,
-    )
-    const searched = cloneAllListingReducer(state, {
-      type: "search",
-      ...context,
-      credentials: secondCredentials,
-    })
-    assert.equal(searched.publishedInput?.admissionId.listingGeneration, 2)
-    assert.equal(searched.publishedInput?.credentials, secondCredentials)
-  })
-
-  it("keeps unfinished drafts unpublished when unrelated credentials change", () => {
-    const draft = cloneAllListingReducer(listedState, {
-      type: "filter",
-      value: "unfinished",
-    })
-    const credentials = {
-      ...firstCredentials,
-      gitConnections: [
-        ...firstCredentials.gitConnections,
-        { ...firstCredentials.gitConnections[0], id: "other-git" },
-      ],
-      lmsConnections: [
-        {
-          id: "lms",
-          name: "LMS",
-          provider: "canvas" as const,
-          baseUrl: "https://canvas.example.edu",
-          token: "example-token",
-        },
-      ],
-      llmConnections: [
-        {
-          id: "llm",
-          name: "Model",
-          provider: "codex" as const,
-          authMode: "api" as const,
-          apiKey: "example-key",
-        },
-      ],
-    }
-    assert.equal(
-      cloneAllListingReducer(draft, {
-        type: "context",
-        ...context,
-        credentials,
-      }),
-      draft,
-    )
-  })
-
-  it("keeps the request when a connection is removed or restored", () => {
-    const disabled = cloneAllListingReducer(listedState, {
-      type: "context",
-      ...context,
-      connectionId: null,
-    })
-    assert.equal(disabled, listedState)
-    const restored = cloneAllListingReducer(disabled, {
-      type: "context",
-      ...context,
-    })
-    assert.equal(restored, listedState)
-  })
-
-  it("waits for search when the first connection becomes available", () => {
-    const opened = cloneAllListingReducer(initialCloneAllListingState, {
-      type: "context",
-      ...context,
-      connectionId: null,
-      credentials: defaultAppCredentials,
-    })
-    assert.equal(cloneAllListingIsReady(opened.publishedInput), false)
-    assert.equal(
-      cloneAllListingReducer(opened, { type: "context", ...context }),
-      opened,
-    )
-    const searched = cloneAllListingReducer(opened, {
-      type: "search",
-      ...context,
-    })
-    assert.equal(cloneAllListingIsReady(searched.publishedInput), true)
-    assert.equal(searched.publishedInput?.credentials, firstCredentials)
-  })
-
-  it("waits for Enter when typing a namespace, including an initially empty one", () => {
-    for (const namespace of ["", context.namespace]) {
-      const opened = cloneAllListingReducer(initialCloneAllListingState, {
-        type: "context",
-        ...context,
-        namespace,
-      })
-      for (const draft of ["", "n", "ne", "new-org", namespace]) {
-        assert.equal(
-          cloneAllListingReducer(opened, {
-            type: "context",
-            ...context,
-            namespace: draft,
-          }),
-          opened,
-        )
-      }
-      const searched = cloneAllListingReducer(opened, {
-        type: "search",
-        ...context,
-        namespace: "new-org",
-      })
-      assert.equal(searched.publishedInput?.admissionId.namespace, "new-org")
-      assert.equal(cloneAllListingIsReady(searched.publishedInput), true)
-    }
   })
 })
 

@@ -41,23 +41,6 @@ export type CloneAllPublishedListingInput = {
   readonly credentials: PersistedAppCredentials
 }
 
-type CloneAllListingRequest = {
-  readonly admissionId: Omit<CloneAllListingAdmissionId, "connectionId"> & {
-    readonly connectionId: string | null
-  }
-  readonly credentials: PersistedAppCredentials
-}
-
-export function cloneAllListingIsReady(
-  request: CloneAllListingRequest | null,
-): request is CloneAllPublishedListingInput {
-  return (
-    request !== null &&
-    request.admissionId.connectionId !== null &&
-    request.admissionId.namespace.length > 0
-  )
-}
-
 export type CloneAllCommandVariables = {
   readonly listingAdmissionId: CloneAllListingAdmissionId
   readonly targetDirectory: string
@@ -120,22 +103,16 @@ export function executeCloneAllCommand(
   })
 }
 
-type CloneAllListingContext = {
-  readonly connectionId: string | null
-  readonly namespace: string
-  readonly credentials: PersistedAppCredentials
-}
-
 export type CloneAllListingState = {
   readonly filter: string
   readonly includeArchived: boolean
-  readonly publishedInput: CloneAllListingRequest | null
+  readonly publishedInput: CloneAllPublishedListingInput | null
 }
 
 type CloneAllListingEvent =
   | { type: "filter"; value: string }
-  | ({ type: "context" | "search" } & CloneAllListingContext)
-  | ({ type: "include-archived"; value: boolean } & CloneAllListingContext)
+  | { type: "include-archived"; value: boolean }
+  | { type: "search"; input: CloneAllPublishedListingInput }
 
 export const initialCloneAllListingState: CloneAllListingState = {
   filter: "",
@@ -148,33 +125,10 @@ export function cloneAllListingReducer(
   event: CloneAllListingEvent,
 ): CloneAllListingState {
   if (event.type === "filter") return { ...state, filter: event.value }
-  if (event.type === "context" && state.publishedInput !== null) {
-    // Only opening the panel requests a listing from context. Later text and
-    // connection changes wait for Enter, keeping Settings free of remote work.
-    return state
+  if (event.type === "include-archived") {
+    return { ...state, includeArchived: event.value }
   }
-  const includeArchived =
-    event.type === "include-archived" ? event.value : state.includeArchived
-  const input = {
-    connectionId: event.connectionId,
-    namespace: event.namespace,
-    filter: state.filter.trim(),
-    includeArchived,
-  }
-  return {
-    ...state,
-    includeArchived,
-    // Keep even incomplete requests, so typing the first namespace does not
-    // turn an earlier panel-open event into a new listing request.
-    publishedInput: {
-      admissionId: {
-        ...input,
-        listingGeneration:
-          (state.publishedInput?.admissionId.listingGeneration ?? 0) + 1,
-      },
-      credentials: event.credentials,
-    },
-  }
+  return { ...state, publishedInput: event.input }
 }
 
 export const cloneAllListingQueryKeys = {
