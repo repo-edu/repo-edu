@@ -240,7 +240,7 @@ export async function roundRun(
       vet: `${path("vet", "vet")}.md`,
       rebut: `${path("rebut", "rebut")}.md`,
       brief: `${path("brief", "brief")}.md`,
-      ruling: `${path("ruling", "rule")}.md`,
+      ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
     title: `Audit round of ${target.title}${round === undefined ? "" : ` (round ${round})`}`,

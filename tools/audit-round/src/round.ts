@@ -378,10 +378,26 @@ export async function runRound(
     ...phases.fix,
     ...context,
     arguments: [report, ...twins],
+    rulingFile: input.documents.ruling,
     sessionId: null,
   })
   if (fix.status === "failed") {
     return { ...fix, phase: "fix", ...phases.fix, ...context }
+  }
+
+  if (fix.status === "needs-ruling") {
+    try {
+      await dependencies.checkFile(input.documents.ruling)
+    } catch (error) {
+      return {
+        status: "failed",
+        phase: "fix",
+        sessionId: fix.sessionId,
+        ...phases.fix,
+        ...context,
+        reason: errorMessage(error),
+      }
+    }
   }
 
   if (fix.status === "finished") {
@@ -411,7 +427,7 @@ export async function runRound(
     }
   }
 
-  // The brief precedes a ruling, because the ruling is read from it.
+  // Complete the brief before handing the fix session back to the user.
   const brief = await runBrief(
     { ...context, transcript: input.transcript, brief: input.documents.brief },
     dependencies,
@@ -425,38 +441,6 @@ export async function runRound(
     }
     return { status: "finished", report, cleanAudit: false }
   }
-
-  // The ruling explains the open item and argues a choice, in a draft and then
-  // a rewrite by a session that did not write the draft.
-  const rule = await reportPhase(
-    () =>
-      dependencies.runPhase.rule({
-        phase: "rule",
-        ...phases.rule,
-        ...context,
-        arguments: [input.transcript, report, input.documents.ruling],
-        sessionId: null,
-      }),
-    input.documents.ruling,
-    dependencies,
-  )
-  if (rule.status === "failed")
-    return { ...rule, phase: "rule", ...phases.rule, ...context }
-
-  const edit = await reportPhase(
-    () =>
-      dependencies.runPhase["rule-edit"]({
-        phase: "rule-edit",
-        ...phases["rule-edit"],
-        ...context,
-        arguments: [input.documents.ruling, input.transcript, report],
-        sessionId: null,
-      }),
-    input.documents.ruling,
-    dependencies,
-  )
-  if (edit.status === "failed")
-    return { ...edit, phase: "rule-edit", ...phases["rule-edit"], ...context }
 
   const session: InteractiveSession = {
     ...phases.fix,

@@ -52,21 +52,22 @@ implementation-audit tool from this checkout root, ending with a plain-words bri
 the user when there are findings. A clean audit ends directly in the runner, which retains the
 report and lands the empty clean record for a plan target. A clean commit audit retains its report
 without a commit. Neither route runs vet, rebuttal, fix, brief, glance or watch. Existing handoffs
-stay untouched. A fix that stops for the user's ruling adds a ruling document, drafted and then
-rewritten in a fresh session, which the user rules from. A round with audit findings that finished
-ends with a glance at the commit record, which decides whether the trajectory watch is due; a due
-watch adds its document, drafted and rewritten the same way, and records its own grade so the next
-glance can count from it. The glance is the runner's own read of the log, not a session, and
-`--no-watch` skips it and the watch for every round of the run. `--auditor` takes a comma-separated
-list in round order on the scope the user named. A clean audit removes all later entries for that
-assistant, regardless of model or effort; a clean fix record does not. Failure or a ruling handover
-stops the sequence. The list sets the maximum number of rounds and each entry has independent
-settings. Quote lists containing spaces. Each entry takes `claude` or `codex` to inherit that CLI's
-current model and effort for audit and rebuttal, bypassing the runner's audit pins. It also takes
-the capability tag a commit subject spells: `a` or `o` for the assistant, then an optional `b` or
-`t` for the model tier and an optional `l`, `m`, `h` or `x` for the reasoning effort. A named field
-binds the auditor and its rebuttal, because the rebuttal resumes the audit session. Other fields
-follow [the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
+stay untouched. A fix that stops for the user's ruling writes the final ruling in its own session
+and checks it for clarity. The runner completes the brief before handing the fix session back to the
+user. A round with audit findings that finished ends with a glance at the commit record, which
+decides whether the trajectory watch is due; a due watch adds its document, drafted and rewritten in
+separate sessions, and records its own grade so the next glance can count from it. The glance is the
+runner's own read of the log, not a session, and `--no-watch` skips it and the watch for every round
+of the run. `--auditor` takes a comma-separated list in round order on the scope the user named. A
+clean audit removes all later entries for that assistant, regardless of model or effort; a clean fix
+record does not. Failure or a ruling handover stops the sequence. The list sets the maximum number
+of rounds and each entry has independent settings. Quote lists containing spaces. Each entry takes
+`claude` or `codex` to inherit that CLI's current model and effort for audit and rebuttal, bypassing
+the runner's audit pins. It also takes the capability tag a commit subject spells: `a` or `o` for
+the assistant, then an optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x`
+for the reasoning effort. A named field binds the auditor and its rebuttal, because the rebuttal
+resumes the audit session. Other fields follow
+[the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
 assistant CLI's own setting. That file also owns the default auditor, model tier mappings and
 document assistants. The run's settings header names what set each phase.
 `pnpm audit-round brief <target-round-0-round.tag.md>` writes that brief for an earlier round. The
@@ -464,7 +465,7 @@ vet: claude-opus-5 xhigh
 ```
 
 The phases listed are the four that carry out a round: audit, vet, rebut and
-fix. The brief, the two ruling passes and the watch write documents rather than
+fix. The brief and watch phases write documents rather than
 landing work, so they stay out. Phases keep round order inside a line, lines
 keep the order of their first phase, and two phases share a line when their
 model and their effort both match.

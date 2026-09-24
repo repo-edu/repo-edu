@@ -34,16 +34,16 @@ local substitutions: that repo's report root and finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
 audits still belong to the plan repo's own audit workflow. The runner selects
 that workflow when invoked from the plan root with an artifact alone. Its
-sessions and round files belong to the invoking root. Shared brief and ruling
-launchers stay in Repo Edu and write beside the supplied transcript at either
-root; their launcher location never changes the session's working directory.
+sessions and round files belong to the invoking root. The shared brief launcher
+stays in Repo Edu and writes beside the supplied transcript at either root.
+Its launcher location never changes the session's working directory.
 
 The round ends at its report file. The auditor answers a vet through the rebuttal workflow at
 `.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
 corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
-rules from is written by `.agents/skills/rule/references/workflow.md`. The fix starts in a fresh
-session from the report file. See [Fix guard](#fix-guard).
+rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix
+starts in a fresh session from the report file. See [Fix guard](#fix-guard).
 
 Before any audit work, read the named file for the plan-repo artifacts this
 workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
@@ -75,7 +75,7 @@ tier from both repositories' commit logs.
 | Status | Meaning | Runner action |
 | --- | --- | --- |
 | `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the watch. |
-| `needs-ruling` | The fix phase presented an open item for the user. | Run the brief, then the two ruling passes, then open that fix session interactively. No watch follows. |
+| `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check the ruling file, run the brief and open that fix session interactively. No watch follows. |
 | `failed` | The phase could not complete its required work. | Show the reason and stop. |
 
 Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`; the
@@ -99,10 +99,10 @@ rebuttal does not run, so the fix reads the report with its vet twin alone.
 Launcher ownership is defined by the phase table in
 `tools/audit-round/src/phase.ts`, independently of report placement.
 All round files live at the invoking root. The brief receives the transcript
-and its output path. The ruling receives the transcript, report and its output
-path; its second pass receives the draft, transcript and report. Ruling passes
-run under `.agents/skills/rule/references/workflow.md` only after a fix
-returned `needs-ruling`.
+and its output path. The fix receives the ruling output path separately from
+its report arguments. It writes the final ruling and checks it for clarity
+before returning `needs-ruling`. The runner checks that file and completes the
+brief before handing the fix session back to the user. No separate ruling session runs.
 
 The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the

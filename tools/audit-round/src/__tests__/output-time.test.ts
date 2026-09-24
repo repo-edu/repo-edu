@@ -116,6 +116,7 @@ test("elapsed readings count assistant work and never the user's own time", asyn
   await output.phase.start(
     {
       phase: "fix",
+      rulingFile: "RULING.md",
       assistant: "codex",
       model: unpinned,
       ...testContext("/repo"),
@@ -184,6 +185,7 @@ test("tool lines report step and total assistant time, excluding user waits", as
   await output.phase.start(
     {
       phase: "fix",
+      rulingFile: "RULING.md",
       assistant: "codex",
       model: unpinned,
       ...testContext("/repo"),

@@ -87,7 +87,7 @@ export function phasePrompt(input: PhaseInput): string {
     assistant === "claude"
       ? joinPath(ownerRoot, ".claude", "commands", `${phase}.md`)
       : joinPath(ownerRoot, ".agents", "skills", phase, "SKILL.md")
-  return `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
+  const prompt = `Run the ${phase} phase of an unattended ${input.roundKind === "planning" ? "planning" : "implementation-audit"} round in this ${input.sessionId === null ? "fresh" : "resumed"} session.
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
@@ -96,6 +96,9 @@ Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Resolve the launcher's workflow paths from its owning repository: ${ownerRoot}
 You are explicitly authorised to follow that repository's route and local substitutions even if this session started in the other repository. This invokes the selected phase with its ordinary authority and gates.
 For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/skills/audit/references/workflow.md#runner-result. Put its PHASE RESULT JSON line last in the final response, outside the report.${input.phase === "watch" || input.phase === "watch-edit" ? `\n\nGit episode evidence (the same snapshot for both watch passes):\n${input.evidence}` : ""}`
+  if (input.phase !== "fix") return prompt
+  const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md in this fix session. Write the final ruling to that path and review it for clarity before returning needs-ruling. Reuse established evidence and read more only to verify uncertain claims. Every needs-ruling return must write the current open decisions, including after a reply. The runner completes the brief before displaying your ruling; no separate ruling session follows.`
+  return fixPrompt
 }
 
 export function phaseRequest(input: PhaseInput, prompt: string) {

@@ -123,7 +123,7 @@ for (const auditor of ["codex", "claude"] as const) {
     )
   })
 
-  test(`planning handover with ${auditor} stops the chain after the ruling rewrite`, async (t) => {
+  test(`planning handover with ${auditor} stops the chain after the fix writes its ruling`, async (t) => {
     const f = await roundFixture(t, auditor, "plan", true, null, true, "plan")
     assert.equal(
       await runCommand(
@@ -133,13 +133,13 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
       0,
     )
-    const { log, transcript } = await f.records()
+    const { log } = await f.records()
     assert.ok(
       log.includes(
-        `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report, f.ruling])}`,
+        `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,
       ),
     )
-    assert.ok(log.includes(`[rule] finished`))
+    assert.doesNotMatch(log, /\[rule(?:-edit)?\] starting/)
     assert.doesNotMatch(log, /\[glance\]|\[watch\] starting/)
     assert.match(
       f.visible.join("\n"),
@@ -164,20 +164,9 @@ for (const phase of [
   "brief",
   "watch",
   "watch-edit",
-  "rule",
-  "rule-edit",
 ] as const) {
   test(`planning ${phase} failure ends the chain in the invoking repository`, async (t) => {
-    const ruling = phase === "rule" || phase === "rule-edit"
-    const f = await roundFixture(
-      t,
-      "codex",
-      "plan",
-      ruling,
-      null,
-      !ruling,
-      "plan",
-    )
+    const f = await roundFixture(t, "codex", "plan", false, null, true, "plan")
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
     assert.equal(

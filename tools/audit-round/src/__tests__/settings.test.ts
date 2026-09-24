@@ -124,8 +124,6 @@ test("assistant names bypass audit pins while letter tags retain them across cha
         "vet",
         "fix",
         "brief",
-        "rule",
-        "rule-edit",
         "watch",
         "watch-edit",
       ] as const)
@@ -173,7 +171,7 @@ test("settings reject unsupported effort, misspelt fields and independent rebutt
 })
 
 test("every configurable document assistant has an installed launcher", async () => {
-  for (const phase of ["brief", "rule", "rule-edit", "watch", "watch-edit"]) {
+  for (const phase of ["brief", "watch", "watch-edit"]) {
     await access(join(installationRoot, ".agents/skills", phase, "SKILL.md"))
     await access(join(installationRoot, ".claude/commands", `${phase}.md`))
   }

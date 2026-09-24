@@ -6,49 +6,47 @@ consumers.
 
 ## Ownership
 
-- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the two ruling passes a
-  fix's open item adds, the watch that follows a finished planning or plan-scoped implementation
-  round. It retains the audit session and report as local values. Audit, vet, fix
-  and brief start fresh. A clean audit completes directly through `clean.ts` without any later
-  phase, glance or watch. The coordinator reads the report through `report.ts` to decide whether it
-  is clean. A vet that accepted every finding without a condition skips the rebuttal the same way,
-  because the auditor has nothing to answer; the fix then reads the report with its vet twin alone.
-  The coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
+- `round.ts` owns the fixed audit, vet, rebuttal, fix and brief sequence, the ruling a fix writes
+  for its open items, the watch that follows a finished planning or plan-scoped implementation
+  round. It retains the audit session and report as local values. Audit, vet, fix and brief start
+  fresh. A clean audit completes directly through `clean.ts` without any later phase, glance or
+  watch. The coordinator reads the report through `report.ts` to decide whether it is clean. A vet
+  that accepted every finding without a condition skips the rebuttal the same way, because the
+  auditor has nothing to answer; the fix then reads the report with its vet twin alone. The
+  coordinator reads the twin through `vet.ts` to decide whether every finding was accepted
   unconditionally. Rebuttal resumes the audit session only when that session's last measurement
   leaves room for a rebuttal before the assistant summarises itself in place. A measured shortfall
   starts the rebuttal fresh, because a summarised session holds a summary where the evidence was. An
   assistant that reports no window reports no shortfall and keeps the resume. `round.ts` owns that
   rule, the compaction share it compares against and the rebuttal's reserve. The settings file
   selects the default auditor and the assistants that write documents. Codex always fixes. The brief
-  follows the fix on either outcome and precedes the ruling, because the ruling starts from what the
-  brief retells; its input is the round transcript, never the report, and its launcher always
-  belongs to the Repo Edu root. `runBrief` runs that one phase on its own over an earlier
-  transcript. Only a fix needing a ruling runs `rule` and `rule-edit` and then opens an interactive
-  session, using that fix's session identity. `rule` drafts the ruling and `rule-edit` rewrites that
-  draft in a fresh session, so the document the user rules from is read once by a session that did
-  not write it. `runWatch` owns the watch that follows a round: the glance decides from the commit
-  record and the watch's own history whether a watch is due, and only a due glance runs `watch` and
-  `watch-edit` over that draft. The audited plan's stem comes from `planStem`
-  and selects both the glance record and joined watch evidence. Only a due
-  glance computes and formats that evidence, once after the fix. Both watch
-  prompts receive the same snapshot separately from their file arguments.
-  The glance is a dependency the runner supplies from `glance.ts`, not
-  a phase, so a not-due round starts no session for it. Each edit pass is named after the document
-  it rewrites and its launcher knows that document's workflow, so it takes only the draft and the
-  sources the workflow grounds it in. Both edit passes have their own model and effort in
-  `settings.json`, beside the brief's settings. The watch runs only after a plan round with audit
-  findings that finished, because a round that handed over has not proved its work landed; nothing
-  is lost, since the glance counts correction commits and not rounds. A round given no watch target,
-  which is what `--no-watch` does, consults no glance at all. The watch reads the commit record and
-  never the round, so `runWatch` passes it no transcript and no report. A finished round reports
-  whether its audit had no findings, independently of any clean record the fix lands. The command
-  runner uses that result to skip later auditor entries for the same assistant. The round records
-  both repositories' HEADs before the fix and validates every landed subject under its repository's
-  grammar. A plan target fails when
-  a finished fix landed no commit. A commit target may land nothing. Reader failures retain the
-  owning phase and its session for recovery. As soon as a fix returns `finished`,
-  the coordinator closes the report set through its dependency, before reading
-  landed subjects or running the brief. Other outcomes retain the set.
+  follows the fix on either outcome and completes before the interactive fix opens. Its input is the
+  round transcript, never the report, and its launcher always belongs to the Repo Edu root.
+  `runBrief` runs that one phase on its own over an earlier transcript. The fix receives a ruling
+  output path separately from its report arguments. It writes the final ruling and checks it for
+  clarity before returning `needs-ruling`. The runner checks that file before running the brief and
+  opening the same fix session interactively. A missing or empty ruling fails the fix with its
+  recovery session. The fix reuses established evidence and verifies only uncertain claims. It keeps
+  the explanation proportional to the choice. No separate ruling phases run. `runWatch` owns the
+  watch that follows a round: the glance decides from the commit record and the watch's own history
+  whether a watch is due. Only a due glance runs `watch` and `watch-edit` over that draft. The
+  audited plan's stem comes from `planStem` and selects both the glance record and joined watch
+  evidence. Only a due glance computes and formats that evidence, once after the fix. Both watch
+  prompts receive the same snapshot separately from their file arguments. The glance is a dependency
+  the runner supplies from `glance.ts`, not a phase, so a not-due round starts no session for it.
+  Both watch passes have their own model and effort in `settings.json`, beside the brief's settings.
+  The watch runs only after a plan round with audit findings that finished, because a round that
+  handed over has not proved its work landed; nothing is lost, since the glance counts correction
+  commits and not rounds. A round given no watch target, which is what `--no-watch` does, consults
+  no glance at all. The watch reads the commit record and never the round, so `runWatch` passes it
+  no transcript and no report. A finished round reports whether its audit had no findings,
+  independently of any clean record the fix lands. The command runner uses that result to skip later
+  auditor entries for the same assistant. The round records both repositories' HEADs before the fix
+  and validates every landed subject under its repository's grammar. A plan target fails when a
+  finished fix landed no commit. A commit target may land nothing. Reader failures retain the owning
+  phase and its session for recovery. As soon as a fix returns `finished`, the coordinator closes
+  the report set through its dependency, before reading landed subjects or running the brief. Other
+  outcomes retain the set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or at the
   invoking root when both repos were judged, using the report's judged-repos
@@ -83,8 +81,8 @@ consumers.
   field carries what named it, so the report never guesses, and either CLI accepts one. It also
   defines the private inputs and results for assistant invocations, and the launcher-root table, and
   owns which phases' texts enter the round transcript: only audit, vet, rebuttal and fix. The brief,
-  the two ruling passes and the watch are the transcript's twins, written in their own files; all
-  four run once the transcript already holds the round. Assistant boundaries own processes, stream
+  ruling and watch are separate documents. The fix writes the ruling; the brief and watch
+  run once the transcript holds the round. Assistant boundaries own processes, stream
   validation, session observations and phase output. They return only after accounting for the
   process, streams and required record writes. A failure retains the known session identity,
   including a resumed session whose new invocation reported no identity.

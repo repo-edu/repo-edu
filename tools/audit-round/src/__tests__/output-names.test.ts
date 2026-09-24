@@ -31,7 +31,7 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     "abcdef..123abc-01-2-vet.abx.md",
     "abcdef..123abc-01-3-rebut.oth.md",
     "abcdef..123abc-01-5-brief.oul.md",
-    "abcdef..123abc-01-6-ruling.abx.md",
+    "abcdef..123abc-01-6-ruling.oth.md",
     "abcdef..123abc-01-8-watch.oth.md",
   ])
   assert.equal(run.paths.log, run.paths.markdown.replace(/\.md$/, ".log"))
@@ -90,7 +90,7 @@ test("every retained round kind at either root reserves its number across audito
       "3-rebut.abx.md",
       "5-brief.oul.md",
       "5-brief.oul.log",
-      "6-ruling.abx.md",
+      "6-ruling.oth.md",
       "8-watch.abx.md",
     ]) {
       const path = join(root, `example-all-09-${suffix}`)
@@ -252,20 +252,6 @@ test("unspellable phase efforts fail before any claim or output is created", asy
       { ...selections, codex: { model: "gpt-6-astra", effort: null } },
     ),
     /codex fix.*CLI settings/,
-  )
-  // Claude's ruling follows its settings even when its audit has an override.
-  await assert.rejects(
-    roundRun(
-      {
-        ...testContext(f.root),
-        plan: "example.md",
-        auditor: "claude",
-        override: { strength: "top", effort: "high" },
-      },
-      0,
-      { ...selections, claude: { model: "claude-fable-5", effort: null } },
-    ),
-    /claude rule.*CLI settings/,
   )
   assert.deepEqual(await readdir(f.root), before)
 })

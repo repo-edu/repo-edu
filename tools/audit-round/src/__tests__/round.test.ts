@@ -40,7 +40,7 @@ const briefPin: PinnedModel = {
   model: { value: "gpt-5.6-terra", source: "settings.json" },
   effort: { value: "low", source: "settings.json" },
 }
-/** Both edit passes name Codex's base tier, whoever audited. */
+/** The watch edit names Codex's base tier, whoever audited. */
 const editPin: PinnedModel = {
   model: { value: "gpt-5.6-sol", source: "settings.json" },
   effort: { value: "medium", source: "settings.json" },
@@ -66,14 +66,14 @@ const files = {
   },
 }
 const phases = ["audit", "vet", "rebut", "fix", "brief"] as const
-/** Every phase in order, including the two the fix's open item adds. */
-const rulingPhases = [...phases, "rule", "rule-edit"] as const
+/** An open decision needs no assistant phase after the brief. */
+const rulingPhases = phases
 /** Every phase in order when the round finishes and the glance calls a watch due. */
 const watchPhases = [...phases, "watch", "watch-edit"] as const
 
 /**
  * The two ways a round runs past its brief: the fix leaves an open item and the
- * ruling passes follow it, or the round finishes and the glance calls a watch
+ * runner displays its ruling, or the round finishes and the glance calls a watch
  * due. Each is walked by the failure, rejection and settling tests.
  */
 const endings: readonly (readonly [
@@ -118,16 +118,6 @@ function controlledRound(
     brief: {
       status: "finished",
       sessionId: "brief-session",
-      context: null,
-    },
-    rule: {
-      status: "finished",
-      sessionId: "rule-session",
-      context: null,
-    },
-    "rule-edit": {
-      status: "finished",
-      sessionId: "rule-edit-session",
       context: null,
     },
     "watch-edit": {
@@ -191,14 +181,6 @@ function controlledRound(
       async brief(input) {
         await record(input)
         return results.brief
-      },
-      async rule(input) {
-        await record(input)
-        return results.rule
-      },
-      async "rule-edit"(input) {
-        await record(input)
-        return results["rule-edit"]
       },
       async "watch-edit"(input) {
         await record(input)
@@ -419,7 +401,7 @@ function runner(
 ): Assistant {
   if (phase === "audit" || phase === "rebut") return auditor
   if (phase === "vet") return vetAssistant
-  return phase === "rule" ? "claude" : "codex"
+  return "codex"
 }
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -476,6 +458,7 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "fix",
+          rulingFile: ruling,
           assistant: "codex",
           model: unpinned,
           ...testContext(repoRoot),
@@ -517,7 +500,6 @@ for (const auditor of ["claude", "codex"] as const) {
   }
 
   test(`Codex opens the fresh fix session after the ruling is written with ${auditor} auditing`, async () => {
-    const report = `${repoRoot}/AUDIT-example.md`
     const round = controlledRound()
     round.results.fix = {
       status: "needs-ruling",
@@ -540,25 +522,7 @@ for (const auditor of ["claude", "codex"] as const) {
       rulingPhases,
     )
     assert.equal(round.calls[3].sessionId, null)
-    // Claude drafts the ruling and a fresh Claude session rewrites that draft.
-    assert.deepEqual(round.calls.slice(5), [
-      {
-        phase: "rule",
-        assistant: "claude",
-        model: unpinned,
-        ...testContext(repoRoot),
-        arguments: [transcript, report, ruling],
-        sessionId: null,
-      },
-      {
-        phase: "rule-edit",
-        assistant: "codex",
-        model: editPin,
-        ...testContext(repoRoot),
-        arguments: [ruling, transcript, report],
-        sessionId: null,
-      },
-    ])
+    assert.ok(phasePrompt(round.calls[3]).includes(JSON.stringify(ruling)))
     assert.deepEqual(round.handover, [
       { operation: "prepare", session },
       { operation: "open", session },
@@ -599,7 +563,7 @@ for (const auditor of ["claude", "codex"] as const) {
           model:
             phase === "brief"
               ? briefPin
-              : phase === "rule-edit" || phase === "watch-edit"
+              : phase === "watch-edit"
                 ? editPin
                 : unpinned,
           ...testContext(repoRoot),
@@ -973,6 +937,7 @@ for (const auditor of ["claude", "codex"] as const) {
     )
     assert.deepEqual(round.calls[2], {
       phase: "fix",
+      rulingFile: ruling,
       assistant: "codex",
       model: unpinned,
       ...testContext(repoRoot),
@@ -1000,7 +965,7 @@ test("an unreported window keeps the resume, and a measured shortfall does not",
   )
 })
 
-test("a failed brief stops the round before the ruling is written", async () => {
+test("a failed brief stops the round before the ruling is displayed", async () => {
   const round = controlledRound()
   round.results.fix = {
     status: "needs-ruling",
@@ -1031,6 +996,35 @@ test("a failed brief stops the round before the ruling is written", async () => 
     ...testContext(repoRoot),
     reason: "The transcript could not be read",
   })
+})
+
+test("a missing ruling fails the fix before the brief or user input", async () => {
+  const round = controlledRound()
+  arrange(round, "ruling")
+  const result = await runRound(
+    { ...files, plan: "example.md" },
+    {
+      ...round.dependencies,
+      async checkFile(file) {
+        if (file === ruling) throw new Error("Missing ruling")
+      },
+    },
+  )
+  assert.deepEqual(result, {
+    status: "failed",
+    phase: "fix",
+    sessionId: "fix-session",
+    assistant: "codex",
+    model: unpinned,
+    ...testContext(repoRoot),
+    reason: "Missing ruling",
+  })
+  assert.deepEqual(
+    round.calls.map((call) => call.phase),
+    ["audit", "vet", "rebut", "fix"],
+  )
+  assert.deepEqual(round.handover, [])
+  assert.deepEqual(round.closed, [])
 })
 
 test("a brief on its own runs only the brief phase over the named transcript", async () => {

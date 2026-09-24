@@ -139,26 +139,16 @@ export async function roundFixture(
     "rebut",
     "fix",
     "brief",
-    "rule",
-    "rule-edit",
     "watch",
     "watch-edit",
   ] as const) {
-    const assistant = [
-      "fix",
-      "brief",
-      "rule-edit",
-      "watch",
-      "watch-edit",
-    ].includes(phase)
+    const assistant = ["fix", "brief", "watch", "watch-edit"].includes(phase)
       ? "codex"
-      : phase === "rule"
-        ? "claude"
-        : phase === "vet"
-          ? auditor === "codex"
-            ? "claude"
-            : "codex"
-          : auditor
+      : phase === "vet"
+        ? auditor === "codex"
+          ? "claude"
+          : "codex"
+        : auditor
     const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
@@ -169,7 +159,9 @@ export async function roundFixture(
           : phase === "vet"
             ? { source: join(f.root, owner, "VET-example.md") }
             : phase === "fix"
-              ? undefined
+              ? ruling
+                ? { text: "Written ruling by fix" }
+                : undefined
               : { text: `Written ${phase}` },
       commits:
         phase === "fix" && !ruling
@@ -247,6 +239,10 @@ export async function roundFixture(
         .sort()
         .reverse()) {
         const log = readFileSync(join(root, name), "utf8")
+        if (kind === "ruling") {
+          const match = /^Ruling output path \(JSON string\): (.+)$/m.exec(log)
+          if (match !== null) return JSON.parse(match[1]) as string
+        }
         for (const match of log.matchAll(
           /^Phase arguments \(JSON array\): (.+)$/gm,
         )) {

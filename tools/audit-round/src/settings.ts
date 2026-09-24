@@ -20,8 +20,6 @@ export const settingsSchema = z.strictObject({
     vet: alternatingPhase,
     fix: selection,
     brief: documentPhase,
-    rule: documentPhase,
-    "rule-edit": documentPhase,
     watch: documentPhase,
     "watch-edit": documentPhase,
   }),

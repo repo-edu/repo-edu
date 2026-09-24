@@ -68,7 +68,13 @@ test("commit stamps retain each phase's reported selection across later phases",
                 phase,
                 arguments: ["/report.md", "/vet.md", "/rebut.md"] as const,
               }
-            : { phase, arguments: ["/report.md", "/output.md"] as const }),
+            : phase === "fix"
+              ? {
+                  phase,
+                  arguments: ["/report.md"] as const,
+                  rulingFile: "/ruling.md",
+                }
+              : { phase, arguments: ["/report.md", "/output.md"] as const }),
 
         sessionId: null,
       },
@@ -457,6 +463,7 @@ test("Claude measurements omit percentages when the window is unknown", async (t
   await output.phase.start(
     {
       phase: "fix",
+      rulingFile: "/ruling.md",
       assistant: "claude",
       model: unpinned,
       ...testContext(f.root),

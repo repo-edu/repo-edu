@@ -173,7 +173,7 @@ await appendFile(
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
 if (scenario.phases !== undefined) {
   const phase =
-    /^Run the (audit|vet|rebut|fix|brief|rule|rule-edit|watch|watch-edit) phase /.exec(
+    /^Run the (audit|vet|rebut|fix|brief|watch|watch-edit) phase /.exec(
       prompt ?? "",
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
@@ -187,17 +187,25 @@ if (scenario.phases !== undefined) {
       vet: 1,
       rebut: 2,
       brief: 1,
-      rule: 2,
-      "rule-edit": 0,
       watch: 0,
       "watch-edit": 0,
     }[phase]
-    if (outputIndex !== undefined) {
+    const output =
+      phase === "fix"
+        ? JSON.parse(
+            /^Ruling output path \(JSON string\): (.+)$/m.exec(
+              prompt ?? "",
+            )?.[1] ?? "null",
+          )
+        : outputIndex === undefined
+          ? null
+          : phaseArguments[outputIndex]
+    if (output !== null) {
       const text =
         selected.document.source === undefined
           ? selected.document.text
           : await readFile(selected.document.source, "utf8")
-      await writeFile(phaseArguments[outputIndex], text)
+      await writeFile(output, text)
     }
   }
   // A chained round changes who audits, so a phase may answer as either CLI.

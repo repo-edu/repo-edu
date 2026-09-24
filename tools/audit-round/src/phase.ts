@@ -19,8 +19,6 @@ export type Phase =
   | "rebut"
   | "fix"
   | "brief"
-  | "rule"
-  | "rule-edit"
   | "watch"
   | "watch-edit"
 
@@ -31,8 +29,6 @@ const launcherRoots: Record<Phase, "cwd" | "repoEduRoot"> = {
   rebut: "cwd",
   fix: "cwd",
   brief: "repoEduRoot",
-  rule: "repoEduRoot",
-  "rule-edit": "repoEduRoot",
   watch: "repoEduRoot",
   "watch-edit": "repoEduRoot",
 }
@@ -228,8 +224,6 @@ export function roundPhases(
     rebut: run("rebut", auditor),
     fix: run("fix", "codex"),
     brief: run("brief", config.phases.brief.assistant),
-    rule: run("rule", config.phases.rule.assistant),
-    "rule-edit": run("rule-edit", config.phases["rule-edit"].assistant),
     // The watch reads the commit record, never the round, so the auditor does not select it.
     watch: run("watch", config.phases.watch.assistant),
     "watch-edit": run("watch-edit", config.phases["watch-edit"].assistant),
@@ -239,8 +233,8 @@ export function roundPhases(
 /**
  * Whether a phase's texts belong in the round transcript. Only the four phases
  * that carry out the round write into it. The brief, the ruling and the watch
- * are its twins, written for the user in their own files. All four run once
- * the transcript holds the round, so none of them may add to it.
+ * are separate documents. The fix writes the ruling; the brief and watch
+ * run afterwards without adding their text to the transcript.
  */
 export function transcribed(phase: Phase): boolean {
   return (
@@ -267,27 +261,11 @@ type PhaseArguments = {
   }
   fix: {
     readonly arguments: readonly [report: string, ...twins: string[]]
+    readonly rulingFile: string
     readonly sessionId: null
   }
   brief: {
     readonly arguments: readonly [transcript: string, brief: string]
-    readonly sessionId: null
-  }
-  rule: {
-    readonly arguments: readonly [
-      transcript: string,
-      report: string,
-      ruling: string,
-    ]
-    readonly sessionId: null
-  }
-  /** The second pass over the ruling: the draft and the sources the ruling workflow grounds it in. */
-  "rule-edit": {
-    readonly arguments: readonly [
-      ruling: string,
-      transcript: string,
-      report: string,
-    ]
     readonly sessionId: null
   }
   watch: {
@@ -344,8 +322,6 @@ type PhaseResults = {
   rebut: ReportResult
   fix: FixResult
   brief: ReportResult
-  rule: ReportResult
-  "rule-edit": ReportResult
   watch: ReportResult
   "watch-edit": ReportResult
 }

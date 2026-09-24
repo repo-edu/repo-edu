@@ -196,6 +196,7 @@ export async function recordContracts(
         const result = await runAssistantInvocation(
           {
             phase: "fix",
+            rulingFile: join(scratch, "ruling.md"),
             assistant,
             // The probe records a CLI contract, so it names no model of its own.
             model: unpinned,

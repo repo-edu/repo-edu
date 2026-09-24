@@ -27,9 +27,10 @@ context usage and compacted during implementation. Starting fresh gives the
 fix its own context and removes the capacity judgement and restart path.
 
 When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. The runner starts one fresh fix session in Codex.
-When the fix needs a ruling, the runner opens that fix session interactively.
+[Runner result](../../audit/references/workflow.md#runner-result) for every ending. The runner
+starts one fresh fix session in Codex. When the fix needs a ruling, it writes the final document in
+this session under [Writing a ruling](ruling.md). The runner completes the brief and opens that fix
+session interactively.
 
 This procedure also serves the fix phase of rounds whose report is stored at
 the plan repo root. The plan repo's fix workflow routes those here and
@@ -120,10 +121,10 @@ open choice awaiting the user's ruling is not an open item here. Its outcome lan
 deferral above or a later plan round, never through this session, so it holds no settled correction
 back. Keep it open in the deferral and apply the settled findings.
 
-In an unattended phase, present any open items and return `needs-ruling` instead of waiting for
-input. The ruling workflow at `.agents/skills/rule/references/workflow.md` then writes the document
-the user rules from, so present each open item with what it costs, what it buys and your
-recommendation; that presentation is the ruling's starting evidence. This also applies when a rule
+In an unattended phase, write the final ruling under [Writing a ruling](ruling.md)
+at the runner's supplied output path before returning `needs-ruling`. Review it for clarity
+in this session. Reuse established evidence and verify only claims that remain uncertain.
+Keep the explanation proportional to the choice. This also applies when a rule
 in the repo's `CLAUDE.md` stops a correction for a ruling. A permission refusal or another error
 that leaves required work blocked returns `failed`, not `needs-ruling`, under the shared result
 rule.

@@ -93,8 +93,6 @@ these absolute paths in order:
 - rebut: report and vet twin to read, rebuttal twin to write
 - fix: report, then the vet and rebuttal twins that exist
 - brief: transcript to read, brief to write
-- rule: transcript and report to read, ruling to write
-- rule-edit: ruling to replace, transcript and report to read
 - watch: watch to write, cache root
 - watch-edit: watch to replace
 
@@ -102,7 +100,11 @@ Sessions write at the supplied output path without reconstructing a name or
 adding an opening writer tag. A standalone brief reuses the transcript's target
 and round. Its document and log share `5-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
-`0-round.<tag>`. The second ruling or watch pass replaces the supplied draft.
+`0-round.<tag>`. The second watch pass replaces the supplied draft.
+
+The fix receives the ruling output path separately from its report arguments.
+It writes the final ruling at that path before returning `needs-ruling`, using
+the fix writer's tag. A resumed fix receives the same path and the user's reply.
 
 A hand-run audit runs `pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>`
 before auditing. It passes its own resolved three-letter tag, including `u` for

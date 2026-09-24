@@ -21,6 +21,7 @@ import {
 
 const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
   phase: "fix",
+  rulingFile: "RULING.md",
   assistant,
   model: unpinned,
   ...testContext(cwd),

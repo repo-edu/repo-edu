@@ -141,7 +141,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${target}-10-2-vet.${tag[0] === "a" ? "ouh" : "auh"}.md`,
           `${target}-10-3-rebut.${tag}.md`,
           `${target}-10-5-brief.oul.md`,
-          `${target}-10-6-ruling.auh.md`,
+          `${target}-10-6-ruling.ouh.md`,
           `${target}-10-8-watch.ouh.md`,
         ].map((name) => join(root, name)),
       )
@@ -250,7 +250,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       `${target}-0-round.oux.log`,
       `${target}-5-brief.obm.md`,
       `${target}-5-brief.obm.log`,
-      `${target}-6-ruling.ath.md`,
+      `${target}-6-ruling.oth.md`,
       `${target}-8-watch.oth.md`,
       `${target}-2-audit.oux.md`,
       `${target}-1-audit.md`,
@@ -359,10 +359,6 @@ for (const auditor of ["claude", "codex"] as const) {
             auditor,
             "codex",
             "codex",
-            // A requested ruling adds Claude's draft and Codex's fresh rewrite.
-            // A round that finished glances at the record in the runner
-            // instead, and the record here leaves no watch due.
-            ...(ruling ? (["claude", "codex"] as const) : []),
           ],
         )
         assert.equal(
@@ -469,40 +465,21 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.equal(visible.includes("audit-round-probe-error"), false)
         assert.equal(log.includes("\u001b"), false)
         if (ruling) {
-          // The brief and the ruling land before the fix session opens, because
-          // the user rules from them.
-          assert.equal(calls.at(-2).assistant, "codex")
           assert.deepEqual(calls.at(-1).args, [
             "resume",
             "--approve-for-me",
             "fix-session",
           ])
-          assert.ok(log.includes(join(repoRoot, ".claude/commands/rule.md")))
-          assert.ok(
-            log.includes(join(repoRoot, ".agents/skills/rule-edit/SKILL.md")),
-          )
           assert.ok(
             log.includes(
-              `Phase arguments (JSON array): ${JSON.stringify([transcript, f.report, f.ruling])}`,
+              `Ruling output path (JSON string): ${JSON.stringify(f.ruling)}`,
             ),
           )
-          // The edit pass is given the draft and the sources the ruling grounds in.
-          assert.ok(
-            log.includes(
-              `Phase arguments (JSON array): ${JSON.stringify([
-                f.ruling,
-                transcript,
-                f.report,
-              ])}`,
-            ),
+          assert.doesNotMatch(log, /\[rule(?:-edit)?\] starting/)
+          assert.equal(
+            await readFile(f.ruling, "utf8"),
+            "Written ruling by fix",
           )
-          assert.ok(log.includes(`[rule-edit] finished`))
-          // Both ruling passes retell the round, so neither enters the transcript.
-          for (const phase of ["rule", "rule-edit"] as const) {
-            assert.equal(markdown.includes(`## ${phase} (`), false)
-            assert.equal(markdown.includes(`Complete ${phase} text.`), false)
-            assert.ok(visible.includes(`Complete ${phase} text.`))
-          }
           assert.match(visible, /Opening codex session fix-session/)
           assert.doesNotMatch(visible, /Audit round finished\./)
         } else assert.match(visible, /Audit round finished\./)
@@ -1425,9 +1402,10 @@ for (const auditor of ["codex", "claude"] as const) {
         },
       )
       if (ruling) {
-        assert.ok(log.includes(join(f.repoRoot, ".claude/commands/rule.md")))
         assert.ok(
-          log.includes(join(f.repoRoot, ".agents/skills/rule-edit/SKILL.md")),
+          log.includes(
+            join(f.repoRoot, ".agents/skills/fix/references/ruling.md"),
+          ),
         )
         assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
           "cd",
@@ -1571,14 +1549,13 @@ for (const phase of [
   "audit",
   "vet",
   "rebut",
+  "fix",
   "brief",
-  "rule",
-  "rule-edit",
   "watch",
   "watch-edit",
 ] as const) {
   test(`an empty ${phase} output cannot complete its phase`, async (t) => {
-    const ruling = phase === "rule" || phase === "rule-edit"
+    const ruling = phase === "fix"
     const f = await roundFixture(t, "codex", "repo-edu", ruling, null, !ruling)
     f.phases[phase] = {
       ...(f.phases[phase] as object),
@@ -1593,6 +1570,18 @@ for (const phase of [
     )
   })
 }
+
+test("a fix cannot request a ruling without writing its supplied document", async (t) => {
+  const f = await roundFixture(t, "codex", "repo-edu", true)
+  f.phases.fix = { ...(f.phases.fix as object), document: undefined }
+  await f.configure({ phases: f.phases })
+  assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+  const { log } = await f.records()
+  assert.match(log, /\[fix\] failed:/)
+  assert.match(log, /Session: fix-session/)
+  assert.doesNotMatch(log, /\[brief\] starting/)
+  assert.doesNotMatch(f.visible.join("\n"), /Your ruling is needed/)
+})
 
 test("a finished fix with no actual commit cannot complete a plan round with findings", async (t) => {
   const f = await roundFixture(t)

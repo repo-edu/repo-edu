@@ -14,8 +14,6 @@ for (const phase of [
   "rebut",
   "fix",
   "brief",
-  "rule",
-  "rule-edit",
   "watch",
   "watch-edit",
 ] as const) {
