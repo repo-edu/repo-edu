@@ -161,8 +161,8 @@ a text field and saving a connection in Settings start no listing.
   Git connection.
 
 While a listing runs, the window refuses input except **Cancel**. Scrolling remains available.
-Cancel stops the listing. A small "refreshing…" indicator appears next to the match count while
-the next listing is resolving.
+Cancel stops the listing. The panel hides the previous results and shows "Listing repositories…"
+while the new listing loads.
 
 The target folder is pre-filled from the course-level clone target but edits are held in panel state
 only — assignment-scoped Clone remains the sole writer of the course setting.
