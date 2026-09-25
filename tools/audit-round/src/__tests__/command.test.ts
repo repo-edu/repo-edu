@@ -1524,9 +1524,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       if (ruling) {
         assert.ok(
-          log.includes(
-            join(f.repoRoot, ".agents/skills/fix/references/ruling.md"),
-          ),
+          log.includes(`${f.repoRoot}/.agents/skills/fix/references/ruling.md`),
         )
         assert.deepEqual(split(log.match(/^Resume: (.+)$/m)?.[1]), [
           "cd",
