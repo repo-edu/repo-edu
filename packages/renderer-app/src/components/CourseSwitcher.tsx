@@ -39,7 +39,7 @@ import {
 import { type KeyboardEvent, type MouseEvent, useMemo, useState } from "react"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
 import { useCourses } from "../hooks/use-courses.js"
-import { useDirectoryPicker } from "../hooks/use-picker.js"
+import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
@@ -94,7 +94,7 @@ export function CourseSwitcher() {
   const recentSubmissionFolders = useSessionControllerSelector(
     selectRecentSubmissionFolders,
   )
-  const pickDirectory = useDirectoryPicker()
+  const openCourseSubmissionFolder = useOpenSubmissionFolder()
   const { courses, switchCourse, duplicateCourse, renameCourse, deleteCourse } =
     useCourses()
   const [open, setOpen] = useState(false)
@@ -164,24 +164,6 @@ export function CourseSwitcher() {
       runSessionOperationBestEffort(
         controller.activateSurface(start, { kind: "folder", path }),
         "folder activation",
-      )
-    },
-  )
-
-  const handleOpenCourseSubmissionFolder = bindSessionStart(
-    "openSubmission",
-    async (start: SessionStart, course: CourseSummary) => {
-      await pickDirectory(
-        start,
-        { title: "Open student submission folder" },
-        async (directory, scope) => {
-          scope.publish(() => setOpen(false))
-          await openSubmissionFolder(
-            scope,
-            { path: directory, courseId: course.id },
-            "picker",
-          )
-        },
       )
     },
   )
@@ -366,7 +348,8 @@ export function CourseSwitcher() {
                 title="Open submission folder"
                 onClick={(event) =>
                   handleActionClick(event, () => {
-                    void handleOpenCourseSubmissionFolder(course)
+                    setOpen(false)
+                    void openCourseSubmissionFolder(course.id)
                   })
                 }
               >
