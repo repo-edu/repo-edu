@@ -9,18 +9,13 @@ Plans and design documents live in the sibling `../plan` repository, never in
 this repo.
 
 Areas are stable IDs in
-`tools/architecture-check/src/area-model.json`. Before applying another fix,
-read the conventional kind from the subject's last tag before the sentence.
-Attribute touched
-tracked source files to their primary area ID and walk history until that area
-has ten touched commits. Commits with the `impl-audit-` role token do not
-count, because audit rounds exist to produce fix commits. If two or more of the
-counted commits are `fix:` commits, read that history before patching. When
-the fixes are clean-up after a redesign, say so in one line and proceed. When
-one design piece took two or more of them, name it, propose a structural
-change and surface the area ID to the user as a frame-round candidate in
-`../plan`. Cover area IDs are context for cross-cutting concerns, not primary
-ownership.
+`tools/architecture-check/src/area-model.json`. Attribute touched tracked source
+files to their primary area ID. Cover area IDs are context for cross-cutting
+concerns, not primary ownership.
+
+Cross-round scans belong to glance and watch. Other phases read history when
+needed to establish a specific finding, prior ruling or implementation departure.
+Lifecycle and handoff lookups remain required.
 
 The user never reads or edits machine artifacts such as the area model,
 ledgers or generated files. Do not justify a feature or proposal by their

@@ -121,19 +121,12 @@ are common here.
   read off the ask rather than off the defect. Return revise and state the
   smaller correction that resolves it.
 - Too narrow. The correction patches one site of a defect that lives at
-  several, or it patches an area that is already unstable. This check runs
-  only when the correction is local to Repo Edu. Read the finding's primary
-  area ID from `tools/architecture-check/src/area-model.json`, then walk that
-  area's last ten touched commits. Read the conventional kind from the
-  subject's last tag before the sentence.
-  Commits with the `impl-audit-` role token do not count, because audit
-  rounds exist to produce fix commits. Two or more counted `fix:` commits
-  there mean the area's history has to be read. When the report reads it as
-  clean-up after a redesign, check that reading against the commits and
-  accept it when it holds. When one design piece took two or more of those
-  fixes, return revise and say the finding has to name the structural change
-  instead. Plan-repo findings carry no area ID and do not use this Repo Edu
-  history gate.
+  several. Return revise and state the correction that resolves the cause
+  across the affected sites. Recommend a structural change when the reported
+  defect has a structural cause.
+
+Read history when needed to verify a finding's cause or a prior ruling.
+Cross-round scans belong to glance and watch.
 
 Then check that the finding's consequence holds at the claimed tier under the
 `[A]`-`[D]` rubric in this repo's `CLAUDE.md`. Verify the wrong behaviour and,
