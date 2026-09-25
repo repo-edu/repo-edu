@@ -40,7 +40,7 @@ export type RoundDocuments = {
   readonly report: string
   readonly vet: string
   readonly rebut: string
-  readonly brief: string
+  readonly brief: string | null
   readonly ruling: string
 }
 
@@ -109,7 +109,9 @@ export async function roundRun(
   const entry = (phase: Phase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: Phase): string =>
     fileTag(entry(phase), selections, settings)
-  for (const phase of Object.keys(phases) as Phase[]) tag(phase)
+  for (const phase of Object.keys(phases) as Phase[]) {
+    if (phase !== "brief" || setup.brief !== false) tag(phase)
+  }
   const { nameStart, title } = await roundIdentity(setup)
   const path = (kind: FileKind, phase: Phase) =>
     join(setup.cwd, phaseFilename(nameStart, kind, tag(phase)))
@@ -121,7 +123,7 @@ export async function roundRun(
       report: `${path("audit", "audit")}.md`,
       vet: `${path("vet", "vet")}.md`,
       rebut: `${path("rebut", "rebut")}.md`,
-      brief: `${path("brief", "brief")}.md`,
+      brief: setup.brief === false ? null : `${path("brief", "brief")}.md`,
       ruling: `${path("ruling", "fix")}.md`,
     },
     name: "Audit round",
@@ -131,7 +133,7 @@ export async function roundRun(
       entry("vet"),
       entry("rebut"),
       entry("fix"),
-      entry("brief"),
+      ...(setup.brief === false ? [] : [entry("brief")]),
       ...("plan" in setup ? [entry("watch"), entry("watch-edit")] : []),
     ],
     paths: {

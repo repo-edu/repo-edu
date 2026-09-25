@@ -26,6 +26,8 @@ export type RoundSetup = ExecutionContext & {
   readonly auditor?: Assistant
   /** What the command line asked of the auditor's phases; absent asks nothing. */
   readonly override?: AuditorOverride
+  /** False omits the brief from every round in the command. */
+  readonly brief?: boolean
 } & AuditTarget
 
 /** Where a watch that follows the round writes, and where it keeps its history. */
@@ -450,16 +452,18 @@ export async function runRound(
         }
       }
       // Retell the complete fix, including every ruling and resumed invocation.
-      const brief = await runBrief(
-        {
-          ...context,
-          transcript: input.transcript,
-          brief: input.documents.brief,
-        },
-        dependencies,
-        settings,
-      )
-      if (brief.status === "failed") return brief
+      if (input.documents.brief !== null) {
+        const brief = await runBrief(
+          {
+            ...context,
+            transcript: input.transcript,
+            brief: input.documents.brief,
+          },
+          dependencies,
+          settings,
+        )
+        if (brief.status === "failed") return brief
+      }
       if ("plan" in input) {
         const watched = await runWatch(input, dependencies, settings)
         if (watched !== null) return watched

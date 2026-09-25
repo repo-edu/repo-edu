@@ -24,7 +24,10 @@ test("phase files sort in fixed order with paired logs and dotted commit-range t
     run.paths.markdown,
     ...Object.values(run.documents),
     run.watch,
-  ].map((file) => basename(file))
+  ].map((file) => {
+    assert.ok(file)
+    return basename(file)
+  })
   assert.deepEqual(names.toSorted(), [
     "abcdef..123abc-01-0-round.oth.md",
     "abcdef..123abc-01-1-audit.oth.md",

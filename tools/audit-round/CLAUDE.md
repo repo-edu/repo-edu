@@ -21,6 +21,7 @@ consumers.
   rule, the compaction share it compares against and the rebuttal's reserve. The settings file
   selects the default auditor and the assistants that write documents. Codex always fixes. The brief
   follows only a finished fix, after all rulings and resumed fix invocations have completed.
+  `--no-brief` omits that phase and its settings row from every round.
   Its input is the round transcript, never the report, and its launcher always
   belongs to the Repo Edu root. `runBrief` runs that one phase on its own over an earlier
   transcript. The fix receives a ruling output path separately from its report arguments. It writes
@@ -347,6 +348,7 @@ pnpm audit-round task-modifier --auditor codex
 pnpm audit-round ../plan/example.md 3 --auditor codex,claude,claude
 pnpm audit-round ../plan/example.md 3 --auditor "atx, obm"
 pnpm audit-round ../plan/example.md 3 --no-watch
+pnpm audit-round ../plan/example.md 3 --no-brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
 pnpm audit-round brief example-step-3-01-0-round.otm.md
@@ -384,7 +386,8 @@ number. The shared round protocol owns manual invocation details.
 invoking root. Claims and runner documents remain.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
-document in the terminal. A clean audit records its outcome directly and
+document in the terminal. `--no-brief` skips it for every round without changing the watch.
+A clean audit records its outcome directly and
 retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A
 finished plan round with audit findings ends with a glance at the commit record, and a due glance
 adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its

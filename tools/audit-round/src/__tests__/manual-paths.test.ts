@@ -188,6 +188,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   await writeFile(run.documents.report, "Audit")
   await writeFile(run.documents.vet, "Vet")
   await writeFile(run.paths.markdown, "Transcript")
+  assert.ok(run.documents.brief)
   const before = await readdir(f.repoRoot, { recursive: true })
   for (const [args, expected] of [
     [

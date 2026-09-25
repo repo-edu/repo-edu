@@ -89,6 +89,7 @@ type Invocation =
       readonly auditor?: readonly AuditorSeat[]
       /** False when `--no-watch` was given; Commander defaults it to true. */
       readonly watch: boolean
+      readonly brief: boolean
       readonly verbose?: boolean
     }
   | {
@@ -150,6 +151,7 @@ function parseInvocation(
       "--no-watch",
       "skip the trajectory glance and watch after every round",
     )
+    .option("--no-brief", "skip the final brief after every round")
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
@@ -198,6 +200,7 @@ Round sequence:
                  Skipped if the vet accepts every finding unconditionally.
     4. Fix       Codex always fixes the accepted findings.
     5. Brief     A plain-words summary follows the fix.
+                 Skipped with --no-brief.
 
   Skipping rounds and stopping:
     - If the audit finds nothing, the round ends before vet or any later phase.
@@ -236,6 +239,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
         flags: {
           auditor?: readonly AuditorSeat[]
           watch: boolean
+          brief: boolean
           verbose?: boolean
         },
       ) => {
@@ -573,6 +577,7 @@ export async function runCommand(
           ...prepared.target,
           auditor: seat.assistant,
           override: seat.override,
+          brief: prepared.brief,
         }
         const run = await roundRun(
           setup,

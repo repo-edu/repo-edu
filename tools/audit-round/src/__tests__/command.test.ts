@@ -1348,6 +1348,57 @@ test("a due glance sends the watch the record and the cache, never the round", a
   assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
+for (const target of ["implementation", "planning", "commits"] as const) {
+  test(`--no-brief omits briefs from ${target} rounds while preserving completion and watch`, async (t) => {
+    const working = target === "planning" ? "plan" : "repo-edu"
+    const f = await roundFixture(
+      t,
+      "codex",
+      working,
+      false,
+      null,
+      true,
+      working,
+    )
+    const args =
+      target === "commits"
+        ? ["HEAD", "--no-watch"]
+        : ["example.md", "--auditor", "codex,claude"]
+    assert.equal(
+      await runCommand([...args, "--no-brief"], f.runtime, f.options),
+      0,
+      f.errors.join("\n"),
+    )
+    const visible = f.visible.join("\n")
+    assert.doesNotMatch(visible, /\[brief\]|^brief\s|Written brief/m)
+    assert.equal(
+      (await f.prompts()).some((call) =>
+        call.prompt.startsWith("Run the brief phase "),
+      ),
+      false,
+    )
+    assert.match(visible, /Audit round finished\./)
+    if (target !== "commits") {
+      assert.match(visible, /Auditor sequence finished after 2 rounds\./)
+      assert.equal(visible.match(/\[watch-edit\] finished/g)?.length, 2)
+    }
+    const files = await readdir(f.runtime.cwd)
+    assert.equal(
+      files.some((name) => /-5-brief\./.test(name)),
+      false,
+    )
+    assert.equal(
+      files.some((name) => /-[123]-(audit|vet|rebut)\./.test(name)),
+      false,
+    )
+    for (const name of await f.roundFiles()) {
+      const text = await readFile(join(f.runtime.cwd, name), "utf8")
+      assert.doesNotMatch(text, /\[brief\]|^brief\s|Written brief/m)
+      assert.match(text, /## fix|\[fix\] finished/)
+    }
+  })
+}
+
 test("--no-watch skips the glance and the watch, whatever the record says", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   assert.equal(

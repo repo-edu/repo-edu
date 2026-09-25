@@ -47,39 +47,39 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <selections>] [--no-watch] [-v]` runs the
-implementation-audit tool from this checkout root, ending with a plain-words brief of the round for
-the user when there are findings. A clean audit ends directly in the runner, which retains the
+`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <selections>] [--no-watch] [--no-brief] [-v]` runs
+the implementation-audit tool from this checkout root, ending with a plain-words brief of the round
+for the user when there are findings. A clean audit ends directly in the runner, which retains the
 report and lands the empty clean record for a plan target. A clean commit audit retains its report
-without a commit. Neither route runs vet, rebuttal, fix, brief, glance or watch. Existing handoffs
-stay untouched. A fix that stops for the user's ruling writes the final ruling in its own session
-and checks it for clarity. The runner displays the ruling directly. It writes the brief only after
-the full fix has completed, then appends the saved brief to the terminal output. A round with audit
-findings that finished ends with a glance at the commit record, which decides whether the trajectory
-watch is due; a due watch adds its document, drafted and rewritten in separate sessions, and records
-its own grade so the next glance can count from it. The glance is the runner's own read of the log,
-not a session, and `--no-watch` skips it and the watch for every round of the run. `--auditor` takes
-a comma-separated list in round order on the scope the user named. A clean audit removes all later
-entries for that assistant, regardless of model or effort; a clean fix record does not. Failure or a
-round requiring a ruling stops the sequence. The list sets the maximum number of rounds and each
-entry has independent settings. Quote lists containing spaces. Each entry takes `claude` or `codex`
-to inherit that CLI's current model and effort for audit and rebuttal, bypassing the runner's audit
-pins. It also takes the capability tag a commit subject spells: `a` or `o` for the assistant, then
-an optional `b` or `t` for the model tier and an optional `l`, `m`, `h` or `x` for the reasoning
-effort. A named field binds the auditor and its rebuttal, because the rebuttal resumes the audit
-session. Other fields follow [the runner settings](tools/audit-round/CLAUDE.md#model-settings),
-where `null` inherits the assistant CLI's own setting. That file also owns the default auditor,
-model tier mappings and document assistants. The run's settings header names what set each phase.
+without a commit. Neither route runs vet, rebuttal, fix, brief, glance or watch. `--no-brief` skips
+the final brief for every round. Existing handoffs stay untouched. A fix that stops for the user's
+ruling writes the final ruling in its own session and checks it for clarity. The runner displays the
+ruling directly. It writes the brief only after the full fix has completed, then appends the saved
+brief to the terminal output. A round with audit findings that finished ends with a glance at the
+commit record, which decides whether the trajectory watch is due; a due watch adds its document,
+drafted and rewritten in separate sessions, and records its own grade so the next glance can count
+from it. The glance is the runner's own read of the log, not a session, and `--no-watch` skips it
+and the watch for every round of the run. `--auditor` takes a comma-separated list in round order on
+the scope the user named. A clean audit removes all later entries for that assistant, regardless of
+model or effort; a clean fix record does not. Failure or a round requiring a ruling stops the
+sequence. The list sets the maximum number of rounds and each entry has independent settings. Quote
+lists containing spaces. Each entry takes `claude` or `codex` to inherit that CLI's current model
+and effort for audit and rebuttal, bypassing the runner's audit pins. It also takes the capability
+tag a commit subject spells: `a` or `o` for the assistant, then an optional `b` or `t` for the model
+tier and an optional `l`, `m`, `h` or `x` for the reasoning effort. A named field binds the auditor
+and its rebuttal, because the rebuttal resumes the audit session. Other fields follow
+[the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
+assistant CLI's own setting. That file also owns the default auditor, model tier mappings and
+document assistants. The run's settings header names what set each phase.
 `pnpm audit-round brief <target-round-0-round.tag.md>` writes that brief for an earlier round. The
 shared file-name grammar and writer-tag rules live in
-[the round protocol](.agents/references/round-protocol.md). Manual vet, rebuttal and fix
-invocations resolve paths through shared code. They select the sole eligible audit report when
-none is named. A manual round brief does the same for its transcript.
-`pnpm audit-round <commit> [<commit>...]` or `pnpm audit-round <from>..<to>` audits named commits.
-References accept SHAs, `HEAD` and `HEAD-<n>`, where `HEAD-1` is the previous first-parent commit.
-Ranges include both endpoints. Commit audits run once, reject multiple auditor entries and finish
-without a trajectory glance or watch. `pnpm audit-round:contract [claude|codex|both]` records its
-live CLI contracts.
+[the round protocol](.agents/references/round-protocol.md). Manual vet, rebuttal and fix invocations
+resolve paths through shared code. They select the sole eligible audit report when none is named. A
+manual round brief does the same for its transcript. `pnpm audit-round <commit> [<commit>...]` or
+`pnpm audit-round <from>..<to>` audits named commits. References accept SHAs, `HEAD` and `HEAD-<n>`,
+where `HEAD-1` is the previous first-parent commit. Ranges include both endpoints. Commit audits run
+once, reject multiple auditor entries and finish without a trajectory glance or watch.
+`pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
