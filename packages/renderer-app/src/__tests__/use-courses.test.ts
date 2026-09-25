@@ -24,14 +24,6 @@ beforeEach(() => {
 })
 
 describe("course refresh submission pruning", () => {
-  it("marks the course list ready when an empty list has loaded", () => {
-    assert.equal(useUiStore.getState().courseListLoaded, false)
-
-    useUiStore.getState().setCourseList([])
-
-    assert.equal(useUiStore.getState().courseListLoaded, true)
-  })
-
   it("redirects active submissions whose attached course is stale", () => {
     assert.deepStrictEqual(
       resolveActiveSurfaceRedirectForCourses(

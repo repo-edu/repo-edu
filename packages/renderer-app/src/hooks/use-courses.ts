@@ -15,7 +15,6 @@ type CreateCourseInput = {
 
 export function useCourses() {
   const courseList = useUiStore((s) => s.courseList)
-  const loading = useUiStore((s) => s.courseListLoading)
   const controller = useSessionController()
 
   const switchCourse = useCallback(
@@ -102,7 +101,6 @@ export function useCourses() {
 
   return {
     courses: courseList,
-    loading,
     createCourse,
     switchCourse,
     duplicateCourse,

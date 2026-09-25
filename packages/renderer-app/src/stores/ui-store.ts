@@ -77,8 +77,6 @@ type UiState = {
 
   // Course list cache
   courseList: CourseSummary[]
-  courseListLoaded: boolean
-  courseListLoading: boolean
 }
 
 type UiActions = {
@@ -124,7 +122,6 @@ type UiActions = {
   setSyncGroupSetTriggerId: (id: string | null) => void
 
   setCourseList: (list: CourseSummary[]) => void
-  setCourseListLoading: (loading: boolean) => void
 
   reset: () => void
 }
@@ -163,8 +160,6 @@ const initialState: UiState = {
   syncGroupSetTriggerId: null,
 
   courseList: [],
-  courseListLoaded: false,
-  courseListLoading: false,
 }
 
 function setIfChanged<K extends keyof UiState>(
@@ -308,14 +303,7 @@ export const useUiStore = create<UiState & UiActions>((set) => ({
     set((state) => setIfChanged(state, "syncGroupSetTriggerId", id)),
 
   setCourseList: (list) =>
-    set((state) => {
-      if (Object.is(state.courseList, list) && state.courseListLoaded) {
-        return state
-      }
-      return { courseList: list, courseListLoaded: true }
-    }),
-  setCourseListLoading: (loading) =>
-    set((state) => setIfChanged(state, "courseListLoading", loading)),
+    set((state) => setIfChanged(state, "courseList", list)),
 
   reset: () => set(initialState),
 }))

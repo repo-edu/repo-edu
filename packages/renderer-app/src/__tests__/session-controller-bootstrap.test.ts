@@ -43,13 +43,12 @@ describe("SessionController bootstrap", () => {
     try {
       await listing.promise
       assert.equal(controller.getSnapshot().bootstrap.status, "loading")
-      assert.equal(useUiStore.getState().courseListLoading, true)
+      assert.deepEqual(useUiStore.getState().courseList, [])
       assert.equal(acknowledgements, 0)
       listed.resolve(courses)
       await controller.waitForIdle()
       assert.equal(controller.getSnapshot().bootstrap.status, "ready")
-      assert.equal(useUiStore.getState().courseListLoaded, true)
-      assert.equal(useUiStore.getState().courseListLoading, false)
+      assert.deepEqual(useUiStore.getState().courseList, courses)
       assert.equal(acknowledgements, 1)
     } finally {
       controller.dispose()
@@ -78,18 +77,19 @@ describe("SessionController bootstrap", () => {
     listed.resolve([makeCourse("course-a")])
     await controller.waitForIdle()
     assert.equal(controller.getSnapshot().lifecycle.kind, "disposed")
-    assert.equal(useUiStore.getState().courseListLoaded, false)
+    assert.deepEqual(useUiStore.getState().courseList, [])
     assert.equal(acknowledgements, 0)
   })
 
   it("retries a failed initial course listing through bootstrap", async () => {
     let listings = 0
+    const courses = [makeCourse("course-a")]
     const controller = startController({
       workflowClient: workflowClient(async (id) => {
         if (id === "settings.loadApp") return makeSettings()
         if (id === "course.list") {
           if (++listings === 1) throw new Error("Course listing unavailable")
-          return []
+          return courses
         }
         assert.fail(id)
       }),
@@ -101,10 +101,11 @@ describe("SessionController bootstrap", () => {
         attempt: 1,
         message: "Course listing unavailable",
       })
-      assert.equal(useUiStore.getState().courseListLoading, false)
+      assert.deepEqual(useUiStore.getState().courseList, [])
       controller.retryBootstrap()
       await controller.waitForIdle()
       assert.equal(controller.getSnapshot().bootstrap.status, "ready")
+      assert.deepEqual(useUiStore.getState().courseList, courses)
       assert.equal(listings, 2)
     } finally {
       controller.dispose()

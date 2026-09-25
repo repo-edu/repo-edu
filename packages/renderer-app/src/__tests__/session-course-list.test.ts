@@ -127,7 +127,6 @@ describe("session course listing", () => {
         }
         const assertPublished = () => {
           assert.deepEqual(useUiStore.getState().courseList, summaries())
-          assert.equal(useUiStore.getState().courseListLoading, false)
           assert.deepEqual(
             controller.getSnapshot().settings.preferences
               .recentSubmissionFolders,
@@ -160,7 +159,7 @@ describe("session course listing", () => {
         changeRelease.resolve()
         await listing.promise
         assert.deepEqual(order, ["changed"])
-        assert.equal(useUiStore.getState().courseListLoading, true)
+        assert.equal(canAdmitSessionChange(controller.getSnapshot()), false)
         if (change === "rename-active") {
           assert.equal(useCourseStore.getState().course?.revision, 1)
           assert.equal(useCourseStore.getState().course?.displayName, "Renamed")
@@ -260,7 +259,6 @@ describe("session course listing", () => {
         kind: "course",
         courseId: "new",
       })
-      assert.equal(useUiStore.getState().courseListLoading, false)
       assert.deepEqual(order, ["saved", successor])
     })
   }

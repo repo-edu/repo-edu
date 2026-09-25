@@ -130,7 +130,6 @@ function fallbackSurfaceForDeletedCourse(
 
 function seedLoadedCourseSummary(course: PersistedCourse): void {
   const uiStore = useUiStore.getState()
-  if (!uiStore.courseListLoaded) return
   const summary = {
     id: course.id,
     backing: course.backing,
@@ -281,33 +280,28 @@ export class SessionController extends CourseMutationController {
   private async refreshCoursesBody(
     scope: SessionTransactionScope,
   ): Promise<void> {
-    useUiStore.getState().setCourseListLoading(true)
-    try {
-      await this.persistence.flushActive(scope)
-      const courses = await scope.required(() =>
-        this.transactions.controllerClient.run("course.list", undefined),
-      )
-      if (!scope.canContinue()) return
-      useUiStore.getState().setCourseList(courses)
-      const current = this.snapshot.settings.preferences.activeSurface
-      const courseId = activeCourseIdFromSurface(current)
-      const missing =
-        courseId !== null && !courses.some((course) => course.id === courseId)
-      const target =
-        resolveActiveSurfaceRedirectForCourses(current, courses)?.surface ??
-        current
-      const commit = missing
-        ? await this.prepareDeletedCourseFallback(scope, target)
-        : await this.prepareSurfaceCommit(scope, target)
-      this.commitSurface(
-        scope,
-        commit,
-        [{ type: "prune-submissions-for-courses", courses }],
-        missing ? () => publishCourseRemoval(courseId) : undefined,
-      )
-    } finally {
-      if (scope.canContinue()) useUiStore.getState().setCourseListLoading(false)
-    }
+    await this.persistence.flushActive(scope)
+    const courses = await scope.required(() =>
+      this.transactions.controllerClient.run("course.list", undefined),
+    )
+    if (!scope.canContinue()) return
+    useUiStore.getState().setCourseList(courses)
+    const current = this.snapshot.settings.preferences.activeSurface
+    const courseId = activeCourseIdFromSurface(current)
+    const missing =
+      courseId !== null && !courses.some((course) => course.id === courseId)
+    const target =
+      resolveActiveSurfaceRedirectForCourses(current, courses)?.surface ??
+      current
+    const commit = missing
+      ? await this.prepareDeletedCourseFallback(scope, target)
+      : await this.prepareSurfaceCommit(scope, target)
+    this.commitSurface(
+      scope,
+      commit,
+      [{ type: "prune-submissions-for-courses", courses }],
+      missing ? () => publishCourseRemoval(courseId) : undefined,
+    )
   }
 
   private async reconcileDiscovery(
