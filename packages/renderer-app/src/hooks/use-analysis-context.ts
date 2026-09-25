@@ -61,14 +61,6 @@ export function useAnalysisContext() {
     [activeSurface.kind, controller, courseContext],
   )
 
-  const updateCourseSearchFolder = useCallback(
-    (path: string | null) => {
-      if (courseContext === null) return
-      controller.setSearchFolder(courseContext.id, path)
-    },
-    [controller, courseContext],
-  )
-
   return useMemo(
     () => ({
       kind,
@@ -78,7 +70,6 @@ export function useAnalysisContext() {
       analysisInputs,
       rosterContext,
       setAnalysisInputs,
-      updateCourseSearchFolder,
     }),
     [
       activeSurface,
@@ -88,7 +79,6 @@ export function useAnalysisContext() {
       rosterContext,
       searchFolder,
       setAnalysisInputs,
-      updateCourseSearchFolder,
     ],
   )
 }

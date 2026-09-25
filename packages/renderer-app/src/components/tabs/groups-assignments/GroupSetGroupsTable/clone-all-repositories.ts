@@ -4,7 +4,7 @@ import type {
   RepositoryListNamespaceResult,
 } from "@repo-edu/application-contract"
 import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
-import { keepPreviousData, type QueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
 import type { SessionOperationGateway } from "../../../../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../../../../session/session-query.js"
 import type { SessionStart } from "../../../../session/session-start.js"
@@ -159,7 +159,6 @@ export function createCloneAllListingQueryPolicy(
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    placeholderData: keepPreviousData,
   }
 }
 
@@ -201,7 +200,6 @@ export function cloneAllInputIsCurrent(params: {
 export function selectCloneAllCanClone(params: {
   readonly inputIsCurrent: boolean
   readonly queryIsSuccess: boolean
-  readonly queryIsPlaceholderData: boolean
   readonly listResult: RepositoryListNamespaceResult | undefined
   readonly targetDirectory: string
   readonly commandIsPending: boolean
@@ -209,7 +207,6 @@ export function selectCloneAllCanClone(params: {
   return (
     params.inputIsCurrent &&
     params.queryIsSuccess &&
-    !params.queryIsPlaceholderData &&
     params.listResult !== undefined &&
     params.listResult.repositories.length > 0 &&
     params.targetDirectory.trim().length > 0 &&

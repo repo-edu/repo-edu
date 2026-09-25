@@ -217,57 +217,6 @@ describe("clone-all query ownership", () => {
     }
   })
 
-  it("retains previous data as a placeholder across an admission change", async () => {
-    const queryClient = new QueryClient()
-    const firstAdmission = initialPublishedInput.admissionId
-    const secondAdmission = {
-      ...firstAdmission,
-      filter: "lab-2*",
-      listingGeneration: 2,
-    }
-    let resolveSecond: (value: RepositoryListNamespaceResult) => void = () => {}
-    const secondResult = new Promise<RepositoryListNamespaceResult>(
-      (resolve) => {
-        resolveSecond = resolve
-      },
-    )
-    const observer = new QueryObserver(queryClient, {
-      ...createCloneAllListingQueryPolicy(firstAdmission),
-      queryFn: async () => listingResult,
-    })
-    const unsubscribe = observer.subscribe(() => {})
-
-    try {
-      await observer.refetch()
-      observer.setOptions({
-        ...createCloneAllListingQueryPolicy(secondAdmission),
-        queryFn: () => secondResult,
-      })
-
-      const transitional = observer.getCurrentResult()
-      assert.equal(transitional.isPlaceholderData, true)
-      assert.deepEqual(transitional.data, listingResult)
-      assert.equal(
-        selectCloneAllCanClone({
-          inputIsCurrent: true,
-          queryIsSuccess: transitional.isSuccess,
-          queryIsPlaceholderData: transitional.isPlaceholderData,
-          listResult: transitional.data,
-          targetDirectory: "/tmp/repos",
-          commandIsPending: false,
-        }),
-        false,
-      )
-
-      resolveSecond({ repositories: [] })
-      const settled = await observer.refetch()
-      assert.equal(settled.isPlaceholderData, false)
-      assert.deepEqual(settled.data, { repositories: [] })
-    } finally {
-      unsubscribe()
-    }
-  })
-
   it("uses panel-local listing retention", () => {
     const policy = createCloneAllListingQueryPolicy(
       initialPublishedInput.admissionId,
@@ -375,11 +324,10 @@ describe("clone-all admission and clone inputs", () => {
     )
   })
 
-  it("requires current non-placeholder success data and a target folder", () => {
+  it("requires current success data and a target folder", () => {
     const base = {
       inputIsCurrent: true,
       queryIsSuccess: true,
-      queryIsPlaceholderData: false,
       listResult: listingResult,
       targetDirectory: "/tmp/repos",
       commandIsPending: false,
@@ -387,10 +335,6 @@ describe("clone-all admission and clone inputs", () => {
     assert.equal(selectCloneAllCanClone(base), true)
     assert.equal(
       selectCloneAllCanClone({ ...base, inputIsCurrent: false }),
-      false,
-    )
-    assert.equal(
-      selectCloneAllCanClone({ ...base, queryIsPlaceholderData: true }),
       false,
     )
     assert.equal(

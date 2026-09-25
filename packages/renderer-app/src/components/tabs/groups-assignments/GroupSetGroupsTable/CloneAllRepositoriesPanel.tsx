@@ -205,12 +205,6 @@ function CloneAllPreview({
     <div className="space-y-2">
       <p className="text-sm font-medium inline-flex items-center gap-2">
         {entries.length} repositor{entries.length === 1 ? "y" : "ies"} match.
-        {isListing && (
-          <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            refreshing…
-          </span>
-        )}
       </p>
       <div className="border rounded max-h-48 overflow-y-auto text-sm">
         <ul className="divide-y">

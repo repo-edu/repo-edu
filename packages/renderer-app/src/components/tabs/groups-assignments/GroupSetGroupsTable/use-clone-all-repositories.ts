@@ -91,7 +91,6 @@ export function useCloneAllRepositories({
   const canClone = selectCloneAllCanClone({
     inputIsCurrent,
     queryIsSuccess: listingQuery.isSuccess,
-    queryIsPlaceholderData: listingQuery.isPlaceholderData,
     listResult: listingQuery.data,
     targetDirectory,
     commandIsPending: cloneCommand.status === "pending",
@@ -173,10 +172,7 @@ export function useCloneAllRepositories({
         },
       )
     }),
-    listResult:
-      inputIsCurrent && !listingQuery.isPlaceholderData
-        ? (listingQuery.data ?? null)
-        : null,
+    listResult: inputIsCurrent ? (listingQuery.data ?? null) : null,
     listError:
       inputIsCurrent && listingQuery.isError
         ? getErrorMessage(listingQuery.error)
