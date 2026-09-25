@@ -43,7 +43,6 @@ import { useDirectoryPicker } from "../hooks/use-picker.js"
 import {
   selectActiveCourseId,
   selectActiveSurface,
-  selectDefaultExtensions,
   selectRecentAnalysisFolders,
   selectRecentSubmissionFolders,
 } from "../session/selectors.js"
@@ -56,10 +55,7 @@ import {
   bindSessionStart,
   type SessionStart,
 } from "../session/session-start.js"
-import {
-  normalizeConfiguredExtensions,
-  openSubmissionFolder,
-} from "./tabs/examination/submission-file-listing.js"
+import { openSubmissionFolder } from "./tabs/examination/submission-file-listing.js"
 
 function backingBadgeLabel(course: CourseSummary): string {
   if (course.backing === "lms") return "LMS"
@@ -183,10 +179,7 @@ export function CourseSwitcher() {
           await openSubmissionFolder(
             scope,
             { path: directory, courseId: course.id },
-            normalizeConfiguredExtensions(
-              selectDefaultExtensions(controller.getSnapshot()),
-            ),
-            false,
+            "picker",
           )
         },
       )
@@ -202,14 +195,7 @@ export function CourseSwitcher() {
           start,
           "analysis.listFolderFiles",
           async (scope) => {
-            await openSubmissionFolder(
-              scope,
-              recent,
-              normalizeConfiguredExtensions(
-                selectDefaultExtensions(controller.getSnapshot()),
-              ),
-              true,
-            )
+            await openSubmissionFolder(scope, recent, "recent")
           },
         ),
         "submission activation",

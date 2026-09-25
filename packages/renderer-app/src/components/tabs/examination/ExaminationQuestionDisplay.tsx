@@ -11,7 +11,7 @@ type ExaminationQuestionDisplayProps = {
   showAnswers: boolean
   layout: "page" | "pane"
   scrollResetKey: string | null
-  emptyMessage?: string
+  emptyMessage: string
 }
 
 export function ExaminationQuestionDisplay({
@@ -73,9 +73,7 @@ export function ExaminationQuestionDisplay({
           ) : null}
         </div>
       ) : entry === null || entry.status === "idle" ? (
-        <EmptyState
-          message={emptyMessage ?? "Click Generate to produce questions."}
-        />
+        <EmptyState message={emptyMessage} />
       ) : display.isLoading && entry !== null ? (
         <StreamingGenerationDetail
           entry={entry}

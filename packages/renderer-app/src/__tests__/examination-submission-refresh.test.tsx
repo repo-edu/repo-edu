@@ -61,9 +61,11 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   const { AnalysisPane } = await import(
     "../components/settings/AnalysisPane.js"
   )
-  const { SessionControllerProvider } = await import(
-    "../session/session-controller-context.js"
-  )
+  const {
+    SessionControllerProvider,
+    setSessionController,
+    clearSessionController,
+  } = await import("../session/session-controller-context.js")
   const { WorkflowClientProvider } = await import(
     "../contexts/workflow-client.js"
   )
@@ -131,6 +133,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     }),
   })
   await controller.waitForIdle()
+  setSessionController(controller)
   assert.equal(controller.getSnapshot().bootstrap.status, "ready")
   const container = window.document.createElement("div")
   const settings = window.document.createElement("div")
@@ -143,6 +146,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
       root.unmount()
     })
     controller.dispose()
+    clearSessionController(controller)
     useExaminationStore.getState().reset()
     await window.happyDOM.close()
     for (const key of Object.keys(globals)) {

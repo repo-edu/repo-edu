@@ -269,8 +269,6 @@ export class SessionController extends CourseMutationController {
     surface: PersistedActiveSurface,
   ): Promise<boolean> {
     const targetSurface = normalizeActiveSurface(surface)
-    const currentSurface = this.snapshot.settings.preferences.activeSurface
-    if (activeSurfaceEquals(currentSurface, targetSurface)) return true
     return await this.transactions.enqueue(
       { start, kind: "enter", targetSurface },
       async (scope) => await this.enterSurface(scope, targetSurface),
@@ -807,6 +805,8 @@ export class SessionController extends CourseMutationController {
     surface: PersistedActiveSurface,
     options: EnterSurfaceOptions = {},
   ): Promise<boolean> {
+    const currentSurface = this.snapshot.settings.preferences.activeSurface
+    if (activeSurfaceEquals(currentSurface, surface)) return true
     const previous = this.snapshot.courseLoadStatus
     try {
       if (

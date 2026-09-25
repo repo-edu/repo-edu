@@ -3,6 +3,8 @@ import {
   DEFAULT_EXTENSIONS,
   normalizeExtension,
 } from "@repo-edu/domain/analysis"
+import { selectDefaultExtensions } from "../../../session/selectors.js"
+import { getSessionController } from "../../../session/session-controller-context.js"
 import type { SessionOperationScope } from "../../../session/session-operations.js"
 import { useExaminationStore } from "../../../stores/examination-store.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
@@ -57,12 +59,19 @@ export async function listSubmissionFiles(
   }
 }
 
+export async function refreshSubmissionFiles(
+  scope: SessionOperationScope,
+  folderPath: string,
+): Promise<void> {
+  await listSubmissionFiles(scope, folderPath, configuredSubmissionExtensions())
+}
+
 export async function openSubmissionFolder(
   scope: SessionOperationScope,
   recent: SubmissionFolderRecent,
-  extensions: string[],
-  reuseListing: boolean,
+  route: "picker" | "recent",
 ): Promise<void> {
+  const extensions = configuredSubmissionExtensions()
   const activated = await scope.activateSurface({
     kind: "submission",
     ...recent,
@@ -72,7 +81,7 @@ export async function openSubmissionFolder(
     .getState()
     .submissionFileLists.get(recent.path)
   if (
-    reuseListing &&
+    route === "recent" &&
     listing?.status === "loaded" &&
     listing.extensions.length === extensions.length &&
     listing.extensions.every((extension) => extensions.includes(extension))
@@ -80,4 +89,10 @@ export async function openSubmissionFolder(
     return
   }
   await listSubmissionFiles(scope, recent.path, extensions)
+}
+
+function configuredSubmissionExtensions(): string[] {
+  return normalizeConfiguredExtensions(
+    selectDefaultExtensions(getSessionController().getSnapshot()),
+  )
 }

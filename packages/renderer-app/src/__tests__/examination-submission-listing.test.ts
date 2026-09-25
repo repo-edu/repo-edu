@@ -1,11 +1,12 @@
 import assert from "node:assert/strict"
 import { it } from "node:test"
 import type { WorkflowInput } from "@repo-edu/application-contract"
-import {
-  normalizeConfiguredExtensions,
-  openSubmissionFolder,
-} from "../components/tabs/examination/submission-file-listing.js"
+import { openSubmissionFolder } from "../components/tabs/examination/submission-file-listing.js"
 import { selectActiveSurface } from "../session/selectors.js"
+import {
+  clearSessionController,
+  setSessionController,
+} from "../session/session-controller-context.js"
 import { useExaminationStore } from "../stores/examination-store.js"
 import {
   makeSettings,
@@ -38,43 +39,53 @@ it("recent submissions list on their first open and reuse matching stored listin
   })
   t.after(() => {
     controller.dispose()
+    clearSessionController(controller)
     useExaminationStore.getState().reset()
   })
   await controller.waitForIdle()
-  const open = (path: string, extensions: string[], reuseListing: boolean) =>
-    controller.operations.execute(
-      testSessionStart("submissionRefresh"),
+  setSessionController(controller)
+  const open = (
+    path: string,
+    extensions: string[],
+    route: "picker" | "recent",
+  ) => {
+    controller.setDefaultExtensions(extensions)
+    return controller.operations.execute(
+      testSessionStart(
+        route === "picker" ? "openSubmission" : "recentSubmission",
+      ),
       "analysis.listFolderFiles",
-      (scope) =>
-        openSubmissionFolder(
-          scope,
-          { path },
-          normalizeConfiguredExtensions(extensions),
-          reuseListing,
-        ),
+      (scope) => openSubmissionFolder(scope, { path }, route),
     )
+  }
 
-  await open("/submission", [".ts", "py", "ts"], true)
+  await controller.activateSurface(testSessionStart("recentSubmission"), {
+    kind: "submission",
+    path: "/submission",
+  })
+  // An already open submission without a listing must still list.
+  await open("/submission", [".ts", "py", "ts"], "recent")
   assert.equal(listings.length, 1)
+  assert.deepEqual(listings[0]?.extensions, ["ts", "py"])
   const stored = useExaminationStore
     .getState()
     .submissionFileLists.get("/submission")
   assert.equal(stored?.status, "loaded")
   await controller.activateSurface(testSessionStart("home"), { kind: "home" })
-  await open("/submission", ["py", "ts"], true)
+  await open("/submission", ["py", "ts"], "recent")
   assert.equal(listings.length, 1)
   assert.equal(
     useExaminationStore.getState().submissionFileLists.get("/submission"),
     stored,
   )
 
-  await open("/another-submission", ["ts"], true)
+  await open("/another-submission", ["ts"], "recent")
   assert.equal(listings.length, 2)
-  await open("/submission", ["ts", "py"], true)
+  await open("/submission", ["ts", "py"], "recent")
   assert.equal(listings.length, 2)
-  await open("/submission", ["rs"], true)
+  await open("/submission", ["rs"], "recent")
   assert.equal(listings.length, 3)
   assert.deepEqual(listings[2]?.extensions, ["rs"])
-  await open("/submission", ["rs"], false)
+  await open("/submission", ["rs"], "picker")
   assert.equal(listings.length, 4)
 })

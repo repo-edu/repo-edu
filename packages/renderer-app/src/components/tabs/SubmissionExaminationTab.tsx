@@ -16,7 +16,6 @@ import { useMemo } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveSurface,
-  selectDefaultExtensions,
   selectSubmissionSurfaceStates,
 } from "../../session/selectors.js"
 import {
@@ -35,10 +34,7 @@ import type {
 } from "../../stores/examination-store-types.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
 import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
-import {
-  listSubmissionFiles,
-  normalizeConfiguredExtensions,
-} from "./examination/submission-file-listing.js"
+import { refreshSubmissionFiles } from "./examination/submission-file-listing.js"
 import { submissionPreparationKey } from "./examination/submission-source-preparation.js"
 import { useExaminationEngine } from "./examination/use-examination-engine.js"
 
@@ -190,18 +186,15 @@ function useSubmissionExaminationSource() {
     () =>
       bindSessionStart("submissionRefresh", (start: SessionStart) => {
         if (submissionFolderPath === null) return
-        const extensions = normalizeConfiguredExtensions(
-          selectDefaultExtensions(controller.getSnapshot()),
-        )
         void workflowClient.execute(
           start,
           "analysis.listFolderFiles",
           async (scope) => {
-            await listSubmissionFiles(scope, submissionFolderPath, extensions)
+            await refreshSubmissionFiles(scope, submissionFolderPath)
           },
         )
       }),
-    [controller, submissionFolderPath, workflowClient],
+    [submissionFolderPath, workflowClient],
   )
 
   const eligibleFiles = useMemo(

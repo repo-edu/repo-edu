@@ -1,10 +1,5 @@
 import { useMemo } from "react"
-import {
-  normalizeConfiguredExtensions,
-  openSubmissionFolder,
-} from "../components/tabs/examination/submission-file-listing.js"
-import { selectDefaultExtensions } from "../session/selectors.js"
-import { useSessionController } from "../session/session-controller-context.js"
+import { openSubmissionFolder } from "../components/tabs/examination/submission-file-listing.js"
 import {
   bindSessionStart,
   type SessionStart,
@@ -13,7 +8,6 @@ import { useDirectoryPicker } from "./use-picker.js"
 
 export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
   const pickDirectory = useDirectoryPicker()
-  const controller = useSessionController()
   const courseId = options.courseId
 
   return useMemo(
@@ -28,14 +22,11 @@ export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
               courseId === undefined
                 ? { path: directory }
                 : { path: directory, courseId },
-              normalizeConfiguredExtensions(
-                selectDefaultExtensions(controller.getSnapshot()),
-              ),
-              false,
+              "picker",
             )
           },
         )
       }),
-    [controller, courseId, pickDirectory],
+    [courseId, pickDirectory],
   )
 }

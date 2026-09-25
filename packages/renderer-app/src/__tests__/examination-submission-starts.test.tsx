@@ -113,6 +113,7 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
       if (id === "settings.loadApp")
         return makeSettings({
           activeSurface: { kind: "submission", path: "/submission" },
+          defaultExtensions: ["ts"],
           llmConnections: [
             {
               id: "claude",
@@ -321,12 +322,7 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
       testSessionStart("submissionRefresh"),
       "analysis.listFolderFiles",
       (scope) =>
-        openSubmissionFolder(
-          scope,
-          { path: input.folderPath },
-          input.configuredExtensions,
-          false,
-        ),
+        openSubmissionFolder(scope, { path: input.folderPath }, "picker"),
     ),
   )
   assert.equal(preparations.length, 2)
@@ -343,12 +339,7 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
       testSessionStart("submissionRefresh"),
       "analysis.listFolderFiles",
       (scope) =>
-        openSubmissionFolder(
-          scope,
-          { path: input.folderPath },
-          input.configuredExtensions,
-          true,
-        ),
+        openSubmissionFolder(scope, { path: input.folderPath }, "recent"),
     ),
   )
   await render("recent-return")

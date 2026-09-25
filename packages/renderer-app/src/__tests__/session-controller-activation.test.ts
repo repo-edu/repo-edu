@@ -20,6 +20,46 @@ import {
 beforeEach(resetStores)
 
 describe("SessionController activation", () => {
+  it("keeps an already active surface unchanged through both activation routes", async (t) => {
+    const surface = { kind: "submission", path: "/submission" } as const
+    let preferenceSaves = 0
+    const controller = startController({
+      workflowClient: workflowClient(async (id) => {
+        if (id === "settings.loadApp")
+          return makeSettings({ activeSurface: surface })
+        if (id === "course.list") return []
+        if (id === "settings.savePreferences") {
+          preferenceSaves += 1
+          return undefined
+        }
+        assert.fail(`Unexpected workflow: ${id}`)
+      }),
+    })
+    t.after(() => controller.dispose())
+    await controller.waitForIdle()
+    const preferences = controller.getSnapshot().settings.preferences
+    const initialSaves = preferenceSaves
+
+    assert.equal(
+      await controller.activateSurface(
+        testSessionStart("recentSubmission"),
+        surface,
+      ),
+      true,
+    )
+    assert.equal(
+      await controller.operations.execute(
+        testSessionStart("recentSubmission"),
+        "analysis.listFolderFiles",
+        (scope) => scope.activateSurface(surface),
+      ),
+      true,
+    )
+    await controller.waitForIdle()
+    assert.deepEqual(controller.getSnapshot().settings.preferences, preferences)
+    assert.equal(preferenceSaves, initialSaves)
+  })
+
   it("owns the leaving-course save inside a picker-led surface transition", async () => {
     const saving = deferred<void>()
     const saved = deferred<void>()
