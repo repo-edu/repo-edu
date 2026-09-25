@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { checkRendererQuerySources } from "../renderer-query-checks.js"
+import { checkRendererQuerySources as checkSources } from "../renderer-query-checks.js"
+
+import { rendererSources } from "../renderer-source-origins.js"
+
+const checkRendererQuerySources = (
+  sources: Parameters<typeof rendererSources>[0],
+) => checkSources(rendererSources(sources))
 
 const file = "packages/renderer-app/src/analysis/example.ts"
 const imports = `
@@ -100,6 +106,38 @@ describe("Query body ownership", () => {
             "starts a Query fetch outside a scoped body; use scopedSessionQueryOptions",
         },
       ],
+    )
+  })
+
+  it("resolves namespace aliases and controller reservations for owned Query work", () => {
+    assert.deepEqual(
+      check(`
+      import * as Query from "@tanstack/react-query"
+      import * as Session from "../session/session-controller-context.js"
+      const Queries = Query
+      const { useQuery: observe, useQueryClient: client } = Queries
+      const { operations: gateway } = Session.getSessionController()
+      const { reserve } = gateway
+      const reservation = reserve(start, "analysis.run")
+      const { run } = reservation
+      const queryClient = client()
+      const { fetchQuery } = queryClient
+      observe({ enabled: false, queryFn: Query.skipToken })
+      run(async (scope) => {
+        await fetchQuery({ ...scoped(scope, signal, fetch) })
+      })
+    `),
+      [],
+    )
+    assert.equal(
+      check(`
+      import * as Query from "@tanstack/react-query"
+      const Queries = Query
+      const { useQueryClient: client } = Queries
+      const { fetchQuery } = client()
+      fetchQuery(options)
+    `).length,
+      1,
     )
   })
 })

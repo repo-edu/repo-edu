@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { checkRendererStartSources } from "../renderer-start-checks.js"
+import { rendererSources } from "../renderer-source-origins.js"
+import { checkRendererStartSources as checkSources } from "../renderer-start-checks.js"
+
+const checkRendererStartSources = (
+  sources: Parameters<typeof rendererSources>[0],
+) => checkSources(rendererSources(sources))
 
 const file = "packages/renderer-app/src/components/Example.tsx"
 const imports = `
@@ -9,7 +14,7 @@ import { useQuery as watch, useQueries, QueryObserver, useQueryClient } from "@t
 import { useCourseStore } from "../stores/course-store.js"
 import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
 import { useWorkflowClient as useGateway } from "../contexts/workflow-client.js"
-import { useSessionController as useController } from "../session/session-controller-context.js"
+import { useSessionController as useController, useSessionControllerSelector as selectSession } from "../session/session-controller-context.js"
 import type { SessionOperationGateway } from "../session/session-operations.js"
 import type { SessionController } from "../session/session-controller.js"
 import { bindSessionStart as bind } from "../session/session-start.js"
@@ -55,6 +60,10 @@ describe("the local renderer start contract", () => {
     ],
     [
       "store subscription",
+      (body: string) => `selectSession(() => { ${body} })`,
+    ],
+    [
+      "store subscription",
       (body: string) =>
         `useSyncExternalStore(controller.subscribe, () => { ${body} })`,
     ],
@@ -62,6 +71,8 @@ describe("the local renderer start contract", () => {
   const calls = [
     'gateway.execute(start, "analysis.run", body)',
     'gateway.reserve(start, "analysis.run")',
+    'controller.operations.execute(start, "analysis.run", body)',
+    'controller.operations.reserve(start, "analysis.run")',
     "controller.activateSurface(start, surface)",
     "controller.createCourse(start, input)",
     "controller.renameCourse(start, id, name)",
@@ -194,6 +205,38 @@ describe("the local renderer start contract", () => {
         const handleClick = bind("course.create", (entry) => controller.createCourse(entry, input))
         return <button onClick={handleClick}>New</button>
       })
+    `),
+      [],
+    )
+  })
+
+  it("follows controller gateway and selector aliases without matching unrelated names", () => {
+    assert.equal(
+      check(`
+      import * as Session from "../session/session-controller-context.js"
+      const { operations } = controller
+      const { execute } = operations
+      const reserve = controller["operations"]["reserve"]
+      const { useSessionControllerSelector: select } = Session
+      const selector = selectSession
+      select(() => execute(start, id, body))
+      selector(() => reserve(start, id))
+      effect(() => Session.getSessionController().operations.execute(start, id, body))
+      function useExample(typed: SessionController) {
+        effect(() => typed.operations.reserve(start, id))
+      }
+    `).length,
+      4,
+    )
+    assert.deepEqual(
+      check(`
+      import { useSessionControllerSelector } from "./unrelated.js"
+      const unrelated = { operations: { execute() {} } }
+      effect(() => unrelated.operations.execute())
+      useSessionControllerSelector(() => run())
+      function Example() {
+        return <button onClick={() => controller.operations.execute(start, id, body)} />
+      }
     `),
       [],
     )

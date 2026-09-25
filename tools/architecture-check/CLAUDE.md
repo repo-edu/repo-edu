@@ -45,6 +45,8 @@ violations. The checks cover:
   store subscriptions. Bindings may be created during render. The compiler
   resolves imported APIs and local aliases within each file; the check does
   not trace helper bodies, named callbacks or forwarded properties.
+  `renderer-source-origins.ts` owns the compiler program and name tracking
+  shared with the Query check. Each check owns its separate rules.
 
 ## Area model
 

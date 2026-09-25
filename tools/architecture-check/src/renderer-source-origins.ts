@@ -1,5 +1,35 @@
 import * as ts from "typescript"
-import { memberName, unwrap, walk } from "./desktop-inventory-syntax.js"
+import {
+  memberName,
+  syntaxTree,
+  unwrap,
+  walk,
+} from "./desktop-inventory-syntax.js"
+
+export interface RendererSource {
+  source: ts.SourceFile
+  origin: (node: ts.Node) => string | undefined
+}
+
+export function rendererSources(
+  sources: readonly { file: string; content: string }[],
+): RendererSource[] {
+  const files = new Map(
+    sources.map(({ file, content }) => [file, syntaxTree(file, content)]),
+  )
+  const host = ts.createCompilerHost({})
+  host.getSourceFile = (file) => files.get(file)
+  const program = ts.createProgram(
+    [...files.keys()],
+    { noLib: true, noResolve: true },
+    host,
+  )
+  const checker = program.getTypeChecker()
+  return [...files.values()].map((source) => ({
+    source,
+    origin: rendererOrigins(source, checker),
+  }))
+}
 
 /** Known API identities only. This never inspects a called function's body. */
 function importedOrigin(path: string, name: string): string | undefined {
@@ -13,11 +43,16 @@ function importedOrigin(path: string, name: string): string | undefined {
     ["useWorkflowClient", "getWorkflowClient"].includes(name)
   )
     return "gatewayFactory"
+  if (path.endsWith("/session-operations.js")) {
+    if (name === "SessionOperationGateway") return "gateway"
+    if (name === "SessionOperationScope") return "scope"
+    if (name === "SessionOperationReservation") return "reservation"
+  }
   if (
-    path.endsWith("/session-operations.js") &&
-    name === "SessionOperationGateway"
+    path.endsWith("/session-query.js") &&
+    name === "scopedSessionQueryOptions"
   )
-    return "gateway"
+    return "scopedSessionQueryOptions"
   if (path.endsWith("/session-controller.js") && name === "SessionController")
     return "controller"
   if (
@@ -25,6 +60,11 @@ function importedOrigin(path: string, name: string): string | undefined {
     ["useSessionController", "getSessionController"].includes(name)
   )
     return "controllerFactory"
+  if (
+    path.endsWith("/session-controller-context.js") &&
+    name === "useSessionControllerSelector"
+  )
+    return "store"
   if (
     path.endsWith("/source-lifecycle-events.js") &&
     name === "subscribeCourseRemoval"
@@ -38,36 +78,42 @@ function importedOrigin(path: string, name: string): string | undefined {
   return undefined
 }
 
-const queryFactories = new Set([
-  "useQuery",
-  "useInfiniteQuery",
-  "useSuspenseQuery",
-  "useSuspenseInfiniteQuery",
-  "useQueries",
-  "useSuspenseQueries",
-  "QueryObserver",
-  "InfiniteQueryObserver",
-  "QueriesObserver",
-  "QueryClient",
-  "useQueryClient",
-  "QueryCache",
+const queryReturns = new Map([
+  ["query.useQuery", "observer"],
+  ["query.useInfiniteQuery", "observer"],
+  ["query.useSuspenseQuery", "observer"],
+  ["query.useSuspenseInfiniteQuery", "observer"],
+  ["query.useQueries", "observer"],
+  ["query.useSuspenseQueries", "observer"],
+  ["query.QueryObserver", "observer"],
+  ["query.InfiniteQueryObserver", "observer"],
+  ["query.QueriesObserver", "observer"],
+  ["query.QueryClient", "queryClient"],
+  ["query.useQueryClient", "queryClient"],
+  ["query.QueryCache", "queryCache"],
+  ["query.useMutation", "mutationHook"],
+  ["query.MutationObserver", "mutationObserver"],
 ])
 
-export function rendererStartOrigins(
-  source: ts.SourceFile,
-  checker: ts.TypeChecker,
-) {
+function rendererOrigins(source: ts.SourceFile, checker: ts.TypeChecker) {
   const origins = new Map<ts.Symbol, string>()
   const namespaces = new Map<ts.Symbol, string>()
   const bind = (node: ts.Node, kind: string) => {
     const symbol = checker.getSymbolAtLocation(node)
     if (symbol && !origins.has(symbol)) origins.set(symbol, kind)
   }
+  const memberOrigin = (kind: string, member: string) =>
+    kind === "controller" && member === "operations"
+      ? "gateway"
+      : `${kind}.${member}`
   const origin = (node: ts.Node): string | undefined => {
     const symbol = checker.getSymbolAtLocation(node)
     const known = symbol && origins.get(symbol)
     if (known) return known
-    if (ts.isTypeReferenceNode(node)) return origin(node.typeName)
+    if (ts.isTypeReferenceNode(node)) {
+      const kind = origin(node.typeName)
+      return kind && (queryReturns.get(kind) ?? kind)
+    }
     if (ts.isQualifiedName(node)) {
       const owner = checker.getSymbolAtLocation(node.left)
       const path = owner && namespaces.get(owner)
@@ -88,7 +134,7 @@ export function rendererStartOrigins(
       const member = memberName(node)
       if (path && member) return importedOrigin(path, member)
       const kind = origin(node.expression)
-      if (kind && member) return `${kind}.${member}`
+      if (kind && member) return memberOrigin(kind, member)
     }
     if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
       const factory = origin(node.expression)
@@ -117,14 +163,15 @@ export function rendererStartOrigins(
         }
       }
       if (factory === "gatewayFactory") return "gateway"
+      if (factory === "gateway.reserve") return "reservation"
       if (
         factory === "controllerFactory" ||
         (factory === "controller" && ts.isNewExpression(node))
       )
         return "controller"
-      if (factory?.startsWith("query.") && queryFactories.has(factory.slice(6)))
-        return "observer"
-      if (factory === "observer.getQueryCache") return "observer"
+      const queryReturn = factory && queryReturns.get(factory)
+      if (queryReturn) return queryReturn
+      if (factory === "queryClient.getQueryCache") return "queryCache"
       if (
         ["zustand.create", "zustand.createStore", "storeFactory"].includes(
           factory ?? "",
@@ -167,6 +214,22 @@ export function rendererStartOrigins(
   while (changed) {
     const count = origins.size + namespaces.size
     walk(source, (node) => {
+      if (ts.isCallExpression(node)) {
+        const method = origin(node.expression)
+        const body =
+          method === "gateway.execute"
+            ? node.arguments[2]
+            : method === "reservation.run"
+              ? node.arguments[0]
+              : undefined
+        if (
+          body &&
+          (ts.isArrowFunction(body) || ts.isFunctionExpression(body))
+        ) {
+          const parameter = body.parameters[0]
+          if (parameter) bind(parameter.name, "scope")
+        }
+      }
       if (
         !(
           ts.isVariableDeclaration(node) ||
@@ -182,7 +245,7 @@ export function rendererStartOrigins(
       if (kind && ts.isObjectBindingPattern(node.name)) {
         for (const element of node.name.elements) {
           const member = memberName(element.propertyName ?? element.name)
-          if (member) bind(element.name, `${kind}.${member}`)
+          if (member) bind(element.name, memberOrigin(kind, member))
         }
       }
       if (node.initializer) {

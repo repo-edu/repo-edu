@@ -1,11 +1,6 @@
 import * as ts from "typescript"
-import {
-  memberName,
-  syntaxTree,
-  unwrap,
-  walk,
-} from "./desktop-inventory-syntax.js"
-import { rendererStartOrigins } from "./renderer-start-origins.js"
+import { memberName, unwrap, walk } from "./desktop-inventory-syntax.js"
+import type { RendererSource } from "./renderer-source-origins.js"
 import type { Violation } from "./violations.js"
 
 const admissions = new Set([
@@ -42,28 +37,12 @@ function hasBody(node: ts.Node): node is FunctionBody {
 }
 
 export function checkRendererStartSources(
-  sources: readonly { file: string; content: string }[],
+  sources: readonly RendererSource[],
 ): Violation[] {
-  const files = new Map(
-    sources.map(({ file, content }) => [file, syntaxTree(file, content)]),
-  )
-  const host = ts.createCompilerHost({})
-  host.getSourceFile = (file) => files.get(file)
-  const program = ts.createProgram(
-    [...files.keys()],
-    { noLib: true, noResolve: true },
-    host,
-  )
-  return [...files.values()].flatMap((source) =>
-    checkSource(source, program.getTypeChecker()),
-  )
+  return sources.flatMap(checkSource)
 }
 
-function checkSource(
-  source: ts.SourceFile,
-  checker: ts.TypeChecker,
-): Violation[] {
-  const origin = rendererStartOrigins(source, checker)
+function checkSource({ source, origin }: RendererSource): Violation[] {
   const contexts = new Map<ts.Node, Context>()
   const violations: Violation[] = []
   const callback = (node: ts.Expression | undefined, context: Context) => {
@@ -106,7 +85,12 @@ function checkSource(
     if (api && queryOptions.has(api)) {
       for (const arg of args) options(arg)
     }
-    if (api === "observer.subscribe") callback(args[0], "Query observer")
+    if (
+      api === "observer.subscribe" ||
+      api === "queryClient.subscribe" ||
+      api === "queryCache.subscribe"
+    )
+      callback(args[0], "Query observer")
     if (
       api === "subscription" ||
       api === "store.subscribe" ||

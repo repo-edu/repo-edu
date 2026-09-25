@@ -83,6 +83,41 @@ describe("bespoke checks", () => {
     )
   })
 
+  it("checks automatic starts and Query ownership through the same controller gateway", async () => {
+    const root = await mkdtemp(join(tmpdir(), "repo-edu-renderer-checks-"))
+    const file = "packages/renderer-app/src/components/Feature.tsx"
+    await mkdir(join(root, file, ".."), { recursive: true })
+    await writeFile(
+      join(root, file),
+      `
+      import { useEffect } from "react"
+      import { useQueryClient } from "@tanstack/react-query"
+      import { useSessionController } from "../session/session-controller-context.js"
+      import { scopedSessionQueryOptions } from "../session/session-query.js"
+      const { operations } = useSessionController()
+      const cache = useQueryClient()
+      useEffect(() => {
+        operations.execute(start, "analysis.run", async (scope) => {
+          await cache.fetchQuery({ ...scopedSessionQueryOptions(scope, signal, fetch) })
+        })
+        cache.fetchQuery(options)
+      })
+    `,
+    )
+    const violations = runBespokeChecks(
+      root,
+      { files: [file], fileSet: new Set([file]), worktreePaths: [file] },
+      () => [file],
+    )
+    assert.equal(violations.length, 2)
+    assert.ok(violations.some(({ message }) => message.includes("in effect")))
+    assert.ok(
+      violations.some(({ message }) =>
+        message.includes("outside a scoped body"),
+      ),
+    )
+  })
+
   it("checks non-source CommonJS and import-equals imports", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-bespoke-"))
     await writeFile(join(root, "package.json"), "{}")
