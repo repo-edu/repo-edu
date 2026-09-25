@@ -1,3 +1,10 @@
+export type SessionStartDefinition = {
+  readonly control: string
+  readonly where: string
+  readonly starts: string
+  readonly cancel: string
+}
+
 /** Teacher controls that may start session work. Lifecycle starts are separate. */
 export const sessionStartInventory = {
   analysisStart: {
@@ -236,12 +243,5 @@ export const sessionStartInventory = {
     cancel: "none",
   },
 } as const satisfies Record<string, SessionStartDefinition>
-
-export type SessionStartDefinition = {
-  readonly control: string
-  readonly where: string
-  readonly starts: string
-  readonly cancel: string
-}
 
 export type SessionStartId = keyof typeof sessionStartInventory
