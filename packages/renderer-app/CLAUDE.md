@@ -141,9 +141,9 @@ the existing transaction owner. Follow-up bodies retain the initiating start.
 | Open recent repository folder | Course switcher | surface change to the folder | none |
 | Open recent submission folder | Course switcher | surface change to the submission, then `analysis.listFolderFiles` only when no listing is held for that folder and its extensions | none |
 | Open folder of repositories | Home view | `pickDirectory`, then surface change | none |
-| Open student submission folder | Course switcher, submission views | `pickDirectory`, then surface change, then `analysis.listFolderFiles` | none |
+| Open student submission folder | Course switcher, Home view | `pickDirectory`, then surface change, then `analysis.listFolderFiles` | none |
 | Open course | Course switcher | `course.load` | none |
-| New | Course switcher, Home view | `course.save`, then `course.list` | none |
+| Set up a course from your LMS, Set up a course from a RepoBee student list or Enter in the course-name field | Home view | `course.save`, then `course.list` | none |
 | Rename | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
 | Duplicate | Course switcher | `course.load` when needed, then `course.save` and `course.list` | none |
 | Delete | Course switcher | `course.delete`, fallback surface change when needed, then `course.list` | none |

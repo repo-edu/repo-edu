@@ -166,7 +166,7 @@ export const sessionStartInventory = {
   },
   openSubmission: {
     control: "Open student submission folder",
-    where: "Course switcher, submission views",
+    where: "Course switcher, Home view",
     starts:
       "`pickDirectory`, then surface change, then `analysis.listFolderFiles`",
     cancel: "none",
@@ -178,8 +178,9 @@ export const sessionStartInventory = {
     cancel: "none",
   },
   courseNew: {
-    control: "New",
-    where: "Course switcher, Home view",
+    control:
+      "Set up a course from your LMS, Set up a course from a RepoBee student list or Enter in the course-name field",
+    where: "Home view",
     starts: "`course.save`, then `course.list`",
     cancel: "none",
   },
