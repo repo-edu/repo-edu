@@ -29,8 +29,9 @@ System group sets cannot be renamed, deleted, or manually edited.
 Imported from your connected LMS (Canvas group sets or Moodle groupings). These are linked to the
 LMS source and can be synced to pull in membership changes.
 
-To add an LMS group set, click the **+** button next to the LMS section header. This fetches
-available group sets from the LMS and lets you select which one to connect.
+To add an LMS group set, click the **+** button next to the LMS section header to open
+**Add Connected Group Set**. Press **Load group sets** to fetch the available group sets from the
+LMS, then select which one to connect.
 
 After connecting, click **Sync** on a group set to refresh its membership from the LMS.
 
@@ -136,11 +137,10 @@ across roster edits and `{members}`-parameterized templates.
 
 ### Clone All
 
-Opening the panel lists repositories from the configured Git connection and namespace.
-After editing the namespace or name filter, press Enter in either field to list the current inputs.
-Typing, pausing and leaving a text field do not start a listing. After changing the Git connection
-or its saved token, press Enter in either field to refresh the listing. Saving a connection in
-Settings starts no listing.
+Press **Search**, or press Enter in the namespace or name filter field, to list repositories for
+the current inputs. Opening the panel starts no listing. After changing the inputs, Git connection
+or its saved token, use **Search** or Enter again to refresh the listing. Typing, pausing, leaving
+a text field and saving a connection in Settings start no listing.
 
 - **Name filter** (optional, e.g. `1*`) — filters by leaf name. Syntax: `*` = any characters, `?` =
   one character; leave blank to list all. The filter matches the leaf shown, never the subgroup
@@ -148,7 +148,8 @@ Settings starts no listing.
   team subgroup `111_…` is not matched. When a repo sits inside a subgroup, the panel shows the
   subgroup path next to the leaf (e.g. `group-30-2iv60  (111_dyliiev_…)`) so its origin is obvious
   at a glance.
-- **Include archived** — starts a listing with archived repositories included or excluded.
+- **Include archived** — chooses whether the next **Search** includes archived repositories.
+  Changing it starts no listing.
 - **Target folder** — destination for the clone. Must be an absolute path or start with `~`. Editing
   this field does *not* re-run the listing (the target isn't part of the listing query).
 - **Clone N Repositories** — bulk-clones every repository in the current preview into the target

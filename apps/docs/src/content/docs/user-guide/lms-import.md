@@ -60,8 +60,9 @@ repo-edu can import these as local group sets:
 
 ### Discovering available group sets
 
-Open **Add Connected Group Set** in the desktop app. The **LMS Group Set** list shows available
-group sets that are not already connected to this course. Selecting one does not change the course.
+Open **Add Connected Group Set** in the desktop app, then press **Load group sets**. The
+**LMS Group Set** list shows available group sets that are not already connected to this course.
+Selecting one does not change the course.
 
 ### Connecting a group set
 

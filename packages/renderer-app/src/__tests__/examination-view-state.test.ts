@@ -110,14 +110,14 @@ describe("examination view state", () => {
     )
   })
 
-  it("names the repository click when line authorship is missing", () => {
+  it("names Analyse selected repository when line authorship is missing", () => {
     assert.equal(
       resolveExaminationEmptyState({
         selectedRepositoryPath: "/repos/project",
         hasBlameResult: false,
         authorCount: 0,
       }),
-      "Click the repository in the Analysis tab's sidebar to identify authors for examination questions.",
+      "Press Analyse selected repository in the Analysis tab's sidebar to identify authors for examination questions.",
     )
     assert.equal(
       resolveExaminationEmptyState({
