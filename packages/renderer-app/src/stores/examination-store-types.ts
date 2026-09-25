@@ -6,7 +6,10 @@ import type {
 } from "@repo-edu/application-contract"
 import type { LlmProviderKind } from "@repo-edu/domain/connection"
 import type { LlmEffort } from "@repo-edu/integrations-llm-contract"
-import type { SourceIdentity } from "../components/tabs/examination/source.js"
+import type {
+  SourceIdentity,
+  SubmissionExaminationSource,
+} from "../components/tabs/examination/source.js"
 import type { AnalysisSourceKey } from "../session/session-reducer.js"
 
 export type ExaminationEntryStatus = "idle" | "loading" | "loaded" | "error"
@@ -137,6 +140,7 @@ export type ExaminationState = {
   entriesByKey: Map<string, ExaminationEntry>
   archiveRevision: number
   submissionFileLists: Map<string, SubmissionFileList>
+  preparedSubmissionSources: Map<string, SubmissionExaminationSource>
 }
 
 export type SubmissionFolderFile = {
@@ -155,12 +159,18 @@ export type SubmissionFileList =
   | { status: "error"; files: []; error: string }
 
 export type ExaminationActions = {
+  setPreparedSubmissionSource: (
+    key: string,
+    source: SubmissionExaminationSource,
+  ) => void
+  discardPreparedSubmissionSources: (folderPath: string) => void
   setSubmissionFileList: (
     folderPath: string,
     listing: SubmissionFileList,
   ) => void
   activateSourceSummary: (input: ActivateSourceSummaryInput) => void
   activateSource: (input: ActivateSourceInput) => void
+  activateSourceForRequest: (input: ActivateSourceInput) => void
   selectRepositoryAnalysisSubject: (
     sourceSummaryKey: string,
     subjectId: string,

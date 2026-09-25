@@ -1,5 +1,6 @@
 import {
   type ExaminationAttachedRosterIdentityInput,
+  type ExaminationPrepareSubmissionSourceInput,
   SUBMISSION_FILE_MAX_BYTES,
   SUBMISSION_SELECTION_MAX_BYTES,
   SUBMISSION_SELECTION_MAX_FILES,
@@ -11,13 +12,7 @@ import {
 import type { SubmissionSurfaceState } from "@repo-edu/domain/settings"
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Button, Checkbox, Label } from "@repo-edu/ui"
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { useCallback, useMemo } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveSurface,
@@ -34,14 +29,13 @@ import type {
   SubmissionFileList,
   SubmissionFolderFile,
 } from "../../stores/examination-store-types.js"
-import { getErrorMessage } from "../../utils/error-message.js"
 import { formatTokenEstimate } from "../../utils/token-estimate.js"
 import { SubmissionExaminationPane } from "./examination/SubmissionExaminationPane.js"
-import type { SubmissionExaminationSource } from "./examination/source.js"
 import {
   listSubmissionFiles,
   normalizeConfiguredExtensions,
 } from "./examination/submission-file-listing.js"
+import { submissionPreparationKey } from "./examination/submission-source-preparation.js"
 import { useExaminationEngine } from "./examination/use-examination-engine.js"
 
 const EMPTY_FILE_LIST: SubmissionFileList = {
@@ -49,17 +43,6 @@ const EMPTY_FILE_LIST: SubmissionFileList = {
   files: [],
   error: null,
 }
-
-type PreparedSubmissionState =
-  | { status: "idle"; pendingSourceKey: null; source: null; error: null }
-  | { status: "loading"; pendingSourceKey: string; source: null; error: null }
-  | {
-      status: "loaded"
-      pendingSourceKey: string
-      source: SubmissionExaminationSource
-      error: null
-    }
-  | { status: "error"; pendingSourceKey: string; source: null; error: string }
 
 const EMPTY_SUBMISSION_STATE: SubmissionSurfaceState = {
   includedFiles: null,
@@ -132,115 +115,25 @@ export function SubmissionExaminationTab() {
     return null
   }
 
-  const source = sourceViewModel.visiblePrepared.source
-  return (
-    <SubmissionExaminationShell
-      source={source}
-      sidebarContent={sourceViewModel.sidebarContent}
-      emptyMessage={sourceViewModel.placeholderMessage}
-    />
-  )
+  return <SubmissionExaminationShell sourceViewModel={sourceViewModel} />
 }
 
 function SubmissionExaminationShell({
-  source,
-  sidebarContent,
-  emptyMessage,
+  sourceViewModel,
 }: {
-  source: SubmissionExaminationSource | null
-  sidebarContent: ReactNode
-  emptyMessage: string
-}) {
-  if (source === null) {
-    return (
-      <div className="h-full min-h-0 overflow-hidden p-6">
-        <SubmissionExaminationPane
-          sidebarContent={sidebarContent}
-          connections={[]}
-          activeConnection={null}
-          selectedModelCode={null}
-          onSelectConnection={() => undefined}
-          onSelectModelCode={() => undefined}
-          onOpenSettings={() => undefined}
-          onImportArchive={() => undefined}
-          onExportArchive={() => undefined}
-          display={{
-            entry: null,
-            archiveEntry: null,
-            displayEntry: null,
-            isLoading: false,
-            hasDisplayResults: false,
-            hasPartialQuestions: false,
-            canRegenerate: false,
-            canToggleAnswers: false,
-            canCopyMarkdown: false,
-          }}
-          archiveEntries={[]}
-          showArchiveSelector={false}
-          questionCount={4}
-          showAnswers={true}
-          blocker={emptyMessage}
-          onQuestionCountChange={() => undefined}
-          onShowAnswersChange={() => undefined}
-          onSelectArchiveEntry={() => undefined}
-          onGenerate={() => undefined}
-          onStopGeneration={() => undefined}
-          onRegenerate={() => undefined}
-          onCopyMarkdown={() => undefined}
-          emptyMessage={emptyMessage}
-        />
-      </div>
-    )
-  }
-
-  return (
-    <LoadedSubmissionExaminationShell
-      source={source}
-      sidebarContent={sidebarContent}
-      emptyMessage={emptyMessage}
-    />
-  )
-}
-
-function LoadedSubmissionExaminationShell({
-  source,
-  sidebarContent,
-  emptyMessage,
-}: {
-  source: SubmissionExaminationSource
-  sidebarContent: ReactNode
-  emptyMessage: string
+  sourceViewModel: ReturnType<typeof useSubmissionExaminationSource>
 }) {
   const engine = useExaminationEngine({
-    source,
-    emptyBlocker: emptyMessage,
+    source: sourceViewModel.source,
+    submissionInput: sourceViewModel.preparationInput,
+    emptyBlocker: sourceViewModel.blocker,
   })
   return (
     <div className="h-full min-h-0 overflow-hidden p-6">
       <SubmissionExaminationPane
-        sidebarContent={sidebarContent}
-        connections={engine.connections}
-        activeConnection={engine.activeConnection}
-        selectedModelCode={engine.selectedModelCode}
-        onSelectConnection={engine.commands.selectConnection}
-        onSelectModelCode={engine.commands.selectModelCode}
-        onOpenSettings={engine.commands.openLlmSettings}
-        onImportArchive={engine.commands.importArchive}
-        onExportArchive={engine.commands.exportArchive}
-        display={engine.display}
-        archiveEntries={engine.archiveEntries}
-        showArchiveSelector={engine.showArchiveSelector}
-        questionCount={engine.questionCount}
-        showAnswers={engine.showAnswers}
-        blocker={engine.blocker}
-        onQuestionCountChange={engine.commands.changeQuestionCount}
-        onShowAnswersChange={engine.commands.changeShowAnswers}
-        onSelectArchiveEntry={engine.commands.selectArchiveEntry}
-        onGenerate={engine.commands.generate}
-        onStopGeneration={engine.commands.stopGeneration}
-        onRegenerate={engine.commands.regenerate}
-        onCopyMarkdown={engine.commands.copyMarkdown}
-        emptyMessage={emptyMessage}
+        sidebarContent={sourceViewModel.sidebarContent}
+        engine={engine}
+        emptyMessage={sourceViewModel.placeholderMessage}
       />
     </div>
   )
@@ -262,14 +155,6 @@ function useSubmissionExaminationSource() {
       : (state.submissionFileLists.get(submissionFolderPath) ??
         EMPTY_FILE_LIST),
   )
-  const [prepared, setPrepared] = useState<PreparedSubmissionState>({
-    status: "idle",
-    pendingSourceKey: null,
-    source: null,
-    error: null,
-  })
-  const [prepareAttempt, setPrepareAttempt] = useState(0)
-
   const stateKey = activeSurfaceSubmissionStateKey(activeSurface)
   const recent = activeSurfaceRecentSubmission(activeSurface)
   const submissionState =
@@ -316,20 +201,6 @@ function useSubmissionExaminationSource() {
       resolveEffectiveSelection(fileList.files, submissionState.includedFiles),
     [fileList.files, submissionState.includedFiles],
   )
-  const selectedPathsKey = useMemo(
-    () => JSON.stringify([...effectiveSelection].sort()),
-    [effectiveSelection],
-  )
-  const pendingSourceKey = useMemo(() => {
-    if (submissionFolderPath === null || effectiveSelection.length === 0) {
-      return null
-    }
-    return JSON.stringify([
-      "submission",
-      submissionFolderPath,
-      JSON.parse(selectedPathsKey) as string[],
-    ])
-  }, [effectiveSelection.length, selectedPathsKey, submissionFolderPath])
   const selectedSet = useMemo(
     () => new Set(effectiveSelection),
     [effectiveSelection],
@@ -356,93 +227,39 @@ function useSubmissionExaminationSource() {
   )
   const prepareBlocker = identityBlocker ?? selectionBlocker
 
-  useEffect(() => {
-    if (
-      submissionFolderPath === null ||
-      fileList.status !== "loaded" ||
-      configuredExtensions === null ||
-      effectiveSelection.length === 0 ||
-      pendingSourceKey === null ||
-      prepareBlocker !== null
-    ) {
-      setPrepared({
-        status: "idle",
-        pendingSourceKey: null,
-        source: null,
-        error: null,
-      })
-      return
-    }
-
-    void prepareAttempt
-    const selectedRelativePaths = JSON.parse(selectedPathsKey) as string[]
-    void workflowClient.execute(
-      "examination.prepareSubmissionSource",
-      async (scope) => {
-        setPrepared({
-          status: "loading",
-          pendingSourceKey,
-          source: null,
-          error: null,
-        })
-
-        await scope
-          .run("examination.prepareSubmissionSource", {
-            folderPath: submissionFolderPath,
-            selectedRelativePaths,
-            configuredExtensions,
-            attachedRosterIdentities: rosterIdentities(attachedRoster),
-          })
-          .then((result) => {
-            const lineCount = result.excerpts.reduce(
-              (count, excerpt) => count + excerpt.lines.length,
-              0,
-            )
-            setPrepared({
-              status: "loaded",
-              pendingSourceKey,
-              error: null,
-              source: {
-                kind: "submission",
-                folderPath: result.folderPath,
-                contentScopeId: result.contentScopeId,
-                subject: {
-                  id: result.personId,
-                  name: result.displayTitle,
-                  email: result.displaySubtitle,
-                  lines: lineCount,
-                  linesPercent: 100,
-                  excerpts: result.excerpts,
-                  excerptFileSources: result.excerptFileSources,
-                  excerptScopeId: result.contentScopeId,
-                },
-                localIdentityContext: result.localIdentityContext,
-              },
-            })
-          })
-          .catch((error) => {
-            if (scope.signal.aborted) return
-            setPrepared({
-              status: "error",
-              pendingSourceKey,
-              source: null,
-              error: getErrorMessage(error),
-            })
-          })
-      },
+  const preparationInput =
+    useMemo<ExaminationPrepareSubmissionSourceInput | null>(
+      () =>
+        submissionFolderPath === null ||
+        fileList.status !== "loaded" ||
+        configuredExtensions === null ||
+        effectiveSelection.length === 0 ||
+        prepareBlocker !== null
+          ? null
+          : {
+              folderPath: submissionFolderPath,
+              selectedRelativePaths: effectiveSelection,
+              configuredExtensions,
+              attachedRosterIdentities: rosterIdentities(attachedRoster),
+            },
+      [
+        submissionFolderPath,
+        fileList.status,
+        configuredExtensions,
+        effectiveSelection,
+        prepareBlocker,
+        attachedRoster,
+      ],
     )
-  }, [
-    attachedRoster,
-    configuredExtensions,
-    effectiveSelection.length,
-    fileList.status,
-    pendingSourceKey,
-    prepareAttempt,
-    prepareBlocker,
-    selectedPathsKey,
-    submissionFolderPath,
-    workflowClient,
-  ])
+  const preparationKey =
+    preparationInput === null
+      ? null
+      : submissionPreparationKey(preparationInput)
+  const source = useExaminationStore((state) =>
+    preparationKey === null
+      ? null
+      : (state.preparedSubmissionSources.get(preparationKey) ?? null),
+  )
 
   const updateIncludedFiles = (next: string[] | null) => {
     if (recent === null) return
@@ -490,34 +307,20 @@ function useSubmissionExaminationSource() {
               } · ${formatBytes(selectedTotalBytes)} · ~${formatTokenEstimate(
                 selectedTotalBytes,
               )} tokens`
-  const visiblePrepared =
-    prepared.pendingSourceKey === pendingSourceKey
-      ? prepared
-      : ({
-          status: "idle",
-          pendingSourceKey: null,
-          source: null,
-          error: null,
-        } satisfies PreparedSubmissionState)
-  const isAwaitingPreparation =
-    fileList.status === "loaded" &&
-    pendingSourceKey !== null &&
-    prepareBlocker === null &&
-    visiblePrepared.status !== "loaded" &&
-    visiblePrepared.status !== "error"
+  const blocker =
+    fileList.status === "idle"
+      ? "Press Refresh to list submission files."
+      : fileList.status === "loading"
+        ? "Loading files..."
+        : fileList.status === "error"
+          ? "Press Refresh to retry the file listing."
+          : (prepareBlocker ??
+            (effectiveSelection.length === 0
+              ? "Select at least one file."
+              : null))
   const placeholderMessage =
-    visiblePrepared.status === "loaded"
-      ? "Click Generate to produce questions for this submission."
-      : fileList.status === "idle"
-        ? "Press Refresh to list submission files."
-        : fileList.status === "loading"
-          ? "Loading files..."
-          : fileList.status === "error"
-            ? "Fix the file loading error before preparing examination generation."
-            : isAwaitingPreparation || visiblePrepared.status === "loading"
-              ? "Preparing submission..."
-              : (prepareBlocker ??
-                "Select at least one file to open examination generation.")
+    blocker ??
+    "Press Load questions to find saved questions or Generate questions to create them."
 
   const sidebarContent = (
     <section className="grid gap-4">
@@ -592,26 +395,13 @@ function useSubmissionExaminationSource() {
           <p className="text-xs text-destructive">{prepareBlocker}</p>
         ) : null}
       </div>
-
-      {isAwaitingPreparation || visiblePrepared.status === "loading" ? (
-        <p className="text-xs text-muted-foreground">Preparing submission...</p>
-      ) : visiblePrepared.status === "error" ? (
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-destructive">{visiblePrepared.error}</p>
-          <button
-            type="button"
-            className="text-xs underline"
-            onClick={() => setPrepareAttempt((attempt) => attempt + 1)}
-          >
-            Retry
-          </button>
-        </div>
-      ) : null}
     </section>
   )
 
   return {
-    visiblePrepared,
+    source,
+    preparationInput,
+    blocker,
     sidebarContent,
     placeholderMessage,
   }

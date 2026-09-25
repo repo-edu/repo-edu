@@ -74,7 +74,6 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   const listings: WorkflowInput<"analysis.listFolderFiles">[] = []
   const preparations: ExaminationPrepareSubmissionSourceInput[] = []
   const releaseListing = deferred<void>()
-  const releasePreparation = deferred<void>()
   const files = [
     { relativePath: "main.ts", size: 20 },
     { relativePath: "other.ts", size: 20 },
@@ -106,7 +105,6 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
       if (id === "examination.prepareSubmissionSource") {
         const preparation = input as ExaminationPrepareSubmissionSourceInput
         preparations.push(preparation)
-        if (listings.length === 2) await releasePreparation.promise
         return {
           folderPath: preparation.folderPath,
           personId: "submission",
@@ -141,7 +139,6 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   t.after(async () => {
     await React.act(async () => {
       releaseListing.resolve()
-      releasePreparation.resolve()
       await controller.waitForIdle()
       root.unmount()
     })
@@ -210,8 +207,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     listings.map((input) => input.extensions),
     [["ts"]],
   )
-  assert.equal(preparations.length, 1)
-  assert.deepEqual(preparations[0]?.configuredExtensions, ["ts"])
+  assert.equal(preparations.length, 0)
   assert.match(container.textContent, /main\.ts/)
   assert.doesNotMatch(container.textContent, /main\.py/)
 
@@ -252,7 +248,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
       null,
     )
     assert.equal(listings.length, 1)
-    assert.equal(preparations.length, 1)
+    assert.equal(preparations.length, 0)
   }
   await typeDraft("go")
   await React.act(async () => {
@@ -273,9 +269,9 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     "go",
   ])
   assert.equal(listings.length, 1)
-  assert.equal(preparations.length, 1)
+  assert.equal(preparations.length, 0)
 
-  // Choosing another file still prepares against the listing's old extensions.
+  // File selection changes inputs without starting preparation.
   const fileCheckbox = [...container.querySelectorAll("li")]
     .find((item) => item.textContent.includes("other.ts"))
     ?.querySelector("button")
@@ -284,9 +280,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
     fileCheckbox.click()
   })
   await settle()
-  assert.equal(preparations.length, 2)
-  assert.deepEqual(preparations[1]?.configuredExtensions, ["ts"])
-  assert.deepEqual(preparations[1]?.selectedRelativePaths, ["main.ts"])
+  assert.equal(preparations.length, 0)
 
   const refresh = [...container.querySelectorAll("button")].find(
     (button) => button.textContent === "Refresh",
@@ -305,18 +299,7 @@ it("keeps Settings edits uninterrupted and applies extensions only on submission
   await React.act(async () => {
     releaseListing.resolve()
   })
-  assert.equal(preparations.length, 3)
-  assert.deepEqual(preparations[2]?.configuredExtensions, [
-    "ts",
-    "py",
-    "rs",
-    "go",
-  ])
-  assert.deepEqual(preparations[2]?.selectedRelativePaths, ["main.ts"])
-  assert.ok(window.document.querySelector("[data-session-input-frozen]"))
-  await React.act(async () => {
-    releasePreparation.resolve()
-  })
+  assert.equal(preparations.length, 0)
   await settle()
   assert.match(container.textContent, /main\.py/)
   assert.equal(

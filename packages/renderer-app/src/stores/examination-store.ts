@@ -25,6 +25,7 @@ import {
   withPreferences,
 } from "./examination-store-helpers.js"
 import type {
+  ActivateSourceInput,
   ExaminationActions,
   ExaminationEntry,
   ExaminationLivePreferences,
@@ -61,8 +62,88 @@ export const useExaminationStore = create<
     })
   }
 
+  const activateSource = (
+    input: ActivateSourceInput,
+    useRequestPreferences: boolean,
+  ) =>
+    set((state) => {
+      const sourceSummaries = new Map(state.sourceSummaries)
+      const currentSummary = sourceSummaries.get(input.sourceSummaryKey)
+      const selectedSubjectId = resolveSelectedSubjectId({
+        current: currentSummary?.selectedSubjectId ?? null,
+        fallback: input.selectedSubjectId,
+        subjectIds: input.subjectIds,
+      })
+      sourceSummaries.set(
+        input.sourceSummaryKey,
+        currentSummary === undefined
+          ? createSummary({ ...input, selectedSubjectId })
+          : {
+              ...currentSummary,
+              subjectIds: input.subjectIds,
+              selectedSubjectId,
+            },
+      )
+
+      const sourceSessions = new Map(state.sourceSessions)
+      const currentSession = sourceSessions.get(input.sourceSessionKey)
+      const session =
+        currentSession === undefined
+          ? createSession(input)
+          : useRequestPreferences
+            ? {
+                ...currentSession,
+                preferences: {
+                  ...input.defaultPreferences,
+                  questionCount: clampQuestionCount(
+                    input.defaultPreferences.questionCount,
+                  ),
+                },
+              }
+            : currentSession
+      sourceSessions.set(input.sourceSessionKey, {
+        ...session,
+        sourceIdentity: withPreferences(
+          input.sourceIdentity,
+          session.preferences,
+        ),
+        archiveKeyIdentity: withPreferences(
+          input.sourceIdentity,
+          session.preferences,
+        ),
+      })
+
+      return {
+        activeSourceSessionKey: input.sourceSessionKey,
+        activeSourceSummaryKey: input.sourceSummaryKey,
+        selectedPersonId: selectedSubjectId,
+        questionCount: session.preferences.questionCount,
+        showAnswers: session.showAnswers,
+        sourceSummaries,
+        sourceSessions,
+      }
+    })
+
   return {
     ...createInitialState(),
+
+    setPreparedSubmissionSource: (key, source) =>
+      set((state) => {
+        const preparedSubmissionSources = new Map(
+          state.preparedSubmissionSources,
+        )
+        preparedSubmissionSources.set(key, source)
+        return { preparedSubmissionSources }
+      }),
+
+    discardPreparedSubmissionSources: (folderPath) =>
+      set((state) => ({
+        preparedSubmissionSources: new Map(
+          [...state.preparedSubmissionSources].filter(
+            ([, source]) => source.folderPath !== folderPath,
+          ),
+        ),
+      })),
 
     setSubmissionFileList: (folderPath, listing) =>
       set((state) => {
@@ -97,52 +178,8 @@ export const useExaminationStore = create<
         }
       }),
 
-    activateSource: (input) =>
-      set((state) => {
-        const sourceSummaries = new Map(state.sourceSummaries)
-        const currentSummary = sourceSummaries.get(input.sourceSummaryKey)
-        const selectedSubjectId = resolveSelectedSubjectId({
-          current: currentSummary?.selectedSubjectId ?? null,
-          fallback: input.selectedSubjectId,
-          subjectIds: input.subjectIds,
-        })
-        sourceSummaries.set(
-          input.sourceSummaryKey,
-          currentSummary === undefined
-            ? createSummary({ ...input, selectedSubjectId })
-            : {
-                ...currentSummary,
-                subjectIds: input.subjectIds,
-                selectedSubjectId,
-              },
-        )
-
-        const sourceSessions = new Map(state.sourceSessions)
-        const currentSession = sourceSessions.get(input.sourceSessionKey)
-        const session =
-          currentSession === undefined ? createSession(input) : currentSession
-        sourceSessions.set(input.sourceSessionKey, {
-          ...session,
-          sourceIdentity: withPreferences(
-            input.sourceIdentity,
-            session.preferences,
-          ),
-          archiveKeyIdentity: withPreferences(
-            input.sourceIdentity,
-            session.preferences,
-          ),
-        })
-
-        return {
-          activeSourceSessionKey: input.sourceSessionKey,
-          activeSourceSummaryKey: input.sourceSummaryKey,
-          selectedPersonId: selectedSubjectId,
-          questionCount: session.preferences.questionCount,
-          showAnswers: session.showAnswers,
-          sourceSummaries,
-          sourceSessions,
-        }
-      }),
+    activateSource: (input) => activateSource(input, false),
+    activateSourceForRequest: (input) => activateSource(input, true),
 
     selectRepositoryAnalysisSubject: (sourceSummaryKey, subjectId) =>
       set((state) => {

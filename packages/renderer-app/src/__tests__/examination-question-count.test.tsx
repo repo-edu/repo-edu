@@ -16,7 +16,7 @@ import {
   workflowClient,
 } from "./session-controller.test-support.js"
 
-it("selects a complete question count before lookup freezes further choices", {
+it("changes question counts freely and looks up only on Load questions", {
   timeout: 10000,
 }, async (t) => {
   const window = new Window()
@@ -109,6 +109,7 @@ it("selects a complete question count before lookup freezes further choices", {
           examinationModelsByProvider: { claude: "22" },
         })
       }
+      if (id === "examination.lookupQuestionSummaries") return { summaries: [] }
       assert.equal(id, "examination.lookupQuestions")
       const lookup = input as ExaminationLookupQuestionsInput
       counts.push(lookup.questionCount)
@@ -153,7 +154,9 @@ it("selects a complete question count before lookup freezes further choices", {
         questionCount={view.questionCount}
         showAnswers={view.showAnswers}
         blocker={view.blocker}
-        isGenerating={false}
+        isGenerating={view.isGenerating}
+        hasLoadedQuestions={view.hasLoadedQuestions}
+        onLoadQuestions={view.commands.loadQuestions}
         canRegenerate={false}
         canToggleAnswers={false}
         canCopyMarkdown={false}
@@ -180,7 +183,7 @@ it("selects a complete question count before lookup freezes further choices", {
   await React.act(async () => {
     await controller.waitForIdle()
   })
-  assert.deepEqual(counts, [4])
+  assert.deepEqual(counts, [])
   const trigger = container.querySelector("#examination-question-count")
   assert.ok(trigger)
   const press = (target: typeof trigger, key: string) => {
@@ -205,7 +208,19 @@ it("selects a complete question count before lookup freezes further choices", {
   await React.act(async () => {
     press(ten, "Enter")
   })
-  assert.deepEqual(counts, [4, 10])
+  assert.deepEqual(counts, [])
+  assert.equal(
+    window.document.querySelector("[data-session-input-frozen]"),
+    null,
+  )
+  const load = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Load questions",
+  )
+  assert.ok(load)
+  await React.act(async () => {
+    load.click()
+  })
+  assert.deepEqual(counts, [10])
   assert.equal(trigger.textContent, "10")
   assert.equal(useExaminationStore.getState().questionCount, 10)
   assert.equal(window.document.querySelector('[role="listbox"]'), null)
@@ -215,7 +230,7 @@ it("selects a complete question count before lookup freezes further choices", {
     assert.equal(press(trigger, "2").defaultPrevented, true)
   })
   assert.equal(window.document.querySelector('[role="listbox"]'), null)
-  assert.deepEqual(counts, [4, 10])
+  assert.deepEqual(counts, [10])
   assert.equal(trigger.textContent, "10")
   await React.act(async () => {
     release.resolve()
@@ -238,6 +253,6 @@ it("selects a complete question count before lookup freezes further choices", {
   await React.act(async () => {
     await controller.waitForIdle()
   })
-  assert.deepEqual(counts, [4, 10, 20])
+  assert.deepEqual(counts, [10])
   assert.equal(trigger.textContent, "20")
 })

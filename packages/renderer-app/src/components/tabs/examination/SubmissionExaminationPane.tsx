@@ -1,4 +1,3 @@
-import type { PersistedLlmConnection } from "@repo-edu/domain/connection"
 import {
   Button,
   ResizableHandle,
@@ -15,36 +14,14 @@ import {
 import { selectPreferences } from "../../../session/selectors.js"
 import { useSessionController } from "../../../session/session-controller-context.js"
 import { ArchiveSetSelector } from "./ArchiveSetSelector.js"
-import type { ExaminationDisplaySelection } from "./display-selectors.js"
 import { ExaminationControlsCard } from "./ExaminationControlsCard.js"
 import { ExaminationQuestionDisplay } from "./ExaminationQuestionDisplay.js"
 import { LlmControls } from "./LlmControls.js"
-import type { AvailableArchiveEntry } from "./types.js"
+import type { ExaminationEngineViewModel } from "./use-examination-engine.js"
 
 type SubmissionExaminationPaneProps = {
   sidebarContent?: ReactNode
-  connections: PersistedLlmConnection[]
-  activeConnection: PersistedLlmConnection | null
-  selectedModelCode: string | null
-  onSelectConnection: (id: string) => void
-  onSelectModelCode: (code: string) => void
-  onOpenSettings: () => void
-  onImportArchive: () => void
-  onExportArchive: () => void
-
-  display: ExaminationDisplaySelection
-  archiveEntries: AvailableArchiveEntry[]
-  showArchiveSelector: boolean
-  questionCount: number
-  showAnswers: boolean
-  blocker: string | null
-  onQuestionCountChange: (count: number) => void
-  onShowAnswersChange: (show: boolean) => void
-  onSelectArchiveEntry: (entry: AvailableArchiveEntry) => void
-  onGenerate: () => void
-  onStopGeneration: () => void
-  onRegenerate: () => void
-  onCopyMarkdown: () => void
+  engine: ExaminationEngineViewModel
   emptyMessage: string
 }
 
@@ -58,27 +35,7 @@ function clampSidebarWidthPx(size: number | null | undefined): number {
 
 export function SubmissionExaminationPane({
   sidebarContent,
-  connections,
-  activeConnection,
-  selectedModelCode,
-  onSelectConnection,
-  onSelectModelCode,
-  onOpenSettings,
-  onImportArchive,
-  onExportArchive,
-  display,
-  archiveEntries,
-  showArchiveSelector,
-  questionCount,
-  showAnswers,
-  blocker,
-  onQuestionCountChange,
-  onShowAnswersChange,
-  onSelectArchiveEntry,
-  onGenerate,
-  onStopGeneration,
-  onRegenerate,
-  onCopyMarkdown,
+  engine,
   emptyMessage,
 }: SubmissionExaminationPaneProps) {
   const controller = useSessionController()
@@ -124,10 +81,18 @@ export function SubmissionExaminationPane({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h2 className="text-lg font-semibold">Examination</h2>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={onImportArchive}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={engine.commands.importArchive}
+                  >
                     Import archive...
                   </Button>
-                  <Button variant="outline" size="sm" onClick={onExportArchive}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={engine.commands.exportArchive}
+                  >
                     Export archive...
                   </Button>
                 </div>
@@ -137,31 +102,33 @@ export function SubmissionExaminationPane({
               </p>
             </div>
             <LlmControls
-              connections={connections}
-              activeConnection={activeConnection}
-              selectedModelCode={selectedModelCode}
-              onSelectConnection={onSelectConnection}
-              onSelectModelCode={onSelectModelCode}
-              onOpenSettings={onOpenSettings}
+              connections={engine.connections}
+              activeConnection={engine.activeConnection}
+              selectedModelCode={engine.selectedModelCode}
+              onSelectConnection={engine.commands.selectConnection}
+              onSelectModelCode={engine.commands.selectModelCode}
+              onOpenSettings={engine.commands.openLlmSettings}
             />
             <p className="rounded border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
               Provider prompts use redacted excerpts, but local code may still
               contain personal data after best-effort redaction.
             </p>
             <ExaminationControlsCard
-              questionCount={questionCount}
-              showAnswers={showAnswers}
-              blocker={blocker}
-              isGenerating={display.isLoading}
-              canRegenerate={display.canRegenerate}
-              canToggleAnswers={display.canToggleAnswers}
-              canCopyMarkdown={display.canCopyMarkdown}
-              onQuestionCountChange={onQuestionCountChange}
-              onShowAnswersChange={onShowAnswersChange}
-              onGenerate={onGenerate}
-              onStopGeneration={onStopGeneration}
-              onRegenerate={onRegenerate}
-              onCopyMarkdown={onCopyMarkdown}
+              questionCount={engine.questionCount}
+              showAnswers={engine.showAnswers}
+              blocker={engine.blocker}
+              isGenerating={engine.isGenerating}
+              hasLoadedQuestions={engine.hasLoadedQuestions}
+              onLoadQuestions={engine.commands.loadQuestions}
+              canRegenerate={engine.display.canRegenerate}
+              canToggleAnswers={engine.display.canToggleAnswers}
+              canCopyMarkdown={engine.display.canCopyMarkdown}
+              onQuestionCountChange={engine.commands.changeQuestionCount}
+              onShowAnswersChange={engine.commands.changeShowAnswers}
+              onGenerate={engine.commands.generate}
+              onStopGeneration={engine.commands.stopGeneration}
+              onRegenerate={engine.commands.regenerate}
+              onCopyMarkdown={engine.commands.copyMarkdown}
             />
           </section>
         </div>
@@ -169,19 +136,19 @@ export function SubmissionExaminationPane({
       <ResizableHandle className="aria-[orientation=vertical]:w-px aria-[orientation=vertical]:after:absolute aria-[orientation=vertical]:after:inset-y-0 aria-[orientation=vertical]:after:-left-1 aria-[orientation=vertical]:after:w-2" />
       <ResizablePanel className="min-w-0">
         <div className="flex h-full min-h-0 flex-col gap-3 pl-2">
-          {showArchiveSelector ? (
+          {engine.showArchiveSelector ? (
             <ArchiveSetSelector
-              entries={archiveEntries}
-              selectedKey={display.archiveEntry?.key ?? null}
-              onSelect={onSelectArchiveEntry}
+              entries={engine.archiveEntries}
+              selectedKey={engine.display.archiveEntry?.key ?? null}
+              onSelect={engine.commands.selectArchiveEntry}
             />
           ) : null}
           <ExaminationQuestionDisplay
-            display={display}
-            questionCount={questionCount}
-            showAnswers={showAnswers}
+            display={engine.display}
+            questionCount={engine.questionCount}
+            showAnswers={engine.showAnswers}
             layout="pane"
-            scrollResetKey={display.archiveEntry?.key ?? null}
+            scrollResetKey={engine.display.archiveEntry?.key ?? null}
             emptyMessage={emptyMessage}
           />
         </div>

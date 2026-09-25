@@ -12,6 +12,9 @@ type SubjectPanelProps = {
   display: ExaminationDisplaySelection
   archiveEntries: AvailableArchiveEntry[]
   showArchiveSelector: boolean
+  isGenerating: boolean
+  hasLoadedQuestions: boolean
+  onLoadQuestions: () => void
   questionCount: number
   showAnswers: boolean
   blocker: string | null
@@ -32,6 +35,9 @@ export function SubjectPanel({
   display,
   archiveEntries,
   showArchiveSelector,
+  isGenerating,
+  hasLoadedQuestions,
+  onLoadQuestions,
   questionCount,
   showAnswers,
   blocker,
@@ -103,7 +109,9 @@ export function SubjectPanel({
         questionCount={questionCount}
         showAnswers={showAnswers}
         blocker={blocker}
-        isGenerating={display.isLoading}
+        isGenerating={isGenerating}
+        hasLoadedQuestions={hasLoadedQuestions}
+        onLoadQuestions={onLoadQuestions}
         canRegenerate={display.canRegenerate}
         canToggleAnswers={display.canToggleAnswers}
         canCopyMarkdown={display.canCopyMarkdown}

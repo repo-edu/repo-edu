@@ -11,7 +11,7 @@ import {
 import type { RendererHost } from "@repo-edu/renderer-host-contract"
 import { Window } from "happy-dom"
 import React from "react"
-import type { SubmissionExaminationSource } from "../components/tabs/examination/source.js"
+import type { ExaminationSource } from "../components/tabs/examination/source.js"
 import type { ExaminationEngineViewModel } from "../components/tabs/examination/use-examination-engine.js"
 import {
   makeSettings,
@@ -20,7 +20,7 @@ import {
   workflowClient,
 } from "./session-controller.test-support.js"
 
-it("looks up questions only when result inputs change while Settings is open", {
+it("starts no lookup for input or connection edits while Settings is open", {
   timeout: 10000,
 }, async (t) => {
   const window = new Window()
@@ -66,7 +66,7 @@ it("looks up questions only when result inputs change while Settings is open", {
     apiKey: "original-key",
     maxTokens: DEFAULT_CLAUDE_API_MAX_TOKENS,
   } satisfies PersistedLlmConnection
-  let source: SubmissionExaminationSource = {
+  let source: ExaminationSource = {
     kind: "submission",
     folderPath: "/submission",
     contentScopeId: "submission-scope",
@@ -104,6 +104,7 @@ it("looks up questions only when result inputs change while Settings is open", {
         id === "settings.saveCredentials"
       )
         return undefined
+      if (id === "examination.lookupQuestionSummaries") return { summaries: [] }
       assert.equal(id, "examination.lookupQuestions")
       const lookup = input as ExaminationLookupQuestionsInput
       lookups.push(lookup)
@@ -174,7 +175,7 @@ it("looks up questions only when result inputs change while Settings is open", {
     })
   }
   await render()
-  assert.equal(lookups.length, 1)
+  assert.equal(lookups.length, 0)
   await change(() => getView().commands.openLlmSettings())
   assert.equal(useUiStore.getState().settingsDialogOpen, true)
   assert.equal(useUiStore.getState().settingsCategory, "llm-connections")
@@ -188,24 +189,18 @@ it("looks up questions only when result inputs change while Settings is open", {
     () => controller.removeLlmConnection(connection.id),
   ]) {
     await change(edit)
-    assert.equal(lookups.length, 1)
+    assert.equal(lookups.length, 0)
     assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
     assert.equal(controller.getSnapshot().lifecycle.kind, "live")
   }
   const latest = { ...second, apiKey: "latest-key" }
   await change(() => controller.updateLlmConnection(second.id, latest))
-  assert.equal(lookups.length, 1)
+  assert.equal(lookups.length, 0)
   await change(() => getView().commands.changeQuestionCount(5))
   assert.equal(getView().questionCount, 5)
-  assert.equal(lookups.length, 2)
-  assert.deepEqual(lookups.at(-1)?.llmSettings.llmConnections, [latest])
-  assert.equal(lookups.at(-1)?.llmSettings.activeLlmConnectionId, second.id)
+  assert.equal(lookups.length, 0)
   await change(() => getView().commands.selectModelCode("23"))
-  assert.equal(lookups.length, 3)
-  assert.equal(
-    lookups.at(-1)?.llmSettings.examinationModelsByProvider.claude,
-    "23",
-  )
+  assert.equal(lookups.length, 0)
   source = {
     ...source,
     localIdentityContext: {
@@ -214,8 +209,7 @@ it("looks up questions only when result inputs change while Settings is open", {
     },
   }
   await render()
-  assert.equal(lookups.length, 4)
-  assert.deepEqual(lookups.at(-1)?.localIdentityContext.names, ["Student"])
+  assert.equal(lookups.length, 0)
   source = {
     ...source,
     subject: {
@@ -225,8 +219,34 @@ it("looks up questions only when result inputs change while Settings is open", {
     },
   }
   await render()
-  assert.equal(lookups.length, 5)
+  assert.equal(lookups.length, 0)
+  await change(() => getView().commands.loadQuestions())
+  assert.equal(lookups.length, 1)
+  assert.deepEqual(lookups[0]?.llmSettings.llmConnections, [latest])
+  assert.equal(lookups[0]?.llmSettings.activeLlmConnectionId, second.id)
+  assert.equal(lookups[0]?.llmSettings.examinationModelsByProvider.claude, "23")
+  assert.equal(lookups[0]?.questionCount, 5)
+  assert.deepEqual(lookups[0]?.localIdentityContext.names, ["Student"])
   assert.deepEqual(lookups.at(-1)?.excerptFileSources, {
     "main.ts": "return 2",
   })
+  source = {
+    kind: "repository-analysis",
+    selectedRepoPath: "/repository",
+    commitOid: "commit",
+    localIdentityContext: source.localIdentityContext,
+    subjects: [
+      source.subject,
+      { ...source.subject, id: "second-author", name: "Second author" },
+    ],
+    rosterWarningBySubjectId: new Map(),
+  }
+  await render()
+  assert.equal(lookups.length, 1)
+  await change(() => getView().commands.selectSubject("second-author"))
+  assert.equal(getView().selectedSubject?.id, "second-author")
+  assert.equal(lookups.length, 1)
+  await change(() => getView().commands.loadQuestions())
+  assert.equal(lookups.length, 2)
+  assert.equal(lookups.at(-1)?.personId, "second-author")
 })

@@ -2,9 +2,8 @@ import type {
   ExaminationGenerateOutput,
   ExaminationGenerateQuestionsInput,
   ExaminationLookupQuestionSummariesResult,
-  ExaminationLookupQuestionsInput,
   ExaminationLookupQuestionsResult,
-  ExaminationQuestionSummarySubjectInput,
+  ExaminationPrepareSubmissionSourceInput,
   MilestoneProgress,
 } from "@repo-edu/application-contract"
 import {
@@ -15,7 +14,10 @@ import { getSpecByCode } from "@repo-edu/integrations-llm-catalog"
 import { useCallback, useEffect, useMemo } from "react"
 import { useRendererHost } from "../../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../../contexts/workflow-client.js"
-import { selectActiveSurface } from "../../../session/selectors.js"
+import {
+  selectActiveSurface,
+  selectOperationIsAdmitted,
+} from "../../../session/selectors.js"
 import {
   useSessionController,
   useSessionControllerSelector,
@@ -37,14 +39,20 @@ import type { ExaminationPreferencePersistenceEffect } from "../../../stores/exa
 import { useToastStore } from "../../../stores/toast-store.js"
 import { useUiStore } from "../../../stores/ui-store.js"
 import { getErrorMessage } from "../../../utils/error-message.js"
-import {
-  toAvailableArchiveEntry,
-  toExaminationEntry,
-} from "./archive-entries.js"
+import { toExaminationEntry } from "./archive-entries.js"
 import {
   type ExaminationDisplaySelection,
   selectExaminationDisplay,
 } from "./display-selectors.js"
+import {
+  applyLookupPublication,
+  applySummaryPublication,
+  buildLookupInput,
+  buildSummaryInput,
+  type ExaminationLookupContext,
+  refreshExaminationLookup,
+  refreshExaminationSummary,
+} from "./examination-lookup-body.js"
 import { resolveExaminationGenerationPlan } from "./generation-plan.js"
 import { resolveExaminationModelCode } from "./llm-models.js"
 import { buildMarkdownTranscript } from "./markdown-transcript.js"
@@ -63,6 +71,7 @@ import {
   getSourceSubject,
   sourceSubjects,
 } from "./source.js"
+import { prepareSubmissionSource } from "./submission-source-preparation.js"
 import type { AvailableArchiveEntry } from "./types.js"
 import { resolveExaminationBlockingReason } from "./view-state.js"
 
@@ -79,6 +88,8 @@ export type ExaminationEngineViewModel = {
   questionCount: number
   showAnswers: boolean
   blocker: string | null
+  isGenerating: boolean
+  hasLoadedQuestions: boolean
   rosterWarning: string | null
   commands: {
     selectSubject: (subjectId: string) => void
@@ -90,75 +101,12 @@ export type ExaminationEngineViewModel = {
     changeQuestionCount: (count: number) => void
     changeShowAnswers: (show: boolean) => void
     selectArchiveEntry: (entry: AvailableArchiveEntry) => void
+    loadQuestions: () => void
     generate: () => void
     stopGeneration: () => void
     regenerate: () => void
     copyMarkdown: () => void
   }
-}
-
-function applyLookupPublication(
-  result: ExaminationLookupQuestionsResult,
-  sourceSessionKey: string,
-  sourceIdentity: SourceIdentity,
-  analysisSourceKey: ReturnType<typeof analysisSourceKeyFromSurface>,
-  started: NonNullable<
-    ReturnType<ReturnType<typeof useExaminationStore.getState>["startLookup"]>
-  >,
-): void {
-  const entryKey = serializeExaminationArchiveStorageKey(result.requestedKey)
-  const resolvedIdentity =
-    sourceIdentity.kind === "repository-analysis"
-      ? {
-          ...sourceIdentity,
-          excerptScopeId: result.requestedKey.providerPayloadFingerprint,
-        }
-      : sourceIdentity
-  useExaminationStore.getState().applyLookupResult({
-    sourceSessionKey,
-    requestId: started.requestId,
-    archiveRevision: started.archiveRevision,
-    archiveKeyIdentityKey: buildArchiveKeyIdentityKey(
-      sourceIdentity,
-      analysisSourceKey,
-    ),
-    requestedIdentity: sourceIdentity,
-    resolvedIdentity,
-    entryKey,
-    exactEntry: result.exact === null ? null : toExaminationEntry(result.exact),
-    archiveEntries: result.availableSets.map((questionSet) =>
-      toAvailableArchiveEntry(questionSet),
-    ),
-  })
-}
-
-function applySummaryPublication(
-  result: ExaminationLookupQuestionSummariesResult,
-  sourceSummaryKey: string,
-  started: NonNullable<
-    ReturnType<
-      ReturnType<
-        typeof useExaminationStore.getState
-      >["startSourceSummaryLookup"]
-    >
-  >,
-): void {
-  const counts = new Map<string, number>()
-  for (const group of result.summaries) {
-    counts.set(
-      group.subjectId,
-      group.sets.reduce(
-        (max, set) => Math.max(max, set.provenance.questionCount),
-        0,
-      ),
-    )
-  }
-  useExaminationStore.getState().applySourceSummaryLookupResult({
-    sourceSummaryKey,
-    requestId: started.requestId,
-    archiveRevision: started.archiveRevision,
-    counts,
-  })
 }
 
 const EMPTY_COUNTS: ReadonlyMap<string, number> = new Map()
@@ -179,8 +127,10 @@ function resolveActiveConnection(
 export function useExaminationEngine({
   source,
   emptyBlocker,
+  submissionInput = null,
 }: {
-  source: ExaminationSource
+  source: ExaminationSource | null
+  submissionInput?: ExaminationPrepareSubmissionSourceInput | null
   emptyBlocker: string | null
 }): ExaminationEngineViewModel {
   const workflowClient = useWorkflowClient()
@@ -196,30 +146,35 @@ export function useExaminationEngine({
   )
 
   const sourceSummaryKey = useMemo(
-    () => buildSourceSummaryKey(source, analysisSourceKey),
+    () =>
+      source === null ? null : buildSourceSummaryKey(source, analysisSourceKey),
     [analysisSourceKey, source],
   )
   const sourceSummary = useExaminationStore(
     selectExaminationSourceSummary(sourceSummaryKey),
   )
   const sourceSubjectIds = useMemo(
-    () => sourceSubjects(source).map((subject) => subject.id),
+    () =>
+      source === null
+        ? []
+        : sourceSubjects(source).map((subject) => subject.id),
     [source],
   )
   const defaultSubjectId =
-    source.kind === "submission"
+    source?.kind === "submission"
       ? source.subject.id
-      : (source.subjects[0]?.id ?? null)
+      : (source?.subjects[0]?.id ?? null)
   const selectedSubjectId =
-    source.kind === "submission"
+    source?.kind === "submission"
       ? source.subject.id
       : (sourceSummary?.selectedSubjectId ?? defaultSubjectId)
   const selectedSubject = useMemo(
-    () => getSourceSubject(source, selectedSubjectId),
+    () =>
+      source === null ? null : getSourceSubject(source, selectedSubjectId),
     [source, selectedSubjectId],
   )
   useEffect(() => {
-    if (defaultSubjectId === null) return
+    if (defaultSubjectId === null || sourceSummaryKey === null) return
     useExaminationStore.getState().activateSourceSummary({
       sourceSummaryKey,
       subjectIds: sourceSubjectIds,
@@ -244,6 +199,7 @@ export function useExaminationEngine({
 
   const provisionalIdentity = useMemo<SourceIdentity | null>(() => {
     if (
+      source === null ||
       selectedSubject === null ||
       defaultModelCode === null ||
       defaultModelSpec === null
@@ -305,6 +261,7 @@ export function useExaminationEngine({
 
   const sourceIdentity = useMemo<SourceIdentity | null>(() => {
     if (
+      source === null ||
       selectedSubject === null ||
       selectedModelCode === null ||
       selectedModelSpec === null
@@ -328,6 +285,7 @@ export function useExaminationEngine({
 
   useEffect(() => {
     if (
+      sourceSummaryKey === null ||
       sourceSessionKey === null ||
       sourceIdentity === null ||
       selectedSubject === null ||
@@ -386,146 +344,123 @@ export function useExaminationEngine({
     }
   }, [controller, selectedModelCode, sourceSessionKey])
 
-  const readLookupInput =
-    useCallback((): ExaminationLookupQuestionsInput | null => {
-      if (selectedSubject === null || sourceIdentity === null) return null
-      return {
-        personId: selectedSubject.id,
-        contentScopeId:
-          source.kind === "repository-analysis"
-            ? source.commitOid
-            : source.contentScopeId,
-        localIdentityContext: source.localIdentityContext,
-        excerpts: selectedSubject.excerpts,
-        excerptFileSources: selectedSubject.excerptFileSources,
-        questionCount,
-        llmSettings: readLlmSettings(),
-      }
-    }, [
-      readLlmSettings,
-      questionCount,
-      selectedSubject,
+  const readLookupInput = useCallback(() => {
+    if (source === null || selectedSubject === null || sourceIdentity === null)
+      return null
+    return buildLookupInput(
       source,
-      sourceIdentity,
-    ])
+      selectedSubject,
+      questionCount,
+      readLlmSettings(),
+    )
+  }, [source, selectedSubject, sourceIdentity, questionCount, readLlmSettings])
+  const summaryInput = useMemo(
+    () => (source === null ? null : buildSummaryInput(source)),
+    [source],
+  )
 
-  const refreshLookup = useCallback(
-    async (scope: SessionOperationScope) => {
-      const lookupInput = readLookupInput()
+  const prepareLookupContext = useCallback(
+    async (
+      scope: SessionOperationScope,
+    ): Promise<ExaminationLookupContext | null> => {
+      const preparedSource =
+        submissionInput === null
+          ? source
+          : await prepareSubmissionSource(scope, submissionInput)
       if (
-        sourceSessionKey === null ||
-        sourceIdentity === null ||
-        lookupInput === null
-      ) {
-        return
-      }
-      const started = useExaminationStore
-        .getState()
-        .startLookup(sourceSessionKey)
-      if (started === null) return
-      await scope
-        .run("examination.lookupQuestions", lookupInput, {
-          onOutput: (output) => {
-            if (output.channel !== "warn") return
-            addToast(output.message, { tone: "warning", durationMs: 6000 })
+        preparedSource === null ||
+        selectedModelCode === null ||
+        selectedModelSpec === null
+      )
+        return null
+      const subject = getSourceSubject(preparedSource, selectedSubjectId)
+      if (subject === null) return null
+      const identity = buildSourceIdentity({
+        source: preparedSource,
+        subject,
+        questionCount,
+        model: selectedModelCode,
+        effort: selectedModelSpec.effort,
+      })
+      const sessionKey = buildSourceSessionKey(identity, analysisSourceKey)
+      const summaryKey = buildSourceSummaryKey(
+        preparedSource,
+        analysisSourceKey,
+      )
+      scope.publish(() =>
+        useExaminationStore.getState().activateSourceForRequest({
+          sourceSummaryKey: summaryKey,
+          sourceSessionKey: sessionKey,
+          sourceIdentity: identity,
+          subjectIds: sourceSubjects(preparedSource).map((item) => item.id),
+          selectedSubjectId: subject.id,
+          defaultPreferences: {
+            questionCount,
+            activeConnectionId: activeConnection?.id ?? null,
+            modelCode: selectedModelCode,
+            effort: selectedModelSpec.effort,
           },
-        })
-        .then((result) => {
-          applyLookupPublication(
-            result,
-            sourceSessionKey,
-            sourceIdentity,
-            analysisSourceKey,
-            started,
-          )
-        })
-        .catch((_error: unknown) => {
-          if (!scope.signal.aborted) {
-            useExaminationStore
-              .getState()
-              .failLookup(sourceSessionKey, started.requestId)
-          }
-        })
+        }),
+      )
+      return {
+        source: preparedSource,
+        selectedSubject: subject,
+        sourceIdentity: identity,
+        sourceSessionKey: sessionKey,
+        sourceSummaryKey: summaryKey,
+        analysisSourceKey,
+        lookupInput: buildLookupInput(
+          preparedSource,
+          subject,
+          questionCount,
+          readLlmSettings(),
+        ),
+        summaryInput: buildSummaryInput(preparedSource),
+      }
     },
     [
-      addToast,
+      submissionInput,
+      source,
+      selectedModelCode,
+      selectedModelSpec,
+      selectedSubjectId,
+      questionCount,
       analysisSourceKey,
-      readLookupInput,
-      sourceIdentity,
-      sourceSessionKey,
+      activeConnection,
+      readLlmSettings,
     ],
   )
 
-  // Reserving a body is not host work. Leaving the tab retires the observer,
-  // never the lookup: only the reservation's own stop ends it.
-  useEffect(() => {
-    void workflowClient.execute("examination.lookupQuestions", refreshLookup)
-  }, [refreshLookup, workflowClient])
-
-  const summaryInput = useMemo(() => {
-    if (source.kind !== "repository-analysis") return null
-    const subjects: ExaminationQuestionSummarySubjectInput[] = source.subjects
-      .filter((subject) => subject.excerpts.length > 0)
-      .map((subject) => ({
-        subjectId: subject.id,
-        personId: subject.id,
-        contentScopeId: source.commitOid,
-        localIdentityContext: source.localIdentityContext,
-        excerpts: subject.excerpts,
-        excerptFileSources: subject.excerptFileSources,
-      }))
-    return subjects.length === 0 ? null : { subjects }
-  }, [source])
-
-  const refreshSummary = useCallback(
-    async (scope: SessionOperationScope) => {
-      if (summaryInput === null || source.kind !== "repository-analysis") return
-      const started = useExaminationStore
-        .getState()
-        .startSourceSummaryLookup(sourceSummaryKey)
-      if (started === null) return
-      await scope
-        .run("examination.lookupQuestionSummaries", summaryInput)
-        .then((result) => {
-          applySummaryPublication(result, sourceSummaryKey, started)
-        })
-        .catch((_error: unknown) => {
-          if (!scope.signal.aborted) {
-            useExaminationStore
-              .getState()
-              .failSourceSummaryLookup(sourceSummaryKey, started.requestId)
-          }
-        })
-    },
-    [source, sourceSummaryKey, summaryInput],
-  )
-
-  useEffect(() => {
-    void workflowClient.execute(
-      "examination.lookupQuestionSummaries",
-      refreshSummary,
-    )
-  }, [refreshSummary, workflowClient])
-
   const blocker =
-    selectedSubject === null
-      ? emptyBlocker
-      : resolveExaminationBlockingReason({
-          selectedRepositoryPath:
-            source.kind === "repository-analysis"
-              ? source.selectedRepoPath
-              : source.folderPath,
-          commitOid:
-            source.kind === "repository-analysis"
-              ? source.commitOid
-              : source.contentScopeId,
-          hasActiveLlmConnection: activeConnection !== null,
-        })
+    source === null
+      ? (emptyBlocker ??
+        (activeConnection === null
+          ? "Configure an LLM connection in Settings."
+          : null))
+      : selectedSubject === null
+        ? emptyBlocker
+        : resolveExaminationBlockingReason({
+            selectedRepositoryPath:
+              source.kind === "repository-analysis"
+                ? source.selectedRepoPath
+                : source.folderPath,
+            commitOid:
+              source.kind === "repository-analysis"
+                ? source.commitOid
+                : source.contentScopeId,
+            hasActiveLlmConnection: activeConnection !== null,
+          })
 
   const entriesByKey = useExaminationStore((state) => state.entriesByKey)
   const archiveEntries = session?.archiveEntries ?? []
   const display = selectExaminationDisplay({
-    displayedState: session?.display ?? { kind: "idle" },
+    displayedState:
+      session?.display.kind === "archived" &&
+      session.display.source === "lookup" &&
+      session.lookupMetadata?.archiveKeyIdentityKey !==
+        buildArchiveKeyIdentityKey(sourceIdentity, analysisSourceKey)
+        ? { kind: "idle" }
+        : (session?.display ?? { kind: "idle" }),
     entriesByKey,
     archiveEntries,
     blocker,
@@ -623,7 +558,7 @@ export function useExaminationEngine({
                   started,
                 )
               }
-              if (summaryInput !== null) {
+              if (summaryInput !== null && sourceSummaryKey !== null) {
                 const started = useExaminationStore
                   .getState()
                   .startSourceSummaryLookup(sourceSummaryKey)
@@ -789,29 +724,38 @@ export function useExaminationEngine({
 
   const generateForSelected = useCallback(
     async (options?: { regenerate?: boolean }) => {
-      if (
-        selectedSubject === null ||
-        sourceIdentity === null ||
-        sourceSessionKey === null ||
-        selectedModelCode === null ||
-        selectedModelSpec === null
-      ) {
-        return
-      }
+      if (selectedModelCode === null || selectedModelSpec === null) return
       if (blocker !== null) {
         addToast(blocker, { tone: "warning" })
-        return
-      }
-      if (selectedSubject.excerpts.length === 0) {
-        addToast(
-          "No code is attributed to this subject; nothing to generate.",
-          { tone: "warning" },
-        )
         return
       }
       await workflowClient.execute(
         "examination.generateQuestions",
         async (scope) => {
+          let context: ExaminationLookupContext | null
+          try {
+            context = await prepareLookupContext(scope)
+            if (context === null) return
+            await refreshExaminationLookup(scope, context, addToast, true)
+          } catch (error) {
+            if (!scope.signal.aborted)
+              addToast(getErrorMessage(error), { tone: "error" })
+            return
+          }
+          const {
+            source,
+            selectedSubject,
+            sourceIdentity,
+            sourceSessionKey,
+            sourceSummaryKey,
+          } = context
+          if (selectedSubject.excerpts.length === 0) {
+            addToast(
+              "No code is attributed to this subject; nothing to generate.",
+              { tone: "warning" },
+            )
+            return
+          }
           const state = useExaminationStore.getState()
           const currentSession = state.sourceSessions.get(sourceSessionKey)
           const display = selectExaminationDisplay({
@@ -960,25 +904,38 @@ export function useExaminationEngine({
       addToast,
       blocker,
       readLlmSettings,
+      prepareLookupContext,
       questionCount,
       selectedModelCode,
       selectedModelSpec,
-      selectedSubject,
       workflowClient,
       analysisSourceKey,
-      source,
-      sourceIdentity,
-      sourceSessionKey,
-      sourceSummaryKey,
     ],
   )
 
   const stopGeneration = useCallback(() => {
-    if (sourceSessionKey === null) return
-    if (!useExaminationStore.getState().requestGenerationStop(sourceSessionKey))
-      return
+    if (sourceSessionKey !== null)
+      useExaminationStore.getState().requestGenerationStop(sourceSessionKey)
     workflowClient.stop("examination.generateQuestions")
   }, [sourceSessionKey, workflowClient])
+
+  const loadQuestions = useCallback(async () => {
+    if (blocker !== null) return
+    await workflowClient.execute(
+      "examination.lookupQuestions",
+      async (scope) => {
+        try {
+          const context = await prepareLookupContext(scope)
+          if (context === null) return
+          await refreshExaminationLookup(scope, context, addToast, false)
+          await refreshExaminationSummary(scope, context)
+        } catch (error) {
+          if (!scope.signal.aborted)
+            addToast(getErrorMessage(error), { tone: "error" })
+        }
+      },
+    )
+  }, [workflowClient, blocker, prepareLookupContext, addToast])
 
   const copyMarkdown = useCallback(async () => {
     if (
@@ -1003,7 +960,7 @@ export function useExaminationEngine({
   }, [addToast, display.archiveEntry, display.displayEntry, selectedSubject])
 
   return {
-    subjects: sourceSubjects(source),
+    subjects: source === null ? [] : sourceSubjects(source),
     selectedSubject,
     generatedQuestionCountBySubjectId:
       sourceSummary?.generatedQuestionCountBySubjectId ?? EMPTY_COUNTS,
@@ -1016,12 +973,18 @@ export function useExaminationEngine({
     questionCount,
     showAnswers,
     blocker,
+    isGenerating: useSessionControllerSelector((state) =>
+      selectOperationIsAdmitted(state, "examination.generateQuestions"),
+    ),
+    hasLoadedQuestions:
+      session?.lookupMetadata !== null && session?.lookupMetadata !== undefined,
     rosterWarning:
-      source.kind === "repository-analysis" && selectedSubject !== null
+      source?.kind === "repository-analysis" && selectedSubject !== null
         ? (source.rosterWarningBySubjectId.get(selectedSubject.id) ?? null)
         : null,
     commands: {
       selectSubject: (subjectId) =>
+        sourceSummaryKey !== null &&
         useExaminationStore
           .getState()
           .selectRepositoryAnalysisSubject(sourceSummaryKey, subjectId),
@@ -1033,6 +996,7 @@ export function useExaminationEngine({
       changeQuestionCount,
       changeShowAnswers,
       selectArchiveEntry,
+      loadQuestions: () => void loadQuestions(),
       generate: () => void generateForSelected(),
       stopGeneration,
       regenerate: () => void generateForSelected({ regenerate: true }),

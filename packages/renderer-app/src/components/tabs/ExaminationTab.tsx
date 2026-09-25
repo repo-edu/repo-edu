@@ -206,12 +206,15 @@ function RepositoryAnalysisExaminationPane({
               display={engine.display}
               archiveEntries={engine.archiveEntries}
               showArchiveSelector={engine.showArchiveSelector}
+              isGenerating={engine.isGenerating}
+              hasLoadedQuestions={engine.hasLoadedQuestions}
+              onLoadQuestions={engine.commands.loadQuestions}
               questionCount={engine.questionCount}
               showAnswers={engine.showAnswers}
               blocker={engine.blocker}
               rosterWarning={engine.rosterWarning}
               layout="pane"
-              emptyMessage="Click Generate to produce questions for this author."
+              emptyMessage="Press Load questions to find saved questions or Generate questions to create them."
               onQuestionCountChange={engine.commands.changeQuestionCount}
               onShowAnswersChange={engine.commands.changeShowAnswers}
               onSelectArchiveEntry={engine.commands.selectArchiveEntry}

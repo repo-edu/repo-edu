@@ -26,6 +26,8 @@ type ExaminationControlsCardProps = {
   questionCount: number
   showAnswers: boolean
   blocker: string | null
+  hasLoadedQuestions: boolean
+  onLoadQuestions: () => void
   isGenerating: boolean
   canRegenerate: boolean
   canToggleAnswers: boolean
@@ -42,6 +44,8 @@ export function ExaminationControlsCard({
   questionCount,
   showAnswers,
   blocker,
+  hasLoadedQuestions,
+  onLoadQuestions,
   isGenerating,
   canRegenerate,
   canToggleAnswers,
@@ -76,6 +80,13 @@ export function ExaminationControlsCard({
               </SelectContent>
             </Select>
           </div>
+          <Button
+            variant="outline"
+            onClick={onLoadQuestions}
+            disabled={isGenerating || blocker !== null}
+          >
+            {hasLoadedQuestions ? "Refresh questions" : "Load questions"}
+          </Button>
           <Button
             {...(isGenerating
               ? {

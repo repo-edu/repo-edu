@@ -296,6 +296,13 @@ describe("examination engine", () => {
 
   it("gives generation failures with an empty message a readable reason", async (t) => {
     const { controller, commands } = await harness(async (id) => {
+      if (id === "examination.lookupQuestions")
+        return {
+          requestedKey: questionSet(4).key,
+          exact: null,
+          availableSets: [],
+          sourceReferences: [],
+        } satisfies ExaminationLookupQuestionsResult
       assert.equal(id, "examination.generateQuestions")
       throw new Error("")
     })

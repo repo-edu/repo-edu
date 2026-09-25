@@ -27,6 +27,9 @@ export async function listSubmissionFiles(
 ): Promise<void> {
   const setListing = useExaminationStore.getState().setSubmissionFileList
   scope.publish(() =>
+    useExaminationStore.getState().discardPreparedSubmissionSources(folderPath),
+  )
+  scope.publish(() =>
     setListing(folderPath, { status: "loading", files: [], error: null }),
   )
   try {
