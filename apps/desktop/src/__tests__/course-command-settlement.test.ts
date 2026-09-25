@@ -13,6 +13,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -267,18 +268,22 @@ for (const command of commands) {
           assignmentId: "assignment",
         },
       }
-      const running = controller.operations.execute(command, async (scope) => {
-        await scope.run(command, inputs[command] as never)
-        assert.deepEqual(useCourseStore.getState().course, saved)
-        assert.throws(
-          () =>
-            scope.mutateCourse(course.id, (actions) =>
-              actions.setDisplayName("Partial"),
-            ),
-          /partial course mutations/,
-        )
-        await publication.promise
-      })
+      const running = controller.operations.execute(
+        testSessionStart(),
+        command,
+        async (scope) => {
+          await scope.run(command, inputs[command] as never)
+          assert.deepEqual(useCourseStore.getState().course, saved)
+          assert.throws(
+            () =>
+              scope.mutateCourse(course.id, (actions) =>
+                actions.setDisplayName("Partial"),
+              ),
+            /partial course mutations/,
+          )
+          await publication.promise
+        },
+      )
       await until(() => {
         const state = admission.getSnapshot()
         if (state.phase === "terminal") throw state.error

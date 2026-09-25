@@ -16,6 +16,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -81,6 +82,18 @@ describe("directory picker errors", () => {
         await opened.promise
         const [turnId] = controller.getSnapshot().transactions.admitted.keys()
         assert.notEqual(turnId, undefined)
+        const descriptor = controller
+          .getSnapshot()
+          .transactions.admitted.get(turnId)
+        assert.ok(descriptor && "start" in descriptor)
+        assert.equal(
+          descriptor.start.id,
+          {
+            "repository folder": "openRepositories",
+            "submission folder": "openSubmission",
+            "clone target": "cloneAllBrowse",
+          }[name],
+        )
         const reportedDuringBody: boolean[] = []
         const order: string[] = []
         t.after(
@@ -91,9 +104,13 @@ describe("directory picker errors", () => {
             order.push("error")
           }),
         )
-        const next = controller.operations.execute("repo.clone", async () => {
-          order.push("next")
-        })
+        const next = controller.operations.execute(
+          testSessionStart("repositoryClone"),
+          "repo.clone",
+          async () => {
+            order.push("next")
+          },
+        )
 
         if (outcome === "failure") {
           picked.reject(new Error("Picker unavailable"))

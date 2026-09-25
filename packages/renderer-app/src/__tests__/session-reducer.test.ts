@@ -9,11 +9,13 @@ import {
   createInitialSessionSnapshot,
   sessionReducer,
 } from "../session/session-reducer.js"
+import { testSessionStart } from "./session-controller.test-support.js"
 
 describe("session reducer", () => {
   it("freezes input while allowing a chained pass and body-owned settings changes", () => {
     let state = createInitialSessionSnapshot()
     const search = {
+      start: testSessionStart(),
       kind: "operation",
       operation: "analysis.discoverRepos",
     } as const
@@ -33,7 +35,11 @@ describe("session reducer", () => {
     state = sessionReducer(state, {
       type: "transaction-enter",
       turnId: 2,
-      descriptor: { kind: "operation", operation: "analysis.run" },
+      descriptor: {
+        start: testSessionStart(),
+        kind: "operation",
+        operation: "analysis.run",
+      },
     })
     assert.equal(state.transactions.admitted.size, 2)
     state = sessionReducer(state, {
@@ -68,7 +74,11 @@ describe("session reducer", () => {
         },
       },
     }
-    const descriptor = { kind: "command", operation: "repo.clone" } as const
+    const descriptor = {
+      start: testSessionStart(),
+      kind: "command",
+      operation: "repo.clone",
+    } as const
     state = sessionReducer(state, {
       type: "transaction-enter",
       turnId: 1,
@@ -94,7 +104,7 @@ describe("session reducer", () => {
         {
           type: "transaction-enter",
           turnId: 2,
-          descriptor: { kind: "duplicate" },
+          descriptor: { start: testSessionStart(), kind: "duplicate" },
         },
       ] as const)
         assert.equal(sessionReducer(current, event), current)
@@ -116,7 +126,11 @@ describe("session reducer", () => {
         },
       })
       const targetSurface = { kind: "course", courseId: "course-b" } as const
-      const descriptor = { kind, targetSurface }
+      const descriptor = {
+        start: testSessionStart("courseOpen"),
+        kind,
+        targetSurface,
+      }
       state = sessionReducer(state, {
         type: "transaction-enter",
         turnId: 1,
@@ -148,6 +162,7 @@ describe("session reducer", () => {
       type: "transaction-enter",
       turnId: 1,
       descriptor: {
+        start: testSessionStart(),
         kind: "enter",
         targetSurface: { kind: "course", courseId: "course-b" },
       },
@@ -159,7 +174,7 @@ describe("session reducer", () => {
     const rearmed = sessionReducer(disposed, {
       type: "transaction-start",
       turnId: 1,
-      descriptor: { kind: "duplicate" },
+      descriptor: { start: testSessionStart(), kind: "duplicate" },
     })
     assert.equal(rearmed, disposed)
   })

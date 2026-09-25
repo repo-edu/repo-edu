@@ -20,6 +20,7 @@ import {
   type SessionSettingsState,
   type SettingsWorkerScope,
 } from "./session-settings.js"
+import type { SessionStart } from "./session-start.js"
 
 export type CourseLoadStatus =
   | { state: "empty"; message: null }
@@ -43,9 +44,12 @@ export type AnalysisSourceKey =
   | { kind: "submission"; path: string; courseId: string | null }
 
 export type SessionTransactionDescriptor =
-  | { kind: "operation" | "command"; operation: SessionOperationId }
   | { kind: "close" }
   | { kind: "bootstrap" }
+  | (SessionUserTransactionDescriptor & { readonly start: SessionStart })
+
+type SessionUserTransactionDescriptor =
+  | { kind: "operation" | "command"; operation: SessionOperationId }
   | {
       kind: "enter"
       targetSurface: PersistedActiveSurface
@@ -390,6 +394,7 @@ export function sessionReducer(
           ...state.transactions,
           admitted: new Map(state.transactions.admitted).set(event.turnId, {
             kind: "enter",
+            start: descriptor.start,
             targetSurface: event.surface,
             operation: descriptor.operation,
           }),

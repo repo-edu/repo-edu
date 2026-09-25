@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { testSessionStart } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
 import type { SessionController } from "../../../../packages/renderer-app/src/session/session-controller"
 import {
   type SessionOperationId,
@@ -22,7 +23,10 @@ export async function assertCommandFreeze(controller: SessionController) {
   ]) {
     if (classification === "session-changing" || classification === "command")
       assert.equal(
-        controller.operations.reserve(id as SessionOperationId),
+        controller.operations.reserve(
+          testSessionStart(),
+          id as SessionOperationId,
+        ),
         null,
         id,
       )
@@ -55,11 +59,29 @@ export async function assertCommandFreeze(controller: SessionController) {
   }
 
   for (const attempt of [
-    () => controller.activateSurface({ kind: "folder", path: "/blocked" }),
-    () => controller.createCourse({ backing: "lms", displayName: "Blocked" }),
-    () => controller.duplicateCourse("course", "Blocked"),
-    () => controller.renameCourse("course", "Blocked"),
-    () => controller.deleteCourse("course"),
+    () =>
+      controller.activateSurface(testSessionStart("recentRepositories"), {
+        kind: "folder",
+        path: "/blocked",
+      }),
+    () =>
+      controller.createCourse(testSessionStart("courseNew"), {
+        backing: "lms",
+        displayName: "Blocked",
+      }),
+    () =>
+      controller.duplicateCourse(
+        testSessionStart("courseDuplicate"),
+        "course",
+        "Blocked",
+      ),
+    () =>
+      controller.renameCourse(
+        testSessionStart("courseRename"),
+        "course",
+        "Blocked",
+      ),
+    () => controller.deleteCourse(testSessionStart("courseDelete"), "course"),
   ]) {
     await assert.rejects(attempt(), /not accepting/)
   }

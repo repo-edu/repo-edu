@@ -23,6 +23,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -81,6 +82,7 @@ describe("session Query bodies", () => {
     }
     const states: CloneAllCommandState[] = []
     await executeCloneAllCommand(
+      testSessionStart("cloneAll"),
       controller.operations,
       client,
       publishedInput,
@@ -148,6 +150,7 @@ describe("session Query bodies", () => {
       },
     )
     const listing = fetchCloneAllListing(
+      testSessionStart("cloneAllSearch"),
       controller.operations,
       client,
       publishedInput,
@@ -155,6 +158,7 @@ describe("session Query bodies", () => {
     await listed.promise
     const states: CloneAllCommandState[] = []
     const cloning = executeCloneAllCommand(
+      testSessionStart("cloneAll"),
       controller.operations,
       client,
       publishedInput,
@@ -208,6 +212,7 @@ describe("session Query bodies", () => {
           await release.promise
         }
         const query = controller.operations.execute(
+          testSessionStart("analysisRun"),
           "analysis.resolveSnapshotHead",
           async (scope) => {
             signals.push(scope.signal)
@@ -233,9 +238,13 @@ describe("session Query bodies", () => {
         assert.equal(signals[0]?.aborted, false)
         const next =
           successor === "command"
-            ? controller.operations.execute("repo.clone", async () => {
-                order.push("command")
-              })
+            ? controller.operations.execute(
+                testSessionStart("repositoryClone"),
+                "repo.clone",
+                async () => {
+                  order.push("command")
+                },
+              )
             : controller.requestClose(commitPreparation).then(() => {
                 order.push("close")
               })
@@ -253,15 +262,19 @@ describe("session Query bodies", () => {
     const entered = deferred<void>()
     const host = deferred<string>()
     const query = controller.operations
-      .execute("analysis.resolveSnapshotHead", async (scope) => {
-        await client.fetchQuery({
-          queryKey: ["cancel"],
-          ...scopedSessionQueryOptions(scope, async () => {
-            entered.resolve()
-            return await host.promise
-          }),
-        })
-      })
+      .execute(
+        testSessionStart("analysisRun"),
+        "analysis.resolveSnapshotHead",
+        async (scope) => {
+          await client.fetchQuery({
+            queryKey: ["cancel"],
+            ...scopedSessionQueryOptions(scope, async () => {
+              entered.resolve()
+              return await host.promise
+            }),
+          })
+        },
+      )
       .catch(() => {})
     await entered.promise
     // The stop alone reverts the query: the caller cancels nothing itself.
@@ -281,14 +294,18 @@ describe("session Query bodies", () => {
   it("publishes fetch errors and retires its body", async () => {
     const { controller, client } = await session()
     await assert.rejects(
-      controller.operations.execute("analysis.run", async (scope) => {
-        await client.fetchQuery({
-          queryKey: ["error"],
-          ...scopedSessionQueryOptions(scope, async () => {
-            throw new Error("failed")
-          }),
-        })
-      }),
+      controller.operations.execute(
+        testSessionStart("analysisRun"),
+        "analysis.run",
+        async (scope) => {
+          await client.fetchQuery({
+            queryKey: ["error"],
+            ...scopedSessionQueryOptions(scope, async () => {
+              throw new Error("failed")
+            }),
+          })
+        },
+      ),
       /failed/,
     )
     assert.equal(controller.getSnapshot().transactions.admitted.size, 0)

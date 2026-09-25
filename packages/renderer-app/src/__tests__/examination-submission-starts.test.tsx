@@ -16,6 +16,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "./session-controller.test-support.js"
 
 it("Load and Generate own submission preparation, cached returns and cancellation", {
@@ -261,8 +262,15 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
     })
   }
   const refresh = () =>
-    controller.operations.execute("analysis.listFolderFiles", (scope) =>
-      listSubmissionFiles(scope, input.folderPath, input.configuredExtensions),
+    controller.operations.execute(
+      testSessionStart("submissionRefresh"),
+      "analysis.listFolderFiles",
+      (scope) =>
+        listSubmissionFiles(
+          scope,
+          input.folderPath,
+          input.configuredExtensions,
+        ),
     )
   await render()
   assert.deepEqual(calls, [])
@@ -309,13 +317,16 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
   assert.equal(lookups.at(-1)?.excerptFileSources["main.ts"], "return 2")
   contents = "return 3"
   await act(() =>
-    controller.operations.execute("analysis.listFolderFiles", (scope) =>
-      openSubmissionFolder(
-        scope,
-        { path: input.folderPath },
-        input.configuredExtensions,
-        false,
-      ),
+    controller.operations.execute(
+      testSessionStart("submissionRefresh"),
+      "analysis.listFolderFiles",
+      (scope) =>
+        openSubmissionFolder(
+          scope,
+          { path: input.folderPath },
+          input.configuredExtensions,
+          false,
+        ),
     ),
   )
   assert.equal(preparations.length, 2)
@@ -324,15 +335,20 @@ it("Load and Generate own submission preparation, cached returns and cancellatio
   assert.equal(generations.at(-1)?.excerptFileSources["main.ts"], "return 3")
   const beforeReturn = calls.length
   await render("away-again", false)
-  await act(() => controller.activateSurface({ kind: "home" }))
   await act(() =>
-    controller.operations.execute("analysis.listFolderFiles", (scope) =>
-      openSubmissionFolder(
-        scope,
-        { path: input.folderPath },
-        input.configuredExtensions,
-        true,
-      ),
+    controller.activateSurface(testSessionStart("home"), { kind: "home" }),
+  )
+  await act(() =>
+    controller.operations.execute(
+      testSessionStart("submissionRefresh"),
+      "analysis.listFolderFiles",
+      (scope) =>
+        openSubmissionFolder(
+          scope,
+          { path: input.folderPath },
+          input.configuredExtensions,
+          true,
+        ),
     ),
   )
   await render("recent-return")

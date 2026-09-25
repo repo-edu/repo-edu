@@ -15,6 +15,10 @@ import type { KeyboardEvent, ReactNode } from "react"
 import { useCallback, useMemo, useRef } from "react"
 import { useSessionController } from "../../../session/session-controller-context.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../../session/session-start.js"
+import {
   selectConnectedGroupSets,
   selectGroupSets,
   selectLocalGroupSets,
@@ -231,13 +235,19 @@ export function GroupsAssignmentsSidebar({
   const allowLmsActions = course !== null && courseSupportsLms(course)
   const addToast = useToastStore((s) => s.addToast)
 
-  const onExportGroupSet = useCallback(
-    (groupSet: GroupSet) => {
-      if (!course) return
-      exportGroupSet(course, groupSet).catch((cause) => {
-        addToast(`Export failed: ${getErrorMessage(cause)}`, { tone: "error" })
-      })
-    },
+  const onExportGroupSet = useMemo(
+    () =>
+      bindSessionStart(
+        "groupSetExport",
+        (start: SessionStart, groupSet: GroupSet) => {
+          if (!course) return
+          exportGroupSet(start, course, groupSet).catch((cause) => {
+            addToast(`Export failed: ${getErrorMessage(cause)}`, {
+              tone: "error",
+            })
+          })
+        },
+      ),
     [course, addToast],
   )
 

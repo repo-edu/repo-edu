@@ -10,6 +10,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -33,7 +34,10 @@ describe("SessionController mutation admission", () => {
     await controller.waitForIdle()
     const baseline = controller.getSnapshot().settings
     const course = useCourseStore.getState().course
-    const command = controller.operations.reserve<void>("repo.clone")
+    const command = controller.operations.reserve<void>(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+    )
     assert.ok(command)
     controller.setTheme("dark")
     controller.setActiveGitConnectionId("git")
@@ -41,7 +45,7 @@ describe("SessionController mutation admission", () => {
     controller.setActiveTab("analysis")
     controller.setAnalysisInputs("course-a", { since: "2026-01-01" })
     await assert.rejects(
-      controller.activateSurface({ kind: "home" }),
+      controller.activateSurface(testSessionStart("home"), { kind: "home" }),
       /not accepting/,
     )
     assert.equal(controller.getSnapshot().settings, baseline)

@@ -7,6 +7,7 @@ import type { PersistedAppCredentials } from "@repo-edu/domain/settings"
 import { keepPreviousData, type QueryClient } from "@tanstack/react-query"
 import type { SessionOperationGateway } from "../../../../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../../../../session/session-query.js"
+import type { SessionStart } from "../../../../session/session-start.js"
 
 export type CloneAllSafeListingInput = {
   readonly connectionId: string
@@ -57,11 +58,12 @@ export type CloneAllCommandState =
   | { status: "error"; variables: CloneAllCommandVariables; error: unknown }
 
 export function fetchCloneAllListing(
+  start: SessionStart,
   operations: SessionOperationGateway,
   queryClient: QueryClient,
   input: CloneAllPublishedListingInput,
 ): Promise<RepositoryListNamespaceResult | undefined> {
-  return operations.execute("repo.listNamespace", async (scope) => {
+  return operations.execute(start, "repo.listNamespace", async (scope) => {
     // Input changes do not cancel a listing; its Cancel control does.
     return await queryClient.fetchQuery({
       ...createCloneAllListingQueryPolicy(input.admissionId),
@@ -78,13 +80,14 @@ export function fetchCloneAllListing(
 }
 
 export function executeCloneAllCommand(
+  start: SessionStart,
   operations: SessionOperationGateway,
   queryClient: QueryClient,
   publishedInput: CloneAllPublishedListingInput,
   variables: CloneAllCommandVariables,
   publish: (state: CloneAllCommandState) => void,
 ): Promise<void> {
-  return operations.execute("repo.bulkClone", async (scope) => {
+  return operations.execute(start, "repo.bulkClone", async (scope) => {
     scope.publish(() => publish({ status: "pending", variables }))
     try {
       const listing = queryClient.getQueryState<RepositoryListNamespaceResult>(

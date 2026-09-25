@@ -15,12 +15,15 @@ import {
   Input,
   Text,
 } from "@repo-edu/ui"
-
 import { AlertTriangle, Folder } from "@repo-edu/ui/components/icons"
 import { useEffect, useMemo, useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useUserFilePicker } from "../../hooks/use-picker.js"
 import type { SessionOperationScope } from "../../session/session-operations.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
 import {
   selectGroupSetById,
   useCourseStore,
@@ -134,62 +137,73 @@ export function ImportGroupSetDialog() {
     }
   }
 
-  const handleBrowse = async () => {
-    if (!format) return
-    const acceptFormats =
-      format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
-    await pickUserFile(
-      {
-        title: "Select group-set import file",
-        acceptFormats,
-        report: setError,
-      },
-      async (picked, scope) => {
-        setFileRef(picked)
-        setFileName(picked.displayName)
-        await runPreview(scope, picked, format)
-      },
-    )
-  }
-
-  const handleImport = async () => {
-    if (!canImport || !course || !fileRef || !format) return
-
-    await workflowClient.execute("groupSet.importFromFile", async (scope) => {
-      setImporting(true)
-      setError(null)
-      setGroupSetOperation(
-        isReimport
-          ? { kind: "reimport", groupSetId: reimportTargetId as string }
-          : { kind: "import" },
+  const handleBrowse = bindSessionStart(
+    "groupSetBrowse",
+    async (start: SessionStart) => {
+      if (!format) return
+      const acceptFormats =
+        format === "group-set-csv" ? (["csv"] as const) : (["txt"] as const)
+      await pickUserFile(
+        start,
+        {
+          title: "Select group-set import file",
+          acceptFormats,
+          report: setError,
+        },
+        async (picked, scope) => {
+          setFileRef(picked)
+          setFileName(picked.displayName)
+          await runPreview(scope, picked, format)
+        },
       )
+    },
+  )
 
-      try {
-        const nextCourse = await scope.run("groupSet.importFromFile", {
-          course,
-          file: fileRef,
-          format,
-          targetGroupSetId,
-        })
+  const handleImport = bindSessionStart(
+    "groupSetImport",
+    async (start: SessionStart) => {
+      if (!canImport || !course || !fileRef || !format) return
 
-        if (!isReimport) {
-          const importedSet = [...nextCourse.roster.groupSets]
-            .reverse()
-            .find((groupSet) => groupSet.connection?.kind === "import")
-          if (importedSet) {
-            setSidebarSelection({ kind: "group-set", id: importedSet.id })
+      await workflowClient.execute(
+        start,
+        "groupSet.importFromFile",
+        async (scope) => {
+          setImporting(true)
+          setError(null)
+          setGroupSetOperation(
+            isReimport
+              ? { kind: "reimport", groupSetId: reimportTargetId as string }
+              : { kind: "import" },
+          )
+
+          try {
+            const nextCourse = await scope.run("groupSet.importFromFile", {
+              course,
+              file: fileRef,
+              format,
+              targetGroupSetId,
+            })
+
+            if (!isReimport) {
+              const importedSet = [...nextCourse.roster.groupSets]
+                .reverse()
+                .find((groupSet) => groupSet.connection?.kind === "import")
+              if (importedSet) {
+                setSidebarSelection({ kind: "group-set", id: importedSet.id })
+              }
+            }
+
+            handleClose()
+          } catch (cause) {
+            setError(getErrorMessage(cause))
+          } finally {
+            setImporting(false)
+            setGroupSetOperation(null)
           }
-        }
-
-        handleClose()
-      } catch (cause) {
-        setError(getErrorMessage(cause))
-      } finally {
-        setImporting(false)
-        setGroupSetOperation(null)
-      }
-    })
-  }
+        },
+      )
+    },
+  )
 
   const handleClose = () => {
     setNewImportFormat(null)

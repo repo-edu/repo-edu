@@ -14,6 +14,7 @@ import type {
   SessionOperationGateway,
   SessionOperationScope,
 } from "../session/session-operations.js"
+import type { SessionStart } from "../session/session-start.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 
@@ -52,13 +53,14 @@ type PickerApply<T> = (
  */
 async function runPicker<T>(
   gateway: SessionOperationGateway,
+  start: SessionStart,
   id: SessionDirectId | SessionQueryWorkflowId,
   report: PickerFailureReport,
   open: (scope: SessionOperationScope) => Promise<T | null>,
   apply: PickerApply<T>,
 ): Promise<void> {
   await gateway
-    .execute(id, async (scope) => {
+    .execute(start, id, async (scope) => {
       try {
         const picked = await open(scope)
         if (picked === null || scope.signal.aborted) return
@@ -81,12 +83,14 @@ export function useDirectoryPicker(
 
   return useCallback(
     async (
+      start: SessionStart,
       request: PickerRequest<PickDirectoryOptions>,
       apply: PickerApply<string>,
     ) => {
       const { report, ...options } = request
       await runPicker(
         gateway,
+        start,
         operation,
         report ?? ((message) => addToast(message, { tone: "error" })),
         (scope) =>
@@ -107,12 +111,14 @@ export function useUserFilePicker() {
 
   return useCallback(
     async (
+      start: SessionStart,
       request: PickerRequest<OpenUserFileDialogOptions>,
       apply: PickerApply<RendererOpenUserFileRef>,
     ) => {
       const { report, ...options } = request
       await runPicker(
         gateway,
+        start,
         "pickUserFile",
         report ?? ((message) => addToast(message, { tone: "error" })),
         (scope) =>

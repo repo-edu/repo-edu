@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@repo-edu/ui"
 import { Loader2 } from "@repo-edu/ui/components/icons"
+import { bindSessionStart } from "../../../../session/session-start.js"
 import type {
   CloneDirectoryLayout,
   RepositoryOperationMode,
@@ -337,7 +338,14 @@ function RunRow({
         <Button
           size="sm"
           variant="commit"
-          onClick={() => void operations.handleRunOperation(operation)}
+          onClick={bindSessionStart(
+            operation === "create"
+              ? "repositoryCreate"
+              : operation === "clone"
+                ? "repositoryClone"
+                : "repositoryUpdate",
+            (start) => void operations.handleRunOperation(start, operation),
+          )}
           disabled={!canRun}
         >
           {isRunning ? (

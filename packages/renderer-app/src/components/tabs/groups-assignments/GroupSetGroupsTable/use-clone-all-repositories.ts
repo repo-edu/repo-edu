@@ -10,6 +10,10 @@ import {
 } from "../../../../session/selectors.js"
 import { useSessionControllerSelector } from "../../../../session/session-controller-context.js"
 import { canAdmitSessionInput } from "../../../../session/session-reducer.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../../../session/session-start.js"
 import { getErrorMessage } from "../../../../utils/error-message.js"
 import {
   type CloneAllCommandState,
@@ -105,20 +109,24 @@ export function useCloneAllRepositories({
       ? formatCloneAllResult(cloneCommand.data)
       : null
 
-  const handleBulkClone = () => {
-    if (!canClone || publishedListingInput === null) return
-    const variables: CloneAllCommandVariables = {
-      listingAdmissionId: publishedListingInput.admissionId,
-      targetDirectory: targetDirectory.trim(),
-    }
-    void executeCloneAllCommand(
-      client,
-      queryClient,
-      publishedListingInput,
-      variables,
-      setCloneCommand,
-    ).catch(() => undefined)
-  }
+  const handleBulkClone = bindSessionStart(
+    "cloneAll",
+    (start: SessionStart) => {
+      if (!canClone || publishedListingInput === null) return
+      const variables: CloneAllCommandVariables = {
+        listingAdmissionId: publishedListingInput.admissionId,
+        targetDirectory: targetDirectory.trim(),
+      }
+      void executeCloneAllCommand(
+        start,
+        client,
+        queryClient,
+        publishedListingInput,
+        variables,
+        setCloneCommand,
+      ).catch(() => undefined)
+    },
+  )
 
   return {
     canStartQueries,
@@ -126,7 +134,7 @@ export function useCloneAllRepositories({
     setFilter: (value: string) => {
       client.change(() => dispatchListing({ type: "filter", value }))
     },
-    search: () => {
+    search: bindSessionStart("cloneAllSearch", (start) => {
       if (rawListingInput === null) return
       client.change(() => {
         const input: CloneAllPublishedListingInput = {
@@ -138,9 +146,11 @@ export function useCloneAllRepositories({
           credentials,
         }
         dispatchListing({ type: "search", input })
-        void fetchCloneAllListing(client, queryClient, input).catch(() => {})
+        void fetchCloneAllListing(start, client, queryClient, input).catch(
+          () => {},
+        )
       })
-    },
+    }),
     includeArchived,
     setIncludeArchived: (value: boolean) => {
       client.change(() =>
@@ -154,14 +164,15 @@ export function useCloneAllRepositories({
     setTargetDirectory: (value: string) => {
       client.change(() => setTargetDirectory(value))
     },
-    browseTargetDirectory: async () => {
+    browseTargetDirectory: bindSessionStart("cloneAllBrowse", async (start) => {
       await pickDirectory(
+        start,
         { title: "Select clone target folder" },
         (directory, scope) => {
           scope.publish(() => setTargetDirectory(directory))
         },
       )
-    },
+    }),
     listResult:
       inputIsCurrent && !listingQuery.isPlaceholderData
         ? (listingQuery.data ?? null)

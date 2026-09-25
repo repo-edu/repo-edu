@@ -25,6 +25,7 @@ import { useCourseStore } from "../stores/course-store.js"
 import {
   commandClient,
   deferred,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -76,18 +77,26 @@ describe("session operation ownership", () => {
       order.push("surface")
       return true
     })
-    const running = gateway.execute("pickDirectory", async (scope) => {
-      const path = await scope.direct("pickDirectory", () => {
-        opened.resolve()
-        return picked.promise
-      })
-      await scope.activateSurface({ kind: "folder", path })
-      scope.publish(() => order.push("published"))
-    })
+    const running = gateway.execute(
+      testSessionStart("openRepositories"),
+      "pickDirectory",
+      async (scope) => {
+        const path = await scope.direct("pickDirectory", () => {
+          opened.resolve()
+          return picked.promise
+        })
+        await scope.activateSurface({ kind: "folder", path })
+        scope.publish(() => order.push("published"))
+      },
+    )
     await opened.promise
-    const command = gateway.execute("repo.clone", async () => {
-      order.push("command")
-    })
+    const command = gateway.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        order.push("command")
+      },
+    )
     assert.equal(
       gateway.change(() => order.push("unowned edit")),
       false,
@@ -107,8 +116,10 @@ describe("session operation ownership", () => {
       return true
     })
     await assert.rejects(
-      gateway.execute("repo.clone", (scope) =>
-        scope.activateSurface({ kind: "home" }),
+      gateway.execute(
+        testSessionStart("repositoryClone"),
+        "repo.clone",
+        (scope) => scope.activateSurface({ kind: "home" }),
       ),
       /cannot enter a surface/,
     )
@@ -119,13 +130,17 @@ describe("session operation ownership", () => {
     const picked = deferred<string>()
     const { gateway, dispatch } = harness()
     let published = false
-    const running = gateway.execute("pickUserFile", async (scope) => {
-      await scope.direct("pickUserFile", () => {
-        opened.resolve()
-        return picked.promise
-      })
-      published = true
-    })
+    const running = gateway.execute(
+      testSessionStart("studentsBrowse"),
+      "pickUserFile",
+      async (scope) => {
+        await scope.direct("pickUserFile", () => {
+          opened.resolve()
+          return picked.promise
+        })
+        published = true
+      },
+    )
     await opened.promise
     dispatch({ type: "dispose" })
     picked.resolve("file")
@@ -142,20 +157,28 @@ describe("session operation ownership", () => {
         return undefined as never
       },
     })
-    const running = gateway.execute("analysis.run", async (scope) => {
-      await scope.run("analysis.run", {} as never, {
-        onOutput: async () => {
-          entered.resolve()
-          await release.promise
-          throw new Error("output publication failed")
-        },
-      })
-    })
+    const running = gateway.execute(
+      testSessionStart("analysisRun"),
+      "analysis.run",
+      async (scope) => {
+        await scope.run("analysis.run", {} as never, {
+          onOutput: async () => {
+            entered.resolve()
+            await release.promise
+            throw new Error("output publication failed")
+          },
+        })
+      },
+    )
     await entered.promise
     let nextStarted = false
-    const next = gateway.execute("repo.clone", async () => {
-      nextStarted = true
-    })
+    const next = gateway.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        nextStarted = true
+      },
+    )
     await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(nextStarted, false)
     const rejected = assert.rejects(running, /output publication failed/)
@@ -189,34 +212,42 @@ describe("session operation ownership", () => {
           },
         }
         const { owner, gateway, dispatch } = harness(client)
-        const running = gateway.execute("analysis.run", async (scope) => {
-          await scope.run("analysis.run", {} as never, {
-            onProgress: async () => {
-              if (stage === "progress") {
-                await pause()
-                scope.publish(() => order.push("progress"))
-              }
-            },
-            onOutput: async () => {
-              if (stage === "output") {
-                await pause()
-                scope.publish(() => order.push("output"))
-              }
-            },
-          })
-          if (stage === "publication") await pause()
-          scope.publish(() => order.push("publication"))
-          await scope.follow(async () => {
-            if (stage === "follow-up") await pause()
-            scope.publish(() => order.push("follow-up"))
-          })
-        })
+        const running = gateway.execute(
+          testSessionStart("analysisRun"),
+          "analysis.run",
+          async (scope) => {
+            await scope.run("analysis.run", {} as never, {
+              onProgress: async () => {
+                if (stage === "progress") {
+                  await pause()
+                  scope.publish(() => order.push("progress"))
+                }
+              },
+              onOutput: async () => {
+                if (stage === "output") {
+                  await pause()
+                  scope.publish(() => order.push("output"))
+                }
+              },
+            })
+            if (stage === "publication") await pause()
+            scope.publish(() => order.push("publication"))
+            await scope.follow(async () => {
+              if (stage === "follow-up") await pause()
+              scope.publish(() => order.push("follow-up"))
+            })
+          },
+        )
         await paused.promise
         let next: Promise<unknown>
         if (successor === "command") {
-          next = gateway.execute("repo.clone", async () => {
-            order.push(successor)
-          })
+          next = gateway.execute(
+            testSessionStart("repositoryClone"),
+            "repo.clone",
+            async () => {
+              order.push(successor)
+            },
+          )
         } else {
           dispatch({ type: "close-start" })
           next = owner.enqueue({ kind: "close" }, async () => {
@@ -243,19 +274,27 @@ describe("session operation ownership", () => {
         order.push("preview")
       }),
     )
-    const body = gateway.execute("pickUserFile", async (scope) => {
-      await scope.direct("pickUserFile", async () => {
-        picked.resolve()
-        await release.promise
-      })
-      scope.publish(() => order.push("file"))
-      await scope.run("groupSet.previewImportFromFile", {} as never)
-      scope.publish(() => order.push("result"))
-    })
+    const body = gateway.execute(
+      testSessionStart("studentsBrowse"),
+      "pickUserFile",
+      async (scope) => {
+        await scope.direct("pickUserFile", async () => {
+          picked.resolve()
+          await release.promise
+        })
+        scope.publish(() => order.push("file"))
+        await scope.run("groupSet.previewImportFromFile", {} as never)
+        scope.publish(() => order.push("result"))
+      },
+    )
     await picked.promise
-    const command = gateway.execute("repo.clone", async () => {
-      order.push("command")
-    })
+    const command = gateway.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        order.push("command")
+      },
+    )
     release.resolve()
     await Promise.all([body, command])
     assert.deepEqual(order, ["file", "preview", "result", "command"])
@@ -269,23 +308,27 @@ describe("session operation ownership", () => {
     useCourseStore.getState().hydrate(course)
     const { gateway } = harness()
     let retained: SessionOperationScope | undefined
-    await gateway.execute("roster.importFromFile", async (scope) => {
-      retained = scope
-      assert.equal(
-        gateway.change(() =>
-          useCourseStore.getState().setDisplayName("Unrelated"),
-        ),
-        false,
-      )
-      assert.throws(
-        () =>
-          scope.mutateCourse(course.id, (actions) =>
-            actions.setDisplayName("Imported"),
+    await gateway.execute(
+      testSessionStart("studentsImport"),
+      "roster.importFromFile",
+      async (scope) => {
+        retained = scope
+        assert.equal(
+          gateway.change(() =>
+            useCourseStore.getState().setDisplayName("Unrelated"),
           ),
-        /partial course mutations/,
-      )
-      assert.equal(useCourseStore.getState().course?.displayName, "Original")
-    })
+          false,
+        )
+        assert.throws(
+          () =>
+            scope.mutateCourse(course.id, (actions) =>
+              actions.setDisplayName("Imported"),
+            ),
+          /partial course mutations/,
+        )
+        assert.equal(useCourseStore.getState().course?.displayName, "Original")
+      },
+    )
     assert.throws(
       () =>
         retained?.mutateCourse(course.id, (actions) =>
@@ -303,16 +346,24 @@ describe("session operation ownership", () => {
       }),
     )
     const order: string[] = []
-    await gateway.execute("roster.importFromFile", async (scope) => {
-      try {
-        await scope.run("roster.importFromFile", {} as never)
-      } catch {
-        scope.publish(() => order.push("refusal"))
-      }
-    })
-    await gateway.execute("repo.clone", async () => {
-      order.push("next")
-    })
+    await gateway.execute(
+      testSessionStart("studentsImport"),
+      "roster.importFromFile",
+      async (scope) => {
+        try {
+          await scope.run("roster.importFromFile", {} as never)
+        } catch {
+          scope.publish(() => order.push("refusal"))
+        }
+      },
+    )
+    await gateway.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        order.push("next")
+      },
+    )
     assert.deepEqual(order, ["refusal", "next"])
   })
 
@@ -325,8 +376,10 @@ describe("session operation ownership", () => {
         await host.promise
       }),
     )
-    const result = gateway.execute("course.list", (scope) =>
-      scope.run("course.list", undefined),
+    const result = gateway.execute(
+      testSessionStart("courseOpen"),
+      "course.list",
+      (scope) => scope.run("course.list", undefined),
     )
     await started.promise
     dispatch({ type: "dispose" })
@@ -372,7 +425,10 @@ describe("session operation ownership", () => {
     const started = deferred<void>()
     const released = deferred<void>()
     const order: string[] = []
-    const first = gateway.reserve<void>("course.list")
+    const first = gateway.reserve<void>(
+      testSessionStart("courseOpen"),
+      "course.list",
+    )
     assert.ok(first)
     const firstRun = first.run(async (scope) => {
       started.resolve()
@@ -380,15 +436,24 @@ describe("session operation ownership", () => {
       scope.publish(() => order.push("publish"))
     })
     await started.promise
-    const command = gateway.reserve<void>("repo.clone")
+    const command = gateway.reserve<void>(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+    )
     assert.ok(command)
     assert.equal(canAdmitSessionChange(snapshot()), false)
     assert.equal(
       gateway.change(() => order.push("edit")),
       false,
     )
-    assert.equal(gateway.reserve("course.list"), null)
-    assert.equal(gateway.reserve("repo.update"), null)
+    assert.equal(
+      gateway.reserve(testSessionStart("courseOpen"), "course.list"),
+      null,
+    )
+    assert.equal(
+      gateway.reserve(testSessionStart("repositoryUpdate"), "repo.update"),
+      null,
+    )
     let savedScope: SessionOperationScope | undefined
     const commandRun = command.run(async (scope) => {
       savedScope = scope
@@ -429,7 +494,10 @@ describe("session operation ownership", () => {
       },
     }
     const { gateway } = harness(client)
-    const operation = gateway.reserve<void>("analysis.run")
+    const operation = gateway.reserve<void>(
+      testSessionStart("analysisRun"),
+      "analysis.run",
+    )
     assert.ok(operation)
     const running = operation.run(async (scope) => {
       await scope.run("analysis.run", {} as never, {
@@ -442,7 +510,10 @@ describe("session operation ownership", () => {
       order.push("host-result")
     })
     await callbackStarted.promise
-    const command = gateway.reserve<void>("repo.clone")
+    const command = gateway.reserve<void>(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+    )
     assert.ok(command)
     const next = command.run(async () => {
       order.push("command")
@@ -458,13 +529,19 @@ describe("session operation ownership", () => {
     const { owner, gateway, dispatch } = harness()
     const release = deferred<void>()
     const order: string[] = []
-    const operation = gateway.reserve<void>("pickDirectory")
+    const operation = gateway.reserve<void>(
+      testSessionStart("openRepositories"),
+      "pickDirectory",
+    )
     assert.ok(operation)
     dispatch({ type: "close-start" })
     const closing = owner.enqueue({ kind: "close" }, async () => {
       order.push("close")
     })
-    assert.equal(gateway.reserve("course.list"), null)
+    assert.equal(
+      gateway.reserve(testSessionStart("courseOpen"), "course.list"),
+      null,
+    )
     assert.equal(
       gateway.change(() => order.push("edit")),
       false,
@@ -482,13 +559,22 @@ describe("session operation ownership", () => {
 
   it("retires cancellation and failure without running another command early", async () => {
     const { gateway, snapshot } = harness()
-    const cancelled = gateway.reserve<void>("repo.clone")
+    const cancelled = gateway.reserve<void>(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+    )
     assert.ok(cancelled)
     const cancellation = cancelled.cancel(new Error("cancelled"))
-    assert.equal(gateway.reserve("repo.clone"), null)
+    assert.equal(
+      gateway.reserve(testSessionStart("repositoryClone"), "repo.clone"),
+      null,
+    )
     await assert.rejects(cancellation, /cancelled/)
     assert.equal(canAdmitSessionChange(snapshot()), true)
-    const failed = gateway.reserve<void>("repo.clone")
+    const failed = gateway.reserve<void>(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+    )
     assert.ok(failed)
     await assert.rejects(
       failed.run(async () => {
@@ -501,7 +587,10 @@ describe("session operation ownership", () => {
 
   it("refuses queued and retained work after disposal", async () => {
     const { gateway, dispatch } = harness()
-    const operation = gateway.reserve<void>("course.list")
+    const operation = gateway.reserve<void>(
+      testSessionStart("courseOpen"),
+      "course.list",
+    )
     assert.ok(operation)
     dispatch({ type: "dispose" })
     let ran = false
@@ -535,14 +624,22 @@ describe("session operation ownership", () => {
       /not presentation/,
     )
     assert.throws(
-      () => gateway.reserve("validation.roster" as never),
+      () =>
+        gateway.reserve(
+          testSessionStart("analysisRun"),
+          "validation.roster" as never,
+        ),
       /not a session-changing/,
     )
     assert.throws(
-      () => gateway.reserve("unknown" as never),
+      () =>
+        gateway.reserve(testSessionStart("analysisRun"), "unknown" as never),
       /not a session-changing/,
     )
-    const ordinary = gateway.reserve<void>("course.list")
+    const ordinary = gateway.reserve<void>(
+      testSessionStart("courseOpen"),
+      "course.list",
+    )
     assert.ok(ordinary)
     await assert.rejects(
       ordinary.run(async (scope) => {

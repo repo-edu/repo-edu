@@ -27,6 +27,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -137,6 +138,7 @@ it("remote requests start explicitly and retain window-gate cancellation", {
       let running: Promise<unknown> | undefined
       await React.act(async () => {
         running = controller.operations.execute(
+          testSessionStart("analysisRun"),
           "gitUsernames.import",
           async () => {
             await release.promise

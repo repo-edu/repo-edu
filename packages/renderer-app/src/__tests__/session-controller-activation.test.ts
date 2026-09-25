@@ -12,6 +12,7 @@ import {
   pendingTransaction,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -51,6 +52,7 @@ describe("SessionController activation", () => {
     pauseSave = true
     controller.setDisplayName("course-a", "Before leaving")
     const transition = controller.operations.execute(
+      testSessionStart("openRepositories"),
       "pickDirectory",
       async (scope) => {
         const path = await scope.direct("pickDirectory", async () => "/chosen")
@@ -99,10 +101,13 @@ describe("SessionController activation", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const transition = controller.activateSurface({
-      kind: "course",
-      courseId: "course-a",
-    })
+    const transition = controller.activateSurface(
+      testSessionStart("courseOpen"),
+      {
+        kind: "course",
+        courseId: "course-a",
+      },
+    )
     await waitForSnapshot(
       controller,
       (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
@@ -169,11 +174,11 @@ describe("SessionController activation", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const first = controller.activateSurface({
+    const first = controller.activateSurface(testSessionStart("courseOpen"), {
       kind: "course",
       courseId: "course-a",
     })
-    const second = controller.activateSurface({
+    const second = controller.activateSurface(testSessionStart("courseOpen"), {
       kind: "course",
       courseId: "course-b",
     })
@@ -232,7 +237,7 @@ describe("SessionController activation", () => {
     )
 
     assert.equal(
-      await controller.activateSurface({
+      await controller.activateSurface(testSessionStart("courseOpen"), {
         kind: "course",
         courseId: "course-b",
       }),
@@ -282,10 +287,13 @@ describe("SessionController activation", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const transition = controller.activateSurface({
-      kind: "course",
-      courseId: "course-b",
-    })
+    const transition = controller.activateSurface(
+      testSessionStart("courseOpen"),
+      {
+        kind: "course",
+        courseId: "course-b",
+      },
+    )
     await waitForSnapshot(
       controller,
       (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
@@ -345,16 +353,23 @@ describe("SessionController activation", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const transition = controller.activateSurface({
-      kind: "course",
-      courseId: "course-b",
-    })
+    const transition = controller.activateSurface(
+      testSessionStart("courseOpen"),
+      {
+        kind: "course",
+        courseId: "course-b",
+      },
+    )
     await waitForSnapshot(
       controller,
       (snapshot) => pendingTransaction(snapshot)?.kind === "enter",
     )
 
-    const renamed = controller.renameCourse("course-a", "Renamed A")
+    const renamed = controller.renameCourse(
+      testSessionStart("courseRename"),
+      "course-a",
+      "Renamed A",
+    )
     courseBLoad.resolve(makeCourse("course-b"))
     await transition
     await renamed

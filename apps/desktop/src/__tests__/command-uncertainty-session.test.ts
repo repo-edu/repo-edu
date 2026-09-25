@@ -10,6 +10,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -146,6 +147,7 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
       const before = structuredClone(loaded)
       let late: (() => void) | undefined
       const running = controller.operations.execute(
+        testSessionStart(),
         "gitUsernames.import",
         async (scope) => {
           late = () => scope.publish(() => assert.fail("Late publication"))
@@ -195,10 +197,14 @@ for (const reason of ["confirmation-expired", "proof-lost"] as const) {
         await rejected
         order.push("retirement")
         assert.equal(controller.getSnapshot().transactions.admitted.size, 0)
-        await controller.operations.execute("course.list", async (scope) => {
-          await scope.run("course.list", undefined)
-          scope.publish(() => order.push("next publication"))
-        })
+        await controller.operations.execute(
+          testSessionStart(),
+          "course.list",
+          async (scope) => {
+            await scope.run("course.list", undefined)
+            scope.publish(() => order.push("next publication"))
+          },
+        )
         await controller.flush()
         assert.deepEqual(order, [
           "preparation commit",

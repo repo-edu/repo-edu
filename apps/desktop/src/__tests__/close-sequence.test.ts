@@ -6,6 +6,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -120,6 +121,7 @@ it("drains host calls before close transfer and queues persistence behind render
     )
     controller.setDisplayName("course", "Dirty")
     const earlier = controller.operations.execute(
+      testSessionStart(),
       "course.list",
       async (scope) => {
         await scope.run("course.list", undefined)
@@ -156,7 +158,10 @@ it("drains host calls before close transfer and queues persistence behind render
       "acknowledged",
     ])
     assert.equal(admission.getSnapshot().phase, "closing.ready")
-    assert.equal(controller.operations.reserve("course.list"), null)
+    assert.equal(
+      controller.operations.reserve(testSessionStart(), "course.list"),
+      null,
+    )
     assert.throws(() => admission.startWorkflow("course.list", { cancel() {} }))
   } finally {
     controller.dispose()

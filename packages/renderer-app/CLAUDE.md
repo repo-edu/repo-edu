@@ -106,6 +106,10 @@ Startup, shutdown, autosave and update download use their named lifecycle routes
 Bootstrap loads the initial course list before readiness. Course-changing bodies
 refresh it within the initiating action.
 
+`bindSessionStart` supplies each control's typed start argument when its handler
+runs. Feature helpers, pickers and user-facing controller methods carry it to
+the existing transaction owner. Follow-up bodies retain the initiating start.
+
 <!-- session-start-inventory:begin -->
 
 | Control | Where | Starts | Cancel |
@@ -121,7 +125,7 @@ refresh it within the initiating action.
 | Create | Repository operation fields | `repo.create` | command Cancel |
 | Clone | Repository operation fields | `repo.clone` | command Cancel |
 | Update | Repository operation fields | `repo.update` | command Cancel |
-| Browse (clone directory) | Repository operation fields | `pickDirectory` | none |
+| Browse (template repository) | Repository operation fields | `pickDirectory` | none |
 | Preview, Refresh Preview | Import students dialog | `roster.importFromLms` | close control |
 | Load group sets | Connect group set dialog | `groupSet.fetchAvailableFromLms` | close control |
 | Preview, Refresh Preview | Connect group set dialog | `groupSet.connectFromLms`, `groupSet.syncFromLms` | close control |

@@ -22,6 +22,10 @@ import {
   useSessionControllerSelector,
 } from "../../../../session/session-controller-context.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../../../session/session-start.js"
+import {
   selectOrganization,
   selectRepositoryCloneDirectoryLayout,
   selectRepositoryCloneTargetDirectory,
@@ -233,47 +237,51 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
   )
 
   const handleRunOperation = useCallback(
-    async (operation: RepositoryOperationMode) => {
+    async (start: SessionStart, operation: RepositoryOperationMode) => {
       if (!course || !effectiveAssignmentId) {
         return
       }
 
-      await workflowClient.execute(`repo.${operation}`, async (scope) => {
-        setOperationStatus("running")
-        setRunningOperation(operation)
-        setOperationError(null)
-        setLastResult(null)
+      await workflowClient.execute(
+        start,
+        `repo.${operation}`,
+        async (scope) => {
+          setOperationStatus("running")
+          setRunningOperation(operation)
+          setOperationError(null)
+          setLastResult(null)
 
-        const { workflowId, input } = buildRepositoryWorkflowRequest({
-          course,
-          credentials,
-          assignmentId: effectiveAssignmentId,
-          operation,
-          repositoryTemplate,
-          targetDirectory: cloneTargetDirectory,
-          directoryLayout: cloneDirectoryLayout,
-        })
+          const { workflowId, input } = buildRepositoryWorkflowRequest({
+            course,
+            credentials,
+            assignmentId: effectiveAssignmentId,
+            operation,
+            repositoryTemplate,
+            targetDirectory: cloneTargetDirectory,
+            directoryLayout: cloneDirectoryLayout,
+          })
 
-        try {
-          const result = await scope.run(workflowId, input)
-          setOperationStatus("success")
-          if (operation === "create") {
-            const typed = result as RepositoryCreateResult
-            setLastResult({ operation: "create", result: typed })
-          } else if (operation === "update") {
-            const typed = result as RepositoryUpdateResult
-            setLastResult({ operation: "update", result: typed })
-          } else {
-            const typed = result as RepositoryCloneResult
-            setLastResult({ operation: "clone", result: typed })
+          try {
+            const result = await scope.run(workflowId, input)
+            setOperationStatus("success")
+            if (operation === "create") {
+              const typed = result as RepositoryCreateResult
+              setLastResult({ operation: "create", result: typed })
+            } else if (operation === "update") {
+              const typed = result as RepositoryUpdateResult
+              setLastResult({ operation: "update", result: typed })
+            } else {
+              const typed = result as RepositoryCloneResult
+              setLastResult({ operation: "clone", result: typed })
+            }
+          } catch (error) {
+            setOperationStatus("error")
+            setOperationError(getErrorMessage(error))
+          } finally {
+            setRunningOperation(null)
           }
-        } catch (error) {
-          setOperationStatus("error")
-          setOperationError(getErrorMessage(error))
-        } finally {
-          setRunningOperation(null)
-        }
-      })
+        },
+      )
     },
     [
       cloneDirectoryLayout,
@@ -346,22 +354,26 @@ export function useRepoOperations(params: UseRepoOperationsParams) {
     setTemplateKind,
     setTemplateOwner,
     setTemplateLocalPath,
-    browseTemplateLocalPath: async () => {
-      if (courseId === null) return
-      await pickDirectory(
-        { title: "Select template repository", report: setOperationError },
-        (directory, scope) => {
-          scope.mutateCourse(courseId, (actions) =>
-            actions.setRepositoryTemplate({
-              kind: "local",
-              path: directory,
-              visibility: templateVisibility,
-            }),
-          )
-          setOperationError(null)
-        },
-      )
-    },
+    browseTemplateLocalPath: bindSessionStart(
+      "repositoryBrowse",
+      async (start) => {
+        if (courseId === null) return
+        await pickDirectory(
+          start,
+          { title: "Select template repository", report: setOperationError },
+          (directory, scope) => {
+            scope.mutateCourse(courseId, (actions) =>
+              actions.setRepositoryTemplate({
+                kind: "local",
+                path: directory,
+                visibility: templateVisibility,
+              }),
+            )
+            setOperationError(null)
+          },
+        )
+      },
+    ),
 
     // Clone settings
     cloneTargetDirectory,

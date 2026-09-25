@@ -35,6 +35,10 @@ import { useOpenRepositoriesFolder } from "../hooks/use-open-repositories-folder
 import { useOpenSubmissionFolder } from "../hooks/use-open-submission-folder.js"
 import { selectCredentials } from "../session/selectors.js"
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../session/session-start.js"
 import { useUiStore } from "../stores/ui-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import { lmsConnectionDisplayName } from "./settings/ConnectionsPane.shared.js"
@@ -253,44 +257,48 @@ export function OpenRepositoriesForm() {
     return loadLmsCourses()
   }, [source, loadLmsCourses])
 
-  const handleCreateCourse = async () => {
-    if (!isCourseSource) return
-    if (isCourseNameTaken) {
-      setError("A course with this name already exists.")
-      return
-    }
-
-    setCreating(true)
-    setError(null)
-
-    try {
-      const saved = await createCourse({
-        backing: source,
-        displayName: courseName.trim(),
-        lmsConnectionId:
-          source === "lms" ? selectedLmsConnectionId || null : null,
-        lmsCourseId: source === "lms" ? selectedCourseId.trim() || null : null,
-      })
-
-      if (saved === null) {
-        setError("Failed to create course.")
+  const handleCreateCourse = bindSessionStart(
+    "courseNew",
+    async (start: SessionStart) => {
+      if (!isCourseSource) return
+      if (isCourseNameTaken) {
+        setError("A course with this name already exists.")
         return
       }
 
-      if (
-        saved.backing === "lms" &&
-        saved.lmsConnectionId !== null &&
-        (saved.lmsCourseId ?? "").trim().length > 0
-      ) {
-        setRosterSyncDialogOpen(true)
+      setCreating(true)
+      setError(null)
+
+      try {
+        const saved = await createCourse(start, {
+          backing: source,
+          displayName: courseName.trim(),
+          lmsConnectionId:
+            source === "lms" ? selectedLmsConnectionId || null : null,
+          lmsCourseId:
+            source === "lms" ? selectedCourseId.trim() || null : null,
+        })
+
+        if (saved === null) {
+          setError("Failed to create course.")
+          return
+        }
+
+        if (
+          saved.backing === "lms" &&
+          saved.lmsConnectionId !== null &&
+          (saved.lmsCourseId ?? "").trim().length > 0
+        ) {
+          setRosterSyncDialogOpen(true)
+        }
+      } catch (cause) {
+        const message = getErrorMessage(cause)
+        setError(message)
+      } finally {
+        setCreating(false)
       }
-    } catch (cause) {
-      const message = getErrorMessage(cause)
-      setError(message)
-    } finally {
-      setCreating(false)
-    }
-  }
+    },
+  )
 
   const handleSelectOrCommit = async (target: SourceChoice) => {
     if (target === "folder") {

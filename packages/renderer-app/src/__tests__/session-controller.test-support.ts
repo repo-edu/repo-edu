@@ -21,9 +21,15 @@ import {
 } from "../session/selectors.js"
 import { SessionController } from "../session/session-controller.js"
 import type { SessionControllerSnapshot } from "../session/session-reducer.js"
+import { bindSessionStart } from "../session/session-start.js"
+import type { SessionStartId } from "../session/session-start-inventory.js"
 import { useCourseStore } from "../stores/course-store.js"
 import { useToastStore } from "../stores/toast-store.js"
 import { useUiStore } from "../stores/ui-store.js"
+
+export function testSessionStart(id: SessionStartId = "analysisRun") {
+  return bindSessionStart(id, (start) => start)()
+}
 
 export function deferred<T>() {
   let resolve!: (value: T) => void

@@ -31,6 +31,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -188,6 +189,7 @@ describe("examination engine", () => {
       })
       t.after(() => controller.dispose())
       const publication = controller.operations.execute(
+        testSessionStart("analysisRun"),
         "examination.lookupQuestions",
         async (scope) => {
           const started = useExaminationStore

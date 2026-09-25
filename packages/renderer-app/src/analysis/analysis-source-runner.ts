@@ -12,6 +12,7 @@ import type {
   SessionOperationScope,
 } from "../session/session-operations.js"
 import { scopedSessionQueryOptions } from "../session/session-query.js"
+import type { SessionStart } from "../session/session-start.js"
 import {
   type AnalysisSourceKeyParts,
   analysisQueryKeys,
@@ -44,6 +45,7 @@ export class AnalysisSourceRunner {
    * line authorship. It keeps its turn until completion or an explicit stop;
    * later runs reuse matching cached results. */
   async run(
+    start: SessionStart,
     repoPaths: readonly string[],
     selectedRepoPath: string | null,
     blameConfig: AnalysisBlameConfig | null,
@@ -57,7 +59,7 @@ export class AnalysisSourceRunner {
             selectedRepoPath,
             ...repoPaths.filter((path) => path !== selectedRepoPath),
           ]
-    await this.operations.execute("analysis.run", async (scope) => {
+    await this.operations.execute(start, "analysis.run", async (scope) => {
       let nextIndex = 0
       const worker = async () => {
         while (!scope.signal.aborted && nextIndex < ordered.length) {

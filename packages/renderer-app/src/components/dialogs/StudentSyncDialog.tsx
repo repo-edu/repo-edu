@@ -22,6 +22,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
+import { bindSessionStart } from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { lmsConnectionDisplayName } from "../settings/ConnectionsPane.shared.js"
@@ -132,9 +133,15 @@ function RosterPreviewDialog({ courseId }: { courseId: string }) {
               !course?.lmsConnectionId ||
               !course.lmsCourseId
             }
-            onClick={() =>
-              void preview({ workflow: "roster.importFromLms" }, courseId)
-            }
+            onClick={bindSessionStart(
+              "studentsPreview",
+              (start) =>
+                void preview(
+                  start,
+                  { workflow: "roster.importFromLms" },
+                  courseId,
+                ),
+            )}
           >
             {state.status === "idle" ? "Preview" : "Refresh Preview"}
           </Button>

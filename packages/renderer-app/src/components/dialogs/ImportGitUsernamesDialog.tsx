@@ -15,6 +15,10 @@ import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useUserFilePicker } from "../../hooks/use-picker.js"
 import { selectCredentials } from "../../session/selectors.js"
 import { useSessionControllerSelector } from "../../session/session-controller-context.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -41,43 +45,54 @@ export function ImportGitUsernamesDialog() {
   const hasRoster = course !== null && courseHasRoster(course)
   const hasStudents = hasRoster && (course?.roster.students.length ?? 0) > 0
 
-  const handleBrowse = async () => {
-    await pickUserFile(
-      {
-        title: "Select Git username CSV",
-        acceptFormats: ["csv"],
-        report: setError,
-      },
-      (file) => {
-        setFileRef(file)
-        setFileName(file.displayName)
-        setError(null)
-      },
-    )
-  }
+  const handleBrowse = bindSessionStart(
+    "gitUsernamesBrowse",
+    async (start: SessionStart) => {
+      await pickUserFile(
+        start,
+        {
+          title: "Select Git username CSV",
+          acceptFormats: ["csv"],
+          report: setError,
+        },
+        (file) => {
+          setFileRef(file)
+          setFileName(file.displayName)
+          setError(null)
+        },
+      )
+    },
+  )
 
-  const handleImport = async () => {
-    if (!fileRef || !course || !hasRoster) return
+  const handleImport = bindSessionStart(
+    "gitUsernamesImport",
+    async (start: SessionStart) => {
+      if (!fileRef || !course || !hasRoster) return
 
-    await workflowClient.execute("gitUsernames.import", async (scope) => {
-      setImporting(true)
-      setError(null)
+      await workflowClient.execute(
+        start,
+        "gitUsernames.import",
+        async (scope) => {
+          setImporting(true)
+          setError(null)
 
-      try {
-        await scope.run("gitUsernames.import", {
-          course,
-          credentials,
-          file: fileRef,
-        })
-        handleClose()
-      } catch (cause) {
-        const message = getErrorMessage(cause)
-        setError(message)
-      } finally {
-        setImporting(false)
-      }
-    })
-  }
+          try {
+            await scope.run("gitUsernames.import", {
+              course,
+              credentials,
+              file: fileRef,
+            })
+            handleClose()
+          } catch (cause) {
+            const message = getErrorMessage(cause)
+            setError(message)
+          } finally {
+            setImporting(false)
+          }
+        },
+      )
+    },
+  )
 
   const handleClose = () => {
     setOpen(false)

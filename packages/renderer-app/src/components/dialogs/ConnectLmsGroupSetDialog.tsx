@@ -25,6 +25,10 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -74,41 +78,48 @@ function GroupSetPreviewDialog({
   const [discovery, setDiscovery] = useState<Discovery>({ status: "idle" })
   const { state, preview, apply, reset } = useLmsPreview()
 
-  const loadGroupSets = () =>
-    controller.operations.execute(
-      "groupSet.fetchAvailableFromLms",
-      async (scope) => {
-        const current = useCourseStore.getState().course
-        if (current?.id !== courseId) return
-        scope.publish(() => {
-          setDiscovery({ status: "loading" })
-          reset()
-        })
-        try {
-          const groupSets = await scope.run("groupSet.fetchAvailableFromLms", {
-            course: current,
-            credentials: controller.getSnapshot().settings.credentials,
-          })
+  const loadGroupSets = bindSessionStart(
+    "groupSetsLoad",
+    (start: SessionStart) =>
+      controller.operations.execute(
+        start,
+        "groupSet.fetchAvailableFromLms",
+        async (scope) => {
+          const current = useCourseStore.getState().course
+          if (current?.id !== courseId) return
           scope.publish(() => {
-            setDiscovery({
-              status: "ready",
-              groupSets: [...groupSets].sort((a, b) =>
-                a.name.localeCompare(b.name),
-              ),
-              selectedId: "",
-            })
+            setDiscovery({ status: "loading" })
+            reset()
           })
-        } catch (error) {
-          if (scope.canContinue())
-            scope.publish(() =>
-              setDiscovery({
-                status: "error",
-                message: getErrorMessage(error),
-              }),
+          try {
+            const groupSets = await scope.run(
+              "groupSet.fetchAvailableFromLms",
+              {
+                course: current,
+                credentials: controller.getSnapshot().settings.credentials,
+              },
             )
-        }
-      },
-    )
+            scope.publish(() => {
+              setDiscovery({
+                status: "ready",
+                groupSets: [...groupSets].sort((a, b) =>
+                  a.name.localeCompare(b.name),
+                ),
+                selectedId: "",
+              })
+            })
+          } catch (error) {
+            if (scope.canContinue())
+              scope.publish(() =>
+                setDiscovery({
+                  status: "error",
+                  message: getErrorMessage(error),
+                }),
+              )
+          }
+        },
+      ),
+  )
 
   const connectedIds = new Set(
     course?.roster.groupSets.flatMap(({ connection }) =>
@@ -252,17 +263,20 @@ function GroupSetPreviewDialog({
           <Button
             variant="outline"
             disabled={!targetId || state.status === "loading"}
-            onClick={() =>
-              void preview(
-                syncId === null
-                  ? {
-                      workflow: "groupSet.connectFromLms",
-                      remoteGroupSetId: targetId,
-                    }
-                  : { workflow: "groupSet.syncFromLms", groupSetId: syncId },
-                courseId,
-              )
-            }
+            onClick={bindSessionStart(
+              "groupSetPreview",
+              (start) =>
+                void preview(
+                  start,
+                  syncId === null
+                    ? {
+                        workflow: "groupSet.connectFromLms",
+                        remoteGroupSetId: targetId,
+                      }
+                    : { workflow: "groupSet.syncFromLms", groupSetId: syncId },
+                  courseId,
+                ),
+            )}
           >
             {state.status === "idle" ? "Preview" : "Refresh Preview"}
           </Button>

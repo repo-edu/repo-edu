@@ -12,6 +12,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
 import { createRendererQueryClient } from "../../../../packages/renderer-app/src/analysis/analysis-query-client"
 import { scopedSessionQueryOptions } from "../../../../packages/renderer-app/src/session/session-query"
@@ -198,31 +199,39 @@ for (const outcome of ["resolve", "reject"] as const) {
     })
     await controller.waitForIdle()
     const running = controller.operations
-      .execute("analysis.resolveSnapshotHead", async (scope) => {
-        return await queryClient.fetchQuery({
-          queryKey: ["snapshot"],
-          ...scopedSessionQueryOptions(scope, () =>
-            scope.run("analysis.resolveSnapshotHead", {
-              repositoryAbsolutePath: "/repos/one",
-            }),
-          ),
-        })
-      })
+      .execute(
+        testSessionStart(),
+        "analysis.resolveSnapshotHead",
+        async (scope) => {
+          return await queryClient.fetchQuery({
+            queryKey: ["snapshot"],
+            ...scopedSessionQueryOptions(scope, () =>
+              scope.run("analysis.resolveSnapshotHead", {
+                repositoryAbsolutePath: "/repos/one",
+              }),
+            ),
+          })
+        },
+      )
       .catch(() => {})
     const hostSignal = await entered.promise
     let commandStarted = false
-    const command = controller.operations.execute("repo.clone", async () => {
-      commandStarted = true
-      assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
-      assert.equal(
-        h.admission.dispatch({
-          type: "exclusive-intent",
-          command: "repo.clone",
-          request: { cancel() {} },
-        }),
-        "accepted",
-      )
-    })
+    const command = controller.operations.execute(
+      testSessionStart(),
+      "repo.clone",
+      async () => {
+        commandStarted = true
+        assert.equal(acceptedHostCallCount(h.admission.getSnapshot()), 0)
+        assert.equal(
+          h.admission.dispatch({
+            type: "exclusive-intent",
+            command: "repo.clone",
+            request: { cancel() {} },
+          }),
+          "accepted",
+        )
+      },
+    )
     controller.operations.stop("analysis.resolveSnapshotHead")
     await flushTransport()
     assert.equal(hostSignal.aborted, true)

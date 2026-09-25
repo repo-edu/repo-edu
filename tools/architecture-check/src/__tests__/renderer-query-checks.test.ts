@@ -29,10 +29,10 @@ describe("Query body ownership", () => {
     'cache.invalidateQueries({ queryKey: ["rows"] })',
     "const mutation = useMutation({ mutationFn: work }); mutation.mutateAsync(input)",
     "const mutation = useMutation({ mutationFn: work }); const { mutateAsync: start } = mutation; start(input)",
-    'operations.execute("analysis.run", async (scope) => { cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
-    'operations.execute("analysis.run", async (scope) => { await cache.fetchQuery({}) })',
-    'operations.execute("analysis.run", async (scope) => {}).then(() => cache.fetchQuery(options))',
-    'const mutation = useMutation({ mutationFn: work }); operations.execute("repo.bulkClone", async (scope) => { mutation.mutate(input) })',
+    'operations.execute(start, "analysis.run", async (scope) => { cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
+    'operations.execute(start, "analysis.run", async (scope) => { await cache.fetchQuery({}) })',
+    'operations.execute(start, "analysis.run", async (scope) => {}).then(() => cache.fetchQuery(options))',
+    'const mutation = useMutation({ mutationFn: work }); operations.execute(start, "repo.bulkClone", async (scope) => { mutation.mutate(input) })',
   ]) {
     it(`rejects a start without its body: ${body}`, () => {
       assert.ok(check(body).length > 0)
@@ -44,12 +44,12 @@ describe("Query body ownership", () => {
     "useQueries({ queries: [{ enabled: false }, { enabled: false }] })",
     "const observer = new QueryObserver(cache, { enabled: false })",
     'cache.invalidateQueries({ queryKey: ["rows"], refetchType: "none" })',
-    'operations.execute("analysis.run", async (scope) => { await cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
-    'const reservation = operations.reserve("analysis.run"); reservation.run(async (scope) => { await cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
+    'operations.execute(start, "analysis.run", async (scope) => { await cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
+    'const reservation = operations.reserve(start, "analysis.run"); reservation.run(async (scope) => { await cache.fetchQuery({ ...scoped(scope, signal, fetch) }) })',
     "async function fetchRepo(scope: SessionOperationScope, cache: QueryClient) { return await cache.fetchQuery({ ...scoped(scope, signal, fetch) }) }",
-    'class Runner { constructor(private operations: SessionOperationGateway, private cache: QueryClient) {} run() { return this.operations.execute("analysis.run", async (scope) => { return await this.cache.fetchQuery({ ...scoped(scope, signal, fetch) }) }) } }',
-    'const mutation = useMutation({ mutationFn: work }); operations.execute("repo.bulkClone", async (scope) => { await mutation.mutateAsync(input); scope.publish(apply) })',
-    'operations.execute("repo.bulkClone", async (scope) => { const mutation = new MutationObserver(cache, { mutationFn: work }); await mutation.mutate(input); scope.publish(apply) })',
+    'class Runner { constructor(private operations: SessionOperationGateway, private cache: QueryClient) {} run() { return this.operations.execute(start, "analysis.run", async (scope) => { return await this.cache.fetchQuery({ ...scoped(scope, signal, fetch) }) }) } }',
+    'const mutation = useMutation({ mutationFn: work }); operations.execute(start, "repo.bulkClone", async (scope) => { await mutation.mutateAsync(input); scope.publish(apply) })',
+    'operations.execute(start, "repo.bulkClone", async (scope) => { const mutation = new MutationObserver(cache, { mutationFn: work }); await mutation.mutate(input); scope.publish(apply) })',
     'const mutate = "mutateAsync"; const unrelated = { mutationFn: 1 }; function mutateAsync() {} mutateAsync()',
   ]) {
     it(`admits an owned start or a watcher: ${body}`, () => {

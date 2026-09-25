@@ -12,6 +12,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -75,10 +76,14 @@ it("claims a save refused after close-port transfer while its renderer queue tur
     (snapshot) => snapshot.bootstrap.status === "ready",
   )
   controller.setTheme("dark")
-  const body = controller.operations.execute("course.list", async (scope) => {
-    earlierStarted.resolve()
-    await scope.follow(() => earlier.promise)
-  })
+  const body = controller.operations.execute(
+    testSessionStart(),
+    "course.list",
+    async (scope) => {
+      earlierStarted.resolve()
+      await scope.follow(() => earlier.promise)
+    },
+  )
   await earlierStarted.promise
   const host = createHostRequestTransport({
     admission,

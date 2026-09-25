@@ -68,7 +68,7 @@ export const sessionStartInventory = {
     cancel: "command Cancel",
   },
   repositoryBrowse: {
-    control: "Browse (clone directory)",
+    control: "Browse (template repository)",
     where: "Repository operation fields",
     starts: "`pickDirectory`",
     cancel: "none",

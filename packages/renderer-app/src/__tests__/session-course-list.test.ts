@@ -13,6 +13,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -90,6 +91,7 @@ describe("session course listing", () => {
         await controller.waitForIdle()
         const analysisRelease = deferred<void>()
         const analysis = controller.operations.execute(
+          testSessionStart("analysisRun"),
           "analysis.run",
           async () => {
             await analysisRelease.promise
@@ -99,12 +101,26 @@ describe("session course listing", () => {
         const targetId = change.endsWith("-inactive") ? "inactive" : "active"
         const changingCourse =
           change === "create"
-            ? controller.createCourse({ backing: "lms", displayName: "New" })
+            ? controller.createCourse(testSessionStart("courseNew"), {
+                backing: "lms",
+                displayName: "New",
+              })
             : change === "duplicate"
-              ? controller.duplicateCourse("inactive", "Copy")
+              ? controller.duplicateCourse(
+                  testSessionStart("courseDuplicate"),
+                  "inactive",
+                  "Copy",
+                )
               : change.startsWith("rename-")
-                ? controller.renameCourse(targetId, "Renamed")
-                : controller.deleteCourse(targetId)
+                ? controller.renameCourse(
+                    testSessionStart("courseRename"),
+                    targetId,
+                    "Renamed",
+                  )
+                : controller.deleteCourse(
+                    testSessionStart("courseDelete"),
+                    targetId,
+                  )
         if (successor !== "queued-command") {
           analysisRelease.resolve()
           await changing.promise
@@ -125,6 +141,7 @@ describe("session course listing", () => {
         const next =
           successor !== "close"
             ? controller.operations.execute(
+                testSessionStart("analysisRun"),
                 "roster.exportMembers",
                 async (scope) => {
                   await scope.preparePersistence(async (preparation) => {
@@ -197,7 +214,11 @@ describe("session course listing", () => {
       })
       controllers.push(controller)
       await controller.waitForIdle()
-      const refresh = controller.renameCourse("old", "Edited")
+      const refresh = controller.renameCourse(
+        testSessionStart("courseRename"),
+        "old",
+        "Edited",
+      )
       await saved.promise
       let listStarted = false
       void listed.promise.then(() => {
@@ -207,10 +228,14 @@ describe("session course listing", () => {
       assert.equal(listStarted, false)
       const next =
         successor === "command"
-          ? controller.operations.execute("repo.clone", async () => {
-              assert.equal(useCourseStore.getState().course?.id, "new")
-              order.push("command")
-            })
+          ? controller.operations.execute(
+              testSessionStart("repositoryClone"),
+              "repo.clone",
+              async () => {
+                assert.equal(useCourseStore.getState().course?.id, "new")
+                order.push("command")
+              },
+            )
           : controller.requestClose(commitPreparation).then(() => {
               order.push("close")
             })
@@ -260,12 +285,16 @@ describe("session course listing", () => {
     })
     controllers.push(controller)
     await entered.promise
-    const command = controller.operations.execute("repo.clone", async () => {
-      assert.deepEqual(
-        controller.getSnapshot().settings.preferences.recentSubmissionFolders,
-        [],
-      )
-    })
+    const command = controller.operations.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        assert.deepEqual(
+          controller.getSnapshot().settings.preferences.recentSubmissionFolders,
+          [],
+        )
+      },
+    )
     release.resolve()
     await Promise.all([controller.waitForIdle(), command])
   })
@@ -286,6 +315,7 @@ describe("session course listing", () => {
     const entered = deferred<void>()
     const release = deferred<void>()
     const discovery = controller.operations.execute(
+      testSessionStart("analysisSearch"),
       "analysis.discoverRepos",
       async (scope) => {
         entered.resolve()
@@ -300,12 +330,16 @@ describe("session course listing", () => {
       },
     )
     await entered.promise
-    const command = controller.operations.execute("repo.clone", async () => {
-      assert.deepEqual(activeSurface(controller.getSnapshot()), {
-        kind: "folder",
-        path: "/repo",
-      })
-    })
+    const command = controller.operations.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        assert.deepEqual(activeSurface(controller.getSnapshot()), {
+          kind: "folder",
+          path: "/repo",
+        })
+      },
+    )
     release.resolve()
     await Promise.all([discovery, command])
   })

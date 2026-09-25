@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { SessionSurfaceTransactions } from "../session/session-surface-transactions.js"
+import { testSessionStart } from "./session-controller.test-support.js"
 
 function harness() {
   const admitted = new Set<number>()
@@ -37,16 +38,22 @@ describe("SessionSurfaceTransactions", () => {
   it("keeps queued bodies and their durable settlements in order", async () => {
     const { transactions } = harness()
     const order: string[] = []
-    const first = transactions.enqueue({ kind: "duplicate" }, async (scope) => {
-      order.push("first-body")
-      void scope.required(async () => {
-        await Promise.resolve()
-        order.push("first-durable")
-      })
-    })
-    const second = transactions.enqueue({ kind: "rename" }, async () => {
-      order.push("second-body")
-    })
+    const first = transactions.enqueue(
+      { start: testSessionStart(), kind: "duplicate" },
+      async (scope) => {
+        order.push("first-body")
+        void scope.required(async () => {
+          await Promise.resolve()
+          order.push("first-durable")
+        })
+      },
+    )
+    const second = transactions.enqueue(
+      { start: testSessionStart(), kind: "rename" },
+      async () => {
+        order.push("second-body")
+      },
+    )
     await Promise.all([first, second])
     assert.deepEqual(order, ["first-body", "first-durable", "second-body"])
   })
@@ -66,12 +73,15 @@ describe("SessionSurfaceTransactions", () => {
     const { transactions } = harness()
     const bodyError = new Error("body failed")
     await assert.rejects(
-      transactions.enqueue({ kind: "duplicate" }, async (scope) => {
-        void scope.required(async () => {
-          throw new Error("settlement failed")
-        })
-        throw bodyError
-      }),
+      transactions.enqueue(
+        { start: testSessionStart(), kind: "duplicate" },
+        async (scope) => {
+          void scope.required(async () => {
+            throw new Error("settlement failed")
+          })
+          throw bodyError
+        },
+      ),
       (error) => error === bodyError,
     )
   })

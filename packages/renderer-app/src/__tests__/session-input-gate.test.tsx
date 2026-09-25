@@ -13,6 +13,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -88,6 +89,7 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
               onClick={() => {
                 starts++
                 void controller.operations.execute(
+                  testSessionStart("courseOpen"),
                   "course.list",
                   async () => {},
                 )
@@ -117,6 +119,7 @@ it("shows the window freeze and refuses input while scrolling and portal Cancel 
   let running: Promise<unknown> | undefined
   await React.act(async () => {
     running = controller.operations.execute(
+      testSessionStart("analysisSearch"),
       "analysis.discoverRepos",
       async (scope) => {
         entered.resolve(scope.signal)

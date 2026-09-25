@@ -31,6 +31,10 @@ import {
 } from "../../../session/session-controller-context.js"
 import { canAdmitSessionInput } from "../../../session/session-reducer.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../../session/session-start.js"
+import {
   selectFileSelectionModeForScope,
   selectFocusedFilePathForScope,
   selectSelectedFilesForScope,
@@ -329,27 +333,32 @@ export function AnalysisSidebar() {
   const { expandAllRepoFolders, collapseAllRepoFolders } = repoTree
   const [browseTooltipKey, setBrowseTooltipKey] = useState(0)
 
-  const handleBrowseSearchFolder = useCallback(async () => {
-    setBrowseTooltipKey((k) => k + 1)
-    await pickDirectory(
-      { title: "Open repository search folder" },
-      async (directory, scope) => {
-        scope.publish(() => {
-          setSections((prev) => ({ ...prev, repositories: true }))
-        })
-        if (analysisContext.kind === "folder") {
-          await scope.activateSurface({ kind: "folder", path: directory })
-        } else if (analysisContext.course) {
-          if (directory !== analysisContext.searchFolder) {
-            scope.publish(clearRepositoryDiscovery)
-          }
-          scope.mutateCourse(analysisContext.course.id, (actions) =>
-            actions.setSearchFolder(directory),
-          )
-        }
-      },
-    )
-  }, [analysisContext, pickDirectory, clearRepositoryDiscovery])
+  const handleBrowseSearchFolder = useMemo(
+    () =>
+      bindSessionStart("analysisBrowse", async (start: SessionStart) => {
+        setBrowseTooltipKey((k) => k + 1)
+        await pickDirectory(
+          start,
+          { title: "Open repository search folder" },
+          async (directory, scope) => {
+            scope.publish(() => {
+              setSections((prev) => ({ ...prev, repositories: true }))
+            })
+            if (analysisContext.kind === "folder") {
+              await scope.activateSurface({ kind: "folder", path: directory })
+            } else if (analysisContext.course) {
+              if (directory !== analysisContext.searchFolder) {
+                scope.publish(clearRepositoryDiscovery)
+              }
+              scope.mutateCourse(analysisContext.course.id, (actions) =>
+                actions.setSearchFolder(directory),
+              )
+            }
+          },
+        )
+      }),
+    [analysisContext, pickDirectory, clearRepositoryDiscovery],
+  )
 
   const handleStart = useCallback(() => {
     if (searchFolder) startAnalysis(searchFolder)

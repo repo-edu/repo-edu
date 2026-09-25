@@ -53,6 +53,10 @@ import {
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../session/session-start.js"
+import {
   normalizeConfiguredExtensions,
   openSubmissionFolder,
 } from "./tabs/examination/submission-file-listing.js"
@@ -139,57 +143,79 @@ export function CourseSwitcher() {
     name: string
   }>({ open: false, id: "", name: "" })
 
-  const handleCourseSelect = (course: CourseSummary) => {
-    const id = course.id
-    if (activeSurfaceEquals(activeSurface, { kind: "course", courseId: id })) {
-      return
-    }
-    setOpen(false)
-    runSessionOperationBestEffort(switchCourse(id), "course activation")
-  }
+  const handleCourseSelect = bindSessionStart(
+    "courseOpen",
+    (start: SessionStart, course: CourseSummary) => {
+      const id = course.id
+      if (
+        activeSurfaceEquals(activeSurface, { kind: "course", courseId: id })
+      ) {
+        return
+      }
+      setOpen(false)
+      runSessionOperationBestEffort(
+        switchCourse(start, id),
+        "course activation",
+      )
+    },
+  )
 
-  const handleRecentFolderSelect = (path: string) => {
-    if (path === activeFolderPath) return
-    setOpen(false)
-    runSessionOperationBestEffort(
-      controller.activateSurface({ kind: "folder", path }),
-      "folder activation",
-    )
-  }
+  const handleRecentFolderSelect = bindSessionStart(
+    "recentRepositories",
+    (start: SessionStart, path: string) => {
+      if (path === activeFolderPath) return
+      setOpen(false)
+      runSessionOperationBestEffort(
+        controller.activateSurface(start, { kind: "folder", path }),
+        "folder activation",
+      )
+    },
+  )
 
-  const handleOpenCourseSubmissionFolder = async (course: CourseSummary) => {
-    await pickDirectory(
-      { title: "Open student submission folder" },
-      async (directory, scope) => {
-        scope.publish(() => setOpen(false))
-        await openSubmissionFolder(
-          scope,
-          { path: directory, courseId: course.id },
-          normalizeConfiguredExtensions(
-            selectDefaultExtensions(controller.getSnapshot()),
-          ),
-          false,
-        )
-      },
-    )
-  }
+  const handleOpenCourseSubmissionFolder = bindSessionStart(
+    "openSubmission",
+    async (start: SessionStart, course: CourseSummary) => {
+      await pickDirectory(
+        start,
+        { title: "Open student submission folder" },
+        async (directory, scope) => {
+          scope.publish(() => setOpen(false))
+          await openSubmissionFolder(
+            scope,
+            { path: directory, courseId: course.id },
+            normalizeConfiguredExtensions(
+              selectDefaultExtensions(controller.getSnapshot()),
+            ),
+            false,
+          )
+        },
+      )
+    },
+  )
 
-  const handleRecentSubmissionSelect = (recent: SubmissionFolderRecent) => {
-    setOpen(false)
-    runSessionOperationBestEffort(
-      workflowClient.execute("analysis.listFolderFiles", async (scope) => {
-        await openSubmissionFolder(
-          scope,
-          recent,
-          normalizeConfiguredExtensions(
-            selectDefaultExtensions(controller.getSnapshot()),
-          ),
-          true,
-        )
-      }),
-      "submission activation",
-    )
-  }
+  const handleRecentSubmissionSelect = bindSessionStart(
+    "recentSubmission",
+    (start: SessionStart, recent: SubmissionFolderRecent) => {
+      setOpen(false)
+      runSessionOperationBestEffort(
+        workflowClient.execute(
+          start,
+          "analysis.listFolderFiles",
+          async (scope) => {
+            await openSubmissionFolder(
+              scope,
+              recent,
+              normalizeConfiguredExtensions(
+                selectDefaultExtensions(controller.getSnapshot()),
+              ),
+              true,
+            )
+          },
+        ),
+        "submission activation",
+      )
+    },
+  )
 
   const handleRowKeyDown = (
     event: KeyboardEvent<HTMLDivElement>,
@@ -221,25 +247,32 @@ export function CourseSwitcher() {
     })
   }
 
-  const handleDuplicateConfirm = async () => {
-    const { sourceCourseId, newCourseName } = duplicateDialog
-    if (!newCourseName.trim()) return
+  const handleDuplicateConfirm = bindSessionStart(
+    "courseDuplicate",
+    async (start: SessionStart) => {
+      const { sourceCourseId, newCourseName } = duplicateDialog
+      if (!newCourseName.trim()) return
 
-    setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
-    const success = await duplicateCourse(sourceCourseId, newCourseName.trim())
+      setDuplicateDialog((prev) => ({ ...prev, isProcessing: true }))
+      const success = await duplicateCourse(
+        start,
+        sourceCourseId,
+        newCourseName.trim(),
+      )
 
-    if (success) {
-      setDuplicateDialog({
-        open: false,
-        sourceCourseId: "",
-        sourceName: "",
-        newCourseName: "",
-        isProcessing: false,
-      })
-    } else {
-      setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
-    }
-  }
+      if (success) {
+        setDuplicateDialog({
+          open: false,
+          sourceCourseId: "",
+          sourceName: "",
+          newCourseName: "",
+          isProcessing: false,
+        })
+      } else {
+        setDuplicateDialog((prev) => ({ ...prev, isProcessing: false }))
+      }
+    },
+  )
 
   const handleRenameClick = (id: string, name: string) => {
     setOpen(false)
@@ -251,39 +284,45 @@ export function CourseSwitcher() {
     })
   }
 
-  const handleRenameConfirm = async () => {
-    const { id, newName } = renameDialog
-    const success = await renameCourse(id, newName)
-    if (!success) return
-    setRenameDialog({
-      open: false,
-      id: "",
-      currentName: "",
-      newName: "",
-    })
-  }
+  const handleRenameConfirm = bindSessionStart(
+    "courseRename",
+    async (start: SessionStart) => {
+      const { id, newName } = renameDialog
+      const success = await renameCourse(start, id, newName)
+      if (!success) return
+      setRenameDialog({
+        open: false,
+        id: "",
+        currentName: "",
+        newName: "",
+      })
+    },
+  )
 
   const handleDeleteClick = (id: string, name: string) => {
     setOpen(false)
     setDeleteDialog({ open: true, id, name })
   }
 
-  const handleDeleteConfirm = async () => {
-    await deleteCourse(deleteDialog.id)
-    setDeleteDialog({ open: false, id: "", name: "" })
-  }
+  const handleDeleteConfirm = bindSessionStart(
+    "courseDelete",
+    async (start: SessionStart) => {
+      await deleteCourse(start, deleteDialog.id)
+      setDeleteDialog({ open: false, id: "", name: "" })
+    },
+  )
 
-  const handleHomeSelect = () => {
+  const handleHomeSelect = bindSessionStart("home", (start: SessionStart) => {
     if (isHomeSurface) {
       setOpen(false)
       return
     }
     setOpen(false)
     runSessionOperationBestEffort(
-      controller.activateSurface({ kind: "home" }),
+      controller.activateSurface(start, { kind: "home" }),
       "home activation",
     )
-  }
+  })
 
   const handleRemoveRecentFolder = (path: string) => {
     controller.removeRecentFolder(path)

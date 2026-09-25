@@ -5,6 +5,7 @@ import { useCourseStore } from "../stores/course-store.js"
 import { getErrorMessage } from "../utils/error-message.js"
 import type { SessionController } from "./session-controller.js"
 import { useSessionController } from "./session-controller-context.js"
+import type { SessionStart } from "./session-start.js"
 
 export type LmsPreviewWorkflow =
   | "roster.importFromLms"
@@ -74,8 +75,11 @@ export function useLmsPreview() {
   const controller = useSessionController()
   const [state, dispatch] = useReducer(lmsPreviewReducer, { status: "idle" })
   const reset = useCallback(() => dispatch({ type: "reset" }), [])
-  const preview = (target: LmsPreviewTarget, courseId: string) =>
-    requestLmsPreview(controller, dispatch, target, courseId)
+  const preview = (
+    start: SessionStart,
+    target: LmsPreviewTarget,
+    courseId: string,
+  ) => requestLmsPreview(start, controller, dispatch, target, courseId)
   const apply = (): LmsPreviewResult | null => {
     if (state.status !== "ready") return null
     if (
@@ -95,6 +99,7 @@ export function useLmsPreview() {
 }
 
 export async function requestLmsPreview(
+  start: SessionStart,
   controller: SessionController,
   dispatch: (event: LmsPreviewEvent) => void,
   target: LmsPreviewTarget,
@@ -107,7 +112,7 @@ export async function requestLmsPreview(
     dispatch({ type: "refused" })
     return
   }
-  const reservation = controller.operations.reserve(target.workflow)
+  const reservation = controller.operations.reserve(start, target.workflow)
   if (reservation === null) return
   dispatch({ type: "start", request })
   await reservation

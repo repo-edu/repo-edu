@@ -3,6 +3,10 @@ import { useRendererHost } from "../../contexts/renderer-host.js"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useSessionController } from "../../session/session-controller-context.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
+import {
   selectCourseId,
   selectLmsConnectionId,
   selectRoster,
@@ -56,29 +60,36 @@ export function StudentsTab() {
     controller.setRoster(course.id, emptyRoster, "Clear roster")
   }
 
-  const handleExport = async (format: "csv" | "xlsx") => {
-    if (!course || !roster) return
+  const handleExport = bindSessionStart(
+    "studentsExport",
+    async (start: SessionStart, format: "csv" | "xlsx") => {
+      if (!course || !roster) return
 
-    await workflowClient.execute("roster.exportMembers", async (scope) => {
-      try {
-        const target = await scope.direct("pickSaveTarget", () =>
-          rendererHost.pickSaveTarget({
-            suggestedName: `students.${format}`,
-          }),
-        )
-        if (!target) return
+      await workflowClient.execute(
+        start,
+        "roster.exportMembers",
+        async (scope) => {
+          try {
+            const target = await scope.direct("pickSaveTarget", () =>
+              rendererHost.pickSaveTarget({
+                suggestedName: `students.${format}`,
+              }),
+            )
+            if (!target) return
 
-        await scope.run("roster.exportMembers", {
-          course,
-          target,
-          format,
-        })
-      } catch (err) {
-        const message = getErrorMessage(err)
-        addToast(`Export failed: ${message}`, { tone: "error" })
-      }
-    })
-  }
+            await scope.run("roster.exportMembers", {
+              course,
+              target,
+              format,
+            })
+          } catch (err) {
+            const message = getErrorMessage(err)
+            addToast(`Export failed: ${message}`, { tone: "error" })
+          }
+        },
+      )
+    },
+  )
 
   if (!course || !courseHasRoster(course)) {
     return null

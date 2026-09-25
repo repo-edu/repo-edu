@@ -12,6 +12,7 @@ import {
   pendingTransaction,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -55,7 +56,7 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    await controller.deleteCourse("course-a")
+    await controller.deleteCourse(testSessionStart("courseDelete"), "course-a")
 
     assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "home",
@@ -105,15 +106,21 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const deleting = controller.deleteCourse("course-a")
+    const deleting = controller.deleteCourse(
+      testSessionStart("courseDelete"),
+      "course-a",
+    )
     await waitForSnapshot(
       controller,
       (snapshot) => pendingTransaction(snapshot)?.kind === "delete",
     )
-    const activating = controller.activateSurface({
-      kind: "course",
-      courseId: "course-b",
-    })
+    const activating = controller.activateSurface(
+      testSessionStart("courseOpen"),
+      {
+        kind: "course",
+        courseId: "course-b",
+      },
+    )
 
     assert.equal(
       await Promise.race([
@@ -171,7 +178,7 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    await controller.deleteCourse("course-a")
+    await controller.deleteCourse(testSessionStart("courseDelete"), "course-a")
 
     assert.deepStrictEqual(activeSurface(controller.getSnapshot()), {
       kind: "course",
@@ -220,7 +227,9 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    await assert.rejects(controller.deleteCourse("course-a"))
+    await assert.rejects(
+      controller.deleteCourse(testSessionStart("courseDelete"), "course-a"),
+    )
 
     assert.equal(activeCourseId(controller.getSnapshot()), "course-a")
     assert.equal(useCourseStore.getState().course?.id, "course-a")
@@ -271,7 +280,10 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const deleting = controller.deleteCourse("course-a")
+    const deleting = controller.deleteCourse(
+      testSessionStart("courseDelete"),
+      "course-a",
+    )
     await waitForSnapshot(
       controller,
       (snapshot) => pendingTransaction(snapshot)?.kind === "delete",
@@ -329,11 +341,17 @@ describe("SessionController deletion", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const activation = controller.activateSurface({
-      kind: "course",
-      courseId: "course-b",
-    })
-    const deletion = controller.deleteCourse("course-b")
+    const activation = controller.activateSurface(
+      testSessionStart("courseOpen"),
+      {
+        kind: "course",
+        courseId: "course-b",
+      },
+    )
+    const deletion = controller.deleteCourse(
+      testSessionStart("courseDelete"),
+      "course-b",
+    )
     courseBLoad.resolve(makeCourse("course-b"))
     await activation
     await deletion

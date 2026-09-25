@@ -169,7 +169,7 @@ function checkRendererQuerySource(
         const method = memberName(node.expression)
         const body =
           owner === "SessionOperationGateway" && method === "execute"
-            ? node.arguments[1]
+            ? node.arguments[2]
             : owner === "SessionOperationReservation" && method === "run"
               ? node.arguments[0]
               : undefined

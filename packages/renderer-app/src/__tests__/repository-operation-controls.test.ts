@@ -21,13 +21,13 @@ import {
   initialCloneAllListingState,
   selectCloneAllCanClone,
 } from "../components/tabs/groups-assignments/GroupSetGroupsTable/clone-all-repositories.js"
-
 import {
   commitPreparation,
   deferred,
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -157,6 +157,7 @@ describe("clone-all query ownership", () => {
       const unsubscribe = observer.subscribe(() => {})
       t.after(unsubscribe)
       const listing = fetchCloneAllListing(
+        testSessionStart("cloneAllSearch"),
         controller.operations,
         queryClient,
         initialPublishedInput,

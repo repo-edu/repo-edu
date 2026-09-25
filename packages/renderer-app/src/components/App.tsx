@@ -43,6 +43,7 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../session/session-controller-context.js"
+import { bindSessionStart } from "../session/session-start.js"
 import { subscribeCourseRemoval } from "../session/source-lifecycle-events.js"
 import {
   selectCanRedo,
@@ -341,13 +342,13 @@ function AppShell() {
                   size="sm"
                   className="h-8 w-8 p-0"
                   aria-pressed={isHomeSurface}
-                  onClick={() => {
+                  onClick={bindSessionStart("home", (start) => {
                     if (isHomeSurface) return
                     runSessionOperationBestEffort(
-                      controller.activateSurface({ kind: "home" }),
+                      controller.activateSurface(start, { kind: "home" }),
                       "home activation",
                     )
-                  }}
+                  })}
                 >
                   <Home className="size-[18px]" />
                   <span className="sr-only">Home</span>

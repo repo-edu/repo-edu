@@ -10,6 +10,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "../../../../packages/renderer-app/src/__tests__/session-controller.test-support"
@@ -145,7 +146,10 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
     controller.setDisplayName("course", "Dirty")
     controller.setTheme("dark")
     controller.setActiveGitConnectionId("git")
-    const reservation = controller.operations.reserve("roster.exportMembers")
+    const reservation = controller.operations.reserve(
+      testSessionStart(),
+      "roster.exportMembers",
+    )
     assert.ok(reservation)
     await assertCommandFreeze(controller)
     assert.equal(order.includes("intent"), false)
@@ -177,7 +181,10 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
       controller.operations.change(() => order.push("edit")),
       false,
     )
-    assert.equal(controller.operations.reserve("course.list"), null)
+    assert.equal(
+      controller.operations.reserve(testSessionStart(), "course.list"),
+      null,
+    )
     await until(() => order.includes("credentials"))
     await assertCommandFreeze(controller)
     assert.equal(order.includes("preferences"), false)
@@ -224,7 +231,10 @@ it("orders preparation, capture, running, publication, acknowledgement and relea
       controller.operations.change(() => order.push("early edit")),
       false,
     )
-    assert.equal(controller.operations.reserve("course.list"), null)
+    assert.equal(
+      controller.operations.reserve(testSessionStart(), "course.list"),
+      null,
+    )
     assert.equal(controller.getSnapshot().transactions.admitted.size, 1)
     host.release(releasing)
     assert.equal(admission.getSnapshot().phase, "interactive")

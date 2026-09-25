@@ -31,6 +31,10 @@ import {
 import { useSessionControllerSelector } from "../session/session-controller-context.js"
 import { analysisSourceKeyFromSurface } from "../session/session-reducer.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../session/session-start.js"
+import {
   selectEffectiveSelectedRepoPath,
   selectFileSelectionModeForScope,
   selectPendingRepoDiscoveryRequestForScope,
@@ -577,86 +581,107 @@ export function AnalysisCoordinatorProvider({
     client.stop("analysis.run")
   }, [client])
 
-  const runAnalysis = useCallback(() => {
-    if (selectedRepoPath === null) return
-    client.change(() => {
-      clearAnalysisQueries(queryClient, {
-        queryKey: analysisQueryKeys.repo(activeSourceParts, selectedRepoPath),
-      })
-      void createSourceRunner(activeSurface)
-        ?.run(discoveredRepoPaths, selectedRepoPath, effectiveBlameConfig)
-        .catch(() => {})
-    })
-  }, [
-    client,
-    createSourceRunner,
-    activeSurface,
-    selectedRepoPath,
-    activeSourceParts,
-    queryClient,
-    discoveredRepoPaths,
-    effectiveBlameConfig,
-  ])
+  const runAnalysis = useMemo(
+    () =>
+      bindSessionStart("analysisRun", (start: SessionStart) => {
+        if (selectedRepoPath === null) return
+        client.change(() => {
+          clearAnalysisQueries(queryClient, {
+            queryKey: analysisQueryKeys.repo(
+              activeSourceParts,
+              selectedRepoPath,
+            ),
+          })
+          void createSourceRunner(activeSurface)
+            ?.run(
+              start,
+              discoveredRepoPaths,
+              selectedRepoPath,
+              effectiveBlameConfig,
+            )
+            .catch(() => {})
+        })
+      }),
+    [
+      client,
+      createSourceRunner,
+      activeSurface,
+      selectedRepoPath,
+      activeSourceParts,
+      queryClient,
+      discoveredRepoPaths,
+      effectiveBlameConfig,
+    ],
+  )
 
   // Search only updates discovery; Start owns the chained analysis pass.
-  const runRepoDiscovery = useCallback(
-    (folder: string) => {
-      if (!folder) return
-      client.change(() => {
-        void client
-          .execute("analysis.discoverRepos", (scope) =>
-            discoverRepositories(scope, queryClient, activeSurface, {
-              folder,
-              depth: searchDepth,
-            }),
-          )
-          .catch(() => {})
-      })
-    },
+  const runRepoDiscovery = useMemo(
+    () =>
+      bindSessionStart(
+        "analysisSearch",
+        (start: SessionStart, folder: string) => {
+          if (!folder) return
+          client.change(() => {
+            void client
+              .execute(start, "analysis.discoverRepos", (scope) =>
+                discoverRepositories(scope, queryClient, activeSurface, {
+                  folder,
+                  depth: searchDepth,
+                }),
+              )
+              .catch(() => {})
+          })
+        },
+      ),
     [client, queryClient, activeSurface, searchDepth],
   )
 
-  const startAnalysis = useCallback(
-    (folder: string) => {
-      if (!folder) return
-      client.change(() => {
-        void client
-          .execute("analysis.discoverRepos", async (scope) => {
-            const discovery = await discoverRepositories(
-              scope,
-              queryClient,
-              activeSurface,
-              {
-                folder,
-                depth: searchDepth,
-              },
-            )
-            scope.signal.throwIfAborted()
-            scope.publish(() => {
-              const source = analysisSourceKeyParts(
-                analysisSourceKeyFromSurface(discovery.surface),
-              )
-              const selected = selectEffectiveSelectedRepoPath({
-                storedRepoPath: selectSelectedRepoPathForScope(
-                  useAnalysisStore.getState(),
-                  analysisSourceScopeKey(source),
-                ),
-                discoveredRepos: discovery.result.repos,
-              })
-              // Reserve before search retirement without awaiting the next queue turn.
-              // Search and analysis retain independent cancellation targets.
-              void createSourceRunner(discovery.surface)
-                ?.run(
-                  discovery.result.repos.map((repo) => repo.path),
-                  selected,
-                  effectiveBlameConfig,
+  const startAnalysis = useMemo(
+    () =>
+      bindSessionStart(
+        "analysisStart",
+        (start: SessionStart, folder: string) => {
+          if (!folder) return
+          client.change(() => {
+            void client
+              .execute(start, "analysis.discoverRepos", async (scope) => {
+                const discovery = await discoverRepositories(
+                  scope,
+                  queryClient,
+                  activeSurface,
+                  {
+                    folder,
+                    depth: searchDepth,
+                  },
                 )
-                .catch(() => {})
-            })
+                scope.signal.throwIfAborted()
+                scope.publish(() => {
+                  const source = analysisSourceKeyParts(
+                    analysisSourceKeyFromSurface(discovery.surface),
+                  )
+                  const selected = selectEffectiveSelectedRepoPath({
+                    storedRepoPath: selectSelectedRepoPathForScope(
+                      useAnalysisStore.getState(),
+                      analysisSourceScopeKey(source),
+                    ),
+                    discoveredRepos: discovery.result.repos,
+                  })
+                  // Reserve before search retirement without awaiting the next queue turn.
+                  // Search and analysis retain independent cancellation targets.
+                  void createSourceRunner(discovery.surface)
+                    ?.run(
+                      start,
+                      discovery.result.repos.map((repo) => repo.path),
+                      selected,
+                      effectiveBlameConfig,
+                    )
+                    .catch(() => {})
+                })
+              })
+              .catch(() => {})
           })
-          .catch(() => {})
-      })
-    },
+        },
+      ),
     [
       client,
       queryClient,
@@ -680,20 +705,29 @@ export function AnalysisCoordinatorProvider({
     [client, activeSourceText, setSelectedRepoPath],
   )
 
-  const analyseSelectedRepository = useCallback(() => {
-    if (selectedRepoPath === null) return
-    client.change(() => {
-      void createSourceRunner(activeSurface)
-        ?.run([selectedRepoPath], selectedRepoPath, effectiveBlameConfig)
-        .catch(() => {})
-    })
-  }, [
-    client,
-    createSourceRunner,
-    activeSurface,
-    selectedRepoPath,
-    effectiveBlameConfig,
-  ])
+  const analyseSelectedRepository = useMemo(
+    () =>
+      bindSessionStart("analysisSelected", (start: SessionStart) => {
+        if (selectedRepoPath === null) return
+        client.change(() => {
+          void createSourceRunner(activeSurface)
+            ?.run(
+              start,
+              [selectedRepoPath],
+              selectedRepoPath,
+              effectiveBlameConfig,
+            )
+            .catch(() => {})
+        })
+      }),
+    [
+      client,
+      createSourceRunner,
+      activeSurface,
+      selectedRepoPath,
+      effectiveBlameConfig,
+    ],
+  )
 
   const clearRepositoryDiscovery = useCallback(() => {
     setSelectedRepoPath(activeSourceText, null)

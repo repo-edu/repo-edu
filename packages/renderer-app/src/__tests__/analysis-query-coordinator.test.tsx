@@ -57,6 +57,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "./session-controller.test-support.js"
 
 const repos = ["/repos/first", "/repos/second"]
@@ -433,11 +434,16 @@ describe("analysis runner lifetime in React", () => {
       assert.deepEqual(analysed, [repos[0]])
       assert.deepEqual(read().result, makeBaseResult())
       await React.act(async () => {
-        await controller.activateSurface({ kind: "home" })
+        await controller.activateSurface(testSessionStart("home"), {
+          kind: "home",
+        })
         await flushQueries()
       })
       await React.act(async () => {
-        await controller.activateSurface(activeSurface)
+        await controller.activateSurface(
+          testSessionStart("courseOpen"),
+          activeSurface,
+        )
         await flushQueries()
       })
       assert.deepEqual(analysed, [repos[0]])
@@ -602,9 +608,13 @@ describe("analysis runner lifetime in React", () => {
       }
       let command: Promise<unknown> | undefined
       await React.act(async () => {
-        command = controller.operations.execute("groupSet.export", async () => {
-          assert.equal(calls, ending === "cancel" ? 1 : repos.length)
-        })
+        command = controller.operations.execute(
+          testSessionStart("groupSetExport"),
+          "groupSet.export",
+          async () => {
+            assert.equal(calls, ending === "cancel" ? 1 : repos.length)
+          },
+        )
         await flushQueries()
       })
       assert.equal(signal.aborted, ending === "cancel")
@@ -663,7 +673,11 @@ describe("analysis runner lifetime in React", () => {
     assert.equal(signal.aborted, true)
     let command: Promise<unknown> | undefined
     await React.act(async () => {
-      command = controller.operations.execute("groupSet.export", async () => {})
+      command = controller.operations.execute(
+        testSessionStart("groupSetExport"),
+        "groupSet.export",
+        async () => {},
+      )
       await flushQueries()
     })
     await React.act(async () => {
@@ -724,7 +738,7 @@ describe("analysis runner lifetime in React", () => {
       assert.equal(blameCalls, 1)
       assert.equal(
         execute.mock.calls.filter(
-          ({ arguments: args }) => args[0] === "analysis.blame",
+          ({ arguments: args }) => args[1] === "analysis.blame",
         ).length,
         0,
       )
@@ -1500,21 +1514,25 @@ describe("analysis sidebar admission", () => {
         )
         let command: Promise<unknown> | undefined
         await React.act(async () => {
-          command = controller.operations.execute("repo.clone", async () => {
-            order.push("command")
-            assert.deepEqual(
-              controller.getSnapshot().settings.preferences.activeSurface,
-              kind === "folder" && pickedPath !== null
-                ? { kind, path: pickedPath }
-                : activeSurface,
-            )
-            if (kind === "course") {
-              assert.equal(
-                useCourseStore.getState().course?.searchFolder,
-                pickedPath ?? "/repos",
+          command = controller.operations.execute(
+            testSessionStart("repositoryClone"),
+            "repo.clone",
+            async () => {
+              order.push("command")
+              assert.deepEqual(
+                controller.getSnapshot().settings.preferences.activeSurface,
+                kind === "folder" && pickedPath !== null
+                  ? { kind, path: pickedPath }
+                  : activeSurface,
               )
-            }
-          })
+              if (kind === "course") {
+                assert.equal(
+                  useCourseStore.getState().course?.searchFolder,
+                  pickedPath ?? "/repos",
+                )
+              }
+            },
+          )
           await flushQueries()
         })
         assert.deepEqual(order, ["picker"])
@@ -1553,7 +1571,9 @@ describe("analysis sidebar admission", () => {
     assert.equal(container.querySelector('[role="status"]'), null)
     let transition: Promise<boolean> | undefined
     await React.act(async () => {
-      transition = controller.activateSurface({ kind: "home" })
+      transition = controller.activateSurface(testSessionStart("home"), {
+        kind: "home",
+      })
       await flushQueries()
     })
     assert.equal(signal.aborted, false)
@@ -1605,7 +1625,10 @@ describe("analysis sidebar admission", () => {
       assert.equal(container.querySelector('[role="status"]'), null)
       let reservation: SessionOperationReservation<void> | null | undefined
       await React.act(async () => {
-        reservation = controller.operations.reserve<void>("repo.bulkClone")
+        reservation = controller.operations.reserve<void>(
+          testSessionStart("analysisRun"),
+          "repo.bulkClone",
+        )
         await flushQueries()
       })
       assert.ok(reservation)
@@ -1726,6 +1749,7 @@ describe("analysis sidebar admission", () => {
       let generation: Promise<unknown> | undefined
       await React.act(async () => {
         generation = controller.operations.execute(
+          testSessionStart("questionsGenerate"),
           "examination.generateQuestions",
           () => release.promise,
         )

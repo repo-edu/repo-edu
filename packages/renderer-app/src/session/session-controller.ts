@@ -77,6 +77,7 @@ import {
   type PreferenceEvent,
   SessionSettings,
 } from "./session-settings.js"
+import type { SessionStart } from "./session-start.js"
 import type {
   SessionSurfaceTransactions,
   SessionTransactionReservation,
@@ -264,12 +265,15 @@ export class SessionController extends CourseMutationController {
     this.startBootstrap()
   }
 
-  async activateSurface(surface: PersistedActiveSurface): Promise<boolean> {
+  async activateSurface(
+    start: SessionStart,
+    surface: PersistedActiveSurface,
+  ): Promise<boolean> {
     const targetSurface = normalizeActiveSurface(surface)
     const currentSurface = this.snapshot.settings.preferences.activeSurface
     if (activeSurfaceEquals(currentSurface, targetSurface)) return true
     return await this.transactions.enqueue(
-      { kind: "enter", targetSurface },
+      { start, kind: "enter", targetSurface },
       async (scope) => await this.enterSurface(scope, targetSurface),
     )
   }
@@ -417,13 +421,16 @@ export class SessionController extends CourseMutationController {
     this.listeners.clear()
   }
 
-  async createCourse(input: CreateCourseInput): Promise<PersistedCourse> {
+  async createCourse(
+    start: SessionStart,
+    input: CreateCourseInput,
+  ): Promise<PersistedCourse> {
     const targetSurface: PersistedActiveSurface = {
       kind: "course",
       courseId: generateCourseId(),
     }
     return await this.transactions.enqueue(
-      { kind: "create", targetSurface },
+      { start, kind: "create", targetSurface },
       async (scope) => {
         const course = await this.createCourseBody(scope, input, targetSurface)
         await this.refreshCoursesBody(scope)
@@ -433,11 +440,12 @@ export class SessionController extends CourseMutationController {
   }
 
   async duplicateCourse(
+    start: SessionStart,
     sourceId: string,
     displayName: string,
   ): Promise<PersistedCourse> {
     return await this.transactions.enqueue(
-      { kind: "duplicate" },
+      { start, kind: "duplicate" },
       async (scope) => {
         const source = await this.resolveDetachedCourseSource(scope, sourceId)
         const duplicate = createBlankCourse(
@@ -461,34 +469,42 @@ export class SessionController extends CourseMutationController {
     )
   }
 
-  async renameCourse(courseId: string, displayName: string): Promise<void> {
-    await this.transactions.enqueue({ kind: "rename" }, async (scope) => {
-      const trimmedDisplayName = displayName.trim()
-      if (!trimmedDisplayName) return
-      const activeCourse = useCourseStore.getState().course
-      if (
-        activeCourse?.id === courseId &&
-        activeCourseIdFromSurface(
-          this.snapshot.settings.preferences.activeSurface,
-        ) === courseId
-      ) {
-        if (activeCourse.displayName === trimmedDisplayName) return
-        useCourseStore.getState().setDisplayName(trimmedDisplayName)
-      } else {
-        const course = await this.persistence.loadCourse(courseId)
-        await this.persistence.saveDetached(scope, {
-          ...course,
-          displayName: trimmedDisplayName,
-        })
-      }
-      await this.refreshCoursesBody(scope)
-    })
+  async renameCourse(
+    start: SessionStart,
+    courseId: string,
+    displayName: string,
+  ): Promise<void> {
+    await this.transactions.enqueue(
+      { start, kind: "rename" },
+      async (scope) => {
+        const trimmedDisplayName = displayName.trim()
+        if (!trimmedDisplayName) return
+        const activeCourse = useCourseStore.getState().course
+        if (
+          activeCourse?.id === courseId &&
+          activeCourseIdFromSurface(
+            this.snapshot.settings.preferences.activeSurface,
+          ) === courseId
+        ) {
+          if (activeCourse.displayName === trimmedDisplayName) return
+          useCourseStore.getState().setDisplayName(trimmedDisplayName)
+        } else {
+          const course = await this.persistence.loadCourse(courseId)
+          await this.persistence.saveDetached(scope, {
+            ...course,
+            displayName: trimmedDisplayName,
+          })
+        }
+        await this.refreshCoursesBody(scope)
+      },
+    )
   }
 
-  async deleteCourse(courseId: string): Promise<void> {
+  async deleteCourse(start: SessionStart, courseId: string): Promise<void> {
     await this.transactions.enqueue(
       {
         kind: "delete",
+        start,
         courseId,
         blocksCourseMutation: false,
       },

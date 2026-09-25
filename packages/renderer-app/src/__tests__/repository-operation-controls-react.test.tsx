@@ -19,6 +19,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "./session-controller.test-support.js"
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -326,6 +327,7 @@ it("lists only on Search and clones only matching results", {
   let exporting: Promise<void> | undefined
   await React.act(async () => {
     exporting = controller.operations.execute(
+      testSessionStart("groupSetExport"),
       "groupSet.export",
       () => exportRelease.promise,
     )

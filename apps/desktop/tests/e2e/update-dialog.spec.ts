@@ -19,6 +19,7 @@ test("defers update notices during session work and retains restart retry", asyn
           import { createRoot } from "react-dom/client"
           import { defaultAppSettings, splitAppSettings } from "@repo-edu/domain/settings"
           import { canAdmitSessionInput, getSessionController, RendererSessionRoot, useSessionController } from "@repo-edu/renderer-app"
+          import { bindSessionStart } from "../../../packages/renderer-app/src/session/session-start"
           import { UpdateDialog } from "./UpdateDialog"
           const listeners = new Map()
           const listen = name => callback => {
@@ -28,12 +29,12 @@ test("defers update notices during session work and retains restart retry", asyn
           let attempts = 0
           let downloadFails = false
           let stops = 0
-          const begin = () => getSessionController().operations.execute("repo.listNamespace", scope =>
+          const begin = bindSessionStart("cloneAllSearch", start => getSessionController().operations.execute(start, "repo.listNamespace", scope =>
             new Promise(resolve => scope.signal.addEventListener("abort", () => {
               stops++
               resolve()
             }, { once: true }))
-          )
+          ))
           const bridge = {
             onUpdateAvailable: listen("available"),
             onDownloadProgress: listen("progress"),

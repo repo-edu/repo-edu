@@ -7,6 +7,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -30,7 +31,10 @@ it("closes worker starts at command reservation and applies persistence before i
   await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
   controller.setDisplayName("course", "Dirty")
   controller.setTheme("dark")
-  const reservation = controller.operations.reserve("repo.clone")
+  const reservation = controller.operations.reserve(
+    testSessionStart("repositoryClone"),
+    "repo.clone",
+  )
   assert.ok(reservation)
   await new Promise((resolve) => setTimeout(resolve, 320))
   assert.deepEqual(calls, ["settings.loadApp", "course.load"])
@@ -62,7 +66,10 @@ it("retires a busy command without claiming dirty persistence", async () => {
   })
   await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
   controller.setTheme("dark")
-  const reservation = controller.operations.reserve("repo.clone")
+  const reservation = controller.operations.reserve(
+    testSessionStart("repositoryClone"),
+    "repo.clone",
+  )
   assert.ok(reservation)
   await new Promise((resolve) => setTimeout(resolve, 320))
   assert.equal(saves, 0)

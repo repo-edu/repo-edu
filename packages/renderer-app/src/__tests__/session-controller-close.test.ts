@@ -14,6 +14,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -88,6 +89,7 @@ describe("SessionController close preparation", () => {
     await waitForSnapshot(controller, (s) => s.bootstrap.status === "ready")
     controller.setTheme("dark")
     const earlier = controller.operations.execute(
+      testSessionStart("courseOpen"),
       "course.list",
       async (scope) => {
         started.resolve()

@@ -18,6 +18,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -128,6 +129,7 @@ async function harness(workflow: LmsPreviewWorkflow) {
     model.state = lmsPreviewReducer(model.state, event)
   }
   const running = requestLmsPreview(
+    testSessionStart("studentsPreview"),
     controller,
     dispatch,
     previewTarget(workflow),

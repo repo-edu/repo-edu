@@ -1,10 +1,14 @@
-import { useCallback } from "react"
+import { useMemo } from "react"
 import {
   normalizeConfiguredExtensions,
   openSubmissionFolder,
 } from "../components/tabs/examination/submission-file-listing.js"
 import { selectDefaultExtensions } from "../session/selectors.js"
 import { useSessionController } from "../session/session-controller-context.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../session/session-start.js"
 import { useDirectoryPicker } from "./use-picker.js"
 
 export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
@@ -12,21 +16,26 @@ export function useOpenSubmissionFolder(options: { courseId?: string } = {}) {
   const controller = useSessionController()
   const courseId = options.courseId
 
-  return useCallback(async () => {
-    await pickDirectory(
-      { title: "Open student submission folder" },
-      async (directory, scope) => {
-        await openSubmissionFolder(
-          scope,
-          courseId === undefined
-            ? { path: directory }
-            : { path: directory, courseId },
-          normalizeConfiguredExtensions(
-            selectDefaultExtensions(controller.getSnapshot()),
-          ),
-          false,
+  return useMemo(
+    () =>
+      bindSessionStart("openSubmission", async (start: SessionStart) => {
+        await pickDirectory(
+          start,
+          { title: "Open student submission folder" },
+          async (directory, scope) => {
+            await openSubmissionFolder(
+              scope,
+              courseId === undefined
+                ? { path: directory }
+                : { path: directory, courseId },
+              normalizeConfiguredExtensions(
+                selectDefaultExtensions(controller.getSnapshot()),
+              ),
+              false,
+            )
+          },
         )
-      },
-    )
-  }, [controller, courseId, pickDirectory])
+      }),
+    [controller, courseId, pickDirectory],
+  )
 }

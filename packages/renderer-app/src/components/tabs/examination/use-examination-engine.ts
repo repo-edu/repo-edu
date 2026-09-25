@@ -25,6 +25,10 @@ import {
 import type { SessionOperationScope } from "../../../session/session-operations.js"
 import { analysisSourceKeyFromSurface } from "../../../session/session-reducer.js"
 import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../../session/session-start.js"
+import {
   type ExaminationPreferenceSnapshot,
   examinationPreferencePersistence,
   selectExaminationPreferenceSnapshot,
@@ -489,117 +493,133 @@ export function useExaminationEngine({
     [],
   )
 
-  const exportArchive = useCallback(async () => {
-    await workflowClient.execute(
-      "examination.archive.export",
-      async (scope) => {
-        try {
-          const saveTarget = await scope.direct("pickSaveTarget", () =>
-            rendererHost.pickSaveTarget({
-              suggestedName: `examinations-${formatDateStamp()}.json`,
-              defaultFormat: "json",
-            }),
-          )
-          if (!saveTarget) return
-          const summary = await scope.run(
-            "examination.archive.export",
-            saveTarget,
-          )
-          addToast(
-            `Exported ${summary.recordCount} examination record${
-              summary.recordCount === 1 ? "" : "s"
-            }.`,
-            { tone: "success" },
-          )
-        } catch (error) {
-          addToast(`Export failed: ${getErrorMessage(error)}`, {
-            tone: "error",
-          })
-        }
-      },
-    )
-  }, [addToast, rendererHost, workflowClient])
+  const exportArchive = useMemo(
+    () =>
+      bindSessionStart("archiveExport", async (start: SessionStart) => {
+        await workflowClient.execute(
+          start,
+          "examination.archive.export",
+          async (scope) => {
+            try {
+              const saveTarget = await scope.direct("pickSaveTarget", () =>
+                rendererHost.pickSaveTarget({
+                  suggestedName: `examinations-${formatDateStamp()}.json`,
+                  defaultFormat: "json",
+                }),
+              )
+              if (!saveTarget) return
+              const summary = await scope.run(
+                "examination.archive.export",
+                saveTarget,
+              )
+              addToast(
+                `Exported ${summary.recordCount} examination record${
+                  summary.recordCount === 1 ? "" : "s"
+                }.`,
+                { tone: "success" },
+              )
+            } catch (error) {
+              addToast(`Export failed: ${getErrorMessage(error)}`, {
+                tone: "error",
+              })
+            }
+          },
+        )
+      }),
+    [addToast, rendererHost, workflowClient],
+  )
 
-  const importArchive = useCallback(async () => {
-    await workflowClient.execute(
-      "examination.archive.import",
-      async (scope) => {
-        try {
-          const file = await scope.direct("pickUserFile", () =>
-            rendererHost.pickUserFile({ acceptFormats: ["json"] }),
-          )
-          if (!file) return
-          const lookupInput = readLookupInput()
-          const summary = await scope.run("examination.archive.import", file, {
-            settlementInput: {
-              summaries: summaryInput ?? { subjects: [] },
-              questions: lookupInput === null ? [] : [lookupInput],
-            },
-            applyAuthoritative(values) {
-              useExaminationStore.getState().archiveCatalogChanged()
-              if (
-                lookupInput !== null &&
-                sourceSessionKey !== null &&
-                sourceIdentity !== null
-              ) {
-                const result = values.questions[0]
-                const started = useExaminationStore
-                  .getState()
-                  .startLookup(sourceSessionKey)
-                if (!result || !started)
-                  throw new Error(
-                    "The archive lookup publication has no active owner.",
-                  )
-                applyLookupPublication(
-                  structuredClone(result) as ExaminationLookupQuestionsResult,
-                  sourceSessionKey,
-                  sourceIdentity,
-                  analysisSourceKey,
-                  started,
-                )
-              }
-              if (summaryInput !== null && sourceSummaryKey !== null) {
-                const started = useExaminationStore
-                  .getState()
-                  .startSourceSummaryLookup(sourceSummaryKey)
-                if (!started)
-                  throw new Error(
-                    "The archive summary publication has no active owner.",
-                  )
-                applySummaryPublication(
-                  structuredClone(
-                    values.questionSummaries,
-                  ) as ExaminationLookupQuestionSummariesResult,
-                  sourceSummaryKey,
-                  started,
-                )
-              }
-            },
-          })
-          addToast(
-            `Imported: ${summary.inserted} new, ${summary.updated} updated, ${summary.skipped} skipped${
-              summary.rejected > 0 ? `, ${summary.rejected} rejected` : ""
-            }.`,
-            { tone: "success" },
-          )
-        } catch (error) {
-          addToast(`Import failed: ${getErrorMessage(error)}`, {
-            tone: "error",
-          })
-        }
-      },
-    )
-  }, [
-    addToast,
-    rendererHost,
-    workflowClient,
-    analysisSourceKey,
-    sourceSessionKey,
-    sourceIdentity,
-    sourceSummaryKey,
-    summaryInput,
-    readLookupInput,
-  ])
+  const importArchive = useMemo(
+    () =>
+      bindSessionStart("archiveImport", async (start: SessionStart) => {
+        await workflowClient.execute(
+          start,
+          "examination.archive.import",
+          async (scope) => {
+            try {
+              const file = await scope.direct("pickUserFile", () =>
+                rendererHost.pickUserFile({ acceptFormats: ["json"] }),
+              )
+              if (!file) return
+              const lookupInput = readLookupInput()
+              const summary = await scope.run(
+                "examination.archive.import",
+                file,
+                {
+                  settlementInput: {
+                    summaries: summaryInput ?? { subjects: [] },
+                    questions: lookupInput === null ? [] : [lookupInput],
+                  },
+                  applyAuthoritative(values) {
+                    useExaminationStore.getState().archiveCatalogChanged()
+                    if (
+                      lookupInput !== null &&
+                      sourceSessionKey !== null &&
+                      sourceIdentity !== null
+                    ) {
+                      const result = values.questions[0]
+                      const started = useExaminationStore
+                        .getState()
+                        .startLookup(sourceSessionKey)
+                      if (!result || !started)
+                        throw new Error(
+                          "The archive lookup publication has no active owner.",
+                        )
+                      applyLookupPublication(
+                        structuredClone(
+                          result,
+                        ) as ExaminationLookupQuestionsResult,
+                        sourceSessionKey,
+                        sourceIdentity,
+                        analysisSourceKey,
+                        started,
+                      )
+                    }
+                    if (summaryInput !== null && sourceSummaryKey !== null) {
+                      const started = useExaminationStore
+                        .getState()
+                        .startSourceSummaryLookup(sourceSummaryKey)
+                      if (!started)
+                        throw new Error(
+                          "The archive summary publication has no active owner.",
+                        )
+                      applySummaryPublication(
+                        structuredClone(
+                          values.questionSummaries,
+                        ) as ExaminationLookupQuestionSummariesResult,
+                        sourceSummaryKey,
+                        started,
+                      )
+                    }
+                  },
+                },
+              )
+              addToast(
+                `Imported: ${summary.inserted} new, ${summary.updated} updated, ${summary.skipped} skipped${
+                  summary.rejected > 0 ? `, ${summary.rejected} rejected` : ""
+                }.`,
+                { tone: "success" },
+              )
+            } catch (error) {
+              addToast(`Import failed: ${getErrorMessage(error)}`, {
+                tone: "error",
+              })
+            }
+          },
+        )
+      }),
+    [
+      addToast,
+      rendererHost,
+      workflowClient,
+      analysisSourceKey,
+      sourceSessionKey,
+      sourceIdentity,
+      sourceSummaryKey,
+      summaryInput,
+      readLookupInput,
+    ],
+  )
 
   const changeQuestionCount = useCallback(
     (count: number) => {
@@ -722,184 +742,193 @@ export function useExaminationEngine({
     ],
   )
 
-  const generateForSelected = useCallback(
-    async (options?: { regenerate?: boolean }) => {
-      if (selectedModelCode === null || selectedModelSpec === null) return
-      if (blocker !== null) {
-        addToast(blocker, { tone: "warning" })
-        return
-      }
-      await workflowClient.execute(
-        "examination.generateQuestions",
-        async (scope) => {
-          let context: ExaminationLookupContext | null
-          try {
-            context = await prepareLookupContext(scope)
-            if (context === null) return
-            await refreshExaminationLookup(scope, context, addToast, true)
-          } catch (error) {
-            if (!scope.signal.aborted)
-              addToast(getErrorMessage(error), { tone: "error" })
+  const generateForSelected = useMemo(
+    () =>
+      bindSessionStart(
+        "questionsGenerate",
+        async (start: SessionStart, options?: { regenerate?: boolean }) => {
+          if (selectedModelCode === null || selectedModelSpec === null) return
+          if (blocker !== null) {
+            addToast(blocker, { tone: "warning" })
             return
           }
-          const {
-            source,
-            selectedSubject,
-            sourceIdentity,
-            sourceSessionKey,
-            sourceSummaryKey,
-          } = context
-          if (selectedSubject.excerpts.length === 0) {
-            addToast(
-              "No code is attributed to this subject; nothing to generate.",
-              { tone: "warning" },
-            )
-            return
-          }
-          const state = useExaminationStore.getState()
-          const currentSession = state.sourceSessions.get(sourceSessionKey)
-          const display = selectExaminationDisplay({
-            displayedState: currentSession?.display ?? { kind: "idle" },
-            entriesByKey: state.entriesByKey,
-            archiveEntries: currentSession?.archiveEntries ?? [],
-            blocker,
-          })
-          const generationPlan = resolveExaminationGenerationPlan({
-            display: {
-              archiveEntry: display.archiveEntry,
-              displayEntry: display.displayEntry,
-            },
-            modelCode: selectedModelCode,
-            effort: selectedModelSpec.effort,
-            questionCount,
-            regenerate: options?.regenerate ?? false,
-          })
-          if (generationPlan.additionalQuestionCount < 1) {
-            addToast(
-              `This set already has the maximum ${EXAMINATION_QUESTION_COUNT_MAX} examination questions.`,
-              { tone: "warning" },
-            )
-            return
-          }
-          if (generationPlan.capped) {
-            addToast(
-              `Generation is capped at ${EXAMINATION_QUESTION_COUNT_MAX} total questions, so only ${generationPlan.additionalQuestionCount} additional question${
-                generationPlan.additionalQuestionCount === 1 ? "" : "s"
-              } will be generated.`,
-              { tone: "warning" },
-            )
-          }
-          const metadata = currentSession?.lookupMetadata ?? null
-          const loadingKey =
-            metadata?.archiveKeyIdentityKey ===
-              buildArchiveKeyIdentityKey(sourceIdentity, analysisSourceKey) &&
-            generationPlan.targetQuestionCount === questionCount
-              ? metadata.entryKey
-              : `session-${createUuid()}`
-          const workflowInput: ExaminationGenerateQuestionsInput = {
-            personId: selectedSubject.id,
-            contentScopeId:
-              source.kind === "repository-analysis"
-                ? source.commitOid
-                : source.contentScopeId,
-            localIdentityContext: source.localIdentityContext,
-            excerpts: selectedSubject.excerpts,
-            excerptFileSources: selectedSubject.excerptFileSources,
-            questionCount: generationPlan.targetQuestionCount,
-            llmSettings: readLlmSettings(),
-            ...(generationPlan.seedQuestions.length > 0
-              ? { seedQuestions: generationPlan.seedQuestions }
-              : {}),
-            ...(options?.regenerate ? { regenerate: true } : {}),
-          }
-          const started = useExaminationStore
-            .getState()
-            .startGenerationSession({
-              sourceSessionKey,
-              entryKey: loadingKey,
-              seedQuestions: generationPlan.seedQuestions,
-              sourceReferences: generationPlan.sourceReferences,
-              requestedQuestionCount: generationPlan.targetQuestionCount,
-            })
-          if (started === null) return
-
-          try {
-            const result = await scope.run(
-              "examination.generateQuestions",
-              workflowInput,
-              {
-                onProgress: (progress: MilestoneProgress) => {
-                  useExaminationStore
-                    .getState()
-                    .applyGenerationProgress(
-                      loadingKey,
-                      progress.label,
-                      sourceSessionKey,
-                      started.requestId,
-                    )
+          await workflowClient.execute(
+            start,
+            "examination.generateQuestions",
+            async (scope) => {
+              let context: ExaminationLookupContext | null
+              try {
+                context = await prepareLookupContext(scope)
+                if (context === null) return
+                await refreshExaminationLookup(scope, context, addToast, true)
+              } catch (error) {
+                if (!scope.signal.aborted)
+                  addToast(getErrorMessage(error), { tone: "error" })
+                return
+              }
+              const {
+                source,
+                selectedSubject,
+                sourceIdentity,
+                sourceSessionKey,
+                sourceSummaryKey,
+              } = context
+              if (selectedSubject.excerpts.length === 0) {
+                addToast(
+                  "No code is attributed to this subject; nothing to generate.",
+                  { tone: "warning" },
+                )
+                return
+              }
+              const state = useExaminationStore.getState()
+              const currentSession = state.sourceSessions.get(sourceSessionKey)
+              const display = selectExaminationDisplay({
+                displayedState: currentSession?.display ?? { kind: "idle" },
+                entriesByKey: state.entriesByKey,
+                archiveEntries: currentSession?.archiveEntries ?? [],
+                blocker,
+              })
+              const generationPlan = resolveExaminationGenerationPlan({
+                display: {
+                  archiveEntry: display.archiveEntry,
+                  displayEntry: display.displayEntry,
                 },
-                onOutput: (output: ExaminationGenerateOutput) => {
-                  if (output.kind === "warn") {
-                    addToast(output.message, {
-                      tone: "warning",
-                      durationMs: 6000,
-                    })
-                    return
-                  }
-                  if (output.kind === "stream-progress") {
-                    useExaminationStore
-                      .getState()
-                      .applyStreamProgress(
+                modelCode: selectedModelCode,
+                effort: selectedModelSpec.effort,
+                questionCount,
+                regenerate: options?.regenerate ?? false,
+              })
+              if (generationPlan.additionalQuestionCount < 1) {
+                addToast(
+                  `This set already has the maximum ${EXAMINATION_QUESTION_COUNT_MAX} examination questions.`,
+                  { tone: "warning" },
+                )
+                return
+              }
+              if (generationPlan.capped) {
+                addToast(
+                  `Generation is capped at ${EXAMINATION_QUESTION_COUNT_MAX} total questions, so only ${generationPlan.additionalQuestionCount} additional question${
+                    generationPlan.additionalQuestionCount === 1 ? "" : "s"
+                  } will be generated.`,
+                  { tone: "warning" },
+                )
+              }
+              const metadata = currentSession?.lookupMetadata ?? null
+              const loadingKey =
+                metadata?.archiveKeyIdentityKey ===
+                  buildArchiveKeyIdentityKey(
+                    sourceIdentity,
+                    analysisSourceKey,
+                  ) && generationPlan.targetQuestionCount === questionCount
+                  ? metadata.entryKey
+                  : `session-${createUuid()}`
+              const workflowInput: ExaminationGenerateQuestionsInput = {
+                personId: selectedSubject.id,
+                contentScopeId:
+                  source.kind === "repository-analysis"
+                    ? source.commitOid
+                    : source.contentScopeId,
+                localIdentityContext: source.localIdentityContext,
+                excerpts: selectedSubject.excerpts,
+                excerptFileSources: selectedSubject.excerptFileSources,
+                questionCount: generationPlan.targetQuestionCount,
+                llmSettings: readLlmSettings(),
+                ...(generationPlan.seedQuestions.length > 0
+                  ? { seedQuestions: generationPlan.seedQuestions }
+                  : {}),
+                ...(options?.regenerate ? { regenerate: true } : {}),
+              }
+              const started = useExaminationStore
+                .getState()
+                .startGenerationSession({
+                  sourceSessionKey,
+                  entryKey: loadingKey,
+                  seedQuestions: generationPlan.seedQuestions,
+                  sourceReferences: generationPlan.sourceReferences,
+                  requestedQuestionCount: generationPlan.targetQuestionCount,
+                })
+              if (started === null) return
+
+              try {
+                const result = await scope.run(
+                  "examination.generateQuestions",
+                  workflowInput,
+                  {
+                    onProgress: (progress: MilestoneProgress) => {
+                      useExaminationStore
+                        .getState()
+                        .applyGenerationProgress(
+                          loadingKey,
+                          progress.label,
+                          sourceSessionKey,
+                          started.requestId,
+                        )
+                    },
+                    onOutput: (output: ExaminationGenerateOutput) => {
+                      if (output.kind === "warn") {
+                        addToast(output.message, {
+                          tone: "warning",
+                          durationMs: 6000,
+                        })
+                        return
+                      }
+                      if (output.kind === "stream-progress") {
+                        useExaminationStore
+                          .getState()
+                          .applyStreamProgress(
+                            loadingKey,
+                            output,
+                            sourceSessionKey,
+                            started.requestId,
+                          )
+                        return
+                      }
+                      useExaminationStore.getState().applyPartialQuestions(
                         loadingKey,
-                        output,
+                        {
+                          questions: output.questions,
+                          sourceReferences: output.sourceReferences,
+                        },
                         sourceSessionKey,
                         started.requestId,
                       )
-                    return
-                  }
-                  useExaminationStore.getState().applyPartialQuestions(
-                    loadingKey,
-                    {
-                      questions: output.questions,
-                      sourceReferences: output.sourceReferences,
                     },
+                  },
+                )
+                const archiveKey = serializeExaminationArchiveStorageKey(
+                  result.key,
+                )
+                const loadedEntry = toExaminationEntry(result)
+                useExaminationStore.getState().applyLoadedArchiveResult({
+                  sourceSummaryKey,
+                  sourceSessionKey,
+                  requestId: started.requestId,
+                  loadingKey,
+                  resultKey: archiveKey,
+                  entry: loadedEntry,
+                  archiveEntry: {
+                    key: archiveKey,
+                    questionCount: result.archivedProvenance.questionCount,
+                    model: result.archivedProvenance.model,
+                    effort: result.archivedProvenance.effort,
+                    entry: loadedEntry,
+                  },
+                })
+              } catch (error) {
+                const message = getErrorMessage(error)
+                useExaminationStore
+                  .getState()
+                  .applyGenerationError(
+                    loadingKey,
+                    message,
                     sourceSessionKey,
                     started.requestId,
                   )
-                },
-              },
-            )
-            const archiveKey = serializeExaminationArchiveStorageKey(result.key)
-            const loadedEntry = toExaminationEntry(result)
-            useExaminationStore.getState().applyLoadedArchiveResult({
-              sourceSummaryKey,
-              sourceSessionKey,
-              requestId: started.requestId,
-              loadingKey,
-              resultKey: archiveKey,
-              entry: loadedEntry,
-              archiveEntry: {
-                key: archiveKey,
-                questionCount: result.archivedProvenance.questionCount,
-                model: result.archivedProvenance.model,
-                effort: result.archivedProvenance.effort,
-                entry: loadedEntry,
-              },
-            })
-          } catch (error) {
-            const message = getErrorMessage(error)
-            useExaminationStore
-              .getState()
-              .applyGenerationError(
-                loadingKey,
-                message,
-                sourceSessionKey,
-                started.requestId,
-              )
-          }
+              }
+            },
+          )
         },
-      )
-    },
+      ),
     [
       addToast,
       blocker,
@@ -919,23 +948,28 @@ export function useExaminationEngine({
     workflowClient.stop("examination.generateQuestions")
   }, [sourceSessionKey, workflowClient])
 
-  const loadQuestions = useCallback(async () => {
-    if (blocker !== null) return
-    await workflowClient.execute(
-      "examination.lookupQuestions",
-      async (scope) => {
-        try {
-          const context = await prepareLookupContext(scope)
-          if (context === null) return
-          await refreshExaminationLookup(scope, context, addToast, false)
-          await refreshExaminationSummary(scope, context)
-        } catch (error) {
-          if (!scope.signal.aborted)
-            addToast(getErrorMessage(error), { tone: "error" })
-        }
-      },
-    )
-  }, [workflowClient, blocker, prepareLookupContext, addToast])
+  const loadQuestions = useMemo(
+    () =>
+      bindSessionStart("questionsLoad", async (start: SessionStart) => {
+        if (blocker !== null) return
+        await workflowClient.execute(
+          start,
+          "examination.lookupQuestions",
+          async (scope) => {
+            try {
+              const context = await prepareLookupContext(scope)
+              if (context === null) return
+              await refreshExaminationLookup(scope, context, addToast, false)
+              await refreshExaminationSummary(scope, context)
+            } catch (error) {
+              if (!scope.signal.aborted)
+                addToast(getErrorMessage(error), { tone: "error" })
+            }
+          },
+        )
+      }),
+    [workflowClient, blocker, prepareLookupContext, addToast],
+  )
 
   const copyMarkdown = useCallback(async () => {
     if (

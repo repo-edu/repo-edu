@@ -12,6 +12,10 @@ import { Folder } from "@repo-edu/ui/components/icons"
 import { useState } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import { useUserFilePicker } from "../../hooks/use-picker.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useUiStore } from "../../stores/ui-store.js"
 import { getErrorMessage } from "../../utils/error-message.js"
@@ -37,51 +41,62 @@ export function ImportStudentsFromFileDialog() {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleBrowse = async () => {
-    await pickUserFile(
-      {
-        title: "Select file to import",
-        acceptFormats: ["csv", "xlsx"],
-        report: setError,
-      },
-      (ref) => {
-        setFileRef(ref)
-        setFileName(ref.displayName)
-      },
-    )
-  }
+  const handleBrowse = bindSessionStart(
+    "studentsBrowse",
+    async (start: SessionStart) => {
+      await pickUserFile(
+        start,
+        {
+          title: "Select file to import",
+          acceptFormats: ["csv", "xlsx"],
+          report: setError,
+        },
+        (ref) => {
+          setFileRef(ref)
+          setFileName(ref.displayName)
+        },
+      )
+    },
+  )
 
-  const handleImport = async () => {
-    if (!fileRef) return
-    if (!course) {
-      setError("No course loaded")
-      return
-    }
-    if (!courseHasRoster(course)) {
-      setError("RepoBee courses do not support roster imports")
-      return
-    }
-
-    await workflowClient.execute("roster.importFromFile", async (scope) => {
-      setImporting(true)
-      setError(null)
-
-      try {
-        await scope.run("roster.importFromFile", {
-          course,
-          file: fileRef,
-        })
-        setImportFileDialogOpen(false)
-        setFileName("")
-        setFileRef(null)
-      } catch (err) {
-        const message = getErrorMessage(err)
-        setError(message)
-      } finally {
-        setImporting(false)
+  const handleImport = bindSessionStart(
+    "studentsImport",
+    async (start: SessionStart) => {
+      if (!fileRef) return
+      if (!course) {
+        setError("No course loaded")
+        return
       }
-    })
-  }
+      if (!courseHasRoster(course)) {
+        setError("RepoBee courses do not support roster imports")
+        return
+      }
+
+      await workflowClient.execute(
+        start,
+        "roster.importFromFile",
+        async (scope) => {
+          setImporting(true)
+          setError(null)
+
+          try {
+            await scope.run("roster.importFromFile", {
+              course,
+              file: fileRef,
+            })
+            setImportFileDialogOpen(false)
+            setFileName("")
+            setFileRef(null)
+          } catch (err) {
+            const message = getErrorMessage(err)
+            setError(message)
+          } finally {
+            setImporting(false)
+          }
+        },
+      )
+    },
+  )
 
   const handleClose = () => {
     setImportFileDialogOpen(false)

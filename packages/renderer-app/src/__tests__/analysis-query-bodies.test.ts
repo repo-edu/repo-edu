@@ -28,6 +28,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "./session-controller.test-support.js"
 
 const source = ["course", "course"] as const
@@ -97,10 +98,12 @@ describe("discovery and blame bodies", () => {
     const release = deferred<void>()
     t.after(() => release.resolve())
     const earlier = controller.operations.execute(
+      testSessionStart("submissionRefresh"),
       "analysis.listFolderFiles",
       () => release.promise,
     )
     const running = controller.operations.execute(
+      testSessionStart("analysisSearch"),
       "analysis.discoverRepos",
       (scope) =>
         discoverRepositories(scope, client, surface, { folder, depth: 5 }),
@@ -110,8 +113,11 @@ describe("discovery and blame bodies", () => {
     release.resolve()
     await Promise.all([earlier, stopped])
     assert.equal(calls, 0)
-    await controller.operations.execute("analysis.discoverRepos", (scope) =>
-      discoverRepositories(scope, client, surface, { folder, depth: 5 }),
+    await controller.operations.execute(
+      testSessionStart("analysisSearch"),
+      "analysis.discoverRepos",
+      (scope) =>
+        discoverRepositories(scope, client, surface, { folder, depth: 5 }),
     )
     assert.equal(calls, 1)
     assert.deepEqual(
@@ -137,7 +143,10 @@ describe("discovery and blame bodies", () => {
       const resolvedSource = ["folder", "/repos/one"] as const
       const resolvedScope = analysisSourceScopeKey(resolvedSource)
       const input = { folder, depth: 5 }
-      await controller.activateSurface(folderSurface)
+      await controller.activateSurface(
+        testSessionStart("courseOpen"),
+        folderSurface,
+      )
       useAnalysisStore
         .getState()
         .setPendingRepoDiscoveryRequest(
@@ -157,12 +166,14 @@ describe("discovery and blame bodies", () => {
         )
       }
       const running = controller.operations.execute(
+        testSessionStart("analysisSearch"),
         "analysis.discoverRepos",
         (scope) => discoverRepositories(scope, client, folderSurface, input),
       )
       await entered.promise
       let followed = false
       const next = controller.operations.execute(
+        testSessionStart("submissionRefresh"),
         "analysis.listFolderFiles",
         async () => {
           followed = true
@@ -232,11 +243,14 @@ describe("discovery and blame bodies", () => {
         t.after(unsubscribe)
         const running =
           kind === "discovery"
-            ? controller.operations.execute("analysis.discoverRepos", (scope) =>
-                discoverRepositories(scope, client, surface, {
-                  folder,
-                  depth: 5,
-                }),
+            ? controller.operations.execute(
+                testSessionStart("analysisSearch"),
+                "analysis.discoverRepos",
+                (scope) =>
+                  discoverRepositories(scope, client, surface, {
+                    folder,
+                    depth: 5,
+                  }),
               )
             : new AnalysisSourceRunner(controller.operations, client, {
                 source,
@@ -244,7 +258,12 @@ describe("discovery and blame bodies", () => {
                 rosterContext: undefined,
                 kind: "course",
                 repoParallelism: 1,
-              }).run(["/repos/one"], "/repos/one", {})
+              }).run(
+                testSessionStart("analysisRun"),
+                ["/repos/one"],
+                "/repos/one",
+                {},
+              )
         const signal = await entered.promise
         if (ending === "key change")
           observer.setOptions({
@@ -263,6 +282,7 @@ describe("discovery and blame bodies", () => {
         // Both search and analysis retain their turn through publication.
         let followed = false
         const next = controller.operations.execute(
+          testSessionStart("submissionRefresh"),
           "analysis.listFolderFiles",
           async () => {
             followed = true
@@ -295,8 +315,11 @@ describe("discovery and blame bodies", () => {
       return discoveryResult
     })
     const running = controller.operations
-      .execute("analysis.discoverRepos", (scope) =>
-        discoverRepositories(scope, client, surface, { folder, depth: 5 }),
+      .execute(
+        testSessionStart("analysisSearch"),
+        "analysis.discoverRepos",
+        (scope) =>
+          discoverRepositories(scope, client, surface, { folder, depth: 5 }),
       )
       .catch(() => {})
     const signal = await entered.promise

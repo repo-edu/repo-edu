@@ -21,6 +21,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
 } from "./session-controller.test-support.js"
 
 const source = ["folder", "/repos"] as const
@@ -95,7 +96,12 @@ describe("source analysis ownership", () => {
       await release.promise
       return result
     })
-    const running = runner.run(repos, repos[1], null)
+    const running = runner.run(
+      testSessionStart("analysisRun"),
+      repos,
+      repos[1],
+      null,
+    )
     await entered.promise
     assert.deepEqual(calls, [repos[1], repos[0]])
     release.resolve()
@@ -129,15 +135,24 @@ describe("source analysis ownership", () => {
         },
         1,
       )
-      const running = runner.run(repos, repos[0], null)
+      const running = runner.run(
+        testSessionStart("analysisRun"),
+        repos,
+        repos[0],
+        null,
+      )
       const signal = await entered.promise
       let followed = false
-      const next = controller.operations.execute(operation, async () => {
-        followed = true
-        assert.deepEqual(calls, repos)
-        for (const path of repos)
-          assert.deepEqual(client.getQueryData(resultKey(path)), result)
-      })
+      const next = controller.operations.execute(
+        testSessionStart("analysisRun"),
+        operation,
+        async () => {
+          followed = true
+          assert.deepEqual(calls, repos)
+          for (const path of repos)
+            assert.deepEqual(client.getQueryData(resultKey(path)), result)
+        },
+      )
       await tick()
       assert.equal(followed, false)
       assert.equal(signal.aborted, false)
@@ -146,7 +161,7 @@ describe("source analysis ownership", () => {
       assert.equal(followed, true)
       assert.equal(signal.aborted, false)
       // The completed pass remains cached for later explicit requests.
-      await runner.run(repos, repos[0], null)
+      await runner.run(testSessionStart("analysisRun"), repos, repos[0], null)
       assert.deepEqual(calls, repos)
     })
   }
@@ -188,7 +203,12 @@ describe("source analysis ownership", () => {
       })
       const unsubscribe = selected.subscribe(() => {})
       t.after(unsubscribe)
-      const running = runner.run([repos[0]], repos[0], null)
+      const running = runner.run(
+        testSessionStart("analysisRun"),
+        [repos[0]],
+        repos[0],
+        null,
+      )
       const signal = await entered.promise
       unsubscribe()
       assert.equal(signal.aborted, false)
@@ -225,7 +245,9 @@ describe("source analysis ownership", () => {
       enabled: false,
     })
     t.after(selected.subscribe(() => {}))
-    const running = runner.run(repos, repos[0], null).catch(() => {})
+    const running = runner
+      .run(testSessionStart("analysisRun"), repos, repos[0], null)
+      .catch(() => {})
     const signal = await entered.promise
     controller.operations.stop("analysis.run")
     assert.equal(signal.aborted, true)
@@ -234,7 +256,7 @@ describe("source analysis ownership", () => {
     release.resolve()
     await running
     assert.deepEqual(calls, [repos[0]])
-    await runner.run(repos, repos[0], null)
+    await runner.run(testSessionStart("analysisRun"), repos, repos[0], null)
     assert.deepEqual(calls, [repos[0], ...repos])
     assert.ok(selected.getCurrentResult().data)
   })
@@ -274,7 +296,9 @@ describe("source analysis ownership", () => {
       },
       2,
     )
-    const running = runner.run(repos, repos[0], {}).catch(() => {})
+    const running = runner
+      .run(testSessionStart("analysisRun"), repos, repos[0], {})
+      .catch(() => {})
     const signal = await blameEntered.promise
     assert.deepEqual(analysed, [repos[0], repos[1]])
     assert.equal(signal.aborted, false)
@@ -282,9 +306,13 @@ describe("source analysis ownership", () => {
     controller.operations.stop("analysis.run")
     assert.equal(signal.aborted, true)
     let followed = false
-    const next = controller.operations.execute("repo.clone", async () => {
-      followed = true
-    })
+    const next = controller.operations.execute(
+      testSessionStart("repositoryClone"),
+      "repo.clone",
+      async () => {
+        followed = true
+      },
+    )
     releaseBlame.resolve()
     await tick()
     assert.equal(followed, false)
@@ -308,13 +336,23 @@ describe("source analysis ownership", () => {
       enabled: false,
     })
     t.after(selected.subscribe(() => {}))
-    await runner.run([repos[0]], repos[0], null)
+    await runner.run(
+      testSessionStart("analysisRun"),
+      [repos[0]],
+      repos[0],
+      null,
+    )
     assert.ok(selected.getCurrentResult().data)
     clearAnalysisQueries(client, {
       queryKey: analysisQueryKeys.repo(source, repos[0]),
     })
     assert.equal(selected.getCurrentResult().data, undefined)
-    await runner.run([repos[0]], repos[0], null)
+    await runner.run(
+      testSessionStart("analysisRun"),
+      [repos[0]],
+      repos[0],
+      null,
+    )
     assert.equal(runs, 2)
     assert.ok(selected.getCurrentResult().data)
   })
@@ -327,7 +365,10 @@ describe("source analysis ownership", () => {
       if (path === repos[0]) throw new Error("Analysis failed")
       return makeBaseResult()
     })
-    await assert.rejects(runner.run(repos, repos[0], null), /Analysis failed/)
+    await assert.rejects(
+      runner.run(testSessionStart("analysisRun"), repos, repos[0], null),
+      /Analysis failed/,
+    )
     assert.equal(client.getQueryState(resultKey(repos[0]))?.status, "error")
     assert.equal(client.getQueryState(resultKey(repos[1]))?.status, "success")
     await controller.waitForIdle()

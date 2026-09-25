@@ -22,6 +22,7 @@ test("admits command cancellation while freezing edits and reports picker failur
           import { createRoot } from "react-dom/client"
           import { Tabs, TabsList, TabsTrigger } from "@repo-edu/ui"
           import { SessionController } from "./session/session-controller"
+          import { bindSessionStart } from "./session/session-start"
           import { SessionControllerProvider, useSessionControllerSelector } from "./session/session-controller-context"
           import { WorkflowClientProvider } from "./contexts/workflow-client"
           import { RendererHostProvider } from "./contexts/renderer-host"
@@ -46,9 +47,9 @@ test("admits command cancellation while freezing edits and reports picker failur
             onBootstrapReady: async () => {}
           })
           window.inputTest = {
-            reserve() {
+            reserve: bindSessionStart("questionsGenerate", start => {
               active = {
-                reservation: controller.operations.reserve("examination.generateQuestions"),
+                reservation: controller.operations.reserve(start, "examination.generateQuestions"),
                 abort: new AbortController(),
                 stopped: Promise.withResolvers(),
                 release: Promise.withResolvers(),
@@ -58,7 +59,7 @@ test("admits command cancellation while freezing edits and reports picker failur
                 stops++
                 active.stopped.resolve()
               }, { once: true })
-            },
+            }),
             begin() {
               active.running = active.reservation.run(async () => active.stopped.promise)
             },
@@ -89,12 +90,12 @@ test("admits command cancellation while freezing edits and reports picker failur
                   <TabsTrigger value="analysis">Analysis</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <button disabled={isListing} onClick={() => controller.operations.execute("repo.listNamespace", scope =>
+              <button disabled={isListing} onClick={bindSessionStart("cloneAllSearch", start => controller.operations.execute(start, "repo.listNamespace", scope =>
                 new Promise(resolve => scope.signal.addEventListener("abort", () => {
                   operationStops++
                   resolve()
                 }, { once: true }))
-              )}>List repositories</button>
+              ))}>List repositories</button>
               <button onClick={() => setDraft("selected")}>Change selection</button>
               <ExaminationControlsCard
                 questionCount={4} showAnswers={false} blocker={null}

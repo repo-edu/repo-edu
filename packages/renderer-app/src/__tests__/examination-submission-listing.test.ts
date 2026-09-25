@@ -11,6 +11,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   workflowClient,
 } from "./session-controller.test-support.js"
 
@@ -41,13 +42,16 @@ it("recent submissions list on their first open and reuse matching stored listin
   })
   await controller.waitForIdle()
   const open = (path: string, extensions: string[], reuseListing: boolean) =>
-    controller.operations.execute("analysis.listFolderFiles", (scope) =>
-      openSubmissionFolder(
-        scope,
-        { path },
-        normalizeConfiguredExtensions(extensions),
-        reuseListing,
-      ),
+    controller.operations.execute(
+      testSessionStart("submissionRefresh"),
+      "analysis.listFolderFiles",
+      (scope) =>
+        openSubmissionFolder(
+          scope,
+          { path },
+          normalizeConfiguredExtensions(extensions),
+          reuseListing,
+        ),
     )
 
   await open("/submission", [".ts", "py", "ts"], true)
@@ -56,7 +60,7 @@ it("recent submissions list on their first open and reuse matching stored listin
     .getState()
     .submissionFileLists.get("/submission")
   assert.equal(stored?.status, "loaded")
-  await controller.activateSurface({ kind: "home" })
+  await controller.activateSurface(testSessionStart("home"), { kind: "home" })
   await open("/submission", ["py", "ts"], true)
   assert.equal(listings.length, 1)
   assert.equal(

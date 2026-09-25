@@ -69,13 +69,6 @@ export function useAnalysisContext() {
     [controller, courseContext],
   )
 
-  const activateFolderPath = useCallback(
-    async (path: string) => {
-      await controller.activateSurface({ kind: "folder", path })
-    },
-    [controller],
-  )
-
   return useMemo(
     () => ({
       kind,
@@ -86,10 +79,8 @@ export function useAnalysisContext() {
       rosterContext,
       setAnalysisInputs,
       updateCourseSearchFolder,
-      activateFolderPath,
     }),
     [
-      activateFolderPath,
       activeSurface,
       analysisInputs,
       courseContext,

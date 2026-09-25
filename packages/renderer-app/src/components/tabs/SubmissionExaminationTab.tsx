@@ -12,7 +12,7 @@ import {
 import type { SubmissionSurfaceState } from "@repo-edu/domain/settings"
 import { courseHasRoster, type Roster } from "@repo-edu/domain/types"
 import { Button, Checkbox, Label } from "@repo-edu/ui"
-import { useCallback, useMemo } from "react"
+import { useMemo } from "react"
 import { useWorkflowClient } from "../../contexts/workflow-client.js"
 import {
   selectActiveSurface,
@@ -23,6 +23,10 @@ import {
   useSessionController,
   useSessionControllerSelector,
 } from "../../session/session-controller-context.js"
+import {
+  bindSessionStart,
+  type SessionStart,
+} from "../../session/session-start.js"
 import { useCourseStore } from "../../stores/course-store.js"
 import { useExaminationStore } from "../../stores/examination-store.js"
 import type {
@@ -182,15 +186,23 @@ function useSubmissionExaminationSource() {
 
   // Each request keeps its extensions with the files. Settings edits do not
   // replace that input while the teacher is choosing files or editing settings.
-  const refreshFiles = useCallback(() => {
-    if (submissionFolderPath === null) return
-    const extensions = normalizeConfiguredExtensions(
-      selectDefaultExtensions(controller.getSnapshot()),
-    )
-    void workflowClient.execute("analysis.listFolderFiles", async (scope) => {
-      await listSubmissionFiles(scope, submissionFolderPath, extensions)
-    })
-  }, [controller, submissionFolderPath, workflowClient])
+  const refreshFiles = useMemo(
+    () =>
+      bindSessionStart("submissionRefresh", (start: SessionStart) => {
+        if (submissionFolderPath === null) return
+        const extensions = normalizeConfiguredExtensions(
+          selectDefaultExtensions(controller.getSnapshot()),
+        )
+        void workflowClient.execute(
+          start,
+          "analysis.listFolderFiles",
+          async (scope) => {
+            await listSubmissionFiles(scope, submissionFolderPath, extensions)
+          },
+        )
+      }),
+    [controller, submissionFolderPath, workflowClient],
+  )
 
   const eligibleFiles = useMemo(
     () => fileList.files.filter(isEligible),

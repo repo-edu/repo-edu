@@ -14,6 +14,7 @@ import {
   makeSettings,
   resetStores,
   startController,
+  testSessionStart,
   waitForSnapshot,
   workflowClient,
 } from "./session-controller.test-support.js"
@@ -53,7 +54,7 @@ describe("SessionController creation", () => {
       (snapshot) => snapshot.bootstrap.status === "ready",
     )
 
-    const draft = await controller.createCourse({
+    const draft = await controller.createCourse(testSessionStart("courseNew"), {
       backing: "lms",
       displayName: "New Course",
       lmsConnectionId: null,
@@ -108,7 +109,7 @@ describe("SessionController creation", () => {
 
     controller.setDisplayName("course-a", "Dirty A")
     await assert.rejects(
-      controller.createCourse({
+      controller.createCourse(testSessionStart("courseNew"), {
         backing: "lms",
         displayName: "New Course",
         lmsConnectionId: null,
@@ -179,7 +180,7 @@ describe("SessionController creation", () => {
       }
     })
 
-    const draft = await controller.createCourse({
+    const draft = await controller.createCourse(testSessionStart("courseNew"), {
       backing: "lms",
       displayName: "New Course",
       lmsConnectionId: null,

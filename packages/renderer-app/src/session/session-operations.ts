@@ -35,6 +35,7 @@ import {
   canAdmitSessionInput,
   type SessionControllerSnapshot,
 } from "./session-reducer.js"
+import type { SessionStart } from "./session-start.js"
 import {
   SessionSurfaceTransactions,
   type SessionTransactionScope,
@@ -57,6 +58,7 @@ type CallOptions<K extends WorkflowId> = WorkflowCallOptions<
 type ScopedCallOptions<K extends WorkflowId> = Omit<CallOptions<K>, "signal">
 
 export type SessionOperationScope = {
+  readonly start: SessionStart
   /** Aborts when this operation is stopped. Every host call already carries
    * it; read it to skip work a stop has overtaken. */
   readonly signal: AbortSignal
@@ -94,6 +96,7 @@ export type SessionOperationReservation<T> = {
 
 export type SessionOperationGateway = {
   execute<T>(
+    start: SessionStart,
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
   ): Promise<T | undefined>
@@ -107,6 +110,7 @@ export type SessionOperationGateway = {
     start: () => Promise<T>,
   ): Promise<T>
   reserve<T>(
+    start: SessionStart,
     operation: SessionOperationId,
   ): SessionOperationReservation<T> | null
   /** Stop every live reservation for this operation. */
@@ -145,10 +149,11 @@ export class SessionOperations extends SessionSurfaceTransactions {
 
   readonly gateway: SessionOperationGateway = {
     execute: async <T>(
+      start: SessionStart,
       operation: SessionOperationId,
       body: (scope: SessionOperationScope) => Promise<T>,
     ) => {
-      const reservation = this.reserveOperation<T>(operation)
+      const reservation = this.reserveOperation<T>(start, operation)
       if (reservation === null) return undefined
       return await reservation.run(body)
     },
@@ -160,7 +165,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
         throw new Error("The session is not accepting presentation calls.")
       return await start()
     },
-    reserve: (operation) => this.reserveOperation(operation),
+    reserve: (start, operation) => this.reserveOperation(start, operation),
     stop: (operation) =>
       this.stopMatching(
         (descriptor) =>
@@ -187,35 +192,38 @@ export class SessionOperations extends SessionSurfaceTransactions {
   }
 
   private reserveOperation<T>(
+    start: SessionStart,
     operation: SessionOperationId,
   ): SessionOperationReservation<T> | null {
     const reservation = this.reserve<T>({
+      start,
       kind: sessionOperationKind(operation),
       operation,
     })
     if (reservation === null) return null
     return {
       run: (body) =>
-        reservation.run((scope) => this.runBody(scope, operation, body)),
+        reservation.run((scope) => this.runBody(start, scope, operation, body)),
       stop: reservation.stop,
       cancel: reservation.cancel,
     }
   }
 
   private runBody<T>(
+    start: SessionStart,
     scope: SessionTransactionScope,
     operation: SessionOperationId,
     body: (scope: SessionOperationScope) => Promise<T>,
   ): Promise<T> {
     if (sessionOperationKind(operation) !== "command")
-      return body(this.operationScope(scope, operation))
+      return body(this.operationScope(start, scope, operation))
     const prepare = this.preparePersistence
     if (!prepare)
       throw new Error("The session persistence owner is not installed.")
     return this.commands.runBody(
       operation as ExclusiveCommandId,
       (commit) => prepare(scope, commit),
-      (client) => body(this.operationScope(scope, operation, client)),
+      (client) => body(this.operationScope(start, scope, operation, client)),
       async () => {
         await scope.settle()
         scope.close()
@@ -224,6 +232,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
   }
 
   private operationScope(
+    start: SessionStart,
     scope: SessionTransactionScope,
     operation: SessionOperationId,
     command?: ExclusiveBodyClient,
@@ -234,6 +243,7 @@ export class SessionOperations extends SessionSurfaceTransactions {
       return apply()
     }
     return {
+      start,
       signal: scope.signal,
       preparePersistence: (commit) =>
         scope.required(() => {
