@@ -6,10 +6,7 @@ import type {
 import { useCallback } from "react"
 import { useRendererHost } from "../contexts/renderer-host.js"
 import { useWorkflowClient } from "../contexts/workflow-client.js"
-import type {
-  SessionDirectId,
-  SessionQueryWorkflowId,
-} from "../session/session-operation-inventory.js"
+import type { SessionDirectId } from "../session/session-operation-inventory.js"
 import type {
   SessionOperationGateway,
   SessionOperationScope,
@@ -54,7 +51,7 @@ type PickerApply<T> = (
 async function runPicker<T>(
   gateway: SessionOperationGateway,
   start: SessionStart,
-  id: SessionDirectId | SessionQueryWorkflowId,
+  id: SessionDirectId,
   report: PickerFailureReport,
   open: (scope: SessionOperationScope) => Promise<T | null>,
   apply: PickerApply<T>,
@@ -74,9 +71,7 @@ async function runPicker<T>(
     .catch(() => {})
 }
 
-export function useDirectoryPicker(
-  operation: "pickDirectory" | SessionQueryWorkflowId = "pickDirectory",
-) {
+export function useDirectoryPicker() {
   const gateway = useWorkflowClient()
   const rendererHost = useRendererHost()
   const addToast = useToastStore((state) => state.addToast)
@@ -91,7 +86,7 @@ export function useDirectoryPicker(
       await runPicker(
         gateway,
         start,
-        operation,
+        "pickDirectory",
         report ?? ((message) => addToast(message, { tone: "error" })),
         (scope) =>
           scope.direct("pickDirectory", () =>
@@ -100,7 +95,7 @@ export function useDirectoryPicker(
         apply,
       )
     },
-    [addToast, gateway, operation, rendererHost],
+    [addToast, gateway, rendererHost],
   )
 }
 
