@@ -40,6 +40,11 @@ violations. The checks cover:
   and semantic store/input routes through the session owner and its global freeze.
 - Renderer start documentation (`renderer-start-document.ts`): checks the
   generated control table in the renderer `CLAUDE.md` against its code source.
+- Renderer starts (`renderer-start-checks.ts`): rejects direct admission and
+  locally bound handler calls during render, effects, Query observation and
+  store subscriptions. Bindings may be created during render. The compiler
+  resolves imported APIs and local aliases within each file; the check does
+  not trace helper bodies, named callbacks or forwarded properties.
 
 ## Area model
 

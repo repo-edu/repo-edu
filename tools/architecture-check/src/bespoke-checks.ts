@@ -6,6 +6,7 @@ import { type GitPathProvider, readGitWorktreePaths } from "./git.js"
 import { extractImportPaths } from "./imports.js"
 import type { SourceInventory } from "./inventory.js"
 import { checkRendererQuerySources } from "./renderer-query-checks.js"
+import { checkRendererStartSources } from "./renderer-start-checks.js"
 import { repoPathToAbsolute } from "./repo-paths.js"
 import type { Violation } from "./violations.js"
 
@@ -76,22 +77,21 @@ export function runBespokeChecks(
   inventory: SourceInventory,
   pathProvider: GitPathProvider = readGitWorktreePaths,
 ): Violation[] {
+  const rendererSources = inventory.files
+    .filter(
+      (file) =>
+        file.startsWith(RENDERER_SRC_PREFIX) && !file.includes("/__tests__/"),
+    )
+    .map((file) => ({
+      file,
+      content: fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
+    }))
   return [
     ...checkNonSourceClaudeCoderImports(root, inventory, pathProvider),
     ...checkClaudeCoderPackageDeclarations(root, pathProvider),
     ...checkRendererSessionOwnership(root, pathProvider),
-    ...checkRendererQuerySources(
-      inventory.files
-        .filter(
-          (file) =>
-            file.startsWith(RENDERER_SRC_PREFIX) &&
-            !file.includes("/__tests__/"),
-        )
-        .map((file) => ({
-          file,
-          content: fs.readFileSync(repoPathToAbsolute(root, file), "utf8"),
-        })),
-    ),
+    ...checkRendererQuerySources(rendererSources),
+    ...checkRendererStartSources(rendererSources),
   ]
 }
 
