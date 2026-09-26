@@ -133,15 +133,16 @@ consumers.
   growth mark remains authored.
 - `subject.ts` is the one reader of the commit subject grammar in
   [the subject grammar](../../.agents/references/subject-grammar.md): it parses a subject under
-  either repository's form, names the class it matched and refuses with the first slot that does
-  not fit. The commit hooks and the glance both read through it. Its loose form read, the first
-  token split at its slash, is the one read that reaches subjects older than the settled grammar,
-  because episode scoping and auditor stamping need nothing else from them. `commit-msg.ts` is the
-  hook's rule: it widens a record's auditor letter from `COMMIT_AUDITOR`, derives
-  severity from the graded bullets before parsing the subject, replaces the body's
-  opening with `COMMIT_PHASES` when a round supplies it, requires a model line otherwise and refuses
-  a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the entry both
-  repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar file.
+  either repository's form, names the class it matched and refuses with the first slot that does not
+  fit. The commit hooks and the glance both read through it. Its loose form read, the first token
+  split at its slash, is the one read that reaches subjects older than the settled grammar, because
+  episode scoping and auditor stamping need nothing else from them. `commit-msg.ts` is the hook's
+  rule: it replaces a record's auditor tag with `COMMIT_AUDITOR` when the runner supplies it. It
+  derives severity from the graded bullets before parsing the subject. It replaces the body's
+  opening with `COMMIT_PHASES` when a round supplies it and requires a model line otherwise. It
+  refuses a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the
+  entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
+  file.
 - `assistant.ts` owns one invocation's session identity, final text, completion evidence and last
   context measurement. One observer keeps that measurement as the feedback passes, so the round
   decides on it rather than the display. Claude and Codex decoders validate the fields they consume.
