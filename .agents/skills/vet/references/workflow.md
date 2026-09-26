@@ -161,29 +161,12 @@ must match the report exactly. An unconditional Accept with no additional notes 
 line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
 additional notes. This format applies in both chat and the `-2-vet.<tag>.md` twin.
 
-A reopening of a settled decision takes one of two forms:
-
-- A narrowing keeps the decision's reason and shrinks what the decision
-  covers. When the grounded check verified the new evidence first-hand and
-  the correction keeps the recorded reason intact, the verdict is Accept,
-  with "Noted as a narrowing" on a separate line. It still quotes the superseded
-  sentence and the new evidence, so the change lands as ruled, not slipped
-  in. The user's ruling on the round covers it; the vet asks for no
-  separate ruling.
-- A full reversal drops the decision or its reason. The verdict is needs
-  the user's ruling: state the superseded decision, the new evidence, how
-  serious it is and what the grounded and fix-follows checks found. Never
-  settle a full reversal on the vet's own authority.
-
-A reversal bundled onto a defect that a smaller correction resolves is cut
-back under axis 3 instead, and the verdict is revise. The user directed
-adopting this split from the plan repo's vet on 2026-08-21; this origin
-note stands in place of a case.
-
-The user's ruling is needed for a full reversal of a decision the plan settled
-or a real unresolved choice about machinery's cost. Name what axis 1 classified
-and what the grounded and fix-follows checks found, then stop. Never settle either
-on the vet's own authority.
+For changes to recorded decisions, follow the plan vet's
+[recorded-decision rules](../../../../../plan/.agents/skills/vet/references/workflow.md#changes-to-recorded-decisions).
+They own when a supported simplification can be accepted and when the user
+must rule. Apply them to settled decisions too; replacing a decision alone
+does not require a ruling. The user directed the shared simplification rule
+on 2026-09-26.
 
 Write the verdicts to the supplied vet path and into chat.
 The twin is untracked and
