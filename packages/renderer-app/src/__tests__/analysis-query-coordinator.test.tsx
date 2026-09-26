@@ -1408,7 +1408,7 @@ describe("analysis sidebar admission", () => {
               pickDirectory: async () => directory,
               discover: async (_signal, input) => {
                 searched.push(input.searchFolder)
-                return { repos: [{ name: "one", path: directory + "/one" }] }
+                return { repos: [{ name: "one", path: `${directory}/one` }] }
               },
             },
           )
@@ -1463,7 +1463,7 @@ describe("analysis sidebar admission", () => {
         assert.deepEqual(searched, [directory])
         assert.deepEqual(
           analysed,
-          start === "Start" ? [directory + "/one"] : [],
+          start === "Start" ? [`${directory}/one`] : [],
         )
       })
     }
