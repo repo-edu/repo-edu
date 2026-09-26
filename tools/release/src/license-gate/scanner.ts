@@ -49,6 +49,11 @@ const checkerClarifications = {
     context:
       "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
   },
+  "@openai/codex@0.156.1": {
+    license: "Apache-2.0",
+    context:
+      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
+  },
 } as const
 
 export async function scanPackageNotices(

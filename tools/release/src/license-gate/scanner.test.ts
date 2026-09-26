@@ -117,39 +117,42 @@ describe("scanner package notices", () => {
     )
   })
 
-  it("uses metadata evidence for Codex 0.155.1 instead of its README", async () => {
-    const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
-    try {
-      await writePackage(root, "", {
-        name: "@repo-edu/scanner-fixture",
-        version: "1.0.0",
-        private: true,
-        dependencies: { "@openai/codex": "0.155.1" },
-      })
-      await writePackage(
-        root,
-        "node_modules/@openai/codex",
-        {
-          name: "@openai/codex",
-          version: "0.155.1",
-          license: "Apache-2.0",
-        },
-        {
-          "README.md":
-            "Codex CLI installation instructions.\nThis repository is licensed under the [Apache-2.0 License](LICENSE).\n",
-        },
-      )
+  for (const version of ["0.147.0", "0.155.1", "0.156.1"]) {
+    it(`uses metadata evidence for Codex ${version} instead of its README`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+      try {
+        await writePackage(root, "", {
+          name: "@repo-edu/scanner-fixture",
+          version: "1.0.0",
+          private: true,
+          dependencies: { "@openai/codex": version },
+        })
+        await writePackage(
+          root,
+          "node_modules/@openai/codex",
+          {
+            name: "@openai/codex",
+            version,
+            license: "Apache-2.0",
+          },
+          {
+            "README.md":
+              "Codex CLI installation instructions.\nThis repository is licensed under the [Apache-2.0 License](LICENSE).\n",
+          },
+        )
 
-      const [codex] = await scanPackageNoticesFromStart(root)
-      assert.ok(codex)
-      assert.equal(codex.licenseExpression, "Apache-2.0")
-      assert.equal(codex.licenseText, undefined)
-      assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
-      assert.match(codex.source, /metadata clarification/)
-    } finally {
-      await rm(root, { force: true, recursive: true })
-    }
-  })
+        const [codex] = await scanPackageNoticesFromStart(root)
+        assert.ok(codex)
+        assert.equal(codex.version, version)
+        assert.equal(codex.licenseExpression, "Apache-2.0")
+        assert.equal(codex.licenseText, undefined)
+        assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
+        assert.match(codex.source, /metadata clarification/)
+      } finally {
+        await rm(root, { force: true, recursive: true })
+      }
+    })
+  }
 
   it("scans production closure packages omitted from package-manifest traversal", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
