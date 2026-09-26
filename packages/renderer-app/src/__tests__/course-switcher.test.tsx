@@ -5,7 +5,11 @@ import { Window } from "happy-dom"
 import React from "react"
 import { RendererHostProvider } from "../contexts/renderer-host.js"
 import { WorkflowClientProvider } from "../contexts/workflow-client.js"
-import { SessionControllerProvider } from "../session/session-controller-context.js"
+import {
+  clearSessionController,
+  SessionControllerProvider,
+  setSessionController,
+} from "../session/session-controller-context.js"
 import {
   makeCourse,
   makeSettings,
@@ -58,6 +62,7 @@ it("starts course and recent navigation only when its bound control runs", async
     }),
   })
   await controller.waitForIdle()
+  setSessionController(controller)
   assert.equal(controller.getSnapshot().bootstrap.status, "ready")
   const bootstrapCalls = [...calls]
   let admitted = 0
@@ -77,6 +82,7 @@ it("starts course and recent navigation only when its bound control runs", async
     await React.act(async () => root.unmount())
     unsubscribe()
     controller.dispose()
+    clearSessionController(controller)
     await window.happyDOM.close()
     for (const key of Object.keys(globals)) {
       const descriptor = descriptors[key]
