@@ -34,6 +34,20 @@ the shipped desktop and CLI artifacts.
 
 ## Rules
 
+- Package notices use good-faith evidence from the installed dependency graph.
+  Keep package discovery and license-file selection in
+  `license-checker-rseidelsohn`. Use its dedicated license text when available.
+  When it finds no dedicated file or selects a README, record the installed
+  package's declared license as metadata evidence. Never label README content
+  as license text or invent a declaration from it.
+- Apply the same license policy to text-backed and metadata-only records.
+  Missing declarations on the metadata path, unknown or guessed expressions,
+  invalid expressions and disallowed licenses still fail the release. A
+  selected dedicated license file with unusable text remains an evidence error.
+- Package names and versions identify evidence; they do not require approval
+  lists or checker clarifications to use declared metadata. Test these rules
+  with controlled fixtures. Real dependency-graph tests check coverage and
+  usable evidence without fixing one package's current evidence format.
 - Release checks are artifact-specific. Do not infer a packaged runtime from
   source imports or from a host Node test.
 - Keep app, platform and artifact-target combinations exhaustive and exact.
@@ -46,9 +60,10 @@ the shipped desktop and CLI artifacts.
 - Runtime package records must identify the package that supplied the shipped
   binary. Do not pin or invent a transitive package outside the reached
   production closure.
-- Version-coupled attestations fail closed after a runtime upgrade until the
-  linked subjects and notice evidence are checked again.
+- Version-coupled attestations apply to committed evidence for libraries
+  embedded in a runtime, whose notices the installed package does not expose.
+  They do not apply to package declarations read from the installed tree.
 - Keep signing resources in the session manifest as they are created. Cleanup
   reads that manifest and unwinds resources in reverse order.
 - Tests must pin release-workflow wiring, runtime closure decisions, notice
-  content and failure behavior.
+  content and failure behaviour.

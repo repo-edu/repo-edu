@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, it } from "node:test"
+import { classifyLicenseExpression } from "./policy.js"
 import { scanPackageNotices, scanPackageNoticesFromStart } from "./scanner.js"
 import {
   assertScannerParity,
@@ -31,7 +32,11 @@ describe("scanner package notices", () => {
           version: "1.0.0",
           license: "MIT AND GPL-3.0-only",
         },
-        { LICENSE: "Compound fixture license text\n" },
+        {
+          LICENSE: "Compound fixture license text\n",
+          "README.md": "Installation instructions\n",
+          NOTICE: "Additional attribution\n",
+        },
       )
 
       const notices = await scanPackageNoticesFromStart(root)
@@ -41,12 +46,14 @@ describe("scanner package notices", () => {
       )
       assert.equal(notices[0]?.licenseExpression, "MIT AND GPL-3.0-only")
       assert.equal(notices[0]?.licenseText, "Compound fixture license text")
+      assert.equal(notices[0]?.licenseEvidence, undefined)
+      assert.equal(notices[0]?.noticeText, "Additional attribution\n")
     } finally {
       await rm(root, { force: true, recursive: true })
     }
   })
 
-  it("fails closed when scanner-owned notice text is missing", async () => {
+  it("rejects an empty dedicated license file instead of substituting metadata", async () => {
     const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
     try {
       await writePackage(root, "", {
@@ -57,97 +64,160 @@ describe("scanner package notices", () => {
           noText: "1.0.0",
         },
       })
-      await writePackage(root, "node_modules/noText", {
-        name: "noText",
-        version: "1.0.0",
-      })
+      await writePackage(
+        root,
+        "node_modules/noText",
+        { name: "noText", version: "1.0.0" },
+        { LICENSE: " \n" },
+      )
 
       await assert.rejects(
         () => scanPackageNoticesFromStart(root),
-        /unusable licenseText|no scanner-owned license file/,
+        /unusable licenseText/,
       )
     } finally {
       await rm(root, { force: true, recursive: true })
     }
   })
 
-  it("scans the real CLI graph without first-party packages", async () => {
-    const notices = await scanPackageNotices("cli", repoRoot)
-    assert.ok(notices.length > 0)
-    assert.equal(
-      notices.some((entry) => entry.name.startsWith("@repo-edu/")),
-      false,
-    )
-    assert.ok(
-      notices.every(
-        (entry) =>
-          ((entry.licenseText ?? entry.licenseEvidence)?.trim().length ?? 0) >
-          0,
-      ),
-    )
-    assert.equal(
-      notices.some((entry) => entry.source.includes(repoRoot)),
-      false,
-    )
-    assert.equal(
-      notices.some((entry) =>
-        /<year>|<copyright holders>/.test(
-          `${entry.licenseText ?? ""}\n${entry.licenseEvidence ?? ""}`,
+  for (const app of ["cli", "desktop"] as const) {
+    it(`scans the real ${app} graph without first-party packages`, async () => {
+      const notices = await scanPackageNotices(app, repoRoot)
+      assert.ok(notices.length > 0)
+      assert.equal(
+        notices.some((entry) => entry.name.startsWith("@repo-edu/")),
+        false,
+      )
+      assert.ok(
+        notices.every(
+          (entry) =>
+            ((entry.licenseText ?? entry.licenseEvidence)?.trim().length ?? 0) >
+            0,
         ),
-      ),
-      false,
-    )
-  })
+      )
+      assert.equal(
+        notices.some((entry) => entry.source.includes(repoRoot)),
+        false,
+      )
+      assert.equal(
+        notices.some((entry) =>
+          /<year>|<copyright holders>/.test(
+            `${entry.licenseText ?? ""}\n${entry.licenseEvidence ?? ""}`,
+          ),
+        ),
+        false,
+      )
+    })
+  }
 
-  it("uses explicit metadata evidence for real checker clarifications", async () => {
-    const notices = await scanPackageNotices("desktop", repoRoot)
-    const codex = notices.find((entry) => entry.name === "@openai/codex")
-
-    assert.ok(codex)
-    assert.equal(codex.licenseText, undefined)
-    assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
-    assert.doesNotMatch(
-      codex.licenseEvidence ?? "",
-      /<year>|<copyright holders>/,
-    )
-    assert.equal(codex.source.includes(repoRoot), false)
-    assert.equal(
-      notices.some((entry) => entry.name === "trpc-electron"),
-      false,
-    )
-  })
-
-  for (const version of ["0.147.0", "0.155.1", "0.156.1"]) {
-    it(`uses metadata evidence for Codex ${version} instead of its README`, async () => {
+  for (const { version, files } of [
+    { version: "1.0.0", files: {} },
+    { version: "2.0.0", files: { README: "Apache-2.0" } },
+    {
+      version: "3.0.0",
+      files: {
+        "readme.MD": "Installation instructions. Licensed under Apache-2.0.",
+      },
+    },
+  ]) {
+    it(`uses declared metadata without version approval for a package at ${version}`, async () => {
       const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
       try {
         await writePackage(root, "", {
           name: "@repo-edu/scanner-fixture",
           version: "1.0.0",
           private: true,
-          dependencies: { "@openai/codex": version },
+          dependencies: { "metadata-only": version },
         })
         await writePackage(
           root,
-          "node_modules/@openai/codex",
+          "node_modules/metadata-only",
           {
-            name: "@openai/codex",
+            name: "metadata-only",
             version,
             license: "Apache-2.0",
           },
-          {
-            "README.md":
-              "Codex CLI installation instructions.\nThis repository is licensed under the [Apache-2.0 License](LICENSE).\n",
-          },
+          { ...files, NOTICE: "Package attribution\n" },
         )
 
-        const [codex] = await scanPackageNoticesFromStart(root)
-        assert.ok(codex)
-        assert.equal(codex.version, version)
-        assert.equal(codex.licenseExpression, "Apache-2.0")
-        assert.equal(codex.licenseText, undefined)
-        assert.match(codex.licenseEvidence ?? "", /Metadata-only/)
-        assert.match(codex.source, /metadata clarification/)
+        const [entry] = await scanPackageNoticesFromStart(root)
+        assert.ok(entry)
+        assert.equal(entry.version, version)
+        assert.equal(entry.licenseExpression, "Apache-2.0")
+        assert.equal(entry.licenseText, undefined)
+        assert.equal(entry.noticeText, "Package attribution\n")
+        assert.match(entry.licenseEvidence ?? "", /Metadata-only/)
+        assert.match(entry.licenseEvidence ?? "", /Apache-2\.0/)
+        assert.match(entry.source, /node_modules\/metadata-only\/package\.json/)
+        assert.equal(entry.source.includes(root), false)
+        assert.equal(
+          classifyLicenseExpression(entry.licenseExpression).ok,
+          true,
+        )
+      } finally {
+        await rm(root, { force: true, recursive: true })
+      }
+    })
+  }
+
+  for (const license of [undefined, "", "UNKNOWN", "MIT*"]) {
+    it(`rejects missing or guessed metadata (${String(license)}) even with a permissive README`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+      try {
+        await writePackage(
+          root,
+          "",
+          {
+            name: "unreliable-metadata",
+            version: "1.0.0",
+            license,
+          },
+          { "README.md": "MIT" },
+        )
+
+        await assert.rejects(
+          () => scanPackageNoticesFromStart(root),
+          /no license expression|unknown or guessed license/,
+        )
+      } finally {
+        await rm(root, { force: true, recursive: true })
+      }
+    })
+  }
+
+  for (const [license, allowed] of [
+    ["MIT OR GPL-3.0-only", true],
+    ["LGPL-2.1-only", true],
+    ["GPL-3.0-only", false],
+    ["MIT AND GPL-3.0-only", false],
+    ["UNLICENSED", false],
+    ["LicenseRef-Proprietary", false],
+    ["SEE LICENSE IN LICENSE.txt", false],
+    ["not-a-license", false],
+  ] as const) {
+    it(`applies the same policy to metadata-only ${license}`, async () => {
+      const root = await mkdtemp(join(tmpdir(), "repo-edu-license-test-"))
+      try {
+        await writePackage(
+          root,
+          "",
+          {
+            name: "metadata-policy",
+            version: "1.0.0",
+            license,
+          },
+          { "README.md": "MIT" },
+        )
+
+        const [entry] = await scanPackageNoticesFromStart(root)
+        assert.ok(entry)
+        assert.equal(entry.licenseExpression, license)
+        assert.equal(entry.licenseText, undefined)
+        assert.match(entry.licenseEvidence ?? "", /Metadata-only/)
+        assert.equal(
+          classifyLicenseExpression(entry.licenseExpression).ok,
+          allowed,
+        )
       } finally {
         await rm(root, { force: true, recursive: true })
       }

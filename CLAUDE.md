@@ -267,6 +267,12 @@ allows. When a current direct dep still constrains a sub-package to an old
 version, that is the upstream maintainer's lag — accept it, do not add a
 `pnpm.overrides` entry forcing a version the parent was not tested against.
 
+Package license notices follow the good-faith evidence rules in
+`tools/release/CLAUDE.md`. A new package version alone must not require a
+license clarification or approval-list edit. Read its installed evidence and
+apply the existing license policy; tests assert that behaviour rather than a
+package's current notice layout.
+
 When adding, promoting or replacing a dependency, check the current published
 version first with `pnpm view <pkg> version` and adopt current unless a
 concrete repo constraint argues otherwise; record any deliberate pin in the

@@ -1,6 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, extname, join } from "node:path"
 import {
   init,
   type ModuleInfo,
@@ -34,28 +32,6 @@ const scannerCustomFormat = {
   noticeFile: "",
 } as const
 
-// Packages with reviewed metadata-only evidence. Keys are exact `name@version`
-// matches. Review new versions before adding them: the scanner can return a
-// README as license text when a clarification is missing. The real-graph test
-// requires explicit metadata evidence for Codex to catch a stale clarification.
-const checkerClarifications = {
-  "@openai/codex@0.147.0": {
-    license: "Apache-2.0",
-    context:
-      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
-  },
-  "@openai/codex@0.155.1": {
-    license: "Apache-2.0",
-    context:
-      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
-  },
-  "@openai/codex@0.156.1": {
-    license: "Apache-2.0",
-    context:
-      "License checker clarification for @openai/codex publishes the package metadata license because the installed package has no dedicated license file.",
-  },
-} as const
-
 export async function scanPackageNotices(
   app: LicenseGateApp,
   root: string,
@@ -67,72 +43,41 @@ export async function scanPackageNoticesFromStart(
   start: string,
   sourceRoot = start,
 ): Promise<ScannedPackageNotice[]> {
-  const clarificationsDirectory = await mkdtemp(
-    join(tmpdir(), "repo-edu-license-checker-"),
-  )
-  const clarificationsFile = join(
-    clarificationsDirectory,
-    "clarifications.json",
-  )
-  try {
-    await writeFile(
-      clarificationsFile,
-      `${JSON.stringify(buildClarifications(), null, 2)}\n`,
-      "utf8",
-    )
-    const scan = await runLicenseChecker({
-      start,
-      clarificationsFile,
-    })
-    const entries = await Promise.all(
-      Object.entries(scan).map(([moduleKey, record]) =>
-        toScannedPackageNotice(moduleKey, record, sourceRoot),
+  const scan = await runLicenseChecker(start)
+  const entries = await Promise.all(
+    Object.entries(scan).map(([moduleKey, record]) =>
+      toScannedPackageNotice(
+        moduleKey,
+        record,
+        canonicalPackagePath(sourceRoot),
       ),
-    )
-    return entries.sort((left, right) =>
-      compareReachedPackage(
-        {
-          packageName: left.packageName,
-          version: left.version,
-          packagePath: left.packagePath,
-        },
-        {
-          packageName: right.packageName,
-          version: right.version,
-          packagePath: right.packagePath,
-        },
-      ),
-    )
-  } finally {
-    await rm(clarificationsDirectory, { force: true, recursive: true })
-  }
-}
-
-function buildClarifications(): Record<string, Record<string, string>> {
-  return Object.fromEntries(
-    Object.entries(checkerClarifications).map(([packageId, clarification]) => [
-      packageId,
+    ),
+  )
+  return entries.sort((left, right) =>
+    compareReachedPackage(
       {
-        licenses: clarification.license,
-        licenseText: clarification.context,
+        packageName: left.packageName,
+        version: left.version,
+        packagePath: left.packagePath,
       },
-    ]),
+      {
+        packageName: right.packageName,
+        version: right.version,
+        packagePath: right.packagePath,
+      },
+    ),
   )
 }
 
-async function runLicenseChecker(options: {
-  readonly start: string
-  readonly clarificationsFile: string
-}): Promise<ModuleInfos> {
+async function runLicenseChecker(start: string): Promise<ModuleInfos> {
   return new Promise((resolve, reject) => {
     init(
       {
-        start: options.start,
+        start,
         production: true,
         unknown: true,
         excludePrivatePackages: true,
         customFormat: scannerCustomFormat,
-        clarificationsFile: options.clarificationsFile,
       },
       (error, result) => {
         if (error) {
@@ -155,14 +100,21 @@ async function toScannedPackageNotice(
   const rawPackagePath = nonEmptyString(record.path, moduleKey, "path")
   const packagePath = canonicalPackagePath(rawPackagePath)
   const packageJson = readPackageJson(packagePath)
-  const licenseExpression = normalizeLicenseExpression(
-    record.licenses,
-    moduleKey,
-  )
   const licenseFile = optionalString(
     record.licenseFile,
     moduleKey,
     "licenseFile",
+  )
+  // The checker selects README last when no dedicated license file exists.
+  // Keep discovery in the checker, but never label README content as license text.
+  const dedicatedLicenseFile =
+    licenseFile &&
+    basename(licenseFile, extname(licenseFile)).toUpperCase() !== "README"
+      ? licenseFile
+      : undefined
+  const licenseExpression = normalizeLicenseExpression(
+    dedicatedLicenseFile ? record.licenses : packageJson.license,
+    moduleKey,
   )
   const noticeFile = optionalString(record.noticeFile, moduleKey, "noticeFile")
   const noticeText = noticeFile
@@ -186,45 +138,25 @@ async function toScannedPackageNotice(
     noticeText,
   } as const
 
-  // A clarified package is the only metadata-only path. Ignore scanner text,
-  // which may come from a README rather than a dedicated license file.
-  const clarification = checkerClarificationFor(`${packageName}@${version}`)
-  if (clarification) {
+  if (dedicatedLicenseFile) {
     return {
       ...base,
-      source: scannerSource({
-        licenseFile,
-        packageName,
-        version,
-        sourceRoot,
-        explicitMetadataEvidence: true,
-      }),
-      licenseEvidence: packageMetadataEvidence({
-        name: packageName,
-        version,
-        licenseExpression,
-        packageJson,
-        context: clarification.context,
-      }),
+      source: `license-checker-rseidelsohn package notice from ${formatEvidencePath(canonicalPackagePath(dedicatedLicenseFile), sourceRoot)}`,
+      licenseText: nonEmptyString(record.licenseText, moduleKey, "licenseText"),
     }
-  }
-
-  if (!licenseFile) {
-    throw new Error(
-      `License checker produced no scanner-owned license file for ${moduleKey}. Add an explicit checker clarification before shipping metadata-only notice evidence.`,
-    )
   }
 
   return {
     ...base,
-    source: scannerSource({
-      licenseFile,
-      packageName,
+    source: `Package metadata from ${formatEvidencePath(join(packagePath, "package.json"), sourceRoot)}`,
+    licenseEvidence: packageMetadataEvidence({
+      name: packageName,
       version,
-      sourceRoot,
-      explicitMetadataEvidence: false,
+      licenseExpression,
+      packageJson,
+      context:
+        "License checker found no dedicated package license file; the installed package declaration supplies the license evidence.",
     }),
-    licenseText: nonEmptyString(record.licenseText, moduleKey, "licenseText"),
   }
 }
 
@@ -276,29 +208,4 @@ function optionalString(
     )
   }
   return undefined
-}
-
-type ScannerClarificationId = keyof typeof checkerClarifications
-
-function checkerClarificationFor(
-  id: string,
-): (typeof checkerClarifications)[ScannerClarificationId] | undefined {
-  return Object.hasOwn(checkerClarifications, id)
-    ? checkerClarifications[id as ScannerClarificationId]
-    : undefined
-}
-
-function scannerSource(options: {
-  readonly licenseFile: string | undefined
-  readonly packageName: string
-  readonly version: string
-  readonly sourceRoot: string
-  readonly explicitMetadataEvidence: boolean
-}): string {
-  if (options.explicitMetadataEvidence) {
-    return `license-checker-rseidelsohn metadata clarification for ${options.packageName}@${options.version}`
-  }
-  return options.licenseFile
-    ? `license-checker-rseidelsohn package notice from ${formatEvidencePath(options.licenseFile, options.sourceRoot)}`
-    : "license-checker-rseidelsohn package notice"
 }
