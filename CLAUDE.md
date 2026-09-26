@@ -442,10 +442,10 @@ on every record, while the auditor is what the trajectory reads off a clean one.
 The role token right before the tag says which kind of subject it is, and a
 reader needs that token anyway for the scope and the severity.
 
-The session writes the tag, since it is the one that knows what it runs on. A
-round's fix writes the auditor's letter alone and the commit hook, this repo's
-`.husky/commit-msg` or the plan repo's `hooks/commit-msg`, widens it into the
-whole tag, because the round holds the capability the fix session cannot see.
+The session writes its own tag for work outside a round. A round's fix writes
+the full auditor tag from the report filename. The commit hook, this repo's
+`.husky/commit-msg` or the plan repo's `hooks/commit-msg`, replaces it with
+`COMMIT_AUDITOR` when the runner supplies that value.
 
 ## Commit Model Record
 

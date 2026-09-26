@@ -38,7 +38,8 @@ sessions and round files belong to the invoking root. The shared brief launcher
 stays in Repo Edu and writes beside the supplied transcript at either root.
 Its launcher location never changes the session's working directory.
 
-The round ends at its report file. The auditor answers a vet through the rebuttal workflow at
+An audit with findings ends at its report file. An audit without findings follows
+[Clean completion](#clean-completion). The auditor answers a vet through the rebuttal workflow at
 `.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
 corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
@@ -152,7 +153,8 @@ plan correction.
 
 Run one read-only implementation-audit round. Judge only the repos in the
 round's repo set. Report in the order prescribed below, write the report file
-and stop.
+and complete a clean outcome under [Clean completion](#clean-completion), or
+stop when there are findings.
 
 The fix lands one record in each repo whose files took an accepted finding.
 A clean round lands one record in the sole judged repo or at the invoking
@@ -175,7 +177,9 @@ token line. The fix carries that location into the round commit.
 
 ## Fix guard
 
-The round is read-only and ends at its report file. The one later phase this
+An audit with no findings follows [Clean completion](#clean-completion) and
+needs no fix session. An audit with findings is read-only and ends at its report
+file. The one later phase this
 session takes part in is the rebuttal: the auditor's answer to the `-2-vet.<tag>.md`
 twin runs here through the rebuttal launcher, `/rebut` for Claude and
 `$rebut` for Codex, because this session already holds the evidence the
@@ -512,19 +516,41 @@ that tag for the opening. Then name the plan file, its ready commit and the impl
 inspected. State the round's user-set scope: the whole plan, one step or one step range.
 Then report the coverage table with its coverage line. Then the
 `## Findings` field, including cross-repo findings in the same numbered list and block form. Then
-write the report to its file under [Report file](#report-file) and stop there.
+write the report to its file under [Report file](#report-file).
 
 ## Report file
 
 After presenting the report, write the same report to the supplied absolute
-path at the invoking root and say so, then stop. A hand-run audit uses the
+path at the invoking root and say so. A hand-run audit uses the
 report path printed by `pnpm audit-round name`. The chat and file
 must not differ. The opening identifies the judged repos and their heads.
 Do not add an opening writer tag.
 
-The report and a hand-run audit's claim are gitignored, so writing them keeps
-the round read-only. The audit never deletes a report. The runner closes the
-report set after a finished fix; a hand-run fix uses `pnpm audit-round close`.
+The report and a hand-run audit's claim are gitignored, so writing them keeps the source files
+unchanged. When there are no findings, follow [Clean completion](#clean-completion); otherwise stop.
+The runner closes the report set after a finished fix. Hand-run completion uses
+the shared `pnpm audit-round close` command under the round protocol.
+
+## Clean completion
+
+An unattended audit returns its completed report under [Runner result](#runner-result).
+The runner completes the clean outcome. A hand-run audit completes it here,
+immediately after writing its report. Neither route starts a fix session,
+changes or consumes an existing handoff, or writes a new handoff. A commit-scoped
+audit lands no record and retains its report, under `commit-scope.md`.
+
+For a hand-run plan target, land one empty clean record in the sole judged repo
+or at the invoking root when both repos were judged. Use the shared clean form
+from `../plan/CLAUDE.md`: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
+The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
+opening model line name this auditing session. Name the judged repo set in the
+subject's sentence when both repos were judged. A Repo Edu record closes with
+both **Round yield** lines at zero; a plan-repo record carries neither. The
+standing clean-record rule grants this empty commit without separate permission.
+After the record lands, run `pnpm audit-round close <target>-<round>` at the
+report's root with the target and round from its filename, then stop. A clean
+record reached after vetting or discussion stays with the fix workflow and its
+ordinary completion rules.
 
 ## Round allocation
 

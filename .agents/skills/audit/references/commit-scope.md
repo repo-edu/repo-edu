@@ -71,8 +71,8 @@ Each commit subject and each body bullet in the range is one claim. A claim is
 what the commit says it did. Judging it means asking whether the code at HEAD
 matches that statement.
 
-The standing sources replace the plan. Read this repo's root `CLAUDE.md`, the
-`CLAUDE.md` of every package the range touched, `../plan/BOUNDARIES.md`,
+The standing sources replace the plan. Read the `CLAUDE.md` of every package
+the range touched, `../plan/BOUNDARIES.md`,
 `../plan/GROWTH-PATTERNS.md` and
 `tools/architecture-check/src/area-model.json`.
 

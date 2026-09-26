@@ -7,8 +7,9 @@ specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
 This workflow is the fix phase of an implementation-audit round. The round
-itself runs under `.agents/skills/audit/references/workflow.md`, reads only,
-writes its report to the repo root and stops. This workflow starts from that
+itself runs under `.agents/skills/audit/references/workflow.md`, reads only
+and writes its report to the repo root. An audit with findings stops there.
+This workflow starts from that
 report: it reads the report, its vet twin and its rebuttal twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands
 the round's records. The split exists
@@ -17,9 +18,9 @@ context grows past the point where the fixes are made well. The user directed
 it on 2026-09-09.
 
 The fix phase always starts in a fresh session. After a rebuttal Codex runs
-it, using the audit report and both twins as its brief. An automated audit with
-no findings completes directly in the runner and never enters this workflow.
-A hand-run clean report may still be closed here. After a vet that accepted every finding without a
+it, using the audit report and both twins as its brief. An audit with no findings
+completes directly under the audit workflow and never enters this workflow.
+After a vet that accepted every finding without a
 condition the runner skips the rebuttal, so the fix reads the report and its
 vet twin alone.
 The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
@@ -174,19 +175,14 @@ findings deferred to a repo outside the round's repo set uses the shared empty s
 subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no
 `Audit:` body line repeats it. The capability tag follows that form and names the assistant that ran
 the audit step, never the one that vets, rebuts or fixes, and it reads on the clean record too.
-Under the runner, write its first letter alone, `a` or `o`, from the report filename's writer tag,
-read under [Report discovery](#report-discovery). The runner holds the strength and effort behind it
-and the commit-msg hook widens the letter into the whole tag. Without the runner, use the report's
-full auditor tag. Use your own selection under the shared round protocol for your phase's model
-record and any file you write. Repo Edu's `CLAUDE.md` owns both rules under
-**Commit Capability Tag** and **Commit Model Record**.
+Write the report filename's full auditor tag in the subject and this fixing session's own model
+and effort in the body's opening line. The commit hook replaces them with `COMMIT_AUDITOR` and
+`COMMIT_PHASES` when supplied. Writing the record needs no runner check. Files this phase writes
+use its own writer tag. Use the shared round protocol's
+[worked record forms](../../../references/round-protocol.md#worked-record-forms).
 
 The body carries one bullet per accepted finding. Each bullet opens with its
-uppercase tier, then its metadata and prose:
-
-```text
-- [B] [area:pkg-integrations-llm] [growth:hardening,unpriced-complexity] [reach:rare] [complexity:low] Cleanup failure no longer displaces the login guidance.
-```
+uppercase tier, then its metadata and prose.
 
 For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition area from
 `tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
@@ -205,12 +201,7 @@ ruling with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
 the audit workflow defines under **Round yield** and carrying the same counts
-the report gave:
-
-```text
-Round yield: 0 ordinary; 5 rare; 3 developer.
-Structure: 3 removing, 2 adding, 3 flat.
-```
+the report gave. The shared worked forms show their placement.
 
 The report is removed after completion, so the record is the only durable home for the
 round's yield. A clean record carries both lines with zeroes. A plan-repo
@@ -224,12 +215,12 @@ A finding deferred from a Repo Edu-only round to the plan repo uses the body for
 round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
 record, in the sole judged repo or at the invoking root when both repos were judged. Its subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged
-both. Direct automated clean completion retains the report with its repo set instead and creates no
-fix session, under the audit workflow's **Runner result** rule. The user directed the single
-placement on 2026-09-21, after three plan-repo clean records stood for rounds whose fixes touched
-only Repo Edu. When the user declines the outcome in full, no commit lands because disagreement is
-not a state. The logs show every confirmed round that ran, including clean rounds that would
-otherwise exist only in chat.
+both. This clean record follows reconciliation of an audit that reported findings. Audits that
+report no findings complete directly under the audit workflow and create no fix session. The user
+directed the single placement on 2026-09-21, after three plan-repo clean records stood for rounds
+whose fixes touched only Repo Edu. When the user declines the outcome in full, no commit lands
+because disagreement is not a state. The logs show every confirmed round that ran, including clean
+rounds that would otherwise exist only in chat.
 
 The invocation grants the round's record commits and any directed plan-repo
 correction commit once the checks above pass. Anything outside the landed

@@ -166,7 +166,76 @@ a plan and is outside this round protocol.
 ## Closing reports
 
 The runner deletes the audit, vet and rebuttal reports as soon as a fix returns
-`finished`. Other outcomes retain them. After a hand-run fix lands its records,
+`finished`. Other outcomes retain them. After a hand-run fix lands its records
+or a hand-run audit lands its direct clean record,
 `pnpm audit-round close <target>-<round>` at the report's root deletes those
 same numbered report kinds for that exact round, regardless of writer tag.
 Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
+
+## Worked record forms
+
+These are worked instances of the [subject grammar](subject-grammar.md), which
+owns the shape. For a findings fix, write the report filename's full auditor
+tag in the subject and the fixing session's own model and effort in the body's
+opening line. The commit hook replaces them with `COMMIT_AUDITOR` and
+`COMMIT_PHASES` when supplied. No runner check is needed to write a record.
+Leave the severity slot to the hook; the examples below show the authored
+message before it fills that slot. Replace the example stem, tag, model,
+effort, scope and findings with the round's values.
+
+### Planning record
+
+Planning records use `audit`. Each finding carries `[field:]` and a section
+location under the planning audit's finding metadata rule. They carry no yield
+lines. For one missing C finding:
+
+```text
+example/audit ath: align the report location
+
+gpt-6-astra high
+
+- C [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Report location: the decision names the invoking root.
+```
+
+The hook inserts `C1` before the colon.
+
+### Implementation record in Repo Edu
+
+Implementation records use `impl-audit-<scope>`, where the scope is `<n>`,
+`<a>-<b>` or `all`. Repo Edu finding bullets use bracketed tiers and primary
+areas. Copy the report's yield counts into the closing lines. For one C
+finding in step 2:
+
+```text
+example/impl-audit-2 ath docs(audit-round): align the report location
+
+gpt-6-astra high
+
+- [C] [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the invoking root.
+
+Round yield: 0 ordinary; 0 rare; 1 developer.
+Structure: 0 removing, 0 adding, 1 flat.
+```
+
+The hook inserts `c1` before `docs(audit-round)`. When the commit changes
+standing structure, author its growth or pruning mark under Repo Edu's
+**Commit Severity Prefix** rule. The hook derives the severity sequence,
+its case and its `!` from the finding bullets.
+
+### Implementation record in the plan repo
+
+The role still uses `impl-audit-<scope>`. Local finding bullets use bare tiers
+and `[section:]`, without `[field:]`. The record carries no yield lines:
+
+```text
+example/impl-audit-2 ath docs(audit): align the report location
+
+gpt-6-astra high
+
+- C [section:report-file] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the invoking root.
+```
+
+The hook inserts `C1` before `docs(audit)`. The fix workflows own record
+placement, deferrals and clean records reached through reconciliation.
+Audits with no findings complete under their audit workflow and never enter
+the fix workflow.
