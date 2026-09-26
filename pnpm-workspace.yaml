@@ -4,8 +4,8 @@ packages:
   - tools/*
 
 catalog:
-  "@openai/codex-sdk": 0.147.0
-  koffi: 3.1.5
+  "@openai/codex-sdk": 0.156.1
+  koffi: 3.3.1
   write-file-atomic: 8.0.0
 
 # Headless installs must not stop at the modules-dir purge prompt.
