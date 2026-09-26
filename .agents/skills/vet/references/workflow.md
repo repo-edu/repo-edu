@@ -161,8 +161,8 @@ must match the report exactly. An unconditional Accept with no additional notes 
 line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
 additional notes. This format applies in both chat and the `-2-vet.<tag>.md` twin.
 
-For changes to recorded decisions, follow the plan vet's
-[recorded-decision rules](../../../../../plan/.agents/skills/vet/references/workflow.md#changes-to-recorded-decisions).
+For changes to recorded decisions, follow **Changes to recorded decisions** in
+`../plan/.agents/skills/vet/references/workflow.md`.
 They own when a supported simplification can be accepted and when the user
 must rule. Apply them to settled decisions too; replacing a decision alone
 does not require a ruling. The user directed the shared simplification rule
