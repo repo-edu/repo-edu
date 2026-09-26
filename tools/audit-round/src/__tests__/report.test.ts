@@ -220,6 +220,11 @@ test("metadata must follow the title before any evidence", () => {
     `- Evidence.\n   ${tokens}\n   More evidence.`,
     `Evidence.\n   ${tokens}`,
     `Evidence.\n\n   ${tokens}`,
+    `<!-- lint note -->\n\n   Evidence.\n\n   ${tokens}`,
+    `<div>Evidence.</div>\n\n   ${tokens}`,
+    `<!-- lint note --><div>Evidence.</div><!-- another note -->\n\n   ${tokens}`,
+    `<!-- ${tokens} -->`,
+    `<!-- unclosed comment\n   ${tokens}`,
     `${tokens} **extra**`,
     `**${tokens}**`,
   ])
@@ -234,6 +239,30 @@ test("metadata must follow the title before any evidence", () => {
       /Malformed finding/,
       evidence,
     )
+})
+
+test("comments between a finding title and its metadata do not change the finding", () => {
+  for (const comment of [
+    "<!-- rumdl-disable-next-line MD013 -->",
+    "<!-- First note -->\n   <!-- Second note -->",
+    "<!-- First note --><!-- Second note -->",
+    "<!-- A note\n   spanning lines -->",
+  ]) {
+    for (const separator of ["\n", "\n\n"]) {
+      const annotate = (body: string) =>
+        body.replace("**\n\n", `**\n\n   ${comment}${separator}`)
+      assert.deepEqual(
+        readReport(implementation(annotate(finding())), "implementation"),
+        [1],
+      )
+      const report = planning(
+        annotate(finding(1, "[field:excess] [section:user-summary]")),
+        annotate(finding(2, "[field:missing] [section:decisions]")),
+      )
+      for (const source of [report, report.replaceAll("\n", "\r\n")])
+        assert.deepEqual(readReport(source, "planning"), [1, 2])
+    }
+  }
 })
 
 test("tokens follow the title with or without blank lines", () => {
