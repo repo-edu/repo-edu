@@ -172,3 +172,12 @@ jobs:
         env:
           REPO_EDU_PROGRAM_GATE_CLI_ARTIFACT: ${{ inputs.platform == 'macos-arm64' && format('{0}/apps/cli/dist/redu-program-gate', github.workspace) || '' }}
         run: pnpm --filter @repo-edu/desktop run validate:runtime:prebuilt
+
+      - name: Upload desktop test failures
+        if: failure() && inputs.runtime_validation != 'none'
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-test-results-${{ inputs.platform }}
+          path: apps/desktop/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -4,19 +4,21 @@ import { expect, test } from "@playwright/test"
 import { build } from "esbuild"
 import { createPackagedTrustRuntime } from "./packaged-trust-runtime"
 
-test("admits command cancellation while freezing edits and reports picker failures", async () => {
-  const runtime = await createPackagedTrustRuntime()
-  let application: Awaited<ReturnType<typeof runtime.launch>> | undefined
-  try {
-    const bundle = await build({
-      stdin: {
-        resolveDir: resolve(
-          import.meta.dirname,
-          "../../../../packages/renderer-app/src",
-        ),
-        sourcefile: "session-input-test.tsx",
-        loader: "tsx",
-        contents: `
+let runtime: Awaited<ReturnType<typeof createPackagedTrustRuntime>>
+
+test.beforeAll("prepare the packaged session fixture", async () => {
+  // Runtime copying and bundling have their own budget, outside UI assertions.
+  test.setTimeout(60_000)
+  runtime = await createPackagedTrustRuntime()
+  const bundle = await build({
+    stdin: {
+      resolveDir: resolve(
+        import.meta.dirname,
+        "../../../../packages/renderer-app/src",
+      ),
+      sourcefile: "session-input-test.tsx",
+      loader: "tsx",
+      contents: `
           import { useState } from "react"
           import { createPortal } from "react-dom"
           import { createRoot } from "react-dom/client"
@@ -126,38 +128,48 @@ test("admits command cancellation while freezing edits and reports picker failur
             </WorkflowClientProvider>
           )
         `,
-      },
-      bundle: true,
-      platform: "browser",
-      format: "iife",
-      jsx: "automatic",
-      // Match Vite's browser treatment of the tokenizer's Node-only imports.
-      external: ["fs/promises", "module"],
-      define: { "process.env.NODE_ENV": '"production"' },
-      write: false,
-    })
-    await writeFile(
-      runtime.documentPath("renderer.js"),
-      bundle.outputFiles[0].contents,
-    )
-    await writeFile(
-      runtime.documentPath("index.html"),
-      '<!doctype html><title>Session input test</title><div id="app"></div><script src="renderer.js"></script>',
-    )
-    const main = runtime.documentPath("session-input-main.cjs")
-    await writeFile(
-      main,
-      `
+    },
+    bundle: true,
+    platform: "browser",
+    format: "iife",
+    jsx: "automatic",
+    // Match Vite's browser treatment of the tokenizer's Node-only imports.
+    external: ["fs/promises", "module"],
+    define: { "process.env.NODE_ENV": '"production"' },
+    write: false,
+  })
+  await writeFile(
+    runtime.documentPath("renderer.js"),
+    bundle.outputFiles[0].contents,
+  )
+  await writeFile(
+    runtime.documentPath("index.html"),
+    '<!doctype html><title>Session input test</title><div id="app"></div><script src="renderer.js"></script>',
+  )
+  const main = runtime.documentPath("session-input-main.cjs")
+  await writeFile(
+    main,
+    `
       const { app, BrowserWindow } = require("electron")
       app.whenReady().then(() => {
         const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true } })
         window.loadFile(require("node:path").join(__dirname, "index.html"))
       })
     `,
+  )
+})
+
+test.afterAll(async () => {
+  await runtime?.dispose()
+})
+
+test("admits command cancellation while freezing edits and reports picker failures", async () => {
+  let application: Awaited<ReturnType<typeof runtime.launch>> | undefined
+  try {
+    application = await runtime.launch(
+      runtime.documentPath("session-input-main.cjs"),
+      [`--user-data-dir=${runtime.documentPath("user-data")}`],
     )
-    application = await runtime.launch(main, [
-      `--user-data-dir=${runtime.documentPath("user-data")}`,
-    ])
     const page = await application.firstWindow()
     const errors: string[] = []
     page.on("pageerror", (error) => errors.push(error.message))
@@ -261,6 +273,5 @@ test("admits command cancellation while freezing edits and reports picker failur
     expect(errors).toEqual([])
   } finally {
     await application?.close()
-    await runtime.dispose()
   }
 })
