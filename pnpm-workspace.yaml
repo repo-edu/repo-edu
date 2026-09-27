@@ -8,9 +8,6 @@ catalog:
   koffi: 3.1.5
   write-file-atomic: 8.0.0
 
-# Headless installs must not stop at the modules-dir purge prompt.
-confirmModulesPurge: false
-
 # Sandboxed sessions run pnpm scripts without registry access. A stale
 # node_modules must warn there, never start an install that strips the tree.
 verifyDepsBeforeRun: warn
