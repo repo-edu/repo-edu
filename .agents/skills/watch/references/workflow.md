@@ -134,7 +134,7 @@ The watch has these sections in this order.
    area keeps reopening.
 3. **The grade**: green, amber or red, with its evidence. Commit shas, the
    clustered area ID, the repeated severity, the reach trajectory the tier
-   letters' case carries and the structure trajectory the leading
+   letters' case carries and the burden trajectory the leading
    `growth-<level>` or `pruning-<level>` marks carry.
 4. **What to do about it**: the suggested response class and the reason it
    fits. Never a fix: proposing an implementation moves the user from judging

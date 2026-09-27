@@ -267,7 +267,7 @@ and `none` is flat. A clean round writes both lines with zeroes.
 The tally exists because the decision to run another round needs the round's
 yield, and reading it out of per-finding tokens means re-reading the whole log
 by hand. It answers what a round bought: findings an end user can meet, and
-whether the corrections left the code with more standing structure or less.
+whether the corrections left the code with more maintenance burden or less.
 Both lines are counts over the findings, unlike the commit subject's leading
 `growth-<level>` or `pruning-<level>`, which measures one commit's own code
 before and after.

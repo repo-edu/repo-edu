@@ -218,7 +218,7 @@ Structure: 0 removing, 0 adding, 1 flat.
 ```
 
 The hook inserts `c1` before `docs(audit-round)`. When the commit changes
-standing structure, author its growth or pruning mark under Repo Edu's
+maintenance burden, author its growth or pruning mark under Repo Edu's
 **Commit Severity Prefix** rule. The hook derives the severity sequence,
 its case and its `!` from the finding bullets.
 

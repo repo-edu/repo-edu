@@ -81,7 +81,7 @@ never a `<role>`.
 `<bare>` is the plan repo's sequence form and `<marked>` is Repo Edu's. A
 `<growth>` mark appears only in a subject that carries a `<marked>` sequence,
 so it never appears in the plan repo and never on a subject without a
-sequence. The reach and structure marks describe shipped code, which the plan
+sequence. The reach and burden marks describe shipped code, which the plan
 repo holds none of.
 
 ## Classes
@@ -194,7 +194,7 @@ fixed here:
    `<marked>` one. The sequence is evidence the trajectory reads, and an
    off-plan fix can close a graded concern.
 2. A `<growth>` mark appears only beside a `<marked>` sequence. A step is where
-   structure grows by design, and the audit rounds that follow grade what it
+   burden grows by design, and the audit rounds that follow grade what it
    did.
 3. `<conventional>` is a closed list, the Angular set plus `redesign`. A scan
    by kind can only count what is on the list.
