@@ -314,7 +314,7 @@ its case and its `!` from the graded body bullets, overwriting any authored
 value. Write the rest of the subject and the bullets; leave the sequence slot
 to the hook.
 
-Three marks carry reach and structure change into the sequence itself, because a
+Three marks carry reach and burden change into the sequence itself, because a
 commit graph shows the subject and none of the finding tokens.
 
 - Case says who meets the concern. A tier letter is uppercase when the concern's
@@ -323,22 +323,22 @@ commit graph shows the subject and none of the finding tokens.
 - A leading `!` says at least one concern has `ordinary` reach, the value that
   needs no special condition to hold: `!B1C1c2d1`.
 - A leading `growth-<level>` or `pruning-<level>` says what the commit did to the
-  standing structure. Measure the commit, never add up the finding tokens:
-  compare the code before the commit with the code after it, then take the
-  highest kind of obligation whose count changed. The word gives the direction,
-  `growth` when that kind grew and `pruning` when it shrank. The level names the
-  kind, `low` for a rule, `medium` for state and `high` for an owner concern.
-  Omit the whole mark when no kind changed. The direction is a word and not a sign,
+  maintenance burden. Measure the commit, never add up the finding tokens:
+  compare its code and instructions before and after using the
+  [common complexity levels](.agents/skills/audit/references/workflow.md#reach-and-complexity).
+  The word gives the direction, `growth` for a net increase and `pruning` for a
+  net reduction. The level grades the size of that net change. Omit the whole
+  mark when there is no material net change. The direction is a word and not a sign,
   because a sign carries direction and not judgement: `+` reads as a gain where
-  growth is the cost. The level is always written. A commit that moved only rules
-  reads `growth-low` and never a bare `growth`, because an omitted level would
+  growth is the cost. The level is always written, as `growth-low` rather than
+  a bare `growth`, because an omitted level would
   pass as the floor and a level is countable in the log only when it is on the
   page. A commit can read `pruning-high` while one concern inside it added a
-  rule, because the mark states the commit's own net result at its highest
-  changed kind. It carries no colon of its own.
+  rule, because the mark states the size of the commit's net reduction in
+  burden. It carries no colon of its own.
 
 The mark precedes the sequence after a space: `abx pruning-high !B1C1c2d1`. It
-leads because what a commit did to the standing structure outranks how many
+leads because what a commit did to the maintenance burden outranks how many
 concerns it closed, and a commit often carries the mark where the sequence is
 routine.
 
@@ -346,8 +346,10 @@ The subject's shape, the order of its tags and which slots each kind of commit
 fills, is owned by [the subject grammar](.agents/references/subject-grammar.md).
 This section owns what the sequence and its marks mean.
 
-Reach values are defined in the audit workflow under **Reach and complexity**,
-which also defines the obligation kinds the leading mark measures. The mark and
+Reach values and the common burden scale are defined in the audit workflow under
+[Reach and complexity](.agents/skills/audit/references/workflow.md#reach-and-complexity).
+That section also owns the requirement and case for explaining the whole
+commit's net change in one untiered decision bullet in its existing body. The mark and
 the finding token `[complexity:...]` run that one measurement, so they translate
 exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 `[complexity:minus-high]` and an absent mark is `[complexity:none]`.

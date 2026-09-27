@@ -403,27 +403,72 @@ token makes the rating durable and countable; the finding's explanation names
 the condition that makes it checkable.
 
 `[complexity:minus-high|minus-medium|minus-low|none|low|medium|high]` says
-how the correction changes the standing structure of the code as a whole:
-the code after the fix compared with the code before it, never the effort
-of making it. Three kinds of obligation count, each defined by a kind, not
-judged. A rule is a branch, a case or a check. State is something that must
-be kept and stay true. An owner concern is a boundary, or who is
-responsible for an invariant. Compare the count of each kind before and
-after. The token names the highest kind whose count changed. It reads
-`low`, `medium` or `high` when rules, state or owner concerns grew, and
-`minus-low`, `minus-medium` or `minus-high` when that kind shrank. `none`
-means no kind changed, and covers wording, a recorded reason and a test. A
-fix that removes a split owner and adds a branch reads `minus-high`: the
-owner kind is the highest that changed. Replication grades at the
-obligation the copies create: the same rule replicated across files or
-packages must stay in agreement, which is state; state replicated across
-packages leaves that agreement with no single keeper, which is an owner
-concern. Tests never move the token; they follow the machinery they cover,
-and counting them would charge every guarded mechanism twice. The commit
-subject's leading mark runs this same measurement over a whole commit
-instead of one correction, and its level is this token's level: `growth-low`
-is `low` and `pruning-high` is `minus-high`. **Commit Severity Prefix** in
-this repo's `CLAUDE.md` owns that mark's form.
+how the correction changes the maintenance burden as a whole: what future
+work must understand, preserve and coordinate, never the effort of making
+the correction. Commit marks, audit findings and yield reports use these
+common levels:
+
+| Level | Meaning | Practical anchor |
+| --- | --- | --- |
+| Low | A small additional maintenance burden. | Few obligations whose interactions remain contained. |
+| Medium | A substantial additional maintenance burden. | A sizeable body of conditions to preserve or several agreements that must change together. |
+| High | An extensive additional maintenance burden. | A large body of conditions to preserve, constraints spread through the system or extensive coordination between changes. |
+
+Compare before with after and judge additions and removals together. A finding
+compares the correction with the existing code and instructions. A commit
+compares the whole commit's code and instructions before and after, never the
+sum of its finding tokens. A yield report compares a decision with the simplest
+coherent alternative that omits it. Moving a responsibility does not create or
+remove one. An unbuilt alternative supplies no removal credit.
+
+Choose the direction from the net change, then grade its size. Use `low`,
+`medium` or `high` for an increase and the corresponding `minus-` level for a
+reduction, judged with the same anchors. Use `none` for no material net change.
+Explain why one side outweighs the other. Do not average the categories of
+mechanisms added and removed: moving a large burden while adding one small
+obligation is small growth.
+
+Consider amount and interaction together. Many independent rules can accumulate
+substantial burden; a small amount of tightly coupled code can carry it too.
+Rules, state and ownership are evidence, not automatic levels. Neither line
+count nor an ownership boundary determines the grade. Replication is evidence
+of agreement and coordination costs, not an automatic escalation: grade the
+added agreements and their interaction. Include workflow instructions, since
+procedures agents must follow create obligations too. Documentation is not
+automatically free. Count the obligations tests add or remove without counting
+the machinery they cover twice.
+
+Explain the concrete obligations added and removed in the finding's or yield
+decision's existing explanation. In a commit, use one untiered decision bullet
+in the existing body to explain the whole commit's net change in obligations.
+The rating summarises that account. The anchors guide judgement rather than
+impose numerical thresholds.
+
+The account rule applies whenever a finding, yield decision or whole commit is
+graded, so its cost recurs with each assessment. Without it, a judged size label
+hides which obligations support the rating and why additions outweigh removals.
+Accepting that opacity was rejected because the kind-based `growth-high` on
+`d80b85ce` did not answer how much burden its contained delegation procedure
+added. Each assessment adds an account within an existing explanation or one
+commit-body bullet. Readers and auditors must check it, and disputes can add
+findings, rounds and user reading or ruling time. It adds no separate report,
+gate or hook check.
+
+This scale reverses the 2026-09-22 ruling that kept kind-based commit grades
+alongside burden-based yield grades. The new evidence was `d80b85ce`: its high
+mark identified an ownership change but did not answer the user's size
+question. One burden scale gives up that kind signal. It is a deliberate
+exception to the plan doctrine's mechanical-grading principle: scope, evidence
+and output remain prescribed, while burden size is judged. The account makes
+disagreement inspectable; it does not make the scale mechanical.
+
+The commit subject's leading mark runs this measurement over a whole commit,
+with the same level spellings: `growth-low` is `low` and `pruning-high` is
+`minus-high`. An absent mark presents `none` compactly. Severity and reach stay
+separate from complexity. [Commit Severity Prefix](../../../../CLAUDE.md#commit-severity-prefix)
+owns the mark's form. Replace the old definition directly, with no date-based
+grading, historical conversion, episode split or extra inspection duties for
+old marks. Do not rewrite Git history.
 
 The two tokens are one pair, and the pair is the point. Growth pattern 6 in
 `../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
@@ -433,13 +478,12 @@ every finding, so a cross-round run of `[reach:developer]`,
 `[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high`
 `[complexity:...]` values on the same machinery is the unpriced trade shown
 in the log for the watch to judge. A
-`minus-` value is the opposite signal: the correction removed more structure
-than it added, which counts in its favour and never joins a priced run. Both
-tokens rate facts, not worth, and like the growth tag they block nothing: a
+`minus-` value is the opposite signal: the correction removed more burden
+than it added, which counts in its favour and never joins a priced run. The
+tokens describe reach and net burden, not worth, and like the growth tag they block nothing: a
 finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
 is shared with the plan repo's finding metadata, one spelling across both
-logs. Bullets from before 2026-09-11 graded only what a correction added, so
-a bare level there says nothing about what the fix removed.
+logs.
 
 ## Cross-repo findings
 
