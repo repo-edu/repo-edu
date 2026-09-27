@@ -1,11 +1,10 @@
 # Plan implementation workflow
 
-Interpret the invocation arguments as a plan file and an optional
-implementation-step range. The plan must be in the sibling `../plan` repo and
-may be given as `<topic>.md` or `../plan/<topic>.md`. Interpret `3-5` as a
-range and `4` as one step, counted against the plan's **Implementation plan**
-numbering. No range means the earliest step not yet implemented. When no
-plan is named, ask which plan to implement and wait.
+Use `audit-round`'s plan and step-scope semantics, defined in the
+[implementation audit workflow](../../audit/references/workflow.md): a plan
+file with an optional step number or inclusive range, counted against its
+**Implementation plan**. No range selects all steps. When no plan is named,
+ask which plan to implement and wait.
 
 Follow the `CLAUDE.md` of every repo whose files the run changes. The invoking
 chat coordinates the run. It delegates each step to a fresh sub-agent and
@@ -45,11 +44,11 @@ step numbers from its `impl-<n>` forms. A repo's share is landed only when that
 repo's log carries the step form. A both-repo step remains until both shares
 have landed.
 
-The scope is the given range minus the landed repo shares. With no range it is
-every remaining share of the earliest unfinished step. A range selects steps
-to run sequentially, each in its own fresh context. When no share remains,
-name the completed range, or say the whole plan is fully implemented for an
-unscoped run, and stop.
+The work is the selected scope minus the landed repo shares. With no range,
+implement every remaining share of every unfinished step. Run selected steps
+in plan order, each in its own fresh context. When no share remains, name the
+completed range, or say the whole plan is fully implemented for an unscoped
+run, and stop.
 
 ## Coordination
 
