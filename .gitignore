@@ -21,15 +21,16 @@ apps/desktop/playwright-report/
 plan/
 
 # Numbered phase files at the invoking root
-/*-0-round.*.log
-/*-0-round.*.md
-/*-1-audit.*.md
-/*-2-vet.*.md
-/*-3-rebut.*.md
-/*-5-brief.*.log
-/*-5-brief.*.md
-/*-6-ruling.*.md
-/*-8-watch.*.md
+/*-0-claim.md
+/*-[0-9]-round.*.log
+/*-[0-9]-round.*.md
+/*-[0-9]-audit.*.md
+/*-[0-9]-vet.*.md
+/*-[0-9]-rebut.*.md
+/*-[0-9]-brief.*.log
+/*-[0-9]-brief.*.md
+/*-[0-9]-ruling.*.md
+/*-[0-9]-watch.*.md
 
 # Round files at the repo root, grouped by target and round
 /*-round.md

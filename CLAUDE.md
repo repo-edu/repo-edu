@@ -66,7 +66,7 @@ and its rebuttal, because the rebuttal resumes the audit session. Other fields f
 [the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
 assistant CLI's own setting. That file also owns the default auditor, model tier mappings and
 document assistants. The run's settings header names what set each phase.
-`pnpm audit-round brief <target-round-0-round.tag.md>` writes that brief for an earlier round. The
+`pnpm audit-round brief <target-round-1-round.tag.md>` writes that brief for an earlier round. The
 shared file-name grammar and writer-tag rules live in
 [the round protocol](.agents/references/round-protocol.md). Manual vet, rebuttal and fix invocations
 resolve paths through shared code. They select the sole eligible audit report when none is named. A

@@ -46,10 +46,10 @@ const editPin: PinnedModel = {
 }
 
 const repoRoot = "/workspace/repo-edu"
-const transcript = `${repoRoot}/example-all-01-0-round.oth.md`
-const brief = `${repoRoot}/example-all-01-5-brief.oul.md`
-const ruling = `${repoRoot}/example-all-01-6-ruling.abx.md`
-const watch = `${repoRoot}/example-all-01-8-watch.abx.md`
+const transcript = `${repoRoot}/example-all-01-1-round.oth.md`
+const brief = `${repoRoot}/example-all-01-6-brief.oul.md`
+const ruling = `${repoRoot}/example-all-01-7-ruling.abx.md`
+const watch = `${repoRoot}/example-all-01-9-watch.abx.md`
 const cacheRoot = "/cache/audit-round"
 /** What every round input carries beyond the plan and the auditor. */
 const files = {

@@ -189,7 +189,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       const root = f.runtime.cwd
       const target = working === "plan" ? "example" : "example-step-2"
       const peer = working === "plan" ? f.repoRoot : f.planRoot
-      await writeFile(join(peer, `${target}-09-1-audit.oth.md`), "Peer report")
+      await writeFile(join(peer, `${target}-09-2-audit.oth.md`), "Peer report")
       const before = await readdir(root)
       const settings = structuredClone(testSettings)
       for (const assistant of ["claude", "codex"] as const)
@@ -211,18 +211,18 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.deepEqual(
         f.visible,
-        [`${target}-10-claim.md`, `${target}-10-1-audit.${tag}.md`].map(
+        [`${target}-10-0-claim.md`, `${target}-10-2-audit.${tag}.md`].map(
           (name) => join(root, name),
         ),
       )
       assert.deepEqual(
         (await readdir(root)).filter((name) => !before.includes(name)),
-        [`${target}-10-claim.md`],
+        [`${target}-10-0-claim.md`],
       )
       assert.equal(await readFile(f.visible[0], "utf8"), "")
       f.visible.length = 0
       assert.equal(await runCommand(args, f.runtime, f.options), 0)
-      assert.equal(f.visible[0], join(root, `${target}-11-claim.md`))
+      assert.equal(f.visible[0], join(root, `${target}-11-0-claim.md`))
       await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
         code: "ENOENT",
       })
@@ -245,7 +245,7 @@ test("name shares commit range and list targets with the runner", async (t) => {
       ),
       0,
     )
-    assert.equal(f.visible[1], join(f.repoRoot, `${target}-01-1-audit.oux.md`))
+    assert.equal(f.visible[1], join(f.repoRoot, `${target}-01-2-audit.oux.md`))
   }
 })
 
@@ -262,7 +262,7 @@ test("name requires a complete session tag before any assistant or claim", async
     )
   }
   assert.equal(
-    (await readdir(f.repoRoot)).some((name) => name.endsWith("-claim.md")),
+    (await readdir(f.repoRoot)).some((name) => name.endsWith("-0-claim.md")),
     false,
   )
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -282,7 +282,7 @@ test("name preserves the hand-run implementation-step route at the plan root", a
   )
   assert.equal(
     f.visible[1],
-    join(f.planRoot, "example-steps-2-3-01-1-audit.oux.md"),
+    join(f.planRoot, "example-steps-2-3-01-2-audit.oux.md"),
   )
   assert.equal(
     await runCommand(
@@ -308,25 +308,25 @@ for (const working of ["repo-edu", "plan"] as const) {
     const root = f.runtime.cwd
     const target = "abcd-2..ef01-01"
     const removed = [
-      "1-audit.oux.md",
-      "1-audit.abl.md",
-      "2-vet.ath.md",
-      "3-rebut.oux.md",
+      "2-audit.oux.md",
+      "2-audit.abl.md",
+      "3-vet.ath.md",
+      "4-rebut.oux.md",
     ].map((suffix) => `${target}-${suffix}`)
     const retained = [
-      `${target}-claim.md`,
-      `${target}-0-round.oux.md`,
-      `${target}-0-round.oux.log`,
-      `${target}-5-brief.obm.md`,
-      `${target}-5-brief.obm.log`,
-      `${target}-6-ruling.oth.md`,
-      `${target}-8-watch.oth.md`,
-      `${target}-2-audit.oux.md`,
-      `${target}-1-audit.md`,
-      `${target}-1-audit.oux.log`,
-      "abcd-2..ef01-010-1-audit.oux.md",
-      "abcd-2..ef01-02-1-audit.oux.md",
-      "abcd-2..ef01-extra-01-1-audit.oux.md",
+      `${target}-0-claim.md`,
+      `${target}-1-round.oux.md`,
+      `${target}-1-round.oux.log`,
+      `${target}-6-brief.obm.md`,
+      `${target}-6-brief.obm.log`,
+      `${target}-7-ruling.oth.md`,
+      `${target}-9-watch.oth.md`,
+      `${target}-1-audit.oux.md`,
+      `${target}-2-audit.md`,
+      `${target}-2-audit.oux.log`,
+      "abcd-2..ef01-010-2-audit.oux.md",
+      "abcd-2..ef01-02-2-audit.oux.md",
+      "abcd-2..ef01-extra-01-2-audit.oux.md",
     ]
     for (const name of [...removed, ...retained])
       await writeFile(join(root, name), name)
@@ -381,7 +381,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
     0,
   )
   const { log, transcript } = await f.records()
-  assert.ok(transcript.endsWith("-0-round.aul.md"))
+  assert.ok(transcript.endsWith("-1-round.aul.md"))
   assert.match(log, /audit +claude +chosen-auditor low +settings\.json/)
   assert.match(log, /watch +codex +chosen-watch medium +settings\.json/)
   assert.match(
@@ -394,7 +394,7 @@ test("one supplied configuration controls default auditor, phase arguments and o
   )
   assert.ok(watchCall.args.includes("chosen-watch"))
   assert.ok(watchCall.args.includes("model_reasoning_effort=medium"))
-  assert.ok(watchCall.prompt.includes("-8-watch.otm.md"))
+  assert.ok(watchCall.prompt.includes("-9-watch.otm.md"))
 })
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -665,10 +665,10 @@ for (const auditor of ["claude", "codex"] as const) {
     assert.doesNotMatch(log, /\[rebut\] starting/)
     const files = await readdir(f.repoRoot)
     assert.equal(
-      files.some((name) => name.includes("-3-rebut.")),
+      files.some((name) => name.includes("-4-rebut.")),
       false,
     )
-    assert.ok(files.includes("example-steps-2-3-01-5-brief.oul.md"))
+    assert.ok(files.includes("example-steps-2-3-01-6-brief.oul.md"))
     for (const phase of ["audit", "vet", "fix"] as const)
       assert.ok(markdown.includes(`## ${phase} (`))
     assert.equal(markdown.includes("## rebut ("), false)
@@ -932,7 +932,7 @@ for (const auditor of ["codex", "claude"] as const) {
         ),
       )
     assert.ok(
-      transcript.endsWith(`-0-round.${auditor === "claude" ? "a" : "o"}uh.md`),
+      transcript.endsWith(`-1-round.${auditor === "claude" ? "a" : "o"}uh.md`),
     )
   })
 }
@@ -1135,11 +1135,11 @@ for (const auditor of ["codex", "claude"] as const) {
 
 test("a brief on its own retells the named transcript without a new round pair", async (t) => {
   const f = await roundFixture(t)
-  const transcript = join(f.repoRoot, "example-step-7-01-0-round.abx.md")
+  const transcript = join(f.repoRoot, "example-step-7-01-1-round.abx.md")
   await writeFile(transcript, "# Audit round of implementation example.md 7\n")
   assert.equal(
     await runCommand(
-      ["brief", "example-step-7-01-0-round.abx.md"],
+      ["brief", "example-step-7-01-1-round.abx.md"],
       f.runtime,
       f.options,
     ),
@@ -1160,17 +1160,17 @@ test("a brief on its own retells the named transcript without a new round pair",
     name.startsWith("example-step-7-01-"),
   )
   const logName = names.find((name) => name.endsWith(".log")) as string
-  assert.match(logName, /^example-step-7-01-5-brief\.oul\.log$/)
+  assert.match(logName, /^example-step-7-01-6-brief\.oul\.log$/)
   assert.deepEqual(
     names.toSorted(),
     [
       logName,
-      "example-step-7-01-0-round.abx.md",
-      "example-step-7-01-5-brief.oul.md",
+      "example-step-7-01-1-round.abx.md",
+      "example-step-7-01-6-brief.oul.md",
     ].toSorted(),
   )
   const log = await readFile(join(f.repoRoot, logName), "utf8")
-  assert.match(log, /Brief of example-step-7-01-0-round\.abx\.md\n/)
+  assert.match(log, /Brief of example-step-7-01-1-round\.abx\.md\n/)
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,
@@ -1219,7 +1219,7 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
   const f = await roundFixture(t)
   await writeFile(join(f.repoRoot, "ROUND-example-old.md"), "Old transcript")
   await writeFile(
-    join(f.repoRoot, "../plan/example-01-0-round.oth.md"),
+    join(f.repoRoot, "../plan/example-01-1-round.oth.md"),
     "Peer transcript",
   )
   for (const name of [
@@ -1230,7 +1230,7 @@ test("a brief on its own refuses a transcript that is not a Markdown file at the
     assert.equal(await runCommand(["brief", name], f.runtime, f.options), 1)
     assert.match(
       f.errors.at(-1) as string,
-      /Name a round's \*-0-round\.<tag>\.md transcript/,
+      /Name a round's \*-1-round\.<tag>\.md transcript/,
     )
   }
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
@@ -1251,14 +1251,14 @@ test("repeated auditor entries run beyond the old cap with one startup", async (
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-step-3-01-0-round.ouh.log",
-    "example-step-3-01-0-round.ouh.md",
-    "example-step-3-02-0-round.ouh.log",
-    "example-step-3-02-0-round.ouh.md",
-    "example-step-3-03-0-round.ouh.log",
-    "example-step-3-03-0-round.ouh.md",
-    "example-step-3-04-0-round.ouh.log",
-    "example-step-3-04-0-round.ouh.md",
+    "example-step-3-01-1-round.ouh.log",
+    "example-step-3-01-1-round.ouh.md",
+    "example-step-3-02-1-round.ouh.log",
+    "example-step-3-02-1-round.ouh.md",
+    "example-step-3-03-1-round.ouh.log",
+    "example-step-3-03-1-round.ouh.md",
+    "example-step-3-04-1-round.ouh.log",
+    "example-step-3-04-1-round.ouh.md",
   ])
   const invocations = (await f.calls()).filter(
     (call) =>
@@ -1302,12 +1302,12 @@ test("a clean fix record does not skip later entries for the same auditor", asyn
   )
   const names = (await f.roundFiles()).toSorted()
   assert.deepEqual(names, [
-    "example-all-01-0-round.ouh.log",
-    "example-all-01-0-round.ouh.md",
-    "example-all-02-0-round.ouh.log",
-    "example-all-02-0-round.ouh.md",
-    "example-all-03-0-round.auh.log",
-    "example-all-03-0-round.auh.md",
+    "example-all-01-1-round.ouh.log",
+    "example-all-01-1-round.ouh.md",
+    "example-all-02-1-round.ouh.log",
+    "example-all-02-1-round.ouh.md",
+    "example-all-03-1-round.auh.log",
+    "example-all-03-1-round.auh.md",
   ])
   const visible = f.visible.join("\n")
   assert.match(visible, /Next round: codex; 2 auditor entries remain\./)
@@ -1323,7 +1323,7 @@ test("a due glance sends the watch the record and the cache, never the round", a
   )
   // The watch lands nothing of its own in the pair, so the round still writes two files.
   const { log, markdown, transcript } = await f.records()
-  const watch = transcript.replace(/-0-round\.ouh\.md$/, "-8-watch.ouh.md")
+  const watch = transcript.replace(/-1-round\.ouh\.md$/, "-9-watch.ouh.md")
   assert.match(
     log,
     /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
@@ -1384,7 +1384,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
     }
     const files = await readdir(f.runtime.cwd)
     assert.equal(
-      files.some((name) => /-5-brief\./.test(name)),
+      files.some((name) => /-6-brief\./.test(name)),
       false,
     )
     assert.equal(
@@ -1439,7 +1439,7 @@ test("an unchained run claims its round number and says nothing about a chain", 
   const names = await f.roundFiles()
   assert.equal(names.length, 2)
   assert.ok(
-    names.every((name) => name.startsWith("example-step-3-01-0-round.ouh.")),
+    names.every((name) => name.startsWith("example-step-3-01-1-round.ouh.")),
   )
   assert.doesNotMatch(f.visible.join("\n"), /Chain/)
 })
@@ -1470,7 +1470,7 @@ for (const auditor of ["codex", "claude"] as const) {
         transcript,
         join(
           f.planRoot,
-          `example-01-0-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
+          `example-01-1-round.${auditor === "codex" ? "ouh" : "auh"}.md`,
         ),
       )
       assert.match(log, /Audit round of plan example-widen\.md/)
@@ -1538,7 +1538,7 @@ for (const auditor of ["codex", "claude"] as const) {
       }
       assert.equal(
         (await readdir(f.repoRoot)).some((name) =>
-          /-(?:0-round\.[ao][btu][lmhx]\.(?:md|log)|claim\.md)$/.test(name),
+          /-(?:1-round\.[ao][btu][lmhx]\.(?:md|log)|0-claim\.md)$/.test(name),
         ),
         false,
       )
@@ -1581,19 +1581,19 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       const outputRoot = owner === "plan" ? f.planRoot : f.repoRoot
-      const transcript = join(outputRoot, "example-01-0-round.oth.md")
+      const transcript = join(outputRoot, "example-01-1-round.oth.md")
       await writeFile(transcript, "# Planning round\n")
       const argument =
         working === owner
-          ? "example-01-0-round.oth.md"
-          : `../${owner}/example-01-0-round.oth.md`
+          ? "example-01-1-round.oth.md"
+          : `../${owner}/example-01-1-round.oth.md`
       assert.equal(
         await runCommand(["brief", argument], f.runtime, f.options),
         0,
         f.errors.join("\n"),
       )
       const log = await readFile(
-        join(outputRoot, "example-01-5-brief.oul.log"),
+        join(outputRoot, "example-01-6-brief.oul.log"),
         "utf8",
       )
       assert.ok(

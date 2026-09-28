@@ -7,8 +7,8 @@ specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
 The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
-`*-1-audit.<tag>.md` report, the other assistant vets it into the `-2-vet.<tag>.md` twin and this
-workflow answers those verdicts, writing the `-3-rebut.<tag>.md` twin. The answers come from the
+`*-2-audit.<tag>.md` report, the other assistant vets it into the `-3-vet.<tag>.md` twin and this
+workflow answers those verdicts, writing the `-4-rebut.<tag>.md` twin. The answers come from the
 auditor. They come from the audit session itself when it still has room for them, and from a fresh
 session when it does not, because a session summarised to make room holds a summary where the
 evidence was. Either way the answers stand on what this workflow reads now, which the grounding
@@ -21,12 +21,12 @@ the report and its vet twin straight to the fix, which the user directed on 2026
 starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
-a tracked file. The `-3-rebut.<tag>.md` twin is the one file it writes.
+a tracked file. The `-4-rebut.<tag>.md` twin is the one file it writes.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
 `finished` only after grounding and answering every verdict and writing the answers and grouped
-outcome to the `-3-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
+outcome to the `-4-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
 user's ruling still complete the rebuttal: the fix phase presents them.
 
 This procedure also serves reports stored at the plan repo root. The plan

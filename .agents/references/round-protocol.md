@@ -10,7 +10,7 @@ Read this file from the Repo Edu checkout; plan-repo workflows reach it at
 Round documents and logs use `<target>-<round>-<order>-<kind>.<tag>.<ext>`.
 The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
-Two files omit the tag: the empty `<target>-<round>-claim.md` reserves a
+Two files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
 number, and `<stem>-handoff.<sha>.md` briefs the commit it names. The runner
 claims at the invoking repository root; a hand-run audit claims there too.
 The plan repo's handoff rule owns that six-character sha.
@@ -36,15 +36,16 @@ The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 
 | Order | Kind | Files |
 | --- | --- | --- |
-| 0 | round | Transcript and log |
-| 1 | audit | Report |
-| 2 | vet | Vet twin |
-| 3 | rebut | Rebuttal twin |
-| 4 | fix | Reserved, no report |
-| 5 | brief | Brief and standalone log |
-| 6 | ruling | Ruling |
-| 7 | glance | Reserved, no report |
-| 8 | watch | Watch |
+| 0 | claim | Empty reservation, no tag |
+| 1 | round | Transcript and log |
+| 2 | audit | Report |
+| 3 | vet | Vet twin |
+| 4 | rebut | Rebuttal twin |
+| 5 | fix | Reserved, no report |
+| 6 | brief | Brief and standalone log |
+| 7 | ruling | Ruling |
+| 8 | glance | Reserved, no report |
+| 9 | watch | Watch |
 
 Skipped phases leave gaps. Every round file lives at the invoking root.
 
@@ -53,8 +54,8 @@ then split the remaining name at its last hyphen into target and round.
 The tagless claim and handoff are the two exceptions above. Do not read repo
 names or audited heads from a filename; they belong in the report opening.
 
-For example, one round can contain `example-step-2-01-1-audit.otm.md` and
-`example-step-2-01-2-vet.abx.md`. Their target and round match; their writer tags
+For example, one round can contain `example-step-2-01-2-audit.otm.md` and
+`example-step-2-01-3-vet.abx.md`. Their target and round match; their writer tags
 differ. Automated sessions receive complete paths. Manual sessions resolve their
 paths through the shared command below.
 
@@ -99,9 +100,9 @@ these absolute paths in order:
 
 Automated sessions write at the supplied output path without reconstructing a name or
 adding an opening writer tag. A standalone brief reuses the transcript's target
-and round. Its document and log share `5-brief.<tag>`; the log is opened for
+and round. Its document and log share `6-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
-`0-round.<tag>`. The second watch pass replaces the supplied draft.
+`1-round.<tag>`. The second watch pass replaces the supplied draft.
 
 The fix receives the ruling output path separately from its report arguments.
 It writes the final ruling at that path before returning `needs-ruling`, using

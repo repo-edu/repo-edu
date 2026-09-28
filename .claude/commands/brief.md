@@ -1,5 +1,5 @@
 ---
-description: Write the plain-words brief of one planning or implementation-audit round from its *-0-round.<tag>.md transcript, for the user.
+description: Write the plain-words brief of one planning or implementation-audit round from its *-1-round.<tag>.md transcript, for the user.
 argument-hint: [transcript-file] [brief-output]
 disable-model-invocation: true
 ---

@@ -74,13 +74,13 @@ for (const working of ["repo-edu", "plan"] as const) {
     }
     const brief = await execa(
       "pnpm",
-      ["audit-round", "brief", "missing-01-0-round.oth.md"],
+      ["audit-round", "brief", "missing-01-1-round.oth.md"],
       options,
     )
     assert.equal(brief.exitCode, 1)
     assert.match(
       brief.stderr,
-      /Name a round's \*-0-round\.<tag>\.md transcript/,
+      /Name a round's \*-1-round\.<tag>\.md transcript/,
     )
     await assert.rejects(readFile(calls), { code: "ENOENT" })
   })

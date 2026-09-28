@@ -213,7 +213,7 @@ export async function roundFixture(
   }
   const roundFiles = async () =>
     (await readdir(outputRoot)).filter((name) =>
-      /-0-round\.[ao][btu][lmhx]\.(md|log)$/.test(name),
+      /-1-round\.[ao][btu][lmhx]\.(md|log)$/.test(name),
     )
   const records = async () => {
     const names = await roundFiles()

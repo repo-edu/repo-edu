@@ -340,7 +340,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
   command
     .command("brief")
     .description(
-      "Write the plain-words brief of a finished round from its *-0-round.<tag>.md transcript.",
+      "Write the plain-words brief of a finished round from its *-1-round.<tag>.md transcript.",
     )
     .argument("<transcript>", "the round's Markdown transcript")
     .option("-v, --verbose", "show tool calls as well as assistant text")
@@ -443,7 +443,7 @@ export async function runCommand(
             ? "implementation"
             : context.roundKind,
       })
-      const claim = join(context.cwd, `${nameStart}-claim.md`)
+      const claim = join(context.cwd, `${nameStart}-0-claim.md`)
       claimRound(claim)
       options.terminal.write(claim)
       options.terminal.write(

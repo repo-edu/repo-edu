@@ -644,7 +644,7 @@ test("the brief's text stays out of the transcript it retells", async (t) => {
 
 test("a brief on its own logs beside the transcript and keeps no transcript", async (t) => {
   const f = await fixture(t)
-  const transcript = join(f.root, "example-all-01-0-round.oth.md")
+  const transcript = join(f.root, "example-all-01-1-round.oth.md")
   const visible: string[] = []
   const markdown: string[] = []
   const output = new RoundOutput(
@@ -668,11 +668,11 @@ test("a brief on its own logs beside the transcript and keeps no transcript", as
     },
   )
   t.after(() => output.close())
-  assert.match(output.paths.log, /example-all-01-5-brief\.oul\.log$/)
+  assert.match(output.paths.log, /example-all-01-6-brief\.oul\.log$/)
   assert.equal(output.paths.markdown, null)
   assert.match(
     visible[1] as string,
-    /^Brief of example-all-01-0-round\.oth\.md\n/,
+    /^Brief of example-all-01-1-round\.oth\.md\n/,
   )
   assert.doesNotMatch(visible[1] as string, /Texts:/)
   output.models({

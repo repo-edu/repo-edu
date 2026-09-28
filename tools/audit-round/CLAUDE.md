@@ -352,11 +352,11 @@ pnpm audit-round ../plan/example.md 3 --no-watch
 pnpm audit-round ../plan/example.md 3 --no-brief
 pnpm audit-round HEAD-1
 pnpm audit-round HEAD-2..HEAD
-pnpm audit-round brief example-step-3-01-0-round.otm.md
+pnpm audit-round brief example-step-3-01-1-round.otm.md
 pnpm audit-round name ../plan/example.md 3 --auditor oth
-pnpm audit-round paths vet example-step-3-01-1-audit.oth.md --writer abx
-pnpm audit-round paths rebut example-step-3-01-1-audit.oth.md --writer otm
-pnpm audit-round paths fix example-step-3-01-1-audit.oth.md
+pnpm audit-round paths vet example-step-3-01-2-audit.oth.md --writer abx
+pnpm audit-round paths rebut example-step-3-01-2-audit.oth.md --writer otm
+pnpm audit-round paths fix example-step-3-01-2-audit.oth.md
 pnpm audit-round close example-step-3-01
 pnpm audit-round episode example
 pnpm audit-round episode HEAD-2
@@ -367,7 +367,7 @@ pnpm audit-round:contract codex
 The round names the report, vet, rebuttal, brief, ruling and watch before the
 audit starts. It writes the tagless claim, transcript and log at the invoking
 root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
-the shared round protocol, with the transcript and log sharing `0-round`.
+the shared round protocol, with the transcript and log sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
 
 `name` prints two absolute paths, claim then audit report, and creates only the

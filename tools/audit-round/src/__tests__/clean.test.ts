@@ -289,7 +289,7 @@ test("clean records share archived and widening plan identities with output file
         planRoot: "/plan",
         roundKind: "planning",
         plan: "topic.md",
-        report: "/repo/topic-01-1-audit.oth.md",
+        report: "/repo/topic-01-2-audit.oth.md",
         judgedRepos: ["plan"],
       },
       { auditor: null, phases: null },

@@ -180,7 +180,7 @@ token line. The fix carries that location into the round commit.
 An audit with no findings follows [Clean completion](#clean-completion) and
 needs no fix session. An audit with findings is read-only and ends at its report
 file. The one later phase this
-session takes part in is the rebuttal: the auditor's answer to the `-2-vet.<tag>.md`
+session takes part in is the rebuttal: the auditor's answer to the `-3-vet.<tag>.md`
 twin runs here through the rebuttal launcher, `/rebut` for Claude and
 `$rebut` for Codex, because this session already holds the evidence the
 findings rest on and the rebuttal fixes nothing. When this session is asked

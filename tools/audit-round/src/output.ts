@@ -137,7 +137,7 @@ export async function roundRun(
       ...("plan" in setup ? [entry("watch"), entry("watch-edit")] : []),
     ],
     paths: {
-      claim: join(setup.cwd, `${nameStart}-claim.md`),
+      claim: join(setup.cwd, `${nameStart}-0-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
     },

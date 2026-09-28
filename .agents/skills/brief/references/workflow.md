@@ -7,7 +7,7 @@ to it and points here for the rest, so the two cannot drift apart. Where a
 launcher and this file disagree, this file is right.
 
 The brief is the plain-words twin of one round transcript, written for the
-user. The transcript is the `*-0-round.<tag>.md` file the audit-round runner writes
+user. The transcript is the `*-1-round.<tag>.md` file the audit-round runner writes
 at the invoking Repo Edu or plan root: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a

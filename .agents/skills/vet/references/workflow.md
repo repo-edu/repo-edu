@@ -6,7 +6,7 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-The vet's input is another AI assistant's implementation-audit report, an `*-1-audit.<tag>.md` file
+The vet's input is another AI assistant's implementation-audit report, an `*-2-audit.<tag>.md` file
 at its owning repo root. A report at this repo's root belongs to a round that started here.
 [Report discovery](#report-discovery) says how the file is found. Vet its graded findings. Do not
 run an audit round of your own. Whether a finding is a good idea is not an axis: a finding can be
@@ -17,12 +17,12 @@ tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the fix workflow
 that lands the round from its report. The auditor answers the verdicts through
 the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
-writing a `-3-rebut.<tag>.md` twin the fix workflow reads beside this one.
+writing a `-4-rebut.<tag>.md` twin the fix workflow reads beside this one.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after completing the required checks and
-writing every verdict to the `-2-vet.<tag>.md` twin; report completion. A verdict
+writing every verdict to the `-3-vet.<tag>.md` twin; report completion. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
 that open item. The runner reads the twin to decide whether to skip the rebuttal.
 
@@ -159,7 +159,7 @@ is free; put drift notes there. After the first verdict, every non-empty line is
 condition. Any other line counts as a condition, including a narrowing note. The verdict numbers
 must match the report exactly. An unconditional Accept with no additional notes ends after the first
 line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
-additional notes. This format applies in both chat and the `-2-vet.<tag>.md` twin.
+additional notes. This format applies in both chat and the `-3-vet.<tag>.md` twin.
 
 For changes to recorded decisions, follow **Changes to recorded decisions** in
 `../plan/.agents/skills/vet/references/workflow.md`.

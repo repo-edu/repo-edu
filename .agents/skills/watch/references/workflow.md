@@ -69,7 +69,7 @@ file names and writer tags. The runner supplies a watch path carrying its
 chosen target and round with this phase's writer tag. Keep that path;
 allocate no round and read no transcript to derive it.
 
-Write the watch to the named `-8-watch.<tag>.md` file, replacing anything already there. The
+Write the watch to the named `-9-watch.<tag>.md` file, replacing anything already there. The
 second pass replaces that same file. It is Markdown for a person reading in a
 Markdown viewer.
 

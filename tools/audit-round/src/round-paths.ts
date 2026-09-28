@@ -7,15 +7,15 @@ import { type AuditTarget, planStem } from "./target.js"
 type NamingTarget = ExecutionContext & AuditTarget
 
 const phaseOrder = {
-  round: 0,
-  audit: 1,
-  vet: 2,
-  rebut: 3,
-  fix: 4,
-  brief: 5,
-  ruling: 6,
-  glance: 7,
-  watch: 8,
+  round: 1,
+  audit: 2,
+  vet: 3,
+  rebut: 4,
+  fix: 5,
+  brief: 6,
+  ruling: 7,
+  glance: 8,
+  watch: 9,
 } as const
 
 export type FileKind = Exclude<keyof typeof phaseOrder, "fix" | "glance">
@@ -122,7 +122,7 @@ async function nextNameStart(
     .filter((name) => name.startsWith(`${target}-`))
     .map((name) => {
       const suffix = name.slice(target.length + 1)
-      const claim = /^(\d{2,})-claim\.md$/.exec(suffix)
+      const claim = /^(\d{2,})-0-claim\.md$/.exec(suffix)
       if (claim !== null) return Number(claim[1])
       const parsed = readPhaseFilename(name)
       const number = parsed?.nameStart.slice(target.length + 1)
@@ -152,7 +152,7 @@ export function transcriptNameStart(transcript: string): string {
   const parsed = readPhaseFilename(basename(transcript))
   if (parsed?.kind !== "round" || parsed.extension !== "md")
     throw new Error(
-      "Name a round's *-0-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
+      "Name a round's *-1-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
     )
   return parsed.nameStart
 }

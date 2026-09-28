@@ -42,13 +42,13 @@ for (const auditor of ["codex", "claude"] as const) {
           index === 0 ? auditor : auditor === "codex" ? "claude" : "codex"
         assert.equal(
           file,
-          `example-0${index + 1}-0-round.${writer === "codex" ? "ouh" : "auh"}.log`,
+          `example-0${index + 1}-1-round.${writer === "codex" ? "ouh" : "auh"}.log`,
         )
         const log = await readFile(join(f.planRoot, file), "utf8")
         assert.match(log, /Audit round of plan example-widen\.md/)
         assert.ok(
           log.includes(
-            `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, file.replace("-0-round.", "-1-audit.").replace(".log", ".md")), "example-widen.md"])}`,
+            `Phase arguments (JSON array): ${JSON.stringify([join(f.planRoot, file.replace("-1-round.", "-2-audit.").replace(".log", ".md")), "example-widen.md"])}`,
           ),
         )
         assert.match(log, /\[glance\] not due: episode example recorded green/)
@@ -236,7 +236,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       )
       assert.equal(log.includes("[watch] starting"), due)
       if (due) {
-        const watch = transcript.replace("-0-round.ouh.md", "-8-watch.ouh.md")
+        const watch = transcript.replace("-1-round.ouh.md", "-9-watch.ouh.md")
         assert.ok(
           log.includes(
             `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
