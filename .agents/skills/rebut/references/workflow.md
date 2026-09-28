@@ -25,8 +25,8 @@ a tracked file. The `-4-rebut.<tag>.md` twin is the one file it writes.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
-`finished` only after grounding and answering every verdict and writing the answers and grouped
-outcome to the `-4-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
+`finished` only after grounding and answering the verdicts that need an answer and writing those
+answers to the `-4-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
 user's ruling still complete the rebuttal: the fix phase presents them.
 
 This procedure also serves reports stored at the plan repo root. The plan
@@ -62,7 +62,9 @@ differs list what moved with `git diff --name-only <sha>..HEAD` in that
 repo. Answer against HEAD either way, and say where a moved file changes an
 answer.
 
-For every verdict, read the source the verdict rests on yourself: the file
+Carry unconditional accepts forward without fresh source reads or individual
+answers. For revisions, drops, conditional accepts and ruling items, read the
+source the verdict rests on yourself: the file
 path the finding names, the test that covers it, the plan decision or
 boundary the vet cites, and the episode's commit bodies where the vet calls
 a departure unrecorded. Do not trust the report's quotes or the vet's; the
@@ -71,7 +73,9 @@ answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
 
 ## Answers
 
-Answer each verdict in the report's order, one answer per finding.
+Answer only revisions, drops, conditional accepts and ruling items, in the
+report's order. Unconditional accepts need no entry; the fix reads them from
+the numbered vet verdicts.
 Every answer starts with exactly `<finding number>. [<tier>] <answer>`.
 Use the report's finding number and A/B/C/D tier. The answer is exactly one
 of `Agree`, `Contest` or `For user's ruling`.
@@ -95,16 +99,11 @@ few short sentences. Every answer is one of three kinds.
   recorded-decision or trade rules. State the auditor's position and its
   evidence in the same short form, and stop there. Never settle it here.
 
-Close with the reconciled outcome in the three groups the fix phase
-presents: verdicts both assistants agree on, verdicts this rebuttal
-contests, and the items for the user's ruling. This closing section is the
-part the fix phase copies forward, so it lists only each finding's first line
-under its outcome group.
-
 ## Rebuttal file
 
-Write the answers and the closing outcome to the supplied rebuttal path. Write the same answers and
-outcome into the chat. The chat and the file must not differ. The twin is untracked and gitignored,
+Write the answers to the supplied rebuttal path and into the chat, without a
+grouped closing list. When no verdict needs an answer, state that once.
+The chat and the file must not differ. The twin is untracked and gitignored,
 so writing it keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude

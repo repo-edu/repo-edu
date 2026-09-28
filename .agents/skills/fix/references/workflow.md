@@ -80,14 +80,13 @@ is about to change.
 
 ## Reconciliation
 
-When the report has a rebuttal twin, the auditor has already answered the
-vet and the twin closes with the reconciled outcome in three groups: verdicts
-both assistants agree on, verdicts the rebuttal contests, and the items for
-the user's ruling. Present those groups. For each contested verdict, read the
-quoted evidence yourself and say whether you concede, so the rebuttal's
-correction stands, or maintain, so the item moves to the user's ruling with
-both positions in one or two sentences each. Never re-argue an agreed
-verdict.
+Build the outcome from the numbered vet verdicts and rebuttal answers, accounting
+for every finding. An unconditional accept stays agreed without a rebuttal
+entry. Present agreed verdicts, your decisions on contested verdicts and items
+for the user's ruling. For each contested verdict, read the evidence yourself,
+decide the outcome and state your decision and reason. Ask the user only when
+the evidence leaves the answer unclear; disagreement alone needs no ruling.
+Never re-argue an agreed verdict.
 
 When the report has a vet twin and no rebuttal, and every verdict is an
 unconditional accept, the runner skipped the rebuttal because the auditor had
@@ -123,10 +122,11 @@ here. When the user rules, carry the answer and its reason in the deferral.
 When the user does not rule, keep the choice open in the deferral instead of
 choosing for them.
 
-The invocation is the acceptance of everything the files already settle. Stop for a ruling only on
-open items: an item sent to the user's ruling, a contested verdict this session maintains, a drift
-correction that changes a finding, or this session's own answers to a vet with no rebuttal. When
-nothing is open, state the outcome in one line per finding and apply. A cross-repo
+The invocation grants the corrections settled above. Stop for a ruling only on
+open items: an item sent to the user's ruling, a contested verdict the evidence leaves unclear, a
+drift correction that changes a finding, or a verdict without a rebuttal that this session cannot
+settle from the evidence. When nothing is open, state the outcome in one line per finding and apply.
+A cross-repo
 open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
 deferral above or a later plan round, never through this session, so it holds no settled correction
 back. Keep it open in the deferral and apply the settled findings.
