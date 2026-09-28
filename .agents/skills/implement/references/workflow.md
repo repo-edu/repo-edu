@@ -11,11 +11,6 @@ chat coordinates the run. It delegates each step to a fresh sub-agent and
 waits for that step to land before starting the next. An assigned worker
 implements its one step directly; it does not delegate another implementer.
 
-Before any implementation work, check the named file is a plan. A
-`topology-<topic>.md`, a `topology-<topic>-detail.md`
-or a `carry-<topic>.md` is a planning artifact and carries no implementation
-steps. Name the file, say it cannot be implemented and stop.
-
 ## Ready gate
 
 Before any implementation work, run the stem scan in `../plan`: `git log

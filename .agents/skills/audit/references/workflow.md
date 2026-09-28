@@ -46,13 +46,6 @@ corrections and landing records belongs to the fix workflow at
 rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix
 starts in a fresh session from the report file. See [Fix guard](#fix-guard).
 
-Before any audit work, read the named file for the plan-repo artifacts this
-workflow cannot audit: a `topology-<topic>.md`, a `topology-<topic>-detail.md` or
-a `carry-<topic>.md`. Each is a planning artifact, so
-naming one means the round was meant for the plan repo's own audit. Name the
-file, say the round belongs there and stop. Continue only when the user
-explicitly says to.
-
 ## Runner result
 
 When the prompt identifies an unattended round phase, planning or implementation, follow this rule
