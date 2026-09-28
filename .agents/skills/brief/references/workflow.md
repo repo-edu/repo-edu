@@ -56,11 +56,9 @@ a paragraph or bullet, never a whole sentence.
 
 The `simple` requirement governs the brief. Beyond it:
 
-- Translate, do not summarise. Every point the transcript makes appears in
-  the brief: every deviation, every pattern, every
-  finding with its cause, its effect and its correction, every verdict, every
-  answer and every open item. Cutting a point is the one way to fail this
-  workflow. Length is whatever that takes.
+- Condense the transcript. Keep every finding with its final tier and
+  correction. Drop restated points and evidence trails while keeping enough
+  explanation to understand the outcome.
 - Explain the mechanism in words, not in names. Say what a piece of code does
   and what goes wrong, not which function or file it is. Keep a path,
   identifier, commit sha or number only where the reader needs it to find or
@@ -86,16 +84,14 @@ what it holds.
 
 1. **Title**: `# <scope> in plain words`, naming the planning artifact,
    implementation steps or commits the way the transcript's first heading does.
-2. **Opening**: who did what, as the transcript's fenced role table copied
-   unchanged, because retelling it in sentences reads worse than the table;
-   what the audited scope is about, one paragraph; how the round ended, one
-   sentence: the fix landed, the fix stopped for a ruling, or a phase failed
-   and which.
-3. **What the audit checked**: the coverage counts when the round reports them; every
-   deviation with the reason the round gave; the round yield and structure
-   lines in words; the patterns across rounds and, when the round priced a
-   run, each pricing question with its answer. The coverage table itself
-   stays out.
+2. **Opening**: a summary of what the round found, what changed and what landed.
+   Name the audited scope and say whether the fix landed, stopped for a ruling
+   or a phase failed. Follow with the transcript's fenced role table copied
+   unchanged, because retelling it in sentences reads worse than the table.
+3. **What the audit checked**: the coverage counts when the round reports them
+   and the round yield and structure lines in words. Condense deviations and
+   their reasons, patterns across rounds and any priced trade into what explains
+   the round's outcome. The coverage table and evidence trails stay out.
 4. **The findings**: one numbered entry per finding, in the report's order,
    opening with the tier letter and a colon before the short title, as in
    `1. **B: A listing starts again after every command**`. Use the tier the
@@ -104,12 +100,10 @@ what it holds.
    below the title, before the explanation. Separate the title, token line and
    explanation with blank lines. Do not remove or translate the tokens. The
    plain-language explanation and ratings table supplement the token line.
-   Each entry says what goes wrong and when, why the plan or code does that,
-   what the correction is and
-   the condition that makes a rare rating checkable. Then, when the vet or
-   the rebuttal changed anything about the finding, what they said and what
-   was agreed. A dropped finding says why it was dropped and, when the
-   rebuttal left a note for a later round, what the note says.
+   Each entry says what goes wrong and when, why it happens, the final correction
+   and the condition that makes a rare rating checkable. Condense the vet and
+   rebuttal discussion to what changed and why. A dropped finding says why it
+   was dropped and keeps any note the rebuttal left for a later round.
 5. **The ratings**: one table over the findings, in the report's order, with
    the columns Finding, Tier, Reach and Complexity. The finding cell is the
    number and short title. The tier cell is the letter the finding ended the
