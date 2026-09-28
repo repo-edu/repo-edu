@@ -68,7 +68,9 @@ Check each finding on three axes, in this order.
 
 ### 1. Authorised
 
-Classify the finding as one of five kinds.
+Apply the audit workflow's
+[completed-commit metadata exclusion](../../audit/references/workflow.md#completed-commit-metadata).
+Drop findings on that excluded metadata. Classify the remaining findings.
 
 - A defect in the shipped code. The code is wrong, or below the bar this
   repo's standards set. This is the ordinary kind and it needs no further
@@ -79,8 +81,11 @@ Classify the finding as one of five kinds.
   fix during discussion, the same run applies it as its own plan-repo round
   commit.
 - A departure from the plan where the shipped code is right. The audit
-  workflow records this as a deviated row in the coverage table, never as a
-  finding. Drop it.
+  workflow records this as a deviated row in the coverage table. Drop a finding
+  on the departure itself. A missing reason must pass
+  [Judging deviations](../../audit/references/workflow.md#judging-deviations):
+  verify the concrete maintenance problem and that the correction repairs its
+  live owner.
 - Work the episode has not reached yet. That is an incomplete row in the
   coverage table, not a finding. Drop it.
 - A reopening of a decision the plan settled. Quote the decision from the
@@ -102,8 +107,8 @@ report's quotes or paraphrases.
   when it is code.
 - Read the plan in `../plan` for the decision the finding rests on, and the
   governing `CLAUDE.md` in every repo the finding invokes.
-- Read the episode's commit bodies before calling a departure unrecorded. The
-  reason is often there.
+- Read targeted commit bodies when a finding depends on a missing departure
+  reason. Absence alone does not establish a defect.
 - Run a check or a test only in its read-only form, and only when a claim
   rests on it, as in `pnpm --filter <package> test`. Never run a command that
   writes.
@@ -186,6 +191,8 @@ ordinary plan-round form.
 
 ## Coverage table
 
-The coverage table follows the report's opening metadata. Do not re-audit it. Check a row only
-where a finding depends on it, which is when a finding should have been a row,
-or a row should have been a finding.
+The coverage table follows the report's opening metadata. It has one row per
+in-scope step or named commit, not per decision or claim. Do not re-audit it.
+Check a row only where a finding depends on it, which is when a finding should
+have been a row, or a row should have been a finding. Missing decision or claim
+rows do not establish missing inspection.

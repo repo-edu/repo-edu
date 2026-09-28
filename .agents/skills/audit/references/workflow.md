@@ -232,16 +232,35 @@ each affected package's `CLAUDE.md` and `package.json` for its rules; do not
 run its scripts. For plan-repo files, use the local substitutions in that
 repo's audit workflow the same way.
 
+### Completed commit metadata
+
+Plan and implementation audits exclude completed commits' metadata: kinds,
+scopes, capability tags, model records, severity, reach and complexity labels.
+This includes commits named as audit targets: naming one selects its code
+changes, not its metadata. Incorrect labels create no finding, correction,
+reporting, deferral or follow-up duty. The user accepts those errors because
+correcting them adds work without improving the code being judged.
+
+Keep targeted history reads for a decision's reason, a code defect's cause or
+a user's ruling. A behavioural claim that exposes a live defect still informs
+the code review. Instructions and checks for writing new records stay intact,
+as does the watch's use of old labels as evidence.
+
+Investigating recurring metadata errors requires a separate, explicitly
+authorised plan. It may improve the process for future records, never repair
+completed commits. It creates no prerequisite, interruption or other work for
+an unrelated plan or audit.
+
 ## Coverage
 
-Before drafting findings, build a coverage table, one row per item in scope,
-with columns for the item, the implementing commits or code and one
-disposition: implemented, deviated, incomplete or dropped. A whole-plan round's
-scope is every **Implementation plan** step and every **Decisions** entry.
-Steps the episode has visibly not reached yet land as incomplete rows, not as
-graded findings. A scoped round's table carries only the user-named steps. The
-round still checks that code against every **Decisions** entry, since decisions
-bind the whole plan, and violations land as findings.
+Before drafting findings, build a coverage table with one row per in-scope
+**Implementation plan** step, its implementing commits or code and one
+disposition: implemented, deviated, incomplete or dropped. A whole-plan round
+covers every step; a scoped round covers only the user-named steps. Steps the
+episode has visibly not reached yet stay incomplete rows, not graded findings.
+Both routes inspect the complete in-scope implementation and check every
+binding **Decisions** entry without adding decision rows. Violations land as
+findings.
 
 Close the table with one line in the form `Implementation coverage: I/T
 implemented; V deviated; N incomplete; R dropped.` The table proves the round
@@ -279,12 +298,14 @@ This is not a strict conformance audit. Where the implementation departed from
 the plan, judge the shipped code first. It must be correct and of the best
 quality the repo's standards allow. A departure that responds to a real error
 or imperfection in the plan is correct behaviour. Record it as deviated in the
-table, not as a finding, when the code is right. A deviation whose reason no
-commit body records is itself a finding. Grade it by the cost of a later reader
-mistaking intent for drift. Code that faithfully followed a defective plan
-into a defect is still a finding. The standard is the shipped code, never
-fidelity for its own sake. Do not reopen decisions the plan settled. Question
-one only on correctness or quality evidence, never on taste.
+table, not as a finding, when the code is right. A missing departure reason is
+a finding only when it leaves a live instruction misleading or an important
+constraint unexplained. State that concrete maintenance problem and repair its
+live owner, without rewriting old commits. Read targeted history when intent
+matters. Code that faithfully followed a defective plan into a defect is still
+a finding. The standard is the shipped code, never fidelity for its own sake.
+Do not reopen decisions the plan settled. Question one only on correctness or
+quality evidence, never on taste.
 
 ## Findings
 

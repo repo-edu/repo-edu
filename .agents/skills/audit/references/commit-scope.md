@@ -67,9 +67,10 @@ and the files they touched are judged like any other code the round reads.
 
 ## Baseline
 
-Each commit subject and each body bullet in the range is one claim. A claim is
-what the commit says it did. Judging it means asking whether the code at HEAD
-matches that statement.
+Inspect each commit's complete change against the repo requirements and the
+substantive intent in its subject and body. Judge the resulting code at HEAD.
+Follow the audit workflow's
+[completed-commit metadata exclusion](workflow.md#completed-commit-metadata).
 
 The standing sources replace the plan. Read the `CLAUDE.md` of every package
 the range touched, `../plan/BOUNDARIES.md`,
@@ -83,41 +84,31 @@ ordinary round.
 
 ## Coverage
 
-Before drafting findings, build a coverage table with one row per claim, with
-columns for the claim, the commit it comes from and one disposition.
+Before drafting findings, build a coverage table with one row per named commit,
+with columns for the commit, its changed code and one disposition for the
+commit as a whole. Inspect every touched file whether or not the message names
+it.
 
-- `holds`: the code at HEAD does what the claim says.
-- `overreached`: the commit changed more than its claim states.
-- `short`: the claim is not fully delivered.
-- `superseded`: a later commit in the range undid it.
+- `holds`: the code at HEAD delivers the commit's substantive intent.
+- `overreached`: the change materially exceeds that intent's scope.
+- `short`: the substantive intent is not fully delivered.
+- `superseded`: a later commit in the range undid the change.
 
-Close the table with two lines.
+Close the table with one line, counting commits.
 
 ```text
-Commit coverage: C/T claims hold; V overreached; N short; R superseded.
-Unclaimed: <paths, or none>.
+Commit coverage: C/T commits hold; V overreached; N short; R superseded.
 ```
-
-The unclaimed line names every tracked file the range touched that no claim
-covers. Such a file is either a change nobody recorded or a claim that failed
-to name its own reach, so the line is evidence either way.
 
 ## What this round looks for
 
 An ordinary round judges shipped code against a plan. This round judges shipped
-code against the standing sources and against the log, which is the only
-durable memory this work has. Beyond the defects any round finds, grade these
-with the same tiers and tokens.
-
-- A commit body that misdescribes what landed.
-- A severity sequence whose tier counts, case, `!` mark or leading
-  `growth-<level>` or `pruning-<level>` disagrees with the commit's own diff.
-- A conventional kind or scope that does not match the change, such as a `fix`
-  that reshapes ownership.
-- A capability tag or model record that does not match what the commit ran on.
-- An unclaimed change from the coverage line above.
-- A new tracked source file that no primary area owns, against the source
-  growth gate in this repo's `CLAUDE.md`.
+code against the standing sources and the commit's substantive intent. Material
+scope and code defects remain findings under the same tiers and tokens. A
+behavioural claim matters when it exposes a live defect; an omitted filename
+or incorrect old metadata does not create a finding. A new tracked source file
+without a primary area remains a finding under the source growth gate in this
+repo's `CLAUDE.md`.
 
 ## Pre-existing code
 
@@ -130,7 +121,7 @@ it apart from the range's own work.
 Report order follows `workflow.md` with the range in place of the plan. Open by naming the workflow
 that ran and a plain `Judged repos: repo-edu@<sha>` line with this repo's short audited HEAD, the
 commit references as typed, the resolved range with its short shas and the statement that no plan
-covers the work. Then the coverage table with its two closing lines, then the `## Findings` field.
+covers the work. Then the coverage table with its closing line, then the `## Findings` field.
 
 Write the report to the supplied absolute path at the invoking root under the shared
 [round protocol](../../../references/round-protocol.md), with the numbered audit kind and
