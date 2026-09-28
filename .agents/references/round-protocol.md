@@ -204,8 +204,8 @@ The hook inserts `C1` before the colon.
 
 Implementation records use `impl-audit-<scope>`, where the scope is `<n>`,
 `<a>-<b>` or `all`. Repo Edu finding bullets use bracketed tiers and primary
-areas. Copy the report's yield counts into the closing lines. For one C
-finding in step 2:
+areas. Recount the accepted findings in this record for its closing yield lines,
+using their final reach and complexity values. For one C finding in step 2:
 
 ```text
 example/impl-audit-2 ath docs(audit-round): align the report location

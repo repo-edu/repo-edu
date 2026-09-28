@@ -200,8 +200,10 @@ else. A bullet that records something other than a finding, such as a carried de
 ruling with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
-the audit workflow defines under **Round yield** and carrying the same counts
-the report gave. The shared worked forms show their placement.
+the audit workflow defines under **Round yield**. Recount the accepted findings
+in that record after vetting and discussion, using their final reach and
+complexity values. Earlier report totals may no longer match what lands.
+The shared worked forms show their placement.
 
 The report is removed after completion, so the record is the only durable home for the
 round's yield. A clean record carries both lines with zeroes. A plan-repo

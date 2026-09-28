@@ -271,14 +271,14 @@ there are no findings.
 ## Round yield
 
 After the coverage line, close the round with two more lines that tally the
-findings it accepted:
+findings the audit reports:
 
 ```text
 Round yield: <n> ordinary; <n> rare; <n> developer.
 Structure: <n> removing, <n> adding, <n> flat.
 ```
 
-The first line counts the accepted findings by their `[reach:...]` value,
+The first line counts the reported findings by their `[reach:...]` value,
 treating `very-rare` as rare. The second counts them by the sign of their
 `[complexity:...]` value: `minus-` levels remove, `low`, `medium` and `high` add
 and `none` is flat. A clean round writes both lines with zeroes.
