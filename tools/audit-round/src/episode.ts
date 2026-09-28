@@ -311,7 +311,7 @@ export async function readWatchEvidence(
   )
 }
 
-/** One serialisation for the command and both watch prompts; no episode file. */
+/** One serialisation for the command and watch writer's prompt; no episode file. */
 export function formatWatchEvidence(
   evidence: ReturnType<typeof joinedEpisode>,
 ): string {

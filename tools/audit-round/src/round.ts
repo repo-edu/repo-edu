@@ -226,7 +226,7 @@ async function runWatch(
     return { ...watch, phase: "watch", ...phases.watch, ...context }
 
   // The watch is a document the user decides from, so a session that did not
-  // write it reads it once before the user does, against the same Git evidence.
+  // write it improves its wording before the user reads it.
   const edit = await reportPhase(
     () =>
       dependencies.runPhase["watch-edit"]({
@@ -234,7 +234,6 @@ async function runWatch(
         ...phases["watch-edit"],
         ...context,
         arguments: [target.file],
-        evidence,
         sessionId: null,
       }),
     target.file,

@@ -111,9 +111,10 @@ contents to the terminal output. No separate ruling session runs.
 The two watch passes follow a round with audit findings that finished, and take neither the
 report nor the transcript. The watch reads the commit record and never the
 round, so the runner gives the watch pass only the file to write and the cache
-root, and the watch edit only the draft as file arguments. Both prompts also
-receive the same joined Git evidence for the audited plan, computed after the
-fix and only when due. They run under
+root, and the watch edit only the draft as file arguments. Only the writer's prompt
+receives joined Git evidence for the audited plan, computed after the fix and
+only when due. The editor improves the wording while preserving the draft's claims
+and judgements. They run under
 `.agents/skills/watch/references/workflow.md`, and only when the runner's own
 glance at the commit record found the watch due; that glance is code in
 `tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.

@@ -32,10 +32,11 @@ The two never run together and neither invokes the other.
 
 ## Independence
 
-The watch's value rests on reading the commit record and the code, never the
-doer's reasoning. So:
+The writer's judgement rests on reading the commit record and the code, never
+the doer's reasoning. The editor reads only the draft and required instructions,
+preserving the writer's claims and judgements. So:
 
-- Read the supplied Git evidence, the current artifact at the area it points
+- The writer reads the supplied Git evidence, the current artifact at the area it points
   to, the area model and the named plan. Inspect named commits as needed to
   verify a claim; do not repeat the episode walk or token counts.
 - Do not read the round's transcript, its brief, its report or its vet and
@@ -49,17 +50,15 @@ same as every earlier round.
 
 ## Input
 
-The file arguments name the watch file to write and the cache root holding
-its cadence record. The prompt separately supplies joined Git evidence for the
+The writer's file arguments name the watch file to write and the cache root holding
+its cadence record. Its prompt separately supplies joined Git evidence for the
 audited plan. Take the topic and both graded heads from that evidence; do not
 select a topic from HEAD or reread current heads to replace the supplied ones.
 The runner computes this snapshot after the fix, only when glance says watch
-is due, and supplies the same text to both watch passes.
+is due.
 
-For a hand-run watch edit without supplied evidence, read the draft's topic
-and run `pnpm audit-round episode <stem>` from the invoking root. Read that
-output in this session. Keep the draft's grade and graded heads unchanged;
-use any later commits only as context, not as evidence for its earlier grade.
+The editor receives only the draft watch path. Neither an automated editor nor
+a hand-run editor fetches Git evidence or investigates the draft's sources.
 No route reads or writes an episode file.
 
 ## Output
@@ -93,18 +92,13 @@ Write both graded heads, including the peer checkout's head. A glance at either
 root counts from its own entry, never the other repository's history. The grade
 describes the joined episode. Keep other episode entries unchanged.
 
-The glance owns fixed limits: four A–C correction commits in one area on
-green, two on amber and every finished round with audit findings on red. A
-clean audit skips the glance and both watch passes. Plan rounds count by
-section. D-only work, clean records, deferral-only records and planned steps
-do not count. Severity, reach and growth have no early trigger. Save no
-`horizon`; the grade selects the limit. Create the file and its directory when they
-are missing. A record that cannot be written is a failure of this phase: say so
+`tools/audit-round/src/glance.ts` owns the limits and the counting.
+Create the file and its directory when they are missing. A record that cannot be written is a failure of this phase: say so
 rather than leaving a watch the next glance cannot count from.
 
 The first pass writes both. The second pass, the watch edit, rewrites the file
-and leaves the record alone: it changes wording, never the grade or the graded
-heads.
+and leaves the record alone: it changes wording while preserving the claims,
+judgements, grade and graded heads.
 
 ## Voice
 
@@ -139,40 +133,33 @@ The watch has these sections in this order.
 4. **What to do about it**: the suggested response class and the reason it
    fits. Never a fix: proposing an implementation moves the user from judging
    the frame to judging a solution.
-5. **When to look again**: on amber, name the area to watch and the fixed
-   two-correction limit. On green, state the fixed four-correction limit.
-   Both count A–C correction commits in one area. On red, state that this is
-   for the user to act on now.
+5. **When to look again**: on amber, name the area to watch. On red, state that
+   this is for the user to act on now. On green, nothing more.
 
 Nothing else belongs in the file. The round's own brief holds its findings.
 
 ## The second pass
 
-Read the draft and the same supplied evidence, then judge it against these
-tests before writing anything:
+Read the draft for clarity before writing anything:
 
-1. Does the description name a real abstraction and a structural reason or
-   does it only restate what the log shows?
-2. Is every piece of evidence checkable, and does it say what it is evidence
-   of?
-3. Does the response class follow from the description, rather than from the
-   grade alone?
-4. Does the draft propose a fix, decide something the user owns or read the
-   round instead of the record?
-5. Is any sentence impossible to follow without `git log` open beside it?
+1. Does the wording explain the unstable abstraction and the stated reason
+   rounds keep reopening it?
+2. Does each cited piece of evidence have a clear connection to the claim it
+   supports?
+3. Is the stated reason for the suggested response clear?
+4. Can the reader follow each sentence without `git log` open beside it?
 
-Then rewrite the whole file. Fix what the tests caught, and re-ground anything
-the draft asserts that you cannot confirm in the supplied evidence, a named
-commit, the area model or the current artifact. Never append a critique, a change
-list or a note about the draft: the file must read as the finished watch.
+Then rewrite the whole file for clarity, preserving its claims and judgements.
+Do not investigate sources or add new evidence. Never append a critique, a
+change list or a note about the draft: the file must read as the finished watch.
 
 ## Runner result
 
 When the prompt identifies an unattended round phase, follow the
 audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. Report `finished` only after both the watch file and the watch record
-are written at the supplied paths. A missing
-plan checkout's `CLAUDE.md`, an unreadable log or a record that cannot be written is
-`failed`, with the reason. Never return `needs-ruling`: the watch suggests and
-never asks.
+ending. The writer reports `finished` only after both the watch file and the
+watch record are written at the supplied paths. The editor reports `finished`
+after replacing the draft and leaves the record alone. A missing required input
+or failed required write is `failed`, with the reason. Never return
+`needs-ruling`: the watch suggests and never asks.

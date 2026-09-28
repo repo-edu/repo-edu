@@ -278,9 +278,8 @@ type PhaseArguments = {
     readonly arguments: readonly [watch: string, cacheRoot: string]
     readonly sessionId: null
   }
-  /** Both watch passes receive the same evidence separately from their file arguments. */
+  /** The editor improves the draft's wording without another evidence review. */
   "watch-edit": {
-    readonly evidence: string
     readonly arguments: readonly [watch: string]
     readonly sessionId: null
   }

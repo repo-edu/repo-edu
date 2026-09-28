@@ -413,12 +413,17 @@ for (const grade of ["green", "amber"] as const) {
     )
     assert.equal(watches.length, grade === "amber" ? 2 : 0)
     if (watches.length === 2) {
-      assert.equal(watches[0].evidence, watches[1].evidence)
-      assert.match(watches[0].evidence, /finished-plan-fix/)
-      for (const watch of watches) {
-        assert.ok(phasePrompt(watch).endsWith(watch.evidence))
-        assert.equal(watch.arguments.includes(watch.evidence), false)
-      }
+      const [writer, editor] = watches
+      assert.equal(writer.phase, "watch")
+      assert.equal(editor.phase, "watch-edit")
+      assert.match(writer.evidence, /finished-plan-fix/)
+      assert.ok(phasePrompt(writer).endsWith(writer.evidence))
+      assert.equal(writer.arguments.includes(writer.evidence), false)
+      assert.equal("evidence" in editor, false)
+      assert.doesNotMatch(
+        phasePrompt(editor),
+        /Git episode evidence|finished-plan-fix/,
+      )
     }
   })
 }
@@ -713,7 +718,6 @@ test("a due glance sends the watch to a fresh writer and a fresh rewriter", asyn
     },
     {
       phase: "watch-edit",
-      evidence: "Joined evidence including the finished fix",
       assistant: "codex",
       model: editPin,
       ...testContext(repoRoot),
