@@ -440,7 +440,8 @@ for (const auditor of ["claude", "codex"] as const) {
             invocations[1].args.includes("--resume"),
           false,
         )
-        assert.ok(invocations[2].args.includes("audit-session"))
+        assert.equal(invocations[2].args.includes("resume"), false)
+        assert.equal(invocations[2].args.includes("--resume"), false)
         assert.equal(invocations[3].args.includes("resume"), false)
         // The fix commits the round, so it carries the round's commit stamps:
         // the phases grouped by what they ran on, and the auditor's capability
@@ -697,11 +698,8 @@ for (const phase of ["audit", "vet", "rebut", "fix", "brief"] as const) {
     assert.match(log, new RegExp(`\\[${phase}\\] failed:`))
     for (const output of [log, f.visible.join("\n")])
       assert.doesNotMatch(output, /Files at repository roots:/)
-    if (phase === "rebut")
-      assert.match(
-        log,
-        /Resume: cd .* && codex resume --approve-for-me audit-session/,
-      )
+    assert.match(log, /Session: unavailable/)
+    assert.doesNotMatch(log, /^Resume:/m)
     const calls = (await f.calls()).filter(
       (call) =>
         call.args[0] === "exec" ||
@@ -860,18 +858,14 @@ for (const auditor of ["codex", "claude"] as const) {
       auditor === "codex"
         ? ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=xhigh"]
         : ["--model", "claude-fable-5-1", "--effort", "xhigh"]
-    // The audit names the override and the rebuttal resumes that thread on it.
+    // The audit and its fresh rebuttal both carry the override.
     for (const index of [0, 2])
       assert.ok(
         pin.every((argument) => invocations[index].args.includes(argument)),
         invocations[index].args.join(" "),
       )
-    // A Codex pin precedes the subcommand, so a resumed rebuttal still carries it.
-    if (auditor === "codex")
-      assert.ok(
-        invocations[2].args.indexOf("-m") <
-          invocations[2].args.indexOf("resume"),
-      )
+    assert.equal(invocations[2].args.includes("resume"), false)
+    assert.equal(invocations[2].args.includes("--resume"), false)
     // The vet and the fix keep whatever their own CLI is configured to use.
     for (const index of [1, 3])
       for (const flag of ["-m", "--model", "-c", "--effort"])
@@ -1685,9 +1679,7 @@ for (const phase of [
     assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
     const { log } = await f.records()
     assert.ok(log.includes(`[${phase}] failed: Phase output is empty:`))
-    assert.ok(
-      log.includes(`Session: ${phase === "rebut" ? "audit" : phase}-session`),
-    )
+    assert.ok(log.includes(`Session: ${phase}-session`))
   })
 }
 

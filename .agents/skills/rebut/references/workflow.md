@@ -9,10 +9,10 @@ apart. Where a launcher and this file disagree, this file is right.
 The rebuttal is the auditor's answer to the vet. An implementation-audit round writes its
 `*-2-audit.<tag>.md` report, the other assistant vets it into the `-3-vet.<tag>.md` twin and this
 workflow answers those verdicts, writing the `-4-rebut.<tag>.md` twin. The answers come from the
-auditor. They come from the audit session itself when it still has room for them, and from a fresh
-session when it does not, because a session summarised to make room holds a summary where the
-evidence was. Either way the answers stand on what this workflow reads now, which the grounding
-below requires of both. The fix workflow at `.agents/skills/fix/references/workflow.md` then reads
+auditor. The automated rebuttal always starts fresh on the audit's model and effort. A hand-run
+reply may use the audit session while it still holds the round. In either route, answers stand on
+what this workflow reads now under **Grounding** below. The fix workflow at
+`.agents/skills/fix/references/workflow.md` then reads
 all three files. The user directed this chain on 2026-09-09 to give the fix phase both assistants'
 views. On 2026-09-11 the user directed Codex to run the fix in a fresh session, with the audit
 report and both twins as its brief. Under the runner the rebuttal runs only when the vet's verdicts

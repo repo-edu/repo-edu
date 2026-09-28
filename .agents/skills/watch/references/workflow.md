@@ -92,8 +92,8 @@ Write both graded heads, including the peer checkout's head. A glance at either
 root counts from its own entry, never the other repository's history. The grade
 describes the joined episode. Keep other episode entries unchanged.
 
-`tools/audit-round/src/glance.ts` owns the limits and the counting.
-Create the file and its directory when they are missing. A record that cannot be written is a failure of this phase: say so
+`tools/audit-round/src/glance.ts` owns the limits and the counting. Create the file and its
+directory when they are missing. A record that cannot be written is a failure of this phase: say so
 rather than leaving a watch the next glance cannot count from.
 
 The first pass writes both. The second pass, the watch edit, rewrites the file

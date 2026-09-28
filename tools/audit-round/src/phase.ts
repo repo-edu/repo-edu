@@ -49,9 +49,8 @@ export type Effort = (typeof efforts)[number]
 
 /**
  * What the command line asked of the auditor's phases. `cli` bypasses phase
- * settings; a null tag field follows settings.json, then the CLI. The rebuttal
- * resumes the audit session, so the override binds both phases: one thread
- * cannot change model half way through.
+ * settings; a null tag field follows settings.json, then the CLI. The override
+ * binds audit and rebuttal because the rebuttal is the auditor's answer.
  */
 export type AuditorOverride =
   | "cli"
@@ -220,7 +219,7 @@ export function roundPhases(
     audit: run("audit", auditor),
     // The vetter is the other assistant, so no assistant vets its own report.
     vet: run("vet", auditor === "codex" ? "claude" : "codex"),
-    // The rebuttal answers in the auditor, resuming the audit when it has room.
+    // The rebuttal is the auditor's answer, using the same model and effort.
     rebut: run("rebut", auditor),
     fix: run("fix", "codex"),
     brief: run("brief", config.phases.brief.assistant),
@@ -311,7 +310,7 @@ export type SessionContext = {
 type ReportResult = {
   readonly status: "finished"
   readonly sessionId: string
-  /** The session's last measurement, which decides whether a later phase may resume it. */
+  /** The session's last context measurement, also shown by the terminal display. */
   readonly context: SessionContext | null
 }
 

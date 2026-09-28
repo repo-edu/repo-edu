@@ -182,14 +182,13 @@ token line. The fix carries that location into the round commit.
 
 An audit with no findings follows [Clean completion](#clean-completion) and
 needs no fix session. An audit with findings is read-only and ends at its report
-file. The one later phase this
-session takes part in is the rebuttal: the auditor's answer to the `-3-vet.<tag>.md`
-twin runs here through the rebuttal launcher, `/rebut` for Claude and
-`$rebut` for Codex, because this session already holds the evidence the
-findings rest on and the rebuttal fixes nothing. When this session is asked
+file. The automated rebuttal starts in a fresh session on the audit's model and
+effort. A hand-run answer to the `-3-vet.<tag>.md` twin may run here through
+the rebuttal launcher, `/rebut` for Claude and `$rebut` for Codex, while this
+session still holds the round. The rebuttal fixes nothing. When this session is asked
 to answer the twin without that launcher, discuss the findings for a ruling,
 apply a correction, land a record or delete the report, do not do it. Say
-that the rebuttal runs through `/rebut` or `$rebut` here and that the fix
+that a hand-run rebuttal uses `/rebut` or `$rebut` and that the fix
 phase runs through the fix launcher, `/fix` or `$fix`, in a fresh Codex
 session. Name the report file they start from and stop.
 Continue only when the user explicitly says to.

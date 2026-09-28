@@ -48,7 +48,7 @@ export async function runAssistantInvocation(
   let finalText: string | undefined
   let completed = false
   let context: SessionContext | null = null
-  /** The last measurement leaves the display, because the round resumes on it. */
+  /** Retain the last measurement while forwarding context updates to the display. */
   const observe = async (feedback: Feedback): Promise<void> => {
     if (feedback.type === "context")
       context = { tokens: feedback.tokens, window: feedback.window }

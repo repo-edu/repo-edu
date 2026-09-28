@@ -13,7 +13,6 @@ import {
   type PhaseRun,
   type RoundDependencies,
   roundPhases,
-  type SessionContext,
 } from "./phase.js"
 import type { AuditReport } from "./report.js"
 import { transcriptNameStart } from "./round-paths.js"
@@ -76,32 +75,6 @@ export type RoundResult =
 export type BriefResult =
   | { readonly status: "finished"; readonly brief: string }
   | RoundFailure
-
-/** The share of its window at which Codex summarises a session in place. */
-const compactionShare = 0.9
-
-/**
- * What a rebuttal spends: the report, its vet twin and the source behind every
- * verdict. A four-finding round measured 30k, doubled here for the findings a
- * round can carry.
- */
-const rebuttalTokens = 60_000
-
-/**
- * The single owner of whether the rebuttal answers in the audit session.
- * A summarised session holds a summary where the evidence was, so a measured
- * shortfall starts the rebuttal fresh instead. It loses nothing it may rely on:
- * its workflow grounds every answer in what it reads now. An assistant that
- * reports no window reports no shortfall, and keeps the resume.
- */
-export function rebuttalSessionId(
-  sessionId: string,
-  context: SessionContext | null,
-): string | null {
-  if (context?.window == null) return sessionId
-  const room = context.window * compactionShare - context.tokens
-  return room < rebuttalTokens ? null : sessionId
-}
 
 /** A completed report phase must have written its supplied output. */
 async function reportPhase<R extends PhaseResult>(
@@ -359,7 +332,7 @@ export async function runRound(
             ...phases.rebut,
             ...context,
             arguments: [report, input.documents.vet, input.documents.rebut],
-            sessionId: rebuttalSessionId(audit.sessionId, audit.context),
+            sessionId: null,
           }),
         input.documents.rebut,
         dependencies,

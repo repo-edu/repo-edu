@@ -149,7 +149,7 @@ export async function roundFixture(
           ? "claude"
           : "codex"
         : auditor
-    const sessionId = phase === "rebut" ? "audit-session" : `${phase}-session`
+    const sessionId = `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
     const final = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
     phases[phase] = {

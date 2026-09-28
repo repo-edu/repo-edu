@@ -74,7 +74,9 @@ Under the runner, audit, vet, rebuttal and fix read their own selection from
 `COMMIT_PHASES`. Other sessions use their current model and effort. Codex desktop
 sessions resolve them through [task settings](codex-desktop-settings.md) and
 Claude sessions through [session settings](claude-desktop-settings.md).
-The runner resolves file tags from its configured phase selections. A hand-run
+The automated rebuttal starts fresh with the audit's resolved model and effort,
+including any `--auditor` fields. The runner resolves file tags from its
+configured phase selections. A hand-run
 session resolves its own tag before naming the file it writes. When the effort is missing or
 cannot be spelled, stop and name the assistant and phase. For a runner audit,
 advise a full `--auditor` tag; for another phase following CLI settings,

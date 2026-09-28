@@ -19,7 +19,6 @@ import {
   type PhaseResult,
   type PinnedModel,
   type RoundDependencies,
-  rebuttalSessionId,
   runBrief,
   runRound,
   unpinned,
@@ -82,9 +81,6 @@ const endings: readonly (readonly [
   ["watch", watchPhases],
 ]
 
-/** Room enough that the rebuttal resumes unless a test says otherwise. */
-const spaciousContext = { tokens: 100_000, window: 258_000 }
-
 function controlledRound(
   settle: (input: PhaseInput) => Promise<void> = async () => {},
 ) {
@@ -101,7 +97,7 @@ function controlledRound(
     audit: {
       status: "finished",
       sessionId: "audit-session",
-      context: spaciousContext,
+      context: null,
     },
     vet: {
       status: "finished",
@@ -110,7 +106,7 @@ function controlledRound(
     },
     rebut: {
       status: "finished",
-      sessionId: "audit-session",
+      sessionId: "rebut-session",
       context: null,
     },
     fix: { status: "finished", sessionId: "fix-session" },
@@ -487,10 +483,7 @@ for (const [ending, sequence] of endings) {
       assert.equal(result.status, "failed")
       if (result.status !== "failed") return
       assert.equal(result.phase, phase)
-      assert.equal(
-        result.sessionId,
-        phase === "rebut" ? "audit-session" : `${phase}-session`,
-      )
+      assert.equal(result.sessionId, `${phase}-session`)
       assert.deepEqual(
         round.calls.map((call) => call.phase),
         sequence.slice(0, sequence.indexOf(phase) + 1),
@@ -573,7 +566,7 @@ for (const auditor of ["claude", "codex"] as const) {
           ...testContext(repoRoot),
           cwd: ownerRoot,
           arguments: [report, files.documents.vet, files.documents.rebut],
-          sessionId: "audit-session",
+          sessionId: null,
         },
         {
           phase: "fix",
@@ -658,7 +651,7 @@ for (const auditor of ["claude", "codex"] as const) {
         arrange(round, ending)
         const failure = {
           status: "failed",
-          sessionId: phase === "rebut" ? "audit-session" : `${phase}-session`,
+          sessionId: `${phase}-session`,
           reason: "Required work remains blocked by a permission refusal",
         } as const
         round.results[phase] = failure
@@ -940,23 +933,33 @@ for (const operation of ["requestRuling"] as const) {
   })
 }
 
-test("the rebuttal answers fresh when the audit leaves no room before compaction", async () => {
-  const round = controlledRound()
-  round.results.audit = {
-    status: "finished",
-    sessionId: "audit-session",
-    context: { tokens: 228_000, window: 258_000 },
+test("the rebuttal starts fresh for either auditor regardless of its context measurement", async () => {
+  for (const auditor of ["claude", "codex"] as const) {
+    for (const context of [
+      null,
+      { tokens: 900_000, window: null },
+      { tokens: 100_000, window: 258_000 },
+      { tokens: 228_000, window: 258_000 },
+    ]) {
+      const round = controlledRound()
+      round.results.audit = {
+        status: "finished",
+        sessionId: "audit-session",
+        context,
+      }
+
+      const result = await runRound(
+        { ...files, plan: "example.md", auditor },
+        round.dependencies,
+      )
+
+      assert.equal(result.status, "finished")
+      assert.equal(round.calls[2].phase, "rebut")
+      assert.equal(round.calls[2].sessionId, null)
+      assert.equal(round.calls[2].assistant, auditor)
+      assert.deepEqual(round.calls[2].model, round.calls[0].model)
+    }
   }
-
-  const result = await runRound(
-    { ...files, plan: "example.md" },
-    round.dependencies,
-  )
-
-  assert.equal(result.status, "finished")
-  assert.equal(round.calls[2].phase, "rebut")
-  assert.equal(round.calls[2].sessionId, null)
-  assert.equal(round.calls[2].assistant, "codex")
 })
 
 for (const auditor of ["claude", "codex"] as const) {
@@ -966,7 +969,7 @@ for (const auditor of ["claude", "codex"] as const) {
     round.results.audit = {
       status: "finished",
       sessionId: "audit-session",
-      context: spaciousContext,
+      context: null,
     }
 
     round.evidence.findings = []
@@ -1060,23 +1063,6 @@ for (const auditor of ["claude", "codex"] as const) {
     assert.deepEqual(round.rulings, [])
   })
 }
-
-test("an unreported window keeps the resume, and a measured shortfall does not", () => {
-  assert.equal(
-    rebuttalSessionId("audit", { tokens: 900_000, window: null }),
-    "audit",
-  )
-  assert.equal(rebuttalSessionId("audit", null), "audit")
-  // 60k is the rebuttal's reserve and 90% of the window is where Codex summarises.
-  assert.equal(
-    rebuttalSessionId("audit", { tokens: 120_000, window: 200_000 }),
-    "audit",
-  )
-  assert.equal(
-    rebuttalSessionId("audit", { tokens: 120_001, window: 200_000 }),
-    null,
-  )
-})
 
 test("a failed brief after a completed fix stops the round before the watch", async () => {
   const round = controlledRound()
