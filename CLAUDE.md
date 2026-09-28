@@ -42,39 +42,12 @@ pnpm check
 pnpm test
 ```
 
-`pnpm audit-round <plan> [<n>|<a>-<b>] [--auditor <selections>] [--no-watch] [--no-brief] [-v]` runs
-the implementation-audit tool from this checkout root, ending with a plain-words brief of the round
-for the user when there are findings. A clean audit ends directly in the runner, which retains the
-report and lands the empty clean record for a plan target. A clean commit audit retains its report
-without a commit. Neither route runs vet, rebuttal, fix, brief, glance or watch. `--no-brief` skips
-the final brief for every round. Existing handoffs stay untouched. A fix that stops for the user's
-ruling writes the final ruling in its own session and checks it for clarity. The runner displays the
-ruling directly. It writes the brief only after the full fix has completed, then appends the saved
-brief to the terminal output. A round with audit findings that finished ends with a glance at the
-commit record, which decides whether the trajectory watch is due; a due watch adds its document,
-drafted and rewritten in separate sessions, and records its own grade so the next glance can count
-from it. The glance is the runner's own read of the log, not a session, and `--no-watch` skips it
-and the watch for every round of the run. `--auditor` takes a comma-separated list in round order on
-the scope the user named. A clean audit removes all later entries for that assistant, regardless of
-model or effort; a clean fix record does not. Failure or a round requiring a ruling stops the
-sequence. The list sets the maximum number of rounds and each entry has independent settings. Quote
-lists containing spaces. Each entry takes `claude` or `codex` to inherit that CLI's current model
-and effort for audit and rebuttal, bypassing the runner's audit pins. It also takes the capability
-tag a commit subject spells: `a` or `o` for the assistant, then an optional `b` or `t` for the model
-tier and an optional `l`, `m`, `h` or `x` for the reasoning effort. A named field binds the auditor
-and its rebuttal, because the rebuttal resumes the audit session. Other fields follow
-[the runner settings](tools/audit-round/CLAUDE.md#model-settings), where `null` inherits the
-assistant CLI's own setting. That file also owns the default auditor, model tier mappings and
-document assistants. The run's settings header names what set each phase.
-`pnpm audit-round brief <target-round-1-round.tag.md>` writes that brief for an earlier round. The
-shared file-name grammar and writer-tag rules live in
-[the round protocol](.agents/references/round-protocol.md). Manual vet, rebuttal and fix invocations
-resolve paths through shared code. They select the sole eligible audit report when none is named. A
-manual round brief does the same for its transcript. `pnpm audit-round <commit> [<commit>...]` or
-`pnpm audit-round <from>..<to>` audits named commits. References accept SHAs, `HEAD` and `HEAD-<n>`,
-where `HEAD-1` is the previous first-parent commit. Ranges include both endpoints. Commit audits run
-once, reject multiple auditor entries and finish without a trajectory glance or watch.
-`pnpm audit-round:contract [claude|codex|both]` records its live CLI contracts.
+`pnpm audit-round ../plan/example.md 3` runs an implementation-audit round for
+the named plan and step from this checkout root. The
+[runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
+options, settings and outcomes. The
+[shared round protocol](.agents/references/round-protocol.md) owns file names
+and manual phase paths.
 
 - `fmt` — markdown formatting via rumdl
 - `fix` — markdown auto-fix + Biome auto-fix
@@ -388,23 +361,12 @@ grammar. The subject is the only home for plan identity and step numbers. Use
 the shared forms without restating them here. A commit unattached to a plan
 keeps this repo's ordinary severity-prefixed conventional subject.
 
-An implementation-audit round records each accepted finding in the repo whose files the finding
-concerns. The user's step range decides the repo set, which is the union of the hosting repos for
-its steps. Every round writes its report at the invoking root. A record lands only in a repo whose
-files took an accepted finding, so a both-repo round with findings in one repo lands one record. A
-clean round lands one clean record in the sole judged repo or at the invoking root when both repos
-were judged. The plan repo doctrine owns that keying under its shared implementation forms. The
-report opening names the judged repos and each repo's short HEAD at audit time. Its filename follows
-the shared round protocol. Each round record's subject carries the round's scope through the shared
-`impl-audit-<step scope>` form, with the scope `<n>`, `<a>-<b>` or `all`, and its capability tag
-names the assistant that audited; the plan repo owns that form and no `Audit:` body line repeats it.
-Each accepted code finding bullet opens with its uppercase tier and the finding's metadata tokens,
-`- [C] [area:<primary-id>] [growth:<labels>] [reach:<value>] [complexity:<value>] <prose>`, so a
-later round can read the round's findings, their suspected growth patterns and their reach and
-complexity ratings from the log alone. The fix workflow at
-`.agents/skills/fix/references/workflow.md` owns that format, the audit workflow at
-`.agents/skills/audit/references/workflow.md` owns the tokens' meaning, and the patterns and their
-numbering live in `../plan/GROWTH-PATTERNS.md`.
+For implementation-audit records, follow the plan repo's
+[Shared implementation forms](../plan/CLAUDE.md#shared-implementation-forms)
+for record placement, the
+[audit workflow](.agents/skills/audit/references/workflow.md) for finding
+metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#records)
+for record writing.
 
 A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu
 round commit. Its bullet starts with its tier and plan location before the
