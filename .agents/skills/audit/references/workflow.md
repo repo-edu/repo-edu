@@ -62,9 +62,11 @@ their planning rules stay in the plan repo. Implementation routes may supply loc
 Ordinary interactive invocations do not add a result line.
 
 Make the last line of the final response `PHASE RESULT: <JSON object>`.
-Keep it outside any code fence and out of the report or twin file. The report
-and its chat copy remain identical; append the result after the chat copy
-only. The object has exactly these fields:
+Keep it outside any code fence. Audit, vet and rebuttal supply their complete
+report or twin in the final response and write no file. The runner saves that
+text at the supplied path without the result line before the next phase reads
+it. The runner reads the result line but does not display it. The object has
+exactly these fields:
 
 - `status`: one of the three outcomes below.
 - `reason`: a short explanation for a failed phase. Use `null` otherwise.
@@ -81,9 +83,9 @@ tier from both repositories' commit logs.
 
 Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`; the
 reports may carry open items for the fix phase to present, and the brief retells them for the user.
-An audit finishes when its required evidence and report are complete and the report is written. A
-clean report also finishes. Write only the supplied report path, replacing it when it already
-exists. Reports from other rounds do not block the run.
+An audit finishes when its required evidence and final report are complete. A
+clean report also finishes. The runner replaces only the supplied output path.
+Reports from other rounds do not block the run.
 
 The audit's supplied path remains an input through the fix. Vet and rebuttal
 receive their complete input and output paths. After a clean audit the runner
@@ -152,7 +154,7 @@ plan correction.
 ## Round
 
 Run one read-only implementation-audit round. Judge only the repos in the
-round's repo set. Report in the order prescribed below, write the report file
+round's repo set. Report in the order prescribed below under [Report file](#report-file)
 and complete a clean outcome under [Clean completion](#clean-completion), or
 stop when there are findings.
 
@@ -581,15 +583,16 @@ that tag for the opening. Then name the plan file, its ready commit and the impl
 inspected. State the round's user-set scope: the whole plan, one step or one step range.
 Then report the coverage table with its coverage line. Then the
 `## Findings` field, including cross-repo findings in the same numbered list and block form. Then
-write the report to its file under [Report file](#report-file).
+deliver the report under [Report file](#report-file).
 
 ## Report file
 
-After presenting the report, write the same report to the supplied absolute
-path at the invoking root and say so. A hand-run audit uses the
-report path printed by `pnpm audit-round name`. The chat and file
-must not differ. The opening identifies the judged repos and their heads.
-Do not add an opening writer tag.
+An unattended audit returns the complete report under [Runner result](#runner-result);
+the runner saves it. A hand-run audit presents the report, writes the same text
+to its supplied path and says so. Without one, use the path printed by
+`pnpm audit-round name`. Its chat and file
+must not differ. The opening identifies the judged repos and their heads,
+without a writer tag.
 
 Anything the audit has to say about the judged code goes into the report or
 the round's handoff. Chat carries nothing about it that the file does not. A

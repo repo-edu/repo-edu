@@ -22,7 +22,7 @@ writing a `-4-rebut.<tag>.md` twin the fix workflow reads beside this one.
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
 ending. Report `finished` only after completing the required checks and
-writing every verdict to the `-3-vet.<tag>.md` twin; report completion. A verdict
+returning every verdict in the final response. The runner saves the twin. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
 that open item. The runner reads the twin to decide whether to skip the rebuttal.
 
@@ -34,7 +34,7 @@ belongs in `../plan` and stop. Continue only when the user explicitly says to.
 ## Report discovery
 
 Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
-resolution. Read the supplied report path and write the supplied vet path, in that argument order;
+resolution. The arguments name the report to read and the vet output, in that order;
 use the report's judged-repos opening for repo and head checks and its filename for the auditor's
 vendor letter.
 
@@ -173,10 +173,9 @@ must rule. Apply them to settled decisions too; replacing a decision alone
 does not require a ruling. The user directed the shared simplification rule
 on 2026-09-26.
 
-Write the verdicts to the supplied vet path and into chat.
-The twin is untracked and
-gitignored, so writing it keeps the vet's read-only rule intact; it is the
-one file the vet writes.
+Return the complete verdicts in the final response. When hand-run, also write
+the same text to the supplied vet path. The twin is untracked and gitignored,
+so that write keeps the vet's read-only rule intact.
 
 ## Cross-repo findings
 

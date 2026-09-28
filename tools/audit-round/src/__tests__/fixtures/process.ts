@@ -148,6 +148,8 @@ if (scenario.phases !== undefined) {
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
+  // A chained round changes who audits, so a phase may answer as either CLI.
+  scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
   const phaseArguments = JSON.parse(
     /^Phase arguments \(JSON array\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "[]",
   )
@@ -175,11 +177,35 @@ if (scenario.phases !== undefined) {
         selected.document.source === undefined
           ? selected.document.text
           : await readFile(selected.document.source, "utf8")
-      await writeFile(output, text)
+      if (["audit", "vet", "rebut"].includes(phase)) {
+        // Report assistants return text; only the runner writes their output.
+        const final = (value: string) =>
+          value
+            .trimEnd()
+            .endsWith('PHASE RESULT: {"status":"finished","reason":null}')
+            ? `${text.trimEnd()}\n${value.trimEnd().split("\n").at(-1)}`
+            : value
+        scenario.stream = scenario.stream
+          .trimEnd()
+          .split("\n")
+          .map((line: string) => {
+            const event = JSON.parse(line)
+            if (event.type === "result") event.result = final(event.result)
+            if (event.type === "assistant") {
+              for (const block of event.message.content)
+                if (block.type === "text") block.text = final(block.text)
+            }
+            if (
+              event.type === "item.completed" &&
+              event.item.type === "agent_message"
+            )
+              event.item.text = final(event.item.text)
+            return JSON.stringify(event)
+          })
+          .join("\n")
+      } else await writeFile(output, text)
     }
   }
-  // A chained round changes who audits, so a phase may answer as either CLI.
-  scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
 }
 
 for (const commit of scenario.commits ?? [])

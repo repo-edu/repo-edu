@@ -33,6 +33,49 @@ const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
 })
 
 for (const assistant of ["claude", "codex"] as const) {
+  test(`${assistant} saves only completed final report text and retains write failures`, async (t) => {
+    const f = await fixture(t)
+    const report = join(f.root, "audit.md")
+    await writeFile(
+      join(f.root, "rollout-test-session.jsonl"),
+      await recorded("codex-rollout.jsonl"),
+    )
+    const phase: PhaseInput<"audit"> = {
+      phase: "audit",
+      assistant,
+      model: unpinned,
+      ...testContext(f.root),
+      arguments: [report, "example.md"],
+      sessionId: null,
+    }
+    await writeFile(report, "Old report")
+    await f.configure({ stream: await phaseStream(assistant) })
+    const saved = await runAssistantPhase(phase, f.output, f.runtime)
+    assert.equal(saved.status, "finished")
+    assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+
+    await f.configure({
+      stream: await phaseStream(
+        assistant,
+        'Incomplete report\nPHASE RESULT: {"status":"failed","reason":"Missing input"}',
+      ),
+    })
+    const failed = await runAssistantPhase(phase, f.output, f.runtime)
+    assert.equal(failed.status, "failed")
+    assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+
+    await f.configure({ stream: await phaseStream(assistant) })
+    const unwritable = await runAssistantPhase(
+      { ...phase, arguments: [f.root, "example.md"] },
+      f.output,
+      f.runtime,
+    )
+    assert.equal(unwritable.status, "failed")
+    assert.equal(unwritable.sessionId, "test-session")
+    assert.equal(f.finishes.length, 2)
+    assert.equal(f.releases(), 3)
+  })
+
   test(`${assistant} accounts for recorded tool failures, split UTF-8 and final completion`, async (t) => {
     const f = await fixture(t)
     const usagePath = join(f.root, "rollout-test-session.jsonl")
@@ -288,7 +331,7 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
     {
       ...input("codex", f.root),
       phase: "rebut",
-      arguments: ["/report.md", "/vet.md", "/rebut.md"],
+      arguments: ["/report.md", "/vet.md", join(f.root, "rebut.md")],
       sessionId: "test-session",
     },
     f.output,

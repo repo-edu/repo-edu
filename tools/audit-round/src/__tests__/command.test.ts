@@ -475,10 +475,15 @@ for (const auditor of ["claude", "codex"] as const) {
         )
         const { log, markdown, transcript } = await f.records()
         for (const path of [f.report, f.vet, f.rebut]) {
-          if (ruling) assert.ok((await readFile(path, "utf8")).length > 0)
-          else await assert.rejects(readFile(path), { code: "ENOENT" })
+          if (ruling) {
+            const text = await readFile(path, "utf8")
+            assert.ok(text.length > 0)
+            assert.doesNotMatch(text, /PHASE RESULT:/)
+            assert.ok(markdown.includes(text.trimEnd()))
+          } else await assert.rejects(readFile(path), { code: "ENOENT" })
         }
         const visible = f.visible.join("\n")
+        assert.doesNotMatch(visible, /PHASE RESULT:/)
         assert.match(log, /\nStarted \d{4}-/)
         // A round that handed over has not proved its work landed, so it never glances.
         assert.equal(log.includes("[glance]"), !ruling)
@@ -491,9 +496,15 @@ for (const auditor of ["claude", "codex"] as const) {
         assert.match(log, /brief +codex +gpt-5\.6-terra low/)
         for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
           assert.ok(markdown.includes(`## ${phase} (`))
-          assert.ok(markdown.includes(`Complete ${phase} text.`))
-          assert.ok(visible.includes(`Complete ${phase} text.`))
-          assert.equal(log.includes(`Complete ${phase} text.`), false)
+          const text = {
+            audit: "Judged repos:",
+            vet: "1. [B] Revise",
+            rebut: "Written rebut",
+            fix: "Complete fix text.",
+          }[phase]
+          assert.ok(markdown.includes(text))
+          assert.ok(visible.includes(text))
+          assert.equal(log.includes(text), false)
         }
         // The brief retells the transcript, so the transcript never carries it.
         assert.equal(markdown.includes("## brief ("), false)
@@ -722,9 +733,7 @@ for (const target of ["log", "markdown"] as const) {
           [target]: (text: string) => {
             if (
               text.includes(
-                target === "log"
-                  ? "printf audit-round-probe"
-                  : "Complete audit text.",
+                target === "log" ? "printf audit-round-probe" : "Judged repos:",
               )
             )
               throw new Error(`Required ${target} write failed`)
@@ -1643,25 +1652,17 @@ test("discovery admits a checkout alias but refuses subdirectories and unrelated
 })
 
 for (const phase of ["audit", "vet"] as const) {
-  for (const missing of [false, true]) {
-    test(`a ${missing ? "missing" : "malformed"} ${phase} file fails with its recovery session`, async (t) => {
-      const f = await roundFixture(t)
-      const file =
-        phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
-      if (missing) {
-        f.phases[phase] = {
-          ...(f.phases[phase] as object),
-          document: undefined,
-        }
-        await f.configure({ phases: f.phases })
-      } else await writeFile(file, "Malformed evidence")
-      assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
-      const { log } = await f.records()
-      assert.ok(log.includes(`[${phase}] failed:`))
-      assert.ok(log.includes(`${phase}-session`))
-      assert.doesNotMatch(log, /\[fix\] starting/)
-    })
-  }
+  test(`an invalid ${phase} response fails with its recovery session`, async (t) => {
+    const f = await roundFixture(t)
+    const file =
+      phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
+    await writeFile(file, "Malformed evidence")
+    assert.equal(await runCommand(["example.md"], f.runtime, f.options), 1)
+    const { log } = await f.records()
+    assert.ok(log.includes(`[${phase}] failed:`))
+    assert.ok(log.includes(`${phase}-session`))
+    assert.doesNotMatch(log, /\[fix\] starting/)
+  })
 }
 
 for (const phase of [

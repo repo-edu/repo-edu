@@ -23,6 +23,7 @@ import {
   roundPhases,
   transcribed,
 } from "./phase.js"
+import { withoutPhaseResult } from "./phase-result.js"
 import { recoveryCommand } from "./requests.js"
 import type { BriefResult, RoundResult, RoundSetup } from "./round.js"
 import {
@@ -374,7 +375,8 @@ export class RoundOutput<R extends Run = Run> {
           if (transcribed(active.input.phase)) {
             this.transcribe(`${feedback.text}\n`)
           }
-          terminal?.write(feedback.text.trimEnd(), "markdown")
+          const text = withoutPhaseResult(feedback.text)
+          if (text.length > 0) terminal?.write(text, "markdown")
         }
         break
       case "diagnostic":

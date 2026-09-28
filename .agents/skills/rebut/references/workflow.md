@@ -21,12 +21,12 @@ the report and its vet twin straight to the fix, which the user directed on 2026
 starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
-a tracked file. The `-4-rebut.<tag>.md` twin is the one file it writes.
+a tracked file. Only a hand-run rebuttal writes its `-4-rebut.<tag>.md` twin.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
-`finished` only after grounding and answering the verdicts that need an answer and writing those
-answers to the `-4-rebut.<tag>.md` twin at its supplied path. Contested verdicts and items for the
+`finished` only after grounding and returning the required answers in the final
+response. The runner saves the twin at its supplied path. Contested verdicts and items for the
 user's ruling still complete the rebuttal: the fix phase presents them.
 
 This procedure also serves reports stored at the plan repo root. The plan
@@ -36,8 +36,8 @@ substitutions: that repo's report root and finding metadata.
 ## Report discovery
 
 Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
-resolution. Read the supplied report and vet paths and write the supplied rebuttal path, in that
-argument order; read the judged repos and audited heads from the report opening and the auditor's
+resolution. The arguments name the report and vet to read and the rebuttal output,
+in that order; read the judged repos and audited heads from the report opening and the auditor's
 vendor letter from its filename.
 
 A hand-run invocation may omit the audit report. Resolve the report, vet input
@@ -101,10 +101,10 @@ few short sentences. Every answer is one of three kinds.
 
 ## Rebuttal file
 
-Write the answers to the supplied rebuttal path and into the chat, without a
-grouped closing list. When no verdict needs an answer, state that once.
-The chat and the file must not differ. The twin is untracked and gitignored,
-so writing it keeps the rebuttal read-only.
+Return the complete answers in the final response, without a grouped closing
+list. When no verdict needs an answer, state that once. When hand-run, also
+write the same text to the supplied rebuttal path. The twin is untracked and
+gitignored, so that write keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
 and `$fix` for Codex, in a fresh Codex session.

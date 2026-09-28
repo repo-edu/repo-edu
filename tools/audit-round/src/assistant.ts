@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises"
 import { decodeClaude } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
@@ -10,7 +11,7 @@ import type {
   RoundDependencies,
   SessionContext,
 } from "./phase.js"
-import { phaseResult } from "./phase-result.js"
+import { phaseResult, withoutPhaseResult } from "./phase-result.js"
 import { phasePrompt, phaseRequest } from "./requests.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
@@ -103,6 +104,18 @@ export async function runAssistantInvocation(
         )
       await usage?.read(sessionId, observe, true)
       const result = phaseResult(input.phase, sessionId, finalText, context)
+      if (result.status === "finished") {
+        const report =
+          input.phase === "audit"
+            ? input.arguments[0]
+            : input.phase === "vet"
+              ? input.arguments[1]
+              : input.phase === "rebut"
+                ? input.arguments[2]
+                : null
+        if (report !== null)
+          await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
+      }
       await output.finish(result)
       return result
     } finally {
