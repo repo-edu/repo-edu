@@ -8,6 +8,14 @@ repository.
 Plans and design documents live in the sibling `../plan` repository, never in
 this repo.
 
+The [tooling design document](../plan/notes/tooling-design.md) explains how the
+planning and audit tooling fits together and why. The
+[tooling user guide](../plan/notes/tooling-guide.md) explains which commands to
+use and which decisions are the user's. Both are mirrors of the AI spec in the
+doctrine, workflows, launchers and runner; that spec wins where they disagree.
+Keep them in sync: a step that changes a workflow, launcher, shared reference
+or runner option updates the affected mirror text in the same step.
+
 Areas are stable IDs in
 `tools/architecture-check/src/area-model.json`. Attribute touched tracked source
 files to their primary area ID. Cover area IDs are context for cross-cutting
