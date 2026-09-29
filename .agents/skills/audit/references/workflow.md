@@ -43,8 +43,7 @@ An audit with findings ends at its report file. An audit without findings follow
 `.agents/skills/rebut/references/workflow.md`. Everything from the user's ruling through applying
 corrections and landing records belongs to the fix workflow at
 `.agents/skills/fix/references/workflow.md`. When that fix stops for a ruling, the document the user
-rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`. The fix
-starts in a fresh session from the report file. See [Fix guard](#fix-guard).
+rules from is written in that fix session under `.agents/skills/fix/references/ruling.md`.
 
 ## Runner result
 
@@ -170,26 +169,6 @@ Edu.
 A finding deferred from a Repo Edu-only round to the plan repo uses the same
 report block below, with `[plan:...]` in place of `[area:...]` on its opening
 token line. The fix carries that location into the round commit.
-
-## Fix guard
-
-An audit with no findings follows [Clean completion](#clean-completion) and
-needs no fix session. An audit with findings is read-only and ends at its report
-file. The automated rebuttal starts in a fresh session on the audit's model and
-effort. A hand-run answer to the `-3-vet.<tag>.md` twin may run here through
-the rebuttal launcher, `/rebut` for Claude and `$rebut` for Codex, while this
-session still holds the round. The rebuttal fixes nothing. When this session is asked
-to answer the twin without that launcher, discuss the findings for a ruling,
-apply a correction, land a record or delete the report, do not do it. Say
-that a hand-run rebuttal uses `/rebut` or `$rebut` and that the fix
-phase runs through the fix launcher, `/fix` or `$fix`, in a fresh Codex
-session. Name the report file they start from and stop.
-Continue only when the user explicitly says to.
-
-The reason is context: a session that has read a whole step range and then
-fixes in the same context grows past the point where the fixes are made well.
-The user directed the split on 2026-09-09; this origin note stands in place
-of a case.
 
 ## Evidence
 

@@ -7,11 +7,11 @@ work that no plan covers.
 This file supplies what a plan supplies in an ordinary round: the round's
 scope, the gate it passes, the baseline its findings are judged against, its
 coverage table, its report name, its record and its settlement. It replaces
-the **Ready gate**, **Round strategy**, **Coverage**, **Episode settlement**
-and **Report file** sections of `workflow.md`, and the plan reads in its
+the **Ready gate**, **Round strategy**, **Coverage** and **Episode settlement**
+sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written, including the
 tiers, the finding metadata tokens, the growth tags, the trade pricing, the
-round yield, the fix guard and the twins.
+round yield and the twins.
 
 The round's repo set is the repo the round runs in. The plan repo is read as a
 source of standing rules, never as a source of intent.
@@ -123,12 +123,12 @@ that ran and a plain `Judged repos: repo-edu@<sha>` line with this repo's short 
 commit references as typed, the resolved range with its short shas and the statement that no plan
 covers the work. Then the coverage table with its closing line, then the `## Findings` field.
 
-Write the report to the supplied absolute path at the invoking root under the shared
-[round protocol](../../../references/round-protocol.md), with the numbered audit kind and
-dot-separated writer tag. Keep the supplied path unchanged. Otherwise form the target from the typed
-commit references using the shared rule and allocate the round under `workflow.md`'s
-**Round allocation**. The opening carries the repo and audited head for vet, rebuttal and fix; the
-resolved range remains report content rather than a pair of filename shas.
+Deliver the report under `workflow.md`'s **Report file** rule. Use the supplied absolute path at the
+invoking root under the shared [round protocol](../../../references/round-protocol.md), with the
+numbered audit kind and dot-separated writer tag. Keep the supplied path unchanged. Otherwise form
+the target from the typed commit references using the shared rule and allocate the round under
+`workflow.md`'s **Round allocation**. The opening carries the repo and audited head for vet,
+rebuttal and fix; the resolved range remains report content rather than a pair of filename shas.
 
 ## Record
 

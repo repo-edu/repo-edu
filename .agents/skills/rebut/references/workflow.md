@@ -14,8 +14,7 @@ reply may use the audit session while it still holds the round. In either route,
 what this workflow reads now under **Grounding** below. The fix workflow at
 `.agents/skills/fix/references/workflow.md` then reads
 all three files. The user directed this chain on 2026-09-09 to give the fix phase both assistants'
-views. On 2026-09-11 the user directed Codex to run the fix in a fresh session, with the audit
-report and both twins as its brief. Under the runner the rebuttal runs only when the vet's verdicts
+views. Under the runner the rebuttal runs only when the vet's verdicts
 leave the auditor something to answer: a vet that accepted every finding without a condition sends
 the report and its vet twin straight to the fix, which the user directed on 2026-09-20 so the fix
 starts sooner.
@@ -107,6 +106,6 @@ write the same text to the supplied rebuttal path. The twin is untracked and
 gitignored, so that write keeps the rebuttal read-only.
 
 Then stop. The fix phase runs through the fix launcher, `/fix` for Claude
-and `$fix` for Codex, in a fresh Codex session.
+and `$fix` for Codex.
 The audit report and both twins are its brief. The runner closes that set after
 a finished fix; a hand-run fix uses `pnpm audit-round close`. This workflow deletes nothing.

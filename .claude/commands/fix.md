@@ -1,5 +1,5 @@
 ---
-description: Run the fix phase of an implementation-audit round from its report file in a fresh context, reconciling the vet, applying the accepted corrections and landing the records.
+description: Run the fix phase of an implementation-audit round from its report file, reconciling the vet, applying the accepted corrections and landing the records.
 argument-hint: [report-file] [vet-file] [rebut-file]
 disable-model-invocation: true
 ---

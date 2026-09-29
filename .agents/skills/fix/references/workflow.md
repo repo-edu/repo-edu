@@ -12,24 +12,17 @@ and writes its report to the repo root. An audit with findings stops there.
 This workflow starts from that
 report: it reads the report, its vet twin and its rebuttal twin, presents
 the outcome for the user's ruling, applies the accepted corrections, lands
-the round's records. The split exists
-because a round that reads a whole step range and then fixes in the same
-context grows past the point where the fixes are made well. The user directed
-it on 2026-09-09.
+the round's records.
 
-The fix phase always starts in a fresh session. After a rebuttal Codex runs
-it, using the audit report and both twins as its brief. An audit with no findings
+An audit with no findings
 completes directly under the audit workflow and never enters this workflow.
 After a vet that accepted every finding without a
 condition the runner skips the rebuttal, so the fix reads the report and its
 vet twin alone.
-The user directed this on 2026-09-11 after a fix resumed a vet session at 64%
-context usage and compacted during implementation. Starting fresh gives the
-fix its own context and removes the capacity judgement and restart path.
 
 When unattended, follow the audit workflow's
 [Runner result](../../audit/references/workflow.md#runner-result) for every
-ending. The runner starts one fresh fix session in Codex.
+ending.
 When the fix needs a ruling, it writes the final document in this session under
 [Writing a ruling](ruling.md). The runner displays that document directly
 and collects the user's reply. It resumes the same fix session in the background
