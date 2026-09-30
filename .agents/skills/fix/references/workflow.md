@@ -40,8 +40,7 @@ with that reply. Questions may leave a decision open; return `needs-ruling`
 again until the user resolves it. The runner keeps the internal prompt out of
 the terminal. It writes and displays the brief only after the full fix has completed.
 
-Follow the `CLAUDE.md` of every repo a fix touches. Plan-repo findings use
-`[section:]`; only findings deferred to Repo Edu use `[area:]` there.
+Follow the `CLAUDE.md` of every repo a fix touches.
 
 ## Report discovery
 
@@ -132,10 +131,8 @@ record carries neither.
 The hook derives the severity sequence, its case and its `!` from the graded
 bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 
-A finding deferred from a Repo Edu-only round to the plan repo uses the shared
-[Finding metadata](../../../references/round-protocol.md#finding-metadata) for its bullet form
-and this repo's `CLAUDE.md` for record placement. A plan-repo
-round uses `[area:]` only for a finding deferred to Repo Edu. A clean record's subject
+For a finding deferred from a Repo Edu-only round to the plan repo, follow this
+repo's `CLAUDE.md` for record placement. A clean record's subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged
 both. This clean record follows reconciliation of an audit that reported findings. Audits that
 report no findings complete directly under the audit workflow and create no fix session.
