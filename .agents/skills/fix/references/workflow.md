@@ -61,13 +61,8 @@ they exist. Read the plan in `../plan` for the steps the report's scope names
 and for every **Decisions** entry a finding cites. When the plan is archived, read the
 `README.md` beside it first.
 
-Check each sha in the report opening against its repo's
-`git rev-parse --short HEAD`. When one differs, the tree has moved since the
-audit, so list what moved with `git diff --name-only <sha>..HEAD` in that
-repo. For a both-repo report run the check independently for Repo Edu and
-the plan repo. Land against HEAD either way. When a file a finding rests on
-has moved, read that file at HEAD and re-ground the finding against it. When
-the moved tree already resolved the defect, drop the finding and name the
+Follow [Head drift](../../../references/round-protocol.md#head-drift). When the
+moved tree already resolved the defect, drop the finding and name the
 resolving commit in the presentation.
 
 For every finding that stays, read the files it names at HEAD, the test that
@@ -109,12 +104,11 @@ working tree.
 
 ## Records
 
-Land at most one implementation-audit record per repo judged, and only in a repo whose files took an
-accepted finding. A both-repo round whose findings all concern one repo lands one record there and
-nothing in the other: a record without findings would say nothing the record with them does not, and
-the watch would read it as convergence evidence for files the round did not re-test. A clean round
-lands one clean record where the paragraph on clean rounds below says. Repo Edu records use the
-shared implementation-audit forms from `../plan/CLAUDE.md`. A Repo Edu round that accepts only
+Land records under the plan doctrine's
+[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms),
+which owns placement and its reasons. Land at most one record per judged repo
+whose files took an accepted finding, or one clean record when none remain.
+A Repo Edu round that accepts only
 findings deferred to a repo outside the round's repo set uses the shared empty severity form. The
 subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no
 `Audit:` body line repeats it. The capability tag follows that form and names the assistant that ran
@@ -141,13 +135,11 @@ bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 A finding deferred from a Repo Edu-only round to the plan repo uses the shared
 [Finding metadata](../../../references/round-protocol.md#finding-metadata) for its bullet form
 and this repo's `CLAUDE.md` for record placement. A plan-repo
-round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
-record, in the sole judged repo or in Repo Edu when both repos were judged. Its subject
+round uses `[area:]` only for a finding deferred to Repo Edu. A clean record's subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged
 both. This clean record follows reconciliation of an audit that reported findings. Audits that
-report no findings complete directly under the audit workflow and create no fix session. The user
-directed the single placement on 2026-09-21, after three plan-repo clean records stood for rounds
-whose fixes touched only Repo Edu. When the user declines the outcome in full, no commit lands
+report no findings complete directly under the audit workflow and create no fix session.
+When the user declines the outcome in full, no commit lands
 because disagreement is not a state. The logs show every confirmed round that ran, including clean
 rounds that would otherwise exist only in chat.
 

@@ -250,9 +250,15 @@ outcome. A hand-run audit completes it here, immediately after writing its repor
 starts a fix session, changes or consumes an existing handoff, or writes a new handoff. A
 commit-scoped audit lands no record and retains its report, under `commit-scope.md`.
 
-For a hand-run plan target, land one empty clean record in the sole judged repo
-or in Repo Edu when both repos were judged. Use the shared clean form
-from `../plan/CLAUDE.md`: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
+The user directed direct clean completion on 2026-09-23. The runner retains
+the report and uses only the audit's model record and capability tag for a
+plan target's clean record. An explicitly requested chain still follows its
+normal crossover rule, and an explicit watch remains available.
+
+For a hand-run plan target, land one empty clean record under the placement
+rule in
+[Shared implementation forms](../../../../../plan/CLAUDE.md#shared-implementation-forms).
+Use its clean form: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
 The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
 opening model line name this auditing session. Name the judged repo set in the
 subject's sentence when both repos were judged. A Repo Edu record closes with

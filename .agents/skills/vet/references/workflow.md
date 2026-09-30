@@ -48,14 +48,10 @@ for input and output resolution and the other-assistant requirement.
 
 Check two mismatches before vetting:
 
-- An audited sha in the opening differs from its repo's `git rev-parse --short HEAD`. The
-  tree has moved since the audit, so check what moved with
-  `git diff --name-only <sha>..HEAD` in that repo. For a both-repo report, run
-  this check independently for Repo Edu and the plan repo. Vet against HEAD
-  either way: verdicts about a tree nobody uses help nobody. Note the drift in
-  the verdicts. When a file a finding rests on has moved, ground the finding
-  against that file at HEAD. When the moved tree already resolved the defect,
-  the verdict is drop, naming the resolving commit.
+- An audited head differs from its repo's current head. Follow
+  [Head drift](../../../references/round-protocol.md#head-drift) and note the
+  changes in the verdicts. When the moved tree already resolved the defect,
+  drop the finding and name the resolving commit.
 - The target in the name differs from the plan and scope or typed commit
   references the report names inside. Apply the shared target rule, using
   the audited head for `HEAD`. One of the two is wrong, so refuse and ask.

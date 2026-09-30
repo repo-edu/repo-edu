@@ -456,36 +456,9 @@ An audit finishes when its required evidence and final report are complete. A
 clean report also finishes. The runner replaces only the supplied output path.
 Reports from other rounds do not block the run.
 
-The audit's supplied path remains an input through the fix. Vet and rebuttal
-receive their complete input and output paths. After a clean audit the runner
-completes the round directly. For a plan target it retains the report and lands
-one empty clean record in the sole judged repo or in Repo Edu when
-both repos were judged, using only the audit's model record and capability tag.
-Commit audits retain their report without a commit. This path starts no later
-session, brief, glance or watch and leaves existing handoffs untouched. The
-report retains the judged repo set and audited heads. The user directed this
-on 2026-09-23. An explicitly requested chain still follows its normal crossover
-rule, and an explicit watch remains available.
-After a vet that accepted every finding the
-rebuttal does not run, so the fix reads the report with its vet twin alone.
-Launcher ownership is defined by the phase table in
-`tools/audit-round/src/phase.ts`, independently of report placement.
-All round files live at the plan repo root. The brief receives the transcript
-and its output path. The fix receives the ruling output path separately from
-its report arguments. It writes the final ruling and checks it for clarity
-before returning `needs-ruling`. The runner checks and displays that file directly.
-Only after the full fix has completed does the runner write the brief and append its saved
-contents to the terminal output. No separate ruling session runs.
-
-The two watch passes follow a round with audit findings that finished, and take neither the
-report nor the transcript. The watch reads the commit record and never the
-round, so the runner gives the watch pass only the file to write and the cache
-root, and the watch edit only the draft as file arguments. Only the writer's prompt
-receives joined Git evidence for the audited plan, computed after the fix and
-only when due. The editor improves the wording while preserving the draft's claims
-and judgements. They run only when the runner's own
-glance at the commit record found the watch due; that glance is code in
-`tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
+A clean audit completes directly without later phases. A vet that accepts
+every finding without conditions skips the rebuttal. A ruling resumes the same
+fix session. [Later files](#later-files) owns the supplied paths.
 
 Required work still blocked by a permission refusal or another error means
 `failed`, even when the assistant can end its turn normally or a partial
@@ -664,6 +637,21 @@ growth pattern, including work no listed pattern matches. The tokens rate
 facts rather than worth: a round that scored its own proposed correction
 would be grading its own work.
 
+## Head drift
+
+Vet, rebuttal and fix compare each audited head in the report opening with
+`git rev-parse --short HEAD` in that repo. Check each repo independently when
+the report judges both repos. When a head differs, list the changed files with
+`git diff --name-only <sha>..HEAD` in that repo. Inspect the intervening diff
+for the artifact and every source a finding or verdict relies on, then ground
+the answer or correction against those files at HEAD.
+
+Judge against HEAD even when the tree has moved. A quote mismatch explained
+by that diff is a claim about earlier text, not a grounding failure. Each
+phase owns its response when the current text changes or resolves a finding.
+The user directed judging against HEAD on 2026-08-23; this origin note stands
+in place of a case.
+
 ## Vet checks
 
 Resolve the vet's input and output under [Manual phases](#manual-phases), using
@@ -707,11 +695,8 @@ gitignored, so that write keeps the vet's read-only rule intact.
 
 ## Rebuttal grounding
 
-Read the report end to end, then the supplied vet twin. Check each sha in the
-report opening against its repo's `git rev-parse --short HEAD`, and when one
-differs list what moved with `git diff --name-only <sha>..HEAD` in that
-repo. Answer against HEAD either way, and say where a moved file changes an
-answer.
+Read the report end to end, then the supplied vet twin. Follow
+[Head drift](#head-drift) and say where a moved file changes an answer.
 
 Carry unconditional accepts forward without fresh source reads or individual
 answers. For revisions, drops, conditional accepts and ruling items, read the
