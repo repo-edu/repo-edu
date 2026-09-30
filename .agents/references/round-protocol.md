@@ -895,8 +895,8 @@ State the simplest
 mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
 costs to build and own, what it gives the user over that mechanism and whether a
 boundary entry or recorded user decision settles the choice. Deletion or doing
-nothing counts when either is enough. Name the standing rule, state or owner
-concern rather than repeating the complexity token.
+nothing counts when either is enough. Name the concrete obligations and their
+interactions rather than repeating the complexity token.
 
 Keep this in the finding's explanation; a separate `Trade:` block is optional.
 When the correction is itself the simplest mechanism, one sentence saying so
@@ -911,3 +911,15 @@ whether a mechanism works; only a boundary entry or recorded user decision
 settles a real choice about whether machinery is worth its cost. This preserves
 the anchor-rule protection in `../plan/GROWTH-PATTERNS.md`. An unresolved choice
 goes to the user under [Reconciliation](#reconciliation).
+
+This rule's case: it applies when an A- to C-tier finding meets all three
+trigger conditions above. Most plan findings sit at the floor values. The plan
+log shows one to five firings per episode. Without the rule the tags flag a
+trade nobody prices. At plan commit `9fcfbbe`, a finding carrying all three risk
+tokens added outside-work check machinery to a plan. The audit and vet both
+passed it without pricing the trade. Plan commit `e4887e3` spent a full round
+undoing it. Accepting that outcome was rejected because each undo round costs
+more than the trade explanation. The tokens already carry the signal; the rule
+makes it actionable when it fires. Each firing charges a short trade
+explanation and a vet check. A real unresolved choice also needs the user's
+ruling. Findings at floor values pay nothing.
