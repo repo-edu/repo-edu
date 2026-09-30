@@ -45,9 +45,11 @@ export const recorded = async (name: string) =>
 export const finishedText =
   'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'
 
-export async function writePhaseInstructions(...roots: string[]) {
-  for (const root of roots) {
-    await mkdir(join(root, "home/claude/commands"), { recursive: true })
+export async function writePhaseInstructions(
+  repoEduRoot: string,
+  planRoot: string,
+) {
+  for (const root of [repoEduRoot, planRoot]) {
     for (const phase of [
       "audit",
       "vet",
@@ -59,25 +61,25 @@ export async function writePhaseInstructions(...roots: string[]) {
     ]) {
       const skill = join(root, ".agents/skills", phase)
       await mkdir(join(skill, "references"), { recursive: true })
-      const home = ["audit", "vet", "rebut", "fix"].includes(phase)
-      if (home) {
-        const launcherSkill = join(root, "home/agents/skills", phase)
-        await mkdir(launcherSkill, { recursive: true })
-        await writeFile(
-          join(launcherSkill, "SKILL.md"),
-          `Codex ${phase} launcher\n`,
-        )
-        await writeFile(
-          join(root, "home/claude/commands", `${phase}.md`),
-          `Claude ${phase} launcher\n`,
-        )
-      }
       if (phase !== "watch-edit")
         await writeFile(
           join(skill, "references/workflow.md"),
           `---\nreads: []\n---\n\n${phase} workflow\n`,
         )
     }
+  }
+  await mkdir(join(planRoot, "home/claude/commands"), { recursive: true })
+  for (const phase of ["audit", "vet", "rebut", "fix"]) {
+    const launcherSkill = join(planRoot, "home/agents/skills", phase)
+    await mkdir(launcherSkill, { recursive: true })
+    await writeFile(
+      join(launcherSkill, "SKILL.md"),
+      `Codex ${phase} launcher\n`,
+    )
+    await writeFile(
+      join(planRoot, "home/claude/commands", `${phase}.md`),
+      `Claude ${phase} launcher\n`,
+    )
   }
 }
 

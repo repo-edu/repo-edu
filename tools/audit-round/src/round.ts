@@ -97,7 +97,7 @@ async function reportPhase<R extends PhaseResult>(
 
 /**
  * The brief reads only the transcript, so it runs the same way after a round
- * and on its own over an earlier transcript. Its launcher always belongs to
+ * and on its own over an earlier transcript. Its workflow always belongs to
  * the Repo Edu root; output belongs beside the transcript at the plan root.
  */
 export async function runBrief(
