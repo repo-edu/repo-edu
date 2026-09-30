@@ -117,6 +117,10 @@ the fix writer's tag. A resumed fix receives the same path and the user's reply.
 
 ## Manual phases
 
+The `name`, `paths` and `close` commands can start from either checkout.
+Round files remain at the plan repo root. Planning sessions work in the plan
+checkout; implementation and commit sessions work in Repo Edu.
+
 A manual invocation may name the audit report.
 If the current conversation identifies that input unambiguously, use it.
 Otherwise omit the input when calling `paths` below. The command searches only
@@ -188,7 +192,7 @@ without a launcher.
 The runner deletes the audit, vet and rebuttal reports as soon as a fix returns
 `finished`. Other outcomes retain them. After a hand-run fix lands its records
 or a hand-run audit lands its direct clean record,
-`pnpm audit-round close <target>-<round>` at the report's root deletes those
+`pnpm audit-round close <target>-<round>` deletes those
 same numbered report kinds for that exact round, regardless of writer tag.
 Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
 

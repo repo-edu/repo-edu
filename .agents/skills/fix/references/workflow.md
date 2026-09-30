@@ -161,7 +161,8 @@ round's file set still asks.
 
 An unattended fix deletes no round files. The runner closes the report set
 when the fix returns `finished`. After a hand-run fix lands its records, run
-`pnpm audit-round close <target>-<round>` at the report's root. Use the exact
+`pnpm audit-round close <target>-<round>` under
+[Closing reports](../../../references/round-protocol.md#closing-reports). Use the exact
 target and round from the report filename. A fix resumed by the runner after a
 ruling remains unattended; the runner closes its report set after `finished`.
 

@@ -264,8 +264,9 @@ opening model line name this auditing session. Name the judged repo set in the
 subject's sentence when both repos were judged. A Repo Edu record closes with
 both **Round yield** lines at zero; a plan-repo record carries neither. The
 standing clean-record rule grants this empty commit without separate permission.
-After the record lands, run `pnpm audit-round close <target>-<round>` at the
-report's root with the target and round from its filename, then stop. A clean
+After the record lands, run `pnpm audit-round close <target>-<round>` under
+[Closing reports](../../../references/round-protocol.md#closing-reports),
+with the target and round from its filename, then stop. A clean
 record reached after vetting or discussion stays with the fix workflow and its
 ordinary completion rules.
 
