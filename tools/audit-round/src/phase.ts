@@ -256,7 +256,7 @@ type PhaseArguments = {
   }
   rebut: {
     readonly arguments: readonly [report: string, vet: string, rebut: string]
-    readonly sessionId: string | null
+    readonly sessionId: null
   }
   fix: {
     readonly arguments: readonly [report: string, ...twins: string[]]
@@ -310,8 +310,6 @@ export type SessionContext = {
 type ReportResult = {
   readonly status: "finished"
   readonly sessionId: string
-  /** The session's last context measurement, also shown by the terminal display. */
-  readonly context: SessionContext | null
 }
 
 type FixResult = {

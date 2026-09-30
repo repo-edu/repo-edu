@@ -140,10 +140,10 @@ consumers.
   refuses a single-model record whose effort disagrees with the tag. `commit-msg-main.ts` is the
   entry both repositories' hooks run, `<repo-edu|plan> <message file>`; a refusal names the grammar
   file.
-- `assistant.ts` owns one invocation's session identity, final text, completion evidence and last
-  context measurement. After validating completion, it saves audit, vet and rebuttal reports
+- `assistant.ts` owns one invocation's session identity, final text and completion evidence.
+  After validating completion, it saves audit, vet and rebuttal reports
   from the final text without the result line. A failed write fails the phase before progression.
-  One observer keeps that measurement while forwarding feedback to the terminal display.
+  Context measurements pass directly to the terminal display's observer.
   Claude and Codex decoders validate the fields they consume.
   `cli-process.ts` owns the child's environment and stops the child before unwinding a failed line
   consumer, because Execa's iterator return awaits the child. It then awaits all readers and the

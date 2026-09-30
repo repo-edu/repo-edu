@@ -97,33 +97,27 @@ function controlledRound(
     audit: {
       status: "finished",
       sessionId: "audit-session",
-      context: null,
     },
     vet: {
       status: "finished",
       sessionId: "vet-session",
-      context: null,
     },
     rebut: {
       status: "finished",
       sessionId: "rebut-session",
-      context: null,
     },
     fix: { status: "finished", sessionId: "fix-session" },
     brief: {
       status: "finished",
       sessionId: "brief-session",
-      context: null,
     },
     "watch-edit": {
       status: "finished",
       sessionId: "watch-edit-session",
-      context: null,
     },
     watch: {
       status: "finished",
       sessionId: "watch-session",
-      context: null,
     },
   }
   async function record(input: PhaseInput) {
@@ -933,32 +927,20 @@ for (const operation of ["requestRuling"] as const) {
   })
 }
 
-test("the rebuttal starts fresh for either auditor regardless of its context measurement", async () => {
+test("the rebuttal starts fresh for either auditor with the audit selection", async () => {
   for (const auditor of ["claude", "codex"] as const) {
-    for (const context of [
-      null,
-      { tokens: 900_000, window: null },
-      { tokens: 100_000, window: 258_000 },
-      { tokens: 228_000, window: 258_000 },
-    ]) {
-      const round = controlledRound()
-      round.results.audit = {
-        status: "finished",
-        sessionId: "audit-session",
-        context,
-      }
+    const round = controlledRound()
 
-      const result = await runRound(
-        { ...files, plan: "example.md", auditor },
-        round.dependencies,
-      )
+    const result = await runRound(
+      { ...files, plan: "example.md", auditor },
+      round.dependencies,
+    )
 
-      assert.equal(result.status, "finished")
-      assert.equal(round.calls[2].phase, "rebut")
-      assert.equal(round.calls[2].sessionId, null)
-      assert.equal(round.calls[2].assistant, auditor)
-      assert.deepEqual(round.calls[2].model, round.calls[0].model)
-    }
+    assert.equal(result.status, "finished")
+    assert.equal(round.calls[2].phase, "rebut")
+    assert.equal(round.calls[2].sessionId, null)
+    assert.equal(round.calls[2].assistant, auditor)
+    assert.deepEqual(round.calls[2].model, round.calls[0].model)
   }
 })
 
@@ -969,7 +951,6 @@ for (const auditor of ["claude", "codex"] as const) {
     round.results.audit = {
       status: "finished",
       sessionId: "audit-session",
-      context: null,
     }
 
     round.evidence.findings = []
@@ -1029,7 +1010,6 @@ for (const auditor of ["claude", "codex"] as const) {
     round.results.vet = {
       status: "finished",
       sessionId: "vet-session",
-      context: null,
     }
     round.results.fix = {
       status: "finished",

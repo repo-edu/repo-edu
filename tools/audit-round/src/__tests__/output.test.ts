@@ -208,7 +208,6 @@ test("output records complete invocations incrementally and refreshes only while
   await output.phase.finish({
     status: "finished",
     sessionId: "audit",
-    context: null,
   })
   output.phase.release()
   const count = status.length
@@ -263,8 +262,10 @@ test("written status stamps chain into the running total", async (t) => {
   assert.match(stamp(), /context\s+37\.0k\s+89k\s+34%/)
   await output.phase.start(
     {
-      phase: "rebut",
+      phase: "fix",
       arguments: ["/report.md", "/vet.md", "/rebut.md"],
+      rulingFile: "/ruling.md",
+      rulingReply: "Apply the corrections.",
       assistant: "codex",
       model: unpinned,
       ...testContext(f.root),

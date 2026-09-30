@@ -11,7 +11,7 @@ const terminal = { write: () => {}, status: () => {}, clear: () => {} }
 
 test("the contract prompt requests a valid finished phase result", () => {
   const result = contractPrompt.slice(contractPrompt.indexOf("PHASE RESULT: "))
-  assert.deepEqual(phaseResult("fix", "probe-session", result, null), {
+  assert.deepEqual(phaseResult("fix", "probe-session", result), {
     status: "finished",
     sessionId: "probe-session",
   })

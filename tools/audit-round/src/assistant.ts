@@ -3,13 +3,12 @@ import { decodeClaude } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { decodeCodex } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
-import { errorMessage, type Feedback, type PhaseOutput } from "./feedback.js"
+import { errorMessage, type PhaseOutput } from "./feedback.js"
 import type {
   Phase,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
-  SessionContext,
 } from "./phase.js"
 import { phaseResult, withoutPhaseResult } from "./phase-result.js"
 import { phasePrompt, phaseRequest } from "./requests.js"
@@ -47,13 +46,7 @@ export async function runAssistantInvocation(
   let sessionId = input.sessionId
   let finalText: string | undefined
   let completed = false
-  let context: SessionContext | null = null
-  /** Retain the last measurement while forwarding context updates to the display. */
-  const observe = async (feedback: Feedback): Promise<void> => {
-    if (feedback.type === "context")
-      context = { tokens: feedback.tokens, window: feedback.window }
-    await output.observe(feedback)
-  }
+  const observe = output.observe
   const usage =
     input.assistant === "codex"
       ? new CodexSessionReader(codexSessionsRoot(runtime))
@@ -103,7 +96,7 @@ export async function runAssistantInvocation(
           "CLI ended without a completed turn, session identity or final text",
         )
       await usage?.read(sessionId, observe, true)
-      const result = phaseResult(input.phase, sessionId, finalText, context)
+      const result = phaseResult(input.phase, sessionId, finalText)
       if (result.status === "finished") {
         const report =
           input.phase === "audit"

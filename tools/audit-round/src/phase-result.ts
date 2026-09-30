@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { Phase, PhaseResult, SessionContext } from "./phase.js"
+import type { Phase, PhaseResult } from "./phase.js"
 
 const prefix = "PHASE RESULT: "
 
@@ -19,7 +19,6 @@ export function phaseResult<P extends Phase>(
   phase: P,
   sessionId: string,
   text: string,
-  context: SessionContext | null,
 ): PhaseResult<P> {
   const line = text.trimEnd().split("\n").at(-1) ?? ""
   if (!line.startsWith(prefix))
@@ -41,6 +40,5 @@ export function phaseResult<P extends Phase>(
   return {
     status: "finished",
     sessionId,
-    context,
   } as PhaseResult<P>
 }

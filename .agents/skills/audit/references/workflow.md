@@ -9,8 +9,9 @@ apart. Where a launcher and this file disagree, this file is right.
 Read the shared [round protocol](../../../references/round-protocol.md) for
 file names, writer tags, evidence rules, finding shape, yield, rating tokens and runner results.
 Read the whole reference. In a runner-started audit, the first argument is
-the absolute report path to write. Read the remaining arguments as the audit
-scope. Do not allocate or claim again. A hand-run audit follows
+the absolute path where the runner saves the report. Deliver the report under
+[Report file](#report-file) and read the remaining arguments as the audit scope.
+Do not allocate or claim again. A hand-run audit follows
 [Round allocation](#round-allocation).
 
 Interpret the remaining invocation arguments as a plan file and an optional

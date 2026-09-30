@@ -22,25 +22,15 @@ for (const phase of [
     const text = (value: unknown) =>
       `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
     for (const ending of ["", "\n", "\r\n", " \t\n\n"])
-      assert.deepEqual(
-        phaseResult(phase, "session", text(finished) + ending, {
-          tokens: 10,
-          window: 100,
-        }),
-        phase === "fix"
-          ? { status: "finished", sessionId: "session" }
-          : {
-              status: "finished",
-              sessionId: "session",
-              context: { tokens: 10, window: 100 },
-            },
-      )
+      assert.deepEqual(phaseResult(phase, "session", text(finished) + ending), {
+        status: "finished",
+        sessionId: "session",
+      })
     assert.deepEqual(
       phaseResult(
         phase,
         "session",
         text({ status: "failed", reason: "Blocked" }),
-        null,
       ),
       { status: "failed", sessionId: "session", reason: "Blocked" },
     )
@@ -49,7 +39,6 @@ for (const phase of [
         phase,
         "session",
         text({ status: "needs-ruling", reason: null }),
-        null,
       )
     if (phase === "fix")
       assert.deepEqual(ruling(), {
@@ -71,14 +60,14 @@ for (const phase of [
       { status: "failed", reason: " " },
       { status: "failed", file: "/file.md", reason: "blocked" },
     ])
-      assert.throws(() => phaseResult(phase, "session", text(value), null))
+      assert.throws(() => phaseResult(phase, "session", text(value)))
     for (const invalid of [
       "No result",
       "PHASE RESULT: {broken",
       `${text(finished)}\nExtra text`,
       `${text(finished)}\n\`\`\``,
     ])
-      assert.throws(() => phaseResult(phase, "session", invalid, null))
+      assert.throws(() => phaseResult(phase, "session", invalid))
   })
 }
 

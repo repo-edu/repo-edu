@@ -22,7 +22,10 @@ import {
   testContext,
 } from "./helpers.js"
 
-const input = (assistant: Assistant, cwd: string): PhaseInput<"fix"> => ({
+const input = (
+  assistant: Assistant,
+  cwd: string,
+): Extract<PhaseInput<"fix">, { sessionId: null }> => ({
   phase: "fix",
   rulingFile: "RULING.md",
   assistant,
@@ -203,9 +206,8 @@ for (const assistant of ["claude", "codex"] as const) {
     const result = await runAssistantPhase(
       {
         ...input(assistant, f.root),
-        phase: "rebut",
-        arguments: ["/report.md", "/vet.md", "/rebut.md"],
         sessionId: "prior-session",
+        rulingReply: "Apply the corrections.",
       },
       f.output,
       f.runtime,
@@ -259,15 +261,15 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
-test("fresh and resumed Codex requests carry large prompts only on stdin", () => {
+test("fresh and resumed Codex fix requests carry large prompts only on stdin", () => {
   const prompt = "Evidence: é\n".repeat(30_000)
-  for (const sessionId of [null, "audit-session"]) {
+  for (const sessionId of [null, "fix-session"]) {
     const request = phaseRequest(
       {
         ...input("codex", "/workspace/repo-edu"),
-        phase: "rebut",
-        arguments: ["report", "vet", "rebut"],
-        sessionId,
+        ...(sessionId === null
+          ? { sessionId }
+          : { sessionId, rulingReply: "Apply the corrections." }),
       },
       prompt,
     )
@@ -313,12 +315,13 @@ test("Claude completes a phase when its settings reply fails", async (t) => {
   )
 })
 
-test("Codex rebuttal excludes all pre-invocation usage and retains the new selection", async (t) => {
+test("Codex fix excludes all pre-invocation usage and retains the new selection", async (t) => {
   const f = await fixture(t)
   const path = join(f.root, "rollout-test-session.jsonl")
   await writeFile(
     path,
-    '{"type":"turn_context","payload":{"model":"old","effort":"low"}}\n',
+    '{"type":"turn_context","payload":{"model":"old","effort":"low"}}\n' +
+      '{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":999999},"model_context_window":1000000}}}\n',
   )
   await f.configure({
     stream: await phaseStream(
@@ -330,9 +333,8 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   const result = await runAssistantPhase(
     {
       ...input("codex", f.root),
-      phase: "rebut",
-      arguments: ["/report.md", "/vet.md", join(f.root, "rebut.md")],
       sessionId: "test-session",
+      rulingReply: "Apply the corrections.",
     },
     f.output,
     f.runtime,
@@ -340,9 +342,15 @@ test("Codex rebuttal excludes all pre-invocation usage and retains the new selec
   assert.deepEqual(result, {
     status: "finished",
     sessionId: "test-session",
-    // The recorded rollout's last measurement, which the round resumes on.
-    context: { tokens: 28_286, window: 258_400 },
   })
+  assert.deepEqual(
+    f.feedback.filter((event) => event.type === "context"),
+    [28065, 28180, 28286].map((tokens) => ({
+      type: "context",
+      tokens,
+      window: 258400,
+    })),
+  )
   assert.equal(f.feedback.filter((event) => event.type === "model").length, 1)
   assert.ok(
     f.feedback.some(

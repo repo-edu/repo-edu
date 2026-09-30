@@ -94,16 +94,19 @@ terminal. The run log begins with the selected models table.
 The runner names the report and every twin before the audit starts. It supplies
 these absolute paths in order:
 
-- audit: report to write, target, scope or commit references
-- vet: report to read, vet twin to write
-- rebut: report and vet twin to read, rebuttal twin to write
+- audit: path where the runner saves the report, target, scope or commit references
+- vet: report to read, path where the runner saves the vet twin
+- rebut: report and vet twin to read, path where the runner saves the rebuttal twin
 - fix: report, then the vet and rebuttal twins that exist
 - brief: transcript to read, brief to write
 - watch: watch to write, cache root
 - watch-edit: watch to replace
 
-Automated sessions write at the supplied output path without reconstructing a name or
-adding an opening writer tag. A standalone brief reuses the transcript's target
+The runner saves audit, vet and rebuttal outputs from each final response under
+[Runner result](#runner-result). Those sessions write no file. Only brief and watch
+sessions and the fix's ruling write directly to their supplied output paths.
+Use the supplied paths without reconstructing a name or adding an opening writer tag.
+A standalone brief reuses the transcript's target
 and round. Its document and log share `6-brief.<tag>`; the log is opened for
 overwrite without another claim. The round transcript and log share
 `1-round.<tag>`. The second watch pass replaces the supplied draft.
