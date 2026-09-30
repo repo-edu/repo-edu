@@ -166,7 +166,7 @@ for (const phase of [
   "watch",
   "watch-edit",
 ] as const) {
-  test(`planning ${phase} failure ends the chain in the invoking repository`, async (t) => {
+  test(`planning ${phase} failure ends the chain in the plan repository`, async (t) => {
     const f = await roundFixture(t, "codex", "plan", false, null, true, "plan")
     f.phases[phase] = { stream: "", exitCode: 7 }
     await f.configure({ phases: f.phases })
@@ -204,7 +204,7 @@ for (const working of ["repo-edu", "plan"] as const) {
         working,
       )
       // Deliberately different repository positions travel together, and the
-      // glance counts from the invoking repository's own head. Red is what
+      // glance counts from the round kind's repository head. Red is what
       // makes the watch due without a correction to count.
       const history = JSON.stringify({
         example: {
