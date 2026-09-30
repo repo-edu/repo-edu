@@ -287,7 +287,7 @@ directory.
 
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
-`../../.agents/skills/audit/references/workflow.md#runner-result` defines their
+`../../.agents/references/round-protocol.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads reports,
 vet twins and the fix's landed subjects for routing and completion checks. It also reads
 `HEAD` for naming and the log the glance counts; the audit workflow still

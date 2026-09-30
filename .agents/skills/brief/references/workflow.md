@@ -19,7 +19,7 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 ## Input
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
+Read the whole shared [round protocol](../../../references/round-protocol.md) for
 file names and writer tags. The invocation supplies the transcript to read
 and the brief to write, in that order. A manual `/brief` or `$brief` may omit
 the transcript. Resolve its input and output through `paths brief` under the
@@ -31,15 +31,12 @@ outside the shared grammar fails under the result rule when unattended.
 Resolve workflow references from Repo Edu. The transcript may belong to either
 root; use the supplied output path.
 
-Read the whole transcript. For the meaning of the rating tokens, read the
-audit workflow at `.agents/skills/audit/references/workflow.md` under
-**Growth tags** and **Reach and complexity**, and the pattern labels in
-`../plan/GROWTH-PATTERNS.md`. Read nothing else about the round: no code, no
-plan, no git history and no report or twin file. The brief retells what the
-round said and adds nothing the round did not say. When the transcript states
-something you believe is wrong, retell it as the round's claim; you have no
-evidence to correct it, and the round's own vet and rebuttal already checked
-it.
+Read the whole transcript, the whole shared round protocol for rating tokens and the whole
+`../plan/GROWTH-PATTERNS.md` for the pattern labels. Read nothing else about the round: no code, no
+plan, no git history and no report or twin file. The brief retells what the round said and adds
+nothing the round did not say. When the transcript states something you believe is wrong, retell it
+as the round's claim; you have no evidence to correct it, and the round's own vet and rebuttal
+already checked it.
 
 ## Output
 
@@ -124,8 +121,8 @@ what it holds.
 
 ## Runner result
 
-When the prompt identifies an unattended phase, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
+When the prompt identifies an unattended phase, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every ending. Report
 `finished` only after the brief is written, at its supplied path. A wrong or unreadable input is
 `failed`, with the reason. Never return `needs-ruling`: the brief presents a ruling, it never asks
 one.

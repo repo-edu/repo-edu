@@ -21,7 +21,7 @@ the plan checkout's `CLAUDE.md`, under the **AI in watch** role, the **Watch ste
 **Trajectory diagnostic**. Use the Repo Edu and plan checkout paths supplied
 in the phase prompt. Keep the invoking repository as the working directory;
 the launcher's Repo Edu location does not select the history to anchor. Read
-those three sections now and follow them.
+the whole file now and follow those rules.
 
 If the plan checkout's `CLAUDE.md` is absent, say so and fail: you are outside the
 repo-edu / plan workflow and cannot write a grounded watch.
@@ -63,7 +63,7 @@ No route reads or writes an episode file.
 
 ## Output
 
-Read the shared [round protocol](../../../references/round-protocol.md) for
+Read the whole shared [round protocol](../../../references/round-protocol.md) for
 file names and writer tags. The runner supplies a watch path carrying its
 chosen target and round with this phase's writer tag. Keep that path;
 allocate no round and read no transcript to derive it.
@@ -156,8 +156,8 @@ change list or a note about the draft: the file must read as the finished watch.
 ## Runner result
 
 When the prompt identifies an unattended round phase, follow the
-audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
+shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every
 ending. The writer reports `finished` only after both the watch file and the
 watch record are written at the supplied paths. The editor reports `finished`
 after replacing the draft and leaves the record alone. A missing required input

@@ -1,7 +1,6 @@
 # Plan implementation workflow
 
-Use `audit-round`'s plan and step-scope semantics, defined in the
-[implementation audit workflow](../../audit/references/workflow.md): a plan
+Use `audit-round`'s plan and step-scope semantics: a plan
 file with an optional step number or inclusive range, counted against its
 **Implementation plan**. No range selects all steps. When no plan is named,
 ask which plan to implement and wait.

@@ -1,7 +1,10 @@
 # Shared round protocol
 
-This reference owns the file-name grammar for rounds in Repo Edu and the
-sibling plan repo. Shared code owns round allocation and file naming for both entry routes.
+This reference owns the protocol shared by round phases in Repo Edu and the
+sibling plan repo: file names, runner results, evidence and rating rules,
+rebuttal answers and reconciliation. Read the whole file alongside the phase
+workflow. Rules labelled for implementation apply only to implementation rounds.
+Shared code owns round allocation and file naming for both entry routes.
 Read this file from the Repo Edu checkout; plan-repo workflows reach it at
 `../repo-edu/.agents/references/round-protocol.md`.
 
@@ -242,3 +245,427 @@ The hook inserts `C1` before `docs(audit)`. The fix workflows own record
 placement, deferrals and clean records reached through reconciliation.
 Audits with no findings complete under their audit workflow and never enter
 the fix workflow.
+
+## Runner result
+
+When the prompt identifies an unattended round phase, planning or implementation, follow this rule
+for every ending, including an early stop. It is shared by audit, vet, rebuttal, fix, brief and the
+two watch passes. Planning workflows read this whole reference from its Repo Edu home; their
+planning rules stay in the plan repo. Implementation routes may supply local substitutions. Ordinary
+interactive invocations do not add a result line.
+
+Make the last line of the final response `PHASE RESULT: <JSON object>`.
+Keep it outside any code fence. Audit, vet and rebuttal supply their complete
+report or twin in the final response and write no file. The runner saves that
+text at the supplied path without the result line before the next phase reads
+it. The runner reads the result line but does not display it. The object has
+exactly these fields:
+
+- `status`: one of the three outcomes below.
+- `reason`: a short explanation for a failed phase. Use `null` otherwise.
+
+The runner reads whether the audit is clean from the report, whether every
+finding was accepted unconditionally from the vet twin and the highest landed
+tier from both repositories' commit logs.
+
+| Status | Meaning | Runner action |
+| --- | --- | --- |
+| `finished` | The phase completed its required work. A fix landed its records and cleaned up its report and twins. A brief wrote its file beside the transcript. | Continue, or finish the run after the watch. |
+| `needs-ruling` | The fix phase wrote the final ruling for its open decisions. | Check and display the ruling file, collect the user's reply and resume the same fix in the background. Only a completed fix proceeds through the normal checks, brief and watch; stopping without a reply retains the round files. |
+| `failed` | The phase could not complete its required work. | Show the reason and stop. |
+
+Each phase judges its own outcome. Every phase but the fix uses only `finished` or `failed`; the
+reports may carry open items for the fix phase to present, and the brief retells them for the user.
+An audit finishes when its required evidence and final report are complete. A
+clean report also finishes. The runner replaces only the supplied output path.
+Reports from other rounds do not block the run.
+
+The audit's supplied path remains an input through the fix. Vet and rebuttal
+receive their complete input and output paths. After a clean audit the runner
+completes the round directly. For a plan target it retains the report and lands
+one empty clean record in the sole judged repo or at the invoking root when
+both repos were judged, using only the audit's model record and capability tag.
+Commit audits retain their report without a commit. This path starts no later
+session, brief, glance or watch and leaves existing handoffs untouched. The
+report retains the judged repo set and audited heads. The user directed this
+on 2026-09-23. An explicitly requested chain still follows its normal crossover
+rule, and an explicit watch remains available.
+After a vet that accepted every finding the
+rebuttal does not run, so the fix reads the report with its vet twin alone.
+Launcher ownership is defined by the phase table in
+`tools/audit-round/src/phase.ts`, independently of report placement.
+All round files live at the invoking root. The brief receives the transcript
+and its output path. The fix receives the ruling output path separately from
+its report arguments. It writes the final ruling and checks it for clarity
+before returning `needs-ruling`. The runner checks and displays that file directly.
+Only after the full fix has completed does the runner write the brief and append its saved
+contents to the terminal output. No separate ruling session runs.
+
+The two watch passes follow a round with audit findings that finished, and take neither the
+report nor the transcript. The watch reads the commit record and never the
+round, so the runner gives the watch pass only the file to write and the cache
+root, and the watch edit only the draft as file arguments. Only the writer's prompt
+receives joined Git evidence for the audited plan, computed after the fix and
+only when due. The editor improves the wording while preserving the draft's claims
+and judgements. They run only when the runner's own
+glance at the commit record found the watch due; that glance is code in
+`tools/audit-round/src/glance.ts`, not a session, and `--no-watch` skips it.
+
+Required work still blocked by a permission refusal or another error means
+`failed`, even when the assistant can end its turn normally or a partial
+report exists. A successful permitted retry counts as success when all
+required work is complete. Judge what remains blocked, not whether any tool
+call failed earlier. A missing input or unmet workflow gate also means
+`failed`; reserve `needs-ruling` for the fix workflow's open items. This rule
+grants no permission to bypass a gate or make the user's decision.
+
+The user directed explicit results and successful permitted retries on
+2026-09-10. Workflows own the phase outcome; the runner validates the report,
+vet twin and landed subjects without judging tool failures.
+
+## Completed commit metadata
+
+Plan and implementation audits exclude completed commits' metadata: kinds,
+scopes, capability tags, model records, severity, reach and complexity labels.
+This includes commits named as audit targets: naming one selects its code
+changes, not its metadata. Incorrect labels create no finding, correction,
+reporting, deferral or follow-up duty. The user accepts those errors because
+correcting them adds work without improving the code being judged.
+
+Keep targeted history reads for a decision's reason, a code defect's cause or
+a user's ruling. A behavioural claim that exposes a live defect still informs
+the code review. Instructions and checks for writing new records stay intact,
+as does the watch's use of old labels as evidence.
+
+Investigating recurring metadata errors requires a separate, explicitly
+authorised plan. It may improve the process for future records, never repair
+completed commits. It creates no prerequisite, interruption or other work for
+an unrelated plan or audit.
+
+## Judging deviations
+
+This is not a strict conformance audit. Where the implementation departed from
+the plan, judge the shipped code first. It must be correct and of the best
+quality the repo's standards allow. A departure that responds to a real error
+or imperfection in the plan is correct behaviour. Record it as deviated in the
+table, not as a finding, when the code is right. A missing departure reason is
+a finding only when it leaves a live instruction misleading or an important
+constraint unexplained. State that concrete maintenance problem and repair its
+live owner, without rewriting old commits. Read targeted history when intent
+matters. Code that faithfully followed a defective plan into a defect is still
+a finding. The standard is the shipped code, never fidelity for its own sake.
+Do not reopen decisions the plan settled. Question one only on correctness or
+quality evidence, never on taste.
+
+## Growth tags
+
+Every finding carries a growth tag naming the patterns in
+`../plan/GROWTH-PATTERNS.md` it could violate, by their labels:
+`[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]` when
+more than one could apply, listed in pattern order, and `[growth:none]`
+when none does. What is tagged is the code the finding flags, never the
+correction it asks for; the complexity token rates the correction. A finding
+that flags a guard added control by control tags `growing-lists` even when
+its correction removes the copies. The tag rides the finding in the report and the matching
+bullet in the round's commit body, in the record bullet form the fix workflow
+fixes, so it survives in the log after the chat is gone. A tag that reaches
+only the report is lost, and the next round is back to having no memory.
+
+The bar is could it be, not is it. A false positive costs one bracket, or
+one trade block and its ruling when the other two tokens also show risk. A
+false negative costs the loop this rule exists to break: a run of rounds each
+repairing machinery that no boundary asks for, every round locally defensible
+and no round able to see the run. The tag is a suspicion, never a verdict, and
+it blocks nothing. A finding tagged `[growth:hardening]` still lands. So
+there is no reason to suppress one. The tag's cross-round signal lives in
+the run; a single risky finding prices its own trade inside its trade
+block, per the finding explanation rules, and still lands.
+
+The watch alone counts these tags across rounds and judges repeated growth.
+The audit may read history to establish a finding or a prior ruling, without
+a mandatory episode scan. Each finding keeps its own trade assessment.
+
+## Reach and complexity
+
+Every finding carries a reach and a complexity token beside its growth tag,
+floor values spelled out rather than left off: `[reach:developer]` and
+`[complexity:none]` are written, never implied. No absence carries meaning,
+so a forgotten token can never pass as a rating, and the floor values on the
+page are what make a round's values countable.
+
+`[reach:developer|very-rare|rare|ordinary]` says how far the fault reaches a
+person. `developer` means nothing the end user can see: the whole cost is
+rework, re-derivation or regression risk on the development side. The other
+three values rate a situation the end user does meet, by the condition that
+has to hold rather than by a frequency guess. `ordinary` means no special
+condition has to hold. `rare` means a condition must hold that can arise
+while every component honours its contract, such as unusual timing, an
+unusual user action, resource exhaustion or an outage. `very-rare` means the
+condition requires the platform to break its own contract, such as an
+operating-system or filesystem facility failing to do what it guarantees. The
+token makes the rating durable and countable; the finding's explanation names
+the condition that makes it checkable.
+
+`[complexity:minus-high|minus-medium|minus-low|none|low|medium|high]` says
+how the correction changes the maintenance burden as a whole: what future
+work must understand, preserve and coordinate, never the effort of making
+the correction. Commit marks, audit findings and yield reports use these
+common levels:
+
+| Level | Meaning | Practical anchor |
+| --- | --- | --- |
+| Low | A small additional maintenance burden. | Few obligations whose interactions remain contained. |
+| Medium | A substantial additional maintenance burden. | A sizeable body of conditions to preserve or several agreements that must change together. |
+| High | An extensive additional maintenance burden. | A large body of conditions to preserve, constraints spread through the system or extensive coordination between changes. |
+
+Compare before with after and judge additions and removals together. A finding
+compares the correction with the existing code and instructions. A commit
+compares the whole commit's code and instructions before and after, never the
+sum of its finding tokens. A yield report compares a decision with the simplest
+coherent alternative that omits it. Moving a responsibility does not create or
+remove one. An unbuilt alternative supplies no removal credit.
+
+Choose the direction from the net change, then grade its size. Use `low`,
+`medium` or `high` for an increase and the corresponding `minus-` level for a
+reduction, judged with the same anchors. Use `none` for no material net change.
+Explain why one side outweighs the other. Do not average the categories of
+mechanisms added and removed: moving a large burden while adding one small
+obligation is small growth.
+
+Consider amount and interaction together. Many independent rules can accumulate
+substantial burden; a small amount of tightly coupled code can carry it too.
+Rules, state and ownership are evidence, not automatic levels. Neither line
+count nor an ownership boundary determines the grade. Replication is evidence
+of agreement and coordination costs, not an automatic escalation: grade the
+added agreements and their interaction. Include workflow instructions, since
+procedures agents must follow create obligations too. Documentation is not
+automatically free. Count the obligations tests add or remove without counting
+the machinery they cover twice.
+
+Explain the concrete obligations added and removed in the finding's or yield
+decision's existing explanation. In a commit, use one untiered decision bullet
+in the existing body to explain the whole commit's net change in obligations.
+The rating summarises that account. The anchors guide judgement rather than
+impose numerical thresholds.
+
+The account rule applies whenever a finding, yield decision or whole commit is
+graded, so its cost recurs with each assessment. Without it, a judged size label
+hides which obligations support the rating and why additions outweigh removals.
+Accepting that opacity was rejected because the kind-based `growth-high` on
+`d80b85ce` did not answer how much burden its contained delegation procedure
+added. Each assessment adds an account within an existing explanation or one
+commit-body bullet. Readers and auditors must check it, and disputes can add
+findings, rounds and user reading or ruling time. It adds no separate report,
+gate or hook check.
+
+This scale reverses the 2026-09-22 ruling that kept kind-based commit grades
+alongside burden-based yield grades. The new evidence was `d80b85ce`: its high
+mark identified an ownership change but did not answer the user's size
+question. One burden scale gives up that kind signal. It is a deliberate
+exception to the plan doctrine's mechanical-grading principle: scope, evidence
+and output remain prescribed, while burden size is judged. The account makes
+disagreement inspectable; it does not make the scale mechanical.
+
+The commit subject's leading mark runs this measurement over a whole commit,
+with the same level spellings: `growth-low` is `low` and `pruning-high` is
+`minus-high`. An absent mark presents `none` compactly. Severity and reach stay
+separate from complexity. [Commit Severity Prefix](../../CLAUDE.md#commit-severity-prefix)
+owns the mark's form. Replace the old definition directly, with no date-based
+grading, historical conversion, episode split or extra inspection duties for
+old marks. Do not rewrite Git history.
+
+The two tokens are one pair, and the pair is the point. Growth pattern 6 in
+`../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
+complexity cost never does, and its test is to name the trade: what the work
+gives the user against what its machinery costs. The pair fires that test on
+every finding, so a cross-round run of `[reach:developer]`,
+`[reach:very-rare]` or `[reach:rare]` beside `low`, `medium` or `high`
+`[complexity:...]` values on the same machinery is the unpriced trade shown
+in the log for the watch to judge. A
+`minus-` value is the opposite signal: the correction removed more burden
+than it added, which counts in its favour and never joins a priced run. The
+tokens describe reach and net burden, not worth, and like the growth tag they block nothing: a
+finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
+is shared with the plan repo's finding metadata, one spelling across both
+logs.
+
+## Rebuttal grounding
+
+Read the report end to end, then the supplied vet twin. Check each sha in the
+report opening against its repo's `git rev-parse --short HEAD`, and when one
+differs list what moved with `git diff --name-only <sha>..HEAD` in that
+repo. Answer against HEAD either way, and say where a moved file changes an
+answer.
+
+Carry unconditional accepts forward without fresh source reads or individual
+answers. For revisions, drops, conditional accepts and ruling items, read the
+source the verdict rests on yourself: the file
+path the finding names, the test that covers it, the plan decision or
+boundary the vet cites, and the episode's commit bodies where the vet calls
+a departure unrecorded. Do not trust the report's quotes or the vet's; the
+answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
+`../plan/GROWTH-PATTERNS.md` where a verdict invokes them.
+
+## Rebuttal answers
+
+Answer only revisions, drops, conditional accepts and ruling items, in the
+report's order. Unconditional accepts need no entry; the fix reads them from
+the numbered vet verdicts.
+Every answer starts with exactly `<finding number>. [<tier>] <answer>`.
+Use the report's finding number and A/B/C/D tier. The answer is exactly one
+of `Agree`, `Contest` or `For user's ruling`.
+The first line contains nothing else, for example `1. [B] Agree`.
+Conditions, notes and required explanations follow on separate lines.
+An unconditional Agree with no additional notes ends after the first line;
+do not repeat the finding title, evidence or reasoning. Other answers use a
+few short sentences. Every answer is one of three kinds.
+
+- Agree. The verdict stands. Add further information only when agreement is
+  conditional or there are additional notes. Agreement with a revise carries
+  the revised correction in full as a note so the fix phase has one text to
+  apply. Agreement with a drop needs no explanation unless there is a condition
+  or an additional note.
+- Contest. The verdict rests on something the vet misread. Quote the
+  evidence, name its file and line or its plan section, and state what the
+  verdict should have been. Contest only on evidence the vet can go and
+  read. A disagreement of taste is not a contest; it is an agree with a
+  note.
+- For user's ruling. The vet sent the item to the user under its
+  recorded-decision or trade rules. State the auditor's position and its
+  evidence in the same short form, and stop there. Never settle it here.
+
+## Reconciliation
+
+Build the outcome from the numbered vet verdicts and rebuttal answers, accounting
+for every finding. An unconditional accept stays agreed without a rebuttal
+entry. Present agreed verdicts, your decisions on contested verdicts and items
+for the user's ruling. For each contested verdict, read the evidence yourself,
+decide the outcome and state your decision and reason. Ask the user only when
+the evidence leaves the answer unclear; disagreement alone needs no ruling.
+Never re-argue an agreed verdict.
+
+When the report has a vet twin and no rebuttal, and every verdict is an
+unconditional accept, the runner skipped the rebuttal because the auditor had
+nothing to answer. Present the findings as agreed by both assistants, say
+that the vet accepted every finding, and do not re-answer the verdicts. When
+the vet twin holds any other verdict and no rebuttal exists, answer each
+verdict here: agreement carries it into the outcome, disagreement names the
+evidence the vet misread. Present the same three groups. Without a twin,
+present the report's findings in their numbered order with any drift
+corrections from the fix phase's current-source grounding.
+
+The user reads along and rules by exception: a go on the presented outcome
+is the acceptance, and a reservation on any item reopens it, including a
+reservation the report never raised. Ground a reopened item the same way
+before answering it.
+
+One kind of finding is not covered by accepting the round as a whole, in a
+vetted round and an unvetted one alike: a real unresolved choice about cost
+needs its own answer, whether the report explains it in the finding's prose or
+a separate trade block. List these apart in the presentation.
+When the user picks the simpler mechanism, that mechanism becomes the
+finding's required correction, revised in the discussion like any other
+revision. When that ruling overturns a reason the plan records, the round
+carries the correction and the user's reason as a cross-repo finding, so the
+plan correction is applied or deferred without re-derivation. When the user
+keeps the machinery, the same record carries the ruling and its reason. The
+code finding then follows the normal path: a correction the ruling leaves
+standing is applied, and a finding the ruling dissolves is omitted from the
+record.
+
+A cross-repo finding the report left as an open choice is put to the user
+here. When the user rules, carry the answer and its reason in the deferral.
+When the user does not rule, keep the choice open in the deferral instead of
+choosing for them.
+
+The invocation grants the corrections settled above. Stop for a ruling only on
+open items: an item sent to the user's ruling, a contested verdict the evidence leaves unclear, a
+drift correction that changes a finding, or a verdict without a rebuttal that this session cannot
+settle from the evidence. When nothing is open, state the outcome in one line per finding and apply.
+A cross-repo
+open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
+deferral above or a later plan round, never through this session, so it holds no settled correction
+back. Keep it open in the deferral and apply the settled findings.
+
+## Round yield
+
+This tally applies to implementation audits and their Repo Edu records.
+
+After the coverage line, close the round with two more lines that tally the
+findings the audit reports:
+
+```text
+Round yield: <n> ordinary; <n> rare; <n> developer.
+Structure: <n> removing, <n> adding, <n> flat.
+```
+
+The first line counts the reported findings by their `[reach:...]` value,
+treating `very-rare` as rare. The second counts them by the sign of their
+`[complexity:...]` value: `minus-` levels remove, `low`, `medium` and `high` add
+and `none` is flat. A clean round writes both lines with zeroes.
+
+The tally exists because the decision to run another round needs the round's
+yield, and reading it out of per-finding tokens means re-reading the whole log
+by hand. It answers what a round bought: findings an end user can meet, and
+whether the corrections left the code with more maintenance burden or less.
+Both lines are counts over the findings, unlike the commit subject's leading
+`growth-<level>` or `pruning-<level>`, which measures one commit's own code
+before and after.
+The two answer different questions and neither replaces the other.
+
+## Finding shape
+
+For implementation audits, put every finding, including cross-repo findings,
+in one `## Findings` field.
+Use this block form, with a numbered bold tier and title on the first line and
+the metadata tokens on their own line immediately after the title, before the explanation.
+Separate the title, token line and explanation with blank lines:
+
+1. **C: Conflicting report names**
+
+   [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none]
+
+   The report rule and its example name different files. The vet cannot resolve
+   the example. Align the example with the rule.
+
+Keep numbering continuous from 1. A field with no findings contains exactly
+`No findings.` instead of finding blocks. A report with only deferred findings
+still has findings. Quoted evidence and code blocks belong inside their finding.
+
+Briefly explain the problem, its consequence and the correction, supported by
+decisive evidence from sources you have read. Combine these in a short paragraph
+when they fit; include useful quotes and file paths so the reader can verify the
+defect. Use another paragraph when needed, without packing several ideas into
+one sentence. Separate correction, evidence, failure-trace and trade parts are
+not required. Expand when a real unresolved choice needs explanation.
+
+At tiers A to C, the explanation states what wrong behaviour the code produces
+without the correction. For `rare` or `very-rare` reach, name the condition that
+makes the rating checkable. When the cost is only rework or re-derivation, state
+that cost and use `[reach:developer]`. A D-tier finding derives its consequence
+for grading but need not report it. A tier claim without a consequence does not
+stand; drop a finding whose trace ends with the same behaviour shipping. Reach
+supports the user's ruling on the outcome and never changes the tier.
+
+At tiers A to C, explain the trade when a finding's growth tag is not `none`,
+its reach is not `ordinary` and its complexity is `low`, `medium` or `high`.
+State the simplest
+mechanism that works within `../plan/BOUNDARIES.md`, what the proposed machinery
+costs to build and own, what it gives the user over that mechanism and whether a
+boundary entry or recorded user decision settles the choice. Deletion or doing
+nothing counts when either is enough. Name the standing rule, state or owner
+concern rather than repeating the complexity token.
+
+Keep this in the finding's explanation; a separate `Trade:` block is optional.
+When the correction is itself the simplest mechanism, one sentence saying so
+and naming the boundary or decision that settles it is enough. Expand only for
+a real unresolved choice. D-tier findings need no trade explanation.
+The user directed this shorter form on 2026-09-09.
+
+Check the simpler mechanism against the plan's recorded reasons and the code.
+When a reason still rules it out, say no simpler mechanism works. When the reason
+looks wrong, quote it and give the evidence against it. The plan can settle
+whether a mechanism works; only a boundary entry or recorded user decision
+settles a real choice about whether machinery is worth its cost. This preserves
+the anchor-rule protection in `../plan/GROWTH-PATTERNS.md`. An unresolved choice
+goes to the user under [Reconciliation](#reconciliation).

@@ -306,7 +306,7 @@ commit graph shows the subject and none of the finding tokens.
 - A leading `growth-<level>` or `pruning-<level>` says what the commit did to the
   maintenance burden. Measure the commit, never add up the finding tokens:
   compare its code and instructions before and after using the
-  [common complexity levels](.agents/skills/audit/references/workflow.md#reach-and-complexity).
+  [common complexity levels](.agents/references/round-protocol.md#reach-and-complexity).
   The word gives the direction, `growth` for a net increase and `pruning` for a
   net reduction. The level grades the size of that net change. Omit the whole
   mark when there is no material net change. The direction is a word and not a sign,
@@ -328,7 +328,7 @@ fills, is owned by [the subject grammar](.agents/references/subject-grammar.md).
 This section owns what the sequence and its marks mean.
 
 Reach values and the common burden scale are defined in the audit workflow under
-[Reach and complexity](.agents/skills/audit/references/workflow.md#reach-and-complexity).
+[Reach and complexity](.agents/references/round-protocol.md#reach-and-complexity).
 That section also owns the requirement and case for explaining the whole
 commit's net change in one untiered decision bullet in its existing body. The mark and
 the finding token `[complexity:...]` run that one measurement, so they translate

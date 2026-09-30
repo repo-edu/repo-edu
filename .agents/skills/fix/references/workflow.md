@@ -6,13 +6,10 @@ One shared workflow behind two launchers: the Claude command
 specific to it and points here for the rest, so the two cannot drift
 apart. Where a launcher and this file disagree, this file is right.
 
-This workflow is the fix phase of an implementation-audit round. The round
-itself runs under `.agents/skills/audit/references/workflow.md`, reads only
-and writes its report to the repo root. An audit with findings stops there.
-This workflow starts from that
-report: it reads the report, its vet twin and its rebuttal twin, presents
-the outcome for the user's ruling, applies the accepted corrections, lands
-the round's records.
+This workflow is the fix phase of an implementation-audit round. The audit is read-only and writes
+its report to the invoking repo root. An audit with findings stops there. This workflow starts from
+that report: it reads the report, its vet twin and its rebuttal twin, presents the outcome for the
+user's ruling, applies the accepted corrections, lands the round's records.
 
 An audit with no findings
 completes directly under the audit workflow and never enters this workflow.
@@ -20,8 +17,12 @@ After a vet that accepted every finding without a
 condition the runner skips the rebuttal, so the fix reads the report and its
 vet twin alone.
 
-When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
+Read the whole [shared round protocol](../../../references/round-protocol.md)
+for paths, rating tokens, reconciliation, records and runner results.
+Follow its **Reconciliation** rule after grounding the findings below.
+
+When unattended, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every
 ending.
 When the fix needs a ruling, it writes the final document in this session under
 [Writing a ruling](ruling.md). The runner displays that document directly
@@ -70,59 +71,6 @@ For every finding that stays, read the files it names at HEAD, the test that
 covers them when it is code, and the `CLAUDE.md` of each package a fix would
 touch. The report's evidence is the round's; this session verifies what it
 is about to change.
-
-## Reconciliation
-
-Build the outcome from the numbered vet verdicts and rebuttal answers, accounting
-for every finding. An unconditional accept stays agreed without a rebuttal
-entry. Present agreed verdicts, your decisions on contested verdicts and items
-for the user's ruling. For each contested verdict, read the evidence yourself,
-decide the outcome and state your decision and reason. Ask the user only when
-the evidence leaves the answer unclear; disagreement alone needs no ruling.
-Never re-argue an agreed verdict.
-
-When the report has a vet twin and no rebuttal, and every verdict is an
-unconditional accept, the runner skipped the rebuttal because the auditor had
-nothing to answer. Present the findings as agreed by both assistants, say
-that the vet accepted every finding, and do not re-answer the verdicts. When
-the vet twin holds any other verdict and no rebuttal exists, answer each
-verdict here: agreement carries it into the outcome, disagreement names the
-evidence the vet misread. Present the same three groups. Without a twin,
-present the report's findings in their numbered order with any drift
-corrections from [Grounding](#grounding).
-
-The user reads along and rules by exception: a go on the presented outcome
-is the acceptance, and a reservation on any item reopens it, including a
-reservation the report never raised. Ground a reopened item the same way
-before answering it.
-
-One kind of finding is not covered by accepting the round as a whole, in a
-vetted round and an unvetted one alike: a real unresolved choice about cost
-needs its own answer, whether the report explains it in the finding's prose or
-a separate trade block. List these apart in the presentation.
-When the user picks the simpler mechanism, that mechanism becomes the
-finding's required correction, revised in the discussion like any other
-revision. When that ruling overturns a reason the plan records, the round
-carries the correction and the user's reason as a cross-repo finding, so the
-plan correction is applied or deferred without re-derivation. When the user
-keeps the machinery, the same record carries the ruling and its reason. The
-code finding then follows the normal path: a correction the ruling leaves
-standing is applied, and a finding the ruling dissolves is omitted from the
-record.
-
-A cross-repo finding the report left as an open choice is put to the user
-here. When the user rules, carry the answer and its reason in the deferral.
-When the user does not rule, keep the choice open in the deferral instead of
-choosing for them.
-
-The invocation grants the corrections settled above. Stop for a ruling only on
-open items: an item sent to the user's ruling, a contested verdict the evidence leaves unclear, a
-drift correction that changes a finding, or a verdict without a rebuttal that this session cannot
-settle from the evidence. When nothing is open, state the outcome in one line per finding and apply.
-A cross-repo
-open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
-deferral above or a later plan round, never through this session, so it holds no settled correction
-back. Keep it open in the deferral and apply the settled findings.
 
 In an unattended phase, write the final ruling under [Writing a ruling](ruling.md)
 at the runner's supplied output path before returning `needs-ruling`. Review it for clarity
@@ -179,9 +127,9 @@ uppercase tier, then its metadata and prose.
 
 For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition area from
 `tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
-that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the audit workflow
-defines, in the same form the report used. Repo Edu finding bullets require all four token kinds.
-Plan-repo implementation and off-plan finding bullets use
+that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the shared round
+protocol defines, in the same form the report used. Repo Edu finding bullets require all four token
+kinds. Plan-repo implementation and off-plan finding bullets use
 `- B [section:<heading>] [growth:...] [reach:...] [complexity:...] <title and prose>`. Only a
 planning `audit` record adds exactly one `[field:<excess|missing>]` token before the location. Other
 plan-repo records refuse `[field:]`, because their findings have no search direction. Both forms use
@@ -193,7 +141,7 @@ else. A bullet that records something other than a finding, such as a carried de
 ruling with its reason, takes no metadata.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
-the audit workflow defines under **Round yield**. Recount the accepted findings
+the shared round protocol defines under **Round yield**. Recount the accepted findings
 in that record after vetting and discussion, using their final reach and
 complexity values. Earlier report totals may no longer match what lands.
 The shared worked forms show their placement.
@@ -230,8 +178,8 @@ target and round from the report filename. A fix resumed by the runner after a
 ruling remains unattended; the runner closes its report set after `finished`.
 
 An unattended fix reports `finished` only after all required corrections,
-checks and records are complete. It reports completion under the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result). The runner
+checks and records are complete. It reports completion under the shared
+[Runner result](../../../references/round-protocol.md#runner-result). The runner
 reads the landed commits in both repos to derive the grade for chaining.
 Remaining required work means the phase has not finished, even when some
 records have already landed.

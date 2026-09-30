@@ -69,8 +69,8 @@ and the files they touched are judged like any other code the round reads.
 
 Inspect each commit's complete change against the repo requirements and the
 substantive intent in its subject and body. Judge the resulting code at HEAD.
-Follow the audit workflow's
-[completed-commit metadata exclusion](workflow.md#completed-commit-metadata).
+Follow the shared
+[completed-commit metadata exclusion](../../../references/round-protocol.md#completed-commit-metadata).
 
 The standing sources replace the plan. Read the `CLAUDE.md` of every package
 the range touched, `../plan/BOUNDARIES.md`,

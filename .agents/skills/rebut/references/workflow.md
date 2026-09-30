@@ -10,20 +10,18 @@ The rebuttal is the auditor's answer to the vet. An implementation-audit round w
 `*-2-audit.<tag>.md` report, the other assistant vets it into the `-3-vet.<tag>.md` twin and this
 workflow answers those verdicts, writing the `-4-rebut.<tag>.md` twin. The answers come from the
 auditor. The automated rebuttal always starts fresh on the audit's model and effort. A hand-run
-reply may use the audit session while it still holds the round. In either route, answers stand on
-what this workflow reads now under **Grounding** below. The fix workflow at
-`.agents/skills/fix/references/workflow.md` then reads
-all three files. The user directed this chain on 2026-09-09 to give the fix phase both assistants'
-views. Under the runner the rebuttal runs only when the vet's verdicts
-leave the auditor something to answer: a vet that accepted every finding without a condition sends
-the report and its vet twin straight to the fix, which the user directed on 2026-09-20 so the fix
-starts sooner.
+reply may use the audit session while it still holds the round. In either route, ground answers as
+the shared round protocol requires under **Rebuttal grounding**. The fix phase then reads all three
+files. The user directed this chain on 2026-09-09 to give the fix phase both assistants' views.
+Under the runner the rebuttal runs only when the vet's verdicts leave the auditor something to
+answer: a vet that accepted every finding without a condition sends the report and its vet twin
+straight to the fix, which the user directed on 2026-09-20 so the fix starts sooner.
 
 The rebuttal is read-only and lands nothing. It runs no command that changes
 a tracked file. Only a hand-run rebuttal writes its `-4-rebut.<tag>.md` twin.
 
-When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every ending. Report
+When unattended, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every ending. Report
 `finished` only after grounding and returning the required answers in the final
 response. The runner saves the twin at its supplied path. Contested verdicts and items for the
 user's ruling still complete the rebuttal: the fix phase presents them.
@@ -34,8 +32,9 @@ substitutions: that repo's report root and finding metadata.
 
 ## Report discovery
 
-Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
-resolution. The arguments name the report and vet to read and the rebuttal output,
+Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
+rebuttal grounding, answers and runner results. Follow its **Rebuttal grounding** and
+**Rebuttal answers** rules. The arguments name the report and vet to read and the rebuttal output,
 in that order; read the judged repos and audited heads from the report opening and the auditor's
 vendor letter from its filename.
 
@@ -52,51 +51,6 @@ says to.
 When the invocation names a report stored at the plan repo root, say the
 rebuttal belongs in `../plan` and stop. Continue only when the user
 explicitly says to.
-
-## Grounding
-
-Read the report end to end, then the supplied vet twin. Check each sha in the
-report opening against its repo's `git rev-parse --short HEAD`, and when one
-differs list what moved with `git diff --name-only <sha>..HEAD` in that
-repo. Answer against HEAD either way, and say where a moved file changes an
-answer.
-
-Carry unconditional accepts forward without fresh source reads or individual
-answers. For revisions, drops, conditional accepts and ruling items, read the
-source the verdict rests on yourself: the file
-path the finding names, the test that covers it, the plan decision or
-boundary the vet cites, and the episode's commit bodies where the vet calls
-a departure unrecorded. Do not trust the report's quotes or the vet's; the
-answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
-`../plan/GROWTH-PATTERNS.md` where a verdict invokes them.
-
-## Answers
-
-Answer only revisions, drops, conditional accepts and ruling items, in the
-report's order. Unconditional accepts need no entry; the fix reads them from
-the numbered vet verdicts.
-Every answer starts with exactly `<finding number>. [<tier>] <answer>`.
-Use the report's finding number and A/B/C/D tier. The answer is exactly one
-of `Agree`, `Contest` or `For user's ruling`.
-The first line contains nothing else, for example `1. [B] Agree`.
-Conditions, notes and required explanations follow on separate lines.
-An unconditional Agree with no additional notes ends after the first line;
-do not repeat the finding title, evidence or reasoning. Other answers use a
-few short sentences. Every answer is one of three kinds.
-
-- Agree. The verdict stands. Add further information only when agreement is
-  conditional or there are additional notes. Agreement with a revise carries
-  the revised correction in full as a note so the fix phase has one text to
-  apply. Agreement with a drop needs no explanation unless there is a condition
-  or an additional note.
-- Contest. The verdict rests on something the vet misread. Quote the
-  evidence, name its file and line or its plan section, and state what the
-  verdict should have been. Contest only on evidence the vet can go and
-  read. A disagreement of taste is not a contest; it is an agree with a
-  note.
-- For user's ruling. The vet sent the item to the user under its
-  recorded-decision or trade rules. State the auditor's position and its
-  evidence in the same short form, and stop there. Never settle it here.
 
 ## Rebuttal file
 

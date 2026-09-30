@@ -15,12 +15,11 @@ appealing and still unauthorised.
 The vet is read-only and lands nothing. It runs no command that changes a
 tracked file, so no `pnpm fix` and no formatter. Its verdicts inform the
 user's ruling on the findings; any edit or commit stays with the fix workflow
-that lands the round from its report. The auditor answers the verdicts through
-the rebuttal workflow at `.agents/skills/rebut/references/workflow.md`,
-writing a `-4-rebut.<tag>.md` twin the fix workflow reads beside this one.
+that lands the round from its report. The auditor answers the verdicts in
+a `-4-rebut.<tag>.md` twin the fix phase reads beside this one.
 
-When unattended, follow the audit workflow's
-[Runner result](../../audit/references/workflow.md#runner-result) for every
+When unattended, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every
 ending. Report `finished` only after completing the required checks and
 returning every verdict in the final response. The runner saves the twin. A verdict
 that needs the user's ruling still completes the vet: the fix phase presents
@@ -33,10 +32,10 @@ belongs in `../plan` and stop. Continue only when the user explicitly says to.
 
 ## Report discovery
 
-Read the [shared round protocol](../../../references/round-protocol.md#manual-phases) for path
-resolution. The arguments name the report to read and the vet output, in that order;
-use the report's judged-repos opening for repo and head checks and its filename for the auditor's
-vendor letter.
+Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
+evidence rules, rating tokens and runner results. The arguments name the report to read and the vet
+output, in that order; use the report's judged-repos opening for repo and head checks and its
+filename for the auditor's vendor letter.
 
 A hand-run invocation may omit the audit report. Resolve its input and output
 under the shared round protocol's **Manual phases** with `paths vet` and your
@@ -69,7 +68,7 @@ Check each finding on three axes, in this order.
 ### 1. Authorised
 
 Apply the audit workflow's
-[completed-commit metadata exclusion](../../audit/references/workflow.md#completed-commit-metadata).
+[completed-commit metadata exclusion](../../../references/round-protocol.md#completed-commit-metadata).
 Drop findings on that excluded metadata. Classify the remaining findings.
 
 - A defect in the shipped code. The code is wrong, or below the bar this
@@ -83,7 +82,7 @@ Drop findings on that excluded metadata. Classify the remaining findings.
 - A departure from the plan where the shipped code is right. The audit
   workflow records this as a deviated row in the coverage table. Drop a finding
   on the departure itself. A missing reason must pass
-  [Judging deviations](../../audit/references/workflow.md#judging-deviations):
+  [Judging deviations](../../../references/round-protocol.md#judging-deviations):
   verify the concrete maintenance problem and that the correction repairs its
   live owner.
 - Work the episode has not reached yet. That is an incomplete row in the
@@ -140,7 +139,7 @@ cost is only rework or re-derivation, verify that cost. These facts may share th
 finding's prose; no separate trace is required. A trace that ends with the same
 behaviour shipping is not a finding, so the verdict is drop.
 
-Check the trade under the audit workflow's finding-shape rules. The explanation may
+Check the trade under the shared round protocol's finding-shape rules. The explanation may
 be part of the finding's prose. Verify the simpler mechanism, cost, benefit and any claim that the
 choice is settled against their sources; return revise for missing substance, not for missing labels
 or separate parts. When the correction is the simplest mechanism, verify that claim and the cited
@@ -166,8 +165,8 @@ must match the report exactly. An unconditional Accept with no additional notes 
 line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
 additional notes. This format applies in both chat and the `-3-vet.<tag>.md` twin.
 
-For changes to recorded decisions, follow **Changes to recorded decisions** in
-`../plan/.agents/skills/vet/references/workflow.md`.
+Read the whole [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
+for changes to recorded decisions.
 They own when a supported simplification can be accepted and when the user
 must rule. Apply them to settled decisions too; replacing a decision alone
 does not require a ruling. The user directed the shared simplification rule
