@@ -664,6 +664,26 @@ growth pattern, including work no listed pattern matches. The tokens rate
 facts rather than worth: a round that scored its own proposed correction
 would be grading its own work.
 
+## Vet checks
+
+Resolve the vet's input and output under [Manual phases](#manual-phases), using
+the current writer tag. Automated invocations use their supplied paths unchanged.
+
+Never vet a report whose tag's vendor letter is your own assistant. The vet
+checks audit-findings from a fresh context in the other assistant. Continue
+only when the user explicitly says to.
+
+Check the trade under [Finding shape](#finding-shape). The explanation may be
+part of the audit-finding's prose. Verify the simpler mechanism, cost, benefit
+and any claim that the choice is settled against their sources. Return Revise
+for missing substance, not for missing labels or separate parts. When the
+correction is the simplest mechanism, verify that claim and the cited boundary
+or decision against the sources. When that claim cites a plan decision, reopen
+it only with evidence that the decision is wrong; otherwise accept it.
+
+Check the audit-finding's rarity against its cited evidence. A real unresolved
+choice about cost goes to the user's ruling; the vet never settles it.
+
 ## Vet verdicts
 
 Return one vet-verdict per audit-finding, in the report's order: accept, revise, drop or
@@ -680,6 +700,10 @@ note. The vet-verdict numbers must match the report exactly. An unconditional Ac
 additional notes ends after the first line; do not repeat the audit-finding title, evidence or
 reasoning. Required narrowing notes count as additional notes. This format applies in both chat and
 the `-3-vet.<tag>.md` twin.
+
+Return the complete vet-verdicts in the final response. When hand-run, also
+write the same text to the supplied vet path. The twin is untracked and
+gitignored, so that write keeps the vet's read-only rule intact.
 
 ## Rebuttal grounding
 
@@ -702,24 +726,24 @@ answer stands on what you read now. Read `../plan/BOUNDARIES.md` and
 
 Answer only revisions, drops, conditional accepts and ruling items, in the
 report's order. Unconditional accepts need no entry; the fix reads them from
-the numbered vet verdicts.
-Every answer starts with exactly `<finding number>. [<tier>] <answer>`.
-Use the report's finding number and A/B/C/D tier. The answer is exactly one
+the numbered vet-verdicts.
+Every rebut-answer starts with exactly `<audit-finding number>. [<tier>] <rebut-answer>`.
+Use the report's audit-finding number and A/B/C/D tier. The rebut-answer is exactly one
 of `Agree`, `Contest` or `For user's ruling`.
 The first line contains nothing else, for example `1. [B] Agree`.
 Conditions, notes and required explanations follow on separate lines.
 An unconditional Agree with no additional notes ends after the first line;
-do not repeat the finding title, evidence or reasoning. Other answers use a
-few short sentences. Every answer is one of three kinds.
+do not repeat the audit-finding title, evidence or reasoning. Other rebut-answers
+use a few short sentences. Every rebut-answer is one of three kinds.
 
-- Agree. The verdict stands. Add further information only when agreement is
+- Agree. The vet-verdict stands. Add further information only when agreement is
   conditional or there are additional notes. Agreement with a revise carries
   the revised correction in full as a note so the fix phase has one text to
   apply. Agreement with a drop needs no explanation unless there is a condition
   or an additional note.
-- Contest. The verdict rests on something the vet misread. Quote the
+- Contest. The vet-verdict rests on something the vet misread. Quote the
   evidence, name its file and line or its plan section, and state what the
-  verdict should have been. Contest only on evidence the vet can go and
+  vet-verdict should have been. Contest only on evidence the vet can go and
   read. A disagreement of taste is not a contest; it is an agree with a
   note.
 - For user's ruling. The vet sent the item to the user under its
@@ -728,22 +752,22 @@ few short sentences. Every answer is one of three kinds.
 
 ## Reconciliation
 
-Build the outcome from the numbered vet verdicts and rebuttal answers, accounting
-for every finding. An unconditional accept stays agreed without a rebuttal
-entry. Present agreed verdicts, your decisions on contested verdicts and items
-for the user's ruling. For each contested verdict, read the evidence yourself,
+Build the outcome from the numbered vet-verdicts and rebut-answers, accounting
+for every audit-finding. An unconditional accept stays agreed without a rebut-answer.
+Present agreed vet-verdicts, your decisions on contested vet-verdicts and items
+for the user's ruling. For each contested vet-verdict, read the evidence yourself,
 decide the outcome and state your decision and reason. Ask the user only when
 the evidence leaves the answer unclear; disagreement alone needs no ruling.
-Never re-argue an agreed verdict.
+Never re-argue an agreed vet-verdict.
 
-When the report has a vet twin and no rebuttal, and every verdict is an
+When the report has a vet twin and no rebuttal, and every vet-verdict is an
 unconditional accept, the runner skipped the rebuttal because the auditor had
-nothing to answer. Present the findings as agreed by both assistants, say
-that the vet accepted every finding, and do not re-answer the verdicts. When
-the vet twin holds any other verdict and no rebuttal exists, answer each
-verdict here: agreement carries it into the outcome, disagreement names the
+nothing to answer. Present the audit-findings as agreed by both assistants, say
+that the vet accepted every audit-finding, and do not re-answer the vet-verdicts. When
+the vet twin holds any other vet-verdict and no rebuttal exists, answer each
+vet-verdict here: agreement carries it into the outcome, disagreement names the
 evidence the vet misread. Present the same three groups. Without a twin,
-present the report's findings in their numbered order with any drift
+present the report's audit-findings in their numbered order with any drift
 corrections from the fix phase's current-source grounding.
 
 The user reads along and rules by exception: a go on the presented outcome
@@ -751,33 +775,38 @@ is the acceptance, and a reservation on any item reopens it, including a
 reservation the report never raised. Ground a reopened item the same way
 before answering it.
 
-One kind of finding is not covered by accepting the round as a whole, in a
+One kind of audit-finding is not covered by accepting the round as a whole, in a
 vetted round and an unvetted one alike: a real unresolved choice about cost
-needs its own answer, whether the report explains it in the finding's prose or
+needs its own answer, whether the report explains it in the audit-finding's prose or
 a separate trade block. List these apart in the presentation.
 When the user picks the simpler mechanism, that mechanism becomes the
-finding's required correction, revised in the discussion like any other
+audit-finding's required correction, revised in the discussion like any other
 revision. When that ruling overturns a reason the plan records, the round
-carries the correction and the user's reason as a cross-repo finding, so the
+carries the correction and the user's reason as a cross-repo audit-finding, so the
 plan correction is applied or deferred without re-derivation. When the user
 keeps the machinery, the same record carries the ruling and its reason. The
-code finding then follows the normal path: a correction the ruling leaves
-standing is applied, and a finding the ruling dissolves is omitted from the
+audit-finding about code then follows the normal path: a correction the ruling leaves
+standing is applied, and an audit-finding the ruling dissolves is omitted from the
 record.
 
-A cross-repo finding the report left as an open choice is put to the user
+A cross-repo audit-finding the report left as an open choice is put to the user
 here. When the user rules, carry the answer and its reason in the deferral.
 When the user does not rule, keep the choice open in the deferral instead of
 choosing for them.
 
 The invocation grants the corrections settled above. Stop for a ruling only on
-open items: an item sent to the user's ruling, a contested verdict the evidence leaves unclear, a
-drift correction that changes a finding, or a verdict without a rebuttal that this session cannot
-settle from the evidence. When nothing is open, state the outcome in one line per finding and apply.
-A cross-repo
-open choice awaiting the user's ruling is not an open item here. Its outcome lands through the
-deferral above or a later plan round, never through this session, so it holds no settled correction
-back. Keep it open in the deferral and apply the settled findings.
+open items:
+
+- An item sent to the user's ruling.
+- A contested vet-verdict the evidence leaves unclear.
+- A drift correction that changes an audit-finding.
+- A vet-verdict without a rebuttal that this session cannot settle from the evidence.
+
+When nothing is open, state the outcome in one line per audit-finding and apply.
+A cross-repo open choice awaiting the user's ruling is not an open item here.
+Its outcome lands through the deferral above or a later plan round, never
+through this session, so it holds no settled correction back. Keep it open in
+the deferral and apply the settled audit-findings.
 
 ## Round yield
 
@@ -806,6 +835,16 @@ before and after.
 The two answer different questions and neither replaces the other.
 
 ## Report format
+
+### Audit notes
+
+Anything the audit has to say about the judged work goes into the report or
+the round's handoff. Chat carries nothing about it that the file does not. A
+planned edit that no audit-finding asks for, such as user-directed work, goes
+in the report opening so the vet can check it. Material for the next round
+goes in the handoff. An audit-finding dropped under the route's own rules stays
+out of both. Setup and tooling problems are not about the judged work and stay
+in chat. A note only in chat reaches neither the vet nor the fix.
 
 ### Implementation reports
 

@@ -43,13 +43,8 @@ evidence rules, tiers, rating tokens, verdict formats and runner results. The ar
 report to read and the vet output, in that order; use the report's judged-repos opening for repo and
 head checks and its filename for the auditor's vendor letter.
 
-A hand-run invocation may omit the audit report. Resolve its input and output
-under the shared round protocol's **Manual phases** with `paths vet` and your
-current writer tag. Automated invocations use their supplied paths unchanged.
-
-Never vet a report whose tag's vendor letter is your own assistant. The vet exists
-to check findings from a fresh context in the other assistant. Continue only
-when the user explicitly says to.
+Follow the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
+for input and output resolution and the other-assistant requirement.
 
 Check two mismatches before vetting:
 
@@ -145,20 +140,13 @@ only rework or re-derivation, verify that cost. These facts may share the findin
 separate trace is required. A trace that ends with the same behaviour shipping is not a finding, so
 the verdict is drop.
 
-Check the trade under the shared round protocol's finding-shape rules. The explanation may
-be part of the finding's prose. Verify the simpler mechanism, cost, benefit and any claim that the
-choice is settled against their sources; return revise for missing substance, not for missing labels
-or separate parts. When the correction is the simplest mechanism, verify that claim and the cited
-boundary or decision against the code. When that claim cites a plan decision, reopen it only with
-evidence that the decision is wrong; otherwise accept it. The user directed this on 2026-09-09.
-
-Check the finding's rarity against its cited evidence. A real unresolved
-choice about cost goes to the user's ruling; the vet never settles it.
+Apply the shared [Vet checks](../../../references/round-protocol.md#vet-checks)
+to the finding's trade and rarity.
 
 ## Verdicts
 
 Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
-for the verdict values, numbering and response format.
+for the verdict values, numbering, response format and delivery.
 
 Use the [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
 for changes to recorded decisions.
@@ -166,10 +154,6 @@ They own when a supported simplification can be accepted and when the user
 must rule. Apply them to settled decisions too; replacing a decision alone
 does not require a ruling. The user directed the shared simplification rule
 on 2026-09-26.
-
-Return the complete verdicts in the final response. When hand-run, also write
-the same text to the supplied vet path. The twin is untracked and gitignored,
-so that write keeps the vet's read-only rule intact.
 
 ## Cross-repo findings
 

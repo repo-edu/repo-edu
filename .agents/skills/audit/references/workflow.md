@@ -234,14 +234,8 @@ hand-run audit presents the report, writes the same text to its supplied path an
 one, use the path printed by `pnpm audit-round name`. Its chat and file must not differ. The opening
 identifies the judged repos and their heads, without a writer tag.
 
-Anything the audit has to say about the judged code goes into the report or
-the round's handoff. Chat carries nothing about it that the file does not. A
-planned edit that no graded finding asks for, such as user-directed work, goes
-in the report opening so the vet can check it. Material for the next round
-goes in the handoff. A finding dropped under the admission test or the C
-admission rule stays out of both, as those rules already say. Setup and
-tooling problems are not about the judged code and stay in chat. A note only
-in chat reaches neither the vet nor the fix.
+Follow the shared round protocol's [Audit notes](../../../references/round-protocol.md#audit-notes)
+for what belongs in the report, handoff and chat.
 
 The report and a hand-run audit's claim are gitignored, so writing them keeps the source files
 unchanged. When there are no findings, follow [Clean completion](#clean-completion); otherwise stop.

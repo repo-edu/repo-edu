@@ -119,10 +119,7 @@ findings deferred to a repo outside the round's repo set uses the shared empty s
 subject's `impl-audit-<step scope>` form carries the round's scope, `<n>`, `<a>-<b>` or `all`; no
 `Audit:` body line repeats it. The capability tag follows that form and names the assistant that ran
 the audit step, never the one that vets, rebuts or fixes, and it reads on the clean record too.
-Write the report filename's full auditor tag in the subject and this fixing session's own model
-and effort in the body's opening line. The commit hook replaces them with `COMMIT_AUDITOR` and
-`COMMIT_PHASES` when supplied. Writing the record needs no runner check. Files this phase writes
-use its own writer tag. Use the shared round protocol's
+Use the shared round protocol's
 [worked record forms](../../../references/round-protocol.md#worked-record-forms).
 
 Use the shared round protocol's **Finding metadata** and **Record bullets**
