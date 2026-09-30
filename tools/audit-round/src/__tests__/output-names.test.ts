@@ -82,7 +82,7 @@ test("different auditors cannot open the same candidate and the next run advance
   new RoundOutput(next, options).close()
 })
 
-test("every retained round kind at either root reserves its number across auditors", async (t) => {
+test("only retained round files at the plan root reserve numbers across auditors", async (t) => {
   const f = await fixture(t)
   const setup = { ...testContext(f.root), plan: "example.md" }
   for (const root of [f.root, join(f.root, "../plan")]) {
@@ -101,7 +101,11 @@ test("every retained round kind at either root reserves its number across audito
       const path = join(root, `example-all-09-${suffix}`)
       await writeFile(path, "")
       const run = await roundRun(setup, 0, selections)
-      assert.equal(run.nameStart, "example-all-10", path)
+      assert.equal(
+        run.nameStart,
+        root === setup.planRoot ? "example-all-10" : "example-all-01",
+        path,
+      )
       await rm(path)
     }
   }

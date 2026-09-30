@@ -16,6 +16,7 @@ import {
 export async function commitFixture(
   cwd: string,
   subject = "example/init ath: fixture",
+  committedAt?: string,
 ): Promise<string> {
   await execa("git", ["init", "--quiet"], { cwd })
   for (const [key, value] of Object.entries({
@@ -42,7 +43,13 @@ export async function commitFixture(
       "-m",
       subject,
     ],
-    { cwd },
+    {
+      cwd,
+      env:
+        committedAt === undefined
+          ? undefined
+          : { GIT_COMMITTER_DATE: committedAt },
+    },
   )
   return (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout
 }
@@ -99,7 +106,7 @@ export async function roundFixture(
     for (const name of ["example.md", "example-widen.md"])
       await writeFile(join(root, name), "# Example plan\n")
   const planRoot = await realpath(planDirectory)
-  const outputRoot = working === "plan" ? planRoot : repoRoot
+  const outputRoot = planRoot
   const heads = {
     "repo-edu": await commitFixture(repoRoot),
     plan: await commitFixture(planRoot),
@@ -285,6 +292,6 @@ export async function roundFixture(
     get watch() {
       return document("watch", "")
     },
-    runtime: { ...f.runtime, cwd: outputRoot },
+    runtime: { ...f.runtime, cwd: working === "plan" ? planRoot : repoRoot },
   }
 }

@@ -53,7 +53,7 @@ consumers.
   set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
   plan target lands one empty clean record in the sole judged repo or at the
-  invoking root when both repos were judged, using the report's judged-repos
+  Repo Edu when both repos were judged, using the report's judged-repos
   opening and the audit's
   actual model record and capability tag. `git commit --only --allow-empty`
   preserves staged work while using the normal hooks and signing settings.
@@ -93,7 +93,7 @@ consumers.
 - `episode.ts` owns episode membership and history facts for the glance and
   joined watch evidence. It joins historical stems, includes rework touching
   the topic's artifacts and retains both repositories' heads and anchors.
-  `episode-log.ts` reads Git's bodies, touched paths and renames.
+  `episode-log.ts` reads Git's commit dates, bodies, touched paths and renames.
   `episode-facts.ts` derives severity, token counts and repeated-growth evidence
   without grading them. Every member keeps its complete findings or an
   unreadable reason; unreadable findings contribute no partial counts. Current
@@ -102,8 +102,9 @@ consumers.
   possible new graded windows for the watch to judge. `readWatchEvidence`
   joins both histories and `formatWatchEvidence` serialises the evidence for
   the runner and hand-run command. It resolves a hand-run commit target as an
-  explicit anchor in the invoking repo only; the peer keeps its own anchor.
-  Without a target it takes the latest stem on HEAD's history. No episode
+  explicit anchor in whichever repo holds its SHA; HEAD forms mean Repo Edu.
+  The peer keeps its own anchor. Without a target it takes the newest stem
+  commit across both histories by commit date. No episode
   file is written.
 - `glance.ts` owns the rule that decides from an episode and the watch record in
   `watch.json` whether the trajectory watch is due. The episode uses a supplied
@@ -163,27 +164,27 @@ consumers.
 - `startup.ts` owns where the `audit-round` cache lives and holds its update dates.
   `resolveCacheRoot` is that one owner, so the update stamps and the watch record the glance reads
   resolve the same way. The watch workflow owns `watch.json`: each episode records both
-  repositories' graded heads beside one grade and written date. The glance counts from the invoking
-  repository's head only. Both update checks precede settings discovery. Codex compares its
-  installed version with the standalone installer's release channel before running its updater. A
-  current or newer installation is kept. An update is successful only when a fresh version read
-  reaches the checked release or a newer one. Installer output is retained for failure diagnostics,
-  since its success banner does not prove a version change. Failed checks and unverified updates
-  leave the date unstamped so the next run retries. Claude control requests and the short-lived
-  Codex settings connection start no LLM turn. `requests.ts` owns headless and manual recovery
-  arguments, including `--approve-for-me` on every Codex phase and resume command and a named model
-  and reasoning effort: Codex takes them before any subcommand, so a resumed phase keeps them, and
-  Claude takes `--model` and `--effort`. A fix awaiting a ruling and a failure both carry their
-  phase, so continuation and recovery use the model the round ran that phase on. Claude uses
-  `--permission-mode auto` in settings discovery and every session entry, and that discovery names
-  no model of its own. `requests.ts` also supplies each fresh phase's launcher, workflow and
-  whole files listed by the workflow's `reads` header. Header paths resolve from the workflow
-  file. `vfile-matter` parses the header and `zod` checks its shape. Listed workflows supply
-  their own reads recursively, with each source included once. Watch edit shares the watch
-  workflow. Resumed sessions receive no files again. Root instructions are not listed.
-  Both assistants receive their phase prompts on standard input. Codex
-  command-line arguments contain no prompt text, including on resume, so joined evidence is not
-  limited by the operating system's per-argument size.
+  repositories' graded heads beside one grade and written date. The glance counts from the plan head
+  for planning rounds and the Repo Edu head for implementation rounds. Both update checks precede
+  settings discovery. Codex compares its installed version with the standalone installer's release
+  channel before running its updater. A current or newer installation is kept. An update is
+  successful only when a fresh version read reaches the checked release or a newer one. Installer
+  output is retained for failure diagnostics, since its success banner does not prove a version
+  change. Failed checks and unverified updates leave the date unstamped so the next run retries.
+  Claude control requests and the short-lived Codex settings connection start no LLM turn.
+  `requests.ts` owns headless and manual recovery arguments, including `--approve-for-me` on every
+  Codex phase and resume command and a named model and reasoning effort: Codex takes them before any
+  subcommand, so a resumed phase keeps them, and Claude takes `--model` and `--effort`. A fix
+  awaiting a ruling and a failure both carry their phase, so continuation and recovery use the model
+  the round ran that phase on. Claude uses `--permission-mode auto` in settings discovery and every
+  session entry, and that discovery names no model of its own. `requests.ts` also supplies each
+  fresh phase's launcher, workflow and whole files listed by the workflow's `reads` header. Header
+  paths resolve from the workflow file. `vfile-matter` parses the header and `zod` checks its shape.
+  Listed workflows supply their own reads recursively, with each source included once. Watch edit
+  shares the watch workflow. Resumed sessions receive no files again. Root instructions are not
+  listed. Both assistants receive their phase prompts on standard input. Codex command-line
+  arguments contain no prompt text, including on resume, so joined evidence is not limited by the
+  operating system's per-argument size.
 - `output.ts` owns terminal presentation and incremental run recording. A run description names the
   run, lists the phases it may run and locates its files: a round records a log and transcript pair,
   and a brief on its own records a log beside the transcript it retells and keeps no transcript of
@@ -224,18 +225,18 @@ consumers.
   launch prompts stay in the log and never reach the terminal.
 - `round-paths.ts` owns the file-name grammar, target names, round allocation candidates,
   existing document resolution and report closure for both entry routes. It resolves `HEAD`
-  in commit targets and scans both roots for the next target-wide number. Automated rounds
+  in commit targets and scans the plan root for the next target-wide number. Automated rounds
   supply every phase path. A manual audit names only its claim and report; later manual phases
   retain that report's round and name their output with the current session's writer tag.
   `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
   the exact round at the report's root. With no input, it selects the sole eligible document at
-  the invoking root: the other assistant's audit for vet, the current assistant's audit for
+  the plan root: the other assistant's audit for vet, the current assistant's audit for
   rebuttal, either assistant's audit for fix or either assistant's transcript for brief.
   Multiple matches require an explicit file selection.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
   filenames without consulting model settings.
 - `context.ts` resolves the installed Repo Edu checkout and its sibling plan root.
-  It accepts any invoking directory and carries no round kind.
+  It reads no invoking directory and carries no round kind.
 - `target.ts` owns the argument grammar for automated rounds and `name`. A plan
   stem alone selects planning; a stem with a step, an increasing range or `all`
   selects implementation. Commit references select a Repo Edu commit audit.
@@ -280,12 +281,12 @@ Its dependencies supply those operations explicitly. A returned phase failure
 stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
-The phase table in `phase.ts` owns launcher roots. Every session keeps the invoking working
-directory and every round file lives there. The runner names all input and output paths before the
-audit. The runner saves audit, vet and rebuttal final responses; brief and watch sessions write
-their own documents. Report phases finish only when their supplied output exists and is non-empty.
-Claude receives the peer checkout as an additional directory; recovery commands restore the working
-directory.
+The phase table in `phase.ts` owns launcher roots. Planning sessions work in the plan checkout;
+implementation and commit sessions work in Repo Edu. Every round file lives at the plan root. The
+runner names all input and output paths before the audit. The runner saves audit, vet and rebuttal
+final responses; brief and watch sessions write their own documents. Report phases finish only when
+their supplied output exists and is non-empty. Claude receives the peer checkout as an additional
+directory; recovery commands restore the working directory.
 
 Workflow launchers own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
@@ -367,7 +368,7 @@ pnpm audit-round:contract codex
 ```
 
 The round names the report, vet, rebuttal, brief, ruling and watch before the
-audit starts. It writes the tagless claim, transcript and log at the invoking
+audit starts. It writes the tagless claim, transcript and log at the plan
 root. Phase files use `<target>-<round>-<order>-<kind>.<tag>.<ext>` under
 the shared round protocol, with the transcript and log sharing `1-round`.
 Each phase receives the complete paths it reads and writes in protocol order.
@@ -379,26 +380,26 @@ is the same as the automated round, from either checkout.
 `paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its
 arguments as one JSON array. Vet, rebuttal and brief take `--writer <full tag>`
 from the current session. Fix writes no phase report and needs no writer tag.
-Without an input, the command selects the sole eligible file at the invoking root.
+Without an input, the command selects the sole eligible file at the plan root.
 Use `--vet <file>` or `--rebut <file>` to select an existing review when several
 belong to that round. The command writes nothing and never claims another
 number. The shared round protocol owns manual invocation details.
 
 `close` deletes the audit and twins for its exact target and round at the
-invoking root. Claims and runner documents remain.
+plan root. Claims and runner documents remain.
 
 The brief writes a plain-words twin only after the full fix has completed, then prints the saved
-document in the terminal. `--no-brief` skips it for every round without changing the watch.
-A clean audit records its outcome directly and
-retains the report, without later sessions. A fix that stops for a ruling adds a ruling twin. A
-finished plan round with audit findings ends with a glance at the commit record, and a due glance
-adds a `-watch.md` document. The watch keeps its own history in the shared cache, which is how its
-cadence survives between rounds, and `--no-watch` skips both. `brief` accepts an earlier transcript
-at either root, writes beside it without claiming a new number and overwrites its standalone log on
-each run. `--auditor` accepts one selection or a comma-separated sequence on the named plan scope.
-Repeated entries request separate rounds. A clean audit skips all remaining entries for its
-assistant; failure or a round requiring a ruling stops the sequence. Each header records the round's
-start time; filenames carry no timestamp.
+document in the terminal. `--no-brief` skips it for every round without changing the watch. A clean
+audit records its outcome directly and retains the report, without later sessions. A fix that stops
+for a ruling adds a ruling twin. A finished plan round with audit findings ends with a glance at the
+commit record, and a due glance adds a `-watch.md` document. The watch keeps its own history in the
+shared cache, which is how its cadence survives between rounds, and `--no-watch` skips both. `brief`
+accepts an earlier transcript at the plan root, reads its kind from the transcript title, writes
+beside it without claiming a new number and overwrites its standalone log on each run. `--auditor`
+accepts one selection or a comma-separated sequence on the named plan scope. Repeated entries
+request separate rounds. A clean audit skips all remaining entries for its assistant; failure or a
+round requiring a ruling stops the sequence. Each header records the round's start time; filenames
+carry no timestamp.
 
 ## Verification
 

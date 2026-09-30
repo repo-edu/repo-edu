@@ -25,7 +25,7 @@ export async function completeClean(
       ? input.judgedRepos[0] === "plan"
         ? input.planRoot
         : input.repoEduRoot
-      : input.cwd
+      : input.repoEduRoot
   if (stamps.auditor === null || stamps.phases === null)
     throw new Error(
       "The clean record needs the audit's model and capability tag",

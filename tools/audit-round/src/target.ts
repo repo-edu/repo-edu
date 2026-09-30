@@ -4,7 +4,21 @@ import { InvalidArgumentError } from "commander"
 import type { ExecutionContext } from "./context.js"
 
 export type RoundKind = "planning" | "implementation"
-export type RoundContext = ExecutionContext & { readonly roundKind: RoundKind }
+export type RoundContext = ExecutionContext & {
+  readonly roundKind: RoundKind
+  readonly cwd: string
+}
+
+export function roundContext(
+  context: ExecutionContext,
+  roundKind: RoundKind,
+): RoundContext {
+  return {
+    ...context,
+    roundKind,
+    cwd: roundKind === "planning" ? context.planRoot : context.repoEduRoot,
+  }
+}
 
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =

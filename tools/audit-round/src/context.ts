@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url"
 
 /** One command-owned context, independent of any phase's workflow owner. */
 export type ExecutionContext = {
-  readonly cwd: string
   readonly repoEduRoot: string
   readonly planRoot: string
 }
@@ -14,12 +13,10 @@ export const installationRoot = fileURLToPath(
 )
 
 export async function executionContext(
-  cwd: string,
   installedAt = installationRoot,
 ): Promise<ExecutionContext> {
   const repoEduRoot = await realpath(installedAt)
   const planRoot = await realpath(resolve(repoEduRoot, "../plan"))
-  const root = await realpath(cwd)
   for (const repository of [repoEduRoot, planRoot]) {
     if (
       !(
@@ -33,14 +30,15 @@ export async function executionContext(
   if (!(await stat(resolve(repoEduRoot, "pnpm-workspace.yaml"))).isFile())
     throw new Error(`Missing Repo Edu workspace in ${repoEduRoot}`)
   return {
-    cwd: root,
     repoEduRoot,
     planRoot,
   }
 }
 
 /** Both assistants can read and change the peer checkout under the phase's authority. */
-export function peerRoot(context: ExecutionContext): string {
+export function peerRoot(
+  context: ExecutionContext & { readonly cwd: string },
+): string {
   return context.cwd === context.planRoot
     ? context.repoEduRoot
     : context.planRoot

@@ -71,7 +71,7 @@ for (const working of ["plan", "repo-edu"] as const) {
         owner === "repo-edu",
       )
       assert.equal(await readFile(f.report, "utf8"), report)
-      assert.equal(dirname(f.report), f.runtime.cwd)
+      assert.equal(dirname(f.report), f.planRoot)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
         (await execa("git", ["rev-parse", "--short", "HEAD"], { cwd: peer }))
@@ -90,7 +90,7 @@ for (const working of ["plan", "repo-edu"] as const) {
 }
 
 for (const working of ["repo-edu", "plan"] as const) {
-  test(`a both-repo clean audit lands one record at the invoking ${working} root`, async (t) => {
+  test(`a both-repo clean audit lands one record in Repo Edu from the ${working} root`, async (t) => {
     const f = await roundFixture(
       t,
       "codex",
@@ -103,17 +103,10 @@ for (const working of ["repo-edu", "plan"] as const) {
     )
     await writeFile(
       f.report,
-      (await readFile(f.report, "utf8")).replace(
-        /^Judged repos: .+/,
-        `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}`,
-      ),
+      `Judged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
     )
     assert.equal(
-      await runCommand(
-        ["example.md", ...(working === "plan" ? [] : ["all"])],
-        f.runtime,
-        f.options,
-      ),
+      await runCommand(["example.md", "all"], f.runtime, f.options),
       0,
       f.errors.join("\n"),
     )
@@ -126,7 +119,7 @@ for (const working of ["repo-edu", "plan"] as const) {
           { cwd: root },
         )
       ).stdout
-      assert.equal(count, working === repository ? "1" : "0")
+      assert.equal(count, repository === "repo-edu" ? "1" : "0")
     }
   })
 }

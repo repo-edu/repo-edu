@@ -98,7 +98,7 @@ async function reportPhase<R extends PhaseResult>(
 /**
  * The brief reads only the transcript, so it runs the same way after a round
  * and on its own over an earlier transcript. Its launcher always belongs to
- * the Repo Edu root; output belongs beside the transcript at either root.
+ * the Repo Edu root; output belongs beside the transcript at the plan root.
  */
 export async function runBrief(
   input: BriefInput,
@@ -393,7 +393,7 @@ export async function runRound(
     if (fix.status === "finished") {
       try {
         await dependencies.closeRound(
-          cwd,
+          planRoot,
           transcriptNameStart(input.transcript),
         )
         const landed = await Promise.all(

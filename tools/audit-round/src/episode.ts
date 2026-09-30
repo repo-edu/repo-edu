@@ -276,35 +276,50 @@ export async function readWatchEvidence(
     readLog(input.planRoot),
     readLog(input.repoEduRoot),
   ])
-  const repository = input.cwd === input.planRoot ? "plan" : "repo-edu"
   const logs = { plan, "repo-edu": repoEdu }
-  const log = logs[repository]
-  let topic = "stem" in input ? input.stem : historyTopic(log)
+  const newest = [...repoEdu, ...plan]
+    .filter((commit) => commitTopic(commit) !== null)
+    .sort((first, second) => second.committedAt - first.committedAt)[0]
+  let topic =
+    "stem" in input
+      ? input.stem
+      : newest === undefined
+        ? null
+        : commitTopic(newest)
   let anchor: { repository: Repository; sha: string } | undefined
   if ("target" in input && input.target !== undefined) {
     const reference = input.target.replace(/^HEAD-(\d+)$/, "HEAD~$1")
-    const result = await execa(
-      "git",
-      [
-        "rev-parse",
-        "--verify",
-        "--quiet",
-        "--end-of-options",
-        `${reference}^{commit}`,
-      ],
-      { cwd: input.cwd, reject: false },
-    )
-    if (result.exitCode === 0) {
-      const commit = log.find((commit) => commit.sha === result.stdout)
-      if (commit === undefined)
-        throw new Error(
-          `Episode anchor ${input.target} is not on ${repository}'s history.`,
-        )
-      topic = commitTopic(commit) ?? historyTopic(log)
-      anchor = { repository, sha: commit.sha }
-    } else {
-      topic = input.target
+    const repositories: Repository[] = reference.startsWith("HEAD")
+      ? ["repo-edu"]
+      : ["repo-edu", "plan"]
+    for (const repository of repositories) {
+      const result = await execa(
+        "git",
+        [
+          "rev-parse",
+          "--verify",
+          "--quiet",
+          "--end-of-options",
+          `${reference}^{commit}`,
+        ],
+        {
+          cwd: repository === "plan" ? input.planRoot : input.repoEduRoot,
+          reject: false,
+        },
+      )
+      if (result.exitCode === 0) {
+        const log = logs[repository]
+        const commit = log.find((commit) => commit.sha === result.stdout)
+        if (commit === undefined)
+          throw new Error(
+            `Episode anchor ${input.target} is not on ${repository}'s history.`,
+          )
+        topic = commitTopic(commit) ?? historyTopic(log)
+        anchor = { repository, sha: commit.sha }
+        break
+      }
     }
+    if (anchor === undefined) topic = input.target
   }
   return formatWatchEvidence(
     joinedEpisode(logs, topic, loadAreaModel(input.repoEduRoot).areas, anchor),

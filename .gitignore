@@ -20,36 +20,6 @@ apps/desktop/playwright-report/
 .claude/plan
 plan/
 
-# Numbered phase files at the invoking root
-/*-0-claim.md
-/*-[0-9]-round.*.log
-/*-[0-9]-round.*.md
-/*-[0-9]-audit.*.md
-/*-[0-9]-vet.*.md
-/*-[0-9]-rebut.*.md
-/*-[0-9]-brief.*.log
-/*-[0-9]-brief.*.md
-/*-[0-9]-ruling.*.md
-/*-[0-9]-watch.*.md
-
-# Round files at the repo root, grouped by target and round
-/*-round.md
-/*-round.log
-/*-audit.md
-/*-vet.md
-/*-rebut.md
-/*-brief.md
-/*-ruling.md
-/*-watch.md
-/*-claim.md
-
-# legacy root round files; anchored, because an unanchored AUDIT-* also matches
-# the tools/audit-round directory on a case-insensitive filesystem
-/ROUND-*
-/AUDIT-*
-/VET-*
-/REBUT-*
-
 # Oversized-step implementation ledger, deleted when the step's commit lands
 /LEDGER-*.md
 

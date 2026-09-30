@@ -21,7 +21,7 @@ try {
   command.parse()
   await recordContracts(
     (command.args[0] as Assistant | "both") ?? "both",
-    await executionContext(process.cwd()),
+    { ...(await executionContext()), cwd: process.cwd() },
     fileURLToPath(new URL("./__tests__/fixtures/", import.meta.url)),
     terminal,
   )

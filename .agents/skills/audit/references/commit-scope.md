@@ -124,7 +124,7 @@ commit references as typed, the resolved range with its short shas and the state
 covers the work. Then the coverage table with its closing line, then the `## Findings` field.
 
 Deliver the report under `workflow.md`'s **Report file** rule. Use the supplied absolute path at the
-invoking root under the shared [round protocol](../../../references/round-protocol.md), with the
+plan repo root under the shared [round protocol](../../../references/round-protocol.md), with the
 numbered audit kind and dot-separated writer tag. Keep the supplied path unchanged. Otherwise form
 the target from the typed commit references using the shared rule and allocate the round under
 `workflow.md`'s **Round allocation**. The opening carries the repo and audited head for vet,

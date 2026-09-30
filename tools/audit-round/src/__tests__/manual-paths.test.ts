@@ -18,7 +18,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.runtime.cwd
+    const root = f.planRoot
     const invoke = async (args: string[]) => {
       f.visible.length = 0
       assert.equal(
@@ -46,27 +46,25 @@ for (const working of ["repo-edu", "plan"] as const) {
     ])
       await writeFile(join(root, name), "Unrelated")
     await mkdir(join(root, `${start}-3-vet.atx.md`))
-    await writeFile(
-      join(
-        working === "plan" ? f.repoRoot : f.planRoot,
-        `${start}-3-vet.ath.md`,
-      ),
-      "Peer",
-    )
+    await writeFile(join(f.repoRoot, `${start}-3-vet.ath.md`), "Peer")
     const paths = async (args: string[]): Promise<string[]> =>
       JSON.parse((await invoke(["paths", ...args]))[0])
     const vet = await paths(["vet", basename(report), "--writer", "abl"])
     assert.deepEqual(vet, [report, join(root, `${start}-3-vet.abl.md`)])
     await writeFile(vet[1], "1. [B] Revise")
     // A fresh rebuttal session can use a different tier and effort from its audit.
-    const rebut = await paths(["rebut", report, "--writer", "otm"])
+    const rebut = await paths(["rebut", basename(report), "--writer", "otm"])
     assert.deepEqual(rebut, [
       report,
       vet[1],
       join(root, `${start}-4-rebut.otm.md`),
     ])
     await writeFile(rebut[2], "1. [B] Agree")
-    assert.deepEqual(await paths(["fix", report]), [report, vet[1], rebut[2]])
+    assert.deepEqual(await paths(["fix", basename(report)]), [
+      report,
+      vet[1],
+      rebut[2],
+    ])
     assert.equal(await readFile(claim, "utf8"), "")
     assert.deepEqual(
       (await readdir(root)).filter((name) => name.endsWith("-0-claim.md")),
@@ -77,7 +75,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     })
   })
 
-  test(`bare manual phases discover eligible inputs only at ${working}`, async (t) => {
+  test(`bare manual phases discover plan-root inputs from ${working}`, async (t) => {
     const f = await roundFixture(
       t,
       "codex",
@@ -87,8 +85,8 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       working,
     )
-    const root = f.runtime.cwd
-    const peer = working === "plan" ? f.repoRoot : f.planRoot
+    const root = f.planRoot
+    const peer = f.repoRoot
     const report = join(root, "task-modifier-05-2-audit.ath.md")
     const ownReport = join(root, "other-06-2-audit.oux.md")
     const transcript = join(root, "task-modifier-05-1-round.ath.md")
@@ -148,7 +146,7 @@ for (const phase of ["vet", "rebut", "fix", "brief"] as const) {
     const inputKind = phase === "brief" ? "1-round" : "2-audit"
     const tag = phase === "vet" ? "ath" : "otm"
     const files = ["first-01", "second-02"].map((start) =>
-      join(f.repoRoot, `${start}-${inputKind}.${tag}.md`),
+      join(f.planRoot, `${start}-${inputKind}.${tag}.md`),
     )
     const invoke = async (input?: string) => {
       f.visible.length = 0
@@ -157,7 +155,7 @@ for (const phase of ["vet", "rebut", "fix", "brief"] as const) {
         [
           "paths",
           phase,
-          ...(input === undefined ? [] : [input]),
+          ...(input === undefined ? [] : [basename(input)]),
           "--writer",
           "oth",
         ],
@@ -172,7 +170,7 @@ for (const phase of ["vet", "rebut", "fix", "brief"] as const) {
     assert.match(f.errors[0], /Several eligible/)
     for (const file of files) assert.ok(f.errors[0].includes(file))
     if (phase === "rebut")
-      await writeFile(join(f.repoRoot, "first-01-3-vet.ath.md"), "Vet")
+      await writeFile(join(f.planRoot, "first-01-3-vet.ath.md"), "Vet")
     assert.equal(await invoke(files[0]), 0, f.errors.join("\n"))
     assert.equal(JSON.parse(f.visible[0])[0], files[0])
   })
@@ -189,22 +187,22 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   await writeFile(run.documents.vet, "Vet")
   await writeFile(run.paths.markdown, "Transcript")
   assert.ok(run.documents.brief)
-  const before = await readdir(f.repoRoot, { recursive: true })
+  const before = await readdir(f.planRoot, { recursive: true })
   for (const [args, expected] of [
     [
-      ["vet", run.documents.report, "--writer", "abx"],
+      ["vet", basename(run.documents.report), "--writer", "abx"],
       [run.documents.report, run.documents.vet],
     ],
     [
-      ["rebut", run.documents.report, "--writer", "oth"],
+      ["rebut", basename(run.documents.report), "--writer", "oth"],
       [run.documents.report, run.documents.vet, run.documents.rebut],
     ],
     [
-      ["fix", run.documents.report],
+      ["fix", basename(run.documents.report)],
       [run.documents.report, run.documents.vet],
     ],
     [
-      ["brief", run.paths.markdown, "--writer", "oul"],
+      ["brief", basename(run.paths.markdown), "--writer", "oul"],
       [run.paths.markdown, run.documents.brief],
     ],
   ]) {
@@ -220,7 +218,7 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   f.visible.length = 0
   assert.equal(
     await runCommand(
-      ["paths", "brief", run.paths.markdown, "--writer", "atx"],
+      ["paths", "brief", basename(run.paths.markdown), "--writer", "atx"],
       { ...f.runtime, cwd: f.planRoot },
       { ...f.options, settings: testSettings },
     ),
@@ -228,9 +226,9 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   )
   assert.deepEqual(JSON.parse(f.visible[0]), [
     run.paths.markdown,
-    join(f.repoRoot, `${run.nameStart}-6-brief.atx.md`),
+    join(f.planRoot, `${run.nameStart}-6-brief.atx.md`),
   ])
-  assert.deepEqual(await readdir(f.repoRoot, { recursive: true }), before)
+  assert.deepEqual(await readdir(f.planRoot, { recursive: true }), before)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",
   })
@@ -238,50 +236,74 @@ test("manual resolution reuses runner filenames without writes or assistant disc
 
 test("missing or ambiguous twins are resolved explicitly without selecting another round", async (t) => {
   const f = await roundFixture(t)
-  const report = join(f.repoRoot, "example-all-01-2-audit.oth.md")
+  const report = join(f.planRoot, "example-all-01-2-audit.oth.md")
   await writeFile(report, "Audit")
   const invoke = async (args: string[]) => {
     f.visible.length = 0
     f.errors.length = 0
     return runCommand(["paths", ...args], f.runtime, f.options)
   }
-  assert.equal(await invoke(["fix", report]), 0)
+  assert.equal(await invoke(["fix", basename(report)]), 0)
   assert.deepEqual(JSON.parse(f.visible[0]), [report])
-  assert.equal(await invoke(["rebut", report, "--writer", "oth"]), 1)
+  assert.equal(await invoke(["rebut", basename(report), "--writer", "oth"]), 1)
   assert.match(f.errors[0], /No vet file/)
   const vets = ["abl", "ath"].map((tag) =>
-    join(f.repoRoot, `example-all-01-3-vet.${tag}.md`),
+    join(f.planRoot, `example-all-01-3-vet.${tag}.md`),
   )
   for (const file of vets) await writeFile(file, "Vet")
-  assert.equal(await invoke(["rebut", report, "--writer", "oth"]), 1)
+  assert.equal(await invoke(["rebut", basename(report), "--writer", "oth"]), 1)
   for (const file of vets) assert.ok(f.errors[0].includes(file))
   assert.equal(
-    await invoke(["rebut", report, "--writer", "oth", "--vet", vets[1]]),
+    await invoke([
+      "rebut",
+      basename(report),
+      "--writer",
+      "oth",
+      "--vet",
+      basename(vets[1]),
+    ]),
     0,
   )
   assert.equal(JSON.parse(f.visible[0])[1], vets[1])
   const rebuts = ["otm", "oux"].map((tag) =>
-    join(f.repoRoot, `example-all-01-4-rebut.${tag}.md`),
+    join(f.planRoot, `example-all-01-4-rebut.${tag}.md`),
   )
   for (const file of rebuts) await writeFile(file, "Rebuttal")
-  assert.equal(await invoke(["fix", report, "--vet", vets[0]]), 1)
+  assert.equal(
+    await invoke(["fix", basename(report), "--vet", basename(vets[0])]),
+    1,
+  )
   for (const file of rebuts) assert.ok(f.errors[0].includes(file))
   assert.equal(
-    await invoke(["fix", report, "--vet", vets[0], "--rebut", rebuts[1]]),
+    await invoke([
+      "fix",
+      basename(report),
+      "--vet",
+      basename(vets[0]),
+      "--rebut",
+      basename(rebuts[1]),
+    ]),
     0,
   )
   assert.deepEqual(JSON.parse(f.visible[0]), [report, vets[0], rebuts[1]])
-  const other = join(f.repoRoot, "example-all-02-3-vet.ath.md")
+  const other = join(f.planRoot, "example-all-02-3-vet.ath.md")
   await writeFile(other, "Other round")
   assert.equal(
-    await invoke(["rebut", report, "--writer", "oth", "--vet", other]),
+    await invoke([
+      "rebut",
+      basename(report),
+      "--writer",
+      "oth",
+      "--vet",
+      basename(other),
+    ]),
     1,
   )
   assert.match(f.errors[0], /another round/)
-  assert.equal(await invoke(["vet", report]), 1)
+  assert.equal(await invoke(["vet", basename(report)]), 1)
   assert.match(f.errors[0], /needs --writer/)
-  assert.equal(await invoke(["vet", report, "--writer", "o"]), 2)
-  assert.equal(await invoke(["vet", vets[0], "--writer", "oth"]), 1)
+  assert.equal(await invoke(["vet", basename(report), "--writer", "o"]), 2)
+  assert.equal(await invoke(["vet", basename(vets[0]), "--writer", "oth"]), 1)
   assert.match(f.errors[0], /2-audit/)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

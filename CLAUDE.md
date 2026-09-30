@@ -51,7 +51,9 @@ pnpm test
 ```
 
 `pnpm audit-round example 3` runs an implementation-audit round for
-the named plan and step from either checkout. A stem alone audits the plan
+the named plan and step from either checkout. Every round file lives at the
+plan repo root. Planning sessions work there; implementation and commit sessions
+work in Repo Edu. A stem alone audits the plan
 document; `example all` audits every implementation step. The
 [runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
 options, settings and outcomes. The

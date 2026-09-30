@@ -1,5 +1,4 @@
 import type { CleanInput } from "./clean.js"
-import type { ExecutionContext } from "./context.js"
 import type { WatchEvidenceInput } from "./episode.js"
 import type { GlanceDecision, GlanceInput } from "./glance.js"
 import type { AuditReport, ReportFindings } from "./report.js"
@@ -34,9 +33,7 @@ const launcherRoots: Record<Phase, "cwd" | "repoEduRoot"> = {
   "watch-edit": "repoEduRoot",
 }
 
-export function phaseOwnerRoot(
-  input: ExecutionContext & { phase: Phase },
-): string {
+export function phaseOwnerRoot(input: RoundContext & { phase: Phase }): string {
   return input[launcherRoots[input.phase]]
 }
 

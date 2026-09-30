@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import {
   Command,
   CommanderError,
@@ -41,12 +41,13 @@ import {
   phaseFilename,
   roundDocument,
   roundIdentity,
+  transcriptKind,
 } from "./round-paths.js"
 import { readRulingReply } from "./ruling-input.js"
 import { claimRound } from "./run-files.js"
 import { type RoundSettings, readSettings } from "./settings.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
-import { auditTarget, resolvePlan } from "./target.js"
+import { auditTarget, resolvePlan, roundContext } from "./target.js"
 import { readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
@@ -264,7 +265,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
     )
     .argument(
       "[input]",
-      "audit report or round transcript; defaults to the sole eligible file at this root",
+      "bare audit report or transcript name; defaults to the sole eligible file at the plan root",
     )
     .option(
       "--writer <tag>",
@@ -296,7 +297,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
     )
     .argument(
       "[stem-or-commit]",
-      "topic or explicit anchor commit; defaults to HEAD's topic",
+      "topic or anchor commit; defaults to the newest topic across both repos; HEAD means Repo Edu",
     )
     .action((target?: string) => {
       invocation = { kind: "episode", target }
@@ -304,7 +305,7 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
   command
     .command("close")
     .description(
-      "Delete one round's audit, vet and rebuttal reports at the invoking root.",
+      "Delete one round's audit, vet and rebuttal reports at the plan root.",
     )
     .argument(
       "<target-round>",
@@ -359,7 +360,7 @@ export async function runCommand(
   let code = 1
   const now = options.now ?? Date.now
   try {
-    const context = await executionContext(runtime.cwd, options.repoEduRoot)
+    const context = await executionContext(options.repoEduRoot)
     if (invocation.kind === "episode") {
       options.terminal.write(
         await readWatchEvidence({ ...context, target: invocation.target }),
@@ -367,7 +368,7 @@ export async function runCommand(
       return 0
     }
     if (invocation.kind === "close") {
-      await closeRound(context.cwd, invocation.nameStart)
+      await closeRound(context.planRoot, invocation.nameStart)
       return 0
     }
     if (invocation.kind === "paths") {
@@ -413,21 +414,27 @@ export async function runCommand(
         ...context,
         ...prepared.target,
       })
-      const claim = join(context.cwd, `${nameStart}-0-claim.md`)
+      const claim = join(context.planRoot, `${nameStart}-0-claim.md`)
       claimRound(claim)
       options.terminal.write(claim)
       options.terminal.write(
         join(
-          context.cwd,
+          context.planRoot,
           `${phaseFilename(nameStart, "audit", prepared.auditor)}.md`,
         ),
       )
       return 0
     }
+    const session = roundContext(
+      context,
+      prepared.kind === "brief"
+        ? await transcriptKind(prepared.transcript)
+        : prepared.target.roundKind,
+    )
     const settings = options.settings ?? (await readSettings())
     runtime.signal?.throwIfAborted()
     const selections = await prepareAssistants(
-      { ...runtime, cwd: context.cwd },
+      { ...runtime, cwd: session.cwd },
       {
         message: async (text) => options.terminal.write(text),
         warning: async (text) => options.terminal.write(`Warning: ${text}`),
@@ -485,7 +492,7 @@ export async function runCommand(
         return stdout.length === 0 ? [] : stdout.split("\n")
       },
       ...assistantDependencies(
-        { ...runtime, cwd: context.cwd, commit: active.commitStamps },
+        { ...runtime, cwd: session.cwd, commit: active.commitStamps },
         active.phase,
       ),
       requestRuling: async (document) => {
@@ -519,11 +526,7 @@ export async function runCommand(
       const active = open(run)
       result = await runBrief(
         {
-          ...context,
-          roundKind:
-            dirname(transcript) === context.planRoot
-              ? "planning"
-              : "implementation",
+          ...session,
           transcript,
           brief: run.brief,
         },
@@ -543,7 +546,7 @@ export async function runCommand(
       do {
         const seat = pending[0]
         const setup = {
-          ...context,
+          ...session,
           ...prepared.target,
           auditor: seat.assistant,
           override: seat.override,

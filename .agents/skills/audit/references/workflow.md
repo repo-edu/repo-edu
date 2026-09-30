@@ -50,8 +50,8 @@ local substitutions: that repo's report root and finding metadata.
 Follow the `CLAUDE.md` of every repo the round judges. Planning-artifact
 audits still belong to the plan repo's own audit workflow. The runner selects
 that round kind when invoked with a stem alone, from either checkout. Its
-sessions and round files belong to the invoking root. The shared brief launcher
-stays in Repo Edu and writes beside the supplied transcript at either root.
+sessions work in the plan checkout. All round files live at the plan root.
+The shared brief launcher stays in Repo Edu and writes beside the transcript.
 Its launcher location never changes the session's working directory.
 
 An audit with findings ends at its report file. An audit without findings follows
@@ -261,7 +261,7 @@ starts a fix session, changes or consumes an existing handoff, or writes a new h
 commit-scoped audit lands no record and retains its report, under `commit-scope.md`.
 
 For a hand-run plan target, land one empty clean record in the sole judged repo
-or at the invoking root when both repos were judged. Use the shared clean form
+or in Repo Edu when both repos were judged. Use the shared clean form
 from `../plan/CLAUDE.md`: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
 The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
 opening model line name this auditing session. Name the judged repo set in the

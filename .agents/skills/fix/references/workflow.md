@@ -151,7 +151,7 @@ bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 A finding deferred from a Repo Edu-only round to the plan repo uses the body form in this repo's
 `CLAUDE.md`; it keeps its tier, plan location and metadata in the same round commit. A plan-repo
 round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
-record, in the sole judged repo or at the invoking root when both repos were judged. Its subject
+record, in the sole judged repo or in Repo Edu when both repos were judged. Its subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged
 both. This clean record follows reconciliation of an audit that reported findings. Audits that
 report no findings complete directly under the audit workflow and create no fix session. The user

@@ -1,10 +1,17 @@
-import { readdir, realpath, stat, unlink } from "node:fs/promises"
+import { readdir, readFile, realpath, stat, unlink } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
 import { execa } from "execa"
 import type { ExecutionContext } from "./context.js"
-import { type AuditTarget, planStem, type RoundContext } from "./target.js"
+import {
+  type AuditTarget,
+  planStem,
+  type RoundContext,
+  type RoundKind,
+} from "./target.js"
 
-type NamingTarget = RoundContext & AuditTarget
+type NamingTarget = ExecutionContext &
+  Pick<RoundContext, "roundKind"> &
+  AuditTarget
 
 const phaseOrder = {
   round: 1,
@@ -82,7 +89,7 @@ async function targetDescription(target: NamingTarget): Promise<{
     const head = first.includes("HEAD")
       ? (
           await execa("git", ["rev-parse", "--short", "HEAD"], {
-            cwd: target.cwd,
+            cwd: target.repoEduRoot,
           })
         ).stdout
       : ""
@@ -105,18 +112,13 @@ async function targetDescription(target: NamingTarget): Promise<{
   }
 }
 
-/** Read every retained kind at both roots; opening the run claims this candidate. */
+/** Read every retained kind at the plan root; opening the run claims this candidate. */
 async function nextNameStart(
   context: ExecutionContext,
   target: string,
 ): Promise<string> {
-  const roots = await Promise.all(
-    [context.repoEduRoot, context.planRoot].map((root) =>
-      readdir(root, { withFileTypes: true }),
-    ),
-  )
-  const numbers = roots
-    .flat()
+  const files = await readdir(context.planRoot, { withFileTypes: true })
+  const numbers = files
     .filter((file) => file.isFile())
     .map((file) => file.name)
     .filter((name) => name.startsWith(`${target}-`))
@@ -152,23 +154,33 @@ export function transcriptNameStart(transcript: string): string {
   const parsed = readPhaseFilename(basename(transcript))
   if (parsed?.kind !== "round" || parsed.extension !== "md")
     throw new Error(
-      "Name a round's *-1-round.<tag>.md transcript at the Repo Edu or plan checkout root.",
+      "Name a round's *-1-round.<tag>.md transcript at the plan checkout root.",
     )
   return parsed.nameStart
 }
 
-/** Read an existing phase document at either checkout root. */
+/** The runner's transcript title records the kind independently of its file name. */
+export async function transcriptKind(transcript: string): Promise<RoundKind> {
+  const title = (await readFile(transcript, "utf8")).split("\n", 1)[0]
+  if (title.startsWith("# Audit round of plan ")) return "planning"
+  if (/^# Audit round of (implementation|commits) /.test(title))
+    return "implementation"
+  throw new Error(`Missing round kind in transcript title: ${transcript}`)
+}
+
+/** Read an existing phase document named without a path at the plan root. */
 export async function roundDocument(
   context: ExecutionContext,
   file: string,
   kind: FileKind,
 ): Promise<{ path: string; nameStart: string }> {
   try {
-    const path = await realpath(resolve(context.cwd, file))
+    if (/[\\/]/.test(file)) throw new Error("Expected a bare file name")
+    const path = await realpath(resolve(context.planRoot, file))
     const parsed = readPhaseFilename(basename(path))
     if (
       (await stat(path)).isFile() &&
-      [context.repoEduRoot, context.planRoot].includes(dirname(path)) &&
+      dirname(path) === context.planRoot &&
       parsed?.kind === kind &&
       parsed.extension === "md"
     )
@@ -177,7 +189,7 @@ export async function roundDocument(
     // Report the required document form below when the input cannot be opened.
   }
   throw new Error(
-    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md ${kind === "round" ? "transcript" : "report"} at the Repo Edu or plan checkout root: ${file}`,
+    `Name a round's *-${phaseOrder[kind]}-${kind}.<tag>.md ${kind === "round" ? "transcript" : "report"} by its bare file name at the plan checkout root: ${file}`,
   )
 }
 
@@ -200,7 +212,7 @@ export async function manualPhasePaths(
     )
   const kind = phase === "brief" ? "round" : "audit"
   if (input === undefined) {
-    const matches = (await phaseDocuments(context.cwd, kind))
+    const matches = (await phaseDocuments(context.planRoot, kind))
       .filter((document) => {
         const sameAssistant = document.tag[0] === options.writer?.[0]
         if (phase === "vet") return !sameAssistant
@@ -212,13 +224,13 @@ export async function manualPhasePaths(
     const description = phase === "brief" ? "round transcript" : "audit report"
     if (matches.length === 0)
       throw new Error(
-        `No eligible ${description} for ${phase} at ${context.cwd}. Supply an input path.`,
+        `No eligible ${description} for ${phase} at ${context.planRoot}. Supply a file name.`,
       )
     if (matches.length > 1)
       throw new Error(
-        `Several eligible ${description}s for ${phase}. Supply an input path:\n${matches.join("\n")}`,
+        `Several eligible ${description}s for ${phase}. Supply a file name:\n${matches.join("\n")}`,
       )
-    input = matches[0]
+    input = basename(matches[0])
   }
   const source = await roundDocument(context, input, kind)
   const root = dirname(source.path)

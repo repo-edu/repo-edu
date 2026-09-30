@@ -24,9 +24,8 @@ planning or plan-scoped implementation-audit rounds. The shared
 [round protocol](../../../references/round-protocol.md) owns file names, writer
 tags, severity sequences and rating tokens.
 
-Keep the invoking repository as the working directory. The launcher's Repo
-Edu location does not select the history to anchor. Use the Repo Edu and plan
-checkout paths supplied by the invocation.
+The round kind sets automated sessions' working directory: plan for planning,
+Repo Edu for implementation. Use the supplied checkout paths.
 
 A hand-run watch returns its watch in chat and writes no file or cadence
 record. The automated writer and editor follow the file input, output, shape
@@ -47,16 +46,15 @@ iteration complete untouched; a red one lets the user terminate or pause it.
 The round's launcher runs after the round's own work is done, so there is
 nothing in flight to block.
 
-The shared episode module in Repo Edu computes membership and counts from
-Git. The runner supplies the audited plan's topic and
-formats joined evidence only after a finished fix when glance says watch is
-due. Only the writer receives that evidence, including the two graded heads.
-The fresh editor reads the draft and required instructions, improves the wording
-and preserves its claims and judgements without investigating its sources again.
-A hand-run watch runs `pnpm audit-round episode [stem|commit]` in its own
-context and reads the output. The command defaults to the latest stem on
-HEAD's history only when no target is named. No route writes an episode file
-or computes an episode before audit.
+The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
+the audited plan's topic and formats joined evidence only after a finished fix when glance says
+watch is due. Only the writer receives that evidence, including the two graded heads. The fresh
+editor reads the draft and required instructions, improves the wording and preserves its claims and
+judgements without investigating its sources again. A hand-run watch runs
+`pnpm audit-round episode [stem|commit]` in its own context and reads the output. With no target,
+the command selects the newest stem commit across both repos by commit date. A SHA anchors the repo
+that holds it; HEAD forms mean Repo Edu. No route writes an episode file or computes an episode
+before audit.
 
 The evidence is bounded to commits reachable from each repository's HEAD.
 Other branches and refs are outside it. The watch may inspect named commits
@@ -76,7 +74,8 @@ history. The user directed this on 2026-09-13, replacing a watch run on
 intuition.
 
 Before the round's launcher runs the watch it runs a glance: a cheap read of the
-invoking repository's log since its recorded HEAD, which answers only whether
+plan log for a planning round or the Repo Edu log for an implementation round
+since that repo's recorded HEAD, which answers only whether
 the watch has enough new correction evidence to run. The watch judges whether
 those corrections share an unresolved cause; the glance grades nothing and
 suggests nothing. Readers changing the counting or membership rules use

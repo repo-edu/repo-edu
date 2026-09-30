@@ -422,7 +422,7 @@ for (const accepted of [false, true]) {
       const round = controlledRound(async (input) => {
         if (input.phase === "brief")
           assert.deepEqual(round.closed, [
-            { cwd: repoRoot, nameStart: "example-all-01" },
+            { cwd: files.planRoot, nameStart: "example-all-01" },
           ])
       })
       round.evidence.accepted = accepted

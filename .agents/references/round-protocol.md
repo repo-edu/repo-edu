@@ -14,15 +14,15 @@ The kind is `round`, `audit`, `vet`, `rebut`, `brief`, `ruling` or `watch`.
 Documents use `.md`; the transcript log and standalone brief log use `.log`.
 Two files omit the tag: the empty `<target>-<round>-0-claim.md` reserves a
 number, and `<stem>-handoff.<sha>.md` briefs the commit it names. The runner
-claims at the invoking repository root; a hand-run audit claims there too.
+claims at the plan repository root; a hand-run audit claims there too.
 The plan repo's handoff rule owns that six-character sha.
 
 - **Target** names what was audited. A planning-artifact audit uses its bare
   stem, without `.md` or `-widen`. For an archived `plan.md`, use the archive
   folder's name. An implementation audit adds `-step-<n>`, `-steps-<a>-<b>`
-  or `-all` to that stem at either report root.
+  or `-all` to that stem.
 - **Commit targets** preserve the references as typed, replacing `HEAD` with
-  its short sha at the start of the round. Keep offsets: `HEAD-4..HEAD` becomes
+  Repo Edu's short sha at the start of the round. Keep offsets: `HEAD-4..HEAD` becomes
   `b7ca0b3b-4..b7ca0b3b`. For a list, use its first reference followed by
   `-plus-<n>`, where `n` counts the remaining references. Never take a word
   from a commit subject or name a range with two resolved endpoint shas.
@@ -49,7 +49,7 @@ The shared `tools/audit-round/src/round-paths.ts` owns the fixed order numbers:
 | 8 | glance | Reserved, no report |
 | 9 | watch | Watch |
 
-Skipped phases leave gaps. Every round file lives at the invoking root.
+Skipped phases leave gaps. Every round file lives at the plan repo root.
 
 Read a name from the right: remove the extension, three-letter tag, kind and order,
 then split the remaining name at its last hyphen into target and round.
@@ -120,7 +120,7 @@ the fix writer's tag. A resumed fix receives the same path and the user's reply.
 A manual invocation may name the audit report, or the round transcript for a
 brief. If the current conversation identifies that input unambiguously, use it.
 Otherwise omit the input when calling `paths` below. The command searches only
-the invoking root and selects the sole eligible file without confirmation:
+the plan repo root and selects the sole eligible file without confirmation:
 
 - Vet uses audit reports from the other assistant.
 - Rebuttal uses audit reports from the current assistant.
@@ -147,8 +147,8 @@ audit. Plan arguments accept `.md` and `-widen` but no path; lookup prefers the
 active artifact at the plan root, then its archive. A commit-shaped stem keeps
 `.md` to identify it as a plan.
 
-For later phases, use complete supplied paths when present. Otherwise run the
-matching command from the invoking checkout:
+For later phases, use complete runner-supplied paths when present. Hand-run
+commands take bare file names and resolve them at the plan repo root:
 
 | Phase | Command |
 | --- | --- |
@@ -366,7 +366,7 @@ example/audit ath: align the report location
 
 gpt-6-astra high
 
-- C [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Report location: the decision names the invoking root.
+- C [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Report location: the decision names the plan repo root.
 ```
 
 The hook inserts `C1` before the colon.
@@ -383,7 +383,7 @@ example/impl-audit-2 ath docs(audit-round): align the report location
 
 gpt-6-astra high
 
-- [C] [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the invoking root.
+- [C] [area:tool-audit-round] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
 
 Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
@@ -404,7 +404,7 @@ example/impl-audit-2 ath docs(audit): align the report location
 
 gpt-6-astra high
 
-- C [section:report-file] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the invoking root.
+- C [section:report-file] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
 ```
 
 The hook inserts `C1` before `docs(audit)`. The fix workflows own record
@@ -449,7 +449,7 @@ Reports from other rounds do not block the run.
 The audit's supplied path remains an input through the fix. Vet and rebuttal
 receive their complete input and output paths. After a clean audit the runner
 completes the round directly. For a plan target it retains the report and lands
-one empty clean record in the sole judged repo or at the invoking root when
+one empty clean record in the sole judged repo or in Repo Edu when
 both repos were judged, using only the audit's model record and capability tag.
 Commit audits retain their report without a commit. This path starts no later
 session, brief, glance or watch and leaves existing handoffs untouched. The
@@ -460,7 +460,7 @@ After a vet that accepted every finding the
 rebuttal does not run, so the fix reads the report with its vet twin alone.
 Launcher ownership is defined by the phase table in
 `tools/audit-round/src/phase.ts`, independently of report placement.
-All round files live at the invoking root. The brief receives the transcript
+All round files live at the plan repo root. The brief receives the transcript
 and its output path. The fix receives the ruling output path separately from
 its report arguments. It writes the final ruling and checks it for clarity
 before returning `needs-ruling`. The runner checks and displays that file directly.

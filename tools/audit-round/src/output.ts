@@ -115,7 +115,7 @@ export async function roundRun(
   }
   const { nameStart, title } = await roundIdentity(setup)
   const path = (kind: FileKind, phase: Phase) =>
-    join(setup.cwd, phaseFilename(nameStart, kind, tag(phase)))
+    join(setup.planRoot, phaseFilename(nameStart, kind, tag(phase)))
   const base = path("round", "audit")
   return {
     nameStart,
@@ -138,7 +138,7 @@ export async function roundRun(
       ...("plan" in setup ? [entry("watch"), entry("watch-edit")] : []),
     ],
     paths: {
-      claim: join(setup.cwd, `${nameStart}-0-claim.md`),
+      claim: join(setup.planRoot, `${nameStart}-0-claim.md`),
       log: `${base}.log`,
       markdown: `${base}.md`,
     },
