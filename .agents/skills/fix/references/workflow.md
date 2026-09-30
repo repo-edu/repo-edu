@@ -141,8 +141,9 @@ record carries neither.
 The hook derives the severity sequence, its case and its `!` from the graded
 bullets; the growth mark stays authored under this repo's `CLAUDE.md`.
 
-A finding deferred from a Repo Edu-only round to the plan repo uses the body form in this repo's
-`CLAUDE.md`; it keeps its tier, plan location and metadata in the same round commit. A plan-repo
+A finding deferred from a Repo Edu-only round to the plan repo uses the shared
+[Finding metadata](../../../references/round-protocol.md#finding-metadata) for its bullet form
+and this repo's `CLAUDE.md` for record placement. A plan-repo
 round uses `[area:]` only for a finding deferred to Repo Edu. A clean round lands one shared clean
 record, in the sole judged repo or in Repo Edu when both repos were judged. Its subject
 carries the auditor and the step scope, and its sentence names the repo set when the round judged

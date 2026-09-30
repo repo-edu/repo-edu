@@ -146,9 +146,8 @@ there are no findings.
 ## Findings
 
 Grade each finding with the
-[implementation tiers](../../../references/round-protocol.md#implementation-tiers). Present the
-findings as one numbered list sorted A through D. Start at 1 and keep the numbers increasing across
-tier changes. The fix workflow lands findings as corrections in their hosting repo when that repo is
+[implementation tiers](../../../references/round-protocol.md#implementation-tiers).
+The fix workflow lands findings as corrections in their hosting repo when that repo is
 directed, or as deferrals in the current repo's round commit when it is not. When a finding's root
 cause is the plan itself, say so in the finding and carry the plan correction into the cross-repo
 findings below. Every finding also carries a growth tag, per
@@ -159,9 +158,10 @@ findings below. Every finding also carries a growth tag, per
 Deferral covers only work nobody directed. A defect whose fix belongs to a
 repo outside the round's repo set is graded and carried in the current
 repo's round commit body. A plan defect deferred from a Repo Edu-only round
-uses the plan-deferral form in this repo's `CLAUDE.md` and states the required
-plan correction, its shipped-code evidence and any user ruling with its
-reason. A Repo Edu defect deferred from a plan-repo-only round names its Repo
+uses the shared [Finding metadata](../../../references/round-protocol.md#finding-metadata)
+for its bullet form and this repo's `CLAUDE.md` for record placement. State the
+required plan correction, its shipped-code evidence and any user ruling with
+its reason. A Repo Edu defect deferred from a plan-repo-only round names its Repo
 Edu location, required correction and plan-repo evidence in that round's
 plan-repo commit body.
 

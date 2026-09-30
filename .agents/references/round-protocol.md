@@ -301,9 +301,10 @@ the round judges:
 
 - `[field:excess|missing]` names the search direction the finding came from:
   `excess` for functionality that can be removed or simplified, `missing` for
-  functionality the artifact lacks. It is the token the two-field shape under
-  the planning report contract groups on, and across rounds the balance of the
-  two values shows whether an artifact is still growing or has started to shed.
+  functionality the artifact lacks. The two-field shape under
+  [Planning reports](#planning-reports) groups findings by this token. Across
+  rounds the balance of the two values shows whether an artifact is still
+  growing or has started to shed.
   Commit bullets that predate the token carry none and read as `missing`,
   because the excess direction did not exist as a search obligation before the
   token did. The missing search skips ground an excess finding proposes to cut.

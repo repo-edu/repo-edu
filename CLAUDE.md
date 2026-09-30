@@ -278,9 +278,8 @@ When asked to review implementation code, prefix every finding title with an imp
 tier. Use the [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) in
 the shared round protocol.
 
-Present implementation findings as one numbered list sorted from A through D.
-Start at 1 and keep the numbers increasing across tier changes, so the user can
-refer to one finding without restating it.
+Use the shared [Finding shape](.agents/references/round-protocol.md#finding-shape)
+for finding order and numbering.
 
 ## Commit Severity Prefix
 
@@ -325,10 +324,9 @@ metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#record
 for record writing.
 
 A plan-text finding deferred from a Repo Edu-only round stays in that Repo Edu
-round commit. Its bullet starts with its tier and plan location before the
-shared finding tokens:
-`- [B] [plan:../plan/<topic>.md#<heading>] [growth:<labels>] [reach:<value>]
-[complexity:<value>] <prose>`. Deferral is only for work nobody directed. When
+round commit. Use the shared
+[Finding metadata](.agents/references/round-protocol.md#finding-metadata)
+for its bullet form. Deferral is only for work nobody directed. When
 the user directs a plan-file fix during the round, the same run applies it and
 lands it as an independent plan-repo commit in the ordinary plan-round form.
 No repo-local action automatically requires or waits on the other commit.
