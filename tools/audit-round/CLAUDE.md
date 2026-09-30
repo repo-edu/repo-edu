@@ -52,10 +52,9 @@ consumers.
   its dependency, before reading landed subjects or running the brief. Other outcomes retain the
   set.
 - `clean.ts` owns direct completion when the audit report has no findings. A
-  plan target lands one empty clean record in the sole judged repo or at the
+  plan target lands one empty clean record in the sole judged repo or in
   Repo Edu when both repos were judged, using the report's judged-repos
-  opening and the audit's
-  actual model record and capability tag. `git commit --only --allow-empty`
+  opening and the audit's actual model record and capability tag. `git commit --only --allow-empty`
   preserves staged work while using the normal hooks and signing settings.
   A commit target lands no commit. Both routes retain their report and leave
   existing handoffs untouched. Completion failures stop the run without a

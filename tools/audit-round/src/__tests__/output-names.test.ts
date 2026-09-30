@@ -270,10 +270,9 @@ test("unspellable phase efforts fail before any claim or output is created", asy
   assert.deepEqual(await readdir(f.root), before)
 })
 
-test("planning rounds share the bare target number across roots and write at the plan root", async (t) => {
+test("planning rounds number their bare target at the plan root and write there", async (t) => {
   const f = await fixture(t)
   const context = testContext(f.root, "planning")
-  await writeFile(join(f.root, "example-04-2-audit.oth.md"), "")
   await writeFile(join(context.planRoot, "example-05-0-claim.md"), "")
   const run = await roundRun(
     { ...context, plan: "example-widen.md" },
