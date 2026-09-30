@@ -47,7 +47,6 @@ export const finishedText =
 
 export async function writePhaseInstructions(...roots: string[]) {
   for (const root of roots) {
-    await mkdir(join(root, ".claude/commands"), { recursive: true })
     await mkdir(join(root, "home/claude/commands"), { recursive: true })
     for (const phase of [
       "audit",
