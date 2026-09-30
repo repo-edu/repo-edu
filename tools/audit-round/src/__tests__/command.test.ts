@@ -247,6 +247,17 @@ for (const working of ["repo-edu", "plan"] as const) {
         0,
         f.errors.join("\n"),
       )
+      assert.equal(
+        JSON.parse(f.visible[0]).cwd,
+        working === "plan" ? f.planRoot : f.repoRoot,
+      )
+      assert.equal(
+        JSON.parse(f.visible[0]).workflow,
+        join(
+          working === "plan" ? f.planRoot : f.repoRoot,
+          ".agents/skills/audit/references/workflow.md",
+        ),
+      )
       assert.deepEqual(
         [JSON.parse(f.visible[0]).claim, JSON.parse(f.visible[0]).arguments[0]],
         [`${target}-10-0-claim.md`, `${target}-10-2-audit.${tag}.md`].map(
