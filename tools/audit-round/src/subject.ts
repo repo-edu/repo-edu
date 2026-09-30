@@ -47,7 +47,7 @@ export type Run = {
   readonly count: number
 }
 
-/** `<sequence>`: the bare form is a marked one with no `!` and no lower run. */
+/** `<sequence>`: the same form in both repositories. */
 export type Sequence = {
   /** The leading `!`, which says at least one concern has ordinary reach. */
   readonly ordinary: boolean
@@ -198,10 +198,6 @@ function parseKind(token: string): Kind | null {
   return { conventional, scope: match[2] }
 }
 
-function isBare(sequence: Sequence): boolean {
-  return !sequence.ordinary && sequence.lower.length === 0
-}
-
 type Slots = Omit<Subject, "class">
 
 /** The class whose production the filled slots match, or a refusal. */
@@ -213,16 +209,8 @@ function classify(slots: Slots, repository: Repository): SubjectClass {
     form === null
       ? "an off-plan subject"
       : `a subject with the ${form.role} role`
-  if (growth !== null) {
-    if (repository === "plan")
-      fail("a growth mark never appears in the plan repository")
-    if (sequence === null)
-      fail("a growth mark appears only beside a marked sequence")
-  }
-  if (sequence !== null && repository === "plan" && !isBare(sequence))
-    fail(
-      "a plan-repository sequence is bare: no leading ! and no lowercase tiers",
-    )
+  if (growth !== null && sequence === null)
+    fail("a growth mark appears only beside a severity sequence")
   if (form === null) {
     if (kind === null) fail(`${where} needs a conventional kind`)
     if (severity === "clean")

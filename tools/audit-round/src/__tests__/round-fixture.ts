@@ -176,7 +176,7 @@ export async function roundFixture(
                 subject:
                   tier === null
                     ? "example/impl-audit-all oth clean: fixture"
-                    : `example/impl-audit-all oth ${owner === "plan" ? tier.toUpperCase() : tier}1 fix(audit-round): fixture`,
+                    : `example/impl-audit-all oth ${tier}1 fix(audit-round): fixture`,
               },
             ]
           : [],

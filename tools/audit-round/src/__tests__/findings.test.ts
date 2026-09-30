@@ -25,18 +25,15 @@ test("both bullet forms derive sorted tier counts, all reach cases and D finding
       .join("\n")
     const findings = readFindings(body, repository, strict)
     assert.equal(findings.length, 6)
-    assert.equal(
-      printSequence(findingSequence(findings, repository)),
-      repository === "repo-edu" ? "!B1C2a1d2" : "A1B1C2D2",
-    )
-    assert.equal(printSequence(findingSequence([], repository)), "clean")
+    assert.equal(printSequence(findingSequence(findings)), "!B1C2a1d2")
+    assert.equal(printSequence(findingSequence([])), "clean")
   }
   const rare = readFindings(
     `- [D] [area:area-a] ${rating.replace("developer", "very-rare")} Wording.`,
     "repo-edu",
     strict,
   )
-  assert.equal(printSequence(findingSequence(rare, "repo-edu")), "D1")
+  assert.equal(printSequence(findingSequence(rare)), "D1")
 })
 
 test("strict reads require each token and name the offending bullet", () => {

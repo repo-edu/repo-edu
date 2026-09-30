@@ -232,14 +232,14 @@ own admission and grading discipline, including the C admission rule.
 ## Severity sequence
 
 The sequence is a sorted run-length count of graded concerns, with zero
-categories omitted, such as `A3B4C4D3`. Plan-repo records use this bare form.
-Repo Edu records extend it with the marks below. Steps and markers carry no
-graded concerns and no sequence. The hook derives the sequence from the graded
-body bullets; leave its slot to the hook.
+categories omitted, such as `A3B4C4D3`, carrying the marks below in both
+repos. Steps and markers carry no graded concerns and no sequence.
 
 In Repo Edu, every file-changing commit except a plan step commit carries a sorted
 run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
-conventional subject with that sequence. An implementation-audit record places
+conventional subject with that sequence. In the plan repo, every planning and
+implementation-audit record carries it, and an off-plan commit carries it when
+it closes a graded concern. An implementation-audit record places
 the same sequence in its shared stem form; a step commit lands planned work and
 carries none. The sequence enumerates how many concerns at each tier the commit
 addresses, with zero categories omitted. The commit hook derives the sequence,
@@ -287,8 +287,13 @@ the finding token `[complexity:...]` run that one measurement, so they translate
 exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
 `[complexity:minus-high]` and an absent mark is `[complexity:none]`.
 
-Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
-that carries it, which a plan document has not reached yet.
+The marks read the same in both repos. Until 2026-10-01 plan-repo records kept
+an unmarked uppercase sequence, on the reasoning that the marks describe
+shipped code, which a plan document has not reached. The user directed one form
+for both repos: the case and the `!` derive from reach tokens every plan bullet
+already carries, and a plan-repo doctrine or workflow fix changes the
+instructions the burden measurement is defined over, so the plan log hid a
+burden trajectory it had the evidence to show.
 
 ## Finding metadata
 
@@ -344,7 +349,7 @@ them.
 
 Repo Edu bullets use a bracketed uppercase tier, followed by the location,
 growth, reach and complexity tokens: `- [C] [area:<primary-id>] ...`.
-Plan-repo implementation and off-plan bullets use a bare tier:
+Plan-repo implementation and off-plan bullets use an unbracketed tier:
 `- C [section:<heading>] ...`. Only a planning `audit` record carries a
 `[field:]` token; other plan-repo records refuse it.
 
@@ -368,8 +373,8 @@ effort, scope and findings with the round's values.
 ### Planning record
 
 Planning records use `audit`. Each finding carries `[field:]` and a section
-location under [Finding metadata](#finding-metadata). They carry no yield
-lines. For one missing C finding:
+location under [Finding metadata](#finding-metadata). Recount the accepted
+findings for the closing yield lines. For one missing C finding:
 
 ```text
 example/audit ath: align the report location
@@ -377,9 +382,15 @@ example/audit ath: align the report location
 gpt-6-astra high
 
 - C [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Report location: the decision names the plan repo root.
+
+Round yield: 0 ordinary; 0 rare; 1 developer.
+Structure: 0 removing, 0 adding, 1 flat.
 ```
 
-The hook inserts `C1` before the colon.
+The hook inserts `c1` before the colon. When the commit changes maintenance
+burden, author its growth or pruning mark under
+[Severity sequence](#severity-sequence); this applies to every record form
+below as well.
 
 ### Implementation record in Repo Edu
 
@@ -399,15 +410,14 @@ Round yield: 0 ordinary; 0 rare; 1 developer.
 Structure: 0 removing, 0 adding, 1 flat.
 ```
 
-The hook inserts `c1` before `docs(audit-round)`. When the commit changes
-maintenance burden, author its growth or pruning mark under
-[Severity sequence](#severity-sequence). The hook derives the severity sequence,
-its case and its `!` from the finding bullets.
+The hook inserts `c1` before `docs(audit-round)` and derives the severity
+sequence, its case and its `!` from the finding bullets.
 
 ### Implementation record in the plan repo
 
-The role still uses `impl-audit-<scope>`. Local finding bullets use bare tiers
-and `[section:]`, without `[field:]`. The record carries no yield lines:
+The role still uses `impl-audit-<scope>`. Local finding bullets use unbracketed
+tiers and `[section:]`, without `[field:]`. The record closes with the same
+yield lines:
 
 ```text
 example/impl-audit-2 ath docs(audit): align the report location
@@ -415,9 +425,12 @@ example/impl-audit-2 ath docs(audit): align the report location
 gpt-6-astra high
 
 - C [section:report-file] [growth:none] [reach:developer] [complexity:none] Report location: the workflow names the plan repo root.
+
+Round yield: 0 ordinary; 0 rare; 1 developer.
+Structure: 0 removing, 0 adding, 1 flat.
 ```
 
-The hook inserts `C1` before `docs(audit)`. The fix workflows own record
+The hook inserts `c1` before `docs(audit)`. The fix workflows own record
 placement, deferrals and clean records reached through reconciliation.
 Audits with no findings complete under their audit workflow and never enter
 the fix workflow.
@@ -795,7 +808,11 @@ the deferral and apply the settled audit-findings.
 
 ## Round yield
 
-This tally applies to implementation audits and their Repo Edu records.
+This tally applies to implementation audit reports and to every round record
+in both repos, planning records included. Plan-repo records carried no tally
+until 2026-10-01, when the user directed the same record body in both repos:
+the lines count the reach and complexity tokens every record's bullets already
+carry.
 
 After the coverage line, close the round with two more lines that tally the
 findings the audit reports:

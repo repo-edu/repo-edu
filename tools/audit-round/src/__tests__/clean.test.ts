@@ -66,9 +66,8 @@ for (const working of ["plan", "repo-edu"] as const) {
         ),
         message,
       )
-      assert.equal(
+      assert.ok(
         message.includes("Round yield: 0 ordinary; 0 rare; 0 developer."),
-        owner === "repo-edu",
       )
       assert.equal(await readFile(f.report, "utf8"), report)
       assert.equal(dirname(f.report), f.planRoot)

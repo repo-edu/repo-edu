@@ -215,8 +215,8 @@ The user owns the response and may still read the diagnostic directly.
 
 - A round form's first tier letter is the maximum severity that round addressed.
   In every form the severity sequence is the tag before the conventional kind,
-  or before the colon when the subject carries no kind. On a Repo Edu sequence,
-  skip a leading `!` to reach that letter. A leading `growth-<level>` or
+  or before the colon when the subject carries no kind. Skip a leading `!` to
+  reach that letter. A leading `growth-<level>` or
   `pruning-<level>` is not part of the sequence and carries the burden
   trajectory below. `init`, `settle`, `clean`, `ready`, `implemented`, `closed`
   and the step form `impl-<n>` carry no severity and are excluded from the
@@ -227,13 +227,13 @@ The user owns the response and may still read the diagnostic directly.
 - The full severity sequence shows the distribution. Convergence shifts the
   counts toward the low tiers.
 - The sum of counts shows round size. Convergence shrinks it.
-- On a Repo Edu sequence the case of the tier letters is a second trajectory,
+- The case of the tier letters is a second trajectory,
   reach, read alongside severity and never merged into it. Uppercase counts are
   issues an end user can meet and lowercase counts are developer-only. A run of
   rounds whose uppercase counts have reached zero says the episode stopped
   finding user-facing faults, whatever its severity maximum still reads, and a
   leading `!` marks the rounds that found a fault needing no special condition.
-- On a Repo Edu sequence the leading mark is a third trajectory, burden,
+- The leading mark is a third trajectory, burden,
   read alongside severity and reach and never merged into either. `growth` says
   the round increased maintenance burden. `pruning` says it reduced it. The
   level grades the size of that net change under the

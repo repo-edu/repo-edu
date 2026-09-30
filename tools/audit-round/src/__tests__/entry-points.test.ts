@@ -155,7 +155,7 @@ for (const auditor of ["codex", "claude"] as const) {
       const message = join(f.root, "commit-message")
       const suffix = clean
         ? "clean: record a clean round"
-        : "B1: correct the plan"
+        : "b1: correct the plan"
       const bullet = clean
         ? "Preserve the decision."
         : "B [field:missing] [section:decisions] [growth:none] [reach:developer] [complexity:none] Preserve the decision."

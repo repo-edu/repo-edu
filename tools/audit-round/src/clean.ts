@@ -35,10 +35,7 @@ export async function completeClean(
     input.roundKind === "planning" ? "audit" : `impl-audit-${input.scope}`
   const subject = `${planStem(input.plan)}/${role} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
-  const body =
-    repository === "repo-edu"
-      ? `${stamps.phases}\n\nRound yield: 0 ordinary; 0 rare; 0 developer.\nStructure: 0 removing, 0 adding, 0 flat.`
-      : stamps.phases
+  const body = `${stamps.phases}\n\nRound yield: 0 ordinary; 0 rare; 0 developer.\nStructure: 0 removing, 0 adding, 0 flat.`
   // --only with --allow-empty records HEAD's tree even when the user has
   // staged changes. Git still runs the normal hooks and signing configuration.
   await execa(

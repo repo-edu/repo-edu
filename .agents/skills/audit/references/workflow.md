@@ -261,8 +261,8 @@ rule in
 Use its clean form: `<stem>/impl-audit-<scope> <tag> clean: <subject>`.
 The scope is `<n>`, `<a>-<b>` or `all` from the audit. The tag and the body's
 opening model line name this auditing session. Name the judged repo set in the
-subject's sentence when both repos were judged. A Repo Edu record closes with
-both **Round yield** lines at zero; a plan-repo record carries neither. The
+subject's sentence when both repos were judged. The record closes with both
+**Round yield** lines at zero. The
 standing clean-record rule grants this empty commit without separate permission.
 After the record lands, run `pnpm audit-round close <target>-<round>` under
 [Closing reports](../../../references/round-protocol.md#closing-reports),

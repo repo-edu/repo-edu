@@ -1287,13 +1287,13 @@ test("every landed subject must parse under its repository's grammar", async () 
       readSubjects: async (root) =>
         root === repoRoot
           ? ["example/impl-audit-all oth clean: done"]
-          : ["example/audit ath b1: invalid lowercase plan sequence"],
+          : ["example/audit ath B1 docs(x): a kind on a planning record"],
     },
   )
   assert.equal(result.status, "failed")
   if (result.status === "failed") {
     assert.equal(result.phase, "fix")
-    assert.match(result.reason, /bare/)
+    assert.match(result.reason, /no conventional kind/)
   }
   assert.equal(round.calls.at(-1)?.phase, "fix")
 })

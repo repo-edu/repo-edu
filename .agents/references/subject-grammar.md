@@ -58,10 +58,9 @@ under [Classes](#classes).
 <level>     ::= low | medium | high
 
 <severity>  ::= <sequence> | clean
-<sequence>  ::= <bare> | <marked>
-<bare>      ::= (<upper><n>)+               ; letters strictly ascending, A before D
-<upper>     ::= A | B | C | D
-<marked>    ::= !?<bare>?<lower>?           ; at least one run present; ! requires <bare>
+<sequence>  ::= !?<upper>?<lower>?          ; at least one run present; ! requires <upper>
+<upper>     ::= (<uppercase><n>)+           ; letters strictly ascending, A before D
+<uppercase> ::= A | B | C | D
 <lower>     ::= (<lowercase><n>)+           ; letters strictly ascending, a before d
 <lowercase> ::= a | b | c | d
 
@@ -77,24 +76,25 @@ Commits recommends, plus `redesign`; a new kind enters by editing this line.
 `clean` fills the severity slot of a round that accepted no findings and is
 never a `<role>`.
 
-## Forms by repository
+## One sequence form
 
-`<bare>` is the plan repo's sequence form and `<marked>` is Repo Edu's. A
-`<growth>` mark appears only in a subject that carries a `<marked>` sequence,
-so it never appears in the plan repo and never on a subject without a
-sequence. The reach and burden marks describe shipped code, which the plan
-repo holds none of.
+Both repos use the same `<sequence>`: the hook derives its case and its `!`
+from the finding bullets, and a `<growth>` mark appears only in a subject that
+carries a sequence. The plan repo carried a bare uppercase form without marks
+until 2026-10-01, when the user directed one form for both repos: the reach
+and burden marks read from the same finding tokens in either repo, and a
+doctrine fix changes the instructions the burden measurement is defined over.
 
 ## Classes
 
 Each class is a production of `<subject>` that fixes which slots are filled.
 `<S>` stands for `<sentence>`.
 
-Plan-file commits, plan repo only. No `<kind>`, no `<growth>`, `<bare>` only:
+Plan-file commits, plan repo only. No `<kind>`:
 
 ```text
 <P1 init>    ::= <stem>/init <tag>: <S>
-<P2 audit>   ::= <stem>/audit <tag> <bare>: <S>
+<P2 audit>   ::= <stem>/audit <tag>[ <growth>] <sequence>: <S>
                | <stem>/audit <tag> clean: <S>
 <P3 marker>  ::= <stem>/settle <tag>: <S>
                | <stem>/ready <tag>: <S>
@@ -102,12 +102,11 @@ Plan-file commits, plan repo only. No `<kind>`, no `<growth>`, `<bare>` only:
 ```
 
 Implementation commits, either repo. A commit lands in the repo whose files it
-changes, so the sequence form follows the hosting repo:
+changes:
 
 ```text
 <I1 step>            ::= <stem>/impl-<n> <tag> <kind>: <S>
-<I2 fix, Repo Edu>   ::= <stem>/impl-audit-<scope> <tag>[ <growth>] <marked> <kind>: <S>
-<I2 fix, plan>       ::= <stem>/impl-audit-<scope> <tag> <bare> <kind>: <S>
+<I2 fix>             ::= <stem>/impl-audit-<scope> <tag>[ <growth>] <sequence> <kind>: <S>
 <I3 deferral record> ::= <stem>/impl-audit-<scope> <tag> <sequence>: <S>
 <I4 clean record>    ::= <stem>/impl-audit-<scope> <tag> clean: <S>
 <I5 marker>          ::= <stem>/implemented <tag>: <S>
@@ -117,8 +116,8 @@ changes, so the sequence form follows the hosting repo:
 Off-plan commits, no `<form>`:
 
 ```text
-<O1 Repo Edu> ::= <tag>[ <growth>] <marked> <kind>: <S>
-<O2 plan>     ::= <tag>[ <bare>] <kind>: <S>
+<O1 Repo Edu> ::= <tag>[ <growth>] <sequence> <kind>: <S>
+<O2 plan>     ::= <tag>[[ <growth>] <sequence>] <kind>: <S>
 ```
 
 Rules across the classes:
@@ -128,9 +127,9 @@ Rules across the classes:
   the writing session.
 - I1 carries no `<severity>`. A step lands planned work as designed, so its
   grade would only restate the rounds that planned it.
-- Every file-changing Repo Edu commit except I1 carries a `<marked>` sequence.
-  An off-plan plan-repo commit (O2) carries a `<bare>` sequence when it closes a
-  graded concern and none otherwise.
+- Every file-changing Repo Edu commit except I1 carries a `<sequence>`. An
+  off-plan plan-repo commit (O2) carries one when it closes a graded concern
+  and none otherwise.
 - P1, P3, I3, I4 and I5 change no graded file and fill only the slots their
   productions show. I3 changes no file in its own repo at all.
 - Plan identity, role, scope and auditor live only in the subject. No body line
@@ -160,23 +159,26 @@ Plan repo:
 ```text
 P1        planning-rounds/init ath:
 P2        planning-rounds/audit ath B2C2:
+P2        planning-rounds/audit ath pruning-low c2d1:
 P2        round-file-naming/audit ath clean:
 P3        planning-rounds/ready ath:
 P3        planning-rounds/closed oth:
 I1        planning-rounds/impl-3 oth feat(audit-round):
-I2 plan   round-file-naming/impl-audit-all oth D1 docs(vet):
+I2        round-file-naming/impl-audit-all oth d1 docs(vet):
+I2        round-file-naming/impl-audit-all oth pruning-low c3 docs(audit):
 I3        planning-rounds/impl-audit-all oth B1:
 I4        planning-rounds/impl-audit-all otm clean:
 I5        planning-rounds/implemented oth:
 O2        ath chore(repo):
-O2        ath C1 docs(claude):
+O2        ath c1 docs(claude):
+O2        ath growth-low B1c1 docs(claude):
 ```
 
 Repo Edu:
 
 ```text
 I1           planning-rounds/impl-4 oth test(audit-round):
-I2 Repo Edu  round-file-naming/impl-audit-all oth growth-medium c1 fix(audit-round):
+I2           round-file-naming/impl-audit-all oth growth-medium c1 fix(audit-round):
 I3           planning-rounds/impl-audit-all oth B1:
 I4           planning-rounds/impl-audit-all ath clean:
 I5           planning-rounds/closed oth:
@@ -191,10 +193,10 @@ O1           ath !B1C1c2d1 fix(renderer-app):
 Three questions the owning sections left open were ruled on 2026-09-20 and are
 fixed here:
 
-1. An off-plan plan-repo commit may carry a `<bare>` sequence, and never a
-   `<marked>` one. The sequence is evidence the trajectory reads, and an
-   off-plan fix can close a graded concern.
-2. A `<growth>` mark appears only beside a `<marked>` sequence. A step is where
+1. An off-plan plan-repo commit may carry a `<sequence>`. The sequence is
+   evidence the trajectory reads, and an off-plan fix can close a graded
+   concern.
+2. A `<growth>` mark appears only beside a `<sequence>`. A step is where
    burden grows by design, and the audit rounds that follow grade what it
    did.
 3. `<conventional>` is a closed list, the Angular set plus `redesign`. A scan

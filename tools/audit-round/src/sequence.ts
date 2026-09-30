@@ -9,27 +9,21 @@ import {
 } from "./subject.js"
 
 /** Reduce graded bullets to the sequence's two sorted runs. */
-export function findingSequence(
-  findings: readonly Finding[],
-  repository: Repository,
-): Severity {
+export function findingSequence(findings: readonly Finding[]): Severity {
   if (findings.length === 0) return "clean"
   const upper: Run[] = []
   const lower: Run[] = []
   for (const tier of ["a", "b", "c", "d"] as const) {
     const atTier = findings.filter((finding) => finding.tier === tier)
-    const developer =
-      repository === "plan"
-        ? 0
-        : atTier.filter((finding) => finding.reach === "developer").length
+    const developer = atTier.filter(
+      (finding) => finding.reach === "developer",
+    ).length
     if (atTier.length > developer)
       upper.push({ tier, count: atTier.length - developer })
     if (developer > 0) lower.push({ tier, count: developer })
   }
   return {
-    ordinary:
-      repository === "repo-edu" &&
-      findings.some((finding) => finding.reach === "ordinary"),
+    ordinary: findings.some((finding) => finding.reach === "ordinary"),
     upper,
     lower,
   }
@@ -65,7 +59,7 @@ export function stampSequence(
   } = locateSubjectSlots(line)
   const form = looseForm(line)
   if (hasSeverity) tags.splice(slot, 1)
-  const sequence = findingSequence(findings, repository)
+  const sequence = findingSequence(findings)
   const audit = form?.role === "audit" || form?.role.startsWith("impl-audit-")
   const hasKind = kind !== null
   if (audit || form === null) {

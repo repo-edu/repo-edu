@@ -121,19 +121,15 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "atx docs(repo): s", /carries a severity sequence/],
   ["repo-edu", "atx clean docs(repo): s", /never clean/],
   ["plan", "atm clean docs(claude): s", /never clean/],
-  // Repo Edu marks never reach the plan repo.
-  ["plan", "atx c1 docs(claude): s", /bare/],
-  ["plan", "atx !B1 docs(claude): s", /bare/],
-  ["plan", "atx growth-low B1 docs(claude): s", /never appears in the plan/],
-  ["plan", "example/audit atx growth-low B1: s", /never appears in the plan/],
-  ["plan", "example/impl-audit-all atx B1c1 docs(vet): s", /bare/],
-  // A growth mark needs a marked sequence beside it.
-  ["repo-edu", "example/impl-3 atx growth-low feat(x): s", /marked sequence/],
+  // A growth mark needs a sequence beside it, in either repo.
+  ["repo-edu", "example/impl-3 atx growth-low feat(x): s", /beside a severity/],
   [
     "repo-edu",
     "example/impl-audit-all atx growth-low clean: s",
-    /marked sequence/,
+    /beside a severity/,
   ],
+  ["plan", "example/audit atx growth-low clean: s", /beside a severity/],
+  ["plan", "atx growth-low docs(claude): s", /beside a severity/],
   ["repo-edu", "example/impl-audit-all atx growth-low B1: s", /no growth mark/],
   // The kind.
   ["repo-edu", "atx c1 update(repo): s", /not on the list/],

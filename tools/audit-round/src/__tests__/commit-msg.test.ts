@@ -80,7 +80,7 @@ test("the hook inserts and overwrites severity while preserving growth, prose an
     )
     assert.equal(
       stamp(plan, "plan"),
-      message("oth C1 docs(claude): describe the rule", planFinding),
+      message("oth c1 docs(claude): describe the rule", planFinding),
     )
   }
   const commented = message("oth docs(repo): s", codeFinding).replace(
@@ -101,7 +101,6 @@ test("the hook inserts and overwrites severity while preserving growth, prose an
 test("every subject class derives only the severity its role admits", () => {
   for (const repository of ["repo-edu", "plan"] as const) {
     const finding = repository === "repo-edu" ? codeFinding : planFinding
-    const sequence = repository === "repo-edu" ? "c1" : "C1"
     for (const subject of [
       "example/impl-1 oth feat(x)",
       "example/implemented oth",
@@ -125,14 +124,14 @@ test("every subject class derives only the severity its role admits", () => {
     )
     assert.equal(
       stamp(message("example/impl-audit-1 oth clean: s", finding), repository),
-      message(`example/impl-audit-1 oth ${sequence}: s`, finding),
+      message("example/impl-audit-1 oth c1: s", finding),
     )
     assert.equal(
       stamp(
         message("example/impl-audit-1-2 oth fix(x): s", finding),
         repository,
       ),
-      message(`example/impl-audit-1-2 oth ${sequence} fix(x): s`, finding),
+      message("example/impl-audit-1-2 oth c1 fix(x): s", finding),
     )
     assert.throws(
       () => stamp(message("example/impl-audit-all oth fix(x): s"), repository),
@@ -145,7 +144,7 @@ test("every subject class derives only the severity its role admits", () => {
   )
   assert.equal(
     stamp(message("example/audit oth: s", planningFinding), "plan"),
-    message("example/audit oth C1: s", planningFinding),
+    message("example/audit oth c1: s", planningFinding),
   )
   assert.equal(
     stamp(message("oth C9 docs(x): s"), "plan"),
@@ -161,7 +160,7 @@ test("only planning-audit findings carry a search direction", () => {
       const planning = finding.replace("- C ", `- C [field:${field}] `)
       assert.equal(
         stamp(message("example/audit oth: s", planning), "plan"),
-        message("example/audit oth C1: s", planning),
+        message("example/audit oth c1: s", planning),
       )
       for (const subject of [
         "example/impl-audit-all oth docs(x)",
@@ -212,11 +211,7 @@ test("a refused subject, missing model and disagreeing effort still stop the com
       /not on the list/,
     ],
     [message("c1 docs(repo): s", codeFinding), "repo-edu", /capability tag/],
-    [
-      message("oth growth-low docs(x): s", planFinding),
-      "plan",
-      /growth mark never/,
-    ],
+    [message("example/audit oth growth-low: s"), "plan", /beside a severity/],
     [
       message("example/impl-0 oth feat(x): s"),
       "repo-edu",
@@ -273,7 +268,7 @@ test("round stamps compose with the derived sequence and retain every finding", 
       areaKinds,
     ),
     message(
-      "example/impl-audit-2 ath C1 docs(x): s",
+      "example/impl-audit-2 ath c1 docs(x): s",
       planFinding,
       stamps.phases,
     ),
@@ -315,7 +310,7 @@ test("round stamps replace the whole opening model record without changing on a 
     ]) {
       const input = message("example/impl-audit-all ath: s", body, previous)
       const expected = message(
-        `example/impl-audit-all ath ${body === "" ? "clean" : repository === "repo-edu" ? "c1" : "C1"}: s`,
+        `example/impl-audit-all ath ${body === "" ? "clean" : "c1"}: s`,
         body,
         stamps.phases,
       )
@@ -368,7 +363,7 @@ test("the hook entry writes the derived sequence and leaves a refused file untou
     assert.equal(
       await readFile(file, "utf8"),
       message(
-        "example/audit otx C1: s",
+        "example/audit otx c1: s",
         planningFinding,
         "audit: gpt-6-astra xhigh",
       ),
