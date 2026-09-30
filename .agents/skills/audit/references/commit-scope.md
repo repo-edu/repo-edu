@@ -9,9 +9,9 @@ scope, the gate it passes, the baseline its findings are judged against, its
 coverage table, its report name, its record and its settlement. It replaces
 the **Ready gate**, **Round strategy**, **Coverage** and **Episode settlement**
 sections of `workflow.md`, and the plan reads in its
-**Evidence** section. Read the rest of `workflow.md` as written, including the
-tiers, the finding metadata tokens, the growth tags, the trade pricing, the
-round yield and the twins.
+**Evidence** section. Read the rest of `workflow.md` as written. The
+[shared round protocol](../../../references/round-protocol.md) owns the tiers,
+finding metadata tokens, growth tags, trade pricing, round yield and twins.
 
 The round's repo set is the repo the round runs in. The plan repo is read as a
 source of standing rules, never as a source of intent.
