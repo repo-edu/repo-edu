@@ -120,6 +120,7 @@ test("watch and watch edit share Repo Edu's workflow while only the writer recei
     arguments: ["watch.md"],
   })
   for (const prompt of [writer, editor]) {
+    assert.doesNotMatch(prompt, /launcher|SKILL\.md/)
     assert.ok(
       prompt.includes(
         `Source file: ${f.root}/.agents/skills/watch/references/workflow.md`,

@@ -1,5 +1,6 @@
 ---
 reads:
+  - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
   - ../../../../../plan/GROWTH-PATTERNS.md
 ---
@@ -7,18 +8,14 @@ reads:
 # Round brief workflow
 
 The header's files are part of this workflow. Paths are relative to this file.
-The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once.
+The runner supplies them whole. Read each file once. Apply the `simple`
+requirement to the whole session and skip its confirm-and-wait step.
 
-One shared workflow behind two launchers: the Claude command
-`.claude/commands/brief.md` and the Codex skill
-`.agents/skills/brief/SKILL.md`. Each launcher carries only what is specific
-to it and points here for the rest, so the two cannot drift apart. Where a
-launcher and this file disagree, this file is right.
+The runner starts this phase directly from this workflow. It has no chat command.
 
 The brief is the plain-words twin of one round transcript, written for the
 user. The transcript is the `*-1-round.<tag>.md` file the audit-round runner writes
-at the invoking Repo Edu or plan root: the audit report, the vet's verdicts, the rebuttal and
+at the plan repo root: the audit report, the vet's verdicts, the rebuttal and
 the fix phase's text, one section per phase. The user reads it to learn what
 the round found, what was agreed, what was fixed and what still needs a
 ruling. The transcript is written for the assistants that run the later
@@ -31,15 +28,13 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 
 The shared [round protocol](../../../references/round-protocol.md) owns
 file names, writer tags and rating meanings. The invocation supplies the transcript to read
-and the brief to write, in that order. A manual `/brief` or `$brief` may omit
-the transcript. Resolve its input and output through `paths brief` under the
-protocol's **Manual phases**, using this session's own tag. Automated
-invocations use their supplied paths unchanged. A missing input or a transcript
+and the brief to write, in that order. Use the supplied paths unchanged.
+A missing input or a transcript
 outside the shared grammar fails under the result rule when unattended.
 `pnpm audit-round brief <transcript>` starts a separate brief session.
 
-Resolve workflow references from Repo Edu. The transcript may belong to either
-root; use the supplied output path.
+Resolve workflow references from Repo Edu. The transcript and output live at
+the plan root; use the supplied output path.
 
 Read the whole transcript. The supplied growth patterns explain its pattern labels.
 Read nothing else about the round: no code, no

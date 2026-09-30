@@ -255,18 +255,14 @@ Use pnpm audit-round <command> --help for a helper command's arguments and optio
     .description(
       "Resolve a manual phase's workflow, working checkout and arguments without starting an assistant.",
     )
-    .argument(
-      "<phase>",
-      "vet, rebut, fix or brief",
-      (value: string): ManualPhase => {
-        if (!["vet", "rebut", "fix", "brief"].includes(value))
-          throw new InvalidArgumentError("Expected vet, rebut, fix or brief.")
-        return value as ManualPhase
-      },
-    )
+    .argument("<phase>", "vet, rebut or fix", (value: string): ManualPhase => {
+      if (!["vet", "rebut", "fix"].includes(value))
+        throw new InvalidArgumentError("Expected vet, rebut or fix.")
+      return value as ManualPhase
+    })
     .argument(
       "[input]",
-      "bare audit report or transcript name; defaults to the sole eligible file at the plan root",
+      "bare audit report name; defaults to the sole eligible file at the plan root",
     )
     .option(
       "--writer <tag>",
@@ -381,9 +377,7 @@ export async function runCommand(
       )
       const session = roundContext(
         context,
-        invocation.phase === "brief"
-          ? await transcriptKind(args[0])
-          : reportKind(await readFile(args[0], "utf8")),
+        reportKind(await readFile(args[0], "utf8")),
       )
       options.terminal.write(
         JSON.stringify({

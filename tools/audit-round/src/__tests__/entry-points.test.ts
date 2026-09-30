@@ -55,6 +55,15 @@ for (const working of ["repo-edu", "plan"] as const) {
           `${working} ${assistant} ${phase}`,
         )
         assert.ok(prompt.includes("End of supplied phase instructions."))
+        if (["brief", "watch", "watch-edit"].includes(phase)) {
+          assert.ok(
+            prompt.includes(
+              `Source file: ${join(context.planRoot, "home/claude/commands/simple.md")}\n`,
+            ),
+          )
+          assert.doesNotMatch(prompt, /Source file: .*\/SKILL\.md/)
+          assert.match(prompt, /skip its confirm-and-wait step/)
+        }
       }
     }
   })
@@ -93,13 +102,14 @@ for (const working of ["repo-edu", "plan"] as const) {
       ["example.md", "0"],
       ["HEAD", "--auditor", "codex,claude"],
       ["../plan/example.md", "1"],
+      ["paths", "brief"],
     ]
     for (const args of invalid) {
       const result = await execa("pnpm", ["audit-round", ...args], options)
       assert.equal(result.exitCode, 2, result.stderr)
       assert.match(
         result.stderr,
-        /positive step number|Multiple auditors require a plan target|Name the plan by its stem/,
+        /positive step number|Multiple auditors require a plan target|Name the plan by its stem|Expected vet, rebut or fix/,
       )
     }
     const brief = await execa(

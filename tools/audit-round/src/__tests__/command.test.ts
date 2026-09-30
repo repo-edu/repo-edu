@@ -557,7 +557,9 @@ for (const auditor of ["claude", "codex"] as const) {
           !ruling,
         )
         assert.equal(
-          log.includes(join(repoRoot, ".agents/skills/brief/SKILL.md")),
+          log.includes(
+            join(repoRoot, ".agents/skills/brief/references/workflow.md"),
+          ),
           !ruling,
         )
         assert.equal(log.includes(`[brief] finished`), !ruling)
@@ -1367,16 +1369,18 @@ test("a due glance sends the watch the record and the cache, never the round", a
     log,
     /\n─{72}\n\[glance\] due: episode example recorded red at [0-9a-f]+\. A red record is re-read every round \(rule 1\)\./,
   )
-  assert.ok(log.includes(join(f.repoRoot, ".agents/skills/watch/SKILL.md")))
+  assert.ok(
+    log.includes(
+      join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
+    ),
+  )
   assert.ok(
     log.includes(
       `Phase arguments (JSON array): ${JSON.stringify([watch, f.options.cacheRoot])}`,
     ),
   )
   // The edit pass is given the draft alone, and no round file.
-  assert.ok(
-    log.includes(join(f.repoRoot, ".agents/skills/watch-edit/SKILL.md")),
-  )
+  assert.doesNotMatch(log, /Source file: .*\/watch(?:-edit)?\/SKILL\.md/)
   assert.ok(
     log.includes(`Phase arguments (JSON array): ${JSON.stringify([f.watch])}`),
   )
@@ -1542,7 +1546,9 @@ for (const auditor of ["codex", "claude"] as const) {
         assert.ok(log.includes(launcher), launcher)
       }
       assert.equal(
-        log.includes(join(f.repoRoot, ".agents/skills/brief/SKILL.md")),
+        log.includes(
+          join(f.repoRoot, ".agents/skills/brief/references/workflow.md"),
+        ),
         !ruling,
       )
       assert.ok(
@@ -1630,7 +1636,7 @@ for (const working of ["repo-edu", "plan"] as const) {
 
 for (const working of ["repo-edu", "plan"] as const) {
   for (const owner of ["repo-edu", "plan"] as const) {
-    test(`standalone brief from ${working} uses Repo Edu's launcher and the session directory for the ${owner} transcript`, async (t) => {
+    test(`standalone brief from ${working} uses Repo Edu's workflow and the session directory for the ${owner} transcript`, async (t) => {
       const f = await roundFixture(
         t,
         "codex",
@@ -1662,7 +1668,12 @@ for (const working of ["repo-edu", "plan"] as const) {
           `unattended ${owner === "plan" ? "planning" : "implementation-audit"} round`,
         ),
       )
-      assert.ok(log.includes(join(f.repoRoot, ".agents/skills/brief/SKILL.md")))
+      assert.ok(
+        log.includes(
+          join(f.repoRoot, ".agents/skills/brief/references/workflow.md"),
+        ),
+      )
+      assert.doesNotMatch(log, /Source file: .*\/brief\/SKILL\.md/)
       assert.ok(
         log.includes(
           `Phase arguments (JSON array): ${JSON.stringify([transcript, f.brief])}`,

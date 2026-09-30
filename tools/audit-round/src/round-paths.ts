@@ -193,7 +193,7 @@ export async function roundDocument(
   )
 }
 
-export type ManualPhase = "vet" | "rebut" | "fix" | "brief"
+export type ManualPhase = "vet" | "rebut" | "fix"
 
 /** Resolve one existing round without claiming it or consulting future writers' settings. */
 export async function manualPhasePaths(
@@ -210,9 +210,8 @@ export async function manualPhasePaths(
     throw new Error(
       `The ${phase} phase needs --writer with the current session's full tag.`,
     )
-  const kind = phase === "brief" ? "round" : "audit"
   if (input === undefined) {
-    const matches = (await phaseDocuments(context.planRoot, kind))
+    const matches = (await phaseDocuments(context.planRoot, "audit"))
       .filter((document) => {
         const sameAssistant = document.tag[0] === options.writer?.[0]
         if (phase === "vet") return !sameAssistant
@@ -221,20 +220,19 @@ export async function manualPhasePaths(
       })
       .map((document) => document.path)
       .sort()
-    const description = phase === "brief" ? "round transcript" : "audit report"
     if (matches.length === 0)
       throw new Error(
-        `No eligible ${description} for ${phase} at ${context.planRoot}. Supply a file name.`,
+        `No eligible audit report for ${phase} at ${context.planRoot}. Supply a file name.`,
       )
     if (matches.length > 1)
       throw new Error(
-        `Several eligible ${description}s for ${phase}. Supply a file name:\n${matches.join("\n")}`,
+        `Several eligible audit reports for ${phase}. Supply a file name:\n${matches.join("\n")}`,
       )
     input = basename(matches[0])
   }
-  const source = await roundDocument(context, input, kind)
+  const source = await roundDocument(context, input, "audit")
   const root = dirname(source.path)
-  const output = (kind: "vet" | "rebut" | "brief") => {
+  const output = (kind: "vet" | "rebut") => {
     if (options.writer === undefined)
       throw new Error(
         `The ${phase} phase needs --writer with the current session's full tag.`,
@@ -269,7 +267,7 @@ export async function manualPhasePaths(
       )
     return matches[0]
   }
-  if (phase === "vet" || phase === "brief") return [source.path, output(phase)]
+  if (phase === "vet") return [source.path, output(phase)]
   const vet = await twin("vet", options.vet)
   if (phase === "rebut") {
     if (vet === undefined)

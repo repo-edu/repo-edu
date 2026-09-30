@@ -117,15 +117,14 @@ the fix writer's tag. A resumed fix receives the same path and the user's reply.
 
 ## Manual phases
 
-A manual invocation may name the audit report, or the round transcript for a
-brief. If the current conversation identifies that input unambiguously, use it.
+A manual invocation may name the audit report.
+If the current conversation identifies that input unambiguously, use it.
 Otherwise omit the input when calling `paths` below. The command searches only
 the plan repo root and selects the sole eligible file without confirmation:
 
 - Vet uses audit reports from the other assistant.
 - Rebuttal uses audit reports from the current assistant.
 - Fix uses audit reports from either assistant.
-- Round brief uses round transcripts from either assistant.
 
 Eligibility uses the filename grammar and the writer tag's vendor letter, not
 its model tier or effort. When no file qualifies, ask for the input. When
@@ -157,11 +156,10 @@ commands take bare file names and resolve them at the plan repo root:
 | Vet | `pnpm audit-round paths vet [report] --writer <own full tag>` |
 | Rebuttal | `pnpm audit-round paths rebut [report] --writer <own full tag>` |
 | Fix | `pnpm audit-round paths fix [report]` |
-| Round brief | `pnpm audit-round paths brief [transcript] --writer <own full tag>` |
 
 Each command prints one JSON object with `cwd`, `workflow` and `arguments`.
 The arguments are absolute paths in the phase's order above. The report opening's
-named workflow selects the route; a brief uses its transcript title. Work in the
+named workflow selects the route. Work in the
 printed checkout and follow the printed workflow with those arguments. The command writes
 nothing, claims no round and starts no assistant or settings discovery. The
 output name retains the input's target and round and uses the writing session's
@@ -179,8 +177,11 @@ continue an existing round.
 A manual planning reply in the original audit session uses the same rebuttal
 resolution. A manual fix asks for any open ruling in chat; it needs no ruling
 output path. `pnpm audit-round brief <transcript>` remains the separate command
-that starts a brief session itself. The plan repo's `/brief <plan>` summarises
-a plan and is outside this round protocol.
+that starts a brief session itself. The home `/brief <stem>` and `$brief <stem>`
+summarise a plan from either checkout and are outside this round protocol.
+The round brief, watch writer and watch edit have no chat commands. The runner
+supplies their workflow and its listed files, including the `simple` definition,
+without a launcher.
 
 ## Closing reports
 
@@ -803,14 +804,14 @@ The two answer different questions and neither replaces the other.
 
 ### Implementation reports
 
-Open by naming `Implementation audit workflow` and include exactly one plain line: `Judged repos: plan@<sha>`,
-`Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
-short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
-vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
-that tag for the opening. Then name the plan file, its ready commit and the implementation commits
-inspected. State the round's user-set scope: the whole plan, one step or one step range.
-Then report the coverage table, its coverage line and the **Round yield** lines,
-followed by the finding field.
+Open by naming `Implementation audit workflow` and include exactly one plain line:
+`Judged repos: plan@<sha>`, `Judged repos: repo-edu@<sha>` or
+`Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's short audited HEAD. Repos read
+only as evidence stay outside that line. It selects the repos for vet, rebuttal, fix and clean
+completion. The filename holds the writer tag; do not repeat or look up that tag for the opening.
+Then name the plan file, its ready commit and the implementation commits inspected. State the
+round's user-set scope: the whole plan, one step or one step range. Then report the coverage table,
+its coverage line and the **Round yield** lines, followed by the finding field.
 
 Every finding, including a cross-repo finding, belongs in one `## Findings`
 field. A field with no findings contains exactly `No findings.` instead of

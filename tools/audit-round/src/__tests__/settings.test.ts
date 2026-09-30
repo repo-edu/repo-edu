@@ -1,9 +1,8 @@
 import assert from "node:assert/strict"
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { installationRoot } from "../context.js"
 import { codexArguments } from "../requests.js"
 import { defaultSettings, readSettings, settingsSchema } from "../settings.js"
 import {
@@ -168,11 +167,4 @@ test("settings reject unsupported effort, misspelt fields and independent rebutt
     }).success,
     false,
   )
-})
-
-test("every configurable document assistant has an installed launcher", async () => {
-  for (const phase of ["brief", "watch", "watch-edit"]) {
-    await access(join(installationRoot, ".agents/skills", phase, "SKILL.md"))
-    await access(join(installationRoot, ".claude/commands", `${phase}.md`))
-  }
 })

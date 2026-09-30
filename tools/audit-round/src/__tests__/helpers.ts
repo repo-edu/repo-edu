@@ -54,22 +54,18 @@ export async function writePhaseInstructions(...roots: string[]) {
       const skill = join(root, ".agents/skills", phase)
       await mkdir(join(skill, "references"), { recursive: true })
       const home = ["audit", "vet", "rebut", "fix"].includes(phase)
-      const launcherSkill = home
-        ? join(root, "home/agents/skills", phase)
-        : skill
-      await mkdir(launcherSkill, { recursive: true })
-      await writeFile(
-        join(launcherSkill, "SKILL.md"),
-        `Codex ${phase} launcher\n`,
-      )
-      await writeFile(
-        join(
-          root,
-          home ? "home/claude/commands" : ".claude/commands",
-          `${phase}.md`,
-        ),
-        `Claude ${phase} launcher\n`,
-      )
+      if (home) {
+        const launcherSkill = join(root, "home/agents/skills", phase)
+        await mkdir(launcherSkill, { recursive: true })
+        await writeFile(
+          join(launcherSkill, "SKILL.md"),
+          `Codex ${phase} launcher\n`,
+        )
+        await writeFile(
+          join(root, "home/claude/commands", `${phase}.md`),
+          `Claude ${phase} launcher\n`,
+        )
+      }
       if (phase !== "watch-edit")
         await writeFile(
           join(skill, "references/workflow.md"),

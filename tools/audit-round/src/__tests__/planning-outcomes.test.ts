@@ -248,7 +248,9 @@ for (const working of ["repo-edu", "plan"] as const) {
           ),
         )
         assert.ok(
-          log.includes(join(f.repoRoot, ".agents/skills/watch-edit/SKILL.md")),
+          log.includes(
+            join(f.repoRoot, ".agents/skills/watch/references/workflow.md"),
+          ),
         )
         assert.ok(log.indexOf("[brief] finished") < log.indexOf("[glance] due"))
         assert.ok(log.includes(`Working directory: ${f.runtime.cwd}`))

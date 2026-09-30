@@ -89,7 +89,7 @@ const workflowHeader = z.strictObject({
 })
 
 /** Headers resolve from their own file, including a routed workflow's reads. */
-function phaseInstructions(launcher: string, workflow: string): string {
+function phaseInstructions(launcher: string | null, workflow: string): string {
   const files = new Map<string, string>()
   function supply(path: string): void {
     const source = resolve(path)
@@ -107,7 +107,7 @@ function phaseInstructions(launcher: string, workflow: string): string {
     for (const reference of header.data.reads)
       supply(resolve(dirname(source), reference))
   }
-  supply(launcher)
+  if (launcher !== null) supply(launcher)
   supply(workflow)
   return [...files]
     .map(([path, content]) => `Source file: ${path}\n\n${content}`)
@@ -125,7 +125,7 @@ export function phasePrompt(input: PhaseInput): string {
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
-${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow the supplied launcher and workflow below. Their listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
+${instructions === null ? `Read and follow this launcher: ${launcher}` : `Follow the supplied ${launcher === null ? "workflow" : "launcher and workflow"} below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Do not run name or paths again. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.

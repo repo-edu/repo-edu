@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "../command.js"
-import { roundRun, testSettings } from "./configured-runner.js"
+import { roundRun } from "./configured-runner.js"
 import { selections, testContext } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
@@ -186,10 +186,6 @@ for (const working of ["repo-edu", "plan"] as const) {
       ownReport,
       join(root, "other-06-3-vet.atl.md"),
     ])
-    assert.deepEqual(await paths(["brief", "--writer", "oul"]), [
-      transcript,
-      join(root, "task-modifier-05-6-brief.oul.md"),
-    ])
     assert.deepEqual(await readdir(root, { recursive: true }), before)
     await writeFile(vet, "1. [B] Revise")
     const rebut = join(root, "task-modifier-05-4-rebut.abx.md")
@@ -207,13 +203,12 @@ for (const working of ["repo-edu", "plan"] as const) {
   })
 }
 
-for (const phase of ["vet", "rebut", "fix", "brief"] as const) {
+for (const phase of ["vet", "rebut", "fix"] as const) {
   test(`bare ${phase} reports missing and ambiguous inputs without picking the newest`, async (t) => {
     const f = await roundFixture(t)
-    const inputKind = phase === "brief" ? "1-round" : "2-audit"
     const tag = phase === "vet" ? "ath" : "otm"
     const files = ["first-01", "second-02"].map((start) =>
-      join(f.planRoot, `${start}-${inputKind}.${tag}.md`),
+      join(f.planRoot, `${start}-2-audit.${tag}.md`),
     )
     const invoke = async (input?: string) => {
       f.visible.length = 0
@@ -233,12 +228,7 @@ for (const phase of ["vet", "rebut", "fix", "brief"] as const) {
     assert.equal(await invoke(), 1)
     assert.match(f.errors[0], /No eligible/)
     for (const file of files)
-      await writeFile(
-        file,
-        phase === "brief"
-          ? "# Audit round of plan example"
-          : "# Implementation audit workflow",
-      )
+      await writeFile(file, "# Implementation audit workflow")
     assert.equal(await invoke(), 1)
     assert.match(f.errors[0], /Several eligible/)
     for (const file of files) assert.ok(f.errors[0].includes(file))
@@ -258,8 +248,6 @@ test("manual resolution reuses runner filenames without writes or assistant disc
   )
   await writeFile(run.documents.report, "# Implementation audit workflow")
   await writeFile(run.documents.vet, "Vet")
-  await writeFile(run.paths.markdown, "# Audit round of commits abc123..def456")
-  assert.ok(run.documents.brief)
   const before = await readdir(f.planRoot, { recursive: true })
   for (const [args, expected] of [
     [
@@ -274,10 +262,6 @@ test("manual resolution reuses runner filenames without writes or assistant disc
       ["fix", basename(run.documents.report)],
       [run.documents.report, run.documents.vet],
     ],
-    [
-      ["brief", basename(run.paths.markdown), "--writer", "oul"],
-      [run.paths.markdown, run.documents.brief],
-    ],
   ]) {
     f.visible.length = 0
     assert.equal(
@@ -287,20 +271,6 @@ test("manual resolution reuses runner filenames without writes or assistant disc
     )
     assert.deepEqual(JSON.parse(f.visible[0]).arguments, expected)
   }
-  // The manual brief records its own session, even when configured brief settings differ.
-  f.visible.length = 0
-  assert.equal(
-    await runCommand(
-      ["paths", "brief", basename(run.paths.markdown), "--writer", "atx"],
-      { ...f.runtime, cwd: f.planRoot },
-      { ...f.options, settings: testSettings },
-    ),
-    0,
-  )
-  assert.deepEqual(JSON.parse(f.visible[0]).arguments, [
-    run.paths.markdown,
-    join(f.planRoot, `${run.nameStart}-6-brief.atx.md`),
-  ])
   assert.deepEqual(await readdir(f.planRoot, { recursive: true }), before)
   await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
     code: "ENOENT",

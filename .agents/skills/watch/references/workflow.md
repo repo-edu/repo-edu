@@ -1,5 +1,6 @@
 ---
 reads:
+  - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md
@@ -9,15 +10,11 @@ reads:
 
 The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole; in a hand-run session, read them whole, following
-any listed workflow's header too. Read each file once.
+any listed workflow's header too. Read each file once. Apply the `simple`
+requirement to the whole session and skip its confirm-and-wait step.
 
-One shared workflow behind two passes. The Codex skills
-`.agents/skills/watch/SKILL.md` and `.agents/skills/watch-edit/SKILL.md` write
-the draft and rewrite it. Claude has matching commands at
-`.claude/commands/watch.md` and `.claude/commands/watch-edit.md`. The runner's
-settings select each pass's assistant. Each launcher carries only what is
-specific to it and points here for the rest. Where a launcher and this file
-disagree, this file is right.
+The runner starts the writer and wording pass directly from this workflow.
+Its settings select each pass's assistant. These passes have no chat commands.
 
 This workflow owns the watch's rules for hand-run watches and automated
 planning or plan-scoped implementation-audit rounds. The shared
@@ -33,17 +30,17 @@ and result instructions below only when the invocation supplies their paths.
 
 ## Watch step
 
-The three launchers share one name: Claude's `/watch`, Codex's `$watch` and
-the audit-round runner's `watch` phase. The user invokes the first two by hand.
+The two hand-run launchers, Claude's `/watch` and Codex's `$watch`, share the
+watch name with the runner's `watch` phase. The user invokes the launchers by hand.
 An automated planning or plan-scoped implementation-audit round runs the watch
 after a round with audit findings finishes. A clean audit skips the watch even
 when historical corrections or a red grade would make it due. An explicit
 hand-run watch remains available.
-No launcher is a serial gate in front of a round: a round never waits on a watch.
+No watch is a serial gate in front of a round: a round never waits on a watch.
 The `/watch` command runs in the background and its output is consumed when it
 arrives, so the iteration in flight is not blocked. A green grade lets that
 iteration complete untouched; a red one lets the user terminate or pause it.
-The round's launcher runs after the round's own work is done, so there is
+The runner's watch phase runs after the round's own work is done, so there is
 nothing in flight to block.
 
 The shared episode module in Repo Edu computes membership and counts from Git. The runner supplies
@@ -61,10 +58,10 @@ Other branches and refs are outside it. The watch may inspect named commits
 and current artifacts to ground a claim, but does not repeat membership or
 count computation.
 
-The cadence differs by launcher, because only one of them can remember. Under
+The cadence differs by route, because only the runner keeps a record. Under
 `/watch` the recommended cadence is advice: the user acts on it by invoking
 `/watch` again, sooner on amber, skipping a couple on green. Under the round's
-launcher the watch keeps a record of its own, so the cadence is counted rather
+watch phase the watch keeps a record of its own, so the cadence is counted rather
 than remembered. That record holds the episode stem, each repository's HEAD it
 last graded, the grade and the written date. The grade selects a fixed limit
 owned by the glance. It lives
@@ -73,7 +70,7 @@ is machine state about when the watch ran and not part of either repository's
 history. The user directed this on 2026-09-13, replacing a watch run on
 intuition.
 
-Before the round's launcher runs the watch it runs a glance: a cheap read of the
+Before running the watch the runner runs a glance: a cheap read of the
 plan log for a planning round or the Repo Edu log for an implementation round
 since that repo's recorded HEAD, which answers only whether
 the watch has enough new correction evidence to run. The watch judges whether
@@ -206,7 +203,7 @@ cannot drift.
 The hand-run definitions live under `home/` in the plan repo: a Claude agent,
 a Claude slash command and a Codex skill. The plan root's
 [Layout](../../../../../plan/CLAUDE.md#layout) owns their linking rule.
-The runner's launchers live in Repo Edu and point here too.
+The runner supplies this workflow directly to its writer and wording pass.
 
 ## Trajectory diagnostic
 
@@ -324,8 +321,8 @@ select a topic from HEAD or reread current heads to replace the supplied ones.
 The runner computes this snapshot after the fix, only when glance says watch
 is due.
 
-The editor receives only the draft watch path. Neither an automated editor nor
-a hand-run editor fetches Git evidence or investigates the draft's sources.
+The editor receives only the draft watch path. It fetches no Git evidence and
+does not investigate the draft's sources. There is no hand-run editor.
 No route reads or writes an episode file.
 
 ## Output

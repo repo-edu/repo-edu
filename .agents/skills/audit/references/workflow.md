@@ -48,8 +48,8 @@ the plan repo. Follow the `CLAUDE.md` of every repo the round judges. Plan-repo
 findings use `[section:]` and carry no `[area:]` token. All round files live at
 the plan root. The runner selects the workflow and working checkout from the
 round kind.
-The shared brief launcher stays in Repo Edu and writes beside the transcript.
-Its launcher location never changes the session's working directory.
+The runner supplies the round brief's Repo Edu workflow directly. The brief
+writes beside the transcript and follows the round's working directory.
 
 An audit with findings ends at its report file. An audit without findings follows
 [Clean completion](#clean-completion). The auditor answers the vet in the rebuttal

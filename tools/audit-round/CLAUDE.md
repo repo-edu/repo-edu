@@ -19,7 +19,7 @@ consumers.
   settings file selects the default auditor and the assistants that write documents. Codex always
   fixes. The brief follows only a finished fix, after all rulings and resumed fix invocations have
   completed. `--no-brief` omits that phase and its settings row from every round. Its input is the
-  round transcript, never the report, and its launcher always belongs to the Repo Edu root.
+  round transcript, never the report, and its workflow belongs to the Repo Edu root.
   `runBrief` runs that one phase on its own over an earlier transcript. The fix receives a ruling
   output path separately from its report arguments. It writes the final ruling and checks it for
   clarity before returning `needs-ruling`. The runner checks that file, then displays it and
@@ -178,10 +178,12 @@ consumers.
   awaiting a ruling and a failure both carry their phase, so continuation and recovery use the model
   the round ran that phase on. Claude uses `--permission-mode auto` in settings discovery and every
   session entry, and that discovery names no model of its own. `requests.ts` also supplies each
-  fresh phase's launcher, selected workflow and whole files listed by the workflow's
+  fresh phase's selected workflow and whole files listed by the workflow's
   `reads` header. Header paths resolve from the workflow file. `vfile-matter` parses the header and
   `zod` checks its shape. Listed workflows supply their own reads recursively, with each source
-  included once. Watch edit shares the watch workflow. Resumed sessions receive no files again. Root
+  included once. Audit, vet, rebuttal and fix also receive their home launcher. Brief and both watch
+  passes have no launcher; their workflow headers list the `simple` definition directly.
+  Watch edit shares the watch workflow. Resumed sessions receive no files again. Root
   instructions are not listed. Both assistants receive their phase prompts on standard input. Codex
   command-line arguments contain no prompt text, including on resume, so joined evidence is not
   limited by the operating system's per-argument size.
@@ -231,7 +233,7 @@ consumers.
   `manualPhasePaths` returns the ordinary phase arguments and finds review inputs only within
   the exact round at the report's root. With no input, it selects the sole eligible document at
   the plan root: the other assistant's audit for vet, the current assistant's audit for
-  rebuttal, either assistant's audit for fix or either assistant's transcript for brief.
+  rebuttal or either assistant's audit for fix.
   Multiple matches require an explicit file selection.
   `closeRound` deletes only audit, vet and rebuttal files for that exact round, using recorded
   filenames without consulting model settings.
@@ -256,8 +258,8 @@ consumers.
   and prints its claim, workflow, working checkout and audit arguments. Its required `--auditor` is
   the hand-run session's full tag, including `u`, checked separately from a round's model request.
   The `paths` command prints the workflow, working checkout and argument paths for an existing
-  report or transcript as a JSON object. It reads the report opening's named workflow to select its
-  kind; a brief uses the transcript title. Both commands bypass assistant startup and settings
+  report as a JSON object. It reads the report opening's named workflow to select its
+  kind. Both commands bypass assistant startup and settings
   discovery; `paths` writes nothing. The `close` command uses the same closing function as the
   coordinator and starts no assistant or settings discovery. So the program carries an action
   handler, Commander adds no `help` command, and each command's own `-h` prints its help. A bare
@@ -284,15 +286,16 @@ stops the sequence. A rejected phase invocation also stops it without retrying;
 the invocation owner must release its resources before rejecting.
 
 `phase.ts` owns workflow and launcher selection. Audit, vet, rebuttal and fix use the single
-launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Planning
-sessions work in the plan checkout; implementation and commit sessions work in Repo Edu. Every round
-file lives at the plan root. The runner names all input and output paths before the audit. The
-runner saves audit, vet and rebuttal final responses; brief and watch sessions write their own
-documents. Report phases finish only when their supplied output exists and is non-empty. Claude
-receives the peer checkout as an additional directory; recovery commands restore the working
+launcher set under the plan checkout's `home/`; their workflow follows the round's kind. Brief,
+watch and watch edit have no launchers; the runner supplies their Repo Edu workflows directly.
+Planning sessions work in the plan checkout; implementation and commit sessions work in Repo Edu.
+Every round file lives at the plan root. The runner names all input and output paths before the
+audit. The runner saves audit, vet and rebuttal final responses; brief and watch sessions write
+their own documents. Report phases finish only when their supplied output exists and is non-empty.
+Claude receives the peer checkout as an additional directory; recovery commands restore the working
 directory.
 
-Workflow launchers own findings, authority, gates and phase outcomes. The shared
+Workflows own findings, authority, gates and phase outcomes. The shared
 Runner result rule in
 `../../.agents/references/round-protocol.md#runner-result` defines their
 meaning. Phase results carry only status and reason. The runner reads reports,
@@ -382,8 +385,8 @@ The arguments hold the report path followed by the resolved target and scope.
 It creates only the claim. It does not load settings or start an assistant. Its argument grammar
 is the same as the automated round, from either checkout.
 
-`paths <vet|rebut|fix|brief> [input]` resolves a later manual phase and prints its working checkout,
-workflow and arguments as one JSON object. Vet, rebuttal and brief take `--writer <full tag>` from
+`paths <vet|rebut|fix> [input]` resolves a later manual phase and prints its working checkout,
+workflow and arguments as one JSON object. Vet and rebuttal take `--writer <full tag>` from
 the current session. Fix writes no phase report and needs no writer tag. Without an input, the
 command selects the sole eligible file at the plan root. Use `--vet <file>` or `--rebut <file>` to
 select an existing review when several belong to that round. The command writes nothing and never

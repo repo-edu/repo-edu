@@ -36,12 +36,12 @@ export function phaseWorkflow(input: RoundContext & { phase: Phase }): string {
 
 export function phaseLauncher(
   input: RoundContext & { phase: Phase; assistant: Assistant },
-): string {
-  const home = transcribed(input.phase)
-  const root = home ? join(input.planRoot, "home") : input.repoEduRoot
+): string | null {
+  if (!transcribed(input.phase)) return null
+  const root = join(input.planRoot, "home")
   return input.assistant === "claude"
-    ? join(root, home ? "claude" : ".claude", "commands", `${input.phase}.md`)
-    : join(root, home ? "agents" : ".agents", "skills", input.phase, "SKILL.md")
+    ? join(root, "claude", "commands", `${input.phase}.md`)
+    : join(root, "agents", "skills", input.phase, "SKILL.md")
 }
 
 /** The model tiers a round may ask its auditor for, as the command line names them. */
