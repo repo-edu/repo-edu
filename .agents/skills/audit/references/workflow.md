@@ -262,6 +262,8 @@ ordinary completion rules.
 
 ## Round allocation
 
-Use the supplied report path; without one, run
-`pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at the invoking root and
-use its printed audit report path.
+Use the supplied report path. Without one, resolve your full writer tag under
+the shared round protocol and pass it unchanged to
+`pnpm audit-round name <target> [scope-or-commits...] --auditor <full tag>` at
+the invoking root before auditing. Use its printed audit report path. Do not
+pass only the vendor letter.

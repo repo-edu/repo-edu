@@ -356,6 +356,9 @@ The first pass writes both. The second pass, the watch edit, rewrites the file
 and leaves the record alone: it changes wording while preserving the claims,
 judgements, grade and graded heads.
 
+Write the first pass as a finished watch. A fresh session rewrites it afterwards;
+leave no notes for that pass.
+
 ## Voice
 
 The `simple` requirement governs the watch. Beyond it:
@@ -396,7 +399,8 @@ Nothing else belongs in the file. The round's own brief holds its findings.
 
 ## The second pass
 
-Read the draft for clarity before writing anything:
+You did not write this draft. Read it as the user will, checking for clarity
+before writing anything:
 
 1. Does the wording explain the unstable abstraction and the stated reason
    rounds keep reopening it?
