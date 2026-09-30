@@ -33,9 +33,9 @@ belongs in `../plan` and stop. Continue only when the user explicitly says to.
 ## Report discovery
 
 Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
-evidence rules, rating tokens and runner results. The arguments name the report to read and the vet
-output, in that order; use the report's judged-repos opening for repo and head checks and its
-filename for the auditor's vendor letter.
+evidence rules, tiers, rating tokens, verdict formats and runner results. The arguments name the
+report to read and the vet output, in that order; use the report's judged-repos opening for repo and
+head checks and its filename for the auditor's vendor letter.
 
 A hand-run invocation may omit the audit report. Resolve its input and output
 under the shared round protocol's **Manual phases** with `paths vet` and your
@@ -67,7 +67,7 @@ Check each finding on three axes, in this order.
 
 ### 1. Authorised
 
-Apply the audit workflow's
+Apply the shared
 [completed-commit metadata exclusion](../../../references/round-protocol.md#completed-commit-metadata).
 Drop findings on that excluded metadata. Classify the remaining findings.
 
@@ -133,11 +133,11 @@ Read history when needed to verify a finding's cause or a prior ruling.
 Cross-round scans belong to glance and watch.
 
 Then check that the finding's consequence holds at the claimed tier under the
-`[A]`-`[D]` rubric in this repo's `CLAUDE.md`. Verify the wrong behaviour and,
-when reach is `rare` or `very-rare`, the condition that produces it. When the
-cost is only rework or re-derivation, verify that cost. These facts may share the
-finding's prose; no separate trace is required. A trace that ends with the same
-behaviour shipping is not a finding, so the verdict is drop.
+[implementation tiers](../../../references/round-protocol.md#implementation-tiers). Verify the wrong
+behaviour and, when reach is `rare` or `very-rare`, the condition that produces it. When the cost is
+only rework or re-derivation, verify that cost. These facts may share the finding's prose; no
+separate trace is required. A trace that ends with the same behaviour shipping is not a finding, so
+the verdict is drop.
 
 Check the trade under the shared round protocol's finding-shape rules. The explanation may
 be part of the finding's prose. Verify the simpler mechanism, cost, benefit and any claim that the
@@ -151,19 +151,8 @@ choice about cost goes to the user's ruling; the vet never settles it.
 
 ## Verdicts
 
-Return one verdict per finding, in the report's order: accept, revise, drop or
-needs the user's ruling. A revise verdict states the revision. A drop verdict
-states why. Keep each verdict to a few short sentences.
-
-Every verdict starts with exactly `<finding number>. [<tier>] <verdict>`. Use the report's finding
-number and A/B/C/D tier. The verdict is exactly one of `Accept`, `Revise`, `Drop` or
-`Needs user's ruling`. The first line contains nothing else, for example `1. [B] Accept`.
-Conditions, notes and required explanations follow on separate lines. Prose before the first verdict
-is free; put drift notes there. After the first verdict, every non-empty line is a verdict or a
-condition. Any other line counts as a condition, including a narrowing note. The verdict numbers
-must match the report exactly. An unconditional Accept with no additional notes ends after the first
-line; do not repeat the finding title, evidence or reasoning. Required narrowing notes count as
-additional notes. This format applies in both chat and the `-3-vet.<tag>.md` twin.
+Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
+for the verdict values, numbering and response format.
 
 Read the whole [shared planning rules](../../../../../plan/.agents/references/planning-rules.md)
 for changes to recorded decisions.

@@ -20,7 +20,7 @@ resumed fix invocations. A standalone invocation may retell an earlier incomplet
 ## Input
 
 Read the whole shared [round protocol](../../../references/round-protocol.md) for
-file names and writer tags. The invocation supplies the transcript to read
+file names, writer tags and rating meanings. The invocation supplies the transcript to read
 and the brief to write, in that order. A manual `/brief` or `$brief` may omit
 the transcript. Resolve its input and output through `paths brief` under the
 protocol's **Manual phases**, using this session's own tag. Automated
@@ -31,7 +31,7 @@ outside the shared grammar fails under the result rule when unattended.
 Resolve workflow references from Repo Edu. The transcript may belong to either
 root; use the supplied output path.
 
-Read the whole transcript, the whole shared round protocol for rating tokens and the whole
+Read the whole transcript and the whole
 `../plan/GROWTH-PATTERNS.md` for the pattern labels. Read nothing else about the round: no code, no
 plan, no git history and no report or twin file. The brief retells what the round said and adds
 nothing the round did not say. When the transcript states something you believe is wrong, retell it
@@ -65,12 +65,8 @@ The `simple` requirement governs the brief. Beyond it:
 - Outside finding titles, tiers become plain words with the letter after them,
   in the words of the rubric that graded the round; the transcript's first heading says which
   kind of round it was. An implementation round grades under Repo Edu's
-  `CLAUDE.md`, **Implementation Review Findings**: `A` is data loss, a broken
-  core workflow or a wrong architecture, `B` is a real bug, `C` is a narrow
-  correctness or test-coverage issue and `D` is wording. A planning round
-  grades under the plan audit workflow's tiers: `A` is the wrong shape, `B`
-  is a real bug or a missing decision, `C` is a detail an implementer would
-  get wrong and `D` is wording. Write "a real bug [B]", never "B-tier".
+  shared round protocol's **Implementation tiers**. A planning round uses
+  its **Planning tiers**. Write "a real bug [B]", never "B-tier".
 - Keep the transcript's numbering for findings and open items, so a reply in
   chat can point at them.
 

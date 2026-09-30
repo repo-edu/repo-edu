@@ -2,9 +2,10 @@
 
 This reference owns the shape of every commit subject in Repo Edu and the
 sibling plan repo. It states the shape only. What each part means and why it
-exists stays where it is owned: Repo Edu's `CLAUDE.md` owns the capability tag,
-the model record and the severity marks under **Commit Capability Tag**,
-**Commit Model Record** and **Commit Severity Prefix**, and the plan repo's
+exists stays where it is owned: Repo Edu's `CLAUDE.md` owns the capability tag
+and the model record under **Commit Capability Tag** and **Commit Model Record**.
+The [shared round protocol](round-protocol.md#severity-sequence) owns severity
+and burden meanings, and the plan repo's
 `CLAUDE.md` owns the roles and the keying rules under **Shared implementation
 forms** and **Commit message convention**. Those sections link here instead of
 restating the shape. Read this file from the Repo Edu checkout; plan-repo

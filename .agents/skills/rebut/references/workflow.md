@@ -33,7 +33,7 @@ substitutions: that repo's report root and finding metadata.
 ## Report discovery
 
 Read the whole [shared round protocol](../../../references/round-protocol.md) for path resolution,
-rebuttal grounding, answers and runner results. Follow its **Rebuttal grounding** and
+rating tokens, rebuttal grounding, answers and runner results. Follow its **Rebuttal grounding** and
 **Rebuttal answers** rules. The arguments name the report and vet to read and the rebuttal output,
 in that order; read the judged repos and audited heads from the report opening and the auditor's
 vendor letter from its filename.

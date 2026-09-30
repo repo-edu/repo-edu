@@ -122,23 +122,8 @@ and effort in the body's opening line. The commit hook replaces them with `COMMI
 use its own writer tag. Use the shared round protocol's
 [worked record forms](../../../references/round-protocol.md#worked-record-forms).
 
-The body carries one bullet per accepted finding. Each bullet opens with its
-uppercase tier, then its metadata and prose.
-
-For a Repo Edu finding, `[area:<primary-id>]` is the finding's primary partition area from
-`tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
-that applies. `[growth:...]`, `[reach:...]` and `[complexity:...]` are the tokens the shared round
-protocol defines, in the same form the report used. Repo Edu finding bullets require all four token
-kinds. Plan-repo implementation and off-plan finding bullets use
-`- B [section:<heading>] [growth:...] [reach:...] [complexity:...] <title and prose>`. Only a
-planning `audit` record adds exactly one `[field:<excess|missing>]` token before the location. Other
-plan-repo records refuse `[field:]`, because their findings have no search direction. Both forms use
-a heading in kebab case and replace `[section:]` with `[area:]` only for a deferred Repo Edu
-finding. The glance counts A–C corrections by these locations, once per commit in each area or
-section. D findings never advance its count. The commit body is the only place a later round can
-read them: chat is gone, the report is removed after completion and the finding list lives nowhere
-else. A bullet that records something other than a finding, such as a carried decision or a trade
-ruling with its reason, takes no metadata.
+Use the shared round protocol's **Finding metadata** and **Record bullets**
+for each accepted finding's title, tier, location and rating tokens.
 
 Close a Repo Edu record's body with the round's two yield lines, in the form
 the shared round protocol defines under **Round yield**. Recount the accepted findings

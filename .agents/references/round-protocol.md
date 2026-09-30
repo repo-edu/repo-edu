@@ -1,12 +1,11 @@
 # Shared round protocol
 
-This reference owns the protocol shared by round phases in Repo Edu and the
-sibling plan repo: file names, runner results, evidence and rating rules,
-rebuttal answers and reconciliation. Read the whole file alongside the phase
-workflow. Rules labelled for implementation apply only to implementation rounds.
-Shared code owns round allocation and file naming for both entry routes.
-Read this file from the Repo Edu checkout; plan-repo workflows reach it at
-`../repo-edu/.agents/references/round-protocol.md`.
+This reference owns the protocol shared by round phases in Repo Edu and the sibling plan repo: file
+names, finding tiers, severity sequences, metadata, report and record formats, runner results,
+evidence rules and reconciliation. Read the whole file alongside the phase workflow. Rules labelled
+for implementation apply only to implementation rounds. Shared code owns round allocation and file
+naming for both entry routes. Read this file from the Repo Edu checkout; plan-repo workflows reach
+it at `../repo-edu/.agents/references/round-protocol.md`.
 
 ## File names
 
@@ -178,6 +177,163 @@ or a hand-run audit lands its direct clean record,
 same numbered report kinds for that exact round, regardless of writer tag.
 Claims, transcripts, logs, briefs, rulings, watches and other rounds remain.
 
+## Finding tiers
+
+Use the rubric for the work being judged. The same letters carry different
+meanings in planning and implementation rounds.
+
+### Planning tiers
+
+- **A**: architectural / scope-changing. Holds when the wrong shape would ship
+  silently or cost a session or more of rework. In a widening round, A also
+  covers a finding that would lock the wrong shape in: a real alternative that
+  displaces the current shape, or a structural flaw that invalidates it.
+- **B**: real bug or missing decision in code that must exist to ship the
+  user-facing task. Holds when the implementer would ship a wrong but passing
+  answer. In a widening round, B is a substantive but fixable issue in the
+  shape.
+- **C**: detail or clarification of a decision already made. Holds when multiple
+  plausible interpretations exist and the implementer would pick wrong,
+  subject to the planning C admission rule.
+- **D**: wording. Floor.
+
+The plan repo's [shared planning rules](../../../plan/.agents/references/planning-rules.md)
+own admission and grading discipline, including the C admission rule.
+
+### Implementation tiers
+
+- `[A]`: Data loss, corruption, a broken core workflow or an architectural flaw
+  likely to ship silently or require broad rework.
+- `[B]`: A real user-visible bug, reliability issue or unresolved code
+  decision that must be settled before shipping.
+- `[C]`: A narrow correctness, maintainability or test-coverage issue in a
+  non-critical path.
+- `[D]`: Wording, style, formatting or low-risk polish.
+
+## Severity sequence
+
+The sequence is a sorted run-length count of graded concerns, with zero
+categories omitted, such as `A3B4C4D3`. Plan-repo records use this bare form.
+Repo Edu records extend it with the marks below. Steps and markers carry no
+graded concerns and no sequence. The hook derives the sequence from the graded
+body bullets; leave its slot to the hook.
+
+In Repo Edu, every file-changing commit except a plan step commit carries a sorted
+run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
+conventional subject with that sequence. An implementation-audit record places
+the same sequence in its shared stem form; a step commit lands planned work and
+carries none. The sequence enumerates how many concerns at each tier the commit
+addresses, with zero categories omitted. The commit hook derives the sequence,
+its case and its `!` from the graded body bullets, overwriting any authored
+value. Write the rest of the subject and the bullets; leave the sequence slot
+to the hook.
+
+Three marks carry reach and burden change into the sequence itself, because a
+commit graph shows the subject and none of the finding tokens.
+
+- Case says who meets the concern. A tier letter is uppercase when the concern's
+  reach is `ordinary`, `rare` or `very-rare`, the values an end user can meet,
+  and lowercase when its reach is `developer`.
+- A leading `!` says at least one concern has `ordinary` reach, the value that
+  needs no special condition to hold: `!B1C1c2d1`.
+- A leading `growth-<level>` or `pruning-<level>` says what the commit did to the
+  maintenance burden. Measure the commit, never add up the finding tokens:
+  compare its code and instructions before and after using the
+  [common complexity levels](#reach-and-complexity).
+  The word gives the direction, `growth` for a net increase and `pruning` for a
+  net reduction. The level grades the size of that net change. Omit the whole
+  mark when there is no material net change. The direction is a word and not a sign,
+  because a sign carries direction and not judgement: `+` reads as a gain where
+  growth is the cost. The level is always written, as `growth-low` rather than
+  a bare `growth`, because an omitted level would
+  pass as the floor and a level is countable in the log only when it is on the
+  page. A commit can read `pruning-high` while one concern inside it added a
+  rule, because the mark states the size of the commit's net reduction in
+  burden. It carries no colon of its own.
+
+The mark precedes the sequence after a space: `abx pruning-high !B1C1c2d1`. It
+leads because what a commit did to the maintenance burden outranks how many
+concerns it closed, and a commit often carries the mark where the sequence is
+routine.
+
+The subject's shape, the order of its tags and which slots each kind of commit
+fills, is owned by [the subject grammar](subject-grammar.md).
+This section owns what the sequence and its marks mean.
+
+Reach values and the common burden scale are defined under
+[Reach and complexity](#reach-and-complexity).
+That section also owns the requirement and case for explaining the whole
+commit's net change in one untiered decision bullet in its existing body. The mark and
+the finding token `[complexity:...]` run that one measurement, so they translate
+exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
+`[complexity:minus-high]` and an absent mark is `[complexity:none]`.
+
+Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
+that carries it, which a plan document has not reached yet.
+
+## Finding metadata
+
+The metadata tokens are user-directed. Every graded concern carries its title and metadata into the
+report and the round's record. The record is durable after the chat and report are gone. Every
+finding includes `[growth:...]`, `[reach:...]` and `[complexity:...]`, including the floor values
+`none`, `developer` and `none`. Their meanings live under [Growth tags](#growth-tags) and
+[Reach and complexity](#reach-and-complexity). Location and search-direction tokens depend on what
+the round judges:
+
+- `[field:excess|missing]` names the search direction the finding came from:
+  `excess` for functionality that can be removed or simplified, `missing` for
+  functionality the artifact lacks. It is the token the two-field shape under
+  the planning report contract groups on, and across rounds the balance of the
+  two values shows whether an artifact is still growing or has started to shed.
+  Commit bullets that predate the token carry none and read as `missing`,
+  because the excess direction did not exist as a search obligation before the
+  token did. The missing search skips ground an excess finding proposes to cut.
+  A keep ruling returns that ground to the next round's missing search.
+- `[section:<heading>]` names the artifact section the finding lands in, the
+  heading in kebab case, as in `[section:decisions]`. The watch uses it as a
+  cluster key when reading the recorded findings.
+- `[area:<primary-id>]` names the primary partition bucket of a finding that
+  concerns repo-edu code, followed by `[cover:<cover-id>]` for each
+  cross-cutting cover bucket. A finding with no area token is a plan-doctrine
+  finding outside repo-edu severity buckets.
+
+Planning audit findings carry `[field:]` and `[section:]`. Plan-repo
+implementation and off-plan findings carry `[section:]` without `[field:]`.
+A Repo Edu finding carries its primary `[area:]` from
+`tools/architecture-check/src/area-model.json`, plus applicable `[cover:]`
+tokens. A finding deferred from Repo Edu to the plan repo uses
+`[plan:../plan/<topic>.md#<heading>]` instead of `[area:]`. A finding deferred
+from the plan repo to Repo Edu uses `[area:]` instead of `[section:]`.
+Growth, reach and complexity stay on every form.
+
+### Record bullets
+
+In a planning audit commit bullet the tier letter comes first, then the tokens, then a short
+title, then the prose after a colon:
+
+```text
+- B [field:excess] [section:decisions] [growth:hardening,growing-lists] [reach:rare] [complexity:minus-low] Anchorless admission cases: removing a few independent admission checks leaves only the case the boundary names.
+```
+
+The title is required, and it is the same title the report's finding block leads
+with. It gives a later round a handle to group and refer to a finding by, and a
+finding that cannot be titled in a few words is usually two findings. The report
+leads with the title and puts the tokens on their own line, because a person
+scans it; the commit bullet leads with the tokens, because a fresh round parses
+them.
+
+Repo Edu bullets use a bracketed uppercase tier, followed by the location,
+growth, reach and complexity tokens: `- [C] [area:<primary-id>] ...`.
+Plan-repo implementation and off-plan bullets use a bare tier:
+`- C [section:<heading>] ...`. Only a planning `audit` record carries a
+`[field:]` token; other plan-repo records refuse it.
+
+Each accepted graded concern, D included, gets one bullet. A carried decision
+or trade ruling that is not a finding takes no tier or metadata. The glance
+counts A–C corrections by primary area or section once per commit. D findings
+do not advance that count. Record placement and authorisation remain with the
+phase completing the round.
+
 ## Worked record forms
 
 These are worked instances of the [subject grammar](subject-grammar.md), which
@@ -192,7 +348,7 @@ effort, scope and findings with the round's values.
 ### Planning record
 
 Planning records use `audit`. Each finding carries `[field:]` and a section
-location under the planning audit's finding metadata rule. They carry no yield
+location under [Finding metadata](#finding-metadata). They carry no yield
 lines. For one missing C finding:
 
 ```text
@@ -224,8 +380,8 @@ Structure: 0 removing, 0 adding, 1 flat.
 ```
 
 The hook inserts `c1` before `docs(audit-round)`. When the commit changes
-maintenance burden, author its growth or pruning mark under Repo Edu's
-**Commit Severity Prefix** rule. The hook derives the severity sequence,
+maintenance burden, author its growth or pruning mark under
+[Severity sequence](#severity-sequence). The hook derives the severity sequence,
 its case and its `!` from the finding bullets.
 
 ### Implementation record in the plan repo
@@ -359,17 +515,15 @@ quality evidence, never on taste.
 
 ## Growth tags
 
-Every finding carries a growth tag naming the patterns in
-`../plan/GROWTH-PATTERNS.md` it could violate, by their labels:
-`[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]` when
-more than one could apply, listed in pattern order, and `[growth:none]`
-when none does. What is tagged is the code the finding flags, never the
-correction it asks for; the complexity token rates the correction. A finding
-that flags a guard added control by control tags `growing-lists` even when
-its correction removes the copies. The tag rides the finding in the report and the matching
-bullet in the round's commit body, in the record bullet form the fix workflow
-fixes, so it survives in the log after the chat is gone. A tag that reaches
-only the report is lost, and the next round is back to having no memory.
+Every finding carries a growth tag naming the patterns in `../plan/GROWTH-PATTERNS.md` it could
+violate, by their labels: `[growth:hardening]` for one, `[growth:hardening,unpriced-complexity]`
+when more than one could apply, listed in pattern order, and `[growth:none]` when none does. What is
+tagged is the work the finding flags, never the correction it asks for; the complexity token rates
+the correction. A finding that flags a guard added control by control tags `growing-lists` even when
+its correction removes the copies. The tag rides the finding in the report and the matching bullet
+in the round's commit body, under [Record bullets](#record-bullets), so it survives in the log after
+the chat is gone. A tag that reaches only the report is lost, and the next round is back to having
+no memory.
 
 The bar is could it be, not is it. A false positive costs one bracket, or
 one trade block and its ruling when the other two tokens also show risk. A
@@ -466,13 +620,12 @@ exception to the plan doctrine's mechanical-grading principle: scope, evidence
 and output remain prescribed, while burden size is judged. The account makes
 disagreement inspectable; it does not make the scale mechanical.
 
-The commit subject's leading mark runs this measurement over a whole commit,
-with the same level spellings: `growth-low` is `low` and `pruning-high` is
-`minus-high`. An absent mark presents `none` compactly. Severity and reach stay
-separate from complexity. [Commit Severity Prefix](../../CLAUDE.md#commit-severity-prefix)
-owns the mark's form. Replace the old definition directly, with no date-based
-grading, historical conversion, episode split or extra inspection duties for
-old marks. Do not rewrite Git history.
+The commit subject's leading mark runs this measurement over a whole commit, with the same level
+spellings: `growth-low` is `low` and `pruning-high` is `minus-high`. An absent mark presents `none`
+compactly. Severity and reach stay separate from complexity. [Severity sequence](#severity-sequence)
+owns the mark's meaning and the subject grammar owns its form. Replace the old definition directly,
+with no date-based grading, historical conversion, episode split or extra inspection duties for old
+marks. Do not rewrite Git history.
 
 The two tokens are one pair, and the pair is the point. Growth pattern 6 in
 `../plan/GROWTH-PATTERNS.md` says a user-facing cost vetoes while a
@@ -486,8 +639,27 @@ in the log for the watch to judge. A
 than it added, which counts in its favour and never joins a priced run. The
 tokens describe reach and net burden, not worth, and like the growth tag they block nothing: a
 finding tagged `[reach:rare] [complexity:high]` still lands. The vocabulary
-is shared with the plan repo's finding metadata, one spelling across both
-logs.
+has one spelling across both logs. A run can also supply evidence for a new
+growth pattern, including work no listed pattern matches. The tokens rate
+facts rather than worth: a round that scored its own proposed correction
+would be grading its own work.
+
+## Vet verdicts
+
+Return one vet-verdict per audit-finding, in the report's order: accept, revise, drop or
+needs the user's ruling. A revise vet-verdict states the revision. A drop vet-verdict
+states why. Keep each vet-verdict to a few short sentences.
+
+Every vet-verdict starts with exactly `<audit-finding number>. [<tier>] <vet-verdict>`. Use the
+report's audit-finding number and A/B/C/D tier. The vet-verdict is exactly one of `Accept`,
+`Revise`, `Drop` or `Needs user's ruling`. The first line contains nothing else, for example
+`1. [B] Accept`. Conditions, notes and required explanations follow on separate lines. Prose before
+the first vet-verdict is free; put drift notes there. After the first vet-verdict, every non-empty
+line is a vet-verdict or a condition. Any other line counts as a condition, including a narrowing
+note. The vet-verdict numbers must match the report exactly. An unconditional Accept with no
+additional notes ends after the first line; do not repeat the audit-finding title, evidence or
+reasoning. Required narrowing notes count as additional notes. This format applies in both chat and
+the `-3-vet.<tag>.md` twin.
 
 ## Rebuttal grounding
 
@@ -613,10 +785,46 @@ Both lines are counts over the findings, unlike the commit subject's leading
 before and after.
 The two answer different questions and neither replaces the other.
 
+## Report format
+
+### Implementation reports
+
+Open by naming the workflow that ran and include exactly one plain line: `Judged repos: plan@<sha>`,
+`Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
+short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
+vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
+that tag for the opening. Then name the plan file, its ready commit and the implementation commits
+inspected. State the round's user-set scope: the whole plan, one step or one step range.
+Then report the coverage table, its coverage line and the **Round yield** lines,
+followed by the finding field.
+
+Every finding, including a cross-repo finding, belongs in one `## Findings`
+field. A field with no findings contains exactly `No findings.` instead of
+finding blocks. A report with only deferred findings still has findings.
+
+### Planning reports
+
+Open by naming the workflow, artifact and widening or detailing phase.
+Include exactly one plain line `Judged repos: plan@<sha>` with the audited
+short HEAD. Evidence-only repos stay outside it. Do not repeat the writer tag
+from the filename. The planning workflow supplies current-shape advice for a
+widening report and the premise-error route for an early stop.
+
+Present the graded findings in two fields, both present in every report:
+`## Excess functionality` first, for what the artifact can shed or simplify,
+then `## Missing functionality`, for what it lacks, per the two-direction search
+in a planning audit. Excess leads because an accepted removal
+makes gap detection in the removed area moot: the user rules on what to cut
+before reading what to add. Each field orders its findings from A through D.
+Number the findings as one run: start at 1 in the excess field and keep the
+numbers increasing through the missing field, so the user can refer to one
+finding without restating it. A field with no findings contains exactly
+`No excess findings.` or `No missing findings.`, respectively, with no finding
+blocks. An empty field is a checked verdict, never an omission to leave silent.
+
 ## Finding shape
 
-For implementation audits, put every finding, including cross-repo findings,
-in one `## Findings` field.
+Use the fields under [Report format](#report-format) for the round kind.
 Use this block form, with a numbered bold tier and title on the first line and
 the metadata tokens on their own line immediately after the title, before the explanation.
 Separate the title, token line and explanation with blank lines:
@@ -628,9 +836,22 @@ Separate the title, token line and explanation with blank lines:
    The report rule and its example name different files. The vet cannot resolve
    the example. Align the example with the rule.
 
-Keep numbering continuous from 1. A field with no findings contains exactly
-`No findings.` instead of finding blocks. A report with only deferred findings
-still has findings. Quoted evidence and code blocks belong inside their finding.
+Use the same block shape for a planning finding, with its planning metadata:
+
+1. **C: Conflicting report names**
+
+   <!-- rumdl-disable-next-line MD013 -->
+   [field:missing] [section:report-file] [growth:none] [reach:developer] [complexity:none]
+
+   The report rule requires the scope in the filename, but the phase argument
+   contract requires an unscoped name. Following either contract makes one
+   reader look for the wrong file. Both are explicit requirements, and the
+   doctrine delegates naming to the plan, so an implementation audit has no
+   grounds to choose between them. Align both contracts on scoped names so
+   reports for different step ranges remain distinct.
+
+Keep numbering continuous from 1 across all finding fields. Order each field
+from A through D. Quoted evidence and code blocks belong inside their finding.
 
 Briefly explain the problem, its consequence and the correction, supported by
 decisive evidence from sources you have read. Combine these in a short paragraph
@@ -639,13 +860,15 @@ defect. Use another paragraph when needed, without packing several ideas into
 one sentence. Separate correction, evidence, failure-trace and trade parts are
 not required. Expand when a real unresolved choice needs explanation.
 
-At tiers A to C, the explanation states what wrong behaviour the code produces
-without the correction. For `rare` or `very-rare` reach, name the condition that
-makes the rating checkable. When the cost is only rework or re-derivation, state
-that cost and use `[reach:developer]`. A D-tier finding derives its consequence
-for grading but need not report it. A tier claim without a consequence does not
-stand; drop a finding whose trace ends with the same behaviour shipping. Reach
-supports the user's ruling on the outcome and never changes the tier.
+At tiers A to C, an implementation finding states what wrong behaviour the code produces without the
+correction. A planning finding states what the implementation session would do differently and what
+wrong code or behaviour results, under the planning grading discipline. For `rare` or `very-rare`
+reach, name the condition that makes the rating checkable. For a runtime defect, name the triggering
+situation and concrete outcome. A planning finding also states how often a person meets that
+situation. When the cost is only rework or re-derivation, state that cost and use
+`[reach:developer]`. A D-tier finding derives its consequence for grading but need not report it. A
+tier claim without a consequence does not stand; drop a finding whose trace ends with the same
+behaviour shipping. Reach supports the user's ruling on the outcome and never changes the tier.
 
 At tiers A to C, explain the trade when a finding's growth tag is not `none`,
 its reach is not `ordinary` and its complexity is `low`, `medium` or `high`.

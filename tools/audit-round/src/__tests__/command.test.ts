@@ -1506,7 +1506,7 @@ for (const auditor of ["codex", "claude"] as const) {
       )
       assert.ok(
         log.includes(
-          `${f.repoRoot}/.agents/skills/audit/references/workflow.md#runner-result`,
+          `${f.repoRoot}/.agents/references/round-protocol.md#runner-result`,
         ),
       )
       assert.match(log, /unattended planning round/)

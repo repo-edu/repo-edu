@@ -63,10 +63,10 @@ No route reads or writes an episode file.
 
 ## Output
 
-Read the whole shared [round protocol](../../../references/round-protocol.md) for
-file names and writer tags. The runner supplies a watch path carrying its
-chosen target and round with this phase's writer tag. Keep that path;
-allocate no round and read no transcript to derive it.
+Read the whole shared [round protocol](../../../references/round-protocol.md) for file names, writer
+tags, severity sequences and rating tokens. The runner supplies a watch path carrying its chosen
+target and round with this phase's writer tag. Keep that path; allocate no round and read no
+transcript to derive it.
 
 Write the watch to the named `-9-watch.<tag>.md` file, replacing anything already there. The
 second pass replaces that same file. It is Markdown for a person reading in a

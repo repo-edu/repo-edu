@@ -266,16 +266,9 @@ runtime boundary and upgrading that package are separate changes.
 
 ## Implementation Review Findings
 
-When asked to review implementation code, prefix every finding title with an
-implementation severity tier:
-
-- `[A]`: Data loss, corruption, a broken core workflow or an architectural flaw
-  likely to ship silently or require broad rework.
-- `[B]`: A real user-visible bug, reliability issue or unresolved code
-  decision that must be settled before shipping.
-- `[C]`: A narrow correctness, maintainability or test-coverage issue in a
-  non-critical path.
-- `[D]`: Wording, style, formatting or low-risk polish.
+When asked to review implementation code, prefix every finding title with an implementation severity
+tier. Use the [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) in
+the shared round protocol.
 
 Present implementation findings as one numbered list sorted from A through D.
 Start at 1 and keep the numbers increasing across tier changes, so the user can
@@ -285,73 +278,20 @@ refer to one finding without restating it.
 
 Omit routine test and check results from commit messages.
 
-Every file-changing commit except a plan step commit carries a sorted
-run-length sequence of [A]-[D] tier counts. An ordinary commit prefixes its
-conventional subject with that sequence. An implementation-audit record places
-the same sequence in its shared stem form; a step commit lands planned work and
-carries none. The sequence enumerates how many concerns at each tier the commit
-addresses, with zero categories omitted. The commit hook derives the sequence,
-its case and its `!` from the graded body bullets, overwriting any authored
-value. Write the rest of the subject and the bullets; leave the sequence slot
-to the hook.
+The [shared severity sequence](.agents/references/round-protocol.md#severity-sequence)
+owns the counts, reach marks and whole-commit burden marks. Follow it for every
+file-changing commit except a plan step. The
+[subject grammar](.agents/references/subject-grammar.md) owns their placement.
 
-Three marks carry reach and burden change into the sequence itself, because a
-commit graph shows the subject and none of the finding tokens.
+Use the shared
+[finding metadata and record bullets](.agents/references/round-protocol.md#finding-metadata) for
+every graded concern, D included, including off-plan work. The primary area owns supporting
+documentation too. Steps and markers carry no graded bullets. The user directed the body record on
+2026-09-20 and its extension to every graded concern on 2026-09-21.
 
-- Case says who meets the concern. A tier letter is uppercase when the concern's
-  reach is `ordinary`, `rare` or `very-rare`, the values an end user can meet,
-  and lowercase when its reach is `developer`.
-- A leading `!` says at least one concern has `ordinary` reach, the value that
-  needs no special condition to hold: `!B1C1c2d1`.
-- A leading `growth-<level>` or `pruning-<level>` says what the commit did to the
-  maintenance burden. Measure the commit, never add up the finding tokens:
-  compare its code and instructions before and after using the
-  [common complexity levels](.agents/references/round-protocol.md#reach-and-complexity).
-  The word gives the direction, `growth` for a net increase and `pruning` for a
-  net reduction. The level grades the size of that net change. Omit the whole
-  mark when there is no material net change. The direction is a word and not a sign,
-  because a sign carries direction and not judgement: `+` reads as a gain where
-  growth is the cost. The level is always written, as `growth-low` rather than
-  a bare `growth`, because an omitted level would
-  pass as the floor and a level is countable in the log only when it is on the
-  page. A commit can read `pruning-high` while one concern inside it added a
-  rule, because the mark states the size of the commit's net reduction in
-  burden. It carries no colon of its own.
-
-The mark precedes the sequence after a space: `abx pruning-high !B1C1c2d1`. It
-leads because what a commit did to the maintenance burden outranks how many
-concerns it closed, and a commit often carries the mark where the sequence is
-routine.
-
-The subject's shape, the order of its tags and which slots each kind of commit
-fills, is owned by [the subject grammar](.agents/references/subject-grammar.md).
-This section owns what the sequence and its marks mean.
-
-Reach values and the common burden scale are defined in the audit workflow under
-[Reach and complexity](.agents/references/round-protocol.md#reach-and-complexity).
-That section also owns the requirement and case for explaining the whole
-commit's net change in one untiered decision bullet in its existing body. The mark and
-the finding token `[complexity:...]` run that one measurement, so they translate
-exactly: `growth-high` is `[complexity:high]`, `pruning-high` is
-`[complexity:minus-high]` and an absent mark is `[complexity:none]`.
-
-Plan rounds keep bare tiers. These marks describe shipped behaviour and the code
-that carries it, which a plan document has not reached yet.
-
-Every graded concern, D included, records one body bullet, including off-plan
-work. Each uses `- [T] [area:<primary-id>] [growth:<labels>] [reach:<value>]
-[complexity:<value>] <title and prose>`. Use the area that owns the concern,
-including for its supporting docs, or `[plan:<location>]` in place of `[area:]`
-for a deferred plan finding. The hook refuses missing tokens. Other decision
-bullets take no tier. The glance counts repeated A–C corrections in the same
-area; D findings do not advance that count. Steps and markers carry no graded
-bullets. The user directed the body record on 2026-09-20 and its extension to
-every graded concern on 2026-09-21.
-
-The [A]-[D] rubric in Implementation Review Findings grades a concern's
-severity whether the AI surfaced it formally in a review or only
-addressed it in the commit body. Grade each concern against that rubric in its
-bullet.
+The shared [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) grade a
+concern's severity whether the AI surfaced it formally in a review or only addressed it in the
+commit body. Grade each concern against that rubric in its bullet.
 
 The conventional commit kind is the last tag before the sentence, from the
 closed list the subject grammar admits:
@@ -372,7 +312,7 @@ keeps this repo's ordinary severity-prefixed conventional subject.
 For implementation-audit records, follow the plan repo's
 [Shared implementation forms](../plan/CLAUDE.md#shared-implementation-forms)
 for record placement, the
-[audit workflow](.agents/skills/audit/references/workflow.md) for finding
+[shared round protocol](.agents/references/round-protocol.md) for finding
 metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#records)
 for record writing.
 

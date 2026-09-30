@@ -77,22 +77,8 @@ The fix lands one record in each repo whose files took an accepted finding.
 A clean round lands one record in the sole judged repo or at the invoking
 root when both repos were judged, as named in the report opening.
 
-Each finding in the report carries its metadata tokens in the form the fix workflow's record bullets
-use, so a finding copies from the report into the commit body unchanged. Keep the uppercase tier
-before those tokens in the commit bullet, as `- [C] [area:<primary-id>] ...`. For a Repo Edu
-finding, `[area:<primary-id>]` is the finding's primary partition area from
-`tools/architecture-check/src/area-model.json`, followed by `[cover:<cover-id>]` for each cover area
-that applies. `[growth:...]` is the tag from
-[Growth tags](../../../references/round-protocol.md#growth-tags). `[reach:...]` and
-`[complexity:...]` are the ratings from
-[Reach and complexity](../../../references/round-protocol.md#reach-and-complexity). Repo Edu
-findings require all four token kinds. Plan-repo findings use `- C [section:<heading>] ...` in the
-commit, with the heading in kebab case. They omit `[area:]`, because the area model belongs to Repo
-Edu.
-
-A finding deferred from a Repo Edu-only round to the plan repo uses the same
-report block in the shared protocol, with `[plan:...]` in place of `[area:...]` on its opening
-token line. The fix carries that location into the round commit.
+Use the shared round protocol's **Finding metadata** for the location and rating
+tokens on each finding, including cross-repo deferrals.
 
 ## Evidence
 
@@ -149,7 +135,8 @@ there are no findings.
 
 ## Findings
 
-Grade each finding with the [A]-[D] implementation tiers in this repo's `CLAUDE.md`. Present the
+Grade each finding with the
+[implementation tiers](../../../references/round-protocol.md#implementation-tiers). Present the
 findings as one numbered list sorted A through D. Start at 1 and keep the numbers increasing across
 tier changes. The fix workflow lands findings as corrections in their hosting repo when that repo is
 directed, or as deferrals in the current repo's round commit when it is not. When a finding's root
@@ -224,15 +211,10 @@ on the user's word.
 
 ## Report order
 
-Open by naming the workflow that ran and include exactly one plain line: `Judged repos: plan@<sha>`,
-`Judged repos: repo-edu@<sha>` or `Judged repos: plan@<sha>, repo-edu@<sha>`. Use each judged repo's
-short audited HEAD. Repos read only as evidence stay outside that line. It selects the repos for
-vet, rebuttal, fix and clean completion. The filename holds the writer tag; do not repeat or look up
-that tag for the opening. Then name the plan file, its ready commit and the implementation commits
-inspected. State the round's user-set scope: the whole plan, one step or one step range.
-Then report the coverage table with its coverage line. Then the
-`## Findings` field, including cross-repo findings in the same numbered list and block form. Then
-deliver the report under [Report file](#report-file).
+Follow the shared round protocol's
+[Report format](../../../references/round-protocol.md#report-format) for the opening, coverage and
+findings. Supply the plan, ready commit, implementation commits and user-set scope from this audit's
+evidence. Deliver the complete report under [Report file](#report-file).
 
 ## Report file
 
